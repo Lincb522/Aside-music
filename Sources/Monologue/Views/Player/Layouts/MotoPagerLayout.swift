@@ -201,7 +201,7 @@ struct MotoPagerLayout: View {
         .monologueSheet(isPresented: $showPlaylist, preset: .standard){
             PlaylistPopupView()
         }
-        .monologueSheet(isPresented: $showQualitySheet, preset: .compact){
+        .monologueSheet(isPresented: $showQualitySheet, preset: .standard){
             SoundQualitySheet(
                 currentQuality: player.soundQuality,
                 currentQQQuality: player.qqMusicQuality,
@@ -212,7 +212,7 @@ struct MotoPagerLayout: View {
                 songId: player.currentSong?.id
             )
         }
-        .monologueSheet(isPresented: $showEQSettings, preset: .large){
+        .fullScreenCover(isPresented: $showEQSettings) {
             NavigationStack { EQSettingsView() }
         }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker){
@@ -245,6 +245,10 @@ struct MotoPagerLayout: View {
         printedLyrics.append(PrintedLyric(text: "MOTO PAGER READY...", time: formatTime(Date())))
         // 启动光标闪烁
         startCursorBlink()
+        // 立即打印当前正在唱的一句，避免切主题进来后要等到下一句才有歌词
+        if lyricVM.hasLyrics {
+            printNewLyric(index: lyricVM.currentLineIndex)
+        }
     }
     
     private func startCursorBlink() {
@@ -765,6 +769,14 @@ extension MotoPagerLayout {
                 
                 Spacer()
                 
+                Button(action: { CinemaModeController.shared.present() }) {
+                    MonologueIcon(icon: .immersive, size: 21, color: topBtnFgColor, lineWidth: 1.5)
+                        .frame(width: 44, height: 44)
+                        .monologueGlassCircle()
+                        .contentShape(Circle())
+                }
+                .buttonStyle(MonologueBouncingButtonStyle())
+
                 Button(action: { showMoreMenu = true }) {
                     MonologueIcon(icon: .more, size: 23, color: topBtnFgColor, lineWidth: 1.5)
                         .frame(width: 44, height: 44)

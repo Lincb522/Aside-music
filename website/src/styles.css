@@ -2809,6 +2809,11 @@ h1 {
   animation: dialogEntrance 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
+.page-shell-subpage.page-shell-feedback {
+  width: min(1040px, calc(100% - 40px));
+  animation: none;
+}
+
 .page-shell-subpage .subpage-section {
   padding: 0;
   border: 0;
@@ -3541,7 +3546,7 @@ h1 {
 
   .hero-action-links {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 9px;
     width: 100%;
     max-width: none;

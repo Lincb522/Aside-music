@@ -13,7 +13,7 @@ let package = Package(
             targets: ["Monologue"]),
     ],
     dependencies: [
-        // NeteaseCloudMusicAPI - ncm API 封装库（对齐后端 4.33.0 / 396+ 路由）
+        // NeteaseCloudMusicAPI - ncm API 封装库（对齐后端 4.36.2）
         .package(path: "NeteaseCloudMusicAPI-Swift"),
         // FFmpegSwiftSDK - 基于 FFmpeg 8.0 的流媒体播放引擎
         .package(path: "ffmpeg-swift"),

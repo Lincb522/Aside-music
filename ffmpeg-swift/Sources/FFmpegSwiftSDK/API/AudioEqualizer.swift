@@ -88,6 +88,43 @@ public final class AudioEqualizer {
         currentPreset = nil
         onPresetChanged?(nil)
     }
+
+    /// Enables or bypasses the complete Mono calibration stage without losing
+    /// the user's professional-mode configuration.
+    public func setProcessingEnabled(_ enabled: Bool) {
+        filter.setProcessingEnabled(enabled)
+    }
+
+    /// Sets the automatic output/headphone correction layer. These values are
+    /// deliberately separate from the ten visible user sliders.
+    public func setCalibrationGains(_ gainsDB: [Float]) {
+        filter.setCalibrationGains(gainsDB)
+    }
+
+    /// Sets the slowly varying per-song compensation layer (±1.5 dB).
+    public func setAdaptiveGains(_ gainsDB: [Float]) {
+        filter.setAdaptiveGains(gainsDB)
+    }
+
+    /// Sets output-stage preamp gain without rebuilding the FFmpeg graph.
+    public func setPreampDB(_ gainDB: Float) {
+        filter.setPreampDB(gainDB)
+    }
+
+    /// Replaces all professional parametric bands atomically.
+    public func setParametricBands(_ bands: [ParametricEQBand]) {
+        filter.setParametricBands(bands)
+    }
+
+    /// Configures detector-controlled EQ.
+    public func setDynamicEQ(enabled: Bool, bands: [DynamicEQBand] = DynamicEQBand.monoDefaults) {
+        filter.setDynamicEQ(enabled: enabled, bands: bands)
+    }
+
+    /// Configures the linked three-band dynamics stage.
+    public func setMultibandDynamics(_ configuration: MultibandDynamicsConfiguration) {
+        filter.setMultibandDynamics(configuration)
+    }
     
     // MARK: - 预设功能
     

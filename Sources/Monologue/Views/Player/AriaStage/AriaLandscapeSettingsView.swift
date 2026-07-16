@@ -16,12 +16,11 @@ struct AriaLandscapeSettingsView: View {
     @AppStorage("ariaCustomLyricFontID") private var customFontID = ""
     @AppStorage("ariaForeignLyricFont") private var foreignLyricFontRaw = MonologuePlayerFont.followThemeRawValue
     @AppStorage("ariaForeignCustomLyricFontID") private var foreignCustomFontID = ""
-    @AppStorage("ariaCanopyCaptionTranslation") private var canopyCaptionTranslation = false
+    @AppStorage("ariaCanopyFragmentStage") private var canopyFragmentStage = false
     @AppStorage("ariaLyricAutoColor") private var lyricAutoColor = true
     @AppStorage("ariaLyricColorHex") private var lyricColorHex = "FFFFFF"
     @AppStorage("ariaLyricLayout") private var lyricLayoutRaw = AriaLyricLayoutChoice.center.rawValue
     @AppStorage("ariaLyricsFontScale") private var fontScale = 1.0
-    @AppStorage("ariaShowTranslation") private var showTranslation = true
     @AppStorage("ariaGeometricBackground") private var ambientMotion = true
     @AppStorage("ariaBackgroundOpacity") private var backgroundOpacity = 0.75
     @AppStorage("ariaLyricDepthIntensity") private var lyricDepthIntensity = 0.68
@@ -256,18 +255,15 @@ struct AriaLandscapeSettingsView: View {
                 selectionRaw: $lyricFontRaw,
                 customFontID: $customFontID,
                 accent: palette.accent,
-                layout: .grid(columns: 3)
+                layout: .grid(columns: 3),
+                customFontScope: .cjkCapable
             )
 
             // 外语歌整首生效；中文歌里的英文始终用主字体的拉丁字形
-            controlLabel(String(localized: "外语歌词字体"))
-            MonologueFontPicker(
+            MonologueForeignFontMenuRow(
                 selectionRaw: $foreignLyricFontRaw,
                 customFontID: $foreignCustomFontID,
-                accent: palette.accent,
-                layout: .grid(columns: 3),
-                includesFollowTheme: true,
-                followLabel: String(localized: "复用中文字体")
+                accent: palette.accent
             )
         }
     }
@@ -422,11 +418,10 @@ struct AriaLandscapeSettingsView: View {
             }
             .opacity(lyricAutoColor ? 0.48 : 1)
 
-            landscapeToggle(String(localized: "显示翻译"), isOn: $showTranslation)
             if lyricEffect == .canopy {
                 landscapeToggle(
-                    String(localized: "天幕小字显示翻译"),
-                    isOn: $canopyCaptionTranslation
+                    String(localized: "天幕碎幕律动"),
+                    isOn: $canopyFragmentStage
                 )
             }
             landscapeToggle(

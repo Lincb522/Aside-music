@@ -32,6 +32,8 @@ extension PlayerManager {
     
     func updateNowPlayingInfo() {
         lastNowPlayingLyricIndex = -1
+        // 曲目/来源可能变化，按内容类型同步锁屏命令布局（音乐切歌 vs 播客±15s）
+        updateRemoteCommandProfile()
 
         // 游戏模式 + 用户开启「隐藏锁屏/灵动岛信息」
         if GameModeManager.shared.isActive && SettingsManager.shared.gameModeSilentNowPlaying {
@@ -56,7 +58,21 @@ extension PlayerManager {
         info[MPMediaItemPropertyAlbumTitle] = currentSong?.album?.name ?? ""
         info[MPMediaItemPropertyPlaybackDuration] = duration
         info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = currentTime
-        info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? 1.0 : 0.0
+        // 声明媒体类型与非直播，帮助锁屏/CarPlay 渲染正确的控件样式
+        info[MPNowPlayingInfoPropertyMediaType] = MPNowPlayingInfoMediaType.audio.rawValue
+        info[MPNowPlayingInfoPropertyIsLiveStream] = false
+        if isPlayingPodcast, let radioName = currentSong?.album?.name, !radioName.isEmpty {
+            info[MPMediaItemPropertyPodcastTitle] = radioName
+        }
+        // 锁屏进度按 rate 自行推进；倍速播放时必须上报真实速率，否则进度会漂移
+        info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? Double(playbackSpeed) : 0.0
+        info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = Double(playbackSpeed)
+        // 队列位置（CarPlay / 部分锁屏样式会显示「第 x 首，共 y 首」）
+        let queueCount = currentContextList.count
+        if queueCount > 0 {
+            info[MPNowPlayingInfoPropertyPlaybackQueueCount] = queueCount
+            info[MPNowPlayingInfoPropertyPlaybackQueueIndex] = min(max(currentIndexInContext, 0), queueCount - 1)
+        }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
         
         syncWidgetState()
@@ -75,7 +91,8 @@ extension PlayerManager {
         }
         guard var info = MPNowPlayingInfoCenter.default().nowPlayingInfo else { return }
         info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = currentTime
-        info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? 1.0 : 0.0
+        info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? Double(playbackSpeed) : 0.0
+        info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = Double(playbackSpeed)
         if duration > 0 {
             info[MPMediaItemPropertyPlaybackDuration] = duration
         }
@@ -101,16 +118,41 @@ extension PlayerManager {
     func updateNowPlayingArtwork(for song: Song?) {
         guard let coverUrl = song?.coverUrl else { return }
         let songId = song?.id
-        let groupID = Self.widgetGroupID
+
         let palettePreferences = CoverPalettePreferences.shared
         let paletteColorCount = palettePreferences.colorCount
         let paletteMode = palettePreferences.mode
         let paletteRandomSeed = palettePreferences.randomSeed
+        let paletteSignature = "\(paletteColorCount)|\(paletteMode.rawValue)|\(paletteRandomSeed)"
+
+        // 命中缓存：同一首歌 + 同一取色配置的封面已处理过（下载/缩略图/
+        // 取色/小组件都已就绪），只需把缓存的 artwork 回填锁屏即可。
+        // loadAndPlay → startPlayback 会连续触发两次，策略切换/中断恢复
+        // 也会重进这里——全部走零开销路径，省掉重复下载与取色。
+        if let songId,
+           songId == cachedArtworkSongId,
+           coverUrl == cachedArtworkCoverURL,
+           paletteSignature == cachedArtworkPaletteSignature,
+           let artwork = cachedArtworkImage {
+            applyCachedNowPlayingArtwork(artwork)
+            return
+        }
+        // 同曲下载仍在进行中，避免并发重复下载
+        if let songId, artworkFetchInFlightSongId == songId { return }
+        artworkFetchInFlightSongId = songId
+
+        let groupID = Self.widgetGroupID
         
         Task.detached { [weak self] in
             do {
                 let (data, _) = try await URLSession.shared.data(from: coverUrl)
-                guard let image = UIImage(data: data) else { return }
+                guard let image = UIImage(data: data) else {
+                    await MainActor.run { [weak self] in
+                        guard let self, self.artworkFetchInFlightSongId == songId else { return }
+                        self.artworkFetchInFlightSongId = nil
+                    }
+                    return
+                }
                 
                 let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
                 
@@ -156,21 +198,37 @@ extension PlayerManager {
                 }
                 
                 await MainActor.run { [weak self] in
-                    guard let self = self, self.currentSong?.id == songId else { return }
-                    // 游戏模式静默 + 最小化：不回塞封面，保持锁屏纯文字
-                    let silentMinimal = GameModeManager.shared.isActive
-                        && SettingsManager.shared.gameModeSilentNowPlaying
-                    if !silentMinimal {
-                        var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
-                        info[MPMediaItemPropertyArtwork] = artwork
-                        MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+                    guard let self = self else { return }
+                    if self.artworkFetchInFlightSongId == songId {
+                        self.artworkFetchInFlightSongId = nil
                     }
+                    guard self.currentSong?.id == songId else { return }
+                    // 记入缓存：后续同曲重进（策略切换/中断恢复/二次调用）零开销回填
+                    self.cachedArtworkSongId = songId
+                    self.cachedArtworkCoverURL = coverUrl
+                    self.cachedArtworkImage = artwork
+                    self.cachedArtworkPaletteSignature = paletteSignature
+                    self.applyCachedNowPlayingArtwork(artwork)
                     WidgetCenter.shared.reloadAllTimelines()
                 }
             } catch {
                 AppLogger.warning("封面图下载失败: \(error)")
+                await MainActor.run { [weak self] in
+                    guard let self, self.artworkFetchInFlightSongId == songId else { return }
+                    self.artworkFetchInFlightSongId = nil
+                }
             }
         }
+    }
+
+    /// 把（缓存的）封面塞进锁屏 Now Playing。游戏模式静默时保持纯文字。
+    private func applyCachedNowPlayingArtwork(_ artwork: MPMediaItemArtwork) {
+        let silentMinimal = GameModeManager.shared.isActive
+            && SettingsManager.shared.gameModeSilentNowPlaying
+        guard !silentMinimal else { return }
+        var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
+        info[MPMediaItemPropertyArtwork] = artwork
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = info
     }
 
     func refreshPlaybackSurfaceState() {

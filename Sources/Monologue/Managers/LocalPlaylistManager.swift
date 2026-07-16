@@ -76,17 +76,18 @@ class LocalPlaylistManager: ObservableObject {
         reload()
         observeDownloads()
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
-            self?.syncDownloadPlaylist()
+            self?.syncLocalMusicPlaylist()
         }
     }
     
     // MARK: - 系统预置歌单
     
-    /// 确保「我喜欢」「本地音乐」和「下载」歌单存在
+    /// 确保「我喜欢」「本地音乐」歌单存在。
+    /// 旧「下载」系统歌单不再新建、也绝不删除：老用户的历史下载条目
+    /// 原样保留在库里，内容并入「本地音乐」统一展示。
     private func ensureSystemPlaylists() {
         let favId = LocalPlaylist.favoriteId
         let localMusicId = LocalPlaylist.localMusicId
-        let dlId = LocalPlaylist.downloadId
         
         if store.first(LocalPlaylist.self, where: { $0.id == favId }) == nil {
             let fav = LocalPlaylist(id: favId, name: String(localized: "我喜欢"), isSystem: true)
@@ -98,11 +99,6 @@ class LocalPlaylistManager: ObservableObject {
             store.insert(localMusic)
         }
 
-        if store.first(LocalPlaylist.self, where: { $0.id == dlId }) == nil {
-            let dl = LocalPlaylist(id: dlId, name: String(localized: "下载"), isSystem: true)
-            store.insert(dl)
-        }
-
         store.save()
     }
     
@@ -111,20 +107,16 @@ class LocalPlaylistManager: ObservableObject {
     func reload() {
         var all = store.fetch(LocalPlaylist.self, sortBy: { $0.updatedAt > $1.updatedAt })
         
-        // 系统歌单置顶：我喜欢 > 本地音乐 > 下载 > 其他按 updatedAt 排序
+        // 系统歌单置顶：我喜欢 > 本地音乐 > 其他按 updatedAt 排序。
+        // 旧「下载」歌单仍留在库里（历史数据不动），只是不再单独展示：
+        // 其内容已并入「本地音乐」。
         let favorite = all.first { $0.isFavorite }
         let localMusic = all.first { $0.isLocalMusic }
-        let download = all.first { $0.isDownload }
         all.removeAll { $0.isSystem }
         
         var sorted: [LocalPlaylist] = []
         if let f = favorite { sorted.append(f) }
         if let l = localMusic { sorted.append(l) }
-        // 下载入口虽然不再提供新建下载，但历史下载仍属于本地资料库。
-        // 始终保留这个只读系统歌单，避免关闭下载功能后旧用户无法找到已下载歌曲。
-        if let download {
-            sorted.append(download)
-        }
         sorted.append(contentsOf: all)
         
         trimCaches(validIds: Set(sorted.map(\.id)))
@@ -137,13 +129,15 @@ class LocalPlaylistManager: ObservableObject {
     var favoritePlaylist: LocalPlaylist? {
         playlists.first { $0.isFavorite }
     }
-    
-    var downloadPlaylist: LocalPlaylist? {
-        playlists.first { $0.isDownload }
-    }
 
     var localMusicPlaylist: LocalPlaylist? {
         playlists.first { $0.isLocalMusic }
+    }
+
+    /// 旧「下载」系统歌单（已并入本地音乐，不在 playlists 中展示，
+    /// 仅供同步/恢复历史下载记录时读写）
+    var downloadPlaylist: LocalPlaylist? {
+        store.first(LocalPlaylist.self, where: { $0.id == LocalPlaylist.downloadId })
     }
     
     /// 检查歌曲是否在「我喜欢」歌单中
@@ -210,7 +204,7 @@ class LocalPlaylistManager: ObservableObject {
         removeSong(id: songId, from: fav)
     }
     
-    // MARK: - 下载歌单自动同步
+    // MARK: - 下载 / 本地音乐同步（下载内容并入本地音乐展示）
     
     private func observeDownloads() {
         downloadSyncCancellable = DownloadManager.shared.objectWillChange
@@ -220,42 +214,91 @@ class LocalPlaylistManager: ObservableObject {
             }
     }
     
+    /// 下载记录变化时：先把记录镜像回旧「下载」歌单（老用户历史数据存档），
+    /// 再刷新合并后的「本地音乐」歌单
     func syncDownloadPlaylist() {
-        guard let dl = downloadPlaylist else { return }
         let songs = DownloadManager.shared.fetchDownloadPlaylistSongs()
-        
-        let dlId = dl.id
-        guard let target = store.first(LocalPlaylist.self, where: { $0.id == dlId }) else { return }
-        target.songs = songs
-        store.save()
-        reload()
+
+        if let target = downloadPlaylist {
+            target.songs = songs
+            store.save()
+        }
+
+        syncLocalMusicPlaylist()
     }
 
-    func syncLocalMusicPlaylist(with songs: [Song]) {
+    /// 本地音乐歌单 = 导入的本地曲库 + 已下载歌曲（含旧下载歌单存档与云端恢复的记录），按 id 去重
+    func syncLocalMusicPlaylist(with librarySongs: [Song]? = nil) {
         guard let localMusic = localMusicPlaylist else { return }
         let playlistId = localMusic.id
         guard let target = store.first(LocalPlaylist.self, where: { $0.id == playlistId }) else { return }
 
-        target.songs = songs
+        let imported = librarySongs ?? LocalMusicLibraryManager.shared.songs
+        let downloads = DownloadManager.shared.fetchDownloadPlaylistSongs()
+        // 兜底：旧「下载」歌单里可能还留有下载记录已丢失的历史条目，一并展示
+        // （用户明确删除过的条目按墓碑过滤，避免"删了又回来"）
+        let legacyArchived = (downloadPlaylist.map { songs(for: $0) } ?? [])
+            .filter { !DownloadTombstoneStore.shared.isTombstoned(songId: $0.id) }
+
+        var seen = Set<Int>()
+        var merged: [Song] = []
+        for song in imported + downloads + legacyArchived {
+            guard seen.insert(song.id).inserted else { continue }
+            merged.append(song)
+        }
+
+        target.songs = merged
         store.save()
         reload()
     }
 
-    /// 从云端恢复下载记录到下载歌单（仅补充元数据，不重复已存在的）
+    /// 在「本地音乐」里删除一首已下载歌曲：
+    /// 删除该 id 的**全部**下载记录与音频文件（兼容历史 key 变体与云端恢复的重复记录），
+    /// 并清掉旧「下载」存档里的对应条目，避免同步时被重新并回
+    func removeDownloadedSong(_ song: Song) {
+        DownloadManager.shared.deleteAllDownloadRecords(for: song)
+
+        if let archive = downloadPlaylist {
+            var current = songs(for: archive)
+            let originalCount = current.count
+            current.removeAll { $0.id == song.id }
+            if current.count != originalCount {
+                archive.songs = current
+                store.save()
+            }
+        }
+
+        syncLocalMusicPlaylist()
+    }
+
+    /// 从云端恢复下载记录（仅元数据）：补进旧「下载」歌单存档，并刷新合并后的「本地音乐」
     func restoreDownloadPlaylistSongs(_ cloudSongs: [Song]) {
-        guard let dl = downloadPlaylist else { return }
-        let dlId = dl.id
-        guard let target = store.first(LocalPlaylist.self, where: { $0.id == dlId }) else { return }
+        // 本地明确删除过的条目不再从云端并回（删除墓碑权威）
+        let cloudSongs = cloudSongs.filter { !DownloadTombstoneStore.shared.isTombstoned(songId: $0.id) }
+
+        let target: LocalPlaylist
+        if let existing = downloadPlaylist {
+            target = existing
+        } else if !cloudSongs.isEmpty {
+            // 新设备恢复旧账号：重建存档歌单（不在列表中展示，仅存历史记录）
+            let archive = LocalPlaylist(id: LocalPlaylist.downloadId, name: String(localized: "下载"), isSystem: true)
+            store.insert(archive)
+            target = archive
+        } else {
+            syncLocalMusicPlaylist()
+            return
+        }
 
         let existingIds = songIds(for: target)
         let newSongs = cloudSongs.filter { !existingIds.contains($0.id) }
-        guard !newSongs.isEmpty else { return }
+        if !newSongs.isEmpty {
+            var current = songs(for: target)
+            current.append(contentsOf: newSongs)
+            target.songs = current
+            store.save()
+        }
 
-        var current = songs(for: target)
-        current.append(contentsOf: newSongs)
-        target.songs = current
-        store.save()
-        reload()
+        syncLocalMusicPlaylist()
     }
 
     var syncablePlaylists: [LocalPlaylist] {
@@ -397,6 +440,9 @@ class LocalPlaylistManager: ObservableObject {
                 apply(remote, to: playlist)
                 continue
             }
+
+            // 旧「下载」歌单是老用户的历史下载存档：远端没有也绝不删除
+            if playlist.isDownload { continue }
 
             if playlist.isFavorite {
                 if shouldPreserveLocal {

@@ -170,7 +170,7 @@ struct DownloadManageView: View {
             tabButton(title: String(localized: "下载中"), index: 1)
         }
         .padding(ThemedPageStyle.isActive ? 4 : 0)
-        .themedOnlyPageSurface(cornerRadius: MangaStyle.isActive ? 18 : (SequoiaStyle.isActive ? 18 : (NeumorphicStyle.isActive ? 20 : 14)), elevated: false)
+        .themedOnlyPageSurface(cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius + 2 : (SequoiaStyle.isActive ? 18 : (NeumorphicStyle.isActive ? 20 : 14)), elevated: false)
         .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
     }
     
@@ -193,10 +193,10 @@ struct DownloadManageView: View {
             .frame(height: ThemedPageStyle.isActive ? 38 : 44)
             .frame(maxWidth: .infinity)
             .background(tabBackground(isSelected: selectedTab == index))
-            .clipShape(Capsule())
+            .clipShape(MangaStyle.isActive ? AnyShape(RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)) : AnyShape(Capsule()))
             .overlay {
                 if MangaStyle.isActive && selectedTab == index {
-                    Capsule()
+                    RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
                         .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
                 }
             }
@@ -406,7 +406,7 @@ struct DownloadManageView: View {
                 }
                 
                 Button(role: .destructive) {
-                    downloadManager.deleteDownload(songId: song.id, isQQ: song.isQQMusic)
+                    downloadManager.deleteDownload(key: song.uniqueKey)
                     updateTotalSize()
                 } label: {
                     Label(String(localized: "删除"), systemImage: "trash")
@@ -570,7 +570,7 @@ struct DownloadManageView: View {
                 primaryAction: { [selectedKeys] in
                     let songs = downloadManager.fetchAllDownloaded()
                     for song in songs where selectedKeys.contains(song.uniqueKey) {
-                        downloadManager.deleteDownload(songId: song.id, isQQ: song.isQQMusic)
+                        downloadManager.deleteDownload(key: song.uniqueKey)
                     }
                     self.selectedKeys.removeAll()
                     self.batchMode = .none

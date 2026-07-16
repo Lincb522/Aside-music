@@ -64,10 +64,22 @@ struct PodcastSearchView: View {
                     }
                 }
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, ThemedPageStyle.isActive ? 12 : 14)
             .padding(.vertical, (MinimalWhiteStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 11 : 10)
+            .background {
+                if !ThemedPageStyle.isActive {
+                    RoundedRectangle(cornerRadius: searchRadius, style: .continuous)
+                        .fill(Color.monologueGlassTint.opacity(0.4))
+                }
+            }
             .themedPageSurface(cornerRadius: searchRadius, elevated: false)
             .clipShape(RoundedRectangle(cornerRadius: searchRadius, style: .continuous))
+            .overlay {
+                if !ThemedPageStyle.isActive {
+                    RoundedRectangle(cornerRadius: searchRadius, style: .continuous)
+                        .stroke(Color.monologueSeparator.opacity(0.95), lineWidth: 0.8)
+                }
+            }
 
             Button(String(localized: "podcast_search_cancel")) {
                 dismiss()
@@ -84,10 +96,22 @@ struct PodcastSearchView: View {
     private var hotRadiosSection: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("podcast_hot_radios")
-                    .font(sectionTitleFont)
-                    .foregroundColor(primaryTextColor)
+                if ThemedPageStyle.isActive {
+                    Text("podcast_hot_radios")
+                        .font(sectionTitleFont)
+                        .foregroundColor(primaryTextColor)
+                        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                } else {
+                    HStack(spacing: 10) {
+                        Capsule()
+                            .fill(Color.monologueAccent)
+                            .frame(width: 4, height: 15)
+                        Text("podcast_hot_radios")
+                            .font(.rounded(size: 19, weight: .bold))
+                            .foregroundColor(.monologueTextPrimary)
+                    }
                     .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                }
 
                 if viewModel.isLoadingHot {
                     HStack {
@@ -179,7 +203,16 @@ struct PodcastSearchView: View {
 
     // MARK: - 电台行
 
+    @ViewBuilder
     private func radioRow(radio: RadioStation) -> some View {
+        if !ThemedPageStyle.isActive {
+            AsideRadioListRow(radio: radio)
+        } else {
+            legacyRadioRow(radio: radio)
+        }
+    }
+
+    private func legacyRadioRow(radio: RadioStation) -> some View {
         HStack(spacing: 14) {
             CachedAsyncImage(url: radio.coverUrl) {
                 RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
@@ -244,6 +277,7 @@ struct PodcastSearchView: View {
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.cardRadius }
         if NeumorphicStyle.isActive { return 18 }
         if SequoiaStyle.isActive { return 16 }
+        if !ThemedPageStyle.isActive { return 21 }
         return 12
     }
 
@@ -263,7 +297,7 @@ struct PodcastSearchView: View {
 
     private var sectionTitleFont: Font {
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.titleFont(18, weight: .semibold) }
-        if MangaStyle.isActive { return MangaStyle.comicFont(18, weight: .bold) }
+        if MangaStyle.isActive { return MangaStyle.titleFont(18, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.titleFont(17, weight: .medium) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.titleFont(18, weight: .semibold) }
         if SequoiaStyle.isActive { return SequoiaStyle.titleFont(18, weight: .semibold) }

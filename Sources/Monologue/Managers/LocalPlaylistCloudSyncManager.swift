@@ -82,17 +82,37 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
     }
 
     func resumeAutomaticSync() {
-        lastObservedDigest = ""
-        pendingUploadDigest = playlistManager.currentSyncDigest()
+        // ⚠️ 不能直接把本地状态推上云端：如果本地刚被登出清空过，
+        // 直接上传会把云端快照抹掉。先并入云端内容，再按差异补传。
         Task {
-            await processPendingLocalUpload()
+            try? await refreshAndSync()
         }
     }
 
     @discardableResult
     func refreshAndSync() async throws -> Int {
-        let restored = try await restoreFromCloud(showStatus: false)
-        if playlistManager.currentSyncDigest() != lastObservedDigest {
+        guard accessManager.canUseOnlineFeatures else {
+            throw URLError(.userAuthenticationRequired)
+        }
+
+        let response = try await APIService.shared.fetchCloudPlaylistSnapshot()
+
+        // 云端没有快照时绝不动本地内容（清空动作只允许由
+        // refreshRemoteSnapshotIfNeeded 的跨设备清空流程触发）
+        var restored = 0
+        if let response, response.hasSnapshot {
+            restored = applyRemoteResponse(response, showStatus: false)
+        }
+
+        // 合并后本地内容与云端不一致（本地有离线新增）才补一次上传
+        let needsUpload: Bool
+        if let response, response.hasSnapshot {
+            needsUpload = localContentDiffers(from: response)
+        } else {
+            needsUpload = playlistManager.hasSyncableContent
+        }
+
+        if needsUpload {
             _ = try await syncToCloud(showStatus: false)
             persistStatus(NSLocalizedString("playlist_sync_auto_uploaded", comment: ""))
         }
@@ -156,7 +176,9 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
         isSyncing = true
         defer { isSyncing = false }
 
-        guard let response = try await APIService.shared.fetchCloudPlaylistSnapshot() else {
+        // 云端为空时「恢复」只提示，不把本地内容清掉
+        guard let response = try await APIService.shared.fetchCloudPlaylistSnapshot(),
+              response.hasSnapshot else {
             if showStatus {
                 persistStatus(NSLocalizedString("playlist_sync_cloud_empty", comment: ""))
             }
@@ -206,12 +228,20 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
                 return
             }
 
-            let remoteChanged = response.revision != lastRemoteRevision
-
             if response.hasSnapshot {
-                if !playlistManager.hasSyncableContent || (lastRemoteRevision != nil && remoteChanged) {
-                    _ = applyRemoteResponse(response, showStatus: false)
-                } else if settings.playlistSyncAutoEnabled {
+                // ⚠️ 云端有快照时一律「先并入云端内容，再按差异补传」。
+                //
+                // 历史事故：这里曾按「本地有内容且云端 revision 没变 → 直接上传」
+                // 决策。退出登录会清空本地可同步歌单，但下载记录/播客订阅还在，
+                // 于是重新登录后被判成「本地有内容」，把清空后的状态整包传上去，
+                // 云端歌单被一次性抹掉，之后点「恢复」自然什么都拉不回来。
+                //
+                // merge 会保留比上次同步更新的本地改动，云端内容不会丢；
+                // 代价是离线删除的歌单可能被云端补回（可再手动删，删除会即时上云）。
+                _ = applyRemoteResponse(response, showStatus: false)
+
+                // 并入后本地仍比云端多内容（离线新增）→ 补一次上传
+                if settings.playlistSyncAutoEnabled, localContentDiffers(from: response) {
                     _ = try await syncToCloud(showStatus: false)
                     persistStatus(NSLocalizedString("playlist_sync_auto_uploaded", comment: ""))
                 }
@@ -498,6 +528,24 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
         return 0
     }
 
+    /// 本地内容与云端快照内容是否不同（忽略 updatedAt / 设备信息）。
+    /// 用于 merge 之后判断是否还需要补一次上传。
+    private func localContentDiffers(from response: LocalPlaylistCloudFetchResponse) -> Bool {
+        let localSnapshot = playlistManager.makeCloudSnapshot(
+            deviceId: Self.deviceId(),
+            deviceName: UIDevice.current.name
+        )
+        let remoteSnapshot = LocalPlaylistCloudSnapshot(
+            updatedAt: Date(),
+            deviceId: "",
+            deviceName: "",
+            playlists: response.playlists,
+            downloads: (response.downloads?.isEmpty == false) ? response.downloads : nil,
+            localRadioSubscriptions: (response.localRadioSubscriptions?.isEmpty == false) ? response.localRadioSubscriptions : nil
+        )
+        return Self.digest(for: localSnapshot) != Self.digest(for: remoteSnapshot)
+    }
+
     private func persistSyncState(date: Date) {
         lastSyncedAt = date
         UserDefaults.standard.set(date, forKey: AppConfig.StorageKeys.playlistSyncLastSyncedAt)
@@ -528,6 +576,10 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
         }
 
         persistRemoteRevision(nil)
+        // 换账号后旧的同步基线不再可信：留着会让 merge 把旧账号时期的
+        // 本地歌单误判为「没改过」而被新账号的云端快照覆盖/删除。
+        lastSyncedAt = nil
+        UserDefaults.standard.removeObject(forKey: AppConfig.StorageKeys.playlistSyncLastSyncedAt)
     }
 
     private static func deviceId() -> String {

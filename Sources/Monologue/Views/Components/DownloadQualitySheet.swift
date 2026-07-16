@@ -458,11 +458,17 @@ struct DownloadQualitySheet: View {
         MangaStyle.isActive ? 2.5 : 2
     }
 
+    /// aside 默认主题（编辑部风格分支）
+    private var isAsideTheme: Bool {
+        GlobalThemeId.persistedOrDefault == .default
+    }
+
     private var qualityBadgeCornerRadius: CGFloat {
         if MangaStyle.isActive { return 6 }
         if MujiStyle.isActive { return 5 }
         if NeumorphicStyle.isActive { return 6 }
         if SequoiaStyle.isActive { return 6 }
+        if isAsideTheme { return 20 }
         return 4
     }
 
@@ -471,7 +477,9 @@ struct DownloadQualitySheet: View {
         if MangaStyle.isActive { return MangaStyle.ink }
         if MujiStyle.isActive { return MujiStyle.clay }
         if SequoiaStyle.isActive { return SequoiaStyle.onAccent }
-        return NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueIconForeground
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        if isAsideTheme { return .monologueTextPrimary.opacity(0.88) }
+        return .monologueIconForeground
     }
 
     @ViewBuilder
@@ -490,6 +498,9 @@ struct DownloadQualitySheet: View {
         } else if SequoiaStyle.isActive {
             RoundedRectangle(cornerRadius: qualityBadgeCornerRadius, style: .continuous)
                 .fill(tint.opacity(0.92))
+        } else if isAsideTheme {
+            // aside 编辑部风格：不填底色，只留发丝描边胶囊
+            Color.clear
         } else {
             RoundedRectangle(cornerRadius: qualityBadgeCornerRadius, style: .continuous)
                 .fill(tint.opacity(MangaStyle.isActive ? 0.26 : (MujiStyle.isActive ? 0.10 : 1)))
@@ -505,6 +516,9 @@ struct DownloadQualitySheet: View {
         } else if MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive {
             RoundedRectangle(cornerRadius: qualityBadgeCornerRadius, style: .continuous)
                 .stroke(tint.opacity(isLocked ? 0.12 : 0.28), lineWidth: 0.6)
+        } else if isAsideTheme {
+            Capsule()
+                .stroke(Color.monologueTextPrimary.opacity(isLocked ? 0.14 : 0.32), lineWidth: 0.8)
         }
     }
 }

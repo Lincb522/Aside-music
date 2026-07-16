@@ -83,9 +83,8 @@ private struct TypewriterLyricsView: View {
                 }
             }
             .onAppear {
-                let idx = vm.currentLineIndex
-                if idx > 0 {
-                    proxy.scrollTo(idx, anchor: .top)
+                if vm.currentLineIndex > 0 {
+                    proxy.monologueRestoreLyricPosition(anchor: .top) { vm.currentLineIndex }
                 }
             }
         }
@@ -107,7 +106,7 @@ private struct TypewriterLyricsView: View {
     private func lyricRow(i: Int, line: LyricLine) -> some View {
         let idx = vm.currentLineIndex
         if i == idx {
-            TimelineView(AppFrameRate.animationTimeline(paused: !player.isPlaying)) { _ in
+            TimelineView(AppFrameRate.throttledTimeline(maximumFramesPerSecond: 60, paused: !player.isPlaying)) { _ in
                 let rawT = player.streamPlayer.currentTime
                 let t = (rawT.isFinite && !rawT.isNaN && rawT >= 0) ? rawT : 0
                 currentLine(line, realTime: t)
@@ -356,7 +355,7 @@ struct TypewriterPlayerLayout: View {
             }
         }
         .monologueSheet(isPresented: $showPlaylist, preset: .standard) { PlaylistPopupView() }
-        .monologueSheet(isPresented: $showQualitySheet, preset: .compact) {
+        .monologueSheet(isPresented: $showQualitySheet, preset: .standard) {
             SoundQualitySheet(
                 currentQuality: player.soundQuality,
                 currentQQQuality: player.qqMusicQuality,
@@ -370,7 +369,7 @@ struct TypewriterPlayerLayout: View {
                 onSelectQishui: { info in player.switchQishuiQuality(info); showQualitySheet = false }
             )
         }
-        .monologueSheet(isPresented: $showEQSettings, preset: .large) {
+        .fullScreenCover(isPresented: $showEQSettings) {
             NavigationStack { EQSettingsView() }
         }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker) {

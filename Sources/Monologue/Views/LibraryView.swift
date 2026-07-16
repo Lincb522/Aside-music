@@ -230,13 +230,16 @@ struct LibraryView: View {
     @ViewBuilder
     private var libraryHeaderView: some View {
         if MangaStyle.isActive {
+            // 周刊印刷刊头:话数眉题 + 错版大标题
             VStack(spacing: 14) {
-                Text(String(localized: "tabbar_library"))
-                    .font(MangaStyle.titleFont(28, weight: .black))
-                    .foregroundStyle(MangaStyle.ink)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-                    .padding(.top, DeviceLayout.headerTopPadding + 8)
+                VStack(alignment: .leading, spacing: 8) {
+                    MangaLabel(text: "MUSIC SHELF", tint: MangaStyle.labelYellow, small: true)
+
+                    MangaMisprintTitle(text: String(localized: "tabbar_library"), size: 28)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                .padding(.top, DeviceLayout.headerTopPadding + 8)
 
                 libraryTabPicker
             }
@@ -254,23 +257,32 @@ struct LibraryView: View {
             }
             .padding(.bottom, 10)
         } else if MujiStyle.isActive {
-            VStack(spacing: 14) {
-                HStack(alignment: .bottom, spacing: 12) {
-                    Text(String(localized: "tabbar_library"))
-                        .font(MujiStyle.titleFont(24, weight: .regular))
-                        .foregroundStyle(MujiStyle.ink)
+            // 清新刊头 + 目次式页签
+            VStack(alignment: .leading, spacing: 15) {
+                VStack(alignment: .leading, spacing: 11) {
+                    HStack(alignment: .center, spacing: 8) {
+                        MujiDotMark()
 
-                    Rectangle()
-                        .fill(MujiStyle.separator)
-                        .frame(height: 0.6)
-                        .padding(.bottom, 8)
+                        Text("MUSIC SHELF")
+                            .font(MujiStyle.labelFont(10, weight: .semibold))
+                            .foregroundStyle(MujiStyle.clay)
+                            .tracking(2.2)
+                            .fixedSize()
+                    }
+
+                    Text(String(localized: "tabbar_library"))
+                        .font(MujiStyle.titleFont(30, weight: .medium))
+                        .foregroundStyle(MujiStyle.ink)
+                        .tracking(0.3)
                 }
                 .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-                .padding(.top, DeviceLayout.headerTopPadding + 8)
+                .padding(.top, DeviceLayout.headerTopPadding + 6)
 
-                libraryTabPicker
+                mujiLibraryTabRow
             }
-            .padding(.bottom, 10)
+            .padding(.bottom, 8)
+        } else if SettingsManager.shared.globalThemeId == .default {
+            asideLibraryHeader
         } else {
             VStack(spacing: 14) {
                 Text(LocalizedStringKey("tabbar_library"))
@@ -284,6 +296,90 @@ struct LibraryView: View {
             .padding(.top, DeviceLayout.headerTopPadding)
             .padding(.bottom, 8)
         }
+    }
+
+    /// aside 音乐库页头：大标题带强调色句点，页签左对齐 + 短下划线
+    /// （与搜索页的页签语言保持一致）
+    private var asideLibraryHeader: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            HStack(alignment: .firstTextBaseline, spacing: 7) {
+                Text(LocalizedStringKey("tabbar_library"))
+                    .font(.system(size: 34, weight: .heavy, design: .rounded))
+                    .foregroundColor(.monologueTextPrimary)
+
+                Circle()
+                    .fill(Color.monologueAccent)
+                    .frame(width: 7, height: 7)
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+
+            HStack(spacing: 26) {
+                ForEach(Array(allTabs.enumerated()), id: \.element) { index, tab in
+                    let selected = tabIndex == index
+
+                    Button(action: {
+                        switchToTab(tab)
+                    }) {
+                        VStack(spacing: 5) {
+                            Text(tab.localizedKey)
+                                .font(.system(size: 15, weight: selected ? .heavy : .medium, design: .rounded))
+                                .foregroundColor(
+                                    selected
+                                        ? .monologueTextPrimary
+                                        : .monologueTextSecondary.opacity(0.8)
+                                )
+                                .animation(.none, value: tabIndex)
+
+                            Capsule()
+                                .fill(Color.monologueAccent)
+                                .frame(width: 16, height: 3)
+                                .opacity(selected ? 1 : 0)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: tabIndex)
+        }
+        .padding(.top, DeviceLayout.headerTopPadding)
+        .padding(.bottom, 10)
+    }
+
+    /// Muji：目次式页签 —— 衬线文字 + 陶土短下划线，与检索页同一套语言
+    private var mujiLibraryTabRow: some View {
+        HStack(spacing: 24) {
+            ForEach(Array(allTabs.enumerated()), id: \.element) { index, tab in
+                let selected = tabIndex == index
+
+                Button(action: {
+                    switchToTab(tab)
+                }) {
+                    VStack(spacing: 5) {
+                        Text(tab.localizedKey)
+                            .font(MujiStyle.bodyFont(14.5, weight: selected ? .medium : .regular))
+                            .foregroundStyle(selected ? MujiStyle.ink : MujiStyle.inkMuted)
+                            .animation(.none, value: tabIndex)
+
+                        Circle()
+                            .fill(MujiStyle.clay)
+                            .frame(width: 4.5, height: 4.5)
+                            .opacity(selected ? 1 : 0)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: tabIndex)
     }
 
     private var libraryTabPicker: some View {
@@ -308,13 +404,19 @@ struct LibraryView: View {
                     .background {
                         if MangaStyle.isActive {
                             if tabIndex == index {
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .fill(MangaStyle.decoBlue)
-                                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
+                                // 周刊印刷:朱红印章块 + 墨线 + 硬错版影
+                                RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
+                                    .fill(MangaStyle.labelYellow)
+                                    .overlay(RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
+                                    .background(
+                                        RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
+                                            .fill(MangaStyle.strokeInk)
+                                            .offset(x: 2, y: 2)
+                                    )
                             }
                         } else if MujiStyle.isActive {
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(tabIndex == index ? MujiStyle.ink : Color.clear)
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(tabIndex == index ? MujiStyle.clay : Color.clear)
                         } else if NeumorphicStyle.isActive, tabIndex == index {
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
                                 .fill(NeumorphicStyle.accent.opacity(0.12))
@@ -332,17 +434,13 @@ struct LibraryView: View {
         .padding((ThemedPageStyle.isActive || defaultLibraryTabsUsePill) ? 5 : 0)
         .background {
             if MangaStyle.isActive {
-                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                RoundedRectangle(cornerRadius: MangaStyle.cardRadius + 2, style: .continuous)
                     .fill(MangaStyle.surface)
-                    .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
+                    .overlay(RoundedRectangle(cornerRadius: MangaStyle.cardRadius + 2, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
                     .shadow(color: MangaStyle.strokeInk, radius: 0, x: MangaStyle.shadowOffset, y: MangaStyle.shadowOffset)
             } else if MujiStyle.isActive {
-                RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .fill(MujiStyle.surface.opacity(0.78))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 11, style: .continuous)
-                            .stroke(MujiStyle.hairline.opacity(0.44), lineWidth: 0.6)
-                    )
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(MujiStyle.wash(MujiStyle.clay, strength: 0.8))
             } else if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: 18, elevated: true)
             } else if defaultLibraryTabsUsePill {
@@ -378,7 +476,7 @@ struct LibraryView: View {
 
     private func libraryTabFont(isSelected: Bool) -> Font {
         if MangaStyle.isActive {
-            return MangaStyle.comicFont(13, weight: isSelected ? .bold : .medium)
+            return MangaStyle.labelFont(13, weight: isSelected ? .heavy : .bold)
         }
         if MujiStyle.isActive {
             return MujiStyle.labelFont(14, weight: isSelected ? .semibold : .regular)
@@ -392,7 +490,9 @@ struct LibraryView: View {
     private func libraryTabForeground(index: Int) -> Color {
         let isSelected = tabIndex == index
         if MangaStyle.isActive {
-            return isSelected ? MangaStyle.ink : MangaStyle.inkMuted
+            return isSelected
+                ? ThemeColorCustomization.readableForegroundColor(on: MangaStyle.labelYellow, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk)
+                : MangaStyle.inkMuted
         }
         if MujiStyle.isActive {
             return isSelected ? MujiStyle.onTint : MujiStyle.inkSoft

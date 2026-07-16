@@ -71,13 +71,15 @@ public final class StreamPlayer {
     public weak var delegate: StreamPlayerDelegate?
 
     /// The current playback state.
-    public private(set) var state: PlaybackState = .idle {
-        didSet {
-            if oldValue != state {
-                delegate?.player(self, didChangeState: state)
-            }
-        }
+    ///
+    /// State is stored on `stateQueue`, while delegate delivery happens after the
+    /// queue is released. This keeps public reads race-free and prevents delegates
+    /// that call back into the player from deadlocking the state queue.
+    public var state: PlaybackState {
+        stateQueue.sync { storedState }
     }
+
+    private var storedState: PlaybackState = .idle
 
     /// The current playback time in seconds.
     /// 实际播放位置 = 解码位置 - 缓冲队列中尚未播放的时长
@@ -85,7 +87,7 @@ public final class StreamPlayer {
         let deferredTransition = stateQueue.sync {
             (
                 deadline: audibleTransitionDeadline,
-                previousDuration: previousTrackActualDuration,
+                previousDuration: storedPreviousTrackActualDuration,
                 transitionStartedAt: audibleTransitionStartedAt,
                 displayStartTime: previousTrackDisplayStartTime
             )
@@ -99,19 +101,30 @@ public final class StreamPlayer {
             return min(previousDuration, max(0, displayStartTime + elapsed))
         }
 
+        if let renderedTime = audioRenderer.currentPresentationTime,
+           renderedTime.isFinite,
+           !renderedTime.isNaN {
+            return max(0, renderedTime)
+        }
+
         let decoded = stateQueue.sync { self.decodedTime }
-        let buffered = audioRenderer.queuedDuration
-        return max(0, decoded - buffered)
+        return max(0, decoded - audioRenderer.queuedDuration)
     }
 
     /// 解码线程更新的已解码时间（入队时间点，非实际播放时间点）
     private var decodedTime: TimeInterval = 0
 
     /// 无缝切歌时，上一首歌曲的实际解码时长（EOF 时的 decodedTime）
-    public private(set) var previousTrackActualDuration: TimeInterval?
+    public var previousTrackActualDuration: TimeInterval? {
+        stateQueue.sync { storedPreviousTrackActualDuration }
+    }
+    private var storedPreviousTrackActualDuration: TimeInterval?
 
     /// Metadata about the currently playing stream, or `nil` if not connected.
-    public private(set) var streamInfo: StreamInfo?
+    public var streamInfo: StreamInfo? {
+        stateQueue.sync { storedStreamInfo }
+    }
+    private var storedStreamInfo: StreamInfo?
 
     /// The public audio equalizer for adjusting frequency band gains.
     public let equalizer: AudioEqualizer
@@ -122,6 +135,9 @@ public final class StreamPlayer {
     /// 实时频谱分析器。设置 onSpectrum 回调并启用后，
     /// 每个 FFT 窗口会回调一次频率幅度数据。
     public let spectrumAnalyzer: SpectrumAnalyzer
+
+    /// 独立的播放前分析器。其输入位于 EQ、音效和修复处理之前，供测量任务使用。
+    public let analysisSpectrumAnalyzer: SpectrumAnalyzer
 
     /// 波形预览生成器。独立于播放 pipeline，可在后台生成波形数据。
     public let waveformGenerator: WaveformGenerator
@@ -210,14 +226,37 @@ public final class StreamPlayer {
     /// Dedicated background queue for demuxing and decoding.
     private let playbackQueue = DispatchQueue(label: "com.ffmpeg-sdk.playback", qos: .userInitiated)
 
+    /// Video decode and presentation waits never block audio packet consumption.
+    private let videoDecodeQueue = DispatchQueue(
+        label: "com.ffmpeg-sdk.video-decode",
+        qos: .userInitiated
+    )
+    private let videoPacketLock = NSLock()
+    private var pendingVideoPacketCount = 0
+    private let maxPendingVideoPackets = 12
+    /// Invalidates compressed video packets queued before a seek or pipeline swap.
+    private var videoPipelineEpoch: UInt64 = 0
+
     /// Serial queue for synchronizing state changes.
     private let stateQueue = DispatchQueue(label: "com.ffmpeg-sdk.player-state")
 
     /// Flag indicating whether the playback loop should continue.
     private var isPlaybackActive: Bool = false
 
+    /// Monotonically increasing playback generation. Every `play` / `stop`
+    /// invalidates older connection and decode jobs so rapid A → B → C switching
+    /// cannot let an earlier queued pipeline become active again.
+    private var playbackGeneration: UInt64 = 0
+
     /// The URL of the current playback session.
     private var currentURL: String?
+
+    /// The exact input currently owned by the active decoder pipeline.
+    /// App-layer presentation code uses this identity to reject stale state
+    /// callbacks instead of advancing metadata from state alone.
+    public var currentPlaybackInput: String? {
+        stateQueue.sync { currentURL }
+    }
 
     /// Seek 请求：播放循环会检查此值并在安全时刻执行 seek
     private var pendingSeekTime: TimeInterval? = nil
@@ -258,9 +297,12 @@ public final class StreamPlayer {
     private var nextAudioDecoder: AudioDecoder?
     private var nextStreamInfo: StreamInfo?
     private var nextAudioTimeBase: AVRational = AVRational(num: 0, den: 1)
+    private var nextPrerollBatches: [DecodedAudioBatch] = []
     private var nextURL: String?
     /// 预加载是否就绪
     private var isNextReady: Bool = false
+    /// 当前这一代 prepareNext 已确定失败（区别于“仍在装配中”）。
+    private var nextPreparationFailed: Bool = false
     private var forceTransition: Bool = false
     /// 是否允许在 EOF 时自动切到已预加载的下一首。
     /// 关闭后仍然允许 prepareNext / switchToNext 用于音质切换等显式流程，
@@ -275,6 +317,11 @@ public final class StreamPlayer {
     private var previousTrackDisplayStartTime: TimeInterval?
     /// 延迟通知 app 层“已切到下一首”的任务。
     private var pendingTransitionNotificationWorkItem: DispatchWorkItem?
+    /// Invalidates delayed transition callbacks that belong to an older switch.
+    private var transitionNotificationGeneration: UInt64 = 0
+    /// Generation of the current next-track preparation request. Results from an
+    /// older request are discarded even when its network connection finishes late.
+    private var nextPreparationGeneration: UInt64 = 0
     /// 暂停信号量，暂停时阻塞解码线程，resume 时唤醒
     private let pauseSemaphore = DispatchSemaphore(value: 0)
     private let prepareQueue = DispatchQueue(label: "com.ffmpeg-sdk.prepare-next", qos: .utility)
@@ -289,6 +336,7 @@ public final class StreamPlayer {
         self.equalizer = AudioEqualizer(filter: eqFilter)
         self.audioEffects = AudioEffects(filterGraph: audioFilterGraph)
         self.spectrumAnalyzer = SpectrumAnalyzer()
+        self.analysisSpectrumAnalyzer = SpectrumAnalyzer()
         self.waveformGenerator = WaveformGenerator()
         self.metadataReader = MetadataReader()
         self.lyricSyncer = LyricSyncer()
@@ -298,6 +346,7 @@ public final class StreamPlayer {
         self.audioRenderer.setEQFilter(eqFilter)
         self.audioRenderer.setAudioFilterGraph(audioFilterGraph)
         self.audioRenderer.setSpectrumAnalyzer(spectrumAnalyzer)
+        self.audioRenderer.setAnalysisSpectrumAnalyzer(analysisSpectrumAnalyzer)
         self.audioRenderer.setRepairEngine(repairEngine)
         // 设置 equalizer 的 audioEffects 引用，用于应用预设的环绕效果
         self.equalizer.audioEffects = self.audioEffects
@@ -325,17 +374,17 @@ public final class StreamPlayer {
     public func play(url: String, decryptionKey: String? = nil) {
         // Stop any existing session first
         stopInternal()
-        // 清理预加载（手动切歌时预加载的下一首可能已不正确）
-        cancelNextPreparation()
 
         // Allow video renderer to accept frames for the new session.
         videoRenderer.resetForNewSession()
 
-        stateQueue.sync {
+        let generation = stateQueue.sync { () -> UInt64 in
+            self.playbackGeneration &+= 1
             self.isPlaybackActive = true
             self.currentURL = url
             self.decodedTime = 0
-            self.streamInfo = nil
+            self.storedStreamInfo = nil
+            return self.playbackGeneration
         }
 
         // Transition to connecting
@@ -343,7 +392,7 @@ public final class StreamPlayer {
 
         // Start the pipeline on the background queue
         playbackQueue.async { [weak self] in
-            self?.startPipeline(url: url, decryptionKey: decryptionKey)
+            self?.startPipeline(url: url, decryptionKey: decryptionKey, generation: generation)
         }
     }
 
@@ -353,18 +402,32 @@ public final class StreamPlayer {
     /// Call `resume()` to continue playback.
     public func pause() {
         guard state == .playing else { return }
-        audioRenderer.pause()
-        transitionState(to: .paused)
+        _ = pauseAudioOutputImmediately()
+    }
+
+    /// Immediately silences the hardware output and converges a stale public
+    /// state to `.paused`. Used for route loss where a fade must not leak audio
+    /// onto the built-in speaker.
+    @discardableResult
+    public func pauseAudioOutputImmediately() -> Bool {
+        let rendererPaused = audioRenderer.pause()
+        if state == .playing {
+            transitionState(to: .paused)
+        }
+        return rendererPaused || !audioRenderer.isOutputRunning
     }
 
     /// Resumes playback after a pause.
     ///
     /// Has no effect if the player is not in the `.paused` state.
-    public func resume() {
-        guard state == .paused else { return }
-        audioRenderer.resume()
+    @discardableResult
+    public func resume() -> Bool {
+        guard state == .paused else { return false }
+        let hasAudio = streamInfo?.hasAudio ?? true
+        guard !hasAudio || audioRenderer.resume() else { return false }
         transitionState(to: .playing)
         pauseSemaphore.signal()
+        return true
     }
 
     /// Stops playback and releases all resources.
@@ -444,10 +507,8 @@ public final class StreamPlayer {
     /// - Parameter duration: 交叉淡入淡出时长（秒），0 = 关闭。
     ///   典型值：3~8 秒。
     public func setCrossfadeDuration(_ duration: Float) {
-        audioEffects.setFadeIn(duration: duration)
-        // 淡出需要知道歌曲总时长，在 startPipeline 中动态设置
         stateQueue.sync {
-            self.crossfadeDuration = duration
+            self.crossfadeDuration = max(0, min(duration, 12))
         }
     }
 
@@ -461,18 +522,53 @@ public final class StreamPlayer {
     /// 在后台队列连接并初始化下一首的 demuxer + decoder，
     /// 当前歌曲 EOF 时直接切换 pipeline，AudioRenderer 不中断。
     ///
-    /// - Parameter url: 下一首歌曲的 URL
-    public func prepareNext(url: String) {
+    /// - Parameters:
+    ///   - url: 下一首歌曲的 URL
+    ///   - decryptionKey: 加密音源（如汽水音乐）的解密密钥，明文源传 nil
+    ///   - fastStart: 手动切歌场景传 true——用更小的预卷门槛换更快开声。
+    ///     自然 EOF 无缝衔接请保持 false，维持最保守的连续播放余量。
+    public func prepareNext(url: String, decryptionKey: String? = nil, fastStart: Bool = false) {
         // 取消之前的预加载
         cancelNextPreparation()
 
-        stateQueue.sync {
+        let generation = stateQueue.sync { () -> UInt64 in
+            self.nextPreparationGeneration &+= 1
             self.nextURL = url
             self.isNextReady = false
+            self.nextPreparationFailed = false
+            return self.nextPreparationGeneration
         }
 
         prepareQueue.async { [weak self] in
-            self?.performNextPreparation(url: url)
+            self?.performNextPreparation(
+                url: url,
+                decryptionKey: decryptionKey,
+                generation: generation,
+                fastStart: fastStart
+            )
+        }
+    }
+
+    /// 下一首管线是否已装配完成（demuxer + decoder 就绪，EOF 可直接切换）。
+    /// 上层可据此在临近结尾时判断预加载是否失败并重试。
+    public var isNextTrackReady: Bool {
+        stateQueue.sync { isNextReady }
+    }
+
+    /// 最近一次 prepareNext 是否已确定失败（连接被拒、流信息解析失败、
+    /// 预卷不足等）。上层轮询等待时据此立即回退普通装载，而不是傻等超时。
+    /// 新一轮 prepareNext / cancelNextPreparation 会重置该标记。
+    public var hasNextPreparationFailed: Bool {
+        stateQueue.sync { nextPreparationFailed }
+    }
+
+    /// `true` while the engine has already installed the prepared pipeline but
+    /// the previous track's audible tail is still playing. App-layer recovery
+    /// may use this to avoid advancing metadata before the sound actually turns.
+    public var isTrackTransitionNotificationDeferred: Bool {
+        stateQueue.sync {
+            guard let deadline = audibleTransitionDeadline else { return false }
+            return Date() < deadline
         }
     }
 
@@ -495,25 +591,67 @@ public final class StreamPlayer {
 
     /// 取消预加载
     public func cancelNextPreparation() {
-        stateQueue.sync {
-            nextConnectionManager?.disconnect()
+        let cancelled = stateQueue.sync { () -> (ConnectionManager?, [DecodedAudioBatch]) in
+            let manager = nextConnectionManager
+            let preroll = nextPrerollBatches
+            nextPreparationGeneration &+= 1
             nextConnectionManager = nil
             nextDemuxer = nil
             nextAudioDecoder = nil
             nextStreamInfo = nil
             nextAudioTimeBase = AVRational(num: 0, den: 1)
+            nextPrerollBatches = []
             nextURL = nil
             isNextReady = false
+            nextPreparationFailed = false
             forceTransition = false
+            return (manager, preroll)
         }
+        cancelled.0?.disconnect()
+        releaseDecodedAudioBatches(cancelled.1)
     }
 
     /// 处理音频路由变化（蓝牙连接/断开）。
     ///
     /// 当蓝牙设备连接或断开导致硬件采样率变化时，安全重建音频引擎，
     /// 避免 `AVAudioSourceNode` 格式不匹配导致的闪退。
-    public func handleAudioRouteChange() {
-        audioRenderer.handleRouteChange()
+    @discardableResult
+    public func handleAudioRouteChange() -> Bool {
+        let stateBeforeRebuild = state
+        let hasAudio = streamInfo?.hasAudio ?? true
+        guard hasAudio else { return true }
+
+        let ready = audioRenderer.handleRouteChange()
+        // Route changes can require a running engine to negotiate the new output
+        // format. Preserve the public paused contract after that negotiation.
+        if ready, stateBeforeRebuild == .paused {
+            audioRenderer.pause()
+        }
+        return ready
+    }
+
+    /// PlaybackState may remain `.playing` after iOS invalidates AVAudioEngine.
+    /// Expose the renderer truth so app/UI recovery does not trust a stale enum.
+    public var isAudioOutputRunning: Bool {
+        let hasAudio = streamInfo?.hasAudio ?? true
+        return !hasAudio || audioRenderer.isOutputRunning
+    }
+
+    /// Mono 引擎实际交给音频设备的累计声音时长。
+    ///
+    /// 该计数只随真实 PCM 输出增长，连接、加载、暂停、缓冲、断流和
+    /// 补零阶段均不会增长，供上层统计真实收听时长。
+    public var totalAudiblePlaybackDuration: TimeInterval {
+        audioRenderer.totalAudibleOutputDuration
+    }
+
+    /// 渲染混音台输出音量（0.0~1.0），与 `audioEffects.setVolume`（滤镜图增益）互相独立。
+    ///
+    /// 修改立即生效且不重建滤镜图，适合上层做暂停/恢复淡入淡出、
+    /// 睡眠定时器长淡出等瞬态音量包络。播放引擎重建后自动恢复为 1.0。
+    public var outputVolume: Float {
+        get { audioRenderer.outputVolume }
+        set { audioRenderer.outputVolume = newValue }
     }
 
     /// 控制 EOF 时是否允许自动切到已预加载的下一首。
@@ -539,9 +677,9 @@ public final class StreamPlayer {
             try demuxer.seek(to: seekTime)
 
             // seek 后清空解码器内部状态，避免旧位置残帧混入新位置
-        stateQueue.sync {
+            let videoDecoderToFlush = stateQueue.sync { () -> VideoDecoder? in
                 self.audioDecoder?.flush()
-                self.videoDecoder?.flush()
+                self.videoPipelineEpoch &+= 1
                 self.decodedTime = seekTime
                 self.seekTargetTime = seekTime
                 // seek 后让音频 PTS 偏移重新按目标位置计算。
@@ -549,10 +687,16 @@ public final class StreamPlayer {
                 // 如果沿用“首帧归零”的逻辑，会让外部 currentTime 从 0 重新开始，
                 // 导致 app 层永远认为还没 seek 到目标位置。
                 self.audioPTSOffset = nil
+                return self.videoDecoder
+            }
+            // Video decoding now owns a separate serial queue; flush its codec
+            // on that same queue so seek cannot race avcodec_receive_frame.
+            videoDecodeQueue.sync {
+                videoDecoderToFlush?.flush()
             }
 
-        syncController.reset()
-        repairEngine.reset()
+            syncController.reset()
+            repairEngine.reset()
             lyricSyncer.reset()
 
             let prerollBatches = prepareSeekAudioPreroll(demuxer: demuxer)
@@ -587,13 +731,13 @@ public final class StreamPlayer {
         }
     }
 
-    private struct SeekAudioPrerollBatch {
+    private struct DecodedAudioBatch {
         let packetPTS: Int64
         let timeBase: AVRational
         let buffers: [AudioBuffer]
     }
 
-    private func prepareSeekAudioPreroll(demuxer: Demuxer) -> [SeekAudioPrerollBatch] {
+    private func prepareSeekAudioPreroll(demuxer: Demuxer) -> [DecodedAudioBatch] {
         guard stateQueue.sync(execute: { self.audioDecoder != nil }) else { return [] }
 
         let maxPrerollDuration: TimeInterval = 0.22
@@ -601,7 +745,7 @@ public final class StreamPlayer {
         let maxPackets = 48
         let timeBase = stateQueue.sync { self.audioTimeBase }
 
-        var prerollBatches: [SeekAudioPrerollBatch] = []
+        var prerollBatches: [DecodedAudioBatch] = []
         var prerollDuration: TimeInterval = 0
         let start = Date()
 
@@ -648,13 +792,13 @@ public final class StreamPlayer {
 
                     prerollDuration += validBuffers.reduce(0) { $0 + $1.duration }
                     prerollBatches.append(
-                        SeekAudioPrerollBatch(
+                        DecodedAudioBatch(
                             packetPTS: packetPTS,
                             timeBase: timeBase,
                             buffers: validBuffers
                         )
                     )
-        } catch {
+                } catch {
                     continue
                 }
 
@@ -666,13 +810,84 @@ public final class StreamPlayer {
         return prerollBatches
     }
 
+    private func decodeNextTrackPreroll(
+        demuxer: Demuxer,
+        decoder: AudioDecoder,
+        timeBase: AVRational,
+        generation: UInt64,
+        targetDuration: TimeInterval,
+        maxPackets: Int
+    ) -> [DecodedAudioBatch] {
+        var duration: TimeInterval = 0
+        var batches: [DecodedAudioBatch] = []
+
+        for _ in 0..<maxPackets {
+            let valid = stateQueue.sync {
+                nextPreparationGeneration == generation
+            }
+            guard valid, duration < targetDuration else { break }
+
+            let packet: Demuxer.PacketType?
+            do {
+                packet = try demuxer.readNextPacket()
+            } catch {
+                break
+            }
+            guard let packet else { break }
+
+            switch packet {
+            case .audio(let pkt):
+                let packetPTS = pkt.pointee.pts
+                defer { releasePacket(pkt) }
+                guard let decodedBuffers = try? decoder.decodeAll(packet: pkt),
+                      !decodedBuffers.isEmpty else { continue }
+                var buffers: [AudioBuffer] = []
+                buffers.reserveCapacity(decodedBuffers.count)
+                for buffer in decodedBuffers {
+                    if buffer.frameCount > 0 && buffer.duration > 0 {
+                        buffers.append(buffer)
+                    } else {
+                        buffer.data.deallocate()
+                    }
+                }
+                guard !buffers.isEmpty else { continue }
+                duration += buffers.reduce(0) { $0 + $1.duration }
+                batches.append(
+                    DecodedAudioBatch(
+                        packetPTS: packetPTS,
+                        timeBase: timeBase,
+                        buffers: buffers
+                    )
+                )
+            case .video(let pkt):
+                releasePacket(pkt)
+            }
+        }
+
+        return batches
+    }
+
+    private func releaseDecodedAudioBatches(_ batches: [DecodedAudioBatch]) {
+        for batch in batches {
+            for buffer in batch.buffers {
+                buffer.data.deallocate()
+            }
+        }
+    }
+
     // MARK: - Pipeline
 
     /// Starts the full playback pipeline: connect → demux → decode → render.
     ///
     /// This method runs on the playback queue and blocks until playback ends
     /// (either by reaching EOF, encountering an unrecoverable error, or being stopped).
-    private func startPipeline(url: String, decryptionKey: String? = nil) {
+    private func startPipeline(
+        url: String,
+        decryptionKey: String? = nil,
+        generation: UInt64
+    ) {
+        guard isActive(generation: generation) else { return }
+
         let manager = ConnectionManager()
         manager.decryptionKey = decryptionKey
         stateQueue.sync { self.connectionManager = manager }
@@ -703,12 +918,19 @@ public final class StreamPlayer {
                 throw error
             }
         } catch {
-            handleUnrecoverableError(error)
+            guard isActive(generation: generation) else {
+                manager.disconnect()
+                return
+            }
+            handleUnrecoverableError(error, generation: generation)
             return
         }
 
         // Check if we were stopped during connection
-        guard isActive() else { return }
+        guard isActive(generation: generation) else {
+            manager.disconnect()
+            return
+        }
 
         // Step 2: Demux - find streams
         let demuxer = Demuxer(formatContext: formatContext, url: url)
@@ -717,29 +939,38 @@ public final class StreamPlayer {
         let info: StreamInfo
         do {
             info = try demuxer.findStreams()
-            stateQueue.sync { self.streamInfo = info }
+            stateQueue.sync { self.storedStreamInfo = info }
         } catch {
-            handleUnrecoverableError(error)
+            guard isActive(generation: generation) else {
+                manager.disconnect()
+                return
+            }
+            handleUnrecoverableError(error, generation: generation)
             return
         }
 
-        guard isActive() else { return }
+        guard isActive(generation: generation) else { return }
 
         // Step 3: 先启动 AudioRenderer，获取硬件实际采样率
         // iOS 设备请求高采样率（如 192kHz）后，硬件可能给出不同的实际值
         var hwSampleRate: Int? = nil
-        if info.hasAudio, let sampleRate = info.sampleRate, let channelCount = info.channelCount {
+        if info.hasAudio, let sampleRate = info.sampleRate {
             do {
-                let format = makeAudioFormat(sampleRate: sampleRate, channelCount: channelCount)
+                // Mono's internal music bus is always stereo. SwrContext handles
+                // mono/stereo/surround conversion before PCM reaches the renderer.
+                let format = makeAudioFormat(sampleRate: sampleRate, channelCount: 2)
                 try audioRenderer.start(format: format)
+                // Hold hardware output until a small PCM runway is ready.
+                audioRenderer.pause()
                 hwSampleRate = audioRenderer.actualSampleRate
             } catch {
-                handleUnrecoverableError(error)
+                guard isActive(generation: generation) else { return }
+                handleUnrecoverableError(error, generation: generation)
                 return
             }
         }
 
-        guard isActive() else { return }
+        guard isActive(generation: generation) else { return }
 
         // Step 4: 初始化解码器，用硬件实际采样率作为 SwrContext 输出目标
         // 如果硬件采样率与源不同，SwrContext 会自动重采样
@@ -748,10 +979,40 @@ public final class StreamPlayer {
                 formatContext: formatContext,
                 demuxer: demuxer,
                 streamInfo: info,
-                targetSampleRate: hwSampleRate
+                targetSampleRate: hwSampleRate,
+                targetChannelCount: 2
             )
         } catch {
-            handleUnrecoverableError(error)
+            guard isActive(generation: generation) else { return }
+            handleUnrecoverableError(error, generation: generation)
+            return
+        }
+
+        guard isActive(generation: generation) else { return }
+
+        if info.hasAudio,
+           !info.hasVideo,
+           let decoder = stateQueue.sync(execute: { self.audioDecoder }) {
+            let timeBase = stateQueue.sync { self.audioTimeBase }
+            let isNetworkStream = url.hasPrefix("http://") || url.hasPrefix("https://")
+            _ = prefillAudioBuffer(
+                demuxer: demuxer,
+                decoder: decoder,
+                timeBase: timeBase,
+                generation: generation,
+                // 首播必须先攒够连续 PCM 再放行硬件输出，避免刚唱一小段
+                // 就因首轮网络抖动进入 underrun。
+                targetDuration: isNetworkStream ? 0.85 : 0.20,
+                maxPackets: isNetworkStream ? 96 : 24
+            )
+        }
+
+        guard isActive(generation: generation) else { return }
+        guard audioRenderer.resume() else {
+            handleUnrecoverableError(
+                FFmpegError.resourceAllocationFailed(resource: "AVAudioEngine.resume"),
+                generation: generation
+            )
             return
         }
 
@@ -761,14 +1022,15 @@ public final class StreamPlayer {
         // Notify duration if available
         if let duration = info.duration {
             DispatchQueue.main.async { [weak self] in
-                guard let self = self else { return }
+                guard let self = self,
+                      self.isActive(generation: generation) else { return }
                 self.delegate?.player(self, didUpdateDuration: duration)
             }
         }
 
         // Step 5: Run the demux/decode loop
         syncController.reset()
-        runPlaybackLoop(demuxer: demuxer)
+        runPlaybackLoop(demuxer: demuxer, generation: generation)
     }
 
     /// Initializes audio and video decoders based on the discovered streams.
@@ -776,7 +1038,8 @@ public final class StreamPlayer {
         formatContext: FFmpegFormatContext,
         demuxer: Demuxer,
         streamInfo: StreamInfo,
-        targetSampleRate: Int? = nil
+        targetSampleRate: Int? = nil,
+        targetChannelCount: Int? = nil
     ) throws {
         // Initialize audio decoder
         if streamInfo.hasAudio, demuxer.currentAudioStreamIndex >= 0 {
@@ -790,7 +1053,8 @@ public final class StreamPlayer {
                     let decoder = try AudioDecoder(
                         codecParameters: codecpar,
                         codecID: codecID,
-                        targetSampleRate: targetSampleRate
+                        targetSampleRate: targetSampleRate,
+                        targetChannelCount: targetChannelCount
                     )
                     stateQueue.sync { self.audioDecoder = decoder }
                 } catch {
@@ -836,16 +1100,18 @@ public final class StreamPlayer {
     /// threshold, the loop sleeps briefly to let the renderer catch up. This
     /// prevents unbounded memory growth and ensures we don't race past EOF
     /// before audio finishes playing.
-    private func runPlaybackLoop(demuxer initialDemuxer: Demuxer) {
-        while isActive() {
+    private func runPlaybackLoop(demuxer initialDemuxer: Demuxer, generation: UInt64) {
+        while isActive(generation: generation) {
             // 优先处理强制切换（音质切换），确保 pendingSeekTime 作用在新 demuxer 上
             let shouldForceTransition = stateQueue.sync(execute: {
                 let val = self.forceTransition
                 self.forceTransition = false
                 return val
             })
-            if shouldForceTransition && transitionToNextTrack() {
-                audioRenderer.flushQueue()
+            // 强制切换会紧接着 flushQueue 丢弃旧曲缓冲尾巴，音频立即切到新曲，
+            // 因此 UI 通知也必须立即发出（不能按尾巴时长延迟，否则界面滞后于听感）
+            if shouldForceTransition {
+                _ = transitionToNextTrack(discardsAudibleTail: true)
             }
 
             // 获取当前 demuxer（可能刚被 transition 替换）
@@ -860,32 +1126,35 @@ public final class StreamPlayer {
             }
 
             // Backpressure: wait if the audio renderer has too many queued buffers
-            while isActive() && audioRenderer.queuedBufferCount > AudioRenderer.maxQueuedBuffers {
+            while isActive(generation: generation)
+                && audioRenderer.queuedBufferCount > AudioRenderer.maxQueuedBuffers {
                 Thread.sleep(forTimeInterval: 0.01)
             }
-            guard isActive() else { return }
+            guard isActive(generation: generation) else { return }
 
             let packet: Demuxer.PacketType?
             do {
                 packet = try currentDemuxer.readNextPacket()
                 networkReconnectAttempts = 0
             } catch let error as FFmpegError where error == .networkDisconnected {
-                if attemptReconnect() {
+                if attemptReconnect(generation: generation) {
                     continue
                 }
-                handleNetworkDisconnection()
+                handleNetworkDisconnection(generation: generation)
                 return
             } catch let error as FFmpegError where error.isUnrecoverable {
-                handleUnrecoverableError(error)
+                handleUnrecoverableError(error, generation: generation)
                 return
             } catch {
-                handleUnrecoverableError(error)
+                handleUnrecoverableError(error, generation: generation)
                 return
             }
 
             guard let packet = packet else {
+                guard isActive(generation: generation) else { return }
                 // EOF reached — drain decoder to get remaining buffered frames
-                drainDecoderAtEOF()
+                drainDecoderAtEOF(generation: generation)
+                audioRenderer.markInputEnded()
                 let underrunSerialAtEOF = audioRenderer.currentUnderrunSerial()
                 let queuedTailAtEOF = audioRenderer.queuedDuration
 
@@ -896,31 +1165,35 @@ public final class StreamPlayer {
                 if shouldAutoTransitionToPreparedTrack && transitionToNextTrack() {
                     continue
                 }
-                if !shouldAutoTransitionToPreparedTrack {
-                    cancelNextPreparation()
-                }
                 // 没有预加载的下一首，正常结束
-                waitForRendererDrain()
+                waitForRendererDrain(generation: generation)
                 waitForRendererUnderrun(
                     after: underrunSerialAtEOF,
-                    maxWait: max(3.0, min(queuedTailAtEOF + 3.0, 15.0))
+                    maxWait: max(3.0, min(queuedTailAtEOF + 3.0, 15.0)),
+                    generation: generation
                 )
-                stopInternal()
-                transitionState(to: .stopped)
+                if stopInternal(expectedGeneration: generation) {
+                    transitionState(to: .stopped)
+                }
+                return
+            }
+
+            guard isActive(generation: generation) else {
+                switch packet {
+                case .audio(let pkt), .video(let pkt):
+                    releasePacket(pkt)
+                }
                 return
             }
 
             switch packet {
             case .audio(let pkt):
                 if let unrecoverableError = processAudioPacket(pkt) {
-                    handleUnrecoverableError(unrecoverableError)
+                    handleUnrecoverableError(unrecoverableError, generation: generation)
                     return
                 }
             case .video(let pkt):
-                if let unrecoverableError = processVideoPacket(pkt) {
-                    handleUnrecoverableError(unrecoverableError)
-                    return
-                }
+                enqueueVideoPacket(pkt, generation: generation)
             }
         }
     }
@@ -928,12 +1201,18 @@ public final class StreamPlayer {
     /// Waits for the audio renderer to finish playing all queued buffers.
     ///
     /// EOF 时使用长超时，确保尾音完整播放；网络断流平滑收尾时可传入更短的超时窗口。
-    private func waitForRendererDrain(maxWait: TimeInterval? = nil, requireActive: Bool = true) {
+    private func waitForRendererDrain(
+        maxWait: TimeInterval? = nil,
+        requireActive: Bool = true,
+        generation: UInt64? = nil
+    ) {
         let bufferedSeconds = audioRenderer.queuedDuration
         let resolvedMaxWait = maxWait ?? max(15.0, min(bufferedSeconds + 5.0, 20.0))
         let start = Date()
         while audioRenderer.queuedBufferCount > 0 {
-            if requireActive && !isActive() {
+            if requireActive,
+               let generation,
+               !isActive(generation: generation) {
                 break
             }
             if Date().timeIntervalSince(start) > resolvedMaxWait {
@@ -949,11 +1228,14 @@ public final class StreamPlayer {
     private func waitForRendererUnderrun(
         after serial: UInt64,
         maxWait: TimeInterval,
-        requireActive: Bool = true
+        requireActive: Bool = true,
+        generation: UInt64? = nil
     ) {
         let start = Date()
         while !audioRenderer.hasObservedUnderrun(since: serial) {
-            if requireActive && !isActive() {
+            if requireActive,
+               let generation,
+               !isActive(generation: generation) {
                 break
             }
             if Date().timeIntervalSince(start) > maxWait {
@@ -966,14 +1248,21 @@ public final class StreamPlayer {
     // MARK: - Decoder Drain at EOF
 
     /// Drains the audio decoder at EOF to flush any remaining buffered frames into the renderer.
-    private func drainDecoderAtEOF() {
+    private func drainDecoderAtEOF(generation: UInt64) {
         guard let decoder = stateQueue.sync(execute: { self.audioDecoder }) else { return }
 
         let remaining = decoder.drain()
         for buffer in remaining {
-            audioRenderer.enqueue(buffer)
-
+            guard isActive(generation: generation) else {
+                buffer.data.deallocate()
+                continue
+            }
+            guard buffer.frameCount > 0, buffer.duration > 0 else {
+                buffer.data.deallocate()
+                continue
+            }
             let pts = stateQueue.sync { self.decodedTime }
+            audioRenderer.enqueue(buffer, presentationTime: pts)
             let endPts = pts + buffer.duration
             stateQueue.sync { self.decodedTime = endPts }
             syncController.updateAudioClock(endPts)
@@ -982,9 +1271,33 @@ public final class StreamPlayer {
 
     // MARK: - Gapless: 预加载与切换
 
+    /// 标记当前这一代预加载确定失败。旧一代的迟到失败不覆盖新请求。
+    private func markNextPreparationFailed(generation: UInt64) {
+        stateQueue.sync {
+            guard self.nextPreparationGeneration == generation else { return }
+            self.nextPreparationFailed = true
+        }
+    }
+
     /// 在后台执行下一首的预加载：连接 → demux → 初始化 decoder
-    private func performNextPreparation(url: String) {
+    private func performNextPreparation(
+        url: String,
+        decryptionKey: String? = nil,
+        generation: UInt64,
+        fastStart: Bool = false
+    ) {
         let manager = ConnectionManager()
+        manager.decryptionKey = decryptionKey
+
+        let registered = stateQueue.sync { () -> Bool in
+            guard self.nextPreparationGeneration == generation,
+                  self.nextURL == url else {
+                return false
+            }
+            self.nextConnectionManager = manager
+            return true
+        }
+        guard registered else { return }
 
         // Step 1: 连接
         let formatContext: FFmpegFormatContext
@@ -1004,12 +1317,17 @@ public final class StreamPlayer {
 
             switch connectResult! {
             case .success(let ctx): formatContext = ctx
-            case .failure: return // 预加载失败，静默处理
+            case .failure:
+                manager.disconnect()
+                markNextPreparationFailed(generation: generation)
+                return // 预加载失败，上层可立即回退
             }
         }
 
         // 检查是否已被取消
-        let stillValid = stateQueue.sync { self.nextURL == url }
+        let stillValid = stateQueue.sync {
+            self.nextPreparationGeneration == generation && self.nextURL == url
+        }
         guard stillValid else {
             manager.disconnect()
             return
@@ -1022,10 +1340,13 @@ public final class StreamPlayer {
             info = try demuxer.findStreams()
         } catch {
             manager.disconnect()
+            markNextPreparationFailed(generation: generation)
             return
         }
 
-        guard stateQueue.sync(execute: { self.nextURL == url }) else {
+        guard stateQueue.sync(execute: {
+            self.nextPreparationGeneration == generation && self.nextURL == url
+        }) else {
             manager.disconnect()
             return
         }
@@ -1045,57 +1366,125 @@ public final class StreamPlayer {
                 decoder = try? AudioDecoder(
                     codecParameters: codecpar,
                     codecID: codecID,
-                    targetSampleRate: targetRate
+                    targetSampleRate: targetRate,
+                    targetChannelCount: audioRenderer.actualChannelCount
                 )
             }
         }
 
-        guard decoder != nil else {
+        guard let decoder else {
+            manager.disconnect()
+            markNextPreparationFailed(generation: generation)
+            return
+        }
+
+        let isNetworkStream = url.hasPrefix("http://") || url.hasPrefix("https://")
+        // fastStart（手动点歌）用更小的预卷目标提前开声：连接已建立后管线
+        // 会持续读包补水，0.5 秒起播余量在正常网络下不会造成二次停顿。
+        // 自然 EOF 无缝衔接维持保守档，优先保证不断流。
+        let targetPrerollDuration: TimeInterval
+        let normalMinimumReadyDuration: TimeInterval
+        if isNetworkStream {
+            targetPrerollDuration = fastStart ? 0.60 : 1.25
+            normalMinimumReadyDuration = fastStart ? 0.50 : 0.85
+        } else {
+            targetPrerollDuration = 0.45
+            normalMinimumReadyDuration = 0.18
+        }
+        let prerollBatches = decodeNextTrackPreroll(
+            demuxer: demuxer,
+            decoder: decoder,
+            timeBase: nextTimeBase,
+            generation: generation,
+            targetDuration: targetPrerollDuration,
+            maxPackets: isNetworkStream ? 160 : 64
+        )
+
+        let preparedDuration = prerollBatches.reduce(0) { total, batch in
+            total + batch.buffers.reduce(0) { $0 + $1.duration }
+        }
+        let minimumReadyDuration: TimeInterval
+        if let duration = info.duration, duration > 0 {
+            minimumReadyDuration = min(
+                normalMinimumReadyDuration,
+                max(0.05, duration * 0.8)
+            )
+        } else {
+            minimumReadyDuration = normalMinimumReadyDuration
+        }
+
+        guard stateQueue.sync(execute: {
+            self.nextPreparationGeneration == generation && self.nextURL == url
+        }) else {
+            releaseDecodedAudioBatches(prerollBatches)
             manager.disconnect()
             return
         }
 
-        guard stateQueue.sync(execute: { self.nextURL == url }) else {
+        // “已就绪”必须代表可以连续播放一段，而不只是连接和解码器创建成功。
+        // 否则切换后会先播掉极短的预卷 PCM，再等待网络继续读包，听起来就是
+        // “播一下、停一下、再继续”。
+        guard !info.hasAudio || preparedDuration >= minimumReadyDuration else {
+            releaseDecodedAudioBatches(prerollBatches)
             manager.disconnect()
+            markNextPreparationFailed(generation: generation)
             return
         }
 
         // 保存预加载结果
-        stateQueue.sync {
+        let stored = stateQueue.sync { () -> Bool in
+            guard self.nextPreparationGeneration == generation,
+                  self.nextURL == url else {
+                return false
+            }
             self.nextConnectionManager = manager
             self.nextDemuxer = demuxer
             self.nextAudioDecoder = decoder
             self.nextStreamInfo = info
             self.nextAudioTimeBase = nextTimeBase
+            self.nextPrerollBatches = prerollBatches
             self.isNextReady = true
+            return true
+        }
+        if !stored {
+            releaseDecodedAudioBatches(prerollBatches)
+            manager.disconnect()
         }
     }
 
     /// 无缝切换到预加载的下一首。
     /// 在 playbackQueue 上调用（EOF 时），不停止 AudioRenderer。
     /// 如果新流的采样率或声道数与当前不同，会重启 AudioRenderer 以匹配新格式。
+    /// - Parameter discardsAudibleTail: 调用方随后会 flush 掉旧曲的缓冲尾巴
+    ///   （强制切换场景）。此时听感立即切换，UI 通知也立即发出。
     /// - Returns: true 表示切换成功，播放循环应继续；false 表示没有预加载
-    private func transitionToNextTrack() -> Bool {
+    private func transitionToNextTrack(discardsAudibleTail: Bool = false) -> Bool {
         // 切 UI 的时机要和“用户还能听到上一首”的时机保持一致。
-        // 这里不能再人为截断尾巴时长，否则在大缓冲场景下会提前显示下一首信息。
+        // 自然 EOF：尾巴会播完，按尾巴时长延迟通知；
+        // 强制切换：尾巴将被丢弃，视为 0。
         let queuedTailDuration = audioRenderer.queuedDuration
         let remainingAudibleTail: TimeInterval
-        if queuedTailDuration.isFinite && !queuedTailDuration.isNaN {
+        if discardsAudibleTail {
+            remainingAudibleTail = 0
+        } else if queuedTailDuration.isFinite && !queuedTailDuration.isNaN {
             remainingAudibleTail = max(0, queuedTailDuration)
         } else {
             remainingAudibleTail = 0
         }
 
         // 原子性地取出预加载的组件
-        let (nextDemuxer, nextDecoder, nextInfo, nextTimeBase, nextConnMgr) = stateQueue.sync {
-            () -> (Demuxer?, AudioDecoder?, StreamInfo?, AVRational, ConnectionManager?) in
-            guard isNextReady else { return (nil, nil, nil, AVRational(num: 0, den: 1), nil) }
+        let (nextDemuxer, nextDecoder, nextInfo, nextTimeBase, nextConnMgr, nextPreroll) = stateQueue.sync {
+            () -> (Demuxer?, AudioDecoder?, StreamInfo?, AVRational, ConnectionManager?, [DecodedAudioBatch]) in
+            guard isNextReady else {
+                return (nil, nil, nil, AVRational(num: 0, den: 1), nil, [])
+            }
 
             let d = self.nextDemuxer
             let dec = self.nextAudioDecoder
             let info = self.nextStreamInfo
             let tb = self.nextAudioTimeBase
             let cm = self.nextConnectionManager
+            let preroll = self.nextPrerollBatches
 
             // 清空预加载状态
             self.nextDemuxer = nil
@@ -1103,14 +1492,22 @@ public final class StreamPlayer {
             self.nextStreamInfo = nil
             self.nextAudioTimeBase = AVRational(num: 0, den: 1)
             self.nextConnectionManager = nil
+            self.nextPrerollBatches = []
             self.nextURL = nil
             self.isNextReady = false
+            self.nextPreparationGeneration &+= 1
 
-            return (d, dec, info, tb, cm)
+            return (d, dec, info, tb, cm, preroll)
         }
 
         guard let demuxer = nextDemuxer, let decoder = nextDecoder, let info = nextInfo else {
+            releaseDecodedAudioBatches(nextPreroll)
             return false
+        }
+
+        audioRenderer.markInputActive()
+        if discardsAudibleTail {
+            audioRenderer.flushQueue()
         }
 
         // 检查新 decoder 的输出格式是否与当前 AudioRenderer 匹配
@@ -1119,7 +1516,22 @@ public final class StreamPlayer {
         let currentRendererRate = audioRenderer.actualSampleRate
         let needsRendererRestart =
             newSampleRate != currentRendererRate ||
-            newChannelCount != stateQueue.sync(execute: { self.audioDecoder?.outputChannelCount ?? 0 })
+            newChannelCount != audioRenderer.actualChannelCount
+
+        seekLock.lock()
+        let hasPendingSeek = pendingSeekTime != nil
+        seekLock.unlock()
+
+        let configuredCrossfade = stateQueue.sync { TimeInterval(self.crossfadeDuration) }
+        let didStartCrossfade = !discardsAudibleTail
+            && !hasPendingSeek
+            && !needsRendererRestart
+            && !nextPreroll.isEmpty
+            && audioRenderer.beginCrossfade(duration: configuredCrossfade)
+        let overlapDuration = didStartCrossfade
+            ? min(configuredCrossfade, remainingAudibleTail)
+            : 0
+        let uiTransitionDelay = max(0, remainingAudibleTail - overlapDuration * 0.5)
 
         // 如果采样率或声道数变了，需要重启 AudioRenderer
         if needsRendererRestart {
@@ -1144,17 +1556,18 @@ public final class StreamPlayer {
             self.connectionManager?.disconnect()
             self.audioDecoder = nil
             self.videoDecoder = nil
+            self.videoPipelineEpoch &+= 1
             self.demuxer = demuxer
             self.audioDecoder = decoder
             self.connectionManager = nextConnMgr
-            self.streamInfo = info
+            self.storedStreamInfo = info
             self.audioTimeBase = nextTimeBase
             self.audioPTSOffset = nil  // 新歌曲重新计算 PTS 偏移
             self.currentURL = info.url
             // 如果有 pendingSeekTime（音质切换），保持当前时间不变
             // 否则是正常切歌，重置为 0
-            if self.pendingSeekTime == nil {
-                self.previousTrackActualDuration = self.decodedTime
+            if !hasPendingSeek {
+                self.storedPreviousTrackActualDuration = self.decodedTime
                 self.decodedTime = 0
                 if needsRendererRestart {
                     self.audibleTransitionDeadline = nil
@@ -1162,15 +1575,29 @@ public final class StreamPlayer {
                     self.previousTrackDisplayStartTime = nil
                 } else {
                     let now = Date()
-                    self.audibleTransitionDeadline = now.addingTimeInterval(remainingAudibleTail)
+                    self.audibleTransitionDeadline = now.addingTimeInterval(uiTransitionDelay)
                     self.audibleTransitionStartedAt = now
-                    self.previousTrackDisplayStartTime = max(0, self.previousTrackActualDuration! - remainingAudibleTail)
+                    self.previousTrackDisplayStartTime = max(
+                        0,
+                        (self.storedPreviousTrackActualDuration ?? 0) - uiTransitionDelay
+                    )
                 }
             } else {
                 self.audibleTransitionDeadline = nil
                 self.audibleTransitionStartedAt = nil
                 self.previousTrackDisplayStartTime = nil
             }
+        }
+
+        // Decoder and network I/O for these buffers completed during preparation.
+        // Enqueueing them behind the old tail removes the first-packet gap.
+        for batch in nextPreroll {
+            handleDecodedAudioBuffers(
+                batch.buffers,
+                packetPTS: batch.packetPTS,
+                timeBase: batch.timeBase,
+                enqueueToRenderer: true
+            )
         }
 
         // 重置同步控制器
@@ -1184,23 +1611,35 @@ public final class StreamPlayer {
         // 通知 app 层已切换到下一首。
         // 对普通无缝切歌，需等待旧音频尾巴真正播完后再切 UI；
         // 对音质切换（pendingSeekTime != nil），则立即通知。
-        let shouldDelayTransition = stateQueue.sync {
-            self.pendingSeekTime == nil && !needsRendererRestart
+        let shouldDelayTransition = !hasPendingSeek && !needsRendererRestart
+        let transitionDelay: TimeInterval = shouldDelayTransition ? uiTransitionDelay : 0
+        let playbackGeneration = stateQueue.sync { self.playbackGeneration }
+        let notificationGeneration = stateQueue.sync { () -> UInt64 in
+            pendingTransitionNotificationWorkItem?.cancel()
+            transitionNotificationGeneration &+= 1
+            return transitionNotificationGeneration
         }
-        let transitionDelay: TimeInterval = shouldDelayTransition ? max(0, remainingAudibleTail) : 0
         let notifyWorkItem = DispatchWorkItem { [weak self] in
             guard let self = self else { return }
-            self.stateQueue.sync {
+            let shouldNotify = self.stateQueue.sync { () -> Bool in
+                guard self.isPlaybackActive,
+                      self.playbackGeneration == playbackGeneration,
+                      self.transitionNotificationGeneration == notificationGeneration else {
+                    return false
+                }
                 self.audibleTransitionDeadline = nil
                 self.audibleTransitionStartedAt = nil
                 self.previousTrackDisplayStartTime = nil
                 self.pendingTransitionNotificationWorkItem = nil
+                return true
             }
+            guard shouldNotify else { return }
             self.delegate?.playerDidTransitionToNextTrack(self)
         }
         stateQueue.sync {
-            pendingTransitionNotificationWorkItem?.cancel()
-            pendingTransitionNotificationWorkItem = notifyWorkItem
+            if transitionNotificationGeneration == notificationGeneration {
+                pendingTransitionNotificationWorkItem = notifyWorkItem
+            }
         }
         if transitionDelay > 0 {
             DispatchQueue.main.asyncAfter(deadline: .now() + transitionDelay, execute: notifyWorkItem)
@@ -1211,10 +1650,10 @@ public final class StreamPlayer {
         return true
     }
     private func releasePacket(_ pkt: UnsafeMutablePointer<AVPacket>) {
-            var packet: UnsafeMutablePointer<AVPacket>? = pkt
-            av_packet_unref(pkt)
-            av_packet_free(&packet)
-        }
+        var packet: UnsafeMutablePointer<AVPacket>? = pkt
+        av_packet_unref(pkt)
+        av_packet_free(&packet)
+    }
 
     private func handleDecodedAudioBuffers(
         _ audioBuffers: [AudioBuffer],
@@ -1222,64 +1661,68 @@ public final class StreamPlayer {
         timeBase: AVRational,
         enqueueToRenderer: Bool
     ) {
-            for (index, audioBuffer) in audioBuffers.enumerated() {
+        var packetBufferOffset: TimeInterval = 0
+
+        for audioBuffer in audioBuffers {
+            guard audioBuffer.frameCount > 0, audioBuffer.duration > 0 else {
+                audioBuffer.data.deallocate()
+                continue
+            }
+            let pts: TimeInterval
+            let nopts = Int64(bitPattern: UInt64(0x8000000000000000)) // AV_NOPTS_VALUE
+            if packetPTS != nopts && packetPTS >= 0 && timeBase.den > 0 {
+                let basePTS = Double(packetPTS) * Double(timeBase.num) / Double(timeBase.den)
+                let rawPTS = basePTS + packetBufferOffset
+                let ptsOffset: TimeInterval = stateQueue.sync {
+                    if self.audioPTSOffset == nil {
+                        if let target = self.seekTargetTime {
+                            self.audioPTSOffset = rawPTS - target
+                        } else {
+                            self.audioPTSOffset = rawPTS
+                        }
+                    }
+                    return self.audioPTSOffset ?? 0
+                }
+                pts = rawPTS - ptsOffset
+            } else {
+                pts = stateQueue.sync { self.decodedTime }
+            }
+            packetBufferOffset += audioBuffer.duration
+
             if enqueueToRenderer {
-                audioRenderer.enqueue(audioBuffer)
+                audioRenderer.enqueue(audioBuffer, presentationTime: pts)
             }
 
-                let pts: TimeInterval
-                let nopts = Int64(bitPattern: UInt64(0x8000000000000000)) // AV_NOPTS_VALUE
-                if packetPTS != nopts && packetPTS >= 0 && timeBase.den > 0 {
-                    let basePTS = Double(packetPTS) * Double(timeBase.num) / Double(timeBase.den)
-                let offset = audioBuffers[..<index].reduce(0) { $0 + $1.duration }
-                    let rawPTS = basePTS + offset
-                    
-                    let ptsOffset: TimeInterval = stateQueue.sync {
-                        if self.audioPTSOffset == nil {
-                            if let target = self.seekTargetTime {
-                                self.audioPTSOffset = rawPTS - target
-                            } else {
-                                self.audioPTSOffset = rawPTS
-                            }
-                        }
-                        return self.audioPTSOffset ?? 0
-                    }
-                    pts = rawPTS - ptsOffset
-                } else {
-                    let fallbackTime = stateQueue.sync { self.decodedTime }
-                    pts = fallbackTime + audioBuffer.duration
-                }
+            syncController.updateAudioClock(pts)
 
-                syncController.updateAudioClock(pts)
+            stateQueue.sync {
+                let endPts = pts + audioBuffer.duration
 
-                stateQueue.sync {
-                    let endPts = pts + audioBuffer.duration
-                    
-                    if let target = self.seekTargetTime {
-                        if pts >= target {
-                            self.seekTargetTime = nil
-                            self.decodedTime = endPts
-                        }
-                    } else {
+                if let target = self.seekTargetTime {
+                    if pts >= target {
+                        self.seekTargetTime = nil
                         self.decodedTime = endPts
                     }
+                } else {
+                    self.decodedTime = endPts
                 }
+            }
 
-                lyricSyncer.update(time: pts)
+            lyricSyncer.update(time: pts)
 
-                let shouldSeekToA: TimeInterval? = stateQueue.sync {
-                    if self.abLoopEnabled,
-                       let a = self.loopPointA,
-                       let b = self.loopPointB,
-                       pts >= b {
-                        return a
-                    }
-                    return nil
+            let shouldSeekToA: TimeInterval? = stateQueue.sync {
+                if self.abLoopEnabled,
+                   let a = self.loopPointA,
+                   let b = self.loopPointB,
+                   pts >= b {
+                    return a
                 }
-                if let a = shouldSeekToA {
-                    seekLock.lock()
-                    pendingSeekTime = a
-                    seekLock.unlock()
+                return nil
+            }
+            if let a = shouldSeekToA {
+                seekLock.lock()
+                pendingSeekTime = a
+                seekLock.unlock()
             }
         }
     }
@@ -1297,7 +1740,7 @@ public final class StreamPlayer {
 
         defer { releasePacket(pkt) }
 
-        guard let decoder = audioDecoder else { return nil }
+        guard let decoder = stateQueue.sync(execute: { self.audioDecoder }) else { return nil }
 
         do {
             let audioBuffers = try decoder.decodeAll(packet: pkt)
@@ -1323,15 +1766,61 @@ public final class StreamPlayer {
     /// Frames that are too far behind audio are dropped per A/V sync logic.
     ///
     /// - Returns: An unrecoverable `FFmpegError` if one occurred, or `nil` on success/skip.
+    private func enqueueVideoPacket(
+        _ pkt: UnsafeMutablePointer<AVPacket>,
+        generation: UInt64
+    ) {
+        let epoch = stateQueue.sync { videoPipelineEpoch }
+        videoPacketLock.lock()
+        guard pendingVideoPacketCount < maxPendingVideoPackets else {
+            videoPacketLock.unlock()
+            releasePacket(pkt)
+            return
+        }
+        pendingVideoPacketCount += 1
+        videoPacketLock.unlock()
+
+        videoDecodeQueue.async { [weak self] in
+            guard let self else {
+                var packet: UnsafeMutablePointer<AVPacket>? = pkt
+                av_packet_unref(pkt)
+                av_packet_free(&packet)
+                return
+            }
+            defer {
+                self.videoPacketLock.lock()
+                self.pendingVideoPacketCount = max(0, self.pendingVideoPacketCount - 1)
+                self.videoPacketLock.unlock()
+            }
+
+            if let error = self.processVideoPacket(
+                pkt,
+                generation: generation,
+                epoch: epoch
+            ) {
+                self.handleUnrecoverableError(error, generation: generation)
+            }
+        }
+    }
+
     @discardableResult
-    private func processVideoPacket(_ pkt: UnsafeMutablePointer<AVPacket>) -> FFmpegError? {
+    private func processVideoPacket(
+        _ pkt: UnsafeMutablePointer<AVPacket>,
+        generation: UInt64,
+        epoch: UInt64
+    ) -> FFmpegError? {
         defer {
             var packet: UnsafeMutablePointer<AVPacket>? = pkt
             av_packet_unref(pkt)
             av_packet_free(&packet)
         }
 
-        guard let decoder = videoDecoder else { return nil }
+        guard let decoder = stateQueue.sync(execute: { () -> VideoDecoder? in
+            guard isPlaybackActive,
+                  playbackGeneration == generation,
+                  videoPipelineEpoch == epoch else { return nil }
+            return videoDecoder
+        }) else { return nil }
 
         do {
             let frame = try decoder.decode(packet: pkt)
@@ -1344,6 +1833,11 @@ public final class StreamPlayer {
                 if delay > 0 {
                     Thread.sleep(forTimeInterval: delay)
                 }
+                guard isCurrentVideoDecoder(
+                    decoder,
+                    generation: generation,
+                    epoch: epoch
+                ) else { return nil }
                 videoRenderer.render(frame)
                 syncController.updateVideoClock(frame.pts)
 
@@ -1354,6 +1848,11 @@ public final class StreamPlayer {
             case .repeatPrevious(let delay):
                 // Video is ahead of audio - wait then display
                 Thread.sleep(forTimeInterval: delay)
+                guard isCurrentVideoDecoder(
+                    decoder,
+                    generation: generation,
+                    epoch: epoch
+                ) else { return nil }
                 videoRenderer.render(frame)
                 syncController.updateVideoClock(frame.pts)
             }
@@ -1369,20 +1868,41 @@ public final class StreamPlayer {
 
     // MARK: - Helpers
 
-    /// Checks whether the playback loop should continue.
-    private func isActive() -> Bool {
-        return stateQueue.sync { isPlaybackActive }
+    /// Checks whether the playback loop still belongs to the active session.
+    private func isActive(generation: UInt64) -> Bool {
+        stateQueue.sync {
+            isPlaybackActive && playbackGeneration == generation
+        }
+    }
+
+    private func isCurrentVideoDecoder(
+        _ decoder: VideoDecoder,
+        generation: UInt64,
+        epoch: UInt64
+    ) -> Bool {
+        stateQueue.sync {
+            isPlaybackActive
+                && playbackGeneration == generation
+                && videoPipelineEpoch == epoch
+                && videoDecoder === decoder
+        }
     }
 
     /// Transitions the player state and notifies the delegate.
     private func transitionState(to newState: PlaybackState) {
-        stateQueue.sync {
-            self.state = newState
+        let shouldNotify = stateQueue.sync { () -> Bool in
+            guard storedState != newState else { return false }
+            storedState = newState
+            return true
         }
+        guard shouldNotify else { return }
+        delegate?.player(self, didChangeState: newState)
     }
 
     /// Handles an unrecoverable error by stopping playback and notifying the delegate.
-    private func handleUnrecoverableError(_ error: Error) {
+    private func handleUnrecoverableError(_ error: Error, generation: UInt64) {
+        guard isActive(generation: generation) else { return }
+
         let ffError: FFmpegError
         if let fe = error as? FFmpegError {
             ffError = fe
@@ -1390,7 +1910,7 @@ public final class StreamPlayer {
             ffError = .connectionFailed(code: -1, message: error.localizedDescription)
         }
 
-        stopInternal()
+        guard stopInternal(expectedGeneration: generation) else { return }
         transitionState(to: .error(ffError))
 
         DispatchQueue.main.async { [weak self] in
@@ -1404,7 +1924,7 @@ public final class StreamPlayer {
     /// 在播放循环中无感断点续播：断开旧连接 → 立即重建 pipeline → seek 到断点 → 预填充缓冲。
     /// AudioRenderer 在整个过程中保持运行，利用已有缓冲覆盖重连耗时，实现无缝衔接。
     /// - Returns: true 表示重连成功，播放循环可继续；false 表示放弃。
-    private func attemptReconnect() -> Bool {
+    private func attemptReconnect(generation: UInt64) -> Bool {
         networkReconnectAttempts += 1
         guard networkReconnectAttempts <= maxNetworkReconnectAttempts else {
             print("[StreamPlayer] ❌ reconnect attempts exhausted (\(maxNetworkReconnectAttempts))")
@@ -1413,7 +1933,7 @@ public final class StreamPlayer {
 
         let url = stateQueue.sync { self.currentURL }
         guard let url, !url.isEmpty else { return false }
-        guard isActive() else { return false }
+        guard isActive(generation: generation) else { return false }
 
         let resumePosition = stateQueue.sync { self.decodedTime }
         let bufferedSeconds = audioRenderer.queuedDuration
@@ -1429,7 +1949,7 @@ public final class StreamPlayer {
             Thread.sleep(forTimeInterval: delay)
         }
 
-        guard isActive() else { return false }
+        guard isActive(generation: generation) else { return false }
 
         // 断开旧连接（保留 AudioRenderer 继续播放缓冲区中的音频）
         stateQueue.sync {
@@ -1437,6 +1957,7 @@ public final class StreamPlayer {
             self.connectionManager = nil
             self.audioDecoder = nil
             self.videoDecoder = nil
+            self.videoPipelineEpoch &+= 1
             self.demuxer = nil
         }
 
@@ -1464,10 +1985,10 @@ public final class StreamPlayer {
         } catch {
             print("[StreamPlayer] ⚠️ reconnect attempt \(networkReconnectAttempts) connect failed: \(error)")
             newManager.disconnect()
-            return attemptReconnect()
+            return attemptReconnect(generation: generation)
         }
 
-        guard isActive() else {
+        guard isActive(generation: generation) else {
             newManager.disconnect()
             return false
         }
@@ -1502,7 +2023,8 @@ public final class StreamPlayer {
             newDecoder = try AudioDecoder(
                 codecParameters: codecpar,
                 codecID: codecpar.pointee.codec_id,
-                targetSampleRate: targetRate
+                targetSampleRate: targetRate,
+                targetChannelCount: audioRenderer.actualChannelCount
             )
         } catch {
             print("[StreamPlayer] ❌ reconnect decoder init failed: \(error)")
@@ -1519,23 +2041,38 @@ public final class StreamPlayer {
 
         // 原子替换 pipeline 组件
         let newTimeBase = stream.pointee.time_base
-        stateQueue.sync {
+        let installed = stateQueue.sync { () -> Bool in
+            guard self.isPlaybackActive,
+                  self.playbackGeneration == generation else {
+                return false
+            }
             self.connectionManager = newManager
             self.demuxer = newDemuxer
             self.audioDecoder = newDecoder
             self.videoDecoder = nil
-            self.streamInfo = info
+            self.storedStreamInfo = info
             self.audioTimeBase = newTimeBase
             self.audioPTSOffset = nil
             self.seekTargetTime = resumePosition
+            return true
+        }
+        guard installed else {
+            newManager.disconnect()
+            return false
         }
 
         syncController.reset()
         repairEngine.reset()
+        audioRenderer.markInputActive()
 
         // 预填充缓冲区：在恢复播放循环前先解码一批 packet 喂给 AudioRenderer，
         // 确保重连后缓冲区有充足数据，避免断音。
-        let prefilledDuration = prefillAudioBuffer(demuxer: newDemuxer, decoder: newDecoder, timeBase: newTimeBase)
+        let prefilledDuration = prefillAudioBuffer(
+            demuxer: newDemuxer,
+            decoder: newDecoder,
+            timeBase: newTimeBase,
+            generation: generation
+        )
 
         let postReconnectBuffer = audioRenderer.queuedDuration
         print(
@@ -1547,14 +2084,19 @@ public final class StreamPlayer {
 
     /// 重连后预填充 AudioRenderer 缓冲区，尽量补满以保证无缝。
     /// - Returns: 预填充的音频时长（秒）
-    private func prefillAudioBuffer(demuxer: Demuxer, decoder: AudioDecoder, timeBase: AVRational) -> TimeInterval {
-        let targetPrefill: TimeInterval = 1.0
-        let maxPackets = 64
+    private func prefillAudioBuffer(
+        demuxer: Demuxer,
+        decoder: AudioDecoder,
+        timeBase: AVRational,
+        generation: UInt64,
+        targetDuration: TimeInterval = 1.0,
+        maxPackets: Int = 64
+    ) -> TimeInterval {
         var totalDuration: TimeInterval = 0
 
         for _ in 0..<maxPackets {
-            if totalDuration >= targetPrefill { break }
-            guard isActive() else { break }
+            if totalDuration >= targetDuration { break }
+            guard isActive(generation: generation) else { break }
 
             let packet: Demuxer.PacketType?
             do {
@@ -1563,6 +2105,14 @@ public final class StreamPlayer {
                 break
             }
             guard let packet else { break }
+
+            guard isActive(generation: generation) else {
+                switch packet {
+                case .audio(let pkt), .video(let pkt):
+                    releasePacket(pkt)
+                }
+                break
+            }
 
             switch packet {
             case .audio(let pkt):
@@ -1594,16 +2144,21 @@ public final class StreamPlayer {
     /// Updates the ConnectionManager state to reflect the disconnection,
     /// stops playback, transitions to the error state, and notifies the
     /// app layer via the StreamPlayerDelegate.
-    private func handleNetworkDisconnection() {
+    private func handleNetworkDisconnection(generation: UInt64) {
+        guard isActive(generation: generation) else { return }
         let error = FFmpegError.networkDisconnected
 
         // Notify the ConnectionManager about the disconnection so its delegate
         // (if any) also receives the state change.
-        stateQueue.sync {
-            connectionManager?.delegate?.connectionManager(connectionManager!, didFailWith: error)
+        let manager = stateQueue.sync { connectionManager }
+        if let manager {
+            manager.delegate?.connectionManager(manager, didFailWith: error)
         }
 
-        stopInternal(rendererStopStrategy: .gracefulNetworkDisconnect)
+        guard stopInternal(
+            rendererStopStrategy: .gracefulNetworkDisconnect,
+            expectedGeneration: generation
+        ) else { return }
         transitionState(to: .error(error))
 
         DispatchQueue.main.async { [weak self] in
@@ -1613,17 +2168,31 @@ public final class StreamPlayer {
     }
 
     /// Stops playback and cleans up all resources without changing state.
-    private func stopInternal(rendererStopStrategy: RendererStopStrategy = .immediate) {
-        networkReconnectAttempts = 0
-        stateQueue.sync {
+    @discardableResult
+    private func stopInternal(
+        rendererStopStrategy: RendererStopStrategy = .immediate,
+        expectedGeneration: UInt64? = nil
+    ) -> Bool {
+        let shouldStop = stateQueue.sync { () -> Bool in
+            if let expectedGeneration,
+               playbackGeneration != expectedGeneration {
+                return false
+            }
+            playbackGeneration &+= 1
             isPlaybackActive = false
             pendingTransitionNotificationWorkItem?.cancel()
             pendingTransitionNotificationWorkItem = nil
+            transitionNotificationGeneration &+= 1
             audibleTransitionDeadline = nil
             audibleTransitionStartedAt = nil
             previousTrackDisplayStartTime = nil
-            previousTrackActualDuration = nil
+            storedPreviousTrackActualDuration = nil
+            return true
         }
+        guard shouldStop else { return false }
+
+        cancelNextPreparation()
+        networkReconnectAttempts = 0
         pauseSemaphore.signal()
 
         seekLock.lock()
@@ -1656,6 +2225,7 @@ public final class StreamPlayer {
             connectionManager?.disconnect()
             connectionManager = nil
         }
+        return true
     }
 
     private enum RendererStopStrategy {

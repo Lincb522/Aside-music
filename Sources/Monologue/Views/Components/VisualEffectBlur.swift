@@ -168,7 +168,7 @@ extension View {
             self.background(
                 Circle()
                     .fill(MangaStyle.bubbleWhite)
-                    .overlay(Circle().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
+                    .overlay(Circle().stroke(MangaStyle.strokeInk.opacity(0.55), lineWidth: MangaStyle.fineStrokeWidth))
             )
             .themeRenderSurfaceLayer()
         } else if MujiStyle.isActive {
@@ -227,10 +227,14 @@ extension View {
             self.background(MinimalWhiteCapsuleBackground(elevated: false))
                 .themeRenderSurfaceLayer()
         } else if MangaStyle.isActive {
+            // 去卡片化：安静的纸白小面 + 细墨线，不再压错位投影
             self.background(
-                Capsule()
+                RoundedRectangle(cornerRadius: MangaStyle.buttonRadius + 1, style: .continuous)
                     .fill(MangaStyle.bubbleWhite)
-                    .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: MangaStyle.buttonRadius + 1, style: .continuous)
+                            .stroke(MangaStyle.strokeInk.opacity(0.55), lineWidth: MangaStyle.fineStrokeWidth)
+                    )
             )
             .themeRenderSurfaceLayer()
         } else if MujiStyle.isActive {
@@ -571,7 +575,7 @@ extension Shape {
         } else if MangaStyle.isActive {
             self
                 .fill(color)
-                .overlay(self.stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
+                .overlay(self.stroke(MangaStyle.strokeInk.opacity(0.55), lineWidth: MangaStyle.fineStrokeWidth))
         } else if MujiStyle.isActive {
             self
                 .fill(color)
@@ -597,7 +601,7 @@ extension Shape {
         } else if MangaStyle.isActive {
             self
                 .fill(color)
-                .overlay(self.stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
+                .overlay(self.stroke(MangaStyle.strokeInk.opacity(0.55), lineWidth: MangaStyle.fineStrokeWidth))
         } else if MujiStyle.isActive {
             self
                 .fill(color)
@@ -622,7 +626,7 @@ extension Shape {
         } else if MangaStyle.isActive {
             self
                 .fill(color)
-                .overlay(self.stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
+                .overlay(self.stroke(MangaStyle.strokeInk.opacity(0.55), lineWidth: MangaStyle.fineStrokeWidth))
         } else if MujiStyle.isActive {
             self
                 .fill(color)

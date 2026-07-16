@@ -191,9 +191,8 @@ struct ThemedLibraryEmptyState: View {
             } else if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: 22, elevated: true, lightweight: true)
             } else if MujiStyle.isActive {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(MujiStyle.surface.opacity(0.76))
-                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(MujiStyle.hairline.opacity(0.44), lineWidth: 0.6))
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(MujiStyle.wash(MujiStyle.clay, strength: 0.8))
             } else if SequoiaStyle.isActive {
                 SequoiaSurfaceBackground(cornerRadius: 22, elevated: true, role: .chrome)
             } else if CapsuleStyle.isActive {
@@ -255,9 +254,8 @@ struct ThemedLibraryPodcastRow: View {
             } else if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: 20, elevated: true, tint: tint.opacity(0.08), lightweight: true)
             } else if MujiStyle.isActive {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(MujiStyle.surface.opacity(0.82))
-                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(MujiStyle.hairline.opacity(0.44), lineWidth: 0.6))
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(MujiStyle.wash(tint, strength: 0.9))
             } else if SequoiaStyle.isActive {
                 SequoiaSurfaceBackground(cornerRadius: 20, elevated: false, fill: tint.opacity(0.055), role: .list)
             } else if CapsuleStyle.isActive {
@@ -786,7 +784,7 @@ struct NeumorphicQQChartShelfRow: View {
                     .foregroundStyle(NeumorphicStyle.ink)
                     .lineLimit(1)
 
-                Text(item.period.isEmpty ? item.intro : item.period)
+                Text(item.period.isEmpty ? item.subtitle : item.period)
                     .font(NeumorphicStyle.labelFont(11, weight: .medium))
                     .foregroundStyle(NeumorphicStyle.inkMuted)
                     .lineLimit(1)

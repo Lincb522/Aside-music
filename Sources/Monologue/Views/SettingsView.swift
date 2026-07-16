@@ -41,7 +41,8 @@ private func themedSettingsFont(_ size: CGFloat, weight: Font.Weight = .medium) 
         return SequoiaStyle.labelFont(size, weight: weight == .bold ? .semibold : weight)
     }
     if MujiStyle.isActive {
-        return MujiStyle.labelFont(size, weight: weight == .bold ? .semibold : weight)
+        // 杂志正文用衬线
+        return MujiStyle.bodyFont(size, weight: weight == .bold ? .medium : weight)
     }
     return .system(size: size, weight: weight, design: .rounded)
 }
@@ -72,14 +73,17 @@ private func themedSettingsSecondaryColor() -> Color {
     return .monologueTextSecondary
 }
 
-private enum SettingsNavigationDestination: Hashable {
+enum SettingsNavigationDestination: Hashable {
     case appearance
     case playback
     case cloudSync
     case storage
     case download
     case about
+    case developerTools
+    case developerPopupCatalog
     case debugLog
+    case aiProviderSettings
 
     @MainActor
     @ViewBuilder
@@ -97,8 +101,14 @@ private enum SettingsNavigationDestination: Hashable {
             DownloadManageView()
         case .about:
             AboutView()
+        case .developerTools:
+            DeveloperToolsView()
+        case .developerPopupCatalog:
+            DeveloperPopupCatalogView()
         case .debugLog:
             DebugLogView()
+        case .aiProviderSettings:
+            AIProviderDeveloperSettingsView()
         }
     }
 }
@@ -154,7 +164,10 @@ struct SettingsView: View {
                 .scrollIndicators(.hidden)
                 .themeRenderScrollLayer()
             }
-            .themedInlineNavigationTitle(String(localized: "settings_title"))
+            // aside / muji：标题落在页面内容里（刊头版式），导航栏只留返回；其余主题维持内联标题
+            .themedInlineNavigationTitle(
+                (settings.globalThemeId == .default || settings.globalThemeId == .muji) ? "" : String(localized: "settings_title")
+            )
             .toolbarBackground(.hidden, for: .navigationBar)
             .navigationDestination(for: SettingsNavigationDestination.self) { destination in
                 AnyView(destination.view)
@@ -212,16 +225,110 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var defaultSettingsContent: some View {
+        asideSettingsMasthead
         settingsHeaderCard
-        themeSection
-        navigationCardsSection
+        asidePersonalizationSection
+        asidePlaybackSection
+        asideDataSection
         if qqDevMode {
             otherSection
         }
     }
 
+    // MARK: - aside 设置主页分组（编辑部信息架构）
+
+    /// 刊头：眉题行 + 大号标题，与「我的」「音乐库」同一套编辑部版式，随滚动收缩
+    private var asideSettingsMasthead: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                Capsule()
+                    .fill(Color.monologueAccent)
+                    .frame(width: 18, height: 3)
+
+                Text("SETTINGS")
+                    .font(.system(size: 10.5, weight: .heavy, design: .rounded))
+                    .tracking(2.4)
+                    .foregroundColor(.monologueTextSecondary.opacity(0.72))
+                    .fixedSize()
+
+                Rectangle()
+                    .fill(Color.monologueSeparator.opacity(0.5))
+                    .frame(height: 0.5)
+            }
+            .padding(.bottom, 14)
+
+            Text(String(localized: "settings_title"))
+                .font(.system(size: 30, weight: .heavy, design: .rounded))
+                .foregroundColor(.monologueTextPrimary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 2)
+        .monologuePageHeaderCollapse()
+    }
+
+    /// 分组内行间发丝分隔线
+    private var asideRowDivider: some View {
+        Rectangle()
+            .fill(Color.monologueSeparator.opacity(0.55))
+            .frame(height: 0.5)
+            .padding(.leading, 58)
+    }
+
+    private var asidePersonalizationSection: some View {
+        SettingsSection(title: settingsText("settings_section_personalization")) {
+            SettingsThemeRow(
+                icon: .sparkle,
+                title: String(localized: "settings_theme_mode"),
+                selection: $settings.themeMode
+            )
+
+            asideRowDivider
+
+            SettingsRouteLinkRow(
+                icon: .playerTheme,
+                title: settingsText("settings_navigation_appearance_title"),
+                subtitle: settingsText("settings_navigation_appearance_subtitle"),
+                destination: .appearance
+            )
+        }
+    }
+
+    private var asidePlaybackSection: some View {
+        SettingsSection(title: settingsText("settings_section_playback")) {
+            SettingsRouteLinkRow(
+                icon: .soundQuality,
+                title: settingsText("settings_navigation_playback_title"),
+                subtitle: settingsText("settings_navigation_playback_subtitle"),
+                destination: .playback
+            )
+        }
+    }
+
+    private var asideDataSection: some View {
+        SettingsSection(title: settingsText("settings_section_data")) {
+            SettingsRouteLinkRow(
+                icon: .cloud,
+                title: settingsText("settings_navigation_cloud_sync_title"),
+                subtitle: hasToken ? playlistSyncStatusText : settingsText("settings_navigation_cloud_sync_disabled"),
+                destination: .cloudSync
+            )
+
+            asideRowDivider
+
+            SettingsRouteLinkRow(
+                icon: .storage,
+                title: String(localized: "settings_storage_manage"),
+                subtitle: String(localized: "settings_storage_manage_desc"),
+                value: cacheSize,
+                destination: .storage
+            )
+        }
+    }
+
     @ViewBuilder
     private var mangaSettingsContent: some View {
+        mangaSettingsMasthead
+
         settingsHeaderCard
 
         mangaSettingsModePanel
@@ -230,6 +337,18 @@ struct SettingsView: View {
         if qqDevMode {
             otherSection
         }
+    }
+
+    /// 周刊印刷刊头:话数眉题 + 错版标题
+    private var mangaSettingsMasthead: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            MangaLabel(text: "SETUP DESK", tint: MangaStyle.labelYellow, small: true)
+
+            MangaMisprintTitle(text: String(localized: "profile_settings"), size: 26)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 2)
+        .monologuePageHeaderCollapse()
     }
 
     @ViewBuilder
@@ -314,12 +433,37 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var mujiSettingsContent: some View {
+        mujiSettingsMasthead
         settingsHeaderCard
         mujiSettingsNotebook
 
         if qqDevMode {
             otherSection
         }
+    }
+
+    /// Muji 设置刊头：圆点眉题 + 衬线大标题，替代导航栏内联标题
+    private var mujiSettingsMasthead: some View {
+        VStack(alignment: .leading, spacing: 11) {
+            HStack(alignment: .center, spacing: 8) {
+                MujiDotMark()
+
+                Text("SETTINGS INDEX")
+                    .font(MujiStyle.labelFont(10, weight: .semibold))
+                    .foregroundStyle(MujiStyle.clay)
+                    .tracking(2.2)
+                    .fixedSize()
+            }
+
+            Text(String(localized: "settings_title"))
+                .font(MujiStyle.titleFont(30, weight: .medium))
+                .foregroundStyle(MujiStyle.ink)
+                .tracking(0.3)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 8)
+        .padding(.bottom, 2)
+        .monologuePageHeaderCollapse()
     }
 
     private var petWhiteSettingsModeBoard: some View {
@@ -786,34 +930,35 @@ struct SettingsView: View {
                 destination: .cloudSync,
                 verticalPadding: 16
             )
-            .themedSettingsStandaloneCard(cornerRadius: 18, tint: MangaStyle.labelYellow)
+            .themedSettingsStandaloneCard(cornerRadius: 18, tint: MangaStyle.paperCool)
         }
     }
 
     private var mangaSettingsModePanel: some View {
+        // 去卡片化：日夜模式行直接排在纸上，下方细墨线收尾
         VStack(alignment: .leading, spacing: 12) {
             MangaSectionTitle(title: String(localized: "settings_theme_mode_section_title"), mark: .star)
 
-            SettingsThemeRow(
-                icon: .sparkle,
-                title: String(localized: "settings_theme_mode"),
-                selection: $settings.themeMode
-            )
-            .background(MangaCardBackground(cornerRadius: 16, elevated: true, tint: MangaStyle.bubbleWhite))
+            VStack(spacing: 0) {
+                SettingsThemeRow(
+                    icon: .sparkle,
+                    title: String(localized: "settings_theme_mode"),
+                    selection: $settings.themeMode
+                )
+
+                Rectangle()
+                    .fill(MangaStyle.strokeInk.opacity(0.18))
+                    .frame(height: 1)
+            }
         }
     }
 
     private var mangaSettingsPortalGrid: some View {
+        // 去卡片化：报刊目录式条目，规则线分隔，右侧小字页码式徽标
         VStack(alignment: .leading, spacing: 12) {
             MangaSectionTitle(title: String(localized: "profile_settings"), mark: .heart)
 
-            LazyVGrid(
-                columns: [
-                    GridItem(.flexible(), spacing: 12),
-                    GridItem(.flexible(), spacing: 12),
-                ],
-                spacing: 12
-            ) {
+            VStack(spacing: 0) {
                 SettingsNavigationLink(destination: .appearance) {
                     MangaSettingsPortalCard(
                         icon: .sparkle,
@@ -823,6 +968,8 @@ struct SettingsView: View {
                     )
                 }
                 .buttonStyle(.plain)
+
+                MangaListDivider().opacity(0.6)
 
                 SettingsNavigationLink(destination: .playback) {
                     MangaSettingsPortalCard(
@@ -834,15 +981,19 @@ struct SettingsView: View {
                 }
                 .buttonStyle(.plain)
 
+                MangaListDivider().opacity(0.6)
+
                 SettingsNavigationLink(destination: .cloudSync) {
                     MangaSettingsPortalCard(
                         icon: .cloud,
                         title: settingsText("settings_navigation_cloud_sync_title"),
                         badge: hasToken ? "SYNC" : "OFF",
-                        tint: MangaStyle.labelYellow
+                        tint: MangaStyle.paperCool
                     )
                 }
                 .buttonStyle(.plain)
+
+                MangaListDivider().opacity(0.6)
 
                 SettingsNavigationLink(destination: .storage) {
                     MangaSettingsPortalCard(
@@ -856,16 +1007,20 @@ struct SettingsView: View {
 
                 // 下载管理入口（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
                 if AppConfig.Features.downloadEnabled {
+                    MangaListDivider().opacity(0.6)
+
                     SettingsNavigationLink(destination: .download) {
                         MangaSettingsPortalCard(
                             icon: .download,
                             title: String(localized: "settings_download_manage"),
                             badge: "DL",
-                            tint: MangaStyle.decoBlue
+                            tint: MangaStyle.bubbleBlue
                         )
                     }
                     .buttonStyle(.plain)
                 }
+
+                MangaListDivider().opacity(0.6)
 
                 SettingsNavigationLink(destination: .about) {
                     MangaSettingsPortalCard(
@@ -885,11 +1040,7 @@ struct SettingsView: View {
             MujiSectionTitle(title: String(localized: "profile_settings"))
 
             VStack(spacing: 0) {
-                SettingsThemeRow(
-                    icon: .sparkle,
-                    title: String(localized: "settings_theme_mode"),
-                    selection: $settings.themeMode
-                )
+                MujiThemeModeRow(selection: $settings.themeMode)
 
                 MujiSettingsDivider()
 
@@ -948,7 +1099,12 @@ struct SettingsView: View {
                     destination: .about
                 )
             }
-            .background(MujiPaperCardBackground(cornerRadius: 12, elevated: true))
+            .padding(.horizontal, 16)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: MujiStyle.cardRadius, style: .continuous)
+                    .fill(MujiStyle.wash(MujiStyle.clay, strength: 0.7))
+            )
         }
     }
 
@@ -962,18 +1118,6 @@ struct SettingsView: View {
                 subtitle: String(localized: "settings_storage_manage_desc"),
                 value: cacheSize,
                 destination: .storage
-            )
-        }
-    }
-
-    // MARK: - 下载管理
-
-    private var downloadSection: some View {
-        SettingsSection(title: String(localized: "settings_download_manage")) {
-            SettingsRouteLinkRow(
-                icon: .download,
-                title: String(localized: "settings_download_manage"),
-                destination: .download
             )
         }
     }
@@ -1101,6 +1245,12 @@ struct SettingsView: View {
         return .green
     }
 
+    private var headerPillShape: AnyShape {
+        MangaStyle.isActive
+            ? AnyShape(RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous))
+            : AnyShape(Capsule())
+    }
+
     private var headerSoftFill: Color {
         if MangaStyle.isActive { return MangaStyle.bubbleWhite.opacity(0.9) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed.opacity(0.62) }
@@ -1155,7 +1305,305 @@ struct SettingsView: View {
         return settingsText("playlist_sync_idle")
     }
 
+    /// aside（经典）主题使用重新设计的开发者名片，其余主题沿用原卡片。
+    /// 与其他页面头部一致：滚出顶部时应用统一的收缩渐隐效果。
     private var settingsHeaderCard: some View {
+        Group {
+            if settings.globalThemeId == .default {
+                asideDeveloperCard
+            } else {
+                legacySettingsHeaderCard
+            }
+        }
+        .monologuePageHeaderCollapse()
+    }
+
+    // MARK: - Aside 开发者名片
+
+    private var asideDeveloperCard: some View {
+        VStack(spacing: 0) {
+            // 身份区：头像 + 名字/徽章 + 关于入口
+            HStack(spacing: 14) {
+                ZStack(alignment: .bottomTrailing) {
+                    Image("WeChatAvatar")
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 56, height: 56)
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .strokeBorder(
+                                    LinearGradient(
+                                        colors: [
+                                            Color.monologueAccent.opacity(0.62),
+                                            Color.monologueAccent.opacity(0.1),
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ),
+                                    lineWidth: 1.4
+                                )
+                        )
+                        .shadow(color: Color.monologueAccent.opacity(0.16), radius: 10, x: 0, y: 5)
+
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 11, height: 11)
+                        .overlay(
+                            Circle().stroke(Color(light: .white, dark: .black).opacity(0.92), lineWidth: 2)
+                        )
+                        .offset(x: 2, y: 2)
+                }
+
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack(spacing: 7) {
+                        Text("ZIJIU522")
+                            .font(.system(size: 18, weight: .bold, design: .rounded))
+                            .foregroundColor(.monologueTextPrimary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+
+                        Text("DEV")
+                            .font(.system(size: 8.5, weight: .heavy, design: .rounded))
+                            .tracking(0.8)
+                            .foregroundColor(.monologueAccent)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2.5)
+                            .background(
+                                Capsule()
+                                    .fill(Color.monologueAccent.opacity(0.13))
+                                    .overlay(
+                                        Capsule().stroke(Color.monologueAccent.opacity(0.3), lineWidth: 0.7)
+                                    )
+                            )
+                    }
+
+                    HStack(spacing: 5) {
+                        MonologueIcon(icon: .comment, size: 11.5, color: .monologueTextSecondary.opacity(0.85))
+                        Text(settingsText("settings_developer_status"))
+                            .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                            .foregroundColor(.monologueTextSecondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                    }
+                }
+                .layoutPriority(1)
+
+                Spacer(minLength: 8)
+
+                SettingsNavigationLink(destination: .about) {
+                    HStack(spacing: 4) {
+                        Text(String(localized: "settings_about"))
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        MonologueIcon(icon: .chevronRight, size: 9, color: .monologueTextSecondary, lineWidth: 1.9)
+                    }
+                    .foregroundColor(.monologueTextSecondary)
+                    .padding(.horizontal, 11)
+                    .padding(.vertical, 7)
+                    .background(Capsule().fill(Color.monologueSeparator.opacity(0.36)))
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.92))
+            }
+            .padding(.horizontal, 18)
+            .padding(.top, 18)
+            .padding(.bottom, 14)
+
+            // 授权状态条：点击展开 Token 与联系开发者
+            Button {
+                apiTokenInput = SecureConfig.apiToken ?? apiTokenInput
+                isHeaderCardExpanded.toggle()
+            } label: {
+                HStack(spacing: 10) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 9, style: .continuous)
+                            .fill(tokenStatusColor.opacity(0.13))
+                            .frame(width: 30, height: 30)
+                        MonologueIcon(icon: hasToken ? .lock : .unlock, size: 13, color: tokenStatusColor)
+                    }
+
+                    VStack(alignment: .leading, spacing: 1.5) {
+                        Text(tokenStatusText)
+                            .font(.system(size: 12.5, weight: .semibold, design: .rounded))
+                            .foregroundColor(.monologueTextPrimary)
+
+                        Text(asideTokenSubtitle)
+                            .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+                            .foregroundColor(
+                                OnlineAccessManager.shared.lastTokenStatus == .expired && hasToken
+                                    ? .red.opacity(0.8)
+                                    : .monologueTextSecondary.opacity(0.85)
+                            )
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                    }
+
+                    Spacer(minLength: 8)
+
+                    PetWhiteDisclosureChevron(
+                        isExpanded: isHeaderCardExpanded,
+                        size: 10,
+                        petWhiteSize: 14,
+                        color: .monologueTextSecondary.opacity(0.7),
+                        lineWidth: 1.8
+                    )
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Color.monologueSeparator.opacity(0.28))
+                )
+                .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+            .padding(.horizontal, 14)
+
+            SettingsHeaderReveal(isExpanded: isHeaderCardExpanded) {
+                asideDeveloperExpandedContent
+                    .padding(.horizontal, 14)
+                    .padding(.top, 12)
+            }
+
+            // 底部寄语
+            HStack(spacing: 6) {
+                MonologueIcon(icon: headerFooterIcon, size: 11, color: headerFooterIconColor)
+
+                Text(headerFooterText)
+                    .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                    .foregroundColor(headerFooterTextColor)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.84)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.horizontal, 18)
+            .padding(.top, 12)
+            .padding(.bottom, 15)
+        }
+        .background(asideDeveloperCardBackground)
+        .animation(
+            .interactiveSpring(response: 0.32, dampingFraction: 0.93, blendDuration: 0.04),
+            value: isHeaderCardExpanded
+        )
+    }
+
+    private var asideTokenSubtitle: String {
+        if hasToken {
+            if OnlineAccessManager.shared.lastTokenStatus == .expired {
+                return String(localized: "当前已过期：") + maskedToken
+            }
+            return maskedToken
+        }
+        return settingsText("settings_token_hint")
+    }
+
+    private var asideDeveloperExpandedContent: some View {
+        VStack(spacing: 10) {
+            // 联系开发者
+            HStack(spacing: 10) {
+                Button {
+                    PlatformPasteboard.copy("Fallin-Out0122")
+                    HapticManager.shared.success()
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        wechatCopied = true
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                        withAnimation { wechatCopied = false }
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        MonologueIcon(
+                            icon: wechatCopied ? .checkmark : .save,
+                            size: 13,
+                            color: wechatCopied ? .green : .monologueTextPrimary
+                        )
+                        Text(wechatCopied ? settingsText("settings_contact_copied") : "Fallin-Out0122")
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    }
+                    .foregroundColor(wechatCopied ? .green : .monologueTextPrimary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 11)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(wechatCopied ? Color.green.opacity(0.12) : Color.monologueSeparator.opacity(0.32))
+                    )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+
+                Button {
+                    PlatformPasteboard.copy("Fallin-Out0122")
+                    HapticManager.shared.success()
+                    if let url = URL(string: "weixin://dl/contacts") {
+                        UIApplication.shared.open(url)
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        MonologueIcon(icon: .send, size: 13, color: Color(light: .white, dark: .black))
+                        Text(settingsText("settings_open_wechat"))
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    }
+                    .foregroundColor(Color(light: .white, dark: .black))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 11)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.monologueAccent)
+                    )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+            }
+
+            // Token 输入
+            HStack(spacing: 10) {
+                HStack(spacing: 8) {
+                    MonologueIcon(icon: .unlock, size: 14, color: tokenStatusColor)
+                    TextField(settingsText("access_token_input_placeholder"), text: $apiTokenInput)
+                        .font(.system(size: 14, weight: .medium, design: .monospaced))
+                        .monologueTextInputBehavior()
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color.monologueSeparator.opacity(0.32))
+                )
+
+                Button {
+                    submitAPIToken()
+                } label: {
+                    Text(settingsText("common_save"))
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundColor(Color(light: .white, dark: .black))
+                        .frame(width: 48, height: 38)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(Color.monologueAccent)
+                        )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.92))
+            }
+        }
+    }
+
+    private var asideDeveloperCardBackground: some View {
+        RoundedRectangle(cornerRadius: 24, style: .continuous)
+            .fill(Color.monologueGlassTint.opacity(0.55))
+            .monologueGlass(cornerRadius: 24)
+            .overlay(alignment: .topTrailing) {
+                // 右上角强调色光晕，随封面主题色
+                Circle()
+                    .fill(Color.monologueAccent.opacity(0.14))
+                    .frame(width: 170, height: 170)
+                    .blur(radius: 52)
+                    .offset(x: 55, y: -70)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 4)
+    }
+
+    // MARK: - 其他主题的开发者卡片（原设计）
+
+    private var legacySettingsHeaderCard: some View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
                 Image("WeChatAvatar")
@@ -1165,14 +1613,7 @@ struct SettingsView: View {
                     .clipShape(RoundedRectangle(cornerRadius: headerAvatarRadius, style: .continuous))
                     .overlay {
                         RoundedRectangle(cornerRadius: headerAvatarRadius, style: .continuous)
-                            .stroke(headerSoftStroke, lineWidth: MangaStyle.isActive ? 1.6 : 0.7)
-                    }
-                    .background {
-                        if MangaStyle.isActive {
-                            RoundedRectangle(cornerRadius: headerAvatarRadius, style: .continuous)
-                                .fill(MangaStyle.strokeInk)
-                                .offset(x: 2, y: 2)
-                        }
+                            .stroke(headerSoftStroke, lineWidth: MangaStyle.isActive ? 1 : 0.7)
                     }
                     .shadow(color: .black.opacity(MangaStyle.isActive ? 0.02 : 0.08), radius: 3, y: 2)
 
@@ -1206,9 +1647,9 @@ struct SettingsView: View {
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
                             .background {
-                                Capsule()
+                                headerPillShape
                                     .fill(headerSoftFill)
-                                    .overlay(Capsule().stroke(headerSoftStroke, lineWidth: MangaStyle.isActive ? 1.2 : 0.6))
+                                    .overlay(headerPillShape.stroke(headerSoftStroke, lineWidth: MangaStyle.isActive ? 1.2 : 0.6))
                             }
                     }
                     .frame(width: headerActionButtonWidth)
@@ -1243,9 +1684,9 @@ struct SettingsView: View {
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
                         .background(
-                            Capsule()
+                            headerPillShape
                                 .fill(headerStatusButtonBackground)
-                                .overlay(Capsule().stroke(headerSoftStroke, lineWidth: MangaStyle.isActive ? 1.2 : 0.6))
+                                .overlay(headerPillShape.stroke(headerSoftStroke, lineWidth: MangaStyle.isActive ? 1.2 : 0.6))
                         )
                     }
                     .frame(width: headerActionButtonWidth)
@@ -1361,58 +1802,7 @@ struct SettingsView: View {
                             )
 
                             Button {
-                                let trimmed = apiTokenInput.trimmingCharacters(in: .whitespacesAndNewlines)
-                                apiTokenInput = trimmed
-
-                                Task {
-                                    let status = await onlineAccess.submitToken(trimmed)
-
-                                    await MainActor.run {
-                                        switch status {
-                                        case .valid, .validationDisabled:
-                                            HapticManager.shared.success()
-                                            tokenSaved = !trimmed.isEmpty
-                                            isHeaderCardExpanded = trimmed.isEmpty
-
-                                            if tokenSaved {
-                                                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                                                    withAnimation { tokenSaved = false }
-                                                }
-                                            }
-                                        case .missing:
-                                            tokenSaved = false
-                                            isHeaderCardExpanded = true
-                                        case .invalid:
-                                            AlertManager.shared.show(
-                                                title: settingsText("access_invalid_title"),
-                                                message: settingsText("access_invalid_message"),
-                                                primaryButtonTitle: settingsText("common_ok"),
-                                                primaryAction: {}
-                                            )
-                                        case .expired:
-                                            AlertManager.shared.show(
-                                                title: String(localized: "Token 已过期"),
-                                                message: String(localized: "您输入的 Token 已经过期，请获取新的 Token 或者重新授权。"),
-                                                primaryButtonTitle: settingsText("common_ok"),
-                                                primaryAction: {}
-                                            )
-                                        case .deviceMismatch:
-                                            AlertManager.shared.show(
-                                                title: String(localized: "设备不匹配"),
-                                                message: String(localized: "此 Token 已绑定到其他设备，无法在当前设备使用。"),
-                                                primaryButtonTitle: settingsText("common_ok"),
-                                                primaryAction: {}
-                                            )
-                                        case .networkError:
-                                            AlertManager.shared.show(
-                                                title: settingsText("access_network_error_title"),
-                                                message: settingsText("access_network_error_message"),
-                                                primaryButtonTitle: settingsText("common_ok"),
-                                                primaryAction: {}
-                                            )
-                                        }
-                                    }
-                                }
+                                submitAPIToken()
                             } label: {
                                 Text(settingsText("common_save"))
                                     .font(themedSettingsFont(13, weight: .semibold))
@@ -1453,16 +1843,13 @@ struct SettingsView: View {
     }
 
     private var otherSection: some View {
-        SettingsSection(title: String(localized: "settings_other")) {
-            VStack(spacing: 0) {
-                SettingsRouteLinkRow(
-                    icon: .logDebug,
-                    title: String(localized: "settings_debug_log"),
-                    subtitle: String(localized: "settings_debug_log_desc"),
-                    value: "\(AppLogger.getAllLogs().count)",
-                    destination: .debugLog
-                )
-            }
+        SettingsSection(title: String(localized: "developer_tools_title")) {
+            SettingsRouteLinkRow(
+                icon: .unlock,
+                title: String(localized: "dev_mode_title"),
+                value: String(localized: "dev_mode_enabled_short"),
+                destination: .developerTools
+            )
         }
     }
 
@@ -1508,6 +1895,62 @@ struct SettingsView: View {
     }
 
     // MARK: - Actions
+
+    /// 提交并校验 API Token（aside 名片与其他主题卡片共用）
+    private func submitAPIToken() {
+        let trimmed = apiTokenInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        apiTokenInput = trimmed
+
+        Task {
+            let status = await onlineAccess.submitToken(trimmed)
+
+            await MainActor.run {
+                switch status {
+                case .valid, .validationDisabled:
+                    HapticManager.shared.success()
+                    tokenSaved = !trimmed.isEmpty
+                    isHeaderCardExpanded = trimmed.isEmpty
+
+                    if tokenSaved {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                            withAnimation { tokenSaved = false }
+                        }
+                    }
+                case .missing:
+                    tokenSaved = false
+                    isHeaderCardExpanded = true
+                case .invalid:
+                    AlertManager.shared.show(
+                        title: settingsText("access_invalid_title"),
+                        message: settingsText("access_invalid_message"),
+                        primaryButtonTitle: settingsText("common_ok"),
+                        primaryAction: {}
+                    )
+                case .expired:
+                    AlertManager.shared.show(
+                        title: String(localized: "Token 已过期"),
+                        message: String(localized: "您输入的 Token 已经过期，请获取新的 Token 或者重新授权。"),
+                        primaryButtonTitle: settingsText("common_ok"),
+                        primaryAction: {}
+                    )
+                case .deviceMismatch:
+                    AlertManager.shared.show(
+                        title: String(localized: "设备不匹配"),
+                        message: String(localized: "此 Token 已绑定到其他设备，无法在当前设备使用。"),
+                        primaryButtonTitle: settingsText("common_ok"),
+                        primaryAction: {}
+                    )
+                case .networkError:
+                    AlertManager.shared.show(
+                        title: settingsText("access_network_error_title"),
+                        message: settingsText("access_network_error_message"),
+                        primaryButtonTitle: settingsText("common_ok"),
+                        primaryAction: {}
+                    )
+                }
+            }
+        }
+    }
 
     private func updateCacheSize() {
         Task {
@@ -1601,27 +2044,95 @@ private struct MangaSettingsPortalCard: View {
     let tint: Color
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .top) {
-                MangaIconBadge(icon: icon, size: 38, tint: tint)
-
-                Spacer()
-
-                MangaLabel(text: badge, tint: MangaStyle.bubbleWhite, small: true)
-                    .frame(maxWidth: 74, alignment: .trailing)
+        // 目录条目：色章图标 + 黑体标题 + 页码式小徽标，直接排在纸上
+        HStack(spacing: 13) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .fill(tint)
+                MonologueIcon(icon: icon, size: 15, color: iconForeground, lineWidth: 1.8)
             }
+            .frame(width: 34, height: 34)
+            .rotationEffect(.degrees(-3))
 
             Text(title)
-                .font(MangaStyle.comicFont(15, weight: .black))
+                .font(MangaStyle.titleFont(15, weight: .black))
                 .foregroundStyle(MangaStyle.ink)
-                .lineLimit(2)
+                .lineLimit(1)
                 .minimumScaleFactor(0.78)
-                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Spacer(minLength: 8)
+
+            Text(badge)
+                .font(.system(size: 10, weight: .black, design: .monospaced))
+                .tracking(0.6)
+                .foregroundStyle(MangaStyle.inkMuted)
+                .lineLimit(1)
+
+            MonologueIcon(icon: .chevronRight, size: 12, color: MangaStyle.inkMuted, lineWidth: 1.8)
         }
-        .frame(minHeight: 116, alignment: .topLeading)
-        .padding(14)
-        .background(MangaCardBackground(cornerRadius: 16, elevated: true, tint: tint.opacity(0.72)))
-        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(.vertical, 14)
+        .padding(.horizontal, 2)
+        .contentShape(Rectangle())
+    }
+
+    private var iconForeground: Color {
+        ThemeColorCustomization.readableForegroundColor(
+            on: tint,
+            light: MangaStyle.strokeInk,
+            dark: MangaStyle.onStrokeInk
+        )
+    }
+}
+
+/// Muji 主题模式行：裸排行内三段文字选择（系统 / 浅色 / 深色），无展开无容器
+private struct MujiThemeModeRow: View {
+    @Binding var selection: String
+
+    private let options: [(value: String, title: String)] = [
+        ("system", String(localized: "settings_theme_auto")),
+        ("light", String(localized: "settings_theme_light")),
+        ("dark", String(localized: "settings_theme_dark")),
+    ]
+
+    var body: some View {
+        HStack(spacing: 13) {
+            MonologueIcon(icon: .sparkle, size: 15, color: MujiStyle.clay, lineWidth: 1.4)
+                .frame(width: 22, alignment: .leading)
+
+            Text(String(localized: "settings_theme_mode"))
+                .font(MujiStyle.bodyFont(15, weight: .regular))
+                .foregroundStyle(MujiStyle.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+
+            Spacer(minLength: 8)
+
+            HStack(spacing: 14) {
+                ForEach(options, id: \.value) { option in
+                    Button {
+                        guard selection != option.value else { return }
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            selection = option.value
+                        }
+                    } label: {
+                        VStack(spacing: 3) {
+                            Text(option.title)
+                                .font(MujiStyle.labelFont(11.5, weight: selection == option.value ? .semibold : .regular))
+                                .foregroundStyle(selection == option.value ? MujiStyle.clay : MujiStyle.inkMuted)
+                                .lineLimit(1)
+
+                            Rectangle()
+                                .fill(selection == option.value ? MujiStyle.clay.opacity(0.85) : Color.clear)
+                                .frame(height: 1.2)
+                        }
+                        .fixedSize()
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(.vertical, 13.5)
     }
 }
 
@@ -1633,8 +2144,9 @@ private struct MujiSettingsLedgerLink: View {
 
     var body: some View {
         NavigationLink(value: destination) {
-            HStack(spacing: 12) {
-                MujiIconBadge(icon: icon, tint: ledgerTint, size: 34)
+            HStack(spacing: 13) {
+                MonologueIcon(icon: icon, size: 15, color: ledgerTint, lineWidth: 1.4)
+                    .frame(width: 22, alignment: .leading)
 
                 Text(title)
                     .font(MujiStyle.bodyFont(15, weight: .regular))
@@ -1645,15 +2157,16 @@ private struct MujiSettingsLedgerLink: View {
                 Spacer(minLength: 8)
 
                 Text(value)
-                    .font(MujiStyle.labelFont(11, weight: .medium))
+                    .font(MujiStyle.labelFont(10, weight: .semibold))
                     .foregroundStyle(MujiStyle.inkMuted)
+                    .tracking(1.1)
+                    .textCase(.uppercase)
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
 
-                MonologueIcon(icon: .chevronRight, size: 11, color: MujiStyle.inkMuted, lineWidth: 1.4)
+                MonologueIcon(icon: .chevronRight, size: 10, color: MujiStyle.inkMuted, lineWidth: 1.4)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
+            .padding(.vertical, 13.5)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -1675,11 +2188,8 @@ private struct MujiSettingsLedgerLink: View {
 
 private struct MujiSettingsDivider: View {
     var body: some View {
-        Rectangle()
-            .fill(MujiStyle.separator.opacity(0.58))
-            .frame(height: 0.6)
-            .padding(.leading, 64)
-            .padding(.trailing, 14)
+        MujiListDivider()
+            .padding(.leading, 35)
     }
 }
 
@@ -1707,26 +2217,14 @@ struct SettingsIconBadge: View {
                 )
             )
         } else if MangaStyle.isActive {
+            // 周刊印刷：单色墨线图标，不再上彩色底章
             MonologueIcon(
                 icon: icon,
                 size: 15,
-                color: ThemeColorCustomization.mangaExtraColor(suffix: "settingsIcon", lightFallback: "17151F", darkFallback: "17151F"),
+                color: MangaStyle.ink,
                 lineWidth: 1.8
             )
             .frame(width: 32, height: 32)
-            .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(MangaStyle.accentPink)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(MangaStyle.strokeInk, lineWidth: 1.7)
-            )
-            .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(MangaStyle.strokeInk)
-                    .offset(x: 1.8, y: 1.8)
-            )
         } else if NeumorphicStyle.isActive {
             NeumorphicIconBadge(icon: icon, tint: NeumorphicStyle.accent, size: 32)
         } else if SignalStyle.isActive {
@@ -1749,21 +2247,32 @@ struct SettingsIconBadge: View {
         } else if SequoiaStyle.isActive {
             SequoiaIconBadge(icon: icon, tint: SequoiaStyle.accent, size: 32)
         } else if MujiStyle.isActive {
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .fill(MujiStyle.clay.opacity(0.11))
+            Circle()
+                .fill(MujiStyle.wash(MujiStyle.clay, strength: 1.25))
                 .frame(width: 31, height: 31)
                 .overlay(
                     MonologueIcon(
                         icon: icon,
                         size: 14,
                         color: ThemeColorCustomization.visibleTintColor(MujiStyle.clay, darkFallback: MujiStyle.ink),
-                        lineWidth: 1.4
+                        lineWidth: 1.5
                     )
                 )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .stroke(MujiStyle.hairline.opacity(0.5), lineWidth: 0.6)
+        } else if GlobalThemeId.persistedOrDefault == .default {
+            // aside 编辑部风格：单色细线图标 + 发丝描边圆片，去掉彩色底
+            ZStack {
+                Circle()
+                    .fill(Color.monologueGlassTint.opacity(0.5))
+                Circle()
+                    .stroke(Color.monologueSeparator.opacity(0.75), lineWidth: 0.6)
+                MonologueIcon(
+                    icon: icon,
+                    size: 13.5,
+                    color: .monologueTextSecondary,
+                    lineWidth: 1.6
                 )
+            }
+            .frame(width: 30, height: 30)
         } else {
             ZStack {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -1802,22 +2311,55 @@ struct SettingsSection<Content: View>: View {
     let title: String
     @ViewBuilder let content: Content
 
+    /// aside 默认主题（编辑部风格分支）
+    private var isAsideTheme: Bool {
+        GlobalThemeId.persistedOrDefault == .default
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(MinimalWhiteStyle.isActive ? title : title.uppercased())
-                .font(sectionTitleFont)
-                .foregroundColor(sectionTitleColor)
-                .padding(.leading, 16)
-                .tracking(MinimalWhiteStyle.isActive ? 0 : (MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive || BentoStyle.isActive ? 1.0 : 0.4))
+            HStack(spacing: 7) {
+                if isAsideTheme {
+                    // 编辑部 kicker：强调色小竖标
+                    Capsule()
+                        .fill(Color.monologueAccent)
+                        .frame(width: 2.5, height: 9)
+                } else if MujiStyle.isActive {
+                    // Muji：双色圆点眉标
+                    MujiDotMark()
+                }
+
+                Text(MinimalWhiteStyle.isActive ? title : title.uppercased())
+                    .font(sectionTitleFont)
+                    .foregroundColor(sectionTitleColor)
+                    .tracking(MinimalWhiteStyle.isActive ? 0 : (MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive || BentoStyle.isActive ? 1.0 : (isAsideTheme ? 1.1 : 0.4)))
+            }
+            .padding(.leading, isAsideTheme ? 6 : 16)
 
             VStack(spacing: 0) {
                 content
             }
             .background {
                 if MangaStyle.isActive {
-                    MangaCardBackground(cornerRadius: 22, elevated: true, tint: MangaStyle.bubbleWhite)
+                    // 去卡片化：设置分组用上下规则线围合，内容直接排在纸上
+                    VStack(spacing: 0) {
+                        VStack(spacing: 2) {
+                            Rectangle()
+                                .fill(MangaStyle.ink.opacity(0.72))
+                                .frame(height: 1.6)
+                            Rectangle()
+                                .fill(MangaStyle.ink.opacity(0.26))
+                                .frame(height: 0.8)
+                        }
+                        Spacer(minLength: 0)
+                        Rectangle()
+                            .fill(MangaStyle.strokeInk.opacity(0.22))
+                            .frame(height: 1)
+                    }
                 } else if MujiStyle.isActive {
-                    MujiPaperCardBackground(cornerRadius: 15, elevated: false)
+                    // Muji：清新水洗底，柔圆角不描边
+                    RoundedRectangle(cornerRadius: MujiStyle.cardRadius, style: .continuous)
+                        .fill(MujiStyle.wash(MujiStyle.clay, strength: 0.7))
                 } else if NeumorphicStyle.isActive {
                     NeumorphicSurfaceBackground(cornerRadius: 22, elevated: true, lightweight: true)
                 } else if CapsuleStyle.isActive {
@@ -1849,6 +2391,7 @@ struct SettingsSection<Content: View>: View {
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(11, weight: .semibold) }
         if SignalStyle.isActive { return SignalStyle.labelFont(11, weight: .bold) }
         if BentoStyle.isActive { return BentoStyle.labelFont(11, weight: .heavy) }
+        if isAsideTheme { return .system(size: 11, weight: .heavy, design: .rounded) }
         return .system(size: 12, weight: .bold, design: .rounded)
     }
 
@@ -1861,6 +2404,7 @@ struct SettingsSection<Content: View>: View {
         if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
         if SignalStyle.isActive { return SignalStyle.inkSoft }
         if BentoStyle.isActive { return BentoStyle.inkMuted }
+        if isAsideTheme { return Color.monologueTextSecondary.opacity(0.8) }
         return Color.secondary
     }
 }
@@ -1887,7 +2431,8 @@ private extension View {
                 )
             )
         } else if MangaStyle.isActive {
-            background(MangaCardBackground(cornerRadius: cornerRadius, elevated: true, tint: tint))
+            // 设置页唯一焦点分格：开发者卡保留厚墨框错版投影
+            background(MangaCardBackground(cornerRadius: cornerRadius, elevated: true, tint: tint, poster: true))
         } else if PetWhiteStyle.isActive {
             background(
                 PetWhiteSurfaceBackground(
@@ -1898,7 +2443,11 @@ private extension View {
                 )
             )
         } else if MujiStyle.isActive {
-            background(MujiPaperCardBackground(cornerRadius: min(cornerRadius, 14), elevated: true))
+            // Muji：清新水洗底，柔圆角不描边
+            background(
+                RoundedRectangle(cornerRadius: MujiStyle.cardRadius, style: .continuous)
+                    .fill(MujiStyle.wash(MujiStyle.clay, strength: 0.7))
+            )
         } else if NeumorphicStyle.isActive {
             background(NeumorphicSurfaceBackground(cornerRadius: min(max(cornerRadius, 18), 26), elevated: true, lightweight: true))
         } else if CapsuleStyle.isActive {
@@ -2132,7 +2681,7 @@ struct SettingsNavigationRow: View {
     }
 }
 
-private struct SettingsRouteLinkRow: View {
+struct SettingsRouteLinkRow: View {
     let icon: MonologueIcon.IconType
     let title: String
     var subtitle: String? = nil
@@ -2530,9 +3079,9 @@ struct SettingsFloatingBarRow: View {
     @ViewBuilder
     private var selectionPillBackground: some View {
         if MangaStyle.isActive {
-            Capsule()
+            RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
                 .fill(MangaStyle.labelYellow.opacity(0.96))
-                .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: 1.4))
+                .overlay(RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 1.4))
         } else if MujiStyle.isActive {
             Capsule()
                 .fill(MujiStyle.clay.opacity(0.12))
@@ -2560,7 +3109,9 @@ struct SettingsFloatingBarRow: View {
     }
 
     private var selectionPillForeground: Color {
-        if MangaStyle.isActive { return MangaStyle.strokeInk }
+        if MangaStyle.isActive {
+            return ThemeColorCustomization.readableForegroundColor(on: MangaStyle.labelYellow, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk)
+        }
         if MujiStyle.isActive { return MujiStyle.clay }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if CapsuleStyle.isActive { return CapsuleStyle.accent }
@@ -2619,7 +3170,11 @@ private struct SettingsFloatingBarOptionCard: View {
     }
 
     private var titleColor: Color {
-        if MangaStyle.isActive { return MangaStyle.ink }
+        if MangaStyle.isActive {
+            return isSelected
+                ? ThemeColorCustomization.readableForegroundColor(on: MangaStyle.labelYellow, light: MangaStyle.ink, dark: MangaStyle.onStrokeInk)
+                : MangaStyle.ink
+        }
         if MujiStyle.isActive { return isSelected ? MujiStyle.onTint : MujiStyle.ink }
         if BentoStyle.isActive { return isSelected ? BentoStyle.onAccent : BentoStyle.ink }
         if NeumorphicStyle.isActive { return isSelected ? NeumorphicStyle.ink : NeumorphicStyle.inkSoft }
@@ -2630,7 +3185,11 @@ private struct SettingsFloatingBarOptionCard: View {
     }
 
     private var iconColor: Color {
-        if MangaStyle.isActive { return isSelected ? MangaStyle.strokeInk : MangaStyle.inkSub }
+        if MangaStyle.isActive {
+            return isSelected
+                ? ThemeColorCustomization.readableForegroundColor(on: MangaStyle.labelYellow, light: MangaStyle.ink, dark: MangaStyle.onStrokeInk)
+                : MangaStyle.inkSub
+        }
         if MujiStyle.isActive { return isSelected ? MujiStyle.onTint : MujiStyle.clay }
         if BentoStyle.isActive { return isSelected ? BentoStyle.onAccent : BentoStyle.tomato }
         if NeumorphicStyle.isActive { return isSelected ? NeumorphicStyle.accent : NeumorphicStyle.inkSoft }
@@ -2641,7 +3200,9 @@ private struct SettingsFloatingBarOptionCard: View {
     }
 
     private var selectedMarkColor: Color {
-        if MangaStyle.isActive { return MangaStyle.strokeInk }
+        if MangaStyle.isActive {
+            return ThemeColorCustomization.readableForegroundColor(on: MangaStyle.labelYellow, light: MangaStyle.ink, dark: MangaStyle.onStrokeInk)
+        }
         if MujiStyle.isActive { return MujiStyle.onTint }
         if BentoStyle.isActive { return BentoStyle.onAccent }
         if NeumorphicStyle.isActive { return Color(light: .white, dark: .black) }
@@ -2654,16 +3215,9 @@ private struct SettingsFloatingBarOptionCard: View {
     @ViewBuilder
     private var iconBadge: some View {
         if MangaStyle.isActive {
+            // 去卡片化：图标直接排在选项面上，不再包底板
             MonologueIcon(icon: style.iconType, size: 17, color: iconColor, lineWidth: 1.8)
                 .frame(width: 32, height: 32)
-                .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(isSelected ? MangaStyle.bubbleWhite : MangaStyle.paperWarm)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(MangaStyle.strokeInk, lineWidth: 1.5)
-                )
         } else if MujiStyle.isActive {
             MonologueIcon(icon: style.iconType, size: 17, color: iconColor, lineWidth: 1.45)
                 .frame(width: 31, height: 31)
@@ -2785,11 +3339,13 @@ private struct SettingsFloatingBarOptionCard: View {
     @ViewBuilder
     private var cardBackground: some View {
         if MangaStyle.isActive {
-            MangaCardBackground(
-                cornerRadius: cardRadius,
-                elevated: isSelected,
-                tint: isSelected ? MangaStyle.labelYellow : MangaStyle.bubbleWhite
-            )
+            // 去卡片化：选中平涂色块，未选中仅细墨线
+            RoundedRectangle(cornerRadius: cardRadius, style: .continuous)
+                .fill(isSelected ? MangaStyle.labelYellow : Color.clear)
+                .overlay(
+                    RoundedRectangle(cornerRadius: cardRadius, style: .continuous)
+                        .stroke(MangaStyle.strokeInk.opacity(isSelected ? 0 : 0.32), lineWidth: 1)
+                )
         } else if MujiStyle.isActive {
             RoundedRectangle(cornerRadius: cardRadius, style: .continuous)
                 .fill(isSelected ? MujiStyle.clay : MujiStyle.surface)
@@ -3025,7 +3581,7 @@ struct SettingsHitokotoTypeRow: View {
             .padding(.vertical, chipVerticalPadding)
             .foregroundColor(chipForeground(selected: selected))
             .background(chipBackground(selected: selected))
-            .contentShape(Capsule())
+            .contentShape(MangaStyle.isActive ? AnyShape(RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)) : AnyShape(Capsule()))
     }
 
     private var chipHorizontalPadding: CGFloat {
@@ -3039,13 +3595,12 @@ struct SettingsHitokotoTypeRow: View {
     @ViewBuilder
     private func chipBackground(selected: Bool) -> some View {
         if MangaStyle.isActive {
-            Capsule()
-                .fill(selected ? MangaStyle.labelYellow : MangaStyle.bubbleWhite)
-                .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: selected ? 1.7 : 1.2))
-                .background(
-                    Capsule()
-                        .fill(MangaStyle.strokeInk)
-                        .offset(x: selected ? 1.6 : 0, y: selected ? 1.6 : 0)
+            // 去卡片化筛选签：选中实色小章，未选中细墨线轮廓
+            RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
+                .fill(selected ? MangaStyle.labelYellow : Color.clear)
+                .overlay(
+                    RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
+                        .stroke(MangaStyle.strokeInk.opacity(selected ? 0 : 0.35), lineWidth: 1)
                 )
         } else if MujiStyle.isActive {
             Capsule()

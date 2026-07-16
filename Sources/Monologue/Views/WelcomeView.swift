@@ -223,25 +223,20 @@ struct WelcomeView: View {
         VStack(spacing: DeviceLayout.isPad ? 28 : 22) {
             ZStack {
                 RoundedRectangle(cornerRadius: 26, style: .continuous)
-                    .fill(MujiStyle.hairline.opacity(colorScheme == .dark ? 0.24 : 0.22))
+                    .fill(MujiStyle.wash(MujiStyle.tea, strength: colorScheme == .dark ? 1.2 : 1.5))
                     .frame(width: plateSize * 0.86, height: plateSize * 0.94)
                     .offset(x: 10, y: 12)
 
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(MujiStyle.surfaceRaised)
+                    .fill(MujiStyle.surface)
                     .overlay(MujiPaperTexture(opacity: colorScheme == .dark ? 0.08 : 0.14))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 24, style: .continuous)
-                            .stroke(MujiStyle.hairline.opacity(colorScheme == .dark ? 0.58 : 0.72), lineWidth: 0.7)
-                    }
+                    .shadow(color: MujiStyle.ink.opacity(colorScheme == .dark ? 0.0 : 0.07), radius: 14, x: 0, y: 6)
 
-                VStack(spacing: 12) {
+                VStack(spacing: 13) {
                     welcomeLogoImage(size: logoSize)
 
-                    Rectangle()
-                        .fill(MujiStyle.clay.opacity(0.76))
-                        .frame(width: DeviceLayout.isPad ? 72 : 58, height: 1)
-                        .scaleEffect(x: accentScaleX, y: 1)
+                    MujiWelcomeStitchBloom()
+                        .frame(width: plateSize * 0.56, height: 10)
                         .opacity(accentOpacity)
                 }
             }
@@ -257,32 +252,63 @@ struct WelcomeView: View {
     private var mangaHeroSection: some View {
         VStack(spacing: DeviceLayout.isPad ? 28 : 22) {
             ZStack {
-                RoundedRectangle(cornerRadius: plateSize * 0.24, style: .continuous)
-                    .fill(MangaStyle.strokeInk.opacity(0.10))
+                // 硬印刷投影：先朱红错版，再墨版
+                RoundedRectangle(cornerRadius: plateSize * 0.1, style: .continuous)
+                    .fill(MangaStyle.accentPink.opacity(0.9))
                     .frame(width: plateSize * 0.98, height: plateSize * 0.98)
-                    .offset(x: 7, y: 8)
+                    .offset(x: 9, y: 10)
 
-                RoundedRectangle(cornerRadius: plateSize * 0.24, style: .continuous)
-                    .fill(MangaStyle.bubbleWhite.opacity(colorScheme == .dark ? 0.86 : 0.94))
+                RoundedRectangle(cornerRadius: plateSize * 0.1, style: .continuous)
+                    .fill(MangaStyle.strokeInk)
+                    .frame(width: plateSize * 0.98, height: plateSize * 0.98)
+                    .offset(x: 4.5, y: 5)
+
+                RoundedRectangle(cornerRadius: plateSize * 0.1, style: .continuous)
+                    .fill(MangaStyle.bubbleWhite.opacity(colorScheme == .dark ? 0.92 : 0.97))
                     .frame(width: plateSize * 0.98, height: plateSize * 0.98)
                     .overlay(
-                        RoundedRectangle(cornerRadius: plateSize * 0.24, style: .continuous)
-                            .stroke(MangaStyle.strokeInk.opacity(0.84), lineWidth: 1.4)
+                        MangaDotsTexture(opacity: colorScheme == .dark ? 0.03 : 0.024, gap: 12)
+                            .clipShape(RoundedRectangle(cornerRadius: plateSize * 0.1, style: .continuous))
                     )
-                    .shadow(color: MangaStyle.strokeInk.opacity(colorScheme == .dark ? 0.18 : 0.08), radius: 16, x: 0, y: 10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: plateSize * 0.1, style: .continuous)
+                            .stroke(MangaStyle.strokeInk, lineWidth: 2.4)
+                    )
 
                 welcomeLogoImage(size: logoSize * 0.86)
 
+                // 「話数」章节印章：贴在分格右上角
+                Text("VOL.1")
+                    .font(MangaStyle.labelFont(10, weight: .black))
+                    .tracking(1.2)
+                    .foregroundStyle(MangaStyle.onStrokeInk)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                            .fill(MangaStyle.strokeInk)
+                    )
+                    .background(
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                            .fill(MangaStyle.accentPink)
+                            .offset(x: 1.8, y: 1.8)
+                    )
+                    .rotationEffect(.degrees(6))
+                    .offset(x: plateSize * 0.4, y: -plateSize * 0.44)
+                    .opacity(accentOpacity)
+
+                // 印刷色块行：朱红 + 墨 + 网点灰
                 HStack(spacing: 6) {
-                    Capsule().fill(MangaStyle.accentPink.opacity(0.86)).frame(width: 30, height: 5)
-                    Capsule().fill(MangaStyle.labelYellow.opacity(0.78)).frame(width: 18, height: 5)
-                    Capsule().fill(MangaStyle.decoBlue.opacity(0.62)).frame(width: 12, height: 5)
+                    RoundedRectangle(cornerRadius: 1.5).fill(MangaStyle.accentPink).frame(width: 30, height: 5)
+                    RoundedRectangle(cornerRadius: 1.5).fill(MangaStyle.strokeInk.opacity(0.88)).frame(width: 18, height: 5)
+                    RoundedRectangle(cornerRadius: 1.5).fill(MangaStyle.mint.opacity(0.9)).frame(width: 12, height: 5)
                 }
                 .offset(y: plateSize * 0.43)
                 .scaleEffect(x: accentScaleX, y: 1)
                 .opacity(accentOpacity)
             }
             .frame(width: plateSize * 1.12, height: plateSize * 1.12)
+            .rotationEffect(.degrees(-1.2))
             .scaleEffect(plateScale)
             .opacity(plateOpacity)
             .offset(y: plateOffset)
@@ -495,21 +521,6 @@ struct WelcomeView: View {
             )
                 .opacity(subtitleOpacity)
                 .offset(y: subtitleOffset)
-
-            HStack(spacing: 8) {
-                Rectangle()
-                    .fill(MujiStyle.hairline.opacity(0.72))
-                    .frame(width: DeviceLayout.isPad ? 72 : 56, height: 0.7)
-                Circle()
-                    .fill(MujiStyle.clay)
-                    .frame(width: 5, height: 5)
-                Rectangle()
-                    .fill(MujiStyle.hairline.opacity(0.72))
-                    .frame(width: DeviceLayout.isPad ? 72 : 56, height: 0.7)
-            }
-            .scaleEffect(x: accentScaleX, y: 1)
-            .opacity(accentOpacity)
-            .padding(.top, 2)
         }
     }
 
@@ -528,10 +539,10 @@ struct WelcomeView: View {
                 .opacity(subtitleOpacity)
                 .offset(y: subtitleOffset)
 
-            HStack(spacing: 10) {
-                Capsule().fill(MangaStyle.accentPink.opacity(0.86)).frame(width: 34, height: 5)
-                Capsule().fill(MangaStyle.labelYellow.opacity(0.76)).frame(width: 20, height: 5)
-                Capsule().fill(MangaStyle.decoBlue.opacity(0.58)).frame(width: 12, height: 5)
+            HStack(spacing: 8) {
+                RoundedRectangle(cornerRadius: 1.5).fill(MangaStyle.accentPink).frame(width: 34, height: 5)
+                RoundedRectangle(cornerRadius: 1.5).fill(MangaStyle.strokeInk.opacity(0.85)).frame(width: 20, height: 5)
+                RoundedRectangle(cornerRadius: 1.5).fill(MangaStyle.mint.opacity(0.9)).frame(width: 12, height: 5)
             }
             .scaleEffect(x: accentScaleX, y: 1)
             .opacity(accentOpacity)
@@ -1013,55 +1024,154 @@ private struct DefaultWelcomeConstellationDivider: View {
 }
 
 private struct MujiWelcomeBackdrop: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         ZStack {
             MujiRootBackdrop()
 
-            VStack {
-                Rectangle()
-                    .fill(MujiStyle.hairline.opacity(colorScheme == .dark ? 0.2 : 0.26))
-                    .frame(height: 0.7)
-                    .padding(.top, DeviceLayout.isPad ? 140 : 104)
-                Spacer()
-                Rectangle()
-                    .fill(MujiStyle.hairline.opacity(colorScheme == .dark ? 0.16 : 0.2))
-                    .frame(height: 0.7)
-                    .padding(.bottom, DeviceLayout.isPad ? 142 : 112)
+            // 呼吸感水彩晕染:两团色浸随时间极缓慢地涨落(低帧率即可,省电)
+            TimelineView(AppFrameRate.animationTimeline(maximumFramesPerSecond: 24, paused: reduceMotion)) { timeline in
+                let time = reduceMotion ? 0.0 : timeline.date.timeIntervalSinceReferenceDate
+                Canvas { context, size in
+                    let breathA = 0.5 + 0.5 * sin(time * 0.16)
+                    let breathB = 0.5 + 0.5 * sin(time * 0.13 + 2.1)
+                    let strength = colorScheme == .dark ? 0.10 : 0.15
+
+                    let radiusA = size.width * (0.52 + 0.05 * breathA)
+                    let centerA = CGPoint(x: size.width * 0.86, y: size.height * 0.16)
+                    context.fill(
+                        Path(ellipseIn: CGRect(x: centerA.x - radiusA, y: centerA.y - radiusA * 0.82, width: radiusA * 2, height: radiusA * 1.64)),
+                        with: .radialGradient(
+                            Gradient(colors: [MujiStyle.clay.opacity(strength * (0.72 + 0.28 * breathA)), .clear]),
+                            center: centerA,
+                            startRadius: 4,
+                            endRadius: radiusA
+                        )
+                    )
+
+                    let radiusB = size.width * (0.46 + 0.05 * breathB)
+                    let centerB = CGPoint(x: size.width * 0.1, y: size.height * 0.84)
+                    context.fill(
+                        Path(ellipseIn: CGRect(x: centerB.x - radiusB, y: centerB.y - radiusB * 0.85, width: radiusB * 2, height: radiusB * 1.7)),
+                        with: .radialGradient(
+                            Gradient(colors: [MujiStyle.tea.opacity(strength * (0.66 + 0.34 * breathB)), .clear]),
+                            center: centerB,
+                            startRadius: 4,
+                            endRadius: radiusB
+                        )
+                    )
+                }
             }
-            .padding(.horizontal, DeviceLayout.isPad ? 92 : 36)
         }
         .ignoresSafeArea()
     }
 }
 
 private struct MujiWelcomeDecor: View {
-    var body: some View {
-        ZStack {
-            VStack(alignment: .leading, spacing: 9) {
-                ForEach(0 ..< 4, id: \.self) { index in
-                    Rectangle()
-                        .fill((index == 0 ? MujiStyle.clay : MujiStyle.hairline).opacity(index == 0 ? 0.44 : 0.28))
-                        .frame(width: CGFloat(88 - index * 12), height: 1)
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .padding(.leading, DeviceLayout.isPad ? 96 : 38)
-            .padding(.top, DeviceLayout.isPad ? 176 : 136)
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
 
-            VStack(alignment: .trailing, spacing: 9) {
-                ForEach(0 ..< 3, id: \.self) { index in
-                    Rectangle()
-                        .fill((index == 1 ? MujiStyle.tea : MujiStyle.hairline).opacity(index == 1 ? 0.34 : 0.24))
-                        .frame(width: CGFloat(54 + index * 18), height: 1)
+    /// 漂浮的"种籽"点:横向锚点 / 纵向基线 / 尺寸 / 上升速度 / 相位 / 色序
+    private static let motes: [(x: CGFloat, baseY: CGFloat, size: CGFloat, speed: Double, phase: Double, color: Int)] = [
+        (0.12, 0.34, 5.5, 0.020, 0.05, 0),
+        (0.20, 0.78, 4.0, 0.026, 0.42, 1),
+        (0.30, 0.22, 3.0, 0.016, 0.71, 2),
+        (0.44, 0.86, 3.5, 0.022, 0.18, 1),
+        (0.58, 0.16, 4.5, 0.018, 0.55, 0),
+        (0.70, 0.80, 3.0, 0.028, 0.87, 2),
+        (0.80, 0.30, 6.0, 0.015, 0.33, 1),
+        (0.88, 0.68, 4.0, 0.024, 0.62, 0),
+        (0.06, 0.58, 3.0, 0.021, 0.94, 2),
+        (0.94, 0.46, 3.5, 0.019, 0.26, 3),
+    ]
+
+    var body: some View {
+        TimelineView(AppFrameRate.animationTimeline(maximumFramesPerSecond: 30, paused: reduceMotion)) { timeline in
+            let time = reduceMotion ? 0.0 : timeline.date.timeIntervalSinceReferenceDate
+            Canvas { context, size in
+                let palette = [MujiStyle.clay, MujiStyle.tea, MujiStyle.indigo, MujiStyle.straw]
+                let baseAlpha = colorScheme == .dark ? 0.4 : 0.34
+
+                for mote in Self.motes {
+                    // 每颗种籽循环上浮一小段,中途渐显、末尾渐隐
+                    let cycle = (time * mote.speed + mote.phase).truncatingRemainder(dividingBy: 1)
+                    let rise = CGFloat(cycle) * size.height * 0.14
+                    let sway = CGFloat(sin(time * 0.4 + mote.phase * 12)) * 7
+                    let alpha = baseAlpha * sin(cycle * .pi)
+
+                    let center = CGPoint(
+                        x: size.width * mote.x + sway,
+                        y: size.height * mote.baseY - rise
+                    )
+                    let rect = CGRect(
+                        x: center.x - mote.size / 2,
+                        y: center.y - mote.size / 2,
+                        width: mote.size,
+                        height: mote.size
+                    )
+                    context.fill(
+                        Path(ellipseIn: rect),
+                        with: .color(palette[mote.color % palette.count].opacity(alpha))
+                    )
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-            .padding(.trailing, DeviceLayout.isPad ? 104 : 42)
-            .padding(.bottom, DeviceLayout.isPad ? 176 : 136)
         }
         .ignoresSafeArea()
+        .allowsHitTesting(false)
+    }
+}
+
+/// 欢迎页 Logo 下方的针脚线自绘 + 三色圆点错峰弹出
+private struct MujiWelcomeStitchBloom: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var lineProgress: CGFloat = 0
+    @State private var dotsShown = false
+
+    var body: some View {
+        ZStack {
+            MujiStitchLine()
+                .trim(from: 0, to: lineProgress)
+                .stroke(
+                    MujiStyle.separator.opacity(0.65),
+                    style: StrokeStyle(lineWidth: 1.7, lineCap: .round, dash: [0.1, 7])
+                )
+                .frame(height: 2)
+
+            HStack(spacing: 24) {
+                bloomDot(MujiStyle.tea, size: 5, delay: 0.62)
+                bloomDot(MujiStyle.clay, size: 6.5, delay: 0.76)
+                bloomDot(MujiStyle.indigo, size: 5, delay: 0.9)
+            }
+        }
+        .onAppear {
+            if reduceMotion {
+                lineProgress = 1
+                dotsShown = true
+            } else {
+                withAnimation(.easeOut(duration: 0.85).delay(0.3)) {
+                    lineProgress = 1
+                }
+                dotsShown = true
+            }
+        }
+    }
+
+    private func bloomDot(_ tint: Color, size: CGFloat, delay: Double) -> some View {
+        Circle()
+            .fill(tint)
+            .frame(width: size, height: size)
+            .background(
+                Circle()
+                    .fill(MujiStyle.paper)
+                    .frame(width: size + 6, height: size + 6)
+            )
+            .scaleEffect(dotsShown ? 1 : 0.01)
+            .animation(
+                reduceMotion ? .none : .spring(response: 0.42, dampingFraction: 0.56).delay(delay),
+                value: dotsShown
+            )
     }
 }
 
@@ -1277,15 +1387,79 @@ private struct CapsuleWelcomeFloor: View {
 
 private struct MangaWelcomeBackdrop: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        LinearGradient(
-            colors: colorScheme == .dark
-                ? [MangaStyle.paper, MangaStyle.paperWarm, MangaStyle.paperCool.opacity(0.9)]
-                : [MangaStyle.surface, MangaStyle.paper, MangaStyle.paperWarm],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+        ZStack {
+            LinearGradient(
+                colors: colorScheme == .dark
+                    ? [MangaStyle.paper, MangaStyle.paperWarm, MangaStyle.paperCool.opacity(0.9)]
+                    : [MangaStyle.surface, MangaStyle.paper, MangaStyle.paperWarm],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            // 集中線：向中心汇聚的手绘线稿，低帧率「boiling」抖动模拟手绘逐帧
+            MangaConcentrationLines(
+                opacity: colorScheme == .dark ? 0.16 : 0.13,
+                animated: !reduceMotion
+            )
+
+            MangaPaperGrainTexture(opacity: colorScheme == .dark ? 0.05 : 0.07)
+        }
         .ignoresSafeArea()
+    }
+}
+
+/// 漫画集中線：从画面四周向中心收束的放射线，
+/// 以 8fps 更新种子产生轻微「沸腾」抖动，还原手绘逐帧质感。
+private struct MangaConcentrationLines: View {
+    var opacity: Double
+    var animated: Bool
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: animated ? 0.125 : 3600)) { timeline in
+            Canvas { context, size in
+                let center = CGPoint(x: size.width / 2, y: size.height * 0.42)
+                let maxRadius = hypot(size.width, size.height) * 0.62
+                // 中心留白半径：线只画在外圈，中心留给 logo
+                let clearRadius = min(size.width, size.height) * 0.4
+                let lineCount = 52
+                let frameSeed = animated
+                    ? Int(timeline.date.timeIntervalSinceReferenceDate * 8) % 3
+                    : 0
+
+                for index in 0 ..< lineCount {
+                    // 每帧用不同素数扰动角度与线长，形成 boiling 效果
+                    let jitterA = Double((index * 73 + frameSeed * 131) % 100) / 100.0
+                    let jitterB = Double((index * 37 + frameSeed * 97) % 100) / 100.0
+
+                    let baseAngle = Double(index) / Double(lineCount) * .pi * 2
+                    let angle = baseAngle + (jitterA - 0.5) * 0.035
+
+                    let innerRadius = clearRadius * (1 + jitterB * 0.18)
+                    let outerRadius = maxRadius * (0.86 + jitterA * 0.14)
+
+                    var path = Path()
+                    path.move(to: CGPoint(
+                        x: center.x + cos(angle) * innerRadius,
+                        y: center.y + sin(angle) * innerRadius
+                    ))
+                    path.addLine(to: CGPoint(
+                        x: center.x + cos(angle) * outerRadius,
+                        y: center.y + sin(angle) * outerRadius
+                    ))
+
+                    let weight: CGFloat = index % 5 == 0 ? 1.7 : (index % 3 == 0 ? 1.1 : 0.6)
+                    let alpha = opacity * (index % 4 == 0 ? 1 : 0.62)
+                    context.stroke(
+                        path,
+                        with: .color(MangaStyle.strokeInk.opacity(alpha)),
+                        lineWidth: weight
+                    )
+                }
+            }
+        }
+        .allowsHitTesting(false)
     }
 }

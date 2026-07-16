@@ -164,9 +164,21 @@ struct QQMVPlayerView: View {
                     
                     Spacer()
                     
-                    Text("MV")
-                        .font(.rounded(size: 18, weight: .bold))
-                        .foregroundColor(.monologueTextPrimary)
+                    if isAside {
+                        HStack(spacing: 8) {
+                            Capsule()
+                                .fill(Color.monologueAccent)
+                                .frame(width: 16, height: 3)
+                            Text("MV")
+                                .font(.system(size: 13, weight: .heavy, design: .rounded))
+                                .tracking(3.0)
+                                .foregroundColor(.monologueTextPrimary)
+                        }
+                    } else {
+                        Text("MV")
+                            .font(.rounded(size: 18, weight: .bold))
+                            .foregroundColor(.monologueTextPrimary)
+                    }
                     
                     Spacer()
                     Color.clear.frame(width: 40, height: 40)
@@ -207,17 +219,24 @@ struct QQMVPlayerView: View {
 
     
     // MARK: - 视频区域
-    
+
+    /// aside 编辑部风格：默认主题走平排编辑部版式
+    private var isAside: Bool {
+        !ThemedPageStyle.isActive
+    }
+
     private var videoSection: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color.black)
+        let radius: CGFloat = isAside ? 18 : 20
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+
+        return ZStack {
+            shape.fill(Color.black)
             
             if viewModel.videoUrl != nil {
                 AVPlayerVideoView(player: mvPlayerWrapper.player)
-                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .clipShape(shape)
                 videoControlsOverlay(fullscreen: false)
-                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .clipShape(shape)
             } else if let error = viewModel.errorMessage {
                 VStack(spacing: 14) {
                     MonologueIcon(icon: .warning, size: 32, color: .white.opacity(0.4))
@@ -239,8 +258,13 @@ struct QQMVPlayerView: View {
             }
         }
         .aspectRatio(16/9, contentMode: .fit)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .shadow(color: .black.opacity(0.12), radius: 12, x: 0, y: 6)
+        .clipShape(shape)
+        .overlay {
+            if isAside {
+                shape.stroke(Color.monologueSeparator.opacity(0.9), lineWidth: 0.8)
+            }
+        }
+        .shadow(color: .black.opacity(isAside ? 0 : 0.12), radius: 12, x: 0, y: 6)
         .padding(.horizontal, 24)
         .padding(.top, 4)
     }
@@ -251,26 +275,52 @@ struct QQMVPlayerView: View {
         VStack(alignment: .leading, spacing: 12) {
             // 标题行
             HStack(alignment: .top, spacing: 10) {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 8) {
-                        PlatformBadgeLabel(text: "QCM", source: .qqmusic, fontSize: 10)
-                        
+                VStack(alignment: .leading, spacing: isAside ? 8 : 6) {
+                    if isAside {
+                        HStack(spacing: 8) {
+                            Capsule()
+                                .fill(Color.monologueAccent)
+                                .frame(width: 18, height: 3)
+
+                            Text("NOW SHOWING")
+                                .font(.system(size: 10, weight: .heavy, design: .rounded))
+                                .tracking(2.2)
+                                .foregroundColor(.monologueTextSecondary.opacity(0.72))
+
+                            PlatformBadgeLabel(text: "QCM", source: .qqmusic, fontSize: 10)
+                        }
+
                         Text(viewModel.mvDetail?.name ?? String(localized: "qqmv_loading"))
-                            .font(.rounded(size: 20, weight: .bold))
+                            .font(.rounded(size: 22, weight: .bold))
                             .foregroundColor(.monologueTextPrimary)
                             .lineLimit(2)
+                    } else {
+                        HStack(spacing: 8) {
+                            PlatformBadgeLabel(text: "QCM", source: .qqmusic, fontSize: 10)
+                            
+                            Text(viewModel.mvDetail?.name ?? String(localized: "qqmv_loading"))
+                                .font(.rounded(size: 20, weight: .bold))
+                                .foregroundColor(.monologueTextPrimary)
+                                .lineLimit(2)
+                        }
                     }
                     
-                    HStack(spacing: 10) {
+                    HStack(spacing: isAside ? 8 : 10) {
                         if let singer = viewModel.mvDetail?.singerName {
                             Text(singer)
-                                .font(.rounded(size: 14))
+                                .font(.rounded(size: isAside ? 13.5 : 14, weight: isAside ? .medium : .regular))
                                 .foregroundColor(.monologueTextSecondary)
                         }
                         
                         if let playCount = viewModel.mvDetail?.playCountText, !playCount.isEmpty {
-                            Text("·")
-                                .foregroundColor(.monologueTextSecondary.opacity(0.4))
+                            if isAside {
+                                Rectangle()
+                                    .fill(Color.monologueSeparator.opacity(0.9))
+                                    .frame(width: 0.7, height: 10)
+                            } else {
+                                Text("·")
+                                    .foregroundColor(.monologueTextSecondary.opacity(0.4))
+                            }
                             Text(playCount + String(localized: "qqmv_play_suffix"))
                                 .font(.rounded(size: 12))
                                 .foregroundColor(.monologueTextSecondary.opacity(0.6))
@@ -317,14 +367,34 @@ struct QQMVPlayerView: View {
     
     private var relatedMVsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text("qqmv_more_mv")
-                    .font(.rounded(size: 18, weight: .bold))
-                    .foregroundColor(.monologueTextPrimary)
+            HStack(alignment: isAside ? .firstTextBaseline : .center) {
+                if isAside {
+                    VStack(alignment: .leading, spacing: 7) {
+                        HStack(spacing: 8) {
+                            Capsule()
+                                .fill(Color.monologueAccent)
+                                .frame(width: 18, height: 3)
+
+                            Text("MORE FROM ARTIST")
+                                .font(.system(size: 10, weight: .heavy, design: .rounded))
+                                .tracking(2.2)
+                                .foregroundColor(.monologueTextSecondary.opacity(0.72))
+                        }
+
+                        Text("qqmv_more_mv")
+                            .font(.system(size: 20, weight: .bold, design: .rounded))
+                            .foregroundColor(.monologueTextPrimary)
+                    }
+                } else {
+                    Text("qqmv_more_mv")
+                        .font(.rounded(size: 18, weight: .bold))
+                        .foregroundColor(.monologueTextPrimary)
+                }
                 Spacer()
                 Text(String(format: String(localized: "qqmv_mv_count"), viewModel.relatedMVs.count))
                     .font(.rounded(size: 13))
                     .foregroundColor(.monologueTextSecondary)
+                    .monospacedDigit()
             }
             .padding(.horizontal, 24)
             
@@ -335,30 +405,44 @@ struct QQMVPlayerView: View {
                         Button(action: { switchToMV(mv) }) {
                             VStack(alignment: .leading, spacing: 6) {
                                 ZStack(alignment: .bottomTrailing) {
-                                    if let urlStr = mv.coverUrl, let url = URL(string: urlStr) {
-                                        CachedAsyncImage(url: url) {
+                                    Group {
+                                        if let urlStr = mv.coverUrl, let url = URL(string: urlStr) {
+                                            CachedAsyncImage(url: url) {
+                                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                                    .fill(Color.monologueTextSecondary.opacity(0.06))
+                                            }
+                                            .aspectRatio(16/9, contentMode: .fill)
+                                            .frame(width: 180, height: 100)
+                                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                        } else {
                                             RoundedRectangle(cornerRadius: 12, style: .continuous)
                                                 .fill(Color.monologueTextSecondary.opacity(0.06))
+                                                .frame(width: 180, height: 100)
+                                                .overlay {
+                                                    MonologueIcon(icon: .play, size: 24, color: .monologueTextSecondary.opacity(0.3))
+                                                }
                                         }
-                                        .aspectRatio(16/9, contentMode: .fill)
-                                        .frame(width: 180, height: 100)
-                                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                                    } else {
-                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                            .fill(Color.monologueTextSecondary.opacity(0.06))
-                                            .frame(width: 180, height: 100)
-                                            .overlay {
-                                                MonologueIcon(icon: .play, size: 24, color: .monologueTextSecondary.opacity(0.3))
-                                            }
+                                    }
+                                    .overlay {
+                                        if isAside {
+                                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                                .stroke(Color.monologueSeparator.opacity(0.9), lineWidth: 0.8)
+                                        }
                                     }
                                     
                                     if !mv.durationText.isEmpty {
                                         Text(mv.durationText)
                                             .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                                            .foregroundColor(.primary)
+                                            .foregroundColor(isAside ? .white : .primary)
                                             .padding(.horizontal, 5)
                                             .padding(.vertical, 2)
-                                            .background(.clear).monologueGlassCapsule()
+                                            .background {
+                                                if isAside {
+                                                    Capsule().fill(Color.black.opacity(0.55))
+                                                } else {
+                                                    Color.clear.monologueGlassCapsule()
+                                                }
+                                            }
                                             .padding(6)
                                     }
                                 }

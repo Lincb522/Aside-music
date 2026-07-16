@@ -28,7 +28,7 @@ struct GlobalPlaybackProgressBar: View {
     private var resolvedTrackColor: Color {
         if let trackColor { return trackColor }
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(colorScheme == .dark ? 0.20 : 0.13) }
-        if MujiStyle.isActive { return MujiStyle.hairline.opacity(colorScheme == .dark ? 0.42 : 0.34) }
+        if MujiStyle.isActive { return MujiStyle.separator.opacity(colorScheme == .dark ? 0.5 : 0.45) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(colorScheme == .dark ? 0.52 : 0.38) }
         if CapsuleStyle.isActive { return CapsuleStyle.separator.opacity(colorScheme == .dark ? 0.58 : 0.44) }
         if SequoiaStyle.isActive { return SequoiaStyle.separator.opacity(colorScheme == .dark ? 0.54 : 0.42) }

@@ -29,6 +29,7 @@ struct PlaylistDetailView: View {
     @State private var isSelectMode = false
     @State private var selectedSongIds: Set<Int> = []
     @State private var showBatchAddToPlaylist = false
+    @State private var showPlaylistDesc = false
 
     init(playlist: Playlist, songs: [Song]? = nil, bannerCoverURLString: String? = nil) {
         self.playlist = playlist
@@ -47,6 +48,16 @@ struct PlaylistDetailView: View {
 
     private var petWhiteDetailHorizontalPadding: CGFloat {
         DeviceLayout.isPad ? 8 : 4
+    }
+
+    /// aside(default) 及无独立分支主题走歌手页式 Hero 头部
+    private var usesAsideHero: Bool {
+        bannerCoverURL == nil
+            && !MinimalWhiteStyle.isActive && !PetWhiteStyle.isActive
+            && !MangaStyle.isActive && !NeumorphicStyle.isActive
+            && !SignalStyle.isActive && !MujiStyle.isActive
+            && !CapsuleStyle.isActive && !BentoStyle.isActive
+            && !SequoiaStyle.isActive
     }
 
     var body: some View {
@@ -77,8 +88,13 @@ struct PlaylistDetailView: View {
 
             ScrollView {
                 VStack(spacing: 0) {
-                    playlistHeaderContent
-                        .monologuePageHeaderCollapse()
+                    if usesAsideHero {
+                        // Hero 头部自带拉伸/视差，不叠加收缩动效
+                        playlistHeaderContent
+                    } else {
+                        playlistHeaderContent
+                            .monologuePageHeaderCollapse()
+                    }
                     PlaylistSearchBar(
                         searchText: $searchText,
                         isSearching: $isSearching,
@@ -102,6 +118,8 @@ struct PlaylistDetailView: View {
             }
             .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
+            .monologueScrollOffset($scrollOffset)
+            .ignoresSafeArea(edges: usesAsideHero ? .top : [])
         }
         .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -149,6 +167,14 @@ struct PlaylistDetailView: View {
             let selected = filteredSongs.filter { selectedSongIds.contains($0.id) }
             BatchAddToPlaylistSheet(songs: selected)
         }
+        .monologueSheet(isPresented: $showPlaylistDesc, preset: .standard){
+            PlaylistDescSheet(
+                coverUrl: playlist.coverUrl?.sized(200),
+                title: viewModel.playlistDetail?.name ?? playlist.name,
+                subtitle: playlist.creator?.nickname,
+                descriptionText: viewModel.playlistDetail?.description ?? playlist.description
+            )
+        }
     }
 
     private func batchDownloadSelected() {
@@ -194,106 +220,80 @@ struct PlaylistDetailView: View {
         } else if SequoiaStyle.isActive {
             sequoiaPlaylistHeaderContent
         } else {
-            VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 16) {
-                CachedAsyncImage(url: playlist.coverUrl?.sized(400)) {
-                    Color.gray.opacity(0.1)
+            AsideDetailHeroHeader(
+                coverUrl: playlist.coverUrl?.sized(800),
+                title: viewModel.playlistDetail?.name ?? playlist.name,
+                metaItems: asideHeroMetaItems,
+                descriptionText: viewModel.playlistDetail?.description ?? playlist.description,
+                onDescriptionTap: { showPlaylistDesc = true },
+                scrollOffset: scrollOffset,
+                playAllDisabled: viewModel.songs.isEmpty,
+                onPlayAll: {
+                    if let first = viewModel.songs.first {
+                        PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                        viewModel.loadAllRemainingToQueue()
+                    }
                 }
-                .aspectRatio(contentMode: .fill)
-                .frame(width: DeviceLayout.isPad ? 180 : 120, height: DeviceLayout.isPad ? 180 : 120)
-                .cornerRadius(DeviceLayout.isPad ? 20 : 16)
-                .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(viewModel.playlistDetail?.name ?? playlist.name)
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
-                        .foregroundColor(Theme.text)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                if let creator = viewModel.playlistDetail?.creator?.nickname ?? playlist.creator?.nickname {
-                    Text(String(format: NSLocalizedString("created_by_format", comment: ""), creator))
-                        .font(.system(size: 13))
-                        .foregroundColor(Theme.secondaryText)
-                        .lineLimit(1)
-                }
-
-                Spacer().frame(height: 4)
-
-                    HStack(spacing: 8) {
-                        Button(action: {
-                            if let first = viewModel.songs.first {
-                                PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
-                                viewModel.loadAllRemainingToQueue()
-                            }
-                        }) {
-                            HStack(spacing: 6) {
-                                MonologueIcon(icon: .play, size: 12, color: .monologueIconForeground)
-                                Text(LocalizedStringKey("play_now"))
-                                    .font(.system(size: 12, weight: .bold))
-                            }
-                            .foregroundColor(.monologueIconForeground)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(Theme.accent)
-                            .cornerRadius(20)
-                            .monologueGlassCapsule()
-                            .shadow(color: Theme.accent.opacity(0.2), radius: 5, x: 0, y: 2)
-                        }
-                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
-
-                        // 收藏歌单按钮
-                        if playlist.creator?.userId != APIService.shared.currentUserId {
-                            let serverSubscribed = !playlist.isQQMusic && subManager.isPlaylistSubscribed(playlist.id)
-                            SubscribeButton(
-                                isSubscribed: isCollectedLocally || serverSubscribed,
-                                action: {
-                                    if playlist.isQQMusic {
-                                        guard !isCollectedLocally, !viewModel.songs.isEmpty else { return }
-                                        let name = viewModel.playlistDetail?.name ?? playlist.name
-                                        Task {
-                                            let allSongs = await viewModel.loadAllRemainingAsync()
-                                            LocalPlaylistManager.shared.importPlaylist(name: name, songs: allSongs)
-                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                                isCollectedLocally = true
-                                            }
-                                        }
-                                    } else {
-                                        showCollectOptions = true
+            ) {
+                // 收藏歌单按钮
+                if playlist.creator?.userId != APIService.shared.currentUserId {
+                    let serverSubscribed = !playlist.isQQMusic && subManager.isPlaylistSubscribed(playlist.id)
+                    SubscribeButton(
+                        isSubscribed: isCollectedLocally || serverSubscribed,
+                        action: {
+                            if playlist.isQQMusic {
+                                guard !isCollectedLocally, !viewModel.songs.isEmpty else { return }
+                                let name = viewModel.playlistDetail?.name ?? playlist.name
+                                Task {
+                                    let allSongs = await viewModel.loadAllRemainingAsync()
+                                    LocalPlaylistManager.shared.importPlaylist(name: name, songs: allSongs)
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                        isCollectedLocally = true
                                     }
                                 }
-                            )
-                            .disabled((playlist.isQQMusic && (isCollectedLocally || viewModel.songs.isEmpty)))
-                            .confirmationDialog(String(localized: "收藏歌单"), isPresented: $showCollectOptions, titleVisibility: .visible) {
-                                Button(String(localized: "收藏到本地")) {
-                                    guard !isCollectedLocally, !viewModel.songs.isEmpty else { return }
-                                    let name = viewModel.playlistDetail?.name ?? playlist.name
-                                    Task {
-                                        let allSongs = await viewModel.loadAllRemainingAsync()
-                                        LocalPlaylistManager.shared.importPlaylist(name: name, songs: allSongs)
-                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                            isCollectedLocally = true
-                                        }
-                                    }
-                                }
-                                .disabled(isCollectedLocally || viewModel.songs.isEmpty)
-
-                                Button(subManager.isPlaylistSubscribed(playlist.id) ? String(localized: "取消订阅") : String(localized: "playlist_subscribe_to_ncm")) {
-                                    subManager.togglePlaylistSubscription(id: playlist.id)
-                                }
-
-                                Button(String(localized: "取消"), role: .cancel) {}
+                            } else {
+                                showCollectOptions = true
                             }
                         }
+                    )
+                    .disabled((playlist.isQQMusic && (isCollectedLocally || viewModel.songs.isEmpty)))
+                    .confirmationDialog(String(localized: "收藏歌单"), isPresented: $showCollectOptions, titleVisibility: .visible) {
+                        Button(String(localized: "收藏到本地")) {
+                            guard !isCollectedLocally, !viewModel.songs.isEmpty else { return }
+                            let name = viewModel.playlistDetail?.name ?? playlist.name
+                            Task {
+                                let allSongs = await viewModel.loadAllRemainingAsync()
+                                LocalPlaylistManager.shared.importPlaylist(name: name, songs: allSongs)
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    isCollectedLocally = true
+                                }
+                            }
+                        }
+                        .disabled(isCollectedLocally || viewModel.songs.isEmpty)
+
+                        Button(subManager.isPlaylistSubscribed(playlist.id) ? String(localized: "取消订阅") : String(localized: "playlist_subscribe_to_ncm")) {
+                            subManager.togglePlaylistSubscription(id: playlist.id)
+                        }
+
+                        Button(String(localized: "取消"), role: .cancel) {}
                     }
                 }
             }
+            .padding(.bottom, DeviceLayout.isPad ? 20 : 12)
+            .iPadContentWidth(900)
         }
-        .padding(.horizontal, DeviceLayout.isPad ? 40 : 24)
-        .padding(.top, DeviceLayout.isPad ? 24 : 16)
-        .padding(.bottom, DeviceLayout.isPad ? 32 : 24)
-        .iPadContentWidth(900)
+    }
+
+    /// Hero 头部元信息：创建者 + 曲目数 + 播放量
+    private var asideHeroMetaItems: [String] {
+        var items: [String] = []
+        if let creator = viewModel.playlistDetail?.creator?.nickname ?? playlist.creator?.nickname {
+            items.append(String(format: NSLocalizedString("created_by_format", comment: ""), creator))
         }
+        if let count = viewModel.playlistDetail?.trackCount ?? playlist.trackCount {
+            items.append("\(count) \(String(localized: "songs_unit"))")
+        }
+        return items
     }
 
     private var minimalWhitePlaylistHeaderContent: some View {
@@ -844,16 +844,20 @@ struct PlaylistDetailView: View {
         Button(action: playBannerPlaylist) {
             if MangaStyle.isActive {
                 HStack(spacing: 7) {
-                    MonologueIcon(icon: .play, size: 12, color: MangaStyle.strokeInk, lineWidth: 2)
+                    MonologueIcon(icon: .play, size: 12, color: MangaStyle.onStrokeInk, lineWidth: 2)
                     Text(LocalizedStringKey("play_now"))
                         .font(MangaStyle.labelFont(12, weight: .black))
+                        .tracking(0.6)
                 }
-                .foregroundColor(MangaStyle.strokeInk)
+                .foregroundColor(MangaStyle.onStrokeInk)
                 .padding(.horizontal, 15)
                 .padding(.vertical, 10)
-                .background(Capsule().fill(MangaStyle.labelYellow))
-                .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: 1.5))
-                .background(Capsule().fill(MangaStyle.strokeInk).offset(x: 2, y: 2))
+                .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(MangaStyle.strokeInk))
+                .background(
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .fill(MangaStyle.accentPink)
+                        .offset(x: 2.5, y: 2.5)
+                )
             } else if NeumorphicStyle.isActive {
                 NeumorphicPlayPill(title: String(localized: "play_now"), tint: NeumorphicStyle.accent)
             } else if SignalStyle.isActive {
@@ -927,7 +931,7 @@ struct PlaylistDetailView: View {
     }
 
     private var bannerArtworkRadius: CGFloat {
-        if MangaStyle.isActive { return 16 }
+        if MangaStyle.isActive { return MangaStyle.cardRadius }
         if MujiStyle.isActive { return 12 }
         if NeumorphicStyle.isActive { return 22 }
         if SignalStyle.isActive { return 24 }
@@ -936,7 +940,7 @@ struct PlaylistDetailView: View {
     }
 
     private var bannerHeaderRadius: CGFloat {
-        if MangaStyle.isActive { return 22 }
+        if MangaStyle.isActive { return MangaStyle.cardRadius + 4 }
         if MujiStyle.isActive { return 14 }
         if NeumorphicStyle.isActive { return 28 }
         if SignalStyle.isActive { return 30 }
@@ -1009,7 +1013,9 @@ struct PlaylistDetailView: View {
         if MangaStyle.isActive {
             MangaCardBackground(cornerRadius: bannerHeaderRadius, elevated: true, tint: MangaStyle.bubbleWhite)
         } else if MujiStyle.isActive {
-            MujiPaperCardBackground(cornerRadius: bannerHeaderRadius, elevated: true)
+            // Muji：清新水洗底
+            RoundedRectangle(cornerRadius: bannerHeaderRadius, style: .continuous)
+                .fill(MujiStyle.wash(MujiStyle.clay, strength: 0.8))
         } else if NeumorphicStyle.isActive {
             NeumorphicSurfaceBackground(cornerRadius: bannerHeaderRadius, elevated: true)
         } else if SignalStyle.isActive {
@@ -1027,9 +1033,6 @@ struct PlaylistDetailView: View {
         if MangaStyle.isActive {
             RoundedRectangle(cornerRadius: bannerHeaderRadius, style: .continuous)
                 .stroke(MangaStyle.strokeInk, lineWidth: 1.8)
-        } else if MujiStyle.isActive {
-            RoundedRectangle(cornerRadius: bannerHeaderRadius, style: .continuous)
-                .stroke(MujiStyle.hairline.opacity(0.58), lineWidth: 0.7)
         } else if NeumorphicStyle.isActive {
             RoundedRectangle(cornerRadius: bannerHeaderRadius, style: .continuous)
                 .stroke(NeumorphicStyle.separator.opacity(0.32), lineWidth: 0.8)
@@ -1286,50 +1289,106 @@ struct PlaylistDetailView: View {
         }
     }
 
+    /// Muji：杂志特辑页 —— 眉题行 + 跨页封面图 + 衬线大标题 + 署名行 + 图注式简介
     private var mujiPlaylistHeaderContent: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 8) {
-                    MujiPill(text: "PLAYLIST", tint: MujiStyle.clay)
-                    if let count = viewModel.playlistDetail?.trackCount ?? playlist.trackCount {
-                        MujiPill(text: "\(count) \(String(localized: "songs_unit"))", tint: MujiStyle.tea)
-                    }
-                    if let playCount = playlist.playCount, playCount > 0 {
-                        MujiPill(text: formatCount(playCount), tint: MujiStyle.indigo)
-                    }
-                }
+        VStack(alignment: .leading, spacing: 0) {
+            // 眉题行
+            HStack(alignment: .center, spacing: 8) {
+                MujiDotMark()
 
-                Text(viewModel.playlistDetail?.name ?? playlist.name)
-                    .font(MujiStyle.titleFont(DeviceLayout.isPad ? 32 : 28, weight: .regular))
-                    .foregroundStyle(MujiStyle.ink)
-                    .lineLimit(3)
-                    .fixedSize(horizontal: false, vertical: true)
+                Text("PLAYLIST")
+                    .font(MujiStyle.labelFont(10, weight: .semibold))
+                    .foregroundStyle(MujiStyle.clay)
+                    .tracking(2.2)
+                    .fixedSize()
 
-                if let creator = viewModel.playlistDetail?.creator?.nickname ?? playlist.creator?.nickname {
-                    Text(String(format: NSLocalizedString("created_by_format", comment: ""), creator))
-                        .font(MujiStyle.labelFont(12, weight: .regular))
-                        .foregroundStyle(MujiStyle.inkSoft)
-                        .lineLimit(1)
+                Spacer(minLength: 8)
+
+                if let count = viewModel.playlistDetail?.trackCount ?? playlist.trackCount {
+                    Text("\(count) \(String(localized: "songs_unit"))")
+                        .font(MujiStyle.labelFont(10, weight: .semibold))
+                        .foregroundStyle(MujiStyle.inkMuted)
+                        .tracking(1.1)
+                        .fixedSize()
                 }
             }
             .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
 
-            VStack(alignment: .leading, spacing: 14) {
-                CachedAsyncImage(url: playlist.coverUrl?.sized(500)) {
-                    MujiStyle.surfaceRaised
-                }
-                .aspectRatio(contentMode: .fill)
-                .frame(width: DeviceLayout.isPad ? 230 : 190, height: DeviceLayout.isPad ? 230 : 190)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(MujiStyle.hairline.opacity(0.62), lineWidth: 0.65)
-                )
-                .shadow(color: Color.black.opacity(0.055), radius: 10, x: 0, y: 5)
+            // 跨页封面图
+            CachedAsyncImage(url: playlist.coverUrl?.sized(800)) {
+                Rectangle().fill(MujiStyle.wash(MujiStyle.clay))
             }
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.vertical, 4)
+            .aspectRatio(contentMode: .fill)
+            .frame(maxWidth: .infinity)
+            .frame(height: DeviceLayout.isPad ? 300 : 216)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .shadow(color: MujiStyle.ink.opacity(0.08), radius: 12, x: 0, y: 6)
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, 14)
 
+            // 标题与署名
+            VStack(alignment: .leading, spacing: 8) {
+                Text(viewModel.playlistDetail?.name ?? playlist.name)
+                    .font(MujiStyle.titleFont(DeviceLayout.isPad ? 30 : 26, weight: .regular))
+                    .foregroundStyle(MujiStyle.ink)
+                    .lineSpacing(4)
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 12) {
+                    if let creator = viewModel.playlistDetail?.creator?.nickname ?? playlist.creator?.nickname {
+                        Text(String(format: NSLocalizedString("created_by_format", comment: ""), creator))
+                            .font(MujiStyle.labelFont(11, weight: .medium))
+                            .foregroundStyle(MujiStyle.inkSoft)
+                            .lineLimit(1)
+                    }
+
+                    if let playCount = playlist.playCount, playCount > 0 {
+                        HStack(spacing: 5) {
+                            Circle()
+                                .fill(MujiStyle.clay.opacity(0.85))
+                                .frame(width: 3.5, height: 3.5)
+
+                            Text(formatCount(playCount))
+                                .font(MujiStyle.labelFont(10.5, weight: .semibold))
+                                .foregroundStyle(MujiStyle.inkMuted)
+                                .tracking(0.8)
+                        }
+                    }
+
+                    Spacer(minLength: 0)
+                }
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, 16)
+
+            // 简介作图注：左侧陶土竖线 + 衬线弱化文字，可点开全文
+            if let desc = (viewModel.playlistDetail?.description ?? playlist.description)?
+                .trimmingCharacters(in: .whitespacesAndNewlines), !desc.isEmpty {
+                Button(action: { showPlaylistDesc = true }) {
+                    HStack(alignment: .top, spacing: 11) {
+                        Rectangle()
+                            .fill(MujiStyle.clay.opacity(0.8))
+                            .frame(width: 2)
+                            .padding(.vertical, 2)
+
+                        Text(desc.replacingOccurrences(of: "\n", with: " "))
+                            .font(MujiStyle.bodyFont(12.5, weight: .regular))
+                            .foregroundStyle(MujiStyle.inkSoft)
+                            .lineSpacing(4)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+
+                        Spacer(minLength: 0)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                .padding(.top, 12)
+            }
+
+            // 动作行
             HStack(spacing: 10) {
                 Button(action: {
                     if let first = viewModel.songs.first {
@@ -1370,13 +1429,17 @@ struct PlaylistDetailView: View {
                     )
                     .disabled((playlist.isQQMusic && (isCollectedLocally || viewModel.songs.isEmpty)))
                 }
+
+                Spacer(minLength: 0)
             }
             .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, 16)
 
             MujiListDivider()
                 .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                .padding(.top, 18)
         }
-        .padding(.top, DeviceLayout.isPad ? 28 : 18)
+        .padding(.top, DeviceLayout.isPad ? 24 : 14)
         .padding(.bottom, 12)
         .iPadContentWidth(900)
         .confirmationDialog(String(localized: "收藏歌单"), isPresented: $showCollectOptions, titleVisibility: .visible) {
@@ -1543,13 +1606,13 @@ struct PlaylistDetailView: View {
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(width: DeviceLayout.isPad ? 170 : 124, height: DeviceLayout.isPad ? 170 : 124)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: MangaStyle.cardRadius, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    RoundedRectangle(cornerRadius: MangaStyle.cardRadius, style: .continuous)
                         .stroke(MangaStyle.strokeInk, lineWidth: 2.2)
                 )
                 .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    RoundedRectangle(cornerRadius: MangaStyle.cardRadius, style: .continuous)
                         .fill(MangaStyle.strokeInk)
                         .offset(x: 3, y: 3)
                 )
@@ -1561,10 +1624,7 @@ struct PlaylistDetailView: View {
                         MangaLabel(text: "PLAYLIST", tint: MangaStyle.labelYellow, small: true)
                     }
 
-                    Text(viewModel.playlistDetail?.name ?? playlist.name)
-                        .font(MangaStyle.titleFont(DeviceLayout.isPad ? 26 : 22, weight: .black))
-                        .foregroundColor(MangaStyle.ink)
-                        .lineLimit(3)
+                    MangaMisprintTitle(text: viewModel.playlistDetail?.name ?? playlist.name, size: DeviceLayout.isPad ? 26 : 22)
                         .fixedSize(horizontal: false, vertical: true)
 
                     if let creator = viewModel.playlistDetail?.creator?.nickname ?? playlist.creator?.nickname {
@@ -1594,16 +1654,20 @@ struct PlaylistDetailView: View {
                     }
                 }) {
                     HStack(spacing: 7) {
-                        MonologueIcon(icon: .play, size: 12, color: MangaStyle.strokeInk, lineWidth: 2)
+                        MonologueIcon(icon: .play, size: 12, color: MangaStyle.onStrokeInk, lineWidth: 2)
                         Text(LocalizedStringKey("play_now"))
                             .font(MangaStyle.labelFont(12, weight: .black))
+                            .tracking(0.6)
                     }
-                    .foregroundColor(MangaStyle.strokeInk)
+                    .foregroundColor(MangaStyle.onStrokeInk)
                     .padding(.horizontal, 15)
                     .padding(.vertical, 10)
-                    .background(Capsule().fill(MangaStyle.labelYellow))
-                    .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: 1.5))
-                    .background(Capsule().fill(MangaStyle.strokeInk).offset(x: 2, y: 2))
+                    .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(MangaStyle.strokeInk))
+                    .background(
+                        RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            .fill(MangaStyle.accentPink)
+                            .offset(x: 2.5, y: 2.5)
+                    )
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
 
@@ -1632,7 +1696,10 @@ struct PlaylistDetailView: View {
             }
         }
         .padding(16)
-        .background(MangaCardBackground(cornerRadius: 22, elevated: true, tint: MangaStyle.bubbleWhite))
+        .background(
+            // 歌单详情页唯一焦点分格：保留厚墨框错版投影
+            MangaCardBackground(cornerRadius: MangaStyle.cardRadius + 4, elevated: true, tint: MangaStyle.bubbleWhite, poster: true)
+        )
         .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
         .padding(.top, DeviceLayout.isPad ? 28 : 18)
         .padding(.bottom, 12)
@@ -2043,8 +2110,8 @@ struct PlaylistDetailView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: relatedPlaylistCoverRadius, style: .continuous))
                                 .overlay {
                                     if MangaStyle.isActive {
-                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                            .stroke(MangaStyle.strokeInk, lineWidth: 1.4)
+                                        RoundedRectangle(cornerRadius: relatedPlaylistCoverRadius, style: .continuous)
+                                            .stroke(MangaStyle.strokeInk.opacity(0.7), lineWidth: 1)
                                     } else if MujiStyle.isActive {
                                         RoundedRectangle(cornerRadius: 8, style: .continuous)
                                             .stroke(MujiStyle.hairline.opacity(0.55), lineWidth: 0.6)
@@ -2072,12 +2139,11 @@ struct PlaylistDetailView: View {
                                     .lineLimit(1)
                                     .frame(width: 130, alignment: .leading)
                             }
-                            .padding(ThemedPageStyle.isActive ? 8 : 0)
+                            .padding(ThemedPageStyle.isActive && !MangaStyle.isActive ? 8 : 0)
                             .background {
                                 if MangaStyle.isActive {
-                                    MangaCardBackground(cornerRadius: 14, elevated: true, tint: MangaStyle.bubbleWhite)
-                                } else if MujiStyle.isActive {
-                                    MujiPaperCardBackground(cornerRadius: 10)
+                                    // 去卡片化：相关歌单直接排在纸上
+                                    EmptyView()
                                 } else if NeumorphicStyle.isActive {
                                     NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, lightweight: true)
                                 } else if SignalStyle.isActive {
@@ -2103,7 +2169,7 @@ struct PlaylistDetailView: View {
 
     private var relatedPlaylistCoverRadius: CGFloat {
         if MinimalWhiteStyle.isActive { return 12 }
-        if MangaStyle.isActive { return 8 }
+        if MangaStyle.isActive { return MangaStyle.cardRadius }
         if MujiStyle.isActive { return 8 }
         if NeumorphicStyle.isActive { return 16 }
         if SignalStyle.isActive { return 18 }
@@ -2153,6 +2219,93 @@ struct PlaylistDetailView: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         if SignalStyle.isActive { return SignalStyle.inkSoft }
         return .monologueTextSecondary
+    }
+}
+
+// MARK: - 歌单简介 Sheet（aside）
+
+/// 歌单 / 本地歌单详情页共用的介绍弹层，与歌手简介同一交互：
+/// 头部封面 + 名称 + 创建者，下方滚动阅读完整介绍
+struct PlaylistDescSheet: View {
+    let coverUrl: URL?
+    let title: String
+    var subtitle: String? = nil
+    let descriptionText: String?
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.monologueSheetDismiss) private var monologueSheetDismiss
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 14) {
+                CachedAsyncImage(url: coverUrl) {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color.monologueGlassTint)
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 48, height: 48)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.rounded(size: 20, weight: .bold))
+                        .foregroundColor(.monologueTextPrimary)
+                        .lineLimit(1)
+
+                    if let subtitle, !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(.rounded(size: 12))
+                            .foregroundColor(.monologueTextSecondary)
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer()
+
+                Button(action: { dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss) }) {
+                    MonologueIcon(icon: .close, size: 20, color: .monologueTextSecondary)
+                        .frame(width: 32, height: 32)
+                        .background(Circle().fill(Color.monologueSeparator))
+                        .clipShape(Circle())
+                }
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, 16)
+            .padding(.bottom, 16)
+
+            Rectangle()
+                .fill(Color.monologueSeparator)
+                .frame(height: 0.5)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    if let desc = descriptionText?.trimmingCharacters(in: .whitespacesAndNewlines),
+                       !desc.isEmpty {
+                        Text(desc)
+                            .font(.rounded(size: 15, weight: .regular))
+                            .foregroundColor(.monologueTextPrimary)
+                            .lineSpacing(6)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(16)
+                            .background {
+                                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                    .fill(Color.monologueGlassTint)
+                                    .monologueGlass(cornerRadius: 20)
+                            }
+                    } else {
+                        VStack(spacing: 14) {
+                            MonologueIcon(icon: .info, size: 34, color: .monologueTextSecondary.opacity(0.5))
+                            Text(String(localized: "暂无介绍"))
+                                .font(.rounded(size: 14))
+                                .foregroundColor(.monologueTextSecondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 60)
+                    }
+                }
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                .padding(.vertical, 20)
+            }
+        }
     }
 }
 

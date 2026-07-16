@@ -97,7 +97,7 @@ struct PosterPlayerLayout: View {
         .monologueSheet(isPresented: $showPlaylist, preset: .standard){
             PlaylistPopupView()
         }
-        .monologueSheet(isPresented: $showQualitySheet, preset: .compact){
+        .monologueSheet(isPresented: $showQualitySheet, preset: .standard){
             SoundQualitySheet(
                 currentQuality: player.soundQuality,
                 currentQQQuality: player.qqMusicQuality,
@@ -111,7 +111,7 @@ struct PosterPlayerLayout: View {
                 onSelectQishui: { info in player.switchQishuiQuality(info); showQualitySheet = false }
             )
         }
-        .monologueSheet(isPresented: $showEQSettings, preset: .large){
+        .fullScreenCover(isPresented: $showEQSettings) {
             NavigationStack { EQSettingsView() }
         }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker){
@@ -179,6 +179,15 @@ extension PosterPlayerLayout {
                 
                 Spacer()
                 
+                Button(action: { CinemaModeController.shared.present() }) {
+                    Text("沉浸")
+                        .font(.custom(posterFont, size: 16))
+                        .foregroundColor(fg)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(MonologueBouncingButtonStyle())
+
                 Button(action: {
                     withAnimation(.easeInOut(duration: 0.1)) { showMoreMenu.toggle() }
                 }) {

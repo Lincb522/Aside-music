@@ -80,7 +80,7 @@ struct QQPlaylistImportView: View {
                         }
                         .overlay {
                             if MangaStyle.isActive {
-                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                RoundedRectangle(cornerRadius: importIconRadius, style: .continuous)
                                     .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
                             } else if MujiStyle.isActive {
                                 RoundedRectangle(cornerRadius: 24, style: .continuous)
@@ -113,14 +113,14 @@ struct QQPlaylistImportView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
-                    .themedPageSurface(cornerRadius: MangaStyle.isActive ? 16 : 14, elevated: false)
+                    .themedPageSurface(cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius + 2 : 14, elevated: false)
                     
                     Button {
                         Task { await smartSearch() }
                     } label: {
                         MonologueIcon(icon: .search, size: 18, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextPrimary)
                             .frame(width: 48, height: 48)
-                            .themedPageSurface(cornerRadius: MangaStyle.isActive ? 16 : (NeumorphicStyle.isActive ? 18 : 14), elevated: true, mangaTint: MangaStyle.labelYellow)
+                            .themedPageSurface(cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius + 2 : (NeumorphicStyle.isActive ? 18 : 14), elevated: true, mangaTint: MangaStyle.labelYellow)
                     }
                     .buttonStyle(MonologueBouncingButtonStyle())
                     .disabled(uin.trimmingCharacters(in: .whitespaces).isEmpty)
@@ -230,7 +230,7 @@ struct QQPlaylistImportView: View {
                 MonologueIcon(icon: .chevronRight, size: 14, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextSecondary.opacity(0.5))
             }
             .padding(12)
-            .themedPageSurface(cornerRadius: MangaStyle.isActive ? 16 : (NeumorphicStyle.isActive ? 18 : 14), elevated: false)
+            .themedPageSurface(cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius + 2 : (NeumorphicStyle.isActive ? 18 : 14), elevated: false)
         }
         .buttonStyle(MonologueBouncingButtonStyle())
         .padding(.horizontal, 24)
@@ -345,14 +345,14 @@ struct QQPlaylistImportView: View {
         }
         .padding(12)
         .themedPageSurface(
-            cornerRadius: MangaStyle.isActive ? 16 : (NeumorphicStyle.isActive ? 18 : 14),
+            cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius + 2 : (NeumorphicStyle.isActive ? 18 : 14),
             elevated: isSelected,
-            mangaTint: isSelected ? MangaStyle.labelYellow.opacity(0.92) : MangaStyle.bubbleWhite
+            mangaTint: isSelected ? MangaStyle.bubblePink : MangaStyle.bubbleWhite
         )
     }
 
     private var importIconRadius: CGFloat {
-        NeumorphicStyle.isActive ? 26 : (MangaStyle.isActive ? 18 : 24)
+        NeumorphicStyle.isActive ? 26 : (MangaStyle.isActive ? MangaStyle.cardRadius + 4 : 24)
     }
 
     private var coverRadius: CGFloat {
@@ -417,7 +417,8 @@ struct QQPlaylistImportView: View {
                 page: 1,
                 highlight: false
             )
-            let results = searchResult["body"]?["item_user"]?.arrayValue
+            let results = searchResult["user"]?.arrayValue
+                ?? searchResult["body"]?["item_user"]?.arrayValue
                 ?? searchResult["item_user"]?.arrayValue
                 ?? APIService.extractJSONArray(from: searchResult)
             AppLogger.info("[QQImport] 用户搜索返回 \(results.count) 条")
@@ -453,7 +454,10 @@ struct QQPlaylistImportView: View {
         
         do {
             let rawResult = try await qqClient.createdSonglist(uin: uinStr)
-            let results = rawResult["v_playlist"]?.arrayValue ?? rawResult.arrayValue ?? []
+            // 新版 API: { playlists: [{ id, dirid, title, picurl, songnum }], total }
+            let results = rawResult["playlists"]?.arrayValue
+                ?? rawResult["v_playlist"]?.arrayValue
+                ?? rawResult.arrayValue ?? []
             AppLogger.info("[QQImport] uin=\(uinStr), 返回 \(results.count) 条")
             
             var parsed: [QQUserPlaylist] = []
@@ -507,7 +511,9 @@ struct QQPlaylistImportView: View {
         
         var cover: String?
         cover = source["picUrl"]?.stringValue
+        if cover == nil { cover = source["picurl"]?.stringValue }
         if cover == nil { cover = source["bigpicUrl"]?.stringValue }
+        if cover == nil { cover = source["bigpic_url"]?.stringValue }
         if cover == nil { cover = source["diss_cover"]?.stringValue }
         if cover == nil { cover = source["logo"]?.stringValue }
         if cover == nil { cover = source["coverImgUrl"]?.stringValue }
@@ -516,6 +522,7 @@ struct QQPlaylistImportView: View {
         
         var songCount: Int = 0
         if let c = source["songNum"]?.intValue { songCount = c }
+        else if let c = source["songnum"]?.intValue { songCount = c }
         else if let c = source["song_cnt"]?.intValue { songCount = c }
         else if let c = source["song_count"]?.intValue { songCount = c }
         else if let c = source["total_song_num"]?.intValue { songCount = c }

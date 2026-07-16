@@ -15,6 +15,7 @@ import Foundation
 import AVFoundation
 @preconcurrency import Combine
 import MediaPlayer
+import UIKit
 @preconcurrency import FFmpegSwiftSDK
 
 @MainActor
@@ -119,6 +120,11 @@ class PlayerManager: ObservableObject {
     var spectrumAnalyzer: SpectrumAnalyzer {
         streamPlayer.spectrumAnalyzer
     }
+
+    /// EQ 与空间处理之前的原始频谱，供 AI 调音等测量任务使用。
+    var analysisSpectrumAnalyzer: SpectrumAnalyzer {
+        streamPlayer.analysisSpectrumAnalyzer
+    }
     
     // MARK: - 音频修复引擎
     var audioRepair: AudioRepairEngine {
@@ -149,6 +155,10 @@ class PlayerManager: ObservableObject {
         let clamped = min(max(speed, 0.5), 3.0)
         playbackSpeed = clamped
         audioEffects.setTempo(clamped)
+        // 同步锁屏速率，避免锁屏进度按旧速率漂移
+        if currentSong != nil {
+            updateNowPlayingTime()
+        }
     }
 
     // MARK: - 定时关闭
@@ -184,6 +194,7 @@ class PlayerManager: ObservableObject {
         hasPendingTrackTransition = false
         pendingNextSong = nil
         pendingTransitionStartedAt = nil
+        disarmGaplessEngine()
         nextTrackCancellable?.cancel()
         streamPlayer.cancelNextPreparation()
         saveState()
@@ -200,10 +211,7 @@ class PlayerManager: ObservableObject {
                 activateSleepStopAfterCurrentTrack()
             } else {
                 cancelSleepTimer()
-                streamPlayer.pause()
-                isPlaying = false
-                refreshPlaybackSurfaceState()
-                saveState()
+                performSleepTimerStop()
             }
         } else {
             let rounded = remaining.rounded()
@@ -211,6 +219,27 @@ class PlayerManager: ObservableObject {
                 lastSleepUpdate = rounded
                 sleepTimerRemaining = remaining
             }
+        }
+    }
+
+    /// 睡眠定时器到点：用 ~3s 的长淡出送走音乐，而不是硬切静音。
+    /// 淡出期间 UI 仍显示播放中（声音确实还在），淡完才真正挂起引擎。
+    private func performSleepTimerStop() {
+        guard isPlaying, streamPlayer.state == .playing else {
+            streamPlayer.pause()
+            isPlaying = false
+            refreshPlaybackSurfaceState()
+            saveState()
+            return
+        }
+        beginPlaybackFade(to: 0, duration: 3.0) { [weak self] in
+            guard let self else { return }
+            self.streamPlayer.pause()
+            self.streamPlayer.outputVolume = 1.0
+            self.lastPausedAt = Date()
+            self.isPlaying = false
+            self.refreshPlaybackSurfaceState()
+            self.saveState()
         }
     }
 
@@ -301,10 +330,21 @@ class PlayerManager: ObservableObject {
 
     static func gaplessPlaybackEnabled() -> Bool {
         let defaults = UserDefaults.standard
+        if !defaults.bool(forKey: AppConfig.StorageKeys.gaplessPlaybackEnabledMigrationV2) {
+            defaults.set(true, forKey: AppConfig.StorageKeys.gaplessPlaybackEnabled)
+            defaults.set(true, forKey: AppConfig.StorageKeys.gaplessPlaybackEnabledMigrationV2)
+            return true
+        }
         guard defaults.object(forKey: AppConfig.StorageKeys.gaplessPlaybackEnabled) != nil else {
-            return false
+            return true
         }
         return defaults.bool(forKey: AppConfig.StorageKeys.gaplessPlaybackEnabled)
+    }
+
+    static let crossfadePlaybackDuration: Float = 2.5
+
+    static func crossfadePlaybackEnabled() -> Bool {
+        UserDefaults.standard.bool(forKey: AppConfig.StorageKeys.crossfadePlaybackEnabled)
     }
     
     static func initialNeteasePlaybackQuality() -> SoundQuality {
@@ -353,18 +393,37 @@ class PlayerManager: ObservableObject {
     var qualitySwitchCancellable: AnyCancellable?
     /// 下一首预加载的订阅
     var nextTrackCancellable: AnyCancellable?
-    /// QMC 预缓存任务（后台下载+解密下一首加密歌曲）
+    /// 阶段 A 下一首预取任务（直链解析，或确有需要时下载本地媒体）
     var qmcPrefetchTask: Task<Void, Never>?
-    /// 下一首音质预查询任务
-    var nextQualityPrefetchTask: Task<Void, Never>?
-    /// 预查询的音质缓存：songId/mid -> 最佳音质（QQ: QQMusicQuality.rawValue, ncm: SoundQuality.rawValue）
-    var prefetchedQualityCache: [String: String] = [:]
-    /// 当前会话是否已安排过一次下一首预加载，避免刚启动时重复 prepareNext
+    /// 当前歌曲的完整媒体下载/解密任务；快速切歌时立即取消，避免旧会话继续占用网络与磁盘。
+    var activeMediaLoadTask: Task<Void, Never>?
+    /// 当前会话是否已安排过一次下一首媒体预取（阶段 A），避免重复调度
     var scheduledGaplessPreparationSessionId: Int?
     /// 音质切换轮询任务（可取消）
     var qualitySwitchPollWorkItem: DispatchWorkItem?
-    /// 延后执行的下一首预加载任务
+    /// 延后执行的下一首媒体预取任务（阶段 A 调度 / 队列变化防抖）
     var gaplessPreparationWorkItem: DispatchWorkItem?
+
+    // MARK: - 无缝引擎 v2（两阶段）
+    /// 阶段 B（临近结尾装配 SDK next 管线）已执行的会话 ID
+    var gaplessArmedSessionId: Int?
+    /// 本会话阶段 B 的装配尝试次数（首装 + 失败重试，封顶 2 次）
+    var gaplessArmAttempts = 0
+    /// 最近一次装配尝试时间（媒体未就绪时的重试节流）
+    var lastGaplessArmAttemptAt: Date?
+    enum ResolvedPlaybackQuality {
+        case netease(songId: Int, quality: SoundQuality)
+        case qq(mid: String, quality: QQMusicQuality)
+        case qishui(trackId: Int, quality: String)
+    }
+    /// 预装管线真正拿到的音质，只在声音切换后才提交到当前播放状态。
+    var pendingGaplessResolvedQuality: ResolvedPlaybackQuality?
+    /// 单曲循环的无缝回绕已装配（EOF 时 SDK 切回同一 URL 重新开播）
+    var pendingLoopRestart = false
+    /// 当前播放源的解密密钥（汽水加密缓存等；单曲循环无缝回绕需要）
+    var currentPlayingDecryptionKey: String?
+    /// 汽水下一首的预取产物：本地缓存文件 + 解密密钥（阶段 B 直接装配）
+    var qishuiGaplessAsset: (trackId: Int, fileURL: URL, decryptionKey: String?)?
     /// 音质切换弱网兜底任务
     var qualitySwitchTimeoutTask: Task<Void, Never>?
     var saveStateWorkItem: DispatchWorkItem?
@@ -380,6 +439,14 @@ class PlayerManager: ObservableObject {
     /// 当前播放的音频 URL（用于音频分析等功能）
     @Published var currentPlayingURL: String?
     @Published var isCurrentPlaybackUsingLocalFile = false
+    /// 当前播放输入的解析时刻：网络流地址从这一刻开始老化，
+    /// 恢复播放时超龄的地址会主动重新取址而不是硬 resume 进死流
+    var playbackURLResolvedAt: Date?
+    /// 冷启动恢复用：上次会话已解析的播放输入（http 地址或本地文件路径）。
+    /// 仍然新鲜/存在时，小组件唤醒续播可跳过整个取 URL 往返直接开播。
+    var restoredPlaybackAsset: (songId: Int, input: String, resolvedAt: Date?, decryptionKey: String?)?
+    /// loadAndPlay 的一次性快速通道：设置后本次加载跳过取址直接开播
+    var preresolvedRestorationInput: (input: String, decryptionKey: String?)?
     
     /// 当前歌曲动态封面 URL
     @Published var dynamicCoverUrl: String?
@@ -390,6 +457,22 @@ class PlayerManager: ObservableObject {
     var pendingNextSong: Song? = nil
     /// 标记 SDK 已切换到下一首的 pipeline（但 UI 还没更新）
     var hasPendingTrackTransition: Bool = false
+
+    /// 手动点播 / 下一曲正在准备的新歌。旧歌仍有声音时先保留旧的
+    /// `currentSong`，直到 Mono 确认新管线已经进入 playing 再原子提交界面。
+    var pendingPlaybackPresentationSong: Song?
+    var pendingPlaybackPresentationSessionId: Int?
+    /// 目标歌曲真正交给 Mono 的输入；只有内核回报同一输入已经出声，才提交 UI。
+    var pendingPlaybackPresentationInput: String?
+    var pendingPlaybackPresentationDecryptionKey: String?
+    var pendingPlaybackPresentationStartTime: Double = 0
+    var pendingPlaybackPresentationIsUnblocked = false
+    var pendingPlaybackPresentationResolvedQuality: ResolvedPlaybackQuality?
+    /// 未命中预热管线时，先在旧歌持续播放期间装配新管线；就绪后再热切。
+    var manualPreparedSwitchSessionId: Int?
+    var manualSwitchPreparationTask: Task<Void, Never>?
+    /// 自动无缝管线当前装配的真实输入，用于阻止旧曲/错误管线冒充下一首。
+    var pendingGaplessPlaybackInput: String?
     
     /// 异常停止重试计数器（防止损坏音源无限重试）
     var abnormalStopRetryCount: Int = 0
@@ -448,8 +531,24 @@ class PlayerManager: ObservableObject {
     /// 音频路由变化（其他 App 释放会话等）时用于延迟尝试恢复播放
     var routeChangeObserver: Any?
     var routeChangeResumeWorkItem: DispatchWorkItem?
+    /// Debounced renderer liveness check after Bluetooth/audio-route changes.
+    var audioOutputRecoveryTask: Task<Void, Never>?
+    /// Last stable output route, used because iOS 17 may report a Bluetooth
+    /// removal as `.routeConfigurationChange` instead of `.oldDeviceUnavailable`.
+    var lastKnownAudioOutputPortTypes: Set<String> = []
     /// 最近一次实际应用到 AVAudioSession 的 options，避免重复 setActive
     var lastAppliedAudioSessionOptions: AVAudioSession.CategoryOptions?
+
+    // MARK: - 后台播放（节流 + 切歌保活）
+    /// App 是否处于后台。后台时降低轮询频率、跳过纯 UI 更新。
+    var isAppInBackground: Bool = false
+    /// 后台生命周期 observer tokens
+    var backgroundStateObservers: [Any] = []
+    /// 后台轮询节流计数器（后台时 0.25s 定时器每 4 次只执行 1 次）
+    var backgroundTickSkipCounter: Int = 0
+    /// 后台切歌保活任务：歌曲在后台自然结束后，向系统申请额外执行时间，
+    /// 保证下一首的播放 URL 网络请求能在 App 被挂起前完成。
+    var transitionKeepAliveTaskId: UIBackgroundTaskIdentifier = .invalid
 
     // MARK: - 中断恢复（统一管理）
     /// 中断/路由恢复阶梯重试任务（0.4s → 1s → 2.5s → 5s）。
@@ -460,6 +559,29 @@ class PlayerManager: ObservableObject {
     var interruptionWatchdogTask: Task<Void, Never>?
     /// 中断开始时间戳，仅用于日志
     var interruptionStartedAt: Date?
+
+    // MARK: - 软暂停淡入淡出 + 断点续播保鲜
+    /// 正在执行的音量包络任务（暂停淡出 / 恢复淡入 / 睡眠长淡出）
+    var playbackFadeTask: Task<Void, Never>?
+    /// 音量包络代际号：新包络启动或播放管线重置时递增，旧任务的收尾回调据此失效
+    var playbackFadeGeneration: Int = 0
+    /// 最近一次进入暂停的时刻。网络流暂停超过 `networkResumeRefreshThreshold`
+    /// 后再恢复时，CDN URL 大概率已过期，直接重新取址从断点续播。
+    var lastPausedAt: Date?
+    /// 网络流暂停多久后恢复要走「重新取址续播」而非直接 resume（秒）
+    nonisolated static let networkResumeRefreshThreshold: TimeInterval = 20 * 60
+
+    // MARK: - 锁屏封面缓存（避免重复下载 + 取色）
+    /// 已完成封面管线的歌曲 ID / 封面 URL / 生成的锁屏 artwork
+    var cachedArtworkSongId: Int?
+    var cachedArtworkCoverURL: URL?
+    var cachedArtworkImage: MPMediaItemArtwork?
+    /// 生成缓存时的取色配置签名（颜色数|模式|随机种子），配置变了要重跑取色
+    var cachedArtworkPaletteSignature: String = ""
+    /// 正在下载封面的歌曲 ID（同曲去重：loadAndPlay 与 startPlayback 会连续触发两次）
+    var artworkFetchInFlightSongId: Int?
+    /// 上次应用的锁屏命令布局（true = 播客 ±15s/倍速，false = 音乐 上/下一首）
+    var lastRemoteCommandProfileIsPodcast: Bool?
     
     /// 持久化时的最大 context 大小（防止序列化过大）
     let maxPersistContextSize = 200
@@ -624,7 +746,15 @@ class PlayerManager: ObservableObject {
     init() {
         setupAudioSession()
         setupRemoteCommands()
+        setupBackgroundStateObservers()
         setupStreamPlayerDelegate()
+        let gaplessEnabled = Self.gaplessPlaybackEnabled()
+        streamPlayer.setAutomaticPreparedTrackTransitionEnabled(gaplessEnabled)
+        streamPlayer.setCrossfadeDuration(
+            gaplessEnabled && Self.crossfadePlaybackEnabled()
+                ? Self.crossfadePlaybackDuration
+                : 0
+        )
         startTimeUpdateTimer()
         restoreState()
         // 延后一拍同步小组件，避免冷启动时因节奏缓存查询触发 AudioLabManager，
@@ -660,7 +790,16 @@ class PlayerManager: ObservableObject {
             qualitySwitchPollWorkItem?.cancel()
             qualitySwitchTimeoutTask?.cancel()
             widgetTempoSyncTask?.cancel()
+            playbackFadeTask?.cancel()
             saveStateWorkItem?.cancel()
+            gaplessPreparationWorkItem?.cancel()
+            qmcPrefetchTask?.cancel()
+            activeMediaLoadTask?.cancel()
+            manualSwitchPreparationTask?.cancel()
+            audioOutputRecoveryTask?.cancel()
+            for observer in backgroundStateObservers {
+                NotificationCenter.default.removeObserver(observer)
+            }
         }
     }
 }
@@ -681,12 +820,23 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
     func player(_ player: StreamPlayer, didChangeState state: PlaybackState) {
         // 在进入 @MainActor Task 前提取需要的值，避免非 Sendable 类型跨隔离域
         let streamInfo = player.streamInfo
+        let playbackInput = player.currentPlaybackInput
         let errorDesc: String? = {
             if case .error(let e) = state { return e.description }
             return nil
         }()
-        let isNetworkDisconnected: Bool = {
-            if case .error(let e) = state { return e == .networkDisconnected }
+        // 可通过「刷新 URL 重连」自愈的流错误：
+        // 断流、连接失败（CDN 地址过期 403/404、socket 死亡）、超时、未知错误。
+        // 仅格式不支持 / 解码 / 资源分配类错误换地址也无济于事，直接报错。
+        let isRetryableStreamError: Bool = {
+            if case .error(let e) = state {
+                switch e {
+                case .networkDisconnected, .connectionFailed, .connectionTimeout, .unknown:
+                    return true
+                case .unsupportedFormat, .decodingFailed, .resourceAllocationFailed:
+                    return false
+                }
+            }
             return false
         }()
         // 将 PlaybackState 转为 Sendable 的简单值
@@ -715,15 +865,23 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
                 pm.isPlaying = false
                 pm.refreshPlaybackSurfaceState()
             case .playing:
+                if let info = streamInfo {
+                    pm.streamInfo = info
+                }
                 pm.isPlaying = true
                 pm.isLoading = false
+                // 只有 Mono 已完成连接、解码、首段 PCM 预填充并进入 playing，
+                // 才把手动切歌的新元数据提交给界面。
+                pm.commitPendingPlaybackPresentationIfNeeded(
+                    sessionId: sessionAtCallback,
+                    engineInput: playbackInput
+                )
+                // 播放已恢复出声，音频会话重新保活 App，释放切歌后台任务
+                pm.endTransitionKeepAlive()
                 pm.qualitySwitchTimeoutTask?.cancel()
                 pm.qualitySwitchTimeoutTask = nil
                 pm.qualitySwitchRecoveryAttempts = 0
                 pm.networkDisconnectRetryCount = 0
-                if let info = streamInfo {
-                    pm.streamInfo = info
-                }
                 if pm.pitchSemitones != 0 {
                     pm.audioEffects.setPitch(pm.pitchSemitones)
                     AppLogger.info("播放状态变为 playing，重新应用变调: \(pm.pitchSemitones) 半音")
@@ -736,7 +894,7 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
                 }
                 LyricViewModel.shared.updateCurrentTime(pm.currentTime)
                 pm.refreshPlaybackSurfaceState()
-                pm.scheduleGaplessPreparationAfterPlaybackStartedIfNeeded()
+                pm.scheduleGaplessMediaPrefetchIfNeeded()
             case .paused:
                 pm.isPlaying = false
                 pm.isLoading = false
@@ -753,6 +911,18 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
                 }
                 pm.suppressStopHandlingUntil = nil
                 guard sessionAtCallback == pm.playbackSessionId else { return }
+                // 手动下一首仍在取址 / 下载 / preroll 时，这个 stop 属于旧歌。
+                // 无论旧歌的元数据时长是否准确，都不能把它当成异常再次续播，
+                // 否则会出现旧歌从头播第二遍，而界面已经准备显示下一首。
+                if let pending = pm.pendingPlaybackPresentationSong {
+                    pm.isLoading = true
+                    pm.refreshPlaybackSurfaceState()
+                    AppLogger.info(
+                        "[PlaybackTransition] 旧管线已结束，继续等待目标歌曲 target=\(pending.name) engine=\(playbackInput ?? "nil")",
+                        step: "playback.transition.old-pipeline-ended"
+                    )
+                    return
+                }
                 if !pm.isUserStopping && pm.currentSong != nil {
                     // 以 API 元数据 dt 为基准判断预期时长，FFmpeg duration 作为备选
                     let expectedDuration: Double = {
@@ -793,6 +963,8 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
                                 String(localized: "重试第\(pm.abnormalStopRetryCount)次，从 \(String(format: "%.1f", resumeTime))s 续播")
                             )
                             if let song = pm.currentSong {
+                                // 异常结束多半是地址失效/截断：重试必须拿新鲜地址
+                                PlaybackURLCache.shared.invalidate(song: song)
                                 pm.loadAndPlay(song: song, startTime: resumeTime)
                             }
                         }
@@ -808,29 +980,44 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
                 pm.qualitySwitchTimeoutTask?.cancel()
                 pm.qualitySwitchTimeoutTask = nil
 
-                // 网络断流 + 未超重试上限 → 静默刷新 URL 续播（不弹错误、保持 loading 态）
-                if isNetworkDisconnected,
+                // 可自愈的流错误（断流/连接失败/超时/未知）+ 未超重试上限
+                // → 静默刷新 URL 续播（不弹错误、保持 loading 态）。
+                // 小组件/后台唤醒续播撞上过期 CDN 地址时也走这里，用户无感。
+                if isRetryableStreamError,
                    pm.networkDisconnectRetryCount < pm.maxNetworkDisconnectRetries,
-                   let song = pm.currentSong {
+                   let song = pm.pendingPlaybackPresentationSong ?? pm.currentSong {
                     pm.networkDisconnectRetryCount += 1
                     pm.isPlaying = false
                     pm.isLoading = true
                     pm.refreshPlaybackSurfaceState()
-                    let resumeTime = pm.currentTime
+                    let isPendingSong = pm.matchesPlaybackTarget(
+                        pm.pendingPlaybackPresentationSong,
+                        expected: song
+                    )
+                    let resumeTime = isPendingSong
+                        ? pm.pendingPlaybackPresentationStartTime
+                        : pm.currentTime
                     AppLogger.warning(
-                        String(localized: "网络断流，刷新 URL 续播 (第\(pm.networkDisconnectRetryCount)次): ") +
+                        String(localized: "播放流中断，刷新 URL 续播 (第\(pm.networkDisconnectRetryCount)次): ") +
                         String(localized: "\(song.name), 从 \(String(format: "%.1f", resumeTime))s 恢复")
                     )
+                    // 重试必须绕过地址缓存拿新鲜 URL
+                    PlaybackURLCache.shared.invalidate(song: song)
                     pm.loadAndPlay(song: song, startTime: resumeTime)
                     return
                 }
 
                 pm.isPlaying = false
                 pm.isLoading = false
+                pm.endTransitionKeepAlive()
                 pm.refreshPlaybackSurfaceState()
                 pm.saveState()
                 AppLogger.error("FFmpeg 播放错误: \(errorDesc ?? "unknown")")
-                if let song = pm.currentSong {
+                if let song = pm.pendingPlaybackPresentationSong ?? pm.currentSong {
+                    _ = pm.discardPendingPlaybackPresentationIfNeeded(
+                        song: song,
+                        sessionId: pm.playbackSessionId
+                    )
                     pm.showPlaybackError(song: song, error: FFmpegError.unknown(code: 0))
                 }
             }
@@ -840,14 +1027,11 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
     func player(_ player: StreamPlayer, didEncounterError error: FFmpegError) {
         let desc = error.description
         Task { @MainActor [weak self] in
-            guard let pm = self?.playerManager else { return }
+            guard self?.playerManager != nil else { return }
+            // 播放状态与自动恢复只由 didChangeState(.error) 统一处理。
+            // 这里保留诊断日志，避免第二条错误回调把正在进行的刷新 URL
+            // 续播重新改成非 loading 状态。
             AppLogger.error("FFmpeg 错误: \(desc)")
-            pm.isPlaying = false
-            pm.isLoading = false
-            pm.qualitySwitchTimeoutTask?.cancel()
-            pm.qualitySwitchTimeoutTask = nil
-            pm.refreshPlaybackSurfaceState()
-            pm.saveState()
         }
     }
     
@@ -880,11 +1064,20 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
     
     func playerDidTransitionToNextTrack(_ player: StreamPlayer) {
         let streamInfo = player.streamInfo
+        let playbackInput = player.currentPlaybackInput
         Task { @MainActor [weak self] in
             guard let pm = self?.playerManager else { return }
             
             if let info = streamInfo {
                 pm.streamInfo = info
+            }
+
+            if let sessionId = pm.manualPreparedSwitchSessionId {
+                pm.completeManualPreparedSwitch(
+                    sessionId: sessionId,
+                    engineInput: playbackInput
+                )
+                return
             }
             
             if let seekTime = pm.pendingQualitySwitchSeek {
@@ -892,6 +1085,10 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
                 pm.pendingQualitySwitchSeek = nil
                 pm.currentTime = seekTime
                 pm.isSeeking = false
+            } else if pm.pendingLoopRestart {
+                AppLogger.info("单曲循环无缝回绕")
+                pm.pendingLoopRestart = false
+                pm.handleSeamlessLoopRestart(engineInput: playbackInput)
             } else {
                 guard pm.isGaplessPlaybackEnabled else {
                     AppLogger.info("无缝切歌已关闭，忽略下一首 transition 回调")
@@ -899,7 +1096,7 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
                     return
                 }
                 AppLogger.info("歌曲播放结束，无缝切换到预加载下一首")
-                pm.applyPendingTrackTransition()
+                pm.applyPendingTrackTransition(engineInput: playbackInput)
             }
         }
     }

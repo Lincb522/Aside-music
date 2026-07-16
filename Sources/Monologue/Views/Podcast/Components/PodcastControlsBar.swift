@@ -10,10 +10,14 @@ struct PodcastControlsBar: View {
     var onSeekForward: () -> Void
     var onNext: () -> Void
 
+    private var isAside: Bool {
+        !ThemedPageStyle.isActive
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             Button(action: onPrevious) {
-                MonologueIcon(icon: .skipBack, size: 20, color: .monologueTextPrimary, lineWidth: 1.6)
+                MonologueIcon(icon: .skipBack, size: isAside ? 18 : 20, color: .monologueTextPrimary, lineWidth: 1.6)
             }
             .frame(width: 48, height: 48)
             .buttonStyle(MonologueBouncingButtonStyle())
@@ -21,9 +25,7 @@ struct PodcastControlsBar: View {
             Spacer()
 
             Button(action: onSeekBack) {
-                VStack(spacing: 1) {
-                    MonologueIcon(icon: .rewind15, size: 24, color: .monologueTextPrimary, lineWidth: 1.4)
-                }
+                MonologueIcon(icon: .rewind15, size: isAside ? 22 : 24, color: .monologueTextPrimary, lineWidth: 1.4)
             }
             .frame(width: 48, height: 48)
             .buttonStyle(MonologueBouncingButtonStyle())
@@ -32,21 +34,28 @@ struct PodcastControlsBar: View {
 
             Button(action: onPlayPause) {
                 ZStack {
-                    Circle()
-                        .fill(Color.monologueGlassTint)
-                        .frame(width: 72, height: 72)
-                        .monologueGlassCircle()
-                        .shadow(color: .black.opacity(0.1), radius: 12, x: 0, y: 4)
+                    if isAside {
+                        Circle()
+                            .fill(Color.monologueTextPrimary)
+                            .frame(width: 70, height: 70)
+                            .shadow(color: Color.monologueTextPrimary.opacity(0.22), radius: 14, x: 0, y: 7)
+                    } else {
+                        Circle()
+                            .fill(Color.monologueGlassTint)
+                            .frame(width: 72, height: 72)
+                            .monologueGlassCircle()
+                            .shadow(color: .black.opacity(0.1), radius: 12, x: 0, y: 4)
+                    }
 
                     if isLoading {
                         ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .monologueTextPrimary))
+                            .progressViewStyle(CircularProgressViewStyle(tint: isAside ? Color(.systemBackground) : .monologueTextPrimary))
                             .scaleEffect(1.2)
                     } else {
                         MonologueIcon(
                             icon: isPlaying ? .pause : .play,
-                            size: 28,
-                            color: .monologueTextPrimary,
+                            size: isAside ? 26 : 28,
+                            color: isAside ? Color(.systemBackground) : .monologueTextPrimary,
                             lineWidth: 2.0
                         )
                         .offset(x: isPlaying ? 0 : 2)
@@ -58,9 +67,7 @@ struct PodcastControlsBar: View {
             Spacer()
 
             Button(action: onSeekForward) {
-                VStack(spacing: 1) {
-                    MonologueIcon(icon: .forward15, size: 24, color: .monologueTextPrimary, lineWidth: 1.4)
-                }
+                MonologueIcon(icon: .forward15, size: isAside ? 22 : 24, color: .monologueTextPrimary, lineWidth: 1.4)
             }
             .frame(width: 48, height: 48)
             .buttonStyle(MonologueBouncingButtonStyle())
@@ -68,7 +75,7 @@ struct PodcastControlsBar: View {
             Spacer()
 
             Button(action: onNext) {
-                MonologueIcon(icon: .skipForward, size: 20, color: .monologueTextPrimary, lineWidth: 1.6)
+                MonologueIcon(icon: .skipForward, size: isAside ? 18 : 20, color: .monologueTextPrimary, lineWidth: 1.6)
             }
             .frame(width: 48, height: 48)
             .buttonStyle(MonologueBouncingButtonStyle())

@@ -1,23 +1,17 @@
 // EQSettingsView.swift
 // Monologue
 //
-// 均衡器设置界面 - 参考专业音频 App 设计
-// 顶部：音效旋钮（低音/高音/环绕）
-// 中部：频谱曲线 + 垂直滑块
-// 底部：预设横向滚动选择
+// 均衡器设置界面
 
 import SwiftUI
 import FFmpegSwiftSDK
 
 struct EQSettingsView: View {
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.monologueSheetDismiss) private var monologueSheetDismiss
     @StateObject private var eqManager = EQManager.shared
+    @StateObject private var aiAgent = AIEqualizerAgent.shared
+    @ObservedObject private var player = PlayerManager.shared
     @ObservedObject private var settings = SettingsManager.shared
-    // [DEPRECATED] 智能分析功能已废弃，以下相关属性保留但不再使用
-    // @StateObject private var labManager = AudioLabManager.shared
-    // @State private var showSmartAnalyzingToast = false
-    // @State private var showSmartAppliedToast = false
+    @StateObject private var coverColors = CoverColorExtractor()
     @State private var showSaveSheet = false
     @State private var customPresetName = ""
     
@@ -26,6 +20,7 @@ struct EQSettingsView: View {
     @State private var trebleValue: CGFloat = 0.5
     @State private var surroundValue: CGFloat = 0.0
     @State private var reverbValue: CGFloat = 0.0
+    @State private var stereoWidthValue: CGFloat = 1.0
     
     // 变调（半音数，-12 ~ +12）
     @State private var pitchValue: Float = 0
@@ -38,132 +33,97 @@ struct EQSettingsView: View {
     }
 
     private var eqAccent: Color {
-        return NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueAccent
+        normalizedEQAccent(coverColors.dominantColor)
     }
 
     private var eqAccentForeground: Color {
-        if NeumorphicStyle.isActive {
-            return ThemeColorCustomization.readableForegroundColor(
-                on: NeumorphicStyle.accent,
-                light: Color(hex: "172026"),
-                dark: .white
-            )
-        }
-        return .monologueIconForeground
+        ThemeColorCustomization.readableForegroundColor(
+            on: eqAccent,
+            light: Color(hex: "111821"),
+            dark: .white
+        )
     }
 
     private var eqPrimaryText: Color {
-        return NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary
+        .white
     }
 
     private var eqSecondaryText: Color {
-        return NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary
+        .white.opacity(0.5)
     }
 
     private var eqMutedText: Color {
-        return NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary
+        .white.opacity(0.38)
     }
 
     private var eqSeparator: Color {
-        return NeumorphicStyle.isActive ? NeumorphicStyle.separator : .monologueSeparator
+        .white.opacity(0.07)
     }
 
     private var eqPressedSurface: Color {
-        return NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : .monologueSeparator
+        .white.opacity(0.06)
     }
 
     var body: some View {
         let _ = settings.globalThemeRevision
 
         ZStack {
-            MonologueSheetAwareBackground {
-                ThemedSettingsBackground()
-            }
+            backdrop.ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                ScrollView {
-                    VStack(spacing: 28) {
-                        VStack(spacing: 28) {
-                            toggleCard
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 0) {
+                    SettingsScrollablePageHeader(
+                        title: String(localized: "eq_title"),
+                        eyebrow: "MONO AUDIO",
+                        icon: .equalizer
+                    )
 
-                            if eqManager.isEnabled {
-                                // [DEPRECATED] 智能分析按钮已废弃
-                                // if labManager.isSmartEffectsEnabled {
-                                //     smartAnalyzeButton
-                                // }
+                    VStack(alignment: .leading, spacing: 22) {
+                        section(title: String(localized: "eq_playback_processing")) {
+                            controlDeck
+                        }
 
-                                // 音效旋钮区
-                                knobSection
+                        if eqManager.isEnabled {
+                            presetScrollSection
+                            equalizerSection
+                            calibrationSection
+                            knobSection
+                            pitchSection
 
-                                // 变调控制
-                                pitchSection
-
-                                // 均衡器（曲线 + 滑块合一）
-                                equalizerSection
-
-                                // 预设选择
-                                presetScrollSection
-
-                                // 自定义预设
-                                if !eqManager.customPresets.isEmpty {
-                                    customPresetsSection
-                                }
-
-                                // 保存按钮
-                                saveButton
+                            if !eqManager.customPresets.isEmpty {
+                                customPresetsSection
                             }
 
-                            FloatingBarBottomSpacer()
-                        }
-                        .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
-                        .iPadContentWidth()
-                    }
-                }
-                .scrollIndicators(.hidden)
-            .themeRenderScrollLayer()
-            }
-            
-            // [DEPRECATED] 智能分析 Toast 提示已废弃
-            /*
-            if showSmartAnalyzingToast || showSmartAppliedToast {
-                VStack {
-                    Spacer()
-                    HStack(spacing: 8) {
-                        if showSmartAnalyzingToast {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .monologueAccentForeground))
-                                .scaleEffect(0.8)
-                            Text(LocalizedStringKey("eq_analyzing"))
-                                .font(.rounded(size: 14, weight: .medium))
-                                .foregroundColor(.monologueAccentForeground)
-                        } else {
-                            MonologueIcon(icon: .checkmark, size: 16, color: .monologueAccentForeground)
-                            Text(LocalizedStringKey("eq_applied"))
-                                .font(.rounded(size: 14, weight: .medium))
-                                .foregroundColor(.monologueAccentForeground)
+                            saveButton
                         }
                     }
                     .padding(.horizontal, 20)
-                    .padding(.vertical, 12)
-                    .background(Color.monologueAccent)
-                    .clipShape(Capsule())
-                    .shadow(color: .black.opacity(0.2), radius: 10, y: 5)
-                    .padding(.bottom, 100)
+                    .padding(.top, 18)
+                    .padding(.bottom, 44)
+                    .iPadContentWidth(720)
                 }
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-                .zIndex(100)
             }
-            */
         }
-        .themedInlineNavigationTitle(String(localized: "eq_title"))
+        .compatFontDesign(nil)
+        .environment(\.colorScheme, .dark)
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                if eqManager.isEnabled {
-                    Button(action: { resetAll() }) {
-                        Text(LocalizedStringKey("eq_reset"))
-                            .font(.rounded(size: 14, weight: .medium))
+            ToolbarItem(placement: .topBarLeading) {
+                MonologueToolbarBackButton()
+            }
+
+            if eqManager.isEnabled {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(action: resetAll) {
+                        Text(String(localized: "eq_reset"))
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Color.monologueTextSecondary)
+                            .frame(height: 36)
                     }
+                    .buttonStyle(.plain)
                 }
             }
         }
@@ -173,7 +133,12 @@ struct EQSettingsView: View {
         ) {
             savePresetSheet
         }
-        .onAppear { syncKnobsFromGains() }
+        .onAppear {
+            syncKnobsFromGains()
+            syncSelectedPresetCategory()
+            refreshCoverAccent()
+        }
+        .onChange(of: player.currentSong?.id) { _, _ in refreshCoverAccent() }
         .onChange(of: eqManager.isEnabled) {
             // 当均衡器关闭时，同步 UI 旋钮到重置状态
             if !eqManager.isEnabled {
@@ -183,246 +148,365 @@ struct EQSettingsView: View {
         .onChange(of: eqManager.currentPreset?.id) {
             // 当预设变化时，同步旋钮（环绕预设会自动设置环绕参数）
             syncKnobsFromGains()
+            syncSelectedPresetCategory()
         }
+        .animation(.easeOut(duration: 0.2), value: eqManager.isEnabled)
     }
 
-    // MARK: - 开关卡片
+    private var calibrationSection: some View {
+        section(title: String(localized: "eq_mono_calibration")) {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Text(String(localized: "eq_preamp"))
+                        .font(.system(size: 13.5, weight: .semibold))
+                        .foregroundStyle(eqPrimaryText)
+                    Spacer()
+                    Text(String(format: "%.1f dB", eqManager.preampDB))
+                        .font(.system(size: 11.5, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(eqManager.preampDB < -0.05 ? eqAccent : eqSecondaryText)
+                }
 
-    private var toggleCard: some View {
-        HStack(spacing: 14) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(eqManager.isEnabled ? eqAccent.opacity(0.16) : eqPressedSurface)
-                    .frame(width: 44, height: 44)
-                MonologueIcon(icon: .waveform, size: 20, color: eqManager.isEnabled ? eqAccent : eqSecondaryText)
-            }
+                effectDivider
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text(LocalizedStringKey("eq_toggle_title"))
-                    .font(.rounded(size: 16, weight: .semibold))
-                    .foregroundColor(eqPrimaryText)
-                Text(eqManager.isEnabled ? (eqManager.currentPreset?.name ?? NSLocalizedString("eq_custom", comment: "")) : NSLocalizedString("eq_original_output", comment: ""))
-                    .font(.rounded(size: 13))
-                    .foregroundColor(eqSecondaryText)
-                    .lineLimit(1)
-            }
+                compactCalibrationToggle(
+                    title: "eq_loudness_matching",
+                    subtitle: "eq_loudness_matching_desc",
+                    isOn: $eqManager.isLoudnessMatchingEnabled
+                )
 
-            Spacer()
+                effectDivider
 
-            Toggle("", isOn: $eqManager.isEnabled)
-                .labelsHidden()
-                .tint(NeumorphicStyle.isActive ? eqAccent : Color(light: .black, dark: Color(white: 0.55)))
-        }
-        .padding(16)
-        .themedPageSurface(cornerRadius: 18, elevated: true, mangaTint: MangaStyle.bubbleWhite)
-    }
-    
-    // [DEPRECATED] 智能分析按钮已废弃
-    /*
-    private var smartAnalyzeButton: some View {
-        Button(action: {
-            let generator = UIImpactFeedbackGenerator(style: .medium)
-            generator.impactOccurred()
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                showSmartAnalyzingToast = true
-            }
-            Task {
-                await labManager.forceReanalyze()
-                await MainActor.run {
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        showSmartAnalyzingToast = false
-                    }
-                    syncKnobsFromGains()
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        showSmartAppliedToast = true
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                        withAnimation(.easeOut(duration: 0.3)) {
-                            showSmartAppliedToast = false
+                compactCalibrationToggle(
+                    title: "eq_smart_song",
+                    subtitle: "eq_smart_song_desc",
+                    isOn: $eqManager.isSmartSongCompensationEnabled
+                )
+
+                effectDivider
+
+                NavigationLink {
+                    EQProfessionalSettingsView()
+                } label: {
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(LocalizedStringKey("eq_professional_mode"))
+                                .font(.system(size: 14.5, weight: .semibold))
+                                .foregroundColor(eqPrimaryText)
+                            Text(eqManager.currentOutputName.isEmpty ? eqManager.currentOutputKind.title : eqManager.currentOutputName)
+                                .font(.system(size: 11.5, weight: .medium))
+                                .foregroundColor(eqSecondaryText)
+                                .lineLimit(1)
                         }
+                        Spacer()
+                        MonologueIcon(icon: .chevronRight, size: 13, color: eqMutedText)
                     }
+                    .contentShape(Rectangle())
                 }
-            }
-        }) {
-            HStack(spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Color.monologueAccent.opacity(0.15))
-                        .frame(width: 40, height: 40)
-                    MonologueIcon(icon: .sparkle, size: 18, color: .monologueAccent)
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(LocalizedStringKey("eq_smart_analyze"))
-                        .font(.rounded(size: 15, weight: .semibold))
-                        .foregroundColor(.monologueTextPrimary)
-                    Text(LocalizedStringKey("eq_smart_desc"))
-                        .font(.rounded(size: 12))
-                        .foregroundColor(.monologueTextSecondary)
-                }
-                Spacer()
-                MonologueIcon(icon: .chevronRight, size: 14, color: .monologueTextSecondary)
+                .buttonStyle(.plain)
             }
             .padding(14)
-            .monologueGlass(cornerRadius: 20)
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(Color.monologueAccent.opacity(0.3), lineWidth: 1)
-            )
+            .background(cardBackground)
         }
-        .buttonStyle(.plain)
-        .disabled(PlayerManager.shared.currentSong == nil)
-        .opacity(PlayerManager.shared.currentSong == nil ? 0.5 : 1)
     }
-    */
+
+    private func compactCalibrationToggle(
+        title: LocalizedStringKey,
+        subtitle: LocalizedStringKey,
+        isOn: Binding<Bool>
+    ) -> some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.rounded(size: 14.5, weight: .semibold))
+                    .foregroundColor(eqPrimaryText)
+                Text(subtitle)
+                    .font(.rounded(size: 11.5, weight: .medium))
+                    .foregroundColor(eqSecondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 8)
+            Toggle("", isOn: isOn)
+                .labelsHidden()
+                .tint(eqAccent)
+        }
+    }
+
+    // MARK: - 主控制台
+
+    private var controlDeck: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 14) {
+                MonologueIcon(
+                    icon: .equalizer,
+                    size: 20,
+                    color: eqManager.isEnabled ? eqAccent : eqSecondaryText
+                )
+                .frame(width: 44, height: 44)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(eqManager.isEnabled ? eqAccent.opacity(0.13) : eqPressedSurface.opacity(0.55))
+                )
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(LocalizedStringKey("eq_toggle_title"))
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                        .foregroundColor(eqPrimaryText)
+                    Text(eqManager.isEnabled
+                         ? (eqManager.currentPreset?.name ?? NSLocalizedString("eq_custom", comment: ""))
+                         : NSLocalizedString("eq_original_output", comment: ""))
+                        .font(.rounded(size: 12, weight: .medium))
+                        .foregroundColor(eqSecondaryText)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 0)
+
+                Toggle("", isOn: $eqManager.isEnabled)
+                    .labelsHidden()
+                    .tint(eqAccent)
+            }
+            .padding(16)
+
+            Divider()
+                .overlay(eqSeparator)
+                .opacity(0.55)
+                .padding(.leading, 74)
+
+            HStack(spacing: 14) {
+                MonologueIcon(
+                    icon: .sparkle,
+                    size: 18,
+                    color: aiAgent.automaticConfigurationEnabled ? eqAccent : eqSecondaryText
+                )
+                .frame(width: 44, height: 40)
+
+                NavigationLink {
+                    AIEqualizerLabView()
+                } label: {
+                    HStack(spacing: 10) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(String(localized: "ai_lab_title"))
+                                .font(.rounded(size: 15, weight: .semibold))
+                                .foregroundColor(eqPrimaryText)
+                            Text(aiAgent.automaticConfigurationEnabled
+                                 ? String(localized: "ai_lab_auto_enabled")
+                                 : String(localized: "ai_lab_not_analyzed"))
+                                .font(.rounded(size: 11.5, weight: .medium))
+                                .foregroundColor(eqSecondaryText)
+                        }
+
+                        Spacer(minLength: 4)
+                        MonologueIcon(icon: .chevronRight, size: 12, color: eqMutedText)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                Toggle(
+                    String(localized: "ai_lab_auto_configure"),
+                    isOn: $aiAgent.automaticConfigurationEnabled
+                )
+                    .labelsHidden()
+                    .tint(eqAccent)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 11)
+        }
+        .background(cardBackground)
+    }
 
     // MARK: - 音效旋钮区
 
     private var knobSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text(LocalizedStringKey("eq_effects"))
-                .font(.rounded(size: 16, weight: .semibold))
-                .foregroundColor(eqPrimaryText)
-
-            HStack(spacing: 0) {
-                Spacer()
-                knobItem(label: NSLocalizedString("eq_bass", comment: ""), value: $bassValue) { val in
-                    applyBassKnob(val)
-                }
-                Spacer()
-                knobItem(label: NSLocalizedString("eq_treble", comment: ""), value: $trebleValue) { val in
-                    applyTrebleKnob(val)
-                }
-                Spacer()
-                knobItem(label: NSLocalizedString("eq_surround", comment: ""), value: $surroundValue) { val in
-                    applySurroundKnob(val)
-                }
-                Spacer()
-                knobItem(label: NSLocalizedString("eq_reverb", comment: ""), value: $reverbValue) { val in
-                    applyReverbKnob(val)
-                }
-                Spacer()
+        section(title: String(localized: "eq_effects")) {
+            VStack(alignment: .leading, spacing: 14) {
+                effectSlider(
+                label: NSLocalizedString("eq_bass", comment: ""),
+                value: $bassValue,
+                range: 0...1,
+                valueText: String(format: "%+.1f dB", Float(bassValue) * 24 - 12),
+                onChange: applyBassKnob
+                )
+                effectDivider
+                effectSlider(
+                label: NSLocalizedString("eq_treble", comment: ""),
+                value: $trebleValue,
+                range: 0...1,
+                valueText: String(format: "%+.1f dB", Float(trebleValue) * 24 - 12),
+                onChange: applyTrebleKnob
+                )
+                effectDivider
+                effectSlider(
+                label: NSLocalizedString("eq_surround", comment: ""),
+                value: $surroundValue,
+                range: 0...1,
+                valueText: "\(Int(surroundValue * 100))%",
+                onChange: applySurroundKnob
+                )
+                effectDivider
+                effectSlider(
+                label: NSLocalizedString("eq_reverb", comment: ""),
+                value: $reverbValue,
+                range: 0...1,
+                valueText: "\(Int(reverbValue * 100))%",
+                onChange: applyReverbKnob
+                )
+                effectDivider
+                effectSlider(
+                label: String(localized: "ai_lab_stereo_width"),
+                value: $stereoWidthValue,
+                range: 0...2,
+                valueText: String(format: "%.2fx", stereoWidthValue),
+                onChange: applyStereoWidth
+                )
             }
+            .padding(14)
+            .background(cardBackground)
         }
-        .padding(20)
-        .themedPageSurface(cornerRadius: 18, elevated: true, mangaTint: MangaStyle.bubbleWhite)
     }
 
-    private func knobItem(label: String, value: Binding<CGFloat>, onChange: @escaping (CGFloat) -> Void) -> some View {
-        VStack(spacing: 10) {
-            CircularKnob(value: value, onChange: onChange)
-                .frame(width: 72, height: 72)
-            Text(label)
-                .font(.rounded(size: 13, weight: .medium))
-                .foregroundColor(eqSecondaryText)
+    private func effectSlider(
+        label: String,
+        value: Binding<CGFloat>,
+        range: ClosedRange<CGFloat>,
+        valueText: String,
+        onChange: @escaping (CGFloat) -> Void
+    ) -> some View {
+        VStack(spacing: 8) {
+            HStack {
+                Text(label)
+                    .font(.rounded(size: 13.5, weight: .semibold))
+                    .foregroundColor(eqPrimaryText)
+                Spacer()
+                Text(valueText)
+                    .font(.system(size: 11.5, weight: .semibold, design: .monospaced))
+                    .foregroundColor(eqSecondaryText)
+            }
+
+            Slider(
+                value: Binding(
+                    get: { value.wrappedValue },
+                    set: {
+                        value.wrappedValue = $0
+                        onChange($0)
+                    }
+                ),
+                in: range
+            )
+            .tint(eqAccent)
         }
+    }
+
+    private var effectDivider: some View {
+        Divider().overlay(eqSeparator).opacity(0.5)
     }
 
     // MARK: - 变调控制
 
     private var pitchSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text(LocalizedStringKey("eq_pitch"))
-                    .font(.rounded(size: 16, weight: .semibold))
-                    .foregroundColor(eqPrimaryText)
-                Spacer()
-                // 当前半音数显示
-                Text(pitchDisplayText)
-                    .font(.system(size: 14, weight: .bold, design: .monospaced))
-                    .foregroundColor(pitchValue == 0 ? eqSecondaryText : eqAccent)
-            }
-
-            // 半音滑块
-            VStack(spacing: 8) {
-                // 刻度标记
+        section(title: String(localized: "eq_pitch")) {
+            VStack(alignment: .leading, spacing: 16) {
                 HStack {
-                    Text("-12")
                     Spacer()
-                    Text("0")
-                    Spacer()
-                    Text("+12")
+                    Text(pitchDisplayText)
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .foregroundColor(pitchValue == 0 ? eqSecondaryText : eqAccent)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule().fill(
+                                pitchValue == 0
+                                    ? eqPressedSurface
+                                    : eqAccent.opacity(0.12)
+                            )
+                        )
+                        .fixedSize()
                 }
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .foregroundColor(eqMutedText.opacity(0.7))
 
-                // 自定义滑块
-                GeometryReader { geo in
-                    let w = geo.size.width
-                    let normalized = CGFloat((pitchValue + 12) / 24) // -12~+12 → 0~1
-                    let centerX = w * 0.5
-                    let thumbX = w * normalized
-
-                    ZStack(alignment: .leading) {
-                        // 轨道
-                        Capsule()
-                            .fill(eqSeparator.opacity(NeumorphicStyle.isActive ? 0.58 : 1))
-                            .frame(height: 4)
-
-                        // 中线标记
-                        Rectangle()
-                            .fill(eqMutedText.opacity(0.38))
-                            .frame(width: 2, height: 12)
-                            .position(x: centerX, y: geo.size.height / 2)
-
-                        // 活跃区域（从中心到拇指）
-                        let barStart = min(centerX, thumbX)
-                        let barWidth = abs(thumbX - centerX)
-                        if barWidth > 1 {
-                            Capsule()
-                                .fill(eqAccent.opacity(0.66))
-                                .frame(width: barWidth, height: 4)
-                                .offset(x: barStart)
-                        }
-
-                        // 拇指
-                        Circle()
-                            .fill(eqAccent)
-                            .frame(width: 20, height: 20)
-                            .shadow(color: eqAccent.opacity(NeumorphicStyle.isActive ? 0.18 : 0.3), radius: 4, y: 2)
-                            .position(x: thumbX, y: geo.size.height / 2)
+                VStack(spacing: 8) {
+                    HStack {
+                        Text("-12")
+                        Spacer()
+                        Text("0")
+                        Spacer()
+                        Text("+12")
                     }
-                    .contentShape(Rectangle().inset(by: -12))
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { value in
-                                let ratio = min(max(value.location.x / w, 0), 1)
-                                // 映射到 -12~+12，吸附到整数半音
-                                let raw = Float(ratio) * 24 - 12
-                                let snapped = roundf(raw)
-                                pitchValue = snapped
-                                PlayerManager.shared.setPitch(snapped)
-                            }
-                    )
-                }
-                .frame(height: 28)
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundColor(eqMutedText.opacity(0.7))
 
-                // 快捷按钮
-                HStack(spacing: 8) {
-                    ForEach([-3, -1, 0, 1, 3], id: \.self) { semitone in
-                        let s = Float(semitone)
-                        Button(action: {
-                            withAnimation(.easeOut(duration: 0.15)) {
-                                pitchValue = s
-                                PlayerManager.shared.setPitch(s)
+                    GeometryReader { geo in
+                        let width = geo.size.width
+                        let normalized = CGFloat((pitchValue + 12) / 24)
+                        let centerX = width * 0.5
+                        let thumbX = width * normalized
+
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(eqSeparator).frame(height: 4)
+
+                            Rectangle()
+                                .fill(eqMutedText.opacity(0.38))
+                                .frame(width: 2, height: 12)
+                                .position(x: centerX, y: geo.size.height / 2)
+
+                            let barStart = min(centerX, thumbX)
+                            let barWidth = abs(thumbX - centerX)
+                            if barWidth > 1 {
+                                Capsule()
+                                    .fill(eqAccent.opacity(0.66))
+                                    .frame(width: barWidth, height: 4)
+                                    .offset(x: barStart)
                             }
-                        }) {
-                            Text(semitone > 0 ? "+\(semitone)" : "\(semitone)")
-                                .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                .foregroundColor(pitchValue == s ? eqAccentForeground : eqSecondaryText)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                        .fill(pitchValue == s ? eqAccent : eqPressedSurface)
-                                )
+
+                            Circle()
+                                .fill(eqAccent)
+                                .frame(width: 20, height: 20)
+                                .shadow(color: eqAccent.opacity(0.3), radius: 4, y: 2)
+                                .position(x: thumbX, y: geo.size.height / 2)
                         }
-                        .buttonStyle(.plain)
+                        .contentShape(Rectangle().inset(by: -12))
+                        .gesture(
+                            DragGesture(minimumDistance: 0)
+                                .onChanged { value in
+                                    let ratio = min(max(value.location.x / width, 0), 1)
+                                    let snapped = roundf(Float(ratio) * 24 - 12)
+                                    pitchValue = snapped
+                                    PlayerManager.shared.setPitch(snapped)
+                                }
+                        )
+                    }
+                    .frame(height: 28)
+
+                    HStack(spacing: 8) {
+                        ForEach([-3, -1, 0, 1, 3], id: \.self) { semitone in
+                            let value = Float(semitone)
+                            Button {
+                                withAnimation(.easeOut(duration: 0.15)) {
+                                    pitchValue = value
+                                    PlayerManager.shared.setPitch(value)
+                                }
+                            } label: {
+                                Text(semitone > 0 ? "+\(semitone)" : "\(semitone)")
+                                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                    .foregroundColor(pitchValue == value ? eqAccentForeground : eqSecondaryText)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                                    .background {
+                                        if pitchValue == value {
+                                            Capsule().fill(eqAccent)
+                                        } else {
+                                            Capsule().fill(Color.white.opacity(0.045))
+                                                .overlay(Capsule().strokeBorder(eqSeparator, lineWidth: 1))
+                                        }
+                                    }
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
                 }
             }
+            .padding(14)
+            .background(cardBackground)
         }
-        .padding(20)
-        .themedPageSurface(cornerRadius: 18, elevated: true, mangaTint: MangaStyle.bubbleWhite)
     }
 
     private var pitchDisplayText: String {
@@ -434,40 +518,40 @@ struct EQSettingsView: View {
     // MARK: - 均衡器区域（曲线 + 滑块合一）
 
     private var equalizerSection: some View {
-        VStack(spacing: 12) {
-            HStack {
-                Text(LocalizedStringKey("eq_equalizer"))
-                    .font(.rounded(size: 16, weight: .semibold))
-                    .foregroundColor(eqPrimaryText)
-                Spacer()
-                Button(action: { showSaveSheet = true }) {
-                    Text(LocalizedStringKey("eq_save"))
-                        .font(.rounded(size: 13, weight: .medium))
-                        .foregroundColor(NeumorphicStyle.isActive ? eqAccent : eqSecondaryText)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 5)
-                        .background(NeumorphicStyle.isActive ? eqPressedSurface : eqSeparator)
-                        .clipShape(Capsule())
-                }
-            }
-
-            // 曲线 + 滑块叠加
-            ZStack(alignment: .bottom) {
+        section(title: String(localized: "eq_equalizer")) {
+            VStack(spacing: 12) {
+                // 曲线 + 滑块叠加
+                ZStack(alignment: .bottom) {
                 // 频谱曲线填充
                 spectrumFill
                     .frame(height: 220)
 
+                // dB 参考标签
+                VStack {
+                    Text("+12")
+                    Spacer()
+                    Text("0")
+                    Spacer()
+                    Text("-12")
+                }
+                .font(.system(size: 8.5, weight: .medium, design: .monospaced))
+                .foregroundColor(eqMutedText.opacity(0.55))
+                .padding(.vertical, 2)
+                .frame(height: 220)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .allowsHitTesting(false)
+
                 // 垂直滑块
                 sliderOverlay
                     .frame(height: 220)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
-            // 频率标签
-            frequencyLabels
+                frequencyLabels
+            }
+            .padding(14)
+            .background(cardBackground)
         }
-        .padding(20)
-        .themedPageSurface(cornerRadius: 18, elevated: true, mangaTint: MangaStyle.bubbleWhite)
     }
 
     // 频谱曲线填充（渐变）
@@ -492,7 +576,7 @@ struct EQSettingsView: View {
                         path.move(to: CGPoint(x: 0, y: y))
                         path.addLine(to: CGPoint(x: w, y: y))
                     }
-                    .stroke(eqSeparator.opacity(NeumorphicStyle.isActive ? 0.32 : 0.4), lineWidth: 0.5)
+                    .stroke(eqSeparator, lineWidth: 0.5)
                 }
 
                 if points.count >= 2 {
@@ -511,17 +595,7 @@ struct EQSettingsView: View {
                         path.addLine(to: CGPoint(x: w, y: h))
                         path.closeSubpath()
                     }
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                eqAccent.opacity(NeumorphicStyle.isActive ? 0.22 : 0.25),
-                                eqAccent.opacity(0.08),
-                                eqAccent.opacity(0.02)
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
+                    .fill(eqAccent.opacity(0.11))
 
                     // 曲线描边
                     Path { path in
@@ -535,7 +609,7 @@ struct EQSettingsView: View {
                                           control2: CGPoint(x: midX, y: curr.y))
                         }
                     }
-                    .stroke(eqAccent.opacity(NeumorphicStyle.isActive ? 0.62 : 0.5), lineWidth: 2)
+                    .stroke(eqAccent.opacity(0.68), lineWidth: 2)
                 }
             }
             .animation(.easeOut(duration: 0.15), value: displayGains)
@@ -560,7 +634,7 @@ struct EQSettingsView: View {
 
                     // 轨道线
                     RoundedRectangle(cornerRadius: 1.5)
-                        .fill(eqMutedText.opacity(NeumorphicStyle.isActive ? 0.22 : 0.15))
+                        .fill(eqMutedText.opacity(0.26))
                         .frame(width: 3, height: h)
                         .position(x: centerX, y: h / 2)
 
@@ -578,7 +652,7 @@ struct EQSettingsView: View {
                     Capsule()
                         .fill(eqAccent)
                         .frame(width: 8, height: 24)
-                        .shadow(color: eqAccent.opacity(NeumorphicStyle.isActive ? 0.18 : 0.3), radius: 4, y: 2)
+                        .shadow(color: eqAccent.opacity(0.3), radius: 4, y: 2)
                         .position(x: centerX, y: thumbY)
                 }
             }
@@ -615,32 +689,38 @@ struct EQSettingsView: View {
     // MARK: - 预设横向滚动
 
     private var presetScrollSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            // 分类标签
-            ScrollView(.horizontal) {
+        section(title: String(localized: "eq_presets_header")) {
+            VStack(alignment: .leading, spacing: 12) {
+                ScrollView(.horizontal) {
                 HStack(spacing: 8) {
-                    ForEach([EQPresetCategory.genre, .surround, .scene, .vocal], id: \.rawValue) { category in
+                    ForEach(presetCategories, id: \.rawValue) { category in
                         categoryTab(category)
                     }
                 }
-            }
-            .scrollIndicators(.hidden)
-            .themeRenderScrollLayer()
+                .padding(.vertical, 1)
+                }
+                .scrollIndicators(.hidden)
 
-            // 预设卡片横向滚动
-            ScrollView(.horizontal) {
-                HStack(spacing: 12) {
+                ScrollView(.horizontal) {
+                HStack(spacing: 10) {
                     ForEach(eqManager.presets(for: selectedCategory)) { preset in
                         presetCard(preset)
                     }
                 }
+                .padding(.vertical, 2)
+                }
+                .scrollIndicators(.hidden)
             }
-            .scrollIndicators(.hidden)
-            .themeRenderScrollLayer()
+            .padding(14)
+            .background(cardBackground)
         }
     }
 
     @State private var selectedCategory: EQPresetCategory = .genre
+
+    private var presetCategories: [EQPresetCategory] {
+        [.genre, .surround, .scene, .vocal]
+    }
 
     private func categoryTab(_ category: EQPresetCategory) -> some View {
         let isSelected = selectedCategory == category
@@ -651,24 +731,22 @@ struct EQSettingsView: View {
         }) {
             HStack(spacing: 5) {
                 MonologueIcon(icon: category.icon, size: 13,
-                          color: isSelected ? (NeumorphicStyle.isActive ? eqAccent : eqAccentForeground) : eqSecondaryText)
+                          color: isSelected ? eqAccentForeground : eqSecondaryText)
                 Text(category.rawValue)
                     .font(.rounded(size: 13, weight: .medium))
             }
-            .foregroundColor(isSelected ? (NeumorphicStyle.isActive ? eqAccent : eqAccentForeground) : eqSecondaryText)
+            .foregroundColor(isSelected ? eqAccentForeground : eqSecondaryText)
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
             .background {
-                if NeumorphicStyle.isActive {
-                    NeumorphicSurfaceBackground(
-                        cornerRadius: 16,
-                        elevated: isSelected,
-                        pressed: !isSelected,
-                        tint: isSelected ? NeumorphicStyle.accent.opacity(0.2) : NeumorphicStyle.surface
-                    )
+                if isSelected {
+                    Capsule().fill(eqAccent)
                 } else {
                     Capsule()
-                        .fill(isSelected ? eqAccent : eqPrimaryText.opacity(0.06))
+                        .fill(eqPrimaryText.opacity(0.045))
+                        .overlay {
+                            Capsule().strokeBorder(eqSeparator.opacity(0.55), lineWidth: 0.8)
+                        }
                 }
             }
         }
@@ -677,57 +755,76 @@ struct EQSettingsView: View {
 
     private func presetCard(_ preset: EQPreset) -> some View {
         let isSelected = eqManager.currentPreset?.id == preset.id
+        let barColor = isSelected ? eqAccentForeground.opacity(0.92) : eqAccent.opacity(0.55)
+        let nameColor = isSelected ? eqAccentForeground : eqSecondaryText
 
         return Button(action: {
             withAnimation(.easeOut(duration: 0.2)) {
                 eqManager.applyPreset(preset)
             }
         }) {
-            VStack(spacing: 8) {
-                // 选中指示圆点
-                Circle()
-                    .fill(isSelected ? eqAccent : eqSeparator)
-                    .frame(width: 10, height: 10)
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .top, spacing: 10) {
+                    HStack(alignment: .bottom, spacing: 2.5) {
+                        ForEach(Array(preset.gains.enumerated()), id: \.offset) { _, gain in
+                            Capsule()
+                                .fill(barColor)
+                                .frame(width: 3, height: 4 + CGFloat((gain + 12) / 24) * 20)
+                        }
+                    }
+                    .frame(height: 24, alignment: .bottom)
+
+                    Spacer(minLength: 0)
+
+                    if isSelected {
+                        MonologueIcon(icon: .checkmark, size: 11, color: nameColor)
+                            .frame(width: 18, height: 18)
+                    }
+                }
 
                 Text(preset.name)
-                    .font(.rounded(size: 14, weight: isSelected ? .bold : .medium))
-                    .foregroundColor(isSelected ? eqPrimaryText : eqSecondaryText)
+                    .font(.rounded(size: 12.5, weight: isSelected ? .bold : .semibold))
+                    .foregroundColor(nameColor)
                     .lineLimit(1)
             }
-            .frame(width: 72, height: 72)
+            .padding(.horizontal, 13)
+            .padding(.vertical, 12)
+            .frame(minWidth: 108, alignment: .leading)
             .background {
-                if NeumorphicStyle.isActive {
-                    NeumorphicSurfaceBackground(
-                        cornerRadius: 16,
-                        elevated: isSelected,
-                        pressed: !isSelected,
-                        tint: isSelected ? NeumorphicStyle.accent.opacity(0.16) : NeumorphicStyle.surface
-                    )
+                if isSelected {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(eqAccent)
                 } else {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(eqPrimaryText.opacity(isSelected ? 0.08 : 0.04))
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(eqPrimaryText.opacity(0.04))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .strokeBorder(eqSeparator.opacity(0.5), lineWidth: 0.8)
+                        )
                 }
             }
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(isSelected ? eqAccent : eqSeparator.opacity(0.3), lineWidth: isSelected ? 1.5 : 0.5)
-            )
-            .shadow(color: isSelected ? eqAccent.opacity(0.15) : .clear, radius: 8, y: 4)
+            .shadow(color: isSelected ? eqAccent.opacity(0.22) : .clear, radius: 8, y: 4)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
     }
 
     // MARK: - 自定义预设
 
     private var customPresetsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(LocalizedStringKey("eq_my_presets"))
-                .font(.rounded(size: 15, weight: .semibold))
-                .foregroundColor(eqPrimaryText)
+        section(title: String(localized: "eq_my_presets")) {
+            VStack(spacing: 0) {
+                ForEach(Array(eqManager.customPresets.enumerated()), id: \.element.id) { index, preset in
+                    customPresetRow(preset)
 
-            ForEach(eqManager.customPresets) { preset in
-                customPresetRow(preset)
+                    if index < eqManager.customPresets.count - 1 {
+                        Divider()
+                            .overlay(eqSeparator)
+                            .opacity(0.5)
+                            .padding(.leading, 30)
+                    }
+                }
             }
+            .background(cardBackground)
         }
     }
 
@@ -739,10 +836,10 @@ struct EQSettingsView: View {
                 HStack(spacing: 12) {
                     Circle()
                         .fill(isSelected ? eqAccent : eqSeparator)
-                        .frame(width: 8, height: 8)
+                        .frame(width: 7, height: 7)
 
                     Text(preset.name)
-                        .font(.rounded(size: 15, weight: .medium))
+                        .font(.rounded(size: 15, weight: isSelected ? .semibold : .medium))
                         .foregroundColor(eqPrimaryText)
 
                     Spacer()
@@ -751,6 +848,7 @@ struct EQSettingsView: View {
                         MonologueIcon(icon: .checkmark, size: 14, color: eqAccent)
                     }
                 }
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 
@@ -761,16 +859,6 @@ struct EQSettingsView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(isSelected ? eqAccent.opacity(0.08) : .clear)
-                .monologueGlassIdentityOrRegular(isIdentity: isSelected, cornerRadius: 14)
-        )
-        .background {
-            if NeumorphicStyle.isActive {
-                NeumorphicSurfaceBackground(cornerRadius: 14, elevated: isSelected, pressed: !isSelected, lightweight: true)
-            }
-        }
     }
 
     // MARK: - 保存按钮
@@ -778,23 +866,56 @@ struct EQSettingsView: View {
     private var saveButton: some View {
         Button(action: { showSaveSheet = true }) {
             HStack(spacing: 8) {
-                MonologueIcon(icon: .save, size: 16, color: eqAccent)
+                MonologueIcon(icon: .save, size: 16, color: eqAccentForeground)
                 Text(LocalizedStringKey("eq_save_preset"))
-                    .font(.rounded(size: 15, weight: .medium))
-                    .foregroundColor(eqAccent)
+                    .font(.rounded(size: 15, weight: .semibold))
+                    .foregroundColor(eqAccentForeground)
             }
-            .padding(.vertical, 14)
+            .padding(.vertical, 15)
             .frame(maxWidth: .infinity)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(eqAccent.opacity(0.08))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(eqAccent.opacity(0.2), lineWidth: 1)
+                    .fill(eqAccent)
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+    }
+
+    private func section<Content: View>(
+        title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(.white.opacity(0.45))
+            content()
+        }
+    }
+
+    private var cardBackground: some View {
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .fill(Color.white.opacity(0.05))
+            .overlay {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Color.white.opacity(0.07), lineWidth: 1)
+            }
+    }
+
+    private var backdrop: some View {
+        ZStack {
+            Color(red: 0.055, green: 0.055, blue: 0.072)
+            RadialGradient(
+                colors: [eqAccent.opacity(0.16), .clear],
+                center: .top,
+                startRadius: 0,
+                endRadius: 440
+            )
+        }
+    }
+
+    private func refreshCoverAccent() {
+        coverColors.extract(from: player.currentSong?.coverUrl?.sized(200).absoluteString)
     }
 
     // MARK: - 保存预设 Sheet
@@ -829,10 +950,7 @@ struct EQSettingsView: View {
                             .foregroundColor(eqAccentForeground)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
-                            .background(
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .fill(eqAccent)
-                            )
+                            .background(Capsule().fill(eqAccent))
                     }
                     .buttonStyle(.plain)
                     .disabled(customPresetName.isEmpty)
@@ -854,19 +972,39 @@ struct EQSettingsView: View {
         trebleValue = CGFloat((effects.trebleGain + 12) / 24)
         surroundValue = CGFloat(effects.surroundLevel)
         reverbValue = CGFloat(effects.reverbLevel)
+        stereoWidthValue = CGFloat(effects.stereoWidth)
         pitchValue = PlayerManager.shared.pitchSemitones
+    }
+
+    private func syncSelectedPresetCategory() {
+        guard let category = eqManager.currentPreset?.category,
+              presetCategories.contains(category)
+        else { return }
+        selectedCategory = category
     }
 
     /// 全部重置：EQ 增益 + 音效旋钮 + 变调
     private func resetAll() {
         // 重置 EQ 均衡器
         eqManager.applyFlat()
+        eqManager.professionalProcessingIntensity = 1.3
+        eqManager.isOutputCalibrationEnabled = true
+        eqManager.isLoudnessMatchingEnabled = true
+        eqManager.isSmartSongCompensationEnabled = true
+        eqManager.isDynamicEQEnabled = true
+        eqManager.dynamicEQBands = DynamicEQBand.monoDefaults
+        eqManager.isMultibandDynamicsEnabled = true
+        eqManager.multibandConfiguration = MultibandDynamicsConfiguration(isEnabled: true)
+        eqManager.isParametricEQEnabled = false
+        eqManager.parametricBands = []
+        eqManager.selectedHeadphoneProfileID = "off"
         
         // 重置音效参数
         PlayerManager.shared.audioEffects.setBassGain(0)
         PlayerManager.shared.audioEffects.setTrebleGain(0)
         PlayerManager.shared.audioEffects.setSurroundLevel(0)
         PlayerManager.shared.audioEffects.setReverbLevel(0)
+        PlayerManager.shared.audioEffects.setStereoWidth(1)
         EQManager.shared.saveAudioEffectsState()
         
         // 重置变调
@@ -900,6 +1038,12 @@ struct EQSettingsView: View {
         EQManager.shared.saveAudioEffectsState()
     }
 
+    private func applyStereoWidth(_ val: CGFloat) {
+        PlayerManager.shared.audioEffects.setStereoWidth(Float(val))
+        EQManager.shared.updateSafetyLimiter()
+        EQManager.shared.saveAudioEffectsState()
+    }
+
     private func switchToCustomIfNeeded() {
         if eqManager.currentPreset?.id != "custom" {
             if let preset = eqManager.currentPreset {
@@ -913,6 +1057,552 @@ struct EQSettingsView: View {
                 gains: eqManager.customGains,
                 isCustom: true
             )
+        }
+    }
+}
+
+private func normalizedEQAccent(_ color: Color) -> Color {
+    let uiColor = UIColor(color)
+    var hue: CGFloat = 0
+    var saturation: CGFloat = 0
+    var brightness: CGFloat = 0
+    var alpha: CGFloat = 1
+
+    guard uiColor.getHue(
+        &hue,
+        saturation: &saturation,
+        brightness: &brightness,
+        alpha: &alpha
+    ) else {
+        return Color(red: 0.53, green: 0.62, blue: 1)
+    }
+
+    let adjustedSaturation = saturation < 0.08 ? saturation : min(saturation, 0.82)
+    let candidate = Color(
+        hue: Double(hue),
+        saturation: Double(adjustedSaturation),
+        brightness: Double(max(brightness, 0.82)),
+        opacity: Double(alpha)
+    )
+    let background = Color(red: 0.055, green: 0.055, blue: 0.072)
+
+    guard ThemeColorCustomization.contrastRatio(between: candidate, and: background) < 3 else {
+        return candidate
+    }
+
+    return Color(
+        hue: Double(hue),
+        saturation: Double(saturation < 0.08 ? saturation : min(saturation, 0.56)),
+        brightness: 0.96,
+        opacity: Double(alpha)
+    )
+}
+
+// MARK: - Mono 专业模式
+
+private struct EQProfessionalSettingsView: View {
+    @StateObject private var manager = EQManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
+
+    private var primary: Color { NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary }
+    private var secondary: Color { NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary }
+    private var accent: Color { NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueAccent }
+    private var separator: Color { NeumorphicStyle.isActive ? NeumorphicStyle.separator : .monologueSeparator }
+
+    var body: some View {
+        let _ = settings.globalThemeRevision
+        ZStack {
+            MonologueSheetAwareBackground { ThemedSettingsBackground() }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    outputSummary
+                    automaticSection
+                    preampSection
+                    headphoneSection
+                    if manager.isDynamicEQEnabled { dynamicEQSection }
+                    if manager.isMultibandDynamicsEnabled { multibandSection }
+                    if manager.isParametricEQEnabled { parametricSection }
+                    FloatingBarBottomSpacer()
+                }
+                .padding(.top, 8)
+                .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
+                .iPadContentWidth()
+            }
+            .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
+        }
+        .themedInlineNavigationTitle(String(localized: "eq_professional_mode"))
+        .toolbar(.visible, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .onAppear { manager.handleAudioRouteChanged() }
+        .onDisappear { manager.stopLoudnessMatchedReferenceAudition() }
+    }
+
+    private var outputSummary: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 14) {
+                MonologueIcon(icon: .headphones, size: 19, color: accent)
+                    .frame(width: 42, height: 42)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(accent.opacity(0.12)))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(manager.currentOutputName.isEmpty ? manager.currentOutputKind.title : manager.currentOutputName)
+                        .font(.rounded(size: 16, weight: .bold))
+                        .foregroundColor(primary)
+                        .lineLimit(1)
+                    Text(manager.currentOutputKind.title)
+                        .font(.rounded(size: 11.5, weight: .medium))
+                        .foregroundColor(secondary)
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 3) {
+                    Text(String(format: "%.1f dB", manager.preampDB))
+                        .font(.system(size: 14, weight: .bold, design: .monospaced))
+                        .foregroundColor(manager.preampDB < -0.05 ? accent : secondary)
+                    Text(LocalizedStringKey("eq_preamp"))
+                        .font(.rounded(size: 10.5, weight: .medium))
+                        .foregroundColor(secondary)
+                }
+            }
+
+            Divider().overlay(separator).opacity(0.55)
+
+            Button { manager.toggleLoudnessMatchedReference() } label: {
+                HStack {
+                    Text(manager.isAuditioningReference ? LocalizedStringKey("eq_ab_return") : LocalizedStringKey("eq_ab_reference"))
+                        .font(.rounded(size: 13.5, weight: .semibold))
+                    Spacer()
+                    Text(manager.isAuditioningReference ? "B" : "A")
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .frame(width: 26, height: 26)
+                        .background(Circle().fill(accent.opacity(0.13)))
+                }
+                .foregroundColor(accent)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(16)
+        .themedPageSurface(cornerRadius: 16, elevated: true, mangaTint: MangaStyle.bubbleWhite)
+    }
+
+    private var automaticSection: some View {
+        professionalSection("eq_automatic_processing") {
+            parameterSlider(
+                title: String(localized: "eq_processing_intensity"),
+                value: $manager.professionalProcessingIntensity,
+                range: 0.7...1.8,
+                step: 0.05,
+                valueText: String(format: "%.0f%%", manager.professionalProcessingIntensity * 100)
+            )
+            sectionDivider
+            switchRow("eq_output_calibration", detail: manager.currentOutputKind.title, isOn: $manager.isOutputCalibrationEnabled)
+            sectionDivider
+            switchRow("eq_loudness_matching", detail: String(localized: "eq_loudness_matching_desc"), isOn: $manager.isLoudnessMatchingEnabled)
+            sectionDivider
+            switchRow("eq_smart_song", detail: String(localized: "eq_smart_song_desc"), isOn: $manager.isSmartSongCompensationEnabled)
+            sectionDivider
+            switchRow("eq_dynamic_eq", detail: String(localized: "eq_dynamic_eq_desc"), isOn: $manager.isDynamicEQEnabled)
+            sectionDivider
+            switchRow("eq_multiband", detail: String(localized: "eq_multiband_desc"), isOn: $manager.isMultibandDynamicsEnabled)
+            sectionDivider
+            switchRow("eq_parametric_eq", detail: String(localized: "eq_parametric_eq_desc"), isOn: $manager.isParametricEQEnabled)
+        }
+    }
+
+    private var preampSection: some View {
+        professionalSection("eq_preset_preamp") {
+            parameterSlider(
+                title: String(localized: "eq_preamp"),
+                value: Binding(
+                    get: { manager.currentPresetPreampDB },
+                    set: { manager.setCurrentPresetPreampDB($0) }
+                ),
+                range: -18...0,
+                step: 0.1,
+                valueText: String(format: "%.1f dB", manager.currentPresetPreampDB)
+            )
+        }
+    }
+
+    private var headphoneSection: some View {
+        professionalSection("eq_headphone_correction") {
+            Picker("", selection: $manager.selectedHeadphoneProfileID) {
+                Text(LocalizedStringKey("eq_headphone_off")).tag("off")
+                Text(LocalizedStringKey("eq_headphone_auto")).tag("auto")
+                ForEach(manager.headphoneProfiles) { profile in
+                    Text(profile.name).tag(profile.id)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .tint(accent)
+
+            if manager.selectedHeadphoneProfileID != "off",
+               manager.selectedHeadphoneProfileID != "auto",
+               let profile = manager.headphoneProfiles.first(where: { $0.id == manager.selectedHeadphoneProfileID }) {
+                sectionDivider
+                correctionSliders(profile)
+                sectionDivider
+                Button(role: .destructive) {
+                    manager.deleteHeadphoneProfile(id: profile.id)
+                } label: {
+                    Text(LocalizedStringKey("eq_delete_headphone_profile"))
+                        .font(.rounded(size: 14, weight: .semibold))
+                }
+                .buttonStyle(.plain)
+            } else {
+                sectionDivider
+                Button {
+                    manager.createHeadphoneProfileForCurrentOutput()
+                } label: {
+                    HStack {
+                        Text(LocalizedStringKey("eq_create_headphone_profile"))
+                            .font(.rounded(size: 14, weight: .semibold))
+                            .foregroundColor(accent)
+                        Spacer()
+                        MonologueIcon(icon: .add, size: 13, color: accent)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func correctionSliders(_ profile: MonoHeadphoneCorrectionProfile) -> some View {
+        VStack(spacing: 10) {
+            ForEach(Array(EQBand.allCases.enumerated()), id: \.element.rawValue) { index, band in
+                HStack(spacing: 10) {
+                    Text(band.label)
+                        .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
+                        .foregroundColor(secondary)
+                        .frame(width: 30, alignment: .leading)
+                    Slider(
+                        value: Binding(
+                            get: { profile.gains[index] },
+                            set: { manager.setHeadphoneCorrectionGain($0, at: index) }
+                        ),
+                        in: -6...6,
+                        step: 0.1
+                    )
+                    .tint(accent)
+                    Text(String(format: "%+.1f", profile.gains[index]))
+                        .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+                        .foregroundColor(primary)
+                        .frame(width: 38, alignment: .trailing)
+                }
+            }
+        }
+    }
+
+    private var dynamicEQSection: some View {
+        professionalSection("eq_dynamic_eq") {
+            ForEach(manager.dynamicEQBands.indices, id: \.self) { index in
+                if index > 0 { sectionDivider }
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text(String(format: String(localized: "eq_dynamic_band_format"), formatFrequency(manager.dynamicEQBands[index].frequency)))
+                            .font(.rounded(size: 14, weight: .semibold))
+                            .foregroundColor(primary)
+                        Spacer()
+                        Toggle("", isOn: $manager.dynamicEQBands[index].isEnabled)
+                            .labelsHidden()
+                            .toggleStyle(SettingsSwitchToggleStyle())
+                    }
+                    parameterSlider(
+                        title: String(localized: "eq_frequency"),
+                        value: logarithmicFrequencyBinding($manager.dynamicEQBands[index].frequency),
+                        range: 0...1,
+                        step: 0.001,
+                        valueText: formatFrequency(manager.dynamicEQBands[index].frequency)
+                    )
+                    parameterSlider(
+                        title: "Q",
+                        value: $manager.dynamicEQBands[index].q,
+                        range: 0.2...10,
+                        step: 0.05,
+                        valueText: String(format: "%.2f", manager.dynamicEQBands[index].q)
+                    )
+                    parameterSlider(
+                        title: String(localized: "eq_threshold"),
+                        value: $manager.dynamicEQBands[index].thresholdDB,
+                        range: -45...(-6),
+                        step: 0.5,
+                        valueText: String(format: "%.1f dB", manager.dynamicEQBands[index].thresholdDB)
+                    )
+                    parameterSlider(
+                        title: String(localized: "eq_ratio"),
+                        value: $manager.dynamicEQBands[index].ratio,
+                        range: 1...6,
+                        step: 0.05,
+                        valueText: String(format: "%.2f:1", manager.dynamicEQBands[index].ratio)
+                    )
+                    parameterSlider(
+                        title: String(localized: "eq_max_reduction"),
+                        value: $manager.dynamicEQBands[index].maxReductionDB,
+                        range: 0...6,
+                        step: 0.1,
+                        valueText: String(format: "%.1f dB", manager.dynamicEQBands[index].maxReductionDB)
+                    )
+                    parameterSlider(
+                        title: String(localized: "eq_attack"),
+                        value: $manager.dynamicEQBands[index].attackMS,
+                        range: 1...150,
+                        step: 1,
+                        valueText: String(format: "%.0f ms", manager.dynamicEQBands[index].attackMS)
+                    )
+                    parameterSlider(
+                        title: String(localized: "eq_release"),
+                        value: $manager.dynamicEQBands[index].releaseMS,
+                        range: 20...600,
+                        step: 5,
+                        valueText: String(format: "%.0f ms", manager.dynamicEQBands[index].releaseMS)
+                    )
+                }
+            }
+        }
+    }
+
+    private var multibandSection: some View {
+        professionalSection("eq_multiband") {
+            parameterSlider(
+                title: String(localized: "eq_low_crossover"),
+                value: multibandScalarBinding(\.lowCrossoverHz),
+                range: 60...600,
+                step: 5,
+                valueText: formatFrequency(manager.multibandConfiguration.lowCrossoverHz)
+            )
+            parameterSlider(
+                title: String(localized: "eq_high_crossover"),
+                value: multibandScalarBinding(\.highCrossoverHz),
+                range: 1_200...10_000,
+                step: 50,
+                valueText: formatFrequency(manager.multibandConfiguration.highCrossoverHz)
+            )
+            ForEach(0..<3, id: \.self) { index in
+                if index > 0 { sectionDivider }
+                parameterSlider(
+                    title: [String(localized: "eq_low_band"), String(localized: "eq_mid_band"), String(localized: "eq_high_band")][index],
+                    value: multibandBinding(index: index, keyPath: \.thresholdsDB),
+                    range: -36...(-4),
+                    step: 0.5,
+                    valueText: String(format: "%.1f dB", manager.multibandConfiguration.thresholdsDB[index])
+                )
+                parameterSlider(
+                    title: String(localized: "eq_ratio"),
+                    value: multibandBinding(index: index, keyPath: \.ratios),
+                    range: 1...4,
+                    step: 0.05,
+                    valueText: String(format: "%.2f:1", manager.multibandConfiguration.ratios[index])
+                )
+                parameterSlider(
+                    title: String(localized: "eq_max_reduction"),
+                    value: multibandBinding(index: index, keyPath: \.maxReductionDB),
+                    range: 0...6,
+                    step: 0.1,
+                    valueText: String(format: "%.1f dB", manager.multibandConfiguration.maxReductionDB[index])
+                )
+            }
+            sectionDivider
+            parameterSlider(
+                title: String(localized: "eq_attack"),
+                value: multibandScalarBinding(\.attackMS),
+                range: 1...150,
+                step: 1,
+                valueText: String(format: "%.0f ms", manager.multibandConfiguration.attackMS)
+            )
+            parameterSlider(
+                title: String(localized: "eq_release"),
+                value: multibandScalarBinding(\.releaseMS),
+                range: 20...800,
+                step: 5,
+                valueText: String(format: "%.0f ms", manager.multibandConfiguration.releaseMS)
+            )
+        }
+    }
+
+    private var parametricSection: some View {
+        professionalSection("eq_parametric_eq") {
+            ForEach(manager.parametricBands.indices, id: \.self) { index in
+                if index > 0 { sectionDivider }
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Picker("", selection: $manager.parametricBands[index].type) {
+                            ForEach(ParametricEQFilterType.allCases, id: \.rawValue) { type in
+                                Text(type.eqDisplayName).tag(type)
+                            }
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                        .tint(primary)
+                        Spacer()
+                        Toggle("", isOn: $manager.parametricBands[index].isEnabled)
+                            .labelsHidden()
+                            .toggleStyle(SettingsSwitchToggleStyle())
+                        Button(role: .destructive) {
+                            manager.removeParametricBand(id: manager.parametricBands[index].id)
+                        } label: {
+                            MonologueIcon(icon: .trash, size: 13, color: secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    parameterSlider(
+                        title: String(localized: "eq_frequency"),
+                        value: logarithmicFrequencyBinding($manager.parametricBands[index].frequency),
+                        range: 0...1,
+                        step: 0.001,
+                        valueText: formatFrequency(manager.parametricBands[index].frequency)
+                    )
+                    if manager.parametricBands[index].type != .lowPass,
+                       manager.parametricBands[index].type != .highPass,
+                       manager.parametricBands[index].type != .notch {
+                        parameterSlider(
+                            title: String(localized: "eq_gain"),
+                            value: $manager.parametricBands[index].gainDB,
+                            range: -18...18,
+                            step: 0.1,
+                            valueText: String(format: "%+.1f dB", manager.parametricBands[index].gainDB)
+                        )
+                    }
+                    parameterSlider(
+                        title: "Q",
+                        value: $manager.parametricBands[index].q,
+                        range: 0.1...12,
+                        step: 0.05,
+                        valueText: String(format: "%.2f", manager.parametricBands[index].q)
+                    )
+                }
+            }
+            Button { manager.addParametricBand() } label: {
+                HStack {
+                    Text(LocalizedStringKey("eq_add_filter"))
+                        .font(.rounded(size: 14, weight: .semibold))
+                    Spacer()
+                    MonologueIcon(icon: .add, size: 13, color: accent)
+                }
+                .foregroundColor(accent)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func professionalSection<Content: View>(
+        _ title: LocalizedStringKey,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(title)
+                .font(.rounded(size: 12, weight: .bold))
+                .foregroundColor(secondary)
+            content()
+        }
+        .padding(16)
+        .themedPageSurface(cornerRadius: 16, elevated: true, mangaTint: MangaStyle.bubbleWhite)
+    }
+
+    private func switchRow(
+        _ title: LocalizedStringKey,
+        detail: String,
+        isOn: Binding<Bool>
+    ) -> some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.rounded(size: 14.5, weight: .semibold))
+                    .foregroundColor(primary)
+                Text(detail)
+                    .font(.rounded(size: 11.5, weight: .medium))
+                    .foregroundColor(secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 8)
+            Toggle("", isOn: isOn)
+                .labelsHidden()
+                .toggleStyle(SettingsSwitchToggleStyle())
+        }
+    }
+
+    private func parameterSlider(
+        title: String,
+        value: Binding<Float>,
+        range: ClosedRange<Float>,
+        step: Float,
+        valueText: String
+    ) -> some View {
+        VStack(spacing: 6) {
+            HStack {
+                Text(title)
+                    .font(.rounded(size: 12, weight: .medium))
+                    .foregroundColor(secondary)
+                Spacer()
+                Text(valueText)
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .foregroundColor(primary)
+            }
+            Slider(value: value, in: range, step: step)
+                .tint(accent)
+        }
+    }
+
+    private var sectionDivider: some View {
+        Divider().overlay(separator).opacity(0.55)
+    }
+
+    private func multibandBinding(
+        index: Int,
+        keyPath: WritableKeyPath<MultibandDynamicsConfiguration, [Float]>
+    ) -> Binding<Float> {
+        Binding(
+            get: { manager.multibandConfiguration[keyPath: keyPath][index] },
+            set: { value in
+                var configuration = manager.multibandConfiguration
+                configuration[keyPath: keyPath][index] = value
+                manager.multibandConfiguration = configuration
+            }
+        )
+    }
+
+    private func multibandScalarBinding(
+        _ keyPath: WritableKeyPath<MultibandDynamicsConfiguration, Float>
+    ) -> Binding<Float> {
+        Binding(
+            get: { manager.multibandConfiguration[keyPath: keyPath] },
+            set: { value in
+                var configuration = manager.multibandConfiguration
+                configuration[keyPath: keyPath] = value
+                manager.multibandConfiguration = configuration
+            }
+        )
+    }
+
+    private func logarithmicFrequencyBinding(_ frequency: Binding<Float>) -> Binding<Float> {
+        let minimum: Float = 20
+        let maximum: Float = 20_000
+        let span = logf(maximum / minimum)
+        return Binding(
+            get: { logf(max(frequency.wrappedValue, minimum) / minimum) / span },
+            set: { frequency.wrappedValue = minimum * expf(min(max($0, 0), 1) * span) }
+        )
+    }
+
+    private func formatFrequency(_ frequency: Float) -> String {
+        frequency >= 1_000
+            ? String(format: "%.2g kHz", frequency / 1_000)
+            : String(format: "%.0f Hz", frequency)
+    }
+}
+
+private extension ParametricEQFilterType {
+    var eqDisplayName: String {
+        switch self {
+        case .peak: return String(localized: "eq_filter_peak")
+        case .lowShelf: return String(localized: "eq_filter_low_shelf")
+        case .highShelf: return String(localized: "eq_filter_high_shelf")
+        case .lowPass: return String(localized: "eq_filter_low_pass")
+        case .highPass: return String(localized: "eq_filter_high_pass")
+        case .notch: return String(localized: "eq_filter_notch")
         }
     }
 }
@@ -938,38 +1628,62 @@ struct CircularKnob: View {
         return NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary
     }
 
+    private var tickColor: Color {
+        return NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary
+    }
+
     // 弧线参数：从左下 (225°) 顺时针到右下 (315°)，跨越 270°
     // SwiftUI trim 参数：startTrim = 0.125 (45°/360°), 总弧 = 0.75 (270°/360°)
     // 旋转 90° 使 trim(0) 在底部
-    
-    // 角度定义（以数学坐标系，从正右方逆时针）：
-    // 起始位置：左下方 225° → 在 rotated 坐标中对应 trim 0.125
-    // 结束位置：右下方 315° → 在 rotated 坐标中对应 trim 0.875
+    // 刻度/指示点角度：屏幕坐标从顶部顺时针 = 180° + trim * 360°
 
     var body: some View {
         let _ = settings.globalThemeRevision
 
         GeometryReader { geo in
             let size = min(geo.size.width, geo.size.height)
+            let arcDiameter = size - lineWidth
+            let tickRadius = arcDiameter / 2 - lineWidth / 2 - 4.5
 
             ZStack {
+                // 内圈刻度
+                ForEach(0..<11, id: \.self) { i in
+                    let frac = CGFloat(i) / 10
+                    let trim = 0.125 + 0.75 * frac
+                    let lit = frac <= value + 0.001
+                    Capsule()
+                        .fill(lit ? activeColor.opacity(0.85) : tickColor.opacity(0.28))
+                        .frame(width: 1.5, height: i % 5 == 0 ? 6 : 3.5)
+                        .offset(y: -tickRadius + (i % 5 == 0 ? 0 : 1))
+                        .rotationEffect(.degrees(180 + 360 * Double(trim)))
+                }
+
                 // 背景轨道
                 Circle()
                     .trim(from: 0.125, to: 0.875)
                     .stroke(trackColor, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                     .rotationEffect(.degrees(90))
-                    .frame(width: size - lineWidth, height: size - lineWidth)
+                    .frame(width: arcDiameter, height: arcDiameter)
 
                 // 活跃弧线
                 Circle()
                     .trim(from: 0.125, to: 0.125 + 0.75 * value)
                     .stroke(activeColor, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                     .rotationEffect(.degrees(90))
-                    .frame(width: size - lineWidth, height: size - lineWidth)
+                    .frame(width: arcDiameter, height: arcDiameter)
+
+                // 端点指示
+                Circle()
+                    .fill(Color.white)
+                    .frame(width: lineWidth - 2.6, height: lineWidth - 2.6)
+                    .offset(y: -arcDiameter / 2)
+                    .rotationEffect(.degrees(180 + 360 * Double(0.125 + 0.75 * value)))
+                    .shadow(color: .black.opacity(0.18), radius: 1, y: 0.5)
 
                 // 中心百分比
                 Text("\(Int(value * 100))")
-                    .font(.system(size: size * 0.22, weight: .bold, design: .rounded))
+                    .font(.system(size: size * 0.23, weight: .heavy, design: .rounded))
+                    .monospacedDigit()
                     .foregroundColor(valueColor)
             }
             .frame(width: size, height: size)

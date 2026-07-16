@@ -44,6 +44,35 @@ struct MonologueBackButton: View {
     }
 }
 
+/// 导航栏专用返回按钮。iOS 26 的 Toolbar 会自行提供玻璃背景，避免再套一层自绘胶囊。
+struct MonologueToolbarBackButton: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var iconColor: Color = .monologueTextPrimary
+
+    var body: some View {
+        Button { dismiss() } label: {
+            backLabel
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var backLabel: some View {
+        if #available(iOS 26, *) {
+            MonologueIcon(icon: .back, size: 16, color: iconColor)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        } else {
+            MonologueIcon(icon: .back, size: 16, color: iconColor)
+                .frame(width: 40, height: 40)
+                .monologueGlassCircle()
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+    }
+}
+
 // MARK: - 弥散背景组件
 struct MonologueBackground: View {
     @Environment(\.colorScheme) private var colorScheme
@@ -208,6 +237,22 @@ struct MonologueBackground: View {
                 wallpaper,
                 baseHex: ThemeColorCustomization.darkBackgroundSolidHex(for: .default)
             )
+        } else if colorScheme == .dark,
+                  ThemeColorCustomization.usesDarkGradientBackground(for: .default) {
+            let accent = Color(hex: ThemeColorCustomization.darkAccentHex(for: .default))
+            ThemeCustomDiffuseBackground(
+                theme: .default,
+                fallbackHexes: [],
+                opacity: 1,
+                colorsOverride: ThemeColorCustomization.darkBackgroundGradientColors(
+                    for: .default
+                ),
+                accentColorsOverride: [accent, accent],
+                gradientStyleOverride: ThemeColorCustomization.darkBackgroundGradientStyle(
+                    for: .default
+                )
+            )
+            .ignoresSafeArea()
         } else if colorScheme == .dark, ThemeColorCustomization.usesDarkSolidBackground(for: .default) {
             Color(hex: ThemeColorCustomization.darkBackgroundSolidHex(for: .default))
                 .ignoresSafeArea()

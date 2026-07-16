@@ -78,6 +78,10 @@ final class ConnectionManager {
     /// The format context for the current connection, if any.
     private var formatContext: FFmpegFormatContext?
 
+    /// Blocking FFmpeg calls run outside `workQueue`, allowing disconnect() to
+    /// enter the queue and trigger AVIOInterruptCB immediately.
+    private var connectionTask: Task<FFmpegFormatContext, Error>?
+
     /// Optional decryption key for CENC-encrypted media (e.g. 汽水音乐).
     var decryptionKey: String?
 
@@ -145,6 +149,14 @@ final class ConnectionManager {
         case .hls, .http, .https:
             // HTTP-based protocols use `timeout` in microseconds
             av_dict_set(&opts, "timeout", timeoutStr, 0)
+            // 启动提速：限制探测预算。音频流（mp3/flac/m4a/ogg）在几十 KB 内即可
+            // 完成流信息探测，FFmpeg 默认 5MB probesize + 5s analyzeduration 会在
+            // 慢网络下白读几 MB 才出声。预留 1MB 是为兼容内嵌大封面 ID3 的文件。
+            // HLS 走分片播放列表，探测本来就小，同样受益无副作用。
+            if proto != .hls {
+                av_dict_set(&opts, "probesize", "1048576", 0)          // 1MB
+                av_dict_set(&opts, "analyzeduration", "2500000", 0)    // 2.5s
+            }
             // 设置 User-Agent，避免 CDN 拒绝连接或提前断开
             av_dict_set(&opts, "user_agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148", 0)
             // 根据域名设置对应的 Referer（不同 CDN 会校验来源）
@@ -163,8 +175,9 @@ final class ConnectionManager {
             // HTTP Range 请求支持：断流后可从上次字节偏移继续请求
             av_dict_set(&opts, "multiple_requests", "1", 0)
             av_dict_set(&opts, "seekable", "1", 0)
-            // 增大 I/O 缓冲区到 512KB（默认 32KB 太小，CDN 断流时容易被打空）
-            av_dict_set(&opts, "buffer_size", "524288", 0)
+            // 1MB I/O 缓冲可覆盖更长的瞬时抖动；PCM 侧仍有独立上限，
+            // 不会因此让解码队列无界增长。
+            av_dict_set(&opts, "buffer_size", "1048576", 0)
         case .file, .none:
             // No timeout needed for local files; for unknown protocols, set a generic timeout
             if proto == nil {
@@ -201,7 +214,16 @@ final class ConnectionManager {
 
         do {
             let context = try await performConnect(url: url)
-            workQueue.sync { self.state = .connected }
+            let accepted = workQueue.sync { () -> Bool in
+                guard self.state == .connecting,
+                      self.formatContext === context else { return false }
+                self.state = .connected
+                return true
+            }
+            guard accepted else {
+                context.cancelIO()
+                throw CancellationError()
+            }
             return context
         } catch {
             let ffError: FFmpegError
@@ -210,10 +232,15 @@ final class ConnectionManager {
             } else {
                 ffError = .connectionFailed(code: -1, message: error.localizedDescription)
             }
-            workQueue.sync {
+            let shouldNotify = workQueue.sync { () -> Bool in
+                self.formatContext = nil
+                guard self.state != .disconnected else { return false }
                 self.state = .failed(ffError)
+                return true
             }
-            delegate?.connectionManager(self, didFailWith: ffError)
+            if shouldNotify {
+                delegate?.connectionManager(self, didFailWith: ffError)
+            }
             throw ffError
         }
     }
@@ -228,31 +255,20 @@ final class ConnectionManager {
     /// - Returns: An `FFmpegFormatContext` on success.
     /// - Throws: `FFmpegError` on failure or timeout.
     private func performConnect(url: String) async throws -> FFmpegFormatContext {
-        let timeoutNanoseconds = UInt64(timeoutInterval * 1_000_000_000)
         let timeoutMicroseconds = Int64(timeoutInterval * 1_000_000)
-
-        return try await withThrowingTaskGroup(of: FFmpegFormatContext.self) { group in
-            // Connection task
-            group.addTask { [weak self] in
-                guard let self = self else {
-                    throw FFmpegError.resourceAllocationFailed(resource: "ConnectionManager deallocated")
-                }
-                return try self.openConnection(url: url, timeoutMicroseconds: timeoutMicroseconds)
+        let task = Task.detached(priority: .userInitiated) { [weak self] in
+            guard let self else {
+                throw FFmpegError.resourceAllocationFailed(resource: "ConnectionManager deallocated")
             }
+            return try self.openConnection(url: url, timeoutMicroseconds: timeoutMicroseconds)
+        }
+        workQueue.sync { connectionTask = task }
 
-            // Timeout task
-            group.addTask {
-                try await Task.sleep(nanoseconds: timeoutNanoseconds)
-                throw FFmpegError.connectionTimeout
-            }
-
-            // Return whichever finishes first
-            let result = try await group.next()!
-            group.cancelAll()
-
-            // Store the format context for later disconnect
-            self.formatContext = result
-            return result
+        return try await withTaskCancellationHandler {
+            defer { workQueue.sync { connectionTask = nil } }
+            return try await task.value
+        } onCancel: { [weak self] in
+            self?.cancelActiveIO()
         }
     }
 
@@ -274,6 +290,22 @@ final class ConnectionManager {
 
         // Allocate format context
         let context = try FFmpegFormatContext()
+        // Local files remain explicitly cancellable but should not fail merely
+        // because metadata probing a large file takes longer than a network SLA.
+        let interruptDeadline: TimeInterval? = detectProtocol(from: url) == .file
+            ? nil
+            : timeoutInterval
+        context.armInterrupt(timeout: interruptDeadline)
+
+        let registered = workQueue.sync { () -> Bool in
+            guard state == .connecting else { return false }
+            formatContext = context
+            return true
+        }
+        guard registered else {
+            context.cancelIO()
+            throw CancellationError()
+        }
 
         // Build timeout options
         var opts = buildTimeoutOptions(for: url, timeoutMicroseconds: timeoutMicroseconds)
@@ -288,13 +320,29 @@ final class ConnectionManager {
         }
 
         // Open input with options
-        try context.openInput(url: url, options: &opts)
+        do {
+            try context.openInput(url: url, options: &opts)
+        } catch {
+            if context.didInterruptForTimeout {
+                throw FFmpegError.connectionTimeout
+            }
+            throw error
+        }
 
         // Check for cancellation after open
         try Task.checkCancellation()
 
         // Find stream info
-        try context.findStreamInfo()
+        do {
+            try context.findStreamInfo()
+        } catch {
+            if context.didInterruptForTimeout {
+                throw FFmpegError.connectionTimeout
+            }
+            throw error
+        }
+
+        context.clearInterruptDeadline()
 
         return context
     }
@@ -308,7 +356,10 @@ final class ConnectionManager {
     ///
     /// Safe to call multiple times or when not connected.
     func disconnect() {
-        workQueue.sync {
+        let task = workQueue.sync { () -> Task<FFmpegFormatContext, Error>? in
+            let task = self.connectionTask
+            self.connectionTask = nil
+            self.formatContext?.cancelIO()
             // Release the format context (deinit will call avformat_close_input)
             self.formatContext = nil
             if case .idle = self.state {
@@ -316,6 +367,14 @@ final class ConnectionManager {
             } else {
                 self.state = .disconnected
             }
+            return task
+        }
+        task?.cancel()
+    }
+
+    private func cancelActiveIO() {
+        workQueue.sync {
+            formatContext?.cancelIO()
         }
     }
 }

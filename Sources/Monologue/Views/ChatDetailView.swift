@@ -75,7 +75,7 @@ struct ChatDetailView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
-                .themedPageSurface(cornerRadius: MangaStyle.isActive ? 20 : 16, elevated: false)
+                .themedPageSurface(cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius + 4 : 16, elevated: false)
             }
         }
         .themedNavigationChrome(title: nickname, eyebrow: "CHAT", icon: .comment)
@@ -148,10 +148,10 @@ private struct ChatBubble: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .background(bubbleBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius + 2 : 16, style: .continuous))
                     .overlay {
                         if MangaStyle.isActive {
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            RoundedRectangle(cornerRadius: MangaStyle.cardRadius + 2, style: .continuous)
                                 .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
                         } else if MujiStyle.isActive {
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -177,7 +177,7 @@ private struct ChatBubble: View {
 
     private var bubbleBackground: Color {
         if MangaStyle.isActive {
-            return isMe ? MangaStyle.labelYellow : MangaStyle.bubbleWhite
+            return isMe ? MangaStyle.bubblePink : MangaStyle.bubbleWhite
         } else if MujiStyle.isActive {
             return isMe ? MujiStyle.clay : MujiStyle.surfaceRaised
         } else if SequoiaStyle.isActive {

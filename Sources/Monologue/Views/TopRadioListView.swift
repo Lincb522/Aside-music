@@ -57,7 +57,7 @@ struct TopRadioListView: View {
                     LazyVStack(spacing: ThemedPageStyle.listSpacing) {
                         ForEach(Array(viewModel.radios.enumerated()), id: \.element.id) { index, radio in
                             NavigationLink(value: PodcastView.PodcastDestination.radioDetail(radio.id)) {
-                                radioRow(radio: radio)
+                                radioRow(radio: radio, index: index)
                             }
                             .buttonStyle(.plain)
                             .onAppear {
@@ -94,7 +94,16 @@ struct TopRadioListView: View {
         }
     }
 
-    private func radioRow(radio: RadioStation) -> some View {
+    @ViewBuilder
+    private func radioRow(radio: RadioStation, index: Int) -> some View {
+        if !ThemedPageStyle.isActive {
+            AsideRadioListRow(radio: radio, rank: listType == .toplist ? index + 1 : nil)
+        } else {
+            legacyRadioRow(radio: radio)
+        }
+    }
+
+    private func legacyRadioRow(radio: RadioStation) -> some View {
         HStack(spacing: 14) {
             CachedAsyncImage(url: radio.coverUrl) {
                 RoundedRectangle(cornerRadius: coverRadius, style: .continuous)

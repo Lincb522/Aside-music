@@ -3,7 +3,7 @@ import SwiftUI
 private enum PodcastQueuePalette {
     static var accent: Color {
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
-        return NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueAccentBlue
+        return NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueAccent
     }
 
     static var primaryText: Color {

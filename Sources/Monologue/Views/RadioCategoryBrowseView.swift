@@ -106,10 +106,10 @@ struct RadioCategoryBrowseView: View {
                             .padding(.horizontal, (MinimalWhiteStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 16 : 14)
                             .padding(.vertical, (MinimalWhiteStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 9 : 8)
                             .background(categoryChipBackground(isSelected: isSelected))
-                            .clipShape(Capsule())
+                            .clipShape(MangaStyle.isActive ? AnyShape(RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)) : AnyShape(Capsule()))
                             .overlay {
                                 if MangaStyle.isActive {
-                                    Capsule()
+                                    RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
                                         .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
                                 } else if MujiStyle.isActive {
                                     Capsule()
@@ -139,6 +139,7 @@ struct RadioCategoryBrowseView: View {
         if MujiStyle.isActive { return MujiStyle.labelFont(13, weight: isSelected ? .semibold : .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(13, weight: isSelected ? .semibold : .medium) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(13, weight: isSelected ? .semibold : .medium) }
+        if !ThemedPageStyle.isActive { return .rounded(size: 13, weight: isSelected ? .bold : .medium) }
         return .system(size: 13, weight: .medium, design: .rounded)
     }
 
@@ -146,7 +147,7 @@ struct RadioCategoryBrowseView: View {
         if MinimalWhiteStyle.isActive {
             return isSelected ? MinimalWhiteStyle.ink : MinimalWhiteStyle.inkMuted
         } else if MangaStyle.isActive {
-            return isSelected ? MangaStyle.ink : .monologueTextPrimary
+            return isSelected ? ThemeColorCustomization.readableForegroundColor(on: MangaStyle.labelYellow, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk) : .monologueTextPrimary
         } else if MujiStyle.isActive {
             return isSelected ? MujiStyle.paper : .monologueTextPrimary
         } else if NeumorphicStyle.isActive {
@@ -163,7 +164,9 @@ struct RadioCategoryBrowseView: View {
         if MinimalWhiteStyle.isActive {
             MinimalWhiteCapsuleBackground(selected: isSelected)
         } else if MangaStyle.isActive {
-            Capsule().fill(isSelected ? MangaStyle.labelYellow : MangaStyle.bubbleWhite)
+            RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
+                .fill(isSelected ? MangaStyle.labelYellow : MangaStyle.bubbleWhite)
+                .overlay(RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
         } else if MujiStyle.isActive {
             Capsule().fill(isSelected ? MujiStyle.clay : MujiStyle.surfaceRaised)
         } else if NeumorphicStyle.isActive {
@@ -176,6 +179,14 @@ struct RadioCategoryBrowseView: View {
         } else if SequoiaStyle.isActive {
             Capsule()
                 .fill(isSelected ? SequoiaStyle.accent : SequoiaStyle.materialList.opacity(0.76))
+        } else if !ThemedPageStyle.isActive {
+            Capsule()
+                .fill(isSelected ? Color.monologueIconBackground : Color.clear)
+                .overlay {
+                    if !isSelected {
+                        Capsule().stroke(Color.monologueSeparator.opacity(0.95), lineWidth: 0.8)
+                    }
+                }
         } else {
             Capsule().fill(isSelected ? Color.monologueIconBackground : Color.monologueGlassTint)
         }
@@ -183,7 +194,16 @@ struct RadioCategoryBrowseView: View {
 
     // MARK: - 电台行
 
+    @ViewBuilder
     private func radioRow(radio: RadioStation) -> some View {
+        if !ThemedPageStyle.isActive {
+            AsideRadioListRow(radio: radio)
+        } else {
+            legacyRadioRow(radio: radio)
+        }
+    }
+
+    private func legacyRadioRow(radio: RadioStation) -> some View {
         HStack(spacing: 14) {
             CachedAsyncImage(url: radio.coverUrl) {
                 RoundedRectangle(cornerRadius: coverRadius, style: .continuous)

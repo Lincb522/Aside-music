@@ -52,8 +52,12 @@ struct EQPreset: Identifiable, Codable, Equatable {
     let reverbLevel: Float
     /// 立体声宽度（0~2），1.0 = 原始
     let stereoWidth: Float
+    /// 该预设独立的前级值。nil 时由完整滤波曲线自动计算。
+    let preampDB: Float?
+    /// 等响 A/B 的人工微调值。nil 时使用感知权重自动匹配。
+    let loudnessCompensationDB: Float?
     
-    init(id: String, name: String, category: EQPresetCategory, description: String, gains: [Float], isCustom: Bool = false, presetType: EQPresetType = .standard10, surroundLevel: Float = 0, reverbLevel: Float = 0, stereoWidth: Float = 1.0) {
+    init(id: String, name: String, category: EQPresetCategory, description: String, gains: [Float], isCustom: Bool = false, presetType: EQPresetType = .standard10, surroundLevel: Float = 0, reverbLevel: Float = 0, stereoWidth: Float = 1.0, preampDB: Float? = nil, loudnessCompensationDB: Float? = nil) {
         self.id = id
         self.name = name
         self.category = category
@@ -64,6 +68,8 @@ struct EQPreset: Identifiable, Codable, Equatable {
         self.surroundLevel = surroundLevel
         self.reverbLevel = reverbLevel
         self.stereoWidth = stereoWidth
+        self.preampDB = preampDB.map { min(max($0, -18), 0) }
+        self.loudnessCompensationDB = loudnessCompensationDB.map { min(max($0, -12), 3) }
     }
     
     // MARK: - 自定义 Decodable（JSON 中可省略有默认值的字段）
@@ -81,6 +87,8 @@ struct EQPreset: Identifiable, Codable, Equatable {
         surroundLevel = try container.decodeIfPresent(Float.self, forKey: .surroundLevel) ?? 0
         reverbLevel = try container.decodeIfPresent(Float.self, forKey: .reverbLevel) ?? 0
         stereoWidth = try container.decodeIfPresent(Float.self, forKey: .stereoWidth) ?? 1.0
+        preampDB = try container.decodeIfPresent(Float.self, forKey: .preampDB)
+        loudnessCompensationDB = try container.decodeIfPresent(Float.self, forKey: .loudnessCompensationDB)
     }
     
     /// 应用预设到均衡器和音效

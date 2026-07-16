@@ -11,24 +11,35 @@ final class HistoryRepository {
 
     // MARK: - 播放历史
 
-    /// 添加播放记录
-    func addPlayHistory(song: Song, duration: Int = 0, completed: Bool = false) {
+    /// 添加播放记录，返回新建的行（听歌统计会持续把真实播放秒数写回这一行）
+    @discardableResult
+    func addPlayHistory(song: Song, duration: Int = 0, completed: Bool = false) -> PlayHistory {
         let history = PlayHistory(from: song, duration: duration, completed: completed)
         store.insert(history)
 
-        // 限制历史记录数量
-        trimPlayHistory(maxCount: 500)
+        // 播放日志是听歌统计的数据源，只按总量兜底裁剪，不再 500 条就丢
+        trimPlayHistory(maxCount: 20000)
 
         store.save()
+        return history
     }
 
-    /// 获取播放历史
-    func getPlayHistory(limit: Int = 100) -> [PlayHistory] {
-        store.fetch(
+    /// 获取播放历史；cutoff 之后的才返回（「最近播放」清空只挪 cutoff，不删统计日志）
+    func getPlayHistory(limit: Int = 100, after cutoff: Date? = nil) -> [PlayHistory] {
+        let predicate: ((PlayHistory) -> Bool)? = cutoff.map { cutoff in
+            { $0.playedAt > cutoff }
+        }
+        return store.fetch(
             PlayHistory.self,
+            where: predicate,
             sortBy: { $0.playedAt > $1.playedAt },
             limit: limit
         )
+    }
+
+    /// 播放中的行属性被就地更新（真实播放秒数）后落盘
+    func savePlayHistoryUpdates() {
+        store.save()
     }
 
     /// 获取某首歌的播放历史

@@ -29,6 +29,18 @@ public struct ContentView: View {
                         .transition(.identity)
                 }
 
+                // 版本更新后的更新日志弹窗（欢迎页关闭后触发检查）
+                ChangelogPopupOverlay()
+                    .zIndex(60)
+
+                // 周报 / 月报弹窗（与更新日志、专属问候错峰弹出）
+                ListeningReportPopupOverlay()
+                    .zIndex(65)
+
+                // 浆糊专属问候弹窗（特定 Token 生效，与更新日志错峰弹出）
+                SpecialGreetingOverlay()
+                    .zIndex(70)
+
                 if showWelcome {
                     WelcomeView(isPresented: $showWelcome)
                         .transition(.identity)
@@ -73,6 +85,9 @@ public struct ContentView: View {
             if !isShowing {
                 mountMainContentWithoutAnimation()
                 onlineAccess.refreshOnLaunch(showInvalidAlert: true)
+                ChangelogManager.shared.presentLatestAfterUpdateIfNeeded()
+                SpecialGreetingManager.shared.presentOnLaunchIfEligible()
+                ListeningReportCenter.shared.presentOnLaunchIfEligible()
             }
         }
         .onOpenURL { url in
@@ -167,7 +182,7 @@ public struct ContentView: View {
     /// 其他场景保持原有行为。
     @ViewBuilder
     private var tabViewContent: some View {
-        if #available(iOS 26.0, *), settings.useSystemTabBar {
+        if #available(iOS 26.0, *), settings.useSystemTabBar, settings.globalThemeId != .manga {
             SystemTabBarWithAccessory(content: { tabViewCore })
         } else {
             tabViewCore
@@ -183,7 +198,7 @@ public struct ContentView: View {
         return TabView(selection: tabSelectionBinding) {
             tabRootView(for: .home)
                 .id(tabRootIdentity(for: .home))
-                .toolbar(settings.useSystemTabBar ? .automatic : .hidden, for: .tabBar)
+                .toolbar(settings.useSystemTabBar && settings.globalThemeId != .manga ? .automatic : .hidden, for: .tabBar)
                 .tabItem {
                     Label {
                         Text(tabLabel(for: .home))
@@ -194,7 +209,7 @@ public struct ContentView: View {
                 .tag(Tab.home)
             tabRootView(for: .podcast)
                 .id(tabRootIdentity(for: .podcast))
-                .toolbar(settings.useSystemTabBar ? .automatic : .hidden, for: .tabBar)
+                .toolbar(settings.useSystemTabBar && settings.globalThemeId != .manga ? .automatic : .hidden, for: .tabBar)
                 .tabItem {
                     Label {
                         Text(tabLabel(for: .podcast))
@@ -205,7 +220,7 @@ public struct ContentView: View {
                 .tag(Tab.podcast)
             tabRootView(for: .library)
                 .id(tabRootIdentity(for: .library))
-                .toolbar(settings.useSystemTabBar ? .automatic : .hidden, for: .tabBar)
+                .toolbar(settings.useSystemTabBar && settings.globalThemeId != .manga ? .automatic : .hidden, for: .tabBar)
                 .tabItem {
                     Label {
                         Text(tabLabel(for: .library))
@@ -216,7 +231,7 @@ public struct ContentView: View {
                 .tag(Tab.library)
             tabRootView(for: .profile)
                 .id(tabRootIdentity(for: .profile))
-                .toolbar(settings.useSystemTabBar ? .automatic : .hidden, for: .tabBar)
+                .toolbar(settings.useSystemTabBar && settings.globalThemeId != .manga ? .automatic : .hidden, for: .tabBar)
                 .tabItem {
                     Label {
                         Text(tabLabel(for: .profile))
@@ -309,7 +324,12 @@ public struct ContentView: View {
     private func tabIcon(for tab: Tab) -> some View {
         let iconSet = AppInterfaceIconSet.selectedFromDefaults
 
-        if iconSet == .hicon {
+        if iconSet == .sfSymbols {
+            // 系统 TabBar 会提取 tabItem 内部的原始 UIImage，并忽略自定义
+            // View 的 frame。SF 图标包内部使用 60pt 符号源，必须在这里
+            // 交回原生 Image(systemName:) 才会应用系统标准 Tab 图标尺寸。
+            systemTabSymbolIcon(for: tab)
+        } else if iconSet == .hicon {
             defaultTabIcon(for: tab)
         } else if iconSet == .pawPrint {
             originalArtworkTabIcon(
@@ -330,6 +350,24 @@ public struct ContentView: View {
                 normalizesBitmapScale: true
             )
             .frame(width: tabIconFrameSize, height: tabIconFrameSize)
+        }
+    }
+
+    @ViewBuilder
+    private func systemTabSymbolIcon(for tab: Tab) -> some View {
+        switch tab {
+        case .home:
+            Image(systemName: currentTab == .home ? "house.fill" : "house")
+        case .podcast:
+            if onlineAccess.canUseOnlineFeatures {
+                Image(systemName: currentTab == .podcast ? "mic.fill" : "mic")
+            } else {
+                Image(systemName: currentTab == .podcast ? "music.note.list" : "music.note")
+            }
+        case .library:
+            Image(systemName: currentTab == .library ? "square.stack.fill" : "square.stack")
+        case .profile:
+            Image(systemName: currentTab == .profile ? "person.fill" : "person")
         }
     }
 
@@ -385,7 +423,7 @@ public struct ContentView: View {
             return 17
         case .pawPrint:
             return 18
-        case .hicon, .zappicon, .lucide, .solar:
+        case .hicon, .sfSymbols, .zappicon, .lucide, .solar:
             return 23
         }
     }
@@ -534,7 +572,7 @@ private struct ContentViewFloatingBarContainer: View {
     @ObservedObject private var player = FloatingBarPlaybackModel.shared
 
     var body: some View {
-        if !settings.useSystemTabBar && !player.isTabBarHidden {
+        if (!settings.useSystemTabBar || settings.globalThemeId == .manga) && !player.isTabBarHidden {
             floatingBarView
                 .id("\(settings.globalThemeId.rawValue)-\(settings.globalThemeRevision)")
                 .themeRenderInteractiveLayer()
@@ -548,30 +586,40 @@ private struct ContentViewFloatingBarContainer: View {
 
     @ViewBuilder
     private var floatingBarView: some View {
-        switch settings.floatingBarStyle {
-        case .unified:
+        if settings.globalThemeId == .manga {
             VStack {
                 Spacer()
                 UnifiedFloatingBar(currentTab: $currentTab)
                     .iPadContentWidth(600)
-                    .padding(.horizontal, DeviceLayout.isPad ? 40 : 24)
+                    .padding(.horizontal, DeviceLayout.isPad ? 40 : 6)
                     .padding(.bottom, 0)
             }
+        } else {
+            switch settings.floatingBarStyle {
+            case .unified:
+                VStack {
+                    Spacer()
+                    UnifiedFloatingBar(currentTab: $currentTab)
+                        .iPadContentWidth(600)
+                        .padding(.horizontal, DeviceLayout.isPad ? 40 : 24)
+                        .padding(.bottom, 0)
+                }
 
-        case .classic:
-            ClassicFloatingBar(currentTab: $currentTab)
+            case .classic:
+                ClassicFloatingBar(currentTab: $currentTab)
 
-        case .minimal:
-            VStack {
-                Spacer()
-                MinimalMiniPlayer(currentTab: $currentTab)
-                    .iPadContentWidth(600)
-                    .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
-                    .padding(.bottom, 8)
+            case .minimal:
+                VStack {
+                    Spacer()
+                    MinimalMiniPlayer(currentTab: $currentTab)
+                        .iPadContentWidth(600)
+                        .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
+                        .padding(.bottom, 8)
+                }
+
+            case .floatingBall:
+                FloatingBallView(currentTab: $currentTab)
             }
-
-        case .floatingBall:
-            FloatingBallView(currentTab: $currentTab)
         }
     }
 
@@ -586,14 +634,14 @@ private struct ContentViewCompactPlayerContainer: View {
     /// iOS 26+ 时改用 `.tabViewBottomAccessory` 原生嵌入，这里跳过避免重复显示
     private var shouldUseNativeBottomAccessory: Bool {
         if #available(iOS 26.0, *) {
-            return settings.useSystemTabBar
+            return settings.useSystemTabBar && settings.globalThemeId != .manga
         }
         return false
     }
 
     var body: some View {
         if !shouldUseNativeBottomAccessory,
-           settings.useSystemTabBar && !player.isTabBarHidden,
+           settings.useSystemTabBar && settings.globalThemeId != .manga && !player.isTabBarHidden,
            let song = player.currentSong
         {
             VStack {

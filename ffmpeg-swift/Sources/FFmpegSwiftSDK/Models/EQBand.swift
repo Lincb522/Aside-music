@@ -49,21 +49,21 @@ public enum EQBand: Int, CaseIterable, Comparable {
     }
 
     /// 每个频段的 Q 值（带宽控制）。
-    /// 低频段用更低的 Q（更宽带宽）以获得更饱满的低频体感，
-    /// 高频段用稍高的 Q 以保持精确度。
-    /// 整体比默认 Q=1.0 更宽，让 10 段之间无缝衔接。
+    /// 十段中心频率按倍频程排列；中间频段采用接近一倍频程的恒定 Q，
+    /// 两端略放宽，让 31 Hz 与 16 kHz 更接近低/高架式听感。
+    /// 避免旧版过宽带宽导致相邻增益过度叠加、曲线与滑块读数不一致。
     public var q: Float {
         switch self {
-        case .hz31:  return 0.5   // 超低频需要宽带宽
-        case .hz62:  return 0.6
-        case .hz125: return 0.7
-        case .hz250: return 0.7
-        case .hz500: return 0.8
-        case .hz1k:  return 0.8
-        case .hz2k:  return 0.8
-        case .hz4k:  return 0.7
-        case .hz8k:  return 0.6
-        case .hz16k: return 0.5   // 超高频也需要宽带宽
+        case .hz31:  return 0.95
+        case .hz62:  return 1.15
+        case .hz125: return 1.30
+        case .hz250: return 1.35
+        case .hz500: return 1.40
+        case .hz1k:  return 1.40
+        case .hz2k:  return 1.40
+        case .hz4k:  return 1.35
+        case .hz8k:  return 1.20
+        case .hz16k: return 0.95
         }
     }
 
@@ -103,6 +103,117 @@ public struct EQBandGain {
     public init(band: EQBand, gainDB: Float) {
         self.band = band
         self.gainDB = gainDB
+    }
+}
+
+// MARK: - Mono 专业均衡与动态处理模型
+
+public enum ParametricEQFilterType: String, Codable, CaseIterable, Sendable {
+    case peak
+    case lowShelf
+    case highShelf
+    case lowPass
+    case highPass
+    case notch
+}
+
+public struct ParametricEQBand: Identifiable, Codable, Equatable, Sendable {
+    public var id: UUID
+    public var isEnabled: Bool
+    public var type: ParametricEQFilterType
+    public var frequency: Float
+    public var gainDB: Float
+    public var q: Float
+
+    public init(
+        id: UUID = UUID(),
+        isEnabled: Bool = true,
+        type: ParametricEQFilterType = .peak,
+        frequency: Float = 1_000,
+        gainDB: Float = 0,
+        q: Float = 1
+    ) {
+        self.id = id
+        self.isEnabled = isEnabled
+        self.type = type
+        self.frequency = min(max(frequency, 20), 20_000)
+        self.gainDB = min(max(gainDB, -18), 18)
+        self.q = min(max(q, 0.1), 12)
+    }
+}
+
+public struct DynamicEQBand: Identifiable, Codable, Equatable, Sendable {
+    public var id: UUID
+    public var isEnabled: Bool
+    public var frequency: Float
+    public var q: Float
+    public var thresholdDB: Float
+    public var ratio: Float
+    public var maxReductionDB: Float
+    public var attackMS: Float
+    public var releaseMS: Float
+
+    public init(
+        id: UUID = UUID(),
+        isEnabled: Bool = true,
+        frequency: Float,
+        q: Float,
+        thresholdDB: Float,
+        ratio: Float,
+        maxReductionDB: Float,
+        attackMS: Float,
+        releaseMS: Float
+    ) {
+        self.id = id
+        self.isEnabled = isEnabled
+        self.frequency = min(max(frequency, 20), 20_000)
+        self.q = min(max(q, 0.2), 10)
+        self.thresholdDB = min(max(thresholdDB, -60), 0)
+        self.ratio = min(max(ratio, 1), 10)
+        self.maxReductionDB = min(max(maxReductionDB, 0), 12)
+        self.attackMS = min(max(attackMS, 1), 500)
+        self.releaseMS = min(max(releaseMS, 10), 2_000)
+    }
+
+    public static let monoDefaults: [DynamicEQBand] = [
+        DynamicEQBand(frequency: 72, q: 0.85, thresholdDB: -17, ratio: 1.7, maxReductionDB: 2.4, attackMS: 28, releaseMS: 190),
+        DynamicEQBand(frequency: 280, q: 1.05, thresholdDB: -19, ratio: 1.55, maxReductionDB: 1.8, attackMS: 35, releaseMS: 230),
+        DynamicEQBand(frequency: 7_200, q: 2.2, thresholdDB: -25, ratio: 2.3, maxReductionDB: 3.0, attackMS: 5, releaseMS: 95)
+    ]
+}
+
+public struct MultibandDynamicsConfiguration: Codable, Equatable, Sendable {
+    public var isEnabled: Bool
+    public var lowCrossoverHz: Float
+    public var highCrossoverHz: Float
+    public var thresholdsDB: [Float]
+    public var ratios: [Float]
+    public var maxReductionDB: [Float]
+    public var attackMS: Float
+    public var releaseMS: Float
+
+    public init(
+        isEnabled: Bool = false,
+        lowCrossoverHz: Float = 180,
+        highCrossoverHz: Float = 3_800,
+        thresholdsDB: [Float] = [-13, -11, -15],
+        ratios: [Float] = [1.45, 1.28, 1.5],
+        maxReductionDB: [Float] = [2.2, 1.5, 2.0],
+        attackMS: Float = 22,
+        releaseMS: Float = 210
+    ) {
+        self.isEnabled = isEnabled
+        self.lowCrossoverHz = min(max(lowCrossoverHz, 60), 600)
+        self.highCrossoverHz = min(max(highCrossoverHz, 1_200), 10_000)
+        self.thresholdsDB = Self.normalized(thresholdsDB, fallback: [-13, -11, -15])
+        self.ratios = Self.normalized(ratios, fallback: [1.45, 1.28, 1.5]).map { min(max($0, 1), 6) }
+        self.maxReductionDB = Self.normalized(maxReductionDB, fallback: [2.2, 1.5, 2.0]).map { min(max($0, 0), 8) }
+        self.attackMS = min(max(attackMS, 1), 500)
+        self.releaseMS = min(max(releaseMS, 10), 2_000)
+    }
+
+    private static func normalized(_ values: [Float], fallback: [Float]) -> [Float] {
+        values.count == 3 ? values : fallback
     }
 }
 

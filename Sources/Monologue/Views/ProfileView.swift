@@ -46,6 +46,8 @@ struct ProfileView: View {
 
     @State private var userLevel: Int?
     @State private var listenSongs: Int?
+    /// aside 数据带的本周收听秒数（来自听歌统计日志）
+    @State private var weekListenSeconds: Int?
 
     @State private var downloadedSongCount = DownloadManager.shared.downloadedSongIds.count
     @State private var localPlaylistCount = LocalPlaylistManager.shared.playlists.count
@@ -122,18 +124,9 @@ struct ProfileView: View {
                 .scrollIndicators(.hidden)
                 .themeRenderScrollLayer()
             }
-            .navigationTitle(ThemedPageStyle.isActive ? "" : String(localized: "我的"))
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbar {
-                if !ThemedPageStyle.isActive {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        NavigationLink(value: ProfileNavigationDestination.settings) {
-                            MonologueIcon(icon: .settings, size: 16)
-                        }
-                    }
-                }
-            }
             .profileNavigationDestinations()
         }
     }
@@ -172,19 +165,306 @@ struct ProfileView: View {
         } else if LiquidGlassStyle.isActive {
             liquidGlassProfileDashboard
         } else {
-            profileHeroCard
+            // aside：编辑部风格 —— 刊头眉题 + 身份区 + 发丝数据带 + 索引式目录
+            asideProfileMasthead
                 .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                .padding(.top, 8)
+                .monologuePageHeaderCollapse()
 
-            statsBar
+            asideStatsBand
                 .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                .padding(.top, 2)
 
             ProfileRecentPlaysHost(variant: .standard)
 
-            menuList
+            asideMenuIndex
                 .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
 
-            logoutButton
+            asideLogoutButton
         }
+    }
+
+    // MARK: - aside 我的页
+
+    /// 刊头：眉题行 + 问候语 + 大号昵称 + 引文式签名，全部直接落在页面上
+    private var asideProfileMasthead: some View {
+        let profile = cachedProfile ?? viewModel.userProfile
+        let signature = profile?.signature?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                Capsule()
+                    .fill(Color.monologueAccent)
+                    .frame(width: 18, height: 3)
+
+                Text("PROFILE")
+                    .font(.system(size: 10.5, weight: .heavy, design: .rounded))
+                    .tracking(2.4)
+                    .foregroundColor(.monologueTextSecondary.opacity(0.72))
+                    .fixedSize()
+
+                Rectangle()
+                    .fill(Color.monologueSeparator.opacity(0.5))
+                    .frame(height: 0.5)
+
+                NavigationLink(value: ProfileNavigationDestination.settings) {
+                    MonologueIcon(icon: .settings, size: 19, color: .monologueTextPrimary.opacity(0.85), lineWidth: 1.7)
+                        .frame(width: 38, height: 38)
+                        .background(
+                            Circle()
+                                .fill(Color.monologueIconBackground.opacity(0.1))
+                                .overlay(Circle().stroke(Color.monologueTextPrimary.opacity(0.12), lineWidth: 0.8))
+                        )
+                        .contentShape(Circle())
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.9))
+            }
+            .padding(.bottom, 14)
+
+            HStack(alignment: .center, spacing: 16) {
+                Group {
+                    if let avatarUrl = profile?.avatarUrl, let url = URL(string: avatarUrl) {
+                        CachedAsyncImage(url: url, width: 72, height: 72) {
+                            Circle().fill(Color.monologueSeparator)
+                        }
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 72, height: 72)
+                        .clipShape(Circle())
+                    } else {
+                        Circle()
+                            .fill(Color.monologueSeparator)
+                            .frame(width: 72, height: 72)
+                            .overlay(
+                                MonologueIcon(icon: .profile, size: 30, color: .monologueTextSecondary.opacity(0.4))
+                            )
+                    }
+                }
+                .overlay(
+                    Circle()
+                        .stroke(Color.monologueTextPrimary.opacity(0.12), lineWidth: 1.2)
+                        .padding(-5)
+                )
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(String(localized: LocalizedStringResource(stringLiteral: MonologueTimeGreeting.localizedKey)))
+                        .font(.rounded(size: 12.5, weight: .semibold))
+                        .foregroundColor(.monologueTextSecondary.opacity(0.85))
+
+                    HStack(alignment: .firstTextBaseline, spacing: 9) {
+                        Text(profile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
+                            .font(.system(size: 27, weight: .heavy, design: .rounded))
+                            .foregroundColor(.monologueTextPrimary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.65)
+
+                        if let level = userLevel {
+                            Text("LV.\(level)")
+                                .font(.system(size: 9.5, weight: .heavy, design: .rounded))
+                                .tracking(0.8)
+                                .foregroundColor(.monologueTextPrimary.opacity(0.72))
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 2.5)
+                                .overlay(
+                                    Capsule().stroke(Color.monologueTextPrimary.opacity(0.3), lineWidth: 0.8)
+                                )
+                        }
+                    }
+                }
+
+                Spacer(minLength: 0)
+            }
+
+            if !signature.isEmpty {
+                // 签名作引文：左侧短竖线 + 弱化正文
+                HStack(alignment: .top, spacing: 10) {
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(Color.monologueAccent.opacity(0.8))
+                        .frame(width: 2)
+                        .padding(.vertical, 2)
+
+                    Text(signature)
+                        .font(.rounded(size: 13))
+                        .foregroundColor(.monologueTextSecondary)
+                        .lineSpacing(3)
+                        .lineLimit(2)
+                }
+                .padding(.top, 16)
+                .padding(.leading, 2)
+            }
+        }
+        .padding(.top, 4)
+    }
+
+    /// 数据带：上下发丝线之间的裸排大数字，去掉玻璃容器
+    private var asideStatsBand: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 0) {
+            asideStatCell(
+                value: formatNumber(listenSongs ?? 0),
+                label: String(localized: "profile_total_songs")
+            )
+
+            asideStatCell(
+                value: "\(localPlaylistCount)",
+                label: String(localized: "profile_local_playlists")
+            )
+
+            asideStatCell(
+                value: asideWeekListenValue,
+                label: String(localized: "profile_week_listen")
+            )
+        }
+        .padding(.vertical, 16)
+        .overlay(alignment: .top) {
+            Rectangle().fill(Color.monologueSeparator.opacity(0.55)).frame(height: 0.5)
+        }
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Color.monologueSeparator.opacity(0.55)).frame(height: 0.5)
+        }
+        .task {
+            weekListenSeconds = ListeningStatsService.shared.fetchStats(for: .week).totalDuration
+        }
+    }
+
+    private var asideWeekListenValue: String {
+        guard let seconds = weekListenSeconds else { return "—" }
+        let hours = Double(seconds) / 3600
+        if hours >= 10 { return "\(Int(hours))h" }
+        if hours >= 1 { return String(format: "%.1fh", hours) }
+        return "\(max(seconds / 60, 0))m"
+    }
+
+    private func asideStatCell(value: String, label: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(value)
+                .font(.system(size: 22, weight: .heavy, design: .rounded))
+                .foregroundColor(.monologueTextPrimary)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+
+            HStack(spacing: 5) {
+                Circle()
+                    .fill(Color.monologueAccent)
+                    .frame(width: 4, height: 4)
+
+                Text(label)
+                    .font(.rounded(size: 10.5, weight: .semibold))
+                    .foregroundColor(.monologueTextSecondary.opacity(0.85))
+                    .lineLimit(1)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.leading, 4)
+    }
+
+    /// 目录：索引编号 + 发丝分隔的平铺行，不再装玻璃卡片
+    private var asideMenuIndex: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                Capsule()
+                    .fill(Color.monologueAccent)
+                    .frame(width: 3, height: 13)
+
+                Text(String(localized: "profile_settings"))
+                    .font(.rounded(size: 15, weight: .bold))
+                    .foregroundColor(.monologueTextPrimary)
+
+                Spacer(minLength: 0)
+            }
+            .padding(.bottom, 6)
+
+            Button {
+                showQQAccount = true
+            } label: {
+                asideMenuRow(
+                    index: 1,
+                    title: String(localized: "settings_qq_account"),
+                    trailingText: qqSession.isLoggedIn
+                        ? String(localized: "settings_qq_logged_in")
+                        : String(localized: "settings_qq_not_logged_in")
+                )
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+            .monologueSheet(isPresented: $showQQAccount, preset: .large) {
+                NavigationStack {
+                    QQAccountView()
+                }
+            }
+
+            asideMenuHairline
+
+            NavigationLink(destination: ListeningStatsView()) {
+                asideMenuRow(index: 2, title: String(localized: "听歌统计"))
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+
+            asideMenuHairline
+
+            NavigationLink(destination: CloudDiskView()) {
+                asideMenuRow(index: 3, title: NSLocalizedString("profile_cloud_disk", comment: ""))
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+        }
+    }
+
+    private func asideMenuRow(index: Int, title: String, trailingText: String? = nil) -> some View {
+        HStack(spacing: 14) {
+            Text(String(format: "%02d", index))
+                .font(.system(size: 11, weight: .heavy, design: .rounded))
+                .tracking(1)
+                .foregroundColor(.monologueTextSecondary.opacity(0.45))
+                .monospacedDigit()
+
+            Text(title)
+                .font(.rounded(size: 15.5, weight: .semibold))
+                .foregroundColor(.monologueTextPrimary)
+
+            Spacer(minLength: 0)
+
+            if let trailingText {
+                Text(trailingText)
+                    .font(.rounded(size: 12.5))
+                    .foregroundColor(.monologueTextSecondary.opacity(0.85))
+            }
+
+            MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary.opacity(0.4))
+        }
+        .padding(.vertical, 15)
+        .padding(.horizontal, 2)
+        .contentShape(Rectangle())
+    }
+
+    private var asideMenuHairline: some View {
+        Rectangle()
+            .fill(Color.monologueSeparator.opacity(0.5))
+            .frame(height: 0.5)
+            .padding(.leading, 32)
+    }
+
+    private var asideLogoutButton: some View {
+        Button {
+            AlertManager.shared.show(
+                title: NSLocalizedString("alert_logout_title", comment: ""),
+                message: NSLocalizedString("alert_logout_message", comment: ""),
+                primaryButtonTitle: NSLocalizedString("alert_logout_confirm", comment: ""),
+                secondaryButtonTitle: NSLocalizedString("alert_cancel", comment: "")
+            ) {
+                performLogout()
+            }
+        } label: {
+            Text(LocalizedStringKey("action_logout"))
+                .font(.rounded(size: 12.5, weight: .semibold))
+                .tracking(0.6)
+                .foregroundColor(.monologueTextSecondary.opacity(0.75))
+                .padding(.horizontal, 20)
+                .padding(.vertical, 9)
+                .overlay(
+                    Capsule().stroke(Color.monologueSeparator.opacity(0.9), lineWidth: 0.8)
+                )
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+        .frame(maxWidth: .infinity)
+        .padding(.top, 6)
     }
 
     @ViewBuilder
@@ -331,7 +611,7 @@ struct ProfileView: View {
             subtitle: ""
         ) {
             NavigationLink(value: ProfileNavigationDestination.settings) {
-                MujiIconBadge(icon: .settings, tint: MujiStyle.indigo, size: 48)
+                MujiIconBadge(icon: .settings, tint: MujiStyle.inkSoft, size: 44)
             }
             .buttonStyle(.plain)
         }
@@ -1831,11 +2111,8 @@ struct ProfileView: View {
 
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 8) {
-                        Text(LocalizedStringKey("profile_not_logged_in"))
-                            .font(MangaStyle.comicFont(24, weight: .black))
-                            .foregroundStyle(MangaStyle.ink)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.76)
+                        MangaMisprintTitle(text: String(localized: "profile_not_logged_in"), size: 24)
+                            .layoutPriority(1)
 
                         MangaProfileInfoPill(text: "GUEST", tint: MangaStyle.labelYellow)
                     }
@@ -1851,27 +2128,23 @@ struct ProfileView: View {
             }
 
             Button(action: { showLoginView = true }) {
+                let loginForeground = ThemeColorCustomization.readableForegroundColor(
+                    on: MangaStyle.labelYellow,
+                    light: MangaStyle.strokeInk,
+                    dark: MangaStyle.onStrokeInk
+                )
                 HStack(spacing: 10) {
-                    MonologueIcon(icon: .profileFilled, size: 16, color: MangaStyle.strokeInk, lineWidth: 1.85)
+                    MonologueIcon(icon: .profileFilled, size: 16, color: loginForeground, lineWidth: 1.85)
 
                     Text(LocalizedStringKey("profile_login_button"))
-                        .font(MangaStyle.comicFont(15, weight: .black))
-                        .foregroundStyle(MangaStyle.strokeInk)
+                        .font(MangaStyle.labelFont(15, weight: .black))
+                        .foregroundStyle(loginForeground)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 13)
                 .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
                         .fill(MangaStyle.labelYellow)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth)
-                )
-                .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(MangaStyle.strokeInk)
-                        .offset(x: 2.6, y: 2.6)
                 )
             }
             .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
@@ -1885,7 +2158,10 @@ struct ProfileView: View {
             }
         }
         .padding(16)
-        .background(MangaCardBackground(cornerRadius: 16, elevated: true, tint: MangaStyle.paperWarm))
+        .background(
+            // 未登录页唯一焦点分格：保留厚墨框错版投影
+            MangaCardBackground(cornerRadius: MangaStyle.cardRadius + 2, elevated: true, tint: MangaStyle.paperWarm, poster: true)
+        )
     }
 
     private var mangaGuestActionList: some View {
@@ -1959,7 +2235,6 @@ struct ProfileView: View {
                 .buttonStyle(.plain)
             }
             .padding(.vertical, 4)
-            .background(MangaCardBackground(cornerRadius: 16, elevated: true, tint: MangaStyle.bubbleWhite))
         }
         .monologueSheet(isPresented: $showQQAccount, preset: .large) {
             NavigationStack {
@@ -1996,24 +2271,25 @@ struct ProfileView: View {
     }
 
     private var mujiGuestJournalPanel: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 20) {
             HStack(alignment: .center, spacing: 16) {
-                mujiAvatar(profile: nil, size: 76)
+                mujiAvatar(profile: nil, size: 72)
 
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 7) {
+                    MujiPill(text: "GUEST", tint: MujiStyle.tea)
+
                     Text(LocalizedStringKey("profile_not_logged_in"))
-                        .font(MujiStyle.titleFont(24, weight: .regular))
+                        .font(MujiStyle.titleFont(26, weight: .regular))
                         .foregroundStyle(MujiStyle.ink)
                         .lineLimit(1)
                         .minimumScaleFactor(0.78)
 
                     Text(LocalizedStringKey("profile_login_hint"))
-                        .font(MujiStyle.labelFont(12, weight: .regular))
+                        .font(MujiStyle.bodyFont(12.5, weight: .regular))
                         .foregroundStyle(MujiStyle.inkSoft)
+                        .lineSpacing(3)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
-
-                    MujiPill(text: "GUEST", tint: MujiStyle.tea)
                 }
 
                 Spacer(minLength: 0)
@@ -2030,15 +2306,9 @@ struct ProfileView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 13)
                 .background(MujiStyle.clay, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(MujiStyle.hairline.opacity(0.22), lineWidth: 0.6)
-                )
             }
             .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
         }
-        .padding(16)
-        .background(MujiPaperCardBackground(cornerRadius: 12, elevated: true))
     }
 
     private var mujiGuestLedger: some View {
@@ -2104,7 +2374,12 @@ struct ProfileView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .background(MujiPaperCardBackground(cornerRadius: 12, elevated: false))
+            .padding(.horizontal, 16)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: MujiStyle.cardRadius, style: .continuous)
+                    .fill(MujiStyle.wash(MujiStyle.clay, strength: 0.7))
+            )
         }
         .monologueSheet(isPresented: $showQQAccount, preset: .large) {
             NavigationStack {
@@ -2119,14 +2394,14 @@ struct ProfileView: View {
                 ThemedProfileBackground()
 
                 ScrollView {
-                    VStack(spacing: 18) {
+                    VStack(spacing: 30) {
                         mujiProfileHeader
 
                         mujiGuestJournalPanel
-                            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                            .padding(.horizontal, 28)
 
                         mujiGuestLedger
-                            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                            .padding(.horizontal, 28)
                     }
                     .padding(.bottom, 140)
                 }
@@ -2313,15 +2588,18 @@ struct ProfileView: View {
         mujiProfileHeader
 
         mujiProfileJournalPanel
-            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+            .padding(.horizontal, 28)
 
         statsBar
-            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+            .padding(.horizontal, 28)
+            .padding(.top, 6)
 
         ProfileRecentPlaysHost(variant: .standard)
+            .padding(.top, 4)
 
         mujiProfileLedger
-            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+            .padding(.horizontal, 28)
+            .padding(.top, 4)
 
         logoutButton
     }
@@ -2334,11 +2612,8 @@ struct ProfileView: View {
 
             VStack(alignment: .leading, spacing: 7) {
                 HStack(alignment: .center, spacing: 8) {
-                    Text(profile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
-                        .font(MangaStyle.comicFont(24, weight: .black))
-                        .foregroundStyle(MangaStyle.ink)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.72)
+                    MangaMisprintTitle(text: profile?.nickname ?? NSLocalizedString("default_nickname", comment: ""), size: 24)
+                        .layoutPriority(1)
 
                     if let level = userLevel {
                         MangaProfileInfoPill(text: "Lv.\(level)", tint: MangaStyle.accentPink)
@@ -2361,12 +2636,12 @@ struct ProfileView: View {
                 MonologueIcon(icon: .settings, size: 18, color: MangaStyle.strokeInk, lineWidth: 1.9)
                     .frame(width: 42, height: 42)
                     .background(
-                        Circle()
+                        RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
                             .fill(MangaStyle.bubbleWhite.opacity(0.94))
                     )
                     .overlay(
-                        Circle()
-                            .stroke(MangaStyle.strokeInk.opacity(0.58), lineWidth: MangaStyle.fineStrokeWidth)
+                        RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
+                            .stroke(MangaStyle.strokeInk.opacity(0.55), lineWidth: MangaStyle.fineStrokeWidth)
                     )
             }
             .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
@@ -2445,7 +2720,6 @@ struct ProfileView: View {
                 .buttonStyle(.plain)
             }
             .padding(.vertical, 4)
-            .background(MangaCardBackground(cornerRadius: 16, elevated: true, tint: MangaStyle.bubbleWhite))
         }
         .monologueSheet(isPresented: $showQQAccount, preset: .large) {
             NavigationStack {
@@ -2501,39 +2775,47 @@ struct ProfileView: View {
 
     private var mujiProfileJournalPanel: some View {
         let profile = cachedProfile ?? viewModel.userProfile
+        let signature = profile?.signature?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
-        return VStack(alignment: .leading, spacing: 18) {
+        return VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .center, spacing: 16) {
-                mujiAvatar(profile: profile, size: 76)
+                mujiAvatar(profile: profile, size: 72)
 
-                VStack(alignment: .leading, spacing: 7) {
-                    Text(profile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
-                        .font(MujiStyle.titleFont(24, weight: .regular))
-                        .foregroundStyle(MujiStyle.ink)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.78)
-
-                    if let signature = profile?.signature, !signature.isEmpty {
-                        Text(signature)
-                            .font(MujiStyle.labelFont(12, weight: .regular))
-                            .foregroundStyle(MujiStyle.inkSoft)
-                            .lineLimit(2)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-
-                    HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 10) {
                         if let level = userLevel {
                             MujiPill(text: "Lv.\(level)", tint: MujiStyle.clay)
                         }
                         MujiPill(text: formatNumber(listenSongs ?? 0), tint: MujiStyle.tea)
                     }
+
+                    Text(profile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
+                        .font(MujiStyle.titleFont(27, weight: .regular))
+                        .foregroundStyle(MujiStyle.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
                 }
 
                 Spacer(minLength: 0)
             }
+
+            if !signature.isEmpty {
+                // 签名作引文：左侧陶土短竖线 + 衬线弱化正文
+                HStack(alignment: .top, spacing: 11) {
+                    Rectangle()
+                        .fill(MujiStyle.clay.opacity(0.8))
+                        .frame(width: 2)
+                        .padding(.vertical, 2)
+
+                    Text(signature)
+                        .font(MujiStyle.bodyFont(13, weight: .regular))
+                        .foregroundStyle(MujiStyle.inkSoft)
+                        .lineSpacing(4)
+                        .lineLimit(2)
+                }
+                .padding(.top, 15)
+            }
         }
-        .padding(16)
-        .background(MujiPaperCardBackground(cornerRadius: 12, elevated: true))
     }
 
     private var mujiProfileLedger: some View {
@@ -2599,7 +2881,12 @@ struct ProfileView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .background(MujiPaperCardBackground(cornerRadius: 12, elevated: false))
+            .padding(.horizontal, 16)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: MujiStyle.cardRadius, style: .continuous)
+                    .fill(MujiStyle.wash(MujiStyle.clay, strength: 0.7))
+            )
         }
         .monologueSheet(isPresented: $showQQAccount, preset: .large) {
             NavigationStack {
@@ -2617,16 +2904,14 @@ struct ProfileView: View {
             }
             .aspectRatio(contentMode: .fill)
             .frame(width: size, height: size)
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 2))
-            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(MangaStyle.strokeInk).offset(x: 3, y: 3))
+            .clipShape(RoundedRectangle(cornerRadius: MangaStyle.cardRadius + 2, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: MangaStyle.cardRadius + 2, style: .continuous).stroke(MangaStyle.strokeInk.opacity(0.7), lineWidth: 1.2))
         } else {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: MangaStyle.cardRadius + 2, style: .continuous)
                 .fill(MangaStyle.bubbleWhite)
                 .frame(width: size, height: size)
                 .overlay(MonologueIcon(icon: .profile, size: size * 0.42, color: MangaStyle.strokeInk))
-                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 2))
-                .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(MangaStyle.strokeInk).offset(x: 3, y: 3))
+                .overlay(RoundedRectangle(cornerRadius: MangaStyle.cardRadius + 2, style: .continuous).stroke(MangaStyle.strokeInk.opacity(0.7), lineWidth: 1.2))
         }
     }
 
@@ -2687,7 +2972,7 @@ struct ProfileView: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
                     Text(profile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
-                        .font(MangaStyle.isActive ? MangaStyle.comicFont(22, weight: .bold) : (PetWhiteStyle.isActive ? PetWhiteStyle.titleFont(22, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(22, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(22, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.titleFont(21, weight: .bold) : (SequoiaStyle.isActive ? SequoiaStyle.titleFont(21, weight: .semibold) : .system(size: 20, weight: .bold, design: .rounded)))))))
+                        .font(MangaStyle.isActive ? MangaStyle.titleFont(22, weight: .black) : (PetWhiteStyle.isActive ? PetWhiteStyle.titleFont(22, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(22, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(22, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.titleFont(21, weight: .bold) : (SequoiaStyle.isActive ? SequoiaStyle.titleFont(21, weight: .semibold) : .system(size: 20, weight: .bold, design: .rounded)))))))
                         .foregroundColor(PetWhiteStyle.isActive ? PetWhiteStyle.ink : .monologueTextPrimary)
                         .lineLimit(1)
 
@@ -2738,8 +3023,13 @@ struct ProfileView: View {
                     tint: MangaStyle.accentPink
                 )
             }
-            .padding(14)
-            .background(MangaCardBackground(cornerRadius: 12, elevated: true))
+            .padding(.vertical, 4)
+            .overlay(alignment: .top) {
+                Rectangle().fill(MangaStyle.strokeInk.opacity(0.22)).frame(height: 1)
+            }
+            .overlay(alignment: .bottom) {
+                Rectangle().fill(MangaStyle.strokeInk.opacity(0.22)).frame(height: 1)
+            }
         } else if PetWhiteStyle.isActive {
             HStack(spacing: 0) {
                 StatCell(
@@ -2760,25 +3050,24 @@ struct ProfileView: View {
             .padding(.vertical, 14)
             .background(PetWhiteSurfaceBackground(cornerRadius: PetWhiteStyle.cardRadius, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
         } else if MujiStyle.isActive {
-            HStack(spacing: 10) {
+            // 杂志数据带：裸排统计签，靠上缘发丝线分区
+            HStack(alignment: .top, spacing: 22) {
                 MujiMetricTile(
                     value: formatNumber(listenSongs ?? 0),
                     label: String(localized: "profile_total_songs"),
-                    tint: MujiStyle.clay
+                    tint: MujiStyle.ink
                 )
                 MujiMetricTile(
                     value: "\(localPlaylistCount)",
                     label: String(localized: "profile_local_playlists"),
-                    tint: MujiStyle.tea
+                    tint: MujiStyle.ink
                 )
                 MujiMetricTile(
                     value: "\(downloadedSongCount)",
                     label: String(localized: "profile_downloads"),
-                    tint: MujiStyle.indigo
+                    tint: MujiStyle.clay
                 )
             }
-            .padding(14)
-            .background(MujiPaperCardBackground(cornerRadius: 12, elevated: true))
         } else if NeumorphicStyle.isActive {
             HStack(spacing: 10) {
                 StatCell(
@@ -2889,7 +3178,7 @@ struct ProfileView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text(LocalizedStringKey("profile_recently_played"))
-                    .font(MangaStyle.isActive ? MangaStyle.comicFont(18, weight: .bold) : (MujiStyle.isActive ? MujiStyle.titleFont(18, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(18, weight: .semibold) : .system(size: 18, weight: .bold, design: .rounded))))
+                    .font(MangaStyle.isActive ? MangaStyle.titleFont(18, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(18, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(18, weight: .semibold) : .system(size: 18, weight: .bold, design: .rounded))))
                     .foregroundColor(.monologueTextPrimary)
 
                 Spacer()
@@ -2986,6 +3275,19 @@ struct ProfileView: View {
                         .foregroundStyle(LiquidGlassStyle.ink)
                     Spacer(minLength: 0)
                 }
+            } else if SettingsManager.shared.globalThemeId == .default {
+                HStack(spacing: 8) {
+                    Capsule()
+                        .fill(Color.monologueAccent)
+                        .frame(width: 3, height: 13)
+
+                    Text(String(localized: "profile_settings"))
+                        .font(.rounded(size: 15, weight: .bold))
+                        .foregroundColor(.monologueTextPrimary)
+
+                    Spacer(minLength: 0)
+                }
+                .padding(.bottom, 10)
             }
 
             VStack(spacing: 0) {
@@ -3080,7 +3382,7 @@ struct ProfileView: View {
         hasAppeared = false
         userLevel = nil
         listenSongs = nil
-        playerManager.clearPlaybackHistory()
+        // 播放记录是设备本地数据，退出账号不清空
         AlertManager.shared.dismiss()
 
         Task {
@@ -3132,6 +3434,8 @@ struct ProfileView: View {
             capsuleNotLoggedInContent
         } else if LiquidGlassStyle.isActive {
             liquidGlassNotLoggedInContent
+        } else if !ThemedPageStyle.isActive {
+            asideNotLoggedInContent
         } else {
             NavigationStack(path: $navigationPath) {
                 ZStack {
@@ -3166,7 +3470,7 @@ struct ProfileView: View {
 
                             VStack(spacing: 10) {
                                 Text(LocalizedStringKey("profile_not_logged_in"))
-                                    .font(MangaStyle.isActive ? MangaStyle.comicFont(26, weight: .bold) : (MujiStyle.isActive ? MujiStyle.titleFont(26, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(26, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.titleFont(25, weight: .bold) : (SequoiaStyle.isActive ? SequoiaStyle.titleFont(25, weight: .semibold) : .system(size: 26, weight: .bold, design: .rounded))))))
+                                    .font(MangaStyle.isActive ? MangaStyle.titleFont(26, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(26, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(26, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.titleFont(25, weight: .bold) : (SequoiaStyle.isActive ? SequoiaStyle.titleFont(25, weight: .semibold) : .system(size: 26, weight: .bold, design: .rounded))))))
                                     .foregroundColor(.monologueTextPrimary)
 
                                 Text(LocalizedStringKey("profile_login_hint"))
@@ -3176,13 +3480,13 @@ struct ProfileView: View {
 
                             Button(action: { showLoginView = true }) {
                                 Text(LocalizedStringKey("profile_login_button"))
-                                    .font(MangaStyle.isActive ? MangaStyle.comicFont(16, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(16, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.labelFont(16, weight: .bold) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(16, weight: .semibold) : .system(size: 16, weight: .bold, design: .rounded)))))
-                                    .foregroundColor(MangaStyle.isActive ? MangaStyle.strokeInk : (MujiStyle.isActive ? MujiStyle.onTint : (NeumorphicStyle.isActive ? Color(light: .white, dark: .black) : (SignalStyle.isActive ? SignalStyle.onAccent : .monologueIconForeground))))
+                                    .font(MangaStyle.isActive ? MangaStyle.bodyFont(16, weight: .black) : (MujiStyle.isActive ? MujiStyle.labelFont(16, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.labelFont(16, weight: .bold) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(16, weight: .semibold) : .system(size: 16, weight: .bold, design: .rounded)))))
+                                    .foregroundColor(MangaStyle.isActive ? ThemeColorCustomization.readableForegroundColor(on: MangaStyle.labelYellow, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk) : (MujiStyle.isActive ? MujiStyle.onTint : (NeumorphicStyle.isActive ? Color(light: .white, dark: .black) : (SignalStyle.isActive ? SignalStyle.onAccent : .monologueIconForeground))))
                                     .frame(width: 200)
                                     .padding(.vertical, 15)
                                     .background {
                                         if MangaStyle.isActive {
-                                            Capsule()
+                                            RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
                                                 .fill(MangaStyle.labelYellow)
                                         } else if NeumorphicStyle.isActive {
                                             Capsule()
@@ -3201,25 +3505,21 @@ struct ProfileView: View {
                                                 .fill(Color.monologueIconBackground)
                                         }
                                     }
-                                    .overlay {
-                                        if MangaStyle.isActive {
-                                            Capsule()
-                                                .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth)
-                                        }
-                                    }
                             }
                             .buttonStyle(MonologueBouncingButtonStyle())
                         }
                         .padding(ThemedPageStyle.isActive ? 24 : 0)
                         .background {
                             if MangaStyle.isActive {
-                                MangaCardBackground(cornerRadius: 12, elevated: true)
+                                MangaCardBackground(cornerRadius: MangaStyle.cardRadius, elevated: true)
                             } else if NeumorphicStyle.isActive {
                                 NeumorphicSurfaceBackground(cornerRadius: 24, elevated: true, lightweight: true)
                             } else if SignalStyle.isActive {
                                 SignalSurfaceBackground(cornerRadius: 16, elevated: true, fill: SignalStyle.device)
                             } else if MujiStyle.isActive {
-                                MujiPaperCardBackground(cornerRadius: 12, elevated: true)
+                                // Muji：清新水洗底
+                                RoundedRectangle(cornerRadius: MujiStyle.cardRadius, style: .continuous)
+                                    .fill(MujiStyle.wash(MujiStyle.clay, strength: 0.7))
                             } else if SequoiaStyle.isActive {
                                 SequoiaSurfaceBackground(cornerRadius: 18, elevated: true, fill: SequoiaStyle.material)
                             }
@@ -3305,6 +3605,145 @@ struct ProfileView: View {
                 .toolbarBackground(.hidden, for: .navigationBar)
                 .profileNavigationDestinations()
             }
+        }
+    }
+
+    // MARK: - aside 未登录页
+
+    /// 编辑部风格的未登录页：眉题 + 大字状态 + 引文说明 + 索引目录，与登录后的版式同一套语汇
+    private var asideNotLoggedInContent: some View {
+        NavigationStack(path: $navigationPath) {
+            ZStack {
+                ThemedProfileBackground()
+
+                VStack(alignment: .leading, spacing: 0) {
+                    asideGuestEyebrow
+                        .padding(.top, 12)
+
+                    Spacer(minLength: 0)
+
+                    asideGuestHero
+
+                    Spacer(minLength: 0)
+
+                    asideGuestMenuIndex
+                        .padding(.bottom, 140)
+                }
+                .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                .iPadContentWidth(700)
+            }
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .profileNavigationDestinations()
+        }
+    }
+
+    private var asideGuestEyebrow: some View {
+        HStack(spacing: 8) {
+            Capsule()
+                .fill(Color.monologueAccent)
+                .frame(width: 18, height: 3)
+
+            Text("PROFILE")
+                .font(.system(size: 10.5, weight: .heavy, design: .rounded))
+                .tracking(2.4)
+                .foregroundColor(.monologueTextSecondary.opacity(0.72))
+                .fixedSize()
+
+            Rectangle()
+                .fill(Color.monologueSeparator.opacity(0.5))
+                .frame(height: 0.5)
+
+            NavigationLink(value: ProfileNavigationDestination.settings) {
+                MonologueIcon(icon: .settings, size: 19, color: .monologueTextPrimary.opacity(0.85), lineWidth: 1.7)
+                    .frame(width: 38, height: 38)
+                    .background(
+                        Circle()
+                            .fill(Color.monologueIconBackground.opacity(0.1))
+                            .overlay(Circle().stroke(Color.monologueTextPrimary.opacity(0.12), lineWidth: 0.8))
+                    )
+                    .contentShape(Circle())
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.9))
+        }
+    }
+
+    private var asideGuestHero: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(String(localized: LocalizedStringResource(stringLiteral: MonologueTimeGreeting.localizedKey)))
+                .font(.rounded(size: 12.5, weight: .semibold))
+                .foregroundColor(.monologueTextSecondary.opacity(0.85))
+
+            Text(LocalizedStringKey("profile_not_logged_in"))
+                .font(.system(size: 34, weight: .heavy, design: .rounded))
+                .foregroundColor(.monologueTextPrimary)
+                .padding(.top, 6)
+
+            Text(LocalizedStringKey("profile_login_desc"))
+                .font(.rounded(size: 13))
+                .foregroundColor(.monologueTextSecondary)
+                .lineSpacing(3)
+                .padding(.top, 14)
+                .padding(.leading, 2)
+
+            Button(action: { showLoginView = true }) {
+                HStack(spacing: 8) {
+                    Text(LocalizedStringKey("profile_login_button"))
+                        .font(.rounded(size: 14, weight: .bold))
+
+                    MonologueIcon(icon: .chevronRight, size: 11, color: .monologueIconForeground)
+                }
+                .foregroundColor(.monologueIconForeground)
+                .padding(.horizontal, 26)
+                .padding(.vertical, 13)
+                .background(Capsule().fill(Color.monologueIconBackground))
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+            .padding(.top, 26)
+        }
+    }
+
+    /// 登录前仍可使用的入口：QCM 独立登录、本地听歌统计
+    private var asideGuestMenuIndex: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                Capsule()
+                    .fill(Color.monologueAccent)
+                    .frame(width: 3, height: 13)
+
+                Text(String(localized: "profile_settings"))
+                    .font(.rounded(size: 15, weight: .bold))
+                    .foregroundColor(.monologueTextPrimary)
+
+                Spacer(minLength: 0)
+            }
+            .padding(.bottom, 6)
+
+            Button {
+                showQQAccount = true
+            } label: {
+                asideMenuRow(
+                    index: 1,
+                    title: String(localized: "settings_qq_account"),
+                    trailingText: qqSession.isLoggedIn
+                        ? String(localized: "settings_qq_logged_in")
+                        : String(localized: "settings_qq_not_logged_in")
+                )
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+            .monologueSheet(isPresented: $showQQAccount, preset: .large) {
+                NavigationStack {
+                    QQAccountView()
+                }
+            }
+
+            asideMenuHairline
+
+            NavigationLink(destination: ListeningStatsView()) {
+                asideMenuRow(index: 2, title: String(localized: "听歌统计"))
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
         }
     }
 
@@ -3688,7 +4127,7 @@ struct StatCell: View {
     }
 
     private var valueFont: Font {
-        if MangaStyle.isActive { return MangaStyle.comicFont(18, weight: .bold) }
+        if MangaStyle.isActive { return MangaStyle.titleFont(18, weight: .black) }
         if PetWhiteStyle.isActive { return PetWhiteStyle.titleFont(18, weight: .black) }
         if PureWhiteStyle.isActive { return PureWhiteStyle.titleFont(18, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.titleFont(18, weight: .medium) }
@@ -3955,7 +4394,7 @@ private struct ProfileRecentPlaysHost: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text(LocalizedStringKey("profile_recently_played"))
-                    .font(MangaStyle.isActive ? MangaStyle.comicFont(18, weight: .bold) : (MujiStyle.isActive ? MujiStyle.titleFont(18, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(18, weight: .semibold) : .system(size: 18, weight: .bold, design: .rounded))))
+                    .font(MangaStyle.isActive ? MangaStyle.titleFont(18, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(18, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(18, weight: .semibold) : .system(size: 18, weight: .bold, design: .rounded))))
                     .foregroundColor(.monologueTextPrimary)
 
                 Spacer()
@@ -4686,11 +5125,16 @@ struct ProfileMenuRow: View {
     @ViewBuilder
     private var profileMenuIcon: some View {
         if MangaStyle.isActive {
-            MonologueIcon(icon: icon, size: 15, color: MangaStyle.strokeInk, lineWidth: 1.8)
+            MonologueIcon(
+                icon: icon,
+                size: 15,
+                color: ThemeColorCustomization.readableForegroundColor(on: MangaStyle.labelYellow, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk),
+                lineWidth: 1.8
+            )
                 .frame(width: 32, height: 32)
-                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(MangaStyle.labelYellow))
-                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 1.6))
-                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(MangaStyle.strokeInk).offset(x: 1.8, y: 1.8))
+                .background(RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous).fill(MangaStyle.labelYellow))
+                .overlay(RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 1.6))
+                .background(RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous).fill(MangaStyle.strokeInk).offset(x: 1.8, y: 1.8))
         } else if PetWhiteStyle.isActive {
             if let petWhiteAssetName {
                 petWhiteAssetBadge(assetName: petWhiteAssetName, tint: PetWhiteStyle.sky, size: 36)
@@ -4698,11 +5142,10 @@ struct ProfileMenuRow: View {
                 PetWhiteIconBadge(icon: icon, tint: icon == .settings ? PetWhiteStyle.mint : PetWhiteStyle.sky, size: 36)
             }
         } else if MujiStyle.isActive {
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .fill(MujiStyle.clay.opacity(0.1))
+            Circle()
+                .fill(MujiStyle.wash(MujiStyle.clay, strength: 1.25))
                 .frame(width: 31, height: 31)
-                .overlay(MonologueIcon(icon: icon, size: 14, color: MujiStyle.clay, lineWidth: 1.4))
-                .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).stroke(MujiStyle.hairline.opacity(0.5), lineWidth: 0.6))
+                .overlay(MonologueIcon(icon: icon, size: 14, color: MujiStyle.clay, lineWidth: 1.5))
         } else if NeumorphicStyle.isActive {
             NeumorphicIconBadge(icon: icon, tint: NeumorphicStyle.accent, size: 32)
         } else if CapsuleStyle.isActive {
@@ -4732,19 +5175,18 @@ private struct MangaProfileInfoPill: View {
     let tint: Color
 
     var body: some View {
+        // 印刷角标:矩形色块 + 墨线 + 可读前景
         Text(text)
-            .font(MangaStyle.comicFont(11, weight: .black))
-            .foregroundStyle(MangaStyle.strokeInk)
+            .font(MangaStyle.labelFont(10, weight: .black))
+            .foregroundStyle(
+                ThemeColorCustomization.readableForegroundColor(on: tint, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk)
+            )
             .lineLimit(1)
             .padding(.horizontal, 8)
-            .padding(.vertical, 3)
+            .padding(.vertical, 3.5)
             .background(
-                Capsule(style: .continuous)
-                    .fill(tint.opacity(0.78))
-            )
-            .overlay(
-                Capsule(style: .continuous)
-                    .stroke(MangaStyle.strokeInk.opacity(0.46), lineWidth: MangaStyle.fineStrokeWidth)
+                RoundedRectangle(cornerRadius: 3.5, style: .continuous)
+                    .fill(tint)
             )
     }
 }
@@ -4757,15 +5199,16 @@ private struct MangaProfileActionRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            MonologueIcon(icon: icon, size: 16, color: MangaStyle.strokeInk, lineWidth: 1.8)
+            MonologueIcon(
+                icon: icon,
+                size: 16,
+                color: ThemeColorCustomization.readableForegroundColor(on: tint, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk),
+                lineWidth: 1.8
+            )
                 .frame(width: 34, height: 34)
                 .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(tint.opacity(0.78))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(MangaStyle.strokeInk.opacity(0.58), lineWidth: MangaStyle.fineStrokeWidth)
+                    RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
+                        .fill(tint)
                 )
 
             VStack(alignment: .leading, spacing: 2) {
@@ -4802,51 +5245,19 @@ private struct MangaProfileActionDivider: View {
     }
 }
 
-private struct MangaProfilePortalCard: View {
-    let icon: MonologueIcon.IconType
-    let title: String
-    let value: String
-    let tint: Color
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top) {
-                MangaIconBadge(icon: icon, size: 38, tint: tint)
-
-                Spacer()
-
-                MangaLabel(text: value, tint: MangaStyle.bubbleWhite, small: true)
-                    .frame(maxWidth: 76, alignment: .trailing)
-            }
-
-            Text(title)
-                .font(MangaStyle.comicFont(14, weight: .black))
-                .foregroundStyle(MangaStyle.ink)
-                .lineLimit(2)
-                .minimumScaleFactor(0.78)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .frame(minHeight: 112, alignment: .topLeading)
-        .padding(14)
-        .background(MangaCardBackground(cornerRadius: 16, elevated: true, tint: tint.opacity(0.72)))
-        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-    }
-}
-
 private struct MangaProfileRecentCard: View {
     let song: Song
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             CachedAsyncImage(url: song.coverUrl, width: 112, height: 112) {
-                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                RoundedRectangle(cornerRadius: MangaStyle.cardRadius, style: .continuous)
                     .fill(MangaStyle.bubbleWhite)
             }
             .aspectRatio(contentMode: .fill)
             .frame(width: 112, height: 112)
-            .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 1.8))
-            .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(MangaStyle.strokeInk).offset(x: 2.5, y: 2.5))
+            .clipShape(RoundedRectangle(cornerRadius: MangaStyle.cardRadius, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: MangaStyle.cardRadius, style: .continuous).stroke(MangaStyle.strokeInk.opacity(0.7), lineWidth: 1))
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(song.name)
@@ -4861,8 +5272,6 @@ private struct MangaProfileRecentCard: View {
             }
             .frame(width: 112, alignment: .leading)
         }
-        .padding(8)
-        .background(MangaCardBackground(cornerRadius: 15, elevated: true, tint: MangaStyle.bubbleWhite))
     }
 }
 
@@ -4872,8 +5281,9 @@ private struct MujiProfileLedgerRow: View {
     let value: String
 
     var body: some View {
-        HStack(spacing: 12) {
-            MujiIconBadge(icon: icon, tint: tint, size: 34)
+        HStack(spacing: 13) {
+            MonologueIcon(icon: icon, size: 15, color: tint, lineWidth: 1.4)
+                .frame(width: 22, alignment: .leading)
 
             Text(title)
                 .font(MujiStyle.bodyFont(15, weight: .regular))
@@ -4884,15 +5294,16 @@ private struct MujiProfileLedgerRow: View {
             Spacer(minLength: 8)
 
             Text(value)
-                .font(MujiStyle.labelFont(11, weight: .medium))
+                .font(MujiStyle.labelFont(10, weight: .semibold))
                 .foregroundStyle(MujiStyle.inkMuted)
+                .tracking(1.1)
+                .textCase(.uppercase)
                 .lineLimit(1)
                 .minimumScaleFactor(0.72)
 
-            MonologueIcon(icon: .chevronRight, size: 11, color: MujiStyle.inkMuted, lineWidth: 1.4)
+            MonologueIcon(icon: .chevronRight, size: 10, color: MujiStyle.inkMuted, lineWidth: 1.4)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.vertical, 13.5)
         .contentShape(Rectangle())
     }
 
@@ -4912,11 +5323,8 @@ private struct MujiProfileLedgerRow: View {
 
 private struct MujiProfileDivider: View {
     var body: some View {
-        Rectangle()
-            .fill(MujiStyle.separator.opacity(0.58))
-            .frame(height: 0.6)
-            .padding(.leading, 64)
-            .padding(.trailing, 14)
+        MujiListDivider()
+            .padding(.leading, 35)
     }
 }
 
@@ -4935,7 +5343,11 @@ private extension View {
                 )
             )
         } else if MujiStyle.isActive {
-            background(MujiPaperCardBackground(cornerRadius: cornerRadius, elevated: true))
+            // Muji：清新水洗底，柔圆角不描边
+            background(
+                RoundedRectangle(cornerRadius: max(cornerRadius, MujiStyle.cardRadius), style: .continuous)
+                    .fill(MujiStyle.wash(MujiStyle.clay, strength: 0.7))
+            )
         } else if NeumorphicStyle.isActive {
             background(NeumorphicSurfaceBackground(cornerRadius: cornerRadius, elevated: true, lightweight: true))
         } else if CapsuleStyle.isActive {

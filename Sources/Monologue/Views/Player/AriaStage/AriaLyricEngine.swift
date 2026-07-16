@@ -134,6 +134,9 @@ struct AriaLine: Identifiable {
     let isChorus: Bool
     let chorusEffect: AriaChorusEffect
     let hints: AriaRenderHints
+    /// 歌词开头的制作/发行信息行（作词/作曲/制作人/发行…），
+    /// 各效果对它做克制渲染，不参与巨字/碎幕等强动画
+    var isCredit: Bool = false
 
     var rawDuration: Double { max(endTime - startTime, 0) }
 }
@@ -267,6 +270,11 @@ enum AriaLyricEngine {
                     startTime: raw.startTime,
                     endTime: raw.endTime,
                     lastWordEndTime: raw.words.last?.endTime
+                ),
+                isCredit: isCreditText(
+                    raw.text,
+                    isFirstLine: index == 0,
+                    startTime: raw.startTime
                 )
             ))
 
@@ -279,6 +287,39 @@ enum AriaLyricEngine {
         }
 
         return result
+    }
+
+    // MARK: 制作信息行识别
+
+    private static let creditKeywords: [String] = [
+        "作词", "作詞", "作曲", "编曲", "編曲", "制作", "製作", "监制", "監製",
+        "出品", "发行", "發行", "演唱", "歌手", "原唱", "翻唱", "混音", "母带", "母帶",
+        "录音", "錄音", "和声", "和聲", "吉他", "贝斯", "貝斯", "键盘", "鍵盤",
+        "弦乐", "弦樂", "打击乐", "企划", "企劃", "统筹", "統籌", "封面", "设计", "設計",
+        "文案", "音效", "缩混", "縮混", "制作人", "製作人", "配唱", "版权", "版權",
+        "lyrics", "composed", "produced", "arranged", "mixed", "mastered", "vocal"
+    ]
+
+    /// 歌词开头的制作/发行信息：`作词 : 某某` / `出品：某公司`，
+    /// 以及首行 0 秒附近的「歌名 - 歌手」标题行。
+    /// 这类行不该吃到巨字/碎幕等强动画。
+    static func isCreditText(
+        _ text: String,
+        isFirstLine: Bool,
+        startTime: Double
+    ) -> Bool {
+        if isFirstLine, startTime < 1.5, text.contains(" - ") {
+            return true
+        }
+
+        guard let separator = text.firstIndex(where: { $0 == ":" || $0 == "：" }) else {
+            return false
+        }
+        let label = text[..<separator].trimmingCharacters(in: .whitespaces)
+        guard !label.isEmpty, label.count <= 14 else { return false }
+
+        let lowered = label.lowercased()
+        return creditKeywords.contains { lowered.contains($0) }
     }
 
     // MARK: 激活行判定（findLatestActiveLineIndex）

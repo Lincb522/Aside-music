@@ -5,7 +5,6 @@ import FFmpegSwiftSDK
 struct MinimalPlayerLayout: View {
     @Environment(\.dismiss) var dismiss
     @ObservedObject var player = PlayerManager.shared
-    @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
     @ObservedObject var downloadManager = DownloadManager.shared
     @ObservedObject var lyricVM = LyricViewModel.shared
     @ObservedObject private var settings = SettingsManager.shared
@@ -28,11 +27,28 @@ struct MinimalPlayerLayout: View {
     @Environment(\.colorScheme) private var colorScheme
 
     private var isCoverBright: Bool { !colorExtractor.isDark }
-    /// 控件/歌词仅在封面特别白时才切深色（亮度 > 0.75）
-    private var isVeryBright: Bool { colorExtractor.luminance > 0.75 }
-    private var contentColor: Color { isVeryBright ? .black : .white }
-    private var secondaryColor: Color { isVeryBright ? .black.opacity(0.7) : .white.opacity(0.7) }
-    private var mutedColor: Color { isVeryBright ? .black.opacity(0.3) : .white.opacity(0.3) }
+    /// 只在歌词区域和整组背景色都明确偏亮时切黑字，保留中亮度封面的白色歌词。
+    private var usesDarkLyricContent: Bool {
+        guard colorScheme == .light else { return false }
+        let backgrounds = [colorExtractor.dominantColor, colorExtractor.secondaryColor]
+        let contrasts = backgrounds.map { background in
+            (
+                white: ThemeColorCustomization.contrastRatio(between: .white, and: background),
+                black: ThemeColorCustomization.contrastRatio(between: .black, and: background)
+            )
+        }
+        let lyricRegionIsVeryBright = colorExtractor.lyricRegionLuminance >= 0.78
+        let whiteIsWeakAcrossPalette = contrasts.allSatisfy { $0.white < 2.2 }
+        let blackClearlyWinsAcrossPalette = contrasts.allSatisfy {
+            $0.black > $0.white * 1.5
+        }
+        return lyricRegionIsVeryBright
+            && whiteIsWeakAcrossPalette
+            && blackClearlyWinsAcrossPalette
+    }
+    private var contentColor: Color { usesDarkLyricContent ? .black : .white }
+    private var secondaryColor: Color { usesDarkLyricContent ? .black.opacity(0.7) : .white.opacity(0.7) }
+    private var mutedColor: Color { usesDarkLyricContent ? .black.opacity(0.3) : .white.opacity(0.3) }
     private var headerIconColor: Color { isCoverBright ? .black : .white }
 
     var body: some View {
@@ -85,7 +101,7 @@ struct MinimalPlayerLayout: View {
             PlaylistPopupView()
 
         }
-        .monologueSheet(isPresented: $showEQSettings, preset: .large){
+        .fullScreenCover(isPresented: $showEQSettings) {
             NavigationStack { EQSettingsView() }
 
         }
@@ -93,7 +109,7 @@ struct MinimalPlayerLayout: View {
             PlayerThemePickerSheet()
 
         }
-        .monologueSheet(isPresented: $showQualitySheet, preset: .compact){
+        .monologueSheet(isPresented: $showQualitySheet, preset: .standard){
             SoundQualitySheet(
                 currentQuality: player.soundQuality,
                 currentQQQuality: player.qqMusicQuality,
@@ -420,19 +436,16 @@ extension MinimalPlayerLayout {
                             ForEach(Array(lyricVM.lyrics.enumerated()), id: \.element.id) { index, line in
                                 let isCurrent = index == lyricVM.currentLineIndex
                                 let distance = abs(index - lyricVM.currentLineIndex)
+                                let karaokeWords = LyricKaraokeTimeline.resolvedWords(for: line)
 
                                 Button(action: { player.seek(to: line.time) }) {
                                     VStack(alignment: .leading, spacing: 4) {
-                                        if isCurrent && enableKaraoke && !line.words.isEmpty {
-                                            FlowLayout(spacing: 0) {
-                                                ForEach(line.words) { word in
-                                                    MinimalKaraokeWord(
-                                                        word: word,
-                                                        currentTime: timePublisher.currentTime,
-                                                        contentColor: contentColor
-                                                    )
-                                                }
-                                            }
+                                        if isCurrent && enableKaraoke && !karaokeWords.isEmpty {
+                                            MinimalKaraokeLine(
+                                                words: karaokeWords,
+                                                contentColor: contentColor,
+                                                isPlaying: player.isPlaying
+                                            )
                                         } else {
                                             Text(line.text.monologueLyricDisplayText)
                                                 .font(
@@ -492,7 +505,9 @@ extension MinimalPlayerLayout {
                     }
                     .onAppear {
                         isUserScrolling = false
-                        proxy.scrollTo(lyricVM.currentLineIndex, anchor: .center)
+                        proxy.monologueRestoreLyricPosition(isCancelled: { isUserScrolling }) {
+                            lyricVM.currentLineIndex
+                        }
                     }
                 }
                 .mask(
@@ -522,41 +537,59 @@ extension MinimalPlayerLayout {
     }
 }
 
+/// 极简歌词主题只让当前行订阅高频时间轴，避免整张播放器随进度重绘。
+private struct MinimalKaraokeLine: View {
+    let words: [LyricWord]
+    let contentColor: Color
+    let isPlaying: Bool
+
+    @AppStorage(KaraokeWordStyle.storageKey) private var karaokeStyleRaw = KaraokeWordStyle.defaultStyle.rawValue
+
+    var body: some View {
+        TimelineView(AppFrameRate.throttledTimeline(
+            maximumFramesPerSecond: 60,
+            paused: !isPlaying
+        )) { _ in
+            let rawTime = PlayerManager.shared.streamPlayer.currentTime
+            let currentTime = rawTime.isFinite && !rawTime.isNaN && rawTime >= 0
+                ? rawTime
+                : PlaybackTimePublisher.shared.currentTime
+            let style = KaraokeWordStyle.resolve(karaokeStyleRaw)
+
+            FlowLayout(spacing: 0) {
+                ForEach(words) { word in
+                    MinimalKaraokeWord(
+                        word: word,
+                        currentTime: currentTime,
+                        contentColor: contentColor,
+                        style: style
+                    )
+                }
+            }
+        }
+    }
+}
+
 /// 极简布局专用卡拉OK逐字视图
 private struct MinimalKaraokeWord: View {
     let word: LyricWord
     let currentTime: TimeInterval
     let contentColor: Color
+    let style: KaraokeWordStyle
 
     var body: some View {
-        let progress = calculateProgress()
-
-        Text(word.text.monologueLyricDisplayText)
-            .font(
-                MonologuePlayerFont.activeFont(
-                    size: 28,
-                    weight: .heavy,
-                    fallback: .system(size: 28, weight: .heavy, design: .rounded)
-                )
-            )
-            .foregroundColor(contentColor.opacity(0.25))
-            .overlay(
-                GeometryReader { geo in
-                    Text(word.text.monologueLyricDisplayText)
-                        .font(
-                            MonologuePlayerFont.activeFont(
-                                size: 28,
-                                weight: .heavy,
-                                fallback: .system(size: 28, weight: .heavy, design: .rounded)
-                            )
-                        )
-                        .foregroundColor(contentColor)
-                        .frame(width: geo.size.width * progress, alignment: .leading)
-                        .clipped()
-                        .animation(.interactiveSpring(response: 0.2, dampingFraction: 0.9), value: progress)
-                }
-            )
-            .fixedSize(horizontal: true, vertical: false)
+        KaraokeStyledWordView(
+            text: word.text.monologueLyricDisplayText,
+            progress: calculateProgress(),
+            font: MonologuePlayerFont.activeFont(
+                size: 28,
+                weight: .heavy,
+                fallback: .system(size: 28, weight: .heavy, design: .rounded)
+            ),
+            style: style,
+            inactiveColor: contentColor.opacity(0.25),
+            activeColor: contentColor
+        )
     }
 
     func calculateProgress() -> CGFloat {

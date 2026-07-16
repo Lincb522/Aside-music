@@ -29,6 +29,11 @@ struct SongListRow: View {
     var isCurrent: Bool {
         playback.currentSongId == song.id
     }
+
+    /// aside 默认主题（编辑部风格分支）
+    private var isAsideTheme: Bool {
+        GlobalThemeId.persistedOrDefault == .default
+    }
     
     /// 灰色条件：
     /// - 无版权歌曲始终灰色
@@ -410,6 +415,10 @@ struct SongListRow: View {
                                         size: 18,
                                         color: isSelected ? Theme.accent : Theme.secondaryText.opacity(0.4)
                                     )
+                                } else if isAsideTheme && isCurrent {
+                                    // aside：正在播放时序号位换成律动条，避免高亮元素压住序号
+                                    PlayingVisualizerView(isAnimating: playback.isPlaying, color: .monologueAccent)
+                                        .frame(width: 16, height: 16)
                                 } else {
                                     Text(String(format: "%02d", index + 1))
                                         .font(indexFont)
@@ -452,7 +461,8 @@ struct SongListRow: View {
                                 }
                             }
                             .overlay {
-                                if isCurrent && !isSelecting {
+                                // aside 的播放标记已移到序号位，封面不再压暗
+                                if isCurrent && !isSelecting && !isAsideTheme {
                                     ZStack {
                                         RoundedRectangle(cornerRadius: coverCornerRadius, style: .continuous)
                                             .fill(Color.black.opacity(0.35))
@@ -657,23 +667,26 @@ struct SongListRow: View {
     @ViewBuilder
     private var currentRowBackground: some View {
         if MangaStyle.isActive {
+            // 周刊印刷:朱红浅网点底 + 左侧墨条书签
             ZStack(alignment: .leading) {
-                MangaCardBackground(cornerRadius: rowCornerRadius, elevated: true, tint: MangaStyle.labelYellow.opacity(0.54))
+                MangaCardBackground(cornerRadius: rowCornerRadius, elevated: true, tint: MangaStyle.bubblePink)
 
-                Capsule()
+                RoundedRectangle(cornerRadius: 1.5, style: .continuous)
                     .fill(MangaStyle.accentPink)
                     .frame(width: 5, height: 30)
                     .padding(.leading, 6)
             }
             .padding(.horizontal, 4)
         } else if MujiStyle.isActive {
+            // Muji：不抬卡片，仅左侧一道陶土墨线 + 极淡纸色晕染
             ZStack(alignment: .leading) {
-                MujiPaperCardBackground(cornerRadius: rowCornerRadius, elevated: true)
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(MujiStyle.clay.opacity(0.06))
 
-                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                Rectangle()
                     .fill(MujiStyle.clay)
-                    .frame(width: 3, height: 24)
-                    .padding(.leading, 8)
+                    .frame(width: 2)
+                    .padding(.vertical, 6)
             }
             .padding(.horizontal, 5)
         } else if NeumorphicStyle.isActive {
@@ -755,6 +768,19 @@ struct SongListRow: View {
                         .stroke(MinimalWhiteStyle.separator, lineWidth: MinimalWhiteStyle.strokeWidth)
                 )
                 .padding(.horizontal, 3)
+        } else if isAsideTheme {
+            // aside 编辑部风格：淡强调色水洗 + 贴边竖标，与播放队列弹层同语言，
+            // 不再用玻璃渐变和辉光条，也不会贴到序号位
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: rowCornerRadius, style: .continuous)
+                    .fill(Color.monologueAccent.opacity(0.07))
+
+                Capsule()
+                    .fill(Color.monologueAccent)
+                    .frame(width: 3, height: 24)
+                    .padding(.leading, 8)
+            }
+            .padding(.horizontal, 8)
         } else {
             ZStack(alignment: .leading) {
                 RoundedRectangle(cornerRadius: rowCornerRadius, style: .continuous)
@@ -854,7 +880,7 @@ struct SongListRow: View {
     }
 
     private var songTitleFont: Font {
-        if MangaStyle.isActive { return MangaStyle.comicFont(16, weight: isCurrent ? .bold : .medium) }
+        if MangaStyle.isActive { return MangaStyle.bodyFont(16, weight: isCurrent ? .black : .bold) }
         if PetWhiteStyle.isActive { return PetWhiteStyle.bodyFont(15.5, weight: isCurrent ? .black : .bold) }
         if MujiStyle.isActive { return MujiStyle.bodyFont(15, weight: isCurrent ? .medium : .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(15, weight: isCurrent ? .semibold : .medium) }
@@ -922,29 +948,29 @@ struct SongListRow: View {
 
     @ViewBuilder
     private var songBadgeRail: some View {
-        HStack(spacing: songBadgeRailSpacing) {
+        HStack(spacing: isAsideTheme ? 6 : songBadgeRailSpacing) {
             if song.isNoCopyright {
                 songMetaBadge(String(localized: "song_no_copyright"), color: Theme.accent, fontSize: 7)
             }
 
             if song.isQQMusic {
-                songMetaBadge("QCM", color: qcmBrandColor)
+                songMetaBadge("QCM", color: qcmBrandColor, kind: .platform)
 
                 if let badge = song.qqMaxQuality?.badgeText {
                     songMetaBadge(badge, color: qcmBrandColor)
                 }
             } else if song.isQishui {
-                songMetaBadge("QSM", color: qsmBrandColor)
+                songMetaBadge("QSM", color: qsmBrandColor, kind: .platform)
 
                 if let badge = song.qualityBadge {
                     songMetaBadge(badge, color: qsmBrandColor)
                 }
             } else if isLocalSong {
-                songMetaBadge("LOCAL", color: localBrandColor)
+                songMetaBadge("LOCAL", color: localBrandColor, kind: .platform)
             } else if let radioName = song.podcastRadioName {
-                songMetaBadge(radioName.uppercased(), color: ncmBrandColor, maxWidth: 92)
+                songMetaBadge(radioName.uppercased(), color: ncmBrandColor, maxWidth: 92, kind: .platform)
             } else {
-                songMetaBadge("NCM", color: ncmBrandColor)
+                songMetaBadge("NCM", color: ncmBrandColor, kind: .platform)
 
                 if let badge = song.qualityBadge {
                     let maxQ = song.maxQuality
@@ -958,22 +984,77 @@ struct SongListRow: View {
         .allowsHitTesting(false)
     }
 
-    private func songMetaBadge(_ text: String, color: Color, fontSize: CGFloat = 8, maxWidth: CGFloat? = nil) -> some View {
-        return Text(text)
-            .font(songMetaBadgeFont(fontSize: fontSize))
-            .foregroundColor(songMetaBadgeForeground(color))
-            .lineLimit(1)
-            .truncationMode(.tail)
-            .tracking(MujiStyle.isActive ? 0.35 : 0)
-            .padding(.horizontal, songMetaBadgeHorizontalPadding)
-            .padding(.vertical, songMetaBadgeVerticalPadding)
+    private enum MetaBadgeKind {
+        case platform
+        case quality
+    }
+
+    @ViewBuilder
+    private func songMetaBadge(
+        _ text: String,
+        color: Color,
+        fontSize: CGFloat = 8,
+        maxWidth: CGFloat? = nil,
+        kind: MetaBadgeKind = .quality
+    ) -> some View {
+        if isAsideTheme {
+            asideMetaBadge(text, color: color, maxWidth: maxWidth, kind: kind)
+        } else {
+            Text(text)
+                .font(songMetaBadgeFont(fontSize: fontSize))
+                .foregroundColor(songMetaBadgeForeground(color))
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .tracking(MujiStyle.isActive ? 0.35 : 0)
+                .padding(.horizontal, songMetaBadgeHorizontalPadding)
+                .padding(.vertical, songMetaBadgeVerticalPadding)
+                .frame(maxWidth: maxWidth, alignment: .leading)
+                .background {
+                    songMetaBadgeBackground(color)
+                }
+                .overlay {
+                    songMetaBadgeStroke(color)
+                }
+        }
+    }
+
+    /// aside 编辑部风格：平台标识 = 平台色圆点 + 字距小字（去框），
+    /// 音质标识 = 极细描边胶囊（去底色填充）
+    @ViewBuilder
+    private func asideMetaBadge(
+        _ text: String,
+        color: Color,
+        maxWidth: CGFloat?,
+        kind: MetaBadgeKind
+    ) -> some View {
+        switch kind {
+        case .platform:
+            HStack(spacing: 3.5) {
+                Circle()
+                    .fill(color)
+                    .frame(width: 4, height: 4)
+
+                Text(text)
+                    .font(.system(size: 8.5, weight: .heavy, design: .rounded))
+                    .tracking(0.7)
+                    .foregroundColor(Theme.secondaryText.opacity(0.72))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
             .frame(maxWidth: maxWidth, alignment: .leading)
-            .background {
-                songMetaBadgeBackground(color)
-            }
-            .overlay {
-                songMetaBadgeStroke(color)
-            }
+
+        case .quality:
+            Text(text)
+                .font(.system(size: 8, weight: .bold, design: .rounded))
+                .tracking(0.4)
+                .foregroundColor(color.opacity(0.92))
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .padding(.horizontal, 5.5)
+                .padding(.vertical, 1.5)
+                .overlay(Capsule().stroke(color.opacity(0.34), lineWidth: 0.8))
+                .frame(maxWidth: maxWidth, alignment: .leading)
+        }
     }
 
     private func songMetaBadgeFont(fontSize: CGFloat) -> Font {

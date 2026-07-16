@@ -124,7 +124,7 @@ struct BreathingPlayerLayout: View {
                 scheduleLegendDismiss()
             }
         }
-        .monologueSheet(isPresented: $showQualitySheet, preset: .compact) {
+        .monologueSheet(isPresented: $showQualitySheet, preset: .standard) {
             SoundQualitySheet(
                 currentQuality: player.soundQuality,
                 currentQQQuality: player.qqMusicQuality,
@@ -144,7 +144,7 @@ struct BreathingPlayerLayout: View {
                 onSelectQishui: { info in player.switchQishuiQuality(info); showQualitySheet = false }
             )
         }
-        .monologueSheet(isPresented: $showEQSettings, preset: .large) {
+        .fullScreenCover(isPresented: $showEQSettings) {
             NavigationStack { EQSettingsView() }
         }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker) {
@@ -686,6 +686,22 @@ extension BreathingPlayerLayout {
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
 
                 Spacer()
+
+                Button {
+                    CinemaModeController.shared.present()
+                } label: {
+                    MonologueIcon(icon: .immersive, size: 17, color: textColor.opacity(0.92), lineWidth: 1.5)
+                        .frame(width: 42, height: 42)
+                        .background(
+                            Circle()
+                                .fill(.ultraThinMaterial.opacity(colorScheme == .dark ? 0.76 : 0.94))
+                        )
+                        .overlay(
+                            Circle()
+                                .stroke(textColor.opacity(0.06), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
 
                 Button {
                     withAnimation(.spring(response: 0.25, dampingFraction: 0.86)) {

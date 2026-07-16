@@ -118,6 +118,10 @@ test_layout.swift
 /architecture
 *.md
 /website
+!/website/
+!/website/src/
+!/website/src/components/
+!/website/src/components/FeedbackPage.vue
 /Backups
 /backup
 /website-redesign
@@ -129,6 +133,8 @@ test_layout.swift
 /mineradio-vue
 
 # Folia lyric renderers are app sources, not generated Swift files.
+!QQMusicKit/Sources/Enhanced069API.swift
+!NeteaseCloudMusicAPI-Swift/Sources/NeteaseCloudMusicAPI/API/NCMClient+Enhanced436.swift
 !Sources/Monologue/Views/Player/AriaStage/AriaLyricFX.swift
 !Sources/Monologue/Views/Player/AriaStage/AriaSettingsPage.swift
 !Sources/Monologue/Views/Player/AriaStage/AriaFoliaCadenzaView.swift
@@ -142,4 +148,30 @@ test_layout.swift
 !Sources/Monologue/Views/Player/AriaStage/AriaLyricTypography.swift
 !Sources/Monologue/Views/Player/AriaStage/AriaLyricDepth.swift
 !Sources/Monologue/Views/Player/Components/MonologueFontPicker.swift
+!Sources/Monologue/Views/Player/Components/MonologueMoreMenu.swift
+!Sources/Monologue/ViewModels/DebugLogViewModel.swift
+!Sources/Monologue/Views/DeveloperToolsView.swift
+!Sources/Monologue/Views/Components/KaraokeWordStyle.swift
 !Sources/Monologue/Managers/CustomFontManager.swift
+!Sources/Monologue/Managers/ChangelogManager.swift
+!Sources/Monologue/Views/Components/ChangelogPopupView.swift
+!Sources/Monologue/Views/ChangelogHistoryView.swift
+!Sources/Monologue/Views/Components/AsideDetailHeroHeader.swift
+!Sources/Monologue/Managers/ListeningStatsRecorder.swift
+!Sources/Monologue/Managers/ListeningReportService.swift
+!Sources/Monologue/Views/ListeningReportView.swift
+!Sources/Monologue/Views/Components/ListeningReportPopupView.swift
+!Sources/Monologue/Themes/Manga/MangaComicSystem.swift
+!Sources/Monologue/Models/AIEqualizerModels.swift
+!Sources/Monologue/Managers/AIProviderConfigurationStore.swift
+!Sources/Monologue/Managers/AIEqualizerPrompt.swift
+!Sources/Monologue/Managers/AIEqualizerFeatureSampler.swift
+!Sources/Monologue/Managers/AIEqualizerAgent.swift
+!Sources/Monologue/Managers/AILyricAlignmentAgent.swift
+!Sources/Monologue/Managers/AIUsageLimiter.swift
+!Sources/Monologue/Network/AIProviderClient.swift
+!Sources/Monologue/Network/AppleIntelligenceEqualizerProvider.swift
+!Sources/Monologue/Network/MoeWallsService.swift
+!Sources/Monologue/Views/AIProviderDeveloperSettingsView.swift
+!Sources/Monologue/Views/AIEqualizerLabView.swift
+!Sources/Monologue/Views/Player/Components/MoeWallsBrowserView.swift

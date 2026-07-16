@@ -50,13 +50,13 @@ struct RecentPlayHistoryView: View {
                                 subtitle: ""
                             ) {
                                 ZStack {
-                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    RoundedRectangle(cornerRadius: MangaStyle.cardRadius, style: .continuous)
                                         .fill(MangaStyle.mint)
-                                    MonologueIcon(icon: .history, size: 23, color: MangaStyle.strokeInk, lineWidth: 2)
+                                    MonologueIcon(icon: .history, size: 23, color: MangaStyle.ink, lineWidth: 2)
                                 }
                                 .frame(width: 48, height: 48)
-                                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
-                                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(MangaStyle.strokeInk).offset(x: 2.5, y: 2.5))
+                                .overlay(RoundedRectangle(cornerRadius: MangaStyle.cardRadius, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
+                                .background(RoundedRectangle(cornerRadius: MangaStyle.cardRadius, style: .continuous).fill(MangaStyle.strokeInk).offset(x: MangaStyle.shadowOffset, y: MangaStyle.shadowOffset))
                             }
                         } else if MujiStyle.isActive {
                             MujiPageHeader(

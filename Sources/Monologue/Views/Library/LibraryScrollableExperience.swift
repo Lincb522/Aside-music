@@ -159,15 +159,22 @@ struct ScrollableLibraryExperience: View {
         } else {
             VStack(alignment: .leading, spacing: 14) {
                 if MujiStyle.isActive {
-                    HStack(alignment: .bottom, spacing: 12) {
-                        Text(String(localized: "tabbar_library"))
-                            .font(MujiStyle.titleFont(24, weight: .regular))
-                            .foregroundStyle(MujiStyle.ink)
+                    // 清新刊头：圆点眉题 + 衬线大标题
+                    VStack(alignment: .leading, spacing: 11) {
+                        HStack(alignment: .center, spacing: 8) {
+                            MujiDotMark()
 
-                        Rectangle()
-                            .fill(MujiStyle.separator)
-                            .frame(height: 0.6)
-                            .padding(.bottom, 8)
+                            Text("MUSIC SHELF")
+                                .font(MujiStyle.labelFont(10, weight: .semibold))
+                                .foregroundStyle(MujiStyle.clay)
+                                .tracking(2.2)
+                                .fixedSize()
+                        }
+
+                        Text(String(localized: "tabbar_library"))
+                            .font(MujiStyle.titleFont(30, weight: .medium))
+                            .foregroundStyle(MujiStyle.ink)
+                            .tracking(0.3)
                     }
                 } else {
                     Text(LocalizedStringKey("tabbar_library"))
@@ -349,6 +356,8 @@ struct ScrollableLibraryExperience: View {
             sequoiaTabDeck
         } else if CapsuleStyle.isActive {
             capsuleTabDeck
+        } else if MujiStyle.isActive {
+            mujiTabStrip
         } else {
             HStack(spacing: 6) {
                 ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
@@ -376,6 +385,36 @@ struct ScrollableLibraryExperience: View {
             .background(panelBackground(cornerRadius: NeumorphicStyle.isActive ? 20 : 14))
             .animation(.spring(response: 0.34, dampingFraction: 0.86), value: tabIndex)
         }
+    }
+
+    /// Muji：目次式页签 —— 裸排衬线文字 + 陶土短下划线，无容器
+    private var mujiTabStrip: some View {
+        HStack(spacing: 24) {
+            ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
+                let selected = tabIndex == index
+                Button {
+                    selectTab(tab, index: index)
+                } label: {
+                    VStack(spacing: 6) {
+                        Text(tab.localizedKey)
+                            .font(MujiStyle.bodyFont(14.5, weight: selected ? .medium : .regular))
+                            .foregroundStyle(selected ? MujiStyle.ink : MujiStyle.inkMuted)
+                            .lineLimit(1)
+                            .animation(.none, value: tabIndex)
+
+                        Rectangle()
+                            .fill(MujiStyle.clay.opacity(0.85))
+                            .frame(width: 16, height: 1.4)
+                            .opacity(selected ? 1 : 0)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .animation(.spring(response: 0.34, dampingFraction: 0.86), value: tabIndex)
     }
 
     private var capsuleHeaderDeck: some View {
@@ -1725,13 +1764,16 @@ struct ScrollableLibraryExperience: View {
     }
 
     private static func parseQQUserPlaylists(_ result: JSON) -> [Playlist] {
-        let list = result["v_playlist"]?.arrayValue ?? result.arrayValue ?? []
+        // 新版 API: { playlists: [{ id, dirid, title, picurl, songnum }], total }
+        let list = result["playlists"]?.arrayValue
+            ?? result["v_playlist"]?.arrayValue
+            ?? result.arrayValue ?? []
         return list.compactMap { json in
             guard let obj = json.objectValue else { return nil }
-            let tid = obj["tid"]?.intValue ?? 0
-            let name = obj["dirName"]?.stringValue ?? obj["diss_name"]?.stringValue ?? ""
-            let cover = obj["picUrl"]?.stringValue ?? obj["logo"]?.stringValue ?? ""
-            let songCount = obj["songNum"]?.intValue ?? obj["song_cnt"]?.intValue ?? 0
+            let tid = obj["id"]?.intValue ?? obj["tid"]?.intValue ?? 0
+            let name = obj["title"]?.stringValue ?? obj["dirName"]?.stringValue ?? obj["diss_name"]?.stringValue ?? ""
+            let cover = obj["picurl"]?.stringValue ?? obj["picUrl"]?.stringValue ?? obj["logo"]?.stringValue ?? ""
+            let songCount = obj["songnum"]?.intValue ?? obj["songNum"]?.intValue ?? obj["song_cnt"]?.intValue ?? 0
             guard !name.isEmpty else { return nil }
             return Playlist(
                 id: tid,
@@ -2180,8 +2222,7 @@ struct ScrollableLibraryExperience: View {
                 SequoiaSurfaceBackground(cornerRadius: tabCornerRadius, elevated: selected, pressed: !selected, fill: selected ? SequoiaStyle.selectedWash : SequoiaStyle.materialList, role: selected ? .selected : .list)
             } else if MujiStyle.isActive {
                 RoundedRectangle(cornerRadius: tabCornerRadius, style: .continuous)
-                    .fill(selected ? MujiStyle.ink : MujiStyle.surface.opacity(0.78))
-                    .overlay(RoundedRectangle(cornerRadius: tabCornerRadius, style: .continuous).stroke(selected ? Color.clear : MujiStyle.hairline.opacity(0.45), lineWidth: 0.6))
+                    .fill(selected ? AnyShapeStyle(MujiStyle.clay) : AnyShapeStyle(MujiStyle.wash(MujiStyle.clay, strength: 0.75)))
             } else {
                 RoundedRectangle(cornerRadius: tabCornerRadius, style: .continuous)
                     .fill(selected ? Color.monologueIconBackground : Color.monologueGlassTint)
@@ -2220,10 +2261,9 @@ struct ScrollableLibraryExperience: View {
                             .stroke(selected ? Color.clear : CapsuleStyle.separator.opacity(0.5), lineWidth: 0.9)
                     )
             } else if MujiStyle.isActive {
-                let shape = RoundedRectangle(cornerRadius: capsule ? 18 : 8, style: .continuous)
+                let shape = RoundedRectangle(cornerRadius: capsule ? 18 : 12, style: .continuous)
                 shape
-                    .fill(selected ? MujiStyle.ink : MujiStyle.surface.opacity(0.78))
-                    .overlay(shape.stroke(selected ? Color.clear : MujiStyle.hairline.opacity(0.5), lineWidth: 0.6))
+                    .fill(selected ? AnyShapeStyle(MujiStyle.clay) : AnyShapeStyle(MujiStyle.wash(MujiStyle.clay, strength: 0.75)))
             } else if capsule {
                 Capsule().fill(selected ? Color.monologueIconBackground : Color.monologueGlassTint)
             } else {
@@ -2260,8 +2300,7 @@ struct ScrollableLibraryExperience: View {
                     )
             } else if MujiStyle.isActive {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(MujiStyle.surface.opacity(0.82))
-                    .overlay(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous).stroke(MujiStyle.hairline.opacity(0.44), lineWidth: 0.6))
+                    .fill(MujiStyle.wash(MujiStyle.clay, strength: 0.8))
             } else {
                 Color.clear.monologueGlass(cornerRadius: cornerRadius)
             }

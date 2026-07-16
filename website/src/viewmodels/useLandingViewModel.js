@@ -60,6 +60,7 @@ export function useLandingViewModel() {
     if (path === '/updates') return 'updates'
     if (path === '/download') return 'download'
     if (path === '/testflight') return 'testflight'
+    if (path === '/feedback') return 'feedback'
     if (path.startsWith('/play/')) return 'playShare'
 
     return 'home'

@@ -105,22 +105,41 @@ struct PlatformBadgeLabel: View {
     var fontSize: CGFloat = 11
     @ObservedObject private var settings = SettingsManager.shared
 
+    /// aside 默认主题（编辑部风格分支）
+    private var isAsideTheme: Bool {
+        GlobalThemeId.persistedOrDefault == .default
+    }
+
     var body: some View {
         let _ = settings.globalThemeRevision
         let tint = source.themedBadgeColor
 
-        Text(text)
-            .font(badgeFont)
-            .foregroundColor(badgeForeground(tint))
-            .tracking(badgeTracking)
-            .padding(.horizontal, badgeHorizontalPadding)
-            .padding(.vertical, badgeVerticalPadding)
-            .background {
-                badgeBackground(tint)
+        if isAsideTheme {
+            // aside 编辑部风格：平台色圆点 + 字距小字，去框去底
+            HStack(spacing: 4.5) {
+                Circle()
+                    .fill(tint)
+                    .frame(width: max(fontSize * 0.42, 4), height: max(fontSize * 0.42, 4))
+
+                Text(text)
+                    .font(.system(size: fontSize, weight: .heavy, design: .rounded))
+                    .tracking(0.7)
+                    .foregroundColor(Color.monologueTextSecondary.opacity(0.78))
             }
-            .overlay {
-                badgeStroke(tint)
-            }
+        } else {
+            Text(text)
+                .font(badgeFont)
+                .foregroundColor(badgeForeground(tint))
+                .tracking(badgeTracking)
+                .padding(.horizontal, badgeHorizontalPadding)
+                .padding(.vertical, badgeVerticalPadding)
+                .background {
+                    badgeBackground(tint)
+                }
+                .overlay {
+                    badgeStroke(tint)
+                }
+        }
     }
 
     private var badgeFont: Font {

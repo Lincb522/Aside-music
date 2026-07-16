@@ -1098,8 +1098,10 @@ class APIService: @unchecked Sendable {
         let isUnblocked: Bool
         /// 解灰匹配到的 qcm mid（用于后续音质切换）
         var unblockedQQMid: String? = nil
-        /// QMC 加密文件的 ekey（需要客户端解密）
+        /// QMC 加密文件的 ekey。普通 QQ 播放直链不会设置。
         var qmcEkey: String? = nil
+        /// 该播放结果是否来自 Cookie 风控后的加密下载兜底，需要本地解密。
+        var requiresQMCDecryption: Bool = false
         /// 实际使用的ncm音质（自动选择时回传给播放端更新 UI）
         var actualNeteaseQuality: SoundQuality? = nil
         /// 实际使用的 QQ 音质（自动选择时回传给播放端更新 UI）
@@ -1166,6 +1168,37 @@ class APIService: @unchecked Sendable {
         prefetchedQuality: SoundQuality?,
         isDownload: Bool
     ) async throws -> SongUrlResult {
+        // 直取策略：
+        // - 显式指定档位（手动音质）：严格匹配，失败进入查询与降级链；
+        // - 自动最高音质（preferredQuality == nil）：直接请求最高档并接受服务端
+        //   回落。songUrlV1 请求高于可播上限的档位时会返回「账号 × 歌曲」实际
+        //   可播的最高档，一次往返就能拿到正确结果，省掉音质列表查询。
+        //   不使用模型上报档位做请求档：列表元数据只覆盖到 Hi-Res，会漏掉母带。
+        let autoHighest = preferredQuality == nil
+        let directlyRequestedQuality: SoundQuality? = autoHighest ? .jymaster : preferredQuality
+        if let directlyRequestedQuality {
+            do {
+                let result = try await tryNeteaseLevel(
+                    client: client,
+                    id: id,
+                    level: directlyRequestedQuality.rawValue,
+                    isDownload: isDownload,
+                    acceptDowngrade: autoHighest
+                )
+                let resolvedName = (result.actualNeteaseQuality ?? directlyRequestedQuality).displayName
+                AppLogger.success(
+                    "[Netease] \(clientLabel) \(resolvedName) 直取成功"
+                )
+                return result
+            } catch PlaybackError.tokenRequired {
+                throw PlaybackError.tokenRequired
+            } catch {
+                AppLogger.debug(
+                    "[Netease] \(clientLabel) \(directlyRequestedQuality.displayName) 直取失败，查询可用音质: \(error.localizedDescription)"
+                )
+            }
+        }
+
         let availableInfos: [NeteaseSongQualityInfo]?
 
         do {
@@ -1179,11 +1212,14 @@ class APIService: @unchecked Sendable {
             AppLogger.warning("[Netease] \(clientLabel) 音质查询失败，按回退链盲试: \(error.localizedDescription)")
         }
 
-        let candidates = buildNeteasePlaybackCandidates(
+        var candidates = buildNeteasePlaybackCandidates(
             preferred: preferredQuality,
             prefetched: prefetchedQuality,
             availableInfos: availableInfos
         )
+        if let directlyRequestedQuality {
+            candidates.removeAll { $0 == directlyRequestedQuality }
+        }
 
         // 快速路径：availableInfos 已知真实可用档位时，直接用第一个（"最高可用"）
         // 成功即返回，节省串行重试的网络延迟
@@ -1217,8 +1253,12 @@ class APIService: @unchecked Sendable {
         // 兜底：availableInfos 查询失败时走盲试候选链
         if candidates.isEmpty {
             let fallbackQuality = preferredQuality ?? prefetchedQuality ?? .exhigh
-            AppLogger.warning("[Netease] \(clientLabel) 无可用音质信息，兜底尝试: \(fallbackQuality.displayName)")
-            return try await tryNeteaseLevel(client: client, id: id, level: fallbackQuality.rawValue, isDownload: isDownload)
+            if directlyRequestedQuality == nil {
+                AppLogger.warning("[Netease] \(clientLabel) 无可用音质信息，兜底尝试: \(fallbackQuality.displayName)")
+                return try await tryNeteaseLevel(client: client, id: id, level: fallbackQuality.rawValue, isDownload: isDownload)
+            }
+            // 同一档已在入口直取失败，不重复打一条完全相同的请求。
+            throw PlaybackError.unavailable
         }
 
         for quality in candidates {
@@ -1238,7 +1278,15 @@ class APIService: @unchecked Sendable {
     }
     
     /// 尝试用指定级别获取ncm播放 URL
-    private func tryNeteaseLevel(client: NCMClient, id: Int, level: String, isDownload: Bool = false) async throws -> SongUrlResult {
+    /// - Parameter acceptDowngrade: 自动最高音质场景传 true——请求档高于实际可播
+    ///   上限时，直接采纳服务端回落的档位，而不是抛错走降级链再发一次请求。
+    private func tryNeteaseLevel(
+        client: NCMClient,
+        id: Int,
+        level: String,
+        isDownload: Bool = false,
+        acceptDowngrade: Bool = false
+    ) async throws -> SongUrlResult {
         let qualityLevel = NeteaseCloudMusicAPI.SoundQualityType(rawValue: level) ?? .exhigh
         
         // 如果是下载，手动在原始 URL 上添加 _download=1 标识（即便 SDK 不支持，NGINX 也能拦截到）
@@ -1269,7 +1317,8 @@ class APIService: @unchecked Sendable {
             let requestedQuality = SoundQuality(rawValue: level)
             let actualQuality = (first["level"] as? String).flatMap(SoundQuality.init(rawValue:)) ?? requestedQuality
 
-            if let requestedQuality,
+            if !acceptDowngrade,
+               let requestedQuality,
                let actualQuality,
                requestedQuality != .standard,
                actualQuality != requestedQuality {

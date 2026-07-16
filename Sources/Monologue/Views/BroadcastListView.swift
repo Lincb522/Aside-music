@@ -112,10 +112,10 @@ struct BroadcastListView: View {
                 .padding(.horizontal, (MinimalWhiteStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 16 : 14)
                 .padding(.vertical, (MinimalWhiteStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 9 : 8)
                 .background(chipBackground(isSelected: isSelected))
-                .clipShape(Capsule())
+                .clipShape(MangaStyle.isActive ? AnyShape(RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)) : AnyShape(Capsule()))
                 .overlay {
                     if MangaStyle.isActive {
-                        Capsule()
+                        RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
                             .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
                     } else if MujiStyle.isActive {
                         Capsule()
@@ -143,10 +143,15 @@ struct BroadcastListView: View {
 
     private func chipTextColor(isSelected: Bool) -> Color {
         if MinimalWhiteStyle.isActive { return isSelected ? MinimalWhiteStyle.ink : MinimalWhiteStyle.inkMuted }
-        if MangaStyle.isActive { return isSelected ? MangaStyle.ink : MangaStyle.inkSub }
+        if MangaStyle.isActive {
+            return isSelected
+                ? ThemeColorCustomization.readableForegroundColor(on: MangaStyle.labelYellow, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk)
+                : MangaStyle.inkSub
+        }
         if MujiStyle.isActive { return isSelected ? MujiStyle.paper : MujiStyle.ink }
         if NeumorphicStyle.isActive { return isSelected ? NeumorphicStyle.accent : NeumorphicStyle.inkSoft }
         if SequoiaStyle.isActive { return isSelected ? SequoiaStyle.onAccent : SequoiaStyle.inkSoft }
+        if !ThemedPageStyle.isActive { return isSelected ? .monologueIconForeground : .monologueTextPrimary.opacity(0.82) }
         return isSelected ? .white : .monologueTextPrimary
     }
 
@@ -155,7 +160,9 @@ struct BroadcastListView: View {
         if MinimalWhiteStyle.isActive {
             MinimalWhiteCapsuleBackground(selected: isSelected)
         } else if MangaStyle.isActive {
-            Capsule().fill(isSelected ? MangaStyle.labelYellow : MangaStyle.bubbleWhite)
+            RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
+                .fill(isSelected ? MangaStyle.labelYellow : MangaStyle.bubbleWhite)
+                .overlay(RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
         } else if MujiStyle.isActive {
             Capsule().fill(isSelected ? MujiStyle.clay : MujiStyle.surfaceRaised)
         } else if NeumorphicStyle.isActive {
@@ -168,6 +175,14 @@ struct BroadcastListView: View {
         } else if SequoiaStyle.isActive {
             Capsule()
                 .fill(isSelected ? SequoiaStyle.accent : SequoiaStyle.materialList.opacity(0.76))
+        } else if !ThemedPageStyle.isActive {
+            Capsule()
+                .fill(isSelected ? Color.monologueIconBackground : Color.clear)
+                .overlay {
+                    if !isSelected {
+                        Capsule().stroke(Color.monologueSeparator.opacity(0.95), lineWidth: 0.8)
+                    }
+                }
         } else {
             Capsule().fill(isSelected ? Color.monologueTextPrimary : Color.monologueGlassTint)
         }
@@ -175,7 +190,78 @@ struct BroadcastListView: View {
 
     // MARK: - 频道行
 
+    @ViewBuilder
     private func channelRow(channel: BroadcastChannel) -> some View {
+        if !ThemedPageStyle.isActive {
+            asideChannelRow(channel: channel)
+        } else {
+            legacyChannelRow(channel: channel)
+        }
+    }
+
+    private func asideChannelRow(channel: BroadcastChannel) -> some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 14) {
+                Group {
+                    if let url = channel.coverImageUrl {
+                        CachedAsyncImage(url: url) {
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(Color.monologueGlassTint)
+                        }
+                        .aspectRatio(contentMode: .fill)
+                    } else {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color.monologueGlassTint)
+                            .overlay(
+                                MonologueIcon(icon: .radio, size: 20, color: .monologueTextSecondary.opacity(0.6), lineWidth: 1.4)
+                            )
+                    }
+                }
+                .frame(width: 54, height: 54)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(Color.monologueSeparator.opacity(0.9), lineWidth: 0.8)
+                )
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(channel.displayName)
+                        .font(.rounded(size: 15, weight: .semibold))
+                        .foregroundColor(.monologueTextPrimary)
+                        .lineLimit(1)
+
+                    if let program = channel.displayProgram, !program.isEmpty {
+                        Text(program)
+                            .font(.rounded(size: 12))
+                            .foregroundColor(.monologueTextSecondary.opacity(0.85))
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer(minLength: 8)
+
+                Text("FM")
+                    .font(.system(size: 9, weight: .heavy, design: .rounded))
+                    .tracking(0.8)
+                    .foregroundColor(.monologueTextSecondary.opacity(0.75))
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3.5)
+                    .overlay(Capsule().stroke(Color.monologueSeparator.opacity(0.95), lineWidth: 0.7))
+
+                MonologueIcon(icon: .playCircle, size: 22, color: .monologueTextSecondary.opacity(0.7), lineWidth: 1.3)
+            }
+            .padding(.vertical, 10)
+
+            Rectangle()
+                .fill(Color.monologueSeparator.opacity(0.7))
+                .frame(height: 0.6)
+                .padding(.leading, 68)
+        }
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .contentShape(Rectangle())
+    }
+
+    private func legacyChannelRow(channel: BroadcastChannel) -> some View {
         HStack(spacing: 14) {
             // 封面
             if let url = channel.coverImageUrl {

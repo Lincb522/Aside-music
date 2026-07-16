@@ -1,58 +1,57 @@
 import SwiftUI
 
-/// 关于页面 — 精致的 Liquid Glass 风格
+/// 关于页面 — 版权页（Colophon）式排版：
+/// 左对齐的文字层级 + 发丝线分隔 + 大号构建号做唯一的图形元素，
+/// 不用图标胶囊、渐变卡片和特性宫格。
 struct AboutView: View {
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject private var settings = SettingsManager.shared
-    @State private var logoVisible = false
-    @State private var cardsVisible = false
+    @State private var mastheadVisible = false
+    @State private var bodyVisible = false
     @State private var tapCount = 0
+    @State private var versionTapCount = 0
     @AppStorage("qqDevMode") private var qqDevMode = false
+    @AppStorage(ChangelogPreferenceKeys.autoPresent) private var changelogAutoPresent = true
 
-    private var appVersion: String {
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
-        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
-        return "\(version) (\(build))"
+    private var versionNumber: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
     }
 
-    private var logoPlateColors: [Color] {
-        settings.appBrandStyle
-            .logoPlateColors(for: settings.appBrandAppearance)
-            .map(Color.init(hex:))
+    private var buildNumber: String {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
     }
 
-    private var logoAuraColor: Color {
-        Color(hex: settings.appBrandStyle.logoGlowColor(for: settings.appBrandAppearance))
-    }
+    // MARK: 主题墨色
 
-    private var aboutText: Color {
+    private var ink: Color {
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         return .monologueTextPrimary
     }
 
-    private var aboutSecondaryText: Color {
+    private var inkSoft: Color {
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkSoft }
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         return .monologueTextSecondary
     }
 
-    private var aboutMutedText: Color {
+    private var inkMuted: Color {
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
         return .monologueTextSecondary.opacity(0.58)
     }
 
-    private var aboutAccent: Color {
+    private var accent: Color {
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         return .monologueAccent
     }
+
+    private var hairline: Color { ink.opacity(0.12) }
 
     var body: some View {
         ZStack {
@@ -66,60 +65,313 @@ struct AboutView: View {
             .ignoresSafeArea()
 
             ScrollView {
-                VStack(spacing: 32) {
-                    // App Icon + 名称 + 版本
-                    VStack(spacing: 32) {
-                        appIdentity
-                            .opacity(logoVisible ? 1 : 0)
-                            .scaleEffect(logoVisible ? 1 : 0.85)
+                VStack(alignment: .leading, spacing: 0) {
+                    SettingsScrollablePageHeader(
+                        title: String(localized: "关于"),
+                        eyebrow: "MONOLOGUE",
+                        icon: .infoCircle
+                    )
 
-                        if !MinimalWhiteStyle.isActive {
-                            aboutTaglineBlock
-                                .opacity(logoVisible ? 1 : 0)
+                    VStack(alignment: .leading, spacing: 0) {
+                        masthead
+                            .opacity(mastheadVisible ? 1 : 0)
+                            .offset(y: mastheadVisible ? 0 : 10)
+
+                        statement
+                            .padding(.top, 34)
+
+                        Group {
+                            sectionHeader(String(localized: "链接"))
+                                .padding(.top, 44)
+
+                            changelogRow
+                            rowDivider
+                            websiteRow
+                            rowDivider
+                            updateReminderRow
+
+                            sectionHeader(String(localized: "制作信息"))
+                                .padding(.top, 36)
+
+                            factRow(String(localized: "开发者"), "ZIJIU522")
+                            rowDivider
+                            factRow(
+                                String(localized: "播放引擎"),
+                                String(localized: "Mono 播放引擎"),
+                                detail: String(localized: "基于 FFmpeg + AVAudioEngine 深度定制")
+                            )
+                            rowDivider
+                            factRow(
+                                String(localized: "架构"),
+                                String(localized: "全原生自研"),
+                                detail: String(localized: "SwiftUI + Combine · 原生 MVVM 架构")
+                            )
+                            rowDivider
+                            factRow(
+                                String(localized: "设计"),
+                                String(localized: "Mono 设计语言"),
+                                detail: String(localized: "丰富的主题、图标与播放器个性化设置")
+                            )
+                            rowDivider
+                            factRow(String(localized: "发行"), "2024 — 2026")
                         }
 
-                        // 快捷访问
-                        quickActionsSection
-                            .opacity(cardsVisible ? 1 : 0)
-                            .offset(y: cardsVisible ? 0 : 16)
-
-                        if !MinimalWhiteStyle.isActive {
-                            featuresSection
-                                .opacity(cardsVisible ? 1 : 0)
-                                .offset(y: cardsVisible ? 0 : 16)
-                        }
-
-                        // 开发信息
-                        developerSection
-                            .opacity(cardsVisible ? 1 : 0)
-                            .offset(y: cardsVisible ? 0 : 16)
-
-                        // 底部
-                        footerSection
-                            .opacity(cardsVisible ? 1 : 0)
+                        footer
+                            .padding(.top, 44)
 
                         FloatingBarBottomSpacer()
                     }
-                    .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
+                    .opacity(bodyVisible ? 1 : 0)
+                    .offset(y: bodyVisible ? 0 : 14)
+                    .padding(.top, 18)
+                    .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding + 4)
                     .iPadContentWidth(700)
                 }
             }
             .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
         }
-        .themedInlineNavigationTitle(String(localized: "关于"))
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
+        // 版权页排版依赖衬线/等宽对比，关掉全局 .rounded 覆盖
+        .compatFontDesign(nil)
         .onAppear {
-            withAnimation(.spring(response: 0.7, dampingFraction: 0.7).delay(0.1)) {
-                logoVisible = true
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.85).delay(0.05)) {
+                mastheadVisible = true
             }
-            withAnimation(.spring(response: 0.7, dampingFraction: 0.8).delay(0.3)) {
-                cardsVisible = true
+            withAnimation(.spring(response: 0.7, dampingFraction: 0.85).delay(0.18)) {
+                bodyVisible = true
             }
         }
     }
 
-    // MARK: - Developer Mode
+    // MARK: - 刊头
+
+    private var masthead: some View {
+        ZStack(alignment: .topTrailing) {
+            // 唯一的图形元素：本次构建号，像书页角落的版次编号
+            Text(buildNumber)
+                .font(.system(size: 104, weight: .ultraLight))
+                .monospacedDigit()
+                .foregroundColor(ink.opacity(0.08))
+                .offset(y: -18)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 20) {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(ink.opacity(0.05))
+                    .frame(width: 64, height: 64)
+                    .overlay {
+                        Image(settings.appLogoAssetName)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 52, height: 52)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(hairline, lineWidth: 0.8)
+                    }
+                    .onTapGesture {
+                        tapCount += 1
+                        registerDeveloperModeTap()
+                    }
+
+                VStack(alignment: .leading, spacing: 9) {
+                    MonoWordmarkImage(height: 22, preferredColorScheme: colorScheme)
+
+                    Text(verbatim: "VERSION \(versionNumber) · BUILD \(buildNumber)")
+                        .font(.system(size: 11.5, weight: .semibold, design: .monospaced))
+                        .tracking(0.6)
+                        .foregroundColor(inkMuted)
+                }
+                .contentShape(Rectangle())
+                .onTapGesture(perform: registerDeveloperModeTap)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    // MARK: - 题记
+
+    private var statement: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(LocalizedStringKey("welcome_slogan"))
+                .font(.system(size: 21, weight: .medium, design: .serif))
+                .foregroundColor(ink)
+                .lineSpacing(7)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text(LocalizedStringKey("welcome_slogan_short"))
+                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                .tracking(2.6)
+                .foregroundColor(inkMuted)
+        }
+    }
+
+    // MARK: - 链接区
+
+    private var changelogRow: some View {
+        NavigationLink {
+            ChangelogHistoryView()
+        } label: {
+            HStack(spacing: 10) {
+                Text(String(localized: "更新日志"))
+                    .font(.system(size: 15, weight: .medium, design: .rounded))
+                    .foregroundColor(ink)
+
+                Spacer(minLength: 8)
+
+                Text(String(localized: "历来版本"))
+                    .font(.system(size: 12.5, weight: .regular, design: .rounded))
+                    .foregroundColor(inkMuted)
+
+                MonologueIcon(icon: .chevronRight, size: 12, color: inkMuted, lineWidth: 1.6)
+            }
+            .padding(.vertical, 16)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.99, opacity: 0.72))
+    }
+
+    private var websiteRow: some View {
+        Button {
+            guard let url = URL(string: "https://mono.zijiu522.cn") else { return }
+            HapticManager.shared.light()
+            PlatformApplication.openURL(url)
+        } label: {
+            HStack(spacing: 10) {
+                Text(String(localized: "官方网站"))
+                    .font(.system(size: 15, weight: .medium, design: .rounded))
+                    .foregroundColor(ink)
+
+                Spacer(minLength: 8)
+
+                Text(verbatim: "mono.zijiu522.cn")
+                    .font(.system(size: 12.5, weight: .regular, design: .monospaced))
+                    .foregroundColor(inkMuted)
+
+                MonologueIcon(icon: .chevronRight, size: 12, color: inkMuted, lineWidth: 1.6)
+            }
+            .padding(.vertical, 16)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.99, opacity: 0.72))
+    }
+
+    private var updateReminderRow: some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(String(localized: "新版本更新提醒"))
+                    .font(.system(size: 15, weight: .medium, design: .rounded))
+                    .foregroundColor(ink)
+
+                Text(String(localized: "版本更新后启动时弹出更新内容"))
+                    .font(.system(size: 11.5, weight: .regular, design: .rounded))
+                    .foregroundColor(inkMuted)
+            }
+
+            Spacer(minLength: 8)
+
+            Toggle("", isOn: $changelogAutoPresent)
+                .labelsHidden()
+                .toggleStyle(SettingsSwitchToggleStyle())
+        }
+        .padding(.vertical, 12)
+    }
+
+    // MARK: - 制作信息区
+
+    private func factRow(_ label: String, _ value: String, detail: String? = nil) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(label)
+                .font(.system(size: 13.5, weight: .regular, design: .rounded))
+                .foregroundColor(inkSoft)
+                .fixedSize()
+
+            Spacer(minLength: 8)
+
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(verbatim: value)
+                    .font(.system(size: 13, weight: .medium, design: .monospaced))
+                    .foregroundColor(ink)
+
+                if let detail {
+                    Text(verbatim: detail)
+                        .font(.system(size: 11, weight: .regular, design: .rounded))
+                        .foregroundColor(inkMuted)
+                        .lineSpacing(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .multilineTextAlignment(.trailing)
+        }
+        .padding(.vertical, 14)
+    }
+
+    // MARK: - 区块小标 / 分隔线
+
+    private func sectionHeader(_ title: String) -> some View {
+        HStack(spacing: 12) {
+            Text(title)
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .tracking(2.2)
+                .foregroundColor(inkMuted)
+                .fixedSize()
+
+            Rectangle()
+                .fill(hairline)
+                .frame(height: 0.5)
+        }
+        .padding(.bottom, 6)
+    }
+
+    private var rowDivider: some View {
+        Rectangle()
+            .fill(hairline.opacity(0.7))
+            .frame(height: 0.5)
+    }
+
+    // MARK: - 页脚
+
+    private var footer: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(String(localized: "仅供学习交流 · 请支持正版音乐"))
+                .font(.system(size: 12, weight: .regular, design: .rounded))
+                .foregroundColor(inkMuted)
+
+            Text(verbatim: "© 2024-2026 Mono. All Rights Reserved.")
+                .font(.system(size: 11, weight: .regular, design: .monospaced))
+                .foregroundColor(inkMuted.opacity(0.8))
+
+            if tapCount >= 7 {
+                Text(String(localized: "你发现了彩蛋！你是一个有好奇心的人。"))
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundColor(accent)
+                    .transition(.scale.combined(with: .opacity))
+            }
+
+            if qqDevMode {
+                Text(String(localized: "dev_mode_enabled"))
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundColor(accent)
+            }
+        }
+        .animation(.spring, value: tapCount)
+        .animation(.easeOut(duration: 0.2), value: qqDevMode)
+    }
+
+    // MARK: - 开发者模式
+
+    private func registerDeveloperModeTap() {
+        versionTapCount += 1
+        HapticStyle.light.trigger()
+
+        guard versionTapCount >= 5 else { return }
+        versionTapCount = 0
+        showDevModePrompt()
+    }
 
     private func showDevModePrompt() {
         if qqDevMode {
@@ -147,311 +399,17 @@ struct AboutView: View {
                         HapticManager.shared.success()
                     } else {
                         HapticManager.shared.error()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                            AlertManager.shared.show(
+                                title: String(localized: "dev_mode_title"),
+                                message: String(localized: "dev_mode_password_error"),
+                                primaryButtonTitle: String(localized: "common_ok"),
+                                primaryAction: {}
+                            )
+                        }
                     }
                 }
             )
         }
-    }
-
-    // MARK: - App Identity
-
-    private var appIdentity: some View {
-        VStack(spacing: 16) {
-            // App Logo
-            ZStack {
-                // 背景光晕
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                logoAuraColor.opacity(settings.appBrandAppearance == .dark ? 0.2 : 0.15),
-                                Color.clear
-                            ],
-                            center: .center,
-                            startRadius: 30,
-                            endRadius: 80
-                        )
-                    )
-                    .frame(width: 160, height: 160)
-
-                RoundedRectangle(cornerRadius: 26, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: SequoiaStyle.isActive ? [SequoiaStyle.materialRaised, SequoiaStyle.materialList] : (NeumorphicStyle.isActive ? [NeumorphicStyle.surfaceRaised, NeumorphicStyle.surface] : logoPlateColors),
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 112, height: 112)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 26, style: .continuous)
-                            .stroke(
-                                Color.white.opacity(
-                                    settings.appBrandStyle.logoPlateStrokeOpacity(for: settings.appBrandAppearance)
-                                ),
-                                lineWidth: 1
-                            )
-                    }
-                    .overlay {
-                        Image(settings.appLogoAssetName)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 92, height: 92)
-                            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                    }
-                    .shadow(color: .black.opacity(NeumorphicStyle.isActive ? 0.08 : 0.15), radius: 20, x: 0, y: 10)
-                    .background {
-                        if SequoiaStyle.isActive {
-                            SequoiaSurfaceBackground(cornerRadius: 26, elevated: true)
-                                .frame(width: 112, height: 112)
-                        } else if NeumorphicStyle.isActive {
-                            NeumorphicSurfaceBackground(cornerRadius: 26, elevated: true)
-                                .frame(width: 112, height: 112)
-                        }
-                    }
-            }
-            .onTapGesture {
-                tapCount += 1
-                HapticStyle.light.trigger()
-            }
-
-            // App 名称
-            MonoWordmarkImage(height: 34, preferredColorScheme: colorScheme)
-
-            // 版本号（彩蛋入口）
-            Text("Version \(appVersion)")
-                .font(MinimalWhiteStyle.isActive ? .system(size: 13, weight: .medium, design: .monospaced) : (NeumorphicStyle.isActive ? .system(size: 13, weight: .semibold, design: .monospaced) : .system(size: 13, weight: .medium, design: .monospaced)))
-                .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : (SequoiaStyle.isActive ? SequoiaStyle.accent : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextSecondary)))
-                .padding(.horizontal, 14)
-                .padding(.vertical, 6)
-                .background {
-                    if MinimalWhiteStyle.isActive {
-                        MinimalWhiteCapsuleBackground()
-                    } else {
-                        Capsule().fill(SequoiaStyle.isActive ? SequoiaStyle.selectedWash : (NeumorphicStyle.isActive ? NeumorphicStyle.accent.opacity(0.12) : Color.monologueTextSecondary.opacity(0.08)))
-                    }
-                }
-                .onTapGesture {
-                    tapCount += 1
-                    if tapCount >= 5 {
-                        tapCount = 0
-                        showDevModePrompt()
-                    }
-                }
-        }
-    }
-
-    private var aboutTaglineBlock: some View {
-        VStack(spacing: 6) {
-            Text(LocalizedStringKey("welcome_slogan"))
-                .font(SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .medium) : .system(size: 15, weight: .medium, design: .rounded)))
-                .foregroundColor(aboutSecondaryText)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .minimumScaleFactor(0.86)
-
-            Text(LocalizedStringKey("welcome_slogan_short"))
-                .font(.system(size: 10, weight: .semibold, design: .rounded))
-                .foregroundColor(aboutMutedText)
-                .tracking(1.45)
-                .multilineTextAlignment(.center)
-                .lineLimit(1)
-                .minimumScaleFactor(0.82)
-        }
-    }
-
-    // MARK: - Quick Actions
-
-    private var quickActionsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionTitle(String(localized: "快捷访问"), icon: .sparkle)
-
-            VStack(spacing: 0) {
-                quickActionRow(
-                    icon: .infoCircle,
-                    title: String(localized: "官方网站"),
-                    subtitle: "mono.zijiu522.cn",
-                    urlString: "https://mono.zijiu522.cn"
-                )
-
-                Divider().padding(.leading, 56)
-
-                quickActionRow(
-                    icon: .history,
-                    title: String(localized: "更新日志"),
-                    subtitle: "mono.zijiu522.cn/updates",
-                    urlString: "http://mono.zijiu522.cn/updates"
-                )
-            }
-            .themedPageSurface(cornerRadius: NeumorphicStyle.isActive ? 20 : 20, elevated: false)
-        }
-    }
-
-    private func quickActionRow(
-        icon: MonologueIcon.IconType,
-        title: String,
-        subtitle: String,
-        urlString: String
-    ) -> some View {
-        Button {
-            guard let url = URL(string: urlString) else { return }
-            HapticManager.shared.light()
-            PlatformApplication.openURL(url)
-        } label: {
-            HStack(spacing: 14) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : ((SequoiaStyle.isActive || NeumorphicStyle.isActive) ? aboutAccent.opacity(0.16) : Color.monologueIconBackground))
-                        .frame(width: 32, height: 32)
-                    MonologueIcon(icon: icon, size: 16, color: MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : (SequoiaStyle.isActive ? aboutAccent : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueIconForeground)))
-                }
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(title)
-                        .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.bodyFont(15, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .medium) : .system(size: 15, weight: .semibold, design: .rounded))))
-                        .foregroundColor(aboutText)
-
-                    Text(subtitle)
-                        .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(12, weight: .regular) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, weight: .medium, design: .rounded))))
-                        .foregroundColor(aboutSecondaryText)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-                }
-
-                Spacer(minLength: 8)
-
-                MonologueIcon(icon: .chevronRight, size: 14, color: aboutMutedText, lineWidth: 1.7)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.985, opacity: 0.9))
-    }
-
-    // MARK: - Features
-
-    private var featuresSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionTitle(String(localized: "特性"), icon: .sparkle)
-
-            LazyVGrid(columns: [
-                GridItem(.flexible(), spacing: 12),
-                GridItem(.flexible(), spacing: 12)
-            ], spacing: 12) {
-                featureCard(icon: .musicNote, title: String(localized: "本地导入"), subtitle: String(localized: "文件 · 文件夹"))
-                featureCard(icon: .headphones, title: String(localized: "离线播放"), subtitle: "Hi-Res · FLAC")
-                featureCard(icon: .list, title: String(localized: "播放管理"), subtitle: String(localized: "队列 · 收藏"))
-                featureCard(icon: .playerTheme, title: String(localized: "视觉盛宴"), subtitle: "Liquid Glass")
-            }
-        }
-    }
-
-    private func featureCard(icon: MonologueIcon.IconType, title: String, subtitle: String) -> some View {
-        VStack(spacing: 8) {
-            MonologueIcon(icon: icon, size: 26, color: aboutAccent)
-            Text(title)
-                .font(SequoiaStyle.isActive ? SequoiaStyle.bodyFont(14, weight: .semibold) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(14, weight: .semibold) : .system(size: 14, weight: .bold, design: .rounded)))
-                .foregroundColor(aboutText)
-            Text(subtitle)
-                .font(SequoiaStyle.isActive ? SequoiaStyle.labelFont(11) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(11, weight: .medium) : .system(size: 11, weight: .medium, design: .rounded)))
-                .foregroundColor(aboutSecondaryText)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 18)
-        .themedPageSurface(cornerRadius: NeumorphicStyle.isActive ? 20 : 20, elevated: false)
-    }
-
-    // MARK: - Developer
-
-    private var developerSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionTitle("Developer", icon: .profile)
-
-            VStack(spacing: 0) {
-                infoRow(icon: .personCircle, label: "Developer", value: "ZIJIU522")
-
-                Divider().padding(.leading, 56)
-
-                infoRow(icon: .playerTheme, label: "Design", value: "Liquid Glass")
-
-                Divider().padding(.leading, 56)
-
-                infoRow(icon: .layers, label: "Framework", value: "SwiftUI · Combine")
-
-                Divider().padding(.leading, 56)
-
-            infoRow(icon: .audioWave, label: "Engine", value: "FFmpeg · SwiftUI")
-            }
-            .themedPageSurface(cornerRadius: NeumorphicStyle.isActive ? 20 : 20, elevated: false)
-        }
-    }
-
-    private func infoRow(icon: MonologueIcon.IconType, label: String, value: String) -> some View {
-        HStack(spacing: 14) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : ((SequoiaStyle.isActive || NeumorphicStyle.isActive) ? aboutAccent.opacity(0.16) : Color.monologueIconBackground))
-                    .frame(width: 32, height: 32)
-                MonologueIcon(icon: icon, size: 16, color: MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : (SequoiaStyle.isActive ? aboutAccent : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueIconForeground)))
-            }
-
-            Text(label)
-                .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.bodyFont(15, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .medium) : .system(size: 15, weight: .medium, design: .rounded))))
-                .foregroundColor(aboutText)
-
-            Spacer()
-
-            Text(value)
-                .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(14, weight: .regular) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(14, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : .system(size: 14, weight: .regular, design: .rounded))))
-                .foregroundColor(aboutSecondaryText)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-    }
-
-    // MARK: - Footer
-
-    private var footerSection: some View {
-        VStack(spacing: 8) {
-            if !MinimalWhiteStyle.isActive {
-                HStack(spacing: 4) {
-                    Text("Made with")
-                    MonologueIcon(icon: .liked, size: 14, color: aboutAccent)
-                    Text("in SwiftUI")
-                }
-                .font(.system(size: 13, weight: .medium, design: .rounded))
-                .foregroundColor(aboutSecondaryText)
-
-                Text("仅供学习交流 · 请支持正版音乐")
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundColor(aboutMutedText.opacity(0.86))
-            }
-
-            Text("© 2024-2026 Mono. All Rights Reserved.")
-                .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(11, weight: .regular) : .system(size: 11, weight: .regular, design: .rounded))
-                .foregroundColor(aboutMutedText)
-
-            if tapCount >= 7 {
-                Text("你发现了彩蛋！你是一个有好奇心的人。")
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundColor(aboutAccent)
-                    .transition(.scale.combined(with: .opacity))
-            }
-        }
-        .padding(.top, 20)
-        .animation(.spring, value: tapCount)
-    }
-
-    // MARK: - Helpers
-
-    private func sectionTitle(_ text: String, icon: MonologueIcon.IconType) -> some View {
-        HStack(spacing: 8) {
-            MonologueIcon(icon: icon, size: 16, color: aboutAccent)
-            Text(text)
-                .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.titleFont(16, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.titleFont(16, weight: .semibold) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(16, weight: .semibold) : .system(size: 16, weight: .bold, design: .rounded))))
-                .foregroundColor(aboutText)
-        }
-        .padding(.leading, 4)
     }
 }

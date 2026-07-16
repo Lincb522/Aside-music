@@ -30,17 +30,21 @@ struct AriaFumeLyricStage: View {
                         .frame(height: stageSize.height * 0.34)
 
                     ForEach(Array(lines.enumerated()), id: \.element.id) { index, line in
+                        let isActive = index == activeIndex
                         FumeLineView(
                             line: line,
                             index: index,
                             distance: activeIndex < 0 ? 99 : abs(index - activeIndex),
-                            isActive: index == activeIndex,
+                            isActive: isActive,
                             palette: palette.lineVariant(line.id),
                             fontChoice: fontChoice,
                             fontScale: fontScale,
-                            time: time,
+                            // 只有活跃行与间奏行消费时间；其余行冻结为 0，
+                            // 配合 Equatable 让时间轴 tick 不再重排整屏文本
+                            time: isActive || line.isInterlude ? time : 0,
                             stageWidth: stageSize.width
                         )
+                        .equatable()
                         .id(line.id)
                     }
 
@@ -122,7 +126,7 @@ struct AriaFumeLyricStage: View {
     }
 }
 
-private struct FumeLineView: View {
+private struct FumeLineView: View, @MainActor Equatable {
     let line: AriaLine
     let index: Int
     let distance: Int
@@ -132,6 +136,19 @@ private struct FumeLineView: View {
     let fontScale: Double
     let time: Double
     let stageWidth: CGFloat
+
+    static func == (lhs: FumeLineView, rhs: FumeLineView) -> Bool {
+        lhs.line.id == rhs.line.id
+            && lhs.line.fullText == rhs.line.fullText
+            && lhs.index == rhs.index
+            && lhs.distance == rhs.distance
+            && lhs.isActive == rhs.isActive
+            && lhs.palette == rhs.palette
+            && lhs.fontChoice == rhs.fontChoice
+            && lhs.fontScale == rhs.fontScale
+            && lhs.time == rhs.time
+            && lhs.stageWidth == rhs.stageWidth
+    }
 
     private var fontSize: CGFloat {
         let base = min(48, max(31, stageWidth * 0.038)) * CGFloat(fontScale)

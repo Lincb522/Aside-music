@@ -34,24 +34,89 @@ public final class SpectrumAnalyzer {
     /// 输出频段数量（将 FFT bin 合并为指定数量的频段）。
     public let bandCount: Int
 
-    /// 是否启用频谱分析。关闭时不消耗 CPU。
-    public var isEnabled: Bool = false
+    private let configurationLock = NSLock()
+    private var storedIsEnabled = false
+    private var storedCalibrationIsEnabled = false
+    private var storedOnSpectrum: SpectrumCallback?
+    private var storedOnRawSpectrum: ((_ magnitudes: [Float], _ sampleRate: Double, _ rms: Float) -> Void)?
+    private var storedOnCalibrationSpectrum: ((_ linearMagnitudes: [Float], _ sampleRate: Double, _ rms: Float) -> Void)?
+    private var analysisObservers: [UUID: @Sendable (_ linearMagnitudes: [Float], _ sampleRate: Double, _ rms: Float) -> Void] = [:]
+    private var storedSmoothing: Float = 0.7
+    private var storedSampleRate: Double = 44100
 
-    /// 频谱数据回调。在音频线程调用，UI 更新需自行 dispatch 到主线程。
-    public var onSpectrum: SpectrumCallback?
+    /// 是否启用频谱分析。关闭时不消耗 CPU。
+    public var isEnabled: Bool {
+        get { configurationLock.monoWithLock { storedIsEnabled } }
+        set { configurationLock.monoWithLock { storedIsEnabled = newValue } }
+    }
+
+    /// Independent ownership flag for non-visual calibration consumers.
+    /// A visualizer may turn `isEnabled` off without stopping intelligent EQ.
+    public var isCalibrationEnabled: Bool {
+        get { configurationLock.monoWithLock { storedCalibrationIsEnabled } }
+        set { configurationLock.monoWithLock { storedCalibrationIsEnabled = newValue } }
+    }
+
+    var isActive: Bool {
+        configurationLock.monoWithLock {
+            storedIsEnabled || storedCalibrationIsEnabled || !analysisObservers.isEmpty
+        }
+    }
+
+    /// 频谱数据回调。在专用分析队列调用，UI 更新需自行 dispatch 到主线程。
+    public var onSpectrum: SpectrumCallback? {
+        get { configurationLock.monoWithLock { storedOnSpectrum } }
+        set { configurationLock.monoWithLock { storedOnSpectrum = newValue } }
+    }
 
     /// 原始频谱回调（模拟 WebAudio AnalyserNode.getByteFrequencyData / 255）。
     /// magnitudes: 长度 = fftSize/2 的线性 bin，值域 [0,1]（dB 归一化，minDb=-100, maxDb=-30，
     /// 含 WebAudio 默认 smoothingTimeConstant=0.8 的幅度平滑）。
     /// sampleRate: 当前音频采样率；rms: 时域 RMS（等价 getByteTimeDomainData 计算的 RMS）。
-    /// 在音频线程调用。
-    public var onRawSpectrum: ((_ magnitudes: [Float], _ sampleRate: Double, _ rms: Float) -> Void)?
+    /// 在专用分析队列调用。
+    public var onRawSpectrum: ((_ magnitudes: [Float], _ sampleRate: Double, _ rms: Float) -> Void)? {
+        get { configurationLock.monoWithLock { storedOnRawSpectrum } }
+        set { configurationLock.monoWithLock { storedOnRawSpectrum = newValue } }
+    }
+
+    /// Dedicated non-visual analysis stream for slow output calibration.
+    /// This does not replace `onSpectrum` or `onRawSpectrum`, so visualizers and
+    /// intelligent EQ can run at the same time.
+    public var onCalibrationSpectrum: ((_ linearMagnitudes: [Float], _ sampleRate: Double, _ rms: Float) -> Void)? {
+        get { configurationLock.monoWithLock { storedOnCalibrationSpectrum } }
+        set { configurationLock.monoWithLock { storedOnCalibrationSpectrum = newValue } }
+    }
+
+    /// Adds an independent analysis consumer without replacing visualizer or
+    /// calibration callbacks. The returned token must be removed when sampling
+    /// finishes so the FFT pipeline can return to its previous power state.
+    @discardableResult
+    public func addAnalysisObserver(
+        _ observer: @escaping @Sendable (_ linearMagnitudes: [Float], _ sampleRate: Double, _ rms: Float) -> Void
+    ) -> UUID {
+        let token = UUID()
+        configurationLock.monoWithLock {
+            analysisObservers[token] = observer
+        }
+        return token
+    }
+
+    public func removeAnalysisObserver(_ token: UUID) {
+        configurationLock.monoWithLock {
+            analysisObservers.removeValue(forKey: token)
+        }
+    }
 
     /// 平滑系数（0~1）。越大越平滑，但响应越慢。
-    public var smoothing: Float = 0.7
+    public var smoothing: Float {
+        get { configurationLock.monoWithLock { storedSmoothing } }
+        set { configurationLock.monoWithLock { storedSmoothing = min(max(newValue, 0), 1) } }
+    }
 
     /// 当前采样率（由 feed 更新）
-    public private(set) var sampleRate: Double = 44100
+    public var sampleRate: Double {
+        configurationLock.monoWithLock { storedSampleRate }
+    }
 
     // MARK: - 内部状态
 
@@ -68,6 +133,19 @@ public final class SpectrumAnalyzer {
     private var inputBuffer: [Float]
     private var writeIndex: Int = 0
     private var samplesCollected: Int = 0
+
+    /// The audio callback only copies into a preallocated handoff buffer and
+    /// signals this source. FFT work and callback array creation happen off RT.
+    private let collectionLock = NSLock()
+    private let analysisQueue = DispatchQueue(
+        label: "com.ffmpeg-sdk.spectrum-analysis",
+        qos: .userInteractive
+    )
+    private var analysisSource: DispatchSourceUserDataAdd!
+    private var pendingWindow: [Float]
+    private var processingWindow: [Float]
+    private var pendingSampleRate: Double = 44100
+    private var hasPendingWindow = false
 
     /// 上一帧的频谱值（用于平滑）
     private var previousMagnitudes: [Float]
@@ -98,13 +176,24 @@ public final class SpectrumAnalyzer {
         self.window = win
 
         self.inputBuffer = [Float](repeating: 0, count: fftSize)
+        self.pendingWindow = [Float](repeating: 0, count: fftSize)
+        self.processingWindow = [Float](repeating: 0, count: fftSize)
         self.previousMagnitudes = [Float](repeating: 0, count: bandCount)
         self.previousRawAmplitudes = [Float](repeating: 0, count: fftSize / 2)
         self.realPart = [Float](repeating: 0, count: fftSize / 2)
         self.imagPart = [Float](repeating: 0, count: fftSize / 2)
+
+        let source = DispatchSource.makeUserDataAddSource(queue: analysisQueue)
+        self.analysisSource = source
+        source.setEventHandler { [weak self] in
+            self?.consumePendingWindow()
+        }
+        source.resume()
     }
 
     deinit {
+        analysisSource?.setEventHandler {}
+        analysisSource?.cancel()
         vDSP_destroy_fftsetup(fftSetup)
     }
 
@@ -117,8 +206,18 @@ public final class SpectrumAnalyzer {
     ///   - frameCount: 帧数
     ///   - channelCount: 声道数
     func feed(samples: UnsafePointer<Float>, frameCount: Int, channelCount: Int, sampleRate: Double = 44100) {
-        guard isEnabled else { return }
-        self.sampleRate = sampleRate
+        guard configurationLock.try() else { return }
+        // Independent observers are analysis owners too. Previously the outer
+        // renderer saw `isActive == true`, but feed discarded the same buffer
+        // unless a visualizer or calibration happened to be enabled.
+        let enabled = storedIsEnabled || storedCalibrationIsEnabled || !analysisObservers.isEmpty
+        configurationLock.unlock()
+        guard enabled, channelCount > 0 else { return }
+
+        // Never block the audio callback behind the analysis worker. Dropping an
+        // FFT window is preferable to delaying hardware rendering.
+        guard collectionLock.try() else { return }
+        defer { collectionLock.unlock() }
 
         // 取左声道（或单声道）
         for i in 0..<frameCount {
@@ -130,18 +229,41 @@ public final class SpectrumAnalyzer {
         // 收集够一个窗口就执行 FFT
         if samplesCollected >= fftSize {
             samplesCollected = 0
-            performFFT()
+            guard !hasPendingWindow else { return }
+            for i in 0..<fftSize {
+                let idx = (writeIndex + i) % fftSize
+                pendingWindow[i] = inputBuffer[idx]
+            }
+            pendingSampleRate = sampleRate
+            hasPendingWindow = true
+            analysisSource.add(data: 1)
         }
+    }
+
+    private func consumePendingWindow() {
+        collectionLock.lock()
+        guard hasPendingWindow else {
+            collectionLock.unlock()
+            return
+        }
+        swap(&pendingWindow, &processingWindow)
+        let rate = pendingSampleRate
+        hasPendingWindow = false
+        collectionLock.unlock()
+
+        configurationLock.monoWithLock {
+            storedSampleRate = rate
+        }
+        performFFT(samples: processingWindow, sampleRate: rate)
     }
 
     // MARK: - FFT 计算
 
-    private func performFFT() {
-        // 将环形缓冲区展开为连续数组，并应用窗函数
+    private func performFFT(samples: [Float], sampleRate: Double) {
+        // 应用窗函数。所有分配都发生在专用分析队列。
         var windowed = [Float](repeating: 0, count: fftSize)
         for i in 0..<fftSize {
-            let idx = (writeIndex + i) % fftSize
-            windowed[i] = inputBuffer[idx] * window[i]
+            windowed[i] = samples[i] * window[i]
         }
 
         // 拆分为实部和虚部（split complex），使用 withUnsafeMutableBufferPointer 确保指针生命周期安全
@@ -173,7 +295,24 @@ public final class SpectrumAnalyzer {
         // 原始频谱输出：复刻 WebAudio getByteFrequencyData 语义
         // 1) 线性幅度做 smoothingTimeConstant=0.8 平滑
         // 2) 转 dB 后按 [minDb=-100, maxDb=-30] 归一化到 [0,1]
-        if let rawCallback = onRawSpectrum {
+        let callbacks = configurationLock.monoWithLock {
+            (
+                storedOnRawSpectrum,
+                storedOnSpectrum,
+                storedOnCalibrationSpectrum,
+                storedSmoothing,
+                Array(analysisObservers.values)
+            )
+        }
+        var timeDomainRMS: Float = 0
+        if callbacks.0 != nil || callbacks.2 != nil || !callbacks.4.isEmpty {
+            for sample in samples {
+                let value = min(1, max(-1, sample))
+                timeDomainRMS += value * value
+            }
+            timeDomainRMS = sqrtf(timeDomainRMS / Float(fftSize))
+        }
+        if let rawCallback = callbacks.0 {
             let tau: Float = 0.8
             let minDb: Float = -100
             let maxDb: Float = -30
@@ -186,14 +325,12 @@ public final class SpectrumAnalyzer {
             }
 
             // 时域 RMS（等价 getByteTimeDomainData 的 RMS 计算）
-            var rms: Float = 0
-            for sample in inputBuffer {
-                let v = min(1, max(-1, sample))
-                rms += v * v
-            }
-            rms = sqrtf(rms / Float(fftSize))
+            rawCallback(rawBytes, sampleRate, timeDomainRMS)
+        }
 
-            rawCallback(rawBytes, sampleRate, rms)
+        callbacks.2?(scaledMags, sampleRate, timeDomainRMS)
+        for observer in callbacks.4 {
+            observer(scaledMags, sampleRate, timeDomainRMS)
         }
 
         // 合并 bin 到指定频段数（对数分布）
@@ -202,12 +339,12 @@ public final class SpectrumAnalyzer {
         // 平滑
         var smoothed = [Float](repeating: 0, count: bandCount)
         for i in 0..<bandCount {
-            smoothed[i] = smoothing * previousMagnitudes[i] + (1.0 - smoothing) * bands[i]
+            smoothed[i] = callbacks.3 * previousMagnitudes[i] + (1.0 - callbacks.3) * bands[i]
         }
         previousMagnitudes = smoothed
 
         // 回调
-        onSpectrum?(smoothed)
+        callbacks.1?(smoothed)
     }
 
     /// 将线性 FFT bin 合并为对数分布的频段
@@ -240,5 +377,13 @@ public final class SpectrumAnalyzer {
         }
 
         return bands
+    }
+}
+
+private extension NSLock {
+    func monoWithLock<T>(_ operation: () throws -> T) rethrows -> T {
+        lock()
+        defer { unlock() }
+        return try operation()
     }
 }

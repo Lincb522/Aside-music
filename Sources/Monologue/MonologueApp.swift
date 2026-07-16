@@ -72,6 +72,8 @@ struct MonologueApp: App {
         Self.cleanupKeychainIfNeeded()
         
         _ = EQManager.shared
+        _ = AIEqualizerAgent.shared
+        _ = AILyricAlignmentAgent.shared
         _ = CustomFontManager.shared
         
         // iOS 26: 系统 TabView 自动使用 Liquid Glass 浮动标签栏，不再需要自定义外观
@@ -197,7 +199,6 @@ struct MonologueApp: App {
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
                     PlayerManager.shared.saveStateImmediately()
                     DatabaseManager.shared.save()
-                    UserDefaults.standard.set(false, forKey: "qqDevMode")
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.willTerminateNotification)) { _ in
                     PlayerManager.shared.saveStateImmediately()

@@ -33,6 +33,7 @@ enum RouteMap {
         "/api/sms/captcha/verify": "/captcha/verify",
         "/api/w/register/cellphone": "/register/cellphone",
         "/api/register/anonimous": "/register/anonimous",
+        "/api/gorilla/anti/crawler/security/key/get": "/register/xeapikey",
         "/api/cellphone/existence/check": "/cellphone/existence/check",
         "/api/nickname/duplicated": "/nickname/check",
         "/api/user/replaceCellphone": "/user/replacephone",
@@ -93,6 +94,7 @@ enum RouteMap {
         "/api/playmode/intelligence/list": "/playmode/intelligence/list",
         "/api/playmode/song/vector/get": "/playmode/song/vector",
         "/api/song/order/update": "/song/order/update",  // 注意：后端 playlist_tracks 也用这个 API
+        "/api/cloud/dowonload": "/song/cloud/download",
 
         // 专辑
         "/api/album/new": "/album/new",
@@ -172,6 +174,8 @@ enum RouteMap {
         "/api/mlog/artist/video": "/artist/video",
         "/api/sub/artist/new/works/song/list": "/artist/new/song",
         "/api/sub/artist/new/works/mv/list": "/artist/new/mv",
+        "/api/sub/artist/new/works/song-mv/list/v2": "/artist/new/song/mv/list/v2",
+        "/api/sub/artist/new/works/song/playall": "/artist/new/song/playall",
 
         // MV / 视频
         "/api/mv/all": "/mv/all",
@@ -290,6 +294,10 @@ enum RouteMap {
         "/api/vipnewcenter/app/level/growhpoint/basic": "/vip/growthpoint",
         "/api/vipnewcenter/app/level/growth/details": "/vip/growthpoint/details",
         "/api/vipnewcenter/app/level/task/reward/get": "/vip/growthpoint/get",
+        "/api/vipnewcenter/app/level/task/reward/getall": "/vip/growthpoint/getall",
+        "/api/vipnewcenter/app/level/user/checkin/history/detail": "/vip/sign/detail",
+        "/api/vipnewcenter/app/minidesk/music/sign/pc": "/vip/sign/history",
+        "/api/middle/vip/mission/user/progress/list": "/vip/tasks/v1",
         "/api/vipnewcenter/app/user/sign/info": "/vip/sign/info",
         "/api/vip-center-bff/task/sign": "/vip/sign",
         "/api/vipmusic/newrecord/weekflow": "/vip/timemachine",
@@ -366,10 +374,12 @@ enum RouteMap {
 
         // 听歌数据
         "/api/content/activity/listen/data/realtime/report": "/listen/data/realtime/report",
+        "/api/content/activity/listen/data/song/play/rank": "/listen/data/song/play/rank",
         "/api/content/activity/listen/data/report": "/listen/data/report",
         "/api/content/activity/listen/data/today/song/play/rank": "/listen/data/today/song",
         "/api/content/activity/listen/data/total": "/listen/data/total",
         "/api/content/activity/listen/data/year/report": "/listen/data/year/report",
+        "/api/relay/play/state/submit": "/relay/play/state/submit",
         "/api/content/activity/music/first/listen/info": "/music/first/listen/info",
 
         // 最近播放

@@ -27,7 +27,7 @@ struct MyPlaylistsContainerView: View {
             .themeRenderScrollLayer()
                 .padding(.bottom, 12)
             } else {
-                HStack(spacing: 0) {
+                HStack(spacing: 7) {
                     subTabButton(title: String(localized: "lib_local_playlists"), index: 0)
                     subTabButton(title: String(localized: "lib_netease_playlists"), index: 1)
                     subTabButton(title: String(localized: "QCM歌单"), index: 2)
@@ -68,32 +68,36 @@ struct MyPlaylistsContainerView: View {
             Group {
                 if MangaStyle.isActive {
                     Text(title)
-                        .font(MangaStyle.comicFont(11, weight: selectedSubTab == index ? .bold : .medium))
-                        .foregroundStyle(selectedSubTab == index ? MangaStyle.ink : MangaStyle.inkMuted)
+                        .font(MangaStyle.labelFont(11, weight: selectedSubTab == index ? .black : .bold))
+                        .foregroundStyle(
+                            selectedSubTab == index
+                                ? ThemeColorCustomization.readableForegroundColor(on: MangaStyle.labelYellow, light: MangaStyle.ink, dark: MangaStyle.onStrokeInk)
+                                : MangaStyle.inkMuted
+                        )
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
                         .background(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
                                 .fill(selectedSubTab == index ? MangaStyle.labelYellow : MangaStyle.surface)
                         )
                         .overlay(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
+                            RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
+                                .stroke(MangaStyle.strokeInk, lineWidth: selectedSubTab == index ? MangaStyle.strokeWidth : MangaStyle.fineStrokeWidth)
                         )
                 } else if MujiStyle.isActive {
-                    Text(title)
-                        .font(MujiStyle.labelFont(12, weight: selectedSubTab == index ? .semibold : .regular))
-                        .foregroundStyle(selectedSubTab == index ? MujiStyle.onTint : MujiStyle.inkSoft)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(selectedSubTab == index ? MujiStyle.clay : MujiStyle.surface.opacity(0.72))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(selectedSubTab == index ? Color.clear : MujiStyle.hairline.opacity(0.44), lineWidth: 0.6)
-                        )
+                    // Muji：目次式子页签，前置圆点 + 墨色层级
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(selectedSubTab == index ? MujiStyle.clay : MujiStyle.separator.opacity(0.85))
+                            .frame(width: 4, height: 4)
+
+                        Text(title)
+                            .font(MujiStyle.labelFont(12, weight: selectedSubTab == index ? .semibold : .regular))
+                            .foregroundStyle(selectedSubTab == index ? MujiStyle.ink : MujiStyle.inkMuted)
+                            .lineLimit(1)
+                    }
+                    .padding(.vertical, 8)
+                    .padding(.trailing, 4)
                 } else if NeumorphicStyle.isActive {
                     HStack(spacing: 7) {
                         MonologueIcon(
@@ -120,17 +124,33 @@ struct MyPlaylistsContainerView: View {
                         )
                     )
                 } else {
-                    VStack(spacing: 5) {
-                        Text(title)
-                            .font(.system(size: 13, weight: selectedSubTab == index ? .bold : .medium, design: .rounded))
-                            .foregroundColor(selectedSubTab == index ? Theme.text : Theme.secondaryText.opacity(0.7))
-                            .animation(.none, value: selectedSubTab)
-
-                        Capsule()
-                            .fill(selectedSubTab == index ? Theme.text : Color.clear)
-                            .frame(width: 16, height: 2)
-                    }
-                    .padding(.trailing, 20)
+                    // aside：胶囊分段，与主页签的下划线区分层级
+                    Text(title)
+                        .font(.system(size: 12.5, weight: selectedSubTab == index ? .bold : .medium, design: .rounded))
+                        .foregroundColor(
+                            selectedSubTab == index
+                                ? Theme.text
+                                : Theme.secondaryText.opacity(0.75)
+                        )
+                        .lineLimit(1)
+                        .padding(.horizontal, 13)
+                        .padding(.vertical, 7)
+                        .background(
+                            Capsule().fill(
+                                selectedSubTab == index
+                                    ? Color.monologueTextPrimary.opacity(0.075)
+                                    : Color.clear
+                            )
+                        )
+                        .overlay(
+                            Capsule().stroke(
+                                selectedSubTab == index
+                                    ? Color.monologueTextPrimary.opacity(0.1)
+                                    : Color.clear,
+                                lineWidth: 1
+                            )
+                        )
+                        .animation(.none, value: selectedSubTab)
                 }
             }
             .contentShape(Rectangle())
@@ -1216,7 +1236,7 @@ struct LocalPlaylistRow: View {
             return PetWhiteStyle.bodyFont(16, weight: .black)
         }
         if MangaStyle.isActive {
-            return MangaStyle.comicFont(15, weight: .bold)
+            return MangaStyle.bodyFont(15, weight: .black)
         }
         if MujiStyle.isActive {
             return MujiStyle.bodyFont(15, weight: .regular)
@@ -1238,7 +1258,7 @@ struct LocalPlaylistRow: View {
             return PetWhiteStyle.labelFont(12, weight: .semibold)
         }
         if MangaStyle.isActive {
-            return MangaStyle.comicFont(12, weight: .medium)
+            return MangaStyle.bodyFont(12, weight: .bold)
         }
         if MujiStyle.isActive {
             return MujiStyle.labelFont(12, weight: .regular)
@@ -1747,13 +1767,16 @@ struct QQPlaylistsView: View {
             }
 
             var items: [Playlist] = []
-            let list = result["v_playlist"]?.arrayValue ?? result.arrayValue ?? []
+            // 新版 API: { playlists: [{ id, dirid, title, picurl, songnum }], total }
+            let list = result["playlists"]?.arrayValue
+                ?? result["v_playlist"]?.arrayValue
+                ?? result.arrayValue ?? []
             for json in list {
                 guard let obj = json.objectValue else { continue }
-                let tid = obj["tid"]?.intValue ?? 0
-                let name = obj["dirName"]?.stringValue ?? obj["diss_name"]?.stringValue ?? ""
-                let cover = obj["picUrl"]?.stringValue ?? obj["logo"]?.stringValue ?? ""
-                let songCount = obj["songNum"]?.intValue ?? obj["song_cnt"]?.intValue ?? 0
+                let tid = obj["id"]?.intValue ?? obj["tid"]?.intValue ?? 0
+                let name = obj["title"]?.stringValue ?? obj["dirName"]?.stringValue ?? obj["diss_name"]?.stringValue ?? ""
+                let cover = obj["picurl"]?.stringValue ?? obj["picUrl"]?.stringValue ?? obj["logo"]?.stringValue ?? ""
+                let songCount = obj["songnum"]?.intValue ?? obj["songNum"]?.intValue ?? obj["song_cnt"]?.intValue ?? 0
                 if !name.isEmpty {
                     items.append(Playlist(
                         id: tid, name: name, coverImgUrl: cover, picUrl: nil,
@@ -2038,28 +2061,23 @@ struct PlaylistSquareView: View {
                                         tint: selected ? MusicSource.qqmusic.themedBadgeColor.opacity(0.16) : NeumorphicStyle.surface,
                                         lightweight: true
                                     )
-                                } else if selected {
+                                } else if selected, !MujiStyle.isActive {
                                     Capsule()
                                         .fill(Color.monologueIconBackground)
-                                        .matchedGeometryEffect(id: "qqCatPill", in: categoryNS)
-                                } else if MujiStyle.isActive, selected {
-                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                        .fill(MujiStyle.clay)
                                         .matchedGeometryEffect(id: "qqCatPill", in: categoryNS)
                                 }
                             }
                             .background {
-                                if MujiStyle.isActive {
-                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                        .fill(selected ? Color.clear : MujiStyle.surface.opacity(0.78))
-                                } else if !NeumorphicStyle.isActive {
+                                if !NeumorphicStyle.isActive, !MujiStyle.isActive {
                                     Capsule().fill(selected ? Color.clear : Color.monologueGlassTint)
                                 }
                             }
-                            .overlay {
+                            .overlay(alignment: .bottom) {
                                 if MujiStyle.isActive {
-                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                        .stroke(selected ? Color.clear : MujiStyle.hairline.opacity(0.5), lineWidth: 0.6)
+                                    Rectangle()
+                                        .fill(selected ? MujiStyle.clay : Color.clear)
+                                        .frame(width: 18, height: 1.2)
+                                        .padding(.bottom, 3)
                                 }
                             }
                     }
@@ -2100,28 +2118,23 @@ struct PlaylistSquareView: View {
                                         tint: selected ? MusicSource.netease.themedBadgeColor.opacity(0.16) : NeumorphicStyle.surface,
                                         lightweight: true
                                     )
-                                } else if selected {
+                                } else if selected, !MujiStyle.isActive {
                                     Capsule()
                                         .fill(Color.monologueIconBackground)
-                                        .matchedGeometryEffect(id: "squareCatPill", in: categoryNS)
-                                } else if MujiStyle.isActive, selected {
-                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                        .fill(MujiStyle.clay)
                                         .matchedGeometryEffect(id: "squareCatPill", in: categoryNS)
                                 }
                             }
                             .background {
-                                if MujiStyle.isActive {
-                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                        .fill(selected ? Color.clear : MujiStyle.surface.opacity(0.78))
-                                } else if !NeumorphicStyle.isActive {
+                                if !NeumorphicStyle.isActive, !MujiStyle.isActive {
                                     Capsule().fill(selected ? Color.clear : Color.monologueGlassTint)
                                 }
                             }
-                            .overlay {
+                            .overlay(alignment: .bottom) {
                                 if MujiStyle.isActive {
-                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                        .stroke(selected ? Color.clear : MujiStyle.hairline.opacity(0.5), lineWidth: 0.6)
+                                    Rectangle()
+                                        .fill(selected ? MujiStyle.clay : Color.clear)
+                                        .frame(width: 18, height: 1.2)
+                                        .padding(.bottom, 3)
                                 }
                             }
                     }
@@ -2149,9 +2162,7 @@ struct PlaylistSquareView: View {
             return selected ? neumorphicTint : NeumorphicStyle.inkSoft
         }
         if MujiStyle.isActive {
-            return selected
-                ? ThemeColorCustomization.readableForegroundColor(on: MujiStyle.clay, light: MujiStyle.ink, dark: Color.white)
-                : MujiStyle.inkSoft
+            return selected ? MujiStyle.ink : MujiStyle.inkMuted
         }
         return selected ? .monologueIconForeground : .monologueTextPrimary
     }
@@ -2755,20 +2766,20 @@ struct ArtistLibraryView: View {
         }
     }
 
+    /// Muji：目次式筛选项，圆点 + 墨色层级，不用填充块
     private func mujiFilterPill(title: String, selected: Bool) -> some View {
-        Text(title)
-            .font(MujiStyle.labelFont(12, weight: selected ? .semibold : .regular))
-            .foregroundStyle(selected ? ThemeColorCustomization.readableForegroundColor(on: MujiStyle.clay, light: MujiStyle.ink, dark: Color.white) : MujiStyle.inkSoft)
-            .padding(.horizontal, 13)
-            .padding(.vertical, 9)
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(selected ? MujiStyle.clay : MujiStyle.surface.opacity(0.78))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(selected ? Color.clear : MujiStyle.hairline.opacity(0.5), lineWidth: 0.6)
-            )
+        HStack(spacing: 6) {
+            Circle()
+                .fill(selected ? MujiStyle.clay : MujiStyle.separator.opacity(0.85))
+                .frame(width: 4, height: 4)
+
+            Text(title)
+                .font(MujiStyle.labelFont(12, weight: selected ? .semibold : .regular))
+                .foregroundStyle(selected ? MujiStyle.ink : MujiStyle.inkMuted)
+                .lineLimit(1)
+        }
+        .padding(.vertical, 9)
+        .padding(.trailing, 4)
     }
 
     private func dismissArtistSearchKeyboard() {
@@ -3086,7 +3097,7 @@ struct QQChartCard: View {
                     .multilineTextAlignment(.leading)
                     .frame(minHeight: 32, alignment: .topLeading)
 
-                Text(item.intro.isEmpty ? " " : item.intro)
+                Text(item.subtitle.isEmpty ? " " : item.subtitle)
                     .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(10, weight: .medium) : .system(size: 10, weight: .medium, design: .rounded))
                     .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : Theme.secondaryText)
                     .lineLimit(1)
@@ -3130,8 +3141,8 @@ struct QQOfficialChartCard: View {
                     .font(.system(size: 15, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
                     .lineLimit(1)
-                if !item.intro.isEmpty {
-                    Text(item.intro)
+                if !item.subtitle.isEmpty {
+                    Text(item.subtitle)
                         .font(.system(size: 11, weight: .medium, design: .rounded))
                         .foregroundColor(.white.opacity(0.7))
                         .lineLimit(1)

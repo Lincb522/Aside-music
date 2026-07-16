@@ -65,7 +65,7 @@ struct AriaStageView: View {
     @StateObject private var stageColors = CoverColorExtractor()
     @ObservedObject private var perf = CinemaPerformanceGovernor.shared
 
-    @AppStorage("ariaShowTranslation") private var showTranslation = true
+    @AppStorage("showTranslation") private var showTranslation = true
     @AppStorage("ariaGeometricBackground") private var ambientMotion = true
     @AppStorage("ariaLyricsFontScale") private var fontScale = 1.0
     @AppStorage("ariaBackgroundOpacity") private var backgroundOpacity = 0.75
@@ -91,6 +91,10 @@ struct AriaStageView: View {
 
     @State private var showPanel = false
     @State private var panelTab: AriaPanelTab = .cover
+    /// 歌架搜索聚焦中：面板改锚右上角避开键盘
+    @State private var panelSearchActive = false
+    /// 横屏键盘实际高度：搜索态面板按「键盘上方剩余空间」精确定高
+    @State private var stageKeyboardHeight: CGFloat = 0
     @State private var showLandscapeSettings = false
     @State private var showVideoSheet = false
     /// folia 首页歌架墙：全屏惯性封面长廊
@@ -103,6 +107,9 @@ struct AriaStageView: View {
     @State private var isDraggingSlider = false
     @State private var dragTimeValue: Double = 0
     @State private var lastInteractionAt = Date()
+    /// 暂停态刷新计数：暂停时歌词时间轴完全停摆（画面本就冻结，白跑纯耗电），
+    /// 拖动进度/远程 seek 改变时间时靠它触发一次重渲染
+    @State private var pausedSeekRefresh = 0
 
     private let idleTicker = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     /// folia：播放中悬浮胶囊静置后收起为一条细进度
@@ -189,6 +196,14 @@ struct AriaStageView: View {
         }
     }
 
+    /// 暂停且不在拖动进度时，播放时间静止 → 每一帧都和上一帧完全相同，
+    /// 直接停掉时间轴（seek 由 pausedSeekRefresh 单独触发重渲染）
+    private var lyricTimelinePaused: Bool {
+        showLandscapeSettings
+            || showVideoSheet
+            || (!player.isPlaying && !isDraggingSlider)
+    }
+
     /// 歌词时间轴帧率：词入场弹簧由 SwiftUI 隐式动画按屏幕刷新率插值，
     /// 时间轴只负责推进 time 驱动的包络（辉光/浸染/呼吸），30fps 足够平滑。
     private var lyricFPS: Int {
@@ -254,8 +269,10 @@ struct AriaStageView: View {
                     } else {
                         TimelineView(AppFrameRate.throttledTimeline(
                             maximumFramesPerSecond: lyricFPS,
-                            paused: showLandscapeSettings || showVideoSheet
+                            paused: lyricTimelinePaused
                         )) { _ in
+                            // 暂停态 seek 后靠此状态失效重渲染一帧
+                            let _ = pausedSeekRefresh
                             let time = currentPlaybackTime
                             let activeIndex = AriaLyricEngine.activeLineIndex(
                                 in: lyricStore.lines,
@@ -338,31 +355,13 @@ struct AriaStageView: View {
                                    let translation = activeLine?.translation,
                                    !translation.isEmpty,
                                    !chromeHidden {
-                                    VStack {
-                                        Spacer()
-                                        AriaSubtitleOverlay(
-                                            translation: translation,
-                                            palette: lyricPalette,
-                                            font: translationFont
-                                        )
-                                        .padding(.bottom, capsuleExpanded ? 118 : 62)
-                                        .opacity(lyricTypography.opacity)
-                                        .shadow(
-                                            color: .white.opacity(
-                                                lyricEmbossEnabled ? 0.18 * lyricDepthAmount : 0
-                                            ),
-                                            radius: 1.5,
-                                            y: -1
-                                        )
-                                        .shadow(
-                                            color: .black.opacity(
-                                                lyricEmbossEnabled ? 0.4 * lyricDepthAmount : 0
-                                            ),
-                                            radius: CGFloat(2 + 3 * lyricDepthAmount),
-                                            y: CGFloat(2 + 2 * lyricDepthAmount)
-                                        )
-                                    }
-                                    .transition(.opacity)
+                                    subtitleOverlay(
+                                        translation: translation,
+                                        palette: lyricPalette,
+                                        font: translationFont,
+                                        typographyOpacity: lyricTypography.opacity,
+                                        depthAmount: lyricDepthAmount
+                                    )
                                 }
                             }
                         }
@@ -426,22 +425,31 @@ struct AriaStageView: View {
                 .animation(.easeOut(duration: 0.26), value: chromeHidden)
 
                 // 右下统一面板（folia UnifiedPanel：从右下角生长出的玻璃卡片）
+                // 歌架搜索聚焦时改锚到右上并压缩高度，避开横屏键盘；
+                // 同一实例只换对齐，避免重建丢焦点
                 if showPanel {
-                    VStack {
-                        Spacer()
-                        HStack {
-                            Spacer()
-                            AriaUnifiedPanel(
-                                isOpen: $showPanel,
-                                tab: $panelTab,
-                                palette: palette,
-                                maxHeight: geo.size.height - 56
-                            )
-                            .padding(.trailing, 16)
-                            .padding(.bottom, 24)
-                        }
-                    }
-                    .frame(width: geo.size.width, height: geo.size.height)
+                    // 搜索态：面板锚到右上，高度精确铺满「键盘上方」的剩余空间；
+                    // 键盘高度未知（尚未弹出）时按横屏典型键盘 210pt 预估
+                    let keyboardInset = stageKeyboardHeight > 0 ? stageKeyboardHeight : 210
+                    let searchHeight = max(geo.size.height - keyboardInset - 16, 150)
+                    AriaUnifiedPanel(
+                        isOpen: $showPanel,
+                        tab: $panelTab,
+                        searchActive: $panelSearchActive,
+                        palette: palette,
+                        maxHeight: panelSearchActive
+                            ? searchHeight
+                            : geo.size.height - 56
+                    )
+                    .padding(.trailing, 16)
+                    .padding(.bottom, panelSearchActive ? 0 : 24)
+                    .padding(.top, panelSearchActive ? 8 : 0)
+                    .frame(
+                        width: geo.size.width,
+                        height: geo.size.height,
+                        alignment: panelSearchActive ? .topTrailing : .bottomTrailing
+                    )
+                    .ignoresSafeArea(.keyboard, edges: .bottom)
                     .transition(
                         .scale(scale: 0.9, anchor: .bottomTrailing)
                             .combined(with: .opacity)
@@ -467,9 +475,25 @@ struct AriaStageView: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.985)))
                     .zIndex(20)
                 }
+
+                AIEqualizerArtworkStatusView(
+                    accent: palette.accent,
+                    isDarkArtwork: stageColors.isDark
+                )
+                    .padding(.trailing, 24)
+                    .padding(.bottom, 22)
+                    .frame(
+                        width: geo.size.width,
+                        height: geo.size.height,
+                        alignment: .bottomTrailing
+                    )
+                    .zIndex(80)
             }
             .frame(width: geo.size.width, height: geo.size.height)
         }
+        // 舞台整体不参与系统键盘避让：歌词/背景不能被键盘顶起，
+        // 歌架搜索（面板 / 歌架墙）各自按键盘实际高度手动让位
+        .ignoresSafeArea(.keyboard)
         .compatFontDesign(nil)
         .environment(\.colorScheme, .dark)
         .fullScreenCover(isPresented: $showVideoSheet) {
@@ -495,6 +519,21 @@ struct AriaStageView: View {
             AppFrameRate.popFrameRateCeiling(reason: "aria stage")
             // 离开舞台清掉外语字体的自定义 ID 覆盖，避免污染设置页预览
             AriaLyricFontChoice.customFontIDOverride = nil
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { note in
+            // 记录横屏键盘真实高度：搜索面板据此精确让位，不再靠固定比例猜
+            if let frame = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
+                stageKeyboardHeight = frame.height
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            stageKeyboardHeight = 0
+        }
+        .onReceive(timePublisher.$currentTime) { _ in
+            // 暂停中时间只会因 seek 而变：触发一帧重渲染让歌词跟上新位置。
+            // 播放中直接短路，不产生任何状态变化。
+            guard !player.isPlaying, !isDraggingSlider else { return }
+            pausedSeekRefresh &+= 1
         }
         .onReceive(idleTicker) { _ in
             audioPulse.reattachIfNeeded()
@@ -539,6 +578,42 @@ struct AriaStageView: View {
         .task(id: player.currentSong?.coverUrl?.absoluteString) {
             stageColors.extract(from: player.currentSong?.coverUrl?.sized(200).absoluteString)
         }
+    }
+
+    private func subtitleOverlay(
+        translation: String,
+        palette: AriaPalette,
+        font: Font,
+        typographyOpacity: Double,
+        depthAmount: Double
+    ) -> some View {
+        let lightShadowOpacity = lyricEmbossEnabled ? 0.18 * depthAmount : 0
+        let darkShadowOpacity = lyricEmbossEnabled ? 0.4 * depthAmount : 0
+        let darkShadowRadius = CGFloat(2 + 3 * depthAmount)
+        let darkShadowOffset = CGFloat(2 + 2 * depthAmount)
+        let bottomPadding: CGFloat = capsuleExpanded ? 118 : 62
+
+        return VStack {
+            Spacer()
+            AriaSubtitleOverlay(
+                translation: translation,
+                palette: palette,
+                font: font
+            )
+            .padding(.bottom, bottomPadding)
+            .opacity(typographyOpacity)
+            .shadow(
+                color: .white.opacity(lightShadowOpacity),
+                radius: 1.5,
+                y: -1
+            )
+            .shadow(
+                color: .black.opacity(darkShadowOpacity),
+                radius: darkShadowRadius,
+                y: darkShadowOffset
+            )
+        }
+        .transition(.opacity)
     }
 
     // MARK: 空态

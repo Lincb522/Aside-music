@@ -77,9 +77,16 @@ struct MonologueSheetContainer<Content: View>: View {
                 }
                 .frame(width: panelWidth)
                 .frame(height: visualPanelHeight, alignment: .top)
-                .background(
-                    MonologueSheetSurfaceBackground(cornerRadius: resolvedCornerRadius)
-                )
+                // 内容通过 .monologueSheetSurface 上抛的整面背景铺满整个面板
+                // （含把手区），把手区不再露出一截默认毛玻璃。
+                .backgroundPreferenceValue(MonologueSheetSurfacePreferenceKey.self) { customSurface in
+                    ZStack {
+                        MonologueSheetSurfaceBackground(cornerRadius: resolvedCornerRadius)
+                        if let customSurface {
+                            customSurface.view
+                        }
+                    }
+                }
                 .clipShape(panelShape)
                 .modifier(
                     MonologueSheetLiquidSurfaceModifier(
@@ -87,10 +94,11 @@ struct MonologueSheetContainer<Content: View>: View {
                         isEnabled: !isInteractiveMotionActive && !MonologueSheetThemeStyle.usesCustomThemeSurface
                     )
                 )
-                .overlay {
+                .overlayPreferenceValue(MonologueSheetSurfacePreferenceKey.self) { customSurface in
                     MonologueSheetSurfaceOverlay(
                         cornerRadius: resolvedCornerRadius,
-                        isInteractiveMotionActive: isInteractiveMotionActive
+                        isInteractiveMotionActive: isInteractiveMotionActive,
+                        suppressesHighlight: customSurface != nil
                     )
                 }
                 .shadow(
@@ -139,6 +147,46 @@ struct MonologueSheetContainer<Content: View>: View {
 
     private func resolvedPanelHeight(maximumHeight: CGFloat) -> CGFloat {
         maximumHeight
+    }
+}
+
+// MARK: - 内容自带整面背景
+
+/// Sheet 内容上抛的整面背景：由容器铺满整个面板（含把手区域）。
+/// `AnyView` 本身非 Sendable，但该结构不可变且仅在主线程的
+/// SwiftUI preference 管线中传递，标记 @unchecked Sendable 是安全的。
+struct MonologueSheetCustomSurface: Equatable, @unchecked Sendable {
+    let id: String
+    let view: AnyView
+
+    static func == (lhs: MonologueSheetCustomSurface, rhs: MonologueSheetCustomSurface) -> Bool {
+        lhs.id == rhs.id
+    }
+}
+
+struct MonologueSheetSurfacePreferenceKey: PreferenceKey {
+    static let defaultValue: MonologueSheetCustomSurface? = nil
+
+    static func reduce(
+        value: inout MonologueSheetCustomSurface?,
+        nextValue: () -> MonologueSheetCustomSurface?
+    ) {
+        value = value ?? nextValue()
+    }
+}
+
+extension View {
+    /// 声明这张 sheet 的整面背景。
+    /// 与直接 `.background(...)` 的区别：背景交给 monologueSheet 容器绘制，
+    /// 铺满整个面板（包括顶部把手区域），避免把手处露出默认毛玻璃。
+    func monologueSheetSurface<S: View>(
+        id: String,
+        @ViewBuilder _ surface: () -> S
+    ) -> some View {
+        preference(
+            key: MonologueSheetSurfacePreferenceKey.self,
+            value: MonologueSheetCustomSurface(id: id, view: AnyView(surface()))
+        )
     }
 }
 
@@ -275,12 +323,15 @@ struct MonologueSheetHandleView: View {
                 .fill(MinimalWhiteStyle.hairline)
                 .frame(width: 36, height: 4)
         } else if MangaStyle.isActive {
-            Capsule()
-                .fill(MangaStyle.labelYellow)
-                .frame(width: 48, height: 7)
-                .overlay(
-                    Capsule()
-                        .stroke(MangaStyle.strokeInk, lineWidth: 1.4)
+            // 印刷墨条把手：墨块 + 朱红错版
+            RoundedRectangle(cornerRadius: 2.5, style: .continuous)
+                .fill(MangaStyle.strokeInk)
+                .frame(width: 46, height: 5.5)
+                .background(
+                    RoundedRectangle(cornerRadius: 2.5, style: .continuous)
+                        .fill(MangaStyle.accentPink)
+                        .frame(width: 46, height: 5.5)
+                        .offset(x: 1.8, y: 1.8)
                 )
         } else if PetWhiteStyle.isActive {
             // 黏土上压出的一道指痕
@@ -313,12 +364,8 @@ struct MonologueSheetHandleView: View {
             .shadow(color: PureWhiteStyle.strokeInk.opacity(0.08), radius: 0, x: 0, y: 2)
         } else if MujiStyle.isActive {
             Capsule()
-                .fill(MujiStyle.hairline.opacity(0.78))
+                .fill(MujiStyle.inkMuted.opacity(0.4))
                 .frame(width: 38, height: 4)
-                .overlay(
-                    Capsule()
-                        .stroke(MujiStyle.surface.opacity(0.65), lineWidth: 0.5)
-                )
         } else if NeumorphicStyle.isActive {
             ZStack {
                 Capsule()
@@ -468,21 +515,11 @@ struct MonologueSheetSurfaceBackground: View {
                 )
                 .clipShape(shape)
             } else if MangaStyle.isActive {
+                // 周刊印刷：纯纸面 + 细网点，颜色只留给把手与描边
                 shape
                     .fill(MangaStyle.bubbleWhite)
 
-                LinearGradient(
-                    colors: [
-                        MangaStyle.labelYellow.opacity(colorScheme == .dark ? 0.18 : 0.24),
-                        MangaStyle.bubblePink.opacity(colorScheme == .dark ? 0.12 : 0.18),
-                        MangaStyle.paperWarm.opacity(colorScheme == .dark ? 0.2 : 0.34)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .clipShape(shape)
-
-                MangaDotsTexture(opacity: colorScheme == .dark ? 0.032 : 0.024, gap: 14)
+                MangaDotsTexture(opacity: colorScheme == .dark ? 0.028 : 0.022, gap: 15)
                     .clipShape(shape)
             } else if PetWhiteStyle.isActive {
                 shape
@@ -517,21 +554,21 @@ struct MonologueSheetSurfaceBackground: View {
                 )
                 .clipShape(shape)
             } else if MujiStyle.isActive {
+                // Muji：又一张纸 —— 与页面同源的暖纸面 + 纸纤维，顶部轻微提亮
                 shape
-                    .fill(MujiStyle.surface)
+                    .fill(MujiStyle.paper)
 
                 LinearGradient(
                     colors: [
-                        MujiStyle.surfaceRaised.opacity(colorScheme == .dark ? 0.28 : 0.48),
-                        MujiStyle.surface.opacity(0.96),
-                        MujiStyle.tea.opacity(colorScheme == .dark ? 0.07 : 0.05)
+                        MujiStyle.surface.opacity(colorScheme == .dark ? 0.42 : 0.72),
+                        Color.clear
                     ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
+                    startPoint: .top,
+                    endPoint: .center
                 )
                 .clipShape(shape)
 
-                MujiPaperTexture(opacity: colorScheme == .dark ? 0.12 : 0.16)
+                MujiPaperTexture(opacity: colorScheme == .dark ? 0.12 : 0.2)
                     .clipShape(shape)
             } else if NeumorphicStyle.isActive {
                 shape
@@ -749,8 +786,14 @@ struct MonologueSheetSurfaceBackground: View {
 struct MonologueSheetSurfaceOverlay: View {
     let cornerRadius: CGFloat
     var isInteractiveMotionActive: Bool = false
+    /// 内容自带整面背景时关闭顶部提亮渐变（深色背景上一条白雾很突兀），描边保留。
+    var suppressesHighlight: Bool = false
 
     @Environment(\.colorScheme) private var colorScheme
+
+    private var showsHighlight: Bool {
+        !isInteractiveMotionActive && !suppressesHighlight
+    }
 
     var body: some View {
         let shape = MonologueSheetSurfaceShape(
@@ -769,14 +812,15 @@ struct MonologueSheetSurfaceOverlay: View {
                 shape
                     .strokeBorder(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
 
-                if !isInteractiveMotionActive {
+                if showsHighlight {
+                    // 内圈细墨线：漫画分格的双线框
                     shape
-                        .strokeBorder(MangaStyle.labelYellow.opacity(colorScheme == .dark ? 0.34 : 0.46), lineWidth: 0.8)
-                        .padding(4)
+                        .strokeBorder(MangaStyle.strokeInk.opacity(colorScheme == .dark ? 0.3 : 0.35), lineWidth: 0.8)
+                        .padding(5)
                         .clipShape(shape)
                 }
             } else if PetWhiteStyle.isActive {
-                if !isInteractiveMotionActive {
+                if showsHighlight {
                     LinearGradient(
                         colors: [PetWhiteStyle.glazeHighlight.opacity(colorScheme == .dark ? 0.06 : 0.5), .clear],
                         startPoint: .top,
@@ -792,7 +836,7 @@ struct MonologueSheetSurfaceOverlay: View {
                         lineWidth: PureWhiteStyle.strokeWidth
                     )
 
-                if !isInteractiveMotionActive {
+                if showsHighlight {
                     // 左上角的印刷标记短线，与 PureWhite 卡面语言一致
                     Capsule(style: .continuous)
                         .fill(PureWhiteStyle.accent.opacity(colorScheme == .dark ? 0.56 : 0.82))
@@ -805,7 +849,7 @@ struct MonologueSheetSurfaceOverlay: View {
                 shape
                     .strokeBorder(MujiStyle.hairline.opacity(colorScheme == .dark ? 0.74 : 0.66), lineWidth: 0.75)
 
-                if !isInteractiveMotionActive {
+                if showsHighlight {
                     LinearGradient(
                         colors: [Color.white.opacity(colorScheme == .dark ? 0.04 : 0.24), .clear],
                         startPoint: .top,
@@ -829,7 +873,7 @@ struct MonologueSheetSurfaceOverlay: View {
                         lineWidth: 1
                     )
 
-                if !isInteractiveMotionActive {
+                if showsHighlight {
                     LinearGradient(
                         colors: [
                             NeumorphicStyle.lightShadow(colorScheme, intensity: 0.52),
@@ -866,7 +910,7 @@ struct MonologueSheetSurfaceOverlay: View {
                         lineWidth: 0.85
                     )
 
-                if !isInteractiveMotionActive {
+                if showsHighlight {
                     LinearGradient(
                         colors: [
                             Color.white.opacity(colorScheme == .dark ? 0.05 : 0.28),
@@ -903,7 +947,7 @@ struct MonologueSheetSurfaceOverlay: View {
                         lineWidth: 1
                     )
 
-                if !isInteractiveMotionActive {
+                if showsHighlight {
                     LinearGradient(
                         colors: [Color.white.opacity(colorScheme == .dark ? 0.06 : 0.28), .clear],
                         startPoint: .top,
@@ -916,7 +960,7 @@ struct MonologueSheetSurfaceOverlay: View {
                 shape
                     .strokeBorder(SignalStyle.separator.opacity(colorScheme == .dark ? 0.72 : 0.66), lineWidth: 0.8)
 
-                if !isInteractiveMotionActive {
+                if showsHighlight {
                     LinearGradient(
                         colors: [Color.white.opacity(colorScheme == .dark ? 0.06 : 0.28), .clear],
                         startPoint: .top,
@@ -929,7 +973,7 @@ struct MonologueSheetSurfaceOverlay: View {
                 shape
                     .strokeBorder(BentoStyle.hairline.opacity(colorScheme == .dark ? 0.72 : 0.66), lineWidth: 0.8)
 
-                if !isInteractiveMotionActive {
+                if showsHighlight {
                     LinearGradient(
                         colors: [Color.white.opacity(colorScheme == .dark ? 0.04 : 0.22), .clear],
                         startPoint: .top,
@@ -953,7 +997,7 @@ struct MonologueSheetSurfaceOverlay: View {
                         lineWidth: 0.72
                     )
 
-                if !isInteractiveMotionActive {
+                if showsHighlight {
                     LinearGradient(
                         colors: [
                             Color.white.opacity(colorScheme == .dark ? 0.055 : 0.32),
@@ -980,7 +1024,7 @@ struct MonologueSheetSurfaceOverlay: View {
                         lineWidth: 0.8
                     )
 
-                if !isInteractiveMotionActive {
+                if showsHighlight {
                     LinearGradient(
                         colors: [
                             Color.white.opacity(colorScheme == .dark ? 0.05 : 0.34),
@@ -996,7 +1040,7 @@ struct MonologueSheetSurfaceOverlay: View {
                 shape
                     .strokeBorder(Color.monologueSheetStroke, lineWidth: 1)
 
-                if !isInteractiveMotionActive {
+                if showsHighlight {
                     LinearGradient(
                         colors: [Color.monologueSheetHighlight, .clear],
                         startPoint: .top,

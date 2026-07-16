@@ -32,6 +32,10 @@ struct FloatingBarBottomSpacer: View {
             return hasCurrentSong ? 72 : 20
         }
 
+        if globalThemeId == .manga {
+            return hasCurrentSong ? 174 : 104
+        }
+
         switch floatingBarStyle {
         case .unified:
             if globalThemeId == .neumorphic {

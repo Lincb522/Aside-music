@@ -55,7 +55,7 @@ struct PodcastSpeedSheet: View {
                                     role: isSelected ? .selected : .list
                                 )
                             } else {
-                                isSelected ? Color.monologueAccentBlue.opacity(0.08) : Color.clear
+                                isSelected ? Color.monologueAccent.opacity(0.1) : Color.clear
                             }
                         }
                         .clipShape(RoundedRectangle(cornerRadius: (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 16 : 12, style: .continuous))
@@ -84,7 +84,7 @@ struct PodcastSpeedSheet: View {
     private var selectedTint: Color {
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
-        return .monologueAccentBlue
+        return .monologueAccent
     }
 
     private var defaultTextColor: Color {

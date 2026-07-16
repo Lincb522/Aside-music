@@ -6,6 +6,7 @@
 import Foundation
 import AVFoundation
 import MediaPlayer
+import UIKit
 import FFmpegSwiftSDK
 
 extension PlayerManager {
@@ -16,6 +17,16 @@ extension PlayerManager {
     nonisolated static let playbackAudioSessionOptions: AVAudioSession.CategoryOptions = []
     /// 共存播放模式：与游戏、短视频等混音，但系统不再将本 App 视为主媒体播放器。
     nonisolated static let mixingAudioSessionOptions: AVAudioSession.CategoryOptions = [.mixWithOthers]
+    /// Outputs whose disappearance must not silently fall back to the phone speaker.
+    nonisolated static let disconnectSensitiveAudioOutputPortTypes: Set<String> = [
+        AVAudioSession.Port.bluetoothA2DP.rawValue,
+        AVAudioSession.Port.bluetoothHFP.rawValue,
+        AVAudioSession.Port.bluetoothLE.rawValue,
+        AVAudioSession.Port.headphones.rawValue,
+        AVAudioSession.Port.usbAudio.rawValue,
+        AVAudioSession.Port.airPlay.rawValue,
+        AVAudioSession.Port.carAudio.rawValue
+    ]
 
     private func audioSessionOptions(otherAudioPlaying: Bool? = nil) -> AVAudioSession.CategoryOptions {
         var base: AVAudioSession.CategoryOptions
@@ -48,6 +59,20 @@ extension PlayerManager {
 
     func handleBackgroundAudioPolicySettingChanged() {
         reapplyAudioSessionOptions(reason: "策略变更")
+    }
+
+    /// 其他 App 还在出声时，是否仍允许自动恢复播放。
+    ///
+    /// 共存模式（alwaysMix）本来就与其他声音混音，电话/语音中断结束后
+    /// 即便游戏、视频还在响也应该直接恢复；独占与智能模式则保持礼貌，
+    /// 等对方停止再恢复，避免自动播放抢占别人的音频焦点。
+    var canAutoResumeWithOtherAudio: Bool {
+        SettingsManager.shared.backgroundAudioPolicy == .alwaysMix
+    }
+
+    /// 自动恢复前的统一判定：无其他音频，或当前策略允许共存。
+    func isAutoResumePermittedNow() -> Bool {
+        !AVAudioSession.sharedInstance().isOtherAudioPlaying || canAutoResumeWithOtherAudio
     }
 
     /// 供 GameModeManager 调用，当游戏模式/自动 ducking 开关变化时重新应用 options
@@ -104,7 +129,10 @@ extension PlayerManager {
         let desired = audioSessionOptions(otherAudioPlaying: session.isOtherAudioPlaying)
 
         do {
-            if desired != lastAppliedAudioSessionOptions {
+            if desired != lastAppliedAudioSessionOptions
+                || session.category != .playback
+                || session.mode != .default
+                || session.categoryOptions != desired {
                 try session.setCategory(.playback, mode: .default, options: desired)
                 lastAppliedAudioSessionOptions = desired
             }
@@ -134,6 +162,9 @@ extension PlayerManager {
             let opts = audioSessionOptions(otherAudioPlaying: otherPlaying)
             try session.setCategory(.playback, mode: .default, options: opts)
             lastAppliedAudioSessionOptions = opts
+            lastKnownAudioOutputPortTypes = Set(
+                session.currentRoute.outputs.map { $0.portType.rawValue }
+            )
             if otherPlaying && opts == Self.mixingAudioSessionOptions {
                 AppLogger.info("启动时检测到其他音频，以共存模式接入（未激活）")
             }
@@ -169,8 +200,8 @@ extension PlayerManager {
                         Task { @MainActor [weak self] in
                             try? await Task.sleep(nanoseconds: 1_000_000_000)
                             guard let self, self.wasPlayingBeforeInterruption, !self.isPlaying else { return }
-                            guard !AVAudioSession.sharedInstance().isOtherAudioPlaying else { return }
-                            AppLogger.info("secondary hint end: 确认无其他音频，恢复播放")
+                            guard self.isAutoResumePermittedNow() else { return }
+                            AppLogger.info("secondary hint end: 确认可恢复，恢复播放")
                             let _ = self.resumeAfterInterruption(reason: "secondary hint end")
                         }
                     }
@@ -190,12 +221,28 @@ extension PlayerManager {
                   let typeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
                   let type = AVAudioSession.InterruptionType(rawValue: typeValue) else { return }
             let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt
+            let reasonValue = userInfo[AVAudioSessionInterruptionReasonKey] as? UInt
             Task { @MainActor [weak self] in
                 guard let self = self else { return }
-                
+
+                // iOS 17 起，耳机/蓝牙断开可能以「中断 + routeDisconnected」的形式下发，
+                // 而不只是 routeChange 通知。这类"中断"永远不会有 .ended，
+                // 绝不能进入中断自动恢复状态机——否则 watchdog 60s 后会把音乐
+                // 从扬声器外放出来。按「设备断开」标准行为处理：只暂停。
+                if #available(iOS 17.0, *),
+                   type == .began,
+                   let reasonValue,
+                   AVAudioSession.InterruptionReason(rawValue: reasonValue) == .routeDisconnected {
+                    self.pauseForDisconnectedAudioOutput(reason: "interruption.routeDisconnected")
+                    return
+                }
+
                 switch type {
                 case .began:
                     AppLogger.info("音频中断开始，暂停播放")
+                    // The system may deactivate the session without changing our
+                    // cached category options. Force the next resume to reactivate it.
+                    self.lastAppliedAudioSessionOptions = nil
                     // 标记中断进行中，阻止路由变化触发的自动恢复
                     self.isUnderInterruption = true
                     self.interruptionStartedAt = Date()
@@ -204,10 +251,14 @@ extension PlayerManager {
                     self.cancelInterruptionResumeRetry()
                     let wasActivePlayback = self.isPlaying || self.streamPlayer.state == .playing
                     if wasActivePlayback, self.currentSong != nil {
+                        // 接管进行中的软暂停淡出，避免其收尾回调与中断路径竞争
+                        self.cancelPlaybackFade(restoreVolume: false)
                         self.wasPlayingBeforeInterruption = true
                         self.streamPlayer.pause()
+                        self.streamPlayer.outputVolume = 1.0
                         self.isPlaying = false
                         self.isLoading = false
+                        self.lastPausedAt = Date()
                         self.refreshPlaybackSurfaceState()
                         self.saveStateImmediately()
                     }
@@ -255,16 +306,20 @@ extension PlayerManager {
         foregroundObserver = NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self else { return }
+                self.reconcilePendingTrackTransitionWithEngine(reason: "didBecomeActive")
+                if self.isPlaying || self.streamPlayer.state == .playing {
+                    self.scheduleAudioOutputRecoveryIfNeeded(reason: "didBecomeActive")
+                }
                 guard self.wasPlayingBeforeInterruption, !self.isPlaying, self.currentSong != nil else { return }
                 // App 回前台 — 等 0.5s 让系统状态稳定，然后检查是否可以恢复
                 try? await Task.sleep(nanoseconds: 500_000_000)
                 guard !Task.isCancelled, self.wasPlayingBeforeInterruption, !self.isPlaying else { return }
-                // 只在没有其他音频播放时才自动恢复
-                guard !AVAudioSession.sharedInstance().isOtherAudioPlaying else {
+                // 独占/智能模式只在没有其他音频时恢复；共存模式允许直接混音恢复
+                guard self.isAutoResumePermittedNow() else {
                     AppLogger.debug("didBecomeActive: 其他音频仍在播放，不自动恢复")
                     return
                 }
-                AppLogger.info("App 激活且无其他音频，恢复播放")
+                AppLogger.info("App 激活且满足恢复条件，恢复播放")
                 let _ = self.resumeAfterInterruption(reason: "didBecomeActive")
             }
         }
@@ -276,28 +331,71 @@ extension PlayerManager {
             guard let userInfo = notification.userInfo,
                   let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt,
                   let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else { return }
+            let reportedPreviousOutputPortTypes = Set(
+                (userInfo[AVAudioSessionRouteChangePreviousRouteKey] as? AVAudioSessionRouteDescription)?
+                    .outputs
+                    .map { $0.portType.rawValue } ?? []
+            )
             Task { @MainActor [weak self] in
                 guard let self else { return }
+                let currentOutputPortTypes = Set(
+                    AVAudioSession.sharedInstance().currentRoute.outputs.map { $0.portType.rawValue }
+                )
+                let previousOutputPortTypes = reportedPreviousOutputPortTypes.isEmpty
+                    ? self.lastKnownAudioOutputPortTypes
+                    : reportedPreviousOutputPortTypes
+                self.lastKnownAudioOutputPortTypes = currentOutputPortTypes
+                EQManager.shared.handleAudioRouteChanged()
+
+                let previousHadExternalOutput = !previousOutputPortTypes
+                    .isDisjoint(with: Self.disconnectSensitiveAudioOutputPortTypes)
+                let currentHasExternalOutput = !currentOutputPortTypes
+                    .isDisjoint(with: Self.disconnectSensitiveAudioOutputPortTypes)
+                let didLoseExternalOutput = previousHadExternalOutput && !currentHasExternalOutput
+
+                // iOS 17 can report Bluetooth removal as routeConfigurationChange.
+                // Route topology is the source of truth; never rebuild onto speaker.
+                if reason == .oldDeviceUnavailable || didLoseExternalOutput {
+                    self.pauseForDisconnectedAudioOutput(
+                        reason: "\(reason), previous=\(previousOutputPortTypes), current=\(currentOutputPortTypes)"
+                    )
+                    return
+                }
+
                 switch reason {
                 case .newDeviceAvailable:
-                    // 蓝牙耳机/外接设备连接：检查采样率兼容性
-                    AppLogger.info("新音频设备连接，检查采样率兼容性")
-                    self.streamPlayer.handleAudioRouteChange()
-                case .oldDeviceUnavailable:
-                    // 蓝牙耳机/外接设备断开：暂停播放（标准行为，不自动恢复）
-                    AppLogger.info("音频设备断开，暂停播放")
-                    self.streamPlayer.handleAudioRouteChange()
-                    if self.isPlaying {
-                        self.streamPlayer.pause()
-                        self.isPlaying = false
-                        self.isLoading = false
-                        self.refreshPlaybackSurfaceState()
-                        self.saveStateImmediately()
+                    AppLogger.info("新音频设备连接，重新确认音频会话与输出引擎")
+                    let expectedToPlay = self.isPlaying || self.streamPlayer.state == .playing
+                    self.lastAppliedAudioSessionOptions = nil
+                    if expectedToPlay {
+                        _ = self.activateAudioSessionForPlaybackChecked(reason: "new audio device")
                     }
-                    // 清除中断恢复标志 — 设备断开不应触发自动恢复
-                    self.wasPlayingBeforeInterruption = false
-                    self.cancelInterruptionResumeRetry()
-                case .categoryChange, .override, .routeConfigurationChange:
+                    _ = self.streamPlayer.handleAudioRouteChange()
+                    if expectedToPlay {
+                        self.scheduleAudioOutputRecoveryIfNeeded(reason: "new audio device")
+                    }
+                case .oldDeviceUnavailable:
+                    break // handled by route topology check above
+                case .categoryChange:
+                    let expectedToPlay = self.isPlaying || self.streamPlayer.state == .playing
+                    if expectedToPlay {
+                        _ = self.activateAudioSessionForPlaybackChecked(reason: "audio category change")
+                    }
+                    _ = self.streamPlayer.handleAudioRouteChange()
+                    if expectedToPlay {
+                        self.scheduleAudioOutputRecoveryIfNeeded(reason: "audio category change")
+                    }
+                    self.scheduleResumeAfterRouteChangeIfNeeded()
+                case .override, .routeConfigurationChange:
+                    let expectedToPlay = self.isPlaying || self.streamPlayer.state == .playing
+                    self.lastAppliedAudioSessionOptions = nil
+                    if expectedToPlay {
+                        _ = self.activateAudioSessionForPlaybackChecked(reason: "audio route configuration change")
+                    }
+                    _ = self.streamPlayer.handleAudioRouteChange()
+                    if expectedToPlay {
+                        self.scheduleAudioOutputRecoveryIfNeeded(reason: "audio route configuration change")
+                    }
                     self.scheduleResumeAfterRouteChangeIfNeeded()
                 default:
                     break
@@ -327,6 +425,44 @@ extension PlayerManager {
             }
         }
     }
+
+    /// External-route removal is a safety pause, not an interruption recovery.
+    /// Stop immediately so no tail can escape through the built-in speaker.
+    func pauseForDisconnectedAudioOutput(reason: String) {
+        AppLogger.info("外接音频输出已断开，立即暂停: \(reason)")
+        audioOutputRecoveryTask?.cancel()
+        audioOutputRecoveryTask = nil
+        routeChangeResumeWorkItem?.cancel()
+        routeChangeResumeWorkItem = nil
+        cancelInterruptionResumeRetry()
+        cancelInterruptionWatchdog()
+        cancelPlaybackFade(restoreVolume: false)
+        endTransitionKeepAlive()
+
+        wasPlayingBeforeInterruption = false
+        isUnderInterruption = false
+        lastAppliedAudioSessionOptions = nil
+
+        if streamPlayer.state == .connecting {
+            // A connecting pipeline would otherwise enter `.playing` on speaker
+            // after this callback. Keep the song selected and reload on explicit play.
+            suppressStopHandlingUntil = Date().addingTimeInterval(1)
+            streamPlayer.stop()
+        } else {
+            _ = streamPlayer.pauseAudioOutputImmediately()
+        }
+        streamPlayer.outputVolume = 1.0
+        isPlaying = false
+        isLoading = false
+        lastPausedAt = Date()
+        refreshPlaybackSurfaceState()
+        saveStateImmediately()
+
+        if currentSong != nil {
+            updateNowPlayingInfo()
+            updateNowPlayingArtwork(for: currentSong)
+        }
+    }
     
     func setupRemoteCommands() {
         commandCenter.playCommand.addTarget { [weak self] _ in
@@ -334,6 +470,13 @@ extension PlayerManager {
         }
         commandCenter.pauseCommand.addTarget { [weak self] _ in
             (self?.pausePlayback() ?? false) ? .success : .commandFailed
+        }
+        // 有线/蓝牙耳机的单击「播放暂停切换」走的是 toggle 命令，
+        // 不注册的话部分耳机按键会没有反应。
+        commandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
+            guard let self else { return .commandFailed }
+            let handled = self.isPlaying ? self.pausePlayback() : self.playPlayback()
+            return handled ? .success : .commandFailed
         }
         commandCenter.nextTrackCommand.addTarget { [weak self] _ in
             self?.next()
@@ -343,12 +486,181 @@ extension PlayerManager {
             self?.previous()
             return .success
         }
+        // 播客场景的锁屏 ±15s 快进快退（由 updateRemoteCommandProfile 按内容类型启停）
+        commandCenter.skipForwardCommand.preferredIntervals = [15]
+        commandCenter.skipForwardCommand.addTarget { [weak self] event in
+            guard let self else { return .commandFailed }
+            let interval = (event as? MPSkipIntervalCommandEvent)?.interval ?? 15
+            self.seekForward(seconds: interval)
+            return .success
+        }
+        commandCenter.skipBackwardCommand.preferredIntervals = [15]
+        commandCenter.skipBackwardCommand.addTarget { [weak self] event in
+            guard let self else { return .commandFailed }
+            let interval = (event as? MPSkipIntervalCommandEvent)?.interval ?? 15
+            self.seekBackward(seconds: interval)
+            return .success
+        }
+        // 播客倍速（CarPlay / 锁屏长按等入口）
+        commandCenter.changePlaybackRateCommand.supportedPlaybackRates =
+            [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0].map { NSNumber(value: $0) }
+        commandCenter.changePlaybackRateCommand.addTarget { [weak self] event in
+            guard let self, let event = event as? MPChangePlaybackRateCommandEvent else { return .commandFailed }
+            self.setPlaybackSpeed(event.playbackRate)
+            return .success
+        }
         commandCenter.changePlaybackPositionCommand.addTarget { [weak self] event in
             if let event = event as? MPChangePlaybackPositionCommandEvent {
                 self?.seek(to: event.positionTime)
             }
             return .success
         }
+        // 锁屏 / CarPlay 的循环与随机模式切换
+        commandCenter.changeRepeatModeCommand.isEnabled = true
+        commandCenter.changeRepeatModeCommand.addTarget { [weak self] event in
+            guard let self, let event = event as? MPChangeRepeatModeCommandEvent else { return .commandFailed }
+            switch event.repeatType {
+            case .one:
+                self.applyRemotePlayMode(.loopSingle)
+            case .all, .off:
+                self.applyRemotePlayMode(self.mode == .shuffle ? .shuffle : .sequence)
+            @unknown default:
+                return .commandFailed
+            }
+            return .success
+        }
+        commandCenter.changeShuffleModeCommand.isEnabled = true
+        commandCenter.changeShuffleModeCommand.addTarget { [weak self] event in
+            guard let self, let event = event as? MPChangeShuffleModeCommandEvent else { return .commandFailed }
+            switch event.shuffleType {
+            case .off:
+                self.applyRemotePlayMode(.sequence)
+            case .items, .collections:
+                self.applyRemotePlayMode(.shuffle)
+            @unknown default:
+                return .commandFailed
+            }
+            return .success
+        }
+
+        // 冷启动先按音乐布局收敛一次（系统默认所有命令都是 enabled，
+        // 不收敛的话锁屏可能同时挂着切歌和 ±15s 两套按钮）
+        updateRemoteCommandProfile()
+    }
+
+    /// 按内容类型切换锁屏/控制中心的命令布局：
+    ///   - 音乐 / FM：上一首、下一首 + 循环/随机切换；
+    ///   - 播客：±15s 快进快退 + 倍速（系统在禁用上/下一首时才会把
+    ///     锁屏两侧按钮渲染成跳转间隔样式）。
+    /// 由 updateNowPlayingInfo 在每次曲目/来源变化时调用，幂等且去重。
+    func updateRemoteCommandProfile() {
+        let podcast = isPlayingPodcast
+        guard lastRemoteCommandProfileIsPodcast != podcast else { return }
+        lastRemoteCommandProfileIsPodcast = podcast
+
+        commandCenter.skipForwardCommand.isEnabled = podcast
+        commandCenter.skipBackwardCommand.isEnabled = podcast
+        commandCenter.changePlaybackRateCommand.isEnabled = podcast
+        commandCenter.nextTrackCommand.isEnabled = !podcast
+        commandCenter.previousTrackCommand.isEnabled = !podcast
+        commandCenter.changeRepeatModeCommand.isEnabled = !podcast
+        commandCenter.changeShuffleModeCommand.isEnabled = !podcast
+    }
+
+    /// 远程命令（锁屏 / CarPlay）触发的播放模式切换
+    private func applyRemotePlayMode(_ newMode: PlayMode) {
+        guard newMode != mode else { return }
+        mode = newMode
+        if mode == .shuffle {
+            generateShuffledContext()
+        } else if let current = currentSong {
+            contextIndex = context.firstIndex(where: { $0.id == current.id }) ?? 0
+        }
+        saveState()
+        syncWidgetState()
+    }
+
+    // MARK: - 后台生命周期（节流 + 保活）
+
+    /// 监听前后台切换：
+    ///   - 进入后台：标记状态并立刻刷新一次锁屏时间锚点（锁屏进度靠 rate 自走）；
+    ///   - 回到前台：清除节流状态并立刻补一次完整 UI 同步。
+    func setupBackgroundStateObservers() {
+        for observer in backgroundStateObservers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        backgroundStateObservers.removeAll()
+
+        let didEnterBackground = NotificationCenter.default.addObserver(
+            forName: UIApplication.didEnterBackgroundNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.isAppInBackground = true
+                self.backgroundTickSkipCounter = 0
+                // 进入后台前把最新时间写入锁屏，之后由系统按 rate 自行推进
+                if self.currentSong != nil {
+                    self.updateNowPlayingTime()
+                    self.syncWidgetState()
+                    // 立即落盘一次进度快照：后台被系统回收时，
+                    // 下次冷启动仍能从最后一秒精确续播
+                    self.savePlaybackProgressIfNeeded(force: true)
+                }
+            }
+        }
+        backgroundStateObservers.append(didEnterBackground)
+
+        let willEnterForeground = NotificationCenter.default.addObserver(
+            forName: UIApplication.willEnterForegroundNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.isAppInBackground = false
+                self.backgroundTickSkipCounter = 0
+                self.endTransitionKeepAlive()
+                self.reconcilePendingTrackTransitionWithEngine(reason: "willEnterForeground")
+                // 回前台立即同步一次，避免 UI 显示后台期间的旧进度
+                if self.currentSong != nil {
+                    let time = self.streamPlayer.currentTime
+                    if time.isFinite, !time.isNaN, time >= 0, !self.isSeeking {
+                        self.currentTime = time
+                    }
+                    LyricViewModel.shared.updateCurrentTime(self.currentTime)
+                    self.updateNowPlayingTime()
+                }
+            }
+        }
+        backgroundStateObservers.append(willEnterForeground)
+    }
+
+    // MARK: - 后台切歌保活
+
+    /// 歌曲在后台自然结束、需要网络请求下一首 URL 时，音频输出短暂停止，
+    /// 系统可能在请求完成前挂起 App，导致「后台放完一首就停」。
+    /// 这里申请一个短时后台任务（约 30s 窗口）保住切歌流程。
+    func beginTransitionKeepAlive(reason: String) {
+        guard isAppInBackground else { return }
+        guard transitionKeepAliveTaskId == .invalid else { return }
+        transitionKeepAliveTaskId = UIApplication.shared.beginBackgroundTask(withName: "Monologue.TrackTransition") { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.endTransitionKeepAlive()
+            }
+        }
+        if transitionKeepAliveTaskId != .invalid {
+            AppLogger.debug("后台切歌保活开始: \(reason)")
+        }
+    }
+
+    /// 播放真正恢复 / 出错 / 回前台时释放保活任务。
+    func endTransitionKeepAlive() {
+        guard transitionKeepAliveTaskId != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(transitionKeepAliveTaskId)
+        transitionKeepAliveTaskId = .invalid
+        AppLogger.debug("后台切歌保活结束")
     }
     
     /// 设置 StreamPlayer delegate（通过桥接适配器）
@@ -366,6 +678,32 @@ extension PlayerManager {
 
                 // ── 睡眠定时器始终 tick（不受 isPlaying guard 影响） ──
                 self.tickSleepTimer()
+
+                // ── 后台节流：界面不可见时降到 1Hz 采样 ──
+                // 锁屏进度由系统按 rate 自动推进、歌词行级同步 1s 粒度足够，
+                // 大幅减少后台 CPU 唤醒次数，降低整机功耗。
+                if self.isAppInBackground {
+                    self.backgroundTickSkipCounter += 1
+                    if self.backgroundTickSkipCounter % 4 != 0 { return }
+                } else {
+                    self.backgroundTickSkipCounter = 0
+                }
+
+                // Mono 的音频管线可能已在后台完成无缝热切，但主线程元数据
+                // 回调被系统延迟。每次有效 tick 都对账一次，避免回到 App
+                // 仍显示上一首；引擎会在旧歌尾音尚未播完时阻止提前切 UI。
+                self.reconcilePendingTrackTransitionWithEngine(
+                    reason: self.isAppInBackground ? "background tick" : "foreground tick"
+                )
+
+                // Route notifications are not guaranteed to describe every engine
+                // invalidation. Detect the stale `.playing` + dead output combination
+                // from the regular player heartbeat as a final safety net.
+                if self.isPlaying,
+                   self.streamPlayer.state == .playing,
+                   !self.streamPlayer.isAudioOutputRunning {
+                    self.scheduleAudioOutputRecoveryIfNeeded(reason: "playback heartbeat")
+                }
 
                 // 采样 StreamPlayer 状态
                 let time = self.streamPlayer.currentTime
@@ -415,6 +753,9 @@ extension PlayerManager {
                 LyricViewModel.shared.updateCurrentTime(self.currentTime)
                 self.savePlaybackProgressIfNeeded()
 
+                // ── 无缝引擎阶段 B：临近结尾装配下一首管线（后台随节流降为 1Hz） ──
+                self.tickGaplessEngine()
+
                 let lyricIdx = LyricViewModel.shared.currentLineIndex
                 let lyricChanged = lyricIdx != self.lastNowPlayingLyricIndex
 
@@ -446,15 +787,93 @@ extension PlayerManager {
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
             guard self.wasPlayingBeforeInterruption, !self.isPlaying, self.currentSong != nil else { return }
-            guard !AVAudioSession.sharedInstance().isOtherAudioPlaying else {
+            guard self.isAutoResumePermittedNow() else {
                 AppLogger.debug("路由变化后仍有其他音频，不恢复")
                 return
             }
-            AppLogger.info("路由变化后确认无其他音频，恢复播放")
+            AppLogger.info("路由变化后确认可恢复，恢复播放")
             let _ = self.resumeAfterInterruption(reason: "route change")
         }
         routeChangeResumeWorkItem = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: work)
+    }
+
+    /// Debounces route churn, then compares the public playback state with the
+    /// actual AVAudioEngine output. A stale `.playing` value must never be allowed
+    /// to strand the UI or make the play button a no-op.
+    func scheduleAudioOutputRecoveryIfNeeded(reason: String) {
+        guard currentSong != nil else { return }
+        guard isPlaying || streamPlayer.state == .playing else { return }
+        guard audioOutputRecoveryTask == nil else { return }
+
+        let expectedSessionId = playbackSessionId
+        audioOutputRecoveryTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            guard !Task.isCancelled, let self else { return }
+            self.audioOutputRecoveryTask = nil
+            guard self.playbackSessionId == expectedSessionId,
+                  self.currentSong != nil,
+                  self.isPlaying || self.streamPlayer.state == .playing else { return }
+            guard !self.streamPlayer.isAudioOutputRunning else {
+                if MPNowPlayingInfoCenter.default().nowPlayingInfo == nil {
+                    self.updateNowPlayingInfo()
+                    self.updateNowPlayingArtwork(for: self.currentSong)
+                }
+                return
+            }
+            _ = self.recoverUnavailableAudioOutput(reason: reason)
+        }
+    }
+
+    /// Rebuilds an invalidated output in place when possible. If iOS refuses the
+    /// existing renderer, fall back to a fresh pipeline at the audible position.
+    @discardableResult
+    func recoverUnavailableAudioOutput(reason: String) -> Bool {
+        guard let song = currentSong else { return false }
+        if streamPlayer.isAudioOutputRunning {
+            updateNowPlayingInfo()
+            updateNowPlayingArtwork(for: song)
+            return true
+        }
+
+        AppLogger.warning("检测到假播放状态，重建音频输出 reason=\(reason)")
+        cancelPlaybackFade(restoreVolume: false)
+        lastAppliedAudioSessionOptions = nil
+        guard activateAudioSessionForPlaybackChecked(reason: "recover dead output: \(reason)") else {
+            isPlaying = false
+            isLoading = false
+            wasPlayingBeforeInterruption = true
+            refreshPlaybackSurfaceState()
+            scheduleInterruptionResumeRetry(reason: "recover dead output: \(reason)")
+            return false
+        }
+
+        if streamPlayer.state == .playing {
+            streamPlayer.pause()
+        }
+        if streamPlayer.state == .paused, let song = currentSong {
+            streamPlayer.outputVolume = 0.0
+            if streamPlayer.resume(), streamPlayer.isAudioOutputRunning {
+                isPlaying = true
+                isLoading = false
+                lastPausedAt = nil
+                wasPlayingBeforeInterruption = false
+                refreshPlaybackSurfaceState()
+                updateNowPlayingInfo()
+                updateNowPlayingArtwork(for: song)
+                saveState()
+                beginPlaybackFade(to: 1.0, duration: 0.25)
+                return true
+            }
+        }
+
+        let resumeTime = max(currentTime, 0)
+        AppLogger.warning("原音频输出无法复活，从 \(String(format: "%.1f", resumeTime))s 重建播放管线")
+        isPlaying = false
+        isLoading = true
+        refreshPlaybackSurfaceState()
+        loadAndPlay(song: song, startTime: resumeTime)
+        return true
     }
     
     /// 中断恢复：先尝试 resume，如果播放器状态异常则从当前位置重新加载
@@ -465,7 +884,7 @@ extension PlayerManager {
     /// - **失败时不会清空 `wasPlayingBeforeInterruption`**，方便上层重试。
     @discardableResult
     func resumeAfterInterruption(reason: String = "interruption resume") -> Bool {
-        guard currentSong != nil else { return false }
+        guard let song = currentSong else { return false }
         AppLogger.info("恢复播放 (state=\(streamPlayer.state), reason=\(reason))")
 
         // 强制重写 options（绕过缓存），中断恢复时确保 session 处于 active。
@@ -486,21 +905,46 @@ extension PlayerManager {
         isUnderInterruption = false
         wasPlayingBeforeInterruption = false
 
+        // 中断持续过久（长电话/长语音）后网络流 URL 大概率已过期，
+        // 直接 resume 会放完缓冲区就断流。主动重新取址从断点续播。
+        if isResumeLikelyStale {
+            AppLogger.info("中断恢复时 URL 已老化，重新取址续播: \(song.name)")
+            lastPausedAt = nil
+            loadAndPlay(song: song, startTime: max(currentTime, 0))
+            return true
+        }
+
         if streamPlayer.state == .paused {
-            streamPlayer.resume()
+            streamPlayer.outputVolume = 0.0
+            guard streamPlayer.resume(), streamPlayer.isAudioOutputRunning else {
+                let time = currentTime
+                AppLogger.warning("中断后无法复活原输出，从 \(String(format: "%.1f", time))s 重新加载")
+                loadAndPlay(song: song, startTime: time)
+                return true
+            }
             isPlaying = true
             isLoading = false
+            lastPausedAt = nil
             refreshPlaybackSurfaceState()
+            beginPlaybackFade(to: 1.0, duration: 0.3)
         } else if streamPlayer.state == .playing {
             // 微信语音/电话等中断后，SDK 状态偶尔仍停在 `.playing`，
             // 但底层 AudioEngine 已经不出声。强制走一次 pause→resume
             // 让 AudioRenderer 在重新激活的 session 上启动。
             streamPlayer.pause()
-            streamPlayer.resume()
+            streamPlayer.outputVolume = 0.0
+            guard streamPlayer.resume(), streamPlayer.isAudioOutputRunning else {
+                let time = currentTime
+                AppLogger.warning("中断后播放状态与输出不一致，从 \(String(format: "%.1f", time))s 重新加载")
+                loadAndPlay(song: song, startTime: time)
+                return true
+            }
             isPlaying = true
             isLoading = false
+            lastPausedAt = nil
             refreshPlaybackSurfaceState()
-        } else if let song = currentSong {
+            beginPlaybackFade(to: 1.0, duration: 0.3)
+        } else {
             let time = currentTime
             AppLogger.info("播放器状态非 paused，从 \(String(format: "%.1f", time))s 重新加载")
             loadAndPlay(song: song, startTime: time)
@@ -530,6 +974,9 @@ extension PlayerManager {
     /// 任何一档成功即整条链路结束。
     func scheduleInterruptionResumeRetry(reason: String) {
         cancelInterruptionResumeRetry()
+        // 中断结束后音频尚未出声，App 可能随时被挂起；
+        // 保活到重试链结束（成功恢复后由 .playing 状态回调释放）。
+        beginTransitionKeepAlive(reason: "interruption resume retry")
         let schedule = Self.interruptionResumeBackoff
         interruptionResumeTask = Task { @MainActor [weak self] in
             for (index, delay) in schedule.enumerated() {
@@ -540,10 +987,11 @@ extension PlayerManager {
                 guard self.wasPlayingBeforeInterruption,
                       self.currentSong != nil,
                       !self.isPlaying else {
+                    self.endTransitionKeepAlive()
                     return
                 }
-                // 检查是否还有其他音频在播 — 如果有，不要抢占
-                if AVAudioSession.sharedInstance().isOtherAudioPlaying {
+                // 独占/智能模式下不抢占其他音频；共存模式直接混音恢复
+                if !self.isAutoResumePermittedNow() {
                     AppLogger.info("中断恢复重试 [\(index+1)/\(schedule.count)]: 其他音频仍在播放，跳过")
                     continue
                 }
@@ -557,6 +1005,7 @@ extension PlayerManager {
             if let self, self.wasPlayingBeforeInterruption, !self.isPlaying {
                 AppLogger.warning("中断恢复阶梯重试全部失败 reason=\(reason)，等待用户手动恢复")
             }
+            self?.endTransitionKeepAlive()
         }
     }
 
@@ -595,7 +1044,10 @@ extension PlayerManager {
         let desired = audioSessionOptions(otherAudioPlaying: session.isOtherAudioPlaying)
 
         do {
-            if desired != lastAppliedAudioSessionOptions {
+            if desired != lastAppliedAudioSessionOptions
+                || session.category != .playback
+                || session.mode != .default
+                || session.categoryOptions != desired {
                 try session.setCategory(.playback, mode: .default, options: desired)
                 lastAppliedAudioSessionOptions = desired
             }

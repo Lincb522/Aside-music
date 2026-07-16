@@ -88,7 +88,7 @@ struct FolkPlayerLayout: View {
         .monologueSheet(isPresented: $showPlaylist, preset: .standard) {
             PlaylistPopupView()
         }
-        .monologueSheet(isPresented: $showQualitySheet, preset: .compact) {
+        .monologueSheet(isPresented: $showQualitySheet, preset: .standard) {
             SoundQualitySheet(
                 currentQuality: player.soundQuality,
                 currentQQQuality: player.qqMusicQuality,
@@ -102,7 +102,7 @@ struct FolkPlayerLayout: View {
                 onSelectQishui: { info in player.switchQishuiQuality(info); showQualitySheet = false }
             )
         }
-        .monologueSheet(isPresented: $showEQSettings, preset: .large) {
+        .fullScreenCover(isPresented: $showEQSettings) {
             NavigationStack { EQSettingsView() }
         }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker) {
@@ -204,32 +204,14 @@ extension FolkPlayerLayout {
     var letterHeader: some View {
         HStack(alignment: .center, spacing: 16) {
             // 左侧：相片夹带（专辑封面）
-            ZStack {
-                if let url = player.currentSong?.coverUrl?.sized(200) {
-                    CachedAsyncImage(url: url) {
-                        paperBg
-                    }
-                    .aspectRatio(1.0, contentMode: .fit)
-                } else {
-                    ZStack {
-                        Color.white
-                        MonologueIcon(icon: .musicNote, size: 24, color: inkFaded.opacity(0.3))
-                    }
-                }
-            }
-            .frame(width: 70, height: 70)
-            .padding(4)
-            .background(Color.white)
-            .shadow(color: inkDark.opacity(0.1), radius: 3, x: 1, y: 2)
-            .rotationEffect(.degrees(-3))
-            // 纸胶带装饰
-            .overlay(
-                Rectangle()
-                    .fill(tapeColor.opacity(0.8))
-                    .frame(width: 30, height: 12)
-                    .rotationEffect(.degrees(-10))
-                    .offset(x: 0, y: -35)
+            FolkAdaptiveCover(
+                url: player.currentSong?.coverUrl?.sized(200),
+                placeholderColor: paperBg,
+                placeholderIconColor: inkFaded.opacity(0.3),
+                tapeColor: tapeColor,
+                shadowColor: inkDark.opacity(0.1)
             )
+            .id(player.currentSong?.coverUrl?.absoluteString)
 
             // 右侧：打字机标签信息
             VStack(alignment: .leading, spacing: 6) {
@@ -362,7 +344,7 @@ extension FolkPlayerLayout {
                         }
                     }
                     .onAppear {
-                        proxy.scrollTo(lyricVM.currentLineIndex, anchor: UnitPoint(x: 0.5, y: 0.65))
+                        proxy.monologueRestoreLyricPosition(anchor: UnitPoint(x: 0.5, y: 0.65)) { lyricVM.currentLineIndex }
                     }
                 }
                 // 顶部文字渐隐遮罩
@@ -556,6 +538,66 @@ extension FolkPlayerLayout {
         guard !seconds.isNaN && !seconds.isInfinite else { return "00:00" }
         let total = Int(seconds)
         return String(format: "%02d:%02d", total / 60, total % 60)
+    }
+}
+
+/// 信笺相框以封面真实比例排版，横图、竖图都不会被塞进固定正方形外壳。
+private struct FolkAdaptiveCover: View {
+    let url: URL?
+    let placeholderColor: Color
+    let placeholderIconColor: Color
+    let tapeColor: Color
+    let shadowColor: Color
+
+    @StateObject private var loader = ImageLoader()
+
+    private let maximumSide: CGFloat = 70
+
+    private var artworkSize: CGSize {
+        guard let image = loader.image,
+              image.size.width > 0,
+              image.size.height > 0 else {
+            return CGSize(width: maximumSide, height: maximumSide)
+        }
+
+        let ratio = image.size.width / image.size.height
+        if ratio >= 1 {
+            return CGSize(width: maximumSide, height: maximumSide / ratio)
+        }
+        return CGSize(width: maximumSide * ratio, height: maximumSide)
+    }
+
+    var body: some View {
+        Group {
+            if let image = loader.image {
+                Image(uiImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+            } else {
+                ZStack {
+                    placeholderColor
+                    MonologueIcon(icon: .musicNote, size: 24, color: placeholderIconColor)
+                }
+            }
+        }
+        .frame(width: artworkSize.width, height: artworkSize.height)
+        .clipped()
+        .padding(4)
+        .background(Color.white)
+        .shadow(color: shadowColor, radius: 3, x: 1, y: 2)
+        .rotationEffect(.degrees(-3))
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(tapeColor.opacity(0.8))
+                .frame(width: 30, height: 12)
+                .rotationEffect(.degrees(-10))
+                .offset(y: -6)
+        }
+        .onAppear {
+            if let url {
+                loader.load(url: url, maxSize: maximumSide)
+            }
+        }
     }
 }
 

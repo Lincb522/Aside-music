@@ -307,10 +307,10 @@ struct CinemaVideoPlayerLayout: View {
         .task(id: player.currentSong?.coverUrl?.absoluteString) {
             stageColors.extract(from: player.currentSong?.coverUrl?.sized(200).absoluteString)
         }
-        .monologueSheet(isPresented: $showEQSettings, preset: .large) {
+        .fullScreenCover(isPresented: $showEQSettings) {
             NavigationStack { EQSettingsView() }
         }
-        .monologueSheet(isPresented: $showQualitySheet, preset: .compact) {
+        .monologueSheet(isPresented: $showQualitySheet, preset: .standard) {
             SoundQualitySheet(
                 currentQuality: player.soundQuality,
                 currentQQQuality: player.qqMusicQuality,

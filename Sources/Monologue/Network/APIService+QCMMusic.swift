@@ -38,6 +38,9 @@ extension APIService {
     
     /// 从搜索结果中提取指定类型的列表
     private static func extractSearchItems(from result: JSON, itemKey: String) -> [JSON] {
+        // 新版 API 直接按类型平铺: { song: [...], album: [...], singer: [...], songlist: [...], mv: [...], user: [...] }
+        let flatKey = itemKey.replacingOccurrences(of: "item_", with: "")
+        if let items = result[flatKey]?.arrayValue, !items.isEmpty { return items }
         if let body = result["body"] {
             if let items = body[itemKey]?.arrayValue, !items.isEmpty { return items }
         }
@@ -220,17 +223,17 @@ extension APIService {
 
 extension APIService {
     
-    /// QQ 音质结果（含可选 ekey）
+    /// QQ 普通播放直链结果；本路径永远不携带加密 ekey。
     private struct QQQualityResult {
         let url: String
-        let ekey: String?
     }
     
-    /// 获取 qcm歌曲播放 URL（仅走普通接口，不走加密）
+    /// 获取 qcm歌曲播放 URL。正常只走普通直链；普通直链全部失败且确认
+    /// Cookie 风控时，才允许进入加密下载兜底。
     ///
     /// - quality 传入指定音质时，会从该档开始自动向下回退
-    /// - quality 传入 nil 时，优先使用预缓存的音质，否则查询可用音质从高到低逐个尝试
-    /// - prefetchedQuality: 预查询缓存的最佳音质（由 PlayerManager 传入）
+    /// - quality 传入 nil 时，优先使用歌曲模型音质，否则查询可用音质从高到低逐个尝试
+    /// - prefetchedQuality: 歌曲模型或上一阶段已经确认的最佳音质
     func fetchQQSongUrl(
         mid: String,
         quality: QQMusicQuality? = nil,
@@ -243,6 +246,30 @@ extension APIService {
             }
             if await MainActor.run(body: { OnlineAccessManager.shared.lastTokenStatus }) == .missing {
                 throw PlaybackError.tokenRequired
+            }
+
+            // 已有歌曲模型音质或预查询结果时先直取地址，省掉一次音质列表请求。
+            // 直取失败仍会进入完整查询与降级链，不牺牲兼容性。
+            let directlyRequestedQuality = quality ?? prefetchedQuality
+            if let directlyRequestedQuality,
+               let result = await self.tryQQQuality(mid: mid, quality: directlyRequestedQuality) {
+                AppLogger.success("[QQMusic] \(directlyRequestedQuality.displayName) 直取成功")
+                return SongUrlResult(
+                    url: result.url,
+                    isUnblocked: false,
+                    actualQQQuality: directlyRequestedQuality
+                )
+            }
+
+            // 并行投机：音质列表查询期间同时按 flac 试取直链。flac 是覆盖率
+            // 最高的高音质档；查询结果最高可用恰为 flac 时直接采用投机结果，
+            // 省一次串行往返。查到更高档（母带/全景声）时投机结果作废，
+            // 因为两者并行执行，总耗时不受影响。
+            var speculativeFlacTask: Task<QQQualityResult?, Never>?
+            if directlyRequestedQuality == nil {
+                speculativeFlacTask = Task {
+                    await self.tryQQQuality(mid: mid, quality: .flac)
+                }
             }
 
             // 1. 查询这首歌真实可用的所有音质档位
@@ -258,53 +285,88 @@ extension APIService {
                 AppLogger.warning("[QQMusic] 音质查询失败，按回退链盲试: \(error.localizedDescription)")
             }
 
+            // 候选档取址入口：flac 档优先复用投机请求的结论（成功或失败都算数），
+            // 其余档位照常请求，避免同一档重复往返。
+            func resolveQQQuality(_ candidate: QQMusicQuality) async -> QQQualityResult? {
+                if candidate == .flac, let task = speculativeFlacTask {
+                    speculativeFlacTask = nil
+                    return await task.value
+                }
+                return await self.tryQQQuality(mid: mid, quality: candidate)
+            }
+
             // 2. 构建候选列表（已过滤不可用档位）
-            let candidates = self.buildQQPlaybackCandidates(
+            var candidates = self.buildQQPlaybackCandidates(
                 preferred: quality,
                 prefetched: prefetchedQuality,
                 availableInfos: availableInfos
             )
+            if let directlyRequestedQuality {
+                candidates.removeAll { $0 == directlyRequestedQuality }
+            }
 
             // 3. 快速路径：如果已从 availableInfos 查到真实可用档位，直接用第一个候选（即"最高可用"）
             //    原本要串行重试 2-5 次才能找到能播的档，现在 1 次搞定
             if availableInfos != nil, let best = candidates.first {
                 AppLogger.info("[QQMusic] 使用最高可用音质: \(best.displayName)")
-                if let result = await self.tryQQQuality(mid: mid, quality: best) {
+                if let result = await resolveQQQuality(best) {
                     AppLogger.success("[QQMusic] \(best.displayName) 获取成功（快速路径）")
-                    return SongUrlResult(url: result.url, isUnblocked: false, qmcEkey: result.ekey, actualQQQuality: best)
+                    return SongUrlResult(url: result.url, isUnblocked: false, actualQQQuality: best)
                 }
                 AppLogger.warning("[QQMusic] 最高可用档 \(best.displayName) 获取失败，回退到候选链")
                 // 跳过已失败的第一个，继续往下试
                 for candidate in candidates.dropFirst() {
                     AppLogger.info("[QQMusic] 降级尝试: \(candidate.displayName)")
-                    if let result = await self.tryQQQuality(mid: mid, quality: candidate) {
+                    if let result = await resolveQQQuality(candidate) {
                         AppLogger.success("[QQMusic] \(candidate.displayName) 获取成功")
-                        return SongUrlResult(url: result.url, isUnblocked: false, qmcEkey: result.ekey, actualQQQuality: candidate)
+                        return SongUrlResult(url: result.url, isUnblocked: false, actualQQQuality: candidate)
                     }
                 }
                 AppLogger.error("[QQMusic] 可用音质候选全部失败: \(mid)")
+                if let fallback = await self.tryQQCookieRestrictionFallback(
+                    mid: mid,
+                    quality: quality ?? prefetchedQuality ?? best
+                ) {
+                    return fallback
+                }
                 throw PlaybackError.unavailable
             }
 
             // 4. 兜底：availableInfos 查询彻底失败（后端异常），按原有候选链盲试
             if candidates.isEmpty {
                 let fallbackQuality = quality ?? prefetchedQuality ?? .mp3_320
-                AppLogger.warning("[QQMusic] 无可用音质信息，兜底尝试: \(fallbackQuality.displayName)")
-                if let result = await self.tryQQQuality(mid: mid, quality: fallbackQuality) {
-                    return SongUrlResult(url: result.url, isUnblocked: false, qmcEkey: result.ekey, actualQQQuality: fallbackQuality)
+                // 已在函数入口直取过同一档时不重复请求；只在完全没有模型/指定
+                // 音质可用时才执行这次兜底直取。
+                if directlyRequestedQuality == nil {
+                    AppLogger.warning("[QQMusic] 无可用音质信息，兜底尝试: \(fallbackQuality.displayName)")
+                    if let result = await self.tryQQQuality(mid: mid, quality: fallbackQuality) {
+                        return SongUrlResult(url: result.url, isUnblocked: false, actualQQQuality: fallbackQuality)
+                    }
+                }
+                if let fallback = await self.tryQQCookieRestrictionFallback(
+                    mid: mid,
+                    quality: fallbackQuality
+                ) {
+                    return fallback
                 }
                 throw PlaybackError.unavailable
             }
 
             for candidate in candidates {
                 AppLogger.info("[QQMusic] 盲试: \(candidate.displayName)")
-                if let result = await self.tryQQQuality(mid: mid, quality: candidate) {
+                if let result = await resolveQQQuality(candidate) {
                     AppLogger.success("[QQMusic] \(candidate.displayName) 获取成功（盲试）")
-                    return SongUrlResult(url: result.url, isUnblocked: false, qmcEkey: result.ekey, actualQQQuality: candidate)
+                    return SongUrlResult(url: result.url, isUnblocked: false, actualQQQuality: candidate)
                 }
             }
 
             AppLogger.error("[QQMusic] 所有回退音质均无法获取播放 URL: \(mid)")
+            if let fallback = await self.tryQQCookieRestrictionFallback(
+                mid: mid,
+                quality: quality ?? prefetchedQuality ?? .master
+            ) {
+                return fallback
+            }
             throw PlaybackError.unavailable
         }
     }
@@ -333,6 +395,7 @@ extension APIService {
                             url: result.url,
                             isUnblocked: false,
                             qmcEkey: result.ekey.isEmpty ? nil : result.ekey,
+                            requiresQMCDecryption: !result.ekey.isEmpty,
                             actualQQQuality: candidate
                         )
                     }
@@ -378,15 +441,9 @@ extension APIService {
 
         if let availableInfos {
             let available = Set(availableInfos.map(\.quality))
-            // 只在用户显式选了 master/atmos 档时才保留（避免默认每次都盲试必然失败的高档次）
-            let premiumList: Set<QQMusicQuality> = [.master, .atmos2, .atmos51]
-            let userExplicitlyChosePremium = preferred.map { premiumList.contains($0) } ?? false
-            if userExplicitlyChosePremium {
-                candidates = candidates.filter { available.contains($0) || premiumList.contains($0) }
-            } else {
-                // 默认场景：严格按后端返回的可用音质过滤，跳过注定失败的请求
-                candidates = candidates.filter { available.contains($0) }
-            }
+            // 指定/模型音质已经在查询前直取过一次；之后严格按真实可用列表
+            // 回退，不再对不存在的母带/空间音频重复盲试。
+            candidates = candidates.filter { available.contains($0) }
         }
 
         if let prefetched,
@@ -398,8 +455,6 @@ extension APIService {
         return candidates
     }
 
-    /// 当开启 QMC 解密时，把所有“支持加密接口”的可用音质提前。
-    /// 这样即便当前默认是 MP3/AAC，也会先尝试这首歌可用的 OGG/FLAC/MASTER 等加密流。
     /// 尝试获取指定音质的播放 URL（仅走普通接口，不走加密）
     private func tryQQQuality(
         mid: String,
@@ -409,12 +464,48 @@ extension APIService {
             if let url = try await qqClient.songURL(mid: mid, fileType: quality.fileType),
                !url.isEmpty {
                 AppLogger.success("[QQMusic] \(quality.displayName) 获取成功")
-                return QQQualityResult(url: url, ekey: nil)
+                return QQQualityResult(url: url)
             }
         } catch {
             AppLogger.debug("[QQMusic] \(quality.displayName) 获取失败: \(error.localizedDescription)")
         }
         AppLogger.warning("[QQMusic] \(quality.displayName) 返回空")
+        return nil
+    }
+
+    /// QQ 正常播放始终走普通直链。只有双线风控已经确认 Cookie 通道受限、
+    /// 且用户允许 QMC 解密时，才使用 `_download=1` 获取加密媒体作为最后兜底。
+    private func tryQQCookieRestrictionFallback(
+        mid: String,
+        quality: QQMusicQuality
+    ) async -> SongUrlResult? {
+        let fallbackAllowed = await MainActor.run {
+            RiskControlManager.shared.isPremiumBlocked
+                && SettingsManager.shared.qmcDecryptEnabled
+        }
+        guard fallbackAllowed else { return nil }
+
+        AppLogger.warning("[QQMusic] 普通直链受风控限制，启用 Cookie 封控解密兜底")
+        for candidate in QQMusicQuality.fallbackCandidates(from: quality) {
+            do {
+                if let result = try await withContentSession({ client in
+                    try await client.downloadSongURL(mid: mid, fileType: candidate.fileType)
+                }), !result.url.isEmpty {
+                    let ekey = result.ekey.isEmpty ? nil : result.ekey
+                    return SongUrlResult(
+                        url: result.url,
+                        isUnblocked: false,
+                        qmcEkey: ekey,
+                        requiresQMCDecryption: ekey != nil,
+                        actualQQQuality: candidate
+                    )
+                }
+            } catch {
+                AppLogger.debug(
+                    "[QQMusic] Cookie 封控兜底 \(candidate.displayName) 失败: \(error.localizedDescription)"
+                )
+            }
+        }
         return nil
     }
     
@@ -434,9 +525,12 @@ extension APIService {
             }
             AppLogger.debug("[QQMusic] 推荐歌单原始响应 keys: \(result.objectValue?.keys.joined(separator: ",") ?? String(localized: "非对象"))")
             
-            // API 返回结构: { List: [{ Playlist: { basic: { tid, title, cover, ... } } }] }
+            // 新版 API (0.6.x): { songlists: [{ id, title, picurl, songnum, listennum, creator_nick }] }
+            // 旧版 API: { List: [{ Playlist: { basic: { tid, title, cover, ... } } }] }
             let listArray: [JSON]
-            if let arr = result["List"]?.arrayValue, !arr.isEmpty {
+            if let arr = result["songlists"]?.arrayValue, !arr.isEmpty {
+                listArray = arr
+            } else if let arr = result["List"]?.arrayValue, !arr.isEmpty {
                 listArray = arr
             } else if let arr = result["list"]?.arrayValue, !arr.isEmpty {
                 listArray = arr
@@ -452,11 +546,11 @@ extension APIService {
             
             // 每个元素可能是 { Playlist: { basic: {...} } } 嵌套结构，需要展开到 basic 层
             let playlists = listArray.compactMap { item -> Playlist? in
-                // 新版 API: item.Playlist.basic 包含歌单信息
+                // 旧版嵌套结构: item.Playlist.basic 包含歌单信息
                 if let basic = item["Playlist"]?["basic"] {
                     return Self.convertQQRecommendPlaylist(basic)
                 }
-                // 兜底：直接尝试旧的扁平结构
+                // 新版 0.6.x 扁平结构 / 旧扁平结构
                 return Self.convertQQPlaylistToPlaylist(item)
             }
             AppLogger.info("[QQMusic] 推荐歌单: 原始\(listArray.count)条, 转换\(playlists.count)条")
@@ -473,7 +567,10 @@ extension APIService {
             }
             AppLogger.debug("[QQMusic] 推荐新歌原始响应 keys: \(result.objectValue?.keys.joined(separator: ",") ?? String(localized: "非对象"))")
             let songArray: [JSON]
-            if let arr = result["songlist"]?.arrayValue, !arr.isEmpty {
+            if let arr = result["songs"]?.arrayValue, !arr.isEmpty {
+                // 新版 API (0.6.x): { songs: [...], lanlist: [tag...] }
+                songArray = arr
+            } else if let arr = result["songlist"]?.arrayValue, !arr.isEmpty {
                 songArray = arr
             } else if let lanlist = result["lanlist"]?.arrayValue,
                       let first = lanlist.first,
@@ -547,9 +644,14 @@ extension APIService {
     func fetchQQSingerList(area: AreaType = .all, sex: SexType = .all, genre: GenreType = .all) -> AnyPublisher<[ArtistInfo], Error> {
         asyncToPublisher { [weak self] in
             guard let self = self else { return [] }
-            let results = try await self.qqClient.singerList(area: area, sex: sex, genre: genre)
-            let artists = results.compactMap { Self.convertQQArtistToArtistInfo($0) }
-            AppLogger.info("[QQMusic] 歌手列表: 原始\(results.count)条, 转换\(artists.count)条")
+            let result = try await self.qqClient.singerList(area: area, sex: sex, genre: genre)
+            // 新版 API: { singerlist: [...], hotlist: [...] }
+            let singerArray = result["singerlist"]?.arrayValue
+                ?? result["hotlist"]?.arrayValue
+                ?? result.arrayValue
+                ?? Self.extractJSONArray(from: result)
+            let artists = singerArray.compactMap { Self.convertQQArtistToArtistInfo($0) }
+            AppLogger.info("[QQMusic] 歌手列表: 原始\(singerArray.count)条, 转换\(artists.count)条")
             return artists
         }
     }
@@ -567,9 +669,10 @@ extension APIService {
             guard let self = self else { return ([], 0) }
             let result = try await self.qqClient.singerListIndex(
                 area: area, sex: sex, genre: genre,
-                index: index, sin: sin, curPage: curPage
+                index: index, page: max(curPage, 1), num: 80
             )
-            let singerArray = Self.extractJSONArray(from: result)
+            let singerArray = result["singerlist"]?.arrayValue
+                ?? Self.extractJSONArray(from: result)
             let total = result["total"]?.intValue ?? singerArray.count
             let artists = singerArray.compactMap { Self.convertQQArtistToArtistInfo($0) }
             AppLogger.info("[QQMusic] 歌手列表(分页): 原始\(singerArray.count)条, 转换\(artists.count)条, total=\(total)")
@@ -623,13 +726,38 @@ extension APIService {
             ?? json["ListName"]?.stringValue ?? ""
         
         var coverUrl = json["headPicUrl"]?.stringValue ?? json["frontPicUrl"]?.stringValue
+            ?? json["head_pic_url"]?.stringValue ?? json["front_pic_url"]?.stringValue
         if coverUrl == nil || coverUrl?.isEmpty == true {
             coverUrl = json["cover"]?.stringValue ?? json["pic"]?.stringValue
         }
+        // 新版 API (0.6.x)：分类接口的榜单项不再带封面字段，取榜内第一首歌的封面兜底
+        if coverUrl == nil || coverUrl?.isEmpty == true {
+            coverUrl = json["songs"]?.arrayValue?.first(where: {
+                !($0["cover"]?.stringValue ?? "").isEmpty
+            })?["cover"]?.stringValue
+        }
+        // 仍无封面（如 MV 榜）：用第一首歌的专辑/歌手图拼接
+        if coverUrl == nil || coverUrl?.isEmpty == true,
+           let firstSong = json["songs"]?.arrayValue?.first {
+            if let albumMid = Self.firstNonEmptyQQValue(
+                firstSong["album"]?["mid"]?.stringValue,
+                firstSong["album_mid"]?.stringValue,
+                firstSong["albummid"]?.stringValue
+            ) {
+                coverUrl = Self.qqAlbumArtworkURLString(mid: albumMid)
+            } else if let singerMid = Self.firstNonEmptyQQValue(
+                firstSong["singer"]?.arrayValue?.first?["mid"]?.stringValue,
+                firstSong["singer_mid"]?.stringValue
+            ) {
+                coverUrl = Self.qqArtistArtworkURLString(mid: singerMid)
+            }
+        }
+        coverUrl = Self.normalizedQQArtworkURLString(coverUrl)
         
-        let intro = json["intro"]?.stringValue ?? json["updateTips"]?.stringValue ?? ""
+        let rawIntro = json["intro"]?.stringValue ?? json["updateTips"]?.stringValue ?? ""
+        let intro = Self.cleanQQTopListIntro(rawIntro)
         let period = json["period"]?.stringValue ?? ""
-        let updateTime = json["updateTime"]?.stringValue ?? ""
+        let updateTime = json["updateTime"]?.stringValue ?? json["update_time"]?.stringValue ?? ""
         
         return QQTopListItem(
             topId: topId,
@@ -639,6 +767,32 @@ extension APIService {
             period: period,
             updateTime: updateTime
         )
+    }
+
+    /// QQ 榜单 intro 原文常是「1.榜单定义：…2.排序规则：…」的说明书式长文
+    /// （还夹着 <br> 标签），直接上屏很丑。这里去 HTML 换行标签、
+    /// 按「数字编号 + 中文」切分成小节并去掉编号，得到可读的多行描述。
+    static func cleanQQTopListIntro(_ raw: String) -> String {
+        guard !raw.isEmpty else { return "" }
+
+        var text = raw
+            .replacingOccurrences(of: "<br/>", with: "\n", options: .caseInsensitive)
+            .replacingOccurrences(of: "<br />", with: "\n", options: .caseInsensitive)
+            .replacingOccurrences(of: "<br>", with: "\n", options: .caseInsensitive)
+            .replacingOccurrences(of: "\\n", with: "\n")
+
+        // 「1.榜单定义：」「2、排序规则：」→ 分节换行；
+        // 仅匹配编号后紧跟中文的场景，避免误伤 "8.18" 这类日期/数字。
+        if let regex = try? NSRegularExpression(pattern: #"[1-9]\s*[\.、．]\s*(?=\p{Han})"#) {
+            let range = NSRange(text.startIndex..., in: text)
+            text = regex.stringByReplacingMatches(in: text, options: [], range: range, withTemplate: "\n")
+        }
+
+        return text
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
     }
 }
 
@@ -656,6 +810,19 @@ struct QQTopListItem: Identifiable, Codable, Hashable {
     var coverURL: URL? {
         guard let str = coverUrl, !str.isEmpty else { return nil }
         return URL(string: str)
+    }
+
+    /// 卡片单行副标题：取说明第一节，并去掉「榜单定义：」这类标签头
+    var subtitle: String {
+        guard let first = intro
+            .components(separatedBy: .newlines)
+            .first(where: { !$0.isEmpty }) else { return "" }
+        if let colon = first.firstIndex(where: { $0 == "：" || $0 == ":" }),
+           first.distance(from: first.startIndex, to: colon) <= 8 {
+            return String(first[first.index(after: colon)...])
+                .trimmingCharacters(in: .whitespaces)
+        }
+        return first
     }
 }
 
@@ -779,8 +946,7 @@ extension APIService {
     func fetchQQSingerSongs(mid: String, page: Int = 1, num: Int = 30) -> AnyPublisher<[Song], Error> {
         asyncToPublisher { [weak self] in
             guard let self = self else { return [] }
-            let begin = (page - 1) * num
-            let result = try await self.qqClient.singerSongsList(mid: mid, number: num, begin: begin)
+            let result = try await self.qqClient.singerSongsList(mid: mid, num: num, page: page)
             let songArray = Self.extractJSONArray(from: result)
             if let first = songArray.first {
                 AppLogger.debug("[QQMusic] 歌手歌曲第一条: \(first)")
@@ -808,10 +974,17 @@ extension APIService {
             var wikiUrl: String?
             do {
                 let desc = try await self.qqClient.singerDesc(mids: mid)
-                for item in desc {
-                    if let d = item["desc"]?.stringValue ?? item["brief"]?.stringValue
-                        ?? item["wiki"]?.stringValue ?? item["SingerDesc"]?.stringValue,
-                       !d.isEmpty {
+                // 新版 API: { singer_list: [{ basic_info, ex_info, wiki }] }
+                let items = desc["singer_list"]?.arrayValue ?? desc.arrayValue ?? []
+                for item in items {
+                    let descCandidates: [String?] = [
+                        item["desc"]?.stringValue,
+                        item["brief"]?.stringValue,
+                        item["wiki"]?.stringValue,
+                        item["SingerDesc"]?.stringValue,
+                        item["ex_info"]?["desc"]?.stringValue
+                    ]
+                    if let d = descCandidates.compactMap({ $0 }).first(where: { !$0.isEmpty }) {
                         return d
                     }
                     if let url = item["basic_info"]?["wikiurl"]?.stringValue, !url.isEmpty {
@@ -839,7 +1012,11 @@ extension APIService {
 
             // 3. fallback: singerTabDetail wiki tab 摘要
             do {
-                let wikiItems = try await self.qqClient.singerTabDetail(mid: mid, tabType: .wiki, page: 1, num: 10)
+                let tabResult = try await self.qqClient.singerTabDetail(mid: mid, tabType: .wiki, page: 1, num: 10)
+                // 新版 API: { introduction_tab: [{ SingerInfoList: [{ Content }] }] }
+                let wikiItems = tabResult["introduction_tab"]?.arrayValue
+                    ?? tabResult["IntroductionTab"]?.arrayValue
+                    ?? tabResult.arrayValue ?? []
                 for item in wikiItems {
                     if let list = item["SingerInfoList"]?.arrayValue {
                         for entry in list {
@@ -914,7 +1091,8 @@ extension APIService {
     func fetchQQSingerAlbums(mid: String, num: Int = 20, begin: Int = 0) -> AnyPublisher<[AlbumInfo], Error> {
         asyncToPublisher { [weak self] in
             guard let self = self else { return [] }
-            let result = try await self.qqClient.singerAlbums(mid: mid, number: num, begin: begin)
+            let page = num > 0 ? begin / num + 1 : 1
+            let result = try await self.qqClient.singerAlbums(mid: mid, num: num, page: page)
             AppLogger.debug("[QQMusic] 歌手专辑原始: \(result)")
             let albumArray = Self.extractJSONArray(from: result)
             if albumArray.isEmpty {
@@ -943,8 +1121,9 @@ extension APIService {
         if picUrl == nil || picUrl?.isEmpty == true { picUrl = json["pic_url"]?.stringValue }
         if picUrl == nil || picUrl?.isEmpty == true { picUrl = json["picUrl"]?.stringValue }
         if picUrl == nil || picUrl?.isEmpty == true { picUrl = json["cover"]?.stringValue }
-        if (picUrl == nil || picUrl?.isEmpty == true), !albumMid.isEmpty {
-            picUrl = "https://y.gtimg.cn/music/photo_new/T002R300x300M000\(albumMid).jpg"
+        picUrl = Self.normalizedQQArtworkURLString(picUrl)
+        if picUrl == nil, !albumMid.isEmpty {
+            picUrl = Self.qqAlbumArtworkURLString(mid: albumMid)
         }
         
         let publishDate: String? = json["publicTime"]?.stringValue ?? json["publish_date"]?.stringValue
@@ -984,7 +1163,8 @@ extension APIService {
     func fetchQQSingerMVs(mid: String, num: Int = 20, begin: Int = 0) -> AnyPublisher<[QQMV], Error> {
         asyncToPublisher { [weak self] in
             guard let self = self else { return [] }
-            let result = try await self.qqClient.singerMVs(mid: mid, number: num, begin: begin)
+            let page = num > 0 ? begin / num + 1 : 1
+            let result = try await self.qqClient.singerMVs(mid: mid, num: num, page: page)
             AppLogger.debug("[QQMusic] 歌手MV原始: \(result)")
             let mvArray = Self.extractJSONArray(from: result)
             if mvArray.isEmpty {
@@ -1218,12 +1398,17 @@ extension APIService {
         asyncToPublisher { [weak self] in
             guard let self = self else { return nil }
             let result = try await self.qqClient.mvDetail(vids: vid)
-            if let arr = result.arrayValue, let first = arr.first {
+            // 新版 API 返回 { data: { vid: {...} } }
+            let container = result["data"] ?? result
+            if let byVid = container[vid], byVid.objectValue?.isEmpty == false {
+                return Self.convertQQDetailMV(byVid)
+            }
+            if let arr = container.arrayValue, let first = arr.first {
                 return Self.convertQQDetailMV(first)
-            } else if let obj = result.objectValue, let first = obj.values.first {
+            } else if let obj = container.objectValue, let first = obj.values.first {
                 return Self.convertQQDetailMV(first)
             } else {
-                return Self.convertQQDetailMV(result)
+                return Self.convertQQDetailMV(container)
             }
         }
     }
@@ -1271,7 +1456,10 @@ extension APIService {
             guard let self = self else { return [] }
             let result = try await self.qqClient.topDetail(topId: topId, num: num, page: page)
             let songArray: [JSON]
-            if let songs = result["songInfoList"]?.arrayValue {
+            if let songs = result["songs"]?.arrayValue, !songs.isEmpty {
+                // 新版 API (0.6.x): 顶层 songs 为完整歌曲对象
+                songArray = songs
+            } else if let songs = result["songInfoList"]?.arrayValue {
                 songArray = songs
             } else if let songs = result["songlist"]?.arrayValue {
                 songArray = songs

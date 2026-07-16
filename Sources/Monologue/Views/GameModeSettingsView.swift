@@ -2,7 +2,7 @@
 //  GameModeSettingsView.swift
 //  Monologue
 //
-//  游戏模式设置页：一键模式 + 子项配置
+//  游戏模式设置页：电源台主开关 + 场景预设 + 子项配置
 //
 
 import SwiftUI
@@ -14,6 +14,7 @@ struct GameModeSettingsView: View {
 
     @State private var showQualityDialog = false
     @State private var showPlaylistDialog = false
+    @State private var powerPulse = false
 
     private let gameQualityOptions: [SoundQuality] = [
         .standard, .higher, .exhigh, .lossless
@@ -26,13 +27,34 @@ struct GameModeSettingsView: View {
             ThemedSettingsBackground()
 
             ScrollView {
-                VStack(spacing: 20) {
-                    VStack(spacing: 20) {
-                        mainSection
-                        scenariosSection
-                        optionsSection
-                        presetsSection
-                        infoSection
+                VStack(spacing: 24) {
+                    VStack(spacing: 24) {
+                        powerConsole
+
+                        VStack(alignment: .leading, spacing: 12) {
+                            sectionHeader(
+                                title: String(localized: "game_mode_preset_section_title"),
+                                caption: String(localized: "game_mode_preset_section_subtitle")
+                            )
+
+                            HStack(spacing: 10) {
+                                ForEach(GameModeScenarioPreset.allCases) { preset in
+                                    scenarioCard(preset)
+                                }
+                            }
+                        }
+
+                        VStack(alignment: .leading, spacing: 12) {
+                            sectionHeader(title: String(localized: "game_mode_options_section_title"))
+                            optionsSection
+                        }
+
+                        VStack(alignment: .leading, spacing: 12) {
+                            sectionHeader(title: String(localized: "game_mode_presets_section_title"))
+                            presetsSection
+                        }
+
+                        infoFootnote
                         FloatingBarBottomSpacer()
                     }
                     .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
@@ -81,62 +103,170 @@ struct GameModeSettingsView: View {
         }
     }
 
-    // MARK: - 主开关区
+    // MARK: - 小节标题
 
-    private var mainSection: some View {
-        VStack(spacing: 0) {
-            Button {
-                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                gameMode.toggle()
-            } label: {
-                HStack(spacing: 14) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(gameMode.isActive
-                                  ? gameModeAccent
-                                  : gameModeIconFill)
-                            .frame(width: 44, height: 44)
-                        MonologueIcon(
-                            icon: .waveform,
-                            size: 22,
-                            color: gameMode.isActive ? gameModeAccentText : gameModeInactiveIconText
-                        )
-                    }
+    private func sectionHeader(title: String, caption: String? = nil) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                Capsule()
+                    .fill(gameModeAccent)
+                    .frame(width: 3, height: 12)
 
-                    VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.rounded(size: 14.5, weight: .bold))
+                    .foregroundColor(gameModePrimaryText)
+
+                Rectangle()
+                    .fill(gameModeDivider.opacity(0.5))
+                    .frame(height: 0.5)
+            }
+
+            if let caption {
+                Text(caption)
+                    .font(.rounded(size: 11.5))
+                    .foregroundColor(gameModeSecondaryText)
+                    .padding(.leading, 11)
+            }
+        }
+        .padding(.horizontal, 2)
+    }
+
+    // MARK: - 电源台（主开关）
+
+    private var powerConsole: some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            gameMode.toggle()
+        } label: {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .top, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        // 状态眉题
+                        HStack(spacing: 7) {
+                            ZStack {
+                                Circle()
+                                    .fill(gameMode.isActive ? gameModeAccent : gameModeMutedText.opacity(0.4))
+                                    .frame(width: 6, height: 6)
+
+                                if gameMode.isActive {
+                                    Circle()
+                                        .stroke(gameModeAccent.opacity(0.5), lineWidth: 1)
+                                        .frame(width: 6, height: 6)
+                                        .scaleEffect(powerPulse ? 2.6 : 1)
+                                        .opacity(powerPulse ? 0 : 0.8)
+                                }
+                            }
+                            .frame(width: 16, height: 16)
+
+                            Text(gameMode.isActive ? "ACTIVE" : "STANDBY")
+                                .font(.system(size: 10, weight: .heavy, design: .rounded))
+                                .tracking(2.2)
+                                .foregroundColor(gameMode.isActive ? gameModeAccent : gameModeSecondaryText.opacity(0.7))
+                        }
+
                         Text(String(localized: "game_mode_main_title"))
-                            .font(.rounded(size: 16, weight: .semibold))
+                            .font(.system(size: 22, weight: .heavy, design: .rounded))
                             .foregroundColor(gameModePrimaryText)
+                            .padding(.top, 10)
+
                         Text(gameMode.isActive
                              ? String(localized: "game_mode_main_subtitle_on")
                              : String(localized: "game_mode_main_subtitle_off"))
-                            .font(.rounded(size: 12, weight: .medium))
+                            .font(.rounded(size: 12.5))
                             .foregroundColor(gameModeSecondaryText)
-                            .lineLimit(2)
+                            .lineSpacing(2)
+                            .padding(.top, 6)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
 
-                    Spacer()
+                    Spacer(minLength: 0)
 
-                    // 大开关视觉
+                    // 电源钮
                     ZStack {
-                        Capsule()
-                            .fill(gameMode.isActive ? gameModeAccent : gameModeIconFill)
-                            .frame(width: 48, height: 28)
                         Circle()
-                            .fill(Color.white)
-                            .frame(width: 22, height: 22)
-                            .shadow(color: .black.opacity(0.15), radius: 2, y: 1)
-                            .offset(x: gameMode.isActive ? 10 : -10)
+                            .fill(gameMode.isActive ? gameModeAccent : gameModeIconFill)
+                            .frame(width: 62, height: 62)
+                            .shadow(
+                                color: gameMode.isActive ? gameModeAccent.opacity(0.36) : .clear,
+                                radius: 12, y: 5
+                            )
+
+                        Circle()
+                            .stroke(
+                                gameMode.isActive
+                                    ? Color.white.opacity(0.35)
+                                    : gameModeDivider.opacity(0.5),
+                                lineWidth: 1
+                            )
+                            .frame(width: 62, height: 62)
+
+                        MonologueSymbolIcon(
+                            name: "power",
+                            size: 23,
+                            color: gameMode.isActive ? gameModeAccentText : gameModeSecondaryText
+                        )
                     }
-                    .animation(.spring(response: 0.28, dampingFraction: 0.72), value: gameMode.isActive)
+                    .animation(.spring(response: 0.34, dampingFraction: 0.75), value: gameMode.isActive)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 16)
-                .contentShape(Rectangle())
+
+                // 生效项指示灯排
+                HStack(spacing: 0) {
+                    consoleLamp(
+                        label: String(localized: "game_mode_lamp_ducking"),
+                        lit: gameMode.isActive && settings.gameModeAutoDucking
+                    )
+                    consoleLamp(
+                        label: String(localized: "game_mode_lamp_quality"),
+                        lit: gameMode.isActive && settings.gameModeLowerQuality
+                    )
+                    consoleLamp(
+                        label: String(localized: "game_mode_lamp_silent"),
+                        lit: gameMode.isActive && settings.gameModeSilentNowPlaying
+                    )
+                    consoleLamp(
+                        label: String(localized: "game_mode_lamp_auto_exit"),
+                        lit: gameMode.isActive && settings.gameModeAutoExit
+                    )
+                }
+                .padding(.top, 18)
+                .overlay(alignment: .top) {
+                    Rectangle()
+                        .fill(gameModeDivider.opacity(0.5))
+                        .frame(height: 0.5)
+                        .padding(.top, 9)
+                }
             }
-            .buttonStyle(.plain)
+            .padding(20)
+            .contentShape(Rectangle())
         }
-        .themedPageSurface(cornerRadius: 18, elevated: true, mangaTint: MangaStyle.bubbleWhite)
+        .buttonStyle(.plain)
+        .themedPageSurface(cornerRadius: 20, elevated: true, mangaTint: MangaStyle.bubbleWhite)
+        .onAppear { startPulseIfNeeded() }
+        .onChange(of: gameMode.isActive) { _, _ in startPulseIfNeeded() }
+    }
+
+    private func consoleLamp(label: String, lit: Bool) -> some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(lit ? gameModeAccent : gameModeMutedText.opacity(0.25))
+                .frame(width: 5, height: 5)
+
+            Text(label)
+                .font(.rounded(size: 10.5, weight: .semibold))
+                .foregroundColor(lit ? gameModePrimaryText.opacity(0.85) : gameModeMutedText.opacity(0.6))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .animation(.easeOut(duration: 0.2), value: lit)
+    }
+
+    private func startPulseIfNeeded() {
+        powerPulse = false
+        guard gameMode.isActive else { return }
+        withAnimation(.easeOut(duration: 1.6).repeatForever(autoreverses: false)) {
+            powerPulse = true
+        }
     }
 
     // MARK: - 场景预设（FPS / RPG / 音游）
@@ -152,26 +282,6 @@ struct GameModeSettingsView: View {
         }
     }
 
-    private var scenariosSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(String(localized: "game_mode_preset_section_title"))
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundColor(gameModePrimaryText)
-                Text(String(localized: "game_mode_preset_section_subtitle"))
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundColor(gameModeSecondaryText)
-            }
-            .padding(.horizontal, 4)
-
-            HStack(spacing: 10) {
-                ForEach(GameModeScenarioPreset.allCases) { preset in
-                    scenarioCard(preset)
-                }
-            }
-        }
-    }
-
     private func scenarioCard(_ preset: GameModeScenarioPreset) -> some View {
         let isSelected = matchedPreset == preset
         return Button {
@@ -181,43 +291,58 @@ struct GameModeSettingsView: View {
                 matchedPreset = preset
             }
         } label: {
-            VStack(alignment: .leading, spacing: 8) {
-                MonologueSymbolIcon(
-                    name: preset.systemIconName,
-                    size: 19,
-                    color: isSelected ? gameModeAccentText : gameModePrimaryText
-                )
-                    .frame(width: 32, height: 32)
-                    .background(
-                        Circle().fill(
-                            isSelected
-                            ? gameModeAccent
-                            : gameModeIconFill.opacity(0.8)
-                        )
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    MonologueSymbolIcon(
+                        name: preset.systemIconName,
+                        size: 17,
+                        color: isSelected ? gameModeAccentText : gameModePrimaryText.opacity(0.8)
                     )
+                    .frame(width: 34, height: 34)
+                    .background(
+                        RoundedRectangle(cornerRadius: 11, style: .continuous)
+                            .fill(isSelected ? gameModeAccent : gameModeIconFill.opacity(0.8))
+                    )
+
+                    Spacer(minLength: 0)
+
+                    // 单选点
+                    Circle()
+                        .stroke(
+                            isSelected ? gameModeAccent : gameModeDivider.opacity(0.8),
+                            lineWidth: isSelected ? 4.5 : 1.2
+                        )
+                        .frame(width: isSelected ? 11 : 14, height: isSelected ? 11 : 14)
+                        .frame(width: 14, height: 14)
+                }
+
                 Text(preset.localizedTitle)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
                     .foregroundColor(gameModePrimaryText)
                     .lineLimit(1)
+                    .padding(.top, 12)
+
                 Text(preset.localizedSubtitle)
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .font(.system(size: 10.5, weight: .medium, design: .rounded))
                     .foregroundColor(gameModeSecondaryText)
                     .lineLimit(2)
+                    .lineSpacing(1.5)
                     .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 3)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(12)
+            .padding(13)
             .themedPageSurface(cornerRadius: 16, elevated: isSelected, mangaTint: MangaStyle.bubbleWhite)
             .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .strokeBorder(
-                        isSelected ? gameModeAccent : Color.clear,
-                        lineWidth: 1.5
+                        isSelected ? gameModeAccent.opacity(0.75) : Color.clear,
+                        lineWidth: 1.3
                     )
             )
-            .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
     }
 
     // MARK: - 子项
@@ -405,19 +530,27 @@ struct GameModeSettingsView: View {
 
     // MARK: - 说明
 
-    private var infoSection: some View {
+    private var infoFootnote: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(String(localized: "game_mode_info_title"))
-                .font(.rounded(size: 13, weight: .semibold))
-                .foregroundColor(gameModePrimaryText)
+            HStack(spacing: 8) {
+                Text(String(localized: "game_mode_info_title"))
+                    .font(.rounded(size: 12, weight: .bold))
+                    .foregroundColor(gameModeSecondaryText)
+
+                Rectangle()
+                    .fill(gameModeDivider.opacity(0.5))
+                    .frame(height: 0.5)
+            }
+
             Text(String(localized: "game_mode_info_body"))
-                .font(.rounded(size: 12, weight: .medium))
-                .foregroundColor(gameModeSecondaryText)
+                .font(.rounded(size: 12))
+                .foregroundColor(gameModeSecondaryText.opacity(0.85))
+                .lineSpacing(3)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .themedPageSurface(cornerRadius: 18, elevated: false, mangaTint: MangaStyle.bubbleWhite)
+        .padding(.horizontal, 4)
+        .padding(.top, 2)
     }
 
     private var gameModeAccent: Color {
@@ -437,10 +570,6 @@ struct GameModeSettingsView: View {
 
     private var gameModeIconFill: Color {
         return NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueIconBackground
-    }
-
-    private var gameModeInactiveIconText: Color {
-        return NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueIconForeground
     }
 
     private var gameModePrimaryText: Color {

@@ -1,87 +1,69 @@
 import SwiftUI
 import FFmpegSwiftSDK
 
-/// 沉浸动态歌词版播放器布局 - Apple Music 风格 (大封面与歌词双状态)
+/// 沉浸动态歌词版播放器布局 — Apple Music 风格重构
+///
+/// 版式完全对齐 Apple Music「正在播放」：
+/// · 播放态：顶部把手 → 居中巨幅封面（播放放大 / 暂停缩小的呼吸感）→ 标题行（左标题右操作）
+///   → 细进度条 → 三键走带 → 底部功能排（歌词 / 评论 / 沉浸 / 队列）。
+/// · 歌词态：小封面顶栏 + 全屏歌词瀑布，没有底部控制栏——歌词一铺到底；
+///   点歌词区域收起 / 唤回顶栏，点小封面或底部歌词键飞回播放态。
+/// · 两个状态共享同一张封面（matchedGeometryEffect），切换时封面在
+///   「舞台中央 ⇄ 顶栏角落」之间真实飞行。
 struct ImmersiveLyricPlayerLayout: View {
     @Environment(\.dismiss) var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject var player = PlayerManager.shared
-    @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
-    @ObservedObject var downloadManager = DownloadManager.shared
-    @ObservedObject var lyricVM = LyricViewModel.shared
 
-    @StateObject private var colorExtractor = CoverColorExtractor()
     @State private var showMoreMenu = false
     @State private var showQualitySheet = false
     @State private var showEQSettings = false
     @State private var showThemePicker = false
     @State private var showArtistDetail = false
     @State private var showComments = false
-    @State private var showDownloadSheet = false
-    
-    // 双状态核心：是否跑在这套主题的主页面（歌词界面）
-    @State private var showLyrics = true
+    @State private var showPlaylist = false
+
+    // 双状态核心：是否处于歌词态
+    @State private var showLyrics = false
     @Namespace private var animation
-    
-    // 控制底部悬浮播放栏的显示隐藏 (仅限歌词界面)
-    @State private var isControlsVisible = false
-    
+
+    // 歌词态顶栏显隐；点歌词区域整体收起进入纯歌词全沉浸
+    @State private var isChromeVisible = true
+
     // 进度条控制
     @State private var isDraggingSlider = false
     @State private var dragTimeValue: Double = 0
 
+    /// 双状态切换共用的弹簧
+    private var stateSpring: Animation { .spring(response: 0.5, dampingFraction: 0.86) }
+
+    private func toggleLyrics() {
+        withAnimation(stateSpring) {
+            showLyrics.toggle()
+            // 每次进入歌词态都先带出顶栏，避免「进来不知道怎么回去」
+            if showLyrics { isChromeVisible = true }
+        }
+    }
+
     var body: some View {
         GeometryReader { geo in
             let sw = geo.size.width
-            
-            ZStack(alignment: .topLeading) {
-                // 1. 弥散背景 (复用已有的播放器模糊变幻逻辑，双状态共享)
+
+            ZStack(alignment: .top) {
+                // 弥散封面背景（双状态共享）
                 PlaylistColorBackground(
                     coverUrl: player.currentSong?.coverUrl?.sized(200),
                     onBrightnessChanged: { _ in }
                 )
                 .frame(width: sw)
                 .ignoresSafeArea()
-                    
+
                 if showLyrics {
-                    // === 状态 B：歌词界面 ===
-                    VStack(spacing: 0) {
-                        // 2. 顶部小封面 + 信息栏
-                        topNavBar
-                            .padding(.top, DeviceLayout.headerTopPadding)
-                            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-                            .padding(.bottom, 12)
-                        
-                        // 3. 占据中间剩余所有空间的歌词瀑布流
-                        if let song = player.currentSong {
-                            OrganicLyricsView(song: song) {
-                                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                                    isControlsVisible.toggle()
-                                }
-                            }
-                            .environment(\.colorScheme, .dark)
-                        } else {
-                            Spacer()
-                        }
-                    }
-                    .frame(width: sw)
+                    lyricStage(size: geo.size)
                 } else {
-                    // === 状态 A：常规大封面播放器 ===
-                    standardPlayerContainer
+                    playerStage(size: geo.size)
                 }
-                
-                // 4. 底部悬浮控制栏 (仅在歌词界面且唤出时显示)
-                VStack {
-                    Spacer()
-                    if showLyrics && isControlsVisible {
-                        bottomControlsBar
-                            .padding(.bottom, 20)
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                    }
-                }
-                .frame(width: sw)
-                .ignoresSafeArea(edges: .bottom)
-                
+
                 if showMoreMenu {
                     PlayerMoreMenu(
                         isPresented: $showMoreMenu,
@@ -95,13 +77,16 @@ struct ImmersiveLyricPlayerLayout: View {
         }
         .environment(\.colorScheme, .dark)
         // Sheets
-        .monologueSheet(isPresented: $showEQSettings, preset: .large) {
+        .fullScreenCover(isPresented: $showEQSettings) {
             NavigationStack { EQSettingsView() }
         }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker) {
             PlayerThemePickerSheet()
         }
-        .monologueSheet(isPresented: $showQualitySheet, preset: .compact) {
+        .monologueSheet(isPresented: $showPlaylist, preset: .standard) {
+            if player.isPlayingPodcast { PodcastPlaylistPopupView() } else { PlaylistPopupView() }
+        }
+        .monologueSheet(isPresented: $showQualitySheet, preset: .standard) {
             SoundQualitySheet(
                 currentQuality: player.soundQuality,
                 currentQQQuality: player.qqMusicQuality,
@@ -118,7 +103,7 @@ struct ImmersiveLyricPlayerLayout: View {
         .monologueSheet(isPresented: $showComments, preset: .large) {
             if let song = player.currentSong {
                 CommentView(resourceId: song.id, resourceType: .song,
-                           songName: song.name, artistName: song.artistName, coverUrl: song.coverUrl)
+                            songName: song.name, artistName: song.artistName, coverUrl: song.coverUrl)
             }
         }
         .monologueSheet(isPresented: $showArtistDetail, preset: .detail) {
@@ -135,284 +120,258 @@ struct ImmersiveLyricPlayerLayout: View {
     }
 }
 
-// MARK: - 常规播放界面 (大封面状态)
+// MARK: - 播放态（Apple Music 正在播放版式）
 extension ImmersiveLyricPlayerLayout {
-    var standardPlayerContainer: some View {
-        VStack {
-            // 顶部下拉与更多菜单
-            HStack {
-                Button(action: { dismiss() }) {
-                    MonologueIcon(icon: .back, size: 24, color: .white)
-                }
-                .buttonStyle(MonologueBouncingButtonStyle())
-                
-                Spacer()
-                
-                Button(action: { showMoreMenu = true }) {
-                    MonologueIcon(icon: .more, size: 24, color: .white)
-                }
-                .buttonStyle(MonologueBouncingButtonStyle())
-            }
-            .padding(.top, DeviceLayout.headerTopPadding)
-            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-            
-            Spacer()
-            
-            // 巨幅封面，支持点击展开全屏歌词
-            if let song = player.currentSong, let url = song.coverUrl?.sized(500) {
-                CachedAsyncImage(url: url) {
-                    Rectangle().fill(Color.gray.opacity(0.2))
-                }
-                .aspectRatio(1.0, contentMode: .fill)
-                // 强制锁定绝对宽高，避免外部 VStack 切换时的尺寸挤压塌缩现象
-                .frame(width: UIScreen.main.bounds.width - 64, height: UIScreen.main.bounds.width - 64)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
-                // 核心解法：无中生有的展开动画！以自己的左上角为奇点“喷射展开”和“收缩归位”
-                // 彻底抛弃 matchedGeometryEffect 导致的游离飞行感
-                .transition(.scale(scale: 0.15, anchor: .topLeading).combined(with: .opacity))
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) {
-                        showLyrics = true
-                    }
-                }
-            } else {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.gray.opacity(0.2))
-                    .aspectRatio(1.0, contentMode: .fill)
-                    .frame(width: UIScreen.main.bounds.width - 64, height: UIScreen.main.bounds.width - 64)
-                    .overlay(MonologueIcon(icon: .musicNote, size: 60, color: .white.opacity(0.7)))
-                    .transition(.scale(scale: 0.15, anchor: .topLeading).combined(with: .opacity))
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) {
-                            showLyrics = true
-                        }
-                    }
-            }
-            
-            Spacer()
-            
-            // 歌曲标题与操作
-            HStack(alignment: .center) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(player.currentSong?.name ?? "No Title")
-                        .monologuePlayerDisplayFont(
-                            size: 24,
-                            weight: .bold,
-                            fallback: .system(size: 24, weight: .bold, design: .rounded)
-                        )
-                        .foregroundColor(.white)
-                        .lineLimit(1)
-                    
-                    Button(action: { showArtistDetail = true }) {
-                        Text(player.currentSong?.artistName ?? "Unknown Artist")
-                            .font(.system(size: 18, weight: .medium, design: .rounded))
-                            .foregroundColor(.white.opacity(0.7))
-                            .lineLimit(1)
-                    }
-                }
-                Spacer()
-                if let song = player.currentSong {
-                    LikeButton(songId: song.id, isQQMusic: song.isQQMusic, song: song, size: 28, activeColor: .red, inactiveColor: .white.opacity(0.8))
-                }
-            }
-            .padding(.horizontal, 32)
-            
-            // 进度条
-            PlayerProgressSection(
-                isDragging: $isDraggingSlider,
-                dragValue: $dragTimeValue,
-                contentColor: .white
-            )
-            .padding(.horizontal, 32)
-            .padding(.top, 24)
-            
-            // 大面积底栏控件
-            HStack {
-                Button(action: { player.switchMode() }) {
-                    MonologueIcon(icon: player.mode.monologueIcon, size: 24, color: .white.opacity(0.8))
-                }
-                .buttonStyle(MonologueBouncingButtonStyle())
-                
-                Spacer()
-                
-                Button(action: { player.previous() }) {
-                    MonologueIcon(icon: .previous, size: 28, color: .white)
-                }
-                .buttonStyle(MonologueBouncingButtonStyle())
-                
-                Spacer()
-                
-                Button(action: { player.togglePlayPause() }) {
-                    if player.isLoading {
-                        ProgressView().progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            .frame(width: 44, height: 44)
-                    } else {
-                        MonologueIcon(icon: player.isPlaying ? .pause : .play, size: 44, color: .white)
-                    }
-                }
-                .buttonStyle(MonologueBouncingButtonStyle())
-                
-                Spacer()
-                
-                Button(action: { player.next() }) {
-                    MonologueIcon(icon: .next, size: 28, color: .white)
-                }
-                .buttonStyle(MonologueBouncingButtonStyle())
-                
-                Spacer()
-                
-                Button(action: { showComments = true }) {
-                    MonologueIcon(icon: .comment, size: 24, color: .white.opacity(0.8))
-                }
-                .buttonStyle(MonologueBouncingButtonStyle())
-            }
-            .padding(.horizontal, 32)
-            .padding(.top, 20)
-            
-            Spacer()
-        }
-    }
-}
+    @ViewBuilder
+    func playerStage(size: CGSize) -> some View {
+        let coverSize = min(size.width - 56, size.height * 0.42)
 
-// MARK: - 歌词界面顶部栏 (小封面状态)
-extension ImmersiveLyricPlayerLayout {
-    var topNavBar: some View {
-        HStack(spacing: 12) {
-            // 下拉直接关掉整个播放器
-            Button(action: { dismiss() }) {
-                MonologueIcon(icon: .back, size: 20, color: .white)
-            }
-            .buttonStyle(MonologueBouncingButtonStyle())
-            
-            // 小封面 —— 点击平滑还原为大封面 (`showLyrics = false`)
-            if let song = player.currentSong, let url = song.coverUrl?.sized(100) {
-                CachedAsyncImage(url: url) {
-                    Rectangle().fill(Color.gray.opacity(0.2))
-                }
-                .aspectRatio(1.0, contentMode: .fill)
-                .frame(width: 44, height: 44)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
-                .transition(.opacity) // 只淡入淡出，不飞行动画
+        VStack(spacing: 0) {
+            grabHandle
+                .padding(.top, 10)
+
+            Spacer(minLength: 12)
+
+            // 巨幅封面：播放时满幅，暂停时缩回 —— Apple Music 的呼吸手势
+            coverArtwork(size: coverSize, cornerRadius: 12)
+                .scaleEffect(player.isPlaying ? 1.0 : 0.82)
+                .animation(.spring(response: 0.5, dampingFraction: 0.75), value: player.isPlaying)
                 .contentShape(Rectangle())
-                .onTapGesture {
-                    withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) {
-                        showLyrics = false
-                    }
-                }
-            } else {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Color.gray.opacity(0.2))
-                    .aspectRatio(1.0, contentMode: .fill)
-                    .frame(width: 44, height: 44)
-                    .overlay(MonologueIcon(icon: .musicNote, size: 20, color: .white.opacity(0.7)))
-                    .transition(.opacity) // 只淡入淡出，不飞行动画
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) {
-                            showLyrics = false
-                        }
-                    }
+                .onTapGesture { toggleLyrics() }
+
+            Spacer(minLength: 12)
+
+            VStack(spacing: 22) {
+                titleRow
+                PlayerProgressSection(
+                    isDragging: $isDraggingSlider,
+                    dragValue: $dragTimeValue,
+                    contentColor: .white,
+                    secondaryColor: .white.opacity(0.55),
+                    useWaveform: false
+                )
+                transportRow
             }
-            
-            // 歌曲信息
-            VStack(alignment: .leading, spacing: 2) {
+            .padding(.horizontal, 28)
+
+            Spacer(minLength: 18)
+
+            utilityRow
+                .padding(.horizontal, 44)
+                .padding(.bottom, 14)
+        }
+        .frame(width: size.width, height: size.height)
+        .transition(.opacity)
+    }
+
+    /// 顶部把手：Apple Music 式的下拉捏手，点按收起播放器
+    var grabHandle: some View {
+        Button(action: { dismiss() }) {
+            Capsule()
+                .fill(Color.white.opacity(0.4))
+                .frame(width: 38, height: 5)
+                .padding(.vertical, 8)
+                .padding(.horizontal, 40)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// 标题行：左侧曲名 / 歌手，右侧收藏 + 更多（对齐 AM 的「标题旁挂操作」）
+    var titleRow: some View {
+        HStack(alignment: .center, spacing: 14) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(player.currentSong?.name ?? "No Title")
                     .monologuePlayerDisplayFont(
-                        size: 16,
+                        size: 21,
                         weight: .bold,
-                        fallback: .system(size: 16, weight: .bold, design: .rounded)
+                        fallback: .system(size: 21, weight: .bold, design: .rounded)
                     )
                     .foregroundColor(.white)
                     .lineLimit(1)
-                
+
                 Button(action: { showArtistDetail = true }) {
                     Text(player.currentSong?.artistName ?? "Unknown Artist")
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
-                        .foregroundColor(.white.opacity(0.7))
+                        .font(.system(size: 16, weight: .regular, design: .rounded))
+                        .foregroundColor(.white.opacity(0.62))
                         .lineLimit(1)
                 }
+                .buttonStyle(.plain)
             }
-            
-            Spacer()
-            
-            // 收藏与更多
-            HStack(spacing: 16) {
-                if let song = player.currentSong {
-                    LikeButton(songId: song.id, isQQMusic: song.isQQMusic, song: song, size: 20, activeColor: .red, inactiveColor: .white)
-                }
-                
-                Button(action: { showMoreMenu = true }) {
-                    MonologueIcon(icon: .more, size: 20, color: .white)
-                }
-                .buttonStyle(MonologueBouncingButtonStyle())
+
+            Spacer(minLength: 0)
+
+            if let song = player.currentSong {
+                LikeButton(songId: song.id, isQQMusic: song.isQQMusic, song: song,
+                           size: 21, activeColor: .red, inactiveColor: .white.opacity(0.85))
             }
+
+            Button(action: { showMoreMenu = true }) {
+                MonologueIcon(icon: .more, size: 17, color: .white.opacity(0.9))
+                    .frame(width: 32, height: 32)
+                    .background(Circle().fill(Color.white.opacity(0.14)))
+            }
+            .buttonStyle(MonologueBouncingButtonStyle())
         }
-        .padding(.top, DeviceLayout.headerTopPadding) // 补充一下基础的安全边际
+    }
+
+    /// 三键走带：AM 式的大间距居中排布
+    var transportRow: some View {
+        HStack {
+            Spacer()
+
+            Button(action: { player.previous() }) {
+                MonologueIcon(icon: .previous, size: 30, color: .white)
+            }
+            .buttonStyle(MonologueBouncingButtonStyle())
+
+            Spacer()
+
+            Button(action: { player.togglePlayPause() }) {
+                if player.isLoading {
+                    ProgressView().progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .frame(width: 48, height: 48)
+                } else {
+                    MonologueIcon(icon: player.isPlaying ? .pause : .play, size: 48, color: .white)
+                }
+            }
+            .buttonStyle(MonologueBouncingButtonStyle())
+
+            Spacer()
+
+            Button(action: { player.next() }) {
+                MonologueIcon(icon: .next, size: 30, color: .white)
+            }
+            .buttonStyle(MonologueBouncingButtonStyle())
+
+            Spacer()
+        }
+    }
+
+    /// 底部功能排：歌词 / 评论 / 沉浸 / 队列（对应 AM 底部的歌词·AirPlay·队列排）
+    var utilityRow: some View {
+        HStack {
+            utilityButton(icon: .musicNoteList, active: showLyrics) { toggleLyrics() }
+            Spacer()
+            utilityButton(icon: .comment) { showComments = true }
+            Spacer()
+            utilityButton(icon: .immersive) { CinemaModeController.shared.present() }
+            Spacer()
+            utilityButton(icon: .list) { showPlaylist = true }
+        }
+    }
+
+    @ViewBuilder
+    func utilityButton(icon: MonologueIcon.IconType, active: Bool = false, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            MonologueIcon(icon: icon, size: 19, color: active ? .black : .white.opacity(0.78))
+                .frame(width: 40, height: 40)
+                .background(
+                    Circle().fill(active ? Color.white.opacity(0.9) : Color.white.opacity(0.001))
+                )
+        }
+        .buttonStyle(MonologueBouncingButtonStyle())
     }
 }
 
-// MARK: - 底部控件栏 (仅在歌词悬浮浮动界面使用)
+// MARK: - 歌词态（全屏歌词，无控制栏）
 extension ImmersiveLyricPlayerLayout {
-    var bottomControlsBar: some View {
-        VStack(spacing: 20) {
-            // 进度条
-            PlayerProgressSection(
-                isDragging: $isDraggingSlider,
-                dragValue: $dragTimeValue,
-                contentColor: .white
-            )
-            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-            
-            // 按钮栏
-            HStack(spacing: 30) {
-                Button(action: { showComments = true }) {
-                    MonologueIcon(icon: .comment, size: 24, color: .white)
-                }
-                .buttonStyle(MonologueBouncingButtonStyle())
-                
-                Spacer()
-                
-                Button(action: { player.previous() }) {
-                    MonologueIcon(icon: .previous, size: 24, color: .white, lineWidth: 2)
-                }
-                .buttonStyle(MonologueBouncingButtonStyle())
-                
-                Button(action: { player.togglePlayPause() }) {
-                    if player.isLoading {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            .frame(width: 44, height: 44)
-                    } else {
-                        MonologueIcon(icon: player.isPlaying ? .pause : .play, size: 40, color: .white, lineWidth: 2.5)
+    @ViewBuilder
+    func lyricStage(size: CGSize) -> some View {
+        VStack(spacing: 0) {
+            // 顶部小封面信息栏（点歌词整体收起后隐藏，歌词铺满全屏）
+            if isChromeVisible {
+                lyricTopBar
+                    .padding(.top, DeviceLayout.headerTopPadding)
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                    .padding(.bottom, 10)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
+            // 歌词一铺到底：没有底部控制栏
+            if let song = player.currentSong {
+                OrganicLyricsView(song: song) {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        isChromeVisible.toggle()
                     }
                 }
-                .buttonStyle(MonologueBouncingButtonStyle())
-                
-                Button(action: { player.next() }) {
-                    MonologueIcon(icon: .next, size: 24, color: .white, lineWidth: 2)
-                }
-                .buttonStyle(MonologueBouncingButtonStyle())
-                
+                .environment(\.colorScheme, .dark)
+            } else {
                 Spacer()
-                
-                Button(action: { player.switchMode() }) {
-                    MonologueIcon(icon: player.mode.monologueIcon, size: 24, color: .white)
-                }
-                .buttonStyle(MonologueBouncingButtonStyle())
             }
-            .padding(.horizontal, DeviceLayout.viewHorizontalPadding + 10)
         }
-        .padding(.vertical, 20)
-        .background(
-            MonologueGlassContainer { Color.clear }
-                .opacity(0.8)
-                .clipShape(RoundedRectangle(cornerRadius: 24))
-        )
-        .padding(.horizontal, 16)
-        .shadow(color: .black.opacity(0.1), radius: 10, y: 5)
+        .frame(width: size.width)
+        .transition(.opacity)
+    }
+
+    var lyricTopBar: some View {
+        HStack(spacing: 12) {
+            // 小封面 + 歌曲信息 —— 整块点按飞回播放态
+            HStack(spacing: 12) {
+                coverArtwork(size: 46, cornerRadius: 9)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(player.currentSong?.name ?? "No Title")
+                        .monologuePlayerDisplayFont(
+                            size: 16,
+                            weight: .bold,
+                            fallback: .system(size: 16, weight: .bold, design: .rounded)
+                        )
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+
+                    Text(player.currentSong?.artistName ?? "Unknown Artist")
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundColor(.white.opacity(0.62))
+                        .lineLimit(1)
+                }
+            }
+            .contentShape(Rectangle())
+            .onTapGesture { toggleLyrics() }
+
+            Spacer(minLength: 12)
+
+            if let song = player.currentSong {
+                LikeButton(songId: song.id, isQQMusic: song.isQQMusic, song: song,
+                           size: 19, activeColor: .red, inactiveColor: .white.opacity(0.85))
+            }
+
+            // 与播放态同款的收起入口：点按回到封面
+            Button(action: { toggleLyrics() }) {
+                MonologueIcon(icon: .chevronDown, size: 16, color: .white.opacity(0.9))
+                    .frame(width: 32, height: 32)
+                    .background(Circle().fill(Color.white.opacity(0.14)))
+            }
+            .buttonStyle(MonologueBouncingButtonStyle())
+        }
+    }
+}
+
+// MARK: - 封面（双状态共享）
+extension ImmersiveLyricPlayerLayout {
+    /// 大小两个状态共用的封面视图：同一个 matchedGeometry id，
+    /// 切换时封面在「舞台中央 ⇄ 顶栏角落」之间真实飞行缩放。
+    @ViewBuilder
+    func coverArtwork(size: CGFloat, cornerRadius: CGFloat) -> some View {
+        Group {
+            if let song = player.currentSong, let url = song.coverUrl?.sized(size > 100 ? 500 : 100) {
+                CachedAsyncImage(url: url) {
+                    Rectangle().fill(Color.gray.opacity(0.2))
+                }
+                .aspectRatio(1.0, contentMode: .fill)
+            } else {
+                Rectangle()
+                    .fill(Color.gray.opacity(0.2))
+                    .overlay(
+                        MonologueIcon(icon: .musicNote, size: size * 0.24, color: .white.opacity(0.7))
+                    )
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .shadow(color: .black.opacity(size > 100 ? 0.35 : 0.2),
+                radius: size > 100 ? 26 : 5,
+                x: 0, y: size > 100 ? 14 : 2)
+        .matchedGeometryEffect(id: "immersiveLyricCover", in: animation)
     }
 }

@@ -587,21 +587,24 @@ struct AriaForeignFumeStage: View {
                     Color.clear.frame(height: stageSize.height * 0.35)
 
                     ForEach(Array(lines.enumerated()), id: \.element.id) { index, line in
+                        let isActive = index == activeIndex
                         AriaForeignFumeLine(
                             line: line,
                             index: index,
                             distance: activeIndex < 0 ? 99 : abs(index - activeIndex),
-                            isActive: index == activeIndex,
+                            isActive: isActive,
                             palette: palette.lineVariant(line.id),
                             fontChoice: fontChoice,
                             fontScale: fontScale,
-                            time: time,
+                            // 非活跃/非间奏行不消费时间：冻结 + Equatable 跳过重排
+                            time: isActive || line.isInterlude ? time : 0,
                             stageWidth: max(
                                 220,
                                 stageSize.width
                                     - 2 * max(32, stageSize.width * 0.08)
                             )
                         )
+                        .equatable()
                         .id(line.id)
                     }
 
@@ -637,7 +640,7 @@ struct AriaForeignFumeStage: View {
     }
 }
 
-private struct AriaForeignFumeLine: View {
+private struct AriaForeignFumeLine: View, @MainActor Equatable {
     let line: AriaLine
     let index: Int
     let distance: Int
@@ -647,6 +650,19 @@ private struct AriaForeignFumeLine: View {
     let fontScale: Double
     let time: Double
     let stageWidth: CGFloat
+
+    static func == (lhs: AriaForeignFumeLine, rhs: AriaForeignFumeLine) -> Bool {
+        lhs.line.id == rhs.line.id
+            && lhs.line.fullText == rhs.line.fullText
+            && lhs.index == rhs.index
+            && lhs.distance == rhs.distance
+            && lhs.isActive == rhs.isActive
+            && lhs.palette == rhs.palette
+            && lhs.fontChoice == rhs.fontChoice
+            && lhs.fontScale == rhs.fontScale
+            && lhs.time == rhs.time
+            && lhs.stageWidth == rhs.stageWidth
+    }
 
     private var fontSize: CGFloat {
         let base = min(48, max(30, stageWidth * 0.04)) * CGFloat(fontScale)
@@ -756,19 +772,22 @@ struct AriaForeignCappellaStage: View {
                     Color.clear.frame(height: stageSize.height * 0.32)
 
                     ForEach(Array(lines.enumerated()), id: \.element.id) { index, line in
+                        let isActive = index == activeIndex
                         AriaForeignCappellaRow(
                             line: line,
                             index: index,
                             distance: activeIndex < 0 ? 99 : abs(index - activeIndex),
-                            isActive: index == activeIndex,
+                            isActive: isActive,
                             palette: palette.lineVariant(line.id),
                             fontChoice: fontChoice,
                             fontScale: fontScale,
-                            time: time,
+                            // 非活跃/非间奏行不消费时间：冻结 + Equatable 跳过重排
+                            time: isActive || line.isInterlude ? time : 0,
                             coverURL: player.currentSong?.coverUrl?.sized(100),
                             profileURL: profileURL,
                             stageWidth: stageSize.width
                         )
+                        .equatable()
                         .id(line.id)
                     }
 
@@ -822,7 +841,7 @@ struct AriaForeignCappellaStage: View {
     }
 }
 
-private struct AriaForeignCappellaRow: View {
+private struct AriaForeignCappellaRow: View, @MainActor Equatable {
     let line: AriaLine
     let index: Int
     let distance: Int
@@ -834,6 +853,21 @@ private struct AriaForeignCappellaRow: View {
     let coverURL: URL?
     let profileURL: URL?
     let stageWidth: CGFloat
+
+    static func == (lhs: AriaForeignCappellaRow, rhs: AriaForeignCappellaRow) -> Bool {
+        lhs.line.id == rhs.line.id
+            && lhs.line.fullText == rhs.line.fullText
+            && lhs.index == rhs.index
+            && lhs.distance == rhs.distance
+            && lhs.isActive == rhs.isActive
+            && lhs.palette == rhs.palette
+            && lhs.fontChoice == rhs.fontChoice
+            && lhs.fontScale == rhs.fontScale
+            && lhs.time == rhs.time
+            && lhs.coverURL == rhs.coverURL
+            && lhs.profileURL == rhs.profileURL
+            && lhs.stageWidth == rhs.stageWidth
+    }
 
     private var isLeft: Bool { index.isMultiple(of: 2) }
 

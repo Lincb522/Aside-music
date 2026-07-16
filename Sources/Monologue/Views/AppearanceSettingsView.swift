@@ -32,8 +32,6 @@ private func appearanceSettingsFont(_ size: CGFloat, weight: Font.Weight = .medi
 
 struct AppearanceSettingsView: View {
     @ObservedObject private var settings = SettingsManager.shared
-    @ObservedObject private var player = PlayerManager.shared
-    @StateObject private var coverColors = CoverColorExtractor()
     @State private var isGlobalThemeExpanded = false
     @State private var isAppBrandStyleExpanded = false
     @State private var isThemeColorExpanded = false
@@ -53,7 +51,6 @@ struct AppearanceSettingsView: View {
                         layoutSection
                         contentExperienceSection
                         dynamicBackgroundSection
-                        lyricSection
                         FloatingBarBottomSpacer()
                     }
                     .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
@@ -67,14 +64,6 @@ struct AppearanceSettingsView: View {
         .toolbarBackground(.hidden, for: .navigationBar)
         .onAppear {
             settings.enforceCoverBackgroundPolicyForCurrentTheme()
-            coverColors.extract(
-                from: player.currentSong?.coverUrl?.sized(200).absoluteString
-            )
-        }
-        .onChange(of: player.currentSong?.id) { _, _ in
-            coverColors.extract(
-                from: player.currentSong?.coverUrl?.sized(200).absoluteString
-            )
         }
     }
 
@@ -339,145 +328,13 @@ struct AppearanceSettingsView: View {
         }
     }
 
-    // MARK: - 歌词
-
-    private var lyricSection: some View {
-        SettingsSection(title: String(localized: "settings_lyrics")) {
-            VStack(spacing: 0) {
-                lyricColorModeRow
-
-                if settings.lyricColorMode == "solid" {
-                    Divider()
-                        .opacity(0.4)
-                        .padding(.leading, 62)
-
-                    lyricColorPickerRow(
-                        title: String(localized: "settings_lyric_color"),
-                        hex: $settings.lyricSolidColorHex
-                    )
-                }
-
-                if settings.lyricColorMode == "gradient" {
-                    Divider()
-                        .opacity(0.4)
-                        .padding(.leading, 62)
-
-                    lyricColorPickerRow(
-                        title: String(localized: "settings_lyric_color_start"),
-                        hex: $settings.lyricGradientStartHex
-                    )
-
-                    Divider()
-                        .opacity(0.4)
-                        .padding(.leading, 62)
-
-                    lyricColorPickerRow(
-                        title: String(localized: "settings_lyric_color_end"),
-                        hex: $settings.lyricGradientEndHex
-                    )
-                }
-
-                if settings.lyricColorMode != "default" {
-                    Divider()
-                        .opacity(0.4)
-                        .padding(.leading, 62)
-
-                    lyricPreview
-                }
-            }
-        }
-    }
-
-    // MARK: - Lyric Helpers
-
-    private var lyricColorModeRow: some View {
-        HStack(spacing: 12) {
-            SettingsIconBadge(icon: .sparkle)
-
-            Text(String(localized: "settings_lyric_color"))
-                .font(.system(size: 15, weight: .medium, design: .rounded))
-                .foregroundColor(.monologueTextPrimary)
-
-            Spacer()
-
-            Picker("", selection: $settings.lyricColorMode) {
-                Text(String(localized: "settings_lyric_color_mode_default")).tag("default")
-                Text(String(localized: "自动")).tag("auto")
-                Text(String(localized: "settings_lyric_color_mode_solid")).tag("solid")
-                Text(String(localized: "settings_lyric_color_mode_gradient")).tag("gradient")
-            }
-            .pickerStyle(.segmented)
-            .frame(width: 180)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
-    }
-
-    private func lyricColorPickerRow(title: String, hex: Binding<String>) -> some View {
-        HStack(spacing: 12) {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color(hex: hex.wrappedValue))
-                .frame(width: 30, height: 30)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(Color.monologueSeparator, lineWidth: 1)
-                )
-
-            Text(title)
-                .font(.system(size: 15, weight: .medium, design: .rounded))
-                .foregroundColor(.monologueTextPrimary)
-
-            Spacer()
-
-            ColorPicker("", selection: Binding(
-                get: { Color(hex: hex.wrappedValue) },
-                set: { hex.wrappedValue = $0.toHex() }
-            ), supportsOpacity: false)
-                .labelsHidden()
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
-    }
-
-    private var lyricPreview: some View {
-        VStack(spacing: 8) {
-            if settings.lyricColorMode == "auto" {
-                Text(String(localized: "settings_lyric_preview"))
-                    .font(.rounded(size: 20, weight: .bold))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: Array(coverColors.palette.prefix(6)),
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-            } else if settings.lyricColorMode == "gradient" {
-                Text(String(localized: "settings_lyric_preview"))
-                    .font(.rounded(size: 20, weight: .bold))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [
-                                Color(hex: settings.lyricGradientStartHex),
-                                Color(hex: settings.lyricGradientEndHex),
-                            ],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-            } else if settings.lyricColorMode == "solid" {
-                Text(String(localized: "settings_lyric_preview"))
-                    .font(.rounded(size: 20, weight: .bold))
-                    .foregroundColor(Color(hex: settings.lyricSolidColorHex))
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
-    }
+    // 歌词颜色设置已迁移到播放器右上角三点菜单 →「歌词外观」（MonologueFontPicker.swift）
 }
 
 private struct ThemeColorCustomizationSection: View {
     let theme: GlobalThemeId
     @Binding var isExpanded: Bool
+    @Environment(\.colorScheme) private var colorScheme
     @ObservedObject private var settings = SettingsManager.shared
     @State private var activeColorPicker: ThemeColorPickerTarget?
     @State private var backgroundPhotoItem: PhotosPickerItem?
@@ -535,15 +392,24 @@ private struct ThemeColorCustomizationSection: View {
 
                         Divider().opacity(0.35)
 
-                        colorRoleEditor(role: .accent)
+                        if usesDarkAsideCustomization {
+                            darkAccentEditor
 
-                        Divider().opacity(0.35)
-
-                        colorRoleEditor(role: .background)
-
-                        if ThemeColorCustomization.supportsImageBackground(theme) {
                             Divider().opacity(0.35)
+
                             darkBackgroundEditor
+                        } else {
+                            colorRoleEditor(role: .accent)
+
+                            Divider().opacity(0.35)
+
+                            colorRoleEditor(role: .background)
+
+                            if ThemeColorCustomization.supportsImageBackground(theme),
+                               theme != .default {
+                                Divider().opacity(0.35)
+                                darkBackgroundEditor
+                            }
                         }
 
                         if theme == .manga {
@@ -573,16 +439,31 @@ private struct ThemeColorCustomizationSection: View {
         }
     }
 
+    private var usesDarkAsideCustomization: Bool {
+        theme == .default && colorScheme == .dark
+    }
+
     private var currentPresetSummary: String {
-        ThemeColorCustomization.selectedPresetDisplayName(for: theme)
+        if usesDarkAsideCustomization {
+            return ThemeColorCustomization.selectedDarkPresetDisplayName(for: theme)
+        }
+        return ThemeColorCustomization.selectedPresetDisplayName(for: theme)
     }
 
     private var restoreDefaultColorsButton: some View {
-        let canRestore = ThemeColorCustomization.hasStoredCustomization(for: theme)
+        let canRestore = usesDarkAsideCustomization
+            ? ThemeColorCustomization.hasStoredDarkCustomization(for: theme)
+            : ThemeColorCustomization.hasStoredCustomization(for: theme)
 
         return Button {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
-                ThemeColorCustomization.resetThemeColors(for: theme)
+                if usesDarkAsideCustomization {
+                    ThemeColorCustomization.resetDarkThemeColors(for: theme)
+                } else if theme == .default {
+                    ThemeColorCustomization.resetLightThemeColors(for: theme)
+                } else {
+                    ThemeColorCustomization.resetThemeColors(for: theme)
+                }
             }
         } label: {
             HStack(spacing: 9) {
@@ -606,14 +487,20 @@ private struct ThemeColorCustomizationSection: View {
     }
 
     private var presetRail: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let builtInPresets = usesDarkAsideCustomization
+            ? ThemeColorCustomization.builtInDarkColorPresets(for: theme)
+            : ThemeColorCustomization.builtInColorPresets(for: theme)
+        let customPresets = usesDarkAsideCustomization
+            ? ThemeColorCustomization.customDarkPresets(for: theme)
+            : ThemeColorCustomization.customPresets(for: theme)
+
+        return VStack(alignment: .leading, spacing: 12) {
             presetGroup(
                 title: String(localized: "预设"),
-                presets: ThemeColorCustomization.builtInColorPresets(for: theme),
+                presets: builtInPresets,
                 allowsDelete: false
             )
 
-            let customPresets = ThemeColorCustomization.customPresets(for: theme)
             if !customPresets.isEmpty {
                 presetGroup(
                     title: String(localized: "自定义方案"),
@@ -640,12 +527,14 @@ private struct ThemeColorCustomizationSection: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
                 ForEach(presets) { preset in
-                    let isSelected = ThemeColorCustomization.isPresetSelected(preset, for: theme)
+                    let isSelected = usesDarkAsideCustomization
+                        ? ThemeColorCustomization.isDarkPresetSelected(preset, for: theme)
+                        : ThemeColorCustomization.isPresetSelected(preset, for: theme)
                     if allowsDelete {
                         HStack(spacing: 4) {
                             Button {
                                 withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
-                                    ThemeColorCustomization.applyPreset(preset, to: theme)
+                                    applyPreset(preset)
                                 }
                             } label: {
                                 presetChipLabel(preset: preset, isSelected: isSelected)
@@ -654,7 +543,7 @@ private struct ThemeColorCustomizationSection: View {
 
                             Button {
                                 withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
-                                    ThemeColorCustomization.deleteSavedPreset(preset, for: theme)
+                                    deletePreset(preset)
                                 }
                             } label: {
                                 MonologueIcon(icon: .trash, size: 10.5, color: themeSubtextColor.opacity(0.82), lineWidth: 1.55)
@@ -667,7 +556,7 @@ private struct ThemeColorCustomizationSection: View {
                     } else {
                         Button {
                             withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
-                                ThemeColorCustomization.applyPreset(preset, to: theme)
+                                applyPreset(preset)
                             }
                         } label: {
                             presetChipLabel(preset: preset, isSelected: isSelected)
@@ -678,6 +567,22 @@ private struct ThemeColorCustomizationSection: View {
             }
             .themeRenderScrollLayer()
             .padding(.vertical, 2)
+        }
+    }
+
+    private func applyPreset(_ preset: ThemeColorPreset) {
+        if usesDarkAsideCustomization {
+            ThemeColorCustomization.applyDarkPreset(preset, to: theme)
+        } else {
+            ThemeColorCustomization.applyPreset(preset, to: theme)
+        }
+    }
+
+    private func deletePreset(_ preset: ThemeColorPreset) {
+        if usesDarkAsideCustomization {
+            ThemeColorCustomization.deleteSavedDarkPreset(preset, for: theme)
+        } else {
+            ThemeColorCustomization.deleteSavedPreset(preset, for: theme)
         }
     }
 
@@ -772,7 +677,9 @@ private struct ThemeColorCustomizationSection: View {
 
                 Spacer(minLength: 6)
 
-                let count = ThemeColorCustomization.savedPresets(for: theme).count
+                let count = usesDarkAsideCustomization
+                    ? ThemeColorCustomization.savedDarkPresets(for: theme).count
+                    : ThemeColorCustomization.savedPresets(for: theme).count
                 if count > 0 {
                     Text(String(localized: "已保存 \(count)"))
                         .font(appearanceSettingsFont(10, weight: .medium))
@@ -791,12 +698,26 @@ private struct ThemeColorCustomizationSection: View {
         ) {
             Button(String(localized: "仅保存配色")) {
                 withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
-                    ThemeColorCustomization.saveCurrentPreset(for: theme)
+                    if usesDarkAsideCustomization {
+                        ThemeColorCustomization.saveCurrentDarkPreset(for: theme)
+                    } else {
+                        ThemeColorCustomization.saveCurrentPreset(for: theme)
+                    }
                 }
             }
             Button(String(localized: "保存配色与图标包（\(SettingsManager.shared.interfaceIconSet.displayName)）")) {
                 withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
-                    ThemeColorCustomization.saveCurrentPreset(for: theme, includingIconSet: true)
+                    if usesDarkAsideCustomization {
+                        ThemeColorCustomization.saveCurrentDarkPreset(
+                            for: theme,
+                            includingIconSet: true
+                        )
+                    } else {
+                        ThemeColorCustomization.saveCurrentPreset(
+                            for: theme,
+                            includingIconSet: true
+                        )
+                    }
                 }
             }
             Button(String(localized: "取消"), role: .cancel) {}
@@ -851,6 +772,40 @@ private struct ThemeColorCustomizationSection: View {
                     binding: colorBinding(role: role, suffix: "solid", fallback: fallbackHex(role: role, suffix: "solid"))
                 )
             }
+        }
+    }
+
+    private var darkAccentEditor: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(String(localized: "强调色"))
+                    .font(appearanceSettingsFont(13, weight: .semibold))
+                    .foregroundStyle(themeTextColor)
+
+                Spacer()
+
+                Text(String(localized: "单色"))
+                    .font(appearanceSettingsFont(11, weight: .semibold))
+                    .foregroundStyle(themeSubtextColor)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5)
+                    .background(Capsule().fill(themeStrokeColor.opacity(0.16)))
+            }
+
+            colorPickerPill(
+                title: String(localized: "颜色"),
+                target: .role(
+                    .accent,
+                    suffix: "darkSolid",
+                    title: String(localized: "颜色"),
+                    fallback: ThemeColorCustomization.defaultDarkAccentHex
+                ),
+                binding: colorBinding(
+                    role: .accent,
+                    suffix: "darkSolid",
+                    fallback: ThemeColorCustomization.defaultDarkAccentHex
+                )
+            )
         }
     }
 
@@ -917,7 +872,7 @@ private struct ThemeColorCustomizationSection: View {
                     }
                 }
                 .pickerStyle(.segmented)
-                .frame(width: 196)
+                .frame(width: 232)
             }
 
             switch kind {
@@ -928,6 +883,9 @@ private struct ThemeColorCustomizationSection: View {
                     target: .role(.background, suffix: "darkSolid", title: String(localized: "夜间纯色"), fallback: ThemeColorCustomization.defaultDarkBackgroundSolidHex),
                     binding: colorBinding(role: .background, suffix: "darkSolid", fallback: ThemeColorCustomization.defaultDarkBackgroundSolidHex)
                 )
+            case .gradient:
+                darkBackgroundGradientColorGrid
+                darkGradientStyleSelector
             case .image:
                 backgroundImageEditor(dark: true)
             case .standard:
@@ -993,6 +951,85 @@ private struct ThemeColorCustomizationSection: View {
                 }
             }
         )
+    }
+
+    private var darkBackgroundGradientColorGrid: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                darkGradientColorPill(suffix: "darkStart", title: String(localized: "颜色 1"))
+                darkGradientColorPill(suffix: "darkEnd", title: String(localized: "颜色 2"))
+            }
+
+            HStack(spacing: 10) {
+                darkGradientColorPill(suffix: "darkStop3", title: String(localized: "颜色 3"))
+                darkGradientColorPill(suffix: "darkStop4", title: String(localized: "颜色 4"))
+            }
+        }
+    }
+
+    private func darkGradientColorPill(suffix: String, title: String) -> some View {
+        let fallback = ThemeColorCustomization.defaultDarkBackgroundStopHex(suffix)
+        return colorPickerPill(
+            title: title,
+            target: .role(
+                .background,
+                suffix: suffix,
+                title: title,
+                fallback: fallback
+            ),
+            binding: colorBinding(
+                role: .background,
+                suffix: suffix,
+                fallback: fallback
+            )
+        )
+    }
+
+    private var darkGradientStyleSelector: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(String(localized: "渐变方式"))
+                .font(appearanceSettingsFont(11, weight: .semibold))
+                .foregroundStyle(themeSubtextColor.opacity(0.82))
+                .lineLimit(1)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(ThemeCustomGradientStyle.allCases) { style in
+                        let isSelected = ThemeColorCustomization.darkBackgroundGradientStyle(
+                            for: theme
+                        ) == style
+                        Button {
+                            withAnimation(.spring(response: 0.28, dampingFraction: 0.88)) {
+                                ThemeColorCustomization.setDarkBackgroundGradientStyle(
+                                    style,
+                                    for: theme
+                                )
+                            }
+                        } label: {
+                            Text(style.displayName)
+                                .font(
+                                    appearanceSettingsFont(
+                                        11.5,
+                                        weight: isSelected ? .bold : .semibold
+                                    )
+                                )
+                                .foregroundStyle(
+                                    isSelected ? selectedPresetTextColor : themeTextColor
+                                )
+                                .lineLimit(1)
+                                .fixedSize(horizontal: true, vertical: false)
+                                .padding(.horizontal, 11)
+                                .padding(.vertical, 7)
+                                .background(
+                                    gradientStyleChipBackground(isSelected: isSelected)
+                                )
+                        }
+                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+                    }
+                }
+                .padding(.vertical, 1)
+            }
+        }
     }
 
     private func backgroundGradientColorGrid(role: ThemeCustomColorRole) -> some View {
@@ -1270,9 +1307,9 @@ private struct ThemeColorCustomizationSection: View {
         if theme == .minimalWhite {
             MinimalWhiteCapsuleBackground(elevated: isSelected, selected: isSelected)
         } else if theme == .manga {
-            Capsule()
+            RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
                 .fill(isSelected ? MangaStyle.labelYellow : MangaStyle.bubbleWhite)
-                .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: isSelected ? 1.9 : 1.3))
+                .overlay(RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: isSelected ? 1.9 : 1.3))
                 .shadow(color: isSelected ? MangaStyle.strokeInk.opacity(0.22) : .clear, radius: 0, x: 2, y: 2)
         } else if theme == .muji {
             Capsule()
@@ -1395,7 +1432,9 @@ private struct ThemeColorCustomizationSection: View {
 
     private var selectedPresetTextColor: Color {
         if theme == .minimalWhite { return MinimalWhiteStyle.ink }
-        if theme == .manga { return MangaStyle.strokeInk }
+        if theme == .manga {
+            return ThemeColorCustomization.readableForegroundColor(on: MangaStyle.labelYellow, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk)
+        }
         if theme == .muji { return MujiStyle.clay }
         if theme == .capsule { return CapsuleStyle.accent }
         if theme == .sequoia { return SequoiaStyle.accent }
@@ -2556,7 +2595,7 @@ private struct InterfaceIconSetOptionCard: View {
             return 18
         case .blobIcons:
             return 17
-        case .hicon, .zappicon, .lucide, .solar:
+        case .hicon, .sfSymbols, .zappicon, .lucide, .solar:
             return 15
         }
     }
@@ -2576,7 +2615,7 @@ private struct InterfaceIconSetOptionCard: View {
             }
         case .iconExport:
             return 1.08
-        case .hicon, .zappicon, .lucide, .solar, .blobIcons:
+        case .hicon, .sfSymbols, .zappicon, .lucide, .solar, .blobIcons:
             return 1
         }
     }

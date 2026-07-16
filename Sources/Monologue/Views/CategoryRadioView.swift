@@ -93,7 +93,16 @@ struct CategoryRadioView: View {
 
     // MARK: - 电台行
 
+    @ViewBuilder
     private func radioRow(radio: RadioStation) -> some View {
+        if !ThemedPageStyle.isActive {
+            AsideRadioListRow(radio: radio)
+        } else {
+            legacyRadioRow(radio: radio)
+        }
+    }
+
+    private func legacyRadioRow(radio: RadioStation) -> some View {
         HStack(spacing: 14) {
             CachedAsyncImage(url: radio.coverUrl) {
                 RoundedRectangle(cornerRadius: coverRadius, style: .continuous)

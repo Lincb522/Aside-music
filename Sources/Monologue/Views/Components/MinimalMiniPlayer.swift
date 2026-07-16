@@ -10,6 +10,7 @@ struct MinimalMiniPlayer: View {
     @State private var showPlaylist = false
 
     @State private var showingTabs = false
+    @Namespace private var asidePillNS
 
     private var shellCornerRadius: CGFloat {
         if MinimalWhiteStyle.isActive { return 18 }
@@ -86,9 +87,261 @@ struct MinimalMiniPlayer: View {
             minimalWhiteBody
         } else if PetWhiteStyle.isActive {
             PetWhiteMinimalBowPlayer(currentTab: $currentTab)
+        } else if settings.globalThemeId == .default {
+            asideBody
         } else {
             defaultBody
         }
+    }
+
+    // MARK: - Aside 印章胶囊（封面进度环 + 墨水药丸）
+
+    private var asideBody: some View {
+        HStack(spacing: 9) {
+            Button {
+                HapticManager.shared.light()
+                withAnimation(MonologueAnimation.panelToggle) {
+                    showingTabs.toggle()
+                }
+            } label: {
+                asideCoverSignet
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+
+            if showingTabs || player.currentSong == nil {
+                asideTabPills
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .move(edge: .trailing)),
+                        removal: .opacity.combined(with: .move(edge: .leading))
+                    ))
+            } else {
+                asideNowPlayingSegment
+                    .swipeToSkip()
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .move(edge: .leading)),
+                        removal: .opacity.combined(with: .move(edge: .trailing))
+                    ))
+            }
+        }
+        .padding(.leading, 7)
+        .padding(.trailing, 9)
+        .padding(.vertical, 7)
+        .background(asideShellBackground)
+        .overlay(
+            Capsule(style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(colorScheme == .dark ? 0.14 : 0.62),
+                            Color.white.opacity(colorScheme == .dark ? 0.04 : 0.14),
+                            Color.black.opacity(colorScheme == .dark ? 0.12 : 0.04),
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: 0.8
+                )
+        )
+        .compositingGroup()
+        .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.34 : 0.12), radius: 16, x: 0, y: 8)
+        .contentShape(Capsule(style: .continuous))
+        .simultaneousGesture(panelSwitchGesture)
+        .animation(MonologueAnimation.panelToggle, value: showingTabs)
+        .themeRenderInteractiveLayer()
+        .monologueSheet(isPresented: $showPlaylist, preset: .standard) {
+            if player.isPlayingPodcast {
+                PodcastPlaylistPopupView()
+            } else {
+                PlaylistPopupView()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var asideShellBackground: some View {
+        let shape = Capsule(style: .continuous)
+        if settings.defaultThemeUsesLiquidGlassTabBar {
+            shape
+                .fill(Color.monologueFloatingBarFill)
+                .monologueGlassCapsule()
+        } else {
+            shape
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    shape.fill(
+                        colorScheme == .dark
+                            ? Color(hex: "15171E").opacity(0.66)
+                            : Color.white.opacity(0.64)
+                    )
+                )
+        }
+    }
+
+    private var asideCoverSignet: some View {
+        ZStack {
+            AsideMiniProgressRing(size: 46, lineWidth: 2.2)
+
+            Group {
+                if let song = player.currentSong {
+                    CachedAsyncImage(url: song.coverUrl, width: 38, height: 38) {
+                        asideCoverPlaceholder
+                    }
+                    .aspectRatio(contentMode: .fill)
+                } else {
+                    asideCoverPlaceholder
+                }
+            }
+            .frame(width: 38, height: 38)
+            .clipShape(Circle())
+            .overlay(Circle().strokeBorder(Color.monologueTextPrimary.opacity(0.1), lineWidth: 0.7))
+        }
+        .frame(width: 46, height: 46)
+        .overlay(alignment: .bottomTrailing) {
+            Circle()
+                .fill(showingTabs ? Color.monologueAccent : Color(light: .white, dark: Color(hex: "1C1F29")))
+                .frame(width: 11, height: 11)
+                .overlay(Circle().strokeBorder(Color.monologueTextPrimary.opacity(0.16), lineWidth: 0.8))
+                .offset(x: 1, y: 1)
+        }
+    }
+
+    private var asideCoverPlaceholder: some View {
+        Circle()
+            .fill(Color.monologueTextPrimary.opacity(0.07))
+            .overlay(MonologueIcon(icon: .musicNote, size: 14, color: .monologueTextSecondary.opacity(0.62), lineWidth: 1.5))
+    }
+
+    private var asideNowPlayingSegment: some View {
+        HStack(spacing: 7) {
+            VStack(alignment: .leading, spacing: 2) {
+                MarqueeText(
+                    text: player.currentSong?.name ?? NSLocalizedString("not_playing", comment: String(localized: "未在播放")),
+                    font: .system(size: 13, weight: .semibold, design: .rounded),
+                    color: .monologueTextPrimary,
+                    speed: 25
+                )
+                .frame(height: 16)
+
+                MarqueeText(
+                    text: subtitleText,
+                    font: .system(size: 10.5, weight: .medium, design: .rounded),
+                    color: .monologueTextSecondary.opacity(0.9),
+                    speed: 22
+                )
+                .frame(height: 13)
+                .animation(.easeInOut(duration: 0.25), value: player.lyricLineText)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .swipeSkipTextMotion()
+            .contentShape(Rectangle())
+            .onTapWithHaptic {
+                if player.currentSong != nil {
+                    openPlayer()
+                }
+            }
+
+            asideGhostButton(icon: .previous, accessibilityLabel: String(localized: "上一首")) {
+                player.previous()
+            }
+
+            Button(action: { player.togglePlayPause() }) {
+                ZStack {
+                    Circle()
+                        .fill(Color.monologueAccent)
+                        .frame(width: 34, height: 34)
+
+                    if player.isLoading {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .monologueAccentForeground))
+                            .scaleEffect(0.52)
+                    } else {
+                        MonologueIcon(
+                            icon: player.isPlaying ? .pause : .play,
+                            size: 13,
+                            color: .monologueAccentForeground,
+                            lineWidth: 1.8
+                        )
+                    }
+                }
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.93))
+
+            asideGhostButton(icon: .next, accessibilityLabel: NSLocalizedString("playback_next_track", comment: "")) {
+                player.next()
+            }
+
+            Button(action: { showPlaylist.toggle() }) {
+                MonologueIcon(icon: .list, size: 14, color: .monologueTextPrimary.opacity(0.66), lineWidth: 1.7)
+                    .frame(width: 28, height: 34)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.93))
+        }
+    }
+
+    private func asideGhostButton(
+        icon: MonologueIcon.IconType,
+        accessibilityLabel: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button {
+            HapticManager.shared.light()
+            action()
+        } label: {
+            MonologueIcon(icon: icon, size: 13, color: .monologueTextPrimary.opacity(0.62), lineWidth: 1.7)
+                .frame(width: 26, height: 34)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.9))
+        .accessibilityLabel(Text(accessibilityLabel))
+    }
+
+    private var asideTabPills: some View {
+        HStack(spacing: 4) {
+            ForEach(Tab.allCases, id: \.self) { tab in
+                let selected = currentTab == tab
+                let label = NSLocalizedString(tab.titleKey(isLocalMode: !onlineAccess.canUseOnlineFeatures), comment: "")
+
+                Button {
+                    HapticManager.shared.light()
+                    withAnimation(MonologueAnimation.tabSwitch) {
+                        currentTab = tab
+                    }
+                } label: {
+                    HStack(spacing: 5) {
+                        MonologueIcon(
+                            icon: selected ? tab.icon : tab.monologueIcon,
+                            size: 17,
+                            color: selected ? .monologueAccentForeground : .monologueTextSecondary.opacity(0.62),
+                            lineWidth: 1.7
+                        )
+
+                        if selected {
+                            Text(label)
+                                .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                                .foregroundColor(.monologueAccentForeground)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.72)
+                                .transition(.opacity)
+                        }
+                    }
+                    .frame(maxWidth: 116)
+                    .frame(height: 38)
+                    .background {
+                        if selected {
+                            Capsule(style: .continuous)
+                                .fill(Color.monologueAccent)
+                                .matchedGeometryEffect(id: "asideMinimalPill", in: asidePillNS)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text(label))
+            }
+        }
+        .animation(MonologueAnimation.tabSwitch, value: currentTab)
     }
 
     private var minimalWhiteBody: some View {
@@ -625,7 +878,7 @@ struct MinimalMiniPlayer: View {
                     .fill(MangaStyle.paperCool)
                     .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 1.35))
 
-                MangaSectionMark(kind: .star, tint: MangaStyle.labelYellow, size: 15, foreground: MangaStyle.strokeInk)
+                MangaSectionMark(kind: .star, tint: MangaStyle.labelYellow, size: 15)
             } else if PetWhiteStyle.isActive {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(PetWhiteStyle.surfaceRaised)
@@ -806,7 +1059,7 @@ struct MinimalMiniPlayer: View {
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(13, weight: .semibold) }
         if LiquidGlassStyle.isActive { return LiquidGlassStyle.labelFont(13, weight: .semibold) }
         if CapsuleStyle.isActive { return CapsuleStyle.labelFont(13, weight: .bold) }
-        if MujiStyle.isActive { return MujiStyle.labelFont(13, weight: .semibold) }
+        if MujiStyle.isActive { return MujiStyle.bodyFont(13.5, weight: .medium) }
         if BentoStyle.isActive { return BentoStyle.bodyFont(13, weight: .heavy) }
         return .system(size: 13, weight: .semibold, design: .rounded)
     }
@@ -858,14 +1111,14 @@ struct MinimalMiniPlayer: View {
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
         if LiquidGlassStyle.isActive { return LiquidGlassStyle.accent }
         if CapsuleStyle.isActive { return CapsuleStyle.accent }
-        if MujiStyle.isActive { return MujiStyle.surfaceRaised.opacity(0.78) }
+        if MujiStyle.isActive { return Color.clear }
         if BentoStyle.isActive { return BentoStyle.tomato }
         return .monologueIconBackground
     }
 
     private var controlForeground: Color {
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.onAccent }
-        if MangaStyle.isActive { return MangaStyle.strokeInk }
+        if MangaStyle.isActive { return ThemeColorCustomization.readableForegroundColor(on: MangaStyle.labelYellow, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk) }
         if PetWhiteStyle.isActive { return PetWhiteStyle.onAccent }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if SequoiaStyle.isActive { return SequoiaStyle.onAccent }
@@ -898,10 +1151,10 @@ struct MinimalMiniPlayer: View {
                 tint: MinimalWhiteStyle.controlGlassFill
             )
         } else if MangaStyle.isActive {
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
+            RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
                 .fill(MangaStyle.bubbleWhite.opacity(0.72))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
                         .stroke(MangaStyle.strokeInk.opacity(0.42), lineWidth: 1.1)
                 )
         } else if PetWhiteStyle.isActive {
@@ -915,11 +1168,7 @@ struct MinimalMiniPlayer: View {
             )
         } else if MujiStyle.isActive {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(MujiStyle.surface.opacity(0.54))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(MujiStyle.hairline.opacity(0.28), lineWidth: 0.6)
-                )
+                .stroke(MujiStyle.hairline.opacity(0.6), lineWidth: 0.7)
         } else if BentoStyle.isActive {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(BentoStyle.surface.opacity(0.65))
@@ -965,7 +1214,7 @@ struct MinimalMiniPlayer: View {
         } else if PetWhiteStyle.isActive {
             Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1)
         } else if MujiStyle.isActive {
-            Circle().stroke(MujiStyle.hairline.opacity(0.45), lineWidth: 0.6)
+            Circle().stroke(MujiStyle.hairline.opacity(0.78), lineWidth: 0.8)
         } else if BentoStyle.isActive {
             Circle().stroke(BentoStyle.tomato.opacity(0.0), lineWidth: 0)
         } else if NeumorphicStyle.isActive {
@@ -1026,7 +1275,7 @@ struct MinimalMiniPlayer: View {
         if SequoiaStyle.isActive { return sequoiaTabTint(tab) }
         if LiquidGlassStyle.isActive { return liquidGlassTabTint(tab) }
         if CapsuleStyle.isActive { return CapsuleStyle.readableLabel(on: capsuleTabTint(tab)) }
-        if MujiStyle.isActive { return mujiTabTint(tab) }
+        if MujiStyle.isActive { return MujiStyle.ink }
         if BentoStyle.isActive { return bentoTabTint(tab) }
         return .monologueAccent
     }
@@ -1048,9 +1297,14 @@ struct MinimalMiniPlayer: View {
             PetWhiteDockSelectionBackground(tint: petWhiteTabTint(tab))
                 .padding(.horizontal, 3)
         } else if MujiStyle.isActive {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(MujiStyle.surface.opacity(0.74))
-                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(MujiStyle.hairline.opacity(0.34), lineWidth: 0.6))
+            // Muji：陶土下划短线
+            VStack {
+                Spacer(minLength: 0)
+                Rectangle()
+                    .fill(MujiStyle.clay)
+                    .frame(width: 18, height: 1.5)
+            }
+            .padding(.bottom, 2)
         } else if BentoStyle.isActive {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(bentoTabTint(tab))
@@ -1084,15 +1338,6 @@ struct MinimalMiniPlayer: View {
         case .podcast: return MangaStyle.bubbleBlue
         case .library: return MangaStyle.mint
         case .profile: return MangaStyle.bubblePink
-        }
-    }
-
-    private func mujiTabTint(_ tab: Tab) -> Color {
-        switch tab {
-        case .home: return MujiStyle.clay
-        case .podcast: return MujiStyle.tea
-        case .library: return MujiStyle.indigo
-        case .profile: return MujiStyle.straw
         }
     }
 
@@ -1161,6 +1406,33 @@ struct MinimalMiniPlayer: View {
                 NotificationCenter.default.post(name: .init("OpenNormalPlayer"), object: nil)
             }
         }
+    }
+}
+
+/// 环绕封面的播放进度环（aside 极简模式）
+private struct AsideMiniProgressRing: View {
+    let size: CGFloat
+    let lineWidth: CGFloat
+
+    @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
+
+    private var progress: CGFloat {
+        guard timePublisher.duration > 0 else { return 0 }
+        return CGFloat(min(max(timePublisher.currentTime / timePublisher.duration, 0), 1))
+    }
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(Color.monologueTextPrimary.opacity(0.09), lineWidth: lineWidth)
+
+            Circle()
+                .trim(from: 0, to: progress)
+                .stroke(Color.monologueAccent, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .animation(.linear(duration: 0.1), value: progress)
+        }
+        .frame(width: size, height: size)
     }
 }
 

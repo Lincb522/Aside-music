@@ -1,6 +1,6 @@
 // MVListView.swift
 // MV 发现页 + MV 列表页 + MV 卡片组件
-// 完全遵循 Monologue 设计系统
+// aside 编辑部风格：眉题刻度 + 平排列表 + 发丝分隔；其余主题保持卡片版式
 
 import SwiftUI
 
@@ -16,6 +16,11 @@ struct QQMVVidItem: Identifiable {
 }
 
 private enum MVTheme {
+    /// aside 编辑部风格：默认主题走平排编辑部版式，其余主题保持卡片版式
+    static var isAside: Bool {
+        !ThemedPageStyle.isActive
+    }
+
     static var ink: Color {
         if SequoiaStyle.isActive { return SequoiaStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
@@ -37,6 +42,7 @@ private enum MVTheme {
     static var accent: Color {
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        if isAside { return .monologueAccent }
         return .monologueIconBackground
     }
 
@@ -83,6 +89,48 @@ private enum MVTheme {
     }
 }
 
+// MARK: - aside 编辑部通用小件
+
+/// 眉题行：强调色刻度 + 字距 small caps
+private struct MVAsideKicker: View {
+    let text: String
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Capsule()
+                .fill(Color.monologueAccent)
+                .frame(width: 18, height: 3)
+
+            Text(text)
+                .font(.system(size: 10.5, weight: .heavy, design: .rounded))
+                .tracking(2.4)
+                .foregroundColor(.monologueTextSecondary.opacity(0.72))
+        }
+    }
+}
+
+/// 封面时长角标：黑纱底 + 白色等宽字，贴图可读
+private struct MVDurationTag: View {
+    let text: String
+    var compact: Bool = false
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: compact ? 9 : 10, weight: .semibold, design: .monospaced))
+            .foregroundColor(MVTheme.isAside ? .white : MVTheme.ink)
+            .padding(.horizontal, compact ? 5 : 6)
+            .padding(.vertical, compact ? 2 : 3)
+            .background {
+                if MVTheme.isAside {
+                    Capsule().fill(Color.black.opacity(0.55))
+                } else {
+                    Color.clear.monologueGlassCapsule()
+                }
+            }
+            .padding(compact ? 6 : 8)
+    }
+}
+
 // MARK: - MV 网格卡片
 
 struct MVGridCard: View {
@@ -94,17 +142,11 @@ struct MVGridCard: View {
             VStack(alignment: .leading, spacing: 10) {
                 // 封面
                 ZStack(alignment: .bottomTrailing) {
-                    coverImage(url: mv.coverUrl, height: 100, cornerRadius: 16)
+                    coverImage(url: mv.coverUrl, height: 100, cornerRadius: MVTheme.isAside ? 12 : 16)
 
                     // 时长角标
                     if !mv.durationText.isEmpty {
-                        Text(mv.durationText)
-                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                            .foregroundColor(MVTheme.ink)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 3)
-                            .background(.clear).monologueGlassCapsule()
-                            .padding(8)
+                        MVDurationTag(text: mv.durationText)
                     }
                 }
 
@@ -142,9 +184,78 @@ struct MVGridCard: View {
 struct MVRowCard: View {
     let mv: MV
     var rank: Int? = nil
+    var showsDivider: Bool = true
     var onTap: (() -> Void)? = nil
 
     var body: some View {
+        if MVTheme.isAside {
+            asideRow
+        } else {
+            themedCard
+        }
+    }
+
+    /// aside 编辑部式：平排行 + 发丝分隔，大号排名数字
+    private var asideRow: some View {
+        Button(action: { onTap?() }) {
+            VStack(spacing: 0) {
+                HStack(spacing: 14) {
+                    if let rank {
+                        Text("\(rank)")
+                            .font(.system(size: 20, weight: rank <= 3 ? .heavy : .semibold, design: .rounded))
+                            .foregroundColor(rank <= 3 ? .monologueAccent : .monologueTextSecondary.opacity(0.45))
+                            .monospacedDigit()
+                            .frame(width: 30, alignment: .center)
+                    }
+
+                    ZStack(alignment: .bottomTrailing) {
+                        coverImage(url: mv.coverUrl, width: 118, height: 66, cornerRadius: 10)
+
+                        if !mv.durationText.isEmpty {
+                            MVDurationTag(text: mv.durationText, compact: true)
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(mv.name ?? String(localized: "mv_unknown_name"))
+                            .font(.rounded(size: 15, weight: .semibold))
+                            .foregroundColor(.monologueTextPrimary)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+
+                        Text(mv.artistName ?? String(localized: "mv_unknown_artist"))
+                            .font(.rounded(size: 12.5))
+                            .foregroundColor(.monologueTextSecondary.opacity(0.85))
+                            .lineLimit(1)
+
+                        if !mv.playCountText.isEmpty {
+                            HStack(spacing: 3) {
+                                MonologueIcon(icon: .play, size: 8.5, color: .monologueTextSecondary.opacity(0.55))
+                                Text(mv.playCountText)
+                                    .font(.rounded(size: 11))
+                                    .foregroundColor(.monologueTextSecondary.opacity(0.6))
+                            }
+                        }
+                    }
+
+                    Spacer(minLength: 0)
+                }
+                .padding(.vertical, 10)
+
+                if showsDivider {
+                    Rectangle()
+                        .fill(Color.monologueSeparator.opacity(0.7))
+                        .frame(height: 0.6)
+                        .padding(.leading, rank != nil ? 44 : 0)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.99, opacity: 0.92))
+    }
+
+    /// 其余主题：卡片式
+    private var themedCard: some View {
         Button(action: { onTap?() }) {
             HStack(spacing: 14) {
                 // 排名序号
@@ -160,13 +271,7 @@ struct MVRowCard: View {
                     coverImage(url: mv.coverUrl, width: 120, height: 68, cornerRadius: 12)
 
                     if !mv.durationText.isEmpty {
-                        Text(mv.durationText)
-                            .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                            .foregroundColor(MVTheme.ink)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 2)
-                            .background(.clear).monologueGlassCapsule()
-                            .padding(6)
+                        MVDurationTag(text: mv.durationText, compact: true)
                     }
                 }
 
@@ -205,31 +310,29 @@ struct MVRowCard: View {
 @MainActor
 @ViewBuilder
 private func coverImage(url: String?, width: CGFloat? = nil, height: CGFloat, cornerRadius: CGFloat) -> some View {
-    if let urlStr = url, let imageUrl = URL(string: urlStr) {
-        CachedAsyncImage(url: imageUrl) {
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(MVTheme.coverPlaceholder)
-        }
-        .aspectRatio(16/9, contentMode: .fill)
-        .frame(width: width, height: height)
-        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-        .overlay {
-            if NeumorphicStyle.isActive || SequoiaStyle.isActive {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(MVTheme.separator, lineWidth: 0.7)
+    let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+
+    Group {
+        if let urlStr = url, let imageUrl = URL(string: urlStr) {
+            CachedAsyncImage(url: imageUrl) {
+                shape.fill(MVTheme.coverPlaceholder)
             }
-        }
-    } else {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(MVTheme.coverPlaceholder)
+            .aspectRatio(16/9, contentMode: .fill)
             .frame(width: width, height: height)
-            .aspectRatio(16/9, contentMode: .fit)
-            .overlay {
-                if NeumorphicStyle.isActive || SequoiaStyle.isActive {
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .stroke(MVTheme.separator, lineWidth: 0.7)
-                }
-            }
+            .clipShape(shape)
+        } else {
+            shape
+                .fill(MVTheme.coverPlaceholder)
+                .frame(width: width, height: height)
+                .aspectRatio(16/9, contentMode: .fit)
+        }
+    }
+    .overlay {
+        if MVTheme.isAside {
+            shape.stroke(Color.monologueSeparator.opacity(0.9), lineWidth: 0.8)
+        } else if NeumorphicStyle.isActive || SequoiaStyle.isActive {
+            shape.stroke(MVTheme.separator, lineWidth: 0.7)
+        }
     }
 }
 
@@ -259,7 +362,7 @@ struct MVDiscoverView: View {
                             heroSection(mv: heroMV)
                         }
 
-                        VStack(spacing: 28) {
+                        VStack(spacing: MVTheme.isAside ? 34 : 28) {
                             // 功能入口：全部浏览 + 我的收藏
                             actionRow
 
@@ -268,6 +371,7 @@ struct MVDiscoverView: View {
                                 mvHorizontalSection(
                                     title: String(localized: "mv_latest"),
                                     subtitle: String(localized: "mv_latest_desc"),
+                                    kicker: "NEW ARRIVALS",
                                     mvs: Array(viewModel.latestMVs.dropFirst()),
                                     listType: .latest
                                 )
@@ -278,6 +382,7 @@ struct MVDiscoverView: View {
                                 mvRankSection(
                                     title: String(localized: "mv_top"),
                                     subtitle: String(localized: "mv_top_desc"),
+                                    kicker: "TOP CHARTS",
                                     mvs: viewModel.topMVs,
                                     listType: .top
                                 )
@@ -288,6 +393,7 @@ struct MVDiscoverView: View {
                                 mvGridSection(
                                     title: String(localized: "mv_exclusive"),
                                     subtitle: String(localized: "mv_exclusive_desc"),
+                                    kicker: "EXCLUSIVE",
                                     mvs: viewModel.exclusiveMVs,
                                     listType: .exclusive
                                 )
@@ -341,75 +447,137 @@ struct MVDiscoverView: View {
         Button(action: {
             selectedMV = MVIdItem(id: mv.id)
         }) {
-            ZStack(alignment: .bottomLeading) {
-                if let urlStr = mv.coverUrl, let url = URL(string: urlStr) {
-                    CachedAsyncImage(url: url) {
-                        Rectangle().fill(MVTheme.coverPlaceholder)
-                    }
-                    .aspectRatio(16/9, contentMode: .fill)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 220)
-                    .clipped()
-                } else {
-                    Rectangle()
-                        .fill(MVTheme.coverPlaceholder)
-                        .frame(height: 220)
-                }
-
-                // 底部渐变遮罩
-                LinearGradient(
-                    colors: [.clear, .black.opacity(0.7)],
-                    startPoint: .center,
-                    endPoint: .bottom
-                )
-
-                HStack(alignment: .bottom) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(String(localized: "mv_latest_release"))
-                            .font(.system(size: 10, weight: .bold, design: .rounded))
-                            .foregroundColor(.black)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(Color.white)
-                            .clipShape(Capsule())
-
-                        Text(mv.name ?? String(localized: "mv_unknown_name"))
-                            .font(.rounded(size: 22, weight: .bold))
-                            .foregroundColor(.white)
-                            .lineLimit(2)
-
-                        HStack(spacing: 8) {
-                            Text(mv.artistName ?? "")
-                                .font(.rounded(size: 14))
-                                .foregroundColor(.white.opacity(0.8))
-
-                            if !mv.playCountText.isEmpty {
-                                Text(mv.playCountText + String(localized: "mv_play_suffix"))
-                                    .font(.rounded(size: 12))
-                                    .foregroundColor(.white.opacity(0.5))
-                            }
+            VStack(alignment: .leading, spacing: 0) {
+                ZStack(alignment: .bottomLeading) {
+                    if let urlStr = mv.coverUrl, let url = URL(string: urlStr) {
+                        CachedAsyncImage(url: url) {
+                            Rectangle().fill(MVTheme.coverPlaceholder)
                         }
+                        .aspectRatio(16/9, contentMode: .fill)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 220)
+                        .clipped()
+                    } else {
+                        Rectangle()
+                            .fill(MVTheme.coverPlaceholder)
+                            .frame(height: 220)
                     }
 
-                    Spacer()
+                    // 底部渐变遮罩
+                    LinearGradient(
+                        colors: [.clear, .black.opacity(MVTheme.isAside ? 0.78 : 0.7)],
+                        startPoint: .center,
+                        endPoint: .bottom
+                    )
 
-                    MonologueIcon(icon: .play, size: 48, color: .white)
-                        .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
+                    if MVTheme.isAside {
+                        asideHeroCaption(mv: mv)
+                    } else {
+                        themedHeroCaption(mv: mv)
+                    }
                 }
-                .padding(20)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .shadow(color: .black.opacity((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 0.04 : 0.1), radius: SequoiaStyle.isActive ? 12 : 16, x: 0, y: 8)
-            .overlay {
-                if NeumorphicStyle.isActive || SequoiaStyle.isActive {
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .stroke(MVTheme.separator, lineWidth: 0.6)
+                .clipShape(RoundedRectangle(cornerRadius: MVTheme.isAside ? 18 : 24, style: .continuous))
+                .overlay {
+                    if MVTheme.isAside {
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(Color.monologueSeparator.opacity(0.9), lineWidth: 0.8)
+                    } else if NeumorphicStyle.isActive || SequoiaStyle.isActive {
+                        RoundedRectangle(cornerRadius: 24, style: .continuous)
+                            .stroke(MVTheme.separator, lineWidth: 0.6)
+                    }
                 }
+                .shadow(
+                    color: .black.opacity(MVTheme.isAside ? 0.0 : ((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 0.04 : 0.1)),
+                    radius: SequoiaStyle.isActive ? 12 : 16,
+                    x: 0,
+                    y: 8
+                )
             }
         }
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
         .padding(.horizontal, 24)
         .padding(.top, 8)
+    }
+
+    /// aside 编辑部式封面题注：刻度眉题 + 大标题 + 发丝元信息行
+    private func asideHeroCaption(mv: MV) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Capsule()
+                    .fill(Color.white)
+                    .frame(width: 18, height: 3)
+
+                Text("LATEST RELEASE")
+                    .font(.system(size: 9.5, weight: .heavy, design: .rounded))
+                    .tracking(2.2)
+                    .foregroundColor(.white.opacity(0.82))
+            }
+
+            Text(mv.name ?? String(localized: "mv_unknown_name"))
+                .font(.rounded(size: 23, weight: .bold))
+                .foregroundColor(.white)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+
+            HStack(spacing: 8) {
+                Text(mv.artistName ?? "")
+                    .font(.rounded(size: 13.5, weight: .medium))
+                    .foregroundColor(.white.opacity(0.85))
+
+                if !mv.playCountText.isEmpty {
+                    Rectangle()
+                        .fill(Color.white.opacity(0.4))
+                        .frame(width: 0.7, height: 10)
+
+                    Text(mv.playCountText + String(localized: "mv_play_suffix"))
+                        .font(.rounded(size: 12))
+                        .foregroundColor(.white.opacity(0.6))
+                }
+
+                Spacer(minLength: 8)
+
+                MonologueIcon(icon: .playCircle, size: 34, color: .white, lineWidth: 1.4)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+    }
+
+    private func themedHeroCaption(mv: MV) -> some View {
+        HStack(alignment: .bottom) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(String(localized: "mv_latest_release"))
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .foregroundColor(.black)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Color.white)
+                    .clipShape(Capsule())
+
+                Text(mv.name ?? String(localized: "mv_unknown_name"))
+                    .font(.rounded(size: 22, weight: .bold))
+                    .foregroundColor(.white)
+                    .lineLimit(2)
+
+                HStack(spacing: 8) {
+                    Text(mv.artistName ?? "")
+                        .font(.rounded(size: 14))
+                        .foregroundColor(.white.opacity(0.8))
+
+                    if !mv.playCountText.isEmpty {
+                        Text(mv.playCountText + String(localized: "mv_play_suffix"))
+                            .font(.rounded(size: 12))
+                            .foregroundColor(.white.opacity(0.5))
+                    }
+                }
+            }
+
+            Spacer()
+
+            MonologueIcon(icon: .play, size: 48, color: .white)
+                .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
+        }
+        .padding(20)
     }
 
     // MARK: - 功能入口行（只放区块里没有的功能）
@@ -427,40 +595,77 @@ struct MVDiscoverView: View {
         .padding(.horizontal, 24)
     }
 
+    @ViewBuilder
     private func actionCard(icon: MonologueIcon.IconType, title: String, subtitle: String) -> some View {
-        HStack(spacing: 12) {
-            MonologueIcon(icon: icon, size: 20, color: MVTheme.accent)
-                .frame(width: 40, height: 40)
-                .background(MVTheme.selectedIconBackground)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        if MVTheme.isAside {
+            // aside 编辑部式：发丝描边平面入口，单色细线图标
+            HStack(spacing: 11) {
+                MonologueIcon(icon: icon, size: 17, color: .monologueTextPrimary.opacity(0.85), lineWidth: 1.5)
+                    .frame(width: 36, height: 36)
+                    .overlay(
+                        Circle()
+                            .stroke(Color.monologueSeparator.opacity(0.95), lineWidth: 0.8)
+                    )
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(MVTheme.bodyFont(14, weight: .semibold))
-                    .foregroundColor(MVTheme.ink)
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
-                Text(subtitle)
-                    .font(MVTheme.labelFont(11))
-                    .foregroundColor(MVTheme.inkSoft)
-                    .lineLimit(1)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.rounded(size: 14, weight: .semibold))
+                        .foregroundColor(.monologueTextPrimary)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                    Text(subtitle)
+                        .font(.rounded(size: 11))
+                        .foregroundColor(.monologueTextSecondary.opacity(0.85))
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 0)
+
+                MonologueIcon(icon: .chevronRight, size: 11, color: .monologueTextSecondary.opacity(0.6))
             }
+            .padding(.horizontal, 13)
+            .frame(height: 62)
+            .frame(maxWidth: .infinity)
+            .overlay(
+                RoundedRectangle(cornerRadius: 15, style: .continuous)
+                    .stroke(Color.monologueSeparator.opacity(0.95), lineWidth: 0.8)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+        } else {
+            HStack(spacing: 12) {
+                MonologueIcon(icon: icon, size: 20, color: MVTheme.accent)
+                    .frame(width: 40, height: 40)
+                    .background(MVTheme.selectedIconBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
-            Spacer(minLength: 0)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(MVTheme.bodyFont(14, weight: .semibold))
+                        .foregroundColor(MVTheme.ink)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                    Text(subtitle)
+                        .font(MVTheme.labelFont(11))
+                        .foregroundColor(MVTheme.inkSoft)
+                        .lineLimit(1)
+                }
 
-            MonologueIcon(icon: .chevronRight, size: 12, color: MVTheme.accent.opacity(0.78))
+                Spacer(minLength: 0)
+
+                MonologueIcon(icon: .chevronRight, size: 12, color: MVTheme.accent.opacity(0.78))
+            }
+            .padding(12)
+            .frame(height: 64)
+            .frame(maxWidth: .infinity)
+            .themedPageSurface(cornerRadius: MVTheme.cardRadius(), elevated: false)
         }
-        .padding(12)
-        .frame(height: 64)
-        .frame(maxWidth: .infinity)
-        .themedPageSurface(cornerRadius: MVTheme.cardRadius(), elevated: false)
     }
 
     // MARK: - 横向滚动区块
 
-    private func mvHorizontalSection(title: String, subtitle: String, mvs: [MV], listType: MVListViewModel.ListType) -> some View {
+    private func mvHorizontalSection(title: String, subtitle: String, kicker: String, mvs: [MV], listType: MVListViewModel.ListType) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            sectionHeader(title: title, subtitle: subtitle, listType: listType)
+            sectionHeader(title: title, subtitle: subtitle, kicker: kicker, listType: listType)
 
             ScrollView(.horizontal) {
                 HStack(spacing: 14) {
@@ -468,16 +673,10 @@ struct MVDiscoverView: View {
                         Button(action: { selectedMV = MVIdItem(id: mv.id) }) {
                             VStack(alignment: .leading, spacing: 8) {
                                 ZStack(alignment: .bottomTrailing) {
-                                    coverImage(url: mv.coverUrl, width: 200, height: 112, cornerRadius: 16)
+                                    coverImage(url: mv.coverUrl, width: 200, height: 112, cornerRadius: MVTheme.isAside ? 12 : 16)
 
                                     if !mv.durationText.isEmpty {
-                                        Text(mv.durationText)
-                                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                                            .foregroundColor(MVTheme.ink)
-                                            .padding(.horizontal, 6)
-                                            .padding(.vertical, 3)
-                                            .background(.clear).monologueGlassCapsule()
-                                            .padding(8)
+                                        MVDurationTag(text: mv.durationText)
                                     }
                                 }
 
@@ -507,9 +706,9 @@ struct MVDiscoverView: View {
 
     // MARK: - 双列网格区块
 
-    private func mvGridSection(title: String, subtitle: String, mvs: [MV], listType: MVListViewModel.ListType) -> some View {
+    private func mvGridSection(title: String, subtitle: String, kicker: String, mvs: [MV], listType: MVListViewModel.ListType) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            sectionHeader(title: title, subtitle: subtitle, listType: listType)
+            sectionHeader(title: title, subtitle: subtitle, kicker: kicker, listType: listType)
 
             let columns = [
                 GridItem(.flexible(), spacing: 14),
@@ -528,13 +727,14 @@ struct MVDiscoverView: View {
 
     // MARK: - 排行榜区块
 
-    private func mvRankSection(title: String, subtitle: String, mvs: [MV], listType: MVListViewModel.ListType) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            sectionHeader(title: title, subtitle: subtitle, listType: listType)
+    private func mvRankSection(title: String, subtitle: String, kicker: String, mvs: [MV], listType: MVListViewModel.ListType) -> some View {
+        VStack(alignment: .leading, spacing: MVTheme.isAside ? 6 : 14) {
+            sectionHeader(title: title, subtitle: subtitle, kicker: kicker, listType: listType)
 
-            VStack(spacing: 10) {
-                ForEach(Array(mvs.prefix(5).enumerated()), id: \.element.id) { index, mv in
-                    MVRowCard(mv: mv, rank: index + 1) {
+            VStack(spacing: MVTheme.isAside ? 0 : 10) {
+                let items = Array(mvs.prefix(5).enumerated())
+                ForEach(items, id: \.element.id) { index, mv in
+                    MVRowCard(mv: mv, rank: index + 1, showsDivider: index < items.count - 1) {
                         selectedMV = MVIdItem(id: mv.id)
                     }
                 }
@@ -547,17 +747,11 @@ struct MVDiscoverView: View {
 
     private var mlogSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .bottom) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(LocalizedStringKey("mlog_title"))
-                        .font(MVTheme.titleFont(22, weight: .semibold))
-                        .foregroundColor(MVTheme.ink)
-                    Text(LocalizedStringKey("mlog_subtitle"))
-                        .font(MVTheme.labelFont(14))
-                        .foregroundColor(MVTheme.inkSoft)
-                }
-                Spacer()
-            }
+            sectionTitleBlock(
+                title: String(localized: "mlog_title"),
+                subtitle: String(localized: "mlog_subtitle"),
+                kicker: "MLOG"
+            )
             .padding(.horizontal, 24)
 
             ScrollView(.horizontal) {
@@ -566,29 +760,31 @@ struct MVDiscoverView: View {
                         Button(action: { selectedMlog = mlog }) {
                             VStack(alignment: .leading, spacing: 8) {
                                 ZStack(alignment: .bottomTrailing) {
-                                    if let url = mlog.coverURL {
-                                        CachedAsyncImage(url: url) {
-                                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                                .fill(MVTheme.coverPlaceholder)
-                                        }
-                                        .aspectRatio(9/16, contentMode: .fill)
-                                        .frame(width: 140, height: 200)
-                                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                                    } else {
-                                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                            .fill(MVTheme.coverPlaceholder)
+                                    Group {
+                                        if let url = mlog.coverURL {
+                                            CachedAsyncImage(url: url) {
+                                                RoundedRectangle(cornerRadius: MVTheme.isAside ? 12 : 16, style: .continuous)
+                                                    .fill(MVTheme.coverPlaceholder)
+                                            }
+                                            .aspectRatio(9/16, contentMode: .fill)
                                             .frame(width: 140, height: 200)
+                                            .clipShape(RoundedRectangle(cornerRadius: MVTheme.isAside ? 12 : 16, style: .continuous))
+                                        } else {
+                                            RoundedRectangle(cornerRadius: MVTheme.isAside ? 12 : 16, style: .continuous)
+                                                .fill(MVTheme.coverPlaceholder)
+                                                .frame(width: 140, height: 200)
+                                        }
+                                    }
+                                    .overlay {
+                                        if MVTheme.isAside {
+                                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                                .stroke(Color.monologueSeparator.opacity(0.9), lineWidth: 0.8)
+                                        }
                                     }
 
                                     // 时长角标
                                     if !mlog.durationText.isEmpty {
-                                        Text(mlog.durationText)
-                                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                                            .foregroundColor(MVTheme.ink)
-                                            .padding(.horizontal, 6)
-                                            .padding(.vertical, 3)
-                                            .background(.clear).monologueGlassCapsule()
-                                            .padding(8)
+                                        MVDurationTag(text: mlog.durationText)
                                     }
 
                                     // 播放图标
@@ -628,8 +824,25 @@ struct MVDiscoverView: View {
 
     // MARK: - 区块标题
 
-    private func sectionHeader(title: String, subtitle: String, listType: MVListViewModel.ListType) -> some View {
-        HStack(alignment: .bottom) {
+    /// 标题块：aside 用眉题刻度 + 大标题；其余主题保持原样
+    @ViewBuilder
+    private func sectionTitleBlock(title: String, subtitle: String, kicker: String) -> some View {
+        if MVTheme.isAside {
+            VStack(alignment: .leading, spacing: 7) {
+                MVAsideKicker(text: kicker)
+
+                HStack(alignment: .firstTextBaseline, spacing: 9) {
+                    Text(title)
+                        .font(.system(size: 23, weight: .bold, design: .rounded))
+                        .foregroundColor(.monologueTextPrimary)
+
+                    Text(subtitle)
+                        .font(.rounded(size: 12))
+                        .foregroundColor(.monologueTextSecondary.opacity(0.8))
+                        .lineLimit(1)
+                }
+            }
+        } else {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(MVTheme.titleFont(22, weight: .semibold))
@@ -638,15 +851,34 @@ struct MVDiscoverView: View {
                     .font(MVTheme.labelFont(14))
                     .foregroundColor(MVTheme.inkSoft)
             }
+        }
+    }
+
+    private func sectionHeader(title: String, subtitle: String, kicker: String, listType: MVListViewModel.ListType) -> some View {
+        HStack(alignment: MVTheme.isAside ? .firstTextBaseline : .bottom) {
+            sectionTitleBlock(title: title, subtitle: subtitle, kicker: kicker)
 
             Spacer()
 
             NavigationLink(value: MVListDestination(title: title, listType: listType)) {
-                HStack(spacing: 4) {
-                    Text("mv_more_section")
-                        .font(MVTheme.labelFont(14, weight: .semibold))
-                        .foregroundColor(MVTheme.accent)
-                    MonologueIcon(icon: .chevronRight, size: 12, color: MVTheme.accent)
+                if MVTheme.isAside {
+                    HStack(spacing: 3) {
+                        Text("MORE")
+                            .font(.system(size: 10, weight: .heavy, design: .rounded))
+                            .tracking(1.4)
+                        MonologueIcon(icon: .chevronRight, size: 10, color: .monologueTextSecondary.opacity(0.75), lineWidth: 1.6)
+                    }
+                    .foregroundColor(.monologueTextSecondary.opacity(0.75))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5.5)
+                    .overlay(Capsule().stroke(Color.monologueSeparator.opacity(0.95), lineWidth: 0.7))
+                } else {
+                    HStack(spacing: 4) {
+                        Text("mv_more_section")
+                            .font(MVTheme.labelFont(14, weight: .semibold))
+                            .foregroundColor(MVTheme.accent)
+                        MonologueIcon(icon: .chevronRight, size: 12, color: MVTheme.accent)
+                    }
                 }
             }
         }
@@ -695,7 +927,7 @@ struct MVFullListView: View {
                         GridItem(.flexible(), spacing: 14),
                         GridItem(.flexible(), spacing: 14)
                     ]
-                    LazyVGrid(columns: columns, spacing: 16) {
+                    LazyVGrid(columns: columns, spacing: MVTheme.isAside ? 20 : 16) {
                         ForEach(viewModel.mvs) { mv in
                             MVGridCard(mv: mv) {
                                 selectedMV = MVIdItem(id: mv.id)
@@ -761,15 +993,22 @@ struct MVSublistSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             // 头部
-            HStack {
-                Text("mv_my_collection")
-                    .font(MVTheme.titleFont(20, weight: .semibold))
-                    .foregroundColor(MVTheme.ink)
-                Spacer()
-                if !viewModel.items.isEmpty {
-                    Text(String(format: String(localized: "mv_mv_count"), viewModel.items.count))
-                        .font(MVTheme.labelFont(13))
-                        .foregroundColor(MVTheme.inkSoft)
+            VStack(alignment: .leading, spacing: 7) {
+                if MVTheme.isAside {
+                    MVAsideKicker(text: "COLLECTION")
+                }
+
+                HStack(alignment: .firstTextBaseline) {
+                    Text("mv_my_collection")
+                        .font(MVTheme.isAside ? .system(size: 22, weight: .bold, design: .rounded) : MVTheme.titleFont(20, weight: .semibold))
+                        .foregroundColor(MVTheme.ink)
+                    Spacer()
+                    if !viewModel.items.isEmpty {
+                        Text(String(format: String(localized: "mv_mv_count"), viewModel.items.count))
+                            .font(MVTheme.labelFont(13))
+                            .foregroundColor(MVTheme.inkSoft)
+                            .monospacedDigit()
+                    }
                 }
             }
             .padding(.horizontal, 24)
@@ -777,8 +1016,8 @@ struct MVSublistSheet: View {
             .padding(.bottom, 14)
 
             Rectangle()
-                .fill(MVTheme.separator)
-                .frame(height: 0.5)
+                .fill(MVTheme.isAside ? Color.monologueSeparator.opacity(0.7) : MVTheme.separator)
+                .frame(height: MVTheme.isAside ? 0.6 : 0.5)
 
             if viewModel.isLoading && viewModel.items.isEmpty {
                 Spacer()
@@ -795,11 +1034,12 @@ struct MVSublistSheet: View {
                 Spacer()
             } else {
                 ScrollView {
-                    LazyVStack(spacing: 10) {
+                    LazyVStack(spacing: MVTheme.isAside ? 0 : 10) {
+                        let lastId = viewModel.items.last?.id
                         ForEach(viewModel.items) { item in
-                            sublistRow(item: item)
+                            sublistRow(item: item, showsDivider: item.id != lastId)
 
-                            if item.id == viewModel.items.last?.id {
+                            if item.id == lastId {
                                 Color.clear.frame(height: 1)
                                     .onAppear { viewModel.loadMore() }
                             }
@@ -820,7 +1060,7 @@ struct MVSublistSheet: View {
                         }
                     }
                     .padding(.horizontal, 24)
-                    .padding(.top, 14)
+                    .padding(.top, MVTheme.isAside ? 6 : 14)
                     .padding(.bottom, 30)
                 }
                 .scrollIndicators(.hidden)
@@ -842,7 +1082,73 @@ struct MVSublistSheet: View {
         }
     }
 
-    private func sublistRow(item: MVSubItem) -> some View {
+    @ViewBuilder
+    private func sublistRow(item: MVSubItem, showsDivider: Bool) -> some View {
+        if MVTheme.isAside {
+            asideSublistRow(item: item, showsDivider: showsDivider)
+        } else {
+            themedSublistRow(item: item)
+        }
+    }
+
+    /// aside 编辑部式：平排行 + 发丝分隔
+    private func asideSublistRow(item: MVSubItem, showsDivider: Bool) -> some View {
+        Button(action: {
+            if let vid = item.vid, let mvId = Int(vid) {
+                selectedMV = MVIdItem(id: mvId)
+            }
+        }) {
+            VStack(spacing: 0) {
+                HStack(spacing: 14) {
+                    ZStack(alignment: .bottomTrailing) {
+                        coverImage(url: item.coverUrl, width: 118, height: 66, cornerRadius: 10)
+
+                        if !item.durationText.isEmpty {
+                            MVDurationTag(text: item.durationText, compact: true)
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(item.title ?? String(localized: "mv_unknown_name"))
+                            .font(.rounded(size: 15, weight: .semibold))
+                            .foregroundColor(.monologueTextPrimary)
+                            .lineLimit(1)
+
+                        if let artist = item.artistName {
+                            Text(artist)
+                                .font(.rounded(size: 12.5))
+                                .foregroundColor(.monologueTextSecondary.opacity(0.85))
+                                .lineLimit(1)
+                        }
+
+                        if !item.playCountText.isEmpty {
+                            HStack(spacing: 3) {
+                                MonologueIcon(icon: .play, size: 8.5, color: .monologueTextSecondary.opacity(0.55))
+                                Text(item.playCountText)
+                                    .font(.rounded(size: 11))
+                                    .foregroundColor(.monologueTextSecondary.opacity(0.6))
+                                    .lineLimit(1)
+                            }
+                        }
+                    }
+
+                    Spacer(minLength: 0)
+                }
+                .padding(.vertical, 10)
+
+                if showsDivider {
+                    Rectangle()
+                        .fill(Color.monologueSeparator.opacity(0.7))
+                        .frame(height: 0.6)
+                        .padding(.leading, 132)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.99, opacity: 0.92))
+    }
+
+    private func themedSublistRow(item: MVSubItem) -> some View {
         Button(action: {
             if let vid = item.vid, let mvId = Int(vid) {
                 selectedMV = MVIdItem(id: mvId)
@@ -854,13 +1160,7 @@ struct MVSublistSheet: View {
                     coverImage(url: item.coverUrl, width: 120, height: 68, cornerRadius: 12)
 
                     if !item.durationText.isEmpty {
-                        Text(item.durationText)
-                            .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                            .foregroundColor(MVTheme.ink)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 2)
-                            .background(.clear).monologueGlassCapsule()
-                            .padding(6)
+                        MVDurationTag(text: item.durationText, compact: true)
                     }
                 }
 

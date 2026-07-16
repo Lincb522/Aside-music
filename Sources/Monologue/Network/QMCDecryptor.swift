@@ -378,3 +378,186 @@ enum QMCError: LocalizedError {
         }
     }
 }
+
+// MARK: - QMC 边下边解密下载器
+
+/// 旧实现是「整包下载 → 全量解密 → 落盘」两段串行：大文件（无损 mflac 动辄
+/// 几十 MB）要先等下载完、再等一轮全量 RC4，出声延迟 = 下载 + 解密之和，
+/// 峰值内存还要吃下密文与明文两份拷贝。
+///
+/// QMC2 的 RC4 / Map 密文都支持任意字节偏移的随机访问解密，因此这里改成
+/// 流式管线：CDN 分块到达 → 按累计偏移就地解密 → 追加写入临时文件，
+/// 下载结束的瞬间明文文件即就绪（解密耗时完全摊进网络等待里），
+/// 峰值内存降到单个分块大小。成功后原子移动到目标路径，
+/// 保证缓存目录里永远不会出现半截文件被误判为完整缓存。
+final class QMCStreamDownloader: NSObject, URLSessionDataDelegate, @unchecked Sendable {
+
+    enum DownloadError: LocalizedError {
+        case badStatus(Int)
+        case cancelled
+        case fileSystem(String)
+
+        var errorDescription: String? {
+            switch self {
+            case .badStatus(let code): return "QMC 下载失败 HTTP \(code)"
+            case .cancelled: return "QMC 下载已取消"
+            case .fileSystem(let message): return "QMC 写入失败: \(message)"
+            }
+        }
+    }
+
+    private let decryptor: QMCDecryptor
+    private let destination: URL
+    private let tempURL: URL
+
+    private let lock = NSLock()
+    private var handle: FileHandle?
+    private var bytesWritten: Int = 0
+    private var continuation: CheckedContinuation<Int, Error>?
+    private var session: URLSession?
+    private var finished = false
+
+    init(decryptor: QMCDecryptor, destination: URL) {
+        self.decryptor = decryptor
+        self.destination = destination
+        self.tempURL = destination
+            .deletingLastPathComponent()
+            .appendingPathComponent(".\(destination.lastPathComponent).\(UUID().uuidString.prefix(8)).part")
+        super.init()
+    }
+
+    /// 下载并解密到目标文件，返回写入字节数。
+    /// 支持 Task 取消：取消时立刻中断连接并清理临时文件。
+    func download(
+        from url: URL,
+        priority: Float = URLSessionTask.defaultPriority
+    ) async throws -> Int {
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Int, Error>) in
+                lock.lock()
+                continuation = cont
+                lock.unlock()
+                start(url: url, priority: priority)
+            }
+        } onCancel: {
+            cancel()
+        }
+    }
+
+    private func start(url: URL, priority: Float) {
+        FileManager.default.createFile(atPath: tempURL.path, contents: nil)
+        guard let fileHandle = try? FileHandle(forWritingTo: tempURL) else {
+            finish(.failure(DownloadError.fileSystem("无法创建临时文件")))
+            return
+        }
+
+        lock.lock()
+        handle = fileHandle
+        lock.unlock()
+
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 30
+        config.timeoutIntervalForResource = 15 * 60
+        config.waitsForConnectivity = true
+        // 解密在 delegate 串行队列上进行，不阻塞主线程
+        let queue = OperationQueue()
+        queue.maxConcurrentOperationCount = 1
+        queue.name = "qmc.stream.downloader"
+        queue.qualityOfService = priority <= URLSessionTask.lowPriority ? .utility : .userInitiated
+
+        let urlSession = URLSession(configuration: config, delegate: self, delegateQueue: queue)
+        lock.lock()
+        session = urlSession
+        lock.unlock()
+
+        let task = urlSession.dataTask(with: url)
+        task.priority = min(URLSessionTask.highPriority, max(URLSessionTask.lowPriority, priority))
+        task.resume()
+    }
+
+    private func cancel() {
+        lock.lock()
+        let urlSession = session
+        lock.unlock()
+        urlSession?.invalidateAndCancel()
+        finish(.failure(DownloadError.cancelled))
+    }
+
+    private func finish(_ result: Result<Int, Error>) {
+        lock.lock()
+        guard !finished else {
+            lock.unlock()
+            return
+        }
+        finished = true
+        let cont = continuation
+        continuation = nil
+        let fileHandle = handle
+        handle = nil
+        let urlSession = session
+        session = nil
+        lock.unlock()
+
+        try? fileHandle?.close()
+        urlSession?.finishTasksAndInvalidate()
+
+        switch result {
+        case .success(let count):
+            do {
+                if FileManager.default.fileExists(atPath: destination.path) {
+                    try? FileManager.default.removeItem(at: destination)
+                }
+                try FileManager.default.moveItem(at: tempURL, to: destination)
+                cont?.resume(returning: count)
+            } catch {
+                try? FileManager.default.removeItem(at: tempURL)
+                cont?.resume(throwing: DownloadError.fileSystem(error.localizedDescription))
+            }
+        case .failure(let error):
+            try? FileManager.default.removeItem(at: tempURL)
+            cont?.resume(throwing: error)
+        }
+    }
+
+    // MARK: - URLSessionDataDelegate
+
+    func urlSession(
+        _ session: URLSession,
+        dataTask: URLSessionDataTask,
+        didReceive response: URLResponse,
+        completionHandler: @escaping (URLSession.ResponseDisposition) -> Void
+    ) {
+        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+            completionHandler(.cancel)
+            finish(.failure(DownloadError.badStatus(http.statusCode)))
+            return
+        }
+        completionHandler(.allow)
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        lock.lock()
+        guard !finished, let fileHandle = handle else {
+            lock.unlock()
+            return
+        }
+        let offset = bytesWritten
+        bytesWritten += data.count
+        lock.unlock()
+
+        var chunk = data
+        decryptor.decrypt(&chunk, offset: offset)
+        fileHandle.write(chunk)
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        if let error {
+            finish(.failure(error))
+        } else {
+            lock.lock()
+            let count = bytesWritten
+            lock.unlock()
+            finish(.success(count))
+        }
+    }
+}

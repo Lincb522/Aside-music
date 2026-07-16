@@ -2,6 +2,7 @@ import Foundation
 
 enum AppInterfaceIconSet: String, CaseIterable, Identifiable {
     case hicon
+    case sfSymbols
     case zappicon
     case lucide
     case solar
@@ -18,6 +19,8 @@ enum AppInterfaceIconSet: String, CaseIterable, Identifiable {
         switch self {
         case .hicon:
             return "Hicon"
+        case .sfSymbols:
+            return "SF Symbols"
         case .zappicon:
             return "Zappicon"
         case .lucide:
@@ -43,7 +46,7 @@ enum AppInterfaceIconSet: String, CaseIterable, Identifiable {
         switch self {
         case .iconExport, .doodlePop, .pawPrint, .dotDogSnake, .minimalWhiteIcons:
             return true
-        case .hicon, .zappicon, .lucide, .solar, .blobIcons:
+        case .hicon, .sfSymbols, .zappicon, .lucide, .solar, .blobIcons:
             return false
         }
     }

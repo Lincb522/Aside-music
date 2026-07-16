@@ -125,6 +125,8 @@ struct ClassicFloatingBar: View {
             PetWhiteClassicCushionDock(currentTab: $currentTab)
         } else if settings.globalThemeId == .minimalWhite {
             MinimalWhiteClassicDock(currentTab: $currentTab)
+        } else if settings.globalThemeId == .default {
+            AsideClassicDock(currentTab: $currentTab)
         } else {
             classicBody
         }
@@ -375,9 +377,9 @@ struct ClassicFloatingBar: View {
         switch settings.globalThemeId {
         case .manga:
             HStack(spacing: 4) {
-                Capsule().fill(MangaStyle.accentPink)
-                Capsule().fill(MangaStyle.labelYellow)
-                Capsule().fill(MangaStyle.decoBlue)
+                RoundedRectangle(cornerRadius: 1.5).fill(MangaStyle.accentPink)
+                RoundedRectangle(cornerRadius: 1.5).fill(MangaStyle.strokeInk.opacity(0.85))
+                RoundedRectangle(cornerRadius: 1.5).fill(MangaStyle.mint.opacity(0.9))
             }
             .frame(width: 82, height: 5)
             .padding(.leading, 18)
@@ -1607,7 +1609,7 @@ private struct ClassicTabBarSection: View {
         if LiquidGlassStyle.isActive { return liquidGlassTabTint(index) }
         if CapsuleStyle.isActive { return CapsuleStyle.readableLabel(on: capsuleTabTint(index)) }
         if ClayStyle.isActive { return clayTabTint(index) }
-        if MujiStyle.isActive { return mujiTabTint(index) }
+        if MujiStyle.isActive { return MujiStyle.ink }
         if BentoStyle.isActive { return bentoTabTint(index) == BentoStyle.mustard ? BentoStyle.ink : BentoStyle.onAccent }
         return .monologueAccent
     }
@@ -1636,13 +1638,14 @@ private struct ClassicTabBarSection: View {
             PetWhiteDockSelectionBackground(tint: petWhiteTabTint(index))
                 .padding(.horizontal, 3)
         } else if MujiStyle.isActive {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(MujiStyle.surfaceRaised.opacity(colorScheme == .dark ? 0.22 : 0.62))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(MujiStyle.hairline.opacity(0.32), lineWidth: 0.6)
-                )
-                .padding(.horizontal, 4)
+            // Muji：只留一条陶土下划短线
+            VStack {
+                Spacer(minLength: 0)
+                Rectangle()
+                    .fill(MujiStyle.clay)
+                    .frame(width: 20, height: 1.6)
+            }
+            .padding(.bottom, 3)
         } else if NeumorphicStyle.isActive {
             RoundedRectangle(cornerRadius: 17, style: .continuous)
                 .fill(NeumorphicStyle.accent.opacity(0.12))
@@ -1743,15 +1746,6 @@ private struct ClassicTabBarSection: View {
         PetWhiteStyle.tabTint(index)
     }
 
-    private func mujiTabTint(_ index: Int) -> Color {
-        switch index {
-        case 0: return MujiStyle.clay
-        case 1: return MujiStyle.tea
-        case 2: return MujiStyle.indigo
-        default: return MujiStyle.straw
-        }
-    }
-
     private func bentoTabTint(_ index: Int) -> Color {
         switch index {
         case 0: return BentoStyle.tomato
@@ -1804,5 +1798,316 @@ private struct ClassicTabBarSection: View {
         case 2: return ClayStyle.sky
         default: return ClayStyle.grape
         }
+    }
+}
+
+// MARK: - Aside 经典贴底 Dock（顶边阅读进度 + 发丝线分层）
+
+private struct AsideClassicDock: View {
+    @Binding var currentTab: Tab
+    @ObservedObject private var player = FloatingBarPlaybackModel.shared
+    @Environment(\.colorScheme) private var colorScheme
+
+    private let topRadius: CGFloat = 30
+
+    private var bottomInset: CGFloat {
+        let safeArea = max(DeviceLayout.safeAreaBottom, 0)
+        guard safeArea > 0 else { return 0 }
+        return min(safeArea * 0.46, DeviceLayout.isPad ? 14 : 16)
+    }
+
+    private var dockShape: UnevenRoundedRectangle {
+        UnevenRoundedRectangle(
+            cornerRadii: .init(
+                topLeading: topRadius,
+                bottomLeading: 0,
+                bottomTrailing: 0,
+                topTrailing: topRadius
+            ),
+            style: .continuous
+        )
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Spacer()
+
+            VStack(spacing: 0) {
+                if player.currentSong != nil {
+                    // 顶边阅读进度：贴着 Dock 上缘的一根强调色细线
+                    ProgressBarView(height: 2, minFillWidth: 6)
+                        .padding(.horizontal, topRadius - 8)
+                        .padding(.top, 7)
+                        .transition(.opacity)
+                }
+
+                if let song = player.currentSong {
+                    AsideClassicNowPlayingRow(song: song)
+                        .swipeToSkip()
+                        .padding(.horizontal, DeviceLayout.isPad ? 34 : 18)
+                        .padding(.top, 6)
+                        .padding(.bottom, 9)
+                        .transition(.asymmetric(
+                            insertion: .opacity.combined(with: .move(edge: .bottom)),
+                            removal: .opacity.combined(with: .move(edge: .bottom))
+                        ))
+
+                    Rectangle()
+                        .fill(Color.monologueTextPrimary.opacity(0.07))
+                        .frame(height: 0.7)
+                        .padding(.horizontal, DeviceLayout.isPad ? 30 : 16)
+                }
+
+                AsideClassicTabRail(currentTab: $currentTab)
+                    .padding(.horizontal, DeviceLayout.isPad ? 26 : 10)
+                    .padding(.top, player.currentSong == nil ? 9 : 4)
+            }
+            .padding(.bottom, 2 + bottomInset)
+            .background(dockBackground)
+            .overlay(alignment: .top) {
+                dockShape
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(colorScheme == .dark ? 0.13 : 0.62),
+                                Color.white.opacity(colorScheme == .dark ? 0.03 : 0.10),
+                                Color.clear,
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 0.8
+                    )
+            }
+            .clipShape(dockShape)
+            .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.30 : 0.10), radius: 14, x: 0, y: -4)
+            .themeRenderInteractiveLayer()
+        }
+        .ignoresSafeArea(.container, edges: .bottom)
+        .animation(MonologueAnimation.floatingBar, value: player.currentSong != nil)
+        .animation(MonologueAnimation.tabSwitch, value: currentTab)
+    }
+
+    private var dockBackground: some View {
+        dockShape
+            .fill(.ultraThinMaterial)
+            .overlay(
+                dockShape.fill(
+                    colorScheme == .dark
+                        ? Color(hex: "141721").opacity(0.72)
+                        : Color.white.opacity(0.72)
+                )
+            )
+            .overlay(
+                LinearGradient(
+                    colors: [
+                        Color.white.opacity(colorScheme == .dark ? 0.045 : 0.30),
+                        Color.clear,
+                        Color.monologueAccent.opacity(colorScheme == .dark ? 0.04 : 0.025),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .clipShape(dockShape)
+            )
+    }
+}
+
+private struct AsideClassicNowPlayingRow: View {
+    let song: Song
+    @ObservedObject private var player = FloatingBarPlaybackModel.shared
+    @State private var showPlaylist = false
+
+    private var subtitleText: String {
+        player.lyricLineText ?? song.artistName
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            CachedAsyncImage(url: song.coverUrl, width: 38, height: 38) {
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .fill(Color.monologueTextPrimary.opacity(0.06))
+                    .overlay(MonologueIcon(icon: .musicNote, size: 14, color: .monologueTextSecondary.opacity(0.6), lineWidth: 1.5))
+            }
+            .aspectRatio(contentMode: .fill)
+            .frame(width: 38, height: 38)
+            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .strokeBorder(Color.monologueTextPrimary.opacity(0.1), lineWidth: 0.7)
+            )
+            .overlay(alignment: .bottomTrailing) {
+                if player.playSource == .fm {
+                    sourceBadge(icon: .fm)
+                } else if player.isPlayingPodcast {
+                    sourceBadge(icon: .radio)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                MarqueeText(
+                    text: song.name,
+                    font: .system(size: 13, weight: .semibold, design: .rounded),
+                    color: .monologueTextPrimary,
+                    speed: 25,
+                    alignment: .leading
+                )
+                .frame(height: 16)
+
+                MarqueeText(
+                    text: subtitleText,
+                    font: .system(size: 10.5, weight: .medium, design: .rounded),
+                    color: .monologueTextSecondary.opacity(0.9),
+                    speed: 22,
+                    alignment: .leading
+                )
+                .frame(height: 13)
+                .animation(.easeInOut(duration: 0.25), value: player.lyricLineText)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .swipeSkipTextMotion()
+
+            HStack(spacing: 8) {
+                Button(action: { player.togglePlayPause() }) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.monologueAccent)
+                            .frame(width: 33, height: 33)
+
+                        if player.isLoading {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .monologueAccentForeground))
+                                .scaleEffect(0.5)
+                        } else {
+                            MonologueIcon(
+                                icon: player.isPlaying ? .pause : .play,
+                                size: 13,
+                                color: .monologueAccentForeground,
+                                lineWidth: 1.8
+                            )
+                        }
+                    }
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.93))
+
+                Button(action: { showPlaylist.toggle() }) {
+                    MonologueIcon(icon: .list, size: 14, color: .monologueTextPrimary.opacity(0.66), lineWidth: 1.7)
+                        .frame(width: 30, height: 30)
+                        .background(Circle().strokeBorder(Color.monologueTextPrimary.opacity(0.13), lineWidth: 1))
+                        .contentShape(Circle())
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.93))
+
+                if !player.isPlaying {
+                    Button {
+                        withAnimation(MonologueAnimation.floatingBar) {
+                            player.dismissMiniPlayerPreservingQueue()
+                        }
+                    } label: {
+                        MonologueIcon(icon: .close, size: 9.5, color: .monologueTextSecondary, lineWidth: 1.6)
+                            .frame(width: 26, height: 26)
+                            .background(Color.monologueTextPrimary.opacity(0.07), in: Circle())
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.93))
+                    .transition(.scale.combined(with: .opacity))
+                }
+            }
+            .zIndex(1)
+        }
+        .contentShape(Rectangle())
+        .onTapWithHaptic { openPlayer() }
+        .monologueSheet(isPresented: $showPlaylist, preset: .standard) {
+            if player.isPlayingPodcast {
+                PodcastPlaylistPopupView()
+            } else {
+                PlaylistPopupView()
+            }
+        }
+    }
+
+    private func sourceBadge(icon: MonologueIcon.IconType) -> some View {
+        MonologueIcon(icon: icon, size: 9, color: .monologueAccentForeground, lineWidth: 1.6)
+            .frame(width: 16, height: 16)
+            .background(Color.monologueAccent, in: Circle())
+            .overlay(Circle().stroke(Color(light: .white, dark: Color(hex: "141721")).opacity(0.9), lineWidth: 1.3))
+            .offset(x: 4, y: 4)
+    }
+
+    private func openPlayer() {
+        withAnimation(MonologueAnimation.playerTransition) {
+            switch player.playSource {
+            case .fm:
+                NotificationCenter.default.post(name: .init("OpenFMPlayer"), object: nil)
+            case let .podcast(radioId):
+                NotificationCenter.default.post(name: .init("OpenRadioPlayer"), object: radioId)
+            case .normal:
+                NotificationCenter.default.post(name: .init("OpenNormalPlayer"), object: nil)
+            }
+        }
+    }
+}
+
+private struct AsideClassicTabRail: View {
+    @Binding var currentTab: Tab
+    @ObservedObject private var onlineAccess = OnlineAccessManager.shared
+    @Namespace private var dotNS
+
+    private static let tabIcons: [(outline: MonologueIcon.IconType, filled: MonologueIcon.IconType)] = [
+        (.home, .homeFilled),
+        (.podcast, .podcastFilled),
+        (.library, .libraryFilled),
+        (.profile, .profileFilled),
+    ]
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(Array(Tab.allCases.enumerated()), id: \.element) { index, tab in
+                tabButton(index: index, tab: tab)
+            }
+        }
+        .animation(MonologueAnimation.tabSwitch, value: currentTab)
+    }
+
+    private func tabButton(index: Int, tab: Tab) -> some View {
+        let selected = currentTab == tab
+        let icons = Self.tabIcons[index]
+        let label = NSLocalizedString(tab.titleKey(isLocalMode: !onlineAccess.canUseOnlineFeatures), comment: "")
+
+        return Button {
+            HapticManager.shared.light()
+            currentTab = tab
+        } label: {
+            VStack(spacing: 3) {
+                MonologueIcon(
+                    icon: selected ? icons.filled : icons.outline,
+                    size: 18,
+                    color: selected ? .monologueTextPrimary : .monologueTextSecondary.opacity(0.55),
+                    lineWidth: 1.7
+                )
+                .scaleEffect(selected ? 1.05 : 1.0)
+
+                Text(label)
+                    .font(.system(size: 9.5, weight: selected ? .bold : .medium, design: .rounded))
+                    .foregroundColor(selected ? .monologueTextPrimary : .monologueTextSecondary.opacity(0.55))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
+
+                // 脚注圆点：滑动的选中标记
+                ZStack {
+                    Circle().fill(Color.clear).frame(width: 4, height: 4)
+                    if selected {
+                        Circle()
+                            .fill(Color.monologueAccent)
+                            .frame(width: 4, height: 4)
+                            .matchedGeometryEffect(id: "asideClassicDot", in: dotNS)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: DeviceLayout.isPad ? 48 : 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(label))
     }
 }

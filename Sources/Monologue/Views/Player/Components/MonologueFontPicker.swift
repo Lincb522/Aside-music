@@ -6,6 +6,15 @@ enum MonologueFontPickerLayout {
     case grid(columns: Int)
 }
 
+/// 导入字体在选择器里的可见范围
+enum MonologueCustomFontScope {
+    /// 全部导入字体
+    case all
+    /// 仅含中文字形的导入字体（中文歌词字体选择器用，
+    /// 纯外语字体自动归到外语字体选择器）
+    case cjkCapable
+}
+
 struct MonologueFontPicker: View {
     @Binding var selectionRaw: String
     @Binding var customFontID: String
@@ -14,6 +23,7 @@ struct MonologueFontPicker: View {
     var layout: MonologueFontPickerLayout = .horizontal
     var includesFollowTheme = false
     var followLabel = String(localized: "跟随主题")
+    var customFontScope: MonologueCustomFontScope = .all
 
     @ObservedObject private var fontManager = CustomFontManager.shared
     @State private var showImporter = false
@@ -21,6 +31,15 @@ struct MonologueFontPicker: View {
 
     private var builtInChoices: [AriaLyricFontChoice] {
         AriaLyricFontChoice.allCases.filter { $0 != .custom }
+    }
+
+    private var visibleCustomFonts: [ImportedFontRecord] {
+        switch customFontScope {
+        case .all:
+            return fontManager.fonts
+        case .cjkCapable:
+            return fontManager.fonts.filter(\.isCJKCapable)
+        }
     }
 
     var body: some View {
@@ -88,7 +107,7 @@ struct MonologueFontPicker: View {
             }
         }
 
-        ForEach(fontManager.fonts) { record in
+        ForEach(visibleCustomFonts) { record in
             selectionButton(
                 id: record.id,
                 name: record.displayName,
@@ -213,15 +232,116 @@ struct MonologueFontPicker: View {
     }
 }
 
-struct PlayerTypographySettingsView: View {
-    @Environment(\.dismiss) private var dismiss
+// MARK: - 外语歌词字体（紧凑单行菜单）
 
+/// 外语歌词字体选择：一行搞定，不再整块重复中文字体选择器。
+/// 只列「纯外语字体」（依据字形检测）；想用中文字体就选「复用中文字体」。
+struct MonologueForeignFontMenuRow: View {
+    @Binding var selectionRaw: String
+    @Binding var customFontID: String
+
+    let accent: Color
+    var reuseLabel = String(localized: "复用中文字体")
+
+    @ObservedObject private var fontManager = CustomFontManager.shared
+
+    /// 外语菜单只保留拉丁字形合适的系统字体，
+    /// 泼墨/手书/宋体这类中文装饰字体不进外语列表。
+    private var builtInChoices: [AriaLyricFontChoice] {
+        [.system, .serif]
+    }
+
+    private var latinOnlyFonts: [ImportedFontRecord] {
+        fontManager.fonts.filter { !$0.isCJKCapable }
+    }
+
+    /// 单值选择：内置字体用 rawValue，导入字体用 "custom:<id>"
+    private var combinedSelection: Binding<String> {
+        Binding(
+            get: {
+                selectionRaw == AriaLyricFontChoice.custom.rawValue
+                    ? "custom:\(customFontID)"
+                    : selectionRaw
+            },
+            set: { newValue in
+                if newValue.hasPrefix("custom:") {
+                    customFontID = String(newValue.dropFirst(7))
+                    selectionRaw = AriaLyricFontChoice.custom.rawValue
+                } else {
+                    selectionRaw = newValue
+                }
+                UISelectionFeedbackGenerator().selectionChanged()
+            }
+        )
+    }
+
+    private var currentName: String {
+        if selectionRaw == MonologuePlayerFont.followThemeRawValue {
+            return reuseLabel
+        }
+        if selectionRaw == AriaLyricFontChoice.custom.rawValue {
+            return fontManager.record(withID: customFontID)?.displayName
+                ?? String(localized: "自定义字体")
+        }
+        return (AriaLyricFontChoice(rawValue: selectionRaw) ?? .system).label
+    }
+
+    var body: some View {
+        Menu {
+            Picker("", selection: combinedSelection) {
+                Text(reuseLabel).tag(MonologuePlayerFont.followThemeRawValue)
+
+                Section(String(localized: "内置字体")) {
+                    ForEach(builtInChoices, id: \.rawValue) { choice in
+                        Text(choice.label).tag(choice.rawValue)
+                    }
+                }
+
+                if !latinOnlyFonts.isEmpty {
+                    Section(String(localized: "导入的外语字体")) {
+                        ForEach(latinOnlyFonts) { record in
+                            Text(record.displayName).tag("custom:\(record.id)")
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Text(String(localized: "外语歌词字体"))
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.8))
+
+                Spacer(minLength: 8)
+
+                Text(currentName)
+                    .font(.system(size: 12.5, weight: .medium, design: .rounded))
+                    .foregroundStyle(accent)
+                    .lineLimit(1)
+
+                MonologueIcon(icon: .chevronDown, size: 10, color: .white.opacity(0.4), lineWidth: 1.6)
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 42)
+            .background(
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .fill(Color.white.opacity(0.05))
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct PlayerTypographySettingsView: View {
     @AppStorage("playerDisplayFont") private var selectionRaw = MonologuePlayerFont.followThemeRawValue
     @AppStorage("playerCustomFontID") private var customFontID = ""
     @AppStorage("playerFontScale") private var fontScale = 1.0
     @AppStorage("lyricsForceUppercaseEnglish") private var forceUppercaseEnglish = false
+    @AppStorage(KaraokeWordStyle.storageKey) private var karaokeStyleRaw = KaraokeWordStyle.defaultStyle.rawValue
+    @AppStorage(LyricSource.storageKey) private var defaultLyricSourceRaw = LyricSource.netease.rawValue
 
     @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var settings = SettingsManager.shared
     @StateObject private var coverColors = CoverColorExtractor()
 
     private var accent: Color {
@@ -250,50 +370,60 @@ struct PlayerTypographySettingsView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
+        ZStack {
+            backdrop.ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 22) {
-                    preview
-                    fontSection
-                    behaviorSection
+                VStack(alignment: .leading, spacing: 0) {
+                    SettingsScrollablePageHeader(
+                        title: String(localized: "歌词外观"),
+                        eyebrow: "LYRICS",
+                        icon: .musicNoteList
+                    )
+
+                    VStack(alignment: .leading, spacing: 22) {
+                        preview
+                        lyricSourceSection
+                        fontSection
+                        karaokeSection
+                        lyricColorSection
+                        behaviorSection
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 18)
+                    .padding(.bottom, 44)
+                    .iPadContentWidth(720)
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 44)
             }
         }
         .compatFontDesign(nil)
-        .background(backdrop.ignoresSafeArea())
         .environment(\.colorScheme, .dark)
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                MonologueToolbarBackButton()
+            }
+        }
         .onAppear {
             coverColors.extract(from: player.currentSong?.coverUrl?.sized(200).absoluteString)
         }
         .onChange(of: player.currentSong?.id) { _, _ in
             coverColors.extract(from: player.currentSong?.coverUrl?.sized(200).absoluteString)
         }
-    }
-
-    private var header: some View {
-        HStack(spacing: 12) {
-            Button {
-                dismiss()
-            } label: {
-                MonologueIcon(icon: .back, size: 18, color: .white.opacity(0.9))
-                    .frame(width: 40, height: 40)
-                    .background(Circle().fill(Color.white.opacity(0.08)))
+        .onChange(of: defaultLyricSourceRaw) { _, newValue in
+            guard newValue == LyricSource.followSongRawValue || LyricSource(rawValue: newValue) != nil else {
+                defaultLyricSourceRaw = LyricSource.netease.rawValue
+                return
             }
-            .buttonStyle(MonologueBouncingButtonStyle())
 
-            Text(String(localized: "播放器字体"))
-                .font(.system(size: 20, weight: .bold))
-                .foregroundStyle(.white)
-
-            Spacer()
+            UISelectionFeedbackGenerator().selectionChanged()
+            if let song = player.currentSong {
+                LyricViewModel.shared.useGlobalSource(for: song)
+            }
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 14)
-        .padding(.bottom, 12)
     }
 
     private var preview: some View {
@@ -349,6 +479,172 @@ struct PlayerTypographySettingsView: View {
             .padding(14)
             .background(cardBackground)
         }
+    }
+
+    private var lyricSourceSection: some View {
+        section(title: String(localized: "lyric_source_default_title")) {
+            Picker("", selection: $defaultLyricSourceRaw) {
+                Text(String(localized: "跟随")).tag(LyricSource.followSongRawValue)
+                ForEach(LyricSource.allCases) { source in
+                    Text(source.shortName).tag(source.rawValue)
+                }
+            }
+            .pickerStyle(.segmented)
+            .padding(14)
+            .background(cardBackground)
+        }
+    }
+
+    // MARK: - 逐字效果
+
+    private var karaokeSection: some View {
+        section(title: String(localized: "逐字效果")) {
+            VStack(spacing: 14) {
+                KaraokeStylePreviewStrip(
+                    style: KaraokeWordStyle.resolve(karaokeStyleRaw),
+                    accent: accent
+                )
+
+                karaokeStyleGrid
+            }
+            .padding(14)
+            .background(cardBackground)
+        }
+    }
+
+    private var karaokeStyleGrid: some View {
+        LazyVGrid(
+            columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3),
+            spacing: 8
+        ) {
+            ForEach(KaraokeWordStyle.allCases) { style in
+                let isSelected = KaraokeWordStyle.resolve(karaokeStyleRaw) == style
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                        karaokeStyleRaw = style.rawValue
+                    }
+                } label: {
+                    VStack(spacing: 3) {
+                        Text(style.label)
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(isSelected ? .white : .white.opacity(0.62))
+                        Text(style.caption)
+                            .font(.system(size: 9.5, weight: .medium))
+                            .foregroundStyle(isSelected ? .white.opacity(0.68) : .white.opacity(0.34))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 9)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(isSelected ? accent.opacity(0.32) : Color.white.opacity(0.05))
+                    )
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(isSelected ? accent.opacity(0.7) : Color.white.opacity(0.08), lineWidth: 1)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    // MARK: - 歌词颜色（由外观设置迁入）
+
+    private var lyricColorSection: some View {
+        section(title: String(localized: "歌词颜色")) {
+            VStack(spacing: 14) {
+                Picker("", selection: $settings.lyricColorMode) {
+                    Text(String(localized: "settings_lyric_color_mode_default")).tag("default")
+                    Text(String(localized: "自动")).tag("auto")
+                    Text(String(localized: "settings_lyric_color_mode_solid")).tag("solid")
+                    Text(String(localized: "settings_lyric_color_mode_gradient")).tag("gradient")
+                }
+                .pickerStyle(.segmented)
+
+                if settings.lyricColorMode == "solid" {
+                    lyricColorRow(
+                        title: String(localized: "settings_lyric_color"),
+                        hex: $settings.lyricSolidColorHex
+                    )
+                }
+
+                if settings.lyricColorMode == "gradient" {
+                    lyricColorRow(
+                        title: String(localized: "settings_lyric_color_start"),
+                        hex: $settings.lyricGradientStartHex
+                    )
+                    lyricColorRow(
+                        title: String(localized: "settings_lyric_color_end"),
+                        hex: $settings.lyricGradientEndHex
+                    )
+                }
+
+                if settings.lyricColorMode != "default" {
+                    lyricColorPreview
+                }
+            }
+            .padding(14)
+            .background(cardBackground)
+        }
+    }
+
+    private func lyricColorRow(title: String, hex: Binding<String>) -> some View {
+        HStack(spacing: 12) {
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(Color(hex: hex.wrappedValue))
+                .frame(width: 26, height: 26)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .stroke(Color.white.opacity(0.16), lineWidth: 1)
+                )
+
+            controlLabel(title)
+
+            Spacer()
+
+            ColorPicker("", selection: Binding(
+                get: { Color(hex: hex.wrappedValue) },
+                set: { hex.wrappedValue = $0.toHex() }
+            ), supportsOpacity: false)
+                .labelsHidden()
+        }
+    }
+
+    private var lyricColorPreview: some View {
+        Group {
+            if settings.lyricColorMode == "auto" {
+                Text(String(localized: "settings_lyric_preview"))
+                    .font(.rounded(size: 20, weight: .bold))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: Array(coverColors.palette.prefix(6)),
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+            } else if settings.lyricColorMode == "gradient" {
+                Text(String(localized: "settings_lyric_preview"))
+                    .font(.rounded(size: 20, weight: .bold))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [
+                                Color(hex: settings.lyricGradientStartHex),
+                                Color(hex: settings.lyricGradientEndHex),
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+            } else {
+                Text(String(localized: "settings_lyric_preview"))
+                    .font(.rounded(size: 20, weight: .bold))
+                    .foregroundColor(Color(hex: settings.lyricSolidColorHex))
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 6)
     }
 
     private var behaviorSection: some View {

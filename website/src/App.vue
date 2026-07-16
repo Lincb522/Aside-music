@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import FeedbackPage from './components/FeedbackPage.vue'
 import { useLandingViewModel } from './viewmodels/useLandingViewModel'
 
 const showSplash = ref(!window.location.pathname.startsWith('/play/'))
@@ -179,7 +180,14 @@ const {
     ></audio>
   </aside>
 
-  <main id="top" class="page-shell" :class="{ 'page-shell-subpage': currentPage !== 'home' }">
+  <main
+    id="top"
+    class="page-shell"
+    :class="{
+      'page-shell-subpage': currentPage !== 'home',
+      'page-shell-feedback': currentPage === 'feedback',
+    }"
+  >
     <section v-if="currentPage === 'home'" class="hero-section" aria-labelledby="hero-title">
       <img class="app-icon" :src="assets.pawIcon" alt="" />
       <img class="hero-wordmark" :src="assets.monoTextBlack" alt="Mono" />
@@ -200,9 +208,17 @@ const {
           <a href="/token" @click="navigateTo('/token', $event)">{{ content.tokenQuery.label }}</a>
           <a :href="content.ipaDownload.href" @click="navigateTo(content.ipaDownload.href, $event)">{{ content.ipaDownload.label }}</a>
           <a href="/updates" @click="navigateTo('/updates', $event)">{{ content.updates.label }}</a>
+          <a href="/feedback" @click="navigateTo('/feedback', $event)">意见反馈</a>
         </div>
       </div>
     </section>
+
+    <FeedbackPage
+      v-if="currentPage === 'feedback'"
+      :icon="assets.pawIcon"
+      :wordmark="assets.monoTextBlack"
+      @navigate-home="navigateTo('/', $event)"
+    />
 
     <section v-if="currentPage === 'token'" class="subpage-section token-page" aria-labelledby="token-query-title">
       <header class="subpage-brand-hero">

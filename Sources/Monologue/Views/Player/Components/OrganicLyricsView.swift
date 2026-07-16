@@ -21,15 +21,18 @@ struct OrganicWordGroup: Identifiable {
 struct OrganicLyricsView: View {
     let song: Song
     var onBackgroundTap: (() -> Void)?
-    
+
     @ObservedObject var player = PlayerManager.shared
     @ObservedObject private var viewModel = LyricViewModel.shared
     @AppStorage("showTranslation") var showTranslation: Bool = true
+    @AppStorage("enableKaraoke") private var enableKaraoke = false
     @AppStorage("lyricsForceUppercaseEnglish") private var forceUppercaseEnglish = false
     @AppStorage("playerDisplayFont") private var playerFontRaw = "theme"
     @AppStorage("playerCustomFontID") private var playerCustomFontID = ""
     @AppStorage("playerFontScale") private var playerFontScale = 1.0
     
+    @AppStorage(KaraokeWordStyle.storageKey) private var karaokeStyleRaw = KaraokeWordStyle.defaultStyle.rawValue
+
     @State private var isUserScrolling = false
     @State private var userScrollTimer: Timer?
     
@@ -63,6 +66,8 @@ struct OrganicLyricsView: View {
                                             line: line,
                                             isCurrent: isCurrent,
                                             showTranslation: showTranslation,
+                                            enableKaraoke: enableKaraoke,
+                                            style: KaraokeWordStyle.resolve(karaokeStyleRaw),
                                             renderIdentity: lyricRenderIdentity
                                         )
                                     }
@@ -103,7 +108,9 @@ struct OrganicLyricsView: View {
                     }
                     .onAppear {
                         isUserScrolling = false
-                        proxy.scrollTo(viewModel.currentLineIndex, anchor: .center)
+                        proxy.monologueRestoreLyricPosition(isCancelled: { isUserScrolling }) {
+                            viewModel.currentLineIndex
+                        }
                     }
                 }
                 .mask(
@@ -127,7 +134,7 @@ struct OrganicLyricsView: View {
     }
 
     private var lyricRenderIdentity: String {
-        "\(forceUppercaseEnglish)-\(playerFontRaw)-\(playerCustomFontID)-\(playerFontScale)"
+        "\(forceUppercaseEnglish)-\(playerFontRaw)-\(playerCustomFontID)-\(playerFontScale)-\(enableKaraoke)-\(karaokeStyleRaw)"
     }
     
     private func resetScrollTimer() {
@@ -148,11 +155,16 @@ struct OrganicLyricLineViewWrapper: View {
     let line: LyricLine
     let isCurrent: Bool
     let showTranslation: Bool
+    let enableKaraoke: Bool
+    var style: KaraokeWordStyle = .flow
     let renderIdentity: String
     
     var body: some View {
         // TimelineView explicitly pauses updates when line is not active, saving up to 99% CPU
-        TimelineView(AppFrameRate.animationTimeline(paused: !(isCurrent && PlayerManager.shared.isPlaying))) { timeline in
+        TimelineView(AppFrameRate.throttledTimeline(
+            maximumFramesPerSecond: 60,
+            paused: !(isCurrent && PlayerManager.shared.isPlaying)
+        )) { _ in
             let rawTime = PlayerManager.shared.streamPlayer.currentTime
             let realTime = (rawTime.isFinite && !rawTime.isNaN && rawTime >= 0) ? rawTime : PlaybackTimePublisher.shared.currentTime
             
@@ -160,7 +172,9 @@ struct OrganicLyricLineViewWrapper: View {
                 line: line,
                 isCurrent: isCurrent,
                 currentTime: isCurrent ? realTime : 0.0,
-                showTranslation: showTranslation
+                showTranslation: showTranslation,
+                enableKaraoke: enableKaraoke,
+                style: style
             )
             .id("\(line.id)-\(renderIdentity)")
         }
@@ -174,6 +188,8 @@ struct OrganicLyricLineView: View {
     let isCurrent: Bool
     let currentTime: TimeInterval
     let showTranslation: Bool
+    let enableKaraoke: Bool
+    var style: KaraokeWordStyle = .flow
     
     @State private var wordGroups: [OrganicWordGroup] = []
     
@@ -190,21 +206,28 @@ struct OrganicLyricLineView: View {
 
         VStack(alignment: .leading, spacing: 8) {
             if isCurrent {
-                FlowLayout(spacing: 0) {
-                    ForEach(wordGroups) { group in
-                        HStack(spacing: 0) {
-                            ForEach(group.glyphs) { glyph in
-                                OrganicLyricCharacterView(
-                                    glyph: glyph,
-                                    isCurrent: isCurrent,
-                                    currentTime: currentTime,
-                                    font: mainFont
-                                )
+                if enableKaraoke && !wordGroups.isEmpty {
+                    FlowLayout(spacing: 0) {
+                        ForEach(wordGroups) { group in
+                            HStack(spacing: 0) {
+                                ForEach(group.glyphs) { glyph in
+                                    OrganicLyricCharacterView(
+                                        glyph: glyph,
+                                        isCurrent: isCurrent,
+                                        currentTime: currentTime,
+                                        font: mainFont,
+                                        style: style
+                                    )
+                                }
                             }
                         }
                     }
+                    .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Text(line.text.monologueLyricDisplayText)
+                        .font(mainFont)
+                        .foregroundColor(.white)
                 }
-                .fixedSize(horizontal: false, vertical: true)
             } else {
                 // 性能优化防御：未唱到的歌词行回退为极简原生单体 Text，砍掉单行几百个遮罩修饰符的巨量开销，秒解滑动掉帧卡顿
                 Text(line.text.monologueLyricDisplayText)
@@ -289,36 +312,7 @@ struct OrganicLyricLineView: View {
     }
     
     private func prepareWordGroups(line: LyricLine) -> [OrganicWordGroup] {
-        func syntheticWords(for l: LyricLine) -> [LyricWord] {
-            let chars = Array(l.text.monologueLyricDisplayText)
-            guard !chars.isEmpty, l.duration > 0 else { return [] }
-            let cd = l.duration / Double(chars.count)
-            return chars.enumerated().map { (i, char) in
-                LyricWord(text: String(char), startTime: l.time + Double(i) * cd, duration: cd)
-            }
-        }
-        
-        // 若没有原始词组断句则自动切分
-        let sourceWords: [LyricWord]
-        if line.words.isEmpty, line.duration > 0 {
-            sourceWords = syntheticWords(for: line)
-        } else if line.words.isEmpty {
-            sourceWords = [
-                LyricWord(
-                    text: line.text.monologueLyricDisplayText,
-                    startTime: line.time,
-                    duration: 2.0
-                )
-            ]
-        } else {
-            sourceWords = line.words.map {
-                LyricWord(
-                    text: $0.text.monologueLyricDisplayText,
-                    startTime: $0.startTime,
-                    duration: $0.duration
-                )
-            }
-        }
+        let sourceWords = LyricKaraokeTimeline.resolvedWords(for: line)
         
         var groups: [OrganicWordGroup] = []
         var globalIndex = 0
@@ -355,6 +349,7 @@ struct OrganicLyricCharacterView: View {
     let isCurrent: Bool
     let currentTime: TimeInterval
     let font: Font
+    var style: KaraokeWordStyle = .flow
     
     // 数学旗帜横波偏移量 (数学正弦波随时间传播)
     private var continuousFlagWaveOffset: CGFloat {
@@ -371,39 +366,16 @@ struct OrganicLyricCharacterView: View {
     }
 
     var body: some View {
-        let progress = calculateProgress()
-        
-        ZStack(alignment: .leading) {
-            // 背景层未唱到的字，半透明
-            Text(glyph.char)
-                .font(font)
-                .foregroundColor(.white.opacity(isCurrent ? 0.35 : 0.25))
-            
-            // 纯色高亮唱到的字
-            Text(glyph.char)
-                .font(font)
-                .foregroundColor(.white)
-                .mask(
-                    GeometryReader { geo in
-                        let w = geo.size.width
-                        let h = geo.size.height
-                        LinearGradient(
-                            stops: [
-                                .init(color: .black, location: 0),
-                                .init(color: .black, location: 0.3),     // 完全浸没的纯黑
-                                .init(color: .black.opacity(0.4), location: 0.6), // 物理水管里水面的圆弧般柔和推演
-                                .init(color: .clear, location: 0.9)      // 远端透明
-                            ],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                        .frame(width: w * 5, height: h * 2)       // 包覆整个字符及上下文
-                        .offset(x: -w * 2.5, y: -h * 0.5)         
-                        // 极其匀滑和平稳的平移扫描，确保相邻字的柔和交界自然贯穿
-                        .offset(x: -w * 1.5 + (w * 3.5) * progress) 
-                    }
-                )
-        }
+        // 逐字进度交给共享的样式化渲染器：
+        // 缓动扫光 + 激活脉冲（托起/回弹/辉光…）替代原先的线性硬扫，消除生硬感
+        KaraokeStyledWordView(
+            text: glyph.char,
+            progress: calculateProgress(),
+            font: font,
+            style: style,
+            inactiveColor: .white.opacity(isCurrent ? 0.35 : 0.25),
+            activeColor: .white
+        )
         .blur(radius: isCurrent ? 0 : 2.5)
         .offset(y: continuousFlagWaveOffset)
         .animation(.spring(response: 0.5, dampingFraction: 0.8), value: isCurrent)

@@ -41,17 +41,19 @@ final class AudioRenderer {
     private let lifecycleLock = NSLock()
     private let maintenanceQueue = DispatchQueue(label: "FFmpegSwiftSDK.AudioRenderer.maintenance", qos: .userInitiated)
 
-    /// Optional EQ filter applied in real-time during the render block.
+    /// Output-stage processors stay behind the PCM queue so interactive changes
+    /// affect the next hardware callback instead of waiting for decoded audio to drain.
     private var eqFilter: EQFilter?
-
-    /// Optional FFmpeg avfilter audio filter graph (loudnorm, atempo, volume).
     private var audioFilterGraph: AudioFilterGraph?
+    private var repairEngine: AudioRepairEngine?
 
     /// Optional spectrum analyzer.
     private var spectrumAnalyzer: SpectrumAnalyzer?
 
-    /// Optional audio repair engine (after all effects, before output).
-    private var repairEngine: AudioRepairEngine?
+    /// Pre-DSP analyzer used by measurement and calibration tasks. Keeping it
+    /// separate prevents UI spectrum callbacks from being duplicated and lets
+    /// analysis observe the decoded signal before playback effects are applied.
+    private var analysisSpectrumAnalyzer: SpectrumAnalyzer?
 
     /// Optional audio data callback for real-time analysis.
     var onAudioData: ((_ samples: UnsafePointer<Float>, _ frameCount: Int, _ channelCount: Int, _ sampleRate: Int) -> Void)?
@@ -65,18 +67,55 @@ final class AudioRenderer {
     /// FIFO queue of PCM audio buffers waiting to be rendered.
     /// Use a head index instead of `removeFirst()` so the real-time render callback
     /// never has to memmove the remaining queue contents.
-    private var bufferQueue: [AudioBuffer?] = []
+    private struct QueuedAudioBuffer {
+        let buffer: AudioBuffer
+        let presentationTime: TimeInterval?
+    }
+
+    private var bufferQueue: [QueuedAudioBuffer?] = []
     private var bufferQueueHead: Int = 0
+    /// O(1) queue duration and audible clock. Both are updated while holding
+    /// `bufferLock`, so UI reads never scan the PCM queue used by the render thread.
+    private var queuedAudioDuration: TimeInterval = 0
+    private var audiblePresentationTime: TimeInterval?
+    /// Monotonic amount of real PCM handed to the audio device. Silence inserted
+    /// for buffering/underruns is intentionally excluded, so app-side listening
+    /// statistics can follow actual audible output instead of UI or wall-clock time.
+    private var audibleOutputDuration: TimeInterval = 0
+
+    /// A network stream that has genuinely starved must rebuild a short runway
+    /// before it is allowed to feed the hardware again. Without this hysteresis,
+    /// a weak connection alternates between one decoded packet and silence, which
+    /// is heard as repeated syllable-level stuttering.
+    private var isRebuffering = false
+    private var inputHasEnded = false
+    private static let rebufferRecoveryDuration: TimeInterval = 0.35
+
+    /// Secondary PCM lane used for real overlap mixing at a prepared-track boundary.
+    private var crossfadeQueue: [QueuedAudioBuffer?] = []
+    private var crossfadeQueueHead = 0
+    private var crossfadeBufferOffset = 0
+    private var crossfadeQueuedDuration: TimeInterval = 0
+    private var crossfadePresentationTime: TimeInterval?
+    private var isCrossfadeActive = false
+    private var isCrossfadeMixing = false
+    private var crossfadePlannedDuration: TimeInterval = 0
+    private var crossfadeTotalFrames = 0
+    private var crossfadeFramesRendered = 0
 
     /// Tracks the read offset (in samples) into the front buffer of the queue.
     private var currentBufferOffset: Int = 0
     private var pendingBufferDeallocations: [UnsafeMutablePointer<Float>] = []
-    private var pendingDeallocationDrainScheduled = false
+    /// Maintenance-thread scratch storage. Keeping a second uniquely-owned array
+    /// avoids copy-on-write reallocations while `bufferLock` is held every 100 ms.
+    private var deallocationDrainScratch: [UnsafeMutablePointer<Float>] = []
+    private var deallocationTimer: DispatchSourceTimer?
 
     /// Pre-allocated interleaved scratch buffer for the render block.
     /// Avoids per-callback malloc/free on the real-time audio thread.
     private var interleavedScratch: UnsafeMutablePointer<Float>?
     private var interleavedScratchCapacity: Int = 0
+    private var crossfadeScratch: UnsafeMutablePointer<Float>?
     
     /// 上一帧最终输出的每声道末尾采样，用于断粮时平滑缓降到静音，避免 click/pop。
     private var lastFrameSamples: UnsafeMutablePointer<Float>?
@@ -114,6 +153,14 @@ final class AudioRenderer {
     /// Renderer input sample rate (also used as the decoder output target).
     private(set) var actualSampleRate: Int = 0
 
+    /// Stable PCM channel count consumed by the current engine session.
+    var actualChannelCount: Int {
+        lifecycleLock.lock()
+        let value = channelCount
+        lifecycleLock.unlock()
+        return value
+    }
+
     /// Current hardware output sample rate, used only to detect route changes.
     private var hardwareSampleRate: Int = 0
 
@@ -126,6 +173,7 @@ final class AudioRenderer {
     var queuedBufferCount: Int {
         os_unfair_lock_lock(&bufferLock)
         let count = max(0, bufferQueue.count - bufferQueueHead)
+            + max(0, crossfadeQueue.count - crossfadeQueueHead)
         os_unfair_lock_unlock(&bufferLock)
         return count
     }
@@ -133,19 +181,48 @@ final class AudioRenderer {
     /// Returns total duration of all queued buffers in seconds.
     var queuedDuration: TimeInterval {
         os_unfair_lock_lock(&bufferLock)
-        var total: TimeInterval = 0
-        for index in bufferQueueHead..<bufferQueue.count {
-            guard let buffer = bufferQueue[index] else { continue }
-            if index == bufferQueueHead && currentBufferOffset > 0 {
-                let totalSamples = buffer.frameCount * buffer.channelCount
-                let remainRatio = Double(totalSamples - currentBufferOffset) / Double(max(totalSamples, 1))
-                total += buffer.duration * remainRatio
-            } else {
-                total += buffer.duration
-            }
-        }
+        let overlap = isCrossfadeActive
+            ? min(crossfadePlannedDuration, min(queuedAudioDuration, crossfadeQueuedDuration))
+            : 0
+        let total = max(0, queuedAudioDuration + crossfadeQueuedDuration - overlap)
         os_unfair_lock_unlock(&bufferLock)
         return total
+    }
+
+    /// Presentation timestamp of the PCM most recently consumed by the hardware.
+    var currentPresentationTime: TimeInterval? {
+        os_unfair_lock_lock(&bufferLock)
+        // The app switches its visible track at the overlap midpoint. Expose the
+        // new lane's clock from the same point so the progress UI never shows the
+        // previous song's timestamp under the new song metadata.
+        let time: TimeInterval?
+        if isCrossfadeMixing,
+           crossfadeFramesRendered * 2 >= crossfadeTotalFrames,
+           let crossfadePresentationTime {
+            time = crossfadePresentationTime
+        } else {
+            time = audiblePresentationTime
+        }
+        os_unfair_lock_unlock(&bufferLock)
+        return time
+    }
+
+    /// Total real audio duration consumed by the render callback during this
+    /// renderer's lifetime. It deliberately survives seek, track and engine resets.
+    var totalAudibleOutputDuration: TimeInterval {
+        os_unfair_lock_lock(&bufferLock)
+        let duration = audibleOutputDuration
+        os_unfair_lock_unlock(&bufferLock)
+        return duration
+    }
+
+    /// Whether the configured output engine is really delivering audio.
+    /// PlaybackState alone cannot answer this after Bluetooth/media-service resets.
+    var isOutputRunning: Bool {
+        lifecycleLock.lock()
+        let running = isStarted && (engine?.isRunning == true)
+        lifecycleLock.unlock()
+        return running
     }
 
     func currentUnderrunSerial() -> UInt64 {
@@ -180,44 +257,63 @@ final class AudioRenderer {
         bufferQueueHead = 0
     }
 
-    private func enqueuePendingBufferDeallocation(_ pointer: UnsafeMutablePointer<Float>) {
-        var shouldSchedule = false
-        os_unfair_lock_lock(&bufferLock)
-        pendingBufferDeallocations.append(pointer)
-        if !pendingDeallocationDrainScheduled {
-            pendingDeallocationDrainScheduled = true
-            shouldSchedule = true
+    private func compactCrossfadeQueueLockedIfNeeded() {
+        guard crossfadeQueueHead > 0 else { return }
+        if crossfadeQueueHead >= crossfadeQueue.count {
+            crossfadeQueue.removeAll(keepingCapacity: true)
+            crossfadeQueueHead = 0
+            return
         }
-        os_unfair_lock_unlock(&bufferLock)
-
-        guard shouldSchedule else { return }
-        maintenanceQueue.async { [weak self] in
-            self?.drainPendingBufferDeallocations()
-        }
+        guard crossfadeQueueHead >= 32,
+              crossfadeQueueHead * 2 >= crossfadeQueue.count else { return }
+        crossfadeQueue.removeFirst(crossfadeQueueHead)
+        crossfadeQueueHead = 0
     }
 
     private func drainPendingBufferDeallocations() {
-        while true {
-            let pending: [UnsafeMutablePointer<Float>]
-            os_unfair_lock_lock(&bufferLock)
-            pending = pendingBufferDeallocations
-            pendingBufferDeallocations.removeAll(keepingCapacity: true)
-            if pending.isEmpty {
-                pendingDeallocationDrainScheduled = false
-                os_unfair_lock_unlock(&bufferLock)
-                return
-            }
-            os_unfair_lock_unlock(&bufferLock)
+        deallocationDrainScratch.removeAll(keepingCapacity: true)
+        os_unfair_lock_lock(&bufferLock)
+        deallocationDrainScratch.append(contentsOf: pendingBufferDeallocations)
+        pendingBufferDeallocations.removeAll(keepingCapacity: true)
+        os_unfair_lock_unlock(&bufferLock)
 
-            for pointer in pending {
-                pointer.deallocate()
-            }
+        for pointer in deallocationDrainScratch {
+            pointer.deallocate()
         }
+        deallocationDrainScratch.removeAll(keepingCapacity: true)
+    }
+
+    private func startDeallocationTimerLocked() {
+        guard deallocationTimer == nil else { return }
+        let timer = DispatchSource.makeTimerSource(queue: maintenanceQueue)
+        timer.schedule(
+            deadline: .now() + 0.1,
+            repeating: 0.1,
+            leeway: .milliseconds(25)
+        )
+        timer.setEventHandler { [weak self] in
+            self?.drainPendingBufferDeallocations()
+        }
+        deallocationTimer = timer
+        timer.resume()
+    }
+
+    private func stopDeallocationTimerLocked() {
+        deallocationTimer?.setEventHandler {}
+        deallocationTimer?.cancel()
+        deallocationTimer = nil
     }
 
     // MARK: - Initialization
 
-    init() {}
+    init() {
+        bufferQueue.reserveCapacity(512)
+        crossfadeQueue.reserveCapacity(128)
+        // Completed PCM buffers are retired by the maintenance timer. Reserving
+        // generously keeps the render callback's append path allocation-free.
+        pendingBufferDeallocations.reserveCapacity(1024)
+        deallocationDrainScratch.reserveCapacity(1024)
+    }
 
     deinit {
         stop()
@@ -234,14 +330,34 @@ final class AudioRenderer {
         #endif
     }
 
-    /// Sets the EQ filter to apply in real-time during audio rendering.
+    /// 混音台输出音量（0.0~1.0）。
+    ///
+    /// 直接作用于 `mainMixerNode.outputVolume`，在渲染混音阶段生效，
+    /// 不触碰 FFmpeg 滤镜图（无需重建、实时安全），适合做暂停/恢复的
+    /// 短淡入淡出与定时关闭的长淡出。引擎重建后自动回到 1.0。
+    var outputVolume: Float {
+        get {
+            lifecycleLock.lock()
+            defer { lifecycleLock.unlock() }
+            return engine?.mainMixerNode.outputVolume ?? 1.0
+        }
+        set {
+            lifecycleLock.lock()
+            defer { lifecycleLock.unlock() }
+            engine?.mainMixerNode.outputVolume = max(0.0, min(newValue, 1.0))
+        }
+    }
+
     func setEQFilter(_ filter: EQFilter?) {
         eqFilter = filter
     }
 
-    /// Sets the FFmpeg avfilter audio filter graph.
     func setAudioFilterGraph(_ graph: AudioFilterGraph?) {
         audioFilterGraph = graph
+    }
+
+    func setRepairEngine(_ engine: AudioRepairEngine?) {
+        repairEngine = engine
     }
 
     /// Sets the spectrum analyzer for real-time FFT analysis.
@@ -249,9 +365,8 @@ final class AudioRenderer {
         spectrumAnalyzer = analyzer
     }
 
-    /// Sets the audio repair engine for automatic audio artifact fixing.
-    func setRepairEngine(_ engine: AudioRepairEngine?) {
-        repairEngine = engine
+    func setAnalysisSpectrumAnalyzer(_ analyzer: SpectrumAnalyzer?) {
+        analysisSpectrumAnalyzer = analyzer
     }
 
     // MARK: - Route Change Handling
@@ -260,18 +375,22 @@ final class AudioRenderer {
     ///
     /// 当硬件采样率因路由变化而改变时，安全重建 AVAudioEngine
     /// 以避免 `AVAudioSourceNode` 格式不匹配导致的闪退。
-    func handleRouteChange() {
+    @discardableResult
+    func handleRouteChange() -> Bool {
         lifecycleLock.lock()
         defer { lifecycleLock.unlock() }
 
-        guard isStarted else { return }
+        guard actualSampleRate > 0, channelCount > 0 else { return false }
 
         let newHWRate = currentHardwareSampleRate()
         let previousHWRate = hardwareSampleRate > 0 ? hardwareSampleRate : actualSampleRate
-        guard newHWRate > 0, newHWRate != previousHWRate else { return }
+        let outputIsAlive = isStarted && (engine?.isRunning == true)
+        guard newHWRate > 0 else { return outputIsAlive }
+        guard newHWRate != previousHWRate || !outputIsAlive else { return true }
 
-        print("[AudioRenderer] 🔄 route change detected: hardware \(previousHWRate)Hz → \(newHWRate)Hz, rebuilding engine at source \(sampleRate)Hz")
+        print("[AudioRenderer] 🔄 route/output change: hardware \(previousHWRate)Hz → \(newHWRate)Hz, running=\(outputIsAlive); rebuilding at source \(sampleRate)Hz")
         rebuildEngineLocked(hardwareSampleRate: newHWRate)
+        return isStarted && (engine?.isRunning == true)
     }
 
     /// 在持有 lifecycleLock 的前提下重建 AVAudioEngine。
@@ -294,6 +413,8 @@ final class AudioRenderer {
         interleavedScratch?.deallocate()
         interleavedScratch = nil
         interleavedScratchCapacity = 0
+        crossfadeScratch?.deallocate()
+        crossfadeScratch = nil
         lastFrameSamples?.deallocate()
         lastFrameSamples = nil
         wasUnderrun = false
@@ -342,8 +463,9 @@ final class AudioRenderer {
         }
 
         // 4. 重新分配 scratch buffers
-        let initialCapacity = 4096 * channelCount
+        let initialCapacity = 8192 * channelCount
         interleavedScratch = .allocate(capacity: initialCapacity)
+        crossfadeScratch = .allocate(capacity: initialCapacity)
         interleavedScratchCapacity = initialCapacity
         lastFrameSamples = .allocate(capacity: channelCount)
         lastFrameSamples?.initialize(repeating: 0, count: channelCount)
@@ -357,20 +479,19 @@ final class AudioRenderer {
             let renderer = Unmanaged<AudioRenderer>.fromOpaque(refCon).takeUnretainedValue()
             let frames = Int(frameCount)
             let needed = frames * chCount
+            let ablPointer = UnsafeMutableAudioBufferListPointer(audioBufferList)
 
-            let interleaved: UnsafeMutablePointer<Float>
-            if needed <= renderer.interleavedScratchCapacity, let scratch = renderer.interleavedScratch {
-                interleaved = scratch
-            } else {
-                renderer.interleavedScratch?.deallocate()
-                renderer.interleavedScratch = .allocate(capacity: needed)
-                renderer.interleavedScratchCapacity = needed
-                interleaved = renderer.interleavedScratch!
+            guard needed <= renderer.interleavedScratchCapacity,
+                  let interleaved = renderer.interleavedScratch else {
+                for buffer in ablPointer {
+                    guard let data = buffer.mData else { continue }
+                    memset(data, 0, Int(buffer.mDataByteSize))
+                }
+                return noErr
             }
 
             renderer.fillBuffer(interleaved, frameCount: frames, channelCount: chCount)
 
-            let ablPointer = UnsafeMutableAudioBufferListPointer(audioBufferList)
             if chCount == 1 {
                 if let outData = ablPointer[0].mData?.assumingMemoryBound(to: Float.self) {
                     outData.update(from: interleaved, count: frames)
@@ -399,7 +520,7 @@ final class AudioRenderer {
             let frames = Int(pcmBuffer.frameLength)
             let channels = Int(pcmBuffer.format.channelCount)
 
-            if let analyzer = self.spectrumAnalyzer, analyzer.isEnabled {
+            if let analyzer = self.spectrumAnalyzer, analyzer.isActive {
                 if pcmBuffer.format.isInterleaved {
                     analyzer.feed(samples: floatData[0], frameCount: frames, channelCount: channels, sampleRate: pcmBuffer.format.sampleRate)
                 } else {
@@ -422,11 +543,19 @@ final class AudioRenderer {
             try audioEngine.start()
             self.engine = audioEngine
             self.sourceNode = node
+            self.isStarted = true
             print("[AudioRenderer] ✅ engine rebuilt successfully at source \(sampleRate)Hz, hardware \(newHardwareSampleRate)Hz")
         } catch {
             print("[AudioRenderer] ❌ rebuild engine.start() failed: \(error.localizedDescription)")
             audioEngine.mainMixerNode.removeTap(onBus: 0)
             audioEngine.detach(node)
+            interleavedScratch?.deallocate()
+            interleavedScratch = nil
+            interleavedScratchCapacity = 0
+            crossfadeScratch?.deallocate()
+            crossfadeScratch = nil
+            lastFrameSamples?.deallocate()
+            lastFrameSamples = nil
             isStarted = false
         }
     }
@@ -463,6 +592,10 @@ final class AudioRenderer {
         channelCount = Int(format.mChannelsPerFrame)
         actualSampleRate = Int(hwRate)
         hardwareSampleRate = Int(hwRate)
+        os_unfair_lock_lock(&bufferLock)
+        isRebuffering = false
+        inputHasEnded = false
+        os_unfair_lock_unlock(&bufferLock)
 
         let audioEngine = AVAudioEngine()
 
@@ -504,9 +637,11 @@ final class AudioRenderer {
 
         // Pre-allocate scratch buffer for deinterleaving.
         // iOS typical render callback: 512 or 1024 frames × 2 channels = 1024~2048 floats.
-        // Allocate enough for the largest expected callback (4096 frames stereo).
-        let initialCapacity = 4096 * channelCount
+        // Allocate enough for route changes and unusually large callbacks without
+        // ever reallocating from the real-time render thread.
+        let initialCapacity = 8192 * channelCount
         interleavedScratch = .allocate(capacity: initialCapacity)
+        crossfadeScratch = .allocate(capacity: initialCapacity)
         interleavedScratchCapacity = initialCapacity
         lastFrameSamples = .allocate(capacity: channelCount)
         lastFrameSamples?.initialize(repeating: 0, count: channelCount)
@@ -522,22 +657,20 @@ final class AudioRenderer {
             let renderer = Unmanaged<AudioRenderer>.fromOpaque(refCon).takeUnretainedValue()
             let frames = Int(frameCount)
             let needed = frames * chCount
+            let ablPointer = UnsafeMutableAudioBufferListPointer(audioBufferList)
 
-            // Use pre-allocated scratch; grow only if needed (rare)
-            let interleaved: UnsafeMutablePointer<Float>
-            if needed <= renderer.interleavedScratchCapacity, let scratch = renderer.interleavedScratch {
-                interleaved = scratch
-            } else {
-                renderer.interleavedScratch?.deallocate()
-                renderer.interleavedScratch = .allocate(capacity: needed)
-                renderer.interleavedScratchCapacity = needed
-                interleaved = renderer.interleavedScratch!
+            guard needed <= renderer.interleavedScratchCapacity,
+                  let interleaved = renderer.interleavedScratch else {
+                for buffer in ablPointer {
+                    guard let data = buffer.mData else { continue }
+                    memset(data, 0, Int(buffer.mDataByteSize))
+                }
+                return noErr
             }
 
             renderer.fillBuffer(interleaved, frameCount: frames, channelCount: chCount)
 
             // Deinterleave into separate channel buffers
-            let ablPointer = UnsafeMutableAudioBufferListPointer(audioBufferList)
             if chCount == 1 {
                 if let outData = ablPointer[0].mData?.assumingMemoryBound(to: Float.self) {
                     outData.update(from: interleaved, count: frames)
@@ -568,7 +701,7 @@ final class AudioRenderer {
             let frames = Int(pcmBuffer.frameLength)
             let channels = Int(pcmBuffer.format.channelCount)
 
-            if let analyzer = self.spectrumAnalyzer, analyzer.isEnabled {
+            if let analyzer = self.spectrumAnalyzer, analyzer.isActive {
                 if pcmBuffer.format.isInterleaved {
                     analyzer.feed(samples: floatData[0], frameCount: frames, channelCount: channels, sampleRate: pcmBuffer.format.sampleRate)
                 } else {
@@ -591,26 +724,65 @@ final class AudioRenderer {
         do {
             try audioEngine.start()
         } catch {
+            audioEngine.mainMixerNode.removeTap(onBus: 0)
+            audioEngine.detach(node)
+            interleavedScratch?.deallocate()
+            interleavedScratch = nil
+            interleavedScratchCapacity = 0
+            crossfadeScratch?.deallocate()
+            crossfadeScratch = nil
+            lastFrameSamples?.deallocate()
+            lastFrameSamples = nil
             throw FFmpegError.resourceAllocationFailed(resource: "AVAudioEngine.start: \(error.localizedDescription)")
         }
 
         self.engine = audioEngine
         self.sourceNode = node
         isStarted = true
+        startDeallocationTimerLocked()
     }
 
     /// Enqueues a PCM audio buffer for playback.
     private var lastLowWaterLogTime: UInt64 = 0
 
-    func enqueue(_ buffer: AudioBuffer) {
+    func enqueue(_ buffer: AudioBuffer, presentationTime: TimeInterval? = nil) {
+        // Ownership transfers to the renderer at this boundary. Serialize the
+        // started check with stop() so a late decoder result from an invalidated
+        // playback generation is released instead of entering a stopped engine.
+        lifecycleLock.lock()
+        guard isStarted, !isStopping else {
+            lifecycleLock.unlock()
+            buffer.data.deallocate()
+            return
+        }
+        guard buffer.sampleRate == sampleRate,
+              buffer.channelCount == channelCount else {
+            let expected = "\(sampleRate)Hz/\(channelCount)ch"
+            let received = "\(buffer.sampleRate)Hz/\(buffer.channelCount)ch"
+            lifecycleLock.unlock()
+            buffer.data.deallocate()
+            print("[AudioRenderer] rejected PCM format \(received); expected \(expected)")
+            return
+        }
+
         os_unfair_lock_lock(&bufferLock)
-        bufferQueue.append(buffer)
-        compactBufferQueueLockedIfNeeded()
+        let queued = QueuedAudioBuffer(buffer: buffer, presentationTime: presentationTime)
+        if isCrossfadeActive {
+            crossfadeQueue.append(queued)
+            crossfadeQueuedDuration += buffer.duration
+            compactCrossfadeQueueLockedIfNeeded()
+        } else {
+            bufferQueue.append(queued)
+            queuedAudioDuration += buffer.duration
+            compactBufferQueueLockedIfNeeded()
+        }
         let count = max(0, bufferQueue.count - bufferQueueHead)
+            + max(0, crossfadeQueue.count - crossfadeQueueHead)
         os_unfair_lock_unlock(&bufferLock)
+        lifecycleLock.unlock()
 
         if count <= 3 {
-            let now = mach_absolute_time()
+            let now = DispatchTime.now().uptimeNanoseconds
             if now - lastLowWaterLogTime > 1_000_000_000 {
                 lastLowWaterLogTime = now
                 print("[AudioRenderer] 📉 low buffer: \(count) queued, duration=\(String(format: "%.2f", buffer.duration))s")
@@ -618,37 +790,82 @@ final class AudioRenderer {
         }
     }
 
+    /// Routes subsequently enqueued PCM to a second lane. The render callback
+    /// starts consuming it only when the primary lane reaches the overlap window.
+    @discardableResult
+    func beginCrossfade(duration: TimeInterval) -> Bool {
+        os_unfair_lock_lock(&bufferLock)
+        defer { os_unfair_lock_unlock(&bufferLock) }
+        guard !isCrossfadeActive,
+              duration > 0,
+              bufferQueueHead < bufferQueue.count,
+              queuedAudioDuration > 0 else { return false }
+
+        isCrossfadeActive = true
+        isCrossfadeMixing = false
+        crossfadePlannedDuration = min(duration, queuedAudioDuration)
+        crossfadeTotalFrames = max(1, Int(crossfadePlannedDuration * Double(max(sampleRate, 1))))
+        crossfadeFramesRendered = 0
+        crossfadePresentationTime = nil
+        return true
+    }
+
     /// Pauses audio playback.
-    func pause() {
-        guard let engine = engine, isStarted, engine.isRunning else { return }
+    @discardableResult
+    func pause() -> Bool {
+        lifecycleLock.lock()
+        defer { lifecycleLock.unlock() }
+        guard let engine = engine, isStarted else { return false }
+        guard engine.isRunning else { return true }
         engine.pause()
+        return !engine.isRunning
     }
 
     /// Resumes audio playback after a pause.
-    func resume() {
-        guard isStarted, let engine = engine, !engine.isRunning else { return }
+    @discardableResult
+    func resume() -> Bool {
+        lifecycleLock.lock()
+        defer { lifecycleLock.unlock() }
+        guard actualSampleRate > 0, channelCount > 0 else { return false }
 
         // 检查 pause 期间采样率是否因蓝牙连接/断开而改变
         #if os(iOS) || os(tvOS)
         let currentHWRate = currentHardwareSampleRate()
         let previousHWRate = hardwareSampleRate > 0 ? hardwareSampleRate : actualSampleRate
-        if currentHWRate > 0, currentHWRate != previousHWRate {
-            print("[AudioRenderer] ⚠️ hardware sample rate changed during pause (\(previousHWRate)→\(currentHWRate)), rebuilding")
-            lifecycleLock.lock()
+        if !isStarted || engine == nil || (currentHWRate > 0 && currentHWRate != previousHWRate) {
+            print("[AudioRenderer] ⚠️ output unavailable or route changed during pause (\(previousHWRate)→\(currentHWRate)), rebuilding")
             rebuildEngineLocked(hardwareSampleRate: currentHWRate)
-            lifecycleLock.unlock()
-            return
+            return isStarted && (engine?.isRunning == true)
         }
         #endif
 
+        guard isStarted, let engine else { return false }
+        guard !engine.isRunning else { return true }
+
         do {
             try engine.start()
+            return engine.isRunning
         } catch {
             print("[AudioRenderer] resume failed: \(error.localizedDescription), attempting rebuild")
-            lifecycleLock.lock()
             rebuildEngineLocked(hardwareSampleRate: currentHardwareSampleRate())
-            lifecycleLock.unlock()
+            return isStarted && (self.engine?.isRunning == true)
         }
+    }
+
+    /// Marks that more PCM may arrive. Called after seek/reconnect/track switch.
+    func markInputActive() {
+        os_unfair_lock_lock(&bufferLock)
+        inputHasEnded = false
+        os_unfair_lock_unlock(&bufferLock)
+    }
+
+    /// Lets the renderer drain a short final tail without waiting for the
+    /// starvation recovery threshold once demuxer EOF has been confirmed.
+    func markInputEnded() {
+        os_unfair_lock_lock(&bufferLock)
+        inputHasEnded = true
+        isRebuffering = false
+        os_unfair_lock_unlock(&bufferLock)
     }
 
     /// Flushes all queued audio buffers without stopping the engine.
@@ -660,15 +877,32 @@ final class AudioRenderer {
         os_unfair_lock_lock(&bufferLock)
         let flushedCount = max(0, bufferQueue.count - bufferQueueHead)
         for index in bufferQueueHead..<bufferQueue.count {
-            bufferQueue[index]?.data.deallocate()
+            bufferQueue[index]?.buffer.data.deallocate()
             bufferQueue[index] = nil
         }
+        for index in crossfadeQueueHead..<crossfadeQueue.count {
+            crossfadeQueue[index]?.buffer.data.deallocate()
+            crossfadeQueue[index] = nil
+        }
         bufferQueue.removeAll()
+        crossfadeQueue.removeAll()
         bufferQueueHead = 0
+        crossfadeQueueHead = 0
         currentBufferOffset = 0
+        crossfadeBufferOffset = 0
+        queuedAudioDuration = 0
+        crossfadeQueuedDuration = 0
+        isRebuffering = false
+        inputHasEnded = false
+        audiblePresentationTime = nil
+        crossfadePresentationTime = nil
+        isCrossfadeActive = false
+        isCrossfadeMixing = false
+        crossfadePlannedDuration = 0
+        crossfadeTotalFrames = 0
+        crossfadeFramesRendered = 0
         pendingDeallocations = pendingBufferDeallocations
         pendingBufferDeallocations.removeAll()
-        pendingDeallocationDrainScheduled = false
         os_unfair_lock_unlock(&bufferLock)
         for pointer in pendingDeallocations {
             pointer.deallocate()
@@ -714,9 +948,9 @@ final class AudioRenderer {
         lifecycleLock.lock()
         defer { lifecycleLock.unlock() }
 
-        guard isStarted else { return }
         gracefulStopWorkItem?.cancel()
         gracefulStopWorkItem = nil
+        stopDeallocationTimerLocked()
 
         setStopping(true)
 
@@ -735,6 +969,8 @@ final class AudioRenderer {
         interleavedScratch?.deallocate()
         interleavedScratch = nil
         interleavedScratchCapacity = 0
+        crossfadeScratch?.deallocate()
+        crossfadeScratch = nil
         lastFrameSamples?.deallocate()
         lastFrameSamples = nil
         wasUnderrun = false
@@ -742,15 +978,32 @@ final class AudioRenderer {
         var pendingDeallocations: [UnsafeMutablePointer<Float>] = []
         os_unfair_lock_lock(&bufferLock)
         for index in bufferQueueHead..<bufferQueue.count {
-            bufferQueue[index]?.data.deallocate()
+            bufferQueue[index]?.buffer.data.deallocate()
             bufferQueue[index] = nil
         }
+        for index in crossfadeQueueHead..<crossfadeQueue.count {
+            crossfadeQueue[index]?.buffer.data.deallocate()
+            crossfadeQueue[index] = nil
+        }
         bufferQueue.removeAll()
+        crossfadeQueue.removeAll()
         bufferQueueHead = 0
+        crossfadeQueueHead = 0
         currentBufferOffset = 0
+        crossfadeBufferOffset = 0
+        queuedAudioDuration = 0
+        crossfadeQueuedDuration = 0
+        isRebuffering = false
+        inputHasEnded = false
+        audiblePresentationTime = nil
+        crossfadePresentationTime = nil
+        isCrossfadeActive = false
+        isCrossfadeMixing = false
+        crossfadePlannedDuration = 0
+        crossfadeTotalFrames = 0
+        crossfadeFramesRendered = 0
         pendingDeallocations = pendingBufferDeallocations
         pendingBufferDeallocations.removeAll()
-        pendingDeallocationDrainScheduled = false
         os_unfair_lock_unlock(&bufferLock)
         for pointer in pendingDeallocations {
             pointer.deallocate()
@@ -762,9 +1015,8 @@ final class AudioRenderer {
 
     // MARK: - Render Block Data Provider
 
-    /// Underrun tracking for debug logging.
+    /// Consecutive underrun tracking for fade recovery.
     private var underrunCount: Int = 0
-    private var lastUnderrunLogTime: UInt64 = 0
     
     /// Tracks whether the previous render callback was an underrun, used for fade-in/out.
     private var wasUnderrun: Bool = false
@@ -787,16 +1039,31 @@ final class AudioRenderer {
         }
 
         var samplesWritten = 0
-        var buffersToRelease: [UnsafeMutablePointer<Float>] = []
 
         os_unfair_lock_lock(&bufferLock)
 
+        let bufferedDuration = queuedAudioDuration + crossfadeQueuedDuration
+        if isRebuffering,
+           !inputHasEnded,
+           bufferedDuration < Self.rebufferRecoveryDuration {
+            os_unfair_lock_unlock(&bufferLock)
+            output.update(repeating: 0, count: totalSamples)
+            markUnderrunObserved()
+            underrunCount += 1
+            wasUnderrun = true
+            return
+        }
+        if isRebuffering {
+            isRebuffering = false
+        }
+
         while samplesWritten < totalSamples && bufferQueueHead < bufferQueue.count {
-            guard let front = bufferQueue[bufferQueueHead] else {
+            guard let queued = bufferQueue[bufferQueueHead] else {
                 bufferQueueHead += 1
                 currentBufferOffset = 0
                 continue
             }
+            let front = queued.buffer
             let frontTotalSamples = front.frameCount * front.channelCount
             let availableSamples = frontTotalSamples - currentBufferOffset
             let samplesToRead = min(totalSamples - samplesWritten, availableSamples)
@@ -806,22 +1073,152 @@ final class AudioRenderer {
 
             samplesWritten += samplesToRead
             currentBufferOffset += samplesToRead
+            let consumedDuration = TimeInterval(samplesToRead)
+                / TimeInterval(max(front.channelCount * front.sampleRate, 1))
+            queuedAudioDuration = max(0, queuedAudioDuration - consumedDuration)
+            if let presentationTime = queued.presentationTime {
+                let consumedFrames = currentBufferOffset / max(front.channelCount, 1)
+                audiblePresentationTime = presentationTime
+                    + TimeInterval(consumedFrames) / TimeInterval(max(front.sampleRate, 1))
+            }
 
             if currentBufferOffset >= frontTotalSamples {
-                buffersToRelease.append(front.data)
+                pendingBufferDeallocations.append(front.data)
                 bufferQueue[bufferQueueHead] = nil
                 bufferQueueHead += 1
                 currentBufferOffset = 0
             }
         }
 
-        os_unfair_lock_unlock(&bufferLock)
-
-        if !buffersToRelease.isEmpty {
-            for pointer in buffersToRelease {
-                enqueuePendingBufferDeallocation(pointer)
-            }
+        let primarySamplesWritten = samplesWritten
+        let callbackDuration = TimeInterval(frameCount) / TimeInterval(max(sampleRate, 1))
+        if isCrossfadeActive,
+           !isCrossfadeMixing,
+           queuedAudioDuration <= crossfadePlannedDuration + callbackDuration {
+            isCrossfadeMixing = true
         }
+
+        if isCrossfadeMixing,
+           let crossfadeScratch,
+           crossfadeQueueHead < crossfadeQueue.count {
+            crossfadeScratch.update(repeating: 0, count: totalSamples)
+            var secondarySamplesWritten = 0
+
+            while secondarySamplesWritten < totalSamples,
+                  crossfadeQueueHead < crossfadeQueue.count {
+                guard let queued = crossfadeQueue[crossfadeQueueHead] else {
+                    crossfadeQueueHead += 1
+                    crossfadeBufferOffset = 0
+                    continue
+                }
+                let front = queued.buffer
+                let frontTotalSamples = front.frameCount * front.channelCount
+                let availableSamples = frontTotalSamples - crossfadeBufferOffset
+                let samplesToRead = min(
+                    totalSamples - secondarySamplesWritten,
+                    availableSamples
+                )
+
+                crossfadeScratch.advanced(by: secondarySamplesWritten).update(
+                    from: front.data.advanced(by: crossfadeBufferOffset),
+                    count: samplesToRead
+                )
+                secondarySamplesWritten += samplesToRead
+                crossfadeBufferOffset += samplesToRead
+
+                let consumedDuration = TimeInterval(samplesToRead)
+                    / TimeInterval(max(front.channelCount * front.sampleRate, 1))
+                crossfadeQueuedDuration = max(0, crossfadeQueuedDuration - consumedDuration)
+                if let presentationTime = queued.presentationTime {
+                    let consumedFrames = crossfadeBufferOffset / max(front.channelCount, 1)
+                    crossfadePresentationTime = presentationTime
+                        + TimeInterval(consumedFrames) / TimeInterval(max(front.sampleRate, 1))
+                }
+
+                if crossfadeBufferOffset >= frontTotalSamples {
+                    pendingBufferDeallocations.append(front.data)
+                    crossfadeQueue[crossfadeQueueHead] = nil
+                    crossfadeQueueHead += 1
+                    crossfadeBufferOffset = 0
+                }
+            }
+
+            if primarySamplesWritten < totalSamples {
+                output.advanced(by: primarySamplesWritten).update(
+                    repeating: 0,
+                    count: totalSamples - primarySamplesWritten
+                )
+            }
+
+            let primaryFrames = primarySamplesWritten / max(channelCount, 1)
+            let secondaryFrames = secondarySamplesWritten / max(channelCount, 1)
+            let overlapFrames = min(primaryFrames, secondaryFrames)
+            for frame in 0..<overlapFrames {
+                let progress = min(
+                    1,
+                    Float(crossfadeFramesRendered + frame + 1)
+                        / Float(max(crossfadeTotalFrames, 1))
+                )
+                let oldGain = sqrtf(max(0, 1 - progress))
+                let newGain = sqrtf(progress)
+                for channel in 0..<channelCount {
+                    let index = frame * channelCount + channel
+                    output[index] = output[index] * oldGain
+                        + crossfadeScratch[index] * newGain
+                }
+            }
+
+            // If the primary lane ends inside this hardware callback, the
+            // remainder belongs entirely to the new track. Conversely, when
+            // the secondary lane is temporarily short, keep the primary signal
+            // untouched instead of fading it toward silence.
+            if secondaryFrames > primaryFrames {
+                for frame in primaryFrames..<secondaryFrames {
+                    for channel in 0..<channelCount {
+                        let index = frame * channelCount + channel
+                        output[index] = crossfadeScratch[index]
+                    }
+                }
+            }
+
+            crossfadeFramesRendered += overlapFrames
+            samplesWritten = max(primarySamplesWritten, secondarySamplesWritten)
+        }
+
+        if isCrossfadeActive, bufferQueueHead >= bufferQueue.count {
+            bufferQueue.removeAll(keepingCapacity: true)
+            swap(&bufferQueue, &crossfadeQueue)
+            bufferQueueHead = crossfadeQueueHead
+            currentBufferOffset = crossfadeBufferOffset
+            queuedAudioDuration = crossfadeQueuedDuration
+            audiblePresentationTime = crossfadePresentationTime
+
+            crossfadeQueue.removeAll(keepingCapacity: true)
+            crossfadeQueueHead = 0
+            crossfadeBufferOffset = 0
+            crossfadeQueuedDuration = 0
+            crossfadePresentationTime = nil
+            isCrossfadeActive = false
+            isCrossfadeMixing = false
+            crossfadePlannedDuration = 0
+            crossfadeTotalFrames = 0
+            crossfadeFramesRendered = 0
+        }
+
+        if samplesWritten < totalSamples, !inputHasEnded {
+            isRebuffering = true
+        }
+
+        // `samplesWritten` still contains only PCM consumed from the primary or
+        // crossfade queues here. Any synthetic fade tail / zero fill is added
+        // after releasing the lock and therefore never enters listening stats.
+        let audibleFramesWritten = samplesWritten / max(channelCount, 1)
+        if audibleFramesWritten > 0 {
+            audibleOutputDuration += TimeInterval(audibleFramesWritten)
+                / TimeInterval(max(sampleRate, 1))
+        }
+
+        os_unfair_lock_unlock(&bufferLock)
 
         if samplesWritten < totalSamples {
             markUnderrunObserved()
@@ -855,11 +1252,6 @@ final class AudioRenderer {
 
             underrunCount += 1
             wasUnderrun = true
-            let now = mach_absolute_time()
-            if now - lastUnderrunLogTime > 1_000_000_000 {
-                lastUnderrunLogTime = now
-                print("[AudioRenderer] ⚠️ buffer underrun #\(underrunCount): requested=\(frameCount) frames, got=\(samplesWritten / max(channelCount, 1))")
-            }
         } else {
             if wasUnderrun {
                 // Fade-in when resuming from underrun
@@ -897,6 +1289,24 @@ final class AudioRenderer {
 
         guard samplesWritten > 0 else { return }
 
+        // Feed the dedicated measurement path before AudioFilterGraph, fixed EQ,
+        // and repair processing. `SpectrumAnalyzer.feed` is try-lock based and
+        // never waits on its worker from the real-time render callback.
+        if let analyzer = analysisSpectrumAnalyzer, analyzer.isActive {
+            let analysisFrameCount = min(
+                frameCount,
+                samplesWritten / max(channelCount, 1)
+            )
+            if analysisFrameCount > 0 {
+                analyzer.feed(
+                    samples: output,
+                    frameCount: analysisFrameCount,
+                    channelCount: channelCount,
+                    sampleRate: Double(sampleRate)
+                )
+            }
+        }
+
         // 在效果器之前保存 raw PCM 末尾样本，确保不连续检测比较的是同类信号
         if totalSamples >= channelCount, let lastFrameSamples {
             let lastFrameOffset = totalSamples - channelCount
@@ -905,40 +1315,45 @@ final class AudioRenderer {
             }
         }
 
-        // Apply FFmpeg avfilter graph (loudnorm, atempo, volume)
         if let graph = audioFilterGraph, graph.isActive {
-            let buf = AudioBuffer(
+            let buffer = AudioBuffer(
                 data: output,
                 frameCount: frameCount,
                 channelCount: channelCount,
                 sampleRate: sampleRate
             )
-            let processed = graph.process(buf)
+            let processed = graph.process(buffer)
             if processed.data != output {
-                let outSamples = processed.frameCount * processed.channelCount
-                let copyCount = min(outSamples, totalSamples)
+                let processedSampleCount = processed.frameCount * processed.channelCount
+                let copyCount = min(processedSampleCount, totalSamples)
                 output.update(from: processed.data, count: copyCount)
                 if copyCount < totalSamples {
-                    output.advanced(by: copyCount).update(repeating: 0, count: totalSamples - copyCount)
+                    output.advanced(by: copyCount).update(
+                        repeating: 0,
+                        count: totalSamples - copyCount
+                    )
                 }
                 processed.data.deallocate()
             }
         }
 
-        // Apply EQ filter
-        if let filter = eqFilter {
-            let buf = AudioBuffer(
+        if let eqFilter {
+            let buffer = AudioBuffer(
                 data: output,
                 frameCount: frameCount,
                 channelCount: channelCount,
                 sampleRate: sampleRate
             )
-            _ = filter.process(buf)
+            _ = eqFilter.process(buffer)
         }
 
-        // Audio repair engine (after all effects, before output)
-        if let engine = repairEngine, engine.isActive {
-            engine.process(output, frameCount: frameCount, channelCount: channelCount, sampleRate: sampleRate)
+        if let repairEngine, repairEngine.isActive {
+            repairEngine.process(
+                output,
+                frameCount: frameCount,
+                channelCount: channelCount,
+                sampleRate: sampleRate
+            )
         }
     }
 }

@@ -269,7 +269,7 @@ struct Game2048PlayerLayout: View {
         .monologueSheet(isPresented: $showPlaylist, preset: .standard) {
             if player.isPlayingPodcast { PodcastPlaylistPopupView() } else { PlaylistPopupView() }
         }
-        .monologueSheet(isPresented: $showQualitySheet, preset: .compact) {
+        .monologueSheet(isPresented: $showQualitySheet, preset: .standard) {
             SoundQualitySheet(
                 currentQuality: player.soundQuality, currentQQQuality: player.qqMusicQuality,
                 isQQMusic: player.currentSong?.isQQMusic == true,
@@ -281,7 +281,7 @@ struct Game2048PlayerLayout: View {
                 onSelectQishui: { info in player.switchQishuiQuality(info); showQualitySheet = false }
             )
         }
-        .monologueSheet(isPresented: $showEQSettings, preset: .large) { NavigationStack { EQSettingsView() } }
+        .fullScreenCover(isPresented: $showEQSettings) { NavigationStack { EQSettingsView() } }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker) { PlayerThemePickerSheet() }
         .monologueSheet(isPresented: $showComments, preset: .large) {
             if let s = player.currentSong {

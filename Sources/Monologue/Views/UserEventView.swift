@@ -207,7 +207,7 @@ private struct EventCard: View {
         }
         .padding(16)
         .themedPageSurface(cornerRadius: 18, elevated: true, mangaTint: MangaStyle.bubbleWhite)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius + 4 : 16, style: .continuous))
     }
 }
 

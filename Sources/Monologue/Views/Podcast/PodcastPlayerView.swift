@@ -13,10 +13,16 @@ struct PodcastPlayerView: View {
     @State private var showSpeedSheet = false
     @State private var showTimerSheet = false
     @State private var showPlaylist = false
+    @State private var isScrubbing = false
+    @State private var scrubProgress: Double = 0
 
     init(radioId: Int) {
         self.radioId = radioId
         _viewModel = StateObject(wrappedValue: PodcastPlayerViewModel(radioId: radioId))
+    }
+
+    private var isAside: Bool {
+        !ThemedPageStyle.isActive
     }
 
     var body: some View {
@@ -34,6 +40,8 @@ struct PodcastPlayerView: View {
                 loadingState
             } else if let error = viewModel.errorMessage, viewModel.radioDetail == nil {
                 errorState(error)
+            } else if isAside {
+                asideMainContent
             } else {
                 mainContent
             }
@@ -61,8 +69,14 @@ struct PodcastPlayerView: View {
 
     private var loadingState: some View {
         VStack(spacing: 16) {
-            topBar
-                .padding(.top, DeviceLayout.headerTopPadding)
+            Group {
+                if isAside {
+                    asideTopBar
+                } else {
+                    topBar
+                }
+            }
+            .padding(.top, DeviceLayout.headerTopPadding)
             Spacer()
             MonologueLoadingView(text: MinimalWhiteStyle.isActive ? nil : "LOADING")
             Spacer()
@@ -73,8 +87,14 @@ struct PodcastPlayerView: View {
 
     private func errorState(_ error: String) -> some View {
         VStack(spacing: 16) {
-            topBar
-                .padding(.top, DeviceLayout.headerTopPadding)
+            Group {
+                if isAside {
+                    asideTopBar
+                } else {
+                    topBar
+                }
+            }
+            .padding(.top, DeviceLayout.headerTopPadding)
             Spacer()
             if MinimalWhiteStyle.isActive {
                 MinimalWhiteIconBadge(icon: .warning, size: 56)
@@ -99,7 +119,238 @@ struct PodcastPlayerView: View {
         }
     }
 
-    // MARK: - Main
+    // MARK: - aside 版式
+
+    private var asideMainContent: some View {
+        VStack(spacing: 0) {
+            asideTopBar
+                .padding(.top, DeviceLayout.headerTopPadding)
+
+            Spacer(minLength: 16)
+
+            asideCoverSection
+                .padding(.horizontal, 52)
+
+            Spacer(minLength: 16)
+
+            asideProgramInfo
+                .padding(.horizontal, 34)
+
+            Spacer().frame(height: 24)
+
+            asideProgressSection
+                .padding(.horizontal, 34)
+
+            Spacer().frame(height: 16)
+
+            PodcastEpisodeBar(
+                currentIndex: viewModel.currentProgramIndex,
+                currentEpisodeNumber: viewModel.currentEpisodeNumber,
+                totalCount: viewModel.totalProgramCount
+            )
+            .padding(.horizontal, 44)
+
+            Spacer().frame(height: 26)
+
+            PodcastControlsBar(
+                isPlaying: viewModel.isRadioPlaying,
+                isLoading: viewModel.isRadioLoading,
+                onPrevious: { viewModel.previousProgram() },
+                onSeekBack: { viewModel.seekBackward() },
+                onPlayPause: { viewModel.handlePlayPause() },
+                onSeekForward: { viewModel.seekForward() },
+                onNext: { viewModel.nextProgram() }
+            )
+
+            Spacer().frame(height: 24)
+
+            PodcastToolbar(
+                onSpeedTap: { showSpeedSheet = true },
+                onTimerTap: { showTimerSheet = true },
+                onPlaylistTap: { showPlaylist = true }
+            )
+
+            Spacer().frame(height: 38)
+        }
+    }
+
+    private var asideTopBar: some View {
+        HStack(spacing: 12) {
+            MonologueBackButton(style: .dismiss)
+
+            Spacer(minLength: 0)
+
+            VStack(spacing: 3) {
+                Text("PODCAST")
+                    .font(.system(size: 9.5, weight: .heavy, design: .rounded))
+                    .tracking(2.2)
+                    .foregroundColor(.monologueTextSecondary.opacity(0.65))
+
+                if let radio = viewModel.radioDetail {
+                    Text(radio.name)
+                        .font(.rounded(size: 12.5, weight: .semibold))
+                        .foregroundColor(.monologueTextPrimary.opacity(0.85))
+                        .lineLimit(1)
+                }
+            }
+            .frame(maxWidth: .infinity)
+
+            Spacer(minLength: 0)
+
+            if let radio = viewModel.radioDetail {
+                let isSubscribed = subManager.localSubscribedRadios.contains { $0.id == radio.id }
+
+                Button(action: {
+                    withAnimation {
+                        subManager.toggleRadioSubscription(radio)
+                    }
+                }) {
+                    MonologueIcon(
+                        icon: isSubscribed ? .liked : .like,
+                        size: 15,
+                        color: isSubscribed ? .monologueAccent : .monologueTextPrimary,
+                        lineWidth: 1.5
+                    )
+                    .frame(width: 36, height: 36)
+                    .overlay(Circle().stroke(Color.monologueSeparator.opacity(0.9), lineWidth: 0.8))
+                    .contentShape(Circle())
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.92))
+            }
+
+            Button(action: { showEpisodeList = true }) {
+                MonologueIcon(icon: .list, size: 15, color: .monologueTextPrimary, lineWidth: 1.5)
+                    .frame(width: 36, height: 36)
+                    .overlay(Circle().stroke(Color.monologueSeparator.opacity(0.9), lineWidth: 0.8))
+                    .contentShape(Circle())
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.92))
+        }
+        .padding(.horizontal, 20)
+    }
+
+    private var asideCoverSection: some View {
+        Group {
+            if let coverURL = viewModel.currentProgram?.programCoverUrl ?? viewModel.radioDetail?.coverUrl {
+                CachedAsyncImage(url: coverURL) {
+                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                        .fill(Color.monologueSeparator.opacity(0.35))
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(maxWidth: .infinity)
+                .aspectRatio(1, contentMode: .fit)
+                .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+            } else {
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .fill(Color.monologueSeparator.opacity(0.35))
+                    .aspectRatio(1, contentMode: .fit)
+                    .overlay(
+                        MonologueIcon(icon: .radio, size: 52, color: .monologueTextSecondary.opacity(0.35), lineWidth: 1.2)
+                    )
+            }
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .stroke(Color.monologueTextPrimary.opacity(0.08), lineWidth: 0.8)
+        )
+        .shadow(color: .black.opacity(0.14), radius: 26, x: 0, y: 14)
+    }
+
+    private var asideProgramInfo: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(Color.monologueAccent)
+                    .frame(width: 4, height: 4)
+
+                Text(String(format: String(localized: "radio_episode_format"), viewModel.currentEpisodeNumber, viewModel.totalProgramCount))
+                    .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                    .tracking(0.6)
+                    .monospacedDigit()
+                    .foregroundColor(.monologueTextSecondary.opacity(0.85))
+
+                if let program = viewModel.currentProgram, !program.durationText.isEmpty {
+                    Circle()
+                        .fill(Color.monologueTextSecondary.opacity(0.4))
+                        .frame(width: 2.5, height: 2.5)
+
+                    Text(program.durationText)
+                        .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                        .tracking(0.6)
+                        .monospacedDigit()
+                        .foregroundColor(.monologueTextSecondary.opacity(0.85))
+                }
+            }
+
+            Group {
+                if let program = viewModel.currentProgram {
+                    Text(program.name ?? String(localized: "radio_unknown_program"))
+                        .foregroundColor(.monologueTextPrimary)
+                } else if viewModel.isLoading {
+                    Text("radio_tuning")
+                        .foregroundColor(.monologueTextSecondary)
+                } else {
+                    Text("radio_no_programs")
+                        .foregroundColor(.monologueTextSecondary)
+                }
+            }
+            .font(.system(size: 20, weight: .heavy, design: .rounded))
+            .lineLimit(2)
+            .multilineTextAlignment(.center)
+            .minimumScaleFactor(0.8)
+        }
+    }
+
+    /// aside 进度条：支持拖动跳转
+    private var asideProgressSection: some View {
+        VStack(spacing: 7) {
+            GeometryReader { geo in
+                let progress: Double = {
+                    if isScrubbing { return scrubProgress }
+                    guard timePublisher.duration > 0 else { return 0 }
+                    return min(max(timePublisher.currentTime / timePublisher.duration, 0), 1)
+                }()
+
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.monologueSeparator.opacity(0.6))
+
+                    Capsule()
+                        .fill(Color.monologueTextPrimary.opacity(0.85))
+                        .frame(width: max(0, geo.size.width * CGFloat(progress)))
+                }
+                .frame(height: isScrubbing ? 6.5 : 3.5)
+                .frame(maxHeight: .infinity, alignment: .center)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            isScrubbing = true
+                            scrubProgress = min(max(value.location.x / geo.size.width, 0), 1)
+                        }
+                        .onEnded { value in
+                            let target = min(max(value.location.x / geo.size.width, 0), 1)
+                            if timePublisher.duration > 0 {
+                                player.seek(to: target * timePublisher.duration)
+                            }
+                            isScrubbing = false
+                        }
+                )
+            }
+            .frame(height: 20)
+            .animation(.spring(response: 0.3, dampingFraction: 0.85), value: isScrubbing)
+
+            HStack {
+                Text(formatTime(isScrubbing ? scrubProgress * timePublisher.duration : timePublisher.currentTime))
+                Spacer()
+                Text(formatTime(timePublisher.duration))
+            }
+            .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+            .foregroundColor(.monologueTextSecondary.opacity(0.85))
+        }
+    }
+
+    // MARK: - Main（其他主题）
 
     private var mainContent: some View {
         VStack(spacing: 0) {

@@ -6,6 +6,7 @@ import Combine
 
 struct CloudDiskView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     @ObservedObject private var playerManager = PlayerManager.shared
     @ObservedObject private var settings = SettingsManager.shared
     
@@ -21,6 +22,7 @@ struct CloudDiskView: View {
     @State private var isEnrichingMetadata = false
     @State private var pendingMetadataRefresh = false
     @State private var pendingForcedQQRefresh = false
+    @State private var showMoreMenu = false
     
     private let pageSize = 30
 
@@ -94,6 +96,11 @@ struct CloudDiskView: View {
         }
     }
     
+    /// aside 默认主题（编辑部风格分支）
+    private var isAside: Bool {
+        GlobalThemeId.persistedOrDefault == .default
+    }
+
     var body: some View {
         let _ = settings.globalThemeRevision
 
@@ -108,42 +115,57 @@ struct CloudDiskView: View {
                     Spacer()
                 } else if songs.isEmpty {
                     emptyState
+                } else if isAside {
+                    asideContent
                 } else {
                     songList
                 }
             }
         }
-        .themedNavigationChrome(title: String(localized: "cloud_title"), eyebrow: "CLOUD", icon: .cloud)
+        .themedNavigationChrome(title: isAside ? "" : String(localized: "cloud_title"), eyebrow: "CLOUD", icon: .cloud)
         .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
-                Button { dismiss() } label: { MonologueIcon(icon: .xmark, size: 16) }
+                Button { dismiss() } label: { MonologueIcon(icon: isAside ? .back : .xmark, size: 16) }
             }
             ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button {
-                        triggerMetadataEnrichment(forceQQMetadata: true)
-                    } label: {
-                        Label(
-                            NSLocalizedString("cloud_refresh_metadata", comment: ""),
-                            systemImage: "arrow.clockwise"
-                        )
-                    }
-                    .disabled(isEnrichingMetadata)
-                    
-                    if isEnrichingMetadata {
-                        Button {} label: {
-                            Label(
-                                NSLocalizedString("cloud_syncing_metadata", comment: ""),
-                                systemImage: "hourglass"
-                            )
-                        }
-                        .disabled(true)
+                Button {
+                    withAnimation(.easeOut(duration: 0.18)) {
+                        showMoreMenu.toggle()
                     }
                 } label: {
-                    MonologueIcon(icon: .more, size: 16)
+                    MonologueIcon(icon: .more, size: 16, color: .monologueTextSecondary)
+                        .frame(width: 36, height: 36)
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: "player_more_title"))
+            }
+        }
+        .overlay {
+            if showMoreMenu {
+                MonologueMoreMenuOverlay(
+                    isPresented: $showMoreMenu,
+                    title: String(localized: "player_more_title"),
+                    isDarkBackground: colorScheme == .dark
+                ) {
+                    MonologueMoreMenuSection(title: String(localized: "more_menu_cloud_section")) {
+                        MonologueMoreMenuGroup {
+                            MonologueMoreMenuRow(
+                                icon: .refresh,
+                                title: NSLocalizedString("cloud_refresh_metadata", comment: ""),
+                                trailingText: isEnrichingMetadata
+                                    ? NSLocalizedString("cloud_syncing_metadata", comment: "")
+                                    : nil,
+                                isEnabled: !isEnrichingMetadata
+                            ) {
+                                showMoreMenu = false
+                                triggerMetadataEnrichment(forceQQMetadata: true)
+                            }
+                        }
+                    }
+                }
+                .zIndex(20)
             }
         }
         .onAppear { loadFirstPage() }
@@ -256,10 +278,10 @@ struct CloudDiskView: View {
                     .padding(.horizontal, 20)
                     .padding(.vertical, 10)
                     .background(Theme.accent)
-                    .clipShape(Capsule())
+                    .clipShape(MangaStyle.isActive ? AnyShape(RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)) : AnyShape(Capsule()))
                     .overlay {
                         if MangaStyle.isActive {
-                            Capsule()
+                            RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
                                 .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
                         }
                     }
@@ -297,6 +319,242 @@ struct CloudDiskView: View {
         }
     }
     
+    // MARK: - aside 编辑部风格
+
+    private var asideContent: some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                asideHero
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                    .padding(.top, 4)
+                    .padding(.bottom, 20)
+
+                ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+                    asideCloudRow(song, index: index)
+                        .onAppear {
+                            if song.id == songs.last?.id && hasMore && !isLoadingMore {
+                                loadMore()
+                            }
+                        }
+                }
+
+                if isLoadingMore {
+                    ProgressView()
+                        .tint(.monologueTextSecondary)
+                        .padding(.vertical, 20)
+                }
+            }
+            .padding(.bottom, 120)
+        }
+        .scrollIndicators(.hidden)
+    }
+
+    /// 编辑部式页头：眉题 + 大标题 + 容量刻度 + 操作行
+    private var asideHero: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                Capsule()
+                    .fill(Color.monologueAccent)
+                    .frame(width: 18, height: 3)
+
+                Text("CLOUD DISK")
+                    .font(.system(size: 10.5, weight: .heavy, design: .rounded))
+                    .tracking(2.4)
+                    .foregroundColor(.monologueTextSecondary.opacity(0.72))
+            }
+            .padding(.bottom, 10)
+
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text(LocalizedStringKey("cloud_title"))
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .foregroundColor(.monologueTextPrimary)
+
+                Text(String(format: NSLocalizedString("cloud_song_count", comment: ""), totalCount))
+                    .font(.rounded(size: 13, weight: .semibold))
+                    .foregroundColor(.monologueTextSecondary)
+
+                if isEnrichingMetadata {
+                    HStack(spacing: 5) {
+                        ProgressView()
+                            .controlSize(.mini)
+                            .tint(.monologueTextSecondary)
+                        Text(LocalizedStringKey("cloud_syncing_metadata"))
+                            .font(.rounded(size: 11.5))
+                            .foregroundColor(.monologueTextSecondary.opacity(0.85))
+                    }
+                }
+            }
+            .padding(.bottom, 16)
+
+            if usedBytes > 0, totalBytes > 0 {
+                VStack(alignment: .leading, spacing: 7) {
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule()
+                                .fill(Color.monologueSeparator.opacity(0.4))
+                                .frame(height: 3)
+                            Capsule()
+                                .fill(Color.monologueAccent)
+                                .frame(
+                                    width: max(geo.size.width * CGFloat(min(Double(usedBytes) / Double(totalBytes), 1)), 4),
+                                    height: 3
+                                )
+                        }
+                        .frame(maxHeight: .infinity, alignment: .center)
+                    }
+                    .frame(height: 3)
+
+                    HStack {
+                        Text(formatBytes(usedSpace))
+                            .font(.rounded(size: 12, weight: .semibold))
+                            .foregroundColor(.monologueTextPrimary.opacity(0.82))
+                            .monospacedDigit()
+
+                        Spacer()
+
+                        Text(formatBytes(totalSpace))
+                            .font(.rounded(size: 12))
+                            .foregroundColor(.monologueTextSecondary.opacity(0.85))
+                            .monospacedDigit()
+                    }
+                }
+                .padding(.bottom, 18)
+            }
+
+            HStack(spacing: 12) {
+                Button {
+                    let allSongs = songs.map { $0.toSong() }
+                    if let first = allSongs.first {
+                        playerManager.playReplacingContext(song: first, in: allSongs)
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        MonologueIcon(icon: .play, size: 14, color: .monologueIconForeground)
+                        Text(LocalizedStringKey("cloud_play_all"))
+                            .font(.rounded(size: 14, weight: .bold))
+                            .foregroundColor(.monologueIconForeground)
+                    }
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                    .padding(.vertical, 12)
+                    .background(Capsule().fill(Color.monologueIconBackground))
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+
+                Spacer()
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// 编辑部式歌曲行：序号 + 封面 + 标题元信息 + 发丝码率徽章
+    private func asideCloudRow(_ song: CloudSong, index: Int) -> some View {
+        let isCurrent = playerManager.currentSong?.id == song.songId
+
+        return Button {
+            playCloudSong(song)
+        } label: {
+            HStack(spacing: 12) {
+                ZStack {
+                    if isCurrent {
+                        PlayingVisualizerView(isAnimating: playerManager.isPlaying, color: .monologueAccent)
+                            .frame(width: 16, height: 16)
+                    } else {
+                        Text(String(format: "%02d", index + 1))
+                            .font(.rounded(size: 12, weight: .semibold))
+                            .foregroundColor(.monologueTextSecondary.opacity(0.4))
+                            .monospacedDigit()
+                    }
+                }
+                .frame(width: 26)
+
+                CachedAsyncImage(url: song.simpleSong?.coverUrl) {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color.monologueGlassTint)
+                        .overlay(
+                            MonologueIcon(icon: .cloud, size: 16, color: .monologueTextSecondary.opacity(0.45), lineWidth: 1.3)
+                        )
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: DeviceLayout.listRowCoverSmall, height: DeviceLayout.listRowCoverSmall)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(song.songName)
+                        .font(.rounded(size: 15, weight: .semibold))
+                        .foregroundColor(.monologueTextPrimary)
+                        .lineLimit(1)
+
+                    HStack(spacing: 7) {
+                        Text(song.bitrateText)
+                            .font(.system(size: 8.5, weight: .bold, design: .rounded))
+                            .tracking(0.4)
+                            .foregroundColor(.monologueTextPrimary.opacity(0.72))
+                            .padding(.horizontal, 5.5)
+                            .padding(.vertical, 1.5)
+                            .overlay(
+                                Capsule().stroke(Color.monologueTextPrimary.opacity(0.3), lineWidth: 0.8)
+                            )
+
+                        Text("\(song.artist) · \(song.fileSizeText)")
+                            .font(.rounded(size: 12))
+                            .foregroundColor(.monologueTextSecondary)
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.vertical, 8)
+            .background {
+                if isCurrent {
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(Color.monologueAccent.opacity(0.07))
+
+                        Capsule()
+                            .fill(Color.monologueAccent)
+                            .frame(width: 3, height: 24)
+                            .padding(.leading, 8)
+                    }
+                    .padding(.horizontal, 8)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98, opacity: 0.8))
+        .contextMenu {
+            Button {
+                addCloudSongToPlayNext(song)
+            } label: {
+                Label(NSLocalizedString("cloud_play_next", comment: ""), systemImage: "text.line.first.and.arrowtriangle.forward")
+            }
+
+            Button {
+                addCloudSongToQueue(song)
+            } label: {
+                Label(NSLocalizedString("cloud_add_queue", comment: ""), systemImage: "text.append")
+            }
+
+            Divider()
+
+            Button(role: .destructive) {
+                AlertManager.shared.show(
+                    title: NSLocalizedString("cloud_delete_title", comment: ""),
+                    message: String(format: NSLocalizedString("cloud_delete_message", comment: ""), song.songName),
+                    primaryButtonTitle: NSLocalizedString("cloud_delete_action", comment: ""),
+                    secondaryButtonTitle: NSLocalizedString("alert_cancel", comment: ""),
+                    primaryAction: { deleteSong(song) }
+                )
+            } label: {
+                Label(NSLocalizedString("cloud_delete_from", comment: ""), systemImage: "trash")
+            }
+        }
+    }
+
+    private var usedBytes: Int64 { Int64(usedSpace) ?? 0 }
+    private var totalBytes: Int64 { Int64(totalSpace) ?? 0 }
+
     // MARK: - 单行歌曲
     
     private func cloudSongRow(_ song: CloudSong) -> some View {

@@ -8,6 +8,31 @@ import QQMusicKit
 // MARK: - qcm → Song 转换
 
 extension APIService {
+
+    static func firstNonEmptyQQValue(_ values: String?...) -> String? {
+        values.lazy
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first(where: { !$0.isEmpty })
+    }
+
+    static func normalizedQQArtworkURLString(_ raw: String?) -> String? {
+        guard let value = firstNonEmptyQQValue(raw) else { return nil }
+        if value.hasPrefix("//") {
+            return "https:\(value)"
+        }
+        if value.hasPrefix("http://") {
+            return "https://\(value.dropFirst("http://".count))"
+        }
+        return value
+    }
+
+    static func qqAlbumArtworkURLString(mid: String, size: Int = 800) -> String {
+        "https://y.gtimg.cn/music/photo_new/T002R\(size)x\(size)M000\(mid).jpg"
+    }
+
+    static func qqArtistArtworkURLString(mid: String, size: Int = 800) -> String {
+        "https://y.gtimg.cn/music/photo_new/T001R\(size)x\(size)M000\(mid).jpg"
+    }
     
     /// 将 qcm搜索结果转换为 Song
     static func convertQQSongToSong(_ json: JSON) -> Song? {
@@ -17,7 +42,7 @@ extension APIService {
         // { id, mid, name, singer: [{id, mid, name}], album: {id, mid, name, pmid}, interval, ... }
         let songId = payload["id"]?.intValue ?? payload["songid"]?.intValue
         let name = payload["name"]?.stringValue ?? payload["title"]?.stringValue ?? payload["songname"]?.stringValue
-        
+
         guard let songId = songId, let name = name else {
             AppLogger.debug("[QQBridge] Song 转换失败，原始JSON前100字符: \(String(describing: payload).prefix(200))")
             return nil
@@ -42,25 +67,63 @@ extension APIService {
                 }
             }
         }
-        
-        // 解析专辑
-        var album: Album?
-        let albumMid = payload["album"]?["mid"]?.stringValue ?? payload["album"]?["pmid"]?.stringValue
-        if let albumDict = payload["album"] {
-            let albumId = albumDict["id"]?.intValue ?? 0
-            let albumName = albumDict["name"]?.stringValue ?? ""
-            // qcm专辑封面 URL 格式
-            let picUrl: String?
-            if let pmid = albumDict["pmid"]?.stringValue, !pmid.isEmpty {
-                picUrl = "https://y.gtimg.cn/music/photo_new/T002R300x300M000\(pmid).jpg"
-            } else if let amid = albumDict["mid"]?.stringValue, !amid.isEmpty {
-                picUrl = "https://y.gtimg.cn/music/photo_new/T002R300x300M000\(amid).jpg"
-            } else {
-                picUrl = nil
-            }
-            album = Album(id: albumId, name: albumName, picUrl: picUrl)
+        if firstArtistMid == nil {
+            firstArtistMid = firstNonEmptyQQValue(
+                payload["singer_mid"]?.stringValue,
+                payload["singerMID"]?.stringValue,
+                payload["singerMid"]?.stringValue,
+                payload["singer"]?["mid"]?.stringValue
+            )
+        }
+        if artists.isEmpty,
+           let singerName = firstNonEmptyQQValue(
+                payload["singer_name"]?.stringValue,
+                payload["singerName"]?.stringValue,
+                payload["artist_name"]?.stringValue,
+                payload["singer"]?["name"]?.stringValue
+           ) {
+            artists = [Artist(id: payload["singer_id"]?.intValue ?? 0, name: singerName)]
         }
         
+        // 解析专辑。新版接口以 album 对象为主，部分推荐/榜单接口仍返回扁平字段。
+        let albumDict = payload["album"]
+        let albumMid = firstNonEmptyQQValue(
+            albumDict?["mid"]?.stringValue,
+            payload["album_mid"]?.stringValue,
+            payload["albumMID"]?.stringValue,
+            payload["albumMid"]?.stringValue,
+            payload["albummid"]?.stringValue
+        )
+        let albumPictureMid = firstNonEmptyQQValue(albumDict?["pmid"]?.stringValue, albumMid)
+        let albumId = albumDict?["id"]?.intValue
+            ?? payload["album_id"]?.intValue
+            ?? payload["albumID"]?.intValue
+            ?? 0
+        let albumName = firstNonEmptyQQValue(
+            albumDict?["name"]?.stringValue,
+            payload["album_name"]?.stringValue,
+            payload["albumName"]?.stringValue
+        ) ?? ""
+        let directAlbumCover = normalizedQQArtworkURLString(firstNonEmptyQQValue(
+            albumDict?["picUrl"]?.stringValue,
+            albumDict?["pic_url"]?.stringValue,
+            albumDict?["pic"]?.stringValue,
+            albumDict?["cover"]?.stringValue,
+            payload["albumPic"]?.stringValue,
+            payload["album_pic"]?.stringValue,
+            payload["picUrl"]?.stringValue,
+            payload["pic_url"]?.stringValue,
+            payload["picurl"]?.stringValue,
+            payload["cover"]?.stringValue,
+            payload["pic"]?.stringValue
+        ))
+        let albumCover = directAlbumCover
+            ?? albumPictureMid.map { qqAlbumArtworkURLString(mid: $0) }
+            ?? firstArtistMid.map { qqArtistArtworkURLString(mid: $0) }
+        let album: Album? = (albumDict != nil || albumMid != nil || albumCover != nil)
+            ? Album(id: albumId, name: albumName, picUrl: albumCover)
+            : nil
+
         // 时长（qcm用 interval 秒，ncm用 dt 毫秒）
         let intervalSec = payload["interval"]?.intValue
         let dt = intervalSec.map { $0 * 1000 }
@@ -160,9 +223,9 @@ extension APIService {
             ?? json["pic"]?.stringValue
             ?? json["pic_url"]?.stringValue,
            !raw.isEmpty {
-            picUrl = raw.replacingOccurrences(of: "http://", with: "https://")
+            picUrl = normalizedQQArtworkURLString(raw)
         } else if let singerMid = mid, !singerMid.isEmpty {
-            picUrl = "https://y.gtimg.cn/music/photo_new/T001R300x300M000\(singerMid).jpg"
+            picUrl = qqArtistArtworkURLString(mid: singerMid)
         } else {
             picUrl = nil
         }
@@ -227,7 +290,7 @@ extension APIService {
             ?? json["name"]?.stringValue
             ?? ""
         
-        let urlKeys = ["cover_url_big", "imgurl", "logo", "cover", "cover_url_medium", "pic_url", "coverImgUrl"]
+        let urlKeys = ["cover_url_big", "imgurl", "logo", "cover", "cover_url_medium", "pic_url", "picurl", "coverImgUrl"]
         var coverUrl = urlKeys.compactMap { json[$0]?.stringValue }.first(where: { !$0.isEmpty })
         coverUrl = coverUrl?.replacingOccurrences(of: "/300?", with: "/600?")
             .replacingOccurrences(of: "/300&", with: "/600&")
@@ -237,6 +300,8 @@ extension APIService {
         let playCount = playCountKeys.compactMap { json[$0]?.intValue }.first ?? 0
         let trackCount = json["song_count"]?.intValue
             ?? json["songcount"]?.intValue
+            ?? json["songnum"]?.intValue
+            ?? json["song_cnt"]?.intValue
             ?? json["total_song_num"]?.intValue
             ?? 0
         
@@ -256,6 +321,9 @@ extension APIService {
                     avatarUrl: creatorObj["avatarUrl"]?.stringValue ?? creatorObj["avatar"]?.stringValue
                 )
             }
+        } else if let nick = json["creator_nick"]?.stringValue ?? json["nickname"]?.stringValue, !nick.isEmpty {
+            // 新版 0.6.x：推荐歌单返回 creator_nick，搜索歌单返回根级 nickname
+            creator = PlaylistCreator(userId: 0, nickname: nick, avatarUrl: nil)
         }
         
         return Playlist(
@@ -365,9 +433,9 @@ extension APIService {
             ?? json["pic"]?.stringValue
             ?? json["pic_url"]?.stringValue,
            !raw.isEmpty {
-            picUrl = raw.replacingOccurrences(of: "http://", with: "https://")
+            picUrl = normalizedQQArtworkURLString(raw)
         } else if let albumMid = mid, !albumMid.isEmpty {
-            picUrl = "https://y.gtimg.cn/music/photo_new/T002R300x300M000\(albumMid).jpg"
+            picUrl = qqAlbumArtworkURLString(mid: albumMid)
         } else {
             picUrl = nil
         }
@@ -412,13 +480,19 @@ extension APIService {
     
     /// 将 qcm热搜词转换为 HotSearchItem
     static func convertQQHotkeys(_ json: JSON) -> [HotSearchItem] {
-        guard let list = json["hotkey"]?.arrayValue ?? json.arrayValue else {
+        // 新版 API: { vec_hotkey: [{ query, title, score, pic_url }] }
+        guard let list = json["vec_hotkey"]?.arrayValue
+            ?? json["hotkey"]?.arrayValue
+            ?? json.arrayValue else {
             return []
         }
         return list.enumerated().compactMap { index, item in
-            guard let keyword = item["k"]?.stringValue ?? item["keyword"]?.stringValue,
+            guard let keyword = item["query"]?.stringValue ?? item["title"]?.stringValue
+                ?? item["k"]?.stringValue ?? item["keyword"]?.stringValue,
                   !keyword.isEmpty else { return nil }
-            let score = item["n"]?.intValue ?? item["score"]?.intValue ?? (1000 - index)
+            let score = item["score"]?.intValue
+                ?? item["n"]?.intValue
+                ?? (1000 - index)
             return HotSearchItem(
                 searchWord: keyword,
                 score: score,

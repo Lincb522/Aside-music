@@ -139,6 +139,20 @@ public class NCMClient {
         return try await proxyRequest(serverUrl: serverUrl, uri: normalizedRoute, data: data)
     }
 
+    /// 调用上游 ncm API 路径。
+    ///
+    /// 在配置 `serverUrl` 时，路径会自动转换为 NeteaseCloudMusicApiEnhanced
+    /// 路由；否则使用指定的加密模式直连。
+    public func apiRoute(
+        _ uri: String,
+        data: [String: Any] = [:],
+        crypto: CryptoMode = .eapi,
+        eR: Bool? = nil
+    ) async throws -> APIResponse {
+        let normalizedURI = uri.hasPrefix("/") ? uri : "/\(uri)"
+        return try await request(normalizedURI, data: data, crypto: crypto, e_r: eR)
+    }
+
     // MARK: - 内部请求方法
 
     /// 发送 API 请求（供 API 扩展调用）

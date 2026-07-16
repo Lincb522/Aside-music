@@ -140,6 +140,28 @@ public final class QQMusicClient: @unchecked Sendable {
         return wrapped.result
     }
 
+    /// 调用通用模块路由，并自动将数组或对象参数编码为 JSON 查询参数。
+    ///
+    /// 此入口用于已升级服务端中尚未提供专用 Swift 方法的接口。`parameters`
+    /// 支持字符串、数字、布尔值、数组及 JSON 对象。
+    public func requestWrapped<T: Decodable>(
+        _ path: String,
+        parameters: [String: Any]
+    ) async throws -> T {
+        try await requestWrapped(path, params: try serializeParameters(parameters))
+    }
+
+    /// 调用任意 QQMusicApi 模块方法。
+    ///
+    /// 例如：`try await client.module("private_message", function: "get_sessions", parameters: [:])`。
+    public func module<T: Decodable>(
+        _ module: String,
+        function: String,
+        parameters: [String: Any] = [:]
+    ) async throws -> T {
+        try await requestWrapped("/\(module)/\(function)", parameters: parameters)
+    }
+
     /// 发送 GET 请求，返回原始 APIResponse
     func requestRaw(_ path: String, params: [String: String] = [:]) async throws -> APIResponse<JSON> {
         let data = try await rawRequest(path, params: params)
@@ -224,5 +246,35 @@ public final class QQMusicClient: @unchecked Sendable {
         }
 
         throw lastError ?? QQMusicError.invalidResponse
+    }
+
+    private func serializeParameters(_ parameters: [String: Any]) throws -> [String: String] {
+        try parameters.reduce(into: [:]) { result, item in
+            let (name, value) = item
+            switch value {
+            case let value as String:
+                result[name] = value
+            case let value as Int:
+                result[name] = String(value)
+            case let value as Int64:
+                result[name] = String(value)
+            case let value as Double:
+                result[name] = String(value)
+            case let value as Float:
+                result[name] = String(value)
+            case let value as Bool:
+                result[name] = String(value)
+            case let value as NSNumber:
+                result[name] = value.stringValue
+            default:
+                guard JSONSerialization.isValidJSONObject(value),
+                      let data = try? JSONSerialization.data(withJSONObject: value),
+                      let encoded = String(data: data, encoding: .utf8)
+                else {
+                    throw QQMusicError.invalidParameter(name: name)
+                }
+                result[name] = encoded
+            }
+        }
     }
 }

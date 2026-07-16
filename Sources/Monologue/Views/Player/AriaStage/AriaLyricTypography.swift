@@ -235,18 +235,23 @@ private struct AriaLyricParticleField: View {
 
             switch layer {
             case .core:
-                drawCore(
+                Self.drawCore(
                     in: context,
                     size: size,
                     density: normalizedDensity,
-                    dotScale: clampedSize
+                    dotScale: clampedSize,
+                    time: time,
+                    moves: moves
                 )
             case .halo:
-                drawHalo(
+                Self.drawHalo(
                     in: context,
                     size: size,
                     density: normalizedDensity,
-                    dotScale: clampedSize
+                    dotScale: clampedSize,
+                    time: time,
+                    moves: moves,
+                    palette: palette
                 )
             }
         }
@@ -261,14 +266,59 @@ private struct AriaLyricParticleField: View {
         )
     }
 
-    /// 点阵密到能覆盖笔画（间距 3~5pt），可读性由此保证；
-    /// 粒子感来自逐点明暗闪烁 —— 按亮度分桶后整批填充，避免上万次单点绘制。
-    private func drawCore(
-        in context: GraphicsContext,
+    private static func sheetKey(
         size: CGSize,
         density: CGFloat,
-        dotScale: CGFloat
-    ) {
+        dotScale: CGFloat,
+        moves: Bool
+    ) -> String {
+        let width = (size.width * 2).rounded() / 2
+        let height = (size.height * 2).rounded() / 2
+        return "\(width)x\(height)|\(Int(density * 1_000))|\(Int(dotScale * 1_000))|\(moves ? 1 : 0)"
+    }
+
+    // MARK: 主体点阵（几何逐尺寸缓存）
+
+    /// 同一相位桶里的点每帧闪烁值完全相同 → 整组一条 Path 预构建，
+    /// 每帧只算组级 sin 后按亮度整批填充。
+    private struct CoreTwinkleGroup {
+        var path = Path()
+        let speed: Double
+        let phase: Double
+    }
+
+    private struct CoreSheet {
+        /// moves == true：按（速度档 × 相位桶）分组的点阵
+        let groups: [CoreTwinkleGroup]
+        /// moves == false：闪烁值静止，直接按亮度桶预分好
+        let staticBuckets: [Path]
+    }
+
+    private enum CoreSheetCache {
+        static let lock = NSLock()
+        nonisolated(unsafe) static var storage: [String: CoreSheet] = [:]
+    }
+
+    private static let coreBucketCount = 5
+    /// 相位量化桶数：628 个原始相位压到 63 桶，最大误差 ±0.05rad，
+    /// 对 5 档亮度分桶的观感零影响，但让点数从上万收敛到 ≤441 组
+    private static let corePhaseBuckets = 63
+
+    private static func coreSheet(
+        size: CGSize,
+        density: CGFloat,
+        dotScale: CGFloat,
+        moves: Bool
+    ) -> CoreSheet {
+        let key = sheetKey(size: size, density: density, dotScale: dotScale, moves: moves)
+
+        CoreSheetCache.lock.lock()
+        if let cached = CoreSheetCache.storage[key] {
+            CoreSheetCache.lock.unlock()
+            return cached
+        }
+        CoreSheetCache.lock.unlock()
+
         var spacing = 5.4 - density * 2.4
         let estimatedCount = max((size.width / spacing) * (size.height / spacing), 1)
         if estimatedCount > 14_000 {
@@ -276,8 +326,10 @@ private struct AriaLyricParticleField: View {
         }
 
         let radius = spacing * min(0.30 + 0.11 * dotScale, 0.47)
-        let bucketCount = 5
-        var buckets = [Path](repeating: Path(), count: bucketCount)
+
+        // 速度 7 档 × 相位 63 桶
+        var groupPaths = [Path](repeating: Path(), count: 7 * corePhaseBuckets)
+        var staticBuckets = [Path](repeating: Path(), count: coreBucketCount)
 
         var row = 0
         var y = spacing * 0.5
@@ -285,32 +337,165 @@ private struct AriaLyricParticleField: View {
             var column = 0
             var x = spacing * 0.5
             while x < size.width + spacing {
-                let hash = Self.hashValue(column: column, row: row)
+                let hash = hashValue(column: column, row: row)
                 let jitterX = CGFloat(hash % 1_000) / 1_000 - 0.5
                 let jitterY = CGFloat((hash / 1_000) % 1_000) / 1_000 - 0.5
-
-                let twinkle: Double
-                if moves {
-                    let phase = Double((hash / 97) % 628) / 100
-                    let speed = 1.2 + Double(hash % 7) * 0.3
-                    twinkle = sin(time * speed + phase)
-                } else {
-                    twinkle = Double((hash / 41) % 200) / 100 - 1
-                }
-                let level = min(
-                    bucketCount - 1,
-                    max(0, Int((twinkle * 0.5 + 0.5) * Double(bucketCount)))
-                )
 
                 let dotRadius = radius * (0.80 + CGFloat((hash / 10_000) % 100) / 500)
                 let centerX = x + jitterX * spacing * 0.34
                 let centerY = y + jitterY * spacing * 0.34
-                buckets[level].addEllipse(
-                    in: CGRect(
-                        x: centerX - dotRadius,
-                        y: centerY - dotRadius,
-                        width: dotRadius * 2,
-                        height: dotRadius * 2
+                let rect = CGRect(
+                    x: centerX - dotRadius,
+                    y: centerY - dotRadius,
+                    width: dotRadius * 2,
+                    height: dotRadius * 2
+                )
+
+                if moves {
+                    let speedIndex = hash % 7
+                    let phaseBucket = ((hash / 97) % 628) / 10
+                    groupPaths[speedIndex * corePhaseBuckets + phaseBucket].addEllipse(in: rect)
+                } else {
+                    let twinkle = Double((hash / 41) % 200) / 100 - 1
+                    let level = min(
+                        coreBucketCount - 1,
+                        max(0, Int((twinkle * 0.5 + 0.5) * Double(coreBucketCount)))
+                    )
+                    staticBuckets[level].addEllipse(in: rect)
+                }
+
+                column += 1
+                x += spacing
+            }
+            row += 1
+            y += spacing
+        }
+
+        var groups: [CoreTwinkleGroup] = []
+        if moves {
+            groups.reserveCapacity(7 * corePhaseBuckets)
+            for speedIndex in 0..<7 {
+                for phaseBucket in 0..<corePhaseBuckets {
+                    let path = groupPaths[speedIndex * corePhaseBuckets + phaseBucket]
+                    guard !path.isEmpty else { continue }
+                    groups.append(
+                        CoreTwinkleGroup(
+                            path: path,
+                            speed: 1.2 + Double(speedIndex) * 0.3,
+                            phase: Double(phaseBucket) / 10 + 0.05
+                        )
+                    )
+                }
+            }
+        }
+
+        let sheet = CoreSheet(groups: groups, staticBuckets: staticBuckets)
+
+        CoreSheetCache.lock.lock()
+        if CoreSheetCache.storage.count >= 8 {
+            CoreSheetCache.storage.removeAll(keepingCapacity: true)
+        }
+        CoreSheetCache.storage[key] = sheet
+        CoreSheetCache.lock.unlock()
+        return sheet
+    }
+
+    /// 点阵密到能覆盖笔画（间距 3~5pt），可读性由此保证；
+    /// 粒子感来自逐点明暗闪烁 —— 几何预构建后每帧只剩组级正弦 + 整批填充。
+    private static func drawCore(
+        in context: GraphicsContext,
+        size: CGSize,
+        density: CGFloat,
+        dotScale: CGFloat,
+        time: Double,
+        moves: Bool
+    ) {
+        let sheet = coreSheet(size: size, density: density, dotScale: dotScale, moves: moves)
+
+        if moves {
+            for group in sheet.groups {
+                let twinkle = sin(time * group.speed + group.phase)
+                let level = min(
+                    coreBucketCount - 1,
+                    max(0, Int((twinkle * 0.5 + 0.5) * Double(coreBucketCount)))
+                )
+                let alpha = 0.42 + 0.145 * Double(level)
+                context.fill(group.path, with: .color(.white.opacity(alpha)))
+            }
+        } else {
+            for (level, path) in sheet.staticBuckets.enumerated() where !path.isEmpty {
+                let alpha = 0.42 + 0.145 * Double(level)
+                context.fill(path, with: .color(.white.opacity(alpha)))
+            }
+        }
+    }
+
+    // MARK: 字缘星尘（静态参数逐尺寸缓存）
+
+    private struct HaloDot {
+        let baseX: CGFloat
+        let baseY: CGFloat
+        let radiusFactor: CGFloat
+        let phase: Double
+        let speed: Double
+        let driftXSpeed: Double
+        let driftYSpeed: Double
+        let driftXAmp: CGFloat
+        let driftYAmp: CGFloat
+        /// -1 表示主色，否则为 cycledAccent 的索引
+        let accentIndex: Int
+        let staticTwinkle: Double
+    }
+
+    private enum HaloSheetCache {
+        static let lock = NSLock()
+        nonisolated(unsafe) static var storage: [String: [HaloDot]] = [:]
+    }
+
+    private static func haloDots(
+        size: CGSize,
+        density: CGFloat,
+        dotScale: CGFloat
+    ) -> [HaloDot] {
+        let key = sheetKey(size: size, density: density, dotScale: dotScale, moves: true)
+
+        HaloSheetCache.lock.lock()
+        if let cached = HaloSheetCache.storage[key] {
+            HaloSheetCache.lock.unlock()
+            return cached
+        }
+        HaloSheetCache.lock.unlock()
+
+        var spacing = 14.0 - density * 4.0
+        let estimatedCount = max((size.width / spacing) * (size.height / spacing), 1)
+        if estimatedCount > 2_600 {
+            spacing *= sqrt(estimatedCount / 2_600)
+        }
+
+        var dots: [HaloDot] = []
+        var row = 0
+        var y = spacing * 0.5
+        while y < size.height + spacing {
+            var column = 0
+            var x = spacing * 0.5
+            while x < size.width + spacing {
+                let hash = hashValue(column: column, row: row)
+                let jitterX = CGFloat(hash % 1_000) / 1_000 - 0.5
+                let jitterY = CGFloat((hash / 1_000) % 1_000) / 1_000 - 0.5
+
+                dots.append(
+                    HaloDot(
+                        baseX: x + jitterX * spacing * 0.6,
+                        baseY: y + jitterY * spacing * 0.6,
+                        radiusFactor: 0.62 + CGFloat((hash / 10_000) % 100) / 210,
+                        phase: Double((hash / 97) % 628) / 100,
+                        speed: 0.8 + Double(hash % 9) * 0.22,
+                        driftXSpeed: 0.5 + Double(hash % 5) * 0.11,
+                        driftYSpeed: 0.42 + Double((hash / 7) % 5) * 0.09,
+                        driftXAmp: spacing * 0.36,
+                        driftYAmp: spacing * 0.30,
+                        accentIndex: hash.isMultiple(of: 3) ? hash / 3 : -1,
+                        staticTwinkle: Double((hash / 41) % 200) / 100 - 1
                     )
                 )
 
@@ -321,80 +506,82 @@ private struct AriaLyricParticleField: View {
             y += spacing
         }
 
-        for (level, path) in buckets.enumerated() where !path.isEmpty {
-            let alpha = 0.42 + 0.145 * Double(level)
-            context.fill(path, with: .color(.white.opacity(alpha)))
+        HaloSheetCache.lock.lock()
+        if HaloSheetCache.storage.count >= 16 {
+            HaloSheetCache.storage.removeAll(keepingCapacity: true)
         }
+        HaloSheetCache.storage[key] = dots
+        HaloSheetCache.lock.unlock()
+        return dots
     }
 
     /// 字缘星尘：数量少、颗粒大、会漂移，负责"粒子从字里飘出来"的观感。
-    private func drawHalo(
+    /// 位置随时间漂移必须逐帧重建路径，但按（颜色 × 亮度档）合批后
+    /// 填充调用从每点一次收敛到每帧几十次。
+    private static func drawHalo(
         in context: GraphicsContext,
         size: CGSize,
         density: CGFloat,
-        dotScale: CGFloat
+        dotScale: CGFloat,
+        time: Double,
+        moves: Bool,
+        palette: AriaPalette
     ) {
-        var spacing = 14.0 - density * 4.0
-        let estimatedCount = max((size.width / spacing) * (size.height / spacing), 1)
-        if estimatedCount > 2_600 {
-            spacing *= sqrt(estimatedCount / 2_600)
-        }
-
+        let dots = haloDots(size: size, density: density, dotScale: dotScale)
         let baseRadius = 0.9 + dotScale * 0.8
+        /// 亮度 41 档（步长 ~0.013），肉眼不可分但可合批
+        let alphaLevels = 40
+
         var haloContext = context
         haloContext.blendMode = .plusLighter
 
-        var row = 0
-        var y = spacing * 0.5
-        while y < size.height + spacing {
-            var column = 0
-            var x = spacing * 0.5
-            while x < size.width + spacing {
-                let hash = Self.hashValue(column: column, row: row)
-                let jitterX = CGFloat(hash % 1_000) / 1_000 - 0.5
-                let jitterY = CGFloat((hash / 1_000) % 1_000) / 1_000 - 0.5
+        // 颜色槽预先按调色板轮换数取模，保证与逐点直取 cycledAccent 完全同色
+        let cycleCount = max(palette.accentCycle.count, 1)
 
-                let twinkle: Double
-                var driftX: CGFloat = 0
-                var driftY: CGFloat = 0
-                if moves {
-                    let phase = Double((hash / 97) % 628) / 100
-                    let speed = 0.8 + Double(hash % 9) * 0.22
-                    twinkle = sin(time * speed + phase)
-                    driftX = CGFloat(sin(time * (0.5 + Double(hash % 5) * 0.11) + phase))
-                        * spacing * 0.36
-                    driftY = CGFloat(cos(time * (0.42 + Double((hash / 7) % 5) * 0.09) + phase))
-                        * spacing * 0.30
-                } else {
-                    twinkle = Double((hash / 41) % 200) / 100 - 1
-                }
+        // key = 颜色槽 × 亮度档
+        var batches: [Int: Path] = [:]
 
-                let alpha = 0.26 + 0.52 * (0.5 + 0.5 * twinkle)
-                let radius = baseRadius
-                    * (0.62 + CGFloat((hash / 10_000) % 100) / 210)
-                    * (1 + CGFloat(twinkle) * 0.16)
-
-                let centerX = x + jitterX * spacing * 0.6 + driftX
-                let centerY = y + jitterY * spacing * 0.6 + driftY
-                let color = hash.isMultiple(of: 3)
-                    ? palette.cycledAccent(hash / 3)
-                    : palette.primary
-
-                haloContext.fill(
-                    Path(ellipseIn: CGRect(
-                        x: centerX - radius,
-                        y: centerY - radius,
-                        width: radius * 2,
-                        height: radius * 2
-                    )),
-                    with: .color(color.opacity(alpha))
-                )
-
-                column += 1
-                x += spacing
+        for dot in dots {
+            let twinkle: Double
+            var centerX = dot.baseX
+            var centerY = dot.baseY
+            if moves {
+                twinkle = sin(time * dot.speed + dot.phase)
+                centerX += CGFloat(sin(time * dot.driftXSpeed + dot.phase)) * dot.driftXAmp
+                centerY += CGFloat(cos(time * dot.driftYSpeed + dot.phase)) * dot.driftYAmp
+            } else {
+                twinkle = dot.staticTwinkle
             }
-            row += 1
-            y += spacing
+
+            let normalized = 0.5 + 0.5 * twinkle
+            let level = min(alphaLevels, max(0, Int(normalized * Double(alphaLevels) + 0.5)))
+            let radius = baseRadius
+                * dot.radiusFactor
+                * (1 + CGFloat(twinkle) * 0.16)
+
+            let colorSlot = dot.accentIndex < 0
+                ? 0
+                : 1 + ((dot.accentIndex % cycleCount) + cycleCount) % cycleCount
+            let batchKey = colorSlot * (alphaLevels + 1) + level
+
+            batches[batchKey, default: Path()].addEllipse(
+                in: CGRect(
+                    x: centerX - radius,
+                    y: centerY - radius,
+                    width: radius * 2,
+                    height: radius * 2
+                )
+            )
+        }
+
+        for (batchKey, path) in batches {
+            let level = batchKey % (alphaLevels + 1)
+            let colorSlot = batchKey / (alphaLevels + 1)
+            let alpha = 0.26 + 0.52 * Double(level) / Double(alphaLevels)
+            let color = colorSlot == 0
+                ? palette.primary
+                : palette.cycledAccent(colorSlot - 1)
+            haloContext.fill(path, with: .color(color.opacity(alpha)))
         }
     }
 }

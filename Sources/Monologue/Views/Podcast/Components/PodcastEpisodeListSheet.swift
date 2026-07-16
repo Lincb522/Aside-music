@@ -555,7 +555,7 @@ struct PodcastEpisodeListSheet: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
-        return .monologueAccentBlue
+        return .monologueAccent
     }
 
     private var primaryTextColor: Color {

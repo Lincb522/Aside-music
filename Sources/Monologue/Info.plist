@@ -4,6 +4,14 @@
 <dict>
 	<key>API_BASE_URL</key>
 	<string>$(API_BASE_URL)</string>
+	<key>AI_PROVIDER_PROTOCOL</key>
+	<string>$(AI_PROVIDER_PROTOCOL)</string>
+	<key>AI_PROVIDER_BASE_URL</key>
+	<string>$(AI_PROVIDER_BASE_URL)</string>
+	<key>AI_PROVIDER_API_KEY</key>
+	<string>$(AI_PROVIDER_API_KEY)</string>
+	<key>AI_PROVIDER_MODEL</key>
+	<string>$(AI_PROVIDER_MODEL)</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
@@ -125,6 +133,8 @@
 	<string>扫描系统音乐资料库需要访问你设备上的音乐</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>保存二维码到相册以便扫码登录</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>用于分析歌曲人声并生成逐字歌词时间</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>NSSupportsLiveActivitiesFrequentUpdates</key>

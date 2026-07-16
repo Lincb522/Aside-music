@@ -8,17 +8,10 @@ class LoginViewModel: ObservableObject {
     @Published var qrStatusMessage: String = NSLocalizedString("qr_loading", comment: "Loading QR Code")
     @Published var isQRExpired = false
     
-    @Published var phoneNumber: String = ""
-    @Published var captchaCode: String = ""
-    @Published var isCaptchaSent = false
-    @Published var loginErrorMessage: String?
-    @Published var captchaCooldown: Int = 0
-    
     @Published var isLoggedIn = false
     
     private var qrKey: String?
     private var timer: AnyCancellable?
-    private var cooldownTimer: AnyCancellable?
     private var cancellables = Set<AnyCancellable>()
     private let apiService = APIService.shared
     
@@ -174,80 +167,10 @@ class LoginViewModel: ObservableObject {
         startQRLogin()
     }
     
-    // MARK: - Phone Login Flow
-    
-    func sendCaptcha() {
-        guard !phoneNumber.isEmpty, captchaCooldown == 0 else { return }
-        loginErrorMessage = nil
-        apiService.sendCaptcha(phone: phoneNumber)
-            .sink(receiveCompletion: { [weak self] completion in
-                if case .failure(let error) = completion {
-                    self?.loginErrorMessage = error.localizedDescription
-                }
-            }, receiveValue: { [weak self] response in
-                if response.code == 200 {
-                    self?.isCaptchaSent = true
-                    self?.loginErrorMessage = nil
-                    self?.startCooldown()
-                } else {
-                    self?.loginErrorMessage = response.message ?? String(localized: "发送验证码失败 (\(response.code))")
-                }
-            })
-            .store(in: &cancellables)
-    }
-    
-    private func startCooldown() {
-        captchaCooldown = 60
-        cooldownTimer = Timer.publish(every: 1, on: .main, in: .common)
-            .autoconnect()
-            .sink { [weak self] _ in
-                guard let self else { return }
-                if self.captchaCooldown > 0 {
-                    self.captchaCooldown -= 1
-                } else {
-                    self.cooldownTimer?.cancel()
-                    self.cooldownTimer = nil
-                }
-            }
-    }
-    
-    func loginWithPhone() {
-        guard !phoneNumber.isEmpty, !captchaCode.isEmpty else { return }
-        apiService.loginCellphone(phone: phoneNumber, captcha: captchaCode)
-            .sink(receiveCompletion: { [weak self] completion in
-                if case .failure(let error) = completion {
-                    self?.loginErrorMessage = error.localizedDescription
-                }
-            }, receiveValue: { [weak self] response in
-                if response.code == 200, let cookie = response.cookie {
-                    APIService.shared.currentCookie = cookie
-                    if let profile = response.profile {
-                        APIService.shared.currentUserId = profile.userId
-                        // currentUserId 的 didSet 已经发送了 .didLogin 通知
-                        LikeManager.shared.refreshLikes()
-                    }
-                    self?.isLoggedIn = true
-                    // 同步到 AppStorage，让 ContentView/ProfileView 感知登录状态
-                    UserDefaults.standard.set(true, forKey: AppConfig.StorageKeys.isLoggedIn)
-                    // 不再重复发送 .didLogin 通知
-                    Task { @MainActor in
-                        GlobalRefreshManager.shared.triggerLoginRefresh()
-                    }
-                    // 检测 VIP 状态
-                    APIService.shared.checkUserVIPStatus()
-                } else {
-                    self?.loginErrorMessage = String(format: NSLocalizedString("login_failed", comment: "Login Failed"), response.code)
-                }
-            })
-            .store(in: &cancellables)
-    }
-    
     deinit {
         MainActor.assumeIsolated {
             timer?.cancel()
             timer = nil
-            cooldownTimer?.cancel()
-            cooldownTimer = nil
         }
     }
 }

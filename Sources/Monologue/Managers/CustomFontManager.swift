@@ -10,6 +10,11 @@ struct ImportedFontRecord: Codable, Hashable, Identifiable {
     let postScriptName: String
     let filename: String
     let importedAt: Date
+    /// 是否包含中文字形（导入时检测；旧记录启动时补测）。
+    /// true = 中文字体，false = 仅外语字体，nil = 未知（按中文字体对待）
+    var supportsCJK: Bool?
+
+    var isCJKCapable: Bool { supportsCJK ?? true }
 }
 
 enum CustomFontStorage {
@@ -86,6 +91,77 @@ final class CustomFontManager: ObservableObject {
         registerStoredFonts()
         removeMissingRecords()
         refreshImportedDisplayNames()
+        refreshCJKSupportFlags()
+    }
+
+    /// 判断字体是否真的带中文字形：读字体自带的字符集（CTFontCopyCharacterSet
+    /// 不做级联回退），常用汉字抽样命中过半才算中文字体。
+    /// 返回 nil = 按名字找回的字体对不上（系统回退了），结果不可信，按未知对待。
+    static func fontSupportsCJK(postScriptName: String) -> Bool? {
+        let font = CTFontCreateWithName(postScriptName as CFString, 14, nil)
+        let resolved = CTFontCopyPostScriptName(font) as String
+        guard resolved.caseInsensitiveCompare(postScriptName) == .orderedSame else {
+            return nil
+        }
+
+        let charset = CTFontCopyCharacterSet(font) as CharacterSet
+        let samples = "永文你我的一是"
+        let scalars = Array(samples.unicodeScalars)
+        let hits = scalars.filter { charset.contains($0) }.count
+        return hits * 2 >= scalars.count
+    }
+
+    /// 导入时直接拿字体描述符检测，绕开按名字找字体可能的回退问题。
+    static func fontSupportsCJK(descriptor: CTFontDescriptor) -> Bool {
+        let font = CTFontCreateWithFontDescriptor(descriptor, 14, nil)
+        let charset = CTFontCopyCharacterSet(font) as CharacterSet
+        let samples = "永文你我的一是"
+        let scalars = Array(samples.unicodeScalars)
+        let hits = scalars.filter { charset.contains($0) }.count
+        return hits * 2 >= scalars.count
+    }
+
+    /// 中外语检测算法版本：算法升级后对所有旧记录强制重测一次
+    private static let cjkDetectVersionKey = "customFonts.cjkDetectVersion"
+    private static let cjkDetectVersion = 3
+
+    /// 旧版本导入的记录没有中外语标记（或用旧算法测过），启动时统一补测。
+    /// 优先从字体文件的描述符检测（最可靠），文件读不到再按名字找。
+    private func refreshCJKSupportFlags() {
+        let defaults = UserDefaults.standard
+        let needsFullRedetect = defaults.integer(forKey: Self.cjkDetectVersionKey) < Self.cjkDetectVersion
+
+        var changed = false
+        for index in fonts.indices where needsFullRedetect || fonts[index].supportsCJK == nil {
+            let record = fonts[index]
+            var detected: Bool?
+
+            let url = storageDirectory.appendingPathComponent(record.filename)
+            if fileManager.fileExists(atPath: url.path),
+               let descriptors = CTFontManagerCreateFontDescriptorsFromURL(url as CFURL)
+               as? [CTFontDescriptor] {
+                let descriptor = descriptors.first {
+                    (CTFontDescriptorCopyAttribute($0, kCTFontNameAttribute) as? String)
+                        == record.postScriptName
+                } ?? descriptors.first
+                if let descriptor {
+                    detected = Self.fontSupportsCJK(descriptor: descriptor)
+                }
+            }
+            if detected == nil {
+                detected = Self.fontSupportsCJK(postScriptName: record.postScriptName)
+            }
+
+            if let detected, fonts[index].supportsCJK != detected {
+                fonts[index].supportsCJK = detected
+                changed = true
+            }
+        }
+
+        defaults.set(Self.cjkDetectVersion, forKey: Self.cjkDetectVersionKey)
+        if changed {
+            persist()
+        }
     }
 
     func registerStoredFonts() {
@@ -158,7 +234,8 @@ final class CustomFontManager: ObservableObject {
                     familyName: resolvedFamily,
                     postScriptName: postScriptName,
                     filename: filename,
-                    importedAt: Date()
+                    importedAt: Date(),
+                    supportsCJK: Self.fontSupportsCJK(descriptor: descriptor)
                 )
             }
 

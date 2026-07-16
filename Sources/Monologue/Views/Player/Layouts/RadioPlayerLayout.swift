@@ -111,7 +111,7 @@ struct RadioPlayerLayout: View {
             colorEx.extract(from: player.currentSong?.coverUrl?.absoluteString)
         }
         .monologueSheet(isPresented: $showPlaylist, preset: .standard) { PlaylistPopupView() }
-        .monologueSheet(isPresented: $showQualitySheet, preset: .compact) {
+        .monologueSheet(isPresented: $showQualitySheet, preset: .standard) {
             SoundQualitySheet(
                 currentQuality: player.soundQuality,
                 currentQQQuality: player.qqMusicQuality,
@@ -125,7 +125,7 @@ struct RadioPlayerLayout: View {
                 onSelectQishui: { info in player.switchQishuiQuality(info); showQualitySheet = false }
             )
         }
-        .monologueSheet(isPresented: $showEQSettings, preset: .large) {
+        .fullScreenCover(isPresented: $showEQSettings) {
             NavigationStack { EQSettingsView() }
         }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker) { PlayerThemePickerSheet() }
@@ -166,6 +166,9 @@ struct RadioPlayerLayout: View {
             HStack(spacing: 8) {
                 skeuBtn(icon: .close, size: 32) { dismiss() }
                 ledBanner.frame(maxWidth: .infinity)
+                skeuBtn(icon: .immersive, size: 32) {
+                    CinemaModeController.shared.present()
+                }
                 skeuBtn(icon: .more, size: 32) {
                     withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) { showMoreMenu.toggle() }
                 }

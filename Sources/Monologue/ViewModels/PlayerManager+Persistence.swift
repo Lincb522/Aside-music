@@ -36,6 +36,10 @@ extension PlayerManager {
         let savedPodcastContextIndex: Int?
         let savedPodcastRadioId: Int?
         let savedPodcastSong: Song?
+        // 快速续播：上次会话已解析的播放输入（http 地址或本地路径）
+        let lastPlaybackInput: String?
+        let lastPlaybackInputResolvedAt: Date?
+        let lastPlaybackDecryptionKey: String?
     }
     
     private func buildPlayerState() -> PlayerState {
@@ -69,7 +73,10 @@ extension PlayerManager {
             savedPodcastContext: savedPodcastContext.isEmpty ? nil : Array(savedPodcastContext.prefix(maxPersistContextSize)),
             savedPodcastContextIndex: savedPodcastContext.isEmpty ? nil : savedPodcastContextIndex,
             savedPodcastRadioId: savedPodcastRadioId,
-            savedPodcastSong: savedPodcastSong
+            savedPodcastSong: savedPodcastSong,
+            lastPlaybackInput: currentSong == nil ? nil : currentPlayingURL,
+            lastPlaybackInputResolvedAt: currentSong == nil ? nil : playbackURLResolvedAt,
+            lastPlaybackDecryptionKey: currentSong == nil ? nil : currentPlayingDecryptionKey
         )
     }
     
@@ -138,6 +145,15 @@ extension PlayerManager {
         self.pendingRestoreTime = restoredTime
         self.shouldAutoResumeAfterRestore = state.wasPlaying ?? false
         self.needsPlaybackRestoration = true
+        // 上次会话已解析的播放输入：小组件唤醒续播时若仍可用，跳过取址直接开播
+        if let input = state.lastPlaybackInput, !input.isEmpty {
+            self.restoredPlaybackAsset = (
+                songId: song.id,
+                input: input,
+                resolvedAt: state.lastPlaybackInputResolvedAt,
+                decryptionKey: state.lastPlaybackDecryptionKey
+            )
+        }
         
         // 恢复后主动同步歌词位置，避免恢复后歌词停在第一行
         fetchLyricsForSong(song)
@@ -229,6 +245,9 @@ extension PlayerManager {
                 podcastHistory.removeLast()
             }
             saveState()
+            // 播客不进听歌统计：结算并停止跟踪上一首音乐，
+            // 否则播客播放进度会误累计到上一条音乐日志里
+            ListeningStatsRecorder.shared.finalizeSession()
             return
         }
         
@@ -237,8 +256,9 @@ extension PlayerManager {
         if history.count > AppConfig.Player.maxHistoryCount {
             history.removeLast()
         }
-        // 同时写入 SwiftData 持久化
-        HistoryRepository().addPlayHistory(song: song)
+        // 同时写入播放日志（听歌统计数据源），并让统计记录器跟踪真实播放时长
+        let record = HistoryRepository().addPlayHistory(song: song)
+        ListeningStatsRecorder.shared.beginSession(record: record, song: song)
     }
     
     func clearRecentPlaybackStack() {
@@ -246,9 +266,14 @@ extension PlayerManager {
         saveStateImmediately()
     }
     
+    /// 「最近播放」清空：只清 UI 列表并把恢复游标挪到现在，
+    /// 播放日志（听歌统计的数据源）原样保留。
     func clearPlaybackHistory() {
         history.removeAll()
-        HistoryRepository().clearPlayHistory()
+        UserDefaults.standard.set(
+            Date().timeIntervalSince1970,
+            forKey: "playHistory.recentClearedAt"
+        )
         saveStateImmediately()
     }
     
@@ -272,8 +297,14 @@ extension PlayerManager {
     }
     
     func fetchHistory() {
-        // 先从本地 SwiftData 恢复历史（保证离线也有数据）
-        let localHistory = HistoryRepository().getPlayHistory(limit: AppConfig.Player.maxHistoryCount)
+        // 先从本地 SwiftData 恢复历史（保证离线也有数据）。
+        // 只取「上次清空最近播放」之后的记录 —— 清空不删日志，只挪游标。
+        let clearedAtStamp = UserDefaults.standard.double(forKey: "playHistory.recentClearedAt")
+        let cutoff = clearedAtStamp > 0 ? Date(timeIntervalSince1970: clearedAtStamp) : nil
+        let localHistory = HistoryRepository().getPlayHistory(
+            limit: AppConfig.Player.maxHistoryCount,
+            after: cutoff
+        )
         if !localHistory.isEmpty {
             // 将 SwiftData 的记录合并到内存历史中（内存中已有的保留，因为内存版本信息更完整）
             let existingIds = Set(self.history.map { $0.id })
@@ -315,6 +346,34 @@ extension PlayerManager {
         pendingRestoreTime = nil
         shouldAutoResumeAfterRestore = false
         
+        // 快速续播：上次会话的播放输入仍可用时装入一次性快速通道，
+        // loadAndPlay 会跳过「取 URL」API 往返直接开播（小组件唤醒立即出声）
+        if let asset = validatedRestoredPlaybackAsset(for: song) {
+            preresolvedRestorationInput = (input: asset.input, decryptionKey: asset.decryptionKey)
+        }
+        restoredPlaybackAsset = nil
+        
         loadAndPlay(song: song, autoPlay: shouldAutoPlay, startTime: resumeTime)
+    }
+    
+    /// 校验上次会话的播放输入是否仍可直接使用：
+    /// · 本地文件（下载 / 解密缓存 / 汽水缓存）→ 文件还在即可；
+    /// · 网络地址 → 解析时间在新鲜期内（与点播地址缓存同一窗口）。
+    private func validatedRestoredPlaybackAsset(
+        for song: Song
+    ) -> (input: String, decryptionKey: String?)? {
+        guard let asset = restoredPlaybackAsset, asset.songId == song.id else { return nil }
+        let input = asset.input
+        
+        if input.hasPrefix("http") {
+            guard let resolvedAt = asset.resolvedAt,
+                  Date().timeIntervalSince(resolvedAt) < PlaybackURLCache.freshTTL else {
+                return nil
+            }
+            return (input, asset.decryptionKey)
+        }
+        
+        guard FileManager.default.fileExists(atPath: input) else { return nil }
+        return (input, asset.decryptionKey)
     }
 }

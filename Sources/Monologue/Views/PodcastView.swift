@@ -73,6 +73,8 @@ struct PodcastView: View {
                             } else if LiquidGlassStyle.isActive {
                                 liquidGlassPodcastHeader
                                 liquidGlassPodcastConstellation
+                            } else if !ThemedPageStyle.isActive {
+                                asidePodcastHeader
                             }
 
                             PodcastHistorySection(onOpenRadio: openRadioPlayer)
@@ -137,19 +139,9 @@ struct PodcastView: View {
                     }
                 }
             }
-            .navigationTitle(ThemedPageStyle.isActive ? "" : String(localized: "tabbar_podcast"))
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbar {
-                if !ThemedPageStyle.isActive {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        NavigationLink(value: PodcastDestination.search) {
-                            MonologueIcon(icon: .search, size: 16)
-                                .padding(2)
-                        }
-                    }
-                }
-            }
             .navigationDestination(for: PodcastDestination.self) { destination in
                 podcastDestinationView(for: destination)
                     .petWhiteNestedPage()
@@ -260,6 +252,47 @@ struct PodcastView: View {
         .monologuePageHeaderCollapse()
     }
 
+    /// aside 刊头：眉题行 + 大标题 + 搜索入口
+    private var asidePodcastHeader: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                Capsule()
+                    .fill(Color.monologueAccent)
+                    .frame(width: 18, height: 3)
+
+                Text("PODCAST")
+                    .font(.system(size: 10.5, weight: .heavy, design: .rounded))
+                    .tracking(2.4)
+                    .foregroundColor(.monologueTextSecondary.opacity(0.72))
+                    .fixedSize()
+
+                Rectangle()
+                    .fill(Color.monologueSeparator.opacity(0.5))
+                    .frame(height: 0.5)
+            }
+            .padding(.bottom, 16)
+
+            HStack(alignment: .center, spacing: 12) {
+                Text(String(localized: "tabbar_podcast"))
+                    .font(.system(size: 30, weight: .heavy, design: .rounded))
+                    .foregroundColor(.monologueTextPrimary)
+
+                Spacer(minLength: 12)
+
+                NavigationLink(value: PodcastDestination.search) {
+                    MonologueIcon(icon: .search, size: 15, color: .monologueTextPrimary, lineWidth: 1.7)
+                        .frame(width: 36, height: 36)
+                        .overlay(Circle().stroke(Color.monologueSeparator.opacity(0.9), lineWidth: 0.8))
+                        .contentShape(Circle())
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.92))
+            }
+        }
+        .padding(.horizontal, padH)
+        .padding(.top, DeviceLayout.headerTopPadding + 6)
+        .monologuePageHeaderCollapse()
+    }
+
     @ViewBuilder
     private func podcastDestinationView(for destination: PodcastDestination) -> some View {
         switch destination {
@@ -358,15 +391,14 @@ struct PodcastView: View {
         }
     }
 
+    /// Muji：电台数据带 —— 裸排统计签，无卡片
     private var mujiPodcastSummary: some View {
-        HStack(spacing: 10) {
-            MujiMetricTile(value: "\(viewModel.personalizedRadios.count)", label: String(localized: "podcast_for_you"), tint: MujiStyle.clay)
-            MujiMetricTile(value: "\(viewModel.categories.count)", label: String(localized: "podcast_all"), tint: MujiStyle.tea)
-            MujiMetricTile(value: "\(viewModel.broadcastChannels.count)", label: String(localized: "podcast_broadcast"), tint: MujiStyle.indigo)
+        HStack(alignment: .top, spacing: 22) {
+            MujiMetricTile(value: "\(viewModel.personalizedRadios.count)", label: String(localized: "podcast_for_you"), tint: MujiStyle.ink)
+            MujiMetricTile(value: "\(viewModel.categories.count)", label: String(localized: "podcast_all"), tint: MujiStyle.ink)
+            MujiMetricTile(value: "\(viewModel.broadcastChannels.count)", label: String(localized: "podcast_broadcast"), tint: MujiStyle.clay)
         }
-        .padding(14)
-        .background(MujiPaperCardBackground(cornerRadius: 12, elevated: true))
-        .padding(.horizontal, padH)
+        .padding(.horizontal, padH + 8)
     }
 
     private var neumorphicPodcastHeader: some View {
@@ -674,21 +706,30 @@ struct PodcastView: View {
             }
             .padding(.horizontal, padH)
         } else {
-            HStack {
-                Text(title)
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
+            HStack(alignment: .center, spacing: 8) {
+                Capsule()
+                    .fill(Color.monologueAccent)
+                    .frame(width: 3, height: 13)
 
-                Spacer()
+                Text(title)
+                    .font(.rounded(size: 15.5, weight: .bold))
+                    .foregroundColor(.monologueTextPrimary)
+                    .lineLimit(1)
+                    .fixedSize()
+
+                Rectangle()
+                    .fill(Color.monologueSeparator.opacity(0.5))
+                    .frame(height: 0.5)
 
                 if let destination {
                     NavigationLink(value: destination) {
-                        HStack(spacing: 4) {
+                        HStack(spacing: 3) {
                             Text("mv_more_section")
-                                .font(.system(size: 13, weight: .medium, design: .rounded))
-                            MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary, lineWidth: 1.2)
+                                .font(.rounded(size: 12, weight: .semibold))
+                            MonologueIcon(icon: .chevronRight, size: 10, color: .monologueTextSecondary.opacity(0.8), lineWidth: 1.7)
                         }
-                        .foregroundColor(.monologueTextSecondary)
+                        .foregroundColor(.monologueTextSecondary.opacity(0.85))
+                        .fixedSize()
                     }
                     .buttonStyle(.plain)
                 }
@@ -761,16 +802,20 @@ struct PodcastView: View {
                         )
                     } else if MangaStyle.isActive {
                         HStack(spacing: 6) {
-                            MonologueIcon(icon: .gridSquare, size: 15, color: MangaStyle.strokeInk, lineWidth: 1.8)
+                            MonologueIcon(icon: .gridSquare, size: 15, color: MangaStyle.onStrokeInk, lineWidth: 1.8)
                             Text(String(localized: "podcast_all"))
                                 .font(MangaStyle.labelFont(12, weight: .black))
+                                .tracking(0.6)
                         }
-                        .foregroundStyle(MangaStyle.strokeInk)
+                        .foregroundStyle(MangaStyle.onStrokeInk)
                         .padding(.horizontal, 13)
                         .padding(.vertical, 10)
-                        .background(Capsule().fill(MangaStyle.labelYellow))
-                        .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
-                        .background(Capsule().fill(MangaStyle.strokeInk).offset(x: 2, y: 2))
+                        .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(MangaStyle.strokeInk))
+                        .background(
+                            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                                .fill(MangaStyle.accentPink)
+                                .offset(x: 2.2, y: 2.2)
+                        )
                     } else if PetWhiteStyle.isActive {
                         petWhiteCategoryPill(
                             title: String(localized: "podcast_all"),
@@ -808,14 +853,14 @@ struct PodcastView: View {
                         )
                     } else {
                         HStack(spacing: 6) {
-                            MonologueIcon(icon: .gridSquare, size: 16, color: .monologueIconForeground, lineWidth: 1.4)
+                            MonologueIcon(icon: .gridSquare, size: 14, color: .monologueTextPrimary, lineWidth: 1.6)
                             Text("podcast_all")
-                                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                .foregroundColor(.monologueIconForeground)
+                                .font(.rounded(size: 12.5, weight: .bold))
+                                .foregroundColor(.monologueTextPrimary)
                         }
                         .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .background(Capsule().fill(Color.monologueIconBackground))
+                        .padding(.vertical, 9)
+                        .overlay(Capsule().stroke(Color.monologueTextPrimary.opacity(0.34), lineWidth: 0.9))
                     }
                 }
                 .buttonStyle(MonologueBouncingButtonStyle())
@@ -836,8 +881,14 @@ struct PodcastView: View {
                             .foregroundStyle(MangaStyle.ink)
                             .padding(.horizontal, 13)
                             .padding(.vertical, 10)
-                            .background(Capsule().fill(MangaStyle.bubbleWhite))
-                            .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
+                            .background(
+                                RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
+                                    .fill(MangaStyle.bubbleWhite)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
+                                    .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth)
+                            )
                         } else if PetWhiteStyle.isActive {
                             petWhiteCategoryPill(
                                 title: cat.name,
@@ -870,14 +921,14 @@ struct PodcastView: View {
                         )
                     } else {
                         HStack(spacing: 6) {
-                            MonologueIcon(icon: cat.monologueIconType, size: 18, color: .monologueTextPrimary, lineWidth: 1.4)
+                            MonologueIcon(icon: cat.monologueIconType, size: 14, color: .monologueTextSecondary.opacity(0.9), lineWidth: 1.5)
                                 Text(cat.name)
-                                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                                    .foregroundColor(.monologueTextPrimary)
+                                    .font(.rounded(size: 12.5, weight: .semibold))
+                                    .foregroundColor(.monologueTextPrimary.opacity(0.85))
                             }
                             .padding(.horizontal, 14)
-                            .padding(.vertical, 10)
-                            .background(Capsule().fill(Color.monologueGlassTint))
+                            .padding(.vertical, 9)
+                            .overlay(Capsule().stroke(Color.monologueSeparator.opacity(0.95), lineWidth: 0.8))
                         }
                     }
                     .buttonStyle(MonologueBouncingButtonStyle())
@@ -945,6 +996,11 @@ struct PodcastView: View {
     }
 
     // MARK: - 布局常量
+
+    /// aside 默认主题（无任何 ThemedPageStyle 主题激活）
+    private var isAside: Bool {
+        !ThemedPageStyle.isActive
+    }
 
     private var padH: CGFloat {
         DeviceLayout.viewHorizontalPadding
@@ -1026,10 +1082,13 @@ struct PodcastView: View {
         if PetWhiteStyle.isActive {
             return AnyView(petWhiteTodayPickCard(radio: radio))
         }
+        if isAside {
+            return AnyView(asideTodayPickCard(radio: radio))
+        }
 
         let cardWidth: CGFloat = DeviceLayout.isPad ? 340 : 280
         let cardHeight: CGFloat = DeviceLayout.isPad ? 110 : 96
-        let cr: CGFloat = MangaStyle.isActive ? 12 : (MujiStyle.isActive ? 10 : ((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 18 : (DeviceLayout.isPad ? 18 : 16)))
+        let cr: CGFloat = MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 10 : ((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 18 : (DeviceLayout.isPad ? 18 : 16)))
         let titleFont: Font
         if MangaStyle.isActive {
             titleFont = MangaStyle.bodyFont(15, weight: .black)
@@ -1111,6 +1170,67 @@ struct PodcastView: View {
         .background(cardFill)
         .clipShape(RoundedRectangle(cornerRadius: cr, style: .continuous))
         .themedPageSurface(cornerRadius: cr, elevated: false))
+    }
+
+    /// aside 今日优选卡：发丝描边横卡
+    private func asideTodayPickCard(radio: RadioStation) -> some View {
+        let cardWidth: CGFloat = DeviceLayout.isPad ? 340 : 280
+        let coverSide: CGFloat = DeviceLayout.isPad ? 80 : 70
+
+        return HStack(spacing: 13) {
+            CachedAsyncImage(url: radio.coverUrl) {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.monologueSeparator.opacity(0.35))
+            }
+            .aspectRatio(contentMode: .fill)
+            .frame(width: coverSide, height: coverSide)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Color.monologueTextPrimary.opacity(0.08), lineWidth: 0.8)
+            )
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(radio.name)
+                    .font(.rounded(size: 14.5, weight: .semibold))
+                    .foregroundColor(.monologueTextPrimary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+
+                HStack(spacing: 6) {
+                    if let dj = radio.dj?.nickname {
+                        Text(dj)
+                            .font(.rounded(size: 11.5, weight: .medium))
+                            .foregroundColor(.monologueTextSecondary)
+                            .lineLimit(1)
+                    }
+
+                    if let count = radio.programCount, count > 0 {
+                        Circle()
+                            .fill(Color.monologueTextSecondary.opacity(0.45))
+                            .frame(width: 2.5, height: 2.5)
+
+                        Text(String(format: String(localized: "podcast_episode_count"), count))
+                            .font(.rounded(size: 11, weight: .medium))
+                            .foregroundColor(.monologueTextSecondary.opacity(0.85))
+                            .lineLimit(1)
+                    }
+                }
+            }
+
+            Spacer(minLength: 0)
+
+            MonologueIcon(icon: .play, size: 11, color: .monologueTextPrimary, lineWidth: 1.9)
+                .frame(width: 30, height: 30)
+                .overlay(Circle().stroke(Color.monologueTextPrimary.opacity(0.28), lineWidth: 0.9))
+        }
+        .padding(12)
+        .frame(width: cardWidth)
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.monologueSeparator.opacity(0.85), lineWidth: 0.8)
+        )
+        .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 
     private func petWhiteTodayPickCard(radio: RadioStation) -> some View {
@@ -1259,9 +1379,22 @@ struct PodcastView: View {
         if PetWhiteStyle.isActive {
             return AnyView(petWhiteCreativeCompactCard(creative: creative, rank: rank))
         }
+        if isAside {
+            let title = creative.uiElement?.mainTitle?.title ?? creative.creativeExtInfoVO?.djProgram?.name ?? "(无标题)"
+            let subTitle = creative.creativeExtInfoVO?.djProgram?.radio?.name ?? creative.creativeExtInfoVO?.djProgram?.dj?.nickname ?? " "
+            var coverUrl: URL? = nil
+            if let urlStr = creative.uiElement?.image?.imageUrl {
+                coverUrl = URL(string: urlStr)
+            } else if let urlStr = creative.creativeExtInfoVO?.djProgram?.coverUrl {
+                coverUrl = URL(string: urlStr)
+            } else if let urlStr = creative.creativeExtInfoVO?.djProgram?.mainSong?.coverUrl?.absoluteString {
+                coverUrl = URL(string: urlStr)
+            }
+            return AnyView(asideCompactCard(coverUrl: coverUrl, title: title, subtitle: subTitle, rank: rank))
+        }
 
         let s = compactCardSize
-        let cr: CGFloat = MangaStyle.isActive ? 10 : (MujiStyle.isActive ? 8 : ((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 16 : (DeviceLayout.isPad ? 18 : 16)))
+        let cr: CGFloat = MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 8 : ((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 16 : (DeviceLayout.isPad ? 18 : 16)))
 
         let title = creative.uiElement?.mainTitle?.title ?? creative.creativeExtInfoVO?.djProgram?.name ?? "(无标题)"
         let subTitle = creative.creativeExtInfoVO?.djProgram?.radio?.name ?? creative.creativeExtInfoVO?.djProgram?.dj?.nickname ?? " "
@@ -1345,18 +1478,68 @@ struct PodcastView: View {
                 .frame(width: s, alignment: .leading)
         }
         .frame(width: s)
-        .padding(ThemedPageStyle.isActive ? 8 : 0)
+        .padding(ThemedPageStyle.isActive && !MujiStyle.isActive && !MangaStyle.isActive ? 8 : 0)
         .background {
             if MangaStyle.isActive {
-                MangaCardBackground(cornerRadius: 12)
-            } else if MujiStyle.isActive {
-                MujiPaperCardBackground(cornerRadius: 10)
+                // 去卡片化：播客小格直接排在纸上
+                EmptyView()
             } else if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: 18, elevated: true)
             } else if SequoiaStyle.isActive {
                 SequoiaSurfaceBackground(cornerRadius: 18, elevated: false, role: .list)
             }
         })
+    }
+
+    /// aside 竖版小卡：封面发丝描边 + 期刊式排名角标
+    private func asideCompactCard(coverUrl: URL?, title: String, subtitle: String, rank: Int?) -> some View {
+        let s = compactCardSize
+
+        return VStack(alignment: .leading, spacing: 0) {
+            ZStack(alignment: .topLeading) {
+                CachedAsyncImage(url: coverUrl) {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color.monologueSeparator.opacity(0.35))
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: s, height: s)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(Color.monologueTextPrimary.opacity(0.08), lineWidth: 0.8)
+                )
+
+                if let rank {
+                    Text(String(format: "%02d", rank))
+                        .font(.system(size: 10, weight: .heavy, design: .rounded))
+                        .tracking(0.6)
+                        .monospacedDigit()
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3.5)
+                        .background(
+                            Capsule().fill(rank <= 3 ? Color.monologueAccent.opacity(0.92) : Color.black.opacity(0.38))
+                        )
+                        .padding(7)
+                }
+            }
+
+            Text(title)
+                .font(.rounded(size: 13, weight: .semibold))
+                .foregroundColor(.monologueTextPrimary)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+                .frame(width: s, height: 34, alignment: .topLeading)
+                .padding(.top, 8)
+
+            Text(subtitle)
+                .font(.rounded(size: 11, weight: .medium))
+                .foregroundColor(.monologueTextSecondary.opacity(0.85))
+                .lineLimit(1)
+                .frame(width: s, alignment: .leading)
+                .padding(.top, 3)
+        }
+        .frame(width: s)
     }
 
     private func petWhiteCreativeCompactCard(creative: PodcastCreative, rank: Int? = nil) -> some View {
@@ -1458,9 +1641,12 @@ struct PodcastView: View {
         if PetWhiteStyle.isActive {
             return AnyView(petWhiteRankedCompactCard(radio: radio, rank: rank))
         }
+        if isAside {
+            return AnyView(asideCompactCard(coverUrl: radio.coverUrl, title: radio.name, subtitle: radio.dj?.nickname ?? radio.category ?? " ", rank: rank))
+        }
 
         let s = compactCardSize
-        let cr: CGFloat = MangaStyle.isActive ? 10 : (MujiStyle.isActive ? 8 : ((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 16 : (DeviceLayout.isPad ? 18 : 16)))
+        let cr: CGFloat = MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 8 : ((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 16 : (DeviceLayout.isPad ? 18 : 16)))
         let placeholderFill: Color = SequoiaStyle.isActive ? SequoiaStyle.materialList : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
         let titleFont: Font = SequoiaStyle.isActive
             ? SequoiaStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .semibold)
@@ -1512,12 +1698,11 @@ struct PodcastView: View {
             }
         }
         .frame(width: s)
-        .padding(ThemedPageStyle.isActive ? 8 : 0)
+        .padding(ThemedPageStyle.isActive && !MujiStyle.isActive && !MangaStyle.isActive ? 8 : 0)
         .background {
             if MangaStyle.isActive {
-                MangaCardBackground(cornerRadius: 12)
-            } else if MujiStyle.isActive {
-                MujiPaperCardBackground(cornerRadius: 10)
+                // 去卡片化：播客小格直接排在纸上
+                EmptyView()
             } else if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: 18, elevated: true)
             } else if SequoiaStyle.isActive {
@@ -1612,6 +1797,8 @@ struct PodcastView: View {
             sequoiaRadioGridCard(radio: radio)
         } else if NeumorphicStyle.isActive {
             neumorphicRadioGridCard(radio: radio)
+        } else if isAside {
+            asideRadioGridCard(radio: radio)
         } else {
             let cr: CGFloat = MinimalWhiteStyle.isActive ? 12 : (MujiStyle.isActive ? 8 : (DeviceLayout.isPad ? 18 : 16))
             let cardPadding: CGFloat = (MinimalWhiteStyle.isActive || MujiStyle.isActive) ? 9 : 0
@@ -1674,10 +1861,52 @@ struct PodcastView: View {
                         elevated: false,
                         tint: MinimalWhiteStyle.glassFill
                     )
-                } else if MujiStyle.isActive {
-                    MujiPaperCardBackground(cornerRadius: 11)
                 }
             }
+        }
+    }
+
+    /// aside 网格卡：平铺封面 + 发丝描边 + 编辑部排印
+    private func asideRadioGridCard(radio: RadioStation) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            GeometryReader { _ in
+                CachedAsyncImage(url: radio.coverUrl) {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(Color.monologueSeparator.opacity(0.35))
+                        .overlay(
+                            MonologueIcon(icon: .podcast, size: 26, color: .monologueTextSecondary.opacity(0.35), lineWidth: 1.4)
+                        )
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            }
+            .aspectRatio(1, contentMode: .fit)
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(Color.monologueTextPrimary.opacity(0.08), lineWidth: 0.8)
+            )
+
+            Text(radio.name)
+                .font(.rounded(size: 14, weight: .semibold))
+                .foregroundColor(.monologueTextPrimary)
+                .lineLimit(2, reservesSpace: true)
+                .minimumScaleFactor(0.86)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+                .padding(.top, 9)
+
+            HStack(spacing: 5) {
+                Circle()
+                    .fill(Color.monologueAccent)
+                    .frame(width: 3.5, height: 3.5)
+
+                Text(radio.dj?.nickname ?? radio.category ?? " ")
+                    .font(.rounded(size: 11, weight: .medium))
+                    .foregroundColor(.monologueTextSecondary.opacity(0.85))
+                    .lineLimit(1)
+            }
+            .padding(.top, 5)
         }
     }
 
@@ -1891,6 +2120,9 @@ struct PodcastView: View {
         if PetWhiteStyle.isActive {
             return AnyView(petWhiteRadioListRow(radio: radio))
         }
+        if isAside {
+            return AnyView(asideRadioListRow(radio: radio))
+        }
 
         let rowImg: CGFloat = DeviceLayout.isPad ? 72 : 60
         let themedInset = MinimalWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive
@@ -1954,7 +2186,10 @@ struct PodcastView: View {
         .padding(.vertical, themedInset ? 12 : 10)
         .background {
             if MujiStyle.isActive {
-                MujiPaperCardBackground(cornerRadius: 10)
+                VStack {
+                    Spacer()
+                    MujiListDivider()
+                }
             } else if MinimalWhiteStyle.isActive {
                 MinimalWhiteSurfaceBackground(cornerRadius: 14, elevated: false, tint: MinimalWhiteStyle.glassFill)
             } else if NeumorphicStyle.isActive {
@@ -1966,6 +2201,60 @@ struct PodcastView: View {
         .padding(.horizontal, themedInset ? padH : 0)
         .padding(.vertical, themedInset ? 5 : 0)
         .contentShape(Rectangle()))
+    }
+
+    /// aside 精选电台行：发丝分隔列表行
+    private func asideRadioListRow(radio: RadioStation) -> some View {
+        let rowImg: CGFloat = DeviceLayout.isPad ? 66 : 56
+
+        return HStack(spacing: 13) {
+            CachedAsyncImage(url: radio.coverUrl) {
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                    .fill(Color.monologueSeparator.opacity(0.35))
+            }
+            .frame(width: rowImg, height: rowImg)
+            .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                    .stroke(Color.monologueTextPrimary.opacity(0.08), lineWidth: 0.8)
+            )
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(radio.name)
+                    .font(.rounded(size: 15, weight: .semibold))
+                    .foregroundColor(.monologueTextPrimary)
+                    .lineLimit(1)
+
+                HStack(spacing: 6) {
+                    if let dj = radio.dj?.nickname {
+                        Text(dj)
+                            .font(.rounded(size: 11.5, weight: .medium))
+                            .foregroundColor(.monologueTextSecondary)
+                            .lineLimit(1)
+                    }
+
+                    if let count = radio.programCount, count > 0 {
+                        Circle()
+                            .fill(Color.monologueTextSecondary.opacity(0.45))
+                            .frame(width: 2.5, height: 2.5)
+
+                        Text(String(format: String(localized: "podcast_episode_count"), count))
+                            .font(.rounded(size: 11, weight: .medium))
+                            .foregroundColor(.monologueTextSecondary.opacity(0.85))
+                            .lineLimit(1)
+                    }
+                }
+            }
+
+            Spacer(minLength: 8)
+
+            MonologueIcon(icon: .play, size: 11, color: .monologueTextPrimary, lineWidth: 1.9)
+                .frame(width: 30, height: 30)
+                .overlay(Circle().stroke(Color.monologueTextPrimary.opacity(0.28), lineWidth: 0.9))
+        }
+        .padding(.horizontal, padH)
+        .padding(.vertical, 11)
+        .contentShape(Rectangle())
     }
 
     private func petWhiteRadioListRow(radio: RadioStation) -> some View {
@@ -2022,6 +2311,9 @@ struct PodcastView: View {
     private func programListRow(program: RadioProgram, rank: Int) -> AnyView {
         if PetWhiteStyle.isActive {
             return AnyView(petWhiteProgramListRow(program: program, rank: rank))
+        }
+        if isAside {
+            return AnyView(asideProgramListRow(program: program, rank: rank))
         }
 
         let isTop3 = rank <= 3
@@ -2093,7 +2385,10 @@ struct PodcastView: View {
         .padding(.vertical, themedInset ? 12 : (isTop3 ? 10 : 8))
         .background {
             if MujiStyle.isActive {
-                MujiPaperCardBackground(cornerRadius: 10)
+                VStack {
+                    Spacer()
+                    MujiListDivider()
+                }
             } else if MinimalWhiteStyle.isActive {
                 MinimalWhiteSurfaceBackground(cornerRadius: 14, elevated: isTop3, tint: MinimalWhiteStyle.glassFill)
             } else if NeumorphicStyle.isActive {
@@ -2105,6 +2400,61 @@ struct PodcastView: View {
         .padding(.horizontal, themedInset ? padH : 0)
         .padding(.vertical, themedInset ? 5 : 0)
         .contentShape(Rectangle()))
+    }
+
+    /// aside 节目榜行：期刊式序号 + 发丝封面
+    private func asideProgramListRow(program: RadioProgram, rank: Int) -> some View {
+        let isTop3 = rank <= 3
+        let coverSize: CGFloat = DeviceLayout.isPad ? 56 : 48
+
+        return HStack(spacing: 13) {
+            Text(String(format: "%02d", rank))
+                .font(.system(size: 11.5, weight: .heavy, design: .rounded))
+                .tracking(0.8)
+                .monospacedDigit()
+                .foregroundColor(isTop3 ? .monologueAccent : .monologueTextSecondary.opacity(0.5))
+                .frame(width: 26, alignment: .leading)
+
+            CachedAsyncImage(url: program.programCoverUrl) {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.monologueSeparator.opacity(0.35))
+            }
+            .frame(width: coverSize, height: coverSize)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(Color.monologueTextPrimary.opacity(0.08), lineWidth: 0.8)
+            )
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(program.name ?? "")
+                    .font(.rounded(size: 14.5, weight: isTop3 ? .semibold : .medium))
+                    .foregroundColor(.monologueTextPrimary)
+                    .lineLimit(1)
+
+                if let radioName = program.radio?.name {
+                    Text(radioName)
+                        .font(.rounded(size: 11.5, weight: .medium))
+                        .foregroundColor(.monologueTextSecondary.opacity(0.9))
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer(minLength: 8)
+
+            if let count = program.listenerCount, count > 0 {
+                HStack(spacing: 3) {
+                    MonologueIcon(icon: .headphones, size: 10, color: .monologueTextSecondary.opacity(0.75), lineWidth: 1.3)
+                    Text(formatCount(count))
+                        .font(.rounded(size: 10.5, weight: .medium))
+                        .monospacedDigit()
+                        .foregroundColor(.monologueTextSecondary.opacity(0.85))
+                }
+            }
+        }
+        .padding(.horizontal, padH)
+        .padding(.vertical, 9)
+        .contentShape(Rectangle())
     }
 
     private func petWhiteProgramListRow(program: RadioProgram, rank: Int) -> some View {
@@ -2194,7 +2544,78 @@ struct PodcastView: View {
         }
     }
 
+    @ViewBuilder
     private func broadcastCard(channel: BroadcastChannel) -> some View {
+        if isAside {
+            asideBroadcastCard(channel: channel)
+        } else {
+            themedBroadcastCard(channel: channel)
+        }
+    }
+
+    /// aside 广播卡：发丝封面 + 直播点标
+    private func asideBroadcastCard(channel: BroadcastChannel) -> some View {
+        let bcSize = broadcastCardSize
+
+        return VStack(alignment: .leading, spacing: 0) {
+            ZStack(alignment: .topLeading) {
+                if let url = channel.coverImageUrl {
+                    CachedAsyncImage(url: url) {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(Color.monologueSeparator.opacity(0.35))
+                    }
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: bcSize, height: bcSize)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                } else {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color.monologueSeparator.opacity(0.35))
+                        .frame(width: bcSize, height: bcSize)
+                        .overlay(
+                            MonologueIcon(icon: .radio, size: 26, color: .monologueTextSecondary.opacity(0.5), lineWidth: 1.4)
+                        )
+                }
+
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(Color.monologueAccentRed)
+                        .frame(width: 5, height: 5)
+
+                    Text("FM")
+                        .font(.system(size: 9, weight: .heavy, design: .rounded))
+                        .tracking(0.8)
+                        .foregroundColor(.white)
+                }
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3.5)
+                .background(Capsule().fill(Color.black.opacity(0.38)))
+                .padding(7)
+            }
+            .frame(width: bcSize, height: bcSize)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(Color.monologueTextPrimary.opacity(0.08), lineWidth: 0.8)
+            )
+
+            Text(channel.displayName)
+                .font(.rounded(size: 13, weight: .semibold))
+                .foregroundColor(.monologueTextPrimary)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+                .frame(width: bcSize, height: 34, alignment: .topLeading)
+                .padding(.top, 8)
+
+            Text(channel.displayProgram ?? " ")
+                .font(.rounded(size: 11, weight: .medium))
+                .foregroundColor(.monologueTextSecondary.opacity(0.85))
+                .lineLimit(1)
+                .frame(width: bcSize, alignment: .leading)
+                .padding(.top, 3)
+        }
+        .frame(width: bcSize)
+    }
+
+    private func themedBroadcastCard(channel: BroadcastChannel) -> some View {
         let bcSize = broadcastCardSize
         let bcCR: CGFloat = MinimalWhiteStyle.isActive ? 12 : (MujiStyle.isActive ? 8 : ((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 18 : (DeviceLayout.isPad ? 18 : 16)))
         let placeholderFill: Color = MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : (SequoiaStyle.isActive ? SequoiaStyle.materialList : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint))
@@ -2260,12 +2681,10 @@ struct PodcastView: View {
             }
         }
         .frame(width: bcSize)
-        .padding((MinimalWhiteStyle.isActive || MujiStyle.isActive) ? 8 : 0)
+        .padding(MinimalWhiteStyle.isActive ? 8 : 0)
         .background {
             if MinimalWhiteStyle.isActive {
                 MinimalWhiteSurfaceBackground(cornerRadius: 14, elevated: false, tint: MinimalWhiteStyle.glassFill)
-            } else if MujiStyle.isActive {
-                MujiPaperCardBackground(cornerRadius: 10)
             } else if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: 18, elevated: true)
             } else if SequoiaStyle.isActive {
@@ -2403,6 +2822,42 @@ private struct PodcastHistorySection: View {
                 .buttonStyle(.plain)
             }
             .padding(.horizontal, padH)
+        } else if !ThemedPageStyle.isActive {
+            HStack(alignment: .center, spacing: 8) {
+                Capsule()
+                    .fill(Color.monologueAccent)
+                    .frame(width: 3, height: 13)
+
+                Text(LocalizedStringKey("profile_recently_played"))
+                    .font(.rounded(size: 15.5, weight: .bold))
+                    .foregroundColor(.monologueTextPrimary)
+                    .lineLimit(1)
+                    .fixedSize()
+
+                Rectangle()
+                    .fill(Color.monologueSeparator.opacity(0.5))
+                    .frame(height: 0.5)
+
+                Button(action: clearHistory) {
+                    Text(LocalizedStringKey("storage_clear"))
+                        .font(.rounded(size: 12, weight: .semibold))
+                        .foregroundColor(.monologueTextSecondary.opacity(0.85))
+                        .fixedSize()
+                }
+                .buttonStyle(.plain)
+
+                NavigationLink(destination: RecentPlayHistoryView(songs: history)) {
+                    HStack(spacing: 3) {
+                        Text(LocalizedStringKey("view_all"))
+                            .font(.rounded(size: 12, weight: .semibold))
+                        MonologueIcon(icon: .chevronRight, size: 10, color: .monologueTextSecondary.opacity(0.8), lineWidth: 1.7)
+                    }
+                    .foregroundColor(.monologueTextSecondary.opacity(0.85))
+                    .fixedSize()
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, padH)
         } else {
             HStack {
                 Text(LocalizedStringKey("profile_recently_played"))
@@ -2437,7 +2892,86 @@ private struct PodcastHistorySection: View {
         }
     }
 
+    @ViewBuilder
     private func historyCard(song: Song) -> some View {
+        if ThemedPageStyle.isActive {
+            themedHistoryCard(song: song)
+        } else {
+            asideHistoryCard(song: song)
+        }
+    }
+
+    /// aside 最近播放卡：发丝描边横卡
+    private func asideHistoryCard(song: Song) -> some View {
+        let cardWidth: CGFloat = DeviceLayout.isPad ? 220 : 184
+        let coverSide: CGFloat = DeviceLayout.isPad ? 46 : 42
+        let isCurrent = currentSongID == song.id
+
+        return Button {
+            HapticStyle.light.trigger()
+            let rid = song.podcastRadioId ?? song.album?.id ?? 0
+            player.playPodcast(song: song, in: player.podcastHistory, radioId: rid)
+            if rid > 0 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    onOpenRadio(rid)
+                }
+            }
+        } label: {
+            HStack(spacing: 11) {
+                ZStack {
+                    CachedAsyncImage(url: song.coverUrl) {
+                        RoundedRectangle(cornerRadius: 11, style: .continuous)
+                            .fill(Color.monologueSeparator.opacity(0.35))
+                    }
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: coverSide, height: coverSide)
+                    .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 11, style: .continuous)
+                            .stroke(Color.monologueTextPrimary.opacity(0.08), lineWidth: 0.8)
+                    )
+
+                    if isCurrent {
+                        RoundedRectangle(cornerRadius: 11, style: .continuous)
+                            .fill(Color.black.opacity(0.32))
+                            .frame(width: coverSide, height: coverSide)
+
+                        PlayingVisualizerView(isAnimating: isPlaying, color: .white)
+                            .frame(width: 12)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(song.name)
+                        .font(.rounded(size: 12.5, weight: .semibold))
+                        .foregroundColor(isCurrent ? .monologueAccent : .monologueTextPrimary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+
+                    let subtitle = song.podcastRadioName ?? song.ar?.first?.name ?? ""
+                    if !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(.rounded(size: 10.5, weight: .medium))
+                            .foregroundColor(.monologueTextSecondary.opacity(0.85))
+                            .lineLimit(1)
+                            .multilineTextAlignment(.leading)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.horizontal, 9)
+            .padding(.vertical, 8)
+            .frame(width: cardWidth)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(isCurrent ? Color.monologueAccent.opacity(0.5) : Color.monologueSeparator.opacity(0.85), lineWidth: 0.8)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .buttonStyle(MonologueBouncingButtonStyle())
+    }
+
+    private func themedHistoryCard(song: Song) -> some View {
         let cardWidth: CGFloat = DeviceLayout.isPad ? 220 : 180
         let cardHeight: CGFloat = DeviceLayout.isPad ? 64 : 56
         let cr: CGFloat = MujiStyle.isActive ? 8 : ((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 16 : 12)

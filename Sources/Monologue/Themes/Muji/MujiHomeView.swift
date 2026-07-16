@@ -1,6 +1,9 @@
 import SwiftUI
 
-/// 无印良品版首页 — 极简杂志式排版，大量留白，衬线字体，纸质感
+/// 无印良品版首页 — 青苔手帖
+///
+/// 一册清新的生活手帖：圆点刊头 + 水洗引文 + 目次 + 特辑，
+/// 不用发丝线与描边，分区靠留白、水洗色块与针脚点缀。
 struct MujiHomeView: View {
     @ObservedObject private var viewModel = HomeViewModel.shared
     @ObservedObject private var playerManager = PlayerManager.shared
@@ -23,10 +26,6 @@ struct MujiHomeView: View {
 
     private var accent: Color {
         MujiStyle.clay
-    }
-
-    private var separator: Color {
-        MujiStyle.separator
     }
 
     var body: some View {
@@ -69,18 +68,10 @@ struct MujiHomeView: View {
                     .buttonStyle(.plain)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    HStack(spacing: 16) {
-                        Button(action: { showPersonalFM = true }) {
-                            MonologueIcon(icon: .radio, size: 15, color: textSecondary, lineWidth: 1.4)
-                                .frame(width: 36, height: 36)
-                                .background(MujiStyle.surfaceRaised, in: Circle())
-                                .overlay(Circle().stroke(MujiStyle.hairline.opacity(0.5), lineWidth: 0.6))
-                        }
-                        Button(action: { navigationPath.append(HomeView.HomeDestination.search) }) {
-                            MonologueIcon(icon: .magnifyingGlass, size: 15, color: textSecondary, lineWidth: 1.4)
-                                .frame(width: 36, height: 36)
-                                .background(MujiStyle.surfaceRaised, in: Circle())
-                                .overlay(Circle().stroke(MujiStyle.hairline.opacity(0.5), lineWidth: 0.6))
+                    HStack(spacing: 12) {
+                        mujiToolbarButton(icon: .radio) { showPersonalFM = true }
+                        mujiToolbarButton(icon: .magnifyingGlass) {
+                            navigationPath.append(HomeView.HomeDestination.search)
                         }
                     }
                 }
@@ -94,14 +85,24 @@ struct MujiHomeView: View {
         .themeRenderSceneLayer()
     }
 
+    private func mujiToolbarButton(icon: MonologueIcon.IconType, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            MonologueIcon(icon: icon, size: 15, color: accent, lineWidth: 1.5)
+                .frame(width: 36, height: 36)
+                .background(MujiStyle.wash(accent, strength: 1.1), in: Circle())
+        }
+    }
+
     // MARK: - 加载中
 
     private var mujiLoadingView: some View {
-        VStack(spacing: 20) {
-            Text("...")
-                .font(MujiStyle.titleFont(28, weight: .light))
+        VStack(spacing: 16) {
+            MujiDotMark()
+
+            Text(String(localized: "loading"))
+                .font(MujiStyle.labelFont(11, weight: .medium))
                 .foregroundColor(textSecondary)
-                .tracking(8)
+                .tracking(2)
         }
     }
 
@@ -112,18 +113,21 @@ struct MujiHomeView: View {
         let size: CGFloat = 36
         if let avatarUrl = viewModel.userProfile?.avatarUrl, let url = URL(string: avatarUrl) {
             CachedAsyncImage(url: url) {
-                Circle().fill(MujiStyle.surfaceRaised)
+                Circle().fill(MujiStyle.wash(accent))
             }
             .aspectRatio(contentMode: .fill)
             .frame(width: size, height: size)
             .clipShape(Circle())
-            .overlay(Circle().stroke(MujiStyle.hairline.opacity(0.55), lineWidth: 0.6))
+            .background(
+                Circle()
+                    .fill(MujiStyle.wash(accent, strength: 1.4))
+                    .frame(width: size + 6, height: size + 6)
+            )
         } else {
             Circle()
-                .fill(MujiStyle.surfaceRaised)
+                .fill(MujiStyle.wash(accent, strength: 1.2))
                 .frame(width: size, height: size)
-                .overlay(MonologueIcon(icon: .profile, size: 16, color: textSecondary))
-                .overlay(Circle().stroke(MujiStyle.hairline.opacity(0.55), lineWidth: 0.6))
+                .overlay(MonologueIcon(icon: .profile, size: 16, color: accent))
         }
     }
 
@@ -132,26 +136,26 @@ struct MujiHomeView: View {
     private var scrollBody: some View {
         ScrollView {
             VStack(spacing: 0) {
-                mujiGreeting
-                    .padding(.horizontal, 28)
-                    .padding(.bottom, 14)
+                mujiMasthead
+                    .padding(.horizontal, 26)
+                    .padding(.bottom, 24)
                     .monologuePageHeaderCollapse()
                     .mujiStagger(appeared, order: 0, reduceMotion: reduceMotion)
 
-                mujiIntroCard
-                    .padding(.horizontal, 28)
-                    .padding(.bottom, 18)
+                mujiPullQuote
+                    .padding(.horizontal, 26)
+                    .padding(.bottom, 28)
                     .mujiStagger(appeared, order: 1, reduceMotion: reduceMotion)
 
-                mujiEntryCards
-                    .padding(.horizontal, 28)
+                mujiIndex
+                    .padding(.horizontal, 26)
+                    .padding(.bottom, 32)
                     .mujiStagger(appeared, order: 2, reduceMotion: reduceMotion)
-                    .padding(.bottom, 34)
 
                 if !viewModel.banners.isEmpty {
                     mujiBannerSection
-                        .padding(.horizontal, 12)
-                        .padding(.bottom, 34)
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 32)
                         .mujiStagger(appeared, order: 3, reduceMotion: reduceMotion)
                 }
 
@@ -200,63 +204,96 @@ struct MujiHomeView: View {
         }
     }
 
-    private var mujiIntroCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .center, spacing: 10) {
-                MujiPill(text: hitokotoLabel, tint: MujiStyle.clay)
+    // MARK: - 刊头
 
-                Spacer(minLength: 10)
+    /// 圆点日期行 + 问候 + 衬线名字，一册手帖的扉页
+    private var mujiMasthead: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                MujiDotMark()
 
-                MonologueIcon(icon: .hitokoto, size: 15, color: MujiStyle.inkMuted, lineWidth: 1.4)
-                    .frame(width: 28, height: 28)
-                    .background(MujiStyle.surface.opacity(0.74), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 7, style: .continuous)
-                            .stroke(MujiStyle.hairline.opacity(0.42), lineWidth: 0.6)
-                    )
+                Text(mujiIssueLine)
+                    .font(MujiStyle.labelFont(10, weight: .semibold))
+                    .foregroundColor(textSecondary)
+                    .tracking(1.8)
+                    .monospacedDigit()
+
+                Spacer(minLength: 8)
+
+                Text("№\(String(format: "%02d", mujiWeekNumber))")
+                    .font(MujiStyle.labelFont(9.5, weight: .semibold))
+                    .foregroundColor(accent)
+                    .tracking(1)
+                    .monospacedDigit()
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 4)
+                    .background(MujiStyle.wash(accent, strength: 1.15), in: Capsule())
             }
 
-            HStack(alignment: .top, spacing: 12) {
-                MonologueSymbolIcon(name: "quote.opening", size: 16, color: MujiStyle.clay.opacity(0.72))
-                    .padding(.top, 2)
+            VStack(alignment: .leading, spacing: 5) {
+                Text(mujiGreetingText)
+                    .font(MujiStyle.labelFont(11, weight: .medium))
+                    .foregroundColor(textSecondary)
+                    .tracking(1.8)
+                    .textCase(.uppercase)
 
-                if usesHitokotoFallback {
-                    Text(HitokotoFallbackSlogan.text)
-                        .font(MujiStyle.bodyFont(18, weight: .regular))
-                        .foregroundStyle(textPrimary)
-                        .lineSpacing(5)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(minHeight: 58, alignment: .leading)
-                        .layoutPriority(1)
-                        .textSelection(.disabled)
-                } else {
-                    Text(mujiHeaderQuote)
-                        .font(MujiStyle.bodyFont(18, weight: .regular))
-                        .foregroundStyle(textPrimary)
-                        .lineSpacing(5)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(minHeight: 58, alignment: .leading)
-                        .layoutPriority(1)
-                        .textSelection(.disabled)
-                }
-            }
-
-            HStack(spacing: 10) {
-                Rectangle()
-                    .fill(MujiStyle.separator.opacity(0.78))
-                    .frame(width: 42, height: 0.65)
-
-                Text(hitokotoFootnote)
-                    .font(MujiStyle.labelFont(9, weight: .semibold))
-                    .foregroundStyle(MujiStyle.inkMuted)
-                    .tracking(1.4)
-
-                Spacer(minLength: 0)
+                Text(viewModel.userProfile?.nickname ?? String(localized: "default_nickname"))
+                    .font(MujiStyle.titleFont(30, weight: .medium))
+                    .foregroundColor(textPrimary)
+                    .tracking(0.5)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
         }
-        .padding(.horizontal, 17)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var mujiGreetingText: String {
+        MonologueTimeGreeting.localizedText
+    }
+
+    private var mujiWeekNumber: Int {
+        Calendar.current.component(.weekOfYear, from: Date())
+    }
+
+    private var mujiIssueLine: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy.MM.dd"
+        return formatter.string(from: Date())
+    }
+
+    // MARK: - 一言（水洗引文）
+
+    private var mujiPullQuote: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("「")
+                .font(MujiStyle.titleFont(26, weight: .medium))
+                .foregroundStyle(accent.opacity(0.75))
+                .frame(height: 18, alignment: .top)
+
+            Text(usesHitokotoFallback ? HitokotoFallbackSlogan.text : mujiHeaderQuote)
+                .font(MujiStyle.bodyFont(16.5, weight: .regular))
+                .foregroundStyle(textPrimary)
+                .lineSpacing(7)
+                .fixedSize(horizontal: false, vertical: true)
+                .textSelection(.disabled)
+
+            HStack {
+                Spacer()
+
+                Text("HITOKOTO")
+                    .font(MujiStyle.labelFont(8.5, weight: .semibold))
+                    .foregroundStyle(MujiStyle.inkMuted)
+                    .tracking(2.4)
+            }
+        }
+        .padding(.horizontal, 18)
         .padding(.vertical, 16)
-        .mujiCard(cornerRadius: 14, elevated: true)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(MujiStyle.wash(accent, strength: 0.85))
+        )
     }
 
     private var mujiHeaderQuote: String {
@@ -267,62 +304,98 @@ struct MujiHomeView: View {
         !hitokotoEnabled || mujiHeaderQuote.isEmpty
     }
 
-    private var hitokotoLabel: String {
-        String(localized: "settings_hitokoto")
-    }
+    // MARK: - 目次（水洗图标行）
 
-    private var hitokotoFootnote: String {
-        "HITOKOTO"
-    }
-
-    // MARK: - 问候
-
-    private var mujiGreeting: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            if let nick = viewModel.userProfile?.nickname {
-                Text(nick)
-                    .font(MujiStyle.titleFont(28, weight: .regular))
-                    .foregroundColor(textPrimary)
-                    .tracking(0.5)
+    private var mujiIndex: some View {
+        VStack(spacing: 0) {
+            mujiIndexRow(
+                title: String(localized: "new_song_express"),
+                caption: String(localized: "home_playlist"),
+                icon: .musicNoteList,
+                tint: accent
+            ) {
+                navigationPath.append(HomeView.HomeDestination.newSongExpress)
             }
 
-            Text(mujiGreetingText)
-                .font(MujiStyle.labelFont(11, weight: .medium))
-                .foregroundColor(textSecondary)
-                .tracking(1.6)
-                .textCase(.uppercase)
+            MujiListDivider()
+                .padding(.leading, 54)
 
-            Rectangle()
-                .fill(separator)
-                .frame(width: 36, height: 0.8)
-                .padding(.top, 2)
+            mujiIndexRow(
+                title: String(localized: "home_mv_zone"),
+                caption: "MV",
+                icon: .mv,
+                tint: MujiStyle.indigo
+            ) {
+                navigationPath.append(HomeView.HomeDestination.mvDiscover)
+            }
+
+            MujiListDivider()
+                .padding(.leading, 54)
+
+            mujiIndexRow(
+                title: String(localized: "meditation_mode_title"),
+                caption: String(localized: "meditation_mode_title"),
+                icon: .moon,
+                tint: MujiStyle.tea
+            ) {
+                navigationPath.append(HomeView.HomeDestination.meditationMode)
+            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var mujiGreetingText: String {
-        MonologueTimeGreeting.localizedText
+    private func mujiIndexRow(
+        title: String,
+        caption: String,
+        icon: MonologueIcon.IconType,
+        tint: Color,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(alignment: .center, spacing: 14) {
+                MujiIconBadge(icon: icon, tint: tint, size: 40)
+
+                Text(title)
+                    .font(MujiStyle.bodyFont(15.5, weight: .regular))
+                    .foregroundStyle(textPrimary)
+                    .lineLimit(1)
+
+                Spacer(minLength: 8)
+
+                MonologueIcon(icon: .chevronRight, size: 10, color: MujiStyle.inkMuted, lineWidth: 1.5)
+            }
+            .padding(.vertical, 11)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.99, opacity: 0.9))
     }
 
-    // MARK: - 每日推荐
+    // MARK: - Banner
+
+    private var mujiBannerSection: some View {
+        MujiHomeBannerSection(banners: viewModel.banners) { banner in
+            handleBannerTap(banner)
+        }
+    }
+
+    // MARK: - 每日推荐（特辑）
 
     private var mujiDailySection: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 18) {
             MujiSectionTitle(
                 title: String(localized: "每日推荐"),
                 actionTitle: String(localized: "view_all"),
                 action: { navigationPath.append(HomeView.HomeDestination.dailyRecommend) }
             )
-            .padding(.horizontal, 28)
+            .padding(.horizontal, 26)
 
             ScrollView(.horizontal) {
-                HStack(spacing: 16) {
+                HStack(alignment: .top, spacing: 18) {
                     let shouldReduceMotion = reduceMotion
-                    ForEach(Array(viewModel.dailySongs.prefix(10).enumerated()), id: \.element.id) { _, song in
+                    ForEach(Array(viewModel.dailySongs.prefix(10).enumerated()), id: \.element.id) { index, song in
                         Button {
                             playerManager.play(song: song, in: viewModel.dailySongs)
                         } label: {
-                            mujiSongCard(song)
+                            mujiSongCard(song, index: index + 1)
                         }
                         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.985, opacity: 0.94))
                         .compatScrollTransition(animation: shouldReduceMotion ? .easeInOut(duration: 0.05) : .easeInOut(duration: 0.24)) { content, phase in
@@ -332,33 +405,25 @@ struct MujiHomeView: View {
                         }
                     }
                 }
-                .padding(.horizontal, 28)
+                .padding(.horizontal, 26)
             }
             .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
         }
     }
 
-    private var mujiBannerSection: some View {
-        MujiHomeBannerSection(banners: viewModel.banners) { banner in
-            handleBannerTap(banner)
-        }
-    }
-
-    private func mujiSongCard(_ song: Song) -> some View {
+    /// 特辑图：圆角封面 + 图注（编号 · 曲名 · 歌手）
+    private func mujiSongCard(_ song: Song, index: Int) -> some View {
         let isCurrent = playerManager.currentSong?.id == song.id
+        let coverShape = RoundedRectangle(cornerRadius: 14, style: .continuous)
 
-        return VStack(alignment: .leading, spacing: 8) {
+        return VStack(alignment: .leading, spacing: 9) {
             CachedAsyncImage(url: song.coverUrl) {
-                RoundedRectangle(cornerRadius: 8).fill(separator)
+                coverShape.fill(MujiStyle.wash(accent))
             }
             .aspectRatio(contentMode: .fill)
-            .frame(width: 120, height: 120)
-            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .stroke(isCurrent ? MujiStyle.clay.opacity(0.72) : MujiStyle.hairline.opacity(0.45), lineWidth: isCurrent ? 0.9 : 0.6)
-            }
+            .frame(width: 124, height: 124)
+            .clipShape(coverShape)
             .overlay(alignment: .bottomTrailing) {
                 if isCurrent {
                     MujiNowPlayingIndicator(isAnimating: playerManager.isPlaying)
@@ -366,132 +431,121 @@ struct MujiHomeView: View {
                         .transition(.scale(scale: 0.88, anchor: .bottomTrailing).combined(with: .opacity))
                 }
             }
-            .shadow(color: isCurrent ? MujiStyle.clay.opacity(0.16) : .black.opacity(0.055), radius: isCurrent ? 10 : 8, x: 0, y: 4)
+            .shadow(color: isCurrent ? accent.opacity(0.22) : MujiStyle.ink.opacity(0.07), radius: isCurrent ? 11 : 8, x: 0, y: 4)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(song.name)
-                    .font(MujiStyle.bodyFont(12, weight: .regular))
-                    .foregroundColor(isCurrent ? accent : textPrimary)
-                    .lineLimit(1)
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(String(format: "%02d", index))
+                    .font(MujiStyle.titleFont(11, weight: .medium))
+                    .foregroundColor(accent)
+                    .monospacedDigit()
 
-                Text(song.artistName)
-                    .font(MujiStyle.labelFont(10, weight: .regular))
-                    .foregroundColor(textSecondary)
-                    .lineLimit(1)
+                VStack(alignment: .leading, spacing: 2.5) {
+                    Text(song.name)
+                        .font(MujiStyle.bodyFont(12.5, weight: .regular))
+                        .foregroundColor(isCurrent ? accent : textPrimary)
+                        .lineLimit(1)
+
+                    Text(song.artistName)
+                        .font(MujiStyle.labelFont(10, weight: .regular))
+                        .foregroundColor(textSecondary)
+                        .lineLimit(1)
+                }
             }
-            .frame(width: 120, alignment: .leading)
+            .frame(width: 124, alignment: .leading)
         }
     }
 
-    // MARK: - 新歌速递
+    // MARK: - 新歌速递（针脚列表）
 
     private var mujiNewSongsSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 14) {
             MujiSectionTitle(
                 title: String(localized: "qq_new_songs"),
                 actionTitle: String(localized: "view_all"),
                 action: { navigationPath.append(HomeView.HomeDestination.qcmNewSongs) }
             )
-            .padding(.horizontal, 28)
+            .padding(.horizontal, 26)
 
-            ScrollView(.horizontal) {
-                HStack(spacing: 12) {
-                    let shouldReduceMotion = reduceMotion
-                    ForEach(Array(viewModel.qqNewSongs.prefix(8).enumerated()), id: \.element.id) { index, song in
-                        Button {
-                            playerManager.play(song: song, in: viewModel.qqNewSongs)
-                        } label: {
-                            mujiNewSongCard(song, rank: index + 1)
-                        }
-                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.985, opacity: 0.94))
-                        .compatScrollTransition(animation: shouldReduceMotion ? .easeInOut(duration: 0.05) : .easeInOut(duration: 0.24)) { content, phase in
-                            content
-                                .scaleEffect(phase.isIdentity ? 1 : (shouldReduceMotion ? 1 : 0.96))
-                                .opacity(phase.isIdentity ? 1 : (shouldReduceMotion ? 1 : 0.72))
-                        }
+            VStack(spacing: 0) {
+                ForEach(Array(viewModel.qqNewSongs.prefix(6).enumerated()), id: \.element.id) { index, song in
+                    Button {
+                        playerManager.play(song: song, in: viewModel.qqNewSongs)
+                    } label: {
+                        mujiNewSongRow(song, rank: index + 1)
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.995, opacity: 0.92))
+
+                    if index < min(viewModel.qqNewSongs.count, 6) - 1 {
+                        MujiListDivider()
+                            .padding(.leading, 40)
                     }
                 }
-                .padding(.horizontal, 28)
-                .padding(.bottom, 4)
             }
-            .scrollIndicators(.hidden)
-            .themeRenderScrollLayer()
+            .padding(.horizontal, 26)
         }
     }
 
-    private func mujiNewSongCard(_ song: Song, rank: Int) -> some View {
+    private func mujiNewSongRow(_ song: Song, rank: Int) -> some View {
         let isCurrent = playerManager.currentSong?.id == song.id
-        let cardShape = RoundedRectangle(cornerRadius: 12, style: .continuous)
+        let coverShape = RoundedRectangle(cornerRadius: 12, style: .continuous)
 
-        return HStack(spacing: 11) {
+        return HStack(alignment: .center, spacing: 14) {
+            Text(String(format: "%02d", rank))
+                .font(MujiStyle.titleFont(14, weight: .medium))
+                .foregroundStyle(rank <= 3 ? accent : MujiStyle.inkMuted)
+                .monospacedDigit()
+                .frame(width: 26, alignment: .leading)
+
             CachedAsyncImage(url: song.coverUrl) {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(separator)
+                coverShape.fill(MujiStyle.wash(accent))
             }
             .aspectRatio(contentMode: .fill)
-            .frame(width: 58, height: 58)
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(isCurrent ? MujiStyle.clay.opacity(0.72) : MujiStyle.hairline.opacity(0.46), lineWidth: 0.65)
-            }
-            .overlay(alignment: .bottomTrailing) {
-                if isCurrent {
-                    MujiNowPlayingIndicator(isAnimating: playerManager.isPlaying)
-                        .scaleEffect(0.72, anchor: .bottomTrailing)
-                        .padding(4)
-                }
-            }
+            .frame(width: 46, height: 46)
+            .clipShape(coverShape)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(String(format: "%02d", rank))
-                    .font(MujiStyle.labelFont(9, weight: .semibold))
-                    .foregroundStyle(MujiStyle.clay)
-                    .tracking(1)
-
+            VStack(alignment: .leading, spacing: 3) {
                 Text(song.name)
-                    .font(MujiStyle.bodyFont(13, weight: .regular))
+                    .font(MujiStyle.bodyFont(14, weight: .regular))
                     .foregroundStyle(isCurrent ? accent : textPrimary)
                     .lineLimit(1)
 
                 Text(song.artistName)
-                    .font(MujiStyle.labelFont(10, weight: .regular))
+                    .font(MujiStyle.labelFont(10.5, weight: .regular))
                     .foregroundStyle(textSecondary)
                     .lineLimit(1)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Spacer(minLength: 8)
+
+            if isCurrent {
+                MujiNowPlayingIndicator(isAnimating: playerManager.isPlaying)
+            }
         }
-        .padding(10)
-        .frame(width: DeviceLayout.isPad ? 268 : 246, alignment: .leading)
-        .background(MujiPaperCardBackground(cornerRadius: 12, elevated: false))
-        .clipShape(cardShape)
-        .overlay {
-            cardShape
-                .stroke(MujiStyle.hairline.opacity(0.5), lineWidth: 0.65)
-        }
+        .padding(.vertical, 10)
+        .contentShape(Rectangle())
     }
 
-    // MARK: - 歌单
+    // MARK: - 歌单（图注网格）
 
     private func mujiPlaylistSection(
         title: String,
         playlists: [Playlist],
         action: (() -> Void)? = nil
     ) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 18) {
             MujiSectionTitle(
                 title: title,
                 actionTitle: action == nil ? nil : String(localized: "view_all"),
                 action: action
             )
-            .padding(.horizontal, 28)
+            .padding(.horizontal, 26)
 
             LazyVGrid(
                 columns: [
-                    GridItem(.flexible(), spacing: 16),
-                    GridItem(.flexible(), spacing: 16),
+                    GridItem(.flexible(), spacing: 18),
+                    GridItem(.flexible(), spacing: 18),
                 ],
-                spacing: 20
+                spacing: 24
             ) {
                 ForEach(Array(playlists.prefix(6).enumerated()), id: \.element.id) { _, pl in
                     Button {
@@ -502,53 +556,27 @@ struct MujiHomeView: View {
                     .buttonStyle(MonologueBouncingButtonStyle(scale: 0.985, opacity: 0.94))
                 }
             }
-            .padding(.horizontal, 28)
+            .padding(.horizontal, 26)
         }
     }
 
     private func mujiPlaylistCard(_ playlist: Playlist) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let coverShape = RoundedRectangle(cornerRadius: 16, style: .continuous)
+
+        return VStack(alignment: .leading, spacing: 9) {
             CachedAsyncImage(url: playlist.coverUrl) {
-                RoundedRectangle(cornerRadius: 8).fill(separator)
+                coverShape.fill(MujiStyle.wash(accent))
             }
             .aspectRatio(contentMode: .fill)
             .frame(height: 160)
-            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(MujiStyle.hairline.opacity(0.45), lineWidth: 0.6))
-            .shadow(color: .black.opacity(0.04), radius: 6, x: 0, y: 3)
+            .clipShape(coverShape)
+            .shadow(color: MujiStyle.ink.opacity(0.07), radius: 8, x: 0, y: 4)
 
             Text(playlist.name)
-                .font(MujiStyle.bodyFont(12, weight: .regular))
+                .font(MujiStyle.bodyFont(12.5, weight: .regular))
                 .foregroundColor(textPrimary)
+                .lineSpacing(2.5)
                 .lineLimit(2)
-        }
-    }
-
-    private var mujiEntryCards: some View {
-        HStack(spacing: 10) {
-            MujiHomeEntryCard(
-                icon: .musicNoteList,
-                title: String(localized: "new_song_express"),
-                tint: MujiStyle.tea
-            ) {
-                navigationPath.append(HomeView.HomeDestination.newSongExpress)
-            }
-
-            MujiHomeEntryCard(
-                icon: .mv,
-                title: String(localized: "home_mv_zone"),
-                tint: MujiStyle.indigo
-            ) {
-                navigationPath.append(HomeView.HomeDestination.mvDiscover)
-            }
-
-            MujiHomeEntryCard(
-                icon: .moon,
-                title: String(localized: "meditation_mode_title"),
-                tint: MujiStyle.straw
-            ) {
-                navigationPath.append(HomeView.HomeDestination.meditationMode)
-            }
         }
     }
 
@@ -618,6 +646,8 @@ struct MujiHomeView: View {
     }
 }
 
+// MARK: - Banner（跨页图 + 图注）
+
 private struct MujiHomeBannerSection: View {
     let banners: [Banner]
     let onTap: (Banner) -> Void
@@ -656,7 +686,7 @@ private struct MujiHomeBannerSection: View {
                 HStack(spacing: 7) {
                     ForEach(banners.indices, id: \.self) { dot in
                         Capsule()
-                            .fill(dot == index ? MujiStyle.clay : MujiStyle.hairline.opacity(0.5))
+                            .fill(dot == index ? MujiStyle.clay : MujiStyle.inkMuted.opacity(0.35))
                             .frame(width: dot == index ? 18 : 6, height: 4)
                             .animation(reduceMotion ? nil : .easeInOut(duration: 0.24), value: index)
                     }
@@ -684,47 +714,42 @@ private struct MujiHomeBannerCard: View {
             ZStack(alignment: .bottomLeading) {
                 HomeBannerArtwork(url: banner.imageUrl, cornerRadius: cornerRadius) {
                     cardShape
-                        .fill(MujiStyle.surfaceRaised)
-                        .overlay(MujiPaperTexture(opacity: 0.12))
+                        .fill(MujiStyle.wash(MujiStyle.clay))
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: cardHeight)
 
                 LinearGradient(
-                    colors: [.clear, Color.black.opacity(0.48)],
+                    colors: [.clear, Color.black.opacity(0.42)],
                     startPoint: .center,
                     endPoint: .bottom
                 )
 
                 HStack(spacing: 10) {
-                    Text(bannerLabel)
-                        .font(MujiStyle.labelFont(10, weight: .semibold))
-                        .foregroundStyle(MujiStyle.onImage)
-                        .tracking(1.1)
-                        .textCase(.uppercase)
-                        .lineLimit(1)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Color.black.opacity(0.25), in: Capsule())
-                        .overlay(Capsule().stroke(Color.white.opacity(0.24), lineWidth: 0.6))
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(Color.white.opacity(0.9))
+                            .frame(width: 5, height: 5)
+
+                        Text(bannerLabel)
+                            .font(MujiStyle.labelFont(10, weight: .semibold))
+                            .foregroundStyle(MujiStyle.onImage)
+                            .tracking(1.2)
+                            .textCase(.uppercase)
+                            .lineLimit(1)
+                    }
 
                     Spacer(minLength: 8)
 
                     MonologueIcon(icon: .chevronRight, size: 12, color: MujiStyle.onImage, lineWidth: 1.4)
-                        .frame(width: 28, height: 28)
-                        .background(Color.black.opacity(0.22), in: Circle())
                 }
-                .padding(12)
+                .padding(14)
             }
             .frame(height: cardHeight)
             .compositingGroup()
             .clipShape(cardShape)
             .contentShape(cardShape)
-            .overlay(
-                cardShape
-                    .stroke(MujiStyle.hairline.opacity(0.68), lineWidth: 0.75)
-            )
-            .shadow(color: Color.black.opacity(0.055), radius: 10, x: 0, y: 5)
+            .shadow(color: MujiStyle.ink.opacity(0.08), radius: 10, x: 0, y: 5)
         }
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.99, opacity: 0.96))
     }
@@ -744,42 +769,6 @@ private struct MujiHomeBannerCard: View {
         default:
             return "Banner"
         }
-    }
-}
-
-private struct MujiHomeEntryCard: View {
-    let icon: MonologueIcon.IconType
-    let title: String
-    let tint: Color
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 8) {
-                MonologueIcon(icon: icon, size: 18, color: tint, lineWidth: 1.6)
-                    .frame(width: 38, height: 38)
-                    .background(MujiStyle.surface, in: Circle())
-                    .overlay(Circle().stroke(MujiStyle.hairline.opacity(0.48), lineWidth: 0.6))
-
-                Text(title)
-                    .font(MujiStyle.labelFont(12, weight: .semibold))
-                    .foregroundStyle(MujiStyle.ink)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-                    .minimumScaleFactor(0.74)
-                    .frame(maxWidth: .infinity, minHeight: 30, alignment: .top)
-
-                Rectangle()
-                    .fill(tint.opacity(0.64))
-                    .frame(width: 30, height: 1)
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 11)
-            .frame(maxWidth: .infinity)
-            .frame(height: 96)
-            .background(MujiPaperCardBackground(cornerRadius: 12, elevated: true))
-        }
-        .buttonStyle(.plain)
     }
 }
 

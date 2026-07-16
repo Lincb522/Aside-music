@@ -90,7 +90,7 @@ enum MonologueSheetPreset: Equatable {
             return min(cornerRadius, MinimalWhiteStyle.chromeRadius)
         }
         if MangaStyle.isActive {
-            return min(cornerRadius, 22)
+            return min(cornerRadius, 14)
         }
         if PetWhiteStyle.isActive {
             return min(max(cornerRadius, 26), 34)

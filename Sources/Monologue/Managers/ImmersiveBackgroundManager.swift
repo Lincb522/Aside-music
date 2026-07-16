@@ -7,6 +7,8 @@ struct ImmersiveVideo: Identifiable, Codable, Equatable {
     var displayName: String
     let filename: String      // 存储在 ImmersiveBackgrounds 目录下的文件名
     let importedAt: Date
+    var sourceIdentifier: String? = nil
+    var sourceName: String? = nil
 }
 
 /// 沉浸视频背景管理：导入的视频库 + 歌曲/全局绑定 + 旧上下文兼容回退。
@@ -62,6 +64,12 @@ final class ImmersiveBackgroundManager: ObservableObject {
         return library.first { $0.id == id }
     }
 
+    func video(sourceIdentifier: String, sourceName: String) -> ImmersiveVideo? {
+        library.first {
+            $0.sourceIdentifier == sourceIdentifier && $0.sourceName == sourceName
+        }
+    }
+
     // MARK: - 绑定 key
 
     static func songBindingKey(_ songId: Int) -> String { "song:\(songId)" }
@@ -101,7 +109,12 @@ final class ImmersiveBackgroundManager: ObservableObject {
     // MARK: - 导入 / 删除 / 重命名
 
     @discardableResult
-    func importVideo(from sourceURL: URL, displayName: String? = nil) -> ImmersiveVideo? {
+    func importVideo(
+        from sourceURL: URL,
+        displayName: String? = nil,
+        sourceIdentifier: String? = nil,
+        sourceName: String? = nil
+    ) -> ImmersiveVideo? {
         let scoped = sourceURL.startAccessingSecurityScopedResource()
         defer { if scoped { sourceURL.stopAccessingSecurityScopedResource() } }
 
@@ -124,7 +137,9 @@ final class ImmersiveBackgroundManager: ObservableObject {
             id: id,
             displayName: name.isEmpty ? "Video" : name,
             filename: filename,
-            importedAt: Date()
+            importedAt: Date(),
+            sourceIdentifier: sourceIdentifier,
+            sourceName: sourceName
         )
         library.insert(video, at: 0)
         save()

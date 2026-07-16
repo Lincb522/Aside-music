@@ -94,7 +94,14 @@ final class DownloadManager: NSObject, ObservableObject {
     
     /// 下载歌曲
     func download(song: Song, quality: SoundQuality? = nil) {
+        // 汽水歌曲走专用下载通道（key 形态不同，走通用通道会产生错配记录）
+        if song.isQishui {
+            downloadQishui(song: song, quality: SettingsManager.shared.defaultQishuiPlaybackQuality)
+            return
+        }
+
         let key = Self.makeKey(songId: song.id, isQQ: song.isQQMusic)
+        DownloadTombstoneStore.shared.clearTombstones(for: song)
         
         // 已下载或正在下载则跳过
         guard !downloadedSongIds.contains(key),
@@ -127,6 +134,7 @@ final class DownloadManager: NSObject, ObservableObject {
     /// 下载 qcm歌曲（指定 QQ 音质）
     func downloadQQ(song: Song, quality: QQMusicQuality) {
         let key = Self.makeKey(songId: song.id, isQQ: true)
+        DownloadTombstoneStore.shared.clearTombstones(for: song)
         
         guard !downloadedSongIds.contains(key),
               downloadingTasks[key] == nil,
@@ -149,6 +157,7 @@ final class DownloadManager: NSObject, ObservableObject {
     func downloadQishui(song: Song, quality: String = "highest") {
         guard let trackId = song.qishuiTrackId else { return }
         let key = Self.makeQishuiKey(trackId: trackId)
+        DownloadTombstoneStore.shared.clearTombstones(for: song)
 
         guard !downloadedSongIds.contains(key),
               downloadingTasks[key] == nil,
@@ -204,10 +213,57 @@ final class DownloadManager: NSObject, ObservableObject {
     
     /// 删除已下载歌曲
     func deleteDownload(songId: Int, isQQ: Bool = false) {
-        let key = Self.makeKey(songId: songId, isQQ: isQQ)
-        
+        deleteDownload(key: Self.makeKey(songId: songId, isQQ: isQQ))
+    }
+
+    /// 删除已下载歌曲（按歌曲来源解析 key，兼容汽水下载）
+    func deleteDownload(for song: Song) {
+        deleteDownload(key: Self.makeKey(for: song))
+    }
+
+    /// 删除与这首歌相关的**所有**下载记录与文件。
+    ///
+    /// 历史数据存在多种 key 变体（`ncm_/qq_/qishui_/qsm_`），云端恢复也可能
+    /// 产生与本地 key 不一致的重复记录；合并后的「本地音乐」按 song.id 去重展示，
+    /// 因此删除也必须把同一 id 的所有记录一次清干净，否则同步时会立刻并回。
+    func deleteAllDownloadRecords(for song: Song) {
+        var keys = Set<String>()
+        keys.insert(Self.makeKey(for: song))
+        keys.insert(Self.makeKey(songId: song.id, isQQ: true))
+        keys.insert(Self.makeKey(songId: song.id, isQQ: false))
+        keys.insert("qsm_\(song.id)")
+        if let trackId = song.qishuiTrackId {
+            keys.insert(Self.makeQishuiKey(trackId: trackId))
+        }
+
+        // 同 id 的所有残留记录（无论 key 形态）一并纳入
+        let store = DatabaseManager.shared.store
+        let songId = song.id
+        for record in store.fetch(DownloadedSong.self, where: { $0.id == songId }) {
+            keys.insert(record.uniqueKey)
+        }
+
+        DownloadTombstoneStore.shared.markDeleted(keys: keys, songId: song.id)
+
+        for key in keys {
+            removeDownload(key: key, notifyCloud: false)
+        }
+        LocalPlaylistCloudSyncManager.shared.scheduleSyncForLocalMutation()
+    }
+
+    /// 删除已下载歌曲（按 uniqueKey）
+    func deleteDownload(key: String) {
+        if let record = getDownloadRecord(key: key) {
+            DownloadTombstoneStore.shared.markDeleted(keys: [key], songId: record.id)
+        } else {
+            DownloadTombstoneStore.shared.markDeleted(keys: [key], songId: nil)
+        }
+        removeDownload(key: key, notifyCloud: true)
+    }
+
+    private func removeDownload(key: String, notifyCloud: Bool) {
         // 删除本地文件
-        if let url = localFileURL(songId: songId, isQQ: isQQ) {
+        if let url = localFileURL(forKey: key) {
             do {
                 try FileManager.default.removeItem(at: url)
                 #if DEBUG
@@ -235,11 +291,17 @@ final class DownloadManager: NSObject, ObservableObject {
         downloadedSongIds.remove(key)
         
         AppLogger.info("删除下载: \(key)")
-        LocalPlaylistCloudSyncManager.shared.scheduleSyncForLocalMutation()
+        if notifyCloud {
+            LocalPlaylistCloudSyncManager.shared.scheduleSyncForLocalMutation()
+        }
     }
     
     /// 删除所有下载
     func deleteAll() {
+        // 先为所有记录打删除墓碑，避免云端快照把清空的记录恢复回来
+        let allRecords = DatabaseManager.shared.store.fetchAll(DownloadedSong.self)
+        DownloadTombstoneStore.shared.markDeleted(records: allRecords)
+
         // 取消所有进行中的任务
         for (_, task) in downloadingTasks {
             task.urlSessionTask?.cancel()
@@ -349,8 +411,15 @@ final class DownloadManager: NSObject, ObservableObject {
         guard !records.isEmpty else { return }
 
         let store = DatabaseManager.shared.store
+        let tombstones = DownloadTombstoneStore.shared
         for cloudRecord in records {
             let key = Self.makeKey(for: cloudRecord)
+
+            // 本地明确删除过的条目：云端快照（可能还没同步到删除）不允许复活
+            if tombstones.isTombstoned(key: key) || tombstones.isTombstoned(songId: cloudRecord.songId) {
+                continue
+            }
+
             let existing = getDownloadRecord(key: key)
 
             if existing?.status == .completed, localFileURL(forKey: key) != nil {

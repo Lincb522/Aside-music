@@ -11,7 +11,6 @@
 import SwiftUI
 
 struct AriaSettingsPage: View {
-    @Environment(\.dismiss) private var dismiss
     let palette: AriaPalette
     /// 从沉浸舞台打开时为 true（进入转竖屏、返回恢复横屏）；
     /// 从普通播放器三点菜单打开时为 false（全程竖屏，不做任何转向）
@@ -22,12 +21,11 @@ struct AriaSettingsPage: View {
     @AppStorage("ariaCustomLyricFontID") private var customFontID = ""
     @AppStorage("ariaForeignLyricFont") private var foreignLyricFontRaw = MonologuePlayerFont.followThemeRawValue
     @AppStorage("ariaForeignCustomLyricFontID") private var foreignCustomFontID = ""
-    @AppStorage("ariaCanopyCaptionTranslation") private var canopyCaptionTranslation = false
+    @AppStorage("ariaCanopyFragmentStage") private var canopyFragmentStage = false
     @AppStorage("ariaLyricAutoColor") private var lyricAutoColor = true
     @AppStorage("ariaLyricColorHex") private var lyricColorHex = "FFFFFF"
     @AppStorage("ariaLyricLayout") private var lyricLayoutRaw = AriaLyricLayoutChoice.center.rawValue
     @AppStorage("ariaLyricsFontScale") private var fontScale = 1.0
-    @AppStorage("ariaShowTranslation") private var showTranslation = true
     @AppStorage("ariaLyricMaterialStyle") private var lyricMaterialStyleRaw = AriaLyricMaterialStyle.solid.rawValue
     @AppStorage("ariaLyricOpacity") private var lyricOpacity = 1.0
     @AppStorage("ariaLyricGlowStrength") private var lyricGlowStrength = 0.0
@@ -75,24 +73,41 @@ struct AriaSettingsPage: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
+        ZStack {
+            pageBackdrop.ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 26) {
-                    effectSection
-                    styleSection
-                    tuningSection
-                    videoSection
+                VStack(alignment: .leading, spacing: 0) {
+                    SettingsScrollablePageHeader(
+                        title: String(localized: "沉浸模式设置"),
+                        eyebrow: "IMMERSIVE",
+                        icon: .immersive
+                    )
+
+                    VStack(alignment: .leading, spacing: 26) {
+                        effectSection
+                        styleSection
+                        tuningSection
+                        videoSection
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 18)
+                    .padding(.bottom, 48)
+                    .iPadContentWidth(720)
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
-                .padding(.bottom, 48)
             }
         }
         .compatFontDesign(nil)
-        .background(pageBackdrop.ignoresSafeArea())
         .environment(\.colorScheme, .dark)
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                MonologueToolbarBackButton()
+            }
+        }
         .onAppear {
             let resolvedEffect = AriaLyricEffect.resolveStored(lyricEffectRaw)
             if lyricEffectRaw != resolvedEffect.rawValue {
@@ -131,30 +146,6 @@ struct AriaSettingsPage: View {
         }
     }
 
-    // MARK: Header
-
-    private var header: some View {
-        HStack(spacing: 12) {
-            Button {
-                dismiss()
-            } label: {
-                MonologueIcon(icon: .back, size: 18, color: .white.opacity(0.9))
-                    .frame(width: 40, height: 40)
-                    .background(Circle().fill(Color.white.opacity(0.08)))
-            }
-            .buttonStyle(MonologueBouncingButtonStyle())
-
-            Text(String(localized: "沉浸模式设置"))
-                .font(.system(size: 20, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
-
-            Spacer()
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 14)
-        .padding(.bottom, 12)
-    }
-
     // MARK: 字幕特效
 
     private var effectSection: some View {
@@ -180,29 +171,24 @@ struct AriaSettingsPage: View {
             VStack(spacing: 14) {
                 fontPreview
 
-                // 字体
+                // 字体（纯外语字体自动收进下方的外语字体菜单）
                 VStack(alignment: .leading, spacing: 8) {
                     rowLabel(String(localized: "字体"))
                     MonologueFontPicker(
                         selectionRaw: $lyricFontRaw,
                         customFontID: $customFontID,
                         accent: palette.accent,
-                        layout: .horizontal
+                        layout: .horizontal,
+                        customFontScope: .cjkCapable
                     )
                 }
 
                 // 外语歌整首生效；中文歌里的英文始终用上方字体的拉丁字形
-                VStack(alignment: .leading, spacing: 8) {
-                    rowLabel(String(localized: "外语歌词字体"))
-                    MonologueFontPicker(
-                        selectionRaw: $foreignLyricFontRaw,
-                        customFontID: $foreignCustomFontID,
-                        accent: palette.accent,
-                        layout: .horizontal,
-                        includesFollowTheme: true,
-                        followLabel: String(localized: "复用中文字体")
-                    )
-                }
+                MonologueForeignFontMenuRow(
+                    selectionRaw: $foreignLyricFontRaw,
+                    customFontID: $foreignCustomFontID,
+                    accent: palette.accent
+                )
 
                 typographyDesignControls
 
@@ -291,15 +277,16 @@ struct AriaSettingsPage: View {
                     .opacity(lyricAutoColor ? 0.5 : 1)
                 }
 
-                // 翻译
-                Toggle(isOn: $showTranslation) {
-                    rowLabel(String(localized: "显示翻译"))
-                }
-                .tint(palette.accent)
-
                 if lyricEffect == .canopy {
-                    Toggle(isOn: $canopyCaptionTranslation) {
-                        rowLabel(String(localized: "天幕小字显示翻译"))
+                    Toggle(isOn: $canopyFragmentStage) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(String(localized: "天幕碎幕律动"))
+                                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                .foregroundStyle(.white)
+                            Text(String(localized: "整句拆成小段接力显示，排版与动画随旋律逐句变化"))
+                                .font(.system(size: 11, weight: .regular, design: .rounded))
+                                .foregroundStyle(.white.opacity(0.4))
+                        }
                     }
                     .tint(palette.accent)
                 }

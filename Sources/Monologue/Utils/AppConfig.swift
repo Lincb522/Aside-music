@@ -79,6 +79,8 @@ enum AppConfig {
         static let pitchSemitones = "monologue_pitch_semitones"
         static let preferHighestPlaybackQuality = "monologue_prefer_highest_playback_quality"
         static let gaplessPlaybackEnabled = "monologue_gapless_playback_enabled"
+        static let gaplessPlaybackEnabledMigrationV2 = "monologue_gapless_playback_enabled_migration_v2"
+        static let crossfadePlaybackEnabled = "monologue_crossfade_playback_enabled"
         static let backgroundAudioPolicy = "monologue_background_audio_policy"
         static let appBrandStyle = "monologue_app_brand_style"
         static let appBrandAppearance = "monologue_app_brand_appearance"

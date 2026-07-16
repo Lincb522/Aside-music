@@ -16,6 +16,7 @@ struct ImmersiveBackgroundSheet: View {
 
     @State private var target: BindTarget = .song
     @State private var showFileImporter = false
+    @State private var showMoeWallsBrowser = false
     @State private var photoPickerItem: PhotosPickerItem?
     @State private var isImporting = false
     @State private var importError: String?
@@ -56,6 +57,10 @@ struct ImmersiveBackgroundSheet: View {
             .scrollIndicators(.hidden)
         }
         .background(sheetBackdrop.ignoresSafeArea())
+        // monologueSheet 内呈现时，深色背景铺满整个面板（含把手区）
+        .monologueSheetSurface(id: "immersive-background") {
+            sheetBackdrop
+        }
         .fileImporter(
             isPresented: $showFileImporter,
             allowedContentTypes: [.movie, .video, .mpeg4Movie, .quickTimeMovie],
@@ -66,6 +71,17 @@ struct ImmersiveBackgroundSheet: View {
         .onChange(of: photoPickerItem) { _, item in
             guard let item else { return }
             Task { await importFromPhotos(item) }
+        }
+        .fullScreenCover(isPresented: $showMoeWallsBrowser) {
+            MoeWallsBrowserView(
+                palette: palette,
+                isInUse: { video in
+                    currentBoundVideoId == video.id
+                },
+                onUse: { video in
+                    applyBinding(video.id)
+                }
+            )
         }
         .onAppear {
             if songId == nil {
@@ -117,27 +133,58 @@ struct ImmersiveBackgroundSheet: View {
     // MARK: - 导入入口
 
     private var importCards: some View {
-        HStack(spacing: 12) {
-            PhotosPicker(selection: $photoPickerItem, matching: .videos, photoLibrary: .shared()) {
-                ImportCardLabel(
-                    icon: .album,
-                    title: String(localized: "immersive_bg_from_photos"),
-                    accent: palette.accent
-                )
+        VStack(spacing: 10) {
+            HStack(spacing: 12) {
+                PhotosPicker(selection: $photoPickerItem, matching: .videos, photoLibrary: .shared()) {
+                    ImportCardLabel(
+                        icon: .album,
+                        title: String(localized: "immersive_bg_from_photos"),
+                        accent: palette.accent
+                    )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+                .disabled(isImporting)
+
+                Button {
+                    showFileImporter = true
+                } label: {
+                    ImportCardLabel(
+                        icon: .arrowDownToLine,
+                        title: String(localized: "immersive_bg_from_files"),
+                        accent: palette.accent
+                    )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+                .disabled(isImporting)
             }
-            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
-            .disabled(isImporting)
 
             Button {
-                showFileImporter = true
+                showMoeWallsBrowser = true
             } label: {
-                ImportCardLabel(
-                    icon: .arrowDownToLine,
-                    title: String(localized: "immersive_bg_from_files"),
-                    accent: palette.accent
+                HStack(spacing: 10) {
+                    MonologueIcon(icon: .search, size: 16, color: palette.accent)
+                        .frame(width: 32, height: 32)
+                        .background(Circle().fill(palette.accent.opacity(0.13)))
+
+                    Text(String(localized: "immersive_bg_moewalls"))
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.white)
+
+                    Spacer(minLength: 0)
+
+                    MonologueIcon(icon: .chevronRight, size: 12, color: .white.opacity(0.42))
+                }
+                .padding(12)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color.white.opacity(0.05))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(Color.white.opacity(0.07), lineWidth: 1)
                 )
             }
-            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
             .disabled(isImporting)
         }
         .overlay {

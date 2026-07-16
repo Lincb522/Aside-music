@@ -33,6 +33,7 @@ enum ThemeCustomColorRole: String, CaseIterable, Identifiable {
 enum ThemeDarkBackgroundKind: String, CaseIterable, Identifiable {
     case standard
     case solid
+    case gradient
     case image
 
     var id: String {
@@ -43,6 +44,7 @@ enum ThemeDarkBackgroundKind: String, CaseIterable, Identifiable {
         switch self {
         case .standard: return String(localized: "默认")
         case .solid: return String(localized: "纯色")
+        case .gradient: return String(localized: "渐变")
         case .image: return String(localized: "背景图")
         }
     }
@@ -186,6 +188,10 @@ struct ThemeColorPreset: Identifiable, Codable {
 }
 
 enum ThemeColorCustomization {
+    static var isDarkAppearanceActive: Bool {
+        !customColorsEnabled
+    }
+
     static var customColorsEnabled: Bool {
         switch UserDefaults.standard.string(forKey: "themeMode") {
         case "dark":
@@ -217,7 +223,16 @@ enum ThemeColorCustomization {
         "themeColor.\(theme.rawValue).selectedPreset"
     }
 
+    static func savedDarkPresetsKey(_ theme: GlobalThemeId) -> String {
+        "themeColor.\(theme.rawValue).savedDarkPresets"
+    }
+
+    static func selectedDarkPresetKey(_ theme: GlobalThemeId) -> String {
+        "themeColor.\(theme.rawValue).selectedDarkPreset"
+    }
+
     static let backgroundGradientSuffixes = ["start", "end", "stop3", "stop4"]
+    static let darkBackgroundGradientSuffixes = ["darkStart", "darkEnd", "darkStop3", "darkStop4"]
     static let defaultCatPawPresetId = "default-cat-paw"
 
     static func usesDefaultCatPawPreset() -> Bool {
@@ -256,6 +271,10 @@ enum ThemeColorCustomization {
         storedHex(theme, .accent, "solid") != nil
     }
 
+    static func hasStoredDarkAccent(for theme: GlobalThemeId) -> Bool {
+        storedHex(theme, .accent, "darkSolid") != nil
+    }
+
     static func hasStoredBackground(for theme: GlobalThemeId) -> Bool {
         let defaults = UserDefaults.standard
         return defaults.string(forKey: key(theme, .background, "mode")) != nil
@@ -269,7 +288,7 @@ enum ThemeColorCustomization {
 
         let defaults = UserDefaults.standard
         let hasRoleCustomization = ThemeCustomColorRole.allCases.contains { role in
-            (["mode", "gradientStyle", "solid", "darkKind", "darkSolid"] + backgroundGradientSuffixes).contains { suffix in
+            (["mode", "gradientStyle", "solid"] + backgroundGradientSuffixes).contains { suffix in
                 defaults.object(forKey: key(theme, role, suffix)) != nil
             }
         }
@@ -282,6 +301,20 @@ enum ThemeColorCustomization {
         return ["blockA", "blockB", "blockC", "stroke", "settingsIcon"].contains { suffix in
             defaults.object(forKey: mangaKey(suffix)) != nil
         }
+    }
+
+    static func hasStoredDarkCustomization(for theme: GlobalThemeId) -> Bool {
+        guard theme == .default else { return false }
+
+        let defaults = UserDefaults.standard
+        return hasStoredDarkAccent(for: theme)
+            || defaults.object(forKey: key(theme, .background, "darkKind")) != nil
+            || defaults.object(forKey: key(theme, .background, "darkSolid")) != nil
+            || defaults.object(forKey: key(theme, .background, "darkGradientStyle")) != nil
+            || defaults.object(forKey: key(theme, .background, "darkImageFile")) != nil
+            || darkBackgroundGradientSuffixes.contains { suffix in
+                defaults.object(forKey: key(theme, .background, suffix)) != nil
+            }
     }
 
     static func usesCustomBackground(for theme: GlobalThemeId) -> Bool {
@@ -381,6 +414,7 @@ enum ThemeColorCustomization {
         defaults.set(fileName, forKey: key(theme, .background, backgroundImageFileKeySuffix(dark: dark)))
         if dark {
             defaults.set(ThemeDarkBackgroundKind.image.rawValue, forKey: key(theme, .background, "darkKind"))
+            defaults.removeObject(forKey: selectedDarkPresetKey(theme))
         } else {
             defaults.set(ThemeCustomColorMode.image.rawValue, forKey: key(theme, .background, "mode"))
             defaults.removeObject(forKey: selectedPresetKey(theme))
@@ -398,6 +432,7 @@ enum ThemeColorCustomization {
             if darkBackgroundKind(for: theme) == .image {
                 defaults.removeObject(forKey: key(theme, .background, "darkKind"))
             }
+            defaults.removeObject(forKey: selectedDarkPresetKey(theme))
         } else {
             if mode(for: theme, role: .background) == .image {
                 defaults.removeObject(forKey: key(theme, .background, "mode"))
@@ -418,6 +453,7 @@ enum ThemeColorCustomization {
 
     // MARK: - 夜间背景（默认主题）
 
+    static let defaultDarkAccentHex = "FFFFFF"
     static let defaultDarkBackgroundSolidHex = "000000"
 
     /// 夜间背景与浅色自定义背景独立存储；不受 `customColorsEnabled`（深色禁用自定义配色）限制。
@@ -429,16 +465,76 @@ enum ThemeColorCustomization {
 
     @MainActor
     static func setDarkBackgroundKind(_ kind: ThemeDarkBackgroundKind, for theme: GlobalThemeId) {
-        UserDefaults.standard.set(kind.rawValue, forKey: key(theme, .background, "darkKind"))
+        let defaults = UserDefaults.standard
+        defaults.set(kind.rawValue, forKey: key(theme, .background, "darkKind"))
+        defaults.removeObject(forKey: selectedDarkPresetKey(theme))
         SettingsManager.shared.notifyThemeCustomizationChanged()
+    }
+
+    static func darkAccentHex(for theme: GlobalThemeId) -> String {
+        hex(theme, .accent, "darkSolid", fallback: defaultDarkAccentHex)
     }
 
     static func darkBackgroundSolidHex(for theme: GlobalThemeId) -> String {
         hex(theme, .background, "darkSolid", fallback: defaultDarkBackgroundSolidHex)
     }
 
+    static func darkBackgroundGradientStyle(for theme: GlobalThemeId) -> ThemeCustomGradientStyle {
+        let raw = UserDefaults.standard.string(
+            forKey: key(theme, .background, "darkGradientStyle")
+        )
+        return (
+            ThemeCustomGradientStyle(rawValue: raw ?? ThemeCustomGradientStyle.diffuse.rawValue)
+                ?? .diffuse
+        ).normalized
+    }
+
+    static func defaultDarkBackgroundStopHex(_ suffix: String) -> String {
+        switch suffix {
+        case "darkEnd": return "151822"
+        case "darkStop3": return "0E1623"
+        case "darkStop4": return "090A0F"
+        default: return "08090D"
+        }
+    }
+
+    static func darkBackgroundGradientHexes(for theme: GlobalThemeId) -> [String] {
+        darkBackgroundGradientSuffixes.map { suffix in
+            normalizedHex(
+                hex(
+                    theme,
+                    .background,
+                    suffix,
+                    fallback: defaultDarkBackgroundStopHex(suffix)
+                )
+            )
+        }
+    }
+
+    static func darkBackgroundGradientColors(for theme: GlobalThemeId) -> [Color] {
+        darkBackgroundGradientHexes(for: theme).map { Color(hex: $0) }
+    }
+
+    @MainActor
+    static func setDarkBackgroundGradientStyle(
+        _ style: ThemeCustomGradientStyle,
+        for theme: GlobalThemeId
+    ) {
+        let defaults = UserDefaults.standard
+        defaults.set(
+            style.normalized.rawValue,
+            forKey: key(theme, .background, "darkGradientStyle")
+        )
+        defaults.removeObject(forKey: selectedDarkPresetKey(theme))
+        SettingsManager.shared.notifyThemeCustomizationChanged()
+    }
+
     static func usesDarkSolidBackground(for theme: GlobalThemeId) -> Bool {
         darkBackgroundKind(for: theme) == .solid
+    }
+
+    static func usesDarkGradientBackground(for theme: GlobalThemeId) -> Bool {
+        darkBackgroundKind(for: theme) == .gradient
     }
 
     static func usesDarkImageBackground(for theme: GlobalThemeId) -> Bool {
@@ -451,7 +547,29 @@ enum ThemeColorCustomization {
         dark: Color = Color.white,
         threshold: CGFloat = 0.58
     ) -> Color {
-        resolvedLuminance(of: fill) >= threshold ? light : dark
+        let darkTextContrast = contrastRatio(between: light, and: fill)
+        let lightTextContrast = contrastRatio(between: dark, and: fill)
+
+        // 强调色上的浅色文字只要仍达到大字号/图标所需的 3:1，就优先保留；
+        // 只有确实看不清时才切深色，避免中亮度强调色被过早判成黑字。
+        if lightTextContrast >= 3 {
+            return dark
+        }
+        if darkTextContrast != lightTextContrast {
+            return darkTextContrast > lightTextContrast ? light : dark
+        }
+        return resolvedLuminance(of: fill) >= threshold ? light : dark
+    }
+
+    static func contrastRatio(between foreground: Color, and background: Color) -> CGFloat {
+        let backgroundRGBA = resolvedRGBA(of: background)
+        let foregroundRGBA = resolvedRGBA(of: foreground)
+        let opaqueBackground = composite(backgroundRGBA, over: RGBA(red: 1, green: 1, blue: 1, alpha: 1))
+        let compositedForeground = composite(foregroundRGBA, over: opaqueBackground)
+        let foregroundLuminance = relativeLuminance(of: compositedForeground)
+        let backgroundLuminance = relativeLuminance(of: opaqueBackground)
+        return (max(foregroundLuminance, backgroundLuminance) + 0.05)
+            / (min(foregroundLuminance, backgroundLuminance) + 0.05)
     }
 
     static func isLightColor(_ color: Color, threshold: CGFloat = 0.58) -> Bool {
@@ -464,21 +582,52 @@ enum ThemeColorCustomization {
     }
 
     private static func resolvedLuminance(of color: Color) -> CGFloat {
-        let uiColor = UIColor(color)
+        let rgba = resolvedRGBA(of: color)
+        let compositedRed = rgba.red * rgba.alpha + (1 - rgba.alpha)
+        let compositedGreen = rgba.green * rgba.alpha + (1 - rgba.alpha)
+        let compositedBlue = rgba.blue * rgba.alpha + (1 - rgba.alpha)
+        return 0.299 * compositedRed + 0.587 * compositedGreen + 0.114 * compositedBlue
+    }
 
+    private struct RGBA {
+        let red: CGFloat
+        let green: CGFloat
+        let blue: CGFloat
+        let alpha: CGFloat
+    }
+
+    private static func resolvedRGBA(of color: Color) -> RGBA {
+        let uiColor = UIColor(color)
         var red: CGFloat = 0
         var green: CGFloat = 0
         var blue: CGFloat = 0
         var alpha: CGFloat = 0
-
         guard uiColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else {
-            return 1
+            return RGBA(red: 1, green: 1, blue: 1, alpha: 1)
         }
+        return RGBA(red: red, green: green, blue: blue, alpha: alpha)
+    }
 
-        let compositedRed = red * alpha + (1 - alpha)
-        let compositedGreen = green * alpha + (1 - alpha)
-        let compositedBlue = blue * alpha + (1 - alpha)
-        return 0.299 * compositedRed + 0.587 * compositedGreen + 0.114 * compositedBlue
+    private static func composite(_ foreground: RGBA, over background: RGBA) -> RGBA {
+        let alpha = foreground.alpha + background.alpha * (1 - foreground.alpha)
+        guard alpha > 0 else { return RGBA(red: 0, green: 0, blue: 0, alpha: 0) }
+        return RGBA(
+            red: (foreground.red * foreground.alpha + background.red * background.alpha * (1 - foreground.alpha)) / alpha,
+            green: (foreground.green * foreground.alpha + background.green * background.alpha * (1 - foreground.alpha)) / alpha,
+            blue: (foreground.blue * foreground.alpha + background.blue * background.alpha * (1 - foreground.alpha)) / alpha,
+            alpha: alpha
+        )
+    }
+
+    private static func relativeLuminance(of color: RGBA) -> CGFloat {
+        func linearize(_ component: CGFloat) -> CGFloat {
+            component <= 0.04045
+                ? component / 12.92
+                : pow((component + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * linearize(color.red)
+            + 0.7152 * linearize(color.green)
+            + 0.0722 * linearize(color.blue)
     }
 
     static func mangaHex(_ suffix: String, fallback: String) -> String {
@@ -599,6 +748,11 @@ enum ThemeColorCustomization {
     }
 
     static func accentColor(for theme: GlobalThemeId, fallback: Color, fallbackHex _: String) -> Color {
+        if theme == .default, isDarkAppearanceActive {
+            guard let stored = storedHex(theme, .accent, "darkSolid") else { return fallback }
+            return Color(hex: stored)
+        }
+
         guard customColorsEnabled else { return fallback }
         guard let stored = storedHex(theme, .accent, "solid") else { return fallback }
         return Color(hex: stored)
@@ -728,6 +882,141 @@ enum ThemeColorCustomization {
         }
         return presets
     }
+
+    static func builtInDarkColorPresets(for theme: GlobalThemeId) -> [ThemeColorPreset] {
+        guard theme == .default else { return [] }
+        return builtInDarkPresets
+    }
+
+    static func customDarkPresets(for theme: GlobalThemeId) -> [ThemeColorPreset] {
+        savedDarkPresets(for: theme)
+    }
+
+    static func darkPresets(for theme: GlobalThemeId) -> [ThemeColorPreset] {
+        builtInDarkColorPresets(for: theme) + savedDarkPresets(for: theme)
+    }
+
+    static func selectedDarkPreset(for theme: GlobalThemeId) -> ThemeColorPreset? {
+        guard hasStoredDarkCustomization(for: theme) else { return nil }
+
+        let allPresets = darkPresets(for: theme)
+        if let selectedPresetId = UserDefaults.standard.string(forKey: selectedDarkPresetKey(theme)),
+           let selectedPreset = allPresets.first(where: { $0.id == selectedPresetId }),
+           isDarkPresetColorMatched(selectedPreset, for: theme) {
+            return selectedPreset
+        }
+
+        return allPresets.first { isDarkPresetColorMatched($0, for: theme) }
+    }
+
+    static func selectedDarkPresetDisplayName(for theme: GlobalThemeId) -> String {
+        if let preset = selectedDarkPreset(for: theme) {
+            return preset.name
+        }
+        return hasStoredDarkCustomization(for: theme)
+            ? String(localized: "自定义")
+            : String(localized: "默认配色")
+    }
+
+    static func savedDarkPresets(for theme: GlobalThemeId) -> [ThemeColorPreset] {
+        guard theme == .default,
+              let data = UserDefaults.standard.data(forKey: savedDarkPresetsKey(theme)),
+              let presets = try? JSONDecoder().decode([ThemeColorPreset].self, from: data)
+        else {
+            return []
+        }
+        return presets
+    }
+
+    private static let builtInDarkPresets: [ThemeColorPreset] = [
+        ThemeColorPreset(
+            id: "default-dark-graphite",
+            name: "Graphite",
+            accentStartHex: "F4F4F5",
+            accentEndHex: "F4F4F5",
+            backgroundMode: .solid,
+            backgroundStartHex: "0A0B0E",
+            backgroundEndHex: "0A0B0E",
+            backgroundHexes: ["0A0B0E"]
+        ),
+        ThemeColorPreset(
+            id: "default-dark-cobalt",
+            name: "Cobalt",
+            accentStartHex: "82A8FF",
+            accentEndHex: "82A8FF",
+            backgroundMode: .gradient,
+            backgroundStartHex: "080B16",
+            backgroundEndHex: "101B38",
+            backgroundHexes: ["080B16", "101B38", "0B1327", "080A10"],
+            gradientStyle: .linear
+        ),
+        ThemeColorPreset(
+            id: "default-dark-aubergine",
+            name: "Aubergine",
+            accentStartHex: "D295F7",
+            accentEndHex: "D295F7",
+            backgroundMode: .gradient,
+            backgroundStartHex: "0E0A14",
+            backgroundEndHex: "24102B",
+            backgroundHexes: ["0E0A14", "24102B", "151022", "09080D"],
+            gradientStyle: .radial
+        ),
+        ThemeColorPreset(
+            id: "default-dark-deep-sea",
+            name: "Deep Sea",
+            accentStartHex: "63D5D0",
+            accentEndHex: "63D5D0",
+            backgroundMode: .gradient,
+            backgroundStartHex: "061013",
+            backgroundEndHex: "08272B",
+            backgroundHexes: ["061013", "08272B", "0B1B27", "05090C"],
+            gradientStyle: .diffuse
+        ),
+        ThemeColorPreset(
+            id: "default-dark-ember",
+            name: "Ember",
+            accentStartHex: "FF927A",
+            accentEndHex: "FF927A",
+            backgroundMode: .gradient,
+            backgroundStartHex: "130A08",
+            backgroundEndHex: "341711",
+            backgroundHexes: ["130A08", "341711", "1E0D12", "09090B"],
+            gradientStyle: .conic
+        ),
+        ThemeColorPreset(
+            id: "default-dark-forest",
+            name: "Forest",
+            accentStartHex: "7DD6A7",
+            accentEndHex: "7DD6A7",
+            backgroundMode: .gradient,
+            backgroundStartHex: "07100C",
+            backgroundEndHex: "10281C",
+            backgroundHexes: ["07100C", "10281C", "0A1815", "0A0C0B"],
+            gradientStyle: .mesh
+        ),
+        ThemeColorPreset(
+            id: "default-dark-indigo",
+            name: "Indigo",
+            accentStartHex: "9CA5FF",
+            accentEndHex: "9CA5FF",
+            backgroundMode: .gradient,
+            backgroundStartHex: "080915",
+            backgroundEndHex: "181744",
+            backgroundHexes: ["080915", "181744", "101C36", "08090E"],
+            gradientStyle: .diffuse
+        ),
+        ThemeColorPreset(
+            id: "default-dark-wine",
+            name: "Wine",
+            accentStartHex: "F08BAA",
+            accentEndHex: "F08BAA",
+            backgroundMode: .gradient,
+            backgroundStartHex: "10090D",
+            backgroundEndHex: "32101B",
+            backgroundHexes: ["10090D", "32101B", "1B0E19", "09080B"],
+            gradientStyle: .radial
+        ),
+    ]
 
     private static func builtInPresets(for theme: GlobalThemeId) -> [ThemeColorPreset] {
         switch theme {
@@ -912,6 +1201,55 @@ enum ThemeColorCustomization {
         return true
     }
 
+    static func isDarkPresetSelected(_ preset: ThemeColorPreset, for theme: GlobalThemeId) -> Bool {
+        guard hasStoredDarkCustomization(for: theme) else { return false }
+
+        if let selectedPresetId = UserDefaults.standard.string(forKey: selectedDarkPresetKey(theme)) {
+            return preset.id == selectedPresetId && isDarkPresetColorMatched(preset, for: theme)
+        }
+
+        return isDarkPresetColorMatched(preset, for: theme)
+    }
+
+    private static func isDarkPresetColorMatched(
+        _ preset: ThemeColorPreset,
+        for theme: GlobalThemeId
+    ) -> Bool {
+        guard theme == .default, hasStoredDarkAccent(for: theme) else { return false }
+
+        let backgroundMode = preset.backgroundMode ?? .gradient
+        let expectedKind: ThemeDarkBackgroundKind = backgroundMode == .solid
+            ? .solid
+            : .gradient
+        guard darkBackgroundKind(for: theme) == expectedKind else { return false }
+        guard normalizedHex(darkAccentHex(for: theme)) == normalizedHex(preset.accentStartHex)
+        else {
+            return false
+        }
+
+        if backgroundMode == .solid {
+            return normalizedHex(darkBackgroundSolidHex(for: theme))
+                == normalizedHex(preset.backgroundStartHex)
+        }
+
+        guard darkBackgroundGradientStyle(for: theme) == preset.gradientStyle.normalized else {
+            return false
+        }
+
+        let presetHexes = preset.backgroundPaletteHexes
+        for (index, suffix) in darkBackgroundGradientSuffixes.enumerated() {
+            let expected = presetHexes[
+                index < presetHexes.count ? index : presetHexes.count - 1
+            ]
+            let current = hex(theme, .background, suffix, fallback: expected)
+            guard normalizedHex(current) == normalizedHex(expected) else {
+                return false
+            }
+        }
+
+        return true
+    }
+
     static func normalizedHex(_ value: String) -> String {
         value
             .trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
@@ -954,6 +1292,46 @@ enum ThemeColorCustomization {
     }
 
     @MainActor
+    static func applyDarkPreset(_ preset: ThemeColorPreset, to theme: GlobalThemeId) {
+        guard theme == .default else { return }
+
+        let defaults = UserDefaults.standard
+        let backgroundMode = preset.backgroundMode ?? .gradient
+        let backgroundKind: ThemeDarkBackgroundKind = backgroundMode == .solid
+            ? .solid
+            : .gradient
+        let backgroundPalette = preset.backgroundPaletteHexes
+
+        defaults.set(
+            normalizedHex(preset.accentStartHex),
+            forKey: key(theme, .accent, "darkSolid")
+        )
+        defaults.set(
+            normalizedHex(preset.backgroundStartHex),
+            forKey: key(theme, .background, "darkSolid")
+        )
+        for (index, suffix) in darkBackgroundGradientSuffixes.enumerated() {
+            let value = backgroundPalette[
+                index < backgroundPalette.count ? index : backgroundPalette.count - 1
+            ]
+            defaults.set(normalizedHex(value), forKey: key(theme, .background, suffix))
+        }
+        defaults.set(
+            preset.gradientStyle.normalized.rawValue,
+            forKey: key(theme, .background, "darkGradientStyle")
+        )
+        defaults.set(backgroundKind.rawValue, forKey: key(theme, .background, "darkKind"))
+        defaults.set(preset.id, forKey: selectedDarkPresetKey(theme))
+
+        if let iconSetRaw = preset.iconSetRaw,
+           let iconSet = AppInterfaceIconSet(rawValue: iconSetRaw) {
+            SettingsManager.shared.interfaceIconSet = iconSet
+        }
+
+        SettingsManager.shared.notifyThemeCustomizationChanged()
+    }
+
+    @MainActor
     static func setMode(_ mode: ThemeCustomColorMode, for theme: GlobalThemeId, role: ThemeCustomColorRole) {
         let defaults = UserDefaults.standard
         defaults.set(mode.rawValue, forKey: key(theme, role, "mode"))
@@ -973,8 +1351,9 @@ enum ThemeColorCustomization {
     static func setHex(_ value: String, for theme: GlobalThemeId, role: ThemeCustomColorRole, suffix: String) {
         let defaults = UserDefaults.standard
         defaults.set(normalizedHex(value), forKey: key(theme, role, suffix))
-        // 夜间背景设置独立于配色方案，不影响当前选中的方案
-        if !suffix.hasPrefix("dark") {
+        if suffix.hasPrefix("dark") {
+            defaults.removeObject(forKey: selectedDarkPresetKey(theme))
+        } else {
             defaults.removeObject(forKey: selectedPresetKey(theme))
         }
         SettingsManager.shared.notifyThemeCustomizationChanged()
@@ -993,10 +1372,13 @@ enum ThemeColorCustomization {
         let defaults = UserDefaults.standard
         removeBackgroundImageFile(for: theme)
         removeBackgroundImageFile(for: theme, dark: true)
-        (["mode", "gradientStyle", "solid", "imageFile", "darkKind", "darkSolid", "darkImageFile"] + backgroundGradientSuffixes).forEach { suffix in
+        (["mode", "gradientStyle", "solid", "imageFile", "darkKind", "darkSolid", "darkGradientStyle", "darkImageFile"]
+            + backgroundGradientSuffixes
+            + darkBackgroundGradientSuffixes).forEach { suffix in
             defaults.removeObject(forKey: key(theme, .background, suffix))
         }
         defaults.removeObject(forKey: selectedPresetKey(theme))
+        defaults.removeObject(forKey: selectedDarkPresetKey(theme))
         SettingsManager.shared.notifyThemeCustomizationChanged()
     }
 
@@ -1008,9 +1390,35 @@ enum ThemeColorCustomization {
         removeBackgroundImageFile(for: theme)
         removeBackgroundImageFile(for: theme, dark: true)
         ThemeCustomColorRole.allCases.forEach { role in
-            (["mode", "gradientStyle", "solid", "imageFile", "darkKind", "darkSolid", "darkImageFile"] + backgroundGradientSuffixes).forEach { suffix in
+            (["mode", "gradientStyle", "solid", "imageFile", "darkKind", "darkSolid", "darkGradientStyle", "darkImageFile"]
+                + backgroundGradientSuffixes
+                + darkBackgroundGradientSuffixes).forEach { suffix in
                 defaults.removeObject(forKey: key(theme, role, suffix))
             }
+        }
+        defaults.removeObject(forKey: selectedPresetKey(theme))
+        defaults.removeObject(forKey: selectedDarkPresetKey(theme))
+
+        if theme == .manga {
+            ["blockA", "blockB", "blockC", "stroke", "settingsIcon"].forEach { suffix in
+                defaults.removeObject(forKey: mangaKey(suffix))
+            }
+        }
+
+        SettingsManager.shared.notifyThemeCustomizationChanged()
+    }
+
+    @MainActor
+    static func resetLightThemeColors(for theme: GlobalThemeId) {
+        guard supports(theme) else { return }
+
+        let defaults = UserDefaults.standard
+        removeBackgroundImageFile(for: theme)
+        ThemeCustomColorRole.allCases.forEach { role in
+            (["mode", "gradientStyle", "solid", "imageFile"] + backgroundGradientSuffixes)
+                .forEach { suffix in
+                    defaults.removeObject(forKey: key(theme, role, suffix))
+                }
         }
         defaults.removeObject(forKey: selectedPresetKey(theme))
 
@@ -1021,6 +1429,95 @@ enum ThemeColorCustomization {
         }
 
         SettingsManager.shared.notifyThemeCustomizationChanged()
+    }
+
+    @MainActor
+    static func resetDarkThemeColors(for theme: GlobalThemeId) {
+        guard theme == .default else { return }
+
+        let defaults = UserDefaults.standard
+        removeBackgroundImageFile(for: theme, dark: true)
+        defaults.removeObject(forKey: key(theme, .accent, "darkSolid"))
+        (["darkKind", "darkSolid", "darkGradientStyle", "darkImageFile"]
+            + darkBackgroundGradientSuffixes).forEach { suffix in
+                defaults.removeObject(forKey: key(theme, .background, suffix))
+            }
+        defaults.removeObject(forKey: selectedDarkPresetKey(theme))
+        SettingsManager.shared.notifyThemeCustomizationChanged()
+    }
+
+    @MainActor
+    static func saveCurrentDarkPreset(
+        for theme: GlobalThemeId,
+        includingIconSet: Bool = false
+    ) {
+        guard theme == .default else { return }
+
+        var presets = savedDarkPresets(for: theme)
+        let existingNames = Set(presets.map(\.name))
+        var nextIndex = presets.count + 1
+        while existingNames.contains(String(localized: "方案 \(nextIndex)")) {
+            nextIndex += 1
+        }
+        presets.append(
+            currentDarkPresetSnapshot(
+                for: theme,
+                name: String(localized: "方案 \(nextIndex)"),
+                includingIconSet: includingIconSet
+            )
+        )
+
+        if let data = try? JSONEncoder().encode(presets) {
+            UserDefaults.standard.set(data, forKey: savedDarkPresetsKey(theme))
+        }
+
+        SettingsManager.shared.notifyThemeCustomizationChanged()
+    }
+
+    @MainActor
+    static func deleteSavedDarkPreset(_ preset: ThemeColorPreset, for theme: GlobalThemeId) {
+        guard theme == .default, preset.isCustom else { return }
+
+        let presets = savedDarkPresets(for: theme).filter { $0.id != preset.id }
+        let defaults = UserDefaults.standard
+
+        if presets.isEmpty {
+            defaults.removeObject(forKey: savedDarkPresetsKey(theme))
+        } else if let data = try? JSONEncoder().encode(presets) {
+            defaults.set(data, forKey: savedDarkPresetsKey(theme))
+        }
+        if defaults.string(forKey: selectedDarkPresetKey(theme)) == preset.id {
+            defaults.removeObject(forKey: selectedDarkPresetKey(theme))
+        }
+
+        SettingsManager.shared.notifyThemeCustomizationChanged()
+    }
+
+    static func currentDarkPresetSnapshot(
+        for theme: GlobalThemeId,
+        name: String,
+        includingIconSet: Bool = false
+    ) -> ThemeColorPreset {
+        let isGradient = darkBackgroundKind(for: theme) == .gradient
+        let backgroundMode: ThemeCustomColorMode = isGradient ? .gradient : .solid
+        let solid = darkBackgroundSolidHex(for: theme)
+        let backgroundHexes = isGradient
+            ? darkBackgroundGradientHexes(for: theme)
+            : [solid]
+
+        return ThemeColorPreset(
+            id: "custom-\(theme.rawValue)-dark-\(UUID().uuidString)",
+            name: name,
+            accentStartHex: darkAccentHex(for: theme),
+            accentEndHex: darkAccentHex(for: theme),
+            backgroundMode: backgroundMode,
+            backgroundStartHex: backgroundHexes.first ?? solid,
+            backgroundEndHex: backgroundHexes.dropFirst().first ?? solid,
+            backgroundHexes: backgroundHexes,
+            gradientStyle: darkBackgroundGradientStyle(for: theme),
+            iconSetRaw: includingIconSet ? AppInterfaceIconSet.selectedFromDefaults.rawValue : nil,
+            isCustom: true
+        )
     }
 
     @MainActor
@@ -1115,18 +1612,27 @@ struct ThemeCustomDiffuseBackground: View {
     let fallbackHexes: [String]
     var accentFallbackHexes: [String] = []
     var opacity: Double = 1
+    var colorsOverride: [Color]? = nil
+    var accentColorsOverride: [Color]? = nil
+    var gradientStyleOverride: ThemeCustomGradientStyle? = nil
 
     @ObservedObject private var settings = SettingsManager.shared
 
     var body: some View {
         let _ = settings.globalThemeRevision
-        let colors = ThemeColorCustomization.backgroundGradientColors(for: theme, fallbackHexes: fallbackHexes)
-        let accentColors = ThemeColorCustomization.accentGradientColors(
-            for: theme,
-            fallback: accentFallbackHexes.map { Color(hex: $0) },
-            fallbackHexes: accentFallbackHexes
-        )
-        let style = ThemeColorCustomization.gradientStyle(for: theme, role: .background)
+        let colors = colorsOverride
+            ?? ThemeColorCustomization.backgroundGradientColors(
+                for: theme,
+                fallbackHexes: fallbackHexes
+            )
+        let accentColors = accentColorsOverride
+            ?? ThemeColorCustomization.accentGradientColors(
+                for: theme,
+                fallback: accentFallbackHexes.map { Color(hex: $0) },
+                fallbackHexes: accentFallbackHexes
+            )
+        let style = gradientStyleOverride
+            ?? ThemeColorCustomization.gradientStyle(for: theme, role: .background)
         let points = style.points
 
         GeometryReader { proxy in

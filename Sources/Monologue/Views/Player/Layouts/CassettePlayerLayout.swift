@@ -123,7 +123,7 @@ struct CassettePlayerLayout: View {
         .monologueSheet(isPresented: $showPlaylist, preset: .standard){
             PlaylistPopupView()
         }
-        .monologueSheet(isPresented: $showQualitySheet, preset: .compact){
+        .monologueSheet(isPresented: $showQualitySheet, preset: .standard){
             SoundQualitySheet(
                 currentQuality: player.soundQuality,
                 currentQQQuality: player.qqMusicQuality,
@@ -137,7 +137,7 @@ struct CassettePlayerLayout: View {
                 onSelectQishui: { info in player.switchQishuiQuality(info); showQualitySheet = false }
             )
         }
-        .monologueSheet(isPresented: $showEQSettings, preset: .large){
+        .fullScreenCover(isPresented: $showEQSettings) {
             NavigationStack { EQSettingsView() }
         }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker){
@@ -458,6 +458,16 @@ extension CassettePlayerLayout {
             }
 
             Spacer()
+
+            Button(action: { CinemaModeController.shared.present() }) {
+                MonologueIcon(icon: .immersive, size: 20, color: textPrimary)
+                    .frame(width: 44, height: 44)
+                    .background(shellColor)
+                    .clipShape(Circle())
+                    .overlay(Circle().stroke(strokeColor, lineWidth: 1))
+                    .contentShape(Circle())
+            }
+            .buttonStyle(MonologueBouncingButtonStyle())
 
             Button(action: {
                 withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) { showMoreMenu.toggle() }

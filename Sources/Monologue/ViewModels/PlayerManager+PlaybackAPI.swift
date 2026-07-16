@@ -25,7 +25,10 @@ extension PlayerManager {
         let hasVIPCookie = APIService.shared.hasVIPCookie
         return songs.filter { candidate in
             // 用户点击的歌保留
-            if let tapped = tappedSong, tapped.id == candidate.id { return true }
+            if let tapped = tappedSong,
+               matchesPlaybackTarget(candidate, expected: tapped) {
+                return true
+            }
             // 本地歌曲直接保留（它们通常有文件就能播）
             if candidate.isLocal { return true }
             // 明确不可用的跳过
@@ -41,7 +44,9 @@ extension PlayerManager {
         self.playSource = .normal
         self.queueExhaustionBehavior = .loop
 
-        if let tapIndex = newContext.firstIndex(where: { $0.id == song.id }) {
+        if let tapIndex = newContext.firstIndex(where: {
+            matchesPlaybackTarget($0, expected: song)
+        }) {
             self.context = newContext
             self.contextIndex = tapIndex
         } else {
@@ -51,7 +56,9 @@ extension PlayerManager {
 
         if mode == .shuffle {
             generateShuffledContext()
-            if let shuffledIndex = shuffledContext.firstIndex(where: { $0.id == song.id }) {
+            if let shuffledIndex = shuffledContext.firstIndex(where: {
+                matchesPlaybackTarget($0, expected: song)
+            }) {
                 contextIndex = shuffledIndex
             }
         }
@@ -62,20 +69,26 @@ extension PlayerManager {
         self.queueExhaustionBehavior = .loop
 
         let reordered: [Song]
-        if let tapIndex = newContext.firstIndex(where: { $0.id == song.id }) {
+        if let tapIndex = newContext.firstIndex(where: {
+            matchesPlaybackTarget($0, expected: song)
+        }) {
             reordered = Array(newContext[tapIndex...]) + Array(newContext[..<tapIndex])
         } else {
             reordered = [song] + newContext
         }
 
-        let newIds = Set(reordered.map { $0.id })
-        let remaining = self.context.filter { !newIds.contains($0.id) }
+        let newIds = Set(reordered.map { playbackIdentityKey(for: $0) })
+        let remaining = self.context.filter {
+            !newIds.contains(playbackIdentityKey(for: $0))
+        }
         self.context = reordered + remaining
         self.contextIndex = 0
 
         if mode == .shuffle {
             generateShuffledContext()
-            if let shuffledIndex = shuffledContext.firstIndex(where: { $0.id == song.id }) {
+            if let shuffledIndex = shuffledContext.firstIndex(where: {
+                matchesPlaybackTarget($0, expected: song)
+            }) {
                 contextIndex = shuffledIndex
             }
         }
@@ -89,13 +102,15 @@ extension PlayerManager {
 
     private func currentQueueAnchorIndex(in orderedList: [Song]) -> Int {
         if let current = currentSong,
-           let index = orderedList.firstIndex(where: { $0.id == current.id }) {
+           let index = orderedList.firstIndex(where: {
+               matchesPlaybackTarget($0, expected: current)
+           }) {
             return index
         }
         return max(0, min(contextIndex, max(orderedList.count - 1, 0)))
     }
 
-    private func isOrderedSubsequence(_ candidateIDs: [Int], of referenceIDs: [Int]) -> Bool {
+    private func isOrderedSubsequence(_ candidateIDs: [String], of referenceIDs: [String]) -> Bool {
         guard !candidateIDs.isEmpty else { return false }
 
         var searchStart = 0
@@ -110,12 +125,16 @@ extension PlayerManager {
     }
 
     private func shouldKeepExistingQueuePosition(for song: Song, in newContext: [Song]) -> Bool {
-        guard currentContextList.contains(where: { $0.id == song.id }) else { return false }
+        guard currentContextList.contains(where: {
+            matchesPlaybackTarget($0, expected: song)
+        }) else { return false }
         guard !context.isEmpty, !newContext.isEmpty else { return false }
 
-        let referenceIDs = context.map(\.id)
+        let referenceIDs = context.map { playbackIdentityKey(for: $0) }
         let referenceIDSet = Set(referenceIDs)
-        let overlappingIDs = newContext.map(\.id).filter { referenceIDSet.contains($0) }
+        let overlappingIDs = newContext
+            .map { playbackIdentityKey(for: $0) }
+            .filter { referenceIDSet.contains($0) }
 
         // 至少要能确认“这是同一播放上下文的一段”，避免单首卡片/搜索结果误判成同歌单。
         guard overlappingIDs.count > 1 else { return false }
@@ -132,7 +151,9 @@ extension PlayerManager {
         var updatedQueue = orderedList
         var anchorIndex = max(0, min(currentIndex, updatedQueue.count - 1))
 
-        if let existingIndex = updatedQueue.firstIndex(where: { $0.id == song.id }) {
+        if let existingIndex = updatedQueue.firstIndex(where: {
+            matchesPlaybackTarget($0, expected: song)
+        }) {
             updatedQueue.remove(at: existingIndex)
             if existingIndex <= anchorIndex {
                 anchorIndex = max(0, anchorIndex - 1)
@@ -153,12 +174,16 @@ extension PlayerManager {
             return (orderedList, currentIndex)
         }
 
-        let batchIDs = Set(songs.map(\.id))
-        var updatedQueue = orderedList.filter { !batchIDs.contains($0.id) }
+        let batchIDs = Set(songs.map { playbackIdentityKey(for: $0) })
+        var updatedQueue = orderedList.filter {
+            !batchIDs.contains(playbackIdentityKey(for: $0))
+        }
 
         let anchorIndex: Int
         if let current = currentSong,
-           let currentPosition = updatedQueue.firstIndex(where: { $0.id == current.id }) {
+           let currentPosition = updatedQueue.firstIndex(where: {
+               matchesPlaybackTarget($0, expected: current)
+           }) {
             anchorIndex = currentPosition
         } else {
             anchorIndex = max(0, min(currentIndex, max(updatedQueue.count - 1, 0)))
@@ -169,7 +194,9 @@ extension PlayerManager {
 
         let resolvedCurrentIndex: Int
         if let current = currentSong,
-           let currentPosition = updatedQueue.firstIndex(where: { $0.id == current.id }) {
+           let currentPosition = updatedQueue.firstIndex(where: {
+               matchesPlaybackTarget($0, expected: current)
+           }) {
             resolvedCurrentIndex = currentPosition
         } else {
             resolvedCurrentIndex = max(0, min(anchorIndex, max(updatedQueue.count - 1, 0)))
@@ -190,7 +217,9 @@ extension PlayerManager {
                 currentIndex: anchorIndex
             )
             shuffledContext = updatedQueue
-            if !context.contains(where: { $0.id == song.id }) {
+            if !context.contains(where: {
+                matchesPlaybackTarget($0, expected: song)
+            }) {
                 context.append(song)
             }
             contextIndex = newIndex
@@ -208,7 +237,9 @@ extension PlayerManager {
     }
 
     private func enqueueAtTailInSequence(_ song: Song) -> Bool {
-        if let existingIndex = context.firstIndex(where: { $0.id == song.id }) {
+        if let existingIndex = context.firstIndex(where: {
+            matchesPlaybackTarget($0, expected: song)
+        }) {
             guard existingIndex <= contextIndex else { return false }
             context.remove(at: existingIndex)
             if existingIndex < contextIndex {
@@ -221,15 +252,21 @@ extension PlayerManager {
     }
 
     private func enqueueAtTailInShuffle(_ song: Song) -> Bool {
-        if let existingShuffleIndex = shuffledContext.firstIndex(where: { $0.id == song.id }) {
+        if let existingShuffleIndex = shuffledContext.firstIndex(where: {
+            matchesPlaybackTarget($0, expected: song)
+        }) {
             guard existingShuffleIndex <= contextIndex else { return false }
         }
 
-        if let existingIndex = context.firstIndex(where: { $0.id == song.id }) {
+        if let existingIndex = context.firstIndex(where: {
+            matchesPlaybackTarget($0, expected: song)
+        }) {
             context.remove(at: existingIndex)
         }
 
-        if let existingShuffleIndex = shuffledContext.firstIndex(where: { $0.id == song.id }) {
+        if let existingShuffleIndex = shuffledContext.firstIndex(where: {
+            matchesPlaybackTarget($0, expected: song)
+        }) {
             shuffledContext.remove(at: existingShuffleIndex)
             if existingShuffleIndex < contextIndex {
                 contextIndex = max(0, contextIndex - 1)
@@ -243,7 +280,7 @@ extension PlayerManager {
     
     func play(song: Song, in newContext: [Song]) {
         ensureMusicContextRestored()
-        if currentSong?.id == song.id {
+        if matchesPlaybackTarget(currentSong, expected: song) {
             togglePlayPause()
             return
         }
@@ -268,7 +305,7 @@ extension PlayerManager {
 
     func playReplacingContext(song: Song, in newContext: [Song]) {
         ensureMusicContextRestored()
-        let isCurrentSongTarget = currentSong?.id == song.id
+        let isCurrentSongTarget = matchesPlaybackTarget(currentSong, expected: song)
 
         // 过滤灰色歌曲
         let filteredContext = filterUnavailable(newContext, keeping: song)
@@ -297,7 +334,9 @@ extension PlayerManager {
         self.playSource = .fm
         self.queueExhaustionBehavior = .loop
         
-        if let index = context.firstIndex(where: { $0.id == song.id }) {
+        if let index = context.firstIndex(where: {
+            matchesPlaybackTarget($0, expected: song)
+        }) {
             self.contextIndex = index
         } else {
             self.contextIndex = 0
@@ -314,7 +353,9 @@ extension PlayerManager {
         self.queueExhaustionBehavior = .loop
         self.currentSong = song
         
-        if let index = context.firstIndex(where: { $0.id == song.id }) {
+        if let index = context.firstIndex(where: {
+            matchesPlaybackTarget($0, expected: song)
+        }) {
             self.contextIndex = index
         } else {
             self.contextIndex = 0
@@ -336,16 +377,22 @@ extension PlayerManager {
         // 如果之前有保存的播客上下文且是同一个电台，尝试恢复
         if restoreSavedContext,
            savedPodcastRadioId == radioId, !savedPodcastContext.isEmpty,
-           savedPodcastContext.contains(where: { $0.id == song.id }) {
+           savedPodcastContext.contains(where: {
+               matchesPlaybackTarget($0, expected: song)
+           }) {
             self.context = savedPodcastContext
-            self.contextIndex = savedPodcastContext.firstIndex(where: { $0.id == song.id }) ?? savedPodcastContextIndex
+            self.contextIndex = savedPodcastContext.firstIndex(where: {
+                matchesPlaybackTarget($0, expected: song)
+            }) ?? savedPodcastContextIndex
             clearSavedPodcastContext()
         } else {
             if !restoreSavedContext, savedPodcastRadioId == radioId {
                 clearSavedPodcastContext()
             }
             self.context = context
-            if let index = context.firstIndex(where: { $0.id == song.id }) {
+            if let index = context.firstIndex(where: {
+                matchesPlaybackTarget($0, expected: song)
+            }) {
                 self.contextIndex = index
             } else {
                 self.context.insert(song, at: 0)
@@ -461,7 +508,11 @@ extension PlayerManager {
     private static let contextUpperLimit = 500
 
     func appendContext(songs: [Song]) {
-        let newSongs = songs.filter { newSong in !self.context.contains(where: { $0.id == newSong.id }) }
+        let newSongs = songs.filter { newSong in
+            !self.context.contains(where: {
+                matchesPlaybackTarget($0, expected: newSong)
+            })
+        }
         guard !newSongs.isEmpty else { return }
         
         self.context.append(contentsOf: newSongs)
@@ -474,7 +525,7 @@ extension PlayerManager {
     
     func playSingle(song: Song) {
         ensureMusicContextRestored()
-        if currentSong?.id == song.id {
+        if matchesPlaybackTarget(currentSong, expected: song) {
             togglePlayPause()
             return
         }
@@ -501,7 +552,9 @@ extension PlayerManager {
             playSingle(song: song)
             return
         }
-        if let oldIndex = context.firstIndex(where: { $0.id == song.id }) {
+        if let oldIndex = context.firstIndex(where: {
+            matchesPlaybackTarget($0, expected: song)
+        }) {
             context.remove(at: oldIndex)
             if oldIndex <= contextIndex {
                 contextIndex = max(0, contextIndex - 1)
@@ -510,7 +563,9 @@ extension PlayerManager {
         let insertAt = min(contextIndex + 1, context.count)
         context.insert(song, at: insertAt)
         if mode == .shuffle {
-            if let oldIdx = shuffledContext.firstIndex(where: { $0.id == song.id }) {
+            if let oldIdx = shuffledContext.firstIndex(where: {
+                matchesPlaybackTarget($0, expected: song)
+            }) {
                 shuffledContext.remove(at: oldIdx)
             }
             let shuffleInsert = min(contextIndex + 1, shuffledContext.count)
@@ -519,6 +574,7 @@ extension PlayerManager {
         AppLogger.info("[playNext] 插入 \(song.name) 到位置 \(insertAt), contextIndex=\(contextIndex), context.count=\(context.count), upcoming=\(contextRemainingSongs.count)")
         objectWillChange.send()
         saveState()
+        invalidateGaplessPreparation(reason: "playNext")
     }
     
     /// 添加到队列末尾
@@ -529,7 +585,7 @@ extension PlayerManager {
             return
         }
 
-        guard currentSong?.id != song.id else {
+        guard !matchesPlaybackTarget(currentSong, expected: song) else {
             return
         }
 
@@ -546,13 +602,16 @@ extension PlayerManager {
 
         objectWillChange.send()
         saveState()
+        invalidateGaplessPreparation(reason: "addToQueue")
     }
 
     func addToQueue(songs: [Song]) {
         ensureMusicContextRestored()
-        var seenSongIDs = Set<Int>()
+        var seenSongIDs = Set<String>()
         let orderedSongs = songs.filter { song in
-            seenSongIDs.insert(song.id).inserted && song.id != currentSong?.id
+            let key = playbackIdentityKey(for: song)
+            return seenSongIDs.insert(key).inserted
+                && !matchesPlaybackTarget(currentSong, expected: song)
         }
         guard !orderedSongs.isEmpty else { return }
 
@@ -586,6 +645,7 @@ extension PlayerManager {
 
             objectWillChange.send()
             saveState()
+            invalidateGaplessPreparation(reason: "addToQueue:batch")
             return
         }
 
@@ -616,6 +676,7 @@ extension PlayerManager {
         )
         objectWillChange.send()
         saveState()
+        invalidateGaplessPreparation(reason: "addToQueue:batch")
     }
     
     /// 从即将播放列表中移除（基于当前播放列表 contextIndex 之后的偏移）
@@ -625,15 +686,18 @@ extension PlayerManager {
         guard actualIndex < list.count else { return }
         let songToRemove = list[actualIndex]
         
-        context.removeAll { $0.id == songToRemove.id }
+        context.removeAll { matchesPlaybackTarget($0, expected: songToRemove) }
         if mode == .shuffle {
-            shuffledContext.removeAll { $0.id == songToRemove.id }
+            shuffledContext.removeAll { matchesPlaybackTarget($0, expected: songToRemove) }
         }
         if let current = currentSong,
-           let newIdx = currentContextList.firstIndex(where: { $0.id == current.id }) {
+           let newIdx = currentContextList.firstIndex(where: {
+               matchesPlaybackTarget($0, expected: current)
+           }) {
             contextIndex = newIdx
         }
         saveState()
+        invalidateGaplessPreparation(reason: "removeFromUpcoming")
     }
 
     func removeFromContext(songID: Int) {
@@ -653,7 +717,9 @@ extension PlayerManager {
         }
 
         if let current = currentSong,
-           let newIndex = currentContextList.firstIndex(where: { $0.id == current.id }) {
+           let newIndex = currentContextList.firstIndex(where: {
+               matchesPlaybackTarget($0, expected: current)
+           }) {
             contextIndex = newIndex
         } else {
             contextIndex = min(contextIndex, max(currentContextList.count - 1, 0))
@@ -661,18 +727,27 @@ extension PlayerManager {
 
         objectWillChange.send()
         saveState()
+        invalidateGaplessPreparation(reason: "removeFromContext")
     }
     
     /// 从队列中点击播放某首歌
     func playFromQueue(song: Song) {
-        if currentSong?.id == song.id {
+        if matchesPlaybackTarget(currentSong, expected: song) {
             togglePlayPause()
             return
         }
         
-        // 在 context 中找到这首歌，更新 contextIndex
-        if let idx = currentContextList.firstIndex(where: { $0.id == song.id }) {
-            contextIndex = idx
+        // 手动点选后面的歌曲时，把目标提到当前歌曲之后再播放。
+        // 不能直接把 contextIndex 跳到目标原位置，否则中间所有未播放歌曲都会
+        // 因为落在新索引之前，被队列界面和待播时长误判成“已播放”。
+        if currentContextList.contains(where: {
+            matchesPlaybackTarget($0, expected: song)
+        }) {
+            playSongKeepingCurrentQueue(song: song)
+            AppLogger.info(
+                "[Queue] 手动点播并保留跳过曲目为待播: \(song.name), " +
+                "contextIndex=\(contextIndex), upcoming=\(contextRemainingSongs.count)"
+            )
             loadAndPlay(song: song)
             return
         }
@@ -681,10 +756,14 @@ extension PlayerManager {
         let insertIndex = min(contextIndex + 1, context.count)
         context.insert(song, at: insertIndex)
         if mode == .shuffle {
+            // 随机模式下 contextIndex 索引的是 shuffledContext，
+            // 必须用随机列表里的插入位置，否则指到错误的槽位
             let shuffleInsert = min(contextIndex + 1, shuffledContext.count)
             shuffledContext.insert(song, at: shuffleInsert)
+            contextIndex = shuffleInsert
+        } else {
+            contextIndex = insertIndex
         }
-        contextIndex = insertIndex
         loadAndPlay(song: song)
     }
 
@@ -701,6 +780,7 @@ extension PlayerManager {
             context.move(fromOffsets: actualSource, toOffset: actualDestination)
         }
         saveState()
+        invalidateGaplessPreparation(reason: "moveUpcoming")
     }
     
     private func trimContextIfNeeded() {
@@ -712,8 +792,10 @@ extension PlayerManager {
         contextIndex = safeIndex - keepStart
 
         if mode == .shuffle {
-            let currentIds = Set(context.map { $0.id })
-            shuffledContext.removeAll { !currentIds.contains($0.id) }
+            let currentIds = Set(context.map { playbackIdentityKey(for: $0) })
+            shuffledContext.removeAll {
+                !currentIds.contains(playbackIdentityKey(for: $0))
+            }
         }
     }
 
@@ -722,15 +804,20 @@ extension PlayerManager {
         let list = currentContextList
         guard contextIndex + 1 < list.count else { return }
         
-        let keepIds = Set(list.prefix(contextIndex + 1).map { $0.id })
-        context.removeAll { !keepIds.contains($0.id) }
+        let keepIds = Set(list.prefix(contextIndex + 1).map {
+            playbackIdentityKey(for: $0)
+        })
+        context.removeAll { !keepIds.contains(playbackIdentityKey(for: $0)) }
         if mode == .shuffle {
-            shuffledContext.removeAll { !keepIds.contains($0.id) }
+            shuffledContext.removeAll { !keepIds.contains(playbackIdentityKey(for: $0)) }
         }
         if let current = currentSong,
-           let newIdx = currentContextList.firstIndex(where: { $0.id == current.id }) {
+           let newIdx = currentContextList.firstIndex(where: {
+               matchesPlaybackTarget($0, expected: current)
+           }) {
             contextIndex = newIdx
         }
         saveState()
+        invalidateGaplessPreparation(reason: "clearUpcoming")
     }
 }

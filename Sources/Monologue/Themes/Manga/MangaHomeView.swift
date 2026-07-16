@@ -6,80 +6,84 @@ struct MangaHomeView: View {
     @ObservedObject private var settings = SettingsManager.shared
     @AppStorage("hitokotoEnabled") private var hitokotoEnabled = true
     @Environment(\.scenePhase) private var scenePhase
+
     @State private var navigationPath = NavigationPath()
     @State private var showPersonalFM = false
     @State private var bannerWebURL: URL?
-    @State private var appeared = false
-    @State private var homeRenderRevision = 0
-    @State private var renderedHitokotoText = ""
-    @State private var hitokotoRenderRevision = 0
-    @State private var didRunInitialHomeSync = false
+    @State private var quoteText = ""
+    @State private var hasAppeared = false
 
     var body: some View {
         let _ = settings.globalThemeRevision
 
         NavigationStack(path: $navigationPath) {
-            ZStack {
-                ThemedPageBackground(useRenderLayer: true)
+            GeometryReader { proxy in
+                let safeWidth = max(
+                    0,
+                    proxy.size.width - proxy.safeAreaInsets.leading - proxy.safeAreaInsets.trailing
+                )
+                let maximumWidth: CGFloat = DeviceLayout.isPad ? 680 : (safeWidth > 500 ? 460 : safeWidth)
+                let pageWidth = min(safeWidth, maximumWidth)
 
-                scrollBody
+                ZStack(alignment: .top) {
+                    MangaComicPalette.ink
+                        .ignoresSafeArea()
+
+                    ScrollView {
+                        LazyVStack(spacing: 0) {
+                            mangaMasthead(width: pageWidth)
+
+                            mangaFrontPage(width: pageWidth)
+                        }
+                        .frame(width: pageWidth)
+                        .frame(maxWidth: .infinity)
+                        .clipped()
+                    }
+                    .scrollIndicators(.hidden)
+                    .refreshable {
+                        viewModel.fetchData()
+                        if hitokotoEnabled {
+                            viewModel.refreshHitokoto(force: true)
+                        }
+                    }
+                }
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .onAppear {
-                viewModel.reloadHomeCacheForVisibleHomeIfNeeded(reason: "manga appear cache sync")
-                syncMangaHitokoto(reason: "manga appear")
-                refreshMangaHitokotoIfNeeded(reason: "manga appear")
-                showHomeContentIfNeeded()
-                hydrateHome(reason: "manga appear")
-                invalidateHomeRender()
+                synchronizeVisibleContent(reason: "manga cover appear")
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                    hasAppeared = true
+                }
             }
             .task {
-                guard !didRunInitialHomeSync else { return }
-                didRunInitialHomeSync = true
-                viewModel.reloadHomeCacheForVisibleHomeIfNeeded(reason: "manga task cache sync")
-                syncMangaHitokoto(reason: "manga task")
-                refreshMangaHitokotoIfNeeded(reason: "manga task")
-                showHomeContentIfNeeded()
-                hydrateHome(reason: "manga task")
-                await runInitialMangaHomeSync()
-            }
-            .onChange(of: scenePhase) { _, phase in
-                guard phase == .active else { return }
-                viewModel.reloadHomeCacheIfUseful(reason: "manga foreground cache sync")
-                syncMangaHitokoto(reason: "manga foreground")
-                refreshMangaHitokotoIfNeeded(reason: "manga foreground")
-                hydrateHome(reason: "manga foreground")
-                invalidateHomeRender()
-            }
-            .onChange(of: settings.globalThemeRevision) { _, _ in
-                appeared = false
-                didRunInitialHomeSync = false
-                viewModel.reloadHomeCacheIfUseful(reason: "manga theme revision cache sync")
-                syncMangaHitokoto(reason: "manga theme revision")
-                refreshMangaHitokotoIfNeeded(reason: "manga theme revision")
-                hydrateHome(reason: "manga theme revision")
-                showHomeContentIfNeeded()
-                invalidateHomeRender()
-            }
-            .onReceive(viewModel.$hitokoto) { hitokoto in
-                syncMangaHitokoto(hitokoto, reason: "manga hitokoto updated")
-            }
-            .onReceive(viewModel.$userProfile) { _ in
-                invalidateHomeRender()
-            }
-            .onReceive(viewModel.$homeContentRevision) { _ in
-                invalidateHomeRender()
-            }
-            .onChange(of: hitokotoEnabled) { _, _ in
-                syncMangaHitokoto(reason: "manga hitokoto setting changed")
-                if hitokotoEnabled {
+                viewModel.reloadHomeCacheForVisibleHomeIfNeeded(reason: "manga cover task")
+                viewModel.ensureHomeDataLoaded(reason: "manga cover task")
+                if hitokotoEnabled, quoteText.isEmpty {
                     viewModel.refreshHitokoto(force: true)
                 }
             }
-            .navigationDestination(for: HomeView.HomeDestination.self) { dest in
-                mangaDestination(for: dest)
+            .onChange(of: scenePhase) { _, phase in
+                guard phase == .active else { return }
+                synchronizeVisibleContent(reason: "manga cover foreground")
+            }
+            .onChange(of: settings.globalThemeRevision) { _, _ in
+                synchronizeVisibleContent(reason: "manga cover theme refresh")
+            }
+            .onChange(of: hitokotoEnabled) { _, enabled in
+                if enabled {
+                    viewModel.refreshHitokoto(force: true)
+                    updateQuote(viewModel.hitokoto)
+                } else {
+                    quoteText = ""
+                }
+            }
+            .onReceive(viewModel.$hitokoto) { value in
+                updateQuote(value)
+            }
+            .navigationDestination(for: HomeView.HomeDestination.self) { destination in
+                mangaDestination(for: destination)
             }
             .fullScreenCover(isPresented: $showPersonalFM) {
                 PersonalFMView()
@@ -91,732 +95,627 @@ struct MangaHomeView: View {
         .themeRenderSceneLayer()
     }
 
-    private func showHomeContentIfNeeded() {
-        guard !appeared else { return }
-        withAnimation(.spring(response: 0.48, dampingFraction: 0.78)) {
-            appeared = true
-        }
-    }
-
-    private func hydrateHome(reason: String) {
+    private func synchronizeVisibleContent(reason: String) {
+        viewModel.reloadHomeCacheIfUseful(reason: reason)
         viewModel.ensureHomeDataLoaded(reason: reason)
-        refreshMangaHitokotoIfNeeded(reason: reason)
+        updateQuote(viewModel.hitokoto)
+        if hitokotoEnabled, quoteText.isEmpty {
+            viewModel.refreshHitokoto(force: true)
+        }
     }
 
-    private func invalidateHomeRender() {
-        homeRenderRevision += 1
-    }
-
-    private func syncMangaHitokoto(reason: String) {
-        syncMangaHitokoto(viewModel.hitokoto, reason: reason)
-    }
-
-    private func refreshMangaHitokotoIfNeeded(reason: String) {
-        guard hitokotoEnabled else { return }
-
-        let current = viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        guard current.isEmpty else { return }
-        viewModel.refreshHitokoto(force: true)
-        AppLogger.debug("MangaHomeView: 检查每日一言 - \(reason)")
-    }
-
-    private func syncMangaHitokoto(_ hitokoto: String?, reason: String) {
-        let nextText = hitokotoEnabled
-            ? (hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "")
+    private func updateQuote(_ value: String?) {
+        quoteText = hitokotoEnabled
+            ? (value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "")
             : ""
-        guard nextText != renderedHitokotoText else { return }
-
-        renderedHitokotoText = nextText
-        hitokotoRenderRevision += 1
-        invalidateHomeRender()
-        AppLogger.debug("MangaHomeView: 每日一言渲染刷新 - \(reason)")
     }
 
-    private var expectsUserProfile: Bool {
-        (UserDefaults.standard.bool(forKey: AppConfig.StorageKeys.isLoggedIn)
-            || APIService.shared.currentCookie != nil
-            || APIService.shared.currentUserId != nil)
-            && OnlineAccessManager.shared.hasStoredToken
-    }
+    private func mangaMasthead(width: CGFloat) -> some View {
+        let layoutScale = min(1, max(0.72, width / 390))
+        let height = min(156, max(118, width * 0.34))
+        let compact = width < 380
 
-    private var hasMangaHomeContent: Bool {
-        !displayHomeData.isEmpty
-    }
+        return ZStack(alignment: .bottom) {
+            MangaComicPalette.ink
 
-    private var isInitialHomeLoading: Bool {
-        displayHomeData.isEmpty && viewModel.isLoading
-    }
+            MangaComicMastheadShape()
+                .fill(MangaComicPalette.paper)
+                .overlay {
+                    GeometryReader { proxy in
+                        ZStack {
+                            Image("MangaPaperTexture")
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: proxy.size.width, height: proxy.size.height)
+                                .clipped()
+                                .opacity(0.34)
+                                .blendMode(.multiply)
 
-    private var mangaHomeRenderIdentity: String {
-        [
-            "render-\(homeRenderRevision)",
-            displayHomeData.fingerprint,
-            "loading-\(viewModel.isLoading)",
-            "content-\(viewModel.homeContentRevision)",
-            "profile-\(viewModel.userProfile?.userId ?? 0)-\(viewModel.userProfile?.nickname ?? "none")",
-            "hitokoto-\(hitokotoRenderRevision)-\(renderedHitokotoText.isEmpty ? "empty" : "ready")"
-        ].joined(separator: "|")
-    }
-
-    private func runInitialMangaHomeSync() async {
-        for attempt in 0..<28 {
-            if Task.isCancelled { return }
-
-            await MainActor.run {
-                viewModel.reloadHomeCacheForVisibleHomeIfNeeded(reason: "manga startup sync \(attempt)")
-                syncMangaHitokoto(reason: "manga startup sync \(attempt)")
-                invalidateHomeRender()
-            }
-
-            let hasContent = await MainActor.run {
-                hasMangaHomeContent
-                    && (!hitokotoEnabled || !renderedHitokotoText.isEmpty)
-                    && (!expectsUserProfile || viewModel.userProfile != nil)
-            }
-            if hasContent { return }
-
-            try? await Task.sleep(nanoseconds: 220_000_000)
-        }
-    }
-
-    private var scrollBody: some View {
-        let homeData = displayHomeData
-
-        return ScrollView {
-            VStack(spacing: 20) {
-                mangaTopBar
-                    .monologuePageHeaderCollapse()
-                    .mangaStagger(appeared, order: 0)
-
-                mangaHeroPanel
-                    .padding(.horizontal, mangaHomeFeatureHorizontalPadding)
-                    .mangaStagger(appeared, order: 1)
-
-                mangaEntryCards
-                    .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-                    .mangaStagger(appeared, order: 2)
-
-                if isInitialHomeLoading || homeData.isEmpty {
-                    mangaLoadingView
-                        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-                        .mangaStagger(appeared, order: 3)
-                }
-
-                if !homeData.banners.isEmpty {
-                    mangaBannerSection(banners: homeData.banners)
-                        .mangaStagger(appeared, order: 3)
-                }
-
-                if !homeData.dailySongs.isEmpty {
-                    mangaDailySection(songs: homeData.dailySongs)
-                        .mangaStagger(appeared, order: 4)
-                }
-
-                if !homeData.recommendPlaylists.isEmpty {
-                    mangaPlaylistSection(
-                        title: String(localized: "推荐歌单"),
-                        playlists: homeData.recommendPlaylists,
-                        tint: MangaStyle.labelYellow
-                    )
-                    .mangaStagger(appeared, order: 5)
-                }
-
-                if !homeData.qqNewSongs.isEmpty {
-                    mangaNewSongsSection(songs: homeData.qqNewSongs)
-                        .mangaStagger(appeared, order: 6)
-                }
-
-                if !homeData.qqRecommendPlaylists.isEmpty {
-                    mangaDiscoverySection(playlists: homeData.qqRecommendPlaylists)
-                        .mangaStagger(appeared, order: 7)
-                }
-
-                FloatingBarBottomSpacer()
-            }
-            .padding(.top, DeviceLayout.headerTopPadding + 6)
-        }
-        .scrollIndicators(.hidden)
-        .themeRenderScrollLayer()
-        .id(mangaHomeRenderIdentity)
-        .refreshable {
-            viewModel.fetchData()
-            if hitokotoEnabled {
-                viewModel.refreshHitokoto(force: true)
-            }
-        }
-    }
-
-    private var mangaTopBar: some View {
-        HStack(spacing: 12) {
-            Button {
-                NotificationCenter.default.post(name: .init("SwitchToProfile"), object: nil)
-            } label: {
-                mangaAvatarView
-            }
-            .buttonStyle(.plain)
-
-            VStack(alignment: .leading, spacing: 4) {
-                MangaLabel(text: mangaGreetingText, tint: MangaStyle.labelYellow, small: true)
-
-                Text(viewModel.userProfile?.nickname ?? String(localized: "default_nickname"))
-                    .font(MangaStyle.titleFont(22, weight: .black))
-                    .foregroundStyle(MangaStyle.ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.78)
-            }
-
-            Spacer(minLength: 12)
-
-            MangaActionButton(icon: .radio, tint: MangaStyle.bubbleBlue, foreground: MangaStyle.ink) {
-                showPersonalFM = true
-            }
-
-            MangaActionButton(icon: .magnifyingGlass, tint: MangaStyle.bubblePink, foreground: MangaStyle.ink) {
-                navigationPath.append(HomeView.HomeDestination.search)
-            }
-        }
-        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-    }
-
-    private var mangaLoadingView: some View {
-        VStack(spacing: 16) {
-            MangaSectionMark(kind: .star, tint: MangaStyle.labelYellow, size: 52)
-                .frame(width: 52, height: 52)
-
-            Text("...")
-                .font(MangaStyle.titleFont(24, weight: .black))
-                .foregroundColor(MangaStyle.inkSub)
-        }
-    }
-
-    @ViewBuilder
-    private var mangaAvatarView: some View {
-        let size: CGFloat = 46
-        Group {
-            if let avatarUrl = viewModel.userProfile?.avatarUrl, let url = URL(string: avatarUrl) {
-                CachedAsyncImage(url: url) {
-                    MangaStyle.labelYellow.opacity(0.35)
-                }
-                .aspectRatio(contentMode: .fill)
-            } else {
-                ZStack {
-                    MangaStyle.labelYellow.opacity(0.75)
-                    MonologueIcon(icon: .profileFilled, size: 18, color: MangaStyle.strokeInk, lineWidth: 1.8)
-                }
-            }
-        }
-        .frame(width: size, height: size)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
-        )
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(MangaStyle.strokeInk)
-                .offset(x: 2.5, y: 2.5)
-        )
-    }
-
-    private var mangaHeroPanel: some View {
-        HStack(alignment: .center, spacing: 14) {
-            VStack(alignment: .leading, spacing: 12) {
-                MangaLabel(text: hitokotoLabel, tint: MangaStyle.accentPink, small: true)
-
-                if usesHitokotoFallback {
-                    Text(HitokotoFallbackSlogan.text)
-                        .font(MangaStyle.titleFont(24, weight: .black))
-                        .foregroundStyle(MangaStyle.ink)
-                        .lineSpacing(4)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(minHeight: 58, alignment: .leading)
-                        .layoutPriority(1)
-                } else {
-                    Text(mangaHeaderLine)
-                        .font(MangaStyle.titleFont(24, weight: .black))
-                        .foregroundStyle(MangaStyle.ink)
-                        .lineSpacing(4)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(minHeight: 58, alignment: .leading)
-                        .layoutPriority(1)
-                }
-
-                HStack(spacing: 8) {
-                    mangaDateBadge
-
-                    if let featuredSong = mangaHeroSong {
-                        Button {
-                            playHeroSong(featuredSong)
-                        } label: {
-                            HStack(spacing: 6) {
-                                MonologueIcon(
-                                    icon: playerManager.currentSong?.id == featuredSong.id && playerManager.isPlaying ? .pause : .play,
-                                    size: 11,
-                                    color: MangaStyle.strokeInk,
-                                    lineWidth: 2
-                                )
-                                Text(String(localized: "action_play"))
-                                    .font(MangaStyle.labelFont(11, weight: .black))
-                            }
-                            .foregroundStyle(MangaStyle.strokeInk)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 7)
-                            .background(Capsule().fill(MangaStyle.labelYellow))
-                            .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
+                            MangaComicPaperTexture(opacity: 0.09)
+                            MangaComicHalftone(
+                                color: MangaComicPalette.redDeep,
+                                opacity: 0.035,
+                                gap: 12
+                            )
                         }
-                        .buttonStyle(.plain)
+                        .frame(width: proxy.size.width, height: proxy.size.height)
+                        .clipShape(MangaComicMastheadShape())
+                    }
+                }
+                .overlay(
+                    MangaComicMastheadShape()
+                        .stroke(MangaComicPalette.ink, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+                )
+
+            HStack(alignment: .bottom, spacing: compact ? 7 : 10) {
+                Button {
+                    NotificationCenter.default.post(name: .init("SwitchToProfile"), object: nil)
+                } label: {
+                    mangaAvatar(size: 62 * layoutScale)
+                }
+                .buttonStyle(MangaComicPressButtonStyle())
+
+                VStack(alignment: .leading, spacing: compact ? 7 : 9) {
+                    MangaComicRibbon(
+                        text: mangaGreetingText,
+                        fill: MangaComicPalette.red,
+                        foreground: MangaComicPalette.whiteInk,
+                        scale: layoutScale
+                    )
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(mangaCoverTitle)
+                            .font(MangaComicPalette.displayFont(29 * layoutScale))
+                            .foregroundStyle(MangaComicPalette.ink)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.62)
+
+                        MangaComicUnderline()
+                            .frame(height: 10)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                HStack(spacing: compact ? 7 : 9) {
+                    MangaComicMastheadAction(
+                        icon: .radio,
+                        title: String(localized: "manga_header_fm"),
+                        fill: MangaComicPalette.paper,
+                        scale: layoutScale
+                    ) {
+                        showPersonalFM = true
+                    }
+
+                    MangaComicMastheadAction(
+                        icon: .magnifyingGlass,
+                        title: String(localized: "tab_search"),
+                        fill: MangaComicPalette.red,
+                        scale: layoutScale
+                    ) {
+                        navigationPath.append(HomeView.HomeDestination.search)
                     }
                 }
             }
-
-            if let featuredSong = mangaHeroSong {
-                mangaHeroCover(song: featuredSong)
-            }
+            .padding(.horizontal, compact ? 8 : 14)
+            .padding(.bottom, 12 * layoutScale)
         }
-        .padding(16)
-        .background(
-            MangaCardBackground(
-                cornerRadius: 20,
-                elevated: true,
-                tint: MangaStyle.bubbleWhite
-            )
-        )
+        .frame(height: height)
+        .overlay(alignment: .topLeading) {
+            HStack(spacing: -4) {
+                MangaComicLightningShape()
+                    .fill(MangaComicPalette.whiteInk)
+                    .frame(width: 26 * layoutScale, height: 42 * layoutScale)
+                    .rotationEffect(.degrees(-13))
+                MangaComicLightningShape()
+                    .fill(MangaComicPalette.whiteInk)
+                    .frame(width: 17 * layoutScale, height: 31 * layoutScale)
+                    .rotationEffect(.degrees(8))
+            }
+            .offset(x: -3, y: 37 * layoutScale)
+        }
+        .opacity(hasAppeared ? 1 : 0)
+        .offset(y: hasAppeared ? 0 : -8)
     }
 
-    private func mangaHeroCover(song: Song) -> some View {
+    @ViewBuilder
+    private func mangaAvatar(size: CGFloat) -> some View {
+        let componentScale = size / 62
+
+        ZStack {
+            MangaComicAvatarBurst()
+                .frame(width: size + 24 * componentScale, height: size + 24 * componentScale)
+
+            Circle()
+                .fill(MangaComicPalette.paper)
+                .frame(width: size + 8, height: size + 8)
+                .overlay(Circle().stroke(MangaComicPalette.ink, lineWidth: 3.3))
+
+            Group {
+                if let source = viewModel.userProfile?.avatarUrl,
+                   let url = URL(string: source) {
+                    CachedAsyncImage(url: url) {
+                        MangaComicPalette.paperWarm
+                    }
+                    .aspectRatio(contentMode: .fill)
+                } else {
+                    ZStack {
+                        MangaComicPalette.paperWarm
+                        MonologueIcon(icon: .profileFilled, size: size * 0.34, color: MangaComicPalette.ink, lineWidth: 2.2)
+                    }
+                }
+            }
+            .frame(width: size, height: size)
+            .clipShape(Circle())
+            .overlay(Circle().stroke(MangaComicPalette.ink, lineWidth: 2.3))
+        }
+        .frame(width: size + 10 * componentScale, height: size + 12 * componentScale)
+    }
+
+    private func mangaFrontPage(width: CGFloat) -> some View {
+        let pagePadding: CGFloat = DeviceLayout.isPad ? 16 : 7
+
+        return LazyVStack(spacing: 5) {
+            mangaLeadStory(width: width - pagePadding * 2)
+                .padding(.horizontal, pagePadding)
+                .padding(.top, 4)
+
+            mangaFeatureTiles(width: width - pagePadding * 2)
+                .padding(.horizontal, pagePadding)
+
+            if !displayHomeData.banners.isEmpty {
+                MangaPlatformBannerCarousel(banners: displayHomeData.banners, availableWidth: width - pagePadding * 2) { banner in
+                    handleBannerTap(banner)
+                }
+                .padding(.horizontal, pagePadding)
+            } else if !editorialSongs.isEmpty {
+                MangaEditorialCarousel(songs: editorialSongs, availableWidth: width - pagePadding * 2) { song in
+                    playerManager.play(song: song, in: editorialSongs)
+                }
+                .padding(.horizontal, pagePadding)
+            }
+
+            mangaRecommendationSection
+                .padding(.top, displayHomeData.banners.isEmpty && editorialSongs.isEmpty ? 0 : -1)
+
+            if !displayHomeData.recommendPlaylists.isEmpty {
+                mangaPlaylistSection(
+                    title: String(localized: "推荐歌单"),
+                    playlists: displayHomeData.recommendPlaylists,
+                    action: openLibrarySquare
+                )
+            }
+
+            if !displayHomeData.qqNewSongs.isEmpty {
+                mangaNewSongSection(songs: displayHomeData.qqNewSongs)
+            }
+
+            if !displayHomeData.qqRecommendPlaylists.isEmpty {
+                mangaPlaylistSection(
+                    title: String(localized: "qq_recommend_playlists"),
+                    playlists: displayHomeData.qqRecommendPlaylists,
+                    action: openLibrarySquare
+                )
+            }
+
+            FloatingBarBottomSpacer(extra: 18)
+        }
+        .background(MangaComicPalette.ink)
+        .opacity(hasAppeared ? 1 : 0)
+        .offset(y: hasAppeared ? 0 : 12)
+    }
+
+    private func mangaLeadStory(width: CGFloat) -> some View {
+        let layoutScale = min(1, max(0.72, width / 376))
+        let height = min(284, max(206, width * 0.60))
+
+        return MangaComicPanel(fill: MangaComicPalette.paper, corner: 18, shadow: 4, innerBorder: true) {
+            GeometryReader { proxy in
+                let preferredCoverSide = proxy.size.width * (DeviceLayout.isPad ? 0.39 : 0.44)
+                let coverSide = min(preferredCoverSide, max(132, proxy.size.height - 30))
+                let leftWidth = proxy.size.width - coverSide - 28
+
+                ZStack(alignment: .topLeading) {
+                    MangaComicSpeedLines(color: MangaComicPalette.redDeep, opacity: 0.07)
+                    MangaComicHalftone(color: MangaComicPalette.redDeep, opacity: 0.035, gap: 11)
+
+                    MangaComicRibbon(
+                        text: String(localized: "settings_hitokoto"),
+                        fill: MangaComicPalette.red
+                    )
+                    .offset(x: 11, y: 12)
+
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack(alignment: .top, spacing: 7) {
+                            Text("“")
+                                .font(MangaComicPalette.headlineFont(44 * layoutScale))
+                                .foregroundStyle(MangaComicPalette.ink)
+                                .frame(width: 27, height: 36, alignment: .top)
+
+                            Text(mangaQuote)
+                                .font(MangaComicPalette.displayFont((DeviceLayout.isPad ? 26 : 22) * layoutScale))
+                                .foregroundStyle(MangaComicPalette.ink)
+                                .lineSpacing(5)
+                                .lineLimit(3)
+                                .minimumScaleFactor(0.68)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+
+                        Spacer(minLength: 8)
+
+                        HStack(spacing: 10) {
+                            mangaDateCard(scale: layoutScale)
+
+                            if let song = mangaHeroSong {
+                                mangaLeadPlayButton(song)
+                            }
+                        }
+                    }
+                    .frame(width: leftWidth, alignment: .leading)
+                    .padding(.leading, 20)
+                    .padding(.top, 64)
+                    .padding(.bottom, 16)
+
+                    if let song = mangaHeroSong {
+                        mangaLeadCover(song: song)
+                            .frame(width: coverSide, height: coverSide)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+                            .offset(x: -12)
+                    } else {
+                        mangaEmptyLeadCover
+                            .frame(width: coverSide, height: coverSide)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+                            .offset(x: -12)
+                    }
+
+                    MangaComicLightningShape()
+                        .fill(MangaComicPalette.red)
+                        .overlay(MangaComicLightningShape().stroke(MangaComicPalette.ink, lineWidth: 1.5))
+                        .frame(width: 50, height: 26)
+                        .rotationEffect(.degrees(77))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                        .offset(x: 5, y: 6)
+                }
+            }
+        }
+        .frame(height: height)
+    }
+
+    private var mangaQuote: String {
+        let raw = quoteText.isEmpty ? HitokotoFallbackSlogan.text : quoteText
+        guard raw.count > 52 else { return raw }
+        return String(raw.prefix(51)) + "…"
+    }
+
+    private func mangaLeadCover(song: Song) -> some View {
         let isCurrent = playerManager.currentSong?.id == song.id
 
         return Button {
             playHeroSong(song)
         } label: {
             ZStack(alignment: .bottomLeading) {
+                MangaComicPalette.violet
+
                 CachedAsyncImage(url: song.coverUrl) {
-                    MangaStyle.decoBlue.opacity(0.35)
+                    MangaComicPalette.violet
+                        .overlay(MangaComicHalftone(color: MangaComicPalette.whiteInk, opacity: 0.08, gap: 8))
                 }
-                .aspectRatio(contentMode: .fill)
-                .frame(width: 118, height: 148)
-                .clipped()
+                .aspectRatio(contentMode: .fit)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 LinearGradient(
-                    colors: [.clear, Color.black.opacity(0.72)],
+                    colors: [.clear, MangaComicPalette.ink.opacity(0.92)],
                     startPoint: .center,
                     endPoint: .bottom
                 )
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(song.name)
-                        .font(MangaStyle.bodyFont(11, weight: .black))
-                        .foregroundStyle(.white)
+                        .font(MangaComicPalette.headlineFont(15))
+                        .foregroundStyle(MangaComicPalette.whiteInk)
                         .lineLimit(2)
-
                     Text(song.artistName)
-                        .font(MangaStyle.bodyFont(9, weight: .bold))
-                        .foregroundStyle(.white.opacity(0.78))
+                        .font(MangaComicPalette.bodyFont(11, weight: .bold))
+                        .foregroundStyle(MangaComicPalette.whiteInk.opacity(0.76))
                         .lineLimit(1)
                 }
-                .padding(9)
+                .padding(11)
+            }
+            .clipShape(MangaComicPanelShape(corner: 12))
+            .overlay(MangaComicPanelShape(corner: 12).stroke(MangaComicPalette.ink, lineWidth: 3))
+            .overlay(MangaComicPanelShape(corner: 12).stroke(MangaComicPalette.whiteInk.opacity(0.78), lineWidth: 1).padding(5))
+            .background(MangaComicPanelShape(corner: 12).fill(MangaComicPalette.ink).offset(x: 3, y: 3))
+            .overlay(alignment: .topTrailing) {
+                ZStack {
+                    MangaComicCutCornerShape(cut: 7)
+                        .fill(MangaComicPalette.paper)
+                    MangaComicCutCornerShape(cut: 7)
+                        .stroke(MangaComicPalette.ink, lineWidth: 2)
 
-                if isCurrent {
-                    MangaNowPlayingIndicator(isAnimating: playerManager.isPlaying)
-                        .scaleEffect(0.76, anchor: .topTrailing)
-                        .padding(8)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    if isCurrent {
+                        MangaNowPlayingIndicator(isAnimating: playerManager.isPlaying)
+                            .scaleEffect(0.78)
+                    } else {
+                        MonologueIcon(icon: .chart, size: 17, color: MangaComicPalette.ink, lineWidth: 2.2)
+                    }
+                }
+                .frame(width: 36, height: 38)
+                .offset(x: -7, y: 7)
+            }
+        }
+        .buttonStyle(MangaComicPressButtonStyle())
+    }
+
+    private var mangaEmptyLeadCover: some View {
+        ZStack {
+            MangaComicPalette.violet
+            MangaComicHalftone(color: MangaComicPalette.whiteInk, opacity: 0.09, gap: 8)
+            MonologueIcon(icon: .musicNote, size: 46, color: MangaComicPalette.whiteInk, lineWidth: 2.4)
+        }
+        .clipShape(MangaComicPanelShape(corner: 12))
+        .overlay(MangaComicPanelShape(corner: 12).stroke(MangaComicPalette.ink, lineWidth: 3))
+    }
+
+    private func mangaLeadPlayButton(_ song: Song) -> some View {
+        let isCurrent = playerManager.currentSong?.id == song.id
+        let icon: MonologueIcon.IconType = isCurrent && playerManager.isPlaying ? .pause : .play
+
+        return Button {
+            playHeroSong(song)
+        } label: {
+            HStack(spacing: 8) {
+                MangaComicCutCornerShape(cut: 5)
+                    .fill(MangaComicPalette.red)
+                    .frame(width: 27, height: 27)
+                    .overlay(MangaComicCutCornerShape(cut: 5).stroke(MangaComicPalette.whiteInk.opacity(0.7), lineWidth: 1))
+                    .overlay(MonologueIcon(icon: icon, size: 11, color: MangaComicPalette.whiteInk, lineWidth: 2.2))
+
+                Text(String(localized: "action_play"))
+                    .font(MangaComicPalette.headlineFont(14))
+                    .foregroundStyle(MangaComicPalette.whiteInk)
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 42)
+            .background(MangaComicPanelShape(corner: 9).fill(MangaComicPalette.ink))
+            .overlay(MangaComicPanelShape(corner: 9).stroke(MangaComicPalette.paper, lineWidth: 1).padding(4))
+            .overlay(MangaComicPanelShape(corner: 9).stroke(MangaComicPalette.ink, lineWidth: 2.4))
+        }
+        .buttonStyle(MangaComicPressButtonStyle())
+    }
+
+    private func mangaDateCard(scale: CGFloat) -> some View {
+        let date = Date()
+        let day = Calendar.current.component(.day, from: date)
+        let weekdayIndex = max(0, Calendar.current.component(.weekday, from: date) - 1)
+        let weekday = Calendar.current.shortWeekdaySymbols[weekdayIndex]
+
+        return HStack(spacing: 8) {
+            Text("\(day)")
+                .font(MangaComicPalette.headlineFont(28 * scale))
+                .foregroundStyle(MangaComicPalette.red)
+                .monospacedDigit()
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(weekday)
+                    .font(MangaComicPalette.headlineFont(11 * scale))
+                Text(mangaSecondaryDateText)
+                    .font(MangaComicPalette.bodyFont(9 * scale, weight: .bold))
+                    .lineLimit(1)
+            }
+            .foregroundStyle(MangaComicPalette.ink)
+        }
+        .padding(.horizontal, 10 * scale)
+        .frame(width: 96 * scale, height: 50 * scale)
+        .background {
+            MangaComicPanelShape(corner: 8 * scale)
+                .fill(MangaComicPalette.paper)
+                .overlay {
+                    MangaComicPaperTexture(opacity: 0.07)
+                        .clipShape(MangaComicPanelShape(corner: 8 * scale))
+                }
+        }
+        .overlay {
+            MangaComicPanelShape(corner: 8 * scale)
+                .stroke(MangaComicPalette.ink, lineWidth: 2.2 * scale)
+        }
+        .overlay(alignment: .top) {
+            HStack(spacing: 9 * scale) {
+                ForEach(0 ..< 4, id: \.self) { _ in
+                    Capsule()
+                        .fill(MangaComicPalette.ink)
+                        .frame(width: 2.5 * scale, height: 8 * scale)
                 }
             }
-            .frame(width: 118, height: 148)
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(MangaStyle.strokeInk, lineWidth: isCurrent ? 3 : MangaStyle.strokeWidth)
-            )
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(MangaStyle.strokeInk)
-                    .offset(x: 3, y: 3)
-            )
-        }
-        .buttonStyle(MonologueBouncingButtonStyle())
-        .rotationEffect(.degrees(-2.5))
-    }
-
-    private var mangaHeroSong: Song? {
-        playerManager.currentSong ?? playerManager.history.first ?? displayHomeData.dailySongs.first
-    }
-
-    private func playHeroSong(_ song: Song) {
-        let dailySongs = displayHomeData.dailySongs
-        if playerManager.currentSong?.id == song.id {
-            playerManager.playSingle(song: song)
-        } else if dailySongs.contains(where: { $0.id == song.id }) {
-            playerManager.play(song: song, in: dailySongs)
-        } else {
-            playerManager.playSingle(song: song)
+            .offset(y: -3.5 * scale)
         }
     }
 
-    private var mangaDateBadge: some View {
-        let day = Calendar.current.component(.day, from: Date())
-        let weekday = Calendar.current.shortWeekdaySymbols[Calendar.current.component(.weekday, from: Date()) - 1]
-
-        return HStack(spacing: 5) {
-            Text("\(day)")
-                .font(MangaStyle.titleFont(18, weight: .black))
-            Text(weekday)
-                .font(MangaStyle.labelFont(10, weight: .black))
+    private var mangaSecondaryDateText: String {
+        let date = Date()
+        if Locale.preferredLanguages.first?.hasPrefix("zh") == true {
+            let month = Calendar.current.component(.month, from: date)
+            return "\(month)月"
         }
-        .foregroundStyle(MangaStyle.ink)
-        .padding(.horizontal, 9)
-        .padding(.vertical, 7)
-        .background(Capsule().fill(MangaStyle.bubbleBlue))
-        .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
+        return Calendar.current.shortMonthSymbols[Calendar.current.component(.month, from: date) - 1].uppercased()
     }
 
-    private func mangaDailySection(songs: [Song]) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            MangaSectionTitle(
+    private func mangaFeatureTiles(width: CGFloat) -> some View {
+        let layoutScale = min(1, max(0.72, width / 376))
+
+        return HStack(spacing: 8 * layoutScale) {
+            MangaComicFeatureTile(
+                icon: .musicNoteList,
+                title: String(localized: "new_song_express"),
+                subtitle: String(localized: "manga_tile_new_song_sub"),
+                fill: MangaComicPalette.red,
+                foreground: MangaComicPalette.whiteInk,
+                badge: "NEW!"
+            ) {
+                navigationPath.append(HomeView.HomeDestination.newSongExpress)
+            }
+
+            MangaComicFeatureTile(
+                icon: .mv,
+                title: String(localized: "home_mv_zone"),
+                subtitle: String(localized: "manga_tile_mv_sub"),
+                fill: MangaComicPalette.paper,
+                foreground: MangaComicPalette.ink
+            ) {
+                navigationPath.append(HomeView.HomeDestination.mvDiscover)
+            }
+
+            MangaComicFeatureTile(
+                icon: .moon,
+                title: String(localized: "meditation_mode_title"),
+                subtitle: String(localized: "manga_tile_meditation_sub"),
+                fill: MangaComicPalette.navy,
+                foreground: MangaComicPalette.whiteInk
+            ) {
+                navigationPath.append(HomeView.HomeDestination.meditationMode)
+            }
+        }
+        .frame(height: (DeviceLayout.isPad ? 98 : 78) * layoutScale)
+    }
+
+    private var mangaRecommendationSection: some View {
+        VStack(alignment: .leading, spacing: 13) {
+            MangaComicSectionHeader(
                 title: String(localized: "每日推荐"),
-                actionTitle: String(localized: "view_all"),
-                mark: .heart
+                actionTitle: String(localized: "view_all")
             ) {
                 navigationPath.append(HomeView.HomeDestination.dailyRecommend)
             }
-            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+            .padding(.horizontal, 12)
 
-            ScrollView(.horizontal) {
-                HStack(alignment: .top, spacing: 10) {
-                    ForEach(Array(songs.prefix(10).enumerated()), id: \.element.id) { index, song in
-                        mangaSongPanel(song, index: index, songs: songs)
-                            .compatScrollTransition(animation: .spring(response: 0.32, dampingFraction: 0.82)) { content, phase in
-                                content
-                                    .scaleEffect(phase.isIdentity ? 1 : 0.94)
-                                    .opacity(phase.isIdentity ? 1 : 0.72)
-                                    .rotationEffect(.degrees(phase.isIdentity ? 0 : phase.value * -1.8))
+            if displayHomeData.dailySongs.isEmpty {
+                mangaLoadingPanel
+                    .padding(.horizontal, 12)
+            } else {
+                ScrollView(.horizontal) {
+                    HStack(alignment: .top, spacing: 11) {
+                        ForEach(Array(displayHomeData.dailySongs.prefix(10).enumerated()), id: \.element.id) { index, song in
+                            MangaComicSongPoster(song: song, index: index) {
+                                playerManager.play(song: song, in: displayHomeData.dailySongs)
                             }
+                        }
                     }
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 7)
                 }
-                .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-                .padding(.bottom, 4)
+                .scrollIndicators(.hidden)
+                .themeRenderScrollLayer()
             }
-            .scrollIndicators(.hidden)
-            .themeRenderScrollLayer()
         }
-    }
-
-    private func mangaBannerSection(banners: [Banner]) -> some View {
-        MangaHomeBannerSection(banners: banners) { banner in
-            handleBannerTap(banner)
-        }
-        .padding(.horizontal, mangaHomeFeatureHorizontalPadding)
-    }
-
-    private var mangaHomeFeatureHorizontalPadding: CGFloat {
-        DeviceLayout.isPad ? DeviceLayout.homeHorizontalPadding : 12
-    }
-
-    private func mangaSongPanel(_ song: Song, index: Int, songs: [Song]) -> some View {
-        let isCurrent = playerManager.currentSong?.id == song.id
-        let width: CGFloat = index == 0 ? 152 : 126
-        let height: CGFloat = index == 0 ? 186 : 166
-
-        return Button {
-            playerManager.play(song: song, in: songs)
-        } label: {
-            VStack(alignment: .leading, spacing: 0) {
-                ZStack(alignment: .topTrailing) {
-                    CachedAsyncImage(url: song.coverUrl) {
-                        MangaStyle.paperCool
-                    }
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: width, height: height - 52)
-                    .clipped()
-
-                    if isCurrent {
-                        MangaNowPlayingIndicator(isAnimating: playerManager.isPlaying)
-                            .scaleEffect(0.72, anchor: .topTrailing)
-                            .padding(7)
-                    } else {
-                        Text(String(format: "%02d", index + 1))
-                            .font(.system(size: 9, weight: .black, design: .monospaced))
-                            .foregroundStyle(MangaStyle.strokeInk)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 3)
-                            .background(Capsule().fill(MangaStyle.labelYellow))
-                            .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: 1))
-                            .padding(7)
-                    }
-                }
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(song.name)
-                        .font(MangaStyle.bodyFont(12, weight: .black))
-                        .foregroundStyle(MangaStyle.ink)
-                        .lineLimit(1)
-
-                    Text(song.artistName)
-                        .font(MangaStyle.bodyFont(10, weight: .bold))
-                        .foregroundStyle(MangaStyle.inkSub)
-                        .lineLimit(1)
-                }
-                .padding(.horizontal, 9)
-                .padding(.vertical, 8)
-                .frame(width: width, alignment: .leading)
-                .background(MangaStyle.bubbleWhite)
+        .padding(.top, 10)
+        .padding(.bottom, 15)
+        .background {
+            ZStack {
+                MangaComicPalette.paper
+                MangaComicPaperTexture(opacity: 0.11)
             }
-            .frame(width: width, height: height)
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(MangaStyle.strokeInk, lineWidth: isCurrent ? 3 : MangaStyle.strokeWidth)
-            )
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(MangaStyle.strokeInk)
-                    .offset(x: 2.5, y: 2.5)
-            )
-        }
-        .buttonStyle(MonologueBouncingButtonStyle())
-    }
-
-    private func mangaNewSongsSection(songs: [Song]) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            MangaSectionTitle(
-                title: String(localized: "qq_new_songs"),
-                actionTitle: String(localized: "view_all"),
-                mark: .star,
-                action: { navigationPath.append(HomeView.HomeDestination.qcmNewSongs) }
-            )
-            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-
-            ScrollView(.horizontal) {
-                HStack(alignment: .top, spacing: 10) {
-                    ForEach(Array(songs.prefix(8).enumerated()), id: \.element.id) { index, song in
-                        mangaNewSongCard(song, rank: index + 1, songs: songs)
-                            .compatScrollTransition(animation: .spring(response: 0.32, dampingFraction: 0.82)) { content, phase in
-                                content
-                                    .scaleEffect(phase.isIdentity ? 1 : 0.92)
-                                    .opacity(phase.isIdentity ? 1 : 0.66)
-                            }
-                    }
-                }
-                .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-                .padding(.bottom, 4)
-            }
-            .scrollIndicators(.hidden)
-            .themeRenderScrollLayer()
         }
     }
 
-    private func mangaNewSongCard(_ song: Song, rank: Int, songs: [Song]) -> some View {
-        let isCurrent = playerManager.currentSong?.id == song.id
-
-        return Button {
-            playerManager.play(song: song, in: songs)
-        } label: {
-            HStack(spacing: 10) {
-                ZStack(alignment: .topLeading) {
-                    CachedAsyncImage(url: song.coverUrl) {
-                        MangaStyle.paperCool
-                    }
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: 70, height: 70)
-                    .clipped()
-
-                    MangaLabel(text: "\(rank)", tint: MangaStyle.bubblePink, small: true, foreground: MangaStyle.ink)
-                        .padding(5)
-
-                    if isCurrent {
-                        MangaNowPlayingIndicator(isAnimating: playerManager.isPlaying)
-                            .scaleEffect(0.62, anchor: .bottomTrailing)
-                            .padding(5)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                    }
-                }
-                .frame(width: 70, height: 70)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
-
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(song.name)
-                        .font(MangaStyle.bodyFont(13, weight: .black))
-                        .foregroundStyle(isCurrent ? MangaStyle.accentPink : MangaStyle.ink)
-                        .lineLimit(2)
-
-                    Text(song.artistName)
-                        .font(MangaStyle.bodyFont(10, weight: .bold))
-                        .foregroundStyle(MangaStyle.inkSub)
-                        .lineLimit(1)
-                }
-
-                Spacer(minLength: 2)
-            }
-            .padding(9)
-            .frame(width: 216, alignment: .leading)
-            .background(MangaCardBackground(cornerRadius: 16, elevated: true, tint: rank.isMultiple(of: 2) ? MangaStyle.bubbleBlue : MangaStyle.bubbleWhite))
+    private var mangaLoadingPanel: some View {
+        HStack(spacing: 12) {
+            ProgressView()
+                .tint(MangaComicPalette.red)
+            Text("...")
+                .font(MangaComicPalette.headlineFont(18))
+                .foregroundStyle(MangaComicPalette.ink)
         }
-        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+        .frame(maxWidth: .infinity)
+        .frame(height: 82)
+        .background(MangaComicPanelShape(corner: 12).fill(MangaComicPalette.paperWarm))
+        .overlay(MangaComicPanelShape(corner: 12).stroke(MangaComicPalette.ink, lineWidth: 2.4))
     }
 
     private func mangaPlaylistSection(
         title: String,
         playlists: [Playlist],
-        tint: Color
+        action: @escaping () -> Void
     ) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            MangaSectionTitle(
+        VStack(alignment: .leading, spacing: 13) {
+            MangaComicSectionHeader(
                 title: title,
                 actionTitle: String(localized: "view_all"),
-                mark: .star,
-                action: openLibrarySquare
+                action: action
             )
-            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
 
-            LazyVGrid(
-                columns: [
-                    GridItem(.flexible(), spacing: 12),
-                    GridItem(.flexible(), spacing: 12)
-                ],
-                spacing: 12
-            ) {
-                ForEach(Array(playlists.prefix(6).enumerated()), id: \.element.id) { index, playlist in
-                    mangaPlaylistCard(playlist, index: index, tint: index.isMultiple(of: 2) ? tint : MangaStyle.bubbleBlue)
-                }
-            }
-            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-        }
-    }
-
-    private func mangaPlaylistCard(_ playlist: Playlist, index: Int, tint: Color) -> some View {
-        Button {
-            navigationPath.append(HomeView.HomeDestination.playlist(playlist))
-        } label: {
-            VStack(alignment: .leading, spacing: 8) {
-                ZStack(alignment: .bottomLeading) {
-                    CachedAsyncImage(url: playlist.coverUrl) {
-                        MangaStyle.separator.opacity(0.3)
+            ScrollView(.horizontal) {
+                HStack(alignment: .top, spacing: 12) {
+                    ForEach(Array(playlists.prefix(10).enumerated()), id: \.element.id) { index, playlist in
+                        MangaComicPlaylistPoster(playlist: playlist, index: index) {
+                            navigationPath.append(HomeView.HomeDestination.playlist(playlist))
+                        }
                     }
-                    .aspectRatio(contentMode: .fill)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: index == 0 ? 136 : 118)
-                    .clipped()
-
-                    MangaLabel(text: String(format: "%02d", index + 1), tint: tint, small: true)
-                        .padding(8)
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth)
-                )
-
-                Text(playlist.name)
-                    .font(MangaStyle.bodyFont(13, weight: .black))
-                    .foregroundStyle(MangaStyle.ink)
-                    .lineLimit(2)
-                    .frame(minHeight: 34, alignment: .topLeading)
+                .padding(.bottom, 6)
             }
-            .padding(9)
-            .background(MangaCardBackground(cornerRadius: 14, elevated: true))
+            .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
-        .buttonStyle(MonologueBouncingButtonStyle())
+        .padding(.horizontal, 12)
+        .padding(.vertical, 15)
+        .background {
+            ZStack {
+                MangaComicPalette.paper
+                MangaComicPaperTexture(opacity: 0.1)
+            }
+        }
     }
 
-    private func mangaDiscoverySection(playlists: [Playlist]) -> some View {
+    private func mangaNewSongSection(songs: [Song]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            MangaSectionTitle(
-                title: String(localized: "更多发现"),
-                actionTitle: String(localized: "view_all"),
-                mark: .star,
-                action: openLibrarySquare
-            )
-            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-
-            VStack(spacing: 10) {
-                ForEach(Array(playlists.prefix(6).enumerated()), id: \.element.id) { index, playlist in
-                    mangaDiscoveryRow(playlist, index: index)
-                }
-            }
-            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-        }
-    }
-
-    private func mangaDiscoveryRow(_ playlist: Playlist, index: Int) -> some View {
-        Button {
-            navigationPath.append(HomeView.HomeDestination.playlist(playlist))
-        } label: {
-            HStack(spacing: 11) {
-                CachedAsyncImage(url: playlist.coverUrl) {
-                    MangaStyle.decoBlue.opacity(0.28)
-                }
-                .aspectRatio(contentMode: .fill)
-                .frame(width: 54, height: 54)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth)
-                )
-
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(playlist.name)
-                        .font(MangaStyle.bodyFont(14, weight: .black))
-                        .foregroundStyle(MangaStyle.ink)
-                        .lineLimit(2)
-
-                    MangaListDivider()
-                }
-
-                Spacer(minLength: 8)
-
-                MonologueIcon(icon: .chevronRight, size: 13, color: MangaStyle.ink, lineWidth: 1.8)
-                    .frame(width: 30, height: 30)
-                    .background(Circle().fill(index.isMultiple(of: 2) ? MangaStyle.bubblePink : MangaStyle.bubbleBlue))
-                    .overlay(Circle().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
-            }
-            .padding(10)
-            .background(
-                MangaCardBackground(
-                    cornerRadius: 16,
-                    elevated: true,
-                    tint: index.isMultiple(of: 2) ? MangaStyle.bubbleWhite : MangaStyle.surface
-                )
-            )
-        }
-        .buttonStyle(MonologueBouncingButtonStyle())
-    }
-
-    private var mangaEntryCards: some View {
-        HStack(spacing: 10) {
-            MangaHomeEntryCard(
-                icon: .musicNoteList,
+            MangaComicSectionHeader(
                 title: String(localized: "new_song_express"),
-                tint: MangaStyle.labelYellow,
-                foreground: MangaStyle.strokeInk,
-                angle: -1.6
+                actionTitle: String(localized: "view_all")
             ) {
                 navigationPath.append(HomeView.HomeDestination.newSongExpress)
             }
 
-            MangaHomeEntryCard(
-                icon: .mv,
-                title: String(localized: "home_mv_zone"),
-                tint: MangaStyle.bubblePink,
-                angle: 1.4
-            ) {
-                navigationPath.append(HomeView.HomeDestination.mvDiscover)
+            VStack(spacing: 8) {
+                ForEach(Array(songs.prefix(5).enumerated()), id: \.element.id) { index, song in
+                    MangaComicSongRow(song: song, rank: index + 1, isCurrent: playerManager.currentSong?.id == song.id) {
+                        playerManager.play(song: song, in: songs)
+                    }
+                }
             }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 15)
+        .background(MangaComicPalette.paper)
+    }
 
-            MangaHomeEntryCard(
-                icon: .moon,
-                title: String(localized: "meditation_mode_title"),
-                tint: MangaStyle.bubbleBlue,
-                angle: -0.8
-            ) {
-                navigationPath.append(HomeView.HomeDestination.meditationMode)
-            }
+    private var mangaHeroSong: Song? {
+        playerManager.currentSong
+            ?? playerManager.history.first
+            ?? displayHomeData.dailySongs.first
+            ?? displayHomeData.qqNewSongs.first
+    }
+
+    private var editorialSongs: [Song] {
+        let candidates = displayHomeData.qqNewSongs.isEmpty
+            ? displayHomeData.dailySongs
+            : displayHomeData.qqNewSongs
+        return Array(candidates.prefix(6))
+    }
+
+    private func playHeroSong(_ song: Song) {
+        let queue = displayHomeData.dailySongs
+        if queue.contains(where: { $0.id == song.id }) {
+            playerManager.play(song: song, in: queue)
+        } else {
+            playerManager.playSingle(song: song)
         }
     }
 
-    private var mangaHeaderLine: String {
-        renderedHitokotoText
+    private var mangaCoverTitle: String {
+        let name = viewModel.userProfile?.nickname.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return name.isEmpty ? String(localized: "default_nickname") : name
+    }
+
+    private var mangaGreetingText: String {
+        MonologueTimeGreeting.localizedText
     }
 
     private var displayHomeData: MangaHomeDataSnapshot {
@@ -833,26 +732,13 @@ struct MangaHomeView: View {
     }
 
     private func nonEmpty<T: Codable>(_ source: [T], cacheKey: String, type: [T].Type) -> [T] {
-        if !source.isEmpty {
-            return source
-        }
-        return OptimizedCacheManager.shared.getObject(forKey: cacheKey, type: type) ?? []
+        source.isEmpty
+            ? (OptimizedCacheManager.shared.getObject(forKey: cacheKey, type: type) ?? [])
+            : source
     }
 
     private func firstNonEmpty<T>(_ candidates: [T]...) -> [T] {
-        candidates.first { !$0.isEmpty } ?? []
-    }
-
-    private var usesHitokotoFallback: Bool {
-        !hitokotoEnabled || mangaHeaderLine.isEmpty
-    }
-
-    private var hitokotoLabel: String {
-        String(localized: "settings_hitokoto")
-    }
-
-    private var mangaGreetingText: String {
-        MonologueTimeGreeting.localizedText
+        candidates.first(where: { !$0.isEmpty }) ?? []
     }
 
     private func openLibrarySquare() {
@@ -868,7 +754,7 @@ struct MangaHomeView: View {
                     let songs = try await APIService.shared.fetchSongDetails(ids: [banner.targetId]).async()
                     if let song = songs.first {
                         await MainActor.run {
-                            PlayerManager.shared.play(song: song, in: [song])
+                            playerManager.play(song: song, in: songs)
                         }
                     }
                 } catch {
@@ -896,15 +782,15 @@ struct MangaHomeView: View {
         case 1004:
             navigationPath.append(HomeView.HomeDestination.mvDiscover)
         default:
-            if let urlString = banner.url, let url = URL(string: urlString) {
+            if let urlText = banner.url, let url = URL(string: urlText) {
                 bannerWebURL = url
             }
         }
     }
 
     @ViewBuilder
-    private func mangaDestination(for dest: HomeView.HomeDestination) -> some View {
-        switch dest {
+    private func mangaDestination(for destination: HomeView.HomeDestination) -> some View {
+        switch destination {
         case .search:
             SearchView()
         case .dailyRecommend:
@@ -929,108 +815,464 @@ struct MangaHomeView: View {
     }
 }
 
-private struct MangaHomeBannerSection: View {
+// MARK: - Masthead pieces
+
+private struct MangaComicUnderline: View {
+    var body: some View {
+        Canvas { context, size in
+            var black = Path()
+            black.move(to: CGPoint(x: 0, y: size.height * 0.56))
+            black.addLine(to: CGPoint(x: size.width * 0.56, y: size.height * 0.46))
+            black.addLine(to: CGPoint(x: size.width * 0.72, y: size.height * 0.64))
+            black.addLine(to: CGPoint(x: size.width, y: size.height * 0.1))
+            context.stroke(black, with: .color(MangaComicPalette.ink), style: StrokeStyle(lineWidth: 2.8, lineCap: .round, lineJoin: .round))
+
+            var red = Path()
+            red.move(to: CGPoint(x: size.width * 0.05, y: size.height * 0.86))
+            red.addLine(to: CGPoint(x: size.width * 0.58, y: size.height * 0.68))
+            red.addLine(to: CGPoint(x: size.width * 0.66, y: size.height * 0.97))
+            red.addLine(to: CGPoint(x: size.width * 0.84, y: size.height * 0.28))
+            context.stroke(red, with: .color(MangaComicPalette.red), style: StrokeStyle(lineWidth: 4, lineCap: .square, lineJoin: .miter))
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+private struct MangaComicMastheadAction: View {
+    let icon: MonologueIcon.IconType
+    let title: String
+    let fill: Color
+    var scale: CGFloat = 1
+    let action: () -> Void
+
+    private var foreground: Color {
+        fill == MangaComicPalette.red ? MangaComicPalette.whiteInk : MangaComicPalette.ink
+    }
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                MonologueIcon(icon: icon, size: 23 * scale, color: foreground, lineWidth: 2.5 * scale)
+                    .frame(height: 27 * scale)
+                Text(title)
+                    .font(MangaComicPalette.headlineFont(10.5 * scale))
+                    .foregroundStyle(foreground)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+            .frame(
+                width: (DeviceLayout.isPad ? 70 : 52) * scale,
+                height: (DeviceLayout.isPad ? 72 : 60) * scale
+            )
+            .background(MangaComicCutCornerShape(cut: 8).fill(fill))
+            .overlay(MangaComicPaperTexture(ink: foreground, opacity: 0.05).clipShape(MangaComicCutCornerShape(cut: 8)))
+            .overlay(MangaComicCutCornerShape(cut: 8).stroke(MangaComicPalette.ink, lineWidth: 3))
+            .background(MangaComicCutCornerShape(cut: 8).fill(MangaComicPalette.ink).offset(x: 3, y: 3))
+        }
+        .buttonStyle(MangaComicPressButtonStyle())
+    }
+}
+
+// MARK: - Front-page modules
+
+private struct MangaPlatformBannerCarousel: View {
     let banners: [Banner]
+    let availableWidth: CGFloat
     let onTap: (Banner) -> Void
 
     @State private var index = 0
-    private let timer = Timer.publish(every: 5.2, on: .main, in: .common).autoconnect()
+    private let timer = Timer.publish(every: 5.5, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        VStack(spacing: 8) {
+        let bannerHeight = DeviceLayout.isPad
+            ? min(178, max(142, availableWidth / 3.5))
+            : min(140, max(112, availableWidth / 2.9))
+
+        VStack(spacing: 7) {
             TabView(selection: $index) {
-                ForEach(Array(banners.enumerated()), id: \.element.id) { offset, banner in
-                    MangaHomeBannerCard(banner: banner) {
+                ForEach(Array(banners.prefix(6).enumerated()), id: \.element.id) { offset, banner in
+                    MangaPlatformBannerCard(banner: banner) {
                         onTap(banner)
                     }
-                    .padding(.horizontal, 3)
-                    .padding(.vertical, 5)
+                    .padding(.horizontal, 2)
+                    .padding(.vertical, 3)
                     .tag(offset)
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: DeviceLayout.isPad ? 214 : 154)
+            .frame(height: bannerHeight)
             .onReceive(timer) { _ in
-                guard banners.count > 1 else { return }
+                let count = min(banners.count, 6)
+                guard count > 1 else { return }
                 withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) {
-                    index = (index + 1) % banners.count
+                    index = (index + 1) % count
                 }
+            }
+            .onChange(of: banners.count) { _, count in
+                index = min(index, max(0, min(count, 6) - 1))
             }
 
-            if banners.count > 1 {
-                HStack(spacing: 6) {
-                    ForEach(banners.indices, id: \.self) { dot in
-                        Capsule()
-                            .fill(dot == index ? MangaStyle.ink : MangaStyle.ink.opacity(0.22))
-                            .frame(width: dot == index ? 18 : 7, height: 7)
-                            .animation(.spring(response: 0.32, dampingFraction: 0.8), value: index)
-                    }
+            HStack(spacing: 8) {
+                ForEach(0 ..< min(banners.count, 6), id: \.self) { dot in
+                    Capsule()
+                        .fill(dot == index ? MangaComicPalette.red : MangaComicPalette.ink.opacity(0.5))
+                        .overlay(Capsule().stroke(MangaComicPalette.ink, lineWidth: dot == index ? 1.3 : 0))
+                        .frame(width: dot == index ? 20 : 10, height: 7)
                 }
             }
+            .frame(maxWidth: .infinity)
+            .frame(height: 18)
+            .background(MangaComicPalette.paper)
         }
+        .padding(.top, 2)
+        .background(MangaComicPalette.ink)
     }
 }
 
-private struct MangaHomeBannerCard: View {
+private struct MangaPlatformBannerCard: View {
     let banner: Banner
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            ZStack(alignment: .bottomLeading) {
-                HomeBannerArtwork(url: banner.imageUrl, cornerRadius: 16) {
-                    MangaStyle.paperCool
-                        .overlay(MangaDotsTexture(opacity: 0.06, gap: 10))
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: DeviceLayout.isPad ? 186 : 126)
+            MangaComicPanel(fill: MangaComicPalette.violet, corner: 14, shadow: 3, innerBorder: true) {
+                ZStack(alignment: .bottomLeading) {
+                    HomeBannerArtwork(url: banner.imageUrl, cornerRadius: 12) {
+                        MangaComicPalette.violet
+                            .overlay(MangaComicHalftone(color: MangaComicPalette.whiteInk, opacity: 0.08, gap: 8))
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                LinearGradient(
-                    colors: [.clear, Color.black.opacity(0.68)],
-                    startPoint: .center,
-                    endPoint: .bottom
+                    LinearGradient(
+                        colors: [.clear, MangaComicPalette.ink.opacity(0.72)],
+                        startPoint: .center,
+                        endPoint: .bottom
+                    )
+
+                    if let title = banner.typeTitle, !title.isEmpty {
+                        MangaComicRibbon(text: title, fill: MangaComicPalette.red)
+                            .scaleEffect(0.76, anchor: .leading)
+                            .padding(16)
+                    }
+                }
+            }
+        }
+        .buttonStyle(MangaComicPressButtonStyle())
+    }
+}
+
+private struct MangaComicFeatureTile: View {
+    let icon: MonologueIcon.IconType
+    let title: String
+    let subtitle: String
+    let fill: Color
+    let foreground: Color
+    var badge: String?
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            GeometryReader { proxy in
+                let tileScale = min(1, max(0.68, proxy.size.width / 112))
+
+                ZStack(alignment: .leading) {
+                    let panelShape = MangaComicPanelShape(corner: 12)
+
+                    panelShape.fill(fill)
+
+                    if icon == .moon {
+                        Image("MangaMeditationBackdrop")
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: proxy.size.width, height: proxy.size.height)
+                            .clipped()
+                            .clipShape(panelShape)
+                            .overlay(MangaComicPalette.ink.opacity(0.18).clipShape(panelShape))
+                    } else {
+                        MangaComicSpeedLines(
+                            color: fill == MangaComicPalette.paper ? MangaComicPalette.redDeep : MangaComicPalette.ink,
+                            opacity: fill == MangaComicPalette.paper ? 0.055 : 0.1
+                        )
+                        .clipShape(panelShape)
+                    }
+
+                    MangaComicHalftone(color: foreground, opacity: 0.06, gap: 7)
+                        .clipShape(MangaComicPanelShape(corner: 12))
+
+                    HStack(spacing: 8) {
+                        ZStack {
+                            MangaComicCutCornerShape(cut: 6)
+                                .fill(fill == MangaComicPalette.paper ? MangaComicPalette.red : MangaComicPalette.paper)
+                                .overlay(MangaComicCutCornerShape(cut: 6).stroke(MangaComicPalette.ink, lineWidth: 1.8))
+                            MonologueIcon(
+                                icon: icon,
+                                size: min(24 * tileScale, proxy.size.width * 0.2),
+                                color: MangaComicPalette.ink,
+                                lineWidth: 2.2 * tileScale
+                            )
+                        }
+                        .frame(width: 39 * tileScale, height: 43 * tileScale)
+                        .rotationEffect(.degrees(-4))
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(title)
+                                .font(MangaComicPalette.headlineFont((DeviceLayout.isPad ? 16 : 13) * tileScale))
+                                .foregroundStyle(foreground)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.66)
+                            Text(subtitle)
+                                .font(MangaComicPalette.bodyFont((DeviceLayout.isPad ? 11 : 8.5) * tileScale, weight: .bold))
+                                .foregroundStyle(foreground.opacity(0.8))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.62)
+                        }
+                    }
+                    .padding(.horizontal, 9 * tileScale)
+
+                    MangaComicFourPointStar()
+                        .fill(fill == MangaComicPalette.paper ? MangaComicPalette.gold : MangaComicPalette.paper)
+                        .overlay(MangaComicFourPointStar().stroke(MangaComicPalette.ink, lineWidth: 1.2))
+                        .frame(width: 18 * tileScale, height: 18 * tileScale)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                        .offset(x: -6, y: 5)
+                }
+                .overlay(MangaComicPanelShape(corner: 12).stroke(MangaComicPalette.ink, lineWidth: 3))
+                .background(MangaComicPanelShape(corner: 12).fill(MangaComicPalette.ink).offset(x: 3, y: 3))
+                .overlay(alignment: .bottomLeading) {
+                    if let badge {
+                        Text(badge)
+                            .font(MangaComicPalette.headlineFont(11))
+                            .foregroundStyle(MangaComicPalette.ink)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(MangaComicBurstShape(points: 11, innerRatio: 0.74).fill(MangaComicPalette.paper))
+                            .overlay(MangaComicBurstShape(points: 11, innerRatio: 0.74).stroke(MangaComicPalette.ink, lineWidth: 1.7))
+                            .rotationEffect(.degrees(-8))
+                            .offset(x: -5, y: 7)
+                    }
+                }
+            }
+        }
+        .buttonStyle(MangaComicPressButtonStyle())
+    }
+}
+
+private struct MangaEditorialCarousel: View {
+    let songs: [Song]
+    let availableWidth: CGFloat
+    let onTap: (Song) -> Void
+    @State private var index = 0
+    private let timer = Timer.publish(every: 5.5, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        let bannerHeight = DeviceLayout.isPad
+            ? min(178, max(142, availableWidth / 3.5))
+            : min(140, max(112, availableWidth / 2.9))
+
+        VStack(spacing: 7) {
+            TabView(selection: $index) {
+                ForEach(Array(songs.enumerated()), id: \.element.id) { offset, song in
+                    MangaEditorialCard(song: song) {
+                        onTap(song)
+                    }
+                    .padding(.horizontal, 2)
+                    .padding(.vertical, 3)
+                    .tag(offset)
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .frame(height: bannerHeight)
+            .onReceive(timer) { _ in
+                guard songs.count > 1 else { return }
+                withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) {
+                    index = (index + 1) % songs.count
+                }
+            }
+
+            HStack(spacing: 8) {
+                ForEach(songs.indices, id: \.self) { dot in
+                    Capsule()
+                        .fill(dot == index ? MangaComicPalette.red : MangaComicPalette.ink.opacity(0.5))
+                        .overlay(Capsule().stroke(MangaComicPalette.ink, lineWidth: dot == index ? 1.3 : 0))
+                        .frame(width: dot == index ? 20 : 10, height: 7)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 18)
+            .background(MangaComicPalette.paper)
+        }
+        .padding(.top, 2)
+        .background(MangaComicPalette.ink)
+    }
+}
+
+private struct MangaEditorialCard: View {
+    let song: Song
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            MangaComicPanel(fill: MangaComicPalette.violet, corner: 14, shadow: 3, innerBorder: true) {
+                ZStack(alignment: .leading) {
+                    CachedAsyncImage(url: song.coverUrl) {
+                        MangaComicPalette.violet
+                            .overlay(MangaComicHalftone(color: MangaComicPalette.whiteInk, opacity: 0.08, gap: 8))
+                    }
+                    .aspectRatio(contentMode: .fill)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                    LinearGradient(
+                        colors: [MangaComicPalette.violet.opacity(0.98), MangaComicPalette.violet.opacity(0.72), .clear],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+
+                    MangaComicHalftone(color: MangaComicPalette.whiteInk, opacity: 0.07, gap: 8)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(song.artistName)
+                            .font(MangaComicPalette.bodyFont(12, weight: .bold))
+                            .foregroundStyle(MangaComicPalette.whiteInk.opacity(0.88))
+                            .lineLimit(2)
+
+                        Text(song.name)
+                            .font(MangaComicPalette.displayFont(DeviceLayout.isPad ? 36 : 30))
+                            .foregroundStyle(MangaComicPalette.whiteInk)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.64)
+
+                        MangaComicRibbon(text: String(localized: "new_song_express"), fill: MangaComicPalette.red)
+                            .scaleEffect(0.76, anchor: .leading)
+                    }
+                    .padding(.leading, 23)
+                    .padding(.vertical, 17)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+
+                    MangaComicRoundControl(icon: .play, fill: MangaComicPalette.paper, foreground: MangaComicPalette.ink, size: 47)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                        .padding(18)
+                }
+            }
+        }
+        .buttonStyle(MangaComicPressButtonStyle())
+    }
+}
+
+private struct MangaComicSongPoster: View {
+    let song: Song
+    let index: Int
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 8) {
+                ZStack(alignment: .bottomTrailing) {
+                    CachedAsyncImage(url: song.coverUrl) {
+                        MangaComicPalette.paperWarm
+                    }
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: index == 0 ? 142 : 118, height: index == 0 ? 142 : 118)
+                    .clipShape(MangaComicPanelShape(corner: 11))
+
+                    MangaComicRoundControl(icon: .play, fill: MangaComicPalette.red, size: 35)
+                        .padding(8)
+                }
+                .overlay(MangaComicPanelShape(corner: 11).stroke(MangaComicPalette.ink, lineWidth: 2.6))
+                .background(MangaComicPanelShape(corner: 11).fill(MangaComicPalette.ink).offset(x: 3, y: 3))
+
+                Text(song.name)
+                    .font(MangaComicPalette.headlineFont(13))
+                    .foregroundStyle(MangaComicPalette.ink)
+                    .lineLimit(1)
+                    .frame(width: index == 0 ? 142 : 118, alignment: .leading)
+
+                Text(song.artistName)
+                    .font(MangaComicPalette.bodyFont(10, weight: .bold))
+                    .foregroundStyle(MangaComicPalette.mutedInk)
+                    .lineLimit(1)
+                    .frame(width: index == 0 ? 142 : 118, alignment: .leading)
+            }
+        }
+        .buttonStyle(MangaComicPressButtonStyle())
+    }
+}
+
+private struct MangaComicPlaylistPoster: View {
+    let playlist: Playlist
+    let index: Int
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 8) {
+                CachedAsyncImage(url: playlist.coverUrl) {
+                    MangaComicPalette.paperWarm
+                        .overlay(MangaComicHalftone(opacity: 0.08, gap: 8))
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 126, height: 126)
+                .clipShape(MangaComicPanelShape(corner: 11))
+                .overlay(MangaComicPanelShape(corner: 11).stroke(MangaComicPalette.ink, lineWidth: 2.6))
+                .background(
+                    MangaComicPanelShape(corner: 11)
+                        .fill(index.isMultiple(of: 2) ? MangaComicPalette.red : MangaComicPalette.navy)
+                        .offset(x: 4, y: 4)
                 )
 
-                HStack(spacing: 8) {
-                    MangaLabel(text: bannerLabel, tint: MangaStyle.labelYellow, small: true)
-                    Spacer(minLength: 8)
-                    MonologueIcon(icon: .chevronRight, size: 13, color: MangaStyle.ink, lineWidth: 2)
-                        .frame(width: 30, height: 30)
-                        .background(MangaStyle.bubbleWhite, in: Circle())
-                    .overlay(Circle().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
-                }
-                .padding(11)
+                Text(playlist.name)
+                    .font(MangaComicPalette.headlineFont(13))
+                    .foregroundStyle(MangaComicPalette.ink)
+                    .lineLimit(2)
+                    .frame(width: 126, alignment: .leading)
             }
-            .frame(height: DeviceLayout.isPad ? 186 : 126)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
-            )
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(MangaStyle.strokeInk)
-                    .offset(x: 3, y: 3)
-            )
         }
-        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+        .buttonStyle(MangaComicPressButtonStyle())
     }
+}
 
-    private var bannerLabel: String {
-        if let typeTitle = banner.typeTitle, !typeTitle.isEmpty {
-            return typeTitle
-        }
+private struct MangaComicSongRow: View {
+    let song: Song
+    let rank: Int
+    let isCurrent: Bool
+    let action: () -> Void
 
-        switch banner.targetType {
-        case 1:
-            return "SONG"
-        case 10:
-            return String(localized: "artist_tab_album")
-        case 1000:
-            return String(localized: "home_playlist")
-        default:
-            return "BANNER"
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 11) {
+                Text(String(format: "%02d", rank))
+                    .font(MangaComicPalette.headlineFont(15))
+                    .foregroundStyle(rank <= 3 ? MangaComicPalette.red : MangaComicPalette.mutedInk)
+                    .monospacedDigit()
+
+                CachedAsyncImage(url: song.coverUrl) {
+                    MangaComicPalette.paperWarm
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 48, height: 48)
+                .clipShape(MangaComicCutCornerShape(cut: 6))
+                .overlay(MangaComicCutCornerShape(cut: 6).stroke(MangaComicPalette.ink, lineWidth: 2))
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(song.name)
+                        .font(MangaComicPalette.headlineFont(14))
+                        .foregroundStyle(isCurrent ? MangaComicPalette.red : MangaComicPalette.ink)
+                        .lineLimit(1)
+                    Text(song.artistName)
+                        .font(MangaComicPalette.bodyFont(10, weight: .bold))
+                        .foregroundStyle(MangaComicPalette.mutedInk)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 8)
+
+                MangaComicRoundControl(icon: isCurrent ? .pause : .play, fill: MangaComicPalette.red, size: 34)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(MangaComicPanelShape(corner: 11).fill(MangaComicPalette.paperWarm))
+            .overlay(MangaComicPanelShape(corner: 11).stroke(MangaComicPalette.ink, lineWidth: 2.3))
         }
+        .buttonStyle(MangaComicPressButtonStyle())
     }
 }
 
@@ -1040,72 +1282,4 @@ private struct MangaHomeDataSnapshot {
     var recommendPlaylists: [Playlist] = []
     var qqRecommendPlaylists: [Playlist] = []
     var qqNewSongs: [Song] = []
-
-    var isEmpty: Bool {
-        dailySongs.isEmpty
-            && banners.isEmpty
-            && recommendPlaylists.isEmpty
-            && qqRecommendPlaylists.isEmpty
-            && qqNewSongs.isEmpty
-    }
-
-    var fingerprint: String {
-        [
-            part("daily", count: dailySongs.count, first: dailySongs.first?.id, last: dailySongs.last?.id),
-            part("banner", count: banners.count, first: banners.first?.id, last: banners.last?.id),
-            part("ncm-playlist", count: recommendPlaylists.count, first: recommendPlaylists.first?.id, last: recommendPlaylists.last?.id),
-            part("qq-playlist", count: qqRecommendPlaylists.count, first: qqRecommendPlaylists.first?.id, last: qqRecommendPlaylists.last?.id),
-            part("qq-song", count: qqNewSongs.count, first: qqNewSongs.first?.id, last: qqNewSongs.last?.id),
-        ].joined(separator: "|")
-    }
-
-    private func part<ID>(_ name: String, count: Int, first: ID?, last: ID?) -> String {
-        let firstValue = first.map { String(describing: $0) } ?? "nil"
-        let lastValue = last.map { String(describing: $0) } ?? "nil"
-        return "\(name)-\(count)-\(firstValue)-\(lastValue)"
-    }
-}
-
-private struct MangaHomeEntryCard: View {
-    let icon: MonologueIcon.IconType
-    let title: String
-    let tint: Color
-    var foreground: Color = MangaStyle.ink
-    let angle: Double
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 8) {
-                ZStack {
-                    Circle()
-                        .fill(tint)
-                    MonologueIcon(icon: icon, size: 19, color: foreground, lineWidth: 2)
-                }
-                .frame(width: 40, height: 40)
-                .overlay(Circle().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
-
-                Text(title)
-                    .font(MangaStyle.labelFont(12, weight: .black))
-                    .foregroundStyle(foreground)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-                    .minimumScaleFactor(0.72)
-                    .frame(maxWidth: .infinity, minHeight: 30, alignment: .top)
-            }
-            .padding(.horizontal, 9)
-            .padding(.vertical, 11)
-            .frame(maxWidth: .infinity)
-            .frame(height: 92)
-            .background(
-                MangaCardBackground(
-                    cornerRadius: 16,
-                    elevated: true,
-                    tint: tint.opacity(0.9)
-                )
-            )
-            .rotationEffect(.degrees(angle))
-        }
-        .buttonStyle(.plain)
-    }
 }

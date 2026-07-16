@@ -535,6 +535,14 @@ struct AriaFoliaLyricStage: View {
             AriaFoliaLineHost(lines: lines, time: time) { line in
                 if line.isInterlude {
                     AriaFoliaInterlude(line: line, palette: palette, time: time)
+                } else if line.isCredit {
+                    AriaFoliaCreditLine(
+                        line: line,
+                        palette: palette,
+                        fontChoice: fontChoice,
+                        fontScale: fontScale,
+                        time: time
+                    )
                 } else if language == .foreign {
                     AriaForeignCadenzaLineView(
                         line: line,
@@ -559,6 +567,14 @@ struct AriaFoliaLyricStage: View {
             AriaFoliaLineHost(lines: lines, time: time) { line in
                 if line.isInterlude {
                     AriaFoliaInterlude(line: line, palette: palette, time: time)
+                } else if line.isCredit {
+                    AriaFoliaCreditLine(
+                        line: line,
+                        palette: palette,
+                        fontChoice: fontChoice,
+                        fontScale: fontScale,
+                        time: time
+                    )
                 } else if language == .foreign {
                     AriaForeignPartitaLineView(
                         line: line,
@@ -583,6 +599,14 @@ struct AriaFoliaLyricStage: View {
             AriaFoliaLineHost(lines: lines, time: time) { line in
                 if line.isInterlude {
                     AriaFoliaInterlude(line: line, palette: palette, time: time)
+                } else if line.isCredit {
+                    AriaFoliaCreditLine(
+                        line: line,
+                        palette: palette,
+                        fontChoice: fontChoice,
+                        fontScale: fontScale,
+                        time: time
+                    )
                 } else if language == .foreign {
                     AriaForeignTiltLineView(
                         line: line,
@@ -629,6 +653,14 @@ struct AriaFoliaLyricStage: View {
             AriaFoliaLineHost(lines: lines, time: time) { line in
                 if line.isInterlude {
                     AriaFoliaInterlude(line: line, palette: palette, time: time)
+                } else if line.isCredit {
+                    AriaFoliaCreditLine(
+                        line: line,
+                        palette: palette,
+                        fontChoice: fontChoice,
+                        fontScale: fontScale,
+                        time: time
+                    )
                 } else {
                     AriaCanopyLyricLineView(
                         line: line,
@@ -793,5 +825,60 @@ private struct AriaFoliaInterlude: View {
             }
         }
         .animation(.smooth(duration: 0.22), value: activeDot)
+    }
+}
+
+/// 制作/发行信息行的克制渲染：小号静态排版 + 缓入，
+/// 不吃巨字、碎幕、逐字弹跳等强动画，开场不至于满屏乱飞。
+struct AriaFoliaCreditLine: View {
+    let line: AriaLine
+    let palette: AriaPalette
+    let fontChoice: AriaLyricFontChoice
+    let fontScale: Double
+    let time: Double
+
+    private var parts: (label: String, value: String)? {
+        guard let separator = line.fullText.firstIndex(
+            where: { $0 == ":" || $0 == "：" }
+        ) else { return nil }
+        let label = line.fullText[..<separator].trimmingCharacters(in: .whitespaces)
+        let value = line.fullText[line.fullText.index(after: separator)...]
+            .trimmingCharacters(in: .whitespaces)
+        guard !label.isEmpty, !value.isEmpty else { return nil }
+        return (label, value)
+    }
+
+    var body: some View {
+        let appear = AriaFoliaRuntime.easeOutCubic(
+            AriaFoliaRuntime.clamp((time - line.startTime) / 0.6)
+        )
+        let size = 17 * CGFloat(fontScale)
+
+        Group {
+            if let parts {
+                HStack(spacing: 10) {
+                    Text(parts.label)
+                        .font(fontChoice.font(size: size * 0.82, weight: .semibold))
+                        .foregroundStyle(palette.accent.opacity(0.85))
+
+                    Rectangle()
+                        .fill(palette.primary.opacity(0.25))
+                        .frame(width: 1, height: size * 0.8)
+
+                    Text(parts.value)
+                        .font(fontChoice.font(size: size, weight: .medium))
+                        .foregroundStyle(palette.primary.opacity(0.78))
+                }
+            } else {
+                Text(line.fullText)
+                    .font(fontChoice.font(size: size, weight: .medium))
+                    .foregroundStyle(palette.primary.opacity(0.78))
+            }
+        }
+        .lineLimit(1)
+        .minimumScaleFactor(0.6)
+        .padding(.horizontal, 32)
+        .opacity(appear)
+        .offset(y: CGFloat(1 - appear) * 8)
     }
 }

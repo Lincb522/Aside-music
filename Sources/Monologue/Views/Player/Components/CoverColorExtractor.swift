@@ -71,6 +71,7 @@ final class CoverColorExtractor: ObservableObject {
     @Published var isDark = true
     @Published var isTopDark = true
     @Published var luminance: CGFloat = 0.3
+    @Published var lyricRegionLuminance: CGFloat = 0.3
 
     private let preferences = CoverPalettePreferences.shared
     private var lastURL: String?
@@ -134,6 +135,7 @@ final class CoverColorExtractor: ObservableObject {
                 isDark = colors.isDark
                 isTopDark = colors.isTopDark
                 luminance = colors.luminance
+                lyricRegionLuminance = colors.lyricRegionLuminance
             }
         }
     }
@@ -147,6 +149,7 @@ final class CoverColorExtractor: ObservableObject {
         isDark = true
         isTopDark = true
         luminance = 0.3
+        lyricRegionLuminance = 0.3
     }
 
     private static func stableSeed(_ value: String) -> Int {
@@ -321,6 +324,7 @@ extension UIImage {
         let isDark: Bool
         let isTopDark: Bool
         let luminance: CGFloat
+        let lyricRegionLuminance: CGFloat
     }
 
     func extractColors(
@@ -405,7 +409,8 @@ extension UIImage {
                 secondary: fallback[1].color,
                 isDark: true,
                 isTopDark: true,
-                luminance: 0.3
+                luminance: 0.3,
+                lyricRegionLuminance: 0.3
             )
         }
 
@@ -432,6 +437,18 @@ extension UIImage {
                 y: extent.minY + height * 0.8,
                 width: width * 0.8,
                 height: height * 0.15
+            ),
+            context: context
+        )
+        // Core Image 的坐标原点位于左下角。歌词主要落在播放器背景的中下部，
+        // 单独采样这里，避免封面上方的脸部、天空等亮色把整页歌词误判为黑字。
+        let lyricRegion = areaAverageColor(
+            ciImage: ciImage,
+            rect: CGRect(
+                x: extent.minX + width * 0.08,
+                y: extent.minY + height * 0.05,
+                width: width * 0.84,
+                height: height * 0.5
             ),
             context: context
         )
@@ -468,7 +485,8 @@ extension UIImage {
             secondary: palette.dropFirst().first ?? palette.first ?? .gray,
             isDark: luminance < 0.5,
             isTopDark: top.luminance < 0.5,
-            luminance: luminance
+            luminance: luminance,
+            lyricRegionLuminance: lyricRegion.luminance
         )
     }
 

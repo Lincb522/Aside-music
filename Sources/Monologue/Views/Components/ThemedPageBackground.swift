@@ -35,52 +35,66 @@ struct ThemedPageBackground: View {
 
     @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.themeRenderContext) private var renderContext
+    @Environment(\.monologueSheetContext) private var monologueSheetContext
 
     var body: some View {
-        if useRenderLayer && renderContext.providesGlobalBackdrop {
+        if monologueSheetContext != nil {
+            // Sheet 内：背景上抛给 monologueSheet 容器铺满整个面板（含顶部把手区），
+            // 原位置只留占位，避免把手区露出一截默认毛玻璃。
+            Color.clear
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+                .monologueSheetSurface(id: backgroundIdentity) {
+                    backdropContent
+                }
+        } else if useRenderLayer && renderContext.providesGlobalBackdrop {
             Color.clear
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
         } else {
-            ZStack {
-                if useRenderLayer {
-                    ThemeRenderBackdrop(theme: renderTheme, revision: renderRevision)
+            backdropContent
+        }
+    }
+
+    private var backdropContent: some View {
+        ZStack {
+            if useRenderLayer {
+                ThemeRenderBackdrop(theme: renderTheme, revision: renderRevision)
+            } else {
+                if MangaStyle.isActive {
+                    MangaRootBackdrop()
+                } else if PetWhiteStyle.isActive {
+                    PetWhiteRootBackdrop()
+                } else if MinimalWhiteStyle.isActive {
+                    MinimalWhiteRootBackdrop()
+                } else if PureWhiteStyle.isActive {
+                    PureWhiteRootBackdrop()
+                } else if MujiStyle.isActive {
+                    MujiRootBackdrop()
+                } else if NeumorphicStyle.isActive {
+                    NeumorphicRenderBackdrop()
+                } else if CapsuleStyle.isActive {
+                    CapsuleRootBackdrop()
+                } else if SequoiaStyle.isActive {
+                    SequoiaRootBackdrop()
+                } else if LiquidGlassStyle.isActive {
+                    LiquidGlassRootBackdrop()
+                } else if ClayStyle.isActive {
+                    ClayRootBackdrop()
+                } else if SignalStyle.isActive {
+                    SignalRenderBackdrop()
+                } else if BentoStyle.isActive {
+                    BentoRootBackdrop()
                 } else {
-                    if MangaStyle.isActive {
-                        MangaRootBackdrop()
-                    } else if PetWhiteStyle.isActive {
-                        PetWhiteRootBackdrop()
-                    } else if MinimalWhiteStyle.isActive {
-                        MinimalWhiteRootBackdrop()
-                    } else if PureWhiteStyle.isActive {
-                        PureWhiteRootBackdrop()
-                    } else if MujiStyle.isActive {
-                        MujiRootBackdrop()
-                    } else if NeumorphicStyle.isActive {
-                        NeumorphicRenderBackdrop()
-                    } else if CapsuleStyle.isActive {
-                        CapsuleRootBackdrop()
-                    } else if SequoiaStyle.isActive {
-                        SequoiaRootBackdrop()
-                    } else if LiquidGlassStyle.isActive {
-                        LiquidGlassRootBackdrop()
-                    } else if ClayStyle.isActive {
-                        ClayRootBackdrop()
-                    } else if SignalStyle.isActive {
-                        SignalRenderBackdrop()
-                    } else if BentoStyle.isActive {
-                        BentoRootBackdrop()
-                    } else {
-                        MonologueBackground()
-                            .ignoresSafeArea()
-                    }
+                    MonologueBackground()
+                        .ignoresSafeArea()
                 }
             }
-            .id(backgroundIdentity)
-            .transaction { transaction in
-                transaction.animation = nil
-                transaction.disablesAnimations = true
-            }
+        }
+        .id(backgroundIdentity)
+        .transaction { transaction in
+            transaction.animation = nil
+            transaction.disablesAnimations = true
         }
     }
 
@@ -162,15 +176,13 @@ struct ThemedPageHeader<Accessory: View>: View {
                 accessory
             }
         } else if MujiStyle.isActive {
+            // 杂志刊头不需要装饰性图标章，只透传功能性 accessory
             MujiPageHeader(
                 eyebrow: eyebrow,
                 title: title,
                 subtitle: subtitle
             ) {
-                HStack(spacing: 10) {
-                    accessory
-                    MujiIconBadge(icon: icon, tint: MujiStyle.clay, size: 44)
-                }
+                accessory
             }
         } else if NeumorphicStyle.isActive {
             NeumorphicPageHeader(

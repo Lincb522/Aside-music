@@ -1,2 +1,3 @@
 "CFBundleDisplayName" = "Mono";
 "CFBundleName" = "Mono";
+"NSSpeechRecognitionUsageDescription" = "用于分析歌曲人声并生成逐字歌词时间";

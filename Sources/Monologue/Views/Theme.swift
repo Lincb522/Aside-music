@@ -89,15 +89,22 @@ extension Color {
     }
 
     private static var monologueDefaultAccent: Color {
-        guard GlobalThemeId.persistedOrDefault == .default,
-              ThemeColorCustomization.customColorsEnabled,
-              ThemeColorCustomization.hasStoredAccent(for: .default)
-        else {
-            return Color(light: .black, dark: .white)
+        let fallback = Color(light: .black, dark: .white)
+        guard GlobalThemeId.persistedOrDefault == .default else { return fallback }
+
+        if ThemeColorCustomization.isDarkAppearanceActive {
+            guard ThemeColorCustomization.hasStoredDarkAccent(for: .default) else {
+                return fallback
+            }
+        } else {
+            guard ThemeColorCustomization.hasStoredAccent(for: .default) else {
+                return fallback
+            }
         }
+
         return ThemeColorCustomization.accentColor(
             for: .default,
-            fallback: Color(light: .black, dark: .white),
+            fallback: fallback,
             fallbackHex: ThemeColorCustomization.defaultAccentHex(for: .default)
         )
     }
@@ -301,7 +308,7 @@ extension Color {
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.separator }
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.74) }
         if PureWhiteStyle.isActive { return PureWhiteStyle.strokeInk.opacity(0.72) }
-        if MujiStyle.isActive { return MujiStyle.hairline.opacity(0.72) }
+        if MujiStyle.isActive { return MujiStyle.separator.opacity(0.4) }
         if CapsuleStyle.isActive { return CapsuleStyle.separator.opacity(0.76) }
         if SequoiaStyle.isActive { return SequoiaStyle.separator.opacity(0.9) }
         if ClayStyle.isActive { return ClayStyle.separator.opacity(0.72) }
@@ -329,7 +336,7 @@ extension Color {
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted.opacity(0.45) }
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.46) }
         if PureWhiteStyle.isActive { return PureWhiteStyle.strokeInk.opacity(0.44) }
-        if MujiStyle.isActive { return MujiStyle.hairline }
+        if MujiStyle.isActive { return MujiStyle.inkMuted.opacity(0.45) }
         if CapsuleStyle.isActive { return CapsuleStyle.inkMuted.opacity(0.48) }
         if SequoiaStyle.isActive { return SequoiaStyle.inkMuted.opacity(0.5) }
         if ClayStyle.isActive { return ClayStyle.inkMuted.opacity(0.5) }
@@ -356,7 +363,7 @@ extension Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk }
         if PetWhiteStyle.isActive { return PetWhiteStyle.mint }
         if PureWhiteStyle.isActive { return PureWhiteStyle.accent }
-        if MujiStyle.isActive { return MujiStyle.ink }
+        if MujiStyle.isActive { return MujiStyle.clay }
         if CapsuleStyle.isActive { return CapsuleStyle.surfaceTint }
         if SequoiaStyle.isActive { return SequoiaStyle.accent.opacity(0.16) }
         if ClayStyle.isActive { return ClayStyle.accent.opacity(0.18) }
@@ -454,7 +461,7 @@ struct MonologueGlassCardBackground: View {
                 elevated: false
             )
         } else if MangaStyle.isActive {
-            MangaCardBackground(cornerRadius: min(cornerRadius, 16), elevated: true)
+            MangaCardBackground(cornerRadius: min(cornerRadius, MangaStyle.cardRadius + 2), elevated: true)
         } else if PureWhiteStyle.isActive {
             PureWhiteSurfaceBackground(cornerRadius: min(max(cornerRadius, 16), 26), elevated: true)
         } else if MujiStyle.isActive {

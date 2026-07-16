@@ -19,15 +19,45 @@ enum AriaPanelTab {
 struct AriaUnifiedPanel: View {
     @Binding var isOpen: Bool
     @Binding var tab: AriaPanelTab
+    /// 搜索框聚焦时上抛给舞台：面板改锚到右上角，避开横屏键盘
+    @Binding var searchActive: Bool
     let palette: AriaPalette
     let maxHeight: CGFloat
 
     @ObservedObject private var player = PlayerManager.shared
 
-    private let panelWidth: CGFloat = 320
+    // 歌架内搜索：直接搜歌加入歌架（支持三平台切换）
+    @State private var searchQuery = ""
+    @State private var searchPlatform: MusicSource = .netease
+    @State private var searchResults: [Song] = []
+    @State private var isSearching = false
+    @State private var addedSongIDs: Set<Int> = []
+    @FocusState private var searchFocused: Bool
+
+    private let basePanelWidth: CGFloat = 320
 
     private var queue: [Song] {
         player.currentContextList.filter { $0.podcastRadioId == nil }
+    }
+
+    private var trimmedQuery: String {
+        searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// 歌架搜索态：键盘弹起或已输入关键词。
+    /// 此时收起封面（键盘弹起时连 tab 条一起收起），把面板高度全部让给结果列表。
+    private var searchMode: Bool {
+        tab == .queue && (searchFocused || !trimmedQuery.isEmpty)
+    }
+
+    /// 搜索态加宽面板，结果行更完整；横屏宽度充裕，向左生长无遮挡
+    private var panelWidth: CGFloat {
+        searchMode ? 392 : basePanelWidth
+    }
+
+    /// 平台或关键词变化都会取消旧任务重新搜索
+    private var searchTaskKey: String {
+        "\(searchPlatform.rawValue)|\(trimmedQuery)"
     }
 
     private var currentIndex: Int? {
@@ -37,8 +67,16 @@ struct AriaUnifiedPanel: View {
 
     var body: some View {
         VStack(spacing: 14) {
-            coverBlock
-            tabSwitcher
+            // 搜索态收起封面，键盘弹起时连 tab 条一起收起：
+            // 面板高度全部让给搜索框 + 结果列表
+            if !searchMode {
+                coverBlock
+                    .transition(.opacity.combined(with: .scale(scale: 0.94, anchor: .top)))
+            }
+            if !(searchMode && searchFocused) {
+                tabSwitcher
+                    .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .top)))
+            }
 
             switch tab {
             case .cover:
@@ -56,6 +94,19 @@ struct AriaUnifiedPanel: View {
         .background(panelGlass)
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .shadow(color: .black.opacity(0.4), radius: 30, y: 14)
+        .animation(.spring(response: 0.36, dampingFraction: 0.86), value: searchMode)
+        .animation(.spring(response: 0.36, dampingFraction: 0.86), value: searchFocused)
+        .onChange(of: searchFocused) { _, focused in
+            withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) {
+                searchActive = focused
+            }
+        }
+        .onChange(of: tab) { _, _ in
+            searchFocused = false
+        }
+        .onDisappear {
+            searchActive = false
+        }
     }
 
     // folia：bg-black/40 + backdrop-blur-3xl，无描边只留投影
@@ -162,30 +213,230 @@ struct AriaUnifiedPanel: View {
         .frame(maxWidth: .infinity)
     }
 
-    // MARK: 歌架 tab（folia QueueTab）
+    // MARK: 歌架 tab（folia QueueTab + 架内搜索）
 
     @ViewBuilder
     private var queueTab: some View {
-        if queue.isEmpty {
-            Text(String(localized: "队列为空"))
-                .font(.system(size: 13, weight: .medium, design: .rounded))
-                .foregroundStyle(.white.opacity(0.45))
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else {
-            VStack(spacing: 8) {
-                HStack {
-                    Text(String(localized: "歌架"))
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.85))
-                    Text("\(queue.count)")
-                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.45))
-                    Spacer()
-                }
-                .padding(.horizontal, 4)
+        VStack(spacing: 8) {
+            shelfSearchField
 
+            if !trimmedQuery.isEmpty {
+                shelfPlatformSwitcher
+                searchResultList
+            } else if queue.isEmpty {
+                Text(String(localized: "队列为空"))
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.45))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
                 trackList
             }
+        }
+        .task(id: searchTaskKey) {
+            await performShelfSearch(trimmedQuery)
+        }
+    }
+
+    /// NCM / QCM / QSM 平台切换（面板紧凑版）
+    private var shelfPlatformSwitcher: some View {
+        HStack(spacing: 5) {
+            ForEach([MusicSource.netease, .qqmusic, .qishui], id: \.self) { source in
+                let isSelected = searchPlatform == source
+
+                Button {
+                    guard searchPlatform != source else { return }
+                    searchPlatform = source
+                    searchResults = []
+                } label: {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(source.themedBadgeColor)
+                            .frame(width: 4, height: 4)
+                            .opacity(isSelected ? 1 : 0.45)
+
+                        Text(source.displayName)
+                            .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white.opacity(isSelected ? 0.95 : 0.42))
+                    }
+                    .padding(.horizontal, 10)
+                    .frame(height: 25)
+                    .background(Capsule().fill(Color.white.opacity(isSelected ? 0.12 : 0.045)))
+                }
+                .buttonStyle(.plain)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: searchPlatform)
+    }
+
+    /// 歌架内嵌搜索框：folia 同款黑玻璃圆角
+    private var shelfSearchField: some View {
+        HStack(spacing: 8) {
+            MonologueIcon(icon: .search, size: 13, color: .white.opacity(0.4), lineWidth: 1.7)
+
+            TextField(
+                String(localized: "搜索歌曲加入歌架"),
+                text: $searchQuery
+            )
+            .font(.system(size: 13, weight: .medium, design: .rounded))
+            .foregroundStyle(.white)
+            .tint(palette.accent)
+            .autocorrectionDisabled()
+            .submitLabel(.search)
+            .focused($searchFocused)
+            .onSubmit { searchFocused = false }
+
+            if isSearching {
+                ProgressView()
+                    .controlSize(.mini)
+                    .tint(.white.opacity(0.5))
+            } else if !searchQuery.isEmpty {
+                Button {
+                    searchQuery = ""
+                    searchFocused = false
+                } label: {
+                    MonologueIcon(icon: .xmark, size: 9, color: .white.opacity(0.45), lineWidth: 1.7)
+                        .frame(width: 22, height: 22)
+                        .background(Circle().fill(Color.white.opacity(0.08)))
+                }
+                .buttonStyle(.plain)
+            } else if searchFocused {
+                // 未输入内容时给一个显式收起键盘的出口
+                Button {
+                    searchFocused = false
+                } label: {
+                    MonologueIcon(icon: .chevronDown, size: 11, color: .white.opacity(0.45), lineWidth: 1.7)
+                        .frame(width: 22, height: 22)
+                        .background(Circle().fill(Color.white.opacity(0.08)))
+                }
+                .buttonStyle(.plain)
+            } else if !queue.isEmpty {
+                // 取代原来的「歌架 N」标题行：队列数量收进搜索框尾部
+                Text("\(queue.count)")
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.4))
+            }
+        }
+        .padding(.horizontal, 10)
+        .frame(height: 36)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.white.opacity(0.06))
+        )
+    }
+
+    /// 搜索结果：与歌架行同布局，行尾加号一键入架
+    @ViewBuilder
+    private var searchResultList: some View {
+        if searchResults.isEmpty, !isSearching {
+            Text(String(localized: "没有找到相关歌曲"))
+                .font(.system(size: 12.5, weight: .medium, design: .rounded))
+                .foregroundStyle(.white.opacity(0.4))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            ScrollView {
+                LazyVStack(spacing: 2) {
+                    ForEach(searchResults) { song in
+                        searchResultRow(song: song)
+                    }
+                }
+                .padding(.bottom, 4)
+            }
+            .scrollIndicators(.hidden)
+            .scrollDismissesKeyboard(.immediately)
+        }
+    }
+
+    private func searchResultRow(song: Song) -> some View {
+        let inShelf = addedSongIDs.contains(song.id)
+            || queue.contains(where: { $0.id == song.id })
+
+        return Button {
+            guard !inShelf else { return }
+            player.addToQueue(song: song)
+            addedSongIDs.insert(song.id)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        } label: {
+            HStack(spacing: 10) {
+                CachedAsyncImage(url: song.coverUrl?.sized(100)) {
+                    Rectangle().fill(Color.white.opacity(0.06))
+                }
+                .frame(width: 38, height: 38)
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(song.name)
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.9))
+                        .lineLimit(1)
+                    Text(song.artistName)
+                        .font(.system(size: 11, weight: .regular, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.45))
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 0)
+
+                MonologueIcon(
+                    icon: inShelf ? .checkmark : .add,
+                    size: 13,
+                    color: inShelf ? palette.accent : .white.opacity(0.6),
+                    lineWidth: 1.8
+                )
+                .frame(width: 26, height: 26)
+                .background(
+                    Circle().fill(Color.white.opacity(inShelf ? 0.05 : 0.08))
+                )
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 7)
+            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func performShelfSearch(_ keyword: String) async {
+        guard !keyword.isEmpty else {
+            searchResults = []
+            isSearching = false
+            return
+        }
+
+        // 停顿片刻再搜，避免逐字请求
+        try? await Task.sleep(nanoseconds: 380_000_000)
+        guard !Task.isCancelled else { return }
+
+        isSearching = true
+        defer { isSearching = false }
+
+        do {
+            switch searchPlatform {
+            case .qqmusic:
+                for try await songs in APIService.shared
+                    .searchQQSongs(keyword: keyword).values {
+                    guard !Task.isCancelled else { return }
+                    searchResults = songs
+                    break
+                }
+            case .qishui:
+                for try await songs in APIService.shared
+                    .searchQishuiSongs(keyword: keyword).values {
+                    guard !Task.isCancelled else { return }
+                    searchResults = songs
+                    break
+                }
+            default:
+                for try await songs in APIService.shared
+                    .searchSongs(keyword: keyword).values {
+                    guard !Task.isCancelled else { return }
+                    searchResults = songs
+                    break
+                }
+            }
+        } catch {
+            guard !Task.isCancelled else { return }
+            searchResults = []
         }
     }
 

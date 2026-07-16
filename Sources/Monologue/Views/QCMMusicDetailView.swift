@@ -187,12 +187,14 @@ class QQArtistDetailViewModel: ObservableObject {
 
     private func applyResolvedInfo(from json: JSON) {
         let info = artistInfoContainer(from: json)
-        let baseInfo = info["BaseInfo"] ?? info["baseInfo"]
+        let baseInfo = info["BaseInfo"] ?? info["baseInfo"] ?? info["base_info"]
         let singerInfo = info["Singer"] ?? info["singer"]
 
         if let name = firstNonEmptyString([
             baseInfo?["Name"]?.stringValue,
+            baseInfo?["name"]?.stringValue,
             singerInfo?["Name"]?.stringValue,
+            singerInfo?["name"]?.stringValue,
             json["name"]?.stringValue,
             json["singerName"]?.stringValue
         ]) {
@@ -201,9 +203,12 @@ class QQArtistDetailViewModel: ObservableObject {
 
         if let coverURL = firstNonEmptyString([
             baseInfo?["BackgroundImage"]?.stringValue,
+            baseInfo?["background_image"]?.stringValue,
             baseInfo?["Avatar"]?.stringValue,
+            baseInfo?["avatar"]?.stringValue,
             baseInfo?["BigAvatar"]?.stringValue,
             singerInfo?["SingerPic"]?.stringValue,
+            singerInfo?["singer_pic"]?.stringValue,
             json["pic"]?.stringValue,
             json["singerPic"]?.stringValue,
             json["singer_pic"]?.stringValue,
@@ -1316,7 +1321,8 @@ class QQAlbumDetailViewModel: ObservableObject {
     private func handleAlbumDetail(_ json: JSON) {
         AppLogger.debug("[QQAlbum] 专辑详情: \(json)")
 
-        let basicInfo = json["basicInfo"] ?? json["basic_info"] ?? json
+        // 新版 API: { album: { name, mid, desc, time_public }, singers: [...], company: {...} }
+        let basicInfo = json["album"] ?? json["basicInfo"] ?? json["basic_info"] ?? json
         let singerList = json["singer"]?["singerList"]?.arrayValue
             ?? json["singer"]?["list"]?.arrayValue
             ?? json["singerList"]?.arrayValue
@@ -1394,6 +1400,7 @@ class QQAlbumDetailViewModel: ObservableObject {
             basicInfo["aDate"]?.stringValue,
             basicInfo["publicTime"]?.stringValue,
             basicInfo["publish_date"]?.stringValue,
+            basicInfo["time_public"]?.stringValue,
             json["publishDate"]?.stringValue,
             json["aDate"]?.stringValue,
             json["publicTime"]?.stringValue,
@@ -1451,7 +1458,11 @@ struct QQAlbumDetailView: View {
     @State private var isAlbumSelectMode = false
     @State private var albumSelectedIds: Set<Int> = []
     @State private var showAlbumBatchPlaylist = false
-    
+    @State private var scrollOffset: CGFloat = 0
+
+    /// aside(默认)分支使用歌手页风格 Hero 头部
+    private var usesAsideHero: Bool { !MinimalWhiteStyle.isActive }
+
     init(mid: String, name: String, coverUrl: String?, artistName: String?) {
         self.mid = mid
         self.name = name
@@ -1485,8 +1496,12 @@ struct QQAlbumDetailView: View {
 
             ScrollView {
                 VStack(spacing: 0) {
-                    headerView
-                        .monologuePageHeaderCollapse()
+                    if usesAsideHero {
+                        headerView
+                    } else {
+                        headerView
+                            .monologuePageHeaderCollapse()
+                    }
                     PlaylistSearchBar(
                         searchText: $albumSearchText,
                         isSearching: $isAlbumSearching,
@@ -1508,6 +1523,8 @@ struct QQAlbumDetailView: View {
                 .padding(.bottom, 100)
             }
             .scrollIndicators(.hidden)
+            .monologueScrollOffset($scrollOffset)
+            .ignoresSafeArea(edges: usesAsideHero ? .top : [])
             .themeRenderScrollLayer()
         }
         .navigationBarTitleDisplayMode(.inline)
@@ -1548,64 +1565,28 @@ struct QQAlbumDetailView: View {
         if MinimalWhiteStyle.isActive {
             minimalWhiteQQAlbumHeaderView
         } else {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 16) {
-                CachedAsyncImage(url: displayCoverUrl) {
-                    QQDetailPalette.placeholderFill
+            AsideDetailHeroHeader(
+                coverUrl: displayCoverUrl,
+                title: displayName,
+                subtitle: (displayArtist?.isEmpty == false) ? displayArtist : nil,
+                metaItems: {
+                    var items = ["QCM"]
+                    if let date = viewModel.publishDate, !date.isEmpty { items.append(date) }
+                    return items
+                }(),
+                descriptionText: viewModel.resolvedDesc,
+                onDescriptionTap: viewModel.resolvedDesc == nil ? nil : { showAlbumDesc = true },
+                scrollOffset: scrollOffset,
+                heroHeight: displayCoverUrl == nil ? 220 : 320,
+                playAllTitle: String(localized: "qq_play"),
+                playAllDisabled: viewModel.songs.isEmpty,
+                onPlayAll: {
+                    if let first = viewModel.songs.first {
+                        PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                    }
                 }
-                .aspectRatio(contentMode: .fill)
-                .frame(width: DeviceLayout.detailCoverSize, height: DeviceLayout.detailCoverSize)
-                .cornerRadius(16)
-                .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 6) {
-                        PlatformBadgeLabel(text: "QCM", source: .qqmusic, fontSize: 10)
-                        
-                        Text(displayName)
-                            .font(.system(size: 20, weight: .bold, design: .rounded))
-                            .foregroundColor(QQDetailPalette.primaryText)
-                            .lineLimit(2)
-                    }
-                    
-                    if let artist = displayArtist, !artist.isEmpty {
-                        Text(artist)
-                            .font(.system(size: 13))
-                            .foregroundColor(QQDetailPalette.secondaryText)
-                            .lineLimit(1)
-                    }
-                    
-                    if let date = viewModel.publishDate, !date.isEmpty {
-                        Text(date)
-                            .font(.rounded(size: 11))
-                            .foregroundColor(QQDetailPalette.mutedText.opacity(0.78))
-                    }
-                    
-                    Spacer().frame(height: 4)
-                    
-                    Button(action: {
-                        if let first = viewModel.songs.first {
-                                PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
-                        }
-                    }) {
-                        HStack(spacing: 6) {
-                            MonologueIcon(icon: .play, size: 12, color: QQDetailPalette.accentForeground)
-                            Text(String(localized: "qq_play"))
-                                .font(.system(size: 12, weight: .bold))
-                        }
-                        .foregroundColor(QQDetailPalette.accentForeground)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(QQDetailPalette.accent)
-                        .cornerRadius(20)
-                    }
-                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
-                }
-            }
-        }
-        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-        .padding(.bottom, 24)
-        .padding(.top, 16)
+            )
+            .padding(.bottom, DeviceLayout.isPad ? 20 : 12)
         }
     }
 
@@ -2086,12 +2067,31 @@ class QQPlaylistDetailViewModel: ObservableObject {
     func fetchDetail() {
         APIService.shared.fetchQQPlaylistDetail(playlistId: playlistId)
             .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] json in
-                if let logo = json["logo"]?.stringValue ?? json["dirpicurl"]?.stringValue
-                    ?? json["coverImgUrl"]?.stringValue ?? json["cover"]?.stringValue, !logo.isEmpty {
+                // 新版 API 信息嵌套在 info 下: { info: { title, picurl, desc, ... }, songs: [...] }
+                let info = json["info"] ?? json["dirinfo"] ?? json
+                let logoCandidates: [String?] = [
+                    info["picurl"]?.stringValue,
+                    info["logo"]?.stringValue,
+                    info["dirpicurl"]?.stringValue,
+                    info["coverImgUrl"]?.stringValue,
+                    info["cover"]?.stringValue,
+                    json["logo"]?.stringValue,
+                    json["dirpicurl"]?.stringValue,
+                    json["coverImgUrl"]?.stringValue,
+                    json["cover"]?.stringValue
+                ]
+                if let logo = logoCandidates.compactMap({ $0 }).first(where: { !$0.isEmpty }) {
                     self?.resolvedCoverUrl = logo
                 }
-                if let name = json["dissname"]?.stringValue ?? json["title"]?.stringValue
-                    ?? json["name"]?.stringValue, !name.isEmpty {
+                let nameCandidates: [String?] = [
+                    info["title"]?.stringValue,
+                    info["dissname"]?.stringValue,
+                    info["name"]?.stringValue,
+                    json["dissname"]?.stringValue,
+                    json["title"]?.stringValue,
+                    json["name"]?.stringValue
+                ]
+                if let name = nameCandidates.compactMap({ $0 }).first(where: { !$0.isEmpty }) {
                     self?.resolvedName = name
                 }
             })
@@ -2117,7 +2117,11 @@ struct QQPlaylistDetailView: View {
     @State private var isPlaylistSelectMode = false
     @State private var playlistSelectedIds: Set<Int> = []
     @State private var showPlaylistBatchPlaylist = false
-    
+    @State private var scrollOffset: CGFloat = 0
+
+    /// aside(默认)分支使用歌手页风格 Hero 头部
+    private var usesAsideHero: Bool { !MinimalWhiteStyle.isActive }
+
     init(playlistId: Int, name: String, coverUrl: String?, creatorName: String?) {
         self.playlistId = playlistId
         self.name = name
@@ -2152,8 +2156,12 @@ struct QQPlaylistDetailView: View {
             VStack(spacing: 0) {
                 ScrollView {
                     VStack(spacing: 0) {
-                        headerSection
-                            .monologuePageHeaderCollapse()
+                        if usesAsideHero {
+                            headerSection
+                        } else {
+                            headerSection
+                                .monologuePageHeaderCollapse()
+                        }
                         PlaylistSearchBar(
                             searchText: $searchText,
                             isSearching: $isSearching,
@@ -2176,6 +2184,8 @@ struct QQPlaylistDetailView: View {
                     .padding(.bottom, 120)
                 }
                 .scrollIndicators(.hidden)
+                .monologueScrollOffset($scrollOffset)
+                .ignoresSafeArea(edges: usesAsideHero ? .top : [])
             .themeRenderScrollLayer()
             }
         }
@@ -2206,89 +2216,38 @@ struct QQPlaylistDetailView: View {
         if MinimalWhiteStyle.isActive {
             minimalWhiteQQPlaylistHeaderSection
         } else {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 16) {
-                Group {
-                    if let url = displayCoverUrl {
-                        CachedAsyncImage(url: url) {
-                            QQDetailPalette.placeholderFill
-                        }
-                        .aspectRatio(contentMode: .fill)
-                    } else {
-                        ZStack {
-                            QQDetailPalette.placeholderFill
-                            MonologueIcon(icon: .musicNote, size: 32, color: QQDetailPalette.mutedText.opacity(0.36))
-                        }
+            AsideDetailHeroHeader(
+                coverUrl: displayCoverUrl,
+                title: displayName,
+                subtitle: creatorName.map { "by \($0)" },
+                metaItems: ["QCM"],
+                scrollOffset: scrollOffset,
+                heroHeight: displayCoverUrl == nil ? 220 : 320,
+                playAllDisabled: viewModel.songs.isEmpty,
+                onPlayAll: {
+                    if let first = viewModel.songs.first {
+                        PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                        viewModel.loadAllSongs(appendToQueue: true)
                     }
                 }
-                .frame(width: DeviceLayout.isPad ? 180 : 120, height: DeviceLayout.isPad ? 180 : 120)
-                .cornerRadius(DeviceLayout.isPad ? 20 : 16)
-                .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(displayName)
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
-                        .foregroundColor(QQDetailPalette.primaryText)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                    
-                    if let creator = creatorName {
-                        Text("by \(creator)")
-                            .font(.system(size: 13))
-                            .foregroundColor(QQDetailPalette.secondaryText)
-                            .lineLimit(1)
-                    }
-                    
-                    HStack(spacing: 6) {
-                        PlatformBadgeLabel(text: "QCM", source: .qqmusic, fontSize: 10)
-                    }
-                    
-                    Spacer().frame(height: 4)
-                    
-                    HStack(spacing: 8) {
-                        Button(action: {
-                            if let first = viewModel.songs.first {
-                                PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
-                                viewModel.loadAllSongs(appendToQueue: true)
+            ) {
+                SubscribeButton(
+                    isSubscribed: isCollectedLocally,
+                    action: {
+                        guard !isCollectedLocally, !viewModel.songs.isEmpty else { return }
+                        Task {
+                            let allSongs = await viewModel.loadAllSongsAsync()
+                            LocalPlaylistManager.shared.importPlaylist(name: displayName, songs: allSongs)
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                isCollectedLocally = true
                             }
-                        }) {
-                            HStack(spacing: 6) {
-                                MonologueIcon(icon: .play, size: 12, color: QQDetailPalette.accentForeground)
-                                Text(LocalizedStringKey("play_now"))
-                                    .font(.system(size: 12, weight: .bold))
-                            }
-                            .foregroundColor(QQDetailPalette.accentForeground)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(QQDetailPalette.accent)
-                            .cornerRadius(20)
-                            .monologueGlassCapsule()
-                            .shadow(color: QQDetailPalette.accent.opacity(0.2), radius: 5, x: 0, y: 2)
                         }
-                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
-                        
-                        SubscribeButton(
-                            isSubscribed: isCollectedLocally,
-                            action: {
-                                guard !isCollectedLocally, !viewModel.songs.isEmpty else { return }
-                                Task {
-                                    let allSongs = await viewModel.loadAllSongsAsync()
-                                    LocalPlaylistManager.shared.importPlaylist(name: displayName, songs: allSongs)
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                        isCollectedLocally = true
-                                    }
-                                }
-                            }
-                        )
-                        .disabled(isCollectedLocally || viewModel.songs.isEmpty)
                     }
-                }
+                )
+                .disabled(isCollectedLocally || viewModel.songs.isEmpty)
             }
-        }
-        .padding(.horizontal, DeviceLayout.isPad ? 40 : 24)
-        .padding(.top, DeviceLayout.isPad ? 24 : 16)
-        .padding(.bottom, DeviceLayout.isPad ? 32 : 24)
-        .iPadContentWidth(900)
+            .padding(.bottom, DeviceLayout.isPad ? 20 : 12)
+            .iPadContentWidth(900)
         }
     }
 

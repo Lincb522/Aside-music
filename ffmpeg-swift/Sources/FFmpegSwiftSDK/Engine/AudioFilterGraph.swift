@@ -1608,26 +1608,28 @@ final class AudioFilterGraph {
             }
         }
 
-        // 单声道（支持多声道混音到单声道）
+        // 单声道听感：先下混，再复制到稳定的双声道输出总线。
+        // StreamPlayer 的 Mono 总线固定为 stereo，滤镜不能在播放途中改变声道数。
         if monoEnabled && channelCount > 1 {
             // 根据声道数生成混音公式
-            let monoMixArgs: String
+            let monoExpression: String
             switch channelCount {
             case 2:
-                monoMixArgs = "mono|c0=0.5*c0+0.5*c1"
+                monoExpression = "0.5*c0+0.5*c1"
             case 6:
                 // 5.1: FL, FR, FC, LFE, BL, BR
                 // 标准 5.1 下混公式
-                monoMixArgs = "mono|c0=0.2*c0+0.2*c1+0.3*c2+0.1*c3+0.1*c4+0.1*c5"
+                monoExpression = "0.2*c0+0.2*c1+0.3*c2+0.1*c3+0.1*c4+0.1*c5"
             case 8:
                 // 7.1: FL, FR, FC, LFE, BL, BR, SL, SR
-                monoMixArgs = "mono|c0=0.15*c0+0.15*c1+0.25*c2+0.05*c3+0.1*c4+0.1*c5+0.1*c6+0.1*c7"
+                monoExpression = "0.15*c0+0.15*c1+0.25*c2+0.05*c3+0.1*c4+0.1*c5+0.1*c6+0.1*c7"
             default:
                 // 通用：所有声道等权重混合
                 let weight = 1.0 / Float(channelCount)
                 let channels = (0..<channelCount).map { "\(String(format: "%.3f", weight))*c\($0)" }.joined(separator: "+")
-                monoMixArgs = "mono|c0=\(channels)"
+                monoExpression = channels
             }
+            let monoMixArgs = "stereo|c0=\(monoExpression)|c1=\(monoExpression)"
             if let ctx = createFilter(graph: graph, name: "pan", label: "mono", args: monoMixArgs) {
                 guard avfilter_link(lastCtx, 0, ctx, 0) >= 0 else { destroyGraphUnsafe(); return }
                 lastCtx = ctx
@@ -1921,12 +1923,7 @@ final class AudioFilterGraph {
         // ==================== 输出格式 ====================
         
         // 根据声道数获取输出声道布局
-        let outputChannelLayout: String
-        if monoEnabled {
-            outputChannelLayout = "mono"
-        } else {
-            outputChannelLayout = getChannelLayoutString(for: channelCount)
-        }
+        let outputChannelLayout = monoEnabled ? "stereo" : getChannelLayoutString(for: channelCount)
         let aformatArgs = "sample_fmts=flt:sample_rates=\(sampleRate):channel_layouts=\(outputChannelLayout)"
         if let ctx = createFilter(graph: graph, name: "aformat", label: "aformat", args: aformatArgs) {
             guard avfilter_link(lastCtx, 0, ctx, 0) >= 0 else { destroyGraphUnsafe(); return }

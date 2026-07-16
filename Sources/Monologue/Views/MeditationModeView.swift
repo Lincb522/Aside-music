@@ -65,6 +65,10 @@ struct MeditationModeView: View {
         }
     }
 
+    private var isAside: Bool {
+        !ThemedPageStyle.isActive
+    }
+
     @ViewBuilder
     private var scrollableHeader: some View {
         if PetWhiteStyle.isActive {
@@ -77,40 +81,89 @@ struct MeditationModeView: View {
                 icon: .moon
             )
         } else {
-            HStack(alignment: .center, spacing: 14) {
-                MonologueIcon(icon: .moon, size: 22, color: accentColor, lineWidth: 1.7)
-                    .frame(width: 48, height: 48)
-                    .background(accentColor.opacity(0.14), in: Circle())
+            // aside：编辑部刊头
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 8) {
+                    Capsule()
+                        .fill(Color.monologueAccent)
+                        .frame(width: 18, height: 3)
 
-                VStack(alignment: .leading, spacing: 4) {
                     Text("MEDITATION")
-                        .font(labelFont(size: 11, weight: .black))
-                        .foregroundStyle(secondaryTextColor)
-                        .tracking(1.2)
+                        .font(.system(size: 10.5, weight: .heavy, design: .rounded))
+                        .tracking(2.4)
+                        .foregroundColor(.monologueTextSecondary.opacity(0.72))
+                        .fixedSize()
 
-                    Text(String(localized: "meditation_mode_title"))
-                        .font(.system(size: 26, weight: .black, design: .rounded))
-                        .foregroundStyle(primaryTextColor)
+                    Rectangle()
+                        .fill(Color.monologueSeparator.opacity(0.5))
+                        .frame(height: 0.5)
                 }
+                .padding(.bottom, 16)
 
-                Spacer(minLength: 0)
+                Text(String(localized: "meditation_mode_title"))
+                    .font(.system(size: 28, weight: .heavy, design: .rounded))
+                    .foregroundColor(.monologueTextPrimary)
             }
             .padding(.horizontal, horizontalPadding)
+            .padding(.top, 4)
+            .monologuePageHeaderCollapse()
         }
     }
 
+    @ViewBuilder
     private var topicSelector: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: 10) {
-                ForEach(MeditationTopic.allCases) { topic in
-                    topicChip(topic)
+        if isAside {
+            VStack(spacing: 0) {
+                ScrollView(.horizontal) {
+                    HStack(spacing: 24) {
+                        ForEach(MeditationTopic.allCases) { topic in
+                            asideTopicTab(topic)
+                        }
+                    }
+                    .padding(.horizontal, horizontalPadding)
                 }
+                .scrollIndicators(.hidden)
+                .themeRenderScrollLayer()
+
+                Rectangle()
+                    .fill(Color.monologueSeparator.opacity(0.5))
+                    .frame(height: 0.5)
             }
-            .padding(.horizontal, horizontalPadding)
-            .padding(.vertical, 2)
+        } else {
+            ScrollView(.horizontal) {
+                HStack(spacing: 10) {
+                    ForEach(MeditationTopic.allCases) { topic in
+                        topicChip(topic)
+                    }
+                }
+                .padding(.horizontal, horizontalPadding)
+                .padding(.vertical, 2)
+            }
+            .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
-        .scrollIndicators(.hidden)
-        .themeRenderScrollLayer()
+    }
+
+    private func asideTopicTab(_ topic: MeditationTopic) -> some View {
+        let isSelected = viewModel.selectedTopic == topic
+
+        return Button {
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                viewModel.selectedTopic = topic
+            }
+        } label: {
+            VStack(spacing: 8) {
+                Text(topic.title)
+                    .font(.rounded(size: 14, weight: isSelected ? .bold : .semibold))
+                    .foregroundColor(isSelected ? .monologueTextPrimary : .monologueTextSecondary.opacity(0.72))
+
+                Capsule()
+                    .fill(isSelected ? Color.monologueAccent : Color.clear)
+                    .frame(width: 18, height: 2.5)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder
@@ -121,6 +174,28 @@ struct MeditationModeView: View {
         } else if viewModel.visibleItems.isEmpty {
             emptyView
                 .padding(.horizontal, horizontalPadding)
+        } else if isAside {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                sectionTitle
+                    .padding(.bottom, 4)
+
+                ForEach(Array(viewModel.visibleItems.enumerated()), id: \.element.id) { index, item in
+                    if index > 0 {
+                        Rectangle()
+                            .fill(Color.monologueSeparator.opacity(0.5))
+                            .frame(height: 0.5)
+                            .padding(.leading, 72)
+                    }
+
+                    Button {
+                        playerDestination = MeditationPlayerDestination(source: viewModel.playbackSource(for: item))
+                    } label: {
+                        asideContentRow(item)
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+                }
+            }
+            .padding(.horizontal, horizontalPadding)
         } else {
             VStack(alignment: .leading, spacing: 12) {
                 sectionTitle
@@ -140,23 +215,104 @@ struct MeditationModeView: View {
         }
     }
 
+    @ViewBuilder
     private var sectionTitle: some View {
-        HStack(spacing: 10) {
-            MonologueIcon(icon: .headphones, size: 16, color: accentColor, lineWidth: 1.6)
+        if isAside {
+            HStack(spacing: 8) {
+                Capsule()
+                    .fill(Color.monologueAccent)
+                    .frame(width: 3, height: 13)
 
-            Text(viewModel.selectedTopic == .all ? String(localized: "meditation_recommended_title") : viewModel.selectedTopic.title)
-                .font(labelFont(size: 17, weight: .black))
-                .foregroundStyle(primaryTextColor)
+                Text(viewModel.selectedTopic == .all ? String(localized: "meditation_recommended_title") : viewModel.selectedTopic.title)
+                    .font(.rounded(size: 15, weight: .bold))
+                    .foregroundColor(.monologueTextPrimary)
 
-            Spacer()
+                Text("\(viewModel.visibleContentCount)")
+                    .font(.system(size: 12, weight: .heavy, design: .rounded))
+                    .foregroundColor(.monologueAccent)
+                    .monospacedDigit()
 
-            Text("\(viewModel.visibleContentCount)")
-                .font(labelFont(size: 13, weight: .black))
-                .foregroundStyle(accentColor)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(countBackground)
+                Spacer(minLength: 0)
+            }
+        } else {
+            HStack(spacing: 10) {
+                MonologueIcon(icon: .headphones, size: 16, color: accentColor, lineWidth: 1.6)
+
+                Text(viewModel.selectedTopic == .all ? String(localized: "meditation_recommended_title") : viewModel.selectedTopic.title)
+                    .font(labelFont(size: 17, weight: .black))
+                    .foregroundStyle(primaryTextColor)
+
+                Spacer()
+
+                Text("\(viewModel.visibleContentCount)")
+                    .font(labelFont(size: 13, weight: .black))
+                    .foregroundStyle(accentColor)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(countBackground)
+            }
         }
+    }
+
+    /// aside：发丝分隔的编辑部行 — 描边封面 + 标题 + 点号分隔元信息 + 描边播放钮
+    private func asideContentRow(_ item: MeditationContentItem) -> some View {
+        HStack(spacing: 14) {
+            CachedAsyncImage(url: item.coverURL) {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.monologueGlassTint)
+                    .overlay(MonologueIcon(icon: .moon, size: 20, color: .monologueTextSecondary.opacity(0.42)))
+            }
+            .aspectRatio(contentMode: .fill)
+            .frame(width: 58, height: 58)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(Color.monologueTextPrimary.opacity(0.1), lineWidth: 0.8)
+            )
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(item.title)
+                    .font(.rounded(size: 15, weight: .semibold))
+                    .foregroundColor(.monologueTextPrimary)
+                    .lineLimit(1)
+
+                if !item.subtitle.isEmpty {
+                    Text(item.subtitle)
+                        .font(.rounded(size: 12))
+                        .foregroundColor(.monologueTextSecondary.opacity(0.85))
+                        .lineLimit(1)
+                }
+
+                if let meta = asideMetaText(item) {
+                    Text(meta)
+                        .font(.rounded(size: 11, weight: .medium))
+                        .foregroundColor(.monologueTextSecondary.opacity(0.6))
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer(minLength: 8)
+
+            MonologueIcon(icon: .play, size: 12, color: .monologueTextPrimary.opacity(0.8), lineWidth: 1.7)
+                .frame(width: 32, height: 32)
+                .overlay(
+                    Circle().stroke(Color.monologueSeparator.opacity(0.95), lineWidth: 0.8)
+                )
+        }
+        .padding(.vertical, 12)
+        .contentShape(Rectangle())
+    }
+
+    private func asideMetaText(_ item: MeditationContentItem) -> String? {
+        var parts: [String] = []
+        if let detail = item.detail, !detail.isEmpty {
+            parts.append(detail)
+        }
+        if let category = item.category, !category.isEmpty {
+            parts.append(category)
+        }
+        guard !parts.isEmpty else { return nil }
+        return parts.joined(separator: " · ")
     }
 
     private func topicChip(_ topic: MeditationTopic) -> some View {
@@ -266,13 +422,23 @@ struct MeditationModeView: View {
             Button {
                 Task { await viewModel.refresh() }
             } label: {
-                Text(String(localized: "reload"))
-                    .font(labelFont(size: 13, weight: .black))
-                    .foregroundStyle(selectedChipTextColor)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 9)
-                    .background(accentColor, in: Capsule())
+                if isAside {
+                    Text(String(localized: "reload"))
+                        .font(.rounded(size: 13, weight: .bold))
+                        .foregroundColor(.monologueIconForeground)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                        .background(Color.monologueIconBackground, in: Capsule())
+                } else {
+                    Text(String(localized: "reload"))
+                        .font(labelFont(size: 13, weight: .black))
+                        .foregroundStyle(selectedChipTextColor)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 9)
+                        .background(accentColor, in: Capsule())
+                }
             }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 76)
@@ -341,7 +507,7 @@ struct MeditationModeView: View {
 
     private var cardCornerRadius: CGFloat {
         if PetWhiteStyle.isActive { return 22 }
-        if MangaStyle.isActive { return 18 }
+        if MangaStyle.isActive { return MangaStyle.cardRadius + 2 }
         if MujiStyle.isActive { return 16 }
         if NeumorphicStyle.isActive { return 22 }
         if CapsuleStyle.isActive { return 24 }

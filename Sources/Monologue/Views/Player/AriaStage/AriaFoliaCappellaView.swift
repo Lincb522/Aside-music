@@ -42,15 +42,18 @@ struct AriaCappellaLyricStage: View {
                         .frame(height: stageSize.height * 0.32)
 
                     ForEach(Array(lines.enumerated()), id: \.element.id) { index, line in
+                        let isActive = index == activeIndex
                         CappellaBubbleRow(
                             line: line,
                             index: index,
                             distance: activeIndex < 0 ? 99 : abs(index - activeIndex),
-                            isActive: index == activeIndex,
+                            isActive: isActive,
                             palette: palette.lineVariant(line.id),
                             fontChoice: fontChoice,
                             fontScale: fontScale,
-                            time: time,
+                            // 只有活跃行与间奏行消费时间；其余行冻结，
+                            // 配合 Equatable 避免每个 tick 重排整屏气泡
+                            time: isActive || line.isInterlude ? time : 0,
                             coverURL: player.currentSong?.coverUrl?.sized(100),
                             profileURL: neteaseAvatarURL,
                             stageWidth: max(
@@ -59,6 +62,7 @@ struct AriaCappellaLyricStage: View {
                                     - 2 * max(34, stageSize.width * 0.085)
                             )
                         )
+                        .equatable()
                         .id(line.id)
                     }
 
@@ -113,7 +117,7 @@ struct AriaCappellaLyricStage: View {
     }
 }
 
-private struct CappellaBubbleRow: View {
+private struct CappellaBubbleRow: View, @MainActor Equatable {
     let line: AriaLine
     let index: Int
     let distance: Int
@@ -125,6 +129,21 @@ private struct CappellaBubbleRow: View {
     let coverURL: URL?
     let profileURL: URL?
     let stageWidth: CGFloat
+
+    static func == (lhs: CappellaBubbleRow, rhs: CappellaBubbleRow) -> Bool {
+        lhs.line.id == rhs.line.id
+            && lhs.line.fullText == rhs.line.fullText
+            && lhs.index == rhs.index
+            && lhs.distance == rhs.distance
+            && lhs.isActive == rhs.isActive
+            && lhs.palette == rhs.palette
+            && lhs.fontChoice == rhs.fontChoice
+            && lhs.fontScale == rhs.fontScale
+            && lhs.time == rhs.time
+            && lhs.coverURL == rhs.coverURL
+            && lhs.profileURL == rhs.profileURL
+            && lhs.stageWidth == rhs.stageWidth
+    }
 
     private var isLeft: Bool {
         index.isMultiple(of: 2)

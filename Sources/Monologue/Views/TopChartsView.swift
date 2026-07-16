@@ -67,13 +67,13 @@ struct TopChartsView: View {
                                 subtitle: ""
                             ) {
                                 ZStack {
-                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    RoundedRectangle(cornerRadius: MangaStyle.cardRadius, style: .continuous)
                                         .fill(MangaStyle.bubblePink)
                                     MonologueIcon(icon: .chart, size: 23, color: MangaStyle.ink, lineWidth: 2)
                                 }
                                 .frame(width: 48, height: 48)
-                                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
-                                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(MangaStyle.strokeInk).offset(x: 2.5, y: 2.5))
+                                .overlay(RoundedRectangle(cornerRadius: MangaStyle.cardRadius, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
+                                .background(RoundedRectangle(cornerRadius: MangaStyle.cardRadius, style: .continuous).fill(MangaStyle.strokeInk).offset(x: MangaStyle.shadowOffset, y: MangaStyle.shadowOffset))
                             }
                         } else if MinimalWhiteStyle.isActive {
                             MinimalWhitePageHeader(eyebrow: "", title: String(localized: "top_charts"), icon: .chart)
@@ -149,8 +149,8 @@ struct TopChartsView: View {
                     .clipShape(RoundedRectangle(cornerRadius: chartCoverRadius, style: .continuous))
                     .overlay {
                         if MangaStyle.isActive {
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth)
+                            RoundedRectangle(cornerRadius: MangaStyle.cardRadius, style: .continuous)
+                                .stroke(MangaStyle.strokeInk.opacity(0.7), lineWidth: 1)
                         } else if MujiStyle.isActive {
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
                                 .stroke(MujiStyle.hairline.opacity(0.55), lineWidth: 0.6)
@@ -184,7 +184,8 @@ struct TopChartsView: View {
                         .padding(6)
                         .background {
                             if MangaStyle.isActive {
-                                Circle().fill(MangaStyle.labelYellow)
+                                Circle().fill(MangaStyle.bubbleWhite)
+                                Circle().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth)
                             } else if MujiStyle.isActive {
                                 Circle().fill(MujiStyle.surface.opacity(0.92))
                             } else if NeumorphicStyle.isActive {
@@ -216,12 +217,11 @@ struct TopChartsView: View {
                     .font(chartSubtitleFont)
                     .foregroundColor(secondaryTextColor)
             }
-            .padding(ThemedPageStyle.isActive ? 8 : 0)
+            .padding(ThemedPageStyle.isActive && !MangaStyle.isActive ? 8 : 0)
             .background {
                 if MangaStyle.isActive {
-                    MangaCardBackground(cornerRadius: 10, elevated: true, tint: MangaStyle.bubbleWhite)
-                } else if MujiStyle.isActive {
-                    MujiPaperCardBackground(cornerRadius: 10)
+                    // 去卡片化：榜单格直接排在纸上，封面细墨框即可
+                    EmptyView()
                 } else if NeumorphicStyle.isActive {
                     NeumorphicSurfaceBackground(cornerRadius: 18, elevated: false)
                 } else if SequoiaStyle.isActive {
@@ -252,7 +252,8 @@ struct TopChartsView: View {
     }
 
     private var chartCoverRadius: CGFloat {
-        if MangaStyle.isActive || MujiStyle.isActive { return 8 }
+        if MangaStyle.isActive { return MangaStyle.cardRadius }
+        if MujiStyle.isActive { return 8 }
         if NeumorphicStyle.isActive || SequoiaStyle.isActive { return 16 }
         if BentoStyle.isActive { return 16 }
         if MinimalWhiteStyle.isActive { return 12 }

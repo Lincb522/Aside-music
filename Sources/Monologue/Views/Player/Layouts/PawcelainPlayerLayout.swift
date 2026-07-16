@@ -24,8 +24,6 @@ struct PawcelainPlayerLayout: View {
     @State private var showArtistDetail = false
     @State private var showDownloadSheet = false
 
-    @AppStorage("showTranslation") private var showTranslation: Bool = true
-    @AppStorage("enableKaraoke") private var enableKaraoke: Bool = false
 
     var body: some View {
         let _ = settings.globalThemeRevision
@@ -94,7 +92,7 @@ struct PawcelainPlayerLayout: View {
         .monologueSheet(isPresented: $showPlaylist, preset: .standard) {
             PlaylistPopupView()
         }
-        .monologueSheet(isPresented: $showQualitySheet, preset: .compact) {
+        .monologueSheet(isPresented: $showQualitySheet, preset: .standard) {
             if let song = player.currentSong {
                 SoundQualitySheet(
                     currentQuality: player.soundQuality,
@@ -119,7 +117,7 @@ struct PawcelainPlayerLayout: View {
                 )
             }
         }
-        .monologueSheet(isPresented: $showEQSettings, preset: .large) {
+        .fullScreenCover(isPresented: $showEQSettings) {
             NavigationStack { EQSettingsView() }
         }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker) {
@@ -279,7 +277,7 @@ struct PawcelainPlayerLayout: View {
     // MARK: - Lyrics stage
 
     private var lyricsStage: some View {
-        ZStack(alignment: .topTrailing) {
+        ZStack {
             Group {
                 if let song = player.currentSong {
                     LyricsView(song: song, onBackgroundTap: {
@@ -297,37 +295,6 @@ struct PawcelainPlayerLayout: View {
             }
             .padding(.top, 6)
 
-            HStack(spacing: 8) {
-                Button {
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
-                        enableKaraoke.toggle()
-                    }
-                } label: {
-                    lyricsOptionLabel(
-                        icon: .karaoke,
-                        text: String(localized: "逐字"),
-                        isActive: enableKaraoke,
-                        tint: PetWhiteStyle.sky
-                    )
-                }
-                .buttonStyle(.plain)
-
-                Button {
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
-                        showTranslation.toggle()
-                    }
-                } label: {
-                    lyricsOptionLabel(
-                        icon: .translate,
-                        text: String(localized: "翻译"),
-                        isActive: showTranslation,
-                        tint: PetWhiteStyle.mint
-                    )
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.trailing, 10)
-            .padding(.top, 10)
         }
         .frame(maxWidth: .infinity)
         .frame(maxHeight: .infinity)
@@ -530,61 +497,6 @@ struct PawcelainPlayerLayout: View {
         guard player.currentSong != nil else { return }
         withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) {
             showLyrics.toggle()
-        }
-    }
-
-    private func lyricsOptionLabel(
-        icon: MonologueIcon.IconType,
-        text: String,
-        isActive: Bool,
-        tint: Color
-    ) -> some View {
-        HStack(spacing: 5) {
-            lyricsToggleIcon(icon: icon, isActive: isActive)
-            Text(text)
-                .font(PetWhiteStyle.labelFont(10, weight: .semibold))
-                .lineLimit(1)
-        }
-        .foregroundStyle(PetWhiteStyle.ink)
-        .padding(.horizontal, 9)
-        .padding(.vertical, 6)
-        .background(
-            PetWhiteClayPuck(
-                shape: Capsule(style: .continuous),
-                tint: isActive ? tint : PetWhiteStyle.surfaceRaised.opacity(0.92),
-                pressedLook: isActive
-            )
-        )
-    }
-
-    @ViewBuilder
-    private func lyricsToggleIcon(icon: MonologueIcon.IconType, isActive: Bool) -> some View {
-        if isActive, let assetName = selectedLyricsToggleAssetName(for: icon) {
-            PetWhiteSelectedLyricToggleIcon(assetName: assetName, size: selectedLyricsToggleIconSize(for: icon))
-        } else {
-            PetWhitePackIcon(icon: icon, size: 13, visualScale: 1.04, lineWidth: 1.8)
-        }
-    }
-
-    private func selectedLyricsToggleIconSize(for icon: MonologueIcon.IconType) -> CGFloat {
-        switch icon {
-        case .karaoke:
-            return 21
-        case .translate:
-            return 20
-        default:
-            return 13
-        }
-    }
-
-    private func selectedLyricsToggleAssetName(for icon: MonologueIcon.IconType) -> String? {
-        switch icon {
-        case .karaoke:
-            return "karaokeSelected"
-        case .translate:
-            return "translateSelected"
-        default:
-            return nil
         }
     }
 
