@@ -259,6 +259,7 @@ extension PlayerManager {
         // 同时写入播放日志（听歌统计数据源），并让统计记录器跟踪真实播放时长
         let record = HistoryRepository().addPlayHistory(song: song)
         ListeningStatsRecorder.shared.beginSession(record: record, song: song)
+        LocalPlaylistCloudSyncManager.shared.scheduleSyncForLocalMutation()
     }
     
     func clearRecentPlaybackStack() {
@@ -275,6 +276,7 @@ extension PlayerManager {
             forKey: "playHistory.recentClearedAt"
         )
         saveStateImmediately()
+        LocalPlaylistCloudSyncManager.shared.scheduleSyncForLocalMutation()
     }
     
     func clearPodcastHistory() {
@@ -322,16 +324,21 @@ extension PlayerManager {
         APIService.shared.fetchRecentSongs()
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] songs in
-                guard let self = self else { return }
-                // 将服务端的歌曲合并到历史中（本地已有的不重复添加）
-                for song in songs {
-                    if !self.history.contains(where: { $0.id == song.id }) {
-                        self.history.append(song)
+                guard self != nil else { return }
+                // Combine 的 receive(on:) 只保证队列，不等同于 Swift
+                // Concurrency 的 MainActor；显式切回主 actor 再修改 @Published。
+                Task { @MainActor [weak self] in
+                    guard let self = self else { return }
+                    // 将服务端的歌曲合并到历史中（本地已有的不重复添加）
+                    for song in songs {
+                        if !self.history.contains(where: { $0.id == song.id }) {
+                            self.history.append(song)
+                        }
                     }
-                }
-                // 截断
-                if self.history.count > AppConfig.Player.maxHistoryCount {
-                    self.history = Array(self.history.prefix(AppConfig.Player.maxHistoryCount))
+                    // 截断
+                    if self.history.count > AppConfig.Player.maxHistoryCount {
+                        self.history = Array(self.history.prefix(AppConfig.Player.maxHistoryCount))
+                    }
                 }
             })
             .store(in: &cancellables)
@@ -353,7 +360,13 @@ extension PlayerManager {
         }
         restoredPlaybackAsset = nil
         
-        loadAndPlay(song: song, autoPlay: shouldAutoPlay, startTime: resumeTime)
+        loadAndPlay(
+            song: song,
+            autoPlay: shouldAutoPlay,
+            startTime: resumeTime,
+            fadeInDuration: shouldAutoPlay ? 0.95 : nil,
+            fadeInReason: "cold-start restore"
+        )
     }
     
     /// 校验上次会话的播放输入是否仍可直接使用：

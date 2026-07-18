@@ -36,14 +36,10 @@ extension PlayerManager {
                 try? await Task.sleep(nanoseconds: UInt64(duration / Double(steps) * 1_000_000_000))
                 guard !Task.isCancelled, let self, self.playbackFadeGeneration == generation else { return }
                 let progress = Float(step) / Float(steps)
-                // 二次曲线：让能量变化集中在安静端，听感接近等响度渐变
-                let value: Float
-                if target < start {
-                    let inverse = 1 - progress
-                    value = target + (start - target) * inverse * inverse
-                } else {
-                    value = start + (target - start) * progress * progress
-                }
+                // Smoothstep 两端斜率都为 0，既不会起步突跳，也不会把主要
+                // 音量变化堆到最后几十毫秒，冷/热恢复听起来更连贯。
+                let eased = progress * progress * (3 - 2 * progress)
+                let value = start + (target - start) * eased
                 self.streamPlayer.outputVolume = value
             }
             guard let self, self.playbackFadeGeneration == generation else { return }
@@ -59,6 +55,17 @@ extension PlayerManager {
         playbackFadeGeneration &+= 1
         playbackFadeTask?.cancel()
         playbackFadeTask = nil
+        if restoreVolume {
+            streamPlayer.outputVolume = 1.0
+        }
+    }
+
+    /// 丢弃尚未被 `.playing` 消费的启动淡入。AudioRenderer 会跨引擎重建
+    /// 保留目标音量，因此停止或失败时必须显式恢复，不能把 0 留给下一次播放。
+    func clearPlaybackStartFade(restoreVolume: Bool) {
+        playbackStartFadeSongID = nil
+        playbackStartFadeDuration = 0.75
+        playbackStartFadeReason = ""
         if restoreVolume {
             streamPlayer.outputVolume = 1.0
         }
@@ -99,7 +106,12 @@ extension PlayerManager {
             currentTime = 0
             pendingRestoreTime = nil
             needsPlaybackRestoration = false
-            loadAndPlay(song: song, startTime: 0)
+            loadAndPlay(
+                song: song,
+                startTime: 0,
+                fadeInDuration: 0.7,
+                fadeInReason: "warm restart from track end"
+            )
             return true
         }
 
@@ -130,6 +142,7 @@ extension PlayerManager {
             // 统一处理：重新激活 session 并强制走一次 pause→resume，再淡入回满音量。
             activateAudioSessionForPlayback(reason: "playPlayback recover active stream")
             streamPlayer.pause()
+            streamPlayer.outputVolume = 0.0
             guard streamPlayer.resume() else {
                 return recoverUnavailableAudioOutput(reason: "active stream resume failed")
             }
@@ -138,7 +151,7 @@ extension PlayerManager {
             lastPausedAt = nil
             refreshPlaybackSurfaceState()
             saveState()
-            beginPlaybackFade(to: 1.0, duration: 0.2)
+            beginPlaybackFade(to: 1.0, duration: 0.7)
             return currentSong != nil
         case .connecting:
             isLoading = true
@@ -150,7 +163,12 @@ extension PlayerManager {
             if let song = currentSong, isResumeLikelyStale {
                 AppLogger.info("暂停超过 \(Int(Self.networkResumeRefreshThreshold / 60)) 分钟，重新取址续播: \(song.name)")
                 lastPausedAt = nil
-                loadAndPlay(song: song, startTime: max(currentTime, 0))
+                loadAndPlay(
+                    song: song,
+                    startTime: max(currentTime, 0),
+                    fadeInDuration: 0.78,
+                    fadeInReason: "warm stale resume"
+                )
                 return true
             }
             // 懒激活：确保 session 处于激活态。
@@ -165,7 +183,7 @@ extension PlayerManager {
             lastPausedAt = nil
             refreshPlaybackSurfaceState()
             saveState()
-            beginPlaybackFade(to: 1.0, duration: 0.28)
+            beginPlaybackFade(to: 1.0, duration: 0.7)
             return true
         case .idle, .stopped, .error:
             guard let song = currentSong else { return false }
@@ -176,7 +194,12 @@ extension PlayerManager {
             } else {
                 resumeTime = storedResumeTime
             }
-            loadAndPlay(song: song, startTime: resumeTime)
+            loadAndPlay(
+                song: song,
+                startTime: resumeTime,
+                fadeInDuration: 0.75,
+                fadeInReason: "warm playback start"
+            )
             return true
         }
     }
@@ -335,6 +358,7 @@ extension PlayerManager {
         // 结算听歌统计：停止播放后不再跟踪该行
         ListeningStatsRecorder.shared.finalizeSession()
         cancelPlaybackFade(restoreVolume: false)
+        clearPlaybackStartFade(restoreVolume: true)
         endTransitionKeepAlive()
         nextTrackCancellable?.cancel()
         qmcPrefetchTask?.cancel()
@@ -398,6 +422,7 @@ extension PlayerManager {
     func dismissMiniPlayerPreservingQueue() {
         isUserStopping = true
         cancelPlaybackFade(restoreVolume: false)
+        clearPlaybackStartFade(restoreVolume: true)
         nextTrackCancellable?.cancel()
         qmcPrefetchTask?.cancel()
         activeMediaLoadTask?.cancel()

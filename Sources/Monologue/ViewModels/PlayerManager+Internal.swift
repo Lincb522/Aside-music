@@ -546,6 +546,7 @@ extension PlayerManager {
         // 队列播完：结算听歌统计
         ListeningStatsRecorder.shared.finalizeSession()
         cancelPlaybackFade(restoreVolume: false)
+        clearPlaybackStartFade(restoreVolume: true)
         hasPendingTrackTransition = false
         pendingNextSong = nil
         pendingTransitionStartedAt = nil
@@ -1166,12 +1167,27 @@ extension PlayerManager {
         return currentSong != nil
     }
 
-    func loadAndPlay(song: Song, autoPlay: Bool = true, startTime: Double = 0) {
+    func loadAndPlay(
+        song: Song,
+        autoPlay: Bool = true,
+        startTime: Double = 0,
+        fadeInDuration: TimeInterval? = nil,
+        fadeInReason: String = ""
+    ) {
         if reconcileAlreadyActiveGaplessTarget(song, reason: "load-and-play") {
             return
         }
 
         let isNewSong = !matchesPlaybackTarget(currentSong, expected: song)
+        if autoPlay, let fadeInDuration {
+            playbackStartFadeSongID = song.id
+            playbackStartFadeDuration = max(0.2, fadeInDuration)
+            playbackStartFadeReason = fadeInReason
+        } else {
+            // 每次 loadAndPlay 都明确决定是否需要淡入，不能让同一首歌曲
+            // 上一次未消费的请求泄漏到音质切换或普通切歌。
+            clearPlaybackStartFade(restoreVolume: true)
+        }
         // 一次性快速通道：进函数即消费，绝不泄漏到下一次加载
         let preresolvedInput = preresolvedRestorationInput
         preresolvedRestorationInput = nil
@@ -1198,7 +1214,9 @@ extension PlayerManager {
         delegateAdapter?.currentSessionId = playbackSessionId
         isHandlingPlaybackFinish = false
         // 让上一会话遗留的淡出包络失效（其收尾会挂起引擎，不能命中新会话）
-        cancelPlaybackFade(restoreVolume: false)
+        // 先收敛旧包络的中间音量。需要启动淡入的管线会在真正装配前
+        // 再明确写入 0；其余加载始终从正常混音台音量开始。
+        cancelPlaybackFade(restoreVolume: true)
         lastPausedAt = nil
         // 取消正在进行的预缓存（切歌后下一首会变）
         qmcPrefetchTask?.cancel()
@@ -1450,6 +1468,13 @@ extension PlayerManager {
         AppLogger.network("开始播放 (FFmpeg): \(url.playerInputString)\(decryptionKey != nil ? " [encrypted]" : "")")
 
         AppLogger.info("startPlayback session=\(playbackSessionId), url=\(url.lastPathComponent)")
+
+        if autoPlay,
+           playbackStartFadeSongID == (pendingPlaybackPresentationSong ?? currentSong)?.id {
+            // 先静音装配，等内核真正进入 playing 后再启动包络；网络等待和 seek
+            // 都不会提前消耗淡入时长，也不会改动用户的系统音量。
+            streamPlayer.outputVolume = 0.0
+        }
 
         playbackStartedAt = Date()
 

@@ -42,6 +42,59 @@ final class HistoryRepository {
         store.save()
     }
 
+    func makeCloudPlaybackHistorySnapshot() -> CloudPlaybackHistorySnapshot? {
+        let records = store.fetchAll(PlayHistory.self)
+            .sorted { $0.playedAt > $1.playedAt }
+            .prefix(20_000)
+            .map { CloudPlayHistoryRecord(from: $0) }
+        let clearedAtValue = UserDefaults.standard.double(forKey: "playHistory.recentClearedAt")
+        let clearedAt = clearedAtValue > 0 ? Date(timeIntervalSince1970: clearedAtValue) : nil
+
+        guard !records.isEmpty || clearedAt != nil else { return nil }
+        return CloudPlaybackHistorySnapshot(
+            records: Array(records),
+            recentClearedAt: clearedAt
+        )
+    }
+
+    @discardableResult
+    func mergeCloudPlaybackHistory(_ snapshot: CloudPlaybackHistorySnapshot) -> Int {
+        let localRecords = store.fetchAll(PlayHistory.self)
+        var existingByID = Dictionary(uniqueKeysWithValues: localRecords.map { ($0.id, $0) })
+        var inserted = 0
+
+        for remote in snapshot.records {
+            if let local = existingByID[remote.id] {
+                local.playDuration = max(local.playDuration, remote.playDuration)
+                local.completed = local.completed || remote.completed
+                if local.coverUrl == nil { local.coverUrl = remote.coverUrl }
+                if local.sourceRaw == nil { local.sourceRaw = remote.sourceRaw }
+                if local.qqMid == nil { local.qqMid = remote.qqMid }
+                if local.qqAlbumMid == nil { local.qqAlbumMid = remote.qqAlbumMid }
+                if local.qishuiTrackId == nil { local.qishuiTrackId = remote.qishuiTrackId }
+            } else {
+                let record = remote.makeLocalRecord()
+                store.insert(record)
+                existingByID[remote.id] = record
+                inserted += 1
+            }
+        }
+
+        if let remoteClearedAt = snapshot.recentClearedAt {
+            let localValue = UserDefaults.standard.double(forKey: "playHistory.recentClearedAt")
+            if remoteClearedAt.timeIntervalSince1970 > localValue {
+                UserDefaults.standard.set(
+                    remoteClearedAt.timeIntervalSince1970,
+                    forKey: "playHistory.recentClearedAt"
+                )
+            }
+        }
+
+        trimPlayHistory(maxCount: 20_000)
+        store.save()
+        return inserted
+    }
+
     /// 获取某首歌的播放历史
     func getPlayHistory(songId: Int) -> [PlayHistory] {
         store.fetch(

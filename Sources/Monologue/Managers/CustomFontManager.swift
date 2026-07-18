@@ -2,6 +2,7 @@ import CoreText
 import SwiftUI
 import UniformTypeIdentifiers
 import UIKit
+import ZIPFoundation
 
 struct ImportedFontRecord: Codable, Hashable, Identifiable {
     let id: String
@@ -40,6 +41,9 @@ enum CustomFontStorage {
 
 enum CustomFontImportError: LocalizedError {
     case unsupportedFile
+    case invalidArchive
+    case archiveContainsNoFonts
+    case archiveTooLarge
     case unreadableFont
     case copyFailed
     case registrationFailed
@@ -47,7 +51,13 @@ enum CustomFontImportError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .unsupportedFile:
-            return String(localized: "仅支持 TTF、OTF 和 TTC 字体文件")
+            return String(localized: "仅支持 TTF、OTF、TTC 字体文件或 ZIP 压缩包")
+        case .invalidArchive:
+            return String(localized: "无法读取该 ZIP 压缩包")
+        case .archiveContainsNoFonts:
+            return String(localized: "ZIP 压缩包中没有可导入的字体文件")
+        case .archiveTooLarge:
+            return String(localized: "ZIP 压缩包中的字体过多或体积过大")
         case .unreadableFont:
             return String(localized: "无法读取该字体文件")
         case .copyFailed:
@@ -66,7 +76,7 @@ final class CustomFontManager: ObservableObject {
     @Published private(set) var fonts: [ImportedFontRecord]
 
     static var supportedContentTypes: [UTType] {
-        var types: [UTType] = [.font]
+        var types: [UTType] = [.font, .zip]
         for type in ["ttf", "otf", "ttc"].compactMap({ UTType(filenameExtension: $0) })
         where !types.contains(type) {
             types.append(type)
@@ -75,6 +85,9 @@ final class CustomFontManager: ObservableObject {
     }
 
     private let fileManager = FileManager.default
+    private let supportedFontExtensions: Set<String> = ["ttf", "otf", "ttc"]
+    private let maximumArchiveFontCount = 128
+    private let maximumArchiveUncompressedBytes: UInt64 = 256 * 1_024 * 1_024
 
     private var storageDirectory: URL {
         let base = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first
@@ -175,11 +188,34 @@ final class CustomFontManager: ObservableObject {
 
     @discardableResult
     func importFonts(from sourceURLs: [URL]) throws -> [ImportedFontRecord] {
+        var temporaryDirectories: [URL] = []
+        defer {
+            temporaryDirectories.forEach { try? fileManager.removeItem(at: $0) }
+        }
+
+        var fontURLs: [URL] = []
+        for sourceURL in sourceURLs {
+            let ext = sourceURL.pathExtension.lowercased()
+            if ext == "zip" {
+                let extracted = try extractFontFiles(from: sourceURL)
+                temporaryDirectories.append(extracted.directory)
+                fontURLs.append(contentsOf: extracted.fontURLs)
+            } else if supportedFontExtensions.contains(ext) {
+                fontURLs.append(sourceURL)
+            } else {
+                throw CustomFontImportError.unsupportedFile
+            }
+        }
+
+        return try importFontFiles(from: fontURLs)
+    }
+
+    private func importFontFiles(from sourceURLs: [URL]) throws -> [ImportedFontRecord] {
         var imported: [ImportedFontRecord] = []
 
         for sourceURL in sourceURLs {
             let ext = sourceURL.pathExtension.lowercased()
-            guard ["ttf", "otf", "ttc"].contains(ext) else {
+            guard supportedFontExtensions.contains(ext) else {
                 throw CustomFontImportError.unsupportedFile
             }
 
@@ -263,6 +299,65 @@ final class CustomFontManager: ObservableObject {
         }
         persist()
         return imported
+    }
+
+    private func extractFontFiles(from archiveURL: URL) throws -> (
+        directory: URL,
+        fontURLs: [URL]
+    ) {
+        let scoped = archiveURL.startAccessingSecurityScopedResource()
+        defer {
+            if scoped {
+                archiveURL.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        let extractionDirectory = fileManager.temporaryDirectory
+            .appendingPathComponent("MonologueFontImport-(UUID().uuidString)", isDirectory: true)
+
+        do {
+            try fileManager.createDirectory(
+                at: extractionDirectory,
+                withIntermediateDirectories: true
+            )
+
+            let archive = try Archive(url: archiveURL, accessMode: .read)
+            var extractedURLs: [URL] = []
+            var totalUncompressedBytes: UInt64 = 0
+
+            for entry in archive where entry.type == .file {
+                let ext = URL(fileURLWithPath: entry.path).pathExtension.lowercased()
+                guard supportedFontExtensions.contains(ext) else { continue }
+
+                guard extractedURLs.count < maximumArchiveFontCount,
+                      entry.uncompressedSize <= maximumArchiveUncompressedBytes - totalUncompressedBytes
+                else {
+                    throw CustomFontImportError.archiveTooLarge
+                }
+
+                let destinationURL = extractionDirectory
+                    .appendingPathComponent(UUID().uuidString)
+                    .appendingPathExtension(ext)
+                let checksum = try archive.extract(entry, to: destinationURL)
+                guard checksum == entry.checksum else {
+                    throw CustomFontImportError.invalidArchive
+                }
+
+                totalUncompressedBytes += entry.uncompressedSize
+                extractedURLs.append(destinationURL)
+            }
+
+            guard !extractedURLs.isEmpty else {
+                throw CustomFontImportError.archiveContainsNoFonts
+            }
+            return (extractionDirectory, extractedURLs)
+        } catch let error as CustomFontImportError {
+            try? fileManager.removeItem(at: extractionDirectory)
+            throw error
+        } catch {
+            try? fileManager.removeItem(at: extractionDirectory)
+            throw CustomFontImportError.invalidArchive
+        }
     }
 
     func delete(_ record: ImportedFontRecord) {

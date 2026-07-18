@@ -20,8 +20,7 @@ struct DebugLogView: View {
         let _ = settings.globalThemeRevision
 
         ZStack {
-            ThemedPageBackground()
-                .ignoresSafeArea()
+            ThemedSettingsBackground()
 
             ScrollViewReader { proxy in
                 ScrollView {
@@ -51,6 +50,7 @@ struct DebugLogView: View {
                 }
                 .scrollDismissesKeyboard(.interactively)
                 .scrollIndicators(.hidden)
+                .coordinateSpace(name: SettingsPageLayout.scrollCoordinateSpace)
                 .themeRenderScrollLayer()
                 .onChange(of: model.latestVisibleEntryID) { _, identifier in
                     guard model.followsLatest, let identifier else { return }
@@ -60,9 +60,7 @@ struct DebugLogView: View {
                 }
             }
         }
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.hidden, for: .navigationBar)
+        .asideSettingsDetailChrome(String(localized: "debug_title"))
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -958,27 +956,33 @@ private struct DebugLogDetailView: View {
         let _ = settings.globalThemeRevision
 
         ZStack {
-            ThemedPageBackground()
-                .ignoresSafeArea()
+            ThemedSettingsBackground()
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
-                    identityHeader
-                    copyActions
-                    metadataSection
-                    messageSection
-                    analysisSection
-                    FloatingBarBottomSpacer()
+                    SettingsScrollablePageHeader(
+                        title: String(localized: "debug_detail_title"),
+                        eyebrow: "LOG DETAIL",
+                        icon: .logDebug
+                    )
+
+                    VStack(alignment: .leading, spacing: 22) {
+                        identityHeader
+                        copyActions
+                        metadataSection
+                        messageSection
+                        analysisSection
+                        FloatingBarBottomSpacer()
+                    }
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                    .iPadContentWidth(760)
                 }
-                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-                .padding(.top, 14)
-                .iPadContentWidth(760)
             }
             .scrollIndicators(.hidden)
+            .coordinateSpace(name: SettingsPageLayout.scrollCoordinateSpace)
             .themeRenderScrollLayer()
         }
-        .themedInlineNavigationTitle(String(localized: "debug_detail_title"))
-        .toolbarBackground(.hidden, for: .navigationBar)
+        .asideSettingsDetailChrome(String(localized: "debug_detail_title"))
     }
 
     private var identityHeader: some View {

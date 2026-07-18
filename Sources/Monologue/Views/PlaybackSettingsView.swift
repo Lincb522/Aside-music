@@ -22,8 +22,14 @@ struct PlaybackSettingsView: View {
             ThemedSettingsBackground()
 
             ScrollView {
-                VStack(spacing: 20) {
-                    VStack(spacing: 20) {
+                VStack(spacing: SettingsPageLayout.sectionSpacing) {
+                    SettingsScrollablePageHeader(
+                        title: String(localized: "settings_navigation_playback_title"),
+                        eyebrow: "PLAYBACK",
+                        icon: .playCircle
+                    )
+
+                    VStack(spacing: SettingsPageLayout.sectionSpacing) {
                         qualitySection
                         queueSection
                         effectsSection
@@ -31,14 +37,15 @@ struct PlaybackSettingsView: View {
                         FloatingBarBottomSpacer()
                     }
                     .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
-                    .iPadContentWidth(700)
+                    .padding(.bottom, 44)
+                    .iPadContentWidth(SettingsPageLayout.contentWidth)
                 }
             }
             .scrollIndicators(.hidden)
+            .coordinateSpace(name: SettingsPageLayout.scrollCoordinateSpace)
             .themeRenderScrollLayer()
         }
-        .themedInlineNavigationTitle(String(localized: "settings_navigation_playback_title"))
-        .toolbarBackground(.hidden, for: .navigationBar)
+        .asideSettingsDetailChrome(String(localized: "settings_navigation_playback_title"))
         .onChange(of: settings.gaplessPlaybackEnabled) { _, enabled in
             PlayerManager.shared.handleGaplessPlaybackSettingChanged(enabled: enabled)
         }

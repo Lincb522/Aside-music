@@ -56,7 +56,9 @@ struct AboutView: View {
     var body: some View {
         ZStack {
             Group {
-                if MinimalWhiteStyle.isActive {
+                if settings.globalThemeId == .default {
+                    ThemedSettingsBackground()
+                } else if MinimalWhiteStyle.isActive {
                     MinimalWhiteRootBackdrop()
                 } else {
                     ThemedPageBackground()
@@ -101,6 +103,8 @@ struct AboutView: View {
                                 detail: String(localized: "基于 FFmpeg + AVAudioEngine 深度定制")
                             )
                             rowDivider
+                            intelligentSystemFactRow
+                            rowDivider
                             factRow(
                                 String(localized: "架构"),
                                 String(localized: "全原生自研"),
@@ -129,11 +133,10 @@ struct AboutView: View {
                 }
             }
             .scrollIndicators(.hidden)
+            .coordinateSpace(name: SettingsPageLayout.scrollCoordinateSpace)
             .themeRenderScrollLayer()
         }
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.hidden, for: .navigationBar)
+        .asideSettingsDetailChrome(String(localized: "关于"))
         // 版权页排版依赖衬线/等宽对比，关掉全局 .rounded 覆盖
         .compatFontDesign(nil)
         .onAppear {
@@ -304,6 +307,38 @@ struct AboutView: View {
                         .lineSpacing(2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+            }
+            .multilineTextAlignment(.trailing)
+        }
+        .padding(.vertical, 14)
+    }
+
+    private var intelligentSystemFactRow: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Text(String(localized: "智能系统"))
+                .font(.system(size: 13.5, weight: .regular, design: .rounded))
+                .foregroundColor(inkSoft)
+                .fixedSize()
+
+            Spacer(minLength: 8)
+
+            VStack(alignment: .trailing, spacing: 4) {
+                Text("Mono Audio Agent")
+                    .font(.system(size: 13, weight: .medium, design: .monospaced))
+                    .foregroundColor(ink)
+                    .lineLimit(1)
+
+                Text(String(localized: "首创自研智能调音Agent"))
+                    .font(.system(size: 11, weight: .regular, design: .rounded))
+                    .foregroundColor(inkMuted)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+
+                Text(String(localized: "AI 服务由 DengDeng 提供"))
+                    .font(.system(size: 11, weight: .regular, design: .rounded))
+                    .foregroundColor(inkMuted)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
             }
             .multilineTextAlignment(.trailing)
         }

@@ -1,6 +1,86 @@
 import SwiftUI
 
 @MainActor
+private final class MoeWallsQueryTranslator {
+    static let shared = MoeWallsQueryTranslator()
+
+    private struct Output: Decodable {
+        let query: String
+    }
+
+    private let client = AIProviderClient()
+    private let providerStore = AIProviderConfigurationStore.shared
+    private var cache: [String: String] = [:]
+
+    func englishQuery(for query: String) async -> String? {
+        let normalized = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard containsChinese(normalized) else { return nil }
+
+        let cacheKey = normalized.lowercased()
+        if let cached = cache[cacheKey] { return cached }
+
+        if let local = MoeWallsService.localEnglishTranslation(for: normalized),
+           !containsChinese(local) {
+            cache[cacheKey] = local
+            return local
+        }
+
+        let configuration = providerStore.configuration
+        let apiKey = providerStore.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !configuration.wireProtocol.requiresAPIKey || !apiKey.isEmpty else { return nil }
+
+        do {
+            let response = try await client.generate(
+                systemPrompt: """
+                You translate Chinese wallpaper search queries into concise English search keywords.
+                Preserve character, game, anime, movie, place, and artist names using their official English names.
+                Return JSON only: {"query":"english keywords"}. Do not explain.
+                """,
+                userPrompt: normalized,
+                configuration: configuration,
+                apiKey: apiKey
+            )
+            try Task.checkCancellation()
+            guard let translated = decode(response), !containsChinese(translated) else { return nil }
+            cache[cacheKey] = translated
+            if cache.count > 128, let oldest = cache.keys.first { cache.removeValue(forKey: oldest) }
+            return translated
+        } catch is CancellationError {
+            return nil
+        } catch {
+            AppLogger.warning("[MoeWalls] 中文搜索转译失败：\(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    private func decode(_ rawValue: String) -> String? {
+        var value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        value = value.replacingOccurrences(of: "```json", with: "")
+            .replacingOccurrences(of: "```JSON", with: "")
+            .replacingOccurrences(of: "```", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if let start = value.firstIndex(of: "{"),
+           let end = value.lastIndex(of: "}"),
+           start <= end,
+           let data = String(value[start...end]).data(using: .utf8),
+           let output = try? JSONDecoder().decode(Output.self, from: data) {
+            value = output.query
+        }
+
+        value = value.trimmingCharacters(
+            in: CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: "\"'"))
+        )
+        guard !value.isEmpty, value.count <= 100 else { return nil }
+        return value
+    }
+
+    private func containsChinese(_ value: String) -> Bool {
+        value.range(of: #"\p{Han}"#, options: .regularExpression) != nil
+    }
+}
+
+@MainActor
 final class MoeWallsBrowserViewModel: ObservableObject {
     enum ContentMode: Equatable {
         case daily
@@ -15,14 +95,24 @@ final class MoeWallsBrowserViewModel: ObservableObject {
     @Published private(set) var isLoadingList = false
     @Published private(set) var isLoadingDetail = false
     @Published private(set) var downloadingWallpaperID: String?
+    @Published private(set) var downloadProgress = 0.0
     @Published private(set) var errorMessage: String?
     @Published private(set) var downloadErrorMessage: String?
     @Published private(set) var detailErrorMessage: String?
+    @Published private(set) var isEmptySearchResult = false
 
     private let service: MoeWallsService
     private let backgrounds: ImmersiveBackgroundManager
+    private let queryTranslator = MoeWallsQueryTranslator.shared
     private var listTask: Task<Void, Never>?
     private var detailTask: Task<Void, Never>?
+    private var listRequestID: UUID?
+
+    var isSearching: Bool {
+        guard isLoadingList else { return false }
+        if case .search = mode { return true }
+        return false
+    }
 
     init(
         service: MoeWallsService = .shared,
@@ -34,6 +124,10 @@ final class MoeWallsBrowserViewModel: ObservableObject {
 
     func loadIfNeeded() {
         guard wallpapers.isEmpty, !isLoadingList else { return }
+        if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            submitSearch()
+            return
+        }
         loadDaily()
     }
 
@@ -41,52 +135,73 @@ final class MoeWallsBrowserViewModel: ObservableObject {
         query = ""
         mode = .daily
         listTask?.cancel()
+        let requestID = UUID()
+        listRequestID = requestID
         listTask = Task { [weak self] in
             guard let self else { return }
             isLoadingList = true
             errorMessage = nil
+            isEmptySearchResult = false
+            defer {
+                if listRequestID == requestID { isLoadingList = false }
+            }
             do {
                 let results = try await service.dailyRecommendations(forceRefresh: forceRefresh)
                 try Task.checkCancellation()
+                guard listRequestID == requestID else { return }
                 applyList(results)
             } catch is CancellationError {
                 return
             } catch {
+                guard !Task.isCancelled, listRequestID == requestID else { return }
                 wallpapers = []
                 selectedWallpaper = nil
                 detail = nil
                 errorMessage = error.localizedDescription
             }
-            isLoadingList = false
         }
     }
 
     func submitSearch() {
         let term = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !term.isEmpty else {
-            loadDaily()
-            return
-        }
+        // 中文输入法结束组合文本前可能短暂提交空值；空搜索不应清除当前输入。
+        guard !term.isEmpty else { return }
 
         mode = .search(term)
         listTask?.cancel()
+        let requestID = UUID()
+        listRequestID = requestID
         listTask = Task { [weak self] in
             guard let self else { return }
             isLoadingList = true
             errorMessage = nil
+            isEmptySearchResult = false
+            defer {
+                if listRequestID == requestID { isLoadingList = false }
+            }
             do {
-                let results = try await service.search(query: term)
+                let translated = await queryTranslator.englishQuery(for: term)
                 try Task.checkCancellation()
+                let results = try await service.search(
+                    query: term,
+                    translatedQuery: translated
+                )
+                try Task.checkCancellation()
+                guard listRequestID == requestID else { return }
                 applyList(results)
             } catch is CancellationError {
                 return
             } catch {
+                guard !Task.isCancelled, listRequestID == requestID else { return }
                 wallpapers = []
                 selectedWallpaper = nil
                 detail = nil
+                if let serviceError = error as? MoeWallsServiceError,
+                   case .emptyResults = serviceError {
+                    isEmptySearchResult = true
+                }
                 errorMessage = error.localizedDescription
             }
-            isLoadingList = false
         }
     }
 
@@ -143,8 +258,12 @@ final class MoeWallsBrowserViewModel: ObservableObject {
 
         guard downloadingWallpaperID == nil else { return nil }
         downloadingWallpaperID = wallpaper.id
+        downloadProgress = 0
         downloadErrorMessage = nil
-        defer { downloadingWallpaperID = nil }
+        defer {
+            downloadingWallpaperID = nil
+            downloadProgress = 0
+        }
 
         do {
             let resolvedDetail: MoeWallsWallpaperDetail
@@ -156,7 +275,14 @@ final class MoeWallsBrowserViewModel: ObservableObject {
 
             let temporaryURL = try await service.download(
                 detail: resolvedDetail,
-                quality: quality
+                quality: quality,
+                progress: { [weak self] value in
+                    Task { @MainActor [weak self] in
+                        guard let self,
+                              self.downloadingWallpaperID == wallpaper.id else { return }
+                        self.downloadProgress = min(max(value, self.downloadProgress), 1)
+                    }
+                }
             )
             defer { try? FileManager.default.removeItem(at: temporaryURL) }
 
@@ -176,6 +302,7 @@ final class MoeWallsBrowserViewModel: ObservableObject {
     }
 
     private func applyList(_ results: [MoeWallsWallpaper]) {
+        isEmptySearchResult = results.isEmpty
         wallpapers = results
         guard let first = results.first else {
             selectedWallpaper = nil
@@ -217,7 +344,9 @@ struct MoeWallsBrowserView: View {
                         compactErrorState(downloadErrorMessage)
                     }
 
-                    if let errorMessage = model.errorMessage {
+                    if model.isEmptySearchResult {
+                        searchEmptyState
+                    } else if let errorMessage = model.errorMessage {
                         errorState(errorMessage)
                     } else {
                         wallpaperSection
@@ -295,35 +424,39 @@ struct MoeWallsBrowserView: View {
                 .autocorrectionDisabled()
                 .submitLabel(.search)
                 .focused($searchFocused)
-                .onSubmit {
-                    searchFocused = false
-                    model.submitSearch()
-                }
-
-            if !model.query.isEmpty {
-                Button {
-                    searchFocused = false
-                    model.loadDaily()
-                } label: {
-                    MonologueIcon(icon: .close, size: 12, color: .white.opacity(0.72))
-                        .frame(width: 30, height: 30)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(String(localized: "action_clear"))
-            }
+                .onSubmit { commitSearch() }
 
             Button {
                 searchFocused = false
-                model.submitSearch()
+                model.loadDaily()
             } label: {
-                MonologueIcon(icon: .search, size: 15, color: .white)
-                    .frame(width: 36, height: 36)
-                    .background(Circle().fill(palette.accent.opacity(0.88)))
+                MonologueIcon(icon: .close, size: 12, color: .white.opacity(0.72))
+                    .frame(width: 30, height: 30)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .opacity(model.query.isEmpty ? 0 : 1)
+            .allowsHitTesting(!model.query.isEmpty)
+            .accessibilityHidden(model.query.isEmpty)
+            .accessibilityLabel(String(localized: "action_clear"))
+
+            Button { commitSearch() } label: {
+                Group {
+                    if model.isSearching {
+                        ProgressView()
+                            .controlSize(.small)
+                            .tint(.white)
+                    } else {
+                        MonologueIcon(icon: .search, size: 15, color: .white)
+                    }
+                }
+                .frame(width: 36, height: 36)
+                .background(Circle().fill(palette.accent.opacity(0.88)))
             }
             .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
-            .disabled(model.isLoadingList)
-            .accessibilityLabel(String(localized: "action_search"))
+            .accessibilityLabel(
+                String(localized: model.isSearching ? "moewalls_searching" : "action_search")
+            )
         }
         .padding(.leading, 14)
         .padding(.trailing, 6)
@@ -339,6 +472,14 @@ struct MoeWallsBrowserView: View {
         .padding(.horizontal, 20)
         .padding(.bottom, 4)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: searchFocused)
+    }
+
+    private func commitSearch() {
+        searchFocused = false
+        // 下一轮主线程事件再读取绑定值，让中文输入法先完成候选词提交。
+        DispatchQueue.main.async {
+            model.submitSearch()
+        }
     }
 
     private func previewSection(_ wallpaper: MoeWallsWallpaper) -> some View {
@@ -423,6 +564,7 @@ struct MoeWallsBrowserView: View {
         )
         let inUse = existing.map(isInUse) ?? false
         let downloading = model.downloadingWallpaperID == wallpaper.id
+        let downloadProgress = min(max(model.downloadProgress, 0), 1)
 
         return HStack(spacing: 8) {
             Button {
@@ -435,7 +577,7 @@ struct MoeWallsBrowserView: View {
             } label: {
                 HStack(spacing: 8) {
                     if downloading {
-                        ProgressView().tint(.white).controlSize(.small)
+                        MonologueIcon(icon: .download, size: 14, color: .white)
                     } else {
                         MonologueIcon(
                             icon: inUse ? .checkmark : (existing == nil ? .download : .play),
@@ -443,19 +585,47 @@ struct MoeWallsBrowserView: View {
                             color: .white
                         )
                     }
-                    Text(primaryActionTitle(inUse: inUse, hasExistingVideo: existing != nil))
+                    Text(
+                        downloading
+                            ? "\(Int((downloadProgress * 100).rounded()))%"
+                            : primaryActionTitle(inUse: inUse, hasExistingVideo: existing != nil)
+                    )
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(.white)
+                        .monospacedDigit()
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 42)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(inUse ? Color.white.opacity(0.1) : palette.accent.opacity(0.88))
+                .background {
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(
+                                inUse
+                                    ? Color.white.opacity(0.1)
+                                    : palette.accent.opacity(downloading ? 0.2 : 0.88)
+                            )
+
+                        if downloading {
+                            Rectangle()
+                                .fill(palette.accent.opacity(0.92))
+                                .scaleEffect(x: downloadProgress, y: 1, anchor: .leading)
+                        }
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                .animation(
+                    reduceMotion ? nil : .easeOut(duration: 0.16),
+                    value: downloadProgress
                 )
             }
             .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
             .disabled(inUse || downloading || model.detail == nil)
+            .accessibilityLabel(
+                downloading
+                    ? String(localized: "moewalls_download_use")
+                    : primaryActionTitle(inUse: inUse, hasExistingVideo: existing != nil)
+            )
+            .accessibilityValue(downloading ? "\(Int((downloadProgress * 100).rounded()))%" : "")
 
             if existing == nil, model.detail?.fourKDownloadURL != nil {
                 Menu {
@@ -509,6 +679,7 @@ struct MoeWallsBrowserView: View {
     }
 
     private var sectionTitle: String {
+        if model.isSearching { return String(localized: "moewalls_searching") }
         switch model.mode {
         case .daily:
             return String(localized: "moewalls_daily")
@@ -594,6 +765,21 @@ struct MoeWallsBrowserView: View {
         .background(
             RoundedRectangle(cornerRadius: 13, style: .continuous)
                 .fill(Color.white.opacity(0.055))
+        )
+    }
+
+    private var searchEmptyState: some View {
+        VStack(spacing: 10) {
+            MonologueIcon(icon: .search, size: 22, color: .white.opacity(0.42))
+            Text(String(localized: "moewalls_empty"))
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(.white.opacity(0.68))
+        }
+        .frame(maxWidth: .infinity)
+        .frame(minHeight: 150)
+        .background(
+            RoundedRectangle(cornerRadius: 15, style: .continuous)
+                .fill(Color.white.opacity(0.045))
         )
     }
 

@@ -39,6 +39,9 @@ final class AudioRenderer {
 
     /// Serializes start/stop lifecycle to prevent concurrent engine disposal.
     private let lifecycleLock = NSLock()
+    /// Desired mixer volume survives AVAudioEngine disposal/recreation so a
+    /// startup fade can begin muted before the first hardware render callback.
+    private var outputVolumeStorage: Float = 1.0
     private let maintenanceQueue = DispatchQueue(label: "FFmpegSwiftSDK.AudioRenderer.maintenance", qos: .userInitiated)
 
     /// Output-stage processors stay behind the PCM queue so interactive changes
@@ -334,17 +337,20 @@ final class AudioRenderer {
     ///
     /// 直接作用于 `mainMixerNode.outputVolume`，在渲染混音阶段生效，
     /// 不触碰 FFmpeg 滤镜图（无需重建、实时安全），适合做暂停/恢复的
-    /// 短淡入淡出与定时关闭的长淡出。引擎重建后自动回到 1.0。
+    /// 短淡入淡出与定时关闭的长淡出。目标值会跨引擎重建保留，确保
+    /// 新音频设备的第一帧也能从指定包络起点开始。
     var outputVolume: Float {
         get {
             lifecycleLock.lock()
             defer { lifecycleLock.unlock() }
-            return engine?.mainMixerNode.outputVolume ?? 1.0
+            return outputVolumeStorage
         }
         set {
             lifecycleLock.lock()
             defer { lifecycleLock.unlock() }
-            engine?.mainMixerNode.outputVolume = max(0.0, min(newValue, 1.0))
+            let clamped = max(0.0, min(newValue, 1.0))
+            outputVolumeStorage = clamped
+            engine?.mainMixerNode.outputVolume = clamped
         }
     }
 
@@ -512,6 +518,7 @@ final class AudioRenderer {
         audioEngine.attach(node)
         audioEngine.connect(node, to: audioEngine.mainMixerNode, format: avFormat)
         audioEngine.connect(audioEngine.mainMixerNode, to: audioEngine.outputNode, format: nil)
+        audioEngine.mainMixerNode.outputVolume = outputVolumeStorage
 
         let tapBufferSize: AVAudioFrameCount = 2048
         audioEngine.mainMixerNode.installTap(onBus: 0, bufferSize: tapBufferSize, format: nil) { [weak self] pcmBuffer, _ in
@@ -690,6 +697,7 @@ final class AudioRenderer {
         audioEngine.attach(node)
         audioEngine.connect(node, to: audioEngine.mainMixerNode, format: avFormat)
         audioEngine.connect(audioEngine.mainMixerNode, to: audioEngine.outputNode, format: nil)
+        audioEngine.mainMixerNode.outputVolume = outputVolumeStorage
 
         // Install tap on mainMixerNode for spectrum analysis and audio data callbacks.
         // Runs on a separate (non-real-time) thread managed by AVAudioEngine.

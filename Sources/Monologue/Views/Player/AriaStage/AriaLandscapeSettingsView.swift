@@ -101,7 +101,7 @@ struct AriaLandscapeSettingsView: View {
         .compatFontDesign(nil)
         .environment(\.colorScheme, .dark)
         .fullScreenCover(isPresented: $showVideoSheet) {
-            ImmersiveBackgroundSheet(palette: palette)
+            ImmersiveBackgroundLandscapeView(palette: palette)
         }
     }
 

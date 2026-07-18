@@ -30,7 +30,10 @@ public final class AudioRepairEngine {
                isOverlapRemovalEnabled || isPopRemovalEnabled || isSoftLimiterEnabled ||
                isDitherEnabled || isFadeInProtectionEnabled ||
                isLoudnessStabilizerEnabled || isReverbTailGuardEnabled ||
-               isPhaseContinuityEnabled || isFilterTransitionEnabled
+               isPhaseContinuityEnabled || isFilterTransitionEnabled ||
+               abs(outputGainDB) > 0.001 ||
+               abs(perceptualMakeupDBStorage) > 0.001 ||
+               abs(perceptualMakeupCurrentLinear - 1) > 0.000_1
     }
 
     // MARK: - 可调参数
@@ -43,6 +46,67 @@ public final class AudioRepairEngine {
     public var loudnessJumpThreshold: Float = 12.0  // 12dB，只有非常剧烈的变化才触发
     public var filterTransitionMaxSamples: Int = 1024
     public var reverbTailHistoryLength: Int = 4096
+
+    /// Atomically configures the final output guard that runs after every EQ
+    /// and FFmpeg effect stage. The public ceiling is expressed in dBFS while
+    /// the realtime limiter keeps its internal linear threshold.
+    public func configureOutputSafety(
+        limiterEnabled: Bool,
+        ceilingDB: Float = -1,
+        declipEnabled: Bool = false,
+        clipThreshold: Float = 0.98,
+        transitionProtectionEnabled: Bool = true,
+        outputGainDB: Float = 0,
+        perceptualMakeupDB: Float = 0
+    ) {
+        let safeCeiling = min(-0.05, max(-12, ceilingDB))
+        lock.lock()
+        isSoftLimiterEnabled = limiterEnabled
+        limiterThreshold = powf(10, safeCeiling / 20)
+        isDeclipEnabled = declipEnabled
+        self.clipThreshold = min(0.999, max(0.5, clipThreshold))
+        isFilterTransitionEnabled = transitionProtectionEnabled
+        // This is a post-processing compensation, not a change to the EQ plan.
+        // Keep it bounded so a malformed or extremely attenuated proposal cannot
+        // turn the final limiter into a permanent heavy compressor.
+        outputGainDBStorage = min(9, max(-9, outputGainDB.isFinite ? outputGainDB : 0))
+        setPerceptualMakeupTargetLocked(perceptualMakeupDB)
+        lock.unlock()
+    }
+
+    /// Post-processing gain applied after FFmpeg/EQ and before the final limiter.
+    /// Mono uses this only to restore the level lost to AI safety preamp.
+    public var outputGainDB: Float {
+        get {
+            lock.lock()
+            let value = outputGainDBStorage
+            lock.unlock()
+            return value
+        }
+        set {
+            lock.lock()
+            outputGainDBStorage = min(9, max(-9, newValue.isFinite ? newValue : 0))
+            setPerceptualMakeupTargetLocked(perceptualMakeupDBStorage)
+            lock.unlock()
+        }
+    }
+
+    public var outputLimiterCeilingDB: Float {
+        lock.lock()
+        let threshold = limiterThreshold
+        lock.unlock()
+        return 20 * log10f(max(threshold, 0.000_001))
+    }
+
+    /// A small listening-level correction layered after the safety-preamp
+    /// restoration. Unlike `outputGainDB`, changes are ramped so an AI profile
+    /// cannot produce an audible step in level while playback is running.
+    public var perceptualMakeupDB: Float {
+        lock.lock()
+        let value = perceptualMakeupDBStorage
+        lock.unlock()
+        return value
+    }
 
     // MARK: - 内部状态
 
@@ -79,6 +143,14 @@ public final class AudioRepairEngine {
     private var transitionLength: Int = 0
     private var prevFrameRMS: Float = 0
     private var stableFrameCount: Int = 0
+    private var outputGainDBStorage: Float = 0
+    private var perceptualMakeupDBStorage: Float = 0
+    private var perceptualMakeupCurrentLinear: Float = 1
+    private var perceptualMakeupStartLinear: Float = 1
+    private var perceptualMakeupTargetLinear: Float = 1
+    private var perceptualMakeupRampProcessedFrames = 0
+    private var perceptualMakeupRampTotalFrames = 0
+    private var perceptualMakeupRampPending = false
 
     private var stats = RepairStats()
 
@@ -176,6 +248,14 @@ public final class AudioRepairEngine {
         transitionLength = 0
         prevFrameRMS = 0
         stableFrameCount = 0
+        outputGainDBStorage = 0
+        perceptualMakeupDBStorage = 0
+        perceptualMakeupCurrentLinear = 1
+        perceptualMakeupStartLinear = 1
+        perceptualMakeupTargetLinear = 1
+        perceptualMakeupRampProcessedFrames = 0
+        perceptualMakeupRampTotalFrames = 0
+        perceptualMakeupRampPending = false
         lock.unlock()
     }
 
@@ -231,6 +311,12 @@ public final class AudioRepairEngine {
         if isDenoiseEnabled {
             applyUltrasonicFilter(data, frameCount: frameCount, channelCount: channelCount, sampleRate: sampleRate)
         }
+        applyOutputGain(
+            data,
+            frameCount: frameCount,
+            channelCount: channelCount,
+            sampleRate: sampleRate
+        )
         if isSoftLimiterEnabled {
             applySoftLimiter(data, totalSamples: totalSamples)
         }
@@ -245,6 +331,71 @@ public final class AudioRepairEngine {
         stats.totalFramesProcessed += Int64(frameCount)
 
         lock.unlock()
+    }
+
+    private func applyOutputGain(
+        _ data: UnsafeMutablePointer<Float>,
+        frameCount: Int,
+        channelCount: Int,
+        sampleRate: Int
+    ) {
+        let safetyLinear = powf(10, outputGainDBStorage / 20)
+        if perceptualMakeupRampPending {
+            perceptualMakeupStartLinear = perceptualMakeupCurrentLinear
+            perceptualMakeupRampProcessedFrames = 0
+            perceptualMakeupRampTotalFrames = max(1, Int(Double(sampleRate) * 0.32))
+            perceptualMakeupRampPending = false
+        }
+
+        if perceptualMakeupRampProcessedFrames < perceptualMakeupRampTotalFrames {
+            for frame in 0..<frameCount {
+                let progressed = min(
+                    perceptualMakeupRampTotalFrames,
+                    perceptualMakeupRampProcessedFrames + frame
+                )
+                let progress = Float(progressed) / Float(perceptualMakeupRampTotalFrames)
+                let eased = progress * progress * (3 - 2 * progress)
+                let makeupLinear = perceptualMakeupStartLinear
+                    + (perceptualMakeupTargetLinear - perceptualMakeupStartLinear) * eased
+                let combinedGain = safetyLinear * makeupLinear
+                let baseIndex = frame * channelCount
+                for channel in 0..<channelCount {
+                    data[baseIndex + channel] *= combinedGain
+                }
+            }
+            perceptualMakeupRampProcessedFrames += frameCount
+            if perceptualMakeupRampProcessedFrames >= perceptualMakeupRampTotalFrames {
+                perceptualMakeupCurrentLinear = perceptualMakeupTargetLinear
+                perceptualMakeupRampProcessedFrames = perceptualMakeupRampTotalFrames
+            } else {
+                let progress = Float(perceptualMakeupRampProcessedFrames)
+                    / Float(perceptualMakeupRampTotalFrames)
+                let eased = progress * progress * (3 - 2 * progress)
+                perceptualMakeupCurrentLinear = perceptualMakeupStartLinear
+                    + (perceptualMakeupTargetLinear - perceptualMakeupStartLinear) * eased
+            }
+            return
+        }
+
+        perceptualMakeupCurrentLinear = perceptualMakeupTargetLinear
+        let combinedGain = safetyLinear * perceptualMakeupCurrentLinear
+        guard abs(combinedGain - 1) > 0.000_1 else { return }
+        let totalSamples = frameCount * channelCount
+        for index in 0..<totalSamples {
+            data[index] *= combinedGain
+        }
+    }
+
+    private func setPerceptualMakeupTargetLocked(_ value: Float) {
+        let remainingPositiveGain = max(0, 9 - max(0, outputGainDBStorage))
+        let safeValue = min(
+            1.25,
+            min(remainingPositiveGain, max(0, value.isFinite ? value : 0))
+        )
+        guard abs(safeValue - perceptualMakeupDBStorage) > 0.005 else { return }
+        perceptualMakeupDBStorage = safeValue
+        perceptualMakeupTargetLinear = powf(10, safeValue / 20)
+        perceptualMakeupRampPending = true
     }
 
     // MARK: - 状态管理
@@ -518,15 +669,19 @@ public final class AudioRepairEngine {
         _ data: UnsafeMutablePointer<Float>, totalSamples: Int
     ) {
         let threshold = limiterThreshold
-        let invThreshold = 1.0 / threshold
+        // Begin a narrow soft knee just below the requested ceiling. The old
+        // curve could still approach 0 dBFS, so its "ceiling" was not a real
+        // output ceiling after positive EQ or harmonic enhancement.
+        let kneeStart = threshold * 0.95
+        let kneeWidth = max(0.000_001, threshold - kneeStart)
         var activated = false
         for i in 0..<totalSamples {
             let sample = data[i]
             let absSample = abs(sample)
-            if absSample > threshold {
+            if absSample > kneeStart {
                 let sign: Float = sample >= 0 ? 1.0 : -1.0
-                let excess = (absSample - threshold) * invThreshold
-                let compressed = threshold + (1.0 - threshold) * tanhf(excess)
+                let excess = (absSample - kneeStart) / kneeWidth
+                let compressed = kneeStart + kneeWidth * tanhf(excess)
                 data[i] = sign * compressed
                 activated = true
             }

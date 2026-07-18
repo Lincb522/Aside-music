@@ -12,18 +12,17 @@ struct DeveloperToolsView: View {
         let _ = settings.globalThemeRevision
 
         ZStack {
-            ThemedPageBackground(useRenderLayer: true)
-                .ignoresSafeArea()
+            ThemedSettingsBackground()
 
             ScrollView {
-                VStack(spacing: 22) {
+                VStack(spacing: SettingsPageLayout.deepSectionSpacing) {
                     SettingsScrollablePageHeader(
                         title: String(localized: "dev_mode_title"),
                         eyebrow: "DEVELOPER",
                         icon: .unlock
                     )
 
-                    VStack(spacing: 22) {
+                    VStack(spacing: SettingsPageLayout.deepSectionSpacing) {
                         SettingsSection(title: String(localized: "developer_tools_section_testing")) {
                             SettingsRouteLinkRow(
                                 icon: .sparkle,
@@ -74,15 +73,14 @@ struct DeveloperToolsView: View {
                         FloatingBarBottomSpacer()
                     }
                     .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
-                    .iPadContentWidth(700)
+                    .iPadContentWidth(SettingsPageLayout.contentWidth)
                 }
             }
             .scrollIndicators(.hidden)
+            .coordinateSpace(name: SettingsPageLayout.scrollCoordinateSpace)
             .themeRenderScrollLayer()
         }
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.hidden, for: .navigationBar)
+        .asideSettingsDetailChrome(String(localized: "dev_mode_title"))
     }
 
     private func confirmDisableDeveloperMode() {
@@ -216,26 +214,32 @@ struct DeveloperPopupCatalogView: View {
         let _ = settings.globalThemeRevision
 
         ZStack {
-            ThemedPageBackground(useRenderLayer: true)
-                .ignoresSafeArea()
+            ThemedSettingsBackground()
 
             ScrollView {
-                LazyVStack(spacing: 22) {
-                    ForEach(PreviewGroup.allCases) { group in
-                        previewSection(group)
-                    }
+                LazyVStack(spacing: SettingsPageLayout.deepSectionSpacing) {
+                    SettingsScrollablePageHeader(
+                        title: String(localized: "dev_popup_catalog_title"),
+                        eyebrow: "PREVIEW",
+                        icon: .gridSquare
+                    )
 
-                    FloatingBarBottomSpacer()
+                    LazyVStack(spacing: SettingsPageLayout.deepSectionSpacing) {
+                        ForEach(PreviewGroup.allCases) { group in
+                            previewSection(group)
+                        }
+
+                        FloatingBarBottomSpacer()
+                    }
+                    .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
+                    .iPadContentWidth(SettingsPageLayout.contentWidth)
                 }
-                .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
-                .padding(.top, 14)
-                .iPadContentWidth(700)
             }
             .scrollIndicators(.hidden)
+            .coordinateSpace(name: SettingsPageLayout.scrollCoordinateSpace)
             .themeRenderScrollLayer()
         }
-        .themedInlineNavigationTitle(String(localized: "dev_popup_catalog_title"))
-        .toolbarBackground(.hidden, for: .navigationBar)
+        .asideSettingsDetailChrome(String(localized: "dev_popup_catalog_title"))
         .monologueSheet(
             item: $presentedSheet,
             preset: presentedSheet?.sheetPreset ?? .standard

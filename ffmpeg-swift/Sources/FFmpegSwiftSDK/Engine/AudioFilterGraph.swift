@@ -13,11 +13,16 @@ import CFFmpeg
 ///
 /// 内部维护一个 AVFilterGraph，按需重建滤镜链。
 /// 线程安全：所有参数修改和处理都通过 NSLock 保护。
-final class AudioFilterGraph {
+final class AudioFilterGraph: @unchecked Sendable {
 
     // MARK: - 属性
 
     private let lock = NSLock()
+    private let rebuildQueue = DispatchQueue(
+        label: "FFmpegSwiftSDK.AudioFilterGraph.rebuild",
+        qos: .userInitiated
+    )
+    private var rebuildScheduled = false
 
     // ==================== 基础音量控制 ====================
     
@@ -288,6 +293,68 @@ final class AudioFilterGraph {
                exciterEnabled ||
                softclipEnabled ||
                dialogueEnhanceEnabled
+    }
+
+    /// Applies the parameters used by Mono Audio Agent under one lock so the
+    /// render thread never observes a partially committed tuning plan.
+    func applyMonoTuning(
+        _ configuration: MonoEffectTuningConfiguration,
+        bassGain requestedBassGain: Float? = nil,
+        trebleGain requestedTrebleGain: Float? = nil,
+        surroundLevel requestedSurroundLevel: Float? = nil,
+        reverbLevel requestedReverbLevel: Float? = nil,
+        stereoWidth requestedStereoWidth: Float? = nil
+    ) {
+        lock.lock()
+        if let requestedBassGain {
+            bassGain = min(12, max(-12, requestedBassGain))
+        }
+        if let requestedTrebleGain {
+            trebleGain = min(12, max(-12, requestedTrebleGain))
+        }
+        if let requestedSurroundLevel {
+            surroundLevel = min(1, max(0, requestedSurroundLevel))
+        }
+        if let requestedReverbLevel {
+            reverbLevel = min(1, max(0, requestedReverbLevel))
+        }
+        if let requestedStereoWidth {
+            stereoWidth = min(2, max(0, requestedStereoWidth))
+        }
+        loudnormEnabled = configuration.loudnessNormalizationEnabled
+        loudnormTarget = min(-5, max(-30, configuration.targetLUFS))
+        loudnormLRA = min(20, max(1, configuration.targetLRA))
+        loudnormTP = min(-0.05, max(-6, configuration.truePeakCeilingDB))
+
+        compressorEnabled = configuration.compressorEnabled
+        compressorThreshold = min(0, max(-60, configuration.compressorThresholdDB))
+        compressorRatio = min(20, max(1, configuration.compressorRatio))
+        compressorAttack = min(2_000, max(0.1, configuration.compressorAttackMS))
+        compressorRelease = min(5_000, max(10, configuration.compressorReleaseMS))
+        compressorMakeup = min(12, max(-12, configuration.compressorMakeupDB))
+
+        subboostEnabled = configuration.subboostEnabled
+        subboostGain = min(12, max(0, configuration.subboostGainDB))
+        subboostCutoff = min(250, max(35, configuration.subboostCutoffHz))
+
+        bs2bEnabled = configuration.bs2bEnabled
+        bs2bFcut = min(2_000, max(300, configuration.bs2bCutoffHz))
+        bs2bFeed = min(150, max(0, configuration.bs2bFeed))
+        crossfeedEnabled = configuration.crossfeedEnabled
+        crossfeedStrength = min(1, max(0, configuration.crossfeedStrength))
+        haasEnabled = configuration.haasEnabled
+        haasDelay = min(40, max(0, configuration.haasDelayMS))
+
+        virtualbassEnabled = configuration.virtualBassEnabled
+        virtualbassCutoff = min(500, max(60, configuration.virtualBassCutoffHz))
+        virtualbassStrength = min(10, max(0, configuration.virtualBassStrength))
+        exciterEnabled = configuration.exciterEnabled
+        exciterAmount = min(10, max(0, configuration.exciterAmountDB))
+        exciterFreq = min(16_000, max(2_000, configuration.exciterFrequencyHz))
+        softclipEnabled = configuration.softclipEnabled
+        softclipType = min(7, max(0, configuration.softclipType))
+        needsRebuild = true
+        lock.unlock()
     }
 
     // MARK: - 初始化
@@ -1122,22 +1189,13 @@ final class AudioFilterGraph {
                 crossfadeBuffer = lastOutputSamples
                 crossfadeSamplesRemaining = crossfadeDuration
             }
-            
-            // 关键修复：当格式变化时，必须先完全销毁旧滤镜图
-            // 不能调用 flushFilterGraphUnsafe()，因为旧滤镜图期望的格式与新帧不同
-            // FFmpeg 会报错 "Changing audio frame properties on the fly is not supported"
-            if formatChanged {
-                // 格式变化时直接销毁，不 flush（避免格式不匹配错误）
-                destroyGraphUnsafe()
-            } else {
-                // 仅参数变化时，可以安全 flush 旧滤镜图中的剩余帧
-                flushFilterGraphUnsafe()
-            }
-            
+
             sampleRate = buffer.sampleRate
             channelCount = buffer.channelCount
-            rebuildGraph()
-            needsRebuild = false
+            needsRebuild = true
+            scheduleGraphRebuildUnsafe()
+            lock.unlock()
+            return buffer
         }
 
         guard filterGraph != nil, let srcCtx = bufferSrcCtx, let sinkCtx = bufferSinkCtx else {
@@ -1305,6 +1363,29 @@ final class AudioFilterGraph {
     }
 
     // MARK: - 滤镜图构建
+
+    /// Graph allocation and FFmpeg filter negotiation must never run inside
+    /// the real-time render callback. While rebuilding, `tryLock` callers
+    /// bypass the graph for a few blocks instead of blocking and underrunning.
+    private func scheduleGraphRebuildUnsafe() {
+        guard !rebuildScheduled else { return }
+        rebuildScheduled = true
+        rebuildQueue.async { [weak self] in
+            self?.performScheduledGraphRebuild()
+        }
+    }
+
+    private func performScheduledGraphRebuild() {
+        lock.lock()
+        defer { lock.unlock() }
+        guard needsRebuild, sampleRate > 0, channelCount > 0 else {
+            rebuildScheduled = false
+            return
+        }
+        rebuildGraph()
+        needsRebuild = false
+        rebuildScheduled = false
+    }
 
     /// 重建 FFmpeg avfilter 图
     private func rebuildGraph() {
@@ -1479,8 +1560,12 @@ final class AudioFilterGraph {
 
         // 超低音增强
         if subboostEnabled {
+            // asubboost has no direct dB gain control. Map the public gain to
+            // its wet path so 0 dB is effectively neutral and 6 dB reaches a
+            // full-strength generated sub signal.
+            let wet = min(1, max(0, powf(10, subboostGain / 20) - 1))
             if let ctx = createFilter(graph: graph, name: "asubboost", label: "subboost",
-                                       args: "dry=0.5:wet=0.8:decay=0.7:feedback=0.5:cutoff=\(String(format: "%.0f", subboostCutoff))") {
+                                       args: "dry=1:wet=\(String(format: "%.3f", wet)):decay=0.7:feedback=0.5:cutoff=\(String(format: "%.0f", subboostCutoff))") {
                 guard avfilter_link(lastCtx, 0, ctx, 0) >= 0 else { destroyGraphUnsafe(); return }
                 lastCtx = ctx
             }

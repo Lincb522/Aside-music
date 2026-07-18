@@ -60,7 +60,7 @@ extension View {
 // MARK: - scrollTransition 兼容
 
 /// 记录 scrollTransition 闭包中施加的视觉变换（iOS 16 上直接忽略）
-struct CompatScrollEffect {
+struct CompatScrollEffect: Sendable {
     var scale: CGFloat = 1
     var opacityValue: Double = 1
     var offsetX: CGFloat = 0
@@ -85,7 +85,7 @@ struct CompatScrollEffect {
 }
 
 /// scrollTransition phase 的兼容镜像（isIdentity / value）
-struct CompatScrollPhase {
+struct CompatScrollPhase: Sendable {
     let isIdentity: Bool
     let value: Double
 }
@@ -96,7 +96,7 @@ extension View {
     @ViewBuilder
     func compatScrollTransition(
         animation: Animation,
-        _ transform: @escaping (CompatScrollEffect, CompatScrollPhase) -> CompatScrollEffect
+        _ transform: @escaping @Sendable (CompatScrollEffect, CompatScrollPhase) -> CompatScrollEffect
     ) -> some View {
         if #available(iOS 17.0, *) {
             self.scrollTransition(.animated(animation)) { content, phase in

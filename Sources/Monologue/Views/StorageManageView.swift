@@ -88,36 +88,39 @@ struct StorageManageView: View {
             ThemedSettingsBackground()
 
             ScrollView {
-                VStack(spacing: 20) {
-                    if phase == .scanning {
-                        scanningCard
-                            .transition(.opacity.combined(with: .scale(scale: 0.97)))
-                    } else {
-                        overviewCard
-                            .transition(.opacity.combined(with: .move(edge: .top)))
+                VStack(spacing: SettingsPageLayout.sectionSpacing) {
+                    SettingsScrollablePageHeader(
+                        title: String(localized: "storage_title"),
+                        eyebrow: "STORAGE",
+                        icon: .storage
+                    )
 
-                        categoriesCard
+                    VStack(spacing: SettingsPageLayout.sectionSpacing) {
+                        if phase == .scanning {
+                            scanningCard
+                                .transition(.opacity.combined(with: .scale(scale: 0.97)))
+                        } else {
+                            overviewCard
+                                .transition(.opacity.combined(with: .move(edge: .top)))
 
-                        quickCleanCard
+                            categoriesCard
+
+                            quickCleanCard
+                        }
+
+                        FloatingBarBottomSpacer()
                     }
-
-                    FloatingBarBottomSpacer()
+                    .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
+                    .padding(.bottom, 44)
+                    .iPadContentWidth(SettingsPageLayout.contentWidth)
                 }
-                .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
-                .padding(.top, 8)
             }
             .scrollIndicators(.hidden)
+            .coordinateSpace(name: SettingsPageLayout.scrollCoordinateSpace)
             .themeRenderScrollLayer()
         }
-        .themedInlineNavigationTitle(String(localized: "storage_title"))
-        .toolbarBackground(.hidden, for: .navigationBar)
-        .navigationBarBackButtonHidden(true)
+        .asideSettingsDetailChrome(String(localized: "storage_title"))
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button { dismiss() } label: {
-                    MonologueIcon(icon: .back, size: 16)
-                }
-            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button { startScan() } label: {
                     MonologueIcon(icon: .refresh, size: 15, color: StorageTheme.inkSoft)

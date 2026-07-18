@@ -130,6 +130,7 @@ struct AIEqualizerArtworkStatusView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isExpanded = false
     @State private var showTuningDetails = false
+    @State private var completionNoticeTask: Task<Void, Never>?
 
     private var foregroundColor: Color {
         isDarkArtwork ? .white : Color(hex: "111318")
@@ -176,6 +177,9 @@ struct AIEqualizerArtworkStatusView: View {
                 Button(action: toggleProfileName) {
                     HStack(spacing: 5) {
                         if let name = compactProfileName, isExpanded {
+                            // Once the proposal is applied, the cover capsule only
+                            // identifies the active profile. Timing belongs to the
+                            // tuning detail page, not the persistent player chrome.
                             Text(name)
                                 .font(.system(size: 10.5, weight: .semibold, design: .rounded))
                                 .foregroundStyle(foregroundColor)
@@ -188,11 +192,20 @@ struct AIEqualizerArtworkStatusView: View {
                                 )
                         }
 
-                        if let progress = tuningProgress {
-                            Text("\(Int((progress * 100).rounded()))%")
-                                .font(.system(size: 9, weight: .bold, design: .rounded).monospacedDigit())
-                                .foregroundStyle(foregroundColor)
-                                .contentTransition(.numericText())
+                        if tuningProgress != nil {
+                            if let startedAt = agent.tuningStartedAt {
+                                TimelineView(.periodic(from: .now, by: 1)) { context in
+                                    Text(compactElapsed(since: startedAt, now: context.date))
+                                        .font(.system(size: 9, weight: .bold, design: .rounded).monospacedDigit())
+                                        .foregroundStyle(foregroundColor)
+                                        .contentTransition(.numericText())
+                                }
+                            } else if let progress = tuningProgress {
+                                Text("\(Int((progress * 100).rounded()))%")
+                                    .font(.system(size: 9, weight: .bold, design: .rounded).monospacedDigit())
+                                    .foregroundStyle(foregroundColor)
+                                    .contentTransition(.numericText())
+                            }
                         }
 
                         AIEqualizerArtworkStatusGlyph(
@@ -225,7 +238,11 @@ struct AIEqualizerArtworkStatusView: View {
                 }
                 .buttonStyle(MonologueBouncingButtonStyle())
                 .accessibilityLabel(accessibilityText)
-                .accessibilityHint(isExpanded ? String(localized: "ai_tuning_open_details") : "")
+                .accessibilityHint(
+                    tuningProgress != nil || isExpanded
+                        ? String(localized: "ai_tuning_open_details")
+                        : ""
+                )
                 .transition(.scale(scale: 0.92, anchor: .bottomTrailing).combined(with: .opacity))
             }
         }
@@ -245,12 +262,26 @@ struct AIEqualizerArtworkStatusView: View {
             value: isExpanded
         )
         .onChange(of: player.currentSong?.id) { _, _ in
+            completionNoticeTask?.cancel()
             isExpanded = false
         }
         .onChange(of: agent.phase) { _, newPhase in
             if newPhase.isWorking {
                 isExpanded = false
             }
+        }
+        .onChange(of: agent.appliedProposalID) { _, proposalID in
+            completionNoticeTask?.cancel()
+            guard proposalID != nil else { return }
+            isExpanded = true
+            completionNoticeTask = Task { @MainActor in
+                try? await Task.sleep(for: .seconds(4))
+                guard !Task.isCancelled else { return }
+                isExpanded = false
+            }
+        }
+        .onDisappear {
+            completionNoticeTask?.cancel()
         }
     }
 
@@ -261,7 +292,18 @@ struct AIEqualizerArtworkStatusView: View {
         return agent.samplingStage.title
     }
 
+    private func compactElapsed(since start: Date, now: Date) -> String {
+        let seconds = max(0, Int(now.timeIntervalSince(start)))
+        return String(format: "%02d:%02d", seconds / 60, seconds % 60)
+    }
+
     private func toggleProfileName() {
+        // During sampling/generation the capsule is already a live entry point;
+        // one tap should open the lab instead of requiring a completed profile.
+        if tuningProgress != nil {
+            showTuningDetails = true
+            return
+        }
         guard appliedProfileName != nil else { return }
         if isExpanded {
             showTuningDetails = true
@@ -311,6 +353,16 @@ private struct AIEqualizerArtworkStatusGlyph: View {
     let reduceMotion: Bool
     let foregroundColor: Color
 
+    @ObservedObject private var performance = CinemaPerformanceGovernor.shared
+
+    private var animationFramesPerSecond: Int {
+        switch performance.tier {
+        case .high: return 16
+        case .medium: return 9
+        case .low: return 5
+        }
+    }
+
     var body: some View {
         ZStack {
             Circle()
@@ -330,7 +382,7 @@ private struct AIEqualizerArtworkStatusGlyph: View {
 
                 TimelineView(
                     AppFrameRate.throttledTimeline(
-                        maximumFramesPerSecond: 16,
+                        maximumFramesPerSecond: animationFramesPerSecond,
                         paused: reduceMotion
                     )
                 ) { timeline in

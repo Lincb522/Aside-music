@@ -19,6 +19,7 @@
 		C0DE40000000000000000001 /* PawPrintIcons in Frameworks */ = {isa = PBXBuildFile; productRef = C0DE40000000000000000003 /* PawPrintIcons */; };
 		C0DE50000000000000000001 /* DotDogSnakeIcons in Frameworks */ = {isa = PBXBuildFile; productRef = C0DE50000000000000000003 /* DotDogSnakeIcons */; };
 		C0DE60000000000000000001 /* MinimalWhiteIcons in Frameworks */ = {isa = PBXBuildFile; productRef = C0DE60000000000000000003 /* MinimalWhiteIcons */; };
+		C0DE70000000000000000001 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = C0DE70000000000000000003 /* ZIPFoundation */; };
 		DD300001DD300001DD300001 /* HiconIcons in Frameworks */ = {isa = PBXBuildFile; productRef = DD300002DD300002DD300002 /* HiconIcons */; };
 		F4087C202F543A24006005CB /* HiconIcons in Frameworks */ = {isa = PBXBuildFile; productRef = F4087C1F2F543A24006005CB /* HiconIcons */; };
 		F41CFD832F6C1576006ACEF7 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F40957812F4E8A7E006EA119 /* WidgetKit.framework */; };
@@ -133,6 +134,7 @@
 				C0DE40000000000000000001 /* PawPrintIcons in Frameworks */,
 				C0DE50000000000000000001 /* DotDogSnakeIcons in Frameworks */,
 				C0DE60000000000000000001 /* MinimalWhiteIcons in Frameworks */,
+				C0DE70000000000000000001 /* ZIPFoundation in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -231,6 +233,7 @@
 				C0DE40000000000000000003 /* PawPrintIcons */,
 				C0DE50000000000000000003 /* DotDogSnakeIcons */,
 				C0DE60000000000000000003 /* MinimalWhiteIcons */,
+				C0DE70000000000000000003 /* ZIPFoundation */,
 			);
 			productName = Monologue;
 			productReference = F4CCFD782F320B5900FC36CA /* Monologue.app */;
@@ -278,6 +281,7 @@
 				C0DE40000000000000000002 /* XCLocalSwiftPackageReference "PawPrintIcons" */,
 				C0DE50000000000000000002 /* XCLocalSwiftPackageReference "DotDogSnakeIcons" */,
 				C0DE60000000000000000002 /* XCLocalSwiftPackageReference "MinimalWhiteIcons" */,
+				C0DE70000000000000000002 /* XCRemoteSwiftPackageReference "ZIPFoundation" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = F4CCFD792F320B5900FC36CA /* Products */;
@@ -341,7 +345,7 @@
 				CODE_SIGN_ENTITLEMENTS = musicExtensionDebug.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 54;
+				CURRENT_PROJECT_VERSION = 57;
 				DEVELOPMENT_TEAM = 7VJKFX4HF8;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = music/Info.plist;
@@ -377,7 +381,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 54;
+				CURRENT_PROJECT_VERSION = 57;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEPLOYMENT_POSTPROCESSING = YES;
@@ -555,7 +559,7 @@
 				CODE_SIGN_ENTITLEMENTS = MonologueDebug.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 54;
+				CURRENT_PROJECT_VERSION = 57;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = 7VJKFX4HF8;
 				ENABLE_PREVIEWS = YES;
@@ -606,7 +610,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 54;
+				CURRENT_PROJECT_VERSION = 57;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEPLOYMENT_POSTPROCESSING = YES;
@@ -736,6 +740,17 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		C0DE70000000000000000002 /* XCRemoteSwiftPackageReference "ZIPFoundation" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/weichsel/ZIPFoundation.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.9.20;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		138061FE3E0D4FB49D5E933B /* LucideIcons */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -776,6 +791,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = C0DE60000000000000000002 /* XCLocalSwiftPackageReference "MinimalWhiteIcons" */;
 			productName = MinimalWhiteIcons;
+		};
+		C0DE70000000000000000003 /* ZIPFoundation */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0DE70000000000000000002 /* XCRemoteSwiftPackageReference "ZIPFoundation" */;
+			productName = ZIPFoundation;
 		};
 		DD300002DD300002DD300002 /* HiconIcons */ = {
 			isa = XCSwiftPackageProductDependency;

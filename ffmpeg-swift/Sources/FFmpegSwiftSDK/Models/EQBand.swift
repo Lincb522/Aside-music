@@ -6,6 +6,95 @@
 
 import Foundation
 
+/// The selectable graphic-EQ resolution used by Mono's realtime audio engine.
+/// Curves are kept in frequency order and can be converted without changing
+/// their broad tonal balance.
+public enum GraphicEQMode: String, CaseIterable, Codable, Identifiable, Sendable {
+    case tenBand
+    case thirtyTwoBand
+
+    public var id: String { rawValue }
+
+    public var bandCount: Int { centerFrequencies.count }
+
+    public var centerFrequencies: [Float] {
+        switch self {
+        case .tenBand:
+            return EQBand.allCases.map(\.centerFrequency)
+        case .thirtyTwoBand:
+            // ISO-style one-third-octave centres, including the 16 Hz and
+            // 20 kHz edge bands so the selectable bank contains 32 bands.
+            return [
+                16, 20, 25, 31.5, 40, 50, 63, 80,
+                100, 125, 160, 200, 250, 315, 400, 500,
+                630, 800, 1_000, 1_250, 1_600, 2_000, 2_500, 3_150,
+                4_000, 5_000, 6_300, 8_000, 10_000, 12_500, 16_000, 20_000
+            ]
+        }
+    }
+
+    public var qValues: [Float] {
+        switch self {
+        case .tenBand:
+            return EQBand.allCases.map(\.q)
+        case .thirtyTwoBand:
+            return Array(repeating: 4.318, count: bandCount)
+        }
+    }
+
+    public var frequencyLabels: [String] {
+        centerFrequencies.map(Self.frequencyLabel)
+    }
+
+    public func normalizedGains(_ gains: [Float], limit: Float = EQBandGain.maxGain) -> [Float] {
+        var output = Array(repeating: Float(0), count: bandCount)
+        for index in 0..<min(gains.count, output.count) {
+            let value = gains[index]
+            output[index] = value.isFinite ? min(max(value, -limit), limit) : 0
+        }
+        return output
+    }
+
+    /// Resamples a graphic curve in logarithmic-frequency space. This keeps a
+    /// ten-band preset recognizable when it is used by the optional 32-band EQ.
+    public func resampledGains(_ gains: [Float], from sourceMode: GraphicEQMode) -> [Float] {
+        let source = sourceMode.normalizedGains(gains)
+        guard sourceMode != self else { return normalizedGains(source) }
+
+        let sourceFrequencies = sourceMode.centerFrequencies
+        return centerFrequencies.map { frequency in
+            guard let firstFrequency = sourceFrequencies.first,
+                  let lastFrequency = sourceFrequencies.last,
+                  let firstGain = source.first,
+                  let lastGain = source.last else { return 0 }
+            if frequency <= firstFrequency { return firstGain }
+            if frequency >= lastFrequency { return lastGain }
+
+            let upperIndex = sourceFrequencies.firstIndex(where: { $0 >= frequency }) ?? (sourceFrequencies.count - 1)
+            let lowerIndex = max(0, upperIndex - 1)
+            let lowerFrequency = sourceFrequencies[lowerIndex]
+            let upperFrequency = sourceFrequencies[upperIndex]
+            let denominator = max(logf(upperFrequency) - logf(lowerFrequency), 0.000_001)
+            let progress = (logf(frequency) - logf(lowerFrequency)) / denominator
+            return source[lowerIndex] + (source[upperIndex] - source[lowerIndex]) * progress
+        }
+    }
+
+    private static func frequencyLabel(_ frequency: Float) -> String {
+        if frequency >= 1_000 {
+            let value = frequency / 1_000
+            if value.rounded() == value { return "\(Int(value))k" }
+            if (value * 10).rounded() == value * 10 {
+                return String(format: "%.1fk", value)
+            }
+            return String(format: "%.2fk", value)
+        }
+        return frequency.rounded() == frequency
+            ? "\(Int(frequency))"
+            : String(format: "%.1f", frequency)
+    }
+}
+
 /// Represents the ten frequency bands of the audio equalizer.
 ///
 /// Standard 10-band EQ with ISO center frequencies covering the full

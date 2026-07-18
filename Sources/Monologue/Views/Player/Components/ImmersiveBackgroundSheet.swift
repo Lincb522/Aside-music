@@ -7,9 +7,9 @@ import UIKit
 /// 沉浸背景管理 — 从照片图库/文件导入视频，按「当前歌曲 / 全局沉浸」绑定。
 /// 视觉语言与 Aria 沉浸设置保持一致。
 struct ImmersiveBackgroundSheet: View {
-    @Environment(\.dismiss) private var dismiss
     @ObservedObject private var bgManager = ImmersiveBackgroundManager.shared
     @ObservedObject private var player = PlayerManager.shared
+    @StateObject private var coverColors = CoverColorExtractor()
     let palette: AriaPalette
 
     enum BindTarget: Hashable { case song, global }
@@ -20,10 +20,16 @@ struct ImmersiveBackgroundSheet: View {
     @State private var photoPickerItem: PhotosPickerItem?
     @State private var isImporting = false
     @State private var importError: String?
+    @State private var selectedWorkspace: ImmersiveBackgroundWorkspace = .sources
 
     private let columns = [GridItem(.adaptive(minimum: 150, maximum: 220), spacing: 12)]
 
     private var songId: Int? { player.currentSong?.id }
+
+    private var settingsAccent: Color {
+        normalizedEQAccent(coverColors.dominantColor)
+    }
+
     init(palette: AriaPalette = .fallback) {
         self.palette = palette
     }
@@ -39,24 +45,38 @@ struct ImmersiveBackgroundSheet: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    importCards
-                    if let importError {
-                        errorBanner(importError)
-                    }
-                    targetPicker
-                    librarySection
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 10)
-                .padding(.bottom, 40)
+        ZStack {
+            sheetBackdrop.ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                PlayerSettingsWorkspaceBar(
+                    selection: $selectedWorkspace,
+                    items: ImmersiveBackgroundWorkspace.allCases.map {
+                        PlayerSettingsWorkspaceItem(value: $0, title: $0.title, icon: $0.icon)
+                    },
+                    accent: settingsAccent
+                )
+
+                workspaceContent
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .scrollIndicators(.hidden)
         }
-        .background(sheetBackdrop.ignoresSafeArea())
+        .compatFontDesign(nil)
+        .environment(\.colorScheme, .dark)
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                MonologueToolbarBackButton()
+            }
+            ToolbarItem(placement: .principal) {
+                Text(String(localized: "immersive_bg_title"))
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+        }
         // monologueSheet 内呈现时，深色背景铺满整个面板（含把手区）
         .monologueSheetSurface(id: "immersive-background") {
             sheetBackdrop
@@ -84,9 +104,36 @@ struct ImmersiveBackgroundSheet: View {
             )
         }
         .onAppear {
+            refreshCoverAccent()
             if songId == nil {
                 target = .global
             }
+        }
+        .onChange(of: player.currentSong?.id) { _, _ in
+            refreshCoverAccent()
+        }
+    }
+
+    @ViewBuilder
+    private var workspaceContent: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 16) {
+                switch selectedWorkspace {
+                case .sources:
+                    importCards
+                    if let importError {
+                        errorBanner(importError)
+                    }
+                case .binding:
+                    targetPicker
+                case .library:
+                    librarySection
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+            .padding(.bottom, 44)
+            .iPadContentWidth(720)
         }
     }
 
@@ -94,52 +141,41 @@ struct ImmersiveBackgroundSheet: View {
 
     private var sheetBackdrop: some View {
         ZStack {
+            PlaylistColorBackground(
+                coverUrl: player.currentSong?.coverUrl?.sized(720)
+            )
+            .saturation(0.78)
+
+            Color.black.opacity(0.48)
+
             LinearGradient(
-                colors: [Color(red: 0.07, green: 0.07, blue: 0.09), Color(red: 0.10, green: 0.10, blue: 0.13)],
+                colors: [
+                    Color.black.opacity(0.08),
+                    Color.black.opacity(0.26),
+                    Color.black.opacity(0.54),
+                ],
                 startPoint: .top,
                 endPoint: .bottom
-            )
-            RadialGradient(
-                colors: [palette.accent.opacity(0.16), .clear],
-                center: .init(x: 0.5, y: -0.1),
-                startRadius: 0,
-                endRadius: 360
             )
         }
     }
 
-    // MARK: - Header
-
-    private var header: some View {
-        HStack(spacing: 12) {
-            Button(action: { dismiss() }) {
-                MonologueIcon(icon: .back, size: 18, color: .white.opacity(0.9))
-                    .frame(width: 40, height: 40)
-                    .background(Circle().fill(Color.white.opacity(0.08)))
-            }
-            .buttonStyle(MonologueBouncingButtonStyle())
-
-            Text(String(localized: "immersive_bg_title"))
-                .font(.system(size: 19, weight: .bold))
-                .foregroundColor(.white)
-
-            Spacer()
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 14)
-        .padding(.bottom, 12)
+    private func refreshCoverAccent() {
+        coverColors.extract(from: player.currentSong?.coverUrl?.sized(200).absoluteString)
     }
 
     // MARK: - 导入入口
 
     private var importCards: some View {
-        VStack(spacing: 10) {
+        let accent = settingsAccent
+
+        return VStack(spacing: 10) {
             HStack(spacing: 12) {
                 PhotosPicker(selection: $photoPickerItem, matching: .videos, photoLibrary: .shared()) {
                     ImportCardLabel(
                         icon: .album,
                         title: String(localized: "immersive_bg_from_photos"),
-                        accent: palette.accent
+                        accent: accent
                     )
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
@@ -151,7 +187,7 @@ struct ImmersiveBackgroundSheet: View {
                     ImportCardLabel(
                         icon: .arrowDownToLine,
                         title: String(localized: "immersive_bg_from_files"),
-                        accent: palette.accent
+                        accent: settingsAccent
                     )
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
@@ -162,9 +198,9 @@ struct ImmersiveBackgroundSheet: View {
                 showMoeWallsBrowser = true
             } label: {
                 HStack(spacing: 10) {
-                    MonologueIcon(icon: .search, size: 16, color: palette.accent)
+                    MonologueIcon(icon: .search, size: 16, color: settingsAccent)
                         .frame(width: 32, height: 32)
-                        .background(Circle().fill(palette.accent.opacity(0.13)))
+                        .background(Circle().fill(settingsAccent.opacity(0.13)))
 
                     Text(String(localized: "immersive_bg_moewalls"))
                         .font(.system(size: 13, weight: .semibold))
@@ -176,11 +212,11 @@ struct ImmersiveBackgroundSheet: View {
                 }
                 .padding(12)
                 .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .fill(Color.white.opacity(0.05))
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .stroke(Color.white.opacity(0.07), lineWidth: 1)
                 )
             }
@@ -226,11 +262,11 @@ struct ImmersiveBackgroundSheet: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(12)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(Color.white.opacity(0.05))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .stroke(Color.white.opacity(0.07), lineWidth: 1)
             )
         }
@@ -258,9 +294,8 @@ struct ImmersiveBackgroundSheet: View {
     private var targetPicker: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(String(localized: "immersive_bg_bind_target"))
-                .font(.rounded(size: 12, weight: .bold))
+                .font(.system(size: 12, weight: .bold))
                 .foregroundColor(.white.opacity(0.45))
-                .textCase(.uppercase)
 
             HStack(spacing: 10) {
                 targetChip(.song, icon: .musicNote, title: String(localized: "immersive_bg_target_song"), subtitle: player.currentSong?.name)
@@ -284,7 +319,7 @@ struct ImmersiveBackgroundSheet: View {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { target = value }
         } label: {
             HStack(spacing: 10) {
-                MonologueIcon(icon: icon, size: 14, color: selected ? palette.accent : .white.opacity(0.6))
+                MonologueIcon(icon: icon, size: 14, color: selected ? settingsAccent : .white.opacity(0.6))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
@@ -302,7 +337,7 @@ struct ImmersiveBackgroundSheet: View {
 
                 if selected {
                     Circle()
-                        .fill(palette.accent)
+                        .fill(settingsAccent)
                         .frame(width: 7, height: 7)
                 }
             }
@@ -311,11 +346,11 @@ struct ImmersiveBackgroundSheet: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(selected ? palette.accent.opacity(0.16) : Color.white.opacity(0.05))
+                    .fill(selected ? settingsAccent.opacity(0.16) : Color.white.opacity(0.05))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(selected ? palette.accent.opacity(0.5) : Color.white.opacity(0.07), lineWidth: 1)
+                    .stroke(selected ? settingsAccent.opacity(0.5) : Color.white.opacity(0.07), lineWidth: 1)
             )
         }
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
@@ -336,7 +371,7 @@ struct ImmersiveBackgroundSheet: View {
                         .lineLimit(1)
                     Text(String(localized: "immersive_bg_in_use"))
                         .font(.rounded(size: 10, weight: .bold))
-                        .foregroundColor(palette.accent)
+                        .foregroundColor(settingsAccent)
                 }
 
                 Spacer()
@@ -375,9 +410,8 @@ struct ImmersiveBackgroundSheet: View {
             if !bgManager.library.isEmpty {
                 HStack(spacing: 8) {
                     Text(String(localized: "immersive_bg_library_section"))
-                        .font(.rounded(size: 12, weight: .bold))
+                        .font(.system(size: 12, weight: .bold))
                         .foregroundColor(.white.opacity(0.45))
-                        .textCase(.uppercase)
                     Text("\(bgManager.library.count)")
                         .font(.rounded(size: 11, weight: .bold))
                         .foregroundColor(.white.opacity(0.35))
@@ -455,7 +489,7 @@ struct ImmersiveBackgroundSheet: View {
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Capsule().fill(palette.accent))
+                    .background(Capsule().fill(settingsAccent))
                     .padding(7)
                 }
             }
@@ -474,9 +508,9 @@ struct ImmersiveBackgroundSheet: View {
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(isBound ? palette.accent : Color.white.opacity(0.08), lineWidth: isBound ? 1.6 : 1)
+                    .stroke(isBound ? settingsAccent : Color.white.opacity(0.08), lineWidth: isBound ? 1.6 : 1)
             )
-            .shadow(color: isBound ? palette.accent.opacity(0.24) : .clear, radius: 8)
+            .shadow(color: isBound ? settingsAccent.opacity(0.24) : .clear, radius: 8)
         }
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
     }
@@ -567,6 +601,30 @@ struct ImmersiveBackgroundSheet: View {
         let w = abs(rect.width)
         let h = abs(rect.height)
         return max(w, h) <= 4200 && min(w, h) <= 2400
+    }
+}
+
+private enum ImmersiveBackgroundWorkspace: String, CaseIterable, Identifiable {
+    case sources
+    case binding
+    case library
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .sources: return String(localized: "来源")
+        case .binding: return String(localized: "绑定")
+        case .library: return String(localized: "视频库")
+        }
+    }
+
+    var icon: MonologueIcon.IconType {
+        switch self {
+        case .sources: return .add
+        case .binding: return .musicNote
+        case .library: return .mv
+        }
     }
 }
 

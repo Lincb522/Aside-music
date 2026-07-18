@@ -298,8 +298,8 @@ struct CinemaVideoPlayerLayout: View {
             audioPulse.resetForNewTrack()
         }
         .onChange(of: anyOverlayOpen) { _, _ in markInteraction() }
-        .monologueSheet(isPresented: $showAssignSheet, preset: .large) {
-            ImmersiveBackgroundSheet()
+        .fullScreenCover(isPresented: $showAssignSheet) {
+            ImmersiveBackgroundLandscapeView(palette: .fallback)
         }
         .monologueSheet(isPresented: $showStageSettings, preset: .large) {
             CinemaStageSettingsSheet()

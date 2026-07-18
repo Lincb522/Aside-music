@@ -4,7 +4,7 @@ import SwiftUI
 
 /// 全局主题枚举 — 控制整个 App 的视觉风格与布局结构
 /// 与 PlayerTheme（播放器内部 17 种布局）完全独立，互不影响
-enum GlobalThemeId: String, CaseIterable, Codable, Identifiable {
+enum GlobalThemeId: String, CaseIterable, Codable, Identifiable, Sendable {
     case `default`     // 经典 Aside — 原本的默认主题，保留 rawValue/文件名用于兼容
     case muji          // 无印良品 — 极简暖色纸质感、大量留白
     case manga         // 漫画风 — 粗描边、硬阴影、网点背景

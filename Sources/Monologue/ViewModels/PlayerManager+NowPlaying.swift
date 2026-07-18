@@ -29,6 +29,31 @@ extension PlayerManager {
         lastNowPlayingLyricIndex = -1
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
     }
+
+    /// iOS may discard Now Playing metadata after a media-service reset, a long
+    /// background transition, or an audio-session ownership change. Time-only
+    /// updates cannot recover from a nil/incomplete dictionary, so rebuild the
+    /// complete identity and artwork from the current PlayerManager state.
+    func repairSystemPlaybackSurfacesIfNeeded(reason: String) {
+        guard let song = currentSong else { return }
+        let info = MPNowPlayingInfoCenter.default().nowPlayingInfo
+        let reportedTitle = info?[MPMediaItemPropertyTitle] as? String
+        let hasUsableIdentity = reportedTitle == song.name && !(reportedTitle?.isEmpty ?? true)
+        guard !hasUsableIdentity else { return }
+
+        if GameModeManager.shared.isActive,
+           SettingsManager.shared.gameModeSilentNowPlaying,
+           !SettingsManager.shared.gameModeMinimalNowPlaying {
+            return
+        }
+
+        AppLogger.warning(
+            "Now Playing 内容缺失，重新发布 reason=\(reason) song=\(song.name)",
+            step: "now-playing.repair"
+        )
+        updateNowPlayingInfo()
+        updateNowPlayingArtwork(for: song)
+    }
     
     func updateNowPlayingInfo() {
         lastNowPlayingLyricIndex = -1
@@ -89,7 +114,10 @@ extension PlayerManager {
             }
             return
         }
-        guard var info = MPNowPlayingInfoCenter.default().nowPlayingInfo else { return }
+        guard var info = MPNowPlayingInfoCenter.default().nowPlayingInfo else {
+            repairSystemPlaybackSurfacesIfNeeded(reason: "time update found empty metadata")
+            return
+        }
         info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = currentTime
         info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? Double(playbackSpeed) : 0.0
         info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = Double(playbackSpeed)
@@ -226,6 +254,7 @@ extension PlayerManager {
         let silentMinimal = GameModeManager.shared.isActive
             && SettingsManager.shared.gameModeSilentNowPlaying
         guard !silentMinimal else { return }
+        repairSystemPlaybackSurfacesIfNeeded(reason: "artwork apply found incomplete metadata")
         var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
         info[MPMediaItemPropertyArtwork] = artwork
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
@@ -234,9 +263,8 @@ extension PlayerManager {
     func refreshPlaybackSurfaceState() {
         if currentSong == nil {
             clearNowPlayingInfo()
-        } else if MPNowPlayingInfoCenter.default().nowPlayingInfo == nil {
-            updateNowPlayingInfo()
         } else {
+            repairSystemPlaybackSurfacesIfNeeded(reason: "playback surface refresh")
             updateNowPlayingTime()
         }
 

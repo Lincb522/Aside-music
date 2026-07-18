@@ -192,12 +192,13 @@ public final class EQFilter {
     private let lock = NSLock()
     private var isProcessingEnabled = true
 
-    private var userGains = Array(repeating: Float(0), count: EQBand.allCases.count)
-    private var calibrationGains = Array(repeating: Float(0), count: EQBand.allCases.count)
-    private var adaptiveGains = Array(repeating: Float(0), count: EQBand.allCases.count)
-    private var smoothedGains = Array(repeating: Float(0), count: EQBand.allCases.count)
-    private var graphicCoefficients = Array(repeating: BiquadCoefficients.unity, count: EQBand.allCases.count)
-    private var graphicStates = Array(repeating: [BiquadState](), count: EQBand.allCases.count)
+    private var graphicMode: GraphicEQMode = .tenBand
+    private var userGains = Array(repeating: Float(0), count: GraphicEQMode.tenBand.bandCount)
+    private var calibrationGains = Array(repeating: Float(0), count: GraphicEQMode.tenBand.bandCount)
+    private var adaptiveGains = Array(repeating: Float(0), count: GraphicEQMode.tenBand.bandCount)
+    private var smoothedGains = Array(repeating: Float(0), count: GraphicEQMode.tenBand.bandCount)
+    private var graphicCoefficients = Array(repeating: BiquadCoefficients.unity, count: GraphicEQMode.tenBand.bandCount)
+    private var graphicStates = Array(repeating: [BiquadState](), count: GraphicEQMode.tenBand.bandCount)
 
     private var parametricBands: [ParametricRuntimeBand] = []
     private var dynamicBands: [DynamicRuntimeBand] = []
@@ -220,11 +221,63 @@ public final class EQFilter {
         lock.unlock()
     }
 
+    public func setGraphicMode(_ mode: GraphicEQMode, gains: [Float]? = nil) {
+        lock.lock()
+        let previousMode = graphicMode
+        let previousUserGains = userGains
+        let previousCalibrationGains = calibrationGains
+        let previousAdaptiveGains = adaptiveGains
+        graphicMode = mode
+        if let gains {
+            let sourceMode: GraphicEQMode = gains.count == GraphicEQMode.thirtyTwoBand.bandCount
+                ? .thirtyTwoBand
+                : .tenBand
+            userGains = mode.resampledGains(gains, from: sourceMode)
+        } else {
+            userGains = mode.resampledGains(previousUserGains, from: previousMode)
+        }
+        calibrationGains = mode.resampledGains(previousCalibrationGains, from: previousMode)
+            .map { min(max($0, -6), 6) }
+        adaptiveGains = mode.resampledGains(previousAdaptiveGains, from: previousMode)
+            .map { min(max($0, -1.5), 1.5) }
+        resetGraphicRuntime(count: mode.bandCount)
+        lock.unlock()
+    }
+
+    public func currentGraphicMode() -> GraphicEQMode {
+        lock.lock()
+        defer { lock.unlock() }
+        return graphicMode
+    }
+
+    public func currentGraphicGains() -> [Float] {
+        lock.lock()
+        defer { lock.unlock() }
+        return userGains
+    }
+
+    @discardableResult
+    public func setGraphicGain(_ gain: Float, at index: Int) -> Float? {
+        let clamped = EQBandGain.clamped(gain)
+        lock.lock()
+        defer { lock.unlock() }
+        guard userGains.indices.contains(index) else { return nil }
+        if abs(clamped - userGains[index]) > 6 {
+            graphicStates[index] = graphicStates[index].map {
+                var state = $0
+                state.softReset(factor: 0.5)
+                return state
+            }
+        }
+        userGains[index] = clamped
+        return clamped
+    }
+
     @discardableResult
     public func setGain(_ gain: Float, for band: EQBand) -> Float {
         let clamped = EQBandGain.clamped(gain)
         lock.lock()
-        let index = band.rawValue
+        let index = nearestGraphicIndex(to: band.centerFrequency)
         if abs(clamped - userGains[index]) > 6 {
             graphicStates[index] = graphicStates[index].map {
                 var state = $0
@@ -240,18 +293,18 @@ public final class EQFilter {
     public func gain(for band: EQBand) -> Float {
         lock.lock()
         defer { lock.unlock() }
-        return userGains[band.rawValue]
+        return userGains[nearestGraphicIndex(to: band.centerFrequency)]
     }
 
     public func setCalibrationGains(_ gains: [Float]) {
         lock.lock()
-        calibrationGains = Self.normalizedGains(gains, limit: 6)
+        calibrationGains = normalizedGainsForCurrentMode(gains, limit: 6)
         lock.unlock()
     }
 
     public func setAdaptiveGains(_ gains: [Float]) {
         lock.lock()
-        adaptiveGains = Self.normalizedGains(gains, limit: 1.5)
+        adaptiveGains = normalizedGainsForCurrentMode(gains, limit: 1.5)
         lock.unlock()
     }
 
@@ -278,7 +331,7 @@ public final class EQFilter {
         lock.lock()
         dynamicEQEnabled = enabled
         let previous = dynamicBands
-        dynamicBands = bands.prefix(6).map { configuration in
+        dynamicBands = bands.prefix(8).map { configuration in
             if var runtime = previous.first(where: { $0.configuration.id == configuration.id }) {
                 runtime.configuration = configuration
                 return runtime
@@ -296,12 +349,10 @@ public final class EQFilter {
 
     public func reset() {
         lock.lock()
-        userGains = Array(repeating: 0, count: EQBand.allCases.count)
-        calibrationGains = Array(repeating: 0, count: EQBand.allCases.count)
-        adaptiveGains = Array(repeating: 0, count: EQBand.allCases.count)
-        smoothedGains = Array(repeating: 0, count: EQBand.allCases.count)
-        graphicCoefficients = Array(repeating: .unity, count: EQBand.allCases.count)
-        graphicStates = Array(repeating: [], count: EQBand.allCases.count)
+        userGains = Array(repeating: 0, count: graphicMode.bandCount)
+        calibrationGains = Array(repeating: 0, count: graphicMode.bandCount)
+        adaptiveGains = Array(repeating: 0, count: graphicMode.bandCount)
+        resetGraphicRuntime(count: graphicMode.bandCount)
         targetPreampDB = 0
         currentPreampDB = 0
         resetRuntimeStates()
@@ -337,8 +388,10 @@ public final class EQFilter {
     private func processGraphicEQ(
         _ data: UnsafeMutablePointer<Float>, frames: Int, channels: Int, sampleRate: Float
     ) {
-        for band in EQBand.allCases {
-            let index = band.rawValue
+        let frequencies = graphicMode.centerFrequencies
+        let qValues = graphicMode.qValues
+        for index in frequencies.indices {
+            let frequency = frequencies[index]
             let target = min(max(userGains[index] + calibrationGains[index] + adaptiveGains[index], -18), 18)
             let current = smoothedGains[index]
             smoothedGains[index] = abs(target - current) < 0.005
@@ -349,16 +402,16 @@ public final class EQFilter {
             let targetCoefficients: BiquadCoefficients
             if abs(gain) < 0.005 {
                 targetCoefficients = .unity
-            } else if band == .hz31 {
-                targetCoefficients = .lowShelf(gainDB: gain, frequency: band.centerFrequency, sampleRate: sampleRate)
-            } else if band == .hz16k {
-                targetCoefficients = .highShelf(gainDB: gain, frequency: band.centerFrequency, sampleRate: sampleRate)
+            } else if graphicMode == .tenBand, index == frequencies.startIndex {
+                targetCoefficients = .lowShelf(gainDB: gain, frequency: frequency, sampleRate: sampleRate)
+            } else if graphicMode == .tenBand, index == frequencies.index(before: frequencies.endIndex) {
+                targetCoefficients = .highShelf(gainDB: gain, frequency: frequency, sampleRate: sampleRate)
             } else {
                 targetCoefficients = .peakingEQ(
                     gainDB: gain,
-                    centerFrequency: band.centerFrequency,
+                    centerFrequency: frequency,
                     sampleRate: sampleRate,
-                    q: band.q
+                    q: qValues[index]
                 )
             }
             graphicCoefficients[index] = .interpolate(graphicCoefficients[index], targetCoefficients, t: 0.35)
@@ -606,7 +659,7 @@ public final class EQFilter {
     }
 
     private func resetRuntimeStates() {
-        graphicStates = Array(repeating: [], count: EQBand.allCases.count)
+        resetGraphicRuntime(count: graphicMode.bandCount)
         for index in parametricBands.indices {
             parametricBands[index].states = []
             parametricBands[index].coefficients = .unity
@@ -623,12 +676,25 @@ public final class EQFilter {
         multibandEnvelopes = Array(repeating: 0, count: 3)
     }
 
-    private static func normalizedGains(_ gains: [Float], limit: Float) -> [Float] {
-        var output = Array(repeating: Float(0), count: EQBand.allCases.count)
-        for index in 0..<min(gains.count, output.count) {
-            output[index] = min(max(gains[index], -limit), limit)
-        }
-        return output
+    private func resetGraphicRuntime(count: Int) {
+        smoothedGains = Array(repeating: 0, count: count)
+        graphicCoefficients = Array(repeating: .unity, count: count)
+        graphicStates = Array(repeating: [], count: count)
+    }
+
+    private func nearestGraphicIndex(to frequency: Float) -> Int {
+        let frequencies = graphicMode.centerFrequencies
+        return frequencies.indices.min {
+            abs(logf(frequencies[$0]) - logf(frequency)) < abs(logf(frequencies[$1]) - logf(frequency))
+        } ?? 0
+    }
+
+    private func normalizedGainsForCurrentMode(_ gains: [Float], limit: Float) -> [Float] {
+        let sourceMode: GraphicEQMode = gains.count == GraphicEQMode.thirtyTwoBand.bandCount
+            ? .thirtyTwoBand
+            : .tenBand
+        return graphicMode.resampledGains(gains, from: sourceMode)
+            .map { min(max($0, -limit), limit) }
     }
 
     private static func isNearUnity(_ coefficients: BiquadCoefficients) -> Bool {

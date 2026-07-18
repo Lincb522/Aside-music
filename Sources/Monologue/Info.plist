@@ -133,8 +133,6 @@
 	<string>扫描系统音乐资料库需要访问你设备上的音乐</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>保存二维码到相册以便扫码登录</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>用于分析歌曲人声并生成逐字歌词时间</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>NSSupportsLiveActivitiesFrequentUpdates</key>

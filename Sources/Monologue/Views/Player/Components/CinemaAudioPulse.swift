@@ -523,8 +523,6 @@ final class CinemaAudioPulse: ObservableObject {
         let strength = clamp01(beat.strength)
         let confidence = clamp01(beat.confidence)
         let visualImpact = clamp01(beat.strength * 0.46 + beat.confidence * 0.20 + beat.low * 0.28)
-        let livePreview = true
-
         let trackScale = trackProfile.scale
         if trackScale < 0.50, strength < 0.84, visualImpact < 0.56 { return }
 
@@ -544,7 +542,7 @@ final class CinemaAudioPulse: ObservableObject {
         else if bodyTone > 0.46, bodyTone > lowTone * 1.12 { mode = "body" }
 
         var amp = max(0.18, min(0.72, 0.15 + strength * 0.34 + confidence * 0.06 + mass * 0.13 + snapTone * 0.04))
-        amp *= livePreview ? 0.78 : 0.92
+        amp *= 0.78
         if mode == "deep" { amp = min(0.62, amp * 1.12) }
         let dynScale = cameraDynamicsScale(extra: 0.92 + visualImpact * 0.12 + mass * 0.08)
         amp *= dynScale
@@ -574,16 +572,14 @@ final class CinemaAudioPulse: ObservableObject {
         default: break
         }
 
-        // live preview 修正（4818-4826）
-        if livePreview {
-            let previewTone = clamp01(visualImpact * 0.54 + rawLowTone * 0.22 + confidence * 0.18 + strength * 0.06)
-            amp *= 0.72 + previewTone * 0.16
-            zoomAmp *= 0.62 + previewTone * 0.18
-            phiAmp *= 0.70 + previewTone * 0.12
-            thetaAmp *= 0.70 + previewTone * 0.12
-            rollAmp *= 0.54 + previewTone * 0.16
-            release *= 1.08 + previewTone * 0.08
-        }
+        // 此实现只接收实时预览源，直接应用预览修正。
+        let previewTone = clamp01(visualImpact * 0.54 + rawLowTone * 0.22 + confidence * 0.18 + strength * 0.06)
+        amp *= 0.72 + previewTone * 0.16
+        zoomAmp *= 0.62 + previewTone * 0.18
+        phiAmp *= 0.70 + previewTone * 0.12
+        thetaAmp *= 0.70 + previewTone * 0.12
+        rollAmp *= 0.54 + previewTone * 0.16
+        release *= 1.08 + previewTone * 0.08
         amp = max(0.08, min(0.68, amp))
 
         // live 源最小间隔（4830-4836）
@@ -674,7 +670,7 @@ final class CinemaAudioPulse: ObservableObject {
         }
 
         var punch = 0.0
-        var thetaKick = 0.0
+        let thetaKick = 0.0
         var phiKick = 0.0
         var radiusKick = 0.0
         var rollKick = 0.0

@@ -71,6 +71,7 @@ struct ListeningStatsView: View {
             }
         }
         .scrollIndicators(.hidden)
+        .coordinateSpace(name: SettingsPageLayout.scrollCoordinateSpace)
         .themeRenderScrollLayer()
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)

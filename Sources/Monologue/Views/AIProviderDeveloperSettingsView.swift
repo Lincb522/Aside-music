@@ -21,18 +21,17 @@ struct AIProviderDeveloperSettingsView: View {
 
     var body: some View {
         ZStack {
-            ThemedPageBackground(useRenderLayer: true)
-                .ignoresSafeArea()
+            ThemedSettingsBackground()
 
             ScrollView {
-                VStack(spacing: 22) {
+                VStack(spacing: SettingsPageLayout.deepSectionSpacing) {
                     SettingsScrollablePageHeader(
                         title: String(localized: "ai_provider_settings_title"),
                         eyebrow: "AI PROVIDER",
                         icon: .sparkle
                     )
 
-                    VStack(spacing: 22) {
+                    VStack(spacing: SettingsPageLayout.deepSectionSpacing) {
                         SettingsSection(title: String(localized: "ai_provider_protocol_section")) {
                             providerRow
 
@@ -141,15 +140,14 @@ struct AIProviderDeveloperSettingsView: View {
                         FloatingBarBottomSpacer()
                     }
                     .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
-                    .iPadContentWidth(700)
+                    .iPadContentWidth(SettingsPageLayout.contentWidth)
                 }
             }
             .scrollIndicators(.hidden)
+            .coordinateSpace(name: SettingsPageLayout.scrollCoordinateSpace)
             .themeRenderScrollLayer()
         }
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.hidden, for: .navigationBar)
+        .asideSettingsDetailChrome(String(localized: "ai_provider_settings_title"))
         .onAppear {
             usageLimiter.refresh()
         }

@@ -108,6 +108,7 @@ final class ListeningStatsRecorder {
             record.completed = Double(seconds) >= Double(songDurationSeconds) * 0.95
         }
         HistoryRepository().savePlayHistoryUpdates()
+        LocalPlaylistCloudSyncManager.shared.scheduleSyncForLocalMutation()
     }
 
     // MARK: 播放状态与生命周期

@@ -343,9 +343,10 @@ struct PlayerTypographySettingsView: View {
     @ObservedObject private var player = PlayerManager.shared
     @ObservedObject private var settings = SettingsManager.shared
     @StateObject private var coverColors = CoverColorExtractor()
+    @State private var selectedWorkspace: PlayerTypographyWorkspace = .display
 
     private var accent: Color {
-        coverColors.dominantColor
+        normalizedEQAccent(coverColors.dominantColor)
     }
 
     private var previewFont: Font {
@@ -373,27 +374,17 @@ struct PlayerTypographySettingsView: View {
         ZStack {
             backdrop.ignoresSafeArea()
 
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 0) {
-                    SettingsScrollablePageHeader(
-                        title: String(localized: "歌词外观"),
-                        eyebrow: "LYRICS",
-                        icon: .musicNoteList
-                    )
+            VStack(spacing: 0) {
+                PlayerSettingsWorkspaceBar(
+                    selection: $selectedWorkspace,
+                    items: PlayerTypographyWorkspace.allCases.map {
+                        PlayerSettingsWorkspaceItem(value: $0, title: $0.title, icon: $0.icon)
+                    },
+                    accent: accent
+                )
 
-                    VStack(alignment: .leading, spacing: 22) {
-                        preview
-                        lyricSourceSection
-                        fontSection
-                        karaokeSection
-                        lyricColorSection
-                        behaviorSection
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 18)
-                    .padding(.bottom, 44)
-                    .iPadContentWidth(720)
-                }
+                workspaceContent
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .compatFontDesign(nil)
@@ -405,6 +396,11 @@ struct PlayerTypographySettingsView: View {
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 MonologueToolbarBackButton()
+            }
+            ToolbarItem(placement: .principal) {
+                Text(String(localized: "歌词外观"))
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(.white)
             }
         }
         .onAppear {
@@ -424,6 +420,31 @@ struct PlayerTypographySettingsView: View {
                 LyricViewModel.shared.useGlobalSource(for: song)
             }
         }
+    }
+
+    @ViewBuilder
+    private var workspaceContent: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 16) {
+                switch selectedWorkspace {
+                case .display:
+                    lyricSourceSection
+                    behaviorSection
+                case .type:
+                    preview
+                    fontSection
+                case .karaoke:
+                    karaokeSection
+                case .color:
+                    lyricColorSection
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+            .padding(.bottom, 44)
+            .iPadContentWidth(720)
+        }
+        .scrollDismissesKeyboard(.interactively)
     }
 
     private var preview: some View {
@@ -689,13 +710,123 @@ struct PlayerTypographySettingsView: View {
 
     private var backdrop: some View {
         ZStack {
-            Color(red: 0.055, green: 0.055, blue: 0.072)
-            RadialGradient(
-                colors: [accent.opacity(0.16), .clear],
-                center: .top,
-                startRadius: 0,
-                endRadius: 440
+            PlaylistColorBackground(
+                coverUrl: player.currentSong?.coverUrl?.sized(720)
+            )
+            .saturation(0.78)
+
+            Color.black.opacity(0.48)
+
+            LinearGradient(
+                colors: [
+                    Color.black.opacity(0.08),
+                    Color.black.opacity(0.26),
+                    Color.black.opacity(0.54),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
             )
         }
+    }
+}
+
+private enum PlayerTypographyWorkspace: String, CaseIterable, Identifiable {
+    case display
+    case type
+    case karaoke
+    case color
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .display: return String(localized: "显示")
+        case .type: return String(localized: "字体")
+        case .karaoke: return String(localized: "逐字")
+        case .color: return String(localized: "颜色")
+        }
+    }
+
+    var icon: MonologueIcon.IconType {
+        switch self {
+        case .display: return .musicNote
+        case .type: return .album
+        case .karaoke: return .sparkle
+        case .color: return .equalizer
+        }
+    }
+}
+
+struct PlayerSettingsWorkspaceItem<Value: Hashable>: Identifiable {
+    let value: Value
+    let title: String
+    let icon: MonologueIcon.IconType
+
+    var id: Value { value }
+}
+
+struct PlayerSettingsWorkspaceBar<Value: Hashable>: View {
+    @Binding var selection: Value
+    let items: [PlayerSettingsWorkspaceItem<Value>]
+    let accent: Color
+
+    private var foreground: Color {
+        ThemeColorCustomization.readableForegroundColor(
+            on: accent,
+            light: Color(hex: "111821"),
+            dark: .white
+        )
+    }
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(items) { item in
+                let isSelected = selection == item.value
+                Button {
+                    guard !isSelected else { return }
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        selection = item.value
+                    }
+                    UISelectionFeedbackGenerator().selectionChanged()
+                } label: {
+                    HStack(spacing: 6) {
+                        MonologueIcon(
+                            icon: item.icon,
+                            size: 13,
+                            color: isSelected ? foreground : .white.opacity(0.46)
+                        )
+                        Text(item.title)
+                            .font(.system(size: 11.5, weight: .bold))
+                            .foregroundStyle(isSelected ? foreground : .white.opacity(0.52))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 38)
+                    .background {
+                        if isSelected {
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(accent.opacity(0.86))
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(isSelected ? .isSelected : [])
+            }
+        }
+        .padding(4)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.white.opacity(0.055))
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.white.opacity(0.075), lineWidth: 1)
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 8)
+        .padding(.bottom, 2)
+        .iPadContentWidth(720)
     }
 }

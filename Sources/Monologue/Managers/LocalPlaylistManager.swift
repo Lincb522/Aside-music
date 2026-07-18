@@ -368,7 +368,11 @@ class LocalPlaylistManager: ObservableObject {
             deviceName: deviceName,
             playlists: cloudPlaylists,
             downloads: downloads.isEmpty ? nil : downloads,
-            localRadioSubscriptions: podcasts.isEmpty ? nil : podcasts
+            localRadioSubscriptions: podcasts.isEmpty ? nil : podcasts,
+            themeCustomization: nil,
+            playbackHistory: nil,
+            aiEqualizer: nil,
+            customEQPresets: nil
         )
     }
 

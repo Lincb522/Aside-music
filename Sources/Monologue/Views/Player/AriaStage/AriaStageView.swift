@@ -14,6 +14,9 @@
 
 import SwiftUI
 import Combine
+import AVFoundation
+import MediaPlayer
+import UIKit
 
 // MARK: - 歌词仓库：LyricViewModel → AriaLine 管线
 
@@ -54,6 +57,7 @@ final class AriaLyricStore: ObservableObject {
 
 struct AriaStageView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var player = PlayerManager.shared
     /// 刻意不做 @ObservedObject：歌词由 TimelineView 逐帧驱动，
     /// 再订阅时间发布器会让整个舞台 body 每个时间 tick 重算一遍（双重驱动白耗 CPU）
@@ -88,6 +92,7 @@ struct AriaStageView: View {
     @AppStorage("ariaLyricDepthIntensity") private var lyricDepthIntensity = 0.68
     @AppStorage("ariaLyricEmboss") private var lyricEmbossEnabled = true
     @AppStorage("ariaCanopyCaptionTranslation") private var canopyCaptionTranslation = false
+    @AppStorage("ariaGestureGuideShown.v1") private var hasShownGestureGuide = false
 
     @State private var showPanel = false
     @State private var panelTab: AriaPanelTab = .cover
@@ -110,6 +115,7 @@ struct AriaStageView: View {
     /// 暂停态刷新计数：暂停时歌词时间轴完全停摆（画面本就冻结，白跑纯耗电），
     /// 拖动进度/远程 seek 改变时间时靠它触发一次重渲染
     @State private var pausedSeekRefresh = 0
+    @State private var showGestureGuide = false
 
     private let idleTicker = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     /// folia：播放中悬浮胶囊静置后收起为一条细进度
@@ -369,7 +375,7 @@ struct AriaStageView: View {
                 }
                 .frame(width: geo.size.width, height: geo.size.height)
                 .contentShape(Rectangle())
-                .onTapGesture { handleStageTap() }
+                .gesture(stageTapGesture)
                 // 入场揭幕：歌词层从轻微缩小 + 模糊中聚焦
                 .opacity(stageRevealed ? 1 : 0)
                 .scaleEffect(stageRevealed ? 1 : 0.94)
@@ -476,6 +482,32 @@ struct AriaStageView: View {
                     .zIndex(20)
                 }
 
+                AriaMultiTouchGestureBridge(
+                    isEnabled: !showPanel
+                        && !showShelfWall
+                        && !showLandscapeSettings
+                        && !showVideoSheet
+                        && !showGestureGuide,
+                    onTwoFingerSwipeDown: openShelfFromGesture,
+                    onThreeFingerSwipeDown: openSettingsFromGesture
+                )
+                .frame(width: 1, height: 1)
+                .allowsHitTesting(false)
+
+                if showGestureGuide {
+                    AriaGestureGuideOverlay(
+                        palette: palette,
+                        onDismiss: dismissGestureGuide
+                    )
+                    .frame(width: geo.size.width, height: geo.size.height)
+                    .transition(
+                        reduceMotion
+                            ? .opacity
+                            : .opacity.combined(with: .scale(scale: 0.97))
+                    )
+                    .zIndex(100)
+                }
+
                 AIEqualizerArtworkStatusView(
                     accent: palette.accent,
                     isDarkArtwork: stageColors.isDark
@@ -490,6 +522,22 @@ struct AriaStageView: View {
                     .zIndex(80)
             }
             .frame(width: geo.size.width, height: geo.size.height)
+            .modifier(
+                AriaImmersiveGestureModifier(
+                    stageSize: geo.size,
+                    isEnabled: !showPanel
+                        && !showShelfWall
+                        && !showLandscapeSettings
+                        && !showVideoSheet
+                        && !showGestureGuide
+                        && !isDraggingSlider
+                        && player.currentSong != nil,
+                    protectedTop: max(DeviceLayout.headerTopPadding + 54, 76),
+                    protectedBottom: capsuleExpanded ? 106 : 70,
+                    accent: palette.accent,
+                    onInteraction: markInteraction
+                )
+            )
         }
         // 舞台整体不参与系统键盘避让：歌词/背景不能被键盘顶起，
         // 歌架搜索（面板 / 歌架墙）各自按键盘实际高度手动让位
@@ -497,7 +545,7 @@ struct AriaStageView: View {
         .compatFontDesign(nil)
         .environment(\.colorScheme, .dark)
         .fullScreenCover(isPresented: $showVideoSheet) {
-            ImmersiveBackgroundSheet(palette: palette)
+            ImmersiveBackgroundLandscapeView(palette: palette)
         }
         .onAppear {
             audioPulse.start()
@@ -543,7 +591,8 @@ struct AriaStageView: View {
                   !showPanel,
                   !showShelfWall,
                   !showLandscapeSettings,
-                  !showVideoSheet else {
+                  !showVideoSheet,
+                  !showGestureGuide else {
                 return
             }
             if Date().timeIntervalSince(lastInteractionAt) >= capsuleCollapseDelay {
@@ -575,6 +624,24 @@ struct AriaStageView: View {
             )
         }
         .onChange(of: isDraggingSlider) { _, _ in markInteraction() }
+        .task {
+            guard !hasShownGestureGuide else { return }
+            do {
+                try await Task.sleep(for: .milliseconds(650))
+            } catch {
+                return
+            }
+            guard !Task.isCancelled,
+                  !showPanel,
+                  !showShelfWall,
+                  !showLandscapeSettings,
+                  !showVideoSheet else { return }
+            hasShownGestureGuide = true
+            markInteraction()
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.22)) {
+                showGestureGuide = true
+            }
+        }
         .task(id: player.currentSong?.coverUrl?.absoluteString) {
             stageColors.extract(from: player.currentSong?.coverUrl?.sized(200).absoluteString)
         }
@@ -646,6 +713,33 @@ struct AriaStageView: View {
         lastInteractionAt = Date()
     }
 
+    private var stageTapGesture: some Gesture {
+        TapGesture(count: 2)
+            .onEnded { handleStageDoubleTap() }
+            .exclusively(
+                before: TapGesture(count: 1)
+                    .onEnded { handleStageTap() }
+            )
+    }
+
+    private func handleStageDoubleTap() {
+        guard !showPanel,
+              !showShelfWall,
+              !showLandscapeSettings,
+              !showVideoSheet,
+              !showGestureGuide,
+              player.currentSong != nil,
+              !player.isLoading else { return }
+
+        HapticManager.shared.medium()
+        player.togglePlayPause()
+        chromeHidden = false
+        withAnimation(.easeOut(duration: 0.2)) {
+            capsuleExpanded = true
+        }
+        markInteraction()
+    }
+
     private func handleStageTap() {
         // 面板开着时，点空白先收面板
         if showPanel {
@@ -660,6 +754,44 @@ struct AriaStageView: View {
             chromeHidden = true
         }
         markInteraction()
+    }
+
+    private func openShelfFromGesture() {
+        guard !showPanel,
+              !showShelfWall,
+              !showLandscapeSettings,
+              !showVideoSheet,
+              !showGestureGuide else { return }
+
+        HapticManager.shared.medium()
+        chromeHidden = false
+        markInteraction()
+        withAnimation(.easeOut(duration: 0.22)) {
+            showShelfWall = true
+        }
+    }
+
+    private func openSettingsFromGesture() {
+        guard !showPanel,
+              !showShelfWall,
+              !showLandscapeSettings,
+              !showVideoSheet,
+              !showGestureGuide else { return }
+
+        HapticManager.shared.medium()
+        chromeHidden = false
+        markInteraction()
+        withAnimation(.easeOut(duration: 0.22)) {
+            showLandscapeSettings = true
+        }
+    }
+
+    private func dismissGestureGuide() {
+        HapticManager.shared.light()
+        markInteraction()
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {
+            showGestureGuide = false
+        }
     }
 
     // MARK: 退出钮
@@ -754,6 +886,609 @@ struct AriaStageView: View {
         } else {
             showVideoSheet = true
         }
+    }
+}
+
+private struct AriaGestureGuideOverlay: View {
+    let palette: AriaPalette
+    let onDismiss: () -> Void
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.34)
+                .ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                Text(String(localized: "immersive_gesture_guide_title"))
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .padding(.bottom, 17)
+
+                HStack(spacing: 0) {
+                    gestureItem(
+                        symbol: "arrow.left.and.right",
+                        text: String(localized: "immersive_gesture_switch_track")
+                    )
+                    guideDivider
+                    gestureItem(
+                        symbol: "speaker.wave.2.fill",
+                        text: String(localized: "immersive_gesture_volume")
+                    )
+                    guideDivider
+                    gestureItem(
+                        symbol: "hand.tap.fill",
+                        text: String(localized: "immersive_gesture_pause")
+                    )
+                }
+
+                Rectangle()
+                    .fill(Color.white.opacity(0.1))
+                    .frame(height: 1)
+                    .padding(.vertical, 13)
+
+                HStack(spacing: 0) {
+                    multiFingerItem(
+                        count: 2,
+                        text: String(localized: "immersive_gesture_open_shelf")
+                    )
+                    guideDivider
+                    multiFingerItem(
+                        count: 3,
+                        text: String(localized: "immersive_gesture_open_settings")
+                    )
+                }
+
+                Button(action: onDismiss) {
+                    Text(String(localized: "common_ok"))
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .frame(width: 112, height: 38)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(palette.accent.opacity(0.9))
+                        )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle())
+                .padding(.top, 18)
+            }
+            .padding(.horizontal, 22)
+            .padding(.vertical, 20)
+            .frame(maxWidth: 520)
+            .background {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(Color.black.opacity(0.34))
+                    }
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(Color.white.opacity(0.13), lineWidth: 0.8)
+            }
+            .padding(.horizontal, 28)
+        }
+    }
+
+    private func gestureItem(symbol: String, text: String) -> some View {
+        VStack(spacing: 8) {
+            Image(systemName: symbol)
+                .font(.system(size: 20, weight: .semibold))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(palette.accent, .white)
+                .frame(height: 23)
+
+            Text(text)
+                .font(.system(size: 11, weight: .medium, design: .rounded))
+                .foregroundStyle(.white.opacity(0.86))
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func multiFingerItem(count: Int, text: String) -> some View {
+        HStack(spacing: 9) {
+            ZStack {
+                Circle()
+                    .fill(palette.accent.opacity(0.18))
+                    .frame(width: 30, height: 30)
+                Text("\(count)")
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(palette.accent)
+                    .offset(y: 20)
+            }
+            .frame(width: 34, height: 42)
+
+            Text(text)
+                .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                .foregroundStyle(.white.opacity(0.88))
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var guideDivider: some View {
+        Rectangle()
+            .fill(Color.white.opacity(0.1))
+            .frame(width: 1, height: 42)
+    }
+}
+
+private struct AriaMultiTouchGestureBridge: UIViewRepresentable {
+    let isEnabled: Bool
+    let onTwoFingerSwipeDown: () -> Void
+    let onThreeFingerSwipeDown: () -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(
+            isEnabled: isEnabled,
+            onTwoFingerSwipeDown: onTwoFingerSwipeDown,
+            onThreeFingerSwipeDown: onThreeFingerSwipeDown
+        )
+    }
+
+    func makeUIView(context: Context) -> WindowAttachmentView {
+        let view = WindowAttachmentView(frame: .zero)
+        view.isUserInteractionEnabled = false
+        view.onWindowChange = { [weak coordinator = context.coordinator] window in
+            coordinator?.attach(to: window)
+        }
+        return view
+    }
+
+    func updateUIView(_ uiView: WindowAttachmentView, context: Context) {
+        context.coordinator.update(
+            isEnabled: isEnabled,
+            onTwoFingerSwipeDown: onTwoFingerSwipeDown,
+            onThreeFingerSwipeDown: onThreeFingerSwipeDown
+        )
+        context.coordinator.attach(to: uiView.window)
+    }
+
+    static func dismantleUIView(_ uiView: WindowAttachmentView, coordinator: Coordinator) {
+        uiView.onWindowChange = nil
+        coordinator.detach()
+    }
+
+    final class WindowAttachmentView: UIView {
+        var onWindowChange: ((UIWindow?) -> Void)?
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            onWindowChange?(window)
+        }
+    }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        private weak var attachedWindow: UIWindow?
+        private var twoFingerRecognizer: UIPanGestureRecognizer?
+        private var threeFingerRecognizer: UIPanGestureRecognizer?
+        private var isEnabled: Bool
+        private var onTwoFingerSwipeDown: () -> Void
+        private var onThreeFingerSwipeDown: () -> Void
+
+        init(
+            isEnabled: Bool,
+            onTwoFingerSwipeDown: @escaping () -> Void,
+            onThreeFingerSwipeDown: @escaping () -> Void
+        ) {
+            self.isEnabled = isEnabled
+            self.onTwoFingerSwipeDown = onTwoFingerSwipeDown
+            self.onThreeFingerSwipeDown = onThreeFingerSwipeDown
+        }
+
+        func update(
+            isEnabled: Bool,
+            onTwoFingerSwipeDown: @escaping () -> Void,
+            onThreeFingerSwipeDown: @escaping () -> Void
+        ) {
+            self.isEnabled = isEnabled
+            self.onTwoFingerSwipeDown = onTwoFingerSwipeDown
+            self.onThreeFingerSwipeDown = onThreeFingerSwipeDown
+        }
+
+        func attach(to window: UIWindow?) {
+            guard attachedWindow !== window else { return }
+            detach()
+            guard let window else { return }
+
+            let twoFinger = makeRecognizer(
+                touches: 2,
+                action: #selector(handleTwoFingerSwipe(_:))
+            )
+            let threeFinger = makeRecognizer(
+                touches: 3,
+                action: #selector(handleThreeFingerSwipe(_:))
+            )
+            window.addGestureRecognizer(twoFinger)
+            window.addGestureRecognizer(threeFinger)
+            attachedWindow = window
+            twoFingerRecognizer = twoFinger
+            threeFingerRecognizer = threeFinger
+        }
+
+        func detach() {
+            if let recognizer = twoFingerRecognizer {
+                attachedWindow?.removeGestureRecognizer(recognizer)
+            }
+            if let recognizer = threeFingerRecognizer {
+                attachedWindow?.removeGestureRecognizer(recognizer)
+            }
+            twoFingerRecognizer = nil
+            threeFingerRecognizer = nil
+            attachedWindow = nil
+        }
+
+        private func makeRecognizer(touches: Int, action: Selector) -> UIPanGestureRecognizer {
+            let recognizer = UIPanGestureRecognizer(target: self, action: action)
+            recognizer.minimumNumberOfTouches = touches
+            recognizer.maximumNumberOfTouches = touches
+            recognizer.cancelsTouchesInView = false
+            recognizer.delaysTouchesBegan = false
+            recognizer.delaysTouchesEnded = false
+            recognizer.delegate = self
+            return recognizer
+        }
+
+        @objc private func handleTwoFingerSwipe(_ recognizer: UIPanGestureRecognizer) {
+            guard completesDownwardSwipe(recognizer) else { return }
+            onTwoFingerSwipeDown()
+        }
+
+        @objc private func handleThreeFingerSwipe(_ recognizer: UIPanGestureRecognizer) {
+            guard completesDownwardSwipe(recognizer) else { return }
+            onThreeFingerSwipeDown()
+        }
+
+        private func completesDownwardSwipe(_ recognizer: UIPanGestureRecognizer) -> Bool {
+            guard isEnabled, recognizer.state == .ended, let view = recognizer.view else {
+                return false
+            }
+            let translation = recognizer.translation(in: view)
+            let velocity = recognizer.velocity(in: view)
+            return translation.y > 64
+                && translation.y > abs(translation.x) * 1.15
+                && velocity.y > 0
+        }
+
+        func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            guard isEnabled,
+                  let pan = gestureRecognizer as? UIPanGestureRecognizer,
+                  let view = pan.view else { return false }
+            let velocity = pan.velocity(in: view)
+            return velocity.y > 0 && velocity.y > abs(velocity.x) * 1.08
+        }
+
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+        ) -> Bool {
+            true
+        }
+    }
+}
+
+private struct AriaImmersiveGestureModifier: ViewModifier {
+    let stageSize: CGSize
+    let isEnabled: Bool
+    let protectedTop: CGFloat
+    let protectedBottom: CGFloat
+    let accent: Color
+    let onInteraction: () -> Void
+
+    @ObservedObject private var player = PlayerManager.shared
+    @State private var gestureAxis: AriaStageGestureAxis?
+    @State private var gestureBlocked = false
+    @State private var trackSwipeProgress: CGFloat = 0
+    @State private var trackSwipeDirection: AriaTrackSwipeDirection?
+    @State private var volumeAtGestureStart: Float = 0
+    @State private var requestedSystemVolume: Float?
+    @State private var volumeHUDVisible = false
+    @State private var trackHUDVisible = false
+    @State private var hudGeneration = 0
+
+    func body(content: Content) -> some View {
+        content
+            .overlay {
+                ZStack {
+                    AriaSystemVolumeBridge(volume: $requestedSystemVolume)
+                        .frame(width: 1, height: 1)
+                        .opacity(0.001)
+                        .allowsHitTesting(false)
+
+                    AriaImmersiveGestureHUD(
+                        volume: requestedSystemVolume ?? 0,
+                        showsVolume: volumeHUDVisible,
+                        trackDirection: trackSwipeDirection,
+                        trackProgress: trackSwipeProgress,
+                        showsTrack: trackHUDVisible,
+                        accent: accent
+                    )
+                    .allowsHitTesting(false)
+                }
+            }
+            .simultaneousGesture(stageGesture)
+            .onChange(of: isEnabled) { _, enabled in
+                if !enabled { resetHUDImmediately() }
+            }
+            .onDisappear { hudGeneration &+= 1 }
+    }
+
+    private var stageGesture: some Gesture {
+        DragGesture(minimumDistance: 12, coordinateSpace: .local)
+            .onChanged(updateGesture)
+            .onEnded(finishGesture)
+    }
+
+    private func updateGesture(_ value: DragGesture.Value) {
+        guard isEnabled, !gestureBlocked else { return }
+
+        if gestureAxis == nil {
+            guard canBeginGesture(value) else {
+                gestureBlocked = true
+                return
+            }
+
+            let horizontal = abs(value.translation.width)
+            let vertical = abs(value.translation.height)
+            guard horizontal > 8 || vertical > 8 else { return }
+
+            if horizontal > vertical * 1.18 {
+                gestureAxis = .track
+                trackHUDVisible = true
+                volumeHUDVisible = false
+            } else if vertical > horizontal * 1.18,
+                      value.startLocation.x >= stageSize.width * 0.56 {
+                gestureAxis = .volume
+                volumeAtGestureStart = AVAudioSession.sharedInstance().outputVolume
+                requestedSystemVolume = volumeAtGestureStart
+                volumeHUDVisible = true
+                trackHUDVisible = false
+                HapticManager.shared.light()
+            } else {
+                return
+            }
+        }
+
+        switch gestureAxis {
+        case .track:
+            let normalized = value.translation.width / max(stageSize.width * 0.28, 1)
+            trackSwipeProgress = max(-1, min(1, normalized))
+            trackSwipeDirection = AriaTrackSwipeDirection(translation: value.translation.width)
+            trackHUDVisible = true
+        case .volume:
+            let usableHeight = max(stageSize.height * 0.64, 180)
+            let delta = Float(-value.translation.height / usableHeight)
+            requestedSystemVolume = max(0, min(1, volumeAtGestureStart + delta))
+            volumeHUDVisible = true
+        case nil:
+            break
+        }
+    }
+
+    private func finishGesture(_ value: DragGesture.Value) {
+        defer {
+            gestureAxis = nil
+            gestureBlocked = false
+        }
+
+        guard isEnabled else {
+            resetHUDImmediately()
+            return
+        }
+
+        switch gestureAxis {
+        case .track:
+            let raw = value.translation.width
+            let predicted = value.predictedEndTranslation.width
+            let shouldCommit = abs(raw) > max(58, stageSize.width * 0.075)
+                || abs(predicted) > max(92, stageSize.width * 0.12)
+
+            guard shouldCommit, player.currentSong != nil else {
+                withAnimation(.easeOut(duration: 0.18)) {
+                    trackSwipeProgress = 0
+                    trackHUDVisible = false
+                }
+                trackSwipeDirection = nil
+                return
+            }
+
+            let direction = AriaTrackSwipeDirection(
+                translation: abs(predicted) > abs(raw) ? predicted : raw
+            )
+            trackSwipeDirection = direction
+            HapticManager.shared.medium()
+            onInteraction()
+
+            withAnimation(.easeOut(duration: 0.14)) {
+                trackSwipeProgress = direction == .next ? 1 : -1
+            }
+            switch direction {
+            case .next:
+                player.next()
+            case .previous:
+                player.previous()
+            }
+            dismissTrackHUD()
+
+        case .volume:
+            onInteraction()
+            dismissVolumeHUD()
+
+        case nil:
+            break
+        }
+    }
+
+    private func canBeginGesture(_ value: DragGesture.Value) -> Bool {
+        value.startLocation.y > protectedTop
+            && value.startLocation.y < stageSize.height - protectedBottom
+    }
+
+    private func dismissTrackHUD() {
+        hudGeneration &+= 1
+        let generation = hudGeneration
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 260_000_000)
+            guard hudGeneration == generation else { return }
+            withAnimation(.easeOut(duration: 0.2)) {
+                trackSwipeProgress = 0
+                trackHUDVisible = false
+            }
+            trackSwipeDirection = nil
+        }
+    }
+
+    private func dismissVolumeHUD() {
+        hudGeneration &+= 1
+        let generation = hudGeneration
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 720_000_000)
+            guard hudGeneration == generation else { return }
+            withAnimation(.easeOut(duration: 0.2)) {
+                volumeHUDVisible = false
+            }
+        }
+    }
+
+    private func resetHUDImmediately() {
+        hudGeneration &+= 1
+        trackSwipeProgress = 0
+        trackSwipeDirection = nil
+        trackHUDVisible = false
+        volumeHUDVisible = false
+    }
+}
+
+private enum AriaStageGestureAxis {
+    case track
+    case volume
+}
+
+private enum AriaTrackSwipeDirection {
+    case next
+    case previous
+
+    init(translation: CGFloat) {
+        // 与应用内 MiniPlayer 保持一致：右滑下一首，左滑上一首。
+        self = translation >= 0 ? .next : .previous
+    }
+}
+
+private struct AriaSystemVolumeBridge: UIViewRepresentable {
+    @Binding var volume: Float?
+
+    func makeUIView(context: Context) -> MPVolumeView {
+        let view = MPVolumeView(frame: .zero)
+        view.showsVolumeSlider = true
+        return view
+    }
+
+    func updateUIView(_ view: MPVolumeView, context: Context) {
+        guard let volume,
+              let slider = view.subviews.compactMap({ $0 as? UISlider }).first else {
+            return
+        }
+        let clamped = max(0, min(1, volume))
+        guard abs(slider.value - clamped) > 0.002 else { return }
+        slider.setValue(clamped, animated: false)
+        slider.sendActions(for: .valueChanged)
+    }
+}
+
+private struct AriaImmersiveGestureHUD: View {
+    let volume: Float
+    let showsVolume: Bool
+    let trackDirection: AriaTrackSwipeDirection?
+    let trackProgress: CGFloat
+    let showsTrack: Bool
+    let accent: Color
+
+    var body: some View {
+        ZStack {
+            volumeHUD
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+                .padding(.trailing, 34)
+
+            trackHUD
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        }
+    }
+
+    private var volumeHUD: some View {
+        VStack(spacing: 10) {
+            Image(systemName: volumeSymbol)
+                .font(.system(size: 17, weight: .semibold))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(.white)
+
+            GeometryReader { geometry in
+                ZStack(alignment: .bottom) {
+                    Capsule()
+                        .fill(Color.white.opacity(0.12))
+
+                    Capsule()
+                        .fill(Color.white.opacity(0.94))
+                        .frame(height: max(5, geometry.size.height * CGFloat(volume)))
+                }
+            }
+            .frame(width: 7, height: 86)
+
+            Text("\(Int((volume * 100).rounded()))")
+                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.82))
+                .frame(width: 30)
+        }
+        .padding(.vertical, 14)
+        .padding(.horizontal, 12)
+        .background(hudGlass(shape: Capsule()))
+        .opacity(showsVolume ? 1 : 0)
+        .scaleEffect(showsVolume ? 1 : 0.94)
+        .animation(.easeOut(duration: 0.18), value: showsVolume)
+        .animation(.easeOut(duration: 0.1), value: volume)
+    }
+
+    private var trackHUD: some View {
+        let direction = trackDirection ?? .next
+        let progress = min(abs(trackProgress), 1)
+
+        return ZStack {
+            Circle()
+                .fill(accent.opacity(0.16 + 0.12 * progress))
+                .frame(width: 54, height: 54)
+
+            MonologueIcon(
+                icon: direction == .next ? .next : .previous,
+                size: 21,
+                color: .white
+            )
+        }
+        .frame(width: 66, height: 66)
+        .background(hudGlass(shape: Circle()))
+        .offset(x: trackProgress * 26)
+        .scaleEffect(0.94 + 0.06 * progress)
+        .opacity(showsTrack ? 0.72 + 0.28 * progress : 0)
+        .animation(.easeOut(duration: 0.14), value: showsTrack)
+    }
+
+    private var volumeSymbol: String {
+        if volume <= 0.001 { return "speaker.slash.fill" }
+        if volume < 0.34 { return "speaker.wave.1.fill" }
+        if volume < 0.68 { return "speaker.wave.2.fill" }
+        return "speaker.wave.3.fill"
+    }
+
+    private func hudGlass<S: InsettableShape>(shape: S) -> some View {
+        shape
+            .fill(.ultraThinMaterial)
+            .overlay(shape.fill(Color.black.opacity(0.3)))
+            .overlay(shape.stroke(Color.white.opacity(0.14), lineWidth: 0.8))
+            .shadow(color: .black.opacity(0.28), radius: 18, y: 8)
     }
 }
 

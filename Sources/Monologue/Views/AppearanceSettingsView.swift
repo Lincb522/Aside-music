@@ -41,8 +41,14 @@ struct AppearanceSettingsView: View {
             ThemedSettingsBackground()
 
             ScrollView {
-                LazyVStack(spacing: 20) {
-                    LazyVStack(spacing: 20) {
+                LazyVStack(spacing: SettingsPageLayout.sectionSpacing) {
+                    SettingsScrollablePageHeader(
+                        title: String(localized: "settings_navigation_appearance_title"),
+                        eyebrow: "APPEARANCE",
+                        icon: .playerTheme
+                    )
+
+                    LazyVStack(spacing: SettingsPageLayout.sectionSpacing) {
                         globalThemeSection
                         if ThemeColorCustomization.supports(settings.globalThemeId) {
                             themeColorCustomizationSection
@@ -54,14 +60,15 @@ struct AppearanceSettingsView: View {
                         FloatingBarBottomSpacer()
                     }
                     .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
-                    .iPadContentWidth(700)
+                    .padding(.bottom, 44)
+                    .iPadContentWidth(SettingsPageLayout.contentWidth)
                 }
             }
             .scrollIndicators(.hidden)
+            .coordinateSpace(name: SettingsPageLayout.scrollCoordinateSpace)
             .themeRenderScrollLayer()
         }
-        .themedInlineNavigationTitle(String(localized: "settings_navigation_appearance_title"))
-        .toolbarBackground(.hidden, for: .navigationBar)
+        .asideSettingsDetailChrome(String(localized: "settings_navigation_appearance_title"))
         .onAppear {
             settings.enforceCoverBackgroundPolicyForCurrentTheme()
         }
@@ -844,7 +851,7 @@ private struct ThemeColorCustomizationSection: View {
             guard let item else { return }
             Task {
                 if let data = try? await item.loadTransferable(type: Data.self) {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
+                    _ = withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
                         ThemeColorCustomization.setBackgroundImageData(data, for: theme, dark: dark)
                     }
                 }
@@ -1602,15 +1609,17 @@ private struct ThemeColorCustomizationSection: View {
 
 }
 
-/// 独立 View 结构体：PhotosPicker 的 label 闭包是 nonisolated 的，
-/// 构造结构体规避主 actor 隔离限制
+/// PhotosPicker 的标签闭包是 nonisolated 的，初始化只保存可发送的值。
 private struct ThemeBackgroundImagePickerLabel: View {
     let theme: GlobalThemeId
-    var dark = false
-    @ObservedObject private var settings = SettingsManager.shared
+    let dark: Bool
+
+    nonisolated init(theme: GlobalThemeId, dark: Bool = false) {
+        self.theme = theme
+        self.dark = dark
+    }
 
     var body: some View {
-        let _ = settings.globalThemeRevision
         let image = ThemeColorCustomization.backgroundImage(for: theme, dark: dark)
 
         HStack(spacing: 10) {

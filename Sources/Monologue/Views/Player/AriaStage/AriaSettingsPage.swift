@@ -16,6 +16,9 @@ struct AriaSettingsPage: View {
     /// 从普通播放器三点菜单打开时为 false（全程竖屏，不做任何转向）
     var managesOrientation: Bool = true
 
+    @ObservedObject private var player = PlayerManager.shared
+    @StateObject private var coverColors = CoverColorExtractor()
+
     @AppStorage("ariaLyricEffect") private var lyricEffectRaw = AriaLyricEffect.classic.rawValue
     @AppStorage("ariaLyricFont") private var lyricFontRaw = AriaLyricFontChoice.system.rawValue
     @AppStorage("ariaCustomLyricFontID") private var customFontID = ""
@@ -36,6 +39,11 @@ struct AriaSettingsPage: View {
     @AppStorage("lyricsForceUppercaseEnglish") private var forceUppercaseEnglish = false
 
     @State private var showVideoSheet = false
+    @State private var selectedWorkspace: AriaSettingsWorkspace = .effects
+
+    private var settingsAccent: Color {
+        normalizedEQAccent(coverColors.dominantColor)
+    }
 
     private var lyricEffect: AriaLyricEffect {
         AriaLyricEffect.resolveStored(lyricEffectRaw)
@@ -76,25 +84,17 @@ struct AriaSettingsPage: View {
         ZStack {
             pageBackdrop.ignoresSafeArea()
 
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 0) {
-                    SettingsScrollablePageHeader(
-                        title: String(localized: "沉浸模式设置"),
-                        eyebrow: "IMMERSIVE",
-                        icon: .immersive
-                    )
+            VStack(spacing: 0) {
+                PlayerSettingsWorkspaceBar(
+                    selection: $selectedWorkspace,
+                    items: AriaSettingsWorkspace.allCases.map {
+                        PlayerSettingsWorkspaceItem(value: $0, title: $0.title, icon: $0.icon)
+                    },
+                    accent: settingsAccent
+                )
 
-                    VStack(alignment: .leading, spacing: 26) {
-                        effectSection
-                        styleSection
-                        tuningSection
-                        videoSection
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 18)
-                    .padding(.bottom, 48)
-                    .iPadContentWidth(720)
-                }
+                workspaceContent
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .compatFontDesign(nil)
@@ -107,8 +107,14 @@ struct AriaSettingsPage: View {
             ToolbarItem(placement: .topBarLeading) {
                 MonologueToolbarBackButton()
             }
+            ToolbarItem(placement: .principal) {
+                Text(String(localized: "沉浸模式设置"))
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
         }
         .onAppear {
+            refreshCoverAccent()
             let resolvedEffect = AriaLyricEffect.resolveStored(lyricEffectRaw)
             if lyricEffectRaw != resolvedEffect.rawValue {
                 lyricEffectRaw = resolvedEffect.rawValue
@@ -118,32 +124,69 @@ struct AriaSettingsPage: View {
                 OrientationManager.shared.exitLandscape()
             }
         }
+        .onChange(of: player.currentSong?.id) { _, _ in
+            refreshCoverAccent()
+        }
         .onDisappear {
             if managesOrientation {
                 OrientationManager.shared.enterLandscape()
             }
         }
         .fullScreenCover(isPresented: $showVideoSheet) {
-            ImmersiveBackgroundSheet(palette: palette)
+            NavigationStack {
+                ImmersiveBackgroundSheet(palette: palette)
+            }
         }
+    }
+
+    @ViewBuilder
+    private var workspaceContent: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 16) {
+                switch selectedWorkspace {
+                case .effects:
+                    effectSection
+                case .lyrics:
+                    styleSection
+                case .stage:
+                    tuningSection
+                case .video:
+                    videoSection
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+            .padding(.bottom, 44)
+            .iPadContentWidth(720)
+        }
+        .scrollDismissesKeyboard(.interactively)
     }
 
     // MARK: 背景
 
     private var pageBackdrop: some View {
         ZStack {
+            PlaylistColorBackground(
+                coverUrl: player.currentSong?.coverUrl?.sized(720)
+            )
+            .saturation(0.78)
+
+            Color.black.opacity(0.48)
+
             LinearGradient(
-                colors: [Color(red: 0.06, green: 0.06, blue: 0.08), Color(red: 0.10, green: 0.10, blue: 0.13)],
+                colors: [
+                    Color.black.opacity(0.08),
+                    Color.black.opacity(0.26),
+                    Color.black.opacity(0.54),
+                ],
                 startPoint: .top,
                 endPoint: .bottom
             )
-            RadialGradient(
-                colors: [palette.accent.opacity(0.14), .clear],
-                center: .init(x: 0.5, y: -0.08),
-                startRadius: 0,
-                endRadius: 420
-            )
         }
+    }
+
+    private func refreshCoverAccent() {
+        coverColors.extract(from: player.currentSong?.coverUrl?.sized(200).absoluteString)
     }
 
     // MARK: 字幕特效
@@ -177,7 +220,7 @@ struct AriaSettingsPage: View {
                     MonologueFontPicker(
                         selectionRaw: $lyricFontRaw,
                         customFontID: $customFontID,
-                        accent: palette.accent,
+                        accent: settingsAccent,
                         layout: .horizontal,
                         customFontScope: .cjkCapable
                     )
@@ -187,7 +230,7 @@ struct AriaSettingsPage: View {
                 MonologueForeignFontMenuRow(
                     selectionRaw: $foreignLyricFontRaw,
                     customFontID: $foreignCustomFontID,
-                    accent: palette.accent
+                    accent: settingsAccent
                 )
 
                 typographyDesignControls
@@ -202,7 +245,7 @@ struct AriaSettingsPage: View {
                             .foregroundStyle(.white.opacity(0.5))
                     }
                     Slider(value: $fontScale, in: 0.7...1.6)
-                        .tint(palette.accent)
+                        .tint(settingsAccent)
                 }
 
                 // 排版
@@ -261,10 +304,10 @@ struct AriaSettingsPage: View {
                                 .foregroundStyle(.white.opacity(0.4))
                         }
                     }
-                    .tint(palette.accent)
+                    .tint(settingsAccent)
 
                     if lyricAutoColor {
-                        CoverPaletteSettingsControls(accent: palette.accent)
+                        CoverPaletteSettingsControls(accent: settingsAccent)
                             .transition(.opacity.combined(with: .move(edge: .top)))
                     }
 
@@ -288,13 +331,13 @@ struct AriaSettingsPage: View {
                                 .foregroundStyle(.white.opacity(0.4))
                         }
                     }
-                    .tint(palette.accent)
+                    .tint(settingsAccent)
                 }
 
                 Toggle(isOn: $forceUppercaseEnglish) {
                     rowLabel(String(localized: "英文歌词强制大写"))
                 }
-                .tint(palette.accent)
+                .tint(settingsAccent)
             }
             .padding(14)
             .background(cardBackground)
@@ -323,11 +366,11 @@ struct AriaSettingsPage: View {
         .padding(.horizontal, 14)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.white.opacity(0.055))
+                .fill(Color.white.opacity(0.05))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(palette.accent.opacity(0.18), lineWidth: 1)
+                .stroke(settingsAccent.opacity(0.18), lineWidth: 1)
         )
     }
 
@@ -375,7 +418,7 @@ struct AriaSettingsPage: View {
                 Toggle(isOn: $particleMotion) {
                     rowLabel(String(localized: "粒子流动"))
                 }
-                .tint(palette.accent)
+                .tint(settingsAccent)
             }
 
             if lyricMaterialStyle == .glass {
@@ -409,7 +452,7 @@ struct AriaSettingsPage: View {
                 .overlay {
                     Capsule()
                         .stroke(
-                            selected ? palette.accent.opacity(0.62) : Color.white.opacity(0.06),
+                            selected ? settingsAccent.opacity(0.62) : Color.white.opacity(0.06),
                             lineWidth: 1
                         )
                 }
@@ -432,7 +475,7 @@ struct AriaSettingsPage: View {
                     .foregroundStyle(.white.opacity(0.46))
             }
             Slider(value: value, in: range)
-                .tint(palette.accent)
+                .tint(settingsAccent)
         }
     }
 
@@ -454,9 +497,9 @@ struct AriaSettingsPage: View {
                 showVideoSheet = true
             } label: {
                 HStack(spacing: 12) {
-                    MonologueIcon(icon: .mv, size: 17, color: palette.accent)
+                    MonologueIcon(icon: .mv, size: 17, color: settingsAccent)
                         .frame(width: 36, height: 36)
-                        .background(Circle().fill(palette.accent.opacity(0.14)))
+                        .background(Circle().fill(settingsAccent.opacity(0.14)))
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(String(localized: "导入 / 绑定视频背景"))
@@ -483,9 +526,8 @@ struct AriaSettingsPage: View {
     private func section(title: String, @ViewBuilder content: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(.white.opacity(0.45))
-                .textCase(.uppercase)
             content()
         }
     }
@@ -497,10 +539,10 @@ struct AriaSettingsPage: View {
     }
 
     private var cardBackground: some View {
-        RoundedRectangle(cornerRadius: 16, style: .continuous)
-            .fill(Color.white.opacity(0.055))
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .fill(Color.white.opacity(0.05))
             .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .stroke(Color.white.opacity(0.07), lineWidth: 1)
             )
     }
@@ -520,7 +562,7 @@ struct AriaSettingsPage: View {
                 }
                 Spacer()
                 if selected {
-                    MonologueIcon(icon: .checkmark, size: 16, color: palette.accent)
+                    MonologueIcon(icon: .checkmark, size: 16, color: settingsAccent)
                 }
             }
             .padding(.horizontal, 15)
@@ -531,9 +573,36 @@ struct AriaSettingsPage: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(selected ? palette.accent.opacity(0.55) : Color.white.opacity(0.08), lineWidth: 1)
+                    .stroke(selected ? settingsAccent.opacity(0.55) : Color.white.opacity(0.08), lineWidth: 1)
             )
         }
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+    }
+}
+
+private enum AriaSettingsWorkspace: String, CaseIterable, Identifiable {
+    case effects
+    case lyrics
+    case stage
+    case video
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .effects: return String(localized: "特效")
+        case .lyrics: return String(localized: "字幕")
+        case .stage: return String(localized: "舞台")
+        case .video: return String(localized: "视频")
+        }
+    }
+
+    var icon: MonologueIcon.IconType {
+        switch self {
+        case .effects: return .sparkle
+        case .lyrics: return .musicNote
+        case .stage: return .equalizer
+        case .video: return .mv
+        }
     }
 }

@@ -1,6 +1,7 @@
 import HiconIcons
 import SwiftUI
 
+@MainActor
 public struct ContentView: View {
     @AppStorage("isLoggedIn") private var isLoggedIn: Bool = false
     @State private var showWelcome = true
@@ -243,6 +244,17 @@ public struct ContentView: View {
         }
         .id("tab-view-\(settings.globalThemeId.rawValue)-\(settings.globalThemeApplicationRevision)-\(accessMode)")
         .tint(tabTint)
+        .background {
+            if settings.useSystemTabBar && settings.globalThemeId != .manga {
+                SystemTabBarAppearanceBridge(
+                    accent: tabTint,
+                    colorScheme: settings.activeColorScheme,
+                    revision: settings.globalThemeRevision
+                )
+                .frame(width: 0, height: 0)
+                .accessibilityHidden(true)
+            }
+        }
     }
 
     @ViewBuilder
@@ -292,7 +304,12 @@ public struct ContentView: View {
     private var tabSelectionBinding: Binding<Tab> {
         Binding(
             get: { currentTab },
-            set: { selectTabImmediately($0) }
+            set: { tab in
+                if currentTab != tab, settings.useSystemTabBar {
+                    UISelectionFeedbackGenerator().selectionChanged()
+                }
+                selectTabImmediately(tab)
+            }
         )
     }
 
@@ -566,6 +583,7 @@ public struct ContentView: View {
 
 // MARK: - 悬浮栏容器（隔离 PlayerManager 订阅）
 
+@MainActor
 private struct ContentViewFloatingBarContainer: View {
     @Binding var currentTab: Tab
     @ObservedObject var settings: SettingsManager
@@ -627,6 +645,7 @@ private struct ContentViewFloatingBarContainer: View {
 
 // MARK: - 紧凑迷你播放器容器（隔离 PlayerManager + PlaybackTimePublisher 订阅）
 
+@MainActor
 private struct ContentViewCompactPlayerContainer: View {
     @ObservedObject var settings: SettingsManager
     @ObservedObject private var player = FloatingBarPlaybackModel.shared
@@ -673,6 +692,7 @@ private struct ContentViewCompactPlayerContainer: View {
 /// 若直接在 accessory 上 present sheet，点击按钮瞬间会和系统 bottomAccessory
 /// 的点击/hover 交互冲突，导致 sheet 刚出现就被即刻关闭。
 @available(iOS 26.0, *)
+@MainActor
 private struct SystemTabBarWithAccessory<Content: View>: View {
     let content: () -> Content
     @State private var playlistPresented = false
@@ -702,6 +722,7 @@ private struct SystemTabBarWithAccessory<Content: View>: View {
 /// 文字使用 `.primary` / `.secondary` 语义色，系统会根据 Liquid Glass 背景
 /// 自动补偿对比度（浅色背景自动变深色字、反之亦然）。
 @available(iOS 26.0, *)
+@MainActor
 private struct TabViewBottomMiniPlayer: View {
     @Binding var playlistPresented: Bool
     @ObservedObject private var player = FloatingBarPlaybackModel.shared
@@ -845,6 +866,7 @@ private struct TabBottomAccessoryPlaceholder: View {
 /// - 支持左右滑动切歌（`swipeToSkip()`：右滑下一首、左滑上一首）。
 /// - 歌名/歌词使用 `MarqueeText` 跑马灯滚动，不再缩略。
 @available(iOS 26.0, *)
+@MainActor
 private struct TabBottomAccessoryContent: View {
     let song: Song
     @Binding var playlistPresented: Bool
@@ -980,6 +1002,7 @@ private struct TabBottomAccessoryContent: View {
 
 // MARK: - 紧凑迷你播放器（独立视图，隔离高频订阅）
 
+@MainActor
 private struct CompactMiniPlayerView: View {
     let song: Song
     @ObservedObject private var player = FloatingBarPlaybackModel.shared
@@ -1117,6 +1140,7 @@ private struct CompactMiniPlayerView: View {
     }
 }
 
+@MainActor
 private struct MiniPlayerProgressStrip: View {
     let height: CGFloat
     let minFillWidth: CGFloat

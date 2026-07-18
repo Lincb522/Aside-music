@@ -16,7 +16,7 @@ public protocol AudioEqualizerDelegate: AnyObject {
 
 // MARK: - AudioEqualizer
 
-/// 10 段音频均衡器，提供频段增益控制和预设功能。
+/// 可切换 10/32 段的音频均衡器，提供频段增益控制和预设功能。
 ///
 /// `AudioEqualizer` 封装内部 `EQFilter`，提供安全的公开 API。
 /// 当增益值超出 [-12, +12] dB 范围时，会被钳位到最近边界并通知代理。
@@ -57,6 +57,27 @@ public final class AudioEqualizer {
     }
 
     // MARK: - 公开 API
+
+    /// Atomically switches the graphic-EQ resolution and applies its curve.
+    /// Omitting `gainsDB` converts the active curve in logarithmic-frequency space.
+    public func setGraphicMode(_ mode: GraphicEQMode, gainsDB: [Float]? = nil) {
+        filter.setGraphicMode(mode, gains: gainsDB)
+        currentPreset = nil
+    }
+
+    public var graphicMode: GraphicEQMode {
+        filter.currentGraphicMode()
+    }
+
+    public var graphicGains: [Float] {
+        filter.currentGraphicGains()
+    }
+
+    /// Sets a gain by the active graphic bank's ordered band index.
+    public func setGraphicGain(_ gainDB: Float, at index: Int) {
+        guard filter.setGraphicGain(gainDB, at: index) != nil else { return }
+        currentPreset = nil
+    }
 
     /// 设置指定频段的增益。
     ///
@@ -139,10 +160,8 @@ public final class AudioEqualizer {
     /// - Parameter preset: 要应用的预设
     public func applyPreset(_ preset: EQPreset) {
         // 应用各频段增益
-        for band in EQBand.allCases {
-            let gain = preset.gains[band] ?? 0.0
-            _ = filter.setGain(gain, for: band)
-        }
+        let gains = EQBand.allCases.map { preset.gains[$0] ?? 0 }
+        filter.setGraphicMode(.tenBand, gains: gains)
         
         // 应用环绕效果
         if let effects = audioEffects {

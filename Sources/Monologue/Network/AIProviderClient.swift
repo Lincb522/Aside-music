@@ -1,6 +1,8 @@
 import Foundation
 
 struct AIProviderClient: Sendable {
+    private static let maximumOutputTokens = 4_096
+
     func fetchModels(
         configuration: AIProviderConfiguration,
         apiKey: String
@@ -55,7 +57,8 @@ struct AIProviderClient: Sendable {
         systemPrompt: String,
         userPrompt: String,
         configuration: AIProviderConfiguration,
-        apiKey: String
+        apiKey: String,
+        minimumTimeout: TimeInterval = 0
     ) async throws -> String {
         if configuration.wireProtocol == .appleIntelligence {
             return try await AppleIntelligenceEqualizerProvider.generate(
@@ -69,39 +72,78 @@ struct AIProviderClient: Sendable {
             throw AIEqualizerError.missingAPIKey
         }
 
+        let responseTimeout = min(180, max(configuration.timeout, minimumTimeout))
         let request = try makeRequest(
             systemPrompt: systemPrompt,
             userPrompt: userPrompt,
             configuration: configuration,
-            apiKey: normalizedKey
+            apiKey: normalizedKey,
+            timeout: responseTimeout
         )
         let sessionConfiguration = URLSessionConfiguration.ephemeral
-        sessionConfiguration.timeoutIntervalForRequest = configuration.timeout
-        sessionConfiguration.timeoutIntervalForResource = configuration.timeout + 5
+        sessionConfiguration.timeoutIntervalForRequest = responseTimeout
+        sessionConfiguration.timeoutIntervalForResource = responseTimeout + 15
+        sessionConfiguration.waitsForConnectivity = true
         let session = URLSession(configuration: sessionConfiguration)
-        let (data, response) = try await session.data(for: request)
+        let startedAt = Date()
+        AppLogger.network(
+            "[AIProviderClient] Generation request started protocol=\(configuration.wireProtocol.rawValue) model=\(configuration.resolvedModel) timeout=\(Int(responseTimeout))s promptCharacters=\(systemPrompt.count + userPrompt.count) requestBytes=\(request.httpBody?.count ?? 0)",
+            step: "ai-provider.request-started"
+        )
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch {
+            let elapsed = Date().timeIntervalSince(startedAt)
+            let elapsedText = String(format: "%.2f", elapsed)
+            let code = (error as? URLError)?.code.rawValue
+            let codeText = code.map { String($0) } ?? "none"
+            AppLogger.error(
+                "[AIProviderClient] Generation request failed protocol=\(configuration.wireProtocol.rawValue) model=\(configuration.resolvedModel) elapsed=\(elapsedText)s timeout=\(Int(responseTimeout))s urlErrorCode=\(codeText) error=\(error.localizedDescription)",
+                step: "ai-provider.request-failed"
+            )
+            throw error
+        }
 
         guard let http = response as? HTTPURLResponse else {
             throw AIEqualizerError.invalidResponse
         }
+        let elapsedText = String(format: "%.2f", Date().timeIntervalSince(startedAt))
+        AppLogger.network(
+            "[AIProviderClient] Generation response received protocol=\(configuration.wireProtocol.rawValue) model=\(configuration.resolvedModel) status=\(http.statusCode) elapsed=\(elapsedText)s responseBytes=\(data.count)",
+            step: "ai-provider.response-received"
+        )
         guard (200...299).contains(http.statusCode) else {
             throw AIEqualizerError.httpStatus(http.statusCode, Self.errorMessage(from: data))
         }
-        return try Self.extractText(from: data, wireProtocol: configuration.wireProtocol)
+        do {
+            return try Self.extractText(from: data, wireProtocol: configuration.wireProtocol)
+        } catch {
+            let responsePreview = String(decoding: data.prefix(1_200), as: UTF8.self)
+                .replacingOccurrences(of: "\n", with: " ")
+            AppLogger.error(
+                "[AIProviderClient] Response body did not contain usable model text protocol=\(configuration.wireProtocol.rawValue) status=\(http.statusCode) bytes=\(data.count) body=\(responsePreview)",
+                step: "ai-provider.response-decode"
+            )
+            throw error
+        }
     }
 
     private func makeRequest(
         systemPrompt: String,
         userPrompt: String,
         configuration: AIProviderConfiguration,
-        apiKey: String
+        apiKey: String,
+        timeout: TimeInterval
     ) throws -> URLRequest {
         let model = configuration.resolvedModel
         guard !model.isEmpty else { throw AIEqualizerError.modelUnavailable }
         let url = try endpoint(for: configuration, model: model, apiKey: apiKey)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.timeoutInterval = configuration.timeout
+        request.timeoutInterval = timeout
         request.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
 
         let body: [String: Any]
@@ -112,7 +154,7 @@ struct AIProviderClient: Sendable {
                 "model": model,
                 "instructions": systemPrompt,
                 "input": userPrompt,
-                "max_output_tokens": 2_400
+                "max_output_tokens": Self.maximumOutputTokens
             ]
 
         case .openAIChat:
@@ -143,7 +185,7 @@ struct AIProviderClient: Sendable {
             body = [
                 "model": model,
                 "system": systemPrompt,
-                "max_tokens": 2_400,
+                "max_tokens": Self.maximumOutputTokens,
                 "temperature": 0.1,
                 "messages": [["role": "user", "content": userPrompt]]
             ]
@@ -154,7 +196,7 @@ struct AIProviderClient: Sendable {
                 "contents": [["role": "user", "parts": [["text": userPrompt]]]],
                 "generationConfig": [
                     "temperature": 0.1,
-                    "maxOutputTokens": 2_400,
+                    "maxOutputTokens": Self.maximumOutputTokens,
                     "responseMimeType": "application/json"
                 ]
             ]
@@ -204,7 +246,7 @@ struct AIProviderClient: Sendable {
                 ["role": "user", "content": userPrompt]
             ]
         ]
-        body[modernTokenParameter ? "max_completion_tokens" : "max_tokens"] = 2_400
+        body[modernTokenParameter ? "max_completion_tokens" : "max_tokens"] = Self.maximumOutputTokens
         if jsonMode {
             body["response_format"] = ["type": "json_object"]
         }

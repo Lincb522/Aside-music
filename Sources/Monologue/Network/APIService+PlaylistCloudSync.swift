@@ -48,7 +48,7 @@ extension APIService {
 
         var request = URLRequest(url: url)
         request.httpMethod = method
-        request.timeoutInterval = 20
+        request.timeoutInterval = 45
         request.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
         return request
     }

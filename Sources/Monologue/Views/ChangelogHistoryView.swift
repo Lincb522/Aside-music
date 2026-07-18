@@ -3,6 +3,7 @@ import SwiftUI
 /// 更新日志页面：从服务端拉取全部历史版本，
 /// 以时间轴纵列展示；最新版本默认展开，旧版本点击展开。
 struct ChangelogHistoryView: View {
+    @ObservedObject private var settings = SettingsManager.shared
     @State private var releases: [AppChangelogRelease]?
     @State private var loadFailed = false
     @State private var expandedIDs: Set<String> = []
@@ -46,7 +47,9 @@ struct ChangelogHistoryView: View {
     var body: some View {
         ZStack {
             Group {
-                if MinimalWhiteStyle.isActive {
+                if settings.globalThemeId == .default {
+                    ThemedSettingsBackground()
+                } else if MinimalWhiteStyle.isActive {
                     MinimalWhiteRootBackdrop()
                 } else {
                     ThemedPageBackground()
@@ -56,18 +59,36 @@ struct ChangelogHistoryView: View {
 
             content
         }
-        .themedInlineNavigationTitle(String(localized: "更新日志"))
-        .toolbarBackground(.hidden, for: .navigationBar)
+        .asideSettingsDetailChrome(String(localized: "更新日志"))
         // 版本号/日期用等宽字体，关掉全局 .rounded 覆盖
         .compatFontDesign(nil)
         .task { await load() }
     }
 
-    @ViewBuilder
     private var content: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                SettingsScrollablePageHeader(
+                    title: String(localized: "更新日志"),
+                    eyebrow: "CHANGELOG",
+                    icon: .history
+                )
+
+                contentState
+                FloatingBarBottomSpacer()
+            }
+        }
+        .scrollIndicators(.hidden)
+        .coordinateSpace(name: SettingsPageLayout.scrollCoordinateSpace)
+        .themeRenderScrollLayer()
+    }
+
+    @ViewBuilder
+    private var contentState: some View {
         if let releases {
             if releases.isEmpty {
                 stateHint(String(localized: "暂无更新日志"))
+                    .frame(maxWidth: .infinity, minHeight: 260)
             } else {
                 timeline(releases)
             }
@@ -88,6 +109,7 @@ struct ChangelogHistoryView: View {
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
             }
+            .frame(maxWidth: .infinity, minHeight: 260)
         } else {
             VStack(spacing: 12) {
                 ProgressView()
@@ -96,6 +118,7 @@ struct ChangelogHistoryView: View {
                     .font(.system(size: 12.5, weight: .regular, design: .rounded))
                     .foregroundColor(inkMuted)
             }
+            .frame(maxWidth: .infinity, minHeight: 260)
         }
     }
 
@@ -108,22 +131,17 @@ struct ChangelogHistoryView: View {
     // MARK: - 时间轴
 
     private func timeline(_ releases: [AppChangelogRelease]) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach(Array(releases.enumerated()), id: \.element.id) { index, release in
-                    releaseEntry(
-                        release,
-                        isLast: index == releases.count - 1
-                    )
-                }
-                FloatingBarBottomSpacer()
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(releases.enumerated()), id: \.element.id) { index, release in
+                releaseEntry(
+                    release,
+                    isLast: index == releases.count - 1
+                )
             }
-            .padding(.top, 20)
-            .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding + 4)
-            .iPadContentWidth(700)
         }
-        .scrollIndicators(.hidden)
-        .themeRenderScrollLayer()
+        .padding(.top, 20)
+        .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding + 4)
+        .iPadContentWidth(700)
     }
 
     private func releaseEntry(_ release: AppChangelogRelease, isLast: Bool) -> some View {

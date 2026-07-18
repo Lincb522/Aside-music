@@ -7,26 +7,42 @@ struct CloudSyncSettingsView: View {
 
     @State private var showClearCloudConfirm = false
 
+    private var accent: Color {
+        return .monologueAccent
+    }
+
+    private var summary: CloudSyncContentSummary {
+        playlistCloudSync.localContentSummary
+    }
+
     var body: some View {
         ZStack {
             ThemedSettingsBackground()
 
-            ScrollView {
-                VStack(spacing: 20) {
-                    VStack(spacing: 20) {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: SettingsPageLayout.sectionSpacing) {
+                    SettingsScrollablePageHeader(
+                        title: String(localized: "settings_navigation_cloud_sync_title"),
+                        eyebrow: "CLOUD",
+                        icon: .cloud
+                    )
+
+                    VStack(alignment: .leading, spacing: 16) {
+                        statusPanel
+                        cloudContentSection
                         syncSection
                         actionSection
                         FloatingBarBottomSpacer()
                     }
                     .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
-                    .iPadContentWidth(700)
+                    .padding(.bottom, 44)
+                    .iPadContentWidth(SettingsPageLayout.contentWidth)
                 }
             }
-            .scrollIndicators(.hidden)
+            .coordinateSpace(name: SettingsPageLayout.scrollCoordinateSpace)
             .themeRenderScrollLayer()
         }
-        .themedInlineNavigationTitle(String(localized: "settings_navigation_cloud_sync_title"))
-        .toolbarBackground(.hidden, for: .navigationBar)
+        .asideSettingsDetailChrome(String(localized: "settings_navigation_cloud_sync_title"))
         .onChange(of: settings.playlistSyncAutoEnabled) { _, enabled in
             guard enabled else { return }
             playlistCloudSync.resumeAutomaticSync()
@@ -36,12 +52,8 @@ struct CloudSyncSettingsView: View {
             isPresented: $showClearCloudConfirm
         ) {
             Button(String(localized: "playlist_sync_clear_cloud_confirm"), role: .destructive) {
-                Task {
-                    do {
-                        try await playlistCloudSync.clearCloudSnapshot()
-                    } catch {
-                        showFailure(error)
-                    }
+                runSyncAction {
+                    try await playlistCloudSync.clearCloudSnapshot()
                 }
             }
         } message: {
@@ -49,8 +61,121 @@ struct CloudSyncSettingsView: View {
         }
     }
 
+    private var statusPanel: some View {
+        HStack(spacing: 13) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(accent.opacity(0.16))
+                MonologueIcon(
+                    icon: playlistCloudSync.isSyncing ? .refresh : .cloud,
+                    size: 19,
+                    color: accent
+                )
+                .rotationEffect(.degrees(playlistCloudSync.isSyncing ? 360 : 0))
+                .animation(
+                    playlistCloudSync.isSyncing
+                        ? .linear(duration: 1).repeatForever(autoreverses: false)
+                        : .easeOut(duration: 0.2),
+                    value: playlistCloudSync.isSyncing
+                )
+            }
+            .frame(width: 46, height: 46)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(statusTitle)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(Color.monologueTextPrimary)
+                    .lineLimit(1)
+
+                Text(playlistSyncStatusText)
+                    .font(.system(size: 11.5, weight: .medium))
+                    .foregroundStyle(Color.monologueTextSecondary)
+                    .lineLimit(2)
+            }
+
+            Spacer(minLength: 8)
+
+            if playlistCloudSync.isSyncing {
+                ProgressView()
+                    .tint(accent)
+                    .controlSize(.small)
+            } else {
+                Circle()
+                    .fill(onlineAccess.canUseOnlineFeatures ? Color.green : Color.orange)
+                    .frame(width: 8, height: 8)
+                    .accessibilityLabel(statusTitle)
+            }
+        }
+        .padding(14)
+        .background(cardBackground)
+        .monologueGlass(cornerRadius: 14)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private var cloudContentSection: some View {
+        section(title: String(localized: "cloud_sync_content_title")) {
+            VStack(spacing: 0) {
+                contentRow(
+                    icon: .musicNoteList,
+                    title: String(localized: "cloud_sync_playlists"),
+                    value: String(
+                        format: String(localized: "cloud_sync_playlist_value"),
+                        locale: Locale.current,
+                        summary.playlists,
+                        summary.playlistSongs
+                    )
+                )
+                contentDivider
+                contentRow(
+                    icon: .download,
+                    title: String(localized: "cloud_sync_downloads"),
+                    value: countText(summary.downloads)
+                )
+                contentDivider
+                contentRow(
+                    icon: .podcast,
+                    title: String(localized: "cloud_sync_podcasts"),
+                    value: countText(summary.podcastSubscriptions)
+                )
+                contentDivider
+                contentRow(
+                    icon: .sparkle,
+                    title: String(localized: "cloud_sync_personalization"),
+                    value: countText(summary.colorConfigurations)
+                )
+                contentDivider
+                contentRow(
+                    icon: .chart,
+                    title: String(localized: "cloud_sync_listening_stats"),
+                    value: countText(summary.listeningRecords)
+                )
+                contentDivider
+                contentRow(
+                    icon: .history,
+                    title: String(localized: "cloud_sync_playback_history"),
+                    value: countText(summary.playbackRecords)
+                )
+                contentDivider
+                contentRow(
+                    icon: .waveform,
+                    title: String(localized: "cloud_sync_ai_tuning"),
+                    value: countText(summary.aiTuningPlans)
+                )
+                contentDivider
+                contentRow(
+                    icon: .equalizer,
+                    title: String(localized: "cloud_sync_custom_eq"),
+                    value: countText(summary.customEQPresets)
+                )
+            }
+            .background(cardBackground)
+            .monologueGlass(cornerRadius: 14)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+    }
+
     private var syncSection: some View {
-        SettingsSection(title: String(localized: "settings_navigation_cloud_sync_title")) {
+        section(title: String(localized: "playlist_sync_settings_title")) {
             VStack(spacing: 0) {
                 SettingsToggleRow(
                     icon: .cloud,
@@ -59,9 +184,7 @@ struct CloudSyncSettingsView: View {
                     isOn: $settings.playlistSyncAutoEnabled
                 )
 
-                Divider()
-                    .opacity(0.4)
-                    .padding(.leading, 62)
+                contentDivider
 
                 SettingsToggleRow(
                     icon: .trash,
@@ -69,85 +192,175 @@ struct CloudSyncSettingsView: View {
                     subtitle: String(localized: "playlist_sync_delete_remote_toggle_desc"),
                     isOn: $settings.playlistSyncDeleteCloudSnapshot
                 )
-
-                Divider()
-                    .opacity(0.4)
-                    .padding(.leading, 62)
-
-                SettingsInfoRow(
-                    icon: playlistCloudSync.isSyncing ? .sparkle : .cloud,
-                    title: String(localized: "playlist_sync_status_title"),
-                    value: playlistSyncStatusText
-                )
             }
+            .background(cardBackground)
+            .monologueGlass(cornerRadius: 14)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
     }
 
     private var actionSection: some View {
-        SettingsSection(title: String(localized: "playlist_sync_actions_title")) {
-            VStack(spacing: 0) {
-                actionRow(
-                    icon: .save,
-                    title: String(localized: "playlist_sync_upload_button"),
-                    action: {
-                        Task {
-                            do {
-                                _ = try await playlistCloudSync.syncToCloud()
-                            } catch {
-                                showFailure(error)
-                            }
+        section(title: String(localized: "playlist_sync_actions_title")) {
+            VStack(spacing: 10) {
+                HStack(spacing: 10) {
+                    actionButton(
+                        icon: .save,
+                        title: String(localized: "playlist_sync_upload_button"),
+                        primary: true
+                    ) {
+                        runSyncAction {
+                            _ = try await playlistCloudSync.syncToCloud()
                         }
                     }
-                )
 
-                Divider()
-                    .opacity(0.4)
-                    .padding(.leading, 62)
-
-                actionRow(
-                    icon: .download,
-                    title: String(localized: "playlist_sync_restore_button"),
-                    action: {
-                        Task {
-                            do {
-                                _ = try await playlistCloudSync.restoreFromCloud()
-                            } catch {
-                                showFailure(error)
-                            }
+                    actionButton(
+                        icon: .download,
+                        title: String(localized: "playlist_sync_restore_button")
+                    ) {
+                        runSyncAction {
+                            _ = try await playlistCloudSync.restoreFromCloud()
                         }
                     }
-                )
+                }
 
-                Divider()
-                    .opacity(0.4)
-                    .padding(.leading, 62)
-
-                actionRow(
-                    icon: .trash,
-                    title: String(localized: "playlist_sync_clear_cloud_button"),
-                    isDestructive: true,
-                    action: {
-                        showClearCloudConfirm = true
+                Button {
+                    showClearCloudConfirm = true
+                } label: {
+                    HStack(spacing: 8) {
+                        MonologueIcon(icon: .trash, size: 14, color: .red)
+                        Text(String(localized: "playlist_sync_clear_cloud_button"))
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.red)
+                        Spacer()
+                        MonologueIcon(icon: .chevronRight, size: 11, color: .red.opacity(0.62))
                     }
-                )
+                    .padding(.horizontal, 14)
+                    .frame(height: 44)
+                    .background(cardBackground)
+                    .monologueGlass(cornerRadius: 14)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .buttonStyle(.plain)
             }
-            .disabled(!onlineAccess.canUseOnlineFeatures || playlistCloudSync.isSyncing)
-            .opacity((!onlineAccess.canUseOnlineFeatures || playlistCloudSync.isSyncing) ? 0.55 : 1)
+            .disabled(actionsDisabled)
+            .opacity(actionsDisabled ? 0.5 : 1)
         }
     }
 
-    private func actionRow(
+    private func contentRow(
         icon: MonologueIcon.IconType,
         title: String,
-        isDestructive: Bool = false,
+        value: String
+    ) -> some View {
+        HStack(spacing: 12) {
+            MonologueIcon(icon: icon, size: 14, color: accent)
+                .frame(width: 32, height: 32)
+                .background(accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+
+            Text(title)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Color.monologueTextPrimary)
+
+            Spacer(minLength: 8)
+
+            Text(value)
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .foregroundStyle(Color.monologueTextSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+        }
+        .padding(.horizontal, 14)
+        .frame(minHeight: 54)
+    }
+
+    private var contentDivider: some View {
+        Rectangle()
+            .fill(Color.monologueSeparator.opacity(settings.globalThemeId == .default ? 0.52 : 0.4))
+            .frame(height: 1)
+            .padding(.leading, 58)
+    }
+
+    private func actionButton(
+        icon: MonologueIcon.IconType,
+        title: String,
+        primary: Bool = false,
         action: @escaping () -> Void
     ) -> some View {
-        SettingsButtonRow(
-            icon: icon,
-            title: title,
-            titleColor: isDestructive ? .red : .monologueTextPrimary,
-            action: action
+        Button(action: action) {
+            HStack(spacing: 8) {
+                MonologueIcon(
+                    icon: icon,
+                    size: 14,
+                    color: primary ? readableAccentForeground : Color.monologueTextPrimary
+                )
+                Text(title)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(primary ? readableAccentForeground : Color.monologueTextPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 46)
+            .background {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(primary ? accent : secondarySurface)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(primary ? Color.white.opacity(0.04) : secondaryStroke, lineWidth: 1)
+                    }
+            }
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+    }
+
+    private func section<Content: View>(
+        title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(Color.monologueTextSecondary)
+            content()
+        }
+    }
+
+    private var cardBackground: some View {
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .fill(secondarySurface)
+            .overlay {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(secondaryStroke, lineWidth: 1)
+            }
+    }
+
+    private var secondarySurface: Color {
+        Color.monologueGlassTint.opacity(settings.globalThemeId == .default ? 0.68 : 0.78)
+    }
+
+    private var secondaryStroke: Color {
+        Color.monologueSeparator.opacity(settings.globalThemeId == .default ? 0.52 : 0.36)
+    }
+
+    private var readableAccentForeground: Color {
+        ThemeColorCustomization.readableForegroundColor(
+            on: accent,
+            light: Color(hex: "111821"),
+            dark: .white
         )
+    }
+
+    private var actionsDisabled: Bool {
+        !onlineAccess.canUseOnlineFeatures || playlistCloudSync.isSyncing
+    }
+
+    private var statusTitle: String {
+        if playlistCloudSync.isSyncing {
+            return String(localized: "cloud_sync_syncing")
+        }
+        return onlineAccess.canUseOnlineFeatures
+            ? String(localized: "playlist_sync_status_title")
+            : String(localized: "settings_navigation_cloud_sync_disabled")
     }
 
     private var playlistSyncStatusText: String {
@@ -158,6 +371,24 @@ struct CloudSyncSettingsView: View {
             return message
         }
         return String(localized: "playlist_sync_idle")
+    }
+
+    private func countText(_ count: Int) -> String {
+        String(
+            format: String(localized: "cloud_sync_count"),
+            locale: Locale.current,
+            count
+        )
+    }
+
+    private func runSyncAction(_ action: @escaping @MainActor () async throws -> Void) {
+        Task {
+            do {
+                try await action()
+            } catch {
+                showFailure(error)
+            }
+        }
     }
 
     private func showFailure(_ error: Error) {

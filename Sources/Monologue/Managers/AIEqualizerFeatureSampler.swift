@@ -11,10 +11,14 @@ private struct AIEqualizerSamplingDiagnostics: Sendable {
     let lastBinCount: Int
     let lastSampleRate: Double
     let lastRMS: Float
+    let pcmFrames: Int
+    let pcmChannelCount: Int
+    let pcmSampleRate: Double
+    let pcmSamplePeak: Float
 
     var logText: String {
         String(
-            format: "callbacks=%d accepted=%d invalidShape=%d invalidValue=%d silent=%d emptySpectrum=%d lastBins=%d sampleRate=%.0f lastRMS=%.6f",
+            format: "callbacks=%d accepted=%d invalidShape=%d invalidValue=%d silent=%d emptySpectrum=%d lastBins=%d sampleRate=%.0f lastRMS=%.6f pcmFrames=%d pcmChannels=%d pcmRate=%.0f pcmPeak=%.6f",
             callbackFrames,
             acceptedFrames,
             invalidShapeFrames,
@@ -23,19 +27,40 @@ private struct AIEqualizerSamplingDiagnostics: Sendable {
             emptySpectrumFrames,
             lastBinCount,
             lastSampleRate,
-            lastRMS
+            lastRMS,
+            pcmFrames,
+            pcmChannelCount,
+            pcmSampleRate,
+            pcmSamplePeak
         )
     }
 }
 
 private actor AIEqualizerSpectrumAccumulator {
-    private static let centers: [Float] = [31, 62, 125, 250, 500, 1_000, 2_000, 4_000, 8_000, 16_000]
+    private let mode: GraphicEQMode
+    private let centers: [Float]
 
-    private var bandDBFrames = Array(repeating: [Float](), count: 10)
+    private var bandDBFrames: [[Float]]
     private var centroidFrames: [Float] = []
     private var rolloffFrames: [Float] = []
     private var flatnessFrames: [Float] = []
+    private var bandwidthFrames: [Float] = []
+    private var spectralFluxFrames: [Float] = []
+    private var samplingTimestamps: [TimeInterval] = []
+    private var dominantPitchFrames: [(timestamp: TimeInterval, frequency: Float, confidence: Float)] = []
+    private var lowEnergyRatioFrames: [Float] = []
+    private var midEnergyRatioFrames: [Float] = []
+    private var highEnergyRatioFrames: [Float] = []
+    private var accumulatedChroma = Array(repeating: Float(0), count: 12)
+    private var previousNormalizedSpectrum: [Float]?
     private var rmsDBFrames: [Float] = []
+    private var pcmAnalysisSamples: [Float] = []
+    private var pcmAnalysisSampleRate: Double = 12_000
+    private var pcmChannelCount = 1
+    private var pcmSourceSampleCount = 0
+    private var pcmClippedSampleCount = 0
+    private var pcmSamplePeak: Float = 0
+    private var pcmEstimatedTruePeak: Float = 0
     private var latestSampleRate: Double = 44_100
     private var callbackFrames = 0
     private var invalidShapeFrames = 0
@@ -46,7 +71,18 @@ private actor AIEqualizerSpectrumAccumulator {
     private var lastRMS: Float = 0
     private(set) var frameCount = 0
 
-    func ingest(magnitudes: [Float], sampleRate: Double, rms: Float) {
+    init(mode: GraphicEQMode) {
+        self.mode = mode
+        centers = mode.centerFrequencies
+        bandDBFrames = Array(repeating: [], count: mode.bandCount)
+    }
+
+    func ingest(
+        magnitudes: [Float],
+        sampleRate: Double,
+        rms: Float,
+        timestamp: TimeInterval
+    ) {
         callbackFrames += 1
         lastBinCount = magnitudes.count
         lastRMS = rms
@@ -61,12 +97,17 @@ private actor AIEqualizerSpectrumAccumulator {
         latestSampleRate = sampleRate
 
         let binHz = Float(sampleRate) / Float(magnitudes.count * 2)
-        var bandPower = Array(repeating: Float(0), count: 10)
-        var bandBins = Array(repeating: 0, count: 10)
+        var bandPower = Array(repeating: Float(0), count: centers.count)
+        var bandWeights = Array(repeating: Float(0), count: centers.count)
         var totalPower: Float = 0
         var weightedPower: Float = 0
-        var powers: [Float] = []
-        powers.reserveCapacity(magnitudes.count)
+        var squaredFrequencyPower: Float = 0
+        var lowPower: Float = 0
+        var midPower: Float = 0
+        var highPower: Float = 0
+        var frameChroma = Array(repeating: Float(0), count: 12)
+        var frequencyPowers: [(frequency: Float, power: Float)] = []
+        frequencyPowers.reserveCapacity(magnitudes.count)
 
         for (index, magnitude) in magnitudes.enumerated() {
             guard magnitude.isFinite else { continue }
@@ -75,11 +116,29 @@ private actor AIEqualizerSpectrumAccumulator {
             let power = max(magnitude * magnitude, 1e-20)
             totalPower += power
             weightedPower += frequency * power
-            powers.append(power)
+            squaredFrequencyPower += frequency * frequency * power
+            frequencyPowers.append((frequency, power))
 
-            let band = Self.nearestBand(for: frequency)
-            bandPower[band] += power
-            bandBins[band] += 1
+            switch frequency {
+            case ..<250:
+                lowPower += power
+            case 250..<4_000:
+                midPower += power
+            default:
+                highPower += power
+            }
+
+            if frequency >= 55, frequency <= 5_000 {
+                let midi = Int((69 + 12 * log2f(frequency / 440)).rounded())
+                let pitchClass = (midi % 12 + 12) % 12
+                // Log-compressed harmonic energy prevents a single loud overtone
+                // from dominating the key estimate for the whole capture.
+                frameChroma[pitchClass] += sqrtf(power) / sqrtf(max(frequency, 55))
+            }
+            for contribution in interpolatedBands(for: frequency) {
+                bandPower[contribution.index] += power * contribution.weight
+                bandWeights[contribution.index] += contribution.weight
+            }
         }
 
         let rmsDB = 20 * log10f(max(rms, 1e-8))
@@ -87,28 +146,132 @@ private actor AIEqualizerSpectrumAccumulator {
             silentFrames += 1
             return
         }
-        guard totalPower.isFinite, totalPower > 1e-18, !powers.isEmpty else {
+        guard totalPower.isFinite, totalPower > 1e-18, !frequencyPowers.isEmpty else {
             emptySpectrumFrames += 1
             return
         }
-        var frameBandDB = Array(repeating: Float(-80), count: 10)
-        for index in 0..<10 where bandBins[index] > 0 {
-            let meanPower = bandPower[index] / Float(bandBins[index])
+        var frameBandDB = Array(repeating: Float(-80), count: centers.count)
+        for index in centers.indices where bandWeights[index] > 0 {
+            let meanPower = bandPower[index] / bandWeights[index]
             frameBandDB[index] = 10 * log10f(max(meanPower, 1e-20))
         }
-        let peakBand = frameBandDB.max() ?? 0
-        for index in 0..<10 {
-            bandDBFrames[index].append(max(-60, frameBandDB[index] - peakBand))
+        for index in centers.indices {
+            // Keep absolute band levels until final aggregation. Normalizing each
+            // frame independently gave quiet passages the same weight as choruses
+            // and changed the apparent tonal balance.
+            bandDBFrames[index].append(frameBandDB[index])
         }
 
-        centroidFrames.append(weightedPower / totalPower)
-        rolloffFrames.append(Self.rolloffFrequency(powers: powers, binHz: binHz, ratio: 0.85))
+        let centroid = weightedPower / totalPower
+        centroidFrames.append(centroid)
+        rolloffFrames.append(Self.rolloffFrequency(frequencyPowers: frequencyPowers, ratio: 0.85))
+        let variance = max(0, squaredFrequencyPower / totalPower - centroid * centroid)
+        bandwidthFrames.append(sqrtf(variance))
 
-        let arithmeticMean = powers.reduce(0, +) / Float(powers.count)
-        let logMean = powers.reduce(Float(0)) { $0 + logf(max($1, 1e-20)) } / Float(powers.count)
+        let normalizedSpectrum = frequencyPowers.map { $0.power / totalPower }
+        if let previousNormalizedSpectrum,
+           previousNormalizedSpectrum.count == normalizedSpectrum.count {
+            let flux = zip(normalizedSpectrum, previousNormalizedSpectrum).reduce(Float(0)) {
+                $0 + max(0, $1.0 - $1.1)
+            }
+            spectralFluxFrames.append(flux)
+        } else {
+            spectralFluxFrames.append(0)
+        }
+        previousNormalizedSpectrum = normalizedSpectrum
+        samplingTimestamps.append(timestamp)
+
+        lowEnergyRatioFrames.append(lowPower / totalPower)
+        midEnergyRatioFrames.append(midPower / totalPower)
+        highEnergyRatioFrames.append(highPower / totalPower)
+        let chromaEnergy = frameChroma.reduce(0, +)
+        if chromaEnergy > 0 {
+            for index in accumulatedChroma.indices {
+                accumulatedChroma[index] += sqrtf(max(0, frameChroma[index] / chromaEnergy))
+            }
+        }
+        let melodyPeak = Self.dominantMelodyPeak(
+            magnitudes: magnitudes,
+            binHz: binHz,
+            totalPower: totalPower
+        )
+        if melodyPeak.confidence >= 0.004, melodyPeak.frequency > 0 {
+            dominantPitchFrames.append((timestamp, melodyPeak.frequency, melodyPeak.confidence))
+        }
+
+        let arithmeticMean = frequencyPowers.reduce(Float(0)) { $0 + $1.power } / Float(frequencyPowers.count)
+        let logMean = frequencyPowers.reduce(Float(0)) { $0 + logf(max($1.power, 1e-20)) } / Float(frequencyPowers.count)
         flatnessFrames.append(arithmeticMean > 0 ? min(1, expf(logMean) / arithmeticMean) : 0)
         rmsDBFrames.append(rmsDB)
         frameCount += 1
+    }
+
+    func ingestPCM(
+        leftSamples: [Float],
+        rightSamples: [Float]?,
+        sampleRate: Double
+    ) {
+        guard sampleRate.isFinite, sampleRate > 0, !leftSamples.isEmpty else { return }
+        let count = min(leftSamples.count, rightSamples?.count ?? leftSamples.count)
+        guard count > 3 else { return }
+
+        let resolvedChannelCount = rightSamples == nil ? 1 : 2
+        let downsampleStride = max(1, Int((sampleRate / 12_000).rounded()))
+        let reducedRate = sampleRate / Double(downsampleStride)
+        if pcmAnalysisSamples.isEmpty {
+            pcmChannelCount = resolvedChannelCount
+            pcmAnalysisSampleRate = reducedRate
+            pcmAnalysisSamples.reserveCapacity(Int(min(120, 36) * reducedRate) * resolvedChannelCount)
+        } else if pcmChannelCount != resolvedChannelCount
+                    || abs(pcmAnalysisSampleRate - reducedRate) > 1 {
+            // Audio-route format changes invalidate phase and loudness history.
+            pcmAnalysisSamples.removeAll(keepingCapacity: true)
+            pcmChannelCount = resolvedChannelCount
+            pcmAnalysisSampleRate = reducedRate
+            pcmSourceSampleCount = 0
+            pcmClippedSampleCount = 0
+            pcmSamplePeak = 0
+            pcmEstimatedTruePeak = 0
+        }
+
+        let maximumStoredFrames = Int(120 * pcmAnalysisSampleRate)
+        for index in 0..<count {
+            let left = leftSamples[index]
+            let right = rightSamples?[index] ?? left
+            guard left.isFinite, right.isFinite else { continue }
+            pcmSourceSampleCount += resolvedChannelCount
+            pcmSamplePeak = max(pcmSamplePeak, max(abs(left), abs(right)))
+            if abs(left) >= 0.999 { pcmClippedSampleCount += 1 }
+            if resolvedChannelCount == 2, abs(right) >= 0.999 { pcmClippedSampleCount += 1 }
+
+            if index >= 1, index + 2 < count {
+                pcmEstimatedTruePeak = max(
+                    pcmEstimatedTruePeak,
+                    Self.estimatedIntersamplePeak(
+                        previous: leftSamples[index - 1],
+                        start: left,
+                        end: leftSamples[index + 1],
+                        next: leftSamples[index + 2]
+                    )
+                )
+                if let rightSamples {
+                    pcmEstimatedTruePeak = max(
+                        pcmEstimatedTruePeak,
+                        Self.estimatedIntersamplePeak(
+                            previous: rightSamples[index - 1],
+                            start: right,
+                            end: rightSamples[index + 1],
+                            next: rightSamples[index + 2]
+                        )
+                    )
+                }
+            }
+
+            guard index % downsampleStride == 0,
+                  pcmAnalysisSamples.count / resolvedChannelCount < maximumStoredFrames else { continue }
+            pcmAnalysisSamples.append(left)
+            if resolvedChannelCount == 2 { pcmAnalysisSamples.append(right) }
+        }
     }
 
     func diagnostics() -> AIEqualizerSamplingDiagnostics {
@@ -121,7 +284,11 @@ private actor AIEqualizerSpectrumAccumulator {
             emptySpectrumFrames: emptySpectrumFrames,
             lastBinCount: lastBinCount,
             lastSampleRate: latestSampleRate,
-            lastRMS: lastRMS
+            lastRMS: lastRMS,
+            pcmFrames: pcmAnalysisSamples.count / max(pcmChannelCount, 1),
+            pcmChannelCount: pcmChannelCount,
+            pcmSampleRate: pcmAnalysisSampleRate,
+            pcmSamplePeak: pcmSamplePeak
         )
     }
 
@@ -148,11 +315,85 @@ private actor AIEqualizerSpectrumAccumulator {
     ) throws -> AIEqualizerAudioFeatures {
         guard frameCount >= 48 else { throw AIEqualizerError.sampleUnavailable }
 
-        let bands = bandDBFrames.map { min(0, max(-60, Self.trimmedMean($0, trimFraction: 0.12))) }
+        let measuredBandLevels = bandDBFrames.map {
+            Self.trimmedMean($0, trimFraction: 0.12)
+        }
+        let absoluteBandLevels = Self.fillingUnresolvedEdgeBands(measuredBandLevels)
+        let bandReference = absoluteBandLevels.max() ?? 0
+        let bands = absoluteBandLevels.map {
+            min(0, max(-60, $0 - bandReference))
+        }
         let sortedRMS = rmsDBFrames.sorted()
         let p10 = Self.percentile(sortedRMS, 0.10)
         let p90 = Self.percentile(sortedRMS, 0.90)
         let rmsMean = Self.trimmedMean(rmsDBFrames, trimFraction: 0.10)
+        let flatness = min(1, max(0, Self.trimmedMean(flatnessFrames, trimFraction: 0.12)))
+        let centroid = Self.trimmedMean(centroidFrames, trimFraction: 0.12)
+        let dynamicSpread = max(0, p90 - p10)
+        let lowRatio = min(1, max(0, Self.trimmedMean(lowEnergyRatioFrames, trimFraction: 0.1)))
+        let midRatio = min(1, max(0, Self.trimmedMean(midEnergyRatioFrames, trimFraction: 0.1)))
+        let highRatio = min(1, max(0, Self.trimmedMean(highEnergyRatioFrames, trimFraction: 0.1)))
+        let spectralTempo = Self.tempoEstimate(flux: spectralFluxFrames, timestamps: samplingTimestamps)
+        let pcm = Self.analyzePCM(
+            samples: pcmAnalysisSamples,
+            sampleRate: pcmAnalysisSampleRate,
+            channelCount: pcmChannelCount,
+            sourceSampleCount: pcmSourceSampleCount,
+            clippedSampleCount: pcmClippedSampleCount,
+            samplePeak: pcmSamplePeak,
+            estimatedTruePeak: pcmEstimatedTruePeak
+        )
+        // PCM observer windows are intentionally sparse to protect playback.
+        // Tempo therefore comes from the timestamped spectral-onset timeline,
+        // never from concatenating non-contiguous PCM blocks.
+        let tempo = spectralTempo
+        let melody = Self.melodyEstimate(samples: dominantPitchFrames)
+        let chroma = Self.normalizedChroma(accumulatedChroma)
+        let key = Self.keyEstimate(chroma: chroma)
+        let spectralFlux = Self.trimmedMean(spectralFluxFrames, trimFraction: 0.1)
+        let activeDuration: TimeInterval
+        if let first = samplingTimestamps.first, let last = samplingTimestamps.last, last > first {
+            activeDuration = last - first
+        } else {
+            activeDuration = duration
+        }
+        let transientDensity = activeDuration > 0
+            ? Float(tempo.onsetCount) / Float(activeDuration)
+            : 0
+        let vocalReference = Self.vocalReference(
+            frameCount: frameCount,
+            pitchFrames: dominantPitchFrames,
+            lowRatio: lowRatio,
+            midRatio: midRatio,
+            highRatio: highRatio,
+            centroid: centroid,
+            flatness: flatness,
+            dynamicSpread: dynamicSpread,
+            melody: melody
+        )
+        let instrumentHints = Self.instrumentHints(
+            lowRatio: lowRatio,
+            midRatio: midRatio,
+            highRatio: highRatio,
+            centroid: centroid,
+            flatness: flatness,
+            dynamicSpread: dynamicSpread,
+            transientDensity: transientDensity,
+            melodicActivity: melody.activity
+        )
+        let genreHints = Self.genreHints(
+            bpm: tempo.bpm,
+            tempoConfidence: tempo.confidence,
+            tempoStability: tempo.stability,
+            lowRatio: lowRatio,
+            midRatio: midRatio,
+            highRatio: highRatio,
+            centroid: centroid,
+            flatness: flatness,
+            dynamicSpread: dynamicSpread,
+            transientDensity: transientDensity,
+            melodicActivity: melody.activity
+        )
 
         return AIEqualizerAudioFeatures(
             songID: songID,
@@ -164,12 +405,45 @@ private actor AIEqualizerSpectrumAccumulator {
             sampleDuration: duration,
             sampleRate: latestSampleRate,
             frameCount: frameCount,
+            graphicEQMode: mode,
+            bandFrequenciesHz: centers,
             bandEnergyDB: bands,
-            spectralCentroidHz: Self.trimmedMean(centroidFrames, trimFraction: 0.12),
+            spectralCentroidHz: centroid,
             spectralRolloffHz: Self.trimmedMean(rolloffFrames, trimFraction: 0.12),
             rmsDBFS: rmsMean,
-            dynamicSpreadDB: max(0, p90 - p10),
-            spectralFlatness: min(1, max(0, Self.trimmedMean(flatnessFrames, trimFraction: 0.12))),
+            dynamicSpreadDB: dynamicSpread,
+            integratedLUFS: pcm.integratedLUFS,
+            shortTermLUFS: pcm.shortTermLUFS,
+            momentaryLUFS: pcm.momentaryLUFS,
+            loudnessRangeLU: pcm.loudnessRangeLU,
+            samplePeakDBFS: pcm.samplePeakDBFS,
+            estimatedTruePeakDBTP: pcm.estimatedTruePeakDBTP,
+            crestFactorDB: pcm.crestFactorDB,
+            dynamicRangeDR: pcm.dynamicRangeDR,
+            clippingRatio: pcm.clippingRatio,
+            phaseCorrelation: pcm.phaseCorrelation,
+            monoCompatibility: pcm.monoCompatibility,
+            measuredStereoWidth: pcm.stereoWidth,
+            spectralFlatness: flatness,
+            spectralBandwidthHz: Self.trimmedMean(bandwidthFrames, trimFraction: 0.12),
+            spectralFlux: spectralFlux,
+            lowEnergyRatio: lowRatio,
+            midEnergyRatio: midRatio,
+            highEnergyRatio: highRatio,
+            estimatedBPM: tempo.bpm,
+            tempoConfidence: tempo.confidence,
+            tempoStability: tempo.stability,
+            estimatedKey: key.name,
+            keyConfidence: key.confidence,
+            dominantPitchHz: melody.dominantPitch,
+            melodyRangeSemitones: melody.rangeSemitones,
+            melodicActivity: melody.activity,
+            melodyContourHz: melody.contour,
+            transientDensity: transientDensity,
+            chroma: chroma,
+            genreHints: genreHints,
+            instrumentHints: instrumentHints,
+            vocalReference: vocalReference,
             currentBassGain: currentBassGain,
             currentTrebleGain: currentTrebleGain,
             currentSurroundLevel: currentSurroundLevel,
@@ -185,35 +459,591 @@ private actor AIEqualizerSpectrumAccumulator {
         )
     }
 
-    private static func nearestBand(for frequency: Float) -> Int {
+    private func interpolatedBands(for frequency: Float) -> [(index: Int, weight: Float)] {
+        guard centers.count > 1 else { return [(0, 1)] }
+        if frequency <= centers[0] { return [(0, 1)] }
+        if frequency >= centers[centers.count - 1] { return [(centers.count - 1, 1)] }
+
+        let logFrequency = log2f(max(frequency, 1))
+        for upperIndex in 1..<centers.count where frequency <= centers[upperIndex] {
+            let lowerIndex = upperIndex - 1
+            let lower = log2f(centers[lowerIndex])
+            let upper = log2f(centers[upperIndex])
+            let fraction = min(1, max(0, (logFrequency - lower) / max(upper - lower, 0.000_1)))
+            return [
+                (lowerIndex, 1 - fraction),
+                (upperIndex, fraction)
+            ]
+        }
+        return [(centers.count - 1, 1)]
+    }
+
+    private static func rolloffFrequency(
+        frequencyPowers: [(frequency: Float, power: Float)],
+        ratio: Float
+    ) -> Float {
+        let threshold = frequencyPowers.reduce(Float(0)) { $0 + $1.power } * ratio
+        var accumulated: Float = 0
+        for sample in frequencyPowers {
+            accumulated += sample.power
+            if accumulated >= threshold {
+                return sample.frequency
+            }
+        }
+        return frequencyPowers.last?.frequency ?? 0
+    }
+
+    private static func dominantMelodyPeak(
+        magnitudes: [Float],
+        binHz: Float,
+        totalPower: Float
+    ) -> (frequency: Float, confidence: Float) {
+        guard binHz > 0, totalPower > 0 else { return (0, 0) }
+        let lowerBin = max(1, Int(65 / binHz))
+        let upperBin = min(magnitudes.count - 2, Int(1_400 / binHz))
+        guard lowerBin < upperBin else { return (0, 0) }
+
         var bestIndex = 0
-        var bestDistance = Float.greatestFiniteMagnitude
-        for (index, center) in centers.enumerated() {
-            let distance = abs(log2f(max(frequency, 1) / center))
-            if distance < bestDistance {
-                bestDistance = distance
+        var bestScore: Float = 0
+        for index in lowerBin...upperBin {
+            let base = magnitudes[index] * magnitudes[index]
+            guard base / totalPower >= 0.000_08 else { continue }
+
+            // Harmonic summation favors the fundamental even when the second or
+            // third harmonic is louder, which substantially reduces octave-high
+            // melody estimates on vocals, guitars, and piano.
+            var score = base
+            var observedHarmonics = 1
+            for harmonic in 2...6 {
+                let target = index * harmonic
+                guard target < magnitudes.count - 1 else { break }
+                let neighborhood = max(
+                    magnitudes[target - 1] * magnitudes[target - 1],
+                    max(
+                        magnitudes[target] * magnitudes[target],
+                        magnitudes[target + 1] * magnitudes[target + 1]
+                    )
+                )
+                score += neighborhood / Float(harmonic)
+                if neighborhood / totalPower >= 0.000_04 {
+                    observedHarmonics += 1
+                }
+            }
+            let frequency = Float(index) * binHz
+            let registerWeight: Float = frequency >= 85 && frequency <= 1_000 ? 1 : 0.82
+            let harmonicEvidence = 0.72 + min(0.28, Float(observedHarmonics - 1) * 0.07)
+            score *= registerWeight * harmonicEvidence
+            if score > bestScore {
+                bestScore = score
                 bestIndex = index
             }
         }
-        return bestIndex
+        guard bestIndex > 0, bestScore > 0 else { return (0, 0) }
+
+        // Quadratic interpolation between neighboring FFT bins improves pitch
+        // resolution without increasing callback cost.
+        let left = logf(max(magnitudes[bestIndex - 1], 1e-12))
+        let center = logf(max(magnitudes[bestIndex], 1e-12))
+        let right = logf(max(magnitudes[bestIndex + 1], 1e-12))
+        let denominator = left - 2 * center + right
+        let offset = abs(denominator) > 1e-8
+            ? min(0.5, max(-0.5, 0.5 * (left - right) / denominator))
+            : 0
+        let frequency = (Float(bestIndex) + offset) * binHz
+        return (frequency, min(1, bestScore / max(totalPower, 1e-12)))
     }
 
-    private static func rolloffFrequency(powers: [Float], binHz: Float, ratio: Float) -> Float {
-        let threshold = powers.reduce(0, +) * ratio
-        var accumulated: Float = 0
-        for (index, power) in powers.enumerated() {
-            accumulated += power
-            if accumulated >= threshold {
-                return Float(index) * binHz + 20
+    private static func estimatedIntersamplePeak(
+        previous p0: Float,
+        start p1: Float,
+        end p2: Float,
+        next p3: Float
+    ) -> Float {
+        var peak = max(abs(p1), abs(p2))
+        for step in 1...3 {
+            let t = Float(step) / 4
+            let t2 = t * t
+            let t3 = t2 * t
+            let value = 0.5 * (
+                2 * p1
+                + (-p0 + p2) * t
+                + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2
+                + (-p0 + 3 * p1 - 3 * p2 + p3) * t3
+            )
+            peak = max(peak, abs(value))
+        }
+        return peak
+    }
+
+    private struct PCMAnalysisSummary {
+        let integratedLUFS: Float
+        let shortTermLUFS: Float
+        let momentaryLUFS: Float
+        let loudnessRangeLU: Float
+        let samplePeakDBFS: Float
+        let estimatedTruePeakDBTP: Float
+        let crestFactorDB: Float
+        let dynamicRangeDR: Float
+        let clippingRatio: Float
+        let phaseCorrelation: Float
+        let monoCompatibility: Float
+        let stereoWidth: Float
+
+        static let empty = PCMAnalysisSummary(
+            integratedLUFS: -70,
+            shortTermLUFS: -70,
+            momentaryLUFS: -70,
+            loudnessRangeLU: 0,
+            samplePeakDBFS: -80,
+            estimatedTruePeakDBTP: -80,
+            crestFactorDB: 0,
+            dynamicRangeDR: 0,
+            clippingRatio: 0,
+            phaseCorrelation: 0,
+            monoCompatibility: 0.5,
+            stereoWidth: 0
+        )
+    }
+
+    private static func analyzePCM(
+        samples: [Float],
+        sampleRate: Double,
+        channelCount: Int,
+        sourceSampleCount: Int,
+        clippedSampleCount: Int,
+        samplePeak: Float,
+        estimatedTruePeak: Float
+    ) -> PCMAnalysisSummary {
+        guard sampleRate >= 8_000,
+              (1...2).contains(channelCount),
+              samples.count >= Int(sampleRate) * channelCount * 2 else {
+            return .empty
+        }
+
+        let rate = Int(sampleRate.rounded())
+        let mono = AudioAnalyzer.convertToMono(samples: samples, channelCount: channelCount)
+        let loudness = AudioAnalyzer.measureLoudness(
+            samples: samples,
+            sampleRate: rate,
+            channelCount: channelCount
+        )
+        let dynamics = AudioAnalyzer.analyzeDynamicRange(samples: mono, sampleRate: rate)
+        let phase = channelCount == 2
+            ? AudioAnalyzer.detectPhase(samples: samples, sampleRate: rate)
+            : nil
+        let samplePeakDB = 20 * log10f(max(samplePeak, 0.000_1))
+        let truePeakDB = 20 * log10f(max(max(samplePeak, estimatedTruePeak), 0.000_1))
+
+        return PCMAnalysisSummary(
+            integratedLUFS: loudness.integratedLUFS.isFinite ? loudness.integratedLUFS : -70,
+            shortTermLUFS: loudness.shortTermLUFS.isFinite ? loudness.shortTermLUFS : -70,
+            momentaryLUFS: loudness.momentaryLUFS.isFinite ? loudness.momentaryLUFS : -70,
+            loudnessRangeLU: max(0, loudness.loudnessRange),
+            samplePeakDBFS: samplePeakDB,
+            estimatedTruePeakDBTP: truePeakDB,
+            crestFactorDB: max(0, dynamics.crestFactor),
+            dynamicRangeDR: max(0, dynamics.dynamicRange),
+            clippingRatio: sourceSampleCount > 0
+                ? Float(clippedSampleCount) / Float(sourceSampleCount)
+                : 0,
+            phaseCorrelation: phase?.correlation ?? 1,
+            monoCompatibility: phase?.monoCompatibility ?? 1,
+            stereoWidth: phase?.stereoWidth ?? 0
+        )
+    }
+
+    private static func tempoEstimate(
+        flux: [Float],
+        timestamps: [TimeInterval]
+    ) -> (bpm: Float, confidence: Float, onsetCount: Int, stability: Float) {
+        let count = min(flux.count, timestamps.count)
+        guard count >= 24 else { return (0, 0, 0, 0) }
+
+        let samples = zip(timestamps.prefix(count), flux.prefix(count))
+            .map { (timestamp: $0.0, flux: $0.1) }
+            .sorted { $0.timestamp < $1.timestamp }
+        let values = samples.map { $0.flux }
+        let orderedTimestamps = samples.map { $0.timestamp }
+        let sortedFlux = values.sorted()
+        let median = percentile(sortedFlux, 0.50)
+        let deviations = values.map { abs($0 - median) }.sorted()
+        let mad = percentile(deviations, 0.50)
+        let threshold = median + max(0.000_05, mad * 2.6)
+        var onsets: [(time: TimeInterval, strength: Float)] = []
+        var lastOnset = -Double.greatestFiniteMagnitude
+
+        for index in 1..<(count - 1) where values[index] >= threshold {
+            guard values[index] >= values[index - 1], values[index] > values[index + 1] else { continue }
+            let timestamp = orderedTimestamps[index]
+            guard timestamp - lastOnset >= 0.16 else { continue }
+            let strength = max(0, (values[index] - median) / max(mad, 0.000_05))
+            onsets.append((timestamp, min(8, strength)))
+            lastOnset = timestamp
+        }
+
+        guard onsets.count >= 4 else { return (0, 0, onsets.count, 0) }
+
+        let minimumBPM = 58
+        let maximumBPM = 200
+        var histogram = Array(repeating: Float(0), count: maximumBPM + 1)
+        var candidates: [(bpm: Float, weight: Float)] = []
+        for start in onsets.indices {
+            let endLimit = min(onsets.count, start + 9)
+            guard start + 1 < endLimit else { continue }
+            for end in (start + 1)..<endLimit {
+                let interval = onsets[end].time - onsets[start].time
+                guard interval >= 0.28, interval <= 4.2 else { continue }
+                var bpm = Float(60 / interval)
+                while bpm < Float(minimumBPM) { bpm *= 2 }
+                while bpm > Float(maximumBPM) { bpm /= 2 }
+                guard bpm >= Float(minimumBPM), bpm <= Float(maximumBPM) else { continue }
+
+                let distance = Float(end - start)
+                let weight = sqrtf(max(0.01, onsets[start].strength * onsets[end].strength))
+                    / sqrtf(distance)
+                let rounded = Int(bpm.rounded())
+                histogram[rounded] += weight
+                candidates.append((bpm, weight))
             }
         }
-        return Float(powers.count) * binHz
+        guard !candidates.isEmpty else { return (0, 0, onsets.count, 0) }
+
+        var smoothed = histogram
+        for bpm in minimumBPM...maximumBPM {
+            let lower = max(minimumBPM, bpm - 2)
+            let upper = min(maximumBPM, bpm + 2)
+            smoothed[bpm] = (lower...upper).reduce(Float(0)) { partial, candidate in
+                let distance = abs(candidate - bpm)
+                let kernel: Float = distance == 0 ? 1 : (distance == 1 ? 0.65 : 0.3)
+                return partial + histogram[candidate] * kernel
+            }
+        }
+
+        guard let bestBPM = (minimumBPM...maximumBPM).max(by: {
+            smoothed[$0] < smoothed[$1]
+        }) else { return (0, 0, onsets.count, 0) }
+        let peak = smoothed[bestBPM]
+        let runnerUp = (minimumBPM...maximumBPM)
+            .filter { abs($0 - bestBPM) > 6 }
+            .map { smoothed[$0] }
+            .max() ?? 0
+
+        let matching = candidates.filter {
+            abs($0.bpm - Float(bestBPM)) <= max(3, Float(bestBPM) * 0.045)
+        }
+        let matchingWeight = matching.reduce(Float(0)) { $0 + $1.weight }
+        let totalWeight = candidates.reduce(Float(0)) { $0 + $1.weight }
+        let weightedDeviation = matchingWeight > 0
+            ? matching.reduce(Float(0)) { $0 + abs($1.bpm - Float(bestBPM)) * $1.weight } / matchingWeight
+            : Float(bestBPM)
+        let stability = min(1, max(0, 1 - weightedDeviation / max(4, Float(bestBPM) * 0.055)))
+        let peakSeparation = min(1, max(0, (peak - runnerUp) / max(peak, 0.000_1)))
+        let support = min(1, matchingWeight / max(totalWeight * 0.24, 0.000_1))
+        let evidence = min(1, Float(onsets.count) / 16)
+        let confidence = min(1, evidence * (0.34 + support * 0.36 + peakSeparation * 0.30) * stability)
+
+        return (Float(bestBPM), confidence, onsets.count, stability)
+    }
+
+    private static func melodyEstimate(
+        samples: [(timestamp: TimeInterval, frequency: Float, confidence: Float)]
+    ) -> (dominantPitch: Float, rangeSemitones: Float, activity: Float, contour: [Float]) {
+        let ordered = samples
+            .filter {
+                $0.timestamp.isFinite
+                    && $0.frequency.isFinite
+                    && $0.frequency >= 55
+                    && $0.frequency <= 2_000
+                    && $0.confidence >= 0.004
+            }
+            .sorted { $0.timestamp < $1.timestamp }
+        guard ordered.count >= 6 else { return (0, 0, 0, []) }
+
+        // Keep the contour in a stable register. Harmonic-rich sources can make
+        // adjacent frames alternate between a fundamental and its octave even
+        // when the melody did not jump.
+        var corrected: [(frequency: Float, confidence: Float)] = []
+        corrected.reserveCapacity(ordered.count)
+        for sample in ordered {
+            var frequency = sample.frequency
+            if !corrected.isEmpty {
+                let recent = corrected.suffix(7).map(\.frequency).sorted()
+                let reference = percentile(recent, 0.50)
+                while frequency / max(reference, 1) > 1.72 { frequency /= 2 }
+                while reference / max(frequency, 1) > 1.72 { frequency *= 2 }
+            }
+            corrected.append((frequency, sample.confidence))
+        }
+
+        let valid = corrected.map(\.frequency)
+
+        let sorted = valid.sorted()
+        let lower = percentile(sorted, 0.12)
+        let upper = percentile(sorted, 0.88)
+        let dominant = weightedPercentile(corrected, percentile: 0.50)
+        let range = upper > lower ? 12 * log2f(upper / lower) : 0
+        var pitchDeltas: [Float] = []
+        for index in 1..<valid.count {
+            let semitoneDelta = abs(12 * log2f(valid[index] / valid[index - 1]))
+            if semitoneDelta.isFinite, semitoneDelta <= 12 {
+                pitchDeltas.append(semitoneDelta)
+            }
+        }
+        let medianDelta = pitchDeltas.isEmpty ? 0 : percentile(pitchDeltas.sorted(), 0.50)
+        let activity = min(1, max(0, medianDelta / 3.5))
+
+        let contourPointCount = min(16, valid.count)
+        let contour = (0..<contourPointCount).map { point -> Float in
+            let start = point * valid.count / contourPointCount
+            let end = max(start + 1, (point + 1) * valid.count / contourPointCount)
+            return percentile(Array(valid[start..<min(end, valid.count)]).sorted(), 0.50)
+        }
+        return (dominant, min(48, max(0, range)), activity, contour)
+    }
+
+    private static func weightedPercentile(
+        _ values: [(frequency: Float, confidence: Float)],
+        percentile target: Float
+    ) -> Float {
+        let sorted = values.sorted { $0.frequency < $1.frequency }
+        let totalWeight = sorted.reduce(Float(0)) { $0 + max(0.000_1, $1.confidence) }
+        guard totalWeight > 0 else { return sorted.first?.frequency ?? 0 }
+        let threshold = totalWeight * min(1, max(0, target))
+        var accumulated: Float = 0
+        for value in sorted {
+            accumulated += max(0.000_1, value.confidence)
+            if accumulated >= threshold { return value.frequency }
+        }
+        return sorted.last?.frequency ?? 0
+    }
+
+    private static func normalizedChroma(_ values: [Float]) -> [Float] {
+        let normalized = Array(values.prefix(12))
+            + Array(repeating: Float(0), count: max(0, 12 - values.count))
+        let total = normalized.reduce(0, +)
+        guard total > 0 else { return Array(repeating: 0, count: 12) }
+        return normalized.map { min(1, max(0, $0 / total)) }
+    }
+
+    private static func keyEstimate(chroma: [Float]) -> (name: String, confidence: Float) {
+        guard chroma.count == 12, chroma.reduce(0, +) > 0 else { return ("", 0) }
+        let majorProfile: [Float] = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88]
+        let minorProfile: [Float] = [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17]
+        let pitchClassNames = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"]
+        var scores: [(name: String, score: Float)] = []
+
+        for tonic in 0..<12 {
+            let rotated = (0..<12).map { chroma[(tonic + $0) % 12] }
+            let majorScore = correlation(rotated, majorProfile)
+            let minorScore = correlation(rotated, minorProfile)
+            scores.append(("\(pitchClassNames[tonic]) major", majorScore))
+            scores.append(("\(pitchClassNames[tonic]) minor", minorScore))
+        }
+
+        let ranked = scores.sorted { $0.score > $1.score }
+        guard let best = ranked.first else { return ("", 0) }
+        let runnerUp = ranked.dropFirst().first?.score ?? 0
+        let absoluteSupport = min(1, max(0, (best.score + 1) * 0.5))
+        let separation = min(1, max(0, (best.score - runnerUp) / 0.18))
+        let confidence = absoluteSupport * separation
+        return (best.name, confidence)
+    }
+
+    private static func correlation(_ lhs: [Float], _ rhs: [Float]) -> Float {
+        guard lhs.count == rhs.count, !lhs.isEmpty else { return 0 }
+        let lhsMean = lhs.reduce(0, +) / Float(lhs.count)
+        let rhsMean = rhs.reduce(0, +) / Float(rhs.count)
+        var numerator: Float = 0
+        var lhsEnergy: Float = 0
+        var rhsEnergy: Float = 0
+        for index in lhs.indices {
+            let left = lhs[index] - lhsMean
+            let right = rhs[index] - rhsMean
+            numerator += left * right
+            lhsEnergy += left * left
+            rhsEnergy += right * right
+        }
+        let denominator = sqrtf(lhsEnergy * rhsEnergy)
+        return denominator > 0 ? numerator / denominator : 0
+    }
+
+    private static func instrumentHints(
+        lowRatio: Float,
+        midRatio: Float,
+        highRatio: Float,
+        centroid: Float,
+        flatness: Float,
+        dynamicSpread: Float,
+        transientDensity: Float,
+        melodicActivity: Float
+    ) -> [String] {
+        let transient = normalizedEvidence(transientDensity, lower: 0.18, upper: 1.15)
+        let low = normalizedEvidence(lowRatio, lower: 0.14, upper: 0.38)
+        let mid = normalizedEvidence(midRatio, lower: 0.30, upper: 0.62)
+        let high = normalizedEvidence(highRatio, lower: 0.035, upper: 0.20)
+        let brightness = normalizedEvidence(centroid, lower: 1_150, upper: 3_500)
+        let noisiness = normalizedEvidence(flatness, lower: 0.18, upper: 0.62)
+        let tonality = 1 - noisiness
+        let dynamics = normalizedEvidence(dynamicSpread, lower: 5, upper: 15)
+        let melody = normalizedEvidence(melodicActivity, lower: 0.035, upper: 0.36)
+
+        return rankedHints([
+            ("drums", transient * 0.62 + high * 0.20 + noisiness * 0.18),
+            ("bass", low * 0.72 + tonality * 0.18 + (1 - brightness) * 0.10),
+            ("vocals", mid * 0.38 + melody * 0.32 + tonality * 0.20 + dynamics * 0.10),
+            ("synth", noisiness * 0.42 + high * 0.25 + brightness * 0.18 + melody * 0.15),
+            ("guitar", brightness * 0.32 + transient * 0.25 + tonality * 0.25 + mid * 0.18),
+            ("piano", dynamics * 0.34 + transient * 0.28 + melody * 0.25 + tonality * 0.13),
+            ("strings", mid * 0.38 + melody * 0.30 + (1 - transient) * 0.20 + tonality * 0.12)
+        ], threshold: 0.61, limit: 4)
+    }
+
+    private static func vocalReference(
+        frameCount: Int,
+        pitchFrames: [(timestamp: TimeInterval, frequency: Float, confidence: Float)],
+        lowRatio: Float,
+        midRatio: Float,
+        highRatio: Float,
+        centroid: Float,
+        flatness: Float,
+        dynamicSpread: Float,
+        melody: (dominantPitch: Float, rangeSemitones: Float, activity: Float, contour: [Float])
+    ) -> AIEqualizerVocalReferenceFeatures? {
+        guard frameCount > 0, !pitchFrames.isEmpty else { return nil }
+        let voicedRatio = min(1, Float(pitchFrames.count) / Float(frameCount))
+        let pitchEvidence = normalizedEvidence(
+            trimmedMean(pitchFrames.map(\.confidence), trimFraction: 0.12),
+            lower: 0.004,
+            upper: 0.075
+        )
+        let midEvidence = normalizedEvidence(midRatio, lower: 0.30, upper: 0.62)
+        let lowEvidence = normalizedEvidence(lowRatio, lower: 0.12, upper: 0.36)
+        let highEvidence = normalizedEvidence(highRatio, lower: 0.03, upper: 0.18)
+        let brightnessEvidence = normalizedEvidence(centroid, lower: 1_050, upper: 3_500)
+        let noisiness = normalizedEvidence(flatness, lower: 0.16, upper: 0.58)
+        let tonality = 1 - noisiness
+        let confidence = min(
+            1,
+            voicedRatio * 0.38 + pitchEvidence * 0.34 + midEvidence * 0.16 + tonality * 0.12
+        )
+        guard confidence >= 0.28 else { return nil }
+
+        let presence = min(1, midEvidence * 0.48 + voicedRatio * 0.30 + pitchEvidence * 0.22)
+        let warmth = min(
+            1,
+            max(0, lowEvidence * 0.42 + midEvidence * 0.38 + (1 - brightnessEvidence) * 0.20)
+        )
+        let brightness = min(1, brightnessEvidence * 0.68 + highEvidence * 0.32)
+        let airiness = min(1, highEvidence * 0.42 + noisiness * 0.34 + brightnessEvidence * 0.24)
+        let dynamicExpression = min(
+            1,
+            normalizedEvidence(dynamicSpread, lower: 4, upper: 16) * 0.55
+                + melody.activity * 0.45
+        )
+        let register: String
+        switch melody.dominantPitch {
+        case ...0: register = "unknown"
+        case ..<155: register = "low"
+        case ..<310: register = "mid"
+        default: register = "high"
+        }
+
+        return AIEqualizerVocalReferenceFeatures(
+            confidence: confidence,
+            presence: presence,
+            warmth: warmth,
+            brightness: brightness,
+            airiness: airiness,
+            dynamicExpression: dynamicExpression,
+            register: register
+        )
+    }
+
+    private static func genreHints(
+        bpm: Float,
+        tempoConfidence: Float,
+        tempoStability: Float,
+        lowRatio: Float,
+        midRatio: Float,
+        highRatio: Float,
+        centroid: Float,
+        flatness: Float,
+        dynamicSpread: Float,
+        transientDensity: Float,
+        melodicActivity: Float
+    ) -> [String] {
+        let reliableTempo = min(1, max(0, tempoConfidence * 0.65 + tempoStability * 0.35))
+        let danceTempo = bpm >= 108 && bpm <= 155 ? reliableTempo : 0
+        let hiphopTempo = bpm >= 68 && bpm <= 112 ? reliableTempo : 0
+        let slowTempo = bpm > 0 && bpm <= 96 ? reliableTempo : 0
+        let low = normalizedEvidence(lowRatio, lower: 0.14, upper: 0.38)
+        let mid = normalizedEvidence(midRatio, lower: 0.30, upper: 0.62)
+        let high = normalizedEvidence(highRatio, lower: 0.035, upper: 0.20)
+        let brightness = normalizedEvidence(centroid, lower: 1_150, upper: 3_500)
+        let noisiness = normalizedEvidence(flatness, lower: 0.18, upper: 0.62)
+        let tonality = 1 - noisiness
+        let dynamics = normalizedEvidence(dynamicSpread, lower: 5, upper: 15)
+        let transient = normalizedEvidence(transientDensity, lower: 0.18, upper: 1.15)
+        let melody = normalizedEvidence(melodicActivity, lower: 0.035, upper: 0.36)
+        let spectralBalance = 1 - min(1, abs(lowRatio - 0.23) * 2 + abs(highRatio - 0.10) * 2.5)
+
+        return rankedHints([
+            ("electronic", danceTempo * 0.35 + noisiness * 0.25 + transient * 0.22 + low * 0.18),
+            ("hiphop", hiphopTempo * 0.34 + low * 0.34 + transient * 0.20 + (1 - high) * 0.12),
+            ("rock", brightness * 0.28 + transient * 0.30 + tonality * 0.20 + dynamics * 0.22),
+            ("acoustic", dynamics * 0.34 + tonality * 0.32 + (1 - noisiness) * 0.18 + (1 - low) * 0.16),
+            ("ballad", slowTempo * 0.34 + melody * 0.28 + dynamics * 0.20 + (1 - transient) * 0.18),
+            ("pop", mid * 0.28 + melody * 0.24 + reliableTempo * 0.18 + spectralBalance * 0.30)
+        ], threshold: 0.60, limit: 3)
+    }
+
+    private static func normalizedEvidence(_ value: Float, lower: Float, upper: Float) -> Float {
+        guard upper > lower else { return 0 }
+        return min(1, max(0, (value - lower) / (upper - lower)))
+    }
+
+    private static func rankedHints(
+        _ values: [(name: String, score: Float)],
+        threshold: Float,
+        limit: Int
+    ) -> [String] {
+        values
+            .filter { $0.score >= threshold }
+            .sorted { $0.score > $1.score }
+            .prefix(limit)
+            .map(\.name)
     }
 
     private static func percentile(_ values: [Float], _ percentile: Float) -> Float {
         guard !values.isEmpty else { return -80 }
         let position = Int((Float(values.count - 1) * percentile).rounded())
         return values[min(values.count - 1, max(0, position))]
+    }
+
+    private static func fillingUnresolvedEdgeBands(_ values: [Float]) -> [Float] {
+        guard !values.isEmpty else { return values }
+        var result = values
+        for index in result.indices where result[index] <= -79.5 {
+            var lower: Int?
+            if index > 0 {
+                lower = stride(from: index - 1, through: 0, by: -1)
+                    .first { result[$0] > -79.5 }
+            }
+            let upper = ((index + 1)..<result.count)
+                .first { result[$0] > -79.5 }
+            switch (lower, upper) {
+            case let (lower?, upper?):
+                let progress = Float(index - lower) / Float(upper - lower)
+                result[index] = result[lower] + (result[upper] - result[lower]) * progress
+            case let (lower?, nil):
+                result[index] = result[lower]
+            case let (nil, upper?):
+                result[index] = result[upper]
+            case (nil, nil):
+                break
+            }
+        }
+        return result
     }
 
     private static func trimmedMean(_ values: [Float], trimFraction: Float) -> Float {
@@ -230,43 +1060,100 @@ private actor AIEqualizerSpectrumAccumulator {
 
 @MainActor
 final class AIEqualizerFeatureSampler {
-    private let minimumValidFrames = 48
+    private struct SamplingCadence: Equatable {
+        let spectrumInterval: TimeInterval
+        let pcmInterval: TimeInterval
+    }
+
+    private static func samplingCadence(
+        thermalState: ProcessInfo.ThermalState,
+        lowPowerMode: Bool
+    ) -> SamplingCadence {
+        let cadence: SamplingCadence
+        switch thermalState {
+        case .nominal:
+            cadence = SamplingCadence(spectrumInterval: 0.08, pcmInterval: 0.08)
+        case .fair:
+            cadence = SamplingCadence(spectrumInterval: 0.11, pcmInterval: 0.14)
+        case .serious:
+            cadence = SamplingCadence(spectrumInterval: 0.15, pcmInterval: 0.24)
+        case .critical:
+            cadence = SamplingCadence(spectrumInterval: 0.20, pcmInterval: 0.36)
+        @unknown default:
+            cadence = SamplingCadence(spectrumInterval: 0.15, pcmInterval: 0.24)
+        }
+        guard lowPowerMode else { return cadence }
+        return SamplingCadence(
+            spectrumInterval: max(cadence.spectrumInterval, 0.16),
+            pcmInterval: max(cadence.pcmInterval, 0.28)
+        )
+    }
 
     func sample(
         song: Song,
         duration requestedDuration: TimeInterval,
+        graphicEQMode: GraphicEQMode,
         progress: @escaping @MainActor (Double, AIEqualizerSamplingStage) -> Void
     ) async throws -> AIEqualizerAudioFeatures {
-        let samplingDuration = min(90, max(6, requestedDuration))
+        let samplingDuration = min(120, max(8, requestedDuration))
         let timeout = samplingDuration + 4
         let player = PlayerManager.shared
         guard isCurrentSong(song, in: player) else { throw AIEqualizerError.noSong }
         guard player.isPlaying else { throw AIEqualizerError.playbackRequired }
 
         let analyzer = player.analysisSpectrumAnalyzer
-        let accumulator = AIEqualizerSpectrumAccumulator()
+        let accumulator = AIEqualizerSpectrumAccumulator(mode: graphicEQMode)
         let startedAt = Date()
         let targetText = String(format: "%.1f", samplingDuration)
         let startPositionText = String(format: "%.1f", player.currentTime)
         let startDurationText = String(format: "%.1f", player.duration)
         let analyzerRateText = String(format: "%.0f", analyzer.sampleRate)
         AppLogger.info(
-            "[AIEqualizerSampler] Start source=\(song.musicSource.rawValue) songID=\(song.id) target=\(targetText)s playerState=\(String(describing: player.streamPlayer.state)) appPlaying=\(player.isPlaying) loading=\(player.isLoading) position=\(startPositionText)/\(startDurationText) analyzerEnabled=\(analyzer.isEnabled) calibrationEnabled=\(analyzer.isCalibrationEnabled) sampleRate=\(analyzerRateText)",
+            "[AIEqualizerSampler] Start source=\(song.musicSource.rawValue) songID=\(song.id) target=\(targetText)s eqBands=\(graphicEQMode.bandCount) playerState=\(String(describing: player.streamPlayer.state)) appPlaying=\(player.isPlaying) loading=\(player.isLoading) position=\(startPositionText)/\(startDurationText) analyzerEnabled=\(analyzer.isEnabled) calibrationEnabled=\(analyzer.isCalibrationEnabled) sampleRate=\(analyzerRateText)",
             step: "sampling.start"
         )
-        let token = analyzer.addAnalysisObserver { magnitudes, sampleRate, rms in
-            Task {
-                await accumulator.ingest(magnitudes: magnitudes, sampleRate: sampleRate, rms: rms)
+        let processInfo = ProcessInfo.processInfo
+        var thermalState = processInfo.thermalState
+        var lowPowerMode = processInfo.isLowPowerModeEnabled
+        var cadence = Self.samplingCadence(
+            thermalState: thermalState,
+            lowPowerMode: lowPowerMode
+        )
+        let expectedFrames = Int(samplingDuration / max(cadence.spectrumInterval, 0.08))
+        let minimumValidFrames = max(24, min(64, Int(Double(expectedFrames) * 0.55)))
+        let token = analyzer.addAnalysisObserver(
+            minimumInterval: cadence.spectrumInterval
+        ) { magnitudes, sampleRate, rms in
+            let timestamp = Date().timeIntervalSinceReferenceDate
+            Task(priority: .utility) {
+                await accumulator.ingest(
+                    magnitudes: magnitudes,
+                    sampleRate: sampleRate,
+                    rms: rms,
+                    timestamp: timestamp
+                )
+            }
+        }
+        let pcmToken = analyzer.addPCMAnalysisObserver(
+            minimumInterval: cadence.pcmInterval
+        ) { leftSamples, rightSamples, sampleRate in
+            Task(priority: .utility) {
+                await accumulator.ingestPCM(
+                    leftSamples: leftSamples,
+                    rightSamples: rightSamples,
+                    sampleRate: sampleRate
+                )
             }
         }
         AppLogger.debug(
-            "[AIEqualizerSampler] Observer registered token=\(token.uuidString)",
+            "[AIEqualizerSampler] Observers registered spectrum=\(token.uuidString) pcm=\(pcmToken.uuidString)",
             step: "sampling.observer"
         )
         defer {
             analyzer.removeAnalysisObserver(token)
+            analyzer.removePCMAnalysisObserver(pcmToken)
             AppLogger.debug(
-                "[AIEqualizerSampler] Observer removed token=\(token.uuidString)",
+                "[AIEqualizerSampler] Observers removed spectrum=\(token.uuidString) pcm=\(pcmToken.uuidString)",
                 step: "sampling.observer"
             )
         }
@@ -276,6 +1163,10 @@ final class AIEqualizerFeatureSampler {
         var didLogMissingCallbackWarning = false
         var didLogRejectedFrameWarning = false
         var lastLoggedStage: AIEqualizerSamplingStage?
+        AppLogger.info(
+            "[AIEqualizerSampler] Cadence thermal=\(thermalState.rawValue) lowPower=\(lowPowerMode) spectrum=\(String(format: "%.2f", cadence.spectrumInterval))s pcm=\(String(format: "%.2f", cadence.pcmInterval))s minimumFrames=\(minimumValidFrames)",
+            step: "sampling.cadence"
+        )
 
         while Date().timeIntervalSince(startedAt) < timeout {
             try Task.checkCancellation()
@@ -288,6 +1179,32 @@ final class AIEqualizerFeatureSampler {
                     step: "sampling.interrupted"
                 )
                 throw AIEqualizerError.noSong
+            }
+
+            let currentThermalState = processInfo.thermalState
+            let currentLowPowerMode = processInfo.isLowPowerModeEnabled
+            if currentThermalState != thermalState || currentLowPowerMode != lowPowerMode {
+                thermalState = currentThermalState
+                lowPowerMode = currentLowPowerMode
+                let nextCadence = Self.samplingCadence(
+                    thermalState: thermalState,
+                    lowPowerMode: lowPowerMode
+                )
+                if nextCadence != cadence {
+                    cadence = nextCadence
+                    analyzer.setAnalysisObserverMinimumInterval(
+                        cadence.spectrumInterval,
+                        for: token
+                    )
+                    analyzer.setPCMAnalysisObserverMinimumInterval(
+                        cadence.pcmInterval,
+                        for: pcmToken
+                    )
+                    AppLogger.warning(
+                        "[AIEqualizerSampler] Cadence adjusted thermal=\(thermalState.rawValue) lowPower=\(lowPowerMode) spectrum=\(String(format: "%.2f", cadence.spectrumInterval))s pcm=\(String(format: "%.2f", cadence.pcmInterval))s",
+                        step: "sampling.cadence"
+                    )
+                }
             }
             let snapshot = await accumulator.diagnostics()
             let count = snapshot.acceptedFrames
@@ -348,7 +1265,7 @@ final class AIEqualizerFeatureSampler {
                 )
             }
             if count >= minimumValidFrames, elapsed >= samplingDuration { break }
-            try await Task.sleep(for: .milliseconds(50))
+            try await Task.sleep(for: .milliseconds(100))
         }
 
         // Let observer tasks already enqueued by the audio callback reach the actor.
@@ -363,37 +1280,86 @@ final class AIEqualizerFeatureSampler {
             throw AIEqualizerError.sampleUnavailable
         }
 
-        let outputName = EQManager.shared.currentOutputName.isEmpty
-            ? EQManager.shared.currentOutputKind.title
-            : EQManager.shared.currentOutputName
         let manager = EQManager.shared
         let effects = player.audioEffects
-        let features = try await accumulator.makeFeatures(
-            songID: song.id,
-            title: song.name,
-            artist: song.artistName,
-            source: song.musicSource.rawValue,
-            outputDevice: outputName,
-            outputKind: manager.currentOutputKind.rawValue,
-            currentBassGain: effects.bassGain,
-            currentTrebleGain: effects.trebleGain,
-            currentSurroundLevel: effects.surroundLevel,
-            currentReverbLevel: effects.reverbLevel,
-            currentStereoWidth: effects.stereoWidth,
-            professionalProcessingIntensity: manager.professionalProcessingIntensity,
-            outputCalibrationEnabled: manager.isOutputCalibrationEnabled,
-            loudnessMatchingEnabled: manager.isLoudnessMatchingEnabled,
-            smartSongCompensationEnabled: manager.isSmartSongCompensationEnabled,
-            dynamicEQEnabled: manager.isDynamicEQEnabled,
-            multibandDynamicsEnabled: manager.isMultibandDynamicsEnabled,
-            parametricEQEnabled: manager.isParametricEQEnabled,
-            duration: Date().timeIntervalSince(startedAt)
-        )
+        let outputName = manager.currentOutputName.isEmpty
+            ? manager.currentOutputKind.title
+            : manager.currentOutputName
+        let outputKind = manager.currentOutputKind.rawValue
+        let currentBassGain = effects.bassGain
+        let currentTrebleGain = effects.trebleGain
+        let currentSurroundLevel = effects.surroundLevel
+        let currentReverbLevel = effects.reverbLevel
+        let currentStereoWidth = effects.stereoWidth
+        let processingIntensity = manager.professionalProcessingIntensity
+        let outputCalibrationEnabled = manager.isOutputCalibrationEnabled
+        let loudnessMatchingEnabled = manager.isLoudnessMatchingEnabled
+        let smartSongCompensationEnabled = manager.isSmartSongCompensationEnabled
+        let dynamicEQEnabled = manager.isDynamicEQEnabled
+        let multibandDynamicsEnabled = manager.isMultibandDynamicsEnabled
+        let parametricEQEnabled = manager.isParametricEQEnabled
+        let measuredDuration = Date().timeIntervalSince(startedAt)
+        let songID = song.id
+        let title = song.name
+        let artist = song.artistName
+        let source = song.musicSource.rawValue
+        let features = try await Task.detached(priority: .utility) {
+            try await accumulator.makeFeatures(
+                songID: songID,
+                title: title,
+                artist: artist,
+                source: source,
+                outputDevice: outputName,
+                outputKind: outputKind,
+                currentBassGain: currentBassGain,
+                currentTrebleGain: currentTrebleGain,
+                currentSurroundLevel: currentSurroundLevel,
+                currentReverbLevel: currentReverbLevel,
+                currentStereoWidth: currentStereoWidth,
+                professionalProcessingIntensity: processingIntensity,
+                outputCalibrationEnabled: outputCalibrationEnabled,
+                loudnessMatchingEnabled: loudnessMatchingEnabled,
+                smartSongCompensationEnabled: smartSongCompensationEnabled,
+                dynamicEQEnabled: dynamicEQEnabled,
+                multibandDynamicsEnabled: multibandDynamicsEnabled,
+                parametricEQEnabled: parametricEQEnabled,
+                duration: measuredDuration
+            )
+        }.value
         let measuredDurationText = String(format: "%.1f", features.sampleDuration)
         let measuredRateText = String(format: "%.0f", features.sampleRate)
         let measuredRMSText = String(format: "%.2f", features.rmsDBFS)
+        let measuredBPMText = features.estimatedBPM > 0
+            ? String(format: "%.1f", features.estimatedBPM)
+            : "unresolved"
+        let analysisLog = [
+            "duration=\(measuredDurationText)s",
+            "frames=\(features.frameCount)",
+            "sampleRate=\(measuredRateText)",
+            "rms=\(measuredRMSText)dBFS",
+            "integrated=\(String(format: "%.2f", features.integratedLUFS))LUFS",
+            "lra=\(String(format: "%.2f", features.loudnessRangeLU))LU",
+            "truePeak=\(String(format: "%.2f", features.estimatedTruePeakDBTP))dBTP",
+            "crest=\(String(format: "%.2f", features.crestFactorDB))dB",
+            "dr=\(String(format: "%.2f", features.dynamicRangeDR))",
+            "clipping=\(String(format: "%.5f", features.clippingRatio))",
+            "phase=\(String(format: "%.3f", features.phaseCorrelation))",
+            "mono=\(String(format: "%.3f", features.monoCompatibility))",
+            "stereoWidth=\(String(format: "%.3f", features.measuredStereoWidth))",
+            "bpm=\(measuredBPMText)",
+            "tempoConfidence=\(String(format: "%.2f", features.tempoConfidence))",
+            "key=\(features.estimatedKey.isEmpty ? "unresolved" : features.estimatedKey)",
+            "keyConfidence=\(String(format: "%.2f", features.keyConfidence))",
+            "dominantPitch=\(String(format: "%.1f", features.dominantPitchHz))Hz",
+            "melodyRange=\(String(format: "%.1f", features.melodyRangeSemitones))st",
+            "transientDensity=\(String(format: "%.2f", features.transientDensity))",
+            "vocalConfidence=\(String(format: "%.2f", features.vocalReference?.confidence ?? 0))",
+            "vocalRegister=\(features.vocalReference?.register ?? "unresolved")",
+            "genres=\(features.genreHints.joined(separator: ","))",
+            "instruments=\(features.instrumentHints.joined(separator: ","))"
+        ].joined(separator: " ")
         AppLogger.success(
-            "[AIEqualizerSampler] Completed duration=\(measuredDurationText)s frames=\(features.frameCount) sampleRate=\(measuredRateText) rms=\(measuredRMSText)dBFS",
+            "[AIEqualizerSampler] Completed \(analysisLog)",
             step: "sampling.completed"
         )
         progress(1, .finalizing)

@@ -11,7 +11,6 @@ struct ClassicPlayerLayout: View {
     @ObservedObject var downloadManager = DownloadManager.shared
     @ObservedObject var lyricVM = LyricViewModel.shared
     @ObservedObject private var settings = SettingsManager.shared
-    @ObservedObject private var lyricAlignment = AILyricAlignmentAgent.shared
     @StateObject private var asideCoverColors = CoverColorExtractor()
 
     @State private var isDraggingSlider = false
@@ -2317,27 +2316,22 @@ struct ClassicPlayerLayout: View {
 
         return classicArtworkFrame(
             ZStack {
-                    if let song = player.currentSong {
-                        ZStack {
-                            CachedAsyncImage(url: song.coverUrl?.sized(800)) {
+                if let song = player.currentSong {
+                    CachedAsyncImage(
+                        url: song.coverUrl?.sized(800),
+                        width: size,
+                        height: size
+                    ) {
                             MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : (MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (CapsuleStyle.isActive ? CapsuleStyle.surfaceTint : (SequoiaStyle.isActive ? SequoiaStyle.materialPressed : (ClayStyle.isActive ? ClayStyle.creamPressed : Color.gray.opacity(0.2)))))))
-                        }
-                        .aspectRatio(contentMode: .fill)
+                    }
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: size, height: size)
+                    .clipped()
 
-                        if let dynamicUrl = player.dynamicCoverUrl, !dynamicUrl.isEmpty {
-                            DynamicCoverView(urlString: dynamicUrl, cornerRadius: cornerRadius)
-                        }
-
-                        AIEqualizerArtworkStatusView(
-                            accent: asideCoverAccent,
-                            isDarkArtwork: asideCoverColors.isDark
-                        )
-                            .padding(max(10, min(15, size * 0.038)))
-                            .frame(
-                                maxWidth: .infinity,
-                                maxHeight: .infinity,
-                                alignment: .bottomTrailing
-                            )
+                    if let dynamicUrl = player.dynamicCoverUrl, !dynamicUrl.isEmpty {
+                        DynamicCoverView(urlString: dynamicUrl, cornerRadius: cornerRadius)
+                            .frame(width: size, height: size)
+                            .clipped()
                     }
                 } else {
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -2348,6 +2342,16 @@ struct ClassicPlayerLayout: View {
                 }
             }
             .frame(width: size, height: size)
+            .overlay(alignment: .bottomTrailing) {
+                if player.currentSong != nil {
+                    AIEqualizerArtworkStatusView(
+                        accent: asideCoverAccent,
+                        isDarkArtwork: asideCoverColors.isDark
+                    )
+                    .padding(max(10, min(15, size * 0.038)))
+                    .zIndex(1)
+                }
+            }
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)),
             cornerRadius: cornerRadius
         )
@@ -2579,58 +2583,20 @@ struct ClassicPlayerLayout: View {
             Spacer()
 
             if let song = player.currentSong {
-                HStack(spacing: 2) {
-                    lyricAlignmentQuickButton
-
-                    LikeButton(
-                        songId: song.id,
-                        isQQMusic: song.isQQMusic,
-                        song: song,
-                        size: 22,
-                        activeColor: .red,
-                        inactiveColor: contentColor
-                    )
-                    .background(contentColor.opacity(0.05))
-                    .clipShape(Circle())
-                }
+                LikeButton(
+                    songId: song.id,
+                    isQQMusic: song.isQQMusic,
+                    song: song,
+                    size: 22,
+                    activeColor: .red,
+                    inactiveColor: contentColor
+                )
+                .background(contentColor.opacity(0.05))
+                .clipShape(Circle())
             }
         }
         .padding(.horizontal, 4)
         .padding(.vertical, isThemedClassic ? 8 : 0)
-    }
-
-    private var lyricAlignmentQuickButton: some View {
-        Button {
-            if lyricAlignment.phase.isWorking {
-                lyricAlignment.cancel()
-            } else {
-                lyricAlignment.alignCurrentSong()
-            }
-        } label: {
-            ZStack {
-                Circle()
-                    .fill(contentColor.opacity(0.05))
-
-                if lyricAlignment.phase.isWorking {
-                    ProgressView()
-                        .controlSize(.small)
-                        .tint(contentColor)
-                        .scaleEffect(0.78)
-                } else {
-                    MonologueIcon(
-                        icon: .sparkle,
-                        size: 18,
-                        color: contentColor.opacity(lyricAlignment.canStartAlignment ? 1 : 0.52)
-                    )
-                }
-            }
-            .frame(width: 36, height: 36)
-            .contentShape(Circle())
-        }
-        .buttonStyle(MonologueBouncingButtonStyle())
-        .disabled(!lyricAlignment.canStartAlignment && !lyricAlignment.phase.isWorking)
-        .accessibilityLabel(String(localized: "ai_lyric_align"))
-        .accessibilityValue(lyricAlignment.statusText ?? "")
     }
 
     /// 进度条区域 — 柔和融入背景的波形进度条

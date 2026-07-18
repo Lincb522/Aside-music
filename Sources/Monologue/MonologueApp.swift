@@ -1,7 +1,6 @@
 import SwiftUI
 import HiconIcons
 import UserNotifications
-import WidgetKit
 
 // MARK: - AppDelegate（控制设备方向 + 场景配置）
 
@@ -47,20 +46,15 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     }
     
     func applicationWillTerminate(_ application: UIApplication) {
-        // App被划掉后台时，强制小组件回退到暂停态，但保留最后播放的歌曲信息
+        // 终止回调只有很短的执行窗口。播放与数据库状态已在进入后台时保存，
+        // 这里仅落一个轻量标记，避免同步刷新小组件或等待异步任务触发 0x8BADF00D。
         UserDefaults(suiteName: "group.zijiu.Monologue.com")?
             .set("paused", forKey: "widget_playbackState")
-        WidgetCenter.shared.reloadAllTimelines()
-
-        #if canImport(ActivityKit) && os(iOS)
-        Task { @MainActor in
-            await LyricsLiveActivityManager.shared.endCurrentActivity()
-        }
-        #endif
     }
 }
 
 @main
+@MainActor
 struct MonologueApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var styleManager = StyleManager.shared
@@ -73,7 +67,6 @@ struct MonologueApp: App {
         
         _ = EQManager.shared
         _ = AIEqualizerAgent.shared
-        _ = AILyricAlignmentAgent.shared
         _ = CustomFontManager.shared
         
         // iOS 26: 系统 TabView 自动使用 Liquid Glass 浮动标签栏，不再需要自定义外观
@@ -199,14 +192,6 @@ struct MonologueApp: App {
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
                     PlayerManager.shared.saveStateImmediately()
                     DatabaseManager.shared.save()
-                }
-                .onReceive(NotificationCenter.default.publisher(for: UIApplication.willTerminateNotification)) { _ in
-                    PlayerManager.shared.saveStateImmediately()
-                    #if canImport(ActivityKit) && os(iOS)
-                    Task { @MainActor in
-                        await LyricsLiveActivityManager.shared.endCurrentActivity()
-                    }
-                    #endif
                 }
         }
     }

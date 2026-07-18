@@ -1,3 +1,2 @@
 "CFBundleDisplayName" = "Mono";
 "CFBundleName" = "Mono";
-"NSSpeechRecognitionUsageDescription" = "Used to analyze song vocals and generate word-level lyric timing.";

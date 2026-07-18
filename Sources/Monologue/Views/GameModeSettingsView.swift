@@ -28,6 +28,12 @@ struct GameModeSettingsView: View {
 
             ScrollView {
                 VStack(spacing: 24) {
+                    SettingsScrollablePageHeader(
+                        title: String(localized: "game_mode_settings_title"),
+                        eyebrow: "GAME MODE",
+                        icon: .playCircle
+                    )
+
                     VStack(spacing: 24) {
                         powerConsole
 
@@ -62,13 +68,14 @@ struct GameModeSettingsView: View {
                 }
             }
             .scrollIndicators(.hidden)
+            .coordinateSpace(name: SettingsPageLayout.scrollCoordinateSpace)
             .themeRenderScrollLayer()
             .onChange(of: settings.gameModeAutoDucking) { _, _ in refreshMatchedPreset() }
             .onChange(of: settings.gameModeLowerQuality) { _, _ in refreshMatchedPreset() }
             .onChange(of: settings.gameModeSilentNowPlaying) { _, _ in refreshMatchedPreset() }
             .onChange(of: settings.gameModeAutoExit) { _, _ in refreshMatchedPreset() }
         }
-        .themedInlineNavigationTitle(String(localized: "game_mode_settings_title"))
+        .asideSettingsDetailChrome(String(localized: "game_mode_settings_title"))
         .confirmationDialog(
             String(localized: "game_mode_preferred_quality_title"),
             isPresented: $showQualityDialog,

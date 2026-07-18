@@ -1,6 +1,29 @@
 import Foundation
 import Combine
 import UIKit
+import CryptoKit
+
+struct CloudSyncContentSummary: Equatable {
+    var playlists = 0
+    var playlistSongs = 0
+    var downloads = 0
+    var podcastSubscriptions = 0
+    var colorConfigurations = 0
+    var listeningRecords = 0
+    var playbackRecords = 0
+    var aiTuningPlans = 0
+    var customEQPresets = 0
+
+    var hasContent: Bool {
+        playlists > 0
+            || downloads > 0
+            || podcastSubscriptions > 0
+            || colorConfigurations > 0
+            || playbackRecords > 0
+            || aiTuningPlans > 0
+            || customEQPresets > 0
+    }
+}
 
 @MainActor
 final class LocalPlaylistCloudSyncManager: ObservableObject {
@@ -9,6 +32,7 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
     @Published private(set) var isSyncing = false
     @Published private(set) var lastStatusMessage: String?
     @Published private(set) var lastSyncedAt: Date?
+    @Published private(set) var localContentSummary = CloudSyncContentSummary()
 
     private let playlistManager = LocalPlaylistManager.shared
     private let accessManager = OnlineAccessManager.shared
@@ -37,7 +61,7 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
     private var lastUploadCompletedAt: Date?
 
     private init() {
-        lastObservedDigest = playlistManager.currentSyncDigest()
+        lastObservedDigest = ""
         lastStatusMessage = UserDefaults.standard.string(forKey: AppConfig.StorageKeys.playlistSyncLastMessage)
         lastRemoteRevision = UserDefaults.standard.string(forKey: AppConfig.StorageKeys.playlistSyncLastRemoteRevision)
         if let timestamp = UserDefaults.standard.object(forKey: AppConfig.StorageKeys.playlistSyncLastSyncedAt) as? Date {
@@ -45,6 +69,9 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
         }
         observePlaylistChanges()
         observeApplicationLifecycle()
+        let initialSnapshot = makeLocalSnapshot()
+        localContentSummary = Self.contentSummary(for: initialSnapshot)
+        lastObservedDigest = Self.digest(for: initialSnapshot)
     }
 
     func handleAccessGranted() {
@@ -53,7 +80,7 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
 
         if currentTokenFingerprint != fingerprint {
             hasBootstrappedCurrentToken = false
-            lastObservedDigest = playlistManager.currentSyncDigest()
+            lastObservedDigest = currentLocalDigest()
             pendingUploadDigest = nil
         }
         currentTokenFingerprint = fingerprint
@@ -72,7 +99,8 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
         uploadRetryTask = nil
         pendingUploadDigest = nil
         _ = playlistManager.clearSyncablePlaylistsLocally()
-        lastObservedDigest = playlistManager.currentSyncDigest()
+        refreshLocalContentSummary()
+        lastObservedDigest = currentLocalDigest()
     }
 
     func scheduleSyncForLocalMutation() {
@@ -95,6 +123,7 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
             throw URLError(.userAuthenticationRequired)
         }
 
+        refreshLocalContentSummary()
         let response = try await APIService.shared.fetchCloudPlaylistSnapshot()
 
         // 云端没有快照时绝不动本地内容（清空动作只允许由
@@ -109,7 +138,7 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
         if let response, response.hasSnapshot {
             needsUpload = localContentDiffers(from: response)
         } else {
-            needsUpload = playlistManager.hasSyncableContent
+            needsUpload = hasCloudSyncableContent
         }
 
         if needsUpload {
@@ -142,26 +171,27 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
         }
 
         isSyncing = true
-        defer { isSyncing = false }
+        defer {
+            isSyncing = false
+            if pendingUploadDigest != nil {
+                Task { [weak self] in
+                    await self?.processPendingLocalUpload()
+                }
+            }
+        }
 
-        let snapshot = playlistManager.makeCloudSnapshot(
-            deviceId: Self.deviceId(),
-            deviceName: UIDevice.current.name
-        )
+        let snapshot = makeLocalSnapshot()
+        localContentSummary = Self.contentSummary(for: snapshot)
         let response = try await APIService.shared.uploadCloudPlaylistSnapshot(snapshot)
         lastUploadCompletedAt = Date()
-        lastObservedDigest = playlistManager.currentSyncDigest()
+        // 只把本次实际上传的内容记为同步基线。网络请求期间若本地又有
+        // 变化，后续比较仍能发现差异并补传，不会误判为已经上云。
+        lastObservedDigest = Self.digest(for: snapshot)
         persistSyncState(date: response.updatedAt)
         persistRemoteRevision(response.revision)
 
         if showStatus {
-            let message = String(
-                format: NSLocalizedString("playlist_sync_upload_success", comment: ""),
-                locale: Locale.current,
-                response.playlistCount,
-                response.songCount
-            )
-            persistStatus(message)
+            persistStatus(NSLocalizedString("playlist_sync_upload_success", comment: ""))
         }
 
         return response
@@ -219,7 +249,7 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
 
         do {
             guard let response = try await APIService.shared.fetchCloudPlaylistSnapshot() else {
-                if playlistManager.hasSyncableContent && settings.playlistSyncAutoEnabled {
+                if hasCloudSyncableContent && settings.playlistSyncAutoEnabled {
                     _ = try await syncToCloud(showStatus: false)
                     persistStatus(NSLocalizedString("playlist_sync_auto_uploaded", comment: ""))
                 } else if lastStatusMessage == nil {
@@ -245,7 +275,7 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
                     _ = try await syncToCloud(showStatus: false)
                     persistStatus(NSLocalizedString("playlist_sync_auto_uploaded", comment: ""))
                 }
-            } else if playlistManager.hasSyncableContent && settings.playlistSyncAutoEnabled {
+            } else if hasCloudSyncableContent && settings.playlistSyncAutoEnabled {
                 _ = try await syncToCloud(showStatus: false)
                 persistStatus(NSLocalizedString("playlist_sync_auto_uploaded", comment: ""))
             } else {
@@ -294,6 +324,33 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
                 Task { await self.enqueueLocalPlaylistChange() }
             }
             .store(in: &cancellables)
+
+        settings.$globalThemeRevision
+            .dropFirst()
+            .debounce(for: .milliseconds(500), scheduler: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                Task { @MainActor in self.scheduleSyncForLocalMutation() }
+            }
+            .store(in: &cancellables)
+
+        EQManager.shared.$customPresets
+            .dropFirst()
+            .debounce(for: .milliseconds(500), scheduler: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                Task { @MainActor in self.scheduleSyncForLocalMutation() }
+            }
+            .store(in: &cancellables)
+
+        AIEqualizerAgent.shared.$savedProposals
+            .dropFirst()
+            .debounce(for: .milliseconds(500), scheduler: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                Task { @MainActor in self.scheduleSyncForLocalMutation() }
+            }
+            .store(in: &cancellables)
     }
 
     private func observeApplicationLifecycle() {
@@ -306,7 +363,9 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
     }
 
     private func enqueueLocalPlaylistChange() async {
-        let digest = playlistManager.currentSyncDigest()
+        let snapshot = makeLocalSnapshot()
+        localContentSummary = Self.contentSummary(for: snapshot)
+        let digest = Self.digest(for: snapshot)
         guard settings.playlistSyncAutoEnabled else {
             lastObservedDigest = digest
             pendingUploadDigest = nil
@@ -352,8 +411,8 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
 
         while let pendingUploadDigest, pendingUploadDigest != lastObservedDigest {
             do {
-                if !playlistManager.hasSyncableContent {
-                    lastObservedDigest = playlistManager.currentSyncDigest()
+                if !hasCloudSyncableContent {
+                    lastObservedDigest = currentLocalDigest()
 
                     if settings.playlistSyncDeleteCloudSnapshot {
                         try await clearCloudSnapshot(showStatus: false)
@@ -368,7 +427,7 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
 
                 _ = try await syncToCloud(showStatus: false)
 
-                let latestDigest = playlistManager.currentSyncDigest()
+                let latestDigest = currentLocalDigest()
                 if latestDigest == lastObservedDigest {
                     self.pendingUploadDigest = nil
                 } else {
@@ -391,7 +450,7 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
                 }
                 return
             } catch {
-                self.pendingUploadDigest = playlistManager.currentSyncDigest()
+                self.pendingUploadDigest = currentLocalDigest()
                 scheduleUploadRetry()
                 persistStatus(
                     String(
@@ -439,6 +498,10 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
                 response.playlists,
                 downloads: response.downloads,
                 radioSubscriptions: response.localRadioSubscriptions,
+                themeCustomization: response.themeCustomization,
+                playbackHistory: response.playbackHistory,
+                aiEqualizer: response.aiEqualizer,
+                customEQPresets: response.customEQPresets,
                 revision: response.revision,
                 updatedAt: response.updatedAt,
                 showStatus: showStatus
@@ -453,6 +516,10 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
         _ remotePlaylists: [LocalPlaylistCloudPlaylist],
         downloads: [CloudDownloadRecord]?,
         radioSubscriptions: [RadioStation]?,
+        themeCustomization: CloudThemeCustomizationSnapshot?,
+        playbackHistory: CloudPlaybackHistorySnapshot?,
+        aiEqualizer: CloudAIEqualizerSnapshot?,
+        customEQPresets: [EQPreset]?,
         revision: String?,
         updatedAt: Date?,
         showStatus: Bool
@@ -477,21 +544,38 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
             playlistManager.restoreDownloadPlaylistSongs(songs)
         }
 
-        let localDigest = playlistManager.currentSyncDigest()
+        if let themeCustomization {
+            ThemeColorCustomization.restoreCloudSnapshot(
+                themeCustomization,
+                replacingLocal: showStatus
+            )
+        }
+
+        if let playbackHistory {
+            _ = HistoryRepository().mergeCloudPlaybackHistory(playbackHistory)
+            PlayerManager.shared.fetchHistory()
+        }
+
+        if let aiEqualizer {
+            AIEqualizerAgent.shared.restoreCloudSnapshot(aiEqualizer)
+        }
+
+        if let customEQPresets, !customEQPresets.isEmpty {
+            EQManager.shared.restoreCloudCustomPresets(customEQPresets)
+        }
+
+        let localSnapshot = makeLocalSnapshot()
+        let localDigest = Self.digest(for: localSnapshot)
 
         // 上传后 digest 一致说明本地无更多变化
         lastObservedDigest = localDigest
         pendingUploadDigest = nil
         persistRemoteRevision(revision)
         persistSyncState(date: updatedAt ?? Date())
+        localContentSummary = Self.contentSummary(for: localSnapshot)
 
         if showStatus {
-            let message = String(
-                format: NSLocalizedString("playlist_sync_restore_success", comment: ""),
-                locale: Locale.current,
-                restoredCount
-            )
-            persistStatus(message)
+            persistStatus(NSLocalizedString("playlist_sync_restore_success", comment: ""))
         }
 
         return restoredCount
@@ -506,7 +590,7 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
             with: [],
             preservingLocalChangesSince: lastSyncedAt
         )
-        let localDigest = playlistManager.currentSyncDigest()
+        let localDigest = currentLocalDigest()
 
         if localDigest.isEmpty {
             lastObservedDigest = localDigest
@@ -531,17 +615,18 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
     /// 本地内容与云端快照内容是否不同（忽略 updatedAt / 设备信息）。
     /// 用于 merge 之后判断是否还需要补一次上传。
     private func localContentDiffers(from response: LocalPlaylistCloudFetchResponse) -> Bool {
-        let localSnapshot = playlistManager.makeCloudSnapshot(
-            deviceId: Self.deviceId(),
-            deviceName: UIDevice.current.name
-        )
+        let localSnapshot = makeLocalSnapshot()
         let remoteSnapshot = LocalPlaylistCloudSnapshot(
             updatedAt: Date(),
             deviceId: "",
             deviceName: "",
             playlists: response.playlists,
             downloads: (response.downloads?.isEmpty == false) ? response.downloads : nil,
-            localRadioSubscriptions: (response.localRadioSubscriptions?.isEmpty == false) ? response.localRadioSubscriptions : nil
+            localRadioSubscriptions: (response.localRadioSubscriptions?.isEmpty == false) ? response.localRadioSubscriptions : nil,
+            themeCustomization: response.themeCustomization,
+            playbackHistory: response.playbackHistory,
+            aiEqualizer: response.aiEqualizer,
+            customEQPresets: (response.customEQPresets?.isEmpty == false) ? response.customEQPresets : nil
         )
         return Self.digest(for: localSnapshot) != Self.digest(for: remoteSnapshot)
     }
@@ -596,21 +681,86 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
         return token
     }
 
+    private var hasCloudSyncableContent: Bool {
+        localContentSummary.hasContent
+    }
+
+    private func makeLocalSnapshot() -> LocalPlaylistCloudSnapshot {
+        var snapshot = playlistManager.makeCloudSnapshot(
+            deviceId: Self.deviceId(),
+            deviceName: UIDevice.current.name
+        )
+        snapshot.themeCustomization = ThemeColorCustomization.makeCloudSnapshot()
+        snapshot.playbackHistory = HistoryRepository().makeCloudPlaybackHistorySnapshot()
+        snapshot.aiEqualizer = AIEqualizerAgent.shared.makeCloudSnapshot()
+        snapshot.customEQPresets = EQManager.shared.makeCloudCustomPresets()
+        return snapshot
+    }
+
+    private func currentLocalDigest() -> String {
+        Self.digest(for: makeLocalSnapshot())
+    }
+
+    private func refreshLocalContentSummary() {
+        localContentSummary = Self.contentSummary(for: makeLocalSnapshot())
+    }
+
+    private static func contentSummary(
+        for snapshot: LocalPlaylistCloudSnapshot
+    ) -> CloudSyncContentSummary {
+        let themeCount = snapshot.themeCustomization?.entries.reduce(into: 0) { count, entry in
+            count += entry.savedLight.count + entry.savedDark.count
+            if entry.currentLight != nil { count += 1 }
+            if entry.currentDark != nil { count += 1 }
+        } ?? 0
+        let playbackRecords = snapshot.playbackHistory?.records ?? []
+        let cachedAIPlanIDs = Set(snapshot.aiEqualizer?.cachedProposals.values.map(\.id) ?? [])
+        let savedAIPlanIDs = Set(
+            snapshot.aiEqualizer?.savedProposals.values
+                .flatMap { $0 }
+                .map { $0.proposal.id } ?? []
+        )
+        let aiPlans = cachedAIPlanIDs.union(savedAIPlanIDs).count
+
+        return CloudSyncContentSummary(
+            playlists: snapshot.playlists.count,
+            playlistSongs: snapshot.playlists.reduce(0) { $0 + $1.songs.count },
+            downloads: snapshot.downloads?.count ?? 0,
+            podcastSubscriptions: snapshot.localRadioSubscriptions?.count ?? 0,
+            colorConfigurations: themeCount,
+            listeningRecords: playbackRecords.filter { $0.playDuration > 0 }.count,
+            playbackRecords: playbackRecords.count,
+            aiTuningPlans: aiPlans,
+            customEQPresets: snapshot.customEQPresets?.count ?? 0
+        )
+    }
+
     private static func digest(for snapshot: LocalPlaylistCloudSnapshot) -> String {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.sortedKeys]
         // 排除 updatedAt/deviceId/deviceName，只比较内容
         struct DigestContent: Encodable {
             let playlists: [LocalPlaylistCloudPlaylist]
             let downloads: [CloudDownloadRecord]?
             let localRadioSubscriptions: [RadioStation]?
+            let themeCustomization: CloudThemeCustomizationSnapshot?
+            let playbackHistory: CloudPlaybackHistorySnapshot?
+            let aiEqualizer: CloudAIEqualizerSnapshot?
+            let customEQPresets: [EQPreset]?
         }
         let content = DigestContent(
             playlists: snapshot.playlists,
             downloads: snapshot.downloads,
-            localRadioSubscriptions: snapshot.localRadioSubscriptions
+            localRadioSubscriptions: snapshot.localRadioSubscriptions,
+            themeCustomization: snapshot.themeCustomization,
+            playbackHistory: snapshot.playbackHistory,
+            aiEqualizer: snapshot.aiEqualizer,
+            customEQPresets: snapshot.customEQPresets
         )
         guard let data = try? encoder.encode(content) else { return "" }
-        return data.base64EncodedString()
+        return SHA256.hash(data: data)
+            .map { String(format: "%02x", $0) }
+            .joined()
     }
 }

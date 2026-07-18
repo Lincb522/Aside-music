@@ -127,6 +127,46 @@ private struct SettingsNavigationLink<Label: View>: View {
 struct ThemedSettingsBackground: View {
     var body: some View {
         ThemedPageBackground(useRenderLayer: true)
+            .ignoresSafeArea()
+    }
+}
+
+enum SettingsPageLayout {
+    static let scrollCoordinateSpace = "monologue.settings.detail.scroll"
+
+    static var sectionSpacing: CGFloat {
+        GlobalThemeId.persistedOrDefault == .default ? 16 : 20
+    }
+
+    static var deepSectionSpacing: CGFloat {
+        GlobalThemeId.persistedOrDefault == .default ? 16 : 22
+    }
+
+    static var contentWidth: CGFloat {
+        GlobalThemeId.persistedOrDefault == .default ? 720 : 700
+    }
+}
+
+private struct AsideSettingsDetailChromeModifier: ViewModifier {
+    let title: String
+
+    func body(content: Content) -> some View {
+        content
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden(true)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    MonologueToolbarBackButton()
+                }
+            }
+    }
+}
+
+extension View {
+    func asideSettingsDetailChrome(_ title: String) -> some View {
+        modifier(AsideSettingsDetailChromeModifier(title: title))
     }
 }
 
@@ -159,7 +199,7 @@ struct SettingsView: View {
                         FloatingBarBottomSpacer()
                     }
                     .padding(.horizontal, settingsOuterHorizontalPadding)
-                    .iPadContentWidth(700)
+                    .iPadContentWidth(SettingsPageLayout.contentWidth)
                 }
                 .scrollIndicators(.hidden)
                 .themeRenderScrollLayer()
@@ -188,7 +228,7 @@ struct SettingsView: View {
         if CapsuleStyle.isActive { return 16 }
         if SequoiaStyle.isActive { return 16 }
         if MujiStyle.isActive { return 18 }
-        return 20
+        return 16
     }
 
     private var settingsOuterHorizontalPadding: CGFloat {
@@ -2259,20 +2299,22 @@ struct SettingsIconBadge: View {
                     )
                 )
         } else if GlobalThemeId.persistedOrDefault == .default {
-            // aside 编辑部风格：单色细线图标 + 发丝描边圆片，去掉彩色底
             ZStack {
-                Circle()
-                    .fill(Color.monologueGlassTint.opacity(0.5))
-                Circle()
-                    .stroke(Color.monologueSeparator.opacity(0.75), lineWidth: 0.6)
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color.monologueAccent.opacity(0.1))
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color.monologueAccent.opacity(0.18), lineWidth: 0.7)
                 MonologueIcon(
                     icon: icon,
-                    size: 13.5,
-                    color: .monologueTextSecondary,
+                    size: 14,
+                    color: ThemeColorCustomization.visibleTintColor(
+                        Color.monologueAccent,
+                        darkFallback: Color.monologueTextPrimary
+                    ),
                     lineWidth: 1.6
                 )
             }
-            .frame(width: 30, height: 30)
+            .frame(width: 34, height: 34)
         } else {
             ZStack {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -2319,22 +2361,17 @@ struct SettingsSection<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 7) {
-                if isAsideTheme {
-                    // 编辑部 kicker：强调色小竖标
-                    Capsule()
-                        .fill(Color.monologueAccent)
-                        .frame(width: 2.5, height: 9)
-                } else if MujiStyle.isActive {
+                if MujiStyle.isActive {
                     // Muji：双色圆点眉标
                     MujiDotMark()
                 }
 
-                Text(MinimalWhiteStyle.isActive ? title : title.uppercased())
+                Text((MinimalWhiteStyle.isActive || isAsideTheme) ? title : title.uppercased())
                     .font(sectionTitleFont)
                     .foregroundColor(sectionTitleColor)
-                    .tracking(MinimalWhiteStyle.isActive ? 0 : (MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive || BentoStyle.isActive ? 1.0 : (isAsideTheme ? 1.1 : 0.4)))
+                    .tracking((MinimalWhiteStyle.isActive || isAsideTheme) ? 0 : (MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive || BentoStyle.isActive ? 1.0 : 0.4))
             }
-            .padding(.leading, isAsideTheme ? 6 : 16)
+            .padding(.leading, isAsideTheme ? 0 : 16)
 
             VStack(spacing: 0) {
                 content
@@ -2375,10 +2412,17 @@ struct SettingsSection<Content: View>: View {
                             RoundedRectangle(cornerRadius: 22, style: .continuous)
                                 .stroke(BentoStyle.hairline.opacity(0.56), lineWidth: 0.7)
                         )
+                } else if isAsideTheme {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Color.monologueGlassTint.opacity(0.54))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(Color.monologueSeparator.opacity(0.52), lineWidth: 0.8)
+                        }
                 }
             }
-            .monologueGlassConditionalForSettings(cornerRadius: 22)
-            .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .monologueGlassConditionalForSettings(cornerRadius: isAsideTheme ? 14 : 22)
+            .contentShape(RoundedRectangle(cornerRadius: isAsideTheme ? 14 : 22, style: .continuous))
         }
     }
 
@@ -2391,7 +2435,7 @@ struct SettingsSection<Content: View>: View {
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(11, weight: .semibold) }
         if SignalStyle.isActive { return SignalStyle.labelFont(11, weight: .bold) }
         if BentoStyle.isActive { return BentoStyle.labelFont(11, weight: .heavy) }
-        if isAsideTheme { return .system(size: 11, weight: .heavy, design: .rounded) }
+        if isAsideTheme { return .system(size: 12, weight: .bold) }
         return .system(size: 12, weight: .bold, design: .rounded)
     }
 
@@ -2404,7 +2448,7 @@ struct SettingsSection<Content: View>: View {
         if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
         if SignalStyle.isActive { return SignalStyle.inkSoft }
         if BentoStyle.isActive { return BentoStyle.inkMuted }
-        if isAsideTheme { return Color.monologueTextSecondary.opacity(0.8) }
+        if isAsideTheme { return Color.monologueTextSecondary.opacity(0.82) }
         return Color.secondary
     }
 }

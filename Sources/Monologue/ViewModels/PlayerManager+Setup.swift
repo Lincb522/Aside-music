@@ -59,6 +59,37 @@ extension PlayerManager {
 
     func handleBackgroundAudioPolicySettingChanged() {
         reapplyAudioSessionOptions(reason: "策略变更")
+        scheduleAutomaticAudioPolicyReevaluation(reason: "策略变更")
+    }
+
+    /// `.automatic` 模式从混音态回到主播放器依赖系统更新
+    /// `isOtherAudioPlaying`。hint 刚结束时该值偶尔仍未刷新，分阶段复查可避免
+    /// 会话永久留在 mixWithOthers，继而让控制中心/灵动岛长期不接管本 App。
+    func scheduleAutomaticAudioPolicyReevaluation(reason: String) {
+        automaticAudioPolicyReevaluationTask?.cancel()
+        automaticAudioPolicyReevaluationTask = nil
+
+        guard SettingsManager.shared.backgroundAudioPolicy == .automatic else {
+            repairSystemPlaybackSurfacesIfNeeded(reason: "audio policy \(reason)")
+            return
+        }
+
+        automaticAudioPolicyReevaluationTask = Task { @MainActor [weak self] in
+            defer { self?.automaticAudioPolicyReevaluationTask = nil }
+            for delay in [0.6, 1.8, 4.0] {
+                do {
+                    try await Task.sleep(for: .seconds(delay))
+                } catch {
+                    return
+                }
+                guard let self, self.currentSong != nil else { return }
+                self.reapplyAudioSessionOptions(reason: "automatic policy reevaluation: \(reason)")
+                self.repairSystemPlaybackSurfacesIfNeeded(reason: "automatic policy reevaluation")
+                if self.lastAppliedAudioSessionOptions == Self.playbackAudioSessionOptions {
+                    return
+                }
+            }
+        }
     }
 
     /// 其他 App 还在出声时，是否仍允许自动恢复播放。
@@ -190,11 +221,14 @@ extension PlayerManager {
                 guard let self else { return }
                 switch hintType {
                 case .begin:
+                    self.automaticAudioPolicyReevaluationTask?.cancel()
+                    self.automaticAudioPolicyReevaluationTask = nil
                     AppLogger.info("其他主媒体 App 开始播放，重新评估 options")
                     self.reapplyAudioSessionOptions(reason: "secondary hint begin")
                 case .end:
                     AppLogger.info("其他主媒体 App 停止播放，重新评估 options")
                     self.reapplyAudioSessionOptions(reason: "secondary hint end")
+                    self.scheduleAutomaticAudioPolicyReevaluation(reason: "secondary hint end")
                     // 其他 App 停止后，等 1s 确认真的停了再尝试恢复
                     if self.wasPlayingBeforeInterruption, self.currentSong != nil, !self.isPlaying {
                         Task { @MainActor [weak self] in
@@ -307,6 +341,8 @@ extension PlayerManager {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.reconcilePendingTrackTransitionWithEngine(reason: "didBecomeActive")
+                self.repairSystemPlaybackSurfacesIfNeeded(reason: "didBecomeActive")
+                self.scheduleAutomaticAudioPolicyReevaluation(reason: "didBecomeActive")
                 if self.isPlaying || self.streamPlayer.state == .playing {
                     self.scheduleAudioOutputRecoveryIfNeeded(reason: "didBecomeActive")
                 }
@@ -416,11 +452,18 @@ extension PlayerManager {
                 self.cancelInterruptionResumeRetry()
                 self.cancelInterruptionWatchdog()
                 self.reapplyAudioSessionOptions(reason: "media services reset")
+                self.setupRemoteCommands()
+                self.repairSystemPlaybackSurfacesIfNeeded(reason: "media services reset")
                 // 如果正在播放，重新触发当前歌曲播放（让库重新走 AudioRenderer.start 流程）
                 if let song = self.currentSong, self.isPlaying {
                     let time = self.currentTime
                     AppLogger.info("媒体服务重置后重新播放: \(song.name), 从 \(String(format: "%.1f", time))s 继续")
-                    self.loadAndPlay(song: song, startTime: time)
+                    self.loadAndPlay(
+                        song: song,
+                        startTime: time,
+                        fadeInDuration: 0.8,
+                        fadeInReason: "media services reset"
+                    )
                 }
             }
         }
@@ -437,6 +480,7 @@ extension PlayerManager {
         cancelInterruptionResumeRetry()
         cancelInterruptionWatchdog()
         cancelPlaybackFade(restoreVolume: false)
+        clearPlaybackStartFade(restoreVolume: true)
         endTransitionKeepAlive()
 
         wasPlayingBeforeInterruption = false
@@ -465,6 +509,25 @@ extension PlayerManager {
     }
     
     func setupRemoteCommands() {
+        UIApplication.shared.beginReceivingRemoteControlEvents()
+        // Media services can reset independently of the app process. Re-register
+        // idempotently so a reset does not leave stale or duplicated handlers.
+        let managedCommands: [MPRemoteCommand] = [
+            commandCenter.playCommand,
+            commandCenter.pauseCommand,
+            commandCenter.togglePlayPauseCommand,
+            commandCenter.nextTrackCommand,
+            commandCenter.previousTrackCommand,
+            commandCenter.skipForwardCommand,
+            commandCenter.skipBackwardCommand,
+            commandCenter.changePlaybackRateCommand,
+            commandCenter.changePlaybackPositionCommand,
+            commandCenter.changeRepeatModeCommand,
+            commandCenter.changeShuffleModeCommand,
+        ]
+        managedCommands.forEach { $0.removeTarget(nil) }
+        lastRemoteCommandProfileIsPodcast = nil
+
         commandCenter.playCommand.addTarget { [weak self] _ in
             (self?.playPlayback() ?? false) ? .success : .commandFailed
         }
@@ -630,7 +693,9 @@ extension PlayerManager {
                         self.currentTime = time
                     }
                     LyricViewModel.shared.updateCurrentTime(self.currentTime)
+                    self.repairSystemPlaybackSurfacesIfNeeded(reason: "willEnterForeground")
                     self.updateNowPlayingTime()
+                    self.scheduleAutomaticAudioPolicyReevaluation(reason: "willEnterForeground")
                 }
             }
         }
@@ -703,6 +768,14 @@ extension PlayerManager {
                    self.streamPlayer.state == .playing,
                    !self.streamPlayer.isAudioOutputRunning {
                     self.scheduleAudioOutputRecoveryIfNeeded(reason: "playback heartbeat")
+                }
+
+                if self.currentSong != nil {
+                    self.repairSystemPlaybackSurfacesIfNeeded(
+                        reason: self.isAppInBackground
+                            ? "background playback heartbeat"
+                            : "foreground playback heartbeat"
+                    )
                 }
 
                 // 采样 StreamPlayer 状态
@@ -862,7 +935,7 @@ extension PlayerManager {
                 updateNowPlayingInfo()
                 updateNowPlayingArtwork(for: song)
                 saveState()
-                beginPlaybackFade(to: 1.0, duration: 0.25)
+                beginPlaybackFade(to: 1.0, duration: 0.7)
                 return true
             }
         }
@@ -872,7 +945,12 @@ extension PlayerManager {
         isPlaying = false
         isLoading = true
         refreshPlaybackSurfaceState()
-        loadAndPlay(song: song, startTime: resumeTime)
+        loadAndPlay(
+            song: song,
+            startTime: resumeTime,
+            fadeInDuration: 0.8,
+            fadeInReason: "audio output rebuild"
+        )
         return true
     }
     
@@ -910,7 +988,12 @@ extension PlayerManager {
         if isResumeLikelyStale {
             AppLogger.info("中断恢复时 URL 已老化，重新取址续播: \(song.name)")
             lastPausedAt = nil
-            loadAndPlay(song: song, startTime: max(currentTime, 0))
+            loadAndPlay(
+                song: song,
+                startTime: max(currentTime, 0),
+                fadeInDuration: 0.8,
+                fadeInReason: "interruption stale reload"
+            )
             return true
         }
 
@@ -919,14 +1002,19 @@ extension PlayerManager {
             guard streamPlayer.resume(), streamPlayer.isAudioOutputRunning else {
                 let time = currentTime
                 AppLogger.warning("中断后无法复活原输出，从 \(String(format: "%.1f", time))s 重新加载")
-                loadAndPlay(song: song, startTime: time)
+                loadAndPlay(
+                    song: song,
+                    startTime: time,
+                    fadeInDuration: 0.8,
+                    fadeInReason: "interruption resume fallback"
+                )
                 return true
             }
             isPlaying = true
             isLoading = false
             lastPausedAt = nil
             refreshPlaybackSurfaceState()
-            beginPlaybackFade(to: 1.0, duration: 0.3)
+            beginPlaybackFade(to: 1.0, duration: 0.7)
         } else if streamPlayer.state == .playing {
             // 微信语音/电话等中断后，SDK 状态偶尔仍停在 `.playing`，
             // 但底层 AudioEngine 已经不出声。强制走一次 pause→resume
@@ -936,18 +1024,28 @@ extension PlayerManager {
             guard streamPlayer.resume(), streamPlayer.isAudioOutputRunning else {
                 let time = currentTime
                 AppLogger.warning("中断后播放状态与输出不一致，从 \(String(format: "%.1f", time))s 重新加载")
-                loadAndPlay(song: song, startTime: time)
+                loadAndPlay(
+                    song: song,
+                    startTime: time,
+                    fadeInDuration: 0.8,
+                    fadeInReason: "interruption output rebuild"
+                )
                 return true
             }
             isPlaying = true
             isLoading = false
             lastPausedAt = nil
             refreshPlaybackSurfaceState()
-            beginPlaybackFade(to: 1.0, duration: 0.3)
+            beginPlaybackFade(to: 1.0, duration: 0.7)
         } else {
             let time = currentTime
             AppLogger.info("播放器状态非 paused，从 \(String(format: "%.1f", time))s 重新加载")
-            loadAndPlay(song: song, startTime: time)
+            loadAndPlay(
+                song: song,
+                startTime: time,
+                fadeInDuration: 0.8,
+                fadeInReason: "interruption state reload"
+            )
         }
         return true
     }

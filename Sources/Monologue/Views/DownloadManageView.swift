@@ -81,22 +81,30 @@ struct DownloadManageView: View {
             
             ScrollView {
                 VStack(spacing: 20) {
-                    tabBar
+                    SettingsScrollablePageHeader(
+                        title: String(localized: "下载管理"),
+                        eyebrow: "DOWNLOADS",
+                        icon: .download
+                    )
 
-                    if selectedTab == 0 {
-                        downloadedList
-                    } else {
-                        downloadingList
+                    VStack(spacing: 20) {
+                        tabBar
+
+                        if selectedTab == 0 {
+                            downloadedList
+                        } else {
+                            downloadingList
+                        }
+
+                        FloatingBarBottomSpacer()
                     }
-
-                    FloatingBarBottomSpacer()
                 }
             }
             .scrollIndicators(.hidden)
+            .coordinateSpace(name: SettingsPageLayout.scrollCoordinateSpace)
             .themeRenderScrollLayer()
         }
-        .themedInlineNavigationTitle(String(localized: "下载管理"))
-        .toolbarBackground(.hidden, for: .navigationBar)
+        .asideSettingsDetailChrome(String(localized: "下载管理"))
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 if selectedTab == 0 {

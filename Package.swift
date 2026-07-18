@@ -39,6 +39,8 @@ let package = Package(
         .package(path: "DotDogSnakeIcons"),
         // MinimalWhiteIcons - 纯白主题配套 PNG 图标包
         .package(path: "MinimalWhiteIcons"),
+        // ZIPFoundation - 用户字体 ZIP 压缩包导入
+        .package(url: "https://github.com/weichsel/ZIPFoundation.git", from: "0.9.20"),
     ],
     targets: [
         .target(
@@ -57,6 +59,7 @@ let package = Package(
                 "PawPrintIcons",
                 "DotDogSnakeIcons",
                 "MinimalWhiteIcons",
+                .product(name: "ZIPFoundation", package: "ZIPFoundation"),
             ],
             resources: [
                 .process("Resources/SanJiPoMoTi.ttf"),
@@ -66,6 +69,7 @@ let package = Package(
                 .process("Resources/WenDaoPaoPaoTi-2.ttf"),
                 .process("Resources/k8x12S-4.ttf"),
                 .process("Resources/eq_presets.json"),
+                .process("Resources/eq_presets_32.json"),
                 .process("Resources/en.lproj"),
                 .process("Resources/zh-Hans.lproj"),
             ]

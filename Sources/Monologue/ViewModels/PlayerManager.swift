@@ -549,6 +549,9 @@ class PlayerManager: ObservableObject {
     /// 后台切歌保活任务：歌曲在后台自然结束后，向系统申请额外执行时间，
     /// 保证下一首的播放 URL 网络请求能在 App 被挂起前完成。
     var transitionKeepAliveTaskId: UIBackgroundTaskIdentifier = .invalid
+    /// 自动后台策略在其他 App 退出后需要延迟复查；系统的 hint 通知到达时
+    /// `isOtherAudioPlaying` 偶尔仍是旧值，会让会话长期停留在混音态。
+    var automaticAudioPolicyReevaluationTask: Task<Void, Never>?
 
     // MARK: - 中断恢复（统一管理）
     /// 中断/路由恢复阶梯重试任务（0.4s → 1s → 2.5s → 5s）。
@@ -565,6 +568,11 @@ class PlayerManager: ObservableObject {
     var playbackFadeTask: Task<Void, Never>?
     /// 音量包络代际号：新包络启动或播放管线重置时递增，旧任务的收尾回调据此失效
     var playbackFadeGeneration: Int = 0
+    /// 下一次播放管线启动时使用的一次性淡入请求。绑定歌曲并携带时长，
+    /// 同时覆盖冷启动恢复与热启动重建，不影响正常无缝切歌。
+    var playbackStartFadeSongID: Int?
+    var playbackStartFadeDuration: TimeInterval = 0.75
+    var playbackStartFadeReason: String = ""
     /// 最近一次进入暂停的时刻。网络流暂停超过 `networkResumeRefreshThreshold`
     /// 后再恢复时，CDN URL 大概率已过期，直接重新取址从断点续播。
     var lastPausedAt: Date?
@@ -797,6 +805,7 @@ class PlayerManager: ObservableObject {
             activeMediaLoadTask?.cancel()
             manualSwitchPreparationTask?.cancel()
             audioOutputRecoveryTask?.cancel()
+            automaticAudioPolicyReevaluationTask?.cancel()
             for observer in backgroundStateObservers {
                 NotificationCenter.default.removeObserver(observer)
             }
@@ -894,6 +903,17 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
                 }
                 LyricViewModel.shared.updateCurrentTime(pm.currentTime)
                 pm.refreshPlaybackSurfaceState()
+                if pm.playbackStartFadeSongID == pm.currentSong?.id {
+                    let duration = pm.playbackStartFadeDuration
+                    let reason = pm.playbackStartFadeReason
+                    let durationText = String(format: "%.2f", duration)
+                    pm.clearPlaybackStartFade(restoreVolume: false)
+                    // AudioRenderer 会在 AVAudioEngine 创建前保留 0 音量；这里
+                    // 再次收敛到 0，确保首个可闻 PCM 从包络起点开始。
+                    pm.streamPlayer.outputVolume = 0.0
+                    AppLogger.info("播放启动淡入 reason=\(reason) duration=\(durationText)s")
+                    pm.beginPlaybackFade(to: 1.0, duration: duration)
+                }
                 pm.scheduleGaplessMediaPrefetchIfNeeded()
             case .paused:
                 pm.isPlaying = false
@@ -965,7 +985,12 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
                             if let song = pm.currentSong {
                                 // 异常结束多半是地址失效/截断：重试必须拿新鲜地址
                                 PlaybackURLCache.shared.invalidate(song: song)
-                                pm.loadAndPlay(song: song, startTime: resumeTime)
+                                pm.loadAndPlay(
+                                    song: song,
+                                    startTime: resumeTime,
+                                    fadeInDuration: 0.8,
+                                    fadeInReason: "abnormal stream retry"
+                                )
                             }
                         }
                     } else {
@@ -1003,12 +1028,19 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
                     )
                     // 重试必须绕过地址缓存拿新鲜 URL
                     PlaybackURLCache.shared.invalidate(song: song)
-                    pm.loadAndPlay(song: song, startTime: resumeTime)
+                    pm.loadAndPlay(
+                        song: song,
+                        startTime: resumeTime,
+                        fadeInDuration: 0.8,
+                        fadeInReason: "network stream retry"
+                    )
                     return
                 }
 
                 pm.isPlaying = false
                 pm.isLoading = false
+                pm.clearPlaybackStartFade(restoreVolume: true)
+                pm.cancelPlaybackFade(restoreVolume: true)
                 pm.endTransitionKeepAlive()
                 pm.refreshPlaybackSurfaceState()
                 pm.saveState()

@@ -32,7 +32,6 @@ struct PlayerMoreMenu: View {
     @ObservedObject private var eqManager = EQManager.shared
     @ObservedObject private var settings = SettingsManager.shared
     @ObservedObject private var lyricViewModel = LyricViewModel.shared
-    @ObservedObject private var lyricAlignment = AILyricAlignmentAgent.shared
     @AppStorage("enableKaraoke") private var enableKaraoke = false
     @AppStorage("showTranslation") private var showTranslation = true
     @State private var showTimerSheet = false
@@ -183,21 +182,6 @@ struct PlayerMoreMenu: View {
             ) {
                 isPresentingChild = true
                 showLyricSourceSheet = true
-            }
-
-            menuDivider
-
-            menuRow(
-                icon: .sparkle,
-                title: String(localized: "ai_lyric_align"),
-                trailingText: lyricAlignment.statusText,
-                trailingColor: lyricAlignment.phase.isWorking ? .monologueAccent : .monologueTextSecondary,
-                isEnabled: lyricAlignment.canStartAlignment,
-                dimsWhenDisabled: player.currentSong == nil || lyricViewModel.lyrics.isEmpty,
-                showsProgress: lyricAlignment.phase.isWorking,
-                showsChevron: lyricAlignment.canStartAlignment
-            ) {
-                lyricAlignment.alignCurrentSong()
             }
 
             menuDivider

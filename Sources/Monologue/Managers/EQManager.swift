@@ -81,12 +81,15 @@ class EQManager: ObservableObject {
     /// 专业处理总强度。1.0 保留原始参数，默认略加强以便在移动设备上保持可感知。
     @Published var professionalProcessingIntensity: Float = 1.3 {
         didSet {
-            let clamped = min(max(professionalProcessingIntensity, 0.7), 1.8)
+            // Restore/AI apply may write persisted values. Do not clamp by assigning
+            // back from didSet while restoring; that can recursively re-enter the
+            // @Published setter when the stored value is malformed.
+            guard !isRestoring else { return }
+            let clamped = Self.clampedProfessionalIntensity(professionalProcessingIntensity)
             if abs(clamped - professionalProcessingIntensity) > 0.001 {
                 professionalProcessingIntensity = clamped
                 return
             }
-            guard !isRestoring else { return }
             applyProfessionalConfiguration()
             saveProfessionalState()
         }
@@ -126,14 +129,19 @@ class EQManager: ObservableObject {
     @Published var multibandConfiguration = MultibandDynamicsConfiguration(isEnabled: true) {
         didSet { multibandSettingChanged() }
     }
+    @Published var monoEffectTuning = MonoEffectTuningConfiguration.neutral {
+        didSet { monoEffectTuningChanged() }
+    }
     @Published var customPresetPreampDB: Float = 0 {
         didSet {
-            let clamped = min(max(customPresetPreampDB, -18), 0)
+            // Keep this guard before the corrective assignment. The previous order
+            // could recurse indefinitely while restoring an out-of-range value.
+            guard !isRestoring else { return }
+            let clamped = Self.clampedPreamp(customPresetPreampDB)
             if abs(clamped - customPresetPreampDB) > 0.001 {
                 customPresetPreampDB = clamped
                 return
             }
-            guard !isRestoring else { return }
             headroomSettingChanged()
         }
     }
@@ -169,17 +177,21 @@ class EQManager: ObservableObject {
                 PlayerManager.shared.audioEffects.setSurroundLevel(0)
                 PlayerManager.shared.audioEffects.setReverbLevel(0)
                 PlayerManager.shared.audioEffects.setStereoWidth(1)
+                PlayerManager.shared.audioEffects.applyMonoTuning(.neutral)
                 PlayerManager.shared.setPitch(0)
                 disableSafetyMeasures()
                 saveAudioEffectsState()
             } else {
                 PlayerManager.shared.equalizer.setProcessingEnabled(true)
                 if let preset = currentPreset {
-                    preset.apply(to: PlayerManager.shared.equalizer)
+                    applyPresetCurve(preset)
                 } else if customGains.contains(where: { abs($0) > 0.001 }) {
                     applyCustomGains()
+                } else {
+                    PlayerManager.shared.equalizer.setGraphicMode(graphicEQMode, gainsDB: customGains)
                 }
                 applyProfessionalConfiguration()
+                applyMonoEffectTuning()
                 updateSafetyLimiter()
             }
             configureSmartAnalysis()
@@ -192,17 +204,27 @@ class EQManager: ObservableObject {
             guard !isRestoring else { return }
             isAuditioningReference = false
             if isEnabled, let preset = currentPreset {
-                preset.apply(to: PlayerManager.shared.equalizer)
+                applyPresetCurve(preset)
                 applyProfessionalConfiguration()
                 updateSafetyLimiter()
             }
             saveState()
         }
     }
+
+    /// 10 段为默认规格；32 段是用户主动选择的精细图示均衡器。
+    @Published private(set) var graphicEQMode: GraphicEQMode = .tenBand
+    private var tenBandCustomGains = Array(repeating: Float(0), count: GraphicEQMode.tenBand.bandCount)
+    private var thirtyTwoBandCustomGains = Array(repeating: Float(0), count: GraphicEQMode.thirtyTwoBand.bandCount)
     
     @Published var customGains: [Float] = Array(repeating: 0, count: 10) {
         didSet {
             guard !isRestoring else { return }
+            if graphicEQMode == .tenBand {
+                tenBandCustomGains = graphicEQMode.normalizedGains(customGains)
+            } else {
+                thirtyTwoBandCustomGains = graphicEQMode.normalizedGains(customGains)
+            }
             if isEnabled && currentPreset?.id == "custom" {
                 applyCustomGains()
             }
@@ -226,35 +248,39 @@ class EQManager: ObservableObject {
     
     let builtInPresets: [EQPreset] = EQManager.loadBuiltInPresets()
     
-    /// 从 Bundle 中的 eq_presets.json 加载内置预设
+    /// 10 段与 32 段使用两份独立资源，避免运行时把内置预设临时插值。
     private static func loadBuiltInPresets() -> [EQPreset] {
-        // 多路径查找
-        guard let url = Bundle.main.url(forResource: "eq_presets", withExtension: "json")
-                ?? Bundle.main.url(forResource: "eq_presets", withExtension: "json", subdirectory: "Resources") else {
-            AppLogger.warning("[EQManager] Bundle 中未找到 eq_presets.json")
-            return embeddedFallbackPresets
+        let tenBand = loadPresetResource(named: "eq_presets", fallback: embeddedFallbackPresets)
+        let thirtyTwoBand = loadPresetResource(named: "eq_presets_32", fallback: embeddedFallback32Presets)
+        return tenBand + thirtyTwoBand
+    }
+
+    private static func loadPresetResource(named resourceName: String, fallback: [EQPreset]) -> [EQPreset] {
+        var candidateURLs: [URL?] = [
+            Bundle.main.url(forResource: resourceName, withExtension: "json"),
+            Bundle.main.url(forResource: resourceName, withExtension: "json", subdirectory: "Resources")
+        ]
+#if SWIFT_PACKAGE
+        candidateURLs.append(Bundle.module.url(forResource: resourceName, withExtension: "json"))
+        candidateURLs.append(Bundle.module.url(forResource: resourceName, withExtension: "json", subdirectory: "Resources"))
+#endif
+        guard let url = candidateURLs.compactMap({ $0 }).first else {
+            AppLogger.warning("[EQManager] Bundle 中未找到 \(resourceName).json")
+            return fallback
         }
-        
-        AppLogger.debug("[EQManager] 找到文件路径: \(url.path)")
-        
-        // 用 FileManager 检查文件是否真实存在
-        guard FileManager.default.fileExists(atPath: url.path) else {
-            AppLogger.warning("[EQManager] 文件路径存在但文件不存在: \(url.path)")
-            return embeddedFallbackPresets
+        guard FileManager.default.fileExists(atPath: url.path),
+              let data = FileManager.default.contents(atPath: url.path),
+              !data.isEmpty else {
+            AppLogger.warning("[EQManager] \(resourceName).json 不存在或为空")
+            return fallback
         }
-        
-        guard let data = FileManager.default.contents(atPath: url.path), !data.isEmpty else {
-            AppLogger.warning("[EQManager] 文件为空或无法读取: \(url.path)")
-            return embeddedFallbackPresets
-        }
-        
         do {
             let presets = try JSONDecoder().decode([EQPreset].self, from: data)
-            AppLogger.debug("[EQManager] 从 JSON 加载了 \(presets.count) 个内置预设")
+            AppLogger.debug("[EQManager] 从 \(resourceName).json 加载了 \(presets.count) 个内置预设")
             return presets
         } catch {
-            AppLogger.warning("[EQManager] JSON 解码失败: \(error)")
-            return embeddedFallbackPresets
+            AppLogger.warning("[EQManager] \(resourceName).json 解码失败: \(error)")
+            return fallback
         }
     }
     
@@ -266,8 +292,26 @@ class EQManager: ObservableObject {
         EQPreset(id: "vocal_enhance", name: String(localized: "人声增强"), category: .vocal, description: String(localized: "削减低频遮挡，集中提升 1-4kHz 咬字与存在感"), gains: [-2.0, -1.5, -0.7, -0.4, 0.0, 0.8, 1.6, 1.2, 0.0, -0.5], preampDB: -2.0, loudnessCompensationDB: -0.2),
         EQPreset(id: "bass_boost", name: String(localized: "低音增强"), category: .scene, description: String(localized: "以 62Hz 为核心增加下潜和鼓点重量，同时控制中低频发轰"), gains: [2.4, 2.8, 1.8, 0.3, -0.6, -0.5, -0.3, -0.3, -0.2, -0.2], preampDB: -3.2, loudnessCompensationDB: -0.1),
     ]
+
+    private static let embeddedFallback32Presets: [EQPreset] = [
+        EQPreset(id: "flat_32", familyID: "flat", name: String(localized: "平坦"), category: .flat, description: String(localized: "基准监听曲线，不做任何染色，适合对比和校准听感"), gains: Array(repeating: 0, count: 32), presetType: .graphic32, preampDB: 0),
+        EQPreset(id: "pop_32", familyID: "pop", name: String(localized: "流行"), category: .genre, description: String(localized: "低频结实、主唱清楚、高频通透，中频不过度后退"), gains: [0.55, 0.55, 0.5, 0.45, 0.55, 0.9, 1.15, 0.9, 0.75, 0.8, 0.45, -0.05, -0.3, -0.3, -0.45, -0.6, -0.4, -0.2, -0.15, 0.05, 0.45, 0.75, 0.65, 0.8, 1.1, 0.85, 0.75, 0.85, 0.55, 0.35, 0.5, 0.8], presetType: .graphic32, preampDB: -2, loudnessCompensationDB: -0.3),
+        EQPreset(id: "rock_32", familyID: "rock", name: String(localized: "摇滚"), category: .genre, description: String(localized: "收紧浑浊区，强化军鼓、吉他边缘与鼓组冲击"), gains: [0.35, 0.35, 0.35, 0.35, 0.45, 0.8, 1.1, 0.9, 0.8, 0.95, 0.5, -0.05, -0.35, -0.4, -0.6, -0.8, -0.45, -0.05, 0.2, 0.35, 0.75, 1.15, 0.95, 1.1, 1.45, 1.05, 0.8, 0.8, 0.5, 0.2, 0.1, 0], presetType: .graphic32, preampDB: -2.3, loudnessCompensationDB: -0.3),
+        EQPreset(id: "vocal_enhance_32", familyID: "vocal_enhance", name: String(localized: "人声增强"), category: .vocal, description: String(localized: "削减低频遮挡，集中提升 1-4kHz 咬字与存在感"), gains: [-1.35, -1.35, -1.15, -0.9, -0.8, -1.05, -1.35, -1.05, -0.8, -0.8, -0.6, -0.4, -0.4, -0.25, -0.05, 0.05, 0.2, 0.5, 0.8, 0.8, 1.1, 1.5, 1.15, 1, 1.2, 0.75, 0.3, 0.15, 0.05, -0.05, -0.35, -0.65], presetType: .graphic32, preampDB: -2.5, loudnessCompensationDB: -0.2),
+        EQPreset(id: "bass_boost_32", familyID: "bass_boost", name: String(localized: "低音增强"), category: .scene, description: String(localized: "以 62Hz 为核心增加下潜和鼓点重量，同时控制中低频发轰"), gains: [1.65, 1.65, 1.5, 1.25, 1.25, 1.95, 2.55, 2, 1.7, 1.9, 1.25, 0.6, 0.45, 0.15, -0.2, -0.5, -0.4, -0.4, -0.45, -0.35, -0.3, -0.3, -0.25, -0.25, -0.3, -0.25, -0.2, -0.2, -0.15, -0.1, -0.15, -0.25], presetType: .graphic32, preampDB: -3.9, loudnessCompensationDB: -0.2),
+    ]
     
     // MARK: - Init
+
+    private static func clampedProfessionalIntensity(_ value: Float) -> Float {
+        guard value.isFinite else { return 1.3 }
+        return min(max(value, 0.6), 2.1)
+    }
+
+    private static func clampedPreamp(_ value: Float) -> Float {
+        guard value.isFinite else { return 0 }
+        return min(max(value, -18), 0)
+    }
     
     private init() {
         isRestoring = true
@@ -278,6 +322,7 @@ class EQManager: ObservableObject {
         handleAudioRouteChanged()
         PlayerManager.shared.equalizer.setProcessingEnabled(isEnabled)
         applyProfessionalConfiguration()
+        applyMonoEffectTuning()
         configureSmartAnalysis()
         updateSafetyLimiter()
     }
@@ -296,30 +341,79 @@ class EQManager: ObservableObject {
         if category == .custom {
             return customPresets
         }
-        return builtInPresets.filter { $0.category == category }
+        return builtInPresets.filter {
+            $0.category == category && $0.presetType.graphicMode == graphicEQMode
+        }
     }
     
     // MARK: - 应用预设
+
+    var graphicBandFrequencies: [Float] { graphicEQMode.centerFrequencies }
+    var graphicBandLabels: [String] { graphicEQMode.frequencyLabels }
+
+    private func builtInPreset(familyID: String, mode: GraphicEQMode) -> EQPreset? {
+        builtInPresets.first {
+            !$0.isCustom && $0.familyID == familyID && $0.presetType.graphicMode == mode
+        }
+    }
+
+    private func matchingBuiltInPreset(_ preset: EQPreset?, mode: GraphicEQMode) -> EQPreset? {
+        guard let preset else { return nil }
+        guard !preset.isCustom else { return preset }
+        return builtInPreset(familyID: preset.familyID, mode: mode) ?? preset
+    }
+
+    func setGraphicEQMode(_ mode: GraphicEQMode) {
+        guard mode != graphicEQMode else { return }
+        if isAIManagedPresetActive {
+            restoreProcessingBeforeAI(reason: "manual-band-mode")
+        }
+
+        if graphicEQMode == .tenBand {
+            tenBandCustomGains = GraphicEQMode.tenBand.normalizedGains(customGains)
+        } else {
+            thirtyTwoBandCustomGains = GraphicEQMode.thirtyTwoBand.normalizedGains(customGains)
+        }
+
+        isRestoring = true
+        graphicEQMode = mode
+        customGains = mode == .tenBand ? tenBandCustomGains : thirtyTwoBandCustomGains
+        currentPreset = matchingBuiltInPreset(currentPreset, mode: mode)
+        isRestoring = false
+
+        if isEnabled {
+            if let preset = currentPreset, preset.id != "custom" {
+                applyPresetCurve(preset)
+            } else {
+                applyCustomGains()
+            }
+            applyProfessionalConfiguration()
+            updateSafetyLimiter()
+        } else {
+            PlayerManager.shared.equalizer.setGraphicMode(mode, gainsDB: customGains)
+        }
+        saveState()
+    }
+
+    private func applyPresetCurve(_ preset: EQPreset, mode: GraphicEQMode? = nil) {
+        let targetMode = mode ?? graphicEQMode
+        PlayerManager.shared.equalizer.setGraphicMode(
+            targetMode,
+            gainsDB: preset.gains(in: targetMode)
+        )
+    }
     
     func applyPreset(_ preset: EQPreset) {
         if isAIManagedPresetActive, !preset.id.hasPrefix("ai_") {
             restoreProcessingBeforeAI(reason: "manual-preset")
         }
-        // 环绕类切到非环绕类时，自动归零空间参数
-        if let oldPreset = currentPreset,
-           oldPreset.category == .surround && preset.category != .surround {
-            let effects = PlayerManager.shared.audioEffects
-            effects.setSurroundLevel(0)
-            effects.setReverbLevel(0)
-            effects.setStereoWidth(1.0)
-        }
-        
-        currentPreset = preset
+        let resolvedPreset = matchingBuiltInPreset(preset, mode: graphicEQMode) ?? preset
+        currentPreset = resolvedPreset
         if !isEnabled {
             isEnabled = true
         }
-        if preset.category == .surround {
-            preset.applySurroundEffects(to: PlayerManager.shared.audioEffects)
+        if !resolvedPreset.isCustom {
+            applyBuiltInProcessingProfile(resolvedPreset)
         }
         updateSafetyLimiter()
         saveAudioEffectsState()
@@ -329,14 +423,30 @@ class EQManager: ObservableObject {
         if isAIManagedPresetActive {
             restoreProcessingBeforeAI(reason: "manual-flat")
         }
-        currentPreset = builtInPresets.first { $0.id == "flat" }
+        currentPreset = builtInPreset(familyID: "flat", mode: graphicEQMode)
         if currentPreset == nil {
-            for band in EQBand.allCases {
-                PlayerManager.shared.equalizer.setGain(0, for: band)
-            }
+            PlayerManager.shared.equalizer.setGraphicMode(
+                graphicEQMode,
+                gainsDB: Array(repeating: 0, count: graphicEQMode.bandCount)
+            )
             applyProfessionalConfiguration()
         }
+        if let currentPreset {
+            applyBuiltInProcessingProfile(currentPreset)
+        }
         updateSafetyLimiter()
+        saveAudioEffectsState()
+    }
+
+    private func applyBuiltInProcessingProfile(_ preset: EQPreset) {
+        let player = PlayerManager.shared
+        let profile = preset.processingProfile
+        player.audioEffects.setBassGain(profile.bassGain)
+        player.audioEffects.setTrebleGain(profile.trebleGain)
+        player.audioEffects.setSurroundLevel(preset.surroundLevel)
+        player.audioEffects.setReverbLevel(preset.reverbLevel)
+        player.audioEffects.setStereoWidth(preset.stereoWidth)
+        monoEffectTuning = profile.effects
     }
 
     /// 切换歌曲时撤销上一首 AI 方案，恢复用户在开启 AI 调音前的处理链。
@@ -355,8 +465,17 @@ class EQManager: ObservableObject {
         let snapshot = preAIProcessingSnapshot ?? neutralAIProcessingSnapshot()
         isRestoring = true
         isEnabled = snapshot.isEnabled
-        currentPreset = snapshot.currentPreset
-        customGains = snapshot.customGains
+        let restoredMode = snapshot.graphicEQMode
+            ?? (snapshot.customGains.count == GraphicEQMode.thirtyTwoBand.bandCount ? .thirtyTwoBand : .tenBand)
+        graphicEQMode = restoredMode
+        currentPreset = matchingBuiltInPreset(snapshot.currentPreset, mode: restoredMode)
+        tenBandCustomGains = GraphicEQMode.tenBand.normalizedGains(
+            snapshot.tenBandCustomGains ?? (restoredMode == .tenBand ? snapshot.customGains : [])
+        )
+        thirtyTwoBandCustomGains = GraphicEQMode.thirtyTwoBand.normalizedGains(
+            snapshot.thirtyTwoBandCustomGains ?? (restoredMode == .thirtyTwoBand ? snapshot.customGains : [])
+        )
+        customGains = restoredMode == .tenBand ? tenBandCustomGains : thirtyTwoBandCustomGains
         customPresetPreampDB = snapshot.customPresetPreampDB
         professionalProcessingIntensity = snapshot.professionalProcessingIntensity
         isLoudnessMatchingEnabled = snapshot.isLoudnessMatchingEnabled
@@ -368,6 +487,7 @@ class EQManager: ObservableObject {
         multibandConfiguration = snapshot.multibandConfiguration
         isParametricEQEnabled = snapshot.isParametricEQEnabled
         parametricBands = snapshot.parametricBands
+        monoEffectTuning = snapshot.monoEffectTuning ?? .neutral
         adaptiveGains = Array(repeating: 0, count: 10)
         isRestoring = false
 
@@ -376,12 +496,12 @@ class EQManager: ObservableObject {
         player.equalizer.setProcessingEnabled(snapshot.isEnabled)
         if snapshot.isEnabled {
             if let preset = snapshot.currentPreset, preset.id != "custom" {
-                preset.apply(to: player.equalizer)
+                applyPresetCurve(preset, mode: restoredMode)
             } else {
-                for (index, band) in EQBand.allCases.enumerated() where index < snapshot.customGains.count {
-                    player.equalizer.setGain(snapshot.customGains[index], for: band)
-                }
+                player.equalizer.setGraphicMode(restoredMode, gainsDB: customGains)
             }
+        } else {
+            player.equalizer.setGraphicMode(restoredMode, gainsDB: customGains)
         }
         player.audioEffects.setBassGain(snapshot.bassGain)
         player.audioEffects.setTrebleGain(snapshot.trebleGain)
@@ -390,6 +510,7 @@ class EQManager: ObservableObject {
         player.audioEffects.setStereoWidth(snapshot.stereoWidth)
 
         applyProfessionalConfiguration()
+        applyMonoEffectTuning()
         configureSmartAnalysis()
         updateSafetyLimiter()
         preAIProcessingSnapshot = nil
@@ -448,11 +569,18 @@ class EQManager: ObservableObject {
             description: proposal.summary,
             gains: proposal.gains,
             isCustom: true,
+            presetType: proposal.graphicEQMode == .tenBand ? .standard10 : .graphic32,
             preampDB: proposal.preampDB
         )
 
         isRestoring = true
+        graphicEQMode = proposal.graphicEQMode
         customGains = proposal.gains
+        if proposal.graphicEQMode == .tenBand {
+            tenBandCustomGains = proposal.gains
+        } else {
+            thirtyTwoBandCustomGains = proposal.gains
+        }
         customPresetPreampDB = proposal.preampDB
         currentPreset = generatedPreset
         professionalProcessingIntensity = professional.processingIntensity
@@ -465,17 +593,30 @@ class EQManager: ObservableObject {
         self.multibandConfiguration = multibandConfiguration
         isParametricEQEnabled = professional.parametricEQ.enabled && !parametricBands.isEmpty
         self.parametricBands = parametricBands
+        monoEffectTuning = proposal.effects
         isEnabled = true
         isRestoring = false
 
         let player = PlayerManager.shared
         player.equalizer.setProcessingEnabled(true)
-        generatedPreset.apply(to: player.equalizer)
-        player.audioEffects.setBassGain(proposal.tone.bassGain)
-        player.audioEffects.setTrebleGain(proposal.tone.trebleGain)
-        player.audioEffects.setSurroundLevel(proposal.spatial.surroundLevel)
-        player.audioEffects.setReverbLevel(proposal.spatial.reverbLevel)
-        player.audioEffects.setStereoWidth(proposal.spatial.stereoWidth)
+        applyPresetCurve(generatedPreset, mode: proposal.graphicEQMode)
+        let effectiveEffects = effectiveMonoEffectTuningForCurrentOutput()
+        player.audioEffects.applyMonoTuning(
+            effectiveEffects,
+            bassGain: proposal.tone.bassGain,
+            trebleGain: proposal.tone.trebleGain,
+            surroundLevel: proposal.spatial.surroundLevel,
+            reverbLevel: proposal.spatial.reverbLevel,
+            stereoWidth: proposal.spatial.stereoWidth
+        )
+        player.audioRepair.configureOutputSafety(
+            limiterEnabled: effectiveEffects.finalLimiterEnabled,
+            ceilingDB: effectiveEffects.finalLimiterCeilingDB,
+            transitionProtectionEnabled: true,
+            outputGainDB: player.audioRepair.outputGainDB,
+            perceptualMakeupDB: player.audioRepair.perceptualMakeupDB
+        )
+        isSafetyLimiterActive = effectiveEffects.finalLimiterEnabled
 
         beginSongAnalysis(identifier: player.currentSong.map { "\($0.musicSource.rawValue):\($0.id)" })
         applyProfessionalConfiguration()
@@ -489,21 +630,16 @@ class EQManager: ObservableObject {
     // MARK: - 自定义增益
     
     func setCustomGain(_ gain: Float, at index: Int) {
-        guard index >= 0 && index < 10 else { return }
+        guard customGains.indices.contains(index) else { return }
         customGains[index] = EQBandGain.clamped(gain)
         if isEnabled {
-            let band = EQBand.allCases[index]
-            PlayerManager.shared.equalizer.setGain(customGains[index], for: band)
+            PlayerManager.shared.equalizer.setGraphicGain(customGains[index], at: index)
             updateSafetyLimiter()
         }
     }
     
     private func applyCustomGains() {
-        for (index, band) in EQBand.allCases.enumerated() {
-            if index < customGains.count {
-                PlayerManager.shared.equalizer.setGain(customGains[index], for: band)
-            }
-        }
+        PlayerManager.shared.equalizer.setGraphicMode(graphicEQMode, gainsDB: customGains)
         updateSafetyLimiter()
     }
 
@@ -515,6 +651,7 @@ class EQManager: ObservableObject {
         currentOutputUID = output?.uid ?? "unknown-output"
         currentOutputKind = Self.outputKind(for: output?.portType)
         applyProfessionalConfiguration()
+        if isEnabled { applyMonoEffectTuning() }
         updateSafetyLimiter()
     }
 
@@ -536,30 +673,27 @@ class EQManager: ObservableObject {
         if isAuditioningReference {
             let sourceGains = currentPreset?.id == "custom" || currentPreset == nil
                 ? customGains
-                : (currentPreset?.gains ?? customGains)
-            let perceivedCurveGain = zip(sourceGains, Self.loudnessWeights)
+                : (currentPreset?.gains(in: graphicEQMode) ?? customGains)
+            let perceivedCurveGain = zip(sourceGains, Self.loudnessWeights(for: graphicEQMode))
                 .reduce(Float(0)) { $0 + $1.0 * $1.1 }
-            for band in EQBand.allCases {
-                PlayerManager.shared.equalizer.setGain(0, for: band)
-            }
+            PlayerManager.shared.equalizer.setGraphicMode(
+                graphicEQMode,
+                gainsDB: Array(repeating: 0, count: graphicEQMode.bandCount)
+            )
             // 参考声必须旁路完整专业链路，否则动态处理仍留在 B 声中，A/B 差异会被掩盖。
             applyProfessionalConfiguration()
-            if isSafetyLimiterActive {
-                PlayerManager.shared.audioEffects.setLimiterEnabled(false)
-                isSafetyLimiterActive = false
-            }
+            applyMonoEffectTuning()
             PlayerManager.shared.equalizer.setPreampDB(
                 min(0, max(-18, preampDB + perceivedCurveGain))
             )
         } else {
             if let preset = currentPreset, preset.id != "custom" {
-                preset.apply(to: PlayerManager.shared.equalizer)
+                applyPresetCurve(preset)
             } else {
-                for (index, band) in EQBand.allCases.enumerated() {
-                    PlayerManager.shared.equalizer.setGain(customGains[index], for: band)
-                }
+                PlayerManager.shared.equalizer.setGraphicMode(graphicEQMode, gainsDB: customGains)
             }
             applyProfessionalConfiguration()
+            applyMonoEffectTuning()
             // 参考声只改了 DSP 的目标前级，不会同步 Published 值；返回 A 声时必须显式恢复。
             PlayerManager.shared.equalizer.setPreampDB(preampDB)
             updateSafetyLimiter()
@@ -664,24 +798,79 @@ class EQManager: ObservableObject {
         saveProfessionalState()
     }
 
+    private func monoEffectTuningChanged() {
+        guard !isRestoring else { return }
+        if isEnabled { applyMonoEffectTuning() }
+        updateSafetyLimiter()
+        saveProfessionalState()
+    }
+
+    private func applyMonoEffectTuning() {
+        let player = PlayerManager.shared
+        let configuration = isAuditioningReference
+            ? .neutral
+            : effectiveMonoEffectTuningForCurrentOutput()
+        player.audioEffects.applyMonoTuning(configuration)
+        let preservesAILevel = isAIManagedPresetActive && !isAuditioningReference
+        player.audioRepair.configureOutputSafety(
+            limiterEnabled: isEnabled && configuration.finalLimiterEnabled,
+            ceilingDB: configuration.finalLimiterCeilingDB,
+            transitionProtectionEnabled: true,
+            outputGainDB: preservesAILevel ? player.audioRepair.outputGainDB : 0,
+            perceptualMakeupDB: preservesAILevel ? player.audioRepair.perceptualMakeupDB : 0
+        )
+        isSafetyLimiterActive = isEnabled && configuration.finalLimiterEnabled
+    }
+
+    private func effectiveMonoEffectTuningForCurrentOutput() -> MonoEffectTuningConfiguration {
+        var configuration = monoEffectTuning
+        if isAIManagedPresetActive {
+            // FFmpeg loudnorm may internally upsample to 192 kHz when used
+            // without a full offline measurement pass. Mono already performs
+            // measured loudness matching through its realtime EQ/preamp stage.
+            configuration.loudnessNormalizationEnabled = false
+            if isDynamicEQEnabled || isMultibandDynamicsEnabled {
+                configuration.compressorEnabled = false
+            }
+        }
+        switch currentOutputKind {
+        case .wired, .bluetooth, .usb:
+            break
+        default:
+            configuration.bs2bEnabled = false
+            configuration.crossfeedEnabled = false
+            configuration.haasEnabled = false
+        }
+        return configuration
+    }
+
     private func applyProfessionalConfiguration() {
         let equalizer = PlayerManager.shared.equalizer
         let bypassProfessionalChain = isAuditioningReference
         let zeroGains = Array(repeating: Float(0), count: 10)
+        let aiManaged = isAIManagedPresetActive
+        let dynamicLimit = graphicEQMode == .thirtyTwoBand ? 3 : 4
+        let parametricLimit = graphicEQMode == .thirtyTwoBand ? 3 : 6
+        let dynamicEnabled = !bypassProfessionalChain && isDynamicEQEnabled
+        let multibandEnabled = !bypassProfessionalChain
+            && isMultibandDynamicsEnabled
+            && (!aiManaged || !dynamicEnabled)
 
         equalizer.setCalibrationGains(bypassProfessionalChain ? zeroGains : effectiveCalibrationGains)
         equalizer.setAdaptiveGains(
             !bypassProfessionalChain && isSmartSongCompensationEnabled ? adaptiveGains : zeroGains
         )
         equalizer.setParametricBands(
-            !bypassProfessionalChain && isParametricEQEnabled ? parametricBands : []
+            !bypassProfessionalChain && isParametricEQEnabled
+                ? Array(parametricBands.prefix(aiManaged ? parametricLimit : parametricBands.count))
+                : []
         )
         equalizer.setDynamicEQ(
-            enabled: !bypassProfessionalChain && isDynamicEQEnabled,
-            bands: effectiveDynamicEQBands
+            enabled: dynamicEnabled,
+            bands: Array(effectiveDynamicEQBands.prefix(aiManaged ? dynamicLimit : dynamicEQBands.count))
         )
         var dynamics = effectiveMultibandConfiguration
-        dynamics.isEnabled = !bypassProfessionalChain && isMultibandDynamicsEnabled
+        dynamics.isEnabled = multibandEnabled
         equalizer.setMultibandDynamics(dynamics)
     }
 
@@ -836,15 +1025,23 @@ class EQManager: ObservableObject {
     /// 根据当前 EQ 增益峰值和旋钮状态，自动调整前级补偿并启用安全限幅器
     func updateSafetyLimiter() {
         let effects = PlayerManager.shared.audioEffects
+        let repair = PlayerManager.shared.audioRepair
         guard isEnabled else {
             disableSafetyMeasures()
             return
         }
 
+        // The legacy FFmpeg limiter sits before Mono's realtime EQ. Keep it
+        // disabled so final peak protection is owned by the post-EQ repair stage.
+        effects.setLimiterEnabled(false)
+
         // A/B 参考声保持完整旁路；只保留切换时计算出的等响前级。
         if isAuditioningReference {
             if isSafetyLimiterActive {
-                effects.setLimiterEnabled(false)
+                repair.configureOutputSafety(
+                    limiterEnabled: false,
+                    transitionProtectionEnabled: true
+                )
                 isSafetyLimiterActive = false
             }
             return
@@ -852,22 +1049,23 @@ class EQManager: ObservableObject {
         
         let userGains: [Float]
         if let preset = currentPreset, preset.id != "custom" {
-            userGains = preset.gains
+            userGains = preset.gains(in: graphicEQMode)
         } else {
             userGains = customGains
         }
-        var gains = Array(repeating: Float(0), count: 10)
-        let calibration = effectiveCalibrationGains
-        for index in 0..<10 {
+        var gains = Array(repeating: Float(0), count: graphicEQMode.bandCount)
+        let calibration = graphicEQMode.resampledGains(effectiveCalibrationGains, from: .tenBand)
+        let activeAdaptive = graphicEQMode.resampledGains(adaptiveGains, from: .tenBand)
+        for index in gains.indices {
             let user = index < userGains.count ? userGains[index] : 0
             let device = index < calibration.count ? calibration[index] : 0
-            let adaptive = isSmartSongCompensationEnabled && index < adaptiveGains.count ? adaptiveGains[index] : 0
+            let adaptive = isSmartSongCompensationEnabled && index < activeAdaptive.count ? activeAdaptive[index] : 0
             gains[index] = user + device + adaptive
         }
         
         let bassKnob = max(effects.bassGain, 0)
         let trebleKnob = max(effects.trebleGain, 0)
-        let curvePeakBoost = Self.estimatedCurvePeakBoostDB(for: gains)
+        let curvePeakBoost = Self.estimatedCurvePeakBoostDB(for: gains, mode: graphicEQMode)
         let parametricPeakBoost = isParametricEQEnabled
             ? Self.estimatedParametricPeakBoostDB(for: parametricBands)
             : 0
@@ -877,7 +1075,16 @@ class EQManager: ObservableObject {
             effects.surroundLevel * 0.7,
             effects.reverbLevel * 0.45
         )
-        let peakGain = curvePeakBoost + parametricPeakBoost + toneControlBoost + spatialHeadroom
+        let effectiveTuning = effectiveMonoEffectTuningForCurrentOutput()
+        let enhancementHeadroom = (effectiveTuning.subboostEnabled ? effectiveTuning.subboostGainDB * 0.45 : 0)
+            + (effectiveTuning.virtualBassEnabled ? effectiveTuning.virtualBassStrength * 0.25 : 0)
+            + (effectiveTuning.exciterEnabled ? effectiveTuning.exciterAmountDB * 0.18 : 0)
+            + (effectiveTuning.compressorEnabled ? max(0, effectiveTuning.compressorMakeupDB) : 0)
+        let peakGain = curvePeakBoost
+            + parametricPeakBoost
+            + toneControlBoost
+            + spatialHeadroom
+            + enhancementHeadroom
         
         // 按完整级联曲线的峰值做前级补偿，而不是只看最高的单个滑块。
         // 额外保留 0.25 dB 余量，避免母带接近 0 dBFS 时频段叠加触发硬削波。
@@ -890,7 +1097,7 @@ class EQManager: ObservableObject {
         } else {
             presetTrim = currentPreset?.preampDB ?? safetyTrim
         }
-        let perceivedBoost = zip(gains, Self.loudnessWeights)
+        let perceivedBoost = zip(gains, Self.loudnessWeights(for: graphicEQMode))
             .reduce(Float(0)) { $0 + $1.0 * $1.1 }
         let automaticLoudnessTrim = -max(perceivedBoost, 0)
         let loudnessTrim = isLoudnessMatchingEnabled
@@ -904,28 +1111,62 @@ class EQManager: ObservableObject {
         }
         
         // 限幅器只处理瞬态余量，不再替代前级补偿持续压扁动态。
-        if peakGain > 0.1 {
-            if !isSafetyLimiterActive {
-                effects.setLimiterLimit(-1.0)
-                effects.setLimiterEnabled(true)
-                isSafetyLimiterActive = true
-            }
-        } else if isSafetyLimiterActive {
-            effects.setLimiterEnabled(false)
-            isSafetyLimiterActive = false
+        let shouldLimit = effectiveTuning.finalLimiterEnabled || peakGain > 0.1
+
+        // AI 安全前级负责给完整处理链留余量，最终输出先补回这部分固定损失。
+        let aiOutputGainCompensation: Float = isAIManagedPresetActive
+            ? min(9, max(0, -newPreamp))
+            : 0
+        // 宽频削减和动态处理仍可能让主观响度略低。额外补偿保持在约 1 dB，
+        // 与固定前级补偿合计不超过 +9 dB，并在 AudioRepairEngine 内平滑推入。
+        let perceivedCurveLoss = max(0, -perceivedBoost)
+        let dynamicsMakeup: Float = isDynamicEQEnabled || isMultibandDynamicsEnabled
+            ? 0.16
+            : (effectiveTuning.compressorEnabled ? 0.12 : 0)
+        let deviceMakeup: Float
+        switch currentOutputKind {
+        case .builtInSpeaker: deviceMakeup = 0.42
+        case .bluetooth: deviceMakeup = 0.35
+        case .car: deviceMakeup = 0.30
+        case .wired, .airPlay, .usb, .other: deviceMakeup = 0.28
         }
+        let requestedPerceptualMakeup = isAIManagedPresetActive
+            ? min(1.05, deviceMakeup + min(0.5, perceivedCurveLoss * 0.38) + dynamicsMakeup)
+            : 0
+        let aiPerceptualMakeup = min(
+            requestedPerceptualMakeup,
+            max(0, 9 - aiOutputGainCompensation)
+        )
+        repair.configureOutputSafety(
+            limiterEnabled: shouldLimit,
+            ceilingDB: shouldLimit && effectiveTuning.finalLimiterEnabled
+                ? effectiveTuning.finalLimiterCeilingDB
+                : -1,
+            transitionProtectionEnabled: true,
+            outputGainDB: aiOutputGainCompensation,
+            perceptualMakeupDB: aiPerceptualMakeup
+        )
+        isSafetyLimiterActive = shouldLimit
     }
 
-    private static let loudnessWeights: [Float] = [0.02, 0.055, 0.105, 0.145, 0.17, 0.17, 0.145, 0.105, 0.06, 0.025]
+    private static let tenBandLoudnessWeights: [Float] = [0.02, 0.055, 0.105, 0.145, 0.17, 0.17, 0.145, 0.105, 0.06, 0.025]
 
-    /// 估算十段 EQ 级联后的实际最大正增益。31 Hz 与 16 kHz 使用与
+    private static func loudnessWeights(for mode: GraphicEQMode) -> [Float] {
+        let resampled = mode.resampledGains(tenBandLoudnessWeights, from: .tenBand)
+        let total = max(resampled.reduce(0, +), 0.000_001)
+        return resampled.map { $0 / total }
+    }
+
+    /// 估算当前图示 EQ 级联后的实际最大正增益。首尾频段使用与
     /// Mono 实时处理相同的 shelf 形状，其余频段使用 peaking。
     /// 使用与 Mono EQFilter 相同的 RBJ 系数，在 20 Hz～近 Nyquist 之间按对数采样。
     private static func estimatedCurvePeakBoostDB(
         for gains: [Float],
+        mode: GraphicEQMode,
         sampleRate: Float = 48_000
     ) -> Float {
-        let bands = Array(EQBand.allCases)
+        let frequencies = mode.centerFrequencies
+        let qValues = mode.qValues
         guard !gains.isEmpty, gains.contains(where: { abs($0) > 0.001 }) else {
             return 0
         }
@@ -941,18 +1182,18 @@ class EQManager: ObservableObject {
             let omega = 2 * Float.pi * frequency / sampleRate
             var responseDB: Float = 0
 
-            for (index, band) in bands.enumerated() where index < gains.count {
+            for index in frequencies.indices where index < gains.count {
                 let gain = gains[index]
                 guard abs(gain) > 0.001 else { continue }
-                if band == .hz31 {
-                    responseDB += shelfResponseDB(gainDB: gain, frequency: band.centerFrequency, sampleRate: sampleRate, omega: omega, isHigh: false)
-                } else if band == .hz16k {
-                    responseDB += shelfResponseDB(gainDB: gain, frequency: band.centerFrequency, sampleRate: sampleRate, omega: omega, isHigh: true)
+                if mode == .tenBand, index == frequencies.startIndex {
+                    responseDB += shelfResponseDB(gainDB: gain, frequency: frequencies[index], sampleRate: sampleRate, omega: omega, isHigh: false)
+                } else if mode == .tenBand, index == frequencies.index(before: frequencies.endIndex) {
+                    responseDB += shelfResponseDB(gainDB: gain, frequency: frequencies[index], sampleRate: sampleRate, omega: omega, isHigh: true)
                 } else {
                     responseDB += peakingResponseDB(
                         gainDB: gain,
-                        centerFrequency: band.centerFrequency,
-                        q: band.q,
+                        centerFrequency: frequencies[index],
+                        q: qValues[index],
                         sampleRate: sampleRate,
                         omega: omega
                     )
@@ -1064,15 +1305,24 @@ class EQManager: ObservableObject {
     }
     
     private func disableSafetyMeasures() {
-        let effects = PlayerManager.shared.audioEffects
+        let player = PlayerManager.shared
         if preampDB != 0 {
             preampDB = 0
-            PlayerManager.shared.equalizer.setPreampDB(0)
+            player.equalizer.setPreampDB(0)
         }
         if isSafetyLimiterActive {
-            effects.setLimiterEnabled(false)
+            player.audioRepair.configureOutputSafety(
+                limiterEnabled: false,
+                transitionProtectionEnabled: false
+            )
             isSafetyLimiterActive = false
+        } else {
+            player.audioRepair.configureOutputSafety(
+                limiterEnabled: false,
+                transitionProtectionEnabled: false
+            )
         }
+        player.audioEffects.setLimiterEnabled(false)
     }
     
     // MARK: - 自定义预设管理
@@ -1085,6 +1335,7 @@ class EQManager: ObservableObject {
             description: description,
             gains: customGains,
             isCustom: true,
+            presetType: graphicEQMode == .tenBand ? .standard10 : .graphic32,
             preampDB: customPresetPreampDB
         )
         customPresets.append(preset)
@@ -1098,6 +1349,28 @@ class EQManager: ObservableObject {
         }
         saveState()
     }
+
+    func makeCloudCustomPresets() -> [EQPreset]? {
+        customPresets.isEmpty ? nil : customPresets
+    }
+
+    func restoreCloudCustomPresets(_ remotePresets: [EQPreset]) {
+        let validRemote = remotePresets.filter { preset in
+            preset.isCustom
+                && preset.presetType.expectedGainCount == preset.gains.count
+                && preset.gains.allSatisfy(\.isFinite)
+        }
+        guard !validRemote.isEmpty else { return }
+
+        var merged = Dictionary(uniqueKeysWithValues: customPresets.map { ($0.id, $0) })
+        for preset in validRemote {
+            merged[preset.id] = preset
+        }
+        customPresets = merged.values.sorted {
+            $0.name.localizedStandardCompare($1.name) == .orderedAscending
+        }
+        saveState()
+    }
     
     // MARK: - 持久化
     
@@ -1107,6 +1380,9 @@ class EQManager: ObservableObject {
         let transientPreset: EQPreset?
         let customGains: [Float]
         let customPresets: [EQPreset]
+        let graphicEQMode: GraphicEQMode?
+        let tenBandCustomGains: [Float]?
+        let thirtyTwoBandCustomGains: [Float]?
     }
     
     /// 音效旋钮状态（独立于 EQ）
@@ -1130,6 +1406,7 @@ class EQManager: ObservableObject {
         let parametricBands: [ParametricEQBand]
         let dynamicEQBands: [DynamicEQBand]
         let multibandConfiguration: MultibandDynamicsConfiguration
+        let monoEffectTuning: MonoEffectTuningConfiguration?
         let customPresetPreampDB: Float
         let selectedHeadphoneProfileID: String
         let headphoneProfiles: [MonoHeadphoneCorrectionProfile]
@@ -1140,6 +1417,9 @@ class EQManager: ObservableObject {
         let isEnabled: Bool
         let currentPreset: EQPreset?
         let customGains: [Float]
+        let graphicEQMode: GraphicEQMode?
+        let tenBandCustomGains: [Float]?
+        let thirtyTwoBandCustomGains: [Float]?
         let customPresetPreampDB: Float
         let professionalProcessingIntensity: Float
         let isLoudnessMatchingEnabled: Bool
@@ -1151,6 +1431,7 @@ class EQManager: ObservableObject {
         let multibandConfiguration: MultibandDynamicsConfiguration
         let isParametricEQEnabled: Bool
         let parametricBands: [ParametricEQBand]
+        let monoEffectTuning: MonoEffectTuningConfiguration?
         let bassGain: Float
         let trebleGain: Float
         let surroundLevel: Float
@@ -1170,6 +1451,9 @@ class EQManager: ObservableObject {
             isEnabled: isEnabled,
             currentPreset: currentPreset,
             customGains: customGains,
+            graphicEQMode: graphicEQMode,
+            tenBandCustomGains: tenBandCustomGains,
+            thirtyTwoBandCustomGains: thirtyTwoBandCustomGains,
             customPresetPreampDB: customPresetPreampDB,
             professionalProcessingIntensity: professionalProcessingIntensity,
             isLoudnessMatchingEnabled: isLoudnessMatchingEnabled,
@@ -1181,6 +1465,7 @@ class EQManager: ObservableObject {
             multibandConfiguration: multibandConfiguration,
             isParametricEQEnabled: isParametricEQEnabled,
             parametricBands: parametricBands,
+            monoEffectTuning: monoEffectTuning,
             bassGain: effects.bassGain,
             trebleGain: effects.trebleGain,
             surroundLevel: effects.surroundLevel,
@@ -1204,8 +1489,11 @@ class EQManager: ObservableObject {
     private func neutralAIProcessingSnapshot() -> AIProcessingSnapshot {
         AIProcessingSnapshot(
             isEnabled: true,
-            currentPreset: builtInPresets.first { $0.id == "flat" },
+            currentPreset: builtInPreset(familyID: "flat", mode: .tenBand),
             customGains: Array(repeating: 0, count: 10),
+            graphicEQMode: .tenBand,
+            tenBandCustomGains: Array(repeating: 0, count: GraphicEQMode.tenBand.bandCount),
+            thirtyTwoBandCustomGains: Array(repeating: 0, count: GraphicEQMode.thirtyTwoBand.bandCount),
             customPresetPreampDB: 0,
             professionalProcessingIntensity: 1,
             isLoudnessMatchingEnabled: false,
@@ -1217,6 +1505,7 @@ class EQManager: ObservableObject {
             multibandConfiguration: MultibandDynamicsConfiguration(isEnabled: false),
             isParametricEQEnabled: false,
             parametricBands: [],
+            monoEffectTuning: .neutral,
             bassGain: 0,
             trebleGain: 0,
             surroundLevel: 0,
@@ -1233,7 +1522,10 @@ class EQManager: ObservableObject {
             currentPresetId: currentPreset?.id,
             transientPreset: isTransientPreset ? currentPreset : nil,
             customGains: customGains,
-            customPresets: customPresets
+            customPresets: customPresets,
+            graphicEQMode: graphicEQMode,
+            tenBandCustomGains: tenBandCustomGains,
+            thirtyTwoBandCustomGains: thirtyTwoBandCustomGains
         )
         if let data = try? JSONEncoder().encode(state) {
             UserDefaults.standard.set(data, forKey: Self.eqStateKey)
@@ -1253,6 +1545,7 @@ class EQManager: ObservableObject {
             parametricBands: parametricBands,
             dynamicEQBands: dynamicEQBands,
             multibandConfiguration: multibandConfiguration,
+            monoEffectTuning: monoEffectTuning,
             customPresetPreampDB: customPresetPreampDB,
             selectedHeadphoneProfileID: selectedHeadphoneProfileID,
             headphoneProfiles: headphoneProfiles,
@@ -1267,7 +1560,9 @@ class EQManager: ObservableObject {
         guard let data = UserDefaults.standard.data(forKey: Self.professionalStateKey),
               let state = try? JSONDecoder().decode(ProfessionalState.self, from: data)
         else { return }
-        professionalProcessingIntensity = state.professionalProcessingIntensity ?? 1.3
+        professionalProcessingIntensity = Self.clampedProfessionalIntensity(
+            state.professionalProcessingIntensity ?? 1.3
+        )
         isLoudnessMatchingEnabled = state.isLoudnessMatchingEnabled
         isOutputCalibrationEnabled = state.isOutputCalibrationEnabled
         isSmartSongCompensationEnabled = state.isSmartSongCompensationEnabled
@@ -1277,7 +1572,8 @@ class EQManager: ObservableObject {
         parametricBands = state.parametricBands
         dynamicEQBands = state.dynamicEQBands
         multibandConfiguration = state.multibandConfiguration
-        customPresetPreampDB = state.customPresetPreampDB
+        monoEffectTuning = state.monoEffectTuning ?? .neutral
+        customPresetPreampDB = Self.clampedPreamp(state.customPresetPreampDB)
         selectedHeadphoneProfileID = state.selectedHeadphoneProfileID
         headphoneProfiles = state.headphoneProfiles
         presetPreampOverrides = state.presetPreampOverrides
@@ -1328,18 +1624,30 @@ class EQManager: ObservableObject {
         if let data = UserDefaults.standard.data(forKey: Self.eqStateKey),
            let state = try? JSONDecoder().decode(EQState.self, from: data) {
             self.customPresets = state.customPresets
-            self.customGains = state.customGains
+            let restoredMode = state.graphicEQMode
+                ?? (state.customGains.count == GraphicEQMode.thirtyTwoBand.bandCount ? .thirtyTwoBand : .tenBand)
+            self.graphicEQMode = restoredMode
+            self.tenBandCustomGains = GraphicEQMode.tenBand.normalizedGains(
+                state.tenBandCustomGains ?? (restoredMode == .tenBand ? state.customGains : [])
+            )
+            self.thirtyTwoBandCustomGains = GraphicEQMode.thirtyTwoBand.normalizedGains(
+                state.thirtyTwoBandCustomGains ?? (restoredMode == .thirtyTwoBand ? state.customGains : [])
+            )
+            self.customGains = restoredMode == .tenBand ? tenBandCustomGains : thirtyTwoBandCustomGains
             self.isEnabled = state.isEnabled
             if let presetId = state.currentPresetId {
                 self.currentPreset = allPresets.first { $0.id == presetId }
                     ?? (state.transientPreset?.id == presetId ? state.transientPreset : nil)
             }
+            self.currentPreset = matchingBuiltInPreset(currentPreset, mode: restoredMode)
             if isEnabled {
                 if let preset = currentPreset {
-                    preset.apply(to: PlayerManager.shared.equalizer)
+                    applyPresetCurve(preset)
                 } else {
                     applyCustomGains()
                 }
+            } else {
+                PlayerManager.shared.equalizer.setGraphicMode(graphicEQMode, gainsDB: customGains)
             }
             updateSafetyLimiter()
             return
@@ -1348,18 +1656,30 @@ class EQManager: ObservableObject {
         // 兼容：从旧的缓存系统迁移（v4 及更早版本）
         if let state = OptimizedCacheManager.shared.getObject(forKey: "eq_state_v4", type: EQState.self) {
             self.customPresets = state.customPresets
-            self.customGains = state.customGains
+            let restoredMode = state.graphicEQMode
+                ?? (state.customGains.count == GraphicEQMode.thirtyTwoBand.bandCount ? .thirtyTwoBand : .tenBand)
+            self.graphicEQMode = restoredMode
+            self.tenBandCustomGains = GraphicEQMode.tenBand.normalizedGains(
+                state.tenBandCustomGains ?? (restoredMode == .tenBand ? state.customGains : [])
+            )
+            self.thirtyTwoBandCustomGains = GraphicEQMode.thirtyTwoBand.normalizedGains(
+                state.thirtyTwoBandCustomGains ?? (restoredMode == .thirtyTwoBand ? state.customGains : [])
+            )
+            self.customGains = restoredMode == .tenBand ? tenBandCustomGains : thirtyTwoBandCustomGains
             self.isEnabled = state.isEnabled
             if let presetId = state.currentPresetId {
                 self.currentPreset = allPresets.first { $0.id == presetId }
                     ?? (state.transientPreset?.id == presetId ? state.transientPreset : nil)
             }
+            self.currentPreset = matchingBuiltInPreset(currentPreset, mode: restoredMode)
             if isEnabled {
                 if let preset = currentPreset {
-                    preset.apply(to: PlayerManager.shared.equalizer)
+                    applyPresetCurve(preset)
                 } else {
                     applyCustomGains()
                 }
+            } else {
+                PlayerManager.shared.equalizer.setGraphicMode(graphicEQMode, gainsDB: customGains)
             }
             updateSafetyLimiter()
             saveState()
@@ -1378,13 +1698,16 @@ class EQManager: ObservableObject {
         for key in ["eq_state_v3", "eq_state_v2", "eq_state_v1"] {
             if let state = OptimizedCacheManager.shared.getObject(forKey: key, type: LegacyEQState.self) {
                 self.customPresets = state.customPresets.filter { $0.presetType == .standard10 }
-                self.customGains = state.customGains
+                self.graphicEQMode = .tenBand
+                self.tenBandCustomGains = GraphicEQMode.tenBand.normalizedGains(state.customGains)
+                self.thirtyTwoBandCustomGains = Array(repeating: 0, count: GraphicEQMode.thirtyTwoBand.bandCount)
+                self.customGains = tenBandCustomGains
                 self.isEnabled = state.isEnabled
                 if let presetId = state.currentPresetId {
                     self.currentPreset = allPresets.first { $0.id == presetId }
                 }
                 if isEnabled, let preset = currentPreset {
-                    preset.apply(to: PlayerManager.shared.equalizer)
+                    applyPresetCurve(preset)
                 }
                 updateSafetyLimiter()
                 saveState()

@@ -14,6 +14,9 @@ struct EQSettingsView: View {
     @StateObject private var coverColors = CoverColorExtractor()
     @State private var showSaveSheet = false
     @State private var customPresetName = ""
+    @State private var isCustomEditingEnabled = false
+    @State private var selectedWorkspace: EQSettingsWorkspace = .presets
+    @Namespace private var workspaceSelectionNamespace
     
     // 音效旋钮值（0~1 范围）
     @State private var bassValue: CGFloat = 0.5
@@ -27,7 +30,7 @@ struct EQSettingsView: View {
     
     private var displayGains: [Float] {
         if let preset = eqManager.currentPreset, preset.id != "custom" {
-            return preset.gains
+            return preset.gains(in: eqManager.graphicEQMode)
         }
         return eqManager.customGains
     }
@@ -70,38 +73,14 @@ struct EQSettingsView: View {
         ZStack {
             backdrop.ignoresSafeArea()
 
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 0) {
-                    SettingsScrollablePageHeader(
-                        title: String(localized: "eq_title"),
-                        eyebrow: "MONO AUDIO",
-                        icon: .equalizer
-                    )
-
-                    VStack(alignment: .leading, spacing: 22) {
-                        section(title: String(localized: "eq_playback_processing")) {
-                            controlDeck
-                        }
-
-                        if eqManager.isEnabled {
-                            presetScrollSection
-                            equalizerSection
-                            calibrationSection
-                            knobSection
-                            pitchSection
-
-                            if !eqManager.customPresets.isEmpty {
-                                customPresetsSection
-                            }
-
-                            saveButton
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 18)
-                    .padding(.bottom, 44)
-                    .iPadContentWidth(720)
-                }
+            VStack(spacing: 0) {
+                EQImmersiveTrackHeader(
+                    pageTitle: String(localized: "eq_title"),
+                    accent: eqAccent
+                )
+                workspaceSwitcher
+                workspaceContent
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .compatFontDesign(nil)
@@ -142,15 +121,153 @@ struct EQSettingsView: View {
         .onChange(of: eqManager.isEnabled) {
             // 当均衡器关闭时，同步 UI 旋钮到重置状态
             if !eqManager.isEnabled {
+                selectedWorkspace = .presets
                 syncKnobsFromGains()
             }
         }
         .onChange(of: eqManager.currentPreset?.id) {
             // 当预设变化时，同步旋钮（环绕预设会自动设置环绕参数）
+            if eqManager.currentPreset?.id != "custom" {
+                isCustomEditingEnabled = false
+            }
             syncKnobsFromGains()
             syncSelectedPresetCategory()
         }
         .animation(.easeOut(duration: 0.2), value: eqManager.isEnabled)
+    }
+
+    private var workspaceSwitcher: some View {
+        HStack(spacing: 4) {
+            ForEach(EQSettingsWorkspace.allCases) { workspace in
+                let isAvailable = eqManager.isEnabled || workspace == .presets
+                Button {
+                    guard isAvailable else { return }
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        selectedWorkspace = workspace
+                    }
+                    UISelectionFeedbackGenerator().selectionChanged()
+                } label: {
+                    HStack(spacing: 6) {
+                        MonologueIcon(
+                            icon: workspace.icon,
+                            size: 13,
+                            color: selectedWorkspace == workspace
+                                ? eqAccentForeground
+                                : .white.opacity(isAvailable ? 0.46 : 0.22)
+                        )
+                        Text(workspace.title)
+                            .font(.system(size: 11.5, weight: .bold))
+                            .foregroundStyle(
+                                selectedWorkspace == workspace
+                                    ? eqAccentForeground
+                                    : .white.opacity(isAvailable ? 0.52 : 0.24)
+                            )
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.78)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 38)
+                    .background {
+                        if selectedWorkspace == workspace {
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(eqAccent.opacity(0.86))
+                                .matchedGeometryEffect(
+                                    id: "eq-workspace-selection",
+                                    in: workspaceSelectionNamespace
+                                )
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(!isAvailable)
+                .accessibilityAddTraits(selectedWorkspace == workspace ? .isSelected : [])
+            }
+        }
+        .padding(4)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.black.opacity(0.2))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                }
+        )
+        .padding(.horizontal, 20)
+        .padding(.bottom, 12)
+        .iPadContentWidth(720)
+    }
+
+    private var workspaceContent: AnyView {
+        switch selectedWorkspace {
+        case .presets:
+            return presetsWorkspace
+        case .equalizer:
+            return equalizerWorkspace
+        case .effects:
+            return effectsWorkspace
+        case .calibration:
+            return calibrationWorkspace
+        }
+    }
+
+    private var presetsWorkspace: AnyView {
+        workspaceScroll(
+            AnyView(
+                VStack(alignment: .leading, spacing: 16) {
+                    controlDeck
+                    if eqManager.isEnabled {
+                        presetScrollSection
+                        if !eqManager.customPresets.isEmpty {
+                            customPresetsSection
+                        }
+                    }
+                }
+            )
+        )
+    }
+
+    private var equalizerWorkspace: AnyView {
+        workspaceScroll(
+            AnyView(
+                VStack(alignment: .leading, spacing: 16) {
+                    equalizerSection
+                    saveButton
+                }
+            )
+        )
+    }
+
+    private var effectsWorkspace: AnyView {
+        workspaceScroll(
+            AnyView(
+                VStack(alignment: .leading, spacing: 16) {
+                    knobSection
+                    pitchSection
+                }
+            )
+        )
+    }
+
+    private var calibrationWorkspace: AnyView {
+        workspaceScroll(
+            AnyView(
+                VStack(alignment: .leading, spacing: 16) {
+                    calibrationSection
+                }
+            )
+        )
+    }
+
+    private func workspaceScroll(_ content: AnyView) -> AnyView {
+        AnyView(
+            ScrollView(showsIndicators: false) {
+                content
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 44)
+                    .iPadContentWidth(720)
+            }
+        )
     }
 
     private var calibrationSection: some View {
@@ -520,8 +637,94 @@ struct EQSettingsView: View {
     private var equalizerSection: some View {
         section(title: String(localized: "eq_equalizer")) {
             VStack(spacing: 12) {
-                // 曲线 + 滑块叠加
-                ZStack(alignment: .bottom) {
+                graphicModePicker
+                customEditingToggle
+
+                if eqManager.graphicEQMode == .thirtyTwoBand {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        equalizerGraph
+                            .frame(width: 896)
+                    }
+                } else {
+                    equalizerGraph
+                }
+            }
+            .padding(14)
+            .background(cardBackground)
+        }
+    }
+
+    private var graphicModePicker: some View {
+        HStack(spacing: 4) {
+            graphicModeButton(.tenBand, title: String(localized: "eq_ten_band"))
+            graphicModeButton(.thirtyTwoBand, title: String(localized: "eq_thirty_two_band"))
+        }
+        .padding(4)
+        .background(eqPressedSurface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private var customEditingToggle: some View {
+        HStack(spacing: 10) {
+            MonologueIcon(
+                icon: isCustomEditingEnabled ? .unlock : .lock,
+                size: 14,
+                color: isCustomEditingEnabled ? eqAccent : eqMutedText
+            )
+
+            Text(String(localized: "eq_custom"))
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(eqPrimaryText)
+
+            Spacer()
+
+            Toggle(String(localized: "eq_custom"), isOn: customEditingBinding)
+                .labelsHidden()
+                .tint(eqAccent)
+        }
+        .frame(minHeight: 38)
+        .contentShape(Rectangle())
+    }
+
+    private var customEditingBinding: Binding<Bool> {
+        Binding(
+            get: { isCustomEditingEnabled },
+            set: { enabled in
+                withAnimation(.easeOut(duration: 0.18)) {
+                    if enabled {
+                        switchToCustomIfNeeded()
+                    }
+                    isCustomEditingEnabled = enabled
+                }
+                UISelectionFeedbackGenerator().selectionChanged()
+            }
+        )
+    }
+
+    private func graphicModeButton(_ mode: GraphicEQMode, title: String) -> some View {
+        let isSelected = eqManager.graphicEQMode == mode
+        return Button {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isCustomEditingEnabled = false
+                eqManager.setGraphicEQMode(mode)
+            }
+        } label: {
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(isSelected ? eqAccentForeground : eqSecondaryText)
+                .frame(maxWidth: .infinity)
+                .frame(height: 34)
+                .background(
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .fill(isSelected ? eqAccent : .clear)
+                )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var equalizerGraph: some View {
+        VStack(spacing: 12) {
+            // 曲线 + 滑块叠加
+            ZStack(alignment: .bottom) {
                 // 频谱曲线填充
                 spectrumFill
                     .frame(height: 220)
@@ -544,13 +747,10 @@ struct EQSettingsView: View {
                 // 垂直滑块
                 sliderOverlay
                     .frame(height: 220)
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-
-                frequencyLabels
             }
-            .padding(14)
-            .background(cardBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+            frequencyLabels
         }
     }
 
@@ -624,7 +824,7 @@ struct EQSettingsView: View {
             let count = displayGains.count
             let spacing = w / CGFloat(count)
 
-            ZStack {
+            let sliders = ZStack {
                 ForEach(0..<count, id: \.self) { index in
                     let gain = displayGains[index]
                     let normalized = CGFloat((gain + 12) / 24)
@@ -634,7 +834,7 @@ struct EQSettingsView: View {
 
                     // 轨道线
                     RoundedRectangle(cornerRadius: 1.5)
-                        .fill(eqMutedText.opacity(0.26))
+                        .fill(eqMutedText.opacity(isCustomEditingEnabled ? 0.26 : 0.16))
                         .frame(width: 3, height: h)
                         .position(x: centerX, y: h / 2)
 
@@ -643,42 +843,53 @@ struct EQSettingsView: View {
                     let barMidY = min(thumbY, centerY) + barHeight / 2
                     if barHeight > 1 {
                         RoundedRectangle(cornerRadius: 1.5)
-                            .fill(eqAccent.opacity(0.56))
+                            .fill((isCustomEditingEnabled ? eqAccent : eqMutedText).opacity(0.56))
                             .frame(width: 3, height: barHeight)
                             .position(x: centerX, y: barMidY)
                     }
 
                     // 拇指
                     Capsule()
-                        .fill(eqAccent)
+                        .fill(isCustomEditingEnabled ? eqAccent : eqMutedText.opacity(0.7))
                         .frame(width: 8, height: 24)
-                        .shadow(color: eqAccent.opacity(0.3), radius: 4, y: 2)
+                        .shadow(
+                            color: isCustomEditingEnabled ? eqAccent.opacity(0.3) : .clear,
+                            radius: 4,
+                            y: 2
+                        )
                         .position(x: centerX, y: thumbY)
                 }
             }
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        let spacing = w / CGFloat(count)
-                        let index = Int((value.location.x / spacing).rounded(.down))
-                        let clampedIndex = min(max(index, 0), count - 1)
-                        let ratio = 1 - (value.location.y / h)
-                        let clamped = min(max(ratio, 0), 1)
-                        let newGain = Float(clamped) * 24 - 12
-                        switchToCustomIfNeeded()
-                        eqManager.setCustomGain(newGain, at: clampedIndex)
-                    }
-            )
+
+            if isCustomEditingEnabled {
+                sliders
+                    .contentShape(Rectangle())
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 8)
+                            .onChanged { value in
+                                guard abs(value.translation.height) > abs(value.translation.width) else { return }
+                                let spacing = w / CGFloat(count)
+                                let index = Int((value.location.x / spacing).rounded(.down))
+                                let clampedIndex = min(max(index, 0), count - 1)
+                                let ratio = 1 - (value.location.y / h)
+                                let clamped = min(max(ratio, 0), 1)
+                                let newGain = Float(clamped) * 24 - 12
+                                eqManager.setCustomGain(newGain, at: clampedIndex)
+                            }
+                    )
+            } else {
+                sliders
+                    .allowsHitTesting(false)
+            }
         }
     }
 
     // 频率标签
     private var frequencyLabels: some View {
         HStack(spacing: 0) {
-            ForEach(EQBand.allCases, id: \.self) { band in
-                Text(band.label)
-                    .font(.system(size: 9, weight: .medium, design: .monospaced))
+            ForEach(Array(eqManager.graphicBandLabels.enumerated()), id: \.offset) { _, label in
+                Text(label)
+                    .font(.system(size: eqManager.graphicEQMode == .thirtyTwoBand ? 8 : 9, weight: .medium, design: .monospaced))
                     .foregroundColor(eqSecondaryText)
                     .frame(maxWidth: .infinity)
             }
@@ -760,13 +971,14 @@ struct EQSettingsView: View {
 
         return Button(action: {
             withAnimation(.easeOut(duration: 0.2)) {
+                isCustomEditingEnabled = false
                 eqManager.applyPreset(preset)
             }
         }) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .top, spacing: 10) {
                     HStack(alignment: .bottom, spacing: 2.5) {
-                        ForEach(Array(preset.gains.enumerated()), id: \.offset) { _, gain in
+                        ForEach(Array(preset.gains(in: .tenBand).enumerated()), id: \.offset) { _, gain in
                             Capsule()
                                 .fill(barColor)
                                 .frame(width: 3, height: 4 + CGFloat((gain + 12) / 24) * 20)
@@ -832,7 +1044,10 @@ struct EQSettingsView: View {
         let isSelected = eqManager.currentPreset?.id == preset.id
 
         return HStack(spacing: 12) {
-            Button(action: { eqManager.applyPreset(preset) }) {
+            Button(action: {
+                isCustomEditingEnabled = false
+                eqManager.applyPreset(preset)
+            }) {
                 HStack(spacing: 12) {
                     Circle()
                         .fill(isSelected ? eqAccent : eqSeparator)
@@ -904,12 +1119,21 @@ struct EQSettingsView: View {
 
     private var backdrop: some View {
         ZStack {
-            Color(red: 0.055, green: 0.055, blue: 0.072)
-            RadialGradient(
-                colors: [eqAccent.opacity(0.16), .clear],
-                center: .top,
-                startRadius: 0,
-                endRadius: 440
+            PlaylistColorBackground(
+                coverUrl: player.currentSong?.coverUrl?.sized(720)
+            )
+            .saturation(0.78)
+
+            Color.black.opacity(0.48)
+
+            LinearGradient(
+                colors: [
+                    Color.black.opacity(0.08),
+                    Color.black.opacity(0.26),
+                    Color.black.opacity(0.54),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
             )
         }
     }
@@ -985,6 +1209,7 @@ struct EQSettingsView: View {
 
     /// 全部重置：EQ 增益 + 音效旋钮 + 变调
     private func resetAll() {
+        isCustomEditingEnabled = false
         // 重置 EQ 均衡器
         eqManager.applyFlat()
         eqManager.professionalProcessingIntensity = 1.3
@@ -1047,7 +1272,7 @@ struct EQSettingsView: View {
     private func switchToCustomIfNeeded() {
         if eqManager.currentPreset?.id != "custom" {
             if let preset = eqManager.currentPreset {
-                eqManager.customGains = preset.gains
+                eqManager.customGains = preset.gains(in: eqManager.graphicEQMode)
             }
             eqManager.currentPreset = EQPreset(
                 id: "custom",
@@ -1055,13 +1280,122 @@ struct EQSettingsView: View {
                 category: .custom,
                 description: "",
                 gains: eqManager.customGains,
-                isCustom: true
+                isCustom: true,
+                presetType: eqManager.graphicEQMode == .tenBand ? .standard10 : .graphic32
             )
         }
     }
 }
 
-private func normalizedEQAccent(_ color: Color) -> Color {
+private enum EQSettingsWorkspace: String, CaseIterable, Identifiable {
+    case presets
+    case equalizer
+    case effects
+    case calibration
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .presets: return String(localized: "eq_workspace_presets")
+        case .equalizer: return String(localized: "eq_workspace_equalizer")
+        case .effects: return String(localized: "eq_workspace_effects")
+        case .calibration: return String(localized: "eq_workspace_calibration")
+        }
+    }
+
+    var icon: MonologueIcon.IconType {
+        switch self {
+        case .presets: return .musicNoteList
+        case .equalizer: return .equalizer
+        case .effects: return .soundQuality
+        case .calibration: return .headphones
+        }
+    }
+}
+
+struct EQImmersiveTrackHeader: View {
+    let pageTitle: String
+    let accent: Color
+
+    @ObservedObject private var player = PlayerManager.shared
+
+    var body: some View {
+        Group {
+            if let song = player.currentSong {
+                HStack(spacing: 12) {
+                    CachedAsyncImage(
+                        url: song.coverUrl?.sized(240),
+                        width: 66,
+                        height: 66
+                    ) {
+                        coverPlaceholder
+                    }
+                    .frame(width: 66, height: 66)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(accent.opacity(0.28), lineWidth: 1)
+                    }
+
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(pageTitle)
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(accent)
+                            .lineLimit(1)
+
+                        Text(song.name)
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+
+                        Text(song.artistName)
+                            .font(.system(size: 11.5, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.62))
+                            .lineLimit(1)
+                    }
+
+                    Spacer(minLength: 0)
+                }
+            } else {
+                HStack(spacing: 12) {
+                    coverPlaceholder
+                        .frame(width: 58, height: 58)
+
+                    Text(pageTitle)
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(.white)
+
+                    Spacer(minLength: 0)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 20)
+        .padding(.top, 6)
+        .padding(.bottom, 12)
+        .background(Color.black.opacity(0.12))
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color.white.opacity(0.06))
+                .frame(height: 1)
+        }
+    }
+
+    private var coverPlaceholder: some View {
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .fill(Color.white.opacity(0.06))
+            .overlay(
+                MonologueIcon(
+                    icon: .musicNote,
+                    size: 21,
+                    color: .white.opacity(0.42)
+                )
+            )
+    }
+}
+
+func normalizedEQAccent(_ color: Color) -> Color {
     let uiColor = UIColor(color)
     var hue: CGFloat = 0
     var saturation: CGFloat = 0
@@ -1100,42 +1434,219 @@ private func normalizedEQAccent(_ color: Color) -> Color {
 
 // MARK: - Mono 专业模式
 
+private enum EQProfessionalWorkspace: String, CaseIterable, Identifiable {
+    case processing
+    case mastering
+    case spatial
+    case advanced
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .processing: return String(localized: "eq_workspace_professional_processing")
+        case .mastering: return String(localized: "eq_workspace_professional_mastering")
+        case .spatial: return String(localized: "eq_workspace_professional_spatial")
+        case .advanced: return String(localized: "eq_workspace_professional_advanced")
+        }
+    }
+
+    var icon: MonologueIcon.IconType {
+        switch self {
+        case .processing: return .sparkle
+        case .mastering: return .soundQuality
+        case .spatial: return .headphones
+        case .advanced: return .equalizer
+        }
+    }
+}
+
 private struct EQProfessionalSettingsView: View {
     @StateObject private var manager = EQManager.shared
+    @StateObject private var coverColors = CoverColorExtractor()
+    @ObservedObject private var player = PlayerManager.shared
     @ObservedObject private var settings = SettingsManager.shared
+    @State private var selectedWorkspace: EQProfessionalWorkspace = .processing
+    @Namespace private var workspaceSelectionNamespace
 
-    private var primary: Color { NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary }
-    private var secondary: Color { NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary }
-    private var accent: Color { NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueAccent }
-    private var separator: Color { NeumorphicStyle.isActive ? NeumorphicStyle.separator : .monologueSeparator }
+    private var primary: Color { .white }
+    private var secondary: Color { .white.opacity(0.52) }
+    private var accent: Color { normalizedEQAccent(coverColors.dominantColor) }
+    private var separator: Color { .white.opacity(0.07) }
 
     var body: some View {
         let _ = settings.globalThemeRevision
         ZStack {
-            MonologueSheetAwareBackground { ThemedSettingsBackground() }
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
+            professionalBackdrop
+                .ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                EQImmersiveTrackHeader(
+                    pageTitle: String(localized: "eq_professional_mode"),
+                    accent: accent
+                )
+                workspaceSwitcher
+                workspaceContent
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .compatFontDesign(nil)
+        .environment(\.colorScheme, .dark)
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                MonologueToolbarBackButton()
+            }
+        }
+        .onAppear {
+            manager.handleAudioRouteChanged()
+            refreshCoverAccent()
+        }
+        .onChange(of: player.currentSong?.id) { _, _ in
+            refreshCoverAccent()
+        }
+        .onDisappear { manager.stopLoudnessMatchedReferenceAudition() }
+    }
+
+    private var workspaceSwitcher: some View {
+        HStack(spacing: 4) {
+            ForEach(EQProfessionalWorkspace.allCases) { workspace in
+                Button {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        selectedWorkspace = workspace
+                    }
+                    UISelectionFeedbackGenerator().selectionChanged()
+                } label: {
+                    HStack(spacing: 6) {
+                        MonologueIcon(
+                            icon: workspace.icon,
+                            size: 13,
+                            color: selectedWorkspace == workspace
+                                ? accentForeground
+                                : .white.opacity(0.46)
+                        )
+                        Text(workspace.title)
+                            .font(.system(size: 11.5, weight: .bold))
+                            .foregroundStyle(
+                                selectedWorkspace == workspace
+                                    ? accentForeground
+                                    : .white.opacity(0.52)
+                            )
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.78)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 38)
+                    .background {
+                        if selectedWorkspace == workspace {
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(accent.opacity(0.86))
+                                .matchedGeometryEffect(
+                                    id: "professional-workspace-selection",
+                                    in: workspaceSelectionNamespace
+                                )
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(selectedWorkspace == workspace ? .isSelected : [])
+            }
+        }
+        .padding(4)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.black.opacity(0.2))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                }
+        )
+        .padding(.horizontal, 20)
+        .padding(.bottom, 12)
+        .iPadContentWidth(720)
+    }
+
+    private var accentForeground: Color {
+        ThemeColorCustomization.readableForegroundColor(
+            on: accent,
+            light: Color(hex: "111821"),
+            dark: .white
+        )
+    }
+
+    private var workspaceContent: AnyView {
+        switch selectedWorkspace {
+        case .processing:
+            return processingWorkspace
+        case .mastering:
+            return masteringWorkspace
+        case .spatial:
+            return spatialWorkspace
+        case .advanced:
+            return advancedWorkspace
+        }
+    }
+
+    private var processingWorkspace: AnyView {
+        workspaceScroll(
+            AnyView(
+                VStack(alignment: .leading, spacing: 16) {
                     outputSummary
                     automaticSection
                     preampSection
+                }
+            )
+        )
+    }
+
+    private var masteringWorkspace: AnyView {
+        workspaceScroll(
+            AnyView(
+                VStack(alignment: .leading, spacing: 16) {
+                    masteringSection
+                    enhancementSection
+                }
+            )
+        )
+    }
+
+    private var spatialWorkspace: AnyView {
+        workspaceScroll(
+            AnyView(
+                VStack(alignment: .leading, spacing: 16) {
                     headphoneSection
+                    headphoneSpatialSection
+                }
+            )
+        )
+    }
+
+    private var advancedWorkspace: AnyView {
+        workspaceScroll(
+            AnyView(
+                VStack(alignment: .leading, spacing: 16) {
+                    advancedFeatureSection
                     if manager.isDynamicEQEnabled { dynamicEQSection }
                     if manager.isMultibandDynamicsEnabled { multibandSection }
                     if manager.isParametricEQEnabled { parametricSection }
-                    FloatingBarBottomSpacer()
                 }
-                .padding(.top, 8)
-                .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
-                .iPadContentWidth()
+            )
+        )
+    }
+
+    private func workspaceScroll(_ content: AnyView) -> AnyView {
+        AnyView(
+            ScrollView(showsIndicators: false) {
+                content
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 44)
+                    .iPadContentWidth(720)
             }
-            .scrollIndicators(.hidden)
-            .themeRenderScrollLayer()
-        }
-        .themedInlineNavigationTitle(String(localized: "eq_professional_mode"))
-        .toolbar(.visible, for: .navigationBar)
-        .toolbarBackground(.hidden, for: .navigationBar)
-        .onAppear { manager.handleAudioRouteChanged() }
-        .onDisappear { manager.stopLoudnessMatchedReferenceAudition() }
+        )
     }
 
     private var outputSummary: some View {
@@ -1149,9 +1660,12 @@ private struct EQProfessionalSettingsView: View {
                         .font(.rounded(size: 16, weight: .bold))
                         .foregroundColor(primary)
                         .lineLimit(1)
-                    Text(manager.currentOutputKind.title)
+                    Text(
+                        "\(manager.currentOutputKind.title) · \(manager.graphicEQMode == .thirtyTwoBand ? String(localized: "eq_thirty_two_band") : String(localized: "eq_ten_band"))"
+                    )
                         .font(.rounded(size: 11.5, weight: .medium))
                         .foregroundColor(secondary)
+                        .lineLimit(1)
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 3) {
@@ -1182,7 +1696,7 @@ private struct EQProfessionalSettingsView: View {
             .buttonStyle(.plain)
         }
         .padding(16)
-        .themedPageSurface(cornerRadius: 16, elevated: true, mangaTint: MangaStyle.bubbleWhite)
+        .background(professionalCardBackground)
     }
 
     private var automaticSection: some View {
@@ -1190,7 +1704,7 @@ private struct EQProfessionalSettingsView: View {
             parameterSlider(
                 title: String(localized: "eq_processing_intensity"),
                 value: $manager.professionalProcessingIntensity,
-                range: 0.7...1.8,
+                range: 0.6...2.1,
                 step: 0.05,
                 valueText: String(format: "%.0f%%", manager.professionalProcessingIntensity * 100)
             )
@@ -1200,12 +1714,28 @@ private struct EQProfessionalSettingsView: View {
             switchRow("eq_loudness_matching", detail: String(localized: "eq_loudness_matching_desc"), isOn: $manager.isLoudnessMatchingEnabled)
             sectionDivider
             switchRow("eq_smart_song", detail: String(localized: "eq_smart_song_desc"), isOn: $manager.isSmartSongCompensationEnabled)
+        }
+    }
+
+    private var advancedFeatureSection: some View {
+        professionalSection("eq_workspace_professional_advanced") {
+            switchRow(
+                "eq_dynamic_eq",
+                detail: String(localized: "eq_dynamic_eq_desc"),
+                isOn: $manager.isDynamicEQEnabled
+            )
             sectionDivider
-            switchRow("eq_dynamic_eq", detail: String(localized: "eq_dynamic_eq_desc"), isOn: $manager.isDynamicEQEnabled)
+            switchRow(
+                "eq_multiband",
+                detail: String(localized: "eq_multiband_desc"),
+                isOn: $manager.isMultibandDynamicsEnabled
+            )
             sectionDivider
-            switchRow("eq_multiband", detail: String(localized: "eq_multiband_desc"), isOn: $manager.isMultibandDynamicsEnabled)
-            sectionDivider
-            switchRow("eq_parametric_eq", detail: String(localized: "eq_parametric_eq_desc"), isOn: $manager.isParametricEQEnabled)
+            switchRow(
+                "eq_parametric_eq",
+                detail: String(localized: "eq_parametric_eq_desc"),
+                isOn: $manager.isParametricEQEnabled
+            )
         }
     }
 
@@ -1221,6 +1751,99 @@ private struct EQProfessionalSettingsView: View {
                 step: 0.1,
                 valueText: String(format: "%.1f dB", manager.currentPresetPreampDB)
             )
+        }
+    }
+
+    private var masteringSection: some View {
+        professionalSection("eq_mastering") {
+            switchRow(
+                "eq_loudness_normalization",
+                detail: String(format: "%.1f LUFS · %.1f LU", manager.monoEffectTuning.targetLUFS, manager.monoEffectTuning.targetLRA),
+                isOn: monoEffectBoolBinding(\.loudnessNormalizationEnabled)
+            )
+            if manager.monoEffectTuning.loudnessNormalizationEnabled {
+                parameterSlider(
+                    title: String(localized: "eq_target_lufs"),
+                    value: monoEffectFloatBinding(\.targetLUFS),
+                    range: -24 ... -9,
+                    step: 0.5,
+                    valueText: String(format: "%.1f LUFS", manager.monoEffectTuning.targetLUFS)
+                )
+                parameterSlider(
+                    title: String(localized: "eq_target_lra"),
+                    value: monoEffectFloatBinding(\.targetLRA),
+                    range: 3...18,
+                    step: 0.5,
+                    valueText: String(format: "%.1f LU", manager.monoEffectTuning.targetLRA)
+                )
+                parameterSlider(
+                    title: String(localized: "eq_true_peak_ceiling"),
+                    value: monoEffectFloatBinding(\.truePeakCeilingDB),
+                    range: -3 ... -0.2,
+                    step: 0.1,
+                    valueText: String(format: "%.1f dBTP", manager.monoEffectTuning.truePeakCeilingDB)
+                )
+            }
+
+            sectionDivider
+            switchRow(
+                "eq_compressor",
+                detail: String(format: "%.1f dB · %.1f:1", manager.monoEffectTuning.compressorThresholdDB, manager.monoEffectTuning.compressorRatio),
+                isOn: monoEffectBoolBinding(\.compressorEnabled)
+            )
+            if manager.monoEffectTuning.compressorEnabled {
+                parameterSlider(
+                    title: String(localized: "eq_compressor_threshold"),
+                    value: monoEffectFloatBinding(\.compressorThresholdDB),
+                    range: -36 ... -4,
+                    step: 0.5,
+                    valueText: String(format: "%.1f dB", manager.monoEffectTuning.compressorThresholdDB)
+                )
+                parameterSlider(
+                    title: String(localized: "eq_compressor_ratio"),
+                    value: monoEffectFloatBinding(\.compressorRatio),
+                    range: 1...6,
+                    step: 0.1,
+                    valueText: String(format: "%.1f:1", manager.monoEffectTuning.compressorRatio)
+                )
+                parameterSlider(
+                    title: String(localized: "eq_attack"),
+                    value: monoEffectFloatBinding(\.compressorAttackMS),
+                    range: 1...200,
+                    step: 1,
+                    valueText: String(format: "%.0f ms", manager.monoEffectTuning.compressorAttackMS)
+                )
+                parameterSlider(
+                    title: String(localized: "eq_release"),
+                    value: monoEffectFloatBinding(\.compressorReleaseMS),
+                    range: 30...1_200,
+                    step: 5,
+                    valueText: String(format: "%.0f ms", manager.monoEffectTuning.compressorReleaseMS)
+                )
+                parameterSlider(
+                    title: String(localized: "eq_makeup_gain"),
+                    value: monoEffectFloatBinding(\.compressorMakeupDB),
+                    range: -3...6,
+                    step: 0.1,
+                    valueText: String(format: "%+.1f dB", manager.monoEffectTuning.compressorMakeupDB)
+                )
+            }
+
+            sectionDivider
+            switchRow(
+                "eq_final_limiter",
+                detail: String(format: "%.1f dBFS", manager.monoEffectTuning.finalLimiterCeilingDB),
+                isOn: monoEffectBoolBinding(\.finalLimiterEnabled)
+            )
+            if manager.monoEffectTuning.finalLimiterEnabled {
+                parameterSlider(
+                    title: String(localized: "eq_output_ceiling"),
+                    value: monoEffectFloatBinding(\.finalLimiterCeilingDB),
+                    range: -3 ... -0.2,
+                    step: 0.1,
+                    valueText: String(format: "%.1f dBFS", manager.monoEffectTuning.finalLimiterCeilingDB)
+                )
+            }
         }
     }
 
@@ -1269,6 +1892,152 @@ private struct EQProfessionalSettingsView: View {
         }
     }
 
+    private var headphoneSpatialSection: some View {
+        professionalSection("eq_headphone_spatial") {
+            switchRow(
+                "eq_bs2b",
+                detail: String(format: "%d Hz · %.1f dB", manager.monoEffectTuning.bs2bCutoffHz, Float(manager.monoEffectTuning.bs2bFeed) / 10),
+                isOn: exclusiveHeadphoneBinding(\.bs2bEnabled)
+            )
+            if manager.monoEffectTuning.bs2bEnabled {
+                parameterSlider(
+                    title: String(localized: "eq_bs2b_cutoff"),
+                    value: monoEffectIntBinding(\.bs2bCutoffHz),
+                    range: 400...1_500,
+                    step: 10,
+                    valueText: "\(manager.monoEffectTuning.bs2bCutoffHz) Hz"
+                )
+                parameterSlider(
+                    title: String(localized: "eq_bs2b_feed"),
+                    value: monoEffectIntBinding(\.bs2bFeed),
+                    range: 10...100,
+                    step: 1,
+                    valueText: String(format: "%.1f dB", Float(manager.monoEffectTuning.bs2bFeed) / 10)
+                )
+            }
+
+            sectionDivider
+            switchRow(
+                "eq_crossfeed",
+                detail: "\(Int(manager.monoEffectTuning.crossfeedStrength * 100))%",
+                isOn: exclusiveHeadphoneBinding(\.crossfeedEnabled)
+            )
+            if manager.monoEffectTuning.crossfeedEnabled {
+                parameterSlider(
+                    title: String(localized: "eq_crossfeed_strength"),
+                    value: monoEffectFloatBinding(\.crossfeedStrength),
+                    range: 0...0.55,
+                    step: 0.01,
+                    valueText: "\(Int(manager.monoEffectTuning.crossfeedStrength * 100))%"
+                )
+            }
+
+            sectionDivider
+            switchRow(
+                "eq_haas",
+                detail: String(format: "%.1f ms", manager.monoEffectTuning.haasDelayMS),
+                isOn: exclusiveHeadphoneBinding(\.haasEnabled)
+            )
+            if manager.monoEffectTuning.haasEnabled {
+                parameterSlider(
+                    title: String(localized: "eq_haas_delay"),
+                    value: monoEffectFloatBinding(\.haasDelayMS),
+                    range: 1...25,
+                    step: 0.5,
+                    valueText: String(format: "%.1f ms", manager.monoEffectTuning.haasDelayMS)
+                )
+            }
+        }
+    }
+
+    private var enhancementSection: some View {
+        professionalSection("eq_tone_enhancement") {
+            switchRow(
+                "eq_subboost",
+                detail: String(format: "%+.1f dB · %.0f Hz", manager.monoEffectTuning.subboostGainDB, manager.monoEffectTuning.subboostCutoffHz),
+                isOn: exclusiveBassBinding(\.subboostEnabled)
+            )
+            if manager.monoEffectTuning.subboostEnabled {
+                parameterSlider(
+                    title: String(localized: "eq_subboost_gain"),
+                    value: monoEffectFloatBinding(\.subboostGainDB),
+                    range: 0...8,
+                    step: 0.1,
+                    valueText: String(format: "%+.1f dB", manager.monoEffectTuning.subboostGainDB)
+                )
+                parameterSlider(
+                    title: String(localized: "eq_subboost_cutoff"),
+                    value: monoEffectFloatBinding(\.subboostCutoffHz),
+                    range: 40...180,
+                    step: 1,
+                    valueText: String(format: "%.0f Hz", manager.monoEffectTuning.subboostCutoffHz)
+                )
+            }
+
+            sectionDivider
+            switchRow(
+                "eq_virtual_bass",
+                detail: "\(Int(manager.monoEffectTuning.virtualBassStrength * 100 / 6))%",
+                isOn: exclusiveBassBinding(\.virtualBassEnabled)
+            )
+            if manager.monoEffectTuning.virtualBassEnabled {
+                parameterSlider(
+                    title: String(localized: "eq_virtual_bass_cutoff"),
+                    value: monoEffectFloatBinding(\.virtualBassCutoffHz),
+                    range: 80...320,
+                    step: 5,
+                    valueText: String(format: "%.0f Hz", manager.monoEffectTuning.virtualBassCutoffHz)
+                )
+                parameterSlider(
+                    title: String(localized: "eq_virtual_bass_strength"),
+                    value: monoEffectFloatBinding(\.virtualBassStrength),
+                    range: 0...6,
+                    step: 0.1,
+                    valueText: String(format: "%.1f", manager.monoEffectTuning.virtualBassStrength)
+                )
+            }
+
+            sectionDivider
+            switchRow(
+                "eq_exciter",
+                detail: String(format: "%+.1f dB · %.1f kHz", manager.monoEffectTuning.exciterAmountDB, manager.monoEffectTuning.exciterFrequencyHz / 1_000),
+                isOn: monoEffectBoolBinding(\.exciterEnabled)
+            )
+            if manager.monoEffectTuning.exciterEnabled {
+                parameterSlider(
+                    title: String(localized: "eq_exciter_amount"),
+                    value: monoEffectFloatBinding(\.exciterAmountDB),
+                    range: 0...6,
+                    step: 0.1,
+                    valueText: String(format: "%+.1f dB", manager.monoEffectTuning.exciterAmountDB)
+                )
+                parameterSlider(
+                    title: String(localized: "eq_exciter_frequency"),
+                    value: monoEffectFloatBinding(\.exciterFrequencyHz),
+                    range: 3_000...14_000,
+                    step: 100,
+                    valueText: String(format: "%.1f kHz", manager.monoEffectTuning.exciterFrequencyHz / 1_000)
+                )
+            }
+
+            sectionDivider
+            switchRow(
+                "eq_softclip",
+                detail: "\(manager.monoEffectTuning.softclipType + 1)",
+                isOn: monoEffectBoolBinding(\.softclipEnabled)
+            )
+            if manager.monoEffectTuning.softclipEnabled {
+                parameterSlider(
+                    title: String(localized: "eq_softclip_type"),
+                    value: monoEffectIntBinding(\.softclipType),
+                    range: 0...7,
+                    step: 1,
+                    valueText: "\(manager.monoEffectTuning.softclipType + 1)"
+                )
+            }
+        }
+    }
+
     @ViewBuilder
     private func correctionSliders(_ profile: MonoHeadphoneCorrectionProfile) -> some View {
         VStack(spacing: 10) {
@@ -1308,7 +2077,7 @@ private struct EQProfessionalSettingsView: View {
                         Spacer()
                         Toggle("", isOn: $manager.dynamicEQBands[index].isEnabled)
                             .labelsHidden()
-                            .toggleStyle(SettingsSwitchToggleStyle())
+                            .tint(accent)
                     }
                     parameterSlider(
                         title: String(localized: "eq_frequency"),
@@ -1439,7 +2208,7 @@ private struct EQProfessionalSettingsView: View {
                         Spacer()
                         Toggle("", isOn: $manager.parametricBands[index].isEnabled)
                             .labelsHidden()
-                            .toggleStyle(SettingsSwitchToggleStyle())
+                            .tint(accent)
                         Button(role: .destructive) {
                             manager.removeParametricBand(id: manager.parametricBands[index].id)
                         } label: {
@@ -1499,7 +2268,7 @@ private struct EQProfessionalSettingsView: View {
             content()
         }
         .padding(16)
-        .themedPageSurface(cornerRadius: 16, elevated: true, mangaTint: MangaStyle.bubbleWhite)
+        .background(professionalCardBackground)
     }
 
     private func switchRow(
@@ -1520,7 +2289,7 @@ private struct EQProfessionalSettingsView: View {
             Spacer(minLength: 8)
             Toggle("", isOn: isOn)
                 .labelsHidden()
-                .toggleStyle(SettingsSwitchToggleStyle())
+                .tint(accent)
         }
     }
 
@@ -1550,6 +2319,42 @@ private struct EQProfessionalSettingsView: View {
         Divider().overlay(separator).opacity(0.55)
     }
 
+    private var professionalCardBackground: some View {
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .fill(Color.white.opacity(0.05))
+            .overlay {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Color.white.opacity(0.07), lineWidth: 1)
+            }
+    }
+
+    private var professionalBackdrop: some View {
+        ZStack {
+            PlaylistColorBackground(
+                coverUrl: player.currentSong?.coverUrl?.sized(720)
+            )
+            .saturation(0.78)
+
+            Color.black.opacity(0.48)
+
+            LinearGradient(
+                colors: [
+                    Color.black.opacity(0.08),
+                    Color.black.opacity(0.26),
+                    Color.black.opacity(0.54),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
+    }
+
+    private func refreshCoverAccent() {
+        coverColors.extract(
+            from: player.currentSong?.coverUrl?.sized(200).absoluteString
+        )
+    }
+
     private func multibandBinding(
         index: Int,
         keyPath: WritableKeyPath<MultibandDynamicsConfiguration, [Float]>
@@ -1560,6 +2365,80 @@ private struct EQProfessionalSettingsView: View {
                 var configuration = manager.multibandConfiguration
                 configuration[keyPath: keyPath][index] = value
                 manager.multibandConfiguration = configuration
+            }
+        )
+    }
+
+    private func monoEffectBoolBinding(
+        _ keyPath: WritableKeyPath<MonoEffectTuningConfiguration, Bool>
+    ) -> Binding<Bool> {
+        Binding(
+            get: { manager.monoEffectTuning[keyPath: keyPath] },
+            set: { value in
+                var configuration = manager.monoEffectTuning
+                configuration[keyPath: keyPath] = value
+                manager.monoEffectTuning = configuration
+            }
+        )
+    }
+
+    private func monoEffectFloatBinding(
+        _ keyPath: WritableKeyPath<MonoEffectTuningConfiguration, Float>
+    ) -> Binding<Float> {
+        Binding(
+            get: { manager.monoEffectTuning[keyPath: keyPath] },
+            set: { value in
+                var configuration = manager.monoEffectTuning
+                configuration[keyPath: keyPath] = value
+                manager.monoEffectTuning = configuration
+            }
+        )
+    }
+
+    private func monoEffectIntBinding(
+        _ keyPath: WritableKeyPath<MonoEffectTuningConfiguration, Int>
+    ) -> Binding<Float> {
+        Binding(
+            get: { Float(manager.monoEffectTuning[keyPath: keyPath]) },
+            set: { value in
+                var configuration = manager.monoEffectTuning
+                configuration[keyPath: keyPath] = Int(value.rounded())
+                manager.monoEffectTuning = configuration
+            }
+        )
+    }
+
+    private func exclusiveHeadphoneBinding(
+        _ keyPath: WritableKeyPath<MonoEffectTuningConfiguration, Bool>
+    ) -> Binding<Bool> {
+        Binding(
+            get: { manager.monoEffectTuning[keyPath: keyPath] },
+            set: { value in
+                var configuration = manager.monoEffectTuning
+                if value {
+                    configuration.bs2bEnabled = false
+                    configuration.crossfeedEnabled = false
+                    configuration.haasEnabled = false
+                }
+                configuration[keyPath: keyPath] = value
+                manager.monoEffectTuning = configuration
+            }
+        )
+    }
+
+    private func exclusiveBassBinding(
+        _ keyPath: WritableKeyPath<MonoEffectTuningConfiguration, Bool>
+    ) -> Binding<Bool> {
+        Binding(
+            get: { manager.monoEffectTuning[keyPath: keyPath] },
+            set: { value in
+                var configuration = manager.monoEffectTuning
+                if value {
+                    configuration.subboostEnabled = false
+                    configuration.virtualBassEnabled = false
+                }
+                configuration[keyPath: keyPath] = value
+                manager.monoEffectTuning = configuration
             }
         )
     }

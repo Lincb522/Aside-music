@@ -167,11 +167,12 @@ test_layout.swift
 !Sources/Monologue/Managers/AIEqualizerPrompt.swift
 !Sources/Monologue/Managers/AIEqualizerFeatureSampler.swift
 !Sources/Monologue/Managers/AIEqualizerAgent.swift
-!Sources/Monologue/Managers/AILyricAlignmentAgent.swift
 !Sources/Monologue/Managers/AIUsageLimiter.swift
 !Sources/Monologue/Network/AIProviderClient.swift
 !Sources/Monologue/Network/AppleIntelligenceEqualizerProvider.swift
 !Sources/Monologue/Network/MoeWallsService.swift
 !Sources/Monologue/Views/AIProviderDeveloperSettingsView.swift
 !Sources/Monologue/Views/AIEqualizerLabView.swift
+!Sources/Monologue/Views/Player/Components/ImmersiveBackgroundLandscapeView.swift
 !Sources/Monologue/Views/Player/Components/MoeWallsBrowserView.swift
+/studio

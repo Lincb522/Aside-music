@@ -336,7 +336,11 @@ public final class StreamPlayer {
         self.equalizer = AudioEqualizer(filter: eqFilter)
         self.audioEffects = AudioEffects(filterGraph: audioFilterGraph)
         self.spectrumAnalyzer = SpectrumAnalyzer()
-        self.analysisSpectrumAnalyzer = SpectrumAnalyzer()
+        // Mono Audio Agent uses a dedicated, pre-effect analyzer. A 4096-sample
+        // window resolves low one-third-octave bands and pitch fundamentals much
+        // more reliably than the visualizer's 2048-sample window, while running
+        // only when an analysis consumer is attached.
+        self.analysisSpectrumAnalyzer = SpectrumAnalyzer(fftSize: 4096)
         self.waveformGenerator = WaveformGenerator()
         self.metadataReader = MetadataReader()
         self.lyricSyncer = LyricSyncer()
@@ -648,7 +652,8 @@ public final class StreamPlayer {
     /// 渲染混音台输出音量（0.0~1.0），与 `audioEffects.setVolume`（滤镜图增益）互相独立。
     ///
     /// 修改立即生效且不重建滤镜图，适合上层做暂停/恢复淡入淡出、
-    /// 睡眠定时器长淡出等瞬态音量包络。播放引擎重建后自动恢复为 1.0。
+    /// 睡眠定时器长淡出等瞬态音量包络。目标值会跨播放引擎重建保留，
+    /// 由上层在停止、失败或包络完成时显式恢复。
     public var outputVolume: Float {
         get { audioRenderer.outputVolume }
         set { audioRenderer.outputVolume = newValue }
