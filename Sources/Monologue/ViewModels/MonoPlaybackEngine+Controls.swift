@@ -9,67 +9,7 @@ import Combine
 
 extension PlayerManager {
 
-    // MARK: - 音量包络（软暂停 / 恢复淡入 / 睡眠长淡出）
-
-    /// 把混音台音量平滑过渡到目标值，结束后执行 `completion`。
-    ///
-    /// 走 `streamPlayer.outputVolume`（AVAudioEngine 混音台），不触碰
-    /// FFmpeg 滤镜图，逐步设置无重建开销。新包络启动会让旧包络
-    /// （含其收尾回调）立即失效，连点播放/暂停不会出现状态错乱。
-    func beginPlaybackFade(to target: Float, duration: TimeInterval, completion: (() -> Void)? = nil) {
-        playbackFadeGeneration &+= 1
-        let generation = playbackFadeGeneration
-        playbackFadeTask?.cancel()
-        playbackFadeTask = nil
-
-        let start = streamPlayer.outputVolume
-        guard duration > 0.02, abs(start - target) > 0.01 else {
-            streamPlayer.outputVolume = target
-            completion?()
-            return
-        }
-
-        playbackFadeTask = Task { @MainActor [weak self] in
-            let stepInterval: TimeInterval = 0.025
-            let steps = max(4, Int(duration / stepInterval))
-            for step in 1...steps {
-                try? await Task.sleep(nanoseconds: UInt64(duration / Double(steps) * 1_000_000_000))
-                guard !Task.isCancelled, let self, self.playbackFadeGeneration == generation else { return }
-                let progress = Float(step) / Float(steps)
-                // Smoothstep 两端斜率都为 0，既不会起步突跳，也不会把主要
-                // 音量变化堆到最后几十毫秒，冷/热恢复听起来更连贯。
-                let eased = progress * progress * (3 - 2 * progress)
-                let value = start + (target - start) * eased
-                self.streamPlayer.outputVolume = value
-            }
-            guard let self, self.playbackFadeGeneration == generation else { return }
-            self.playbackFadeTask = nil
-            completion?()
-        }
-    }
-
-    /// 取消进行中的音量包络（连同其收尾回调）。
-    /// 播放管线重建（loadAndPlay/stop/音质切换）或中断接管时调用，
-    /// 防止迟到的「淡出后挂起引擎」把新会话误暂停。
-    func cancelPlaybackFade(restoreVolume: Bool) {
-        playbackFadeGeneration &+= 1
-        playbackFadeTask?.cancel()
-        playbackFadeTask = nil
-        if restoreVolume {
-            streamPlayer.outputVolume = 1.0
-        }
-    }
-
-    /// 丢弃尚未被 `.playing` 消费的启动淡入。AudioRenderer 会跨引擎重建
-    /// 保留目标音量，因此停止或失败时必须显式恢复，不能把 0 留给下一次播放。
-    func clearPlaybackStartFade(restoreVolume: Bool) {
-        playbackStartFadeSongID = nil
-        playbackStartFadeDuration = 0.75
-        playbackStartFadeReason = ""
-        if restoreVolume {
-            streamPlayer.outputVolume = 1.0
-        }
-    }
+    // 音量包络（软暂停 / 恢复淡入 / 睡眠长淡出）见 Playback/SleepAndFadeController.swift
 
     // MARK: - Playback Controls
     
@@ -261,13 +201,10 @@ extension PlayerManager {
 
         wasPlayingBeforeInterruption = false
         isUnderInterruption = false
-        routeChangeResumeWorkItem?.cancel()
-        routeChangeResumeWorkItem = nil
         cancelInterruptionResumeRetry()
         cancelInterruptionWatchdog()
         endTransitionKeepAlive()
-        audioOutputRecoveryTask?.cancel()
-        audioOutputRecoveryTask = nil
+        audioSessionCoordinator.cancelScheduledAutoResumeWork()
 
         guard currentSong != nil else { return false }
         let engineState = streamPlayer.state
@@ -323,8 +260,8 @@ extension PlayerManager {
            mode != .loopSingle,
            isPlaying,
            pendingQualitySwitchSeek == nil,
-           !pendingLoopRestart,
-           gaplessArmedSessionId == playbackSessionId,
+           !gapless.pendingLoopRestart,
+           gapless.gaplessArmedSessionId == playbackSessionId,
            hasPendingTrackTransition,
            matchesPlaybackTarget(pendingNextSong, expected: nextSong),
            isPreparedGaplessPipelineFresh(for: nextSong),
@@ -387,10 +324,9 @@ extension PlayerManager {
         cancelPlaybackFade(restoreVolume: false)
         clearPlaybackStartFade(restoreVolume: true)
         endTransitionKeepAlive()
-        nextTrackCancellable?.cancel()
-        qmcPrefetchTask?.cancel()
-        activeMediaLoadTask?.cancel()
-        activeMediaLoadTask = nil
+        gapless.cancelNextTrackResolution()
+        gapless.cancelQmcPrefetch()
+        mediaResolver.cancelActiveMediaLoad()
         qualitySwitchTimeoutTask?.cancel()
         qualitySwitchTimeoutTask = nil
         // 清理中断恢复链路
@@ -398,8 +334,7 @@ extension PlayerManager {
         cancelInterruptionWatchdog()
         wasPlayingBeforeInterruption = false
         isUnderInterruption = false
-        routeChangeResumeWorkItem?.cancel()
-        routeChangeResumeWorkItem = nil
+        audioSessionCoordinator.cancelScheduledAutoResumeWork()
         streamPlayer.cancelNextPreparation()
         streamPlayer.stop()
         // 释放音频会话并通知其他 App 恢复播放（如 Apple Music、播客等）
@@ -453,10 +388,9 @@ extension PlayerManager {
         invalidateInFlightPlaybackWork(reason: "dismiss mini player")
         cancelPlaybackFade(restoreVolume: false)
         clearPlaybackStartFade(restoreVolume: true)
-        nextTrackCancellable?.cancel()
-        qmcPrefetchTask?.cancel()
-        activeMediaLoadTask?.cancel()
-        activeMediaLoadTask = nil
+        gapless.cancelNextTrackResolution()
+        gapless.cancelQmcPrefetch()
+        mediaResolver.cancelActiveMediaLoad()
         qualitySwitchTimeoutTask?.cancel()
         qualitySwitchTimeoutTask = nil
         // 清理中断恢复链路
@@ -464,8 +398,7 @@ extension PlayerManager {
         cancelInterruptionWatchdog()
         wasPlayingBeforeInterruption = false
         isUnderInterruption = false
-        routeChangeResumeWorkItem?.cancel()
-        routeChangeResumeWorkItem = nil
+        audioSessionCoordinator.cancelScheduledAutoResumeWork()
         streamPlayer.cancelNextPreparation()
         streamPlayer.stop()
         do {
@@ -548,8 +481,7 @@ extension PlayerManager {
         cancelPlaybackFade(restoreVolume: false)
         qualitySwitchCancellable?.cancel()
         qualitySwitchCancellable = nil
-        playbackURLCancellable?.cancel()
-        playbackURLCancellable = nil
+        mediaResolver.cancelPlaybackURLResolution()
         qualitySwitchPollWorkItem?.cancel()
         qualitySwitchPollWorkItem = nil
         qualitySwitchTimeoutTask?.cancel()

@@ -176,11 +176,22 @@ test_layout.swift
 !Sources/Monologue/ViewModels/MonoPlaybackEngine.swift
 !Sources/Monologue/ViewModels/MonoPlaybackEngine+Controls.swift
 !Sources/Monologue/ViewModels/MonoPlaybackEngine+Internal.swift
-!Sources/Monologue/ViewModels/MonoPlaybackEngine+NowPlaying.swift
-!Sources/Monologue/ViewModels/MonoPlaybackEngine+Persistence.swift
 !Sources/Monologue/ViewModels/MonoPlaybackEngine+PlaybackAPI.swift
 !Sources/Monologue/ViewModels/MonoPlaybackEngine+Seek.swift
 !Sources/Monologue/ViewModels/MonoPlaybackEngine+Setup.swift
+
+# Playback engine subsystems (PlayerManager facade collaborators).
+!Sources/Monologue/Playback/
+!Sources/Monologue/Playback/PlaybackModels.swift
+!Sources/Monologue/Playback/AudioSessionCoordinator.swift
+!Sources/Monologue/Playback/PlaybackHeartbeat.swift
+!Sources/Monologue/Playback/GaplessEngine.swift
+!Sources/Monologue/Playback/MediaSourceResolver.swift
+!Sources/Monologue/Playback/NowPlayingController.swift
+!Sources/Monologue/Playback/WidgetPlaybackSync.swift
+!Sources/Monologue/Playback/PlaybackPersistence.swift
+!Sources/Monologue/Playback/DecryptedAudioCacheGovernor.swift
+!Sources/Monologue/Playback/SleepAndFadeController.swift
 !Sources/Monologue/Managers/AIUsageLimiter.swift
 !Sources/Monologue/Network/AIProviderClient.swift
 !Sources/Monologue/Network/AppleIntelligenceEqualizerProvider.swift

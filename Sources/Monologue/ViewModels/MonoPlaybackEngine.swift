@@ -1,15 +1,25 @@
 // MonoPlaybackEngine.swift
 // Monologue
 //
-// Mono播放引擎 - 核心属性、枚举定义和初始化
-// 功能实现分布在以下扩展文件中：
-//   MonoPlaybackEngine+Setup.swift       - 音频会话、远程控制、代理、定时器
+// Mono播放引擎 facade - @Published 状态、队列模型、子系统持有与初始化。
+//
+// 扩展文件（保留公开 API 与呈现事务核心）：
+//   MonoPlaybackEngine+Setup.swift       - 后台生命周期、切歌保活、代理装配
 //   MonoPlaybackEngine+PlaybackAPI.swift  - 核心播放 API（play, playFM, 队列管理）
 //   MonoPlaybackEngine+Controls.swift     - 播放控制（暂停/恢复、上下首、切换音质）
 //   MonoPlaybackEngine+Seek.swift         - 进度控制（seek、快进、快退）
-//   MonoPlaybackEngine+NowPlaying.swift   - 锁屏/控制中心信息更新
-//   MonoPlaybackEngine+Persistence.swift  - 状态持久化、历史记录、听歌打卡
-//   MonoPlaybackEngine+Internal.swift     - 内部逻辑（shuffle、无缝切歌、loadAndPlay）
+//   MonoPlaybackEngine+Internal.swift     - 呈现事务、队列快照、播放结束处理
+//
+// 播放子系统（Sources/Monologue/Playback/，由本类强持有）：
+//   AudioSessionCoordinator   - 音频会话/中断/路由/看门狗
+//   PlaybackHeartbeat         - 0.25s 心跳调度（进度/睡眠/无缝 tick）
+//   GaplessEngine             - 无缝切歌 v2 两阶段状态机
+//   MediaSourceResolver       - loadAndPlay 各源取址/下载/解密管线
+//   NowPlayingController      - 锁屏/控制中心信息与远程命令
+//   WidgetPlaybackSync        - 小组件数据同步
+//   PlaybackPersistence       - 状态持久化、历史、scrobble、冷启动恢复
+//   DecryptedAudioCacheGovernor - QMC/汽水解密缓存 LRU 治理
+//   SleepAndFadeController    - 睡眠定时器与音量包络
 
 import Foundation
 import AVFoundation
@@ -22,59 +32,21 @@ import UIKit
 class PlayerManager: ObservableObject {
     static let shared = PlayerManager()
     
-    // MARK: - Playback Modes
-    enum PlayMode: String, Codable {
-        case sequence
-        case loopSingle
-        case shuffle
+    // 播放模式 / 来源 / 队列快照等纯值类型定义见 Playback/PlaybackModels.swift
 
-        var displayName: String {
-            switch self {
-            case .sequence:
-                return NSLocalizedString("mode_sequence", comment: "")
-            case .loopSingle:
-                return NSLocalizedString("mode_loop_one", comment: "")
-            case .shuffle:
-                return NSLocalizedString("mode_shuffle", comment: "")
-            }
-        }
-        
-        var icon: String {
-            switch self {
-            case .sequence: return "repeat"
-            case .loopSingle: return "repeat.1"
-            case .shuffle: return "shuffle"
-            }
-        }
-        
-        var next: PlayMode {
-            switch self {
-            case .sequence: return .loopSingle
-            case .loopSingle: return .shuffle
-            case .shuffle: return .sequence
-            }
-        }
-    }
-
-    enum QueueExhaustionBehavior: String, Codable {
-        case loop
-        case stopAtEnd
-    }
-    
     // MARK: - Mono播放引擎 FFmpeg SDK
     let streamPlayer = StreamPlayer()
-    var timeUpdateTimer: Timer?
-    var nowPlayingUpdateCounter: Int = 0
-    var lastWidgetSongName: String = ""
-    var lastWidgetPlaybackState: PlaybackSurfaceState = .idle
-    var lastWidgetMetadataSignature: String = ""
-    var lastWidgetLyricText: String = ""
-    var lastWidgetLyricsSignature: String = ""
-    var lastWidgetProgressAnchorTime: TimeInterval = 0
-    var lastWidgetProgressAnchorDate: Date?
-    var lastWidgetProgressDuration: TimeInterval = 0
-    var lastWidgetTempoSongID: Int?
-    var widgetTempoSyncTask: Task<Void, Never>?
+
+    // MARK: - 播放子系统（facade 强持有，子系统 unowned 回引）
+    private(set) lazy var audioSessionCoordinator = AudioSessionCoordinator(player: self)
+    private(set) lazy var nowPlayingController = NowPlayingController(player: self)
+    private(set) lazy var widgetSync = WidgetPlaybackSync(player: self)
+    private(set) lazy var persistence = PlaybackPersistence(player: self)
+    private(set) lazy var sleepAndFade = SleepAndFadeController(player: self)
+    private(set) lazy var mediaResolver = MediaSourceResolver(player: self)
+    private(set) lazy var gapless = GaplessEngine(player: self)
+    private(set) lazy var cacheGovernor = DecryptedAudioCacheGovernor(player: self)
+    private(set) lazy var heartbeat = PlaybackHeartbeat(player: self)
     
     // MARK: - Published Properties
     @Published var currentSong: Song?
@@ -194,100 +166,25 @@ class PlayerManager: ObservableObject {
         }
     }
 
-    // MARK: - 定时关闭
+    // MARK: - 定时关闭（逻辑在 SleepAndFadeController）
     @Published var sleepTimerRemaining: TimeInterval? = nil
     @Published var sleepTimerConfiguredMinutes: Int? = nil
     @Published var sleepTimerStopAfterCurrentTrack = false
     @Published var pendingSleepStopAfterCurrentTrack = false
-    private var sleepTimerDeadline: Date?
-    private var lastSleepUpdate: TimeInterval = 0
 
     func startSleepTimer(minutes: Int) {
-        cancelSleepTimer()
-        let total = TimeInterval(minutes * 60)
-        sleepTimerDeadline = Date().addingTimeInterval(total)
-        sleepTimerRemaining = total
-        sleepTimerConfiguredMinutes = minutes
+        sleepAndFade.startSleepTimer(minutes: minutes)
     }
 
     func cancelSleepTimer() {
-        sleepTimerDeadline = nil
-        sleepTimerRemaining = nil
-        sleepTimerConfiguredMinutes = nil
-        pendingSleepStopAfterCurrentTrack = false
-        lastSleepUpdate = 0
+        sleepAndFade.cancelSleepTimer()
     }
 
     func activateSleepStopAfterCurrentTrack() {
-        sleepTimerDeadline = nil
-        sleepTimerRemaining = nil
-        sleepTimerConfiguredMinutes = nil
-        lastSleepUpdate = 0
-        pendingSleepStopAfterCurrentTrack = true
-        hasPendingTrackTransition = false
-        pendingNextSong = nil
-        pendingTransitionStartedAt = nil
-        disarmGaplessEngine()
-        nextTrackCancellable?.cancel()
-        streamPlayer.cancelNextPreparation()
-        saveState()
+        sleepAndFade.activateSleepStopAfterCurrentTrack()
     }
 
-    /// 由 timeUpdateTimer 每 0.25s 调用
-    func tickSleepTimer() {
-        guard let deadline = sleepTimerDeadline else { return }
-        let remaining = deadline.timeIntervalSinceNow
-        if remaining <= 0 {
-            if sleepTimerStopAfterCurrentTrack,
-               currentSong != nil,
-               isPlaying {
-                activateSleepStopAfterCurrentTrack()
-            } else {
-                cancelSleepTimer()
-                performSleepTimerStop()
-            }
-        } else {
-            let rounded = remaining.rounded()
-            if rounded != lastSleepUpdate {
-                lastSleepUpdate = rounded
-                sleepTimerRemaining = remaining
-            }
-        }
-    }
-
-    /// 睡眠定时器到点：用 ~3s 的长淡出送走音乐，而不是硬切静音。
-    /// 淡出期间 UI 仍显示播放中（声音确实还在），淡完才真正挂起引擎。
-    private func performSleepTimerStop() {
-        guard isPlaying, streamPlayer.state == .playing else {
-            streamPlayer.pause()
-            isPlaying = false
-            refreshPlaybackSurfaceState()
-            saveState()
-            return
-        }
-        beginPlaybackFade(to: 0, duration: 3.0) { [weak self] in
-            guard let self else { return }
-            self.streamPlayer.pause()
-            self.streamPlayer.outputVolume = 1.0
-            self.lastPausedAt = Date()
-            self.isPlaying = false
-            self.refreshPlaybackSurfaceState()
-            self.saveState()
-        }
-    }
-
-    // MARK: - 播放源类型
-    enum PlaySource: Codable, Equatable {
-        case normal
-        case fm
-        case podcast(radioId: Int)
-
-        var isPodcast: Bool {
-            if case .podcast = self { return true }
-            return false
-        }
-    }
-    
+    // MARK: - 播放来源
     @Published var playSource: PlaySource = .normal
     
     var isPlayingFM: Bool {
@@ -313,16 +210,6 @@ class PlayerManager: ObservableObject {
     }
     
     // MARK: - 播放来源上下文
-    struct PlayContext: Codable, Equatable {
-        enum ContextType: String, Codable {
-            case playlist, album, artist, dailyRecommend, rank
-            case search, recentPlay, newSong, cloud, download, unknown
-        }
-        let type: ContextType
-        let id: Int?
-        let name: String
-    }
-    
     @Published var playContext: PlayContext?
     
     // MARK: - Settings
@@ -341,58 +228,10 @@ class PlayerManager: ObservableObject {
     /// 汽水音乐当前选择的音质（如 "highest", "lossless" 等）
     var qishuiSelectedQuality: String = SettingsManager.shared.defaultQishuiPlaybackQuality
 
-    static func defaultNeteasePlaybackQuality() -> SoundQuality {
-        let defaultRaw = UserDefaults.standard.string(forKey: AppConfig.StorageKeys.defaultPlaybackQuality)
-            ?? SoundQuality.standard.rawValue
-        return SoundQuality(rawValue: defaultRaw) ?? .standard
-    }
-    
-    static func defaultQQPlaybackQuality() -> QQMusicQuality {
-        let defaultRaw = UserDefaults.standard.string(forKey: AppConfig.StorageKeys.qqMusicQuality)
-            ?? QQMusicQuality.mp3_320.rawValue
-        return QQMusicQuality(rawValue: defaultRaw) ?? .mp3_320
-    }
-    
-    static func prefersHighestPlaybackQuality() -> Bool {
-        let defaults = UserDefaults.standard
-        guard defaults.object(forKey: AppConfig.StorageKeys.preferHighestPlaybackQuality) != nil else {
-            return true
-        }
-        return defaults.bool(forKey: AppConfig.StorageKeys.preferHighestPlaybackQuality)
-    }
-
-    static func gaplessPlaybackEnabled() -> Bool {
-        let defaults = UserDefaults.standard
-        if !defaults.bool(forKey: AppConfig.StorageKeys.gaplessPlaybackEnabledMigrationV2) {
-            defaults.set(true, forKey: AppConfig.StorageKeys.gaplessPlaybackEnabled)
-            defaults.set(true, forKey: AppConfig.StorageKeys.gaplessPlaybackEnabledMigrationV2)
-            return true
-        }
-        guard defaults.object(forKey: AppConfig.StorageKeys.gaplessPlaybackEnabled) != nil else {
-            return true
-        }
-        return defaults.bool(forKey: AppConfig.StorageKeys.gaplessPlaybackEnabled)
-    }
-
-    static let crossfadePlaybackDuration: Float = 2.5
-
-    static func crossfadePlaybackEnabled() -> Bool {
-        UserDefaults.standard.bool(forKey: AppConfig.StorageKeys.crossfadePlaybackEnabled)
-    }
-    
-    static func initialNeteasePlaybackQuality() -> SoundQuality {
-        prefersHighestPlaybackQuality() ? .jymaster : defaultNeteasePlaybackQuality()
-    }
-    
-    static func initialQQPlaybackQuality() -> QQMusicQuality {
-        prefersHighestPlaybackQuality() ? .master : defaultQQPlaybackQuality()
-    }
-    
     // MARK: - Queue System
     @Published var context: [Song] = []
     @Published var contextIndex: Int = 0
     @Published var shuffledContext: [Song] = []
-    @Published var userQueue: [Song] = []
     @Published var history: [Song] = []
     @Published var podcastHistory: [Song] = []
     var queueExhaustionBehavior: QueueExhaustionBehavior = .loop
@@ -420,50 +259,14 @@ class PlayerManager: ObservableObject {
     
     // MARK: - Internal Properties (供扩展文件访问)
     var cancellables = Set<AnyCancellable>()
-    /// 当前播放 URL 获取的订阅（切歌时自动取消上一次）
-    var playbackURLCancellable: AnyCancellable?
     /// 音质切换 URL 获取的订阅
     var qualitySwitchCancellable: AnyCancellable?
-    /// 下一首预加载的订阅
-    var nextTrackCancellable: AnyCancellable?
-    /// 阶段 A 下一首预取任务（直链解析，或确有需要时下载本地媒体）
-    var qmcPrefetchTask: Task<Void, Never>?
-    /// 当前歌曲的完整媒体下载/解密任务；快速切歌时立即取消，避免旧会话继续占用网络与磁盘。
-    var activeMediaLoadTask: Task<Void, Never>?
-    /// 当前会话是否已安排过一次下一首媒体预取（阶段 A），避免重复调度
-    var scheduledGaplessPreparationSessionId: Int?
     /// 音质切换轮询任务（可取消）
     var qualitySwitchPollWorkItem: DispatchWorkItem?
-    /// 延后执行的下一首媒体预取任务（阶段 A 调度 / 队列变化防抖）
-    var gaplessPreparationWorkItem: DispatchWorkItem?
-
-    // MARK: - 无缝引擎 v2（两阶段）
-    /// 阶段 B（临近结尾装配 SDK next 管线）已执行的会话 ID
-    var gaplessArmedSessionId: Int?
-    /// 本会话阶段 B 的装配尝试次数（首装 + 失败重试，封顶 2 次）
-    var gaplessArmAttempts = 0
-    /// 最近一次装配尝试时间（媒体未就绪时的重试节流）
-    var lastGaplessArmAttemptAt: Date?
-    enum ResolvedPlaybackQuality {
-        case netease(songId: Int, quality: SoundQuality)
-        case qq(mid: String, quality: QQMusicQuality)
-        case qishui(trackId: Int, quality: String)
-    }
-    /// 预装管线真正拿到的音质，只在声音切换后才提交到当前播放状态。
-    var pendingGaplessResolvedQuality: ResolvedPlaybackQuality?
-    /// 单曲循环的无缝回绕已装配（EOF 时 SDK 切回同一 URL 重新开播）
-    var pendingLoopRestart = false
-    /// 当前播放源的解密密钥（汽水加密缓存等；单曲循环无缝回绕需要）
-    var currentPlayingDecryptionKey: String?
-    /// 汽水下一首的预取产物：本地缓存文件 + 解密密钥（阶段 B 直接装配）
-    var qishuiGaplessAsset: (trackId: Int, fileURL: URL, decryptionKey: String?)?
     /// 音质切换弱网兜底任务
     var qualitySwitchTimeoutTask: Task<Void, Never>?
-    var saveStateWorkItem: DispatchWorkItem?
-    let saveStateDebounceInterval: TimeInterval = AppConfig.Player.saveStateDebounceInterval
-    let playbackProgressPersistenceInterval: TimeInterval = AppConfig.Player.playbackProgressPersistenceInterval
-    var lastPersistedProgressSongID: Int?
-    var lastPersistedProgressTime: Double = 0
+    /// 当前播放源的解密密钥（汽水加密缓存等；单曲循环无缝回绕需要）
+    var currentPlayingDecryptionKey: String?
     /// 标记是否为用户主动停止（区分 EOF 自然结束 vs 手动 stop）
     var isUserStopping: Bool = false
     /// 播放会话 ID，每次 loadAndPlay 递增，用于忽略旧会话的 .stopped 回调
@@ -484,8 +287,6 @@ class PlayerManager: ObservableObject {
     /// 当前歌曲动态封面 URL
     @Published var dynamicCoverUrl: String?
     
-    /// 上次写入 NowPlaying 的歌词行索引，避免重复写入
-    var lastNowPlayingLyricIndex: Int = -1
     /// 预加载的下一首歌曲信息（等待当前歌曲真正结束后再更新 UI）
     var pendingNextSong: Song? = nil
     /// 标记 SDK 已切换到下一首的 pipeline（但 UI 还没更新）
@@ -495,26 +296,6 @@ class PlayerManager: ObservableObject {
     /// `currentSong`，直到 Mono 确认新管线已经进入 playing 再原子提交界面。
     /// 列表行订阅这个目标，立即展示“正在加载”；主播放器仍等到真实出声后才提交。
     @Published var pendingPlaybackPresentationSong: Song?
-    struct PlaybackQueueTransactionSnapshot {
-        let context: [Song]
-        let contextIndex: Int
-        let shuffledContext: [Song]
-        let playSource: PlaySource
-        let queueExhaustionBehavior: QueueExhaustionBehavior
-        let mode: PlayMode
-        let playContext: PlayContext?
-        let playbackBackStack: [Song]
-        let playbackForwardStack: [Song]
-        let savedMusicContext: [Song]
-        let savedMusicContextIndex: Int
-        let savedMusicShuffledContext: [Song]
-        let savedMusicMode: PlayMode
-        let savedMusicSong: Song?
-        let savedPodcastContext: [Song]
-        let savedPodcastContextIndex: Int
-        let savedPodcastRadioId: Int?
-        let savedPodcastSong: Song?
-    }
     /// 点歌过程中对队列和播放来源的临时修改。只有目标管线真正出声才提交；
     /// 取址/下载/会话激活失败则恢复旧歌对应的完整队列状态。
     var pendingPlaybackQueueSnapshot: PlaybackQueueTransactionSnapshot?
@@ -529,8 +310,6 @@ class PlayerManager: ObservableObject {
     /// 未命中预热管线时，先在旧歌持续播放期间装配新管线；就绪后再热切。
     var manualPreparedSwitchSessionId: Int?
     var manualSwitchPreparationTask: Task<Void, Never>?
-    /// 自动无缝管线当前装配的真实输入，用于阻止旧曲/错误管线冒充下一首。
-    var pendingGaplessPlaybackInput: String?
     
     /// 异常停止重试计数器（防止损坏音源无限重试）
     var abnormalStopRetryCount: Int = 0
@@ -540,17 +319,28 @@ class PlayerManager: ObservableObject {
     var networkDisconnectRetryCount: Int = 0
     let maxNetworkDisconnectRetries: Int = 2
     
-    /// 音频中断进行中（如微信录音），屏蔽路由变化触发的自动恢复
-    var isUnderInterruption: Bool = false
+    /// 音频中断进行中（如微信录音）。状态由 AudioSessionCoordinator 持有，
+    /// 这里保留转发给外部调用方（如 MonoNextSuiteManager）与播控扩展。
+    var isUnderInterruption: Bool {
+        get { audioSessionCoordinator.isUnderInterruption }
+        set { audioSessionCoordinator.isUnderInterruption = newValue }
+    }
     
     /// 音频中断前是否正在播放（用于中断恢复）
-    var wasPlayingBeforeInterruption: Bool = false
+    var wasPlayingBeforeInterruption: Bool {
+        get { audioSessionCoordinator.wasPlayingBeforeInterruption }
+        set { audioSessionCoordinator.wasPlayingBeforeInterruption = newValue }
+    }
+
+    /// 最近一次实际应用到 AVAudioSession 的 options。外部（AudioMatchView）
+    /// 会在借用会话后置 nil 强制下次重新激活。
+    var lastAppliedAudioSessionOptions: AVAudioSession.CategoryOptions? {
+        get { audioSessionCoordinator.lastAppliedAudioSessionOptions }
+        set { audioSessionCoordinator.lastAppliedAudioSessionOptions = newValue }
+    }
     
     /// 开始播放的时间戳，用于定时器中判断初始缓冲保护窗口
     var playbackStartedAt: Date?
-    
-    // MARK: - Remote Command Center
-    let commandCenter = MPRemoteCommandCenter.shared()
     
     // MARK: - Seek State
     var seekDebounceWorkItem: DispatchWorkItem?
@@ -583,84 +373,27 @@ class PlayerManager: ObservableObject {
     
     /// 保持 delegate adapter 的强引用
     var delegateAdapter: StreamPlayerDelegateAdapter?
-    
-    /// NotificationCenter observer tokens
-    var interruptionObserver: Any?
-    var mediaResetObserver: Any?
-    /// 次要音频降音提示（其他主媒体 App 开始/停止播放时系统发出的提示）
-    var silenceHintObserver: Any?
-    var foregroundObserver: Any?
-    /// 音频路由变化（其他 App 释放会话等）时用于延迟尝试恢复播放
-    var routeChangeObserver: Any?
-    var routeChangeResumeWorkItem: DispatchWorkItem?
-    /// Debounced renderer liveness check after Bluetooth/audio-route changes.
-    var audioOutputRecoveryTask: Task<Void, Never>?
-    /// Last stable output route, used because iOS 17 may report a Bluetooth
-    /// removal as `.routeConfigurationChange` instead of `.oldDeviceUnavailable`.
-    var lastKnownAudioOutputPortTypes: Set<String> = []
-    /// 最近一次实际应用到 AVAudioSession 的 options，避免重复 setActive
-    var lastAppliedAudioSessionOptions: AVAudioSession.CategoryOptions?
 
     // MARK: - 后台播放（节流 + 切歌保活）
     /// App 是否处于后台。后台时降低轮询频率、跳过纯 UI 更新。
     var isAppInBackground: Bool = false
     /// 后台生命周期 observer tokens
     var backgroundStateObservers: [Any] = []
-    /// 后台轮询节流计数器（后台时 0.25s 定时器每 4 次只执行 1 次）
-    var backgroundTickSkipCounter: Int = 0
     /// 后台切歌保活任务：歌曲在后台自然结束后，向系统申请额外执行时间，
     /// 保证下一首的播放 URL 网络请求能在 App 被挂起前完成。
     var transitionKeepAliveTaskId: UIBackgroundTaskIdentifier = .invalid
-    /// 自动后台策略在其他 App 退出后需要延迟复查；系统的 hint 通知到达时
-    /// `isOtherAudioPlaying` 偶尔仍是旧值，会让会话长期停留在混音态。
-    var automaticAudioPolicyReevaluationTask: Task<Void, Never>?
 
-    // MARK: - 中断恢复（统一管理）
-    /// 中断/路由恢复阶梯重试任务（0.4s → 1s → 2.5s → 5s）。
-    /// 由 `scheduleInterruptionResumeRetry` 创建，失败时自动按下一档重试。
-    var interruptionResumeTask: Task<Void, Never>?
-    /// 中断超时看门狗。微信、抖音等部分 App 中断结束时不发 `.ended` 通知，
-    /// 这里给 `isUnderInterruption` 加 60s 兜底，超时后强制清除并尝试恢复。
-    var interruptionWatchdogTask: Task<Void, Never>?
-    /// 中断开始时间戳，仅用于日志
-    var interruptionStartedAt: Date?
-
-    // MARK: - 软暂停淡入淡出 + 断点续播保鲜
-    /// 正在执行的音量包络任务（暂停淡出 / 恢复淡入 / 睡眠长淡出）
-    var playbackFadeTask: Task<Void, Never>?
-    /// 音量包络代际号：新包络启动或播放管线重置时递增，旧任务的收尾回调据此失效
-    var playbackFadeGeneration: Int = 0
-    /// 下一次播放管线启动时使用的一次性淡入请求。绑定歌曲并携带时长，
-    /// 同时覆盖冷启动恢复与热启动重建，不影响正常无缝切歌。
-    var playbackStartFadeSongID: Int?
-    var playbackStartFadeDuration: TimeInterval = 0.75
-    var playbackStartFadeReason: String = ""
+    // MARK: - 断点续播保鲜
     /// 最近一次进入暂停的时刻。网络流暂停超过 `networkResumeRefreshThreshold`
     /// 后再恢复时，CDN URL 大概率已过期，直接重新取址从断点续播。
     var lastPausedAt: Date?
     /// 网络流暂停多久后恢复要走「重新取址续播」而非直接 resume（秒）
     nonisolated static let networkResumeRefreshThreshold: TimeInterval = 20 * 60
 
-    // MARK: - 锁屏封面缓存（避免重复下载 + 取色）
-    /// 已完成封面管线的歌曲 ID / 封面 URL / 生成的锁屏 artwork
-    var cachedArtworkSongId: String?
-    var cachedArtworkCoverURL: URL?
-    var cachedArtworkImage: MPMediaItemArtwork?
-    /// 生成缓存时的取色配置签名（颜色数|模式|随机种子），配置变了要重跑取色
-    var cachedArtworkPaletteSignature: String = ""
-    /// 正在下载封面的歌曲 ID（同曲去重：loadAndPlay 与 startPlayback 会连续触发两次）
-    var artworkFetchInFlightSongId: String?
-    /// 上次应用的锁屏命令布局（true = 播客 ±15s/倍速，false = 音乐 上/下一首）
-    var lastRemoteCommandProfileIsPodcast: Bool?
-    
     /// 持久化时的最大 context 大小（防止序列化过大）
     let maxPersistContextSize = 200
     /// 回退栈最大长度（防止无限增长）
     let maxBackStackSize = 200
-    /// 正在执行“上一首回退”，用于避免 loadAndPlay 再次把当前歌压入回退栈
-    var isApplyingBackNavigation: Bool = false
-    /// 正在执行“下一首前进”，用于保留 previous() 产生的前进栈
-    var isApplyingForwardNavigation: Bool = false
     /// 防止 playerDidFinishPlaying 被 .stopped 和 playerDidTransitionToNextTrack 双重触发
     var isHandlingPlaybackFinish: Bool = false
     
@@ -814,8 +547,8 @@ class PlayerManager: ObservableObject {
     // MARK: - Init
     
     init() {
-        setupAudioSession()
-        setupRemoteCommands()
+        audioSessionCoordinator.setupAudioSession()
+        nowPlayingController.setupRemoteCommands()
         setupBackgroundStateObservers()
         setupStreamPlayerDelegate()
         let gaplessEnabled = Self.gaplessPlaybackEnabled()
@@ -825,7 +558,7 @@ class PlayerManager: ObservableObject {
                 ? Self.crossfadePlaybackDuration
                 : 0
         )
-        startTimeUpdateTimer()
+        heartbeat.start()
         restoreState()
         // 延后一拍同步小组件，避免冷启动时因节奏缓存查询触发 AudioLabManager，
         // 又在其初始化里反向访问 PlayerManager.shared，造成单例循环初始化。
@@ -854,22 +587,18 @@ class PlayerManager: ObservableObject {
         // Swift 6: deinit 是 nonisolated 的，不能直接访问非 Sendable 属性
         // 使用 MainActor.assumeIsolated 因为 @MainActor 类的 deinit 实际上在主线程执行
         MainActor.assumeIsolated {
-            timeUpdateTimer?.invalidate()
+            heartbeat.stop()
             cancellables.removeAll()
-            playbackURLCancellable?.cancel()
             qualitySwitchCancellable?.cancel()
-            nextTrackCancellable?.cancel()
             qualitySwitchPollWorkItem?.cancel()
             qualitySwitchTimeoutTask?.cancel()
-            widgetTempoSyncTask?.cancel()
-            playbackFadeTask?.cancel()
-            saveStateWorkItem?.cancel()
-            gaplessPreparationWorkItem?.cancel()
-            qmcPrefetchTask?.cancel()
-            activeMediaLoadTask?.cancel()
             manualSwitchPreparationTask?.cancel()
-            audioOutputRecoveryTask?.cancel()
-            automaticAudioPolicyReevaluationTask?.cancel()
+            mediaResolver.cancelAll()
+            gapless.cancelAllWork()
+            widgetSync.cancelPendingWork()
+            sleepAndFade.cancelAllWork()
+            persistence.cancelPendingWork()
+            audioSessionCoordinator.cancelAllWork()
             for observer in backgroundStateObservers {
                 NotificationCenter.default.removeObserver(observer)
             }
@@ -978,9 +707,9 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
                 }
                 LyricViewModel.shared.updateCurrentTime(pm.currentTime)
                 pm.refreshPlaybackSurfaceState()
-                if pm.playbackStartFadeSongID == pm.currentSong?.id {
-                    let duration = pm.playbackStartFadeDuration
-                    let reason = pm.playbackStartFadeReason
+                if pm.sleepAndFade.playbackStartFadeSongID == pm.currentSong?.id {
+                    let duration = pm.sleepAndFade.playbackStartFadeDuration
+                    let reason = pm.sleepAndFade.playbackStartFadeReason
                     let durationText = String(format: "%.2f", duration)
                     pm.clearPlaybackStartFade(restoreVolume: false)
                     // AudioRenderer 会在 AVAudioEngine 创建前保留 0 音量；这里
@@ -1247,9 +976,9 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
                 pm.pendingQualitySwitchSeek = nil
                 pm.currentTime = seekTime
                 pm.isSeeking = false
-            } else if pm.pendingLoopRestart {
+            } else if pm.gapless.pendingLoopRestart {
                 AppLogger.info("单曲循环无缝回绕")
-                pm.pendingLoopRestart = false
+                pm.gapless.pendingLoopRestart = false
                 pm.handleSeamlessLoopRestart(engineInput: playbackInput)
             } else {
                 guard pm.isGaplessPlaybackEnabled else {
