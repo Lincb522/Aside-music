@@ -101,8 +101,6 @@ extension GlobalThemeId {
             return .blobIcons
         case .minimalWhite:
             return .minimalWhiteIcons
-        case .pureWhite, .material3Expressive, .bento, .sequoia, .liquidGlass, .clay, .signal:
-            return .hicon
         }
     }
 }

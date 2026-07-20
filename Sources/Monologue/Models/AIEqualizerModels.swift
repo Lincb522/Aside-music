@@ -41,7 +41,8 @@ enum AIWireProtocol: String, CaseIterable, Codable, Identifiable, Sendable {
     var defaultModel: String {
         switch self {
         case .appleIntelligence: return String(localized: "ai_model_on_device")
-        case .openAIResponses, .openAIChat, .openAICompatible: return "gpt-5-mini"
+        case .openAIResponses, .openAIChat: return "gpt-5-mini"
+        case .openAICompatible: return "gpt-5.6-sol"
         case .anthropicMessages: return "claude-sonnet-4-5"
         case .googleGemini: return "gemini-2.5-flash"
         case .azureOpenAI: return ""
@@ -82,6 +83,62 @@ struct AIUsageLimits: Codable, Equatable, Sendable {
     var dailyRequestLimit: Int
     var hourlyRequestLimit: Int
     var minimumRequestInterval: TimeInterval
+}
+
+struct AIRemoteAIConfiguration: Codable, Equatable, Sendable {
+    var schemaVersion: Int
+    var enabled: Bool
+    var wireProtocol: AIWireProtocol
+    /// 新版云端直接向 App 分发连接参数；可选保证兼容旧版配置响应与本地缓存。
+    var baseURL: String?
+    var model: String
+    var modelDiscoveryURL: String?
+    var timeout: TimeInterval
+    var customHeadersJSON: String?
+    var apiKey: String?
+    var usageLimits: AIUsageLimits
+    var revision: String
+    var updatedAt: Date?
+}
+
+struct AIAdminProviderConfiguration: Codable, Equatable, Sendable {
+    var schemaVersion: Int
+    var enabled: Bool
+    var wireProtocol: AIWireProtocol
+    var baseURL: String
+    var model: String
+    var modelDiscoveryURL: String
+    var timeout: TimeInterval
+    var customHeadersJSON: String
+    var apiKey: String
+    var usageLimits: AIUsageLimits
+    var revision: String
+    var updatedAt: Date?
+}
+
+struct AIAdminProviderConfigurationUpdate: Encodable, Sendable {
+    var enabled: Bool
+    var expectedRevision: String?
+    var configuration: AIProviderConfiguration
+    var apiKey: String
+    var usageLimits: AIUsageLimits
+
+    enum CodingKeys: String, CodingKey {
+        case enabled
+        case expectedRevision
+        case configuration
+        case apiKey
+        case usageLimits
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(enabled, forKey: .enabled)
+        try container.encodeIfPresent(expectedRevision, forKey: .expectedRevision)
+        try container.encode(configuration, forKey: .configuration)
+        try container.encode(apiKey, forKey: .apiKey)
+        try container.encode(usageLimits, forKey: .usageLimits)
+    }
 }
 
 struct AIUsageSnapshot: Equatable, Sendable {
@@ -338,6 +395,52 @@ enum AIEqualizerTuningIntensity: String, CaseIterable, Codable, Identifiable, Se
     }
 }
 
+enum AIEqualizerTuningProfile: String, CaseIterable, Codable, Identifiable, Sendable {
+    case standard
+    case monoSpatialEnhancement
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .standard: return String(localized: "ai_tuning_profile_standard")
+        case .monoSpatialEnhancement: return String(localized: "ai_tuning_profile_mono_spatial")
+        }
+    }
+
+    var promptDirective: String {
+        switch self {
+        case .standard:
+            return "Use the default Mono tuning direction. Prioritize faithful balance, stable playback, and measured correction."
+        case .monoSpatialEnhancement:
+            return "Use a Mono spatial enhancement direction without referencing Dolby or any licensed brand. Favor a wider stage, gentle surround energy, restrained ambience, protected center vocals, controlled low-frequency weight, phase safety, and limiter headroom. Do not exaggerate reverb, do not hollow out vocals, and keep mono compatibility safe."
+        }
+    }
+
+    var outputCopyDirective: String {
+        switch self {
+        case .standard:
+            return "The preset title must evoke tonal texture, rhythmic motion, weight, or light. Do not use horizon, distance, room, panorama, orbit, or stage imagery reserved for the spatial profile. The summary must explain frequency balance, bass and treble, transients, dynamics, or headroom, and must state that the original stereo image is preserved when relevant."
+        case .monoSpatialEnhancement:
+            return "The preset title must evoke distance, horizon, air, depth, panorama, orbit, or an enveloping scene. Do not use a purely tonal or texture-only title that could belong to the standard profile. The summary must explicitly explain the audible changes to stage width, surround, ambience or reverb, center-vocal stability, and mono compatibility."
+        }
+    }
+
+    fileprivate var summaryFallback: String {
+        switch self {
+        case .standard: return String(localized: "ai_eq_summary_standard_fallback")
+        case .monoSpatialEnhancement: return String(localized: "ai_eq_summary_spatial_fallback")
+        }
+    }
+
+    fileprivate var summaryFocus: String {
+        switch self {
+        case .standard: return String(localized: "ai_eq_summary_standard_focus")
+        case .monoSpatialEnhancement: return String(localized: "ai_eq_summary_spatial_focus")
+        }
+    }
+}
+
 struct AIEqualizerTiming: Codable, Equatable, Sendable {
     let total: TimeInterval
     let sampling: TimeInterval
@@ -448,7 +551,20 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
     let learningEvidenceCount: Int?
     let createdAt: Date
     let tuningIntensity: AIEqualizerTuningIntensity?
+    let tuningProfile: AIEqualizerTuningProfile?
     var timing: AIEqualizerTiming?
+
+    var resolvedTuningProfile: AIEqualizerTuningProfile {
+        tuningProfile ?? .standard
+    }
+
+    var profileSpecificSummary: String {
+        let focus = resolvedTuningProfile.summaryFocus
+        let trimmed = summary.trimmingCharacters(in: .whitespacesAndNewlines)
+        let base = trimmed.isEmpty ? resolvedTuningProfile.summaryFallback : trimmed
+        guard !base.contains(focus) else { return base }
+        return "\(base)\n\(focus)"
+    }
 
     init(
         songID: Int,
@@ -458,6 +574,7 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
         model: String,
         agentVersion: String,
         tuningIntensity: AIEqualizerTuningIntensity = .smart,
+        tuningProfile: AIEqualizerTuningProfile = .standard,
         avoidingProfileNames: Set<String> = [],
         learningContext: AIEqualizerLearningContext? = nil
     ) {
@@ -489,7 +606,8 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
         let baseSpatial = Self.validatedSpatial(
             output.spatial,
             features: features,
-            intensity: tuningIntensity
+            intensity: tuningIntensity,
+            tuningProfile: tuningProfile
         )
         let resolvedSpatial = Self.validatedSpatial(
             AIEqualizerSpatialConfiguration(
@@ -498,7 +616,8 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
                 stereoWidth: baseSpatial.stereoWidth + (learningContext?.stereoWidthAdjustment ?? 0)
             ),
             features: features,
-            intensity: tuningIntensity
+            intensity: tuningIntensity,
+            tuningProfile: tuningProfile
         )
         let baseProfessional = Self.validatedProfessional(
             output.professional,
@@ -546,6 +665,7 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
             gains: normalized,
             spatial: resolvedSpatial,
             features: features,
+            tuningProfile: tuningProfile,
             avoiding: avoidingProfileNames
         )
         gains = normalized
@@ -564,11 +684,7 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
         let resolvedVocalReference = Self.localizedReference(output.vocalCharacterReference)
         artistStyleReference = resolvedArtistReference
         vocalCharacterReference = resolvedVocalReference
-        summary = Self.resolvedSummary(
-            output.summary,
-            artistStyleReference: resolvedArtistReference,
-            vocalCharacterReference: resolvedVocalReference
-        )
+        summary = Self.localizedSummary(output.summary, tuningProfile: tuningProfile)
         self.provider = provider
         self.model = model
         self.agentVersion = agentVersion
@@ -577,6 +693,7 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
         learningEvidenceCount = learningContext?.isActive == true ? learningContext?.evidenceCount : nil
         createdAt = Date()
         self.tuningIntensity = tuningIntensity
+        self.tuningProfile = tuningProfile
         timing = nil
     }
 
@@ -631,12 +748,13 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
     private static func validatedSpatial(
         _ value: AIEqualizerSpatialConfiguration?,
         features: AIEqualizerAudioFeatures,
-        intensity: AIEqualizerTuningIntensity
+        intensity: AIEqualizerTuningIntensity,
+        tuningProfile: AIEqualizerTuningProfile
     ) -> AIEqualizerSpatialConfiguration {
         let proposedSurround = clampedFinite(value?.surroundLevel, fallback: 0, range: intensity.surroundRange)
         let proposedReverb = clampedFinite(value?.reverbLevel, fallback: 0, range: intensity.reverbRange)
         let proposedWidth = clampedFinite(value?.stereoWidth, fallback: 1, range: intensity.stereoWidthRange)
-        let fallback = spatialFallback(for: features)
+        let fallback = spatialFallback(for: features, tuningProfile: tuningProfile)
 
         return AIEqualizerSpatialConfiguration(
             surroundLevel: proposedSurround <= 0.005
@@ -740,7 +858,8 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
     }
 
     private static func spatialFallback(
-        for features: AIEqualizerAudioFeatures
+        for features: AIEqualizerAudioFeatures,
+        tuningProfile: AIEqualizerTuningProfile
     ) -> AIEqualizerSpatialConfiguration {
         let deviceBase: (surround: Float, reverb: Float, width: Float)
         switch features.outputKind {
@@ -761,10 +880,26 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
         let dynamicFactor = min(1, max(0, (features.dynamicSpreadDB - 4) / 10))
         let brightnessFactor = min(1, max(0, (features.spectralCentroidHz - 1_400) / 2_800))
         let densityPenalty = min(1, max(0, (features.spectralFlatness - 0.42) / 0.38))
-        let surround = deviceBase.surround + 0.035 * dynamicFactor + 0.018 * brightnessFactor
-        let reverb = deviceBase.reverb + 0.025 * dynamicFactor - 0.018 * densityPenalty
-        let width = deviceBase.width + 0.035 * dynamicFactor - 0.02 * densityPenalty
+        var surround = deviceBase.surround + 0.035 * dynamicFactor + 0.018 * brightnessFactor
+        var reverb = deviceBase.reverb + 0.025 * dynamicFactor - 0.018 * densityPenalty
+        var width = deviceBase.width + 0.035 * dynamicFactor - 0.02 * densityPenalty
         let minimumReverb: Float = features.outputKind == "builtInSpeaker" ? 0.01 : 0.015
+        if tuningProfile == .monoSpatialEnhancement {
+            let deviceLimit: (surround: Float, reverb: Float, width: Float)
+            switch features.outputKind {
+            case "builtInSpeaker":
+                deviceLimit = (0.11, 0.04, 1.08)
+            case "car":
+                deviceLimit = (0.18, 0.07, 1.12)
+            case "wired", "bluetooth", "usb":
+                deviceLimit = (0.30, 0.14, 1.24)
+            default:
+                deviceLimit = (0.22, 0.10, 1.18)
+            }
+            surround = min(deviceLimit.surround, surround + 0.06 + 0.03 * dynamicFactor)
+            reverb = min(deviceLimit.reverb, max(minimumReverb, reverb + 0.018 + 0.012 * dynamicFactor))
+            width = min(deviceLimit.width, max(1.04, width + 0.05 + 0.02 * dynamicFactor))
+        }
 
         return AIEqualizerSpatialConfiguration(
             surroundLevel: min(0.24, max(0, surround)),
@@ -778,6 +913,7 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
         gains: [Float],
         spatial: AIEqualizerSpatialConfiguration,
         features: AIEqualizerAudioFeatures,
+        tuningProfile: AIEqualizerTuningProfile,
         avoiding recentNames: Set<String>
     ) -> String {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -789,25 +925,35 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
         let lowAverage = gains.prefix(edgeCount).reduce(0, +) / Float(edgeCount)
         let highAverage = gains.suffix(edgeCount).reduce(0, +) / Float(edgeCount)
         let preferredNames: [String]
-        if spatial.surroundLevel >= 0.16 {
-            preferredNames = ["远岫", "长空", "云境", "旷野", "天际", "浮屿", "星野", "风岸"]
-        } else if lowAverage - highAverage > 0.8 {
-            preferredNames = ["沉潮", "暗涌", "深湾", "夜航", "玄浪", "厚土", "潜流", "暮鼓"]
-        } else if highAverage - lowAverage > 0.8 {
-            preferredNames = ["清辉", "晨星", "霁光", "银汉", "晴岚", "星芒", "初霁", "月白"]
-        } else if features.dynamicSpreadDB >= 11 {
-            preferredNames = ["奔流", "跃浪", "疾风", "燃点", "潮汐", "飞驰", "破晓", "脉动"]
-        } else if features.rmsDBFS <= -20 {
-            preferredNames = ["轻雾", "微醺", "暮云", "静月", "薄暮", "余温", "绒夜", "夜雨"]
-        } else if features.spectralFlatness >= 0.58 {
-            preferredNames = ["墨影", "近景", "暗纹", "凝夜", "黑曜", "深墨", "静帧", "暮影"]
-        } else {
-            preferredNames = ["和风", "素月", "晴川", "松间", "微光", "流云", "静流", "青岚"]
+        switch tuningProfile {
+        case .standard:
+            if lowAverage - highAverage > 0.8 {
+                preferredNames = ["沉潮", "暗涌", "深湾", "玄浪", "厚土", "潜流", "暮鼓", "低吟"]
+            } else if highAverage - lowAverage > 0.8 {
+                preferredNames = ["清辉", "晨星", "霁光", "银弦", "晴岚", "星芒", "初霁", "月白"]
+            } else if features.dynamicSpreadDB >= 11 {
+                preferredNames = ["奔流", "跃浪", "疾风", "燃点", "潮汐", "飞驰", "破晓", "脉动"]
+            } else if features.rmsDBFS <= -20 {
+                preferredNames = ["轻雾", "微醺", "暮云", "静月", "薄暮", "余温", "绒夜", "夜雨"]
+            } else if features.spectralFlatness >= 0.58 {
+                preferredNames = ["墨影", "暗纹", "凝夜", "黑曜", "深墨", "静帧", "暮影", "素弦"]
+            } else {
+                preferredNames = ["和风", "素月", "晴川", "松间", "微光", "静流", "青岚", "凝露"]
+            }
+        case .monoSpatialEnhancement:
+            if spatial.surroundLevel >= 0.16 || spatial.stereoWidth >= 1.12 {
+                preferredNames = ["远岫", "长空", "云境", "旷野", "天际", "浮屿", "星野", "风岸"]
+            } else if spatial.reverbLevel >= 0.07 {
+                preferredNames = ["雾港", "回廊", "月湾", "暮野", "深巷", "静海", "星港", "浮光"]
+            } else {
+                preferredNames = ["微岚", "远汀", "薄云", "风廊", "晴空", "星径", "云隙", "潮岸"]
+            }
         }
 
         return fallbackProfileName(
             preferredNames: preferredNames,
             features: features,
+            tuningProfile: tuningProfile,
             avoiding: recentNames
         )
     }
@@ -815,14 +961,26 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
     private static func fallbackProfileName(
         preferredNames: [String],
         features: AIEqualizerAudioFeatures,
+        tuningProfile: AIEqualizerTuningProfile,
         avoiding recentNames: Set<String>
     ) -> String {
-        let allNames = preferredNames + [
-            "远岫", "长空", "星野", "沉潮", "暗涌", "夜航", "清辉", "晨星",
-            "霁光", "晴岚", "奔流", "潮汐", "破晓", "轻雾", "暮云", "静月",
-            "墨影", "暗纹", "黑曜", "和风", "素月", "晴川", "松间", "流云"
-        ].filter { !preferredNames.contains($0) }
-        let seedText = "\(features.source)|\(features.songID)|\(features.title)|\(features.artist)"
+        let profileNames: [String]
+        switch tuningProfile {
+        case .standard:
+            profileNames = [
+                "沉潮", "暗涌", "清辉", "晨星", "霁光", "晴岚", "奔流", "潮汐",
+                "破晓", "轻雾", "暮云", "静月", "墨影", "暗纹", "黑曜", "和风",
+                "素月", "晴川", "松间", "静流", "青岚", "凝露", "素弦", "银弦"
+            ]
+        case .monoSpatialEnhancement:
+            profileNames = [
+                "远岫", "长空", "云境", "旷野", "天际", "浮屿", "星野", "风岸",
+                "雾港", "回廊", "月湾", "暮野", "深巷", "静海", "星港", "浮光",
+                "微岚", "远汀", "薄云", "风廊", "晴空", "星径", "云隙", "潮岸"
+            ]
+        }
+        let allNames = preferredNames + profileNames.filter { !preferredNames.contains($0) }
+        let seedText = "\(tuningProfile.rawValue)|\(features.source)|\(features.songID)|\(features.title)|\(features.artist)"
         let seed = seedText.unicodeScalars.reduce(UInt64(14_695_981_039_346_656_037)) { partial, scalar in
             (partial ^ UInt64(scalar.value)) &* 1_099_511_628_211
         }
@@ -865,32 +1023,13 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
         }
     }
 
-    private static func localizedSummary(_ value: String) -> String {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        return isPrimarilyChinese(trimmed)
-            ? trimmed
-            : String(localized: "ai_eq_summary_calibrated")
-    }
-
-    private static func resolvedSummary(
+    private static func localizedSummary(
         _ value: String,
-        artistStyleReference: String?,
-        vocalCharacterReference: String?
+        tuningProfile: AIEqualizerTuningProfile
     ) -> String {
-        let base = localizedSummary(value)
-        let references = [
-            artistStyleReference.map { "歌手参考：\($0)" },
-            vocalCharacterReference.map { "演唱参考：\($0)" }
-        ]
-        .compactMap { $0 }
-        .filter { reference in
-            !base.localizedCaseInsensitiveContains(
-                reference.replacingOccurrences(of: "歌手参考：", with: "")
-                    .replacingOccurrences(of: "演唱参考：", with: "")
-            )
-        }
-        guard !references.isEmpty else { return base }
-        return "\(base)\n\(references.joined(separator: " · "))"
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let base = isPrimarilyChinese(trimmed) ? trimmed : tuningProfile.summaryFallback
+        return "\(base)\n\(tuningProfile.summaryFocus)"
     }
 
     private static func localizedReference(_ value: String) -> String? {

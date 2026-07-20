@@ -35,19 +35,19 @@ struct ThemeRenderContext: Equatable {
     }
 
     var isolatesExpensiveSurfaces: Bool {
-        isHosted && (theme == .manga || theme == .minimalWhite || theme == .pureWhite || theme == .petWhite)
+        isHosted && (theme == .manga || theme == .minimalWhite || theme == .petWhite)
     }
 
     var stabilizesLightweightSurfaces: Bool {
-        isHosted && (theme == .neumorphic || theme == .capsule || theme == .minimalWhite || theme == .pureWhite || theme == .petWhite)
+        isHosted && (theme == .neumorphic || theme == .capsule || theme == .minimalWhite || theme == .petWhite)
     }
 
     var isolatesFrequentRows: Bool {
-        isHosted && (theme == .neumorphic || theme == .capsule || theme == .minimalWhite || theme == .pureWhite || theme == .petWhite)
+        isHosted && (theme == .neumorphic || theme == .capsule || theme == .minimalWhite || theme == .petWhite)
     }
 
     var isolatesInteractiveSurfaces: Bool {
-        isHosted && (theme == .neumorphic || theme == .manga || theme == .capsule || theme == .minimalWhite || theme == .pureWhite || theme == .petWhite)
+        isHosted && (theme == .neumorphic || theme == .manga || theme == .capsule || theme == .minimalWhite || theme == .petWhite)
     }
 }
 
@@ -145,8 +145,6 @@ struct ThemeRenderUnderlay: View {
             MangaStyle.paper
         case .minimalWhite:
             MinimalWhiteStyle.paper
-        case .pureWhite:
-            PureWhiteStyle.paper
         case .petWhite:
             PetWhiteStyle.paper
         case .muji:
@@ -155,7 +153,7 @@ struct ThemeRenderUnderlay: View {
             NeumorphicStyle.base
         case .capsule:
             CapsuleStyle.base
-        case .material3Expressive, .bento, .sequoia, .liquidGlass, .clay, .signal, .default:
+        case .default:
             Color.monologueBackground
         }
     }
@@ -175,8 +173,6 @@ struct ThemeRenderBackdrop: View {
             MangaRootBackdrop()
         case .minimalWhite:
             MinimalWhiteRootBackdrop()
-        case .pureWhite:
-            PureWhiteRootBackdrop()
         case .petWhite:
             PetWhiteRootBackdrop()
         case .muji:
@@ -185,7 +181,7 @@ struct ThemeRenderBackdrop: View {
             NeumorphicRenderBackdrop()
         case .capsule:
             CapsuleRootBackdrop()
-        case .material3Expressive, .bento, .sequoia, .liquidGlass, .clay, .signal, .default:
+        case .default:
             MonologueBackground()
                 .ignoresSafeArea()
         }

@@ -514,6 +514,7 @@ enum AriaFoliaColor {
 
 struct AriaFoliaLyricStage: View {
     let lines: [AriaLine]
+    let activeIndex: Int
     let palette: AriaPalette
     let effect: AriaLyricEffect
     let language: AriaLyricLanguage
@@ -522,17 +523,13 @@ struct AriaFoliaLyricStage: View {
     let time: Double
     let stageSize: CGSize
 
-    private var activeIndex: Int {
-        AriaLyricEngine.activeLineIndex(in: lines, at: time)
-    }
-
     @ViewBuilder
     var body: some View {
         switch effect {
         case .classic:
             EmptyView()
         case .cadenza:
-            AriaFoliaLineHost(lines: lines, time: time) { line in
+            AriaFoliaLineHost(lines: lines, activeIndex: activeIndex) { line in
                 if line.isInterlude {
                     AriaFoliaInterlude(line: line, palette: palette, time: time)
                 } else if line.isCredit {
@@ -564,7 +561,7 @@ struct AriaFoliaLyricStage: View {
                 }
             }
         case .partita:
-            AriaFoliaLineHost(lines: lines, time: time) { line in
+            AriaFoliaLineHost(lines: lines, activeIndex: activeIndex) { line in
                 if line.isInterlude {
                     AriaFoliaInterlude(line: line, palette: palette, time: time)
                 } else if line.isCredit {
@@ -596,7 +593,7 @@ struct AriaFoliaLyricStage: View {
                 }
             }
         case .tilt:
-            AriaFoliaLineHost(lines: lines, time: time) { line in
+            AriaFoliaLineHost(lines: lines, activeIndex: activeIndex) { line in
                 if line.isInterlude {
                     AriaFoliaInterlude(line: line, palette: palette, time: time)
                 } else if line.isCredit {
@@ -650,7 +647,7 @@ struct AriaFoliaLyricStage: View {
                 )
             }
         case .canopy:
-            AriaFoliaLineHost(lines: lines, time: time) { line in
+            AriaFoliaLineHost(lines: lines, activeIndex: activeIndex) { line in
                 if line.isInterlude {
                     AriaFoliaInterlude(line: line, palette: palette, time: time)
                 } else if line.isCredit {
@@ -704,23 +701,19 @@ struct AriaFoliaLyricStage: View {
 
 private struct AriaFoliaLineHost<Content: View>: View {
     let lines: [AriaLine]
-    let time: Double
+    let activeIndex: Int
     let content: (AriaLine) -> Content
 
     @State private var displayedLineID = -1
 
     init(
         lines: [AriaLine],
-        time: Double,
+        activeIndex: Int,
         @ViewBuilder content: @escaping (AriaLine) -> Content
     ) {
         self.lines = lines
-        self.time = time
+        self.activeIndex = activeIndex
         self.content = content
-    }
-
-    private var activeIndex: Int {
-        AriaLyricEngine.activeLineIndex(in: lines, at: time)
     }
 
     private var activeLineID: Int {
@@ -728,7 +721,11 @@ private struct AriaFoliaLineHost<Content: View>: View {
     }
 
     private var displayedLine: AriaLine? {
-        lines.first { $0.id == displayedLineID }
+        let directIndex = displayedLineID - 1
+        if lines.indices.contains(directIndex), lines[directIndex].id == displayedLineID {
+            return lines[directIndex]
+        }
+        return lines.first { $0.id == displayedLineID }
     }
 
     var body: some View {

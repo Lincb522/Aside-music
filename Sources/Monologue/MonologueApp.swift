@@ -67,6 +67,8 @@ struct MonologueApp: App {
         
         _ = EQManager.shared
         _ = AIEqualizerAgent.shared
+        _ = MonoNextSuiteManager.shared
+        _ = MonoSessionManager.shared
         _ = CustomFontManager.shared
         
         // iOS 26: 系统 TabView 自动使用 Liquid Glass 浮动标签栏，不再需要自定义外观
@@ -125,6 +127,9 @@ struct MonologueApp: App {
                         OnlineAccessManager.shared.refreshOnLaunch(showInvalidAlert: false)
                         GlobalRefreshManager.shared.triggerAppLaunchRefresh()
                         PushService.shared.setup()
+                        Task { @MainActor in
+                            await AIProviderConfigurationStore.shared.refreshRemoteConfigurationIfNeeded(force: true)
+                        }
                     } else {
                         AppLogger.info("未配置 Token，跳过在线启动刷新")
                     }
@@ -184,6 +189,9 @@ struct MonologueApp: App {
                     }
                     if OnlineAccessManager.shared.hasStoredToken {
                         OnlineAccessManager.shared.refreshOnLaunch(showInvalidAlert: true)
+                        Task { @MainActor in
+                            await AIProviderConfigurationStore.shared.refreshRemoteConfigurationIfNeeded()
+                        }
                     }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in

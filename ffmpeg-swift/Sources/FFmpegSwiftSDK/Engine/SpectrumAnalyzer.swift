@@ -318,6 +318,18 @@ public final class SpectrumAnalyzer {
     }
 
     private func consumePendingWindow() {
+        let deliveryUptime = ProcessInfo.processInfo.systemUptime
+        // Slow analysis observers do not need every 4096-sample window. Check
+        // cadence before linearizing the ring buffer or running FFT so skipped
+        // Agent frames cost only the non-blocking realtime handoff, not another
+        // full analysis pass. Visual callbacks remain frame-continuous.
+        guard hasDueConsumer(at: deliveryUptime) else {
+            collectionLock.lock()
+            hasPendingWindow = false
+            collectionLock.unlock()
+            return
+        }
+
         collectionLock.lock()
         guard hasPendingWindow else {
             collectionLock.unlock()
@@ -339,7 +351,7 @@ public final class SpectrumAnalyzer {
         configurationLock.monoWithLock {
             storedSampleRate = rate
         }
-        let pcmObservers = takeDuePCMObservers(at: ProcessInfo.processInfo.systemUptime)
+        let pcmObservers = takeDuePCMObservers(at: deliveryUptime)
         if !pcmObservers.isEmpty {
             // Observer tasks may outlive this callback. Force independent
             // storage here, off the audio thread, so the reusable processing
@@ -352,7 +364,32 @@ public final class SpectrumAnalyzer {
                 observer(leftSnapshot, rightSnapshot, rate)
             }
         }
-        performFFT(samples: processingWindow, sampleRate: rate)
+        performFFT(
+            samples: processingWindow,
+            sampleRate: rate,
+            deliveryUptime: deliveryUptime
+        )
+    }
+
+    private func hasDueConsumer(at uptime: TimeInterval) -> Bool {
+        configurationLock.monoWithLock {
+            if storedOnSpectrum != nil || storedOnRawSpectrum != nil {
+                return true
+            }
+            if storedCalibrationIsEnabled && storedOnCalibrationSpectrum != nil {
+                return true
+            }
+            if analysisObservers.values.contains(where: { entry in
+                entry.lastDeliveryUptime == 0
+                    || uptime - entry.lastDeliveryUptime >= entry.minimumInterval
+            }) {
+                return true
+            }
+            return pcmAnalysisObservers.values.contains(where: { entry in
+                entry.lastDeliveryUptime == 0
+                    || uptime - entry.lastDeliveryUptime >= entry.minimumInterval
+            })
+        }
     }
 
     private func takeDueAnalysisObservers(
@@ -391,10 +428,12 @@ public final class SpectrumAnalyzer {
 
     // MARK: - FFT 计算
 
-    private func performFFT(samples: [Float], sampleRate: Double) {
-        let analysisCallbacks = takeDueAnalysisObservers(
-            at: ProcessInfo.processInfo.systemUptime
-        )
+    private func performFFT(
+        samples: [Float],
+        sampleRate: Double,
+        deliveryUptime: TimeInterval
+    ) {
+        let analysisCallbacks = takeDueAnalysisObservers(at: deliveryUptime)
         let callbacks = configurationLock.monoWithLock {
             (
                 storedOnRawSpectrum,

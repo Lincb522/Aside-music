@@ -139,7 +139,7 @@ struct NeumorphicPlayerLayout: View {
             )
         }
         .fullScreenCover(isPresented: $showEQSettings) {
-            NavigationStack { EQSettingsView() }
+            NavigationStack { MonoAudioCenterView() }
         }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker){
             PlayerThemePickerSheet()
@@ -511,7 +511,7 @@ extension NeumorphicPlayerLayout {
                 } else {
                     // 沉浸模式按钮 — 占用原下载按钮的位置
                     neumorphicButton(size: 40) {
-                        CinemaModeController.shared.present()
+                        ImmersiveModeController.shared.present()
                     } content: {
                         MonologueIcon(icon: .immersive, size: 18, color: secondaryTextColor, lineWidth: 1.4)
                     }

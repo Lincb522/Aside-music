@@ -171,7 +171,7 @@ struct AriaPalette: Equatable {
 
 // MARK: - 流体背景（FluidBackground.tsx）
 
-struct AriaFluidBackground: View {
+struct AriaFluidBackground: View, Equatable {
     let coverUrl: URL?
     let palette: AriaPalette
     /// shell backgroundOpacity：越高越暗（歌词可读性 ↔ 封面显色），folia 默认 0.75
@@ -307,7 +307,7 @@ private final class AriaBandSprings {
 }
 
 struct AriaGeometricBackground: View {
-    let pulse: CinemaAudioPulse
+    let pulse: AriaAudioPulse
     let palette: AriaPalette
     let isPlaying: Bool
     let seed: Double
@@ -316,7 +316,7 @@ struct AriaGeometricBackground: View {
     /// 换曲淡入（folia GeometricLayer 0.6s fade）
     @State private var appeared = false
     /// 热度/省电自动降档：medium 24fps、low 20fps
-    @ObservedObject private var perf = CinemaPerformanceGovernor.shared
+    @ObservedObject private var perf = AriaPerformanceGovernor.shared
 
     private var shapes: [AriaShape] {
         Self.buildShapes(seed: seed)
@@ -493,13 +493,13 @@ struct AriaGeometricBackground: View {
 /// to the audio envelope. The layer is always present; disabling motion only
 /// freezes its choreography.
 private struct AriaFoliaAtmosphere: View {
-    let pulse: CinemaAudioPulse
+    let pulse: AriaAudioPulse
     let palette: AriaPalette
     let isPlaying: Bool
     let motionEnabled: Bool
     let seed: Double
 
-    @ObservedObject private var performance = CinemaPerformanceGovernor.shared
+    @ObservedObject private var performance = AriaPerformanceGovernor.shared
     @State private var appeared = false
 
     private var timelineFPS: Int {
@@ -749,7 +749,7 @@ struct AriaVignette: View {
 struct AriaStageShell: View {
     let coverUrl: URL?
     let palette: AriaPalette
-    let pulse: CinemaAudioPulse
+    let pulse: AriaAudioPulse
     let isPlaying: Bool
     let seed: Double
     let backgroundOpacity: Double
@@ -758,6 +758,8 @@ struct AriaStageShell: View {
     /// A bound video remains the primary background; only the readability and
     /// texture finishing layers are shared with the cover-driven stage.
     var videoURL: URL? = nil
+    /// 系统后台或全屏视频设置完全遮挡舞台时暂停动态渲染；重新可见后续播。
+    var isStageActive = true
     /// 歌词景深强度：以「背景更虚、更沉」表达对焦分离，不绘制任何形状化底衬。
     var depthIntensity: Double = 0
 
@@ -766,14 +768,15 @@ struct AriaStageShell: View {
 
         ZStack {
             if let videoURL {
-                ImmersiveVideoBackground(url: videoURL, isActive: isPlaying)
+                ImmersiveVideoBackground(
+                    url: videoURL,
+                    isActive: isPlaying && isStageActive
+                )
                     .ignoresSafeArea()
 
                 // 视频不逐帧模糊（代价过高），用均匀压暗表达景深，无边界即无伪影。
                 Color.black.opacity(0.16 * depth)
 
-                AriaStageReadabilityVeil(videoMode: true)
-                AriaStageGrain(seed: seed)
             } else {
                 AriaFluidBackground(
                     coverUrl: coverUrl,
@@ -781,24 +784,43 @@ struct AriaStageShell: View {
                     backgroundOpacity: backgroundOpacity,
                     depthIntensity: depthIntensity
                 )
+                .equatable()
 
                 AriaFoliaAtmosphere(
                     pulse: pulse,
                     palette: palette,
-                    isPlaying: isPlaying,
+                    isPlaying: isPlaying && isStageActive,
                     motionEnabled: !reduceMotion,
                     seed: seed
                 )
                 // Rebuild on track changes so each album gets a stable scene.
                 .id(seed)
 
-                AriaStageReadabilityVeil()
-                AriaStageGrain(seed: seed)
             }
 
-            AriaVignette()
+            // 遮罩、颗粒和暗角都是静态完成层。隔离为 Equatable 子树，避免
+            // 播放状态、歌词时间轴或面板状态变化时重复提交 280 点颗粒画布。
+            AriaStageFinishingLayer(
+                videoMode: videoURL != nil,
+                seed: seed
+            )
+            .equatable()
         }
         .ignoresSafeArea()
         .animation(.easeInOut(duration: 1.0), value: palette)
+    }
+}
+
+private struct AriaStageFinishingLayer: View, Equatable {
+    let videoMode: Bool
+    let seed: Double
+
+    var body: some View {
+        ZStack {
+            AriaStageReadabilityVeil(videoMode: videoMode)
+            AriaStageGrain(seed: seed)
+            AriaVignette()
+        }
+        .allowsHitTesting(false)
     }
 }

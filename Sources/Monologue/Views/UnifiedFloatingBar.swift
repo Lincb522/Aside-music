@@ -809,9 +809,7 @@ struct UnifiedFloatingBar: View {
             petWhiteFloatingBar
         case .minimalWhite:
             MinimalWhiteUnifiedDock(currentTab: $currentTab)
-        case .pureWhite:
-            pureWhiteFloatingBar
-        case .material3Expressive, .bento, .sequoia, .liquidGlass, .clay, .signal, .default:
+        case .default:
             defaultFloatingBar
         }
     }

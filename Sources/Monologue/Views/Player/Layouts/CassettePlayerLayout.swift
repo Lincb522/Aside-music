@@ -138,7 +138,7 @@ struct CassettePlayerLayout: View {
             )
         }
         .fullScreenCover(isPresented: $showEQSettings) {
-            NavigationStack { EQSettingsView() }
+            NavigationStack { MonoAudioCenterView() }
         }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker){
             PlayerThemePickerSheet()
@@ -459,7 +459,7 @@ extension CassettePlayerLayout {
 
             Spacer()
 
-            Button(action: { CinemaModeController.shared.present() }) {
+            Button(action: { ImmersiveModeController.shared.present() }) {
                 MonologueIcon(icon: .immersive, size: 20, color: textPrimary)
                     .frame(width: 44, height: 44)
                     .background(shellColor)

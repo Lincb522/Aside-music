@@ -3,11 +3,13 @@ import FFmpegSwiftSDK
 
 @MainActor
 struct AIEqualizerLabView: View {
+    private let isEmbedded: Bool
     @ObservedObject private var player = PlayerManager.shared
     @StateObject private var agent = AIEqualizerAgent.shared
     @StateObject private var eqManager = EQManager.shared
     @StateObject private var coverColors = CoverColorExtractor()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.monoSoundCenterLayout) private var centerLayout
     @Namespace private var controlSelectionNamespace
     @State private var expandedMeasurementGroups: Set<AIEqualizerMeasurementGroup> = []
     @State private var isProposalParameterExpanded = false
@@ -16,6 +18,10 @@ struct AIEqualizerLabView: View {
     @State private var isShowingClearLearningConfirmation = false
     @State private var comparisonProposal: AIEqualizerSavedProposal?
     @State private var selectedWorkspace: AIEqualizerWorkspace = .tuning
+
+    init(isEmbedded: Bool = false) {
+        self.isEmbedded = isEmbedded
+    }
 
     private var accent: Color { normalizedAIEqualizerAccent(coverColors.dominantColor) }
     private var accentForeground: Color {
@@ -33,32 +39,7 @@ struct AIEqualizerLabView: View {
     }
 
     var body: some View {
-        ZStack {
-            backdrop
-                .ignoresSafeArea()
-
-            VStack(spacing: 0) {
-                trackCard
-                workspaceSwitcher
-                workspaceContent
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-        }
-        .compatFontDesign(nil)
-        .environment(\.colorScheme, .dark)
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
-        .toolbarBackground(.hidden, for: .navigationBar)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                MonologueToolbarBackButton()
-            }
-
-            ToolbarItem(placement: .topBarTrailing) {
-                statusLabel
-            }
-        }
+        presentationRoot
         .sheet(item: $comparisonProposal) { historical in
             NavigationStack {
                 AIEqualizerProposalComparisonView(
@@ -101,8 +82,24 @@ struct AIEqualizerLabView: View {
         )
     }
 
+    private var presentationRoot: AnyView {
+        if isEmbedded {
+            return AnyView(
+                VStack(spacing: 0) {
+                    workspaceSwitcher
+                    workspaceContent
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                .compatFontDesign(nil)
+                .environment(\.colorScheme, .dark)
+            )
+        }
+
+        return AnyView(MonoAudioCenterView(initialWorkspace: .ai))
+    }
+
     private var workspaceSwitcher: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 12) {
             ForEach(AIEqualizerWorkspace.allCases) { workspace in
                 Button {
                     withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
@@ -110,58 +107,56 @@ struct AIEqualizerLabView: View {
                     }
                     UISelectionFeedbackGenerator().selectionChanged()
                 } label: {
-                    HStack(spacing: 6) {
-                        MonologueIcon(
-                            icon: workspace.icon,
-                            size: 13,
-                            color: selectedWorkspace == workspace ? accentForeground : .white.opacity(0.46)
-                        )
-                        Text(workspace.title)
-                            .font(.system(size: 11.5, weight: .bold))
-                            .foregroundStyle(
-                                selectedWorkspace == workspace
-                                    ? accentForeground
-                                    : .white.opacity(0.52)
+                    VStack(spacing: 8) {
+                        HStack(spacing: 5) {
+                            MonologueIcon(
+                                icon: workspace.icon,
+                                size: centerLayout.isCompactWidth ? 10.5 : 12,
+                                color: selectedWorkspace == workspace ? accent : .white.opacity(0.38)
                             )
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.78)
+                            Text(workspace.title)
+                                .font(.system(size: centerLayout.isCompactWidth ? 10 : 11.5, weight: .bold))
+                                .foregroundStyle(
+                                    selectedWorkspace == workspace
+                                        ? .white.opacity(0.94)
+                                        : .white.opacity(0.46)
+                                )
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.78)
 
-                        if workspaceHasContent(workspace) {
-                            Circle()
-                                .fill(selectedWorkspace == workspace ? accentForeground.opacity(0.82) : accent)
-                                .frame(width: 4, height: 4)
+                            if workspaceHasContent(workspace) {
+                                Circle()
+                                    .fill(accent)
+                                    .frame(width: 4, height: 4)
+                            }
                         }
+
+                        Capsule()
+                            .fill(selectedWorkspace == workspace ? accent : .clear)
+                            .frame(height: 2)
+                            .matchedGeometryEffect(
+                                id: "ai-workspace-selection",
+                                in: controlSelectionNamespace,
+                                isSource: selectedWorkspace == workspace
+                            )
                     }
                     .frame(maxWidth: .infinity)
-                    .frame(height: 38)
-                    .background {
-                        if selectedWorkspace == workspace {
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(accent.opacity(0.86))
-                                .matchedGeometryEffect(
-                                    id: "ai-workspace-selection",
-                                    in: controlSelectionNamespace
-                                )
-                        }
-                    }
+                    .frame(height: centerLayout.isCompactHeight ? 34 : 40, alignment: .bottom)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(selectedWorkspace == workspace ? .isSelected : [])
             }
         }
-        .padding(4)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.black.opacity(0.2))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
-                }
-        )
-        .padding(.horizontal, 20)
-        .padding(.bottom, 12)
-        .iPadContentWidth(720)
+        .padding(.horizontal, centerLayout.horizontalInset)
+        .padding(.bottom, centerLayout.isCompactHeight ? 7 : 10)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color.white.opacity(0.065))
+                .frame(height: 1)
+        }
+        .frame(maxWidth: centerLayout.workspaceMaxWidth)
+        .frame(maxWidth: .infinity)
     }
 
     private var workspaceContent: AnyView {
@@ -180,15 +175,16 @@ struct AIEqualizerLabView: View {
     private var tuningWorkspace: AnyView {
         AnyView(
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: centerLayout.isCompactHeight ? 12 : 16) {
                     immersiveTuningStage
                     tuningControlSection
                     analysisNotice
                     serviceFooter
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 32)
-                .iPadContentWidth(720)
+                .padding(.horizontal, centerLayout.horizontalInset)
+                .padding(.bottom, centerLayout.isCompactHeight ? 22 : 32)
+                .frame(maxWidth: centerLayout.workspaceMaxWidth)
+                .frame(maxWidth: .infinity)
             }
         )
     }
@@ -196,7 +192,7 @@ struct AIEqualizerLabView: View {
     private var measurementWorkspace: AnyView {
         AnyView(
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: centerLayout.isCompactHeight ? 12 : 16) {
                     if let features = agent.measuredFeatures {
                         measurementSection(features)
                     } else {
@@ -206,9 +202,10 @@ struct AIEqualizerLabView: View {
                         )
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 32)
-                .iPadContentWidth(720)
+                .padding(.horizontal, centerLayout.horizontalInset)
+                .padding(.bottom, centerLayout.isCompactHeight ? 22 : 32)
+                .frame(maxWidth: centerLayout.workspaceMaxWidth)
+                .frame(maxWidth: .infinity)
             }
         )
     }
@@ -216,7 +213,7 @@ struct AIEqualizerLabView: View {
     private var resultWorkspace: AnyView {
         AnyView(
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: centerLayout.isCompactHeight ? 12 : 16) {
                     if let proposal = agent.proposal {
                         proposalSection(proposal)
                         if let previous = previousSavedProposal(for: proposal) {
@@ -234,9 +231,10 @@ struct AIEqualizerLabView: View {
                         )
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 32)
-                .iPadContentWidth(720)
+                .padding(.horizontal, centerLayout.horizontalInset)
+                .padding(.bottom, centerLayout.isCompactHeight ? 22 : 32)
+                .frame(maxWidth: centerLayout.workspaceMaxWidth)
+                .frame(maxWidth: .infinity)
             }
         )
     }
@@ -244,7 +242,7 @@ struct AIEqualizerLabView: View {
     private var historyWorkspace: AnyView {
         AnyView(
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: centerLayout.isCompactHeight ? 12 : 16) {
                     if agent.savedProposals.isEmpty {
                         workspaceEmptyState(
                             icon: .history,
@@ -254,9 +252,10 @@ struct AIEqualizerLabView: View {
                         savedResultsSection
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 32)
-                .iPadContentWidth(720)
+                .padding(.horizontal, centerLayout.horizontalInset)
+                .padding(.bottom, centerLayout.isCompactHeight ? 22 : 32)
+                .frame(maxWidth: centerLayout.workspaceMaxWidth)
+                .frame(maxWidth: .infinity)
             }
         )
     }
@@ -280,12 +279,11 @@ struct AIEqualizerLabView: View {
                         Text(tuningStageTitle)
                             .font(.system(size: 15, weight: .bold))
                             .foregroundStyle(.white)
-                            .lineLimit(1)
+                            .fixedSize(horizontal: false, vertical: true)
 
                         Text(tuningStageDetail)
                             .font(.system(size: 10.5, weight: .semibold))
                             .foregroundStyle(.white.opacity(0.5))
-                            .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
                     }
 
@@ -293,20 +291,20 @@ struct AIEqualizerLabView: View {
 
                     tuningStageProgress
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 16)
+                .padding(.horizontal, centerLayout.isCompactWidth ? 12 : 16)
+                .padding(.top, centerLayout.isCompactHeight ? 12 : 16)
 
                 tuningStageVisualization
-                    .frame(height: 172)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 14)
+                    .frame(height: centerLayout.isCompactHeight ? 132 : 172)
+                    .padding(.horizontal, centerLayout.isCompactWidth ? 12 : 16)
+                    .padding(.top, centerLayout.isCompactHeight ? 9 : 14)
 
                 if let presentation = processPresentation {
                     AIEqualizerPhaseRail(
                         currentStep: presentation.currentStep,
                         accent: accent
                     )
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, centerLayout.isCompactWidth ? 12 : 16)
                     .padding(.top, 8)
                     .transition(.opacity)
                 }
@@ -323,13 +321,14 @@ struct AIEqualizerLabView: View {
                         Text(tuningStageSummary)
                             .font(.system(size: 13, weight: .bold))
                             .foregroundStyle(.white.opacity(0.88))
-                            .lineLimit(1)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                     Spacer(minLength: 8)
                     analysisActionButton
                 }
-                .padding(16)
+                .padding(centerLayout.isCompactHeight ? 12 : 16)
             }
             .background(tuningStageBackground)
         )
@@ -390,7 +389,7 @@ struct AIEqualizerLabView: View {
 
     private var tuningStageDetail: String {
         if let proposal = agent.proposal, !agent.phase.isWorking {
-            let summary = proposal.summary.trimmingCharacters(
+            let summary = proposal.profileSpecificSummary.trimmingCharacters(
                 in: .whitespacesAndNewlines
             )
             if !summary.isEmpty {
@@ -461,7 +460,10 @@ struct AIEqualizerLabView: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.56))
         }
-        .frame(maxWidth: .infinity, minHeight: 260)
+        .frame(
+            maxWidth: .infinity,
+            minHeight: centerLayout.isCompactHeight ? 190 : 260
+        )
     }
 
     private var trackCard: some View {
@@ -599,10 +601,11 @@ struct AIEqualizerLabView: View {
 
                         Spacer(minLength: 8)
 
-                        Text("\(agent.tuningIntensity.title) · \(agent.samplingMode.title)")
+                        Text("\(agent.tuningProfile.title) · \(agent.tuningIntensity.title) · \(agent.samplingMode.title)")
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(.white.opacity(0.48))
                             .lineLimit(1)
+                            .minimumScaleFactor(0.72)
 
                         MonologueIcon(
                             icon: .chevronDown,
@@ -672,6 +675,46 @@ struct AIEqualizerLabView: View {
 
     private var tuningParameterControls: some View {
         VStack(alignment: .leading, spacing: 14) {
+            Text(String(localized: "ai_tuning_profile"))
+                .font(.system(size: 11.5, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.5))
+
+            HStack(spacing: 7) {
+                ForEach(AIEqualizerTuningProfile.allCases) { profile in
+                    Button {
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+                            agent.tuningProfile = profile
+                        }
+                        UISelectionFeedbackGenerator().selectionChanged()
+                    } label: {
+                        Text(profile.title)
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(agent.tuningProfile == profile ? accentForeground : .white.opacity(0.62))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.72)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 36)
+                            .background {
+                                if agent.tuningProfile == profile {
+                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                        .fill(accent.opacity(0.78))
+                                        .matchedGeometryEffect(
+                                            id: "ai-tuning-profile-selection",
+                                            in: controlSelectionNamespace
+                                        )
+                                } else {
+                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                        .fill(Color.white.opacity(0.045))
+                                }
+                            }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(agent.phase.isWorking)
+                }
+            }
+
+            divider
+
             Text(String(localized: "ai_tuning_intensity"))
                 .font(.system(size: 11.5, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.5))
@@ -1146,13 +1189,18 @@ struct AIEqualizerLabView: View {
                     VStack(alignment: .leading, spacing: 16) {
                         HStack(alignment: .firstTextBaseline) {
                             VStack(alignment: .leading, spacing: 5) {
+                                Text(proposal.resolvedTuningProfile.title)
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundStyle(accent)
                                 Text(proposal.profileName)
                                     .font(.system(size: 20, weight: .bold))
                                     .foregroundStyle(.white)
-                                Text(proposal.summary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                Text(proposal.profileSpecificSummary)
                                     .font(.system(size: 12, weight: .medium))
                                     .foregroundStyle(.white.opacity(0.5))
                                     .fixedSize(horizontal: false, vertical: true)
+                                tuningReferenceRows(for: proposal)
                             }
                             Spacer(minLength: 12)
                             VStack(alignment: .trailing, spacing: 4) {
@@ -1587,39 +1635,48 @@ struct AIEqualizerLabView: View {
             && saved.outputIdentity == currentOutputIdentity
 
         return VStack(alignment: .leading, spacing: 9) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(saved.proposal.profileName)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-
-                if isCurrent {
-                    Text(String(localized: "ai_lab_current_result"))
+            HStack(alignment: .top, spacing: 8) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(saved.proposal.resolvedTuningProfile.title)
                         .font(.system(size: 9.5, weight: .bold))
                         .foregroundStyle(accent)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 3)
-                        .background(Capsule().fill(accent.opacity(0.15)))
-                }
+                    Text(saved.proposal.profileName)
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.white)
+                        .fixedSize(horizontal: false, vertical: true)
 
-                Spacer(minLength: 4)
+                    if isCurrent {
+                        Text(String(localized: "ai_lab_current_result"))
+                            .font(.system(size: 9.5, weight: .bold))
+                            .foregroundStyle(accent)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(Capsule().fill(accent.opacity(0.15)))
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
                 Text(saved.proposal.createdAt, style: .date)
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(.white.opacity(0.42))
+                    .fixedSize(horizontal: true, vertical: false)
             }
 
-            Text(saved.proposal.summary)
+            Text(saved.proposal.profileSpecificSummary)
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(.white.opacity(0.55))
-                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
 
-            HStack(spacing: 7) {
-                savedMetadataPill(saved.proposal.graphicEQMode == .thirtyTwoBand
-                                  ? String(localized: "eq_thirty_two_band")
-                                  : String(localized: "eq_ten_band"))
-                savedMetadataPill(saved.outputIdentity)
-                Spacer(minLength: 0)
+            tuningReferenceRows(for: saved.proposal, compact: true)
+
+            HStack(alignment: .bottom, spacing: 8) {
+                VStack(alignment: .leading, spacing: 7) {
+                    savedMetadataPill(saved.proposal.graphicEQMode == .thirtyTwoBand
+                                      ? String(localized: "eq_thirty_two_band")
+                                      : String(localized: "eq_ten_band"))
+                    savedMetadataPill(saved.outputIdentity)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
                 Button {
                     agent.applySavedProposal(saved)
@@ -1658,10 +1715,60 @@ struct AIEqualizerLabView: View {
         Text(title)
             .font(.system(size: 9.5, weight: .semibold))
             .foregroundStyle(.white.opacity(0.52))
-            .lineLimit(1)
+            .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 7)
-            .frame(maxWidth: 132, minHeight: 22)
+            .frame(minHeight: 22)
             .background(Capsule().fill(Color.white.opacity(0.055)))
+    }
+
+    @ViewBuilder
+    private func tuningReferenceRows(
+        for proposal: AIEqualizerProposal,
+        compact: Bool = false
+    ) -> some View {
+        let references = tuningReferences(for: proposal)
+        if !references.isEmpty {
+            VStack(alignment: .leading, spacing: compact ? 5 : 6) {
+                ForEach(references) { reference in
+                    HStack(alignment: .top, spacing: 7) {
+                        Text(reference.title)
+                            .font(.system(size: compact ? 9.5 : 10, weight: .bold))
+                            .foregroundStyle(accent.opacity(compact ? 0.72 : 0.86))
+                            .fixedSize(horizontal: true, vertical: false)
+                        Text(reference.value)
+                            .font(.system(size: compact ? 10.5 : 11, weight: .medium))
+                            .foregroundStyle(.white.opacity(compact ? 0.48 : 0.54))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+            .padding(.top, compact ? 1 : 3)
+        }
+    }
+
+    private func tuningReferences(for proposal: AIEqualizerProposal) -> [AIEqualizerTuningReference] {
+        var references: [AIEqualizerTuningReference] = []
+        if let artist = proposal.artistStyleReference?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !artist.isEmpty {
+            references.append(
+                AIEqualizerTuningReference(
+                    id: "artist",
+                    title: String(localized: "ai_lab_artist_reference"),
+                    value: artist
+                )
+            )
+        }
+        if let vocal = proposal.vocalCharacterReference?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !vocal.isEmpty {
+            references.append(
+                AIEqualizerTuningReference(
+                    id: "vocal",
+                    title: String(localized: "ai_lab_vocal_reference"),
+                    value: vocal
+                )
+            )
+        }
+        return references
     }
 
     private func erasedProposalDisclosure(
@@ -1995,6 +2102,12 @@ private struct AIEqualizerComparisonChange: Identifiable {
     let delta: Float
 }
 
+private struct AIEqualizerTuningReference: Identifiable {
+    let id: String
+    let title: String
+    let value: String
+}
+
 private struct AIEqualizerProposalComparisonView: View {
     let current: AIEqualizerProposal?
     let historical: AIEqualizerSavedProposal
@@ -2010,9 +2123,13 @@ private struct AIEqualizerProposalComparisonView: View {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 18) {
                     VStack(alignment: .leading, spacing: 6) {
+                        Text(historical.proposal.resolvedTuningProfile.title)
+                            .font(.system(size: 10.5, weight: .bold))
+                            .foregroundStyle(accent)
                         Text(historical.proposal.profileName)
                             .font(.system(size: 22, weight: .bold))
                             .foregroundStyle(.white)
+                            .fixedSize(horizontal: false, vertical: true)
                         Text(String(localized: "ai_lab_compare_subtitle"))
                             .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(.white.opacity(0.52))
@@ -2066,18 +2183,25 @@ private struct AIEqualizerProposalComparisonView: View {
         HStack(spacing: 8) {
             comparisonLegend(
                 title: String(localized: "ai_lab_current_result"),
+                profile: current.resolvedTuningProfile.title,
                 value: current.profileName,
                 color: accent
             )
             comparisonLegend(
                 title: String(localized: "ai_lab_previous_result"),
+                profile: previous.resolvedTuningProfile.title,
                 value: previous.profileName,
                 color: .white.opacity(0.46)
             )
         }
     }
 
-    private func comparisonLegend(title: String, value: String, color: Color) -> some View {
+    private func comparisonLegend(
+        title: String,
+        profile: String,
+        value: String,
+        color: Color
+    ) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 5) {
                 Circle().fill(color).frame(width: 6, height: 6)
@@ -2085,10 +2209,13 @@ private struct AIEqualizerProposalComparisonView: View {
                     .font(.system(size: 10.5, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.5))
             }
+            Text(profile)
+                .font(.system(size: 9.5, weight: .bold))
+                .foregroundStyle(color)
             Text(value)
                 .font(.system(size: 13, weight: .bold))
                 .foregroundStyle(.white)
-                .lineLimit(1)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
@@ -2477,7 +2604,7 @@ private struct AIEqualizerProcessVisualizer: View {
     let measuredBands: [Float]
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @ObservedObject private var performance = CinemaPerformanceGovernor.shared
+    @ObservedObject private var performance = AriaPerformanceGovernor.shared
 
     private var animationFramesPerSecond: Int {
         switch performance.tier {

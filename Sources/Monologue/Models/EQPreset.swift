@@ -254,7 +254,19 @@ struct EQPreset: Identifiable, Codable, Equatable {
                 exciter: (0.2, 5_500),
                 finalCeiling: -1.2
             )
-        case "vocal_enhance", "male_vocal", "podcast", "karaoke_clear", "speech_bright", "live_mc", "audiobook", "anime_dialogue", "surround_vocal", "surround_dialogue_dome":
+        case "vocal_enhance":
+            // Keep the vocal lift in the graphic curve. Adding a low-frequency
+            // tone cut, compressor makeup and a 3.8 kHz exciter on top of that
+            // made dense masters sound grainy and could expose codec crackle on
+            // Bluetooth. This profile retains presence without synthesizing
+            // another layer of upper-mid harmonics.
+            return Self.profile(
+                bass: -0.2,
+                treble: 0.1,
+                compressor: (-18, 1.3, 24, 220, 0),
+                finalCeiling: -1.5
+            )
+        case "male_vocal", "podcast", "karaoke_clear", "speech_bright", "live_mc", "audiobook", "anime_dialogue", "surround_vocal", "surround_dialogue_dome":
             return Self.profile(
                 bass: -0.3,
                 treble: 0.25,

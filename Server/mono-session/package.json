@@ -1,0 +1,8 @@
+{
+  "name": "mono-session-server",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "ws": "^8.18.3"
+  }
+}

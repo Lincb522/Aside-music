@@ -85,7 +85,7 @@ struct LocalPlaylistDetailView: View {
         } else if NeumorphicStyle.isActive {
             ThemeRenderBackdrop(theme: .neumorphic)
         } else if SignalStyle.isActive {
-            ThemeRenderBackdrop(theme: .signal)
+            ThemeRenderBackdrop(theme: .default)
         } else if SequoiaStyle.isActive {
             SequoiaRootBackdrop()
         } else if CapsuleStyle.isActive {

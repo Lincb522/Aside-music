@@ -211,6 +211,10 @@ public final class EQFilter {
 
     private var targetPreampDB: Float = 0
     private var currentPreampDB: Float = 0
+    private var preampRampStartDB: Float = 0
+    private var preampRampProcessedFrames = 0
+    private var preampRampTotalFrames = 0
+    private var preampRampPending = false
     private var lastSampleRate: Float = 44_100
 
     public init() {}
@@ -224,6 +228,17 @@ public final class EQFilter {
     public func setGraphicMode(_ mode: GraphicEQMode, gains: [Float]? = nil) {
         lock.lock()
         let previousMode = graphicMode
+        if mode == previousMode {
+            if let gains {
+                let sourceMode: GraphicEQMode =
+                    gains.count == GraphicEQMode.thirtyTwoBand.bandCount
+                        ? .thirtyTwoBand
+                        : .tenBand
+                userGains = mode.resampledGains(gains, from: sourceMode)
+            }
+            lock.unlock()
+            return
+        }
         let previousUserGains = userGains
         let previousCalibrationGains = calibrationGains
         let previousAdaptiveGains = adaptiveGains
@@ -310,15 +325,44 @@ public final class EQFilter {
 
     public func setPreampDB(_ gainDB: Float) {
         lock.lock()
-        targetPreampDB = min(max(gainDB, -24), 6)
+        let target = min(max(gainDB, -24), 6)
+        if abs(target - targetPreampDB) > 0.002 {
+            targetPreampDB = target
+            preampRampPending = true
+        }
         lock.unlock()
     }
 
     public func setParametricBands(_ bands: [ParametricEQBand]) {
         lock.lock()
         let previous = parametricBands
+        var reusedIDs = Set<UUID>()
         parametricBands = bands.prefix(12).map { configuration in
-            if var runtime = previous.first(where: { $0.configuration.id == configuration.id }) {
+            let exact = previous.first {
+                $0.configuration.id == configuration.id
+                    && !reusedIDs.contains($0.configuration.id)
+            }
+            let nearest = previous
+                .filter {
+                    !reusedIDs.contains($0.configuration.id)
+                        && $0.configuration.type == configuration.type
+                }
+                .map {
+                    (
+                        runtime: $0,
+                        distance: abs(
+                            log2f(
+                                max(configuration.frequency, 1)
+                                    / max($0.configuration.frequency, 1)
+                            )
+                        )
+                    )
+                }
+                .filter { $0.distance < 0.18 }
+                .min { $0.distance < $1.distance }?
+                .runtime
+            if var runtime = exact ?? nearest {
+                reusedIDs.insert(runtime.configuration.id)
                 runtime.configuration = configuration
                 return runtime
             }
@@ -331,8 +375,30 @@ public final class EQFilter {
         lock.lock()
         dynamicEQEnabled = enabled
         let previous = dynamicBands
+        var reusedIDs = Set<UUID>()
         dynamicBands = bands.prefix(8).map { configuration in
-            if var runtime = previous.first(where: { $0.configuration.id == configuration.id }) {
+            let exact = previous.first {
+                $0.configuration.id == configuration.id
+                    && !reusedIDs.contains($0.configuration.id)
+            }
+            let nearest = previous
+                .filter { !reusedIDs.contains($0.configuration.id) }
+                .map {
+                    (
+                        runtime: $0,
+                        distance: abs(
+                            log2f(
+                                max(configuration.frequency, 1)
+                                    / max($0.configuration.frequency, 1)
+                            )
+                        )
+                    )
+                }
+                .filter { $0.distance < 0.18 }
+                .min { $0.distance < $1.distance }?
+                .runtime
+            if var runtime = exact ?? nearest {
+                reusedIDs.insert(runtime.configuration.id)
                 runtime.configuration = configuration
                 return runtime
             }
@@ -355,6 +421,10 @@ public final class EQFilter {
         resetGraphicRuntime(count: graphicMode.bandCount)
         targetPreampDB = 0
         currentPreampDB = 0
+        preampRampStartDB = 0
+        preampRampProcessedFrames = 0
+        preampRampTotalFrames = 0
+        preampRampPending = false
         resetRuntimeStates()
         lock.unlock()
     }
@@ -381,7 +451,12 @@ public final class EQFilter {
         processParametricEQ(data, frames: frameCount, channels: channelCount, sampleRate: sampleRate)
         processDynamicEQ(data, frames: frameCount, channels: channelCount, sampleRate: sampleRate)
         processMultibandDynamics(data, frames: frameCount, channels: channelCount, sampleRate: sampleRate)
-        applyPreamp(data, sampleCount: frameCount * channelCount)
+        applyPreamp(
+            data,
+            frameCount: frameCount,
+            channelCount: channelCount,
+            sampleRate: sampleRate
+        )
         return buffer
     }
 
@@ -595,22 +670,54 @@ public final class EQFilter {
         }
     }
 
-    private func applyPreamp(_ data: UnsafeMutablePointer<Float>, sampleCount: Int) {
-        let start = currentPreampDB
-        let end = abs(targetPreampDB - start) < 0.002
-            ? targetPreampDB
-            : start + (targetPreampDB - start) * 0.12
-        guard abs(start) > 0.000_1 || abs(end) > 0.000_1 else {
-            currentPreampDB = end
+    private func applyPreamp(
+        _ data: UnsafeMutablePointer<Float>,
+        frameCount: Int,
+        channelCount: Int,
+        sampleRate: Float
+    ) {
+        if preampRampPending {
+            preampRampStartDB = currentPreampDB
+            preampRampProcessedFrames = 0
+            preampRampTotalFrames = max(1, Int(sampleRate * 0.32))
+            preampRampPending = false
+        }
+
+        let isRamping = preampRampProcessedFrames < preampRampTotalFrames
+        if !isRamping {
+            currentPreampDB = targetPreampDB
+            guard abs(currentPreampDB) > 0.000_1 else { return }
+            let gain = powf(10, currentPreampDB / 20)
+            for index in 0..<(frameCount * channelCount) {
+                data[index] *= gain
+            }
             return
         }
-        let denominator = Float(max(sampleCount - 1, 1))
-        for index in 0..<sampleCount {
-            let progress = Float(index) / denominator
-            let gainDB = start + (end - start) * progress
-            data[index] *= powf(10, gainDB / 20)
+
+        for frame in 0..<frameCount {
+            let progressed = min(
+                preampRampTotalFrames,
+                preampRampProcessedFrames + frame + 1
+            )
+            let progress = Float(progressed) / Float(preampRampTotalFrames)
+            let eased = progress * progress * (3 - 2 * progress)
+            let gainDB = preampRampStartDB
+                + (targetPreampDB - preampRampStartDB) * eased
+            let gain = powf(10, gainDB / 20)
+            let baseIndex = frame * channelCount
+            for channel in 0..<channelCount {
+                data[baseIndex + channel] *= gain
+            }
         }
-        currentPreampDB = end
+        preampRampProcessedFrames = min(
+            preampRampTotalFrames,
+            preampRampProcessedFrames + frameCount
+        )
+        let progress = Float(preampRampProcessedFrames)
+            / Float(preampRampTotalFrames)
+        let eased = progress * progress * (3 - 2 * progress)
+        currentPreampDB = preampRampStartDB
+            + (targetPreampDB - preampRampStartDB) * eased
     }
 
     private func processBiquad(

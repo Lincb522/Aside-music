@@ -832,7 +832,7 @@ extension MonologueIcon.IconType {
 
 extension MonologueIcon.IconType {
     /// 位图图标包的资源 id。
-    /// 沉浸模式改用「mv」视频图标（各包原有的 immersive 资源为放大箭头样式，与影院沉浸含义不符）。
+    /// 沉浸模式改用「mv」视频图标（各包原有的 immersive 资源为放大箭头样式，与当前沉浸模式含义不符）。
     private var bitmapIconId: String {
         switch self {
         case .immersive: return "mv"

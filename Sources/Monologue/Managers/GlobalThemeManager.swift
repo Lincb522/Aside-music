@@ -29,7 +29,7 @@ final class GlobalThemeManager: ObservableObject {
     }
 
     func provider(for id: GlobalThemeId) -> GlobalThemeProvider {
-        Self.makeProvider(for: GlobalThemeId.resolveRemovedTheme(id))
+        Self.makeProvider(for: id)
     }
 
     // MARK: - Token 快捷访问
@@ -83,22 +83,14 @@ final class GlobalThemeManager: ObservableObject {
         case .capsule: return CapsuleThemeProvider()
         case .petWhite: return PetWhiteThemeProvider()
         case .minimalWhite: return MinimalWhiteThemeProvider()
-        case .pureWhite: return DefaultThemeProvider()
-        case .material3Expressive: return DefaultThemeProvider()
-        case .bento: return DefaultThemeProvider()
-        case .sequoia: return DefaultThemeProvider()
-        case .liquidGlass: return DefaultThemeProvider()
-        case .clay: return DefaultThemeProvider()
-        case .signal: return DefaultThemeProvider()
         }
     }
 
     // MARK: - 切换
 
     func switchTheme(to id: GlobalThemeId) {
-        let resolvedId = GlobalThemeId.resolveRemovedTheme(id)
-        guard resolvedId != currentThemeId else { return }
-        currentThemeId = resolvedId
+        guard id != currentThemeId else { return }
+        currentThemeId = id
     }
 
     func refreshCurrentThemeTokens() {

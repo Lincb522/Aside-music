@@ -16,6 +16,12 @@ final class AIProviderConfigurationStore: ObservableObject {
         static let dailyRequestLimit = "ai.eq.usage.daily-limit"
         static let hourlyRequestLimit = "ai.eq.usage.hourly-limit"
         static let minimumRequestInterval = "ai.eq.usage.minimum-interval"
+        static let cachedRemoteConfiguration = "ai.eq.remote.configuration"
+        /// Keychain 条目：云端分发的 API key 永不落 UserDefaults 明文。
+        static let remoteAPIKey = "ai.eq.remote.api-key"
+        static let remoteLastFetchedAt = "ai.eq.remote.last-fetched-at"
+        static let distributionEnabled = "ai.eq.remote.distribution-enabled"
+        static let tokenAdminCredential = "ai.eq.remote.token-admin-credential"
     }
 
     @Published var wireProtocol: AIWireProtocol {
@@ -33,9 +39,18 @@ final class AIProviderConfigurationStore: ObservableObject {
     @Published var dailyRequestLimit: Int { didSet { saveIfReady() } }
     @Published var hourlyRequestLimit: Int { didSet { saveIfReady() } }
     @Published var minimumRequestInterval: Double { didSet { saveIfReady() } }
+    @Published var distributionEnabled: Bool { didSet { saveIfReady() } }
+    @Published var tokenAdminCredential: String { didSet { saveAdminCredentialIfReady() } }
+    @Published private(set) var remoteConfiguration: AIRemoteAIConfiguration?
+    @Published private(set) var publishedConfiguration: AIAdminProviderConfiguration?
+    @Published private(set) var remoteLastFetchedAt: Date?
+    @Published private(set) var remoteError: String?
+    @Published private(set) var isRefreshingRemoteConfiguration = false
+    @Published private(set) var isPublishingRemoteConfiguration = false
 
     private var isReady = false
     private var isLoadingAPIKey = false
+    private var isLoadingAdminCredential = false
 
     private init() {
         let defaults = UserDefaults.standard
@@ -44,8 +59,13 @@ final class AIProviderConfigurationStore: ObservableObject {
             .flatMap(AIWireProtocol.init(rawValue:)) ?? builtInProtocol
         let initialBaseURL = defaults.object(forKey: Keys.baseURL) as? String
             ?? Self.defaultBaseURL(for: selectedProtocol)
-        let initialModel = defaults.object(forKey: Keys.model) as? String
+        let storedModel = defaults.object(forKey: Keys.model) as? String
             ?? Self.defaultModel(for: selectedProtocol)
+        let initialModel = Self.normalizedModel(
+            storedModel,
+            wireProtocol: selectedProtocol,
+            baseURL: initialBaseURL
+        )
         let initialModelDiscoveryURL = defaults.object(forKey: Keys.modelDiscoveryURL) as? String ?? ""
         let savedTimeout = defaults.double(forKey: Keys.timeout)
         let initialTimeout = savedTimeout > 0 ? savedTimeout : 45
@@ -56,6 +76,8 @@ final class AIProviderConfigurationStore: ObservableObject {
             ?? KeychainHelper.loadString(key: Keys.legacyAPIKey)
             ?? (hasExplicitKeyOverride ? nil : Self.bundledAPIKey(for: selectedProtocol))
             ?? ""
+        let initialRemoteConfiguration = Self.loadCachedRemoteConfiguration(defaults: defaults)
+        let initialAdminCredential = KeychainHelper.loadString(key: Keys.tokenAdminCredential) ?? ""
 
         wireProtocol = selectedProtocol
         baseURL = initialBaseURL
@@ -67,6 +89,14 @@ final class AIProviderConfigurationStore: ObservableObject {
         dailyRequestLimit = defaults.object(forKey: Keys.dailyRequestLimit) as? Int ?? 50
         hourlyRequestLimit = defaults.object(forKey: Keys.hourlyRequestLimit) as? Int ?? 20
         minimumRequestInterval = defaults.object(forKey: Keys.minimumRequestInterval) as? Double ?? 15
+        distributionEnabled = defaults.object(forKey: Keys.distributionEnabled) as? Bool
+            ?? initialRemoteConfiguration?.enabled
+            ?? true
+        tokenAdminCredential = initialAdminCredential
+        remoteConfiguration = initialRemoteConfiguration
+        publishedConfiguration = nil
+        remoteLastFetchedAt = defaults.object(forKey: Keys.remoteLastFetchedAt) as? Date
+        remoteError = nil
         isReady = true
 
         if providerKey == nil, !initialKey.isEmpty {
@@ -78,14 +108,56 @@ final class AIProviderConfigurationStore: ObservableObject {
         AIProviderConfiguration(
             wireProtocol: wireProtocol,
             baseURL: baseURL,
-            model: model,
+            model: Self.normalizedModel(
+                model,
+                wireProtocol: wireProtocol,
+                baseURL: baseURL
+            ),
             modelDiscoveryURL: modelDiscoveryURL,
             timeout: min(120, max(10, timeout)),
             customHeadersJSON: customHeadersJSON
         )
     }
 
+    var requestConfiguration: AIProviderConfiguration {
+        guard let remote = activeRemoteConfiguration else { return configuration }
+        let local = configuration
+        let usesMatchingLocalProtocol = local.wireProtocol == remote.wireProtocol
+        let remoteBaseURL = remote.baseURL
+            ?? (usesMatchingLocalProtocol ? local.baseURL : Self.defaultBaseURL(for: remote.wireProtocol))
+        return AIProviderConfiguration(
+            wireProtocol: remote.wireProtocol,
+            baseURL: remoteBaseURL,
+            model: Self.normalizedModel(
+                remote.model,
+                wireProtocol: remote.wireProtocol,
+                baseURL: remoteBaseURL
+            ),
+            modelDiscoveryURL: remote.modelDiscoveryURL
+                ?? (usesMatchingLocalProtocol ? local.modelDiscoveryURL : ""),
+            timeout: remote.timeout,
+            customHeadersJSON: remote.customHeadersJSON
+                ?? (usesMatchingLocalProtocol ? local.customHeadersJSON : "")
+        )
+    }
+
+    var requestAPIKey: String {
+        guard let remote = activeRemoteConfiguration else { return apiKey }
+        if remote.wireProtocol == .appleIntelligence { return "" }
+        if let remoteAPIKey = remote.apiKey { return remoteAPIKey }
+        return remote.wireProtocol == wireProtocol
+            ? apiKey
+            : (Self.bundledAPIKey(for: remote.wireProtocol) ?? "")
+    }
+
     var usageLimits: AIUsageLimits {
+        if let remote = activeRemoteConfiguration {
+            return remote.usageLimits
+        }
+        return draftUsageLimits
+    }
+
+    var draftUsageLimits: AIUsageLimits {
         AIUsageLimits(
             dailyRequestLimit: min(10_000, max(0, dailyRequestLimit)),
             hourlyRequestLimit: min(1_000, max(0, hourlyRequestLimit)),
@@ -94,6 +166,108 @@ final class AIProviderConfigurationStore: ObservableObject {
     }
 
     var displayModel: String { configuration.resolvedModel }
+
+    var isUsingRemoteConfiguration: Bool {
+        activeRemoteConfiguration != nil
+    }
+
+    var remoteRevision: String? {
+        remoteConfiguration?.revision
+    }
+
+    /// AI 请求优先使用现有云端快照或本地配置，配置更新在后台完成，
+    /// 避免分发服务短暂不可达时阻塞真正的模型请求。
+    func refreshRemoteConfigurationInBackgroundIfNeeded(force: Bool = false) {
+        Task { [weak self] in
+            await self?.refreshRemoteConfigurationIfNeeded(force: force)
+        }
+    }
+
+    func refreshRemoteConfigurationIfNeeded(force: Bool = false) async {
+        guard let token = SecureConfig.apiToken?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !token.isEmpty else {
+            return
+        }
+        if !force,
+           let remoteLastFetchedAt,
+           Date().timeIntervalSince(remoteLastFetchedAt) < 15 * 60 {
+            return
+        }
+        guard !isRefreshingRemoteConfiguration else { return }
+        guard let url = Self.tokenAdminURL(path: "/_admin/api/public/ai/config") else {
+            remoteError = String(localized: "ai_provider_remote_invalid_endpoint")
+            return
+        }
+
+        isRefreshingRemoteConfiguration = true
+        remoteError = nil
+        defer { isRefreshingRemoteConfiguration = false }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 20
+        request.setValue(token, forHTTPHeaderField: "X-Api-Token")
+        request.setValue(DeviceIdentifier.uuid, forHTTPHeaderField: "X-Device-ID")
+        if let revision = remoteConfiguration?.revision, !revision.isEmpty {
+            request.setValue("\"\(revision)\"", forHTTPHeaderField: "If-None-Match")
+        }
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
+            if http.statusCode == 304 {
+                persistRemoteFetchDate(Date())
+                return
+            }
+            guard (200...299).contains(http.statusCode) else {
+                if http.statusCode == 401 || http.statusCode == 403 {
+                    remoteConfiguration = nil
+                    persistRemoteConfiguration(nil)
+                }
+                throw Self.remoteError(from: data, statusCode: http.statusCode)
+            }
+
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            let value = try decoder.decode(AIRemoteAIConfiguration.self, from: data)
+            remoteConfiguration = value
+            persistRemoteConfiguration(value)
+            persistRemoteFetchDate(Date())
+        } catch {
+            remoteError = error.localizedDescription
+            AppLogger.warning("[AIProviderRemote] 配置拉取失败: \(error.localizedDescription)")
+        }
+    }
+
+    func fetchPublishedConfiguration() async throws {
+        let value = try await performAdminConfigurationRequest(method: "GET", body: nil)
+        publishedConfiguration = value
+        applyAdminConfiguration(value)
+        updateCachedRemoteConfiguration(from: value)
+    }
+
+    func publishDraftConfiguration() async throws {
+        let expectedRevision: String?
+        if let revision = remoteConfiguration?.revision, revision != "unpublished" {
+            expectedRevision = revision
+        } else {
+            expectedRevision = nil
+        }
+        let update = AIAdminProviderConfigurationUpdate(
+            enabled: distributionEnabled,
+            expectedRevision: expectedRevision,
+            configuration: configuration,
+            apiKey: apiKey.trimmingCharacters(in: .whitespacesAndNewlines),
+            usageLimits: draftUsageLimits
+        )
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let body = try encoder.encode(update)
+        let value = try await performAdminConfigurationRequest(method: "PUT", body: body)
+        publishedConfiguration = value
+        applyAdminConfiguration(value)
+        updateCachedRemoteConfiguration(from: value)
+    }
 
     func useProtocolDefaults() {
         baseURL = Self.defaultBaseURL(for: wireProtocol)
@@ -135,6 +309,7 @@ final class AIProviderConfigurationStore: ObservableObject {
         dailyRequestLimit = 50
         hourlyRequestLimit = 20
         minimumRequestInterval = 15
+        distributionEnabled = true
     }
 
     private func saveIfReady() {
@@ -149,6 +324,134 @@ final class AIProviderConfigurationStore: ObservableObject {
         defaults.set(min(10_000, max(0, dailyRequestLimit)), forKey: Keys.dailyRequestLimit)
         defaults.set(min(1_000, max(0, hourlyRequestLimit)), forKey: Keys.hourlyRequestLimit)
         defaults.set(min(3_600, max(0, minimumRequestInterval)), forKey: Keys.minimumRequestInterval)
+        defaults.set(distributionEnabled, forKey: Keys.distributionEnabled)
+    }
+
+    private var activeRemoteConfiguration: AIRemoteAIConfiguration? {
+        guard let remoteConfiguration,
+              remoteConfiguration.enabled,
+              OnlineAccessManager.shared.canUseOnlineFeatures,
+              !(SecureConfig.apiToken ?? "").isEmpty else {
+            return nil
+        }
+        return remoteConfiguration
+    }
+
+    private func performAdminConfigurationRequest(
+        method: String,
+        body: Data?
+    ) async throws -> AIAdminProviderConfiguration {
+        let credential = tokenAdminCredential.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !credential.isEmpty else {
+            throw AIProviderRemoteConfigurationError.missingAdminCredential
+        }
+        guard let url = Self.tokenAdminURL(path: "/_admin/api/ai/config") else {
+            throw AIProviderRemoteConfigurationError.invalidEndpoint
+        }
+
+        isPublishingRemoteConfiguration = method == "PUT"
+        isRefreshingRemoteConfiguration = method == "GET"
+        remoteError = nil
+        defer {
+            isPublishingRemoteConfiguration = false
+            isRefreshingRemoteConfiguration = false
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.timeoutInterval = 30
+        request.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
+        request.setValue(credential, forHTTPHeaderField: "X-Admin-Token")
+        request.httpBody = body
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
+            guard (200...299).contains(http.statusCode) else {
+                throw Self.remoteError(from: data, statusCode: http.statusCode)
+            }
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            return try decoder.decode(AIAdminProviderConfiguration.self, from: data)
+        } catch {
+            remoteError = error.localizedDescription
+            throw error
+        }
+    }
+
+    private func applyAdminConfiguration(_ value: AIAdminProviderConfiguration) {
+        wireProtocol = value.wireProtocol
+        baseURL = value.baseURL
+        model = Self.normalizedModel(
+            value.model,
+            wireProtocol: value.wireProtocol,
+            baseURL: value.baseURL
+        )
+        modelDiscoveryURL = value.modelDiscoveryURL
+        timeout = value.timeout
+        customHeadersJSON = value.customHeadersJSON
+        apiKey = value.apiKey
+        dailyRequestLimit = value.usageLimits.dailyRequestLimit
+        hourlyRequestLimit = value.usageLimits.hourlyRequestLimit
+        minimumRequestInterval = value.usageLimits.minimumRequestInterval
+        distributionEnabled = value.enabled
+    }
+
+    private func updateCachedRemoteConfiguration(from value: AIAdminProviderConfiguration) {
+        let remote = AIRemoteAIConfiguration(
+            schemaVersion: value.schemaVersion,
+            enabled: value.enabled,
+            wireProtocol: value.wireProtocol,
+            baseURL: value.baseURL,
+            model: value.model,
+            modelDiscoveryURL: value.modelDiscoveryURL,
+            timeout: value.timeout,
+            customHeadersJSON: value.customHeadersJSON,
+            apiKey: value.apiKey,
+            usageLimits: value.usageLimits,
+            revision: value.revision,
+            updatedAt: value.updatedAt
+        )
+        remoteConfiguration = remote
+        persistRemoteConfiguration(remote)
+        persistRemoteFetchDate(Date())
+    }
+
+    private func saveAdminCredentialIfReady() {
+        guard isReady, !isLoadingAdminCredential else { return }
+        let normalized = tokenAdminCredential.trimmingCharacters(in: .whitespacesAndNewlines)
+        if normalized.isEmpty {
+            KeychainHelper.delete(key: Keys.tokenAdminCredential)
+        } else {
+            KeychainHelper.save(key: Keys.tokenAdminCredential, value: normalized)
+        }
+    }
+
+    private func persistRemoteConfiguration(_ value: AIRemoteAIConfiguration?) {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        if let value {
+            // key 单独进 Keychain，UserDefaults 只保留脱敏配置。
+            if let remoteKey = value.apiKey?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !remoteKey.isEmpty {
+                KeychainHelper.save(key: Keys.remoteAPIKey, value: remoteKey)
+            } else {
+                KeychainHelper.delete(key: Keys.remoteAPIKey)
+            }
+            var sanitized = value
+            sanitized.apiKey = nil
+            if let data = try? encoder.encode(sanitized) {
+                UserDefaults.standard.set(data, forKey: Keys.cachedRemoteConfiguration)
+            }
+        } else {
+            KeychainHelper.delete(key: Keys.remoteAPIKey)
+            UserDefaults.standard.removeObject(forKey: Keys.cachedRemoteConfiguration)
+        }
+    }
+
+    private func persistRemoteFetchDate(_ date: Date) {
+        remoteLastFetchedAt = date
+        UserDefaults.standard.set(date, forKey: Keys.remoteLastFetchedAt)
     }
 
     private func saveKeyIfReady() {
@@ -179,6 +482,48 @@ final class AIProviderConfigurationStore: ObservableObject {
         "ai.eq.provider.api-key.\(wireProtocol.rawValue)"
     }
 
+    private static func loadCachedRemoteConfiguration(defaults: UserDefaults) -> AIRemoteAIConfiguration? {
+        guard let data = defaults.data(forKey: Keys.cachedRemoteConfiguration) else { return nil }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        guard var value = try? decoder.decode(AIRemoteAIConfiguration.self, from: data) else { return nil }
+        if let plaintextKey = value.apiKey?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !plaintextKey.isEmpty {
+            // 旧版本把 key 明文留在 UserDefaults：迁入 Keychain 并重写脱敏副本。
+            KeychainHelper.save(key: Keys.remoteAPIKey, value: plaintextKey)
+            var sanitized = value
+            sanitized.apiKey = nil
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            if let sanitizedData = try? encoder.encode(sanitized) {
+                defaults.set(sanitizedData, forKey: Keys.cachedRemoteConfiguration)
+            }
+        } else {
+            value.apiKey = KeychainHelper.loadString(key: Keys.remoteAPIKey)
+        }
+        return value
+    }
+
+    private static func tokenAdminURL(path: String) -> URL? {
+        guard var components = URLComponents(string: SecureConfig.apiBaseURL) else { return nil }
+        let currentPath = components.path
+        components.path = currentPath.hasSuffix("/")
+            ? "\(currentPath)\(path.dropFirst())"
+            : "\(currentPath)\(path)"
+        components.query = nil
+        components.fragment = nil
+        return components.url
+    }
+
+    private static func remoteError(from data: Data, statusCode: Int) -> Error {
+        if let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let message = object["error"] as? String,
+           !message.isEmpty {
+            return AIProviderRemoteConfigurationError.server(message, statusCode)
+        }
+        return AIProviderRemoteConfigurationError.httpStatus(statusCode)
+    }
+
     private static func apiKeyOverrideStorageKey(for wireProtocol: AIWireProtocol) -> String {
         "ai.eq.provider.api-key-overridden.\(wireProtocol.rawValue)"
     }
@@ -198,6 +543,20 @@ final class AIProviderConfigurationStore: ObservableObject {
         return bundleString("AI_PROVIDER_MODEL") ?? ""
     }
 
+    private static func normalizedModel(
+        _ model: String,
+        wireProtocol: AIWireProtocol,
+        baseURL: String
+    ) -> String {
+        let normalized = model.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard wireProtocol == .openAICompatible,
+              URLComponents(string: baseURL)?.host?.lowercased() == "dengdeng.ganiran.com",
+              normalized.isEmpty || normalized == "gpt-5-mini" else {
+            return model
+        }
+        return bundleString("AI_PROVIDER_MODEL") ?? AIWireProtocol.openAICompatible.defaultModel
+    }
+
     private static func bundledAPIKey(for wireProtocol: AIWireProtocol) -> String? {
         guard wireProtocol == builtInProtocol else { return nil }
         return bundleString("AI_PROVIDER_API_KEY")
@@ -208,5 +567,25 @@ final class AIProviderConfigurationStore: ObservableObject {
         let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalized.isEmpty, !normalized.hasPrefix("$(") else { return nil }
         return normalized
+    }
+}
+
+private enum AIProviderRemoteConfigurationError: LocalizedError {
+    case missingAdminCredential
+    case invalidEndpoint
+    case httpStatus(Int)
+    case server(String, Int)
+
+    var errorDescription: String? {
+        switch self {
+        case .missingAdminCredential:
+            return String(localized: "ai_provider_remote_missing_admin_token")
+        case .invalidEndpoint:
+            return String(localized: "ai_provider_remote_invalid_endpoint")
+        case let .httpStatus(code):
+            return String(format: String(localized: "ai_provider_remote_http_error_format"), code)
+        case let .server(message, _):
+            return message
+        }
     }
 }

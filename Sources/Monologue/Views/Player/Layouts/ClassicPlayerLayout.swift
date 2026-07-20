@@ -187,7 +187,7 @@ struct ClassicPlayerLayout: View {
 
         }
         .fullScreenCover(isPresented: $showEQSettings) {
-            NavigationStack { EQSettingsView() }
+            NavigationStack { MonoAudioCenterView() }
 
         }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker){
@@ -1471,7 +1471,7 @@ struct ClassicPlayerLayout: View {
             } else {
                 // 沉浸模式按钮 — 占用原下载按钮的位置
                 neumorphicUtilityButton(icon: .immersive, tint: NeumorphicStyle.warm) {
-                    CinemaModeController.shared.present()
+                    ImmersiveModeController.shared.present()
                 }
             }
         }
@@ -1732,7 +1732,7 @@ struct ClassicPlayerLayout: View {
 
     private var capsuleImmersiveQuick: some View {
         Button {
-            CinemaModeController.shared.present()
+            ImmersiveModeController.shared.present()
         } label: {
             MonologueIcon(icon: .immersive, size: 16, color: CapsuleStyle.mint, lineWidth: 1.6)
                 .frame(width: 36, height: 36)
@@ -2210,7 +2210,7 @@ struct ClassicPlayerLayout: View {
             ThemeRenderBackdrop(theme: .capsule)
                 .ignoresSafeArea()
         } else if SequoiaStyle.isActive {
-            ThemeRenderBackdrop(theme: .sequoia)
+            ThemeRenderBackdrop(theme: .default)
                 .ignoresSafeArea()
         } else if ClayStyle.isActive {
             ClayRootBackdrop()
@@ -2796,7 +2796,7 @@ struct ClassicPlayerLayout: View {
                     } else {
                         // 沉浸模式按钮 — 占用原下载按钮的位置
                         Button {
-                            CinemaModeController.shared.present()
+                            ImmersiveModeController.shared.present()
                         } label: {
                             MonologueIcon(icon: .immersive, size: 22, color: secondaryContentColor, lineWidth: 1.4)
                                 .frame(width: 44, height: 44)

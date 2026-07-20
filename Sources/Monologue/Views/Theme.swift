@@ -114,13 +114,8 @@ extension Color {
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.accent }
         if MangaStyle.isActive { return MangaStyle.accentPink }
         if PetWhiteStyle.isActive { return PetWhiteStyle.accent }
-        if PureWhiteStyle.isActive { return PureWhiteStyle.accent }
         if MujiStyle.isActive { return MujiStyle.clay }
         if CapsuleStyle.isActive { return CapsuleStyle.accent }
-        if SequoiaStyle.isActive { return SequoiaStyle.accent }
-        if ClayStyle.isActive { return ClayStyle.accent }
-        if SignalStyle.isActive { return SignalStyle.accent }
-        if BentoStyle.isActive { return BentoStyle.tomato }
         return monologueDefaultAccent
     }
 
@@ -129,13 +124,8 @@ extension Color {
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.onAccent }
         if MangaStyle.isActive { return ThemeColorCustomization.readableForegroundColor(on: MangaStyle.accentPink, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk) }
         if PetWhiteStyle.isActive { return PetWhiteStyle.onAccent }
-        if PureWhiteStyle.isActive { return PureWhiteStyle.onAccent }
         if MujiStyle.isActive { return MujiStyle.onTint }
         if CapsuleStyle.isActive { return CapsuleStyle.onAccent }
-        if SequoiaStyle.isActive { return ThemeColorCustomization.accentForegroundColor(for: .sequoia) }
-        if ClayStyle.isActive { return ThemeColorCustomization.accentForegroundColor(for: .clay) }
-        if SignalStyle.isActive { return ThemeColorCustomization.accentForegroundColor(for: .signal) }
-        if BentoStyle.isActive { return ThemeColorCustomization.accentForegroundColor(for: .bento) }
         return ThemeColorCustomization.readableForegroundColor(on: monologueDefaultAccent, light: Color(hex: "111821"), dark: .white)
     }
     
@@ -144,13 +134,8 @@ extension Color {
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.accent }
         if MangaStyle.isActive { return MangaStyle.accentPink }
         if PetWhiteStyle.isActive { return PetWhiteStyle.accent }
-        if PureWhiteStyle.isActive { return PureWhiteStyle.accent }
         if MujiStyle.isActive { return MujiStyle.clay }
         if CapsuleStyle.isActive { return CapsuleStyle.accent }
-        if SequoiaStyle.isActive { return SequoiaStyle.accent }
-        if ClayStyle.isActive { return ClayStyle.accent }
-        if SignalStyle.isActive { return SignalStyle.accent }
-        if BentoStyle.isActive { return BentoStyle.tomato }
         return monologueDefaultAccent.opacity(0.9)
     }
     

@@ -31,8 +31,6 @@ struct ClassicFloatingBar: View {
             return 25
         case .minimalWhite:
             return 24
-        case .pureWhite:
-            return 24
         case .petWhite:
             return 24
         case .muji:
@@ -41,11 +39,7 @@ struct ClassicFloatingBar: View {
             return 28
         case .capsule:
             return 30
-        case .sequoia, .liquidGlass:
-            return 29
-        case .clay, .signal:
-            return 26
-        case .default, .bento, .material3Expressive:
+        case .default:
             return 28
         }
     }
@@ -68,8 +62,6 @@ struct ClassicFloatingBar: View {
             return MangaStyle.strokeInk.opacity(colorScheme == .dark ? 0.28 : 0.18)
         case .minimalWhite:
             return MinimalWhiteStyle.ink.opacity(0.075)
-        case .pureWhite:
-            return PureWhiteStyle.strokeInk.opacity(colorScheme == .dark ? 0.14 : 0.08)
         case .petWhite:
             return PetWhiteStyle.shadowInk.opacity(colorScheme == .dark ? 0.28 : 0.08)
         case .muji:
@@ -78,15 +70,7 @@ struct ClassicFloatingBar: View {
             return NeumorphicStyle.darkShadow(colorScheme, intensity: 0.55)
         case .capsule:
             return CapsuleStyle.accent.opacity(colorScheme == .dark ? 0.18 : 0.13)
-        case .sequoia:
-            return SequoiaStyle.shadow(colorScheme, elevated: true)
-        case .liquidGlass:
-            return LiquidGlassStyle.shadow(colorScheme, elevated: true)
-        case .clay:
-            return ClayStyle.ink.opacity(colorScheme == .dark ? 0.20 : 0.12)
-        case .signal:
-            return SignalStyle.ink.opacity(colorScheme == .dark ? 0.22 : 0.14)
-        case .default, .bento, .material3Expressive:
+        case .default:
             return Color.black.opacity(colorScheme == .dark ? 0.28 : 0.12)
         }
     }
@@ -97,8 +81,6 @@ struct ClassicFloatingBar: View {
             return MangaStyle.strokeInk.opacity(0.18)
         case .minimalWhite:
             return MinimalWhiteStyle.hairline
-        case .pureWhite:
-            return PureWhiteStyle.separator.opacity(0.86)
         case .petWhite:
             return PetWhiteStyle.separator.opacity(0.86)
         case .muji:
@@ -107,15 +89,7 @@ struct ClassicFloatingBar: View {
             return NeumorphicStyle.separator.opacity(colorScheme == .dark ? 0.46 : 0.34)
         case .capsule:
             return CapsuleStyle.separator.opacity(colorScheme == .dark ? 0.40 : 0.30)
-        case .sequoia:
-            return SequoiaStyle.separator.opacity(colorScheme == .dark ? 0.42 : 0.30)
-        case .liquidGlass:
-            return LiquidGlassStyle.separator.opacity(colorScheme == .dark ? 0.42 : 0.30)
-        case .clay:
-            return ClayStyle.separator.opacity(colorScheme == .dark ? 0.42 : 0.30)
-        case .signal:
-            return SignalStyle.separator.opacity(colorScheme == .dark ? 0.44 : 0.32)
-        case .default, .bento, .material3Expressive:
+        case .default:
             return Color.monologueSeparator.opacity(colorScheme == .dark ? 0.32 : 0.22)
         }
     }
@@ -206,24 +180,6 @@ struct ClassicFloatingBar: View {
                 .fill(.ultraThinMaterial)
                 .overlay(shape.fill(MinimalWhiteStyle.glassStrongFill))
                 .overlay(shape.stroke(MinimalWhiteStyle.separator, lineWidth: MinimalWhiteStyle.strokeWidth))
-        case .pureWhite:
-            shape
-                .fill(PureWhiteStyle.surfaceRaised.opacity(colorScheme == .dark ? 0.95 : 0.99))
-                .overlay(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(colorScheme == .dark ? 0.06 : 0.86),
-                            PureWhiteStyle.paperBlue.opacity(colorScheme == .dark ? 0.04 : 0.1),
-                            Color.clear,
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                    .clipShape(shape)
-                )
-                .overlay(
-                    shape.stroke(PureWhiteStyle.separator.opacity(colorScheme == .dark ? 0.72 : 0.96), lineWidth: 1)
-                )
         case .petWhite:
             PetWhiteFrostedFloatingSurface(
                 shape: shape,
@@ -267,24 +223,7 @@ struct ClassicFloatingBar: View {
                         )
                     )
                 )
-        case .sequoia:
-            shape
-                .fill(.thinMaterial)
-                .overlay(shape.fill(SequoiaStyle.materialFloating.opacity(colorScheme == .dark ? 0.78 : 0.58)))
-        case .liquidGlass:
-            shape
-                .fill(.ultraThinMaterial)
-                .overlay(shape.fill(LiquidGlassStyle.glassFloating.opacity(colorScheme == .dark ? 0.78 : 0.58)))
-        case .clay:
-            shape
-                .fill(ClayStyle.cream.opacity(colorScheme == .dark ? 0.92 : 0.86))
-        case .signal:
-            shape
-                .fill(SignalStyle.device.opacity(colorScheme == .dark ? 0.92 : 0.86))
-        case .bento:
-            shape
-                .fill(BentoStyle.surface.opacity(colorScheme == .dark ? 0.90 : 0.84))
-        case .default, .material3Expressive:
+        case .default:
             shape
                 .fill(settings.defaultThemeUsesLiquidGlassTabBar ? AnyShapeStyle(.ultraThinMaterial) : AnyShapeStyle(.regularMaterial))
                 .overlay(
@@ -321,9 +260,6 @@ struct ClassicFloatingBar: View {
                 } else if settings.globalThemeId == .minimalWhite {
                     dockShape
                         .stroke(MinimalWhiteStyle.separator, lineWidth: MinimalWhiteStyle.strokeWidth)
-                } else if settings.globalThemeId == .pureWhite {
-                    dockShape
-                        .stroke(PureWhiteStyle.separator.opacity(colorScheme == .dark ? 0.6 : 0.86), lineWidth: 1)
                 } else if settings.globalThemeId == .petWhite {
                     dockShape
                         .stroke(PetWhiteStyle.separator.opacity(colorScheme == .dark ? 0.6 : 0.86), lineWidth: 1)
@@ -342,8 +278,6 @@ struct ClassicFloatingBar: View {
             return MangaStyle.strokeInk.opacity(0.72)
         case .minimalWhite:
             return MinimalWhiteStyle.separator
-        case .pureWhite:
-            return PureWhiteStyle.separator.opacity(colorScheme == .dark ? 0.64 : 0.86)
         case .petWhite:
             return PetWhiteStyle.separator.opacity(colorScheme == .dark ? 0.64 : 0.86)
         case .muji:
@@ -352,15 +286,7 @@ struct ClassicFloatingBar: View {
             return NeumorphicStyle.separator.opacity(colorScheme == .dark ? 0.40 : 0.34)
         case .capsule:
             return CapsuleStyle.hairline.opacity(colorScheme == .dark ? 0.52 : 0.66)
-        case .sequoia:
-            return SequoiaStyle.luminousSeparator.opacity(colorScheme == .dark ? 0.28 : 0.44)
-        case .liquidGlass:
-            return LiquidGlassStyle.luminousEdge.opacity(colorScheme == .dark ? 0.28 : 0.46)
-        case .clay:
-            return ClayStyle.separator.opacity(colorScheme == .dark ? 0.34 : 0.42)
-        case .signal:
-            return SignalStyle.separator.opacity(colorScheme == .dark ? 0.38 : 0.46)
-        case .default, .bento, .material3Expressive:
+        case .default:
             return Color.white.opacity(colorScheme == .dark ? 0.12 : 0.52)
         }
     }
@@ -368,7 +294,7 @@ struct ClassicFloatingBar: View {
     private var dockStrokeWidth: CGFloat {
         if settings.globalThemeId == .manga { return 1.4 }
         if settings.globalThemeId == .minimalWhite { return MinimalWhiteStyle.strokeWidth }
-        if settings.globalThemeId == .pureWhite || settings.globalThemeId == .petWhite { return 1.0 }
+        if settings.globalThemeId == .petWhite { return 1.0 }
         return 0.85
     }
 
@@ -386,21 +312,6 @@ struct ClassicFloatingBar: View {
             .padding(.top, 6)
         case .minimalWhite:
             EmptyView()
-        case .pureWhite:
-            HStack(spacing: 6) {
-                Capsule()
-                    .fill(PureWhiteStyle.accent)
-                    .frame(width: 34, height: 4)
-                Capsule()
-                    .fill(PureWhiteStyle.separator)
-                    .frame(width: 18, height: 4)
-                Capsule()
-                    .fill(PureWhiteStyle.paperBlue.opacity(0.72))
-                    .frame(width: 22, height: 4)
-            }
-            .frame(width: 84, height: 8)
-            .padding(.leading, 18)
-            .padding(.top, 7)
         case .petWhite:
             EmptyView()
         case .capsule:
@@ -441,8 +352,6 @@ struct ClassicFloatingBar: View {
             return 0.78
         case .minimalWhite:
             return 0.8
-        case .pureWhite:
-            return 0.76
         case .petWhite:
             return 0.76
         case .capsule, .neumorphic:
@@ -458,13 +367,11 @@ struct ClassicFloatingBar: View {
             return 0
         case .minimalWhite:
             return 4
-        case .pureWhite:
-            return 6
         case .petWhite:
             return 6
         case .neumorphic:
             return 14
-        case .capsule, .sequoia, .liquidGlass:
+        case .capsule:
             return 13
         default:
             return 11
@@ -472,7 +379,7 @@ struct ClassicFloatingBar: View {
     }
 
     private var dockShadowY: CGFloat {
-        settings.globalThemeId == .manga ? -1 : ((settings.globalThemeId == .minimalWhite || settings.globalThemeId == .pureWhite || settings.globalThemeId == .petWhite) ? 0 : -3)
+        settings.globalThemeId == .manga ? -1 : ((settings.globalThemeId == .minimalWhite || settings.globalThemeId == .petWhite) ? 0 : -3)
     }
 }
 

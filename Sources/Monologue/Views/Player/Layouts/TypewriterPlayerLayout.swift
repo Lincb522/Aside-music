@@ -370,7 +370,7 @@ struct TypewriterPlayerLayout: View {
             )
         }
         .fullScreenCover(isPresented: $showEQSettings) {
-            NavigationStack { EQSettingsView() }
+            NavigationStack { MonoAudioCenterView() }
         }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker) {
             PlayerThemePickerSheet()
@@ -754,7 +754,7 @@ struct TypewriterPlayerLayout: View {
                         // 沉浸模式按键 — 占用原下载按键的位置
                         labelKey(text: "CINEMA", icon: .immersive) {
                             HapticManager.shared.light()
-                            CinemaModeController.shared.present()
+                            ImmersiveModeController.shared.present()
                         }
                     }
 

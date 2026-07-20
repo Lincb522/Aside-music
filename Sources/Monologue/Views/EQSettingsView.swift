@@ -6,17 +6,23 @@
 import SwiftUI
 import FFmpegSwiftSDK
 
+@MainActor
 struct EQSettingsView: View {
+    private let isEmbedded: Bool
     @StateObject private var eqManager = EQManager.shared
-    @StateObject private var aiAgent = AIEqualizerAgent.shared
     @ObservedObject private var player = PlayerManager.shared
     @ObservedObject private var settings = SettingsManager.shared
     @StateObject private var coverColors = CoverColorExtractor()
+    @Environment(\.monoSoundCenterLayout) private var centerLayout
     @State private var showSaveSheet = false
     @State private var customPresetName = ""
     @State private var isCustomEditingEnabled = false
     @State private var selectedWorkspace: EQSettingsWorkspace = .presets
     @Namespace private var workspaceSelectionNamespace
+
+    init(isEmbedded: Bool = false) {
+        self.isEmbedded = isEmbedded
+    }
     
     // 音效旋钮值（0~1 范围）
     @State private var bassValue: CGFloat = 0.5
@@ -67,45 +73,20 @@ struct EQSettingsView: View {
         .white.opacity(0.06)
     }
 
+    private var displayedPresetName: String {
+        guard eqManager.isEnabled else {
+            return NSLocalizedString("eq_original_output", comment: "")
+        }
+        guard !eqManager.isAIManagedPresetActive else {
+            return NSLocalizedString("eq_custom", comment: "")
+        }
+        return eqManager.currentPreset?.name ?? NSLocalizedString("eq_custom", comment: "")
+    }
+
     var body: some View {
         let _ = settings.globalThemeRevision
 
-        ZStack {
-            backdrop.ignoresSafeArea()
-
-            VStack(spacing: 0) {
-                EQImmersiveTrackHeader(
-                    pageTitle: String(localized: "eq_title"),
-                    accent: eqAccent
-                )
-                workspaceSwitcher
-                workspaceContent
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-        }
-        .compatFontDesign(nil)
-        .environment(\.colorScheme, .dark)
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
-        .toolbarBackground(.hidden, for: .navigationBar)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                MonologueToolbarBackButton()
-            }
-
-            if eqManager.isEnabled {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: resetAll) {
-                        Text(String(localized: "eq_reset"))
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(Color.monologueTextSecondary)
-                            .frame(height: 36)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
+        presentationRoot
         .monologueSheet(
             isPresented: $showSaveSheet,
             preset: .custom(height: .fixed(280), maxContentWidth: 520, showsHandle: false)
@@ -136,8 +117,24 @@ struct EQSettingsView: View {
         .animation(.easeOut(duration: 0.2), value: eqManager.isEnabled)
     }
 
+    private var presentationRoot: AnyView {
+        if isEmbedded {
+            return AnyView(
+                VStack(spacing: 0) {
+                    workspaceSwitcher
+                    workspaceContent
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                .compatFontDesign(nil)
+                .environment(\.colorScheme, .dark)
+            )
+        }
+
+        return AnyView(MonoAudioCenterView(initialWorkspace: .custom))
+    }
+
     private var workspaceSwitcher: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 12) {
             ForEach(EQSettingsWorkspace.allCases) { workspace in
                 let isAvailable = eqManager.isEnabled || workspace == .presets
                 Button {
@@ -147,36 +144,37 @@ struct EQSettingsView: View {
                     }
                     UISelectionFeedbackGenerator().selectionChanged()
                 } label: {
-                    HStack(spacing: 6) {
-                        MonologueIcon(
-                            icon: workspace.icon,
-                            size: 13,
-                            color: selectedWorkspace == workspace
-                                ? eqAccentForeground
-                                : .white.opacity(isAvailable ? 0.46 : 0.22)
-                        )
-                        Text(workspace.title)
-                            .font(.system(size: 11.5, weight: .bold))
-                            .foregroundStyle(
-                                selectedWorkspace == workspace
-                                    ? eqAccentForeground
-                                    : .white.opacity(isAvailable ? 0.52 : 0.24)
+                    VStack(spacing: 8) {
+                        HStack(spacing: 5) {
+                            MonologueIcon(
+                                icon: workspace.icon,
+                                size: centerLayout.isCompactWidth ? 10.5 : 12,
+                                color: selectedWorkspace == workspace
+                                    ? eqAccent
+                                    : .white.opacity(isAvailable ? 0.38 : 0.18)
                             )
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.78)
+                            Text(workspace.title)
+                                .font(.system(size: centerLayout.isCompactWidth ? 10 : 11.5, weight: .bold))
+                                .foregroundStyle(
+                                    selectedWorkspace == workspace
+                                        ? .white.opacity(0.94)
+                                        : .white.opacity(isAvailable ? 0.46 : 0.22)
+                                )
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.78)
+                        }
+
+                        Capsule()
+                            .fill(selectedWorkspace == workspace ? eqAccent : .clear)
+                            .frame(height: 2)
+                            .matchedGeometryEffect(
+                                id: "eq-workspace-selection",
+                                in: workspaceSelectionNamespace,
+                                isSource: selectedWorkspace == workspace
+                            )
                     }
                     .frame(maxWidth: .infinity)
-                    .frame(height: 38)
-                    .background {
-                        if selectedWorkspace == workspace {
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(eqAccent.opacity(0.86))
-                                .matchedGeometryEffect(
-                                    id: "eq-workspace-selection",
-                                    in: workspaceSelectionNamespace
-                                )
-                        }
-                    }
+                    .frame(height: centerLayout.isCompactHeight ? 34 : 40, alignment: .bottom)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -184,18 +182,15 @@ struct EQSettingsView: View {
                 .accessibilityAddTraits(selectedWorkspace == workspace ? .isSelected : [])
             }
         }
-        .padding(4)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.black.opacity(0.2))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
-                }
-        )
-        .padding(.horizontal, 20)
-        .padding(.bottom, 12)
-        .iPadContentWidth(720)
+        .padding(.horizontal, centerLayout.horizontalInset)
+        .padding(.bottom, centerLayout.isCompactHeight ? 7 : 10)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color.white.opacity(0.065))
+                .frame(height: 1)
+        }
+        .frame(maxWidth: centerLayout.workspaceMaxWidth)
+        .frame(maxWidth: .infinity)
     }
 
     private var workspaceContent: AnyView {
@@ -263,9 +258,10 @@ struct EQSettingsView: View {
         AnyView(
             ScrollView(showsIndicators: false) {
                 content
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 44)
-                    .iPadContentWidth(720)
+                    .padding(.horizontal, centerLayout.horizontalInset)
+                    .padding(.bottom, centerLayout.isCompactHeight ? 28 : 44)
+                    .frame(maxWidth: centerLayout.workspaceMaxWidth)
+                    .frame(maxWidth: .infinity)
             }
         )
     }
@@ -355,10 +351,13 @@ struct EQSettingsView: View {
             HStack(spacing: 14) {
                 MonologueIcon(
                     icon: .equalizer,
-                    size: 20,
+                    size: centerLayout.isCompactHeight ? 17 : 20,
                     color: eqManager.isEnabled ? eqAccent : eqSecondaryText
                 )
-                .frame(width: 44, height: 44)
+                .frame(
+                    width: centerLayout.isCompactHeight ? 38 : 44,
+                    height: centerLayout.isCompactHeight ? 38 : 44
+                )
                 .background(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .fill(eqManager.isEnabled ? eqAccent.opacity(0.13) : eqPressedSurface.opacity(0.55))
@@ -366,11 +365,9 @@ struct EQSettingsView: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(LocalizedStringKey("eq_toggle_title"))
-                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                        .font(.system(size: centerLayout.isCompactHeight ? 16 : 18, weight: .bold, design: .rounded))
                         .foregroundColor(eqPrimaryText)
-                    Text(eqManager.isEnabled
-                         ? (eqManager.currentPreset?.name ?? NSLocalizedString("eq_custom", comment: ""))
-                         : NSLocalizedString("eq_original_output", comment: ""))
+                    Text(displayedPresetName)
                         .font(.rounded(size: 12, weight: .medium))
                         .foregroundColor(eqSecondaryText)
                         .lineLimit(1)
@@ -378,56 +375,28 @@ struct EQSettingsView: View {
 
                 Spacer(minLength: 0)
 
+                if eqManager.isEnabled {
+                    Button(action: resetAll) {
+                        Text(String(localized: "eq_reset"))
+                            .font(.rounded(size: 12, weight: .semibold))
+                            .foregroundStyle(eqSecondaryText)
+                            .padding(.horizontal, 10)
+                            .frame(height: centerLayout.isCompactHeight ? 28 : 32)
+                            .background(
+                                Capsule()
+                                    .fill(eqPressedSurface)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+
                 Toggle("", isOn: $eqManager.isEnabled)
                     .labelsHidden()
                     .tint(eqAccent)
+                    .controlSize(centerLayout.isCompactHeight ? .mini : .regular)
             }
-            .padding(16)
+            .padding(centerLayout.isCompactHeight ? 12 : 16)
 
-            Divider()
-                .overlay(eqSeparator)
-                .opacity(0.55)
-                .padding(.leading, 74)
-
-            HStack(spacing: 14) {
-                MonologueIcon(
-                    icon: .sparkle,
-                    size: 18,
-                    color: aiAgent.automaticConfigurationEnabled ? eqAccent : eqSecondaryText
-                )
-                .frame(width: 44, height: 40)
-
-                NavigationLink {
-                    AIEqualizerLabView()
-                } label: {
-                    HStack(spacing: 10) {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(String(localized: "ai_lab_title"))
-                                .font(.rounded(size: 15, weight: .semibold))
-                                .foregroundColor(eqPrimaryText)
-                            Text(aiAgent.automaticConfigurationEnabled
-                                 ? String(localized: "ai_lab_auto_enabled")
-                                 : String(localized: "ai_lab_not_analyzed"))
-                                .font(.rounded(size: 11.5, weight: .medium))
-                                .foregroundColor(eqSecondaryText)
-                        }
-
-                        Spacer(minLength: 4)
-                        MonologueIcon(icon: .chevronRight, size: 12, color: eqMutedText)
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-
-                Toggle(
-                    String(localized: "ai_lab_auto_configure"),
-                    isOn: $aiAgent.automaticConfigurationEnabled
-                )
-                    .labelsHidden()
-                    .tint(eqAccent)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 11)
         }
         .background(cardBackground)
     }
@@ -722,12 +691,14 @@ struct EQSettingsView: View {
     }
 
     private var equalizerGraph: some View {
-        VStack(spacing: 12) {
+        let graphHeight: CGFloat = centerLayout.isCompactHeight ? 170 : 220
+
+        return VStack(spacing: 12) {
             // 曲线 + 滑块叠加
             ZStack(alignment: .bottom) {
                 // 频谱曲线填充
                 spectrumFill
-                    .frame(height: 220)
+                    .frame(height: graphHeight)
 
                 // dB 参考标签
                 VStack {
@@ -740,13 +711,13 @@ struct EQSettingsView: View {
                 .font(.system(size: 8.5, weight: .medium, design: .monospaced))
                 .foregroundColor(eqMutedText.opacity(0.55))
                 .padding(.vertical, 2)
-                .frame(height: 220)
+                .frame(height: graphHeight)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .allowsHitTesting(false)
 
                 // 垂直滑块
                 sliderOverlay
-                    .frame(height: 220)
+                    .frame(height: graphHeight)
             }
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 

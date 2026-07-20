@@ -65,6 +65,7 @@ struct ProfileView: View {
         .onAppear {
             restoreQQSessionIfNeeded()
             if isAppLoggedIn {
+                refreshWeekListeningDuration()
                 if let profile = viewModel.userProfile, profile.userId != cachedProfile?.userId {
                     cachedProfile = profile
                 }
@@ -321,8 +322,12 @@ struct ProfileView: View {
             Rectangle().fill(Color.monologueSeparator.opacity(0.55)).frame(height: 0.5)
         }
         .task {
-            weekListenSeconds = ListeningStatsService.shared.fetchStats(for: .week).totalDuration
+            refreshWeekListeningDuration()
         }
+    }
+
+    private func refreshWeekListeningDuration() {
+        weekListenSeconds = ListeningStatsService.shared.fetchStats(for: .week).totalDuration
     }
 
     private var asideWeekListenValue: String {
@@ -2037,17 +2042,6 @@ struct ProfileView: View {
                     }
                     .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
                 }
-
-                NavigationLink(destination: ListeningStatsView()) {
-                    NeumorphicProfileShortcutTile(
-                        icon: .sparkle,
-                        title: String(localized: "听歌统计"),
-                        value: "STATS",
-                        tint: NeumorphicStyle.accent
-                    )
-                }
-                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
-
 
                 NavigationLink(destination: ListeningStatsView()) {
                     NeumorphicProfileShortcutTile(

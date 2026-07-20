@@ -76,9 +76,6 @@ struct GlobalThemeOptionCard: View {
             neumorphicPoster
         case .capsule:
             capsulePoster
-        // 已移除主题：不会出现在选择网格，仅作迁移兜底
-        case .pureWhite, .sequoia, .liquidGlass, .bento, .clay, .signal, .material3Expressive:
-            asidePoster
         }
     }
 
@@ -91,8 +88,6 @@ struct GlobalThemeOptionCard: View {
         case .capsule:      return Color(hex: "3867FF")
         case .petWhite:     return Color(hex: "F6A93B")
         case .minimalWhite: return MinimalWhiteStyle.accent
-        case .pureWhite, .sequoia, .liquidGlass, .bento, .clay, .signal, .material3Expressive:
-            return .monologueAccent
         }
     }
 

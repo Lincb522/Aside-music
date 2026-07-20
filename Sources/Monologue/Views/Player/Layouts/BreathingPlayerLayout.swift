@@ -145,7 +145,7 @@ struct BreathingPlayerLayout: View {
             )
         }
         .fullScreenCover(isPresented: $showEQSettings) {
-            NavigationStack { EQSettingsView() }
+            NavigationStack { MonoAudioCenterView() }
         }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker) {
             PlayerThemePickerSheet()
@@ -688,7 +688,7 @@ extension BreathingPlayerLayout {
                 Spacer()
 
                 Button {
-                    CinemaModeController.shared.present()
+                    ImmersiveModeController.shared.present()
                 } label: {
                     MonologueIcon(icon: .immersive, size: 17, color: textColor.opacity(0.92), lineWidth: 1.5)
                         .frame(width: 42, height: 42)

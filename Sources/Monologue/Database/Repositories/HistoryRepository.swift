@@ -92,6 +92,7 @@ final class HistoryRepository {
 
         trimPlayHistory(maxCount: 20_000)
         store.save()
+        ListeningReportCenter.shared.retryAfterHistoryRestore()
         return inserted
     }
 

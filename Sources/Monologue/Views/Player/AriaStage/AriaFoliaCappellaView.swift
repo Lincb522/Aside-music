@@ -215,21 +215,7 @@ private struct CappellaBubbleRow: View, @MainActor Equatable {
             } else if isActive {
                 activeBubble
             } else {
-                Text(line.fullText.preventingOrphanLastLine())
-                    .font(
-                        fontChoice.font(
-                            size: adaptiveFontSize * 0.92,
-                            weight: .bold
-                        )
-                    )
-                    .foregroundStyle(palette.primary.opacity(0.82))
-                    .multilineTextAlignment(isLeft ? .leading : .trailing)
-                    .lineSpacing(3)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(
-                        maxWidth: bubbleContentWidth,
-                        alignment: isLeft ? .leading : .trailing
-                    )
+                inactiveBubble
             }
         }
         .padding(.horizontal, 18)
@@ -250,7 +236,11 @@ private struct CappellaBubbleRow: View, @MainActor Equatable {
     }
 
     private var activeBubble: some View {
-        AriaCappellaFlowLayout(spacing: 5) {
+        AriaCappellaFlowLayout(
+            spacing: 5,
+            maximumWidth: bubbleContentWidth,
+            alignsTrailing: !isLeft
+        ) {
             ForEach(AriaFoliaTokenCache.tokens(for: line)) { token in
                 CappellaTokenView(
                     token: token,
@@ -266,6 +256,26 @@ private struct CappellaBubbleRow: View, @MainActor Equatable {
             maxWidth: bubbleContentWidth,
             alignment: isLeft ? .leading : .trailing
         )
+    }
+
+    private var inactiveBubble: some View {
+        AriaCappellaFlowLayout(
+            spacing: 0,
+            maximumWidth: bubbleContentWidth,
+            alignsTrailing: !isLeft
+        ) {
+            Text(line.fullText.preventingOrphanLastLine())
+                .font(
+                    fontChoice.font(
+                        size: adaptiveFontSize * 0.92,
+                        weight: .bold
+                    )
+                )
+                .foregroundStyle(palette.primary.opacity(0.82))
+                .multilineTextAlignment(isLeft ? .leading : .trailing)
+                .lineSpacing(3)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     private var interludeBubble: some View {
@@ -420,13 +430,16 @@ private struct CappellaBubbleTail: Shape {
 
 private struct AriaCappellaFlowLayout: Layout {
     var spacing: CGFloat
+    var maximumWidth: CGFloat
+    var alignsTrailing: Bool
 
     func sizeThatFits(
         proposal: ProposedViewSize,
         subviews: Subviews,
         cache: inout ()
     ) -> CGSize {
-        let maxWidth = proposal.width ?? .infinity
+        let proposedWidth = proposal.width ?? maximumWidth
+        let maxWidth = min(maximumWidth, max(1, proposedWidth))
         var x: CGFloat = 0
         var y: CGFloat = 0
         var lineHeight: CGFloat = 0
@@ -443,7 +456,10 @@ private struct AriaCappellaFlowLayout: Layout {
             x += size.width + spacing
             lineHeight = max(lineHeight, size.height)
         }
-        return CGSize(width: usedWidth, height: y + lineHeight)
+        return CGSize(
+            width: alignsTrailing ? maxWidth : usedWidth,
+            height: y + lineHeight
+        )
     }
 
     func placeSubviews(
@@ -452,24 +468,56 @@ private struct AriaCappellaFlowLayout: Layout {
         subviews: Subviews,
         cache: inout ()
     ) {
-        var x = bounds.minX
-        var y = bounds.minY
-        var lineHeight: CGFloat = 0
+        var rows: [[(subview: LayoutSubview, size: CGSize)]] = []
+        var rowWidths: [CGFloat] = []
+        var rowHeights: [CGFloat] = []
+        var currentRow: [(subview: LayoutSubview, size: CGSize)] = []
+        var currentWidth: CGFloat = 0
+        var currentHeight: CGFloat = 0
 
         for subview in subviews {
             let size = measuredSize(for: subview, maximumWidth: bounds.width)
-            if x > bounds.minX, x + size.width > bounds.maxX {
-                x = bounds.minX
-                y += lineHeight + spacing
-                lineHeight = 0
+            let candidateWidth = currentRow.isEmpty
+                ? size.width
+                : currentWidth + spacing + size.width
+
+            if !currentRow.isEmpty, candidateWidth > bounds.width {
+                rows.append(currentRow)
+                rowWidths.append(currentWidth)
+                rowHeights.append(currentHeight)
+                currentRow = []
+                currentWidth = 0
+                currentHeight = 0
             }
-            subview.place(
-                at: CGPoint(x: x, y: y),
-                anchor: .topLeading,
-                proposal: ProposedViewSize(size)
-            )
-            x += size.width + spacing
-            lineHeight = max(lineHeight, size.height)
+
+            currentWidth = currentRow.isEmpty
+                ? size.width
+                : currentWidth + spacing + size.width
+            currentHeight = max(currentHeight, size.height)
+            currentRow.append((subview, size))
+        }
+
+        if !currentRow.isEmpty {
+            rows.append(currentRow)
+            rowWidths.append(currentWidth)
+            rowHeights.append(currentHeight)
+        }
+
+        var y = bounds.minY
+        for rowIndex in rows.indices {
+            var x = alignsTrailing
+                ? bounds.maxX - rowWidths[rowIndex]
+                : bounds.minX
+
+            for item in rows[rowIndex] {
+                item.subview.place(
+                    at: CGPoint(x: x, y: y),
+                    anchor: .topLeading,
+                    proposal: ProposedViewSize(item.size)
+                )
+                x += item.size.width + spacing
+            }
+            y += rowHeights[rowIndex] + spacing
         }
     }
 

@@ -15,7 +15,7 @@ let package = Package(
     dependencies: [
         // NeteaseCloudMusicAPI - ncm API 封装库（对齐后端 4.36.2）
         .package(path: "NeteaseCloudMusicAPI-Swift"),
-        // FFmpegSwiftSDK - 基于 FFmpeg 8.0 的流媒体播放引擎
+        // FFmpegSwiftSDK - Mono播放引擎底层 FFmpeg 8.0 解码与流媒体 SDK
         .package(path: "ffmpeg-swift"),
         // QQMusicKit - qcm API 封装库（本地包）
         .package(path: "QQMusicKit"),

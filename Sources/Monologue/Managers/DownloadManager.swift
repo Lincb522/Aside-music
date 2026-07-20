@@ -94,6 +94,10 @@ final class DownloadManager: NSObject, ObservableObject {
     
     /// 下载歌曲
     func download(song: Song, quality: SoundQuality? = nil) {
+        guard AppConfig.Features.downloadEnabled else {
+            AppLogger.info("[DownloadManager] 下载功能已关闭，忽略下载请求: \(song.id)")
+            return
+        }
         // 汽水歌曲走专用下载通道（key 形态不同，走通用通道会产生错配记录）
         if song.isQishui {
             downloadQishui(song: song, quality: SettingsManager.shared.defaultQishuiPlaybackQuality)
@@ -133,6 +137,10 @@ final class DownloadManager: NSObject, ObservableObject {
     
     /// 下载 qcm歌曲（指定 QQ 音质）
     func downloadQQ(song: Song, quality: QQMusicQuality) {
+        guard AppConfig.Features.downloadEnabled else {
+            AppLogger.info("[DownloadManager] 下载功能已关闭，忽略 QQ 下载请求: \(song.id)")
+            return
+        }
         let key = Self.makeKey(songId: song.id, isQQ: true)
         DownloadTombstoneStore.shared.clearTombstones(for: song)
         
@@ -155,6 +163,10 @@ final class DownloadManager: NSObject, ObservableObject {
     
     /// 下载汽水音乐歌曲（通过服务端代理）
     func downloadQishui(song: Song, quality: String = "highest") {
+        guard AppConfig.Features.downloadEnabled else {
+            AppLogger.info("[DownloadManager] 下载功能已关闭，忽略汽水下载请求: \(song.id)")
+            return
+        }
         guard let trackId = song.qishuiTrackId else { return }
         let key = Self.makeQishuiKey(trackId: trackId)
         DownloadTombstoneStore.shared.clearTombstones(for: song)
@@ -408,7 +420,7 @@ final class DownloadManager: NSObject, ObservableObject {
     }
 
     func restoreCloudDownloadRecords(_ records: [CloudDownloadRecord]) {
-        guard !records.isEmpty else { return }
+        guard AppConfig.Features.downloadEnabled, !records.isEmpty else { return }
 
         let store = DatabaseManager.shared.store
         let tombstones = DownloadTombstoneStore.shared
@@ -470,6 +482,7 @@ final class DownloadManager: NSObject, ObservableObject {
     }
 
     func enqueueRestoredDownloadIfNeeded(for song: Song) {
+        guard AppConfig.Features.downloadEnabled else { return }
         let key = Self.makeKey(for: song)
         guard localFileURL(forKey: key) == nil,
               downloadingTasks[key] == nil,
@@ -817,7 +830,11 @@ final class DownloadManager: NSObject, ObservableObject {
     
     private func loadDownloadedIds() {
         let records = DatabaseManager.shared.store.fetch(DownloadedSong.self, where: { $0.statusRaw == "completed" })
-        downloadedSongIds = Set(records.map { $0.uniqueKey })
+        downloadedSongIds = Set(
+            records.compactMap { record in
+                localFileURL(forKey: record.uniqueKey) == nil ? nil : record.uniqueKey
+            }
+        )
     }
 
     private func fetchDownloadRecords(includingRestored: Bool) -> [DownloadedSong] {
@@ -829,10 +846,14 @@ final class DownloadManager: NSObject, ObservableObject {
                 return lhs > rhs
             }
         )
-        let allowedStatuses: Set<DownloadedSong.Status> = includingRestored
+        let allowedStatuses: Set<DownloadedSong.Status> = includingRestored && AppConfig.Features.downloadEnabled
             ? [.completed, .restored, .waiting, .downloading]
             : [.completed]
-        let records = sorted.filter { allowedStatuses.contains($0.status) }
+        let records = sorted.filter { record in
+            guard allowedStatuses.contains(record.status) else { return false }
+            guard record.status == .completed else { return true }
+            return localFileURL(forKey: record.uniqueKey) != nil
+        }
         for record in records where record.status == .completed {
             _ = normalizeCompletedFileNameIfNeeded(for: record)
         }

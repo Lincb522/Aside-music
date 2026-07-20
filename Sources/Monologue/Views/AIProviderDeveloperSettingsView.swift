@@ -16,6 +16,8 @@ struct AIProviderDeveloperSettingsView: View {
     @State private var isLoadingModels = false
     @State private var modelDiscoveryError: String?
     @State private var modelDiscoveryRequestID = UUID()
+    @State private var remoteActionMessage: String?
+    @State private var showsCloudSecrets = false
 
     private let client = AIProviderClient()
 
@@ -32,6 +34,52 @@ struct AIProviderDeveloperSettingsView: View {
                     )
 
                     VStack(spacing: SettingsPageLayout.deepSectionSpacing) {
+                        SettingsSection(title: String(localized: "ai_provider_remote_section")) {
+                            SettingsToggleRow(
+                                icon: .cloud,
+                                title: String(localized: "ai_provider_remote_enabled"),
+                                subtitle: nil,
+                                isOn: $store.distributionEnabled
+                            )
+
+                            developerDivider
+
+                            inputRow(
+                                title: String(localized: "ai_provider_remote_admin_token"),
+                                text: $store.tokenAdminCredential,
+                                secure: true,
+                                prompt: "Token Admin"
+                            )
+
+                            developerDivider
+
+                            SettingsInfoRow(
+                                icon: remoteStatusIcon,
+                                title: String(localized: "ai_provider_remote_status"),
+                                value: remoteStatusText
+                            )
+
+                            developerDivider
+
+                            SettingsButtonRow(
+                                icon: .refresh,
+                                title: String(localized: "ai_provider_remote_fetch"),
+                                action: fetchPublishedConfiguration
+                            )
+                            .disabled(isRemoteActionRunning)
+
+                            developerDivider
+
+                            SettingsButtonRow(
+                                icon: .save,
+                                title: String(localized: "ai_provider_remote_publish"),
+                                action: publishConfiguration
+                            )
+                            .disabled(isRemoteActionRunning || store.tokenAdminCredential.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        }
+
+                        cloudConfigurationSection
+
                         SettingsSection(title: String(localized: "ai_provider_protocol_section")) {
                             providerRow
 
@@ -429,6 +477,322 @@ struct AIProviderDeveloperSettingsView: View {
         Divider().padding(.leading, 58)
     }
 
+    private var cloudConfigurationSection: some View {
+        SettingsSection(title: String(localized: "ai_provider_cloud_content_section")) {
+            SettingsInfoRow(
+                icon: remoteStatusIcon,
+                title: String(localized: "ai_provider_remote_status"),
+                value: cloudConfigurationStatus
+            )
+
+            if !cloudConfigurationFields.isEmpty {
+                ForEach(cloudConfigurationFields) { field in
+                    developerDivider
+                    cloudConfigurationRow(field)
+                }
+            }
+        }
+    }
+
+    private var cloudConfigurationStatus: String {
+        if store.isPublishingRemoteConfiguration {
+            return String(localized: "ai_provider_remote_publishing")
+        }
+        if store.isRefreshingRemoteConfiguration {
+            return String(localized: "ai_provider_remote_fetching")
+        }
+        if store.publishedConfiguration?.enabled == true || store.remoteConfiguration?.enabled == true {
+            return String(localized: "ai_provider_remote_active")
+        }
+        if store.publishedConfiguration != nil || store.remoteConfiguration != nil {
+            return String(localized: "ai_provider_remote_disabled")
+        }
+        return String(localized: "ai_provider_cloud_not_loaded")
+    }
+
+    private var cloudConfigurationFields: [AIProviderCloudField] {
+        if let value = store.publishedConfiguration {
+            return [
+                AIProviderCloudField(
+                    id: "revision",
+                    title: String(localized: "ai_provider_cloud_revision"),
+                    value: displayRevision(value.revision)
+                ),
+                AIProviderCloudField(
+                    id: "updatedAt",
+                    title: String(localized: "ai_provider_cloud_updated_at"),
+                    value: displayDate(value.updatedAt)
+                ),
+                AIProviderCloudField(
+                    id: "protocol",
+                    title: String(localized: "ai_provider_protocol"),
+                    value: value.wireProtocol.title
+                ),
+                AIProviderCloudField(
+                    id: "endpoint",
+                    title: String(localized: "ai_provider_endpoint"),
+                    value: displayValue(value.baseURL),
+                    usesExpandedLayout: true
+                ),
+                AIProviderCloudField(
+                    id: "model",
+                    title: String(localized: "ai_provider_model"),
+                    value: displayValue(value.model),
+                    usesExpandedLayout: true
+                ),
+                AIProviderCloudField(
+                    id: "modelEndpoint",
+                    title: String(localized: "ai_provider_model_list_endpoint"),
+                    value: displayValue(value.modelDiscoveryURL),
+                    usesExpandedLayout: true
+                ),
+                AIProviderCloudField(
+                    id: "timeout",
+                    title: String(localized: "ai_provider_timeout"),
+                    value: "\(Int(value.timeout))s"
+                ),
+                AIProviderCloudField(
+                    id: "headers",
+                    title: String(localized: "ai_provider_headers"),
+                    value: displayValue(value.customHeadersJSON),
+                    isSensitive: !value.customHeadersJSON.isEmpty,
+                    usesExpandedLayout: true
+                ),
+                AIProviderCloudField(
+                    id: "apiKey",
+                    title: "API Key",
+                    value: displayValue(value.apiKey),
+                    isSensitive: !value.apiKey.isEmpty,
+                    usesExpandedLayout: true
+                ),
+                AIProviderCloudField(
+                    id: "dailyLimit",
+                    title: String(localized: "ai_usage_daily_limit"),
+                    value: displayLimit(value.usageLimits.dailyRequestLimit)
+                ),
+                AIProviderCloudField(
+                    id: "hourlyLimit",
+                    title: String(localized: "ai_usage_hourly_limit"),
+                    value: displayLimit(value.usageLimits.hourlyRequestLimit)
+                ),
+                AIProviderCloudField(
+                    id: "interval",
+                    title: String(localized: "ai_usage_minimum_interval"),
+                    value: value.usageLimits.minimumRequestInterval == 0
+                        ? String(localized: "ai_usage_unlimited")
+                        : "\(Int(value.usageLimits.minimumRequestInterval))s"
+                )
+            ]
+        }
+
+        guard let value = store.remoteConfiguration else { return [] }
+        return [
+            AIProviderCloudField(
+                id: "revision",
+                title: String(localized: "ai_provider_cloud_revision"),
+                value: displayRevision(value.revision)
+            ),
+            AIProviderCloudField(
+                id: "updatedAt",
+                title: String(localized: "ai_provider_cloud_updated_at"),
+                value: displayDate(value.updatedAt)
+            ),
+            AIProviderCloudField(
+                id: "protocol",
+                title: String(localized: "ai_provider_protocol"),
+                value: value.wireProtocol.title
+            ),
+            AIProviderCloudField(
+                id: "endpoint",
+                title: String(localized: "ai_provider_endpoint"),
+                value: displayValue(value.baseURL ?? ""),
+                usesExpandedLayout: true
+            ),
+            AIProviderCloudField(
+                id: "model",
+                title: String(localized: "ai_provider_model"),
+                value: displayValue(value.model),
+                usesExpandedLayout: true
+            ),
+            AIProviderCloudField(
+                id: "modelEndpoint",
+                title: String(localized: "ai_provider_model_list_endpoint"),
+                value: displayValue(value.modelDiscoveryURL ?? ""),
+                usesExpandedLayout: true
+            ),
+            AIProviderCloudField(
+                id: "timeout",
+                title: String(localized: "ai_provider_timeout"),
+                value: "\(Int(value.timeout))s"
+            ),
+            AIProviderCloudField(
+                id: "headers",
+                title: String(localized: "ai_provider_headers"),
+                value: displayValue(value.customHeadersJSON ?? ""),
+                isSensitive: !(value.customHeadersJSON ?? "").isEmpty,
+                usesExpandedLayout: true
+            ),
+            AIProviderCloudField(
+                id: "apiKey",
+                title: "API Key",
+                value: displayValue(value.apiKey ?? ""),
+                isSensitive: !(value.apiKey ?? "").isEmpty,
+                usesExpandedLayout: true
+            ),
+            AIProviderCloudField(
+                id: "dailyLimit",
+                title: String(localized: "ai_usage_daily_limit"),
+                value: displayLimit(value.usageLimits.dailyRequestLimit)
+            ),
+            AIProviderCloudField(
+                id: "hourlyLimit",
+                title: String(localized: "ai_usage_hourly_limit"),
+                value: displayLimit(value.usageLimits.hourlyRequestLimit)
+            ),
+            AIProviderCloudField(
+                id: "interval",
+                title: String(localized: "ai_usage_minimum_interval"),
+                value: value.usageLimits.minimumRequestInterval == 0
+                    ? String(localized: "ai_usage_unlimited")
+                    : "\(Int(value.usageLimits.minimumRequestInterval))s"
+            )
+        ]
+    }
+
+    @ViewBuilder
+    private func cloudConfigurationRow(_ field: AIProviderCloudField) -> some View {
+        let displayedValue = field.isSensitive && !showsCloudSecrets
+            ? maskedCloudValue(field.value)
+            : field.value
+
+        if field.usesExpandedLayout {
+            VStack(alignment: .leading, spacing: 8) {
+                cloudFieldHeader(field)
+                Text(displayedValue)
+                    .font(.system(size: 13, weight: .regular, design: .monospaced))
+                    .foregroundColor(.monologueTextPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 13)
+        } else {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Text(field.title)
+                    .font(.rounded(size: 14, weight: .medium))
+                    .foregroundColor(.monologueTextPrimary)
+                Spacer(minLength: 16)
+                Text(displayedValue)
+                    .font(.system(size: 13, weight: .medium, design: .monospaced))
+                    .foregroundColor(.monologueTextSecondary)
+                    .multilineTextAlignment(.trailing)
+                    .textSelection(.enabled)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 13)
+        }
+    }
+
+    private func cloudFieldHeader(_ field: AIProviderCloudField) -> some View {
+        HStack(spacing: 12) {
+            Text(field.title)
+                .font(.rounded(size: 13, weight: .semibold))
+                .foregroundColor(.monologueTextSecondary)
+            Spacer()
+            if field.isSensitive {
+                Button {
+                    showsCloudSecrets.toggle()
+                } label: {
+                    Text(String(localized: showsCloudSecrets
+                                ? "ai_provider_cloud_hide"
+                                : "ai_provider_cloud_show"))
+                        .font(.rounded(size: 12, weight: .semibold))
+                        .foregroundColor(.monologueAccent)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func displayRevision(_ value: String) -> String {
+        value == "unpublished" ? String(localized: "ai_provider_remote_not_published") : displayValue(value)
+    }
+
+    private func displayDate(_ value: Date?) -> String {
+        value?.formatted(date: .abbreviated, time: .shortened) ?? "—"
+    }
+
+    private func displayLimit(_ value: Int) -> String {
+        value == 0 ? String(localized: "ai_usage_unlimited") : "\(value)"
+    }
+
+    private func displayValue(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "—" : value
+    }
+
+    private func maskedCloudValue(_ value: String) -> String {
+        guard value != "—" else { return value }
+        return String(repeating: "•", count: min(24, max(8, value.count)))
+    }
+
+    private var isRemoteActionRunning: Bool {
+        store.isRefreshingRemoteConfiguration || store.isPublishingRemoteConfiguration
+    }
+
+    private var remoteStatusIcon: MonologueIcon.IconType {
+        if store.remoteError != nil { return .warning }
+        if store.remoteConfiguration?.enabled == true { return .checkmark }
+        return .cloud
+    }
+
+    private var remoteStatusText: String {
+        if store.isPublishingRemoteConfiguration {
+            return String(localized: "ai_provider_remote_publishing")
+        }
+        if store.isRefreshingRemoteConfiguration {
+            return String(localized: "ai_provider_remote_fetching")
+        }
+        if let remoteActionMessage { return remoteActionMessage }
+        if let error = store.remoteError, !error.isEmpty { return error }
+        guard let remote = store.remoteConfiguration else {
+            return String(localized: "ai_provider_remote_not_published")
+        }
+        return remote.enabled
+            ? String(localized: "ai_provider_remote_active")
+            : String(localized: "ai_provider_remote_disabled")
+    }
+
+    private func fetchPublishedConfiguration() {
+        remoteActionMessage = nil
+        Task {
+            do {
+                try await store.fetchPublishedConfiguration()
+                remoteActionMessage = store.distributionEnabled
+                    ? String(localized: "ai_provider_remote_active")
+                    : String(localized: "ai_provider_remote_disabled")
+                HapticManager.shared.success()
+            } catch {
+                remoteActionMessage = error.localizedDescription
+                HapticManager.shared.error()
+            }
+        }
+    }
+
+    private func publishConfiguration() {
+        remoteActionMessage = nil
+        Task {
+            do {
+                try await store.publishDraftConfiguration()
+                remoteActionMessage = String(localized: "ai_provider_remote_published")
+                HapticManager.shared.success()
+            } catch {
+                remoteActionMessage = error.localizedDescription
+                HapticManager.shared.error()
+            }
+        }
+    }
+
     private var testStateIcon: MonologueIcon.IconType {
         switch testState {
         case .passed: return .checkmark
@@ -464,4 +828,12 @@ struct AIProviderDeveloperSettingsView: View {
         store.resetDeveloperOverride()
         testState = .idle
     }
+}
+
+private struct AIProviderCloudField: Identifiable {
+    let id: String
+    let title: String
+    let value: String
+    var isSensitive = false
+    var usesExpandedLayout = false
 }

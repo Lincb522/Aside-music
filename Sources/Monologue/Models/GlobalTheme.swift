@@ -12,41 +12,30 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable, Sendable {
     case capsule       // Capsule OS — 胶囊模块化系统界面
     case petWhite      // Paw · 黏土玩具 — 厚圆角黏土块、马卡龙糖果色、squishy 按压（可选主题）
     case minimalWhite  // 纯白极简 — 纯白表面、轻分隔、克制层级
-    case pureWhite     // 已移除：仅用于迁移旧存档
-    case material3Expressive // 已移除：仅用于迁移旧存档
-    case bento         // 已移除：仅用于迁移旧存档
-    case sequoia       // 已移除：仅用于迁移旧存档
-    case liquidGlass   // 已移除：仅用于迁移旧存档
-    case clay          // 已移除：仅用于迁移旧存档
-    case signal        // 已移除：仅用于迁移旧存档
 
     var id: String { rawValue }
 
     /// 当前新安装默认主题是经典 Aside（`.default`）；Paw 等为可选主题。
     static let appDefault: GlobalThemeId = .default
     static let storageKey = "globalThemeId"
+    private static let removedRawValues: Set<String> = [
+        "doodlePop",
+        "pureWhite",
+        "material3Expressive",
+        "bento",
+        "sequoia",
+        "liquidGlass",
+        "clay",
+        "signal"
+    ]
 
     static var persistedOrDefault: GlobalThemeId {
         resolvedStoredTheme(UserDefaults.standard.string(forKey: storageKey))
     }
 
     static func resolvedStoredTheme(_ raw: String?) -> GlobalThemeId {
-        if raw == "doodlePop" { return .default }
-        let restored = raw.flatMap { GlobalThemeId(rawValue: $0) } ?? appDefault
-        return resolveRemovedTheme(restored)
-    }
-
-    static func resolveRemovedTheme(_ id: GlobalThemeId) -> GlobalThemeId {
-        switch id {
-        case .pureWhite, .bento, .sequoia, .liquidGlass, .clay, .signal, .material3Expressive:
-            return .default
-        default:
-            return id
-        }
-    }
-
-    static var allCases: [GlobalThemeId] {
-        [.default, .petWhite, .minimalWhite, .muji, .manga, .neumorphic, .capsule]
+        guard let raw, !removedRawValues.contains(raw) else { return appDefault }
+        return GlobalThemeId(rawValue: raw) ?? appDefault
     }
 
     var displayName: String {
@@ -65,8 +54,6 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable, Sendable {
             return String(localized: "global_theme_pet_white_name")
         case .minimalWhite:
             return String(localized: "global_theme_minimal_white_name")
-        case .pureWhite, .material3Expressive, .bento, .sequoia, .liquidGlass, .clay, .signal:
-            return String(localized: "global_theme_classic_name")
         }
     }
 
@@ -86,8 +73,6 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable, Sendable {
             return String(localized: "global_theme_pet_white_description")
         case .minimalWhite:
             return ""
-        case .pureWhite, .material3Expressive, .bento, .sequoia, .liquidGlass, .clay, .signal:
-            return String(localized: "global_theme_classic_description")
         }
     }
 
@@ -107,8 +92,6 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable, Sendable {
             return .catLife
         case .minimalWhite:
             return .sparkle
-        case .pureWhite, .material3Expressive, .bento, .sequoia, .liquidGlass, .clay, .signal:
-            return .playerTheme
         }
     }
 }

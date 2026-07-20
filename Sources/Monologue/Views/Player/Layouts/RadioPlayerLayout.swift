@@ -126,7 +126,7 @@ struct RadioPlayerLayout: View {
             )
         }
         .fullScreenCover(isPresented: $showEQSettings) {
-            NavigationStack { EQSettingsView() }
+            NavigationStack { MonoAudioCenterView() }
         }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker) { PlayerThemePickerSheet() }
         .monologueSheet(isPresented: $showComments, preset: .large) {
@@ -167,7 +167,7 @@ struct RadioPlayerLayout: View {
                 skeuBtn(icon: .close, size: 32) { dismiss() }
                 ledBanner.frame(maxWidth: .infinity)
                 skeuBtn(icon: .immersive, size: 32) {
-                    CinemaModeController.shared.present()
+                    ImmersiveModeController.shared.present()
                 }
                 skeuBtn(icon: .more, size: 32) {
                     withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) { showMoreMenu.toggle() }

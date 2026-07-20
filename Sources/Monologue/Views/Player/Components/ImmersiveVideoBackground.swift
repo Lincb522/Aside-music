@@ -1,32 +1,48 @@
 import SwiftUI
 import AVFoundation
 
-/// 全屏循环、静音的本地视频背景（影院沉浸播放器专用）。
-/// 进入布局时播放，离开时暂停；静音以不干扰音乐播放（与动态封面同一策略）。
+/// 现役 Aria 沉浸舞台使用的全屏循环静音视频背景。
+/// 进入舞台时播放，退到后台或被设置页遮挡时暂停；离开舞台后释放播放队列。
 struct ImmersiveVideoBackground: View {
+    @Environment(\.scenePhase) private var scenePhase
+
     let url: URL
     var isActive: Bool = true
 
     @StateObject private var model = ImmersiveVideoBackgroundModel()
+    @State private var isVisible = false
 
     var body: some View {
         // 复用 DynamicCoverView.swift 中的 AVPlayerLayer 包装（videoGravity = .resizeAspectFill）
         PlayerVideoView(player: model.player)
             .allowsHitTesting(false)
             .onAppear {
+                isVisible = true
                 model.configure(url: url)
-                if isActive { model.play() }
+                updatePlaybackState()
             }
             .onDisappear {
-                model.pause()
+                isVisible = false
+                model.teardown()
             }
             .onChange(of: url) { _, newURL in
                 model.configure(url: newURL)
-                if isActive { model.play() }
+                updatePlaybackState()
             }
-            .onChange(of: isActive) { _, active in
-                active ? model.play() : model.pause()
+            .onChange(of: isActive) { _, _ in
+                updatePlaybackState()
             }
+            .onChange(of: scenePhase) { _, _ in
+                updatePlaybackState()
+            }
+    }
+
+    private func updatePlaybackState() {
+        if isVisible, isActive, scenePhase == .active {
+            model.play()
+        } else {
+            model.pause()
+        }
     }
 }
 
@@ -39,11 +55,14 @@ final class ImmersiveVideoBackgroundModel: ObservableObject {
     init() {
         player.isMuted = true
         player.actionAtItemEnd = .advance
+        player.automaticallyWaitsToMinimizeStalling = false
         player.preventsDisplaySleepDuringVideoPlayback = false
     }
 
     func configure(url: URL) {
         guard url != currentURL else { return }
+        player.pause()
+        releaseCurrentItem()
         currentURL = url
 
         // 用 AVPlayerLooper 实现无缝循环
@@ -55,4 +74,16 @@ final class ImmersiveVideoBackgroundModel: ObservableObject {
     func play() { player.play() }
 
     func pause() { player.pause() }
+
+    func teardown() {
+        pause()
+        releaseCurrentItem()
+        currentURL = nil
+    }
+
+    private func releaseCurrentItem() {
+        looper?.disableLooping()
+        looper = nil
+        player.removeAllItems()
+    }
 }

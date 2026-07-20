@@ -538,7 +538,9 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
         }
 
         // 恢复下载记录到下载歌单（仅元数据，显示用）
-        if let downloads = downloads, !downloads.isEmpty {
+        if AppConfig.Features.downloadEnabled,
+           let downloads = downloads,
+           !downloads.isEmpty {
             DownloadManager.shared.restoreCloudDownloadRecords(downloads)
             let songs = downloads.map { $0.toSong() }
             playlistManager.restoreDownloadPlaylistSongs(songs)

@@ -33,7 +33,7 @@ struct DailyRecommendView: View {
             } else if NeumorphicStyle.isActive {
                 ThemeRenderBackdrop(theme: .neumorphic)
             } else if SignalStyle.isActive {
-                ThemeRenderBackdrop(theme: .signal)
+                ThemeRenderBackdrop(theme: .default)
             } else if BentoStyle.isActive {
                 BentoRootBackdrop()
             } else if MinimalWhiteStyle.isActive {
@@ -1466,7 +1466,7 @@ struct DailyHistoryView: View {
                 if NeumorphicStyle.isActive {
                     ThemeRenderBackdrop(theme: .neumorphic)
                 } else if SignalStyle.isActive {
-                    ThemeRenderBackdrop(theme: .signal)
+                    ThemeRenderBackdrop(theme: .default)
                 } else if MinimalWhiteStyle.isActive {
                     MinimalWhiteRootBackdrop()
                 } else {

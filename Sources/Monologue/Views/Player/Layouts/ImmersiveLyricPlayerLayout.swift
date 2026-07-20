@@ -78,7 +78,7 @@ struct ImmersiveLyricPlayerLayout: View {
         .environment(\.colorScheme, .dark)
         // Sheets
         .fullScreenCover(isPresented: $showEQSettings) {
-            NavigationStack { EQSettingsView() }
+            NavigationStack { MonoAudioCenterView() }
         }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker) {
             PlayerThemePickerSheet()
@@ -255,7 +255,7 @@ extension ImmersiveLyricPlayerLayout {
             Spacer()
             utilityButton(icon: .comment) { showComments = true }
             Spacer()
-            utilityButton(icon: .immersive) { CinemaModeController.shared.present() }
+            utilityButton(icon: .immersive) { ImmersiveModeController.shared.present() }
             Spacer()
             utilityButton(icon: .list) { showPlaylist = true }
         }

@@ -227,7 +227,7 @@ class LocalPlaylistManager: ObservableObject {
         syncLocalMusicPlaylist()
     }
 
-    /// 本地音乐歌单 = 导入的本地曲库 + 已下载歌曲（含旧下载歌单存档与云端恢复的记录），按 id 去重
+    /// 本地音乐歌单 = 导入的本地曲库 + 仍有本地文件的已下载歌曲，按 id 去重
     func syncLocalMusicPlaylist(with librarySongs: [Song]? = nil) {
         guard let localMusic = localMusicPlaylist else { return }
         let playlistId = localMusic.id
@@ -235,10 +235,11 @@ class LocalPlaylistManager: ObservableObject {
 
         let imported = librarySongs ?? LocalMusicLibraryManager.shared.songs
         let downloads = DownloadManager.shared.fetchDownloadPlaylistSongs()
-        // 兜底：旧「下载」歌单里可能还留有下载记录已丢失的历史条目，一并展示
-        // （用户明确删除过的条目按墓碑过滤，避免"删了又回来"）
-        let legacyArchived = (downloadPlaylist.map { songs(for: $0) } ?? [])
-            .filter { !DownloadTombstoneStore.shared.isTombstoned(songId: $0.id) }
+        // 下载功能开启时才兼容旧「下载」歌单；关闭期间不让缺失文件的历史条目重新进入本地音乐。
+        let legacyArchived: [Song] = AppConfig.Features.downloadEnabled
+            ? (downloadPlaylist.map { songs(for: $0) } ?? [])
+                .filter { !DownloadTombstoneStore.shared.isTombstoned(songId: $0.id) }
+            : []
 
         var seen = Set<Int>()
         var merged: [Song] = []
@@ -273,6 +274,10 @@ class LocalPlaylistManager: ObservableObject {
 
     /// 从云端恢复下载记录（仅元数据）：补进旧「下载」歌单存档，并刷新合并后的「本地音乐」
     func restoreDownloadPlaylistSongs(_ cloudSongs: [Song]) {
+        guard AppConfig.Features.downloadEnabled else {
+            syncLocalMusicPlaylist()
+            return
+        }
         // 本地明确删除过的条目不再从云端并回（删除墓碑权威）
         let cloudSongs = cloudSongs.filter { !DownloadTombstoneStore.shared.isTombstoned(songId: $0.id) }
 

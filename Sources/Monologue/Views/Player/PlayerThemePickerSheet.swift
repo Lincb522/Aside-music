@@ -32,8 +32,7 @@ struct PlayerThemePickerSheet: View {
                     GridItem(.flexible(), spacing: 14),
                     GridItem(.flexible(), spacing: 14)
                 ], spacing: 14) {
-                    // 影院已改为沉浸模式（三点菜单进入），不再作为主题出现
-                    ForEach(PlayerTheme.allCases.filter { $0 != .cinema }, id: \.self) { theme in
+                    ForEach(PlayerTheme.allCases, id: \.self) { theme in
                         themeCard(theme)
                     }
                 }
@@ -215,7 +214,6 @@ private struct PlayerThemeStaticPreview: View {
         case .mangaChat:      return isDark ? Color.white : Color.black
         case .folk:           return Color(hex: "B44A3B")
         case .game2048:       return Color(hex: "EDC22E")
-        case .cinema:         return .white
         }
     }
 
@@ -230,8 +228,6 @@ private struct PlayerThemeStaticPreview: View {
             return isDark ? Color(hex: "30FF6A") : Color(hex: "17612F")
         case .game2048:
             return Color(hex: "F9F6F2")
-        case .cinema:
-            return .white.opacity(0.92)
         case .aqua:
             return isDark ? .white.opacity(0.92) : Color(hex: "175D86")
         default:
@@ -261,7 +257,6 @@ private struct PlayerThemeStaticPreview: View {
         case .mangaChat: mangaChatMotif
         case .folk: folkMotif
         case .game2048: game2048Motif
-        case .cinema: cinemaMotif
         }
     }
 
@@ -779,20 +774,6 @@ private struct PlayerThemeStaticPreview: View {
         )
     }
 
-    /// 影院
-    private var cinemaMotif: some View {
-        VStack(spacing: 7) {
-            Image(systemName: "film.fill")
-                .font(.system(size: 20))
-                .foregroundColor(.white.opacity(0.85))
-
-            Text("NOW SHOWING")
-                .font(.system(size: 7, weight: .heavy, design: .rounded))
-                .tracking(1.6)
-                .foregroundColor(.white.opacity(0.65))
-        }
-    }
-
     // MARK: - 小件
 
     private func aquaBubble(size: CGFloat, icon: MonologueIcon.IconType? = nil) -> some View {
@@ -890,8 +871,6 @@ private struct PlayerThemeStaticPreview: View {
             LinearGradient(colors: isDark ? [Color(hex: "2C2118"), Color(hex: "15100C")] : [Color(hex: "F5E9D8"), Color(hex: "E4D1B8")], startPoint: .top, endPoint: .bottom)
         case .game2048:
             Color(hex: "BBADA0")
-        case .cinema:
-            LinearGradient(colors: [Color(hex: "17151D"), Color(hex: "0B0B0F")], startPoint: .top, endPoint: .bottom)
         }
     }
 

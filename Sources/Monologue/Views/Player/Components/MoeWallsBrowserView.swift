@@ -25,8 +25,9 @@ private final class MoeWallsQueryTranslator {
             return local
         }
 
-        let configuration = providerStore.configuration
-        let apiKey = providerStore.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        await providerStore.refreshRemoteConfigurationIfNeeded()
+        let configuration = providerStore.requestConfiguration
+        let apiKey = providerStore.requestAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !configuration.wireProtocol.requiresAPIKey || !apiKey.isEmpty else { return nil }
 
         do {

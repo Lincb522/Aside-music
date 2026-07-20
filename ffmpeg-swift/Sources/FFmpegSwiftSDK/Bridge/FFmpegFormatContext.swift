@@ -11,12 +11,16 @@ import CFFmpeg
 private final class FFmpegIOInterruptionController {
     private var lock = os_unfair_lock_s()
     private var cancelled = false
+    /// One-shot wake used by interactive seek. Unlike `cancelled`, this is
+    /// cleared before the same input performs `av_seek_frame` and continues.
+    private var wakeRequested = false
     private var deadlineUptimeNanoseconds: UInt64?
     private var timedOut = false
 
     func arm(timeout: TimeInterval?) {
         os_unfair_lock_lock(&lock)
         cancelled = false
+        wakeRequested = false
         timedOut = false
         if let timeout {
             let delta = UInt64(max(0, timeout) * 1_000_000_000)
@@ -39,10 +43,22 @@ private final class FFmpegIOInterruptionController {
         os_unfair_lock_unlock(&lock)
     }
 
+    func requestWake() {
+        os_unfair_lock_lock(&lock)
+        wakeRequested = true
+        os_unfair_lock_unlock(&lock)
+    }
+
+    func clearWake() {
+        os_unfair_lock_lock(&lock)
+        wakeRequested = false
+        os_unfair_lock_unlock(&lock)
+    }
+
     func shouldInterrupt() -> Bool {
         os_unfair_lock_lock(&lock)
         defer { os_unfair_lock_unlock(&lock) }
-        if cancelled { return true }
+        if cancelled || wakeRequested { return true }
         if let deadlineUptimeNanoseconds,
            DispatchTime.now().uptimeNanoseconds >= deadlineUptimeNanoseconds {
             timedOut = true
@@ -153,6 +169,16 @@ final class FFmpegFormatContext {
 
     func cancelIO() {
         interruptionController.cancel()
+    }
+
+    /// Wakes a blocking FFmpeg read for an in-place seek. This does not cancel
+    /// the input permanently; call `clearIOWake()` before seeking on it.
+    func requestIOWake() {
+        interruptionController.requestWake()
+    }
+
+    func clearIOWake() {
+        interruptionController.clearWake()
     }
 
     var didInterruptForTimeout: Bool {

@@ -107,6 +107,9 @@ final class OnlineAccessManager: ObservableObject {
             lastTokenStatus = status
             transition(to: GatePhase(hasToken: hasStoredToken, status: status))
             LocalPlaylistCloudSyncManager.shared.handleAccessGranted()
+            Task { @MainActor in
+                await AIProviderConfigurationStore.shared.refreshRemoteConfigurationIfNeeded(force: true)
+            }
         case .missing:
             lastTokenStatus = .missing
             transition(to: .shell)

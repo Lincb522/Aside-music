@@ -131,6 +131,8 @@
 	</dict>
 	<key>NSAppleMusicUsageDescription</key>
 	<string>扫描系统音乐资料库需要访问你设备上的音乐</string>
+	<key>NSMotionUsageDescription</key>
+	<string>用于让 Mono Spatial Live 的空间舞台跟随头部转动</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>保存二维码到相册以便扫码登录</string>
 	<key>NSSupportsLiveActivities</key>

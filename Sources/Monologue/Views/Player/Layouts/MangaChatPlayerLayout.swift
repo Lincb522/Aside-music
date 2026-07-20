@@ -123,7 +123,7 @@ struct MangaChatPlayerLayout: View {
             )
         }
         .fullScreenCover(isPresented: $showEQSettings) {
-            NavigationStack { EQSettingsView() }
+            NavigationStack { MonoAudioCenterView() }
         }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker) {
             PlayerThemePickerSheet()
@@ -675,7 +675,7 @@ extension MangaChatPlayerLayout {
                     } else {
                         // 沉浸模式按钮 — 占用原下载按钮的位置
                         Button {
-                            CinemaModeController.shared.present()
+                            ImmersiveModeController.shared.present()
                         } label: {
                             MonologueIcon(icon: .immersive, size: 16, color: inkSub)
                                 .frame(width: 36, height: 36)

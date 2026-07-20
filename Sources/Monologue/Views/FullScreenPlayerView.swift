@@ -6,7 +6,7 @@ struct FullScreenPlayerView: View {
     
     @ObservedObject private var themeManager = PlayerThemeManager.shared
     @ObservedObject private var settings = SettingsManager.shared
-    @ObservedObject private var cinemaController = CinemaModeController.shared
+    @ObservedObject private var immersiveController = ImmersiveModeController.shared
     @Environment(\.colorScheme) private var envColorScheme
 
     var body: some View {
@@ -62,9 +62,6 @@ struct FullScreenPlayerView: View {
                     FolkPlayerLayout()
                 case .game2048:
                     Game2048PlayerLayout()
-                case .cinema:
-                    // 沉浸模式已从主题体系移出（经右上角三点菜单进入），旧存档回退经典布局
-                    ClassicPlayerLayout()
                 }
             }
             .environment(\.colorScheme, MinimalWhiteStyle.isActive ? settings.nativeColorScheme : (themeManager.currentTheme.hasCustomBackground ? settings.nativeColorScheme : envColorScheme))
@@ -72,7 +69,7 @@ struct FullScreenPlayerView: View {
         }
         .compatFontDesign(nil)
         .monologueEdgeSwipeToDismiss()
-        .fullScreenCover(isPresented: $cinemaController.isPresented) {
+        .fullScreenCover(isPresented: $immersiveController.isPresented) {
             AriaStageView()
         }
     }
@@ -129,8 +126,10 @@ struct AIEqualizerArtworkStatusView: View {
     @ObservedObject private var player = PlayerManager.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isExpanded = false
+    @State private var showQuickControls = false
     @State private var showTuningDetails = false
     @State private var completionNoticeTask: Task<Void, Never>?
+    @State private var openDetailsTask: Task<Void, Never>?
 
     private var foregroundColor: Color {
         isDarkArtwork ? .white : Color(hex: "111318")
@@ -168,13 +167,16 @@ struct AIEqualizerArtworkStatusView: View {
     }
 
     private var isVisible: Bool {
-        tuningProgress != nil || appliedProfileName != nil
+        tuningProgress != nil
+            || appliedProfileName != nil
+            || agent.automaticConfigurationEnabled
+            || agent.proposal != nil
     }
 
     var body: some View {
         Group {
             if agent.showsPlayerTuningStatus, isVisible {
-                Button(action: toggleProfileName) {
+                Button(action: openQuickControls) {
                     HStack(spacing: 5) {
                         if let name = compactProfileName, isExpanded {
                             // Once the proposal is applied, the cover capsule only
@@ -211,6 +213,7 @@ struct AIEqualizerArtworkStatusView: View {
                         AIEqualizerArtworkStatusGlyph(
                             progress: tuningProgress,
                             isComplete: appliedProfileName != nil,
+                            isEnabled: agent.automaticConfigurationEnabled,
                             reduceMotion: reduceMotion,
                             foregroundColor: foregroundColor
                         )
@@ -238,11 +241,19 @@ struct AIEqualizerArtworkStatusView: View {
                 }
                 .buttonStyle(MonologueBouncingButtonStyle())
                 .accessibilityLabel(accessibilityText)
-                .accessibilityHint(
-                    tuningProgress != nil || isExpanded
-                        ? String(localized: "ai_tuning_open_details")
-                        : ""
-                )
+                .accessibilityHint(String(localized: "ai_quick_open_controls"))
+                .popover(
+                    isPresented: $showQuickControls,
+                    attachmentAnchor: .rect(.bounds),
+                    arrowEdge: .bottom
+                ) {
+                    AIEqualizerQuickControlsView(
+                        accent: accent,
+                        tuningProgress: tuningProgress,
+                        onOpenDetails: openTuningDetails
+                    )
+                    .modifier(AIEqualizerQuickPopoverPresentation())
+                }
                 .transition(.scale(scale: 0.92, anchor: .bottomTrailing).combined(with: .opacity))
             }
         }
@@ -263,7 +274,9 @@ struct AIEqualizerArtworkStatusView: View {
         )
         .onChange(of: player.currentSong?.id) { _, _ in
             completionNoticeTask?.cancel()
+            openDetailsTask?.cancel()
             isExpanded = false
+            showQuickControls = false
         }
         .onChange(of: agent.phase) { _, newPhase in
             if newPhase.isWorking {
@@ -282,12 +295,16 @@ struct AIEqualizerArtworkStatusView: View {
         }
         .onDisappear {
             completionNoticeTask?.cancel()
+            openDetailsTask?.cancel()
         }
     }
 
     private var accessibilityText: String {
         if let name = appliedProfileName {
             return String(format: String(localized: "ai_tuning_player_notice"), name)
+        }
+        if !agent.automaticConfigurationEnabled {
+            return String(localized: "ai_quick_disabled")
         }
         return agent.samplingStage.title
     }
@@ -297,20 +314,294 @@ struct AIEqualizerArtworkStatusView: View {
         return String(format: "%02d:%02d", seconds / 60, seconds % 60)
     }
 
-    private func toggleProfileName() {
-        // During sampling/generation the capsule is already a live entry point;
-        // one tap should open the lab instead of requiring a completed profile.
-        if tuningProgress != nil {
+    private func openQuickControls() {
+        completionNoticeTask?.cancel()
+        isExpanded = false
+        showQuickControls = true
+    }
+
+    private func openTuningDetails() {
+        showQuickControls = false
+        openDetailsTask?.cancel()
+        openDetailsTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(reduceMotion ? 20 : 170))
+            guard !Task.isCancelled else { return }
             showTuningDetails = true
+        }
+    }
+}
+
+private struct AIEqualizerQuickControlsView: View {
+    let accent: Color
+    let tuningProgress: Double?
+    let onOpenDetails: () -> Void
+
+    @ObservedObject private var agent = AIEqualizerAgent.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var foregroundColor: Color {
+        .primary
+    }
+
+    private var secondaryColor: Color {
+        .secondary
+    }
+
+    private var currentProfileName: String {
+        let name = agent.proposal?.profileName.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return name.isEmpty ? String(localized: "ai_lab_result_empty") : name
+    }
+
+    private var currentTuningProfileTitle: String {
+        agent.proposal?.resolvedTuningProfile.title ?? agent.tuningProfile.title
+    }
+
+    private var currentQuickProfileLabel: String {
+        "\(currentTuningProfileTitle) · \(currentProfileName)"
+    }
+
+    private var statusText: String {
+        switch agent.phase {
+        case .idle:
+            return agent.automaticConfigurationEnabled
+                ? String(localized: "ai_lab_not_analyzed")
+                : String(localized: "ai_quick_disabled")
+        case .sampling:
+            return agent.samplingStage.title
+        case .requesting:
+            return agent.generationStage.title
+        case .applying:
+            return String(localized: "ai_lab_applying")
+        case .ready:
+            return agent.isCurrentProposalApplied
+                ? String(localized: "ai_lab_applied")
+                : String(localized: "ai_lab_ready")
+        case .failed:
+            return String(localized: "ai_lab_failed")
+        }
+    }
+
+    private var tuningProfileSelection: Binding<String> {
+        Binding(
+            get: { agent.tuningProfile.rawValue },
+            set: { rawValue in
+                guard let profile = AIEqualizerTuningProfile(rawValue: rawValue) else { return }
+                agent.selectTuningProfile(profile)
+            }
+        )
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            header
+
+            Divider()
+                .overlay(foregroundColor.opacity(0.1))
+                .padding(.horizontal, 14)
+
+            profileMenu
+                .padding(.horizontal, 14)
+                .padding(.top, 11)
+
+            tuningDirection
+                .padding(.horizontal, 14)
+                .padding(.top, 12)
+
+            actions
+                .padding(14)
+        }
+        .frame(width: 274)
+        .accessibilityElement(children: .contain)
+    }
+
+    private var header: some View {
+        HStack(spacing: 10) {
+            AIEqualizerArtworkStatusGlyph(
+                progress: tuningProgress,
+                isComplete: agent.isCurrentProposalApplied,
+                isEnabled: agent.automaticConfigurationEnabled,
+                reduceMotion: reduceMotion,
+                foregroundColor: foregroundColor
+            )
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(String(localized: "ai_lab_auto_configure"))
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(foregroundColor)
+
+                Text(statusText)
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(secondaryColor)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 8)
+
+            Toggle("", isOn: $agent.automaticConfigurationEnabled)
+                .labelsHidden()
+                .tint(accent)
+                .controlSize(.mini)
+                .accessibilityLabel(String(localized: "ai_lab_automation"))
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+    }
+
+    private var profileMenu: some View {
+        Menu {
+            if agent.applicableSavedProposals.isEmpty {
+                Button(String(localized: "ai_lab_history_empty")) {}
+                    .disabled(true)
+            } else {
+                ForEach(AIEqualizerTuningProfile.allCases) { profile in
+                    if agent.applicableSavedProposals.contains(where: {
+                        $0.proposal.resolvedTuningProfile == profile
+                    }) {
+                        Section(profile.title) {
+                            ForEach(agent.applicableSavedProposals.filter {
+                                $0.proposal.resolvedTuningProfile == profile
+                            }) { saved in
+                                Button {
+                                    if !agent.automaticConfigurationEnabled {
+                                        agent.automaticConfigurationEnabled = true
+                                    }
+                                    agent.applySavedProposal(saved)
+                                } label: {
+                                    let title = saved.proposal.profileName.isEmpty
+                                        ? String(localized: "ai_eq_profile_default")
+                                        : saved.proposal.profileName
+                                    let time = saved.proposal.createdAt.formatted(
+                                        date: .omitted,
+                                        time: .shortened
+                                    )
+                                    if agent.appliedProposalID == saved.id {
+                                        Label("\(title) · \(time)", systemImage: "checkmark")
+                                    } else {
+                                        Text("\(title) · \(time)")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Text(String(localized: "ai_quick_current_profile"))
+                    .font(.system(size: 11.5, weight: .medium))
+                    .foregroundStyle(secondaryColor)
+
+                Spacer(minLength: 8)
+
+                Text(currentQuickProfileLabel)
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .foregroundStyle(foregroundColor)
+                    .lineLimit(1)
+
+                MonologueIcon(
+                    icon: .chevronDown,
+                    size: 9,
+                    color: secondaryColor,
+                    lineWidth: 1.6
+                )
+            }
+            .frame(minHeight: 32)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(agent.applicableSavedProposals.isEmpty)
+        .accessibilityLabel(String(localized: "ai_quick_current_profile"))
+    }
+
+    private var tuningDirection: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(String(localized: "ai_quick_tuning_direction"))
+                .font(.system(size: 11.5, weight: .medium))
+                .foregroundStyle(secondaryColor)
+
+            Picker("", selection: tuningProfileSelection) {
+                ForEach(AIEqualizerTuningProfile.allCases) { profile in
+                    Text(profile.title)
+                        .tag(profile.rawValue)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .tint(accent)
+            .controlSize(.small)
+            .disabled(agent.phase.isWorking)
+        }
+    }
+
+    private var actions: some View {
+        HStack(spacing: 8) {
+            Button(action: primaryAction) {
+                HStack(spacing: 6) {
+                    MonologueIcon(
+                        icon: agent.phase.isWorking ? .close : .refresh,
+                        size: 11,
+                        color: foregroundColor,
+                        lineWidth: 1.7
+                    )
+                    Text(
+                        agent.phase.isWorking
+                            ? String(localized: "ai_lab_cancel")
+                            : String(localized: "ai_lab_reanalyze")
+                    )
+                    .font(.system(size: 11.5, weight: .semibold))
+                }
+                .foregroundStyle(foregroundColor)
+                .frame(maxWidth: .infinity, minHeight: 34)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(accent.opacity(colorScheme == .dark ? 0.22 : 0.14))
+                )
+            }
+            .buttonStyle(MonologueBouncingButtonStyle())
+
+            Button(action: onOpenDetails) {
+                HStack(spacing: 5) {
+                    Text(String(localized: "ai_quick_details"))
+                        .font(.system(size: 11.5, weight: .semibold))
+                    MonologueIcon(
+                        icon: .chevronRight,
+                        size: 9,
+                        color: secondaryColor,
+                        lineWidth: 1.6
+                    )
+                }
+                .foregroundStyle(foregroundColor)
+                .frame(maxWidth: .infinity, minHeight: 34)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(foregroundColor.opacity(0.07))
+                )
+            }
+            .buttonStyle(MonologueBouncingButtonStyle())
+        }
+    }
+
+    private func primaryAction() {
+        if agent.phase.isWorking {
+            agent.cancelAnalysis()
             return
         }
-        guard appliedProfileName != nil else { return }
-        if isExpanded {
-            showTuningDetails = true
-            return
+        if !agent.automaticConfigurationEnabled {
+            agent.automaticConfigurationEnabled = true
         }
-        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {
-            isExpanded = true
+        agent.analyzeCurrentSong()
+    }
+}
+
+private struct AIEqualizerQuickPopoverPresentation: ViewModifier {
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(iOS 16.4, *) {
+            content
+                .presentationCompactAdaptation(.popover)
+        } else {
+            content
         }
     }
 }
@@ -350,10 +641,11 @@ private struct AIEqualizerStatusGlassBackground: View {
 private struct AIEqualizerArtworkStatusGlyph: View {
     let progress: Double?
     let isComplete: Bool
+    let isEnabled: Bool
     let reduceMotion: Bool
     let foregroundColor: Color
 
-    @ObservedObject private var performance = CinemaPerformanceGovernor.shared
+    @ObservedObject private var performance = AriaPerformanceGovernor.shared
 
     private var animationFramesPerSecond: Int {
         switch performance.tier {
@@ -397,6 +689,23 @@ private struct AIEqualizerArtworkStatusGlyph: View {
                 }
             } else if isComplete {
                 MonologueIcon(icon: .sparkle, size: 11, color: foregroundColor)
+            } else {
+                MonologueIcon(
+                    icon: .sparkle,
+                    size: 11,
+                    color: foregroundColor.opacity(isEnabled ? 0.9 : 0.52)
+                )
+
+                if !isEnabled {
+                    Path { path in
+                        path.move(to: CGPoint(x: 7, y: 7))
+                        path.addLine(to: CGPoint(x: 16, y: 16))
+                    }
+                    .stroke(
+                        foregroundColor.opacity(0.68),
+                        style: StrokeStyle(lineWidth: 1.2, lineCap: .round)
+                    )
+                }
             }
         }
         .frame(width: 23, height: 23)

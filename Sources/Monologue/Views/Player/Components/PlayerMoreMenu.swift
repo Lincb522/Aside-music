@@ -30,14 +30,18 @@ struct PlayerMoreMenu: View {
     @ObservedObject private var player = PlayerManager.shared
     @ObservedObject private var gameMode = GameModeManager.shared
     @ObservedObject private var eqManager = EQManager.shared
+    @ObservedObject private var aiEqualizerAgent = AIEqualizerAgent.shared
+    @ObservedObject private var monoSuite = MonoNextSuiteManager.shared
     @ObservedObject private var settings = SettingsManager.shared
     @ObservedObject private var lyricViewModel = LyricViewModel.shared
+    @ObservedObject private var monoSession = MonoSessionManager.shared
     @AppStorage("enableKaraoke") private var enableKaraoke = false
     @AppStorage("showTranslation") private var showTranslation = true
     @State private var showTimerSheet = false
     @State private var showLyricSourceSheet = false
     @State private var showImmersiveSettings = false
     @State private var showPlayerTypography = false
+    @State private var showMonoSession = false
     /// 子级页面关闭时，Sheet 的绑定会先复位；单独保留转场状态，避免菜单短暂重绘。
     @State private var isPresentingChild = false
 
@@ -58,10 +62,36 @@ struct PlayerMoreMenu: View {
         return String(format: "%d:%02d", minutes, seconds)
     }
 
-    private var equalizerStatusText: String {
-        guard eqManager.isEnabled else { return String(localized: "settings_off") }
-        let name = eqManager.currentPreset?.name.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return name.isEmpty ? String(localized: "eq_custom") : name
+    private var soundCenterStatusText: String {
+        if aiEqualizerAgent.phase.isWorking {
+            return String(localized: "mono_audio_tuning")
+        }
+
+        if aiEqualizerAgent.isCurrentProposalApplied {
+            let name = aiEqualizerAgent.proposal?.profileName
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if !name.isEmpty { return name }
+        }
+
+        if eqManager.isEnabled {
+            let name = eqManager.currentPreset?.name.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            return name.isEmpty ? String(localized: "eq_custom") : name
+        }
+
+        let activeEnhancements = [
+            MonoNextFeature.spatialLive,
+            .dna,
+            .recovery
+        ].filter { monoSuite.isEnabled($0) }.count
+        if activeEnhancements > 0 {
+            return String(
+                format: String(localized: "mono_suite_running_count"),
+                activeEnhancements,
+                3
+            )
+        }
+
+        return String(localized: "settings_off")
     }
 
     var body: some View {
@@ -113,6 +143,13 @@ struct PlayerMoreMenu: View {
                 PlayerTypographySettingsView()
             }
         }
+        .fullScreenCover(isPresented: $showMonoSession, onDismiss: {
+            closeMenu()
+        }) {
+            NavigationStack {
+                MonoSessionPlayerView()
+            }
+        }
     }
 
     private var menuPanel: some View {
@@ -162,8 +199,8 @@ struct PlayerMoreMenu: View {
 
             quickAction(
                 icon: .audioWave,
-                title: String(localized: "settings_equalizer"),
-                status: equalizerStatusText
+                title: String(localized: "mono_audio_center_title"),
+                status: soundCenterStatusText
             ) {
                 closeMenu()
                 onEQ()
@@ -215,6 +252,17 @@ struct PlayerMoreMenu: View {
 
     private var playerActions: some View {
         VStack(spacing: 0) {
+            menuRow(
+                icon: .personCircle,
+                title: String(localized: "mono_session_title"),
+                trailingText: monoSessionMenuStatus
+            ) {
+                isPresentingChild = true
+                showMonoSession = true
+            }
+
+            menuDivider
+
             if let onTheme {
                 menuRow(
                     icon: .playerTheme,
@@ -237,11 +285,16 @@ struct PlayerMoreMenu: View {
         .background(groupBackground)
     }
 
+    private var monoSessionMenuStatus: String? {
+        guard let room = monoSession.room else { return nil }
+        return String(format: String(localized: "mono_session_member_count"), room.participants.count)
+    }
+
     private var immersiveActionRow: some View {
         HStack(spacing: 0) {
             Button {
                 closeMenu()
-                CinemaModeController.shared.present()
+                ImmersiveModeController.shared.present()
             } label: {
                 HStack(spacing: 11) {
                     rowIcon(.immersive)

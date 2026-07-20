@@ -32,6 +32,7 @@ public final class AudioRepairEngine {
                isLoudnessStabilizerEnabled || isReverbTailGuardEnabled ||
                isPhaseContinuityEnabled || isFilterTransitionEnabled ||
                abs(outputGainDB) > 0.001 ||
+               abs(outputGainCurrentLinear - 1) > 0.000_1 ||
                abs(perceptualMakeupDBStorage) > 0.001 ||
                abs(perceptualMakeupCurrentLinear - 1) > 0.000_1
     }
@@ -55,7 +56,7 @@ public final class AudioRepairEngine {
         ceilingDB: Float = -1,
         declipEnabled: Bool = false,
         clipThreshold: Float = 0.98,
-        transitionProtectionEnabled: Bool = true,
+        transitionProtectionEnabled: Bool = false,
         outputGainDB: Float = 0,
         perceptualMakeupDB: Float = 0
     ) {
@@ -69,7 +70,7 @@ public final class AudioRepairEngine {
         // This is a post-processing compensation, not a change to the EQ plan.
         // Keep it bounded so a malformed or extremely attenuated proposal cannot
         // turn the final limiter into a permanent heavy compressor.
-        outputGainDBStorage = min(9, max(-9, outputGainDB.isFinite ? outputGainDB : 0))
+        setOutputGainTargetLocked(outputGainDB)
         setPerceptualMakeupTargetLocked(perceptualMakeupDB)
         lock.unlock()
     }
@@ -85,7 +86,7 @@ public final class AudioRepairEngine {
         }
         set {
             lock.lock()
-            outputGainDBStorage = min(9, max(-9, newValue.isFinite ? newValue : 0))
+            setOutputGainTargetLocked(newValue)
             setPerceptualMakeupTargetLocked(perceptualMakeupDBStorage)
             lock.unlock()
         }
@@ -136,6 +137,8 @@ public final class AudioRepairEngine {
 
     // 相位连续性状态
     private var previousPhaseDirection: [Float] = []
+    // 实时回调复用的斜率 scratch，避免每个 block 重新分配
+    private var phaseDirectionScratch: [Float] = []
 
     // 滤镜重建过渡状态
     private var transitionBuffer: [Float] = []
@@ -144,6 +147,12 @@ public final class AudioRepairEngine {
     private var prevFrameRMS: Float = 0
     private var stableFrameCount: Int = 0
     private var outputGainDBStorage: Float = 0
+    private var outputGainCurrentLinear: Float = 1
+    private var outputGainStartLinear: Float = 1
+    private var outputGainTargetLinear: Float = 1
+    private var outputGainRampProcessedFrames = 0
+    private var outputGainRampTotalFrames = 0
+    private var outputGainRampPending = false
     private var perceptualMakeupDBStorage: Float = 0
     private var perceptualMakeupCurrentLinear: Float = 1
     private var perceptualMakeupStartLinear: Float = 1
@@ -249,6 +258,12 @@ public final class AudioRepairEngine {
         prevFrameRMS = 0
         stableFrameCount = 0
         outputGainDBStorage = 0
+        outputGainCurrentLinear = 1
+        outputGainStartLinear = 1
+        outputGainTargetLinear = 1
+        outputGainRampProcessedFrames = 0
+        outputGainRampTotalFrames = 0
+        outputGainRampPending = false
         perceptualMakeupDBStorage = 0
         perceptualMakeupCurrentLinear = 1
         perceptualMakeupStartLinear = 1
@@ -339,51 +354,106 @@ public final class AudioRepairEngine {
         channelCount: Int,
         sampleRate: Int
     ) {
-        let safetyLinear = powf(10, outputGainDBStorage / 20)
+        let rampFrames = max(1, Int(Double(sampleRate) * 0.32))
+        if outputGainRampPending {
+            outputGainStartLinear = outputGainCurrentLinear
+            outputGainRampProcessedFrames = 0
+            outputGainRampTotalFrames = rampFrames
+            outputGainRampPending = false
+        }
         if perceptualMakeupRampPending {
             perceptualMakeupStartLinear = perceptualMakeupCurrentLinear
             perceptualMakeupRampProcessedFrames = 0
-            perceptualMakeupRampTotalFrames = max(1, Int(Double(sampleRate) * 0.32))
+            perceptualMakeupRampTotalFrames = rampFrames
             perceptualMakeupRampPending = false
         }
 
-        if perceptualMakeupRampProcessedFrames < perceptualMakeupRampTotalFrames {
+        let outputIsRamping =
+            outputGainRampProcessedFrames < outputGainRampTotalFrames
+        let makeupIsRamping =
+            perceptualMakeupRampProcessedFrames < perceptualMakeupRampTotalFrames
+
+        if outputIsRamping || makeupIsRamping {
             for frame in 0..<frameCount {
-                let progressed = min(
-                    perceptualMakeupRampTotalFrames,
-                    perceptualMakeupRampProcessedFrames + frame
+                let outputLinear = interpolatedGain(
+                    start: outputGainStartLinear,
+                    target: outputGainTargetLinear,
+                    processedFrames: outputGainRampProcessedFrames + frame + 1,
+                    totalFrames: outputGainRampTotalFrames
                 )
-                let progress = Float(progressed) / Float(perceptualMakeupRampTotalFrames)
-                let eased = progress * progress * (3 - 2 * progress)
-                let makeupLinear = perceptualMakeupStartLinear
-                    + (perceptualMakeupTargetLinear - perceptualMakeupStartLinear) * eased
-                let combinedGain = safetyLinear * makeupLinear
+                let makeupLinear = interpolatedGain(
+                    start: perceptualMakeupStartLinear,
+                    target: perceptualMakeupTargetLinear,
+                    processedFrames: perceptualMakeupRampProcessedFrames + frame + 1,
+                    totalFrames: perceptualMakeupRampTotalFrames
+                )
+                let combinedGain = outputLinear * makeupLinear
                 let baseIndex = frame * channelCount
                 for channel in 0..<channelCount {
                     data[baseIndex + channel] *= combinedGain
                 }
             }
-            perceptualMakeupRampProcessedFrames += frameCount
-            if perceptualMakeupRampProcessedFrames >= perceptualMakeupRampTotalFrames {
-                perceptualMakeupCurrentLinear = perceptualMakeupTargetLinear
-                perceptualMakeupRampProcessedFrames = perceptualMakeupRampTotalFrames
+
+            if outputIsRamping {
+                outputGainRampProcessedFrames = min(
+                    outputGainRampTotalFrames,
+                    outputGainRampProcessedFrames + frameCount
+                )
+                outputGainCurrentLinear = interpolatedGain(
+                    start: outputGainStartLinear,
+                    target: outputGainTargetLinear,
+                    processedFrames: outputGainRampProcessedFrames,
+                    totalFrames: outputGainRampTotalFrames
+                )
             } else {
-                let progress = Float(perceptualMakeupRampProcessedFrames)
-                    / Float(perceptualMakeupRampTotalFrames)
-                let eased = progress * progress * (3 - 2 * progress)
-                perceptualMakeupCurrentLinear = perceptualMakeupStartLinear
-                    + (perceptualMakeupTargetLinear - perceptualMakeupStartLinear) * eased
+                outputGainCurrentLinear = outputGainTargetLinear
+            }
+
+            if makeupIsRamping {
+                perceptualMakeupRampProcessedFrames = min(
+                    perceptualMakeupRampTotalFrames,
+                    perceptualMakeupRampProcessedFrames + frameCount
+                )
+                perceptualMakeupCurrentLinear = interpolatedGain(
+                    start: perceptualMakeupStartLinear,
+                    target: perceptualMakeupTargetLinear,
+                    processedFrames: perceptualMakeupRampProcessedFrames,
+                    totalFrames: perceptualMakeupRampTotalFrames
+                )
+            } else {
+                perceptualMakeupCurrentLinear = perceptualMakeupTargetLinear
             }
             return
         }
 
+        outputGainCurrentLinear = outputGainTargetLinear
         perceptualMakeupCurrentLinear = perceptualMakeupTargetLinear
-        let combinedGain = safetyLinear * perceptualMakeupCurrentLinear
+        let combinedGain = outputGainCurrentLinear * perceptualMakeupCurrentLinear
         guard abs(combinedGain - 1) > 0.000_1 else { return }
         let totalSamples = frameCount * channelCount
         for index in 0..<totalSamples {
             data[index] *= combinedGain
         }
+    }
+
+    private func interpolatedGain(
+        start: Float,
+        target: Float,
+        processedFrames: Int,
+        totalFrames: Int
+    ) -> Float {
+        guard totalFrames > 0 else { return target }
+        let progress = min(1, max(0, Float(processedFrames) / Float(totalFrames)))
+        let eased = progress * progress * (3 - 2 * progress)
+        return start + (target - start) * eased
+    }
+
+    private func setOutputGainTargetLocked(_ value: Float) {
+        let safeValue = min(9, max(-9, value.isFinite ? value : 0))
+        guard abs(safeValue - outputGainDBStorage) > 0.005 else { return }
+        outputGainDBStorage = safeValue
+        outputGainTargetLinear = powf(10, safeValue / 20)
+        outputGainRampPending = true
     }
 
     private func setPerceptualMakeupTargetLocked(_ value: Float) {
@@ -412,7 +482,11 @@ public final class AudioRepairEngine {
     private func saveTail(_ data: UnsafeMutablePointer<Float>, frameCount: Int, channelCount: Int) {
         let samplesToSave = min(tailLength, frameCount) * channelCount
         let startIdx = (frameCount - min(tailLength, frameCount)) * channelCount
-        previousTail = Array(UnsafeBufferPointer(start: data + startIdx, count: samplesToSave))
+        // 复用已有容量，避免实时回调里每个 block 都重新分配数组存储
+        previousTail.removeAll(keepingCapacity: true)
+        previousTail.append(
+            contentsOf: UnsafeBufferPointer(start: data + startIdx, count: samplesToSave)
+        )
     }
 
     // MARK: - 1. 淡入保护
@@ -761,20 +835,16 @@ public final class AudioRepairEngine {
                     if maxJump > 0.3 {
                         let jumpFactor = min(maxJump / 0.5, 1.0)
                         let fadeSamples = Int(Float(filterTransitionMaxSamples) * (0.3 + 0.7 * jumpFactor))
-                        let actualFade = min(fadeSamples, frameCount)
                         let tailFrameCount = previousTail.count / channelCount
-                        transitionBuffer = Array(repeating: Float(0), count: actualFade * channelCount)
-                        for frame in 0..<actualFade {
-                            for ch in 0..<channelCount {
-                                let srcFrame = tailFrameCount - actualFade + frame
-                                if srcFrame >= 0 {
-                                    let srcIdx = srcFrame * channelCount + ch
-                                    if srcIdx < previousTail.count {
-                                        transitionBuffer[frame * channelCount + ch] = previousTail[srcIdx]
-                                    }
-                                }
-                            }
-                        }
+                        // 只能交叉淡化真实保存下来的尾帧。旧实现最多申请
+                        // 1024 帧、却只有 64 帧历史，其余位置为零，等同于
+                        // 人为插入一次约 20ms 的音量凹陷。
+                        let actualFade = min(fadeSamples, frameCount, tailFrameCount)
+                        guard actualFade > 0 else { return }
+                        transitionBuffer.removeAll(keepingCapacity: true)
+                        transitionBuffer.append(
+                            contentsOf: previousTail.suffix(actualFade * channelCount)
+                        )
                         transitionLength = actualFade
                         transitionRemaining = actualFade
                         stableFrameCount = 0
@@ -936,14 +1006,15 @@ public final class AudioRepairEngine {
     ) {
         guard frameCount >= 4 else { return }
 
-        var currentDirection = [Float](repeating: 0, count: channelCount)
+        phaseDirectionScratch.removeAll(keepingCapacity: true)
         for ch in 0..<channelCount {
             var slope: Float = 0
             for frame in 1..<min(4, frameCount) {
                 slope += data[frame * channelCount + ch] - data[(frame - 1) * channelCount + ch]
             }
-            currentDirection[ch] = slope
+            phaseDirectionScratch.append(slope)
         }
+        let currentDirection = phaseDirectionScratch
 
         if !previousPhaseDirection.isEmpty && previousPhaseDirection.count == channelCount {
             var flippedChannels = 0
@@ -993,6 +1064,7 @@ public final class AudioRepairEngine {
                 }
             }
         }
-        previousPhaseDirection = currentDirection
+        // 两块存储交替复用，稳态下不触发分配
+        swap(&previousPhaseDirection, &phaseDirectionScratch)
     }
 }

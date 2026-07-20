@@ -1,6 +1,7 @@
 import Foundation
 @preconcurrency import Combine
 import FFmpegSwiftSDK
+import UIKit
 
 private enum AIEqualizerAnalysisTrigger: Equatable {
     case manual
@@ -51,6 +52,15 @@ final class AIEqualizerAgent: ObservableObject {
             )
         }
     }
+    @Published var tuningProfile: AIEqualizerTuningProfile {
+        didSet {
+            UserDefaults.standard.set(tuningProfile.rawValue, forKey: Self.tuningProfileKey)
+            AppLogger.info(
+                "[AIEqualizerAgent] Tuning profile changed value=\(tuningProfile.rawValue)",
+                step: "ai-tuning.profile"
+            )
+        }
+    }
     @Published var samplingMode: AIEqualizerSamplingMode {
         didSet { UserDefaults.standard.set(samplingMode.rawValue, forKey: Self.samplingModeKey) }
     }
@@ -96,6 +106,7 @@ final class AIEqualizerAgent: ObservableObject {
     private static let autoKey = "ai.eq.agent.auto-configure"
     private static let samplingModeKey = "ai.eq.agent.sampling-mode"
     private static let tuningIntensityKey = "ai.eq.agent.tuning-intensity"
+    private static let tuningProfileKey = "ai.eq.agent.tuning-profile"
     private static let customSamplingDurationKey = "ai.eq.agent.custom-sampling-duration"
     private static let playerStatusKey = "ai.eq.agent.player-status"
     private static let adaptiveLearningKey = "ai.eq.agent.adaptive-learning"
@@ -121,6 +132,7 @@ final class AIEqualizerAgent: ObservableObject {
     private var observedSongIdentifier: String?
     private var samplingRetryCount: [String: Int] = [:]
     private var recentProfileNames: [String] = []
+    private var discoveredProviderModels: [String: String] = [:]
     private var activeLearningSession: AIEqualizerActiveLearningSession?
 
     private init() {
@@ -128,6 +140,8 @@ final class AIEqualizerAgent: ObservableObject {
         automaticConfigurationEnabled = defaults.bool(forKey: Self.autoKey)
         tuningIntensity = defaults.string(forKey: Self.tuningIntensityKey)
             .flatMap(AIEqualizerTuningIntensity.init(rawValue:)) ?? .smart
+        tuningProfile = defaults.string(forKey: Self.tuningProfileKey)
+            .flatMap(AIEqualizerTuningProfile.init(rawValue:)) ?? .standard
         samplingMode = defaults.string(forKey: Self.samplingModeKey)
             .flatMap(AIEqualizerSamplingMode.init(rawValue:)) ?? .smart
         let savedDuration = defaults.double(forKey: Self.customSamplingDurationKey)
@@ -313,6 +327,76 @@ final class AIEqualizerAgent: ObservableObject {
         return appliedProposalID == proposal.id
     }
 
+    var applicableSavedProposals: [AIEqualizerSavedProposal] {
+        guard let song = PlayerManager.shared.currentSong else { return [] }
+        let identifier = songIdentifier(song)
+        let outputIdentity = currentOutputIdentity()
+        let graphicEQMode = EQManager.shared.graphicEQMode
+        return savedProposals.filter {
+            $0.songIdentifier == identifier
+                && $0.outputIdentity == outputIdentity
+                && $0.proposal.graphicEQMode == graphicEQMode
+        }
+    }
+
+    func selectTuningProfile(_ profile: AIEqualizerTuningProfile) {
+        guard tuningProfile != profile else { return }
+        tuningProfile = profile
+
+        automaticTask?.cancel()
+        automaticRetryTask?.cancel()
+        analysisTask?.cancel()
+        analysisTask = nil
+        activeAnalysisRunID = nil
+        activeAnalysisSongIdentifier = nil
+        scheduledAutomaticRunID = nil
+        scheduledAutomaticSongIdentifier = nil
+        tuningStartedAt = nil
+        generationStartedAt = nil
+        activeLearningSession = nil
+        currentLearningFeedback = nil
+
+        guard automaticConfigurationEnabled,
+              let song = PlayerManager.shared.currentSong else {
+            if phase.isWorking { phase = .idle }
+            return
+        }
+
+        let identifier = songIdentifier(song)
+        let outputIdentity = currentOutputIdentity()
+        let graphicEQMode = EQManager.shared.graphicEQMode
+        samplingRetryCount[identifier] = nil
+
+        if let saved = proposalCache.latestReusable(
+            for: identifier,
+            outputIdentity: outputIdentity,
+            graphicEQMode: graphicEQMode,
+            tuningIntensity: tuningIntensity,
+            tuningProfile: profile
+        ) {
+            proposal = saved.proposal
+            AppLogger.info(
+                "[AIEqualizerAgent] Tuning profile selection reused saved proposal song=\(identifier) profile=\(profile.rawValue) proposal=\(saved.id.uuidString)",
+                step: "ai-tuning.profile-reuse"
+            )
+            apply(saved.proposal)
+            return
+        }
+
+        EQManager.shared.prepareForAIAnalysis(songIdentifier: identifier)
+        proposal = nil
+        appliedProposalID = nil
+        appliedSongIdentifier = nil
+        samplingStage = .preparing
+        generationStage = .preparing
+        phase = .idle
+        AppLogger.info(
+            "[AIEqualizerAgent] Tuning profile selection requires analysis song=\(identifier) profile=\(profile.rawValue)",
+            step: "ai-tuning.profile-analysis"
+        )
+        scheduleAutomaticAnalysis()
+    }
+
     func analyzeCurrentSong() {
         recordImplicitFeedbackIfNeeded(.regenerated)
         automaticTask?.cancel()
@@ -354,17 +438,23 @@ final class AIEqualizerAgent: ObservableObject {
 
     func applyCurrentProposal() {
         guard let proposal else { return }
-        apply(proposal)
+        apply(proposal, isManualAction: true)
     }
 
     func applySavedProposal(_ saved: AIEqualizerSavedProposal) {
         guard let song = PlayerManager.shared.currentSong,
-              songIdentifier(song) == saved.songIdentifier else { return }
+              songIdentifier(song) == saved.songIdentifier else {
+            rejectManualApply(reason: "song mismatch", saved: saved)
+            return
+        }
         let outputIdentity = EQManager.shared.currentOutputName.isEmpty
             ? EQManager.shared.currentOutputKind.rawValue
             : "\(EQManager.shared.currentOutputKind.rawValue):\(EQManager.shared.currentOutputName)"
         guard outputIdentity == saved.outputIdentity,
-              EQManager.shared.graphicEQMode == saved.proposal.graphicEQMode else { return }
+              EQManager.shared.graphicEQMode == saved.proposal.graphicEQMode else {
+            rejectManualApply(reason: "output/mode mismatch", saved: saved)
+            return
+        }
         automaticTask?.cancel()
         automaticRetryTask?.cancel()
         analysisTask?.cancel()
@@ -373,12 +463,24 @@ final class AIEqualizerAgent: ObservableObject {
         scheduledAutomaticRunID = nil
         scheduledAutomaticSongIdentifier = nil
         tuningStartedAt = nil
+        tuningIntensity = saved.proposal.tuningIntensity ?? .smart
+        tuningProfile = saved.proposal.tuningProfile ?? .standard
         proposal = saved.proposal
-        apply(saved.proposal)
+        apply(saved.proposal, isManualAction: true)
         AppLogger.info(
             "[AIEqualizerAgent] Applied saved proposal song=\(saved.songIdentifier) proposal=\(saved.id.uuidString)",
             step: "ai-tuning.saved-apply"
         )
+    }
+
+    /// 手动应用被环境变化拦下时不能无声返回：用户点了按钮，必须看到结果。
+    private func rejectManualApply(reason: String, saved: AIEqualizerSavedProposal) {
+        AppLogger.warning(
+            "[AIEqualizerAgent] Manual apply rejected (\(reason)) proposal=\(saved.id.uuidString) song=\(saved.songIdentifier) output=\(saved.outputIdentity)",
+            step: "ai-tuning.apply-skipped"
+        )
+        phase = .failed(String(localized: "ai_tuning_apply_context_changed"))
+        HapticManager.shared.warning()
     }
 
     func deleteSavedProposal(_ saved: AIEqualizerSavedProposal) {
@@ -439,7 +541,7 @@ final class AIEqualizerAgent: ObservableObject {
     }
 
     func testProviderConnection() async throws {
-        let configuration = try await resolvedProviderConfiguration()
+        let configuration = try await resolvedProviderConfiguration(usePublishedConfiguration: false)
         let text = try await client.generate(
             systemPrompt: AIEqualizerPrompt.system(for: .tenBand),
             userPrompt: AIEqualizerPrompt.connectivityTest,
@@ -557,12 +659,36 @@ final class AIEqualizerAgent: ObservableObject {
             }
         }
 
-        var configuration = providerStore.configuration
-        if configuration.wireProtocol.requiresAPIKey,
-           providerStore.apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            phase = .failed(AIEqualizerError.missingAPIKey.localizedDescription)
+        let requestedIntensity = tuningIntensity
+        let requestedProfile = tuningProfile
+        let graphicEQMode = EQManager.shared.graphicEQMode
+        let outputIdentity = currentOutputIdentity()
+
+        // Replaying a song should restore its already validated result before
+        // resolving the provider or starting a new sample. Learning revisions,
+        // provider changes and Agent prompt upgrades are generation context; they
+        // do not make an existing set of audio parameters unsafe to apply.
+        if !forceRegeneration,
+           let saved = proposalCache.latestReusable(
+               for: identifier,
+               outputIdentity: outputIdentity,
+               graphicEQMode: graphicEQMode,
+               tuningIntensity: requestedIntensity,
+               tuningProfile: requestedProfile
+           ) {
+            samplingRetryCount[identifier] = nil
+            savedProposals = proposalCache.history(for: identifier)
+            proposal = saved.proposal
+            let generatedAgentVersion = saved.proposal.agentVersion ?? "legacy"
+            AppLogger.info(
+                "[AIEqualizerAgent] Reused saved proposal before analysis song=\(identifier) proposal=\(saved.id.uuidString) output=\(outputIdentity) generatedBy=\(generatedAgentVersion) currentAgent=\(AIEqualizerPrompt.version)",
+                step: "ai-tuning.saved-reuse"
+            )
+            apply(saved.proposal)
             return
         }
+
+        let configuration: AIProviderConfiguration
         do {
             configuration = try await resolvedProviderConfiguration()
         } catch {
@@ -572,28 +698,31 @@ final class AIEqualizerAgent: ObservableObject {
             return
         }
         guard isCurrentSong(song) else { return }
-        let requestedIntensity = tuningIntensity
         let runStartedAt = Date()
         tuningStartedAt = runStartedAt
-        let graphicEQMode = EQManager.shared.graphicEQMode
         let samplingDuration = resolvedSamplingDuration(for: song)
         let samplingDurationText = String(format: "%.1f", samplingDuration)
         AppLogger.info(
-            "[AIEqualizerAgent] Analysis prepared songID=\(song.id) mode=\(samplingMode.rawValue) intensity=\(requestedIntensity.rawValue) eqBands=\(graphicEQMode.bandCount) target=\(samplingDurationText)s output=\(EQManager.shared.currentOutputName) protocol=\(configuration.wireProtocol.rawValue) model=\(configuration.resolvedModel)",
+            "[AIEqualizerAgent] Analysis prepared songID=\(song.id) mode=\(samplingMode.rawValue) intensity=\(requestedIntensity.rawValue) profile=\(requestedProfile.rawValue) eqBands=\(graphicEQMode.bandCount) target=\(samplingDurationText)s output=\(EQManager.shared.currentOutputName) protocol=\(configuration.wireProtocol.rawValue) model=\(configuration.resolvedModel)",
             step: "ai-tuning.prepare"
         )
-        let outputIdentity = currentOutputIdentity()
         let audioVariant = audioVariantIdentity(for: song)
         let learningRevision = adaptiveLearningEnabled ? learningStore.revision : 0
-        if measuredFeatures == nil {
-            measuredFeatures = measurementStore.value(
+        let reusableMeasuredFeatures: AIEqualizerAudioFeatures?
+        if forceRegeneration {
+            reusableMeasuredFeatures = nil
+        } else {
+            reusableMeasuredFeatures = measurementStore.value(
                 songIdentifier: identifier,
                 audioVariant: audioVariant,
                 outputIdentity: outputIdentity,
                 graphicEQMode: graphicEQMode
             )
+            if let reusableMeasuredFeatures {
+                measuredFeatures = reusableMeasuredFeatures
+            }
         }
-        let cacheKey = "\(AIEqualizerPrompt.version)|mono-agent-v4|learning:\(learningRevision)|\(graphicEQMode.rawValue)|\(song.musicSource.rawValue)|\(song.id)|\(audioVariant)|\(configuration.wireProtocol.rawValue)|\(configuration.resolvedModel)|\(outputIdentity)|\(samplingMode.rawValue)|\(Int(samplingDuration.rounded()))|\(requestedIntensity.rawValue)"
+        let cacheKey = "\(AIEqualizerPrompt.version)|mono-agent-v4|learning:\(learningRevision)|\(graphicEQMode.rawValue)|\(song.musicSource.rawValue)|\(song.id)|\(audioVariant)|\(configuration.wireProtocol.rawValue)|\(configuration.resolvedModel)|\(outputIdentity)|\(samplingMode.rawValue)|\(Int(samplingDuration.rounded()))|\(requestedIntensity.rawValue)|\(requestedProfile.rawValue)"
         if !forceRegeneration, let cached = proposalCache.value(for: cacheKey) {
             samplingRetryCount[identifier] = nil
             if proposalCache.shouldRecord(
@@ -617,57 +746,50 @@ final class AIEqualizerAgent: ObservableObject {
             apply(cached)
             return
         }
-        if !forceRegeneration,
-           let saved = proposalCache.latest(
-               for: identifier,
-               outputIdentity: outputIdentity,
-               graphicEQMode: graphicEQMode,
-               tuningIntensity: requestedIntensity,
-               provider: configuration.wireProtocol,
-               model: configuration.resolvedModel,
-               learningRevision: adaptiveLearningEnabled ? learningRevision : nil
-           ) {
-            samplingRetryCount[identifier] = nil
-            proposalCache.set(saved.proposal, for: cacheKey)
-            savedProposals = proposalCache.history(for: identifier)
-            AppLogger.info(
-                "[AIEqualizerAgent] Restored saved proposal song=\(identifier) proposal=\(saved.id.uuidString) output=\(outputIdentity)",
-                step: "ai-tuning.saved-restore"
-            )
-            proposal = saved.proposal
-            apply(saved.proposal)
-            return
-        }
-
         do {
             let samplingStartedAt = Date()
-            samplingStage = .preparing
-            phase = .sampling(progress: 0)
-            let features = try await sampler.sample(
-                song: song,
-                duration: samplingDuration,
-                graphicEQMode: graphicEQMode
-            ) { [weak self] value, stage in
-                self?.samplingStage = stage
-                self?.phase = .sampling(progress: value)
+            let features: AIEqualizerAudioFeatures
+            let samplingElapsed: TimeInterval
+            if let reusableMeasuredFeatures {
+                samplingStage = .finalizing
+                phase = .sampling(progress: 1)
+                features = reusableMeasuredFeatures
+                samplingElapsed = 0
+                AppLogger.info(
+                    "[AIEqualizerAgent] Reused measured features song=\(identifier) variant=\(audioVariant) output=\(outputIdentity) mode=\(graphicEQMode.rawValue) frames=\(features.frameCount)",
+                    step: "ai-tuning.measurement-reuse"
+                )
+            } else {
+                samplingStage = .preparing
+                phase = .sampling(progress: 0)
+                features = try await sampler.sample(
+                    song: song,
+                    duration: samplingDuration,
+                    graphicEQMode: graphicEQMode
+                ) { [weak self] value, stage in
+                    self?.samplingStage = stage
+                    self?.phase = .sampling(progress: value)
+                }
+                samplingElapsed = Date().timeIntervalSince(samplingStartedAt)
             }
             try Task.checkCancellation()
             guard isCurrentSong(song), EQManager.shared.graphicEQMode == graphicEQMode else {
                 throw AIEqualizerError.noSong
             }
-            let samplingElapsed = Date().timeIntervalSince(samplingStartedAt)
 
-            measurementStore.set(
-                features,
-                songIdentifier: identifier,
-                audioVariant: audioVariant,
-                outputIdentity: outputIdentity
-            )
+            if reusableMeasuredFeatures == nil {
+                measurementStore.set(
+                    features,
+                    songIdentifier: identifier,
+                    audioVariant: audioVariant,
+                    outputIdentity: outputIdentity
+                )
+                AppLogger.success(
+                    "[AIEqualizerAgent] Measurement persisted song=\(identifier) variant=\(audioVariant) output=\(outputIdentity) mode=\(graphicEQMode.rawValue) frames=\(features.frameCount)",
+                    step: "ai-tuning.measurement-saved"
+                )
+            }
             measuredFeatures = features
-            AppLogger.success(
-                "[AIEqualizerAgent] Measurement persisted song=\(identifier) variant=\(audioVariant) output=\(outputIdentity) mode=\(graphicEQMode.rawValue) frames=\(features.frameCount)",
-                step: "ai-tuning.measurement-saved"
-            )
             let learningContext = adaptiveLearningEnabled
                 ? learningStore.context(
                     for: features,
@@ -678,6 +800,7 @@ final class AIEqualizerAgent: ObservableObject {
                 features: features,
                 configuration: configuration,
                 requestedIntensity: requestedIntensity,
+                requestedProfile: requestedProfile,
                 graphicEQMode: graphicEQMode,
                 song: song,
                 learningContext: learningContext
@@ -694,6 +817,7 @@ final class AIEqualizerAgent: ObservableObject {
                 model: configuration.resolvedModel,
                 agentVersion: AIEqualizerPrompt.version,
                 tuningIntensity: requestedIntensity,
+                tuningProfile: requestedProfile,
                 avoidingProfileNames: Set(recentProfileNames),
                 learningContext: learningContext
             )
@@ -855,6 +979,7 @@ final class AIEqualizerAgent: ObservableObject {
         features: AIEqualizerAudioFeatures,
         configuration: AIProviderConfiguration,
         requestedIntensity: AIEqualizerTuningIntensity,
+        requestedProfile: AIEqualizerTuningProfile,
         graphicEQMode: GraphicEQMode,
         song: Song,
         learningContext: AIEqualizerLearningContext?
@@ -864,6 +989,7 @@ final class AIEqualizerAgent: ObservableObject {
         let userPrompt = try AIEqualizerPrompt.userPrompt(
             features: features,
             tuningIntensity: requestedIntensity,
+            tuningProfile: requestedProfile,
             avoidingProfileNames: recentProfileNames,
             learningContext: learningContext
         )
@@ -876,16 +1002,17 @@ final class AIEqualizerAgent: ObservableObject {
 
             generationStage = .preparing
             phase = .requesting
+            var reservation: Date?
             do {
                 // Reserve every actual request. Quota and frequency errors are
                 // intentionally not retried by the classifier below.
-                try usageLimiter.reserveRequest(limits: providerStore.usageLimits)
+                reservation = try usageLimiter.reserveRequest(limits: providerStore.usageLimits)
                 generationStage = .generating
                 let response = try await client.generate(
                     systemPrompt: AIEqualizerPrompt.system(for: graphicEQMode),
                     userPrompt: userPrompt,
                     configuration: configuration,
-                    apiKey: providerStore.apiKey,
+                    apiKey: providerStore.requestAPIKey,
                     minimumTimeout: 120
                 )
                 try Task.checkCancellation()
@@ -902,6 +1029,9 @@ final class AIEqualizerAgent: ObservableObject {
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
+                if let reservation, AIUsageLimiter.shouldRefundReservation(for: error) {
+                    usageLimiter.releaseReservation(reservation)
+                }
                 guard attempt < Self.maxGenerationRetryAttempts,
                       isRetryableGenerationError(error) else {
                     throw error
@@ -966,12 +1096,29 @@ final class AIEqualizerAgent: ObservableObject {
         return max(baseDelay, minimumRequestInterval + 0.25)
     }
 
-    private func apply(_ proposal: AIEqualizerProposal) {
-        guard PlayerManager.shared.currentSong?.id == proposal.songID,
-              EQManager.shared.graphicEQMode == proposal.graphicEQMode else { return }
+    @discardableResult
+    private func apply(_ proposal: AIEqualizerProposal, isManualAction: Bool = false) -> Bool {
+        let currentSongID = PlayerManager.shared.currentSong?.id
+        let currentMode = EQManager.shared.graphicEQMode
+        guard currentSongID == proposal.songID, currentMode == proposal.graphicEQMode else {
+            // 静默丢弃会让 UI 停在“已生成/已应用”的假象上，DSP 却没动。
+            // 手动操作给出明确失败反馈；自动流程至少留痕并收敛工作状态。
+            AppLogger.warning(
+                "[AIEqualizerAgent] Apply skipped currentSong=\(currentSongID.map { String($0) } ?? "none") proposalSong=\(proposal.songID) currentMode=\(currentMode.rawValue) proposalMode=\(proposal.graphicEQMode.rawValue) manual=\(isManualAction)",
+                step: "ai-tuning.apply-skipped"
+            )
+            if isManualAction {
+                phase = .failed(String(localized: "ai_tuning_apply_context_changed"))
+                HapticManager.shared.warning()
+            } else if phase.isWorking {
+                phase = .idle
+            }
+            return false
+        }
         phase = .applying
         let manager = EQManager.shared
-        manager.applyAIConfiguration(proposal)
+        let resolvedSpatial = MonoNextSuiteManager.shared.resolvedSpatialForTuningProposal(proposal)
+        manager.applyAIConfiguration(proposal, spatialOverride: resolvedSpatial)
         let effects = proposal.effects
         let professional = proposal.professional
         let outputGainDB = PlayerManager.shared.audioRepair.outputGainDB
@@ -985,6 +1132,7 @@ final class AIEqualizerAgent: ObservableObject {
         beginLearningSession(for: proposal)
         phase = .ready
         HapticManager.shared.success()
+        return true
     }
 
     private func beginLearningSession(for proposal: AIEqualizerProposal) {
@@ -1186,28 +1334,78 @@ final class AIEqualizerAgent: ObservableObject {
         }
 
         let remaining = PlayerManager.shared.duration - PlayerManager.shared.currentTime
-        guard remaining > 0 else { return requested }
-        return min(requested, max(8, remaining - 2))
+        let availableDuration = remaining > 0 ? min(requested, max(8, remaining - 2)) : requested
+        return UIScreen.main.isCaptured
+            ? min(20, availableDuration)
+            : availableDuration
     }
 
-    private func resolvedProviderConfiguration() async throws -> AIProviderConfiguration {
-        let configuration = providerStore.configuration
-        let configuredModel = providerStore.model.trimmingCharacters(in: .whitespacesAndNewlines)
+    private func resolvedProviderConfiguration(
+        usePublishedConfiguration: Bool = true
+    ) async throws -> AIProviderConfiguration {
+        if usePublishedConfiguration {
+            providerStore.refreshRemoteConfigurationInBackgroundIfNeeded()
+        }
+        var configuration = usePublishedConfiguration
+            ? providerStore.requestConfiguration
+            : providerStore.configuration
+        let apiKey = usePublishedConfiguration ? providerStore.requestAPIKey : providerStore.apiKey
+        if configuration.wireProtocol.requiresAPIKey,
+           apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            throw AIEqualizerError.missingAPIKey
+        }
+
+        let configuredModel = configuration.model.trimmingCharacters(in: .whitespacesAndNewlines)
         guard configuredModel.isEmpty,
               configuration.wireProtocol != .appleIntelligence else {
             return configuration
         }
 
+        let modelCacheKey = providerModelCacheKey(configuration: configuration, apiKey: apiKey)
+        if let cachedModel = discoveredProviderModels[modelCacheKey] {
+            configuration.model = cachedModel
+            AppLogger.info(
+                "[AIEqualizerAgent] Reused discovered provider model protocol=\(configuration.wireProtocol.rawValue) model=\(cachedModel)",
+                step: "ai-tuning.model-cache"
+            )
+            if usePublishedConfiguration, providerStore.isUsingRemoteConfiguration {
+                return configuration
+            }
+            providerStore.model = cachedModel
+            return providerStore.configuration
+        }
+
         let models = try await client.fetchModels(
             configuration: configuration,
-            apiKey: providerStore.apiKey
+            apiKey: apiKey
         )
         let preferred = configuration.wireProtocol.defaultModel
         guard let selected = models.contains(preferred) ? preferred : models.first else {
             throw AIEqualizerError.modelUnavailable
         }
+        discoveredProviderModels[modelCacheKey] = selected
+        AppLogger.info(
+            "[AIEqualizerAgent] Cached discovered provider model protocol=\(configuration.wireProtocol.rawValue) model=\(selected)",
+            step: "ai-tuning.model-cache"
+        )
+        if usePublishedConfiguration, providerStore.isUsingRemoteConfiguration {
+            configuration.model = selected
+            return configuration
+        }
         providerStore.model = selected
         return providerStore.configuration
+    }
+
+    private func providerModelCacheKey(
+        configuration: AIProviderConfiguration,
+        apiKey: String
+    ) -> String {
+        [
+            configuration.wireProtocol.rawValue,
+            configuration.resolvedBaseURL,
+            configuration.modelDiscoveryURL,
+            String(apiKey.hashValue)
+        ].joined(separator: "|")
     }
 
     private func decodeModelOutput(
@@ -1373,7 +1571,8 @@ private final class AIEqualizerProposalCacheStore {
             .first(where: {
                 $0.outputIdentity == outputIdentity
                     && $0.proposal.graphicEQMode == proposal.graphicEQMode
-                    && $0.proposal.tuningIntensity == proposal.tuningIntensity
+                    && ($0.proposal.tuningIntensity ?? .smart) == (proposal.tuningIntensity ?? .smart)
+                    && ($0.proposal.tuningProfile ?? .standard) == (proposal.tuningProfile ?? .standard)
                     && $0.proposal.provider == proposal.provider
                     && $0.proposal.model == proposal.model
                     && $0.proposal.agentVersion == proposal.agentVersion
@@ -1389,23 +1588,18 @@ private final class AIEqualizerProposalCacheStore {
             .sorted { $0.proposal.createdAt > $1.proposal.createdAt }
     }
 
-    func latest(
+    func latestReusable(
         for songIdentifier: String,
         outputIdentity: String,
         graphicEQMode: GraphicEQMode,
         tuningIntensity: AIEqualizerTuningIntensity,
-        provider: AIWireProtocol,
-        model: String,
-        learningRevision: Int?
+        tuningProfile: AIEqualizerTuningProfile
     ) -> AIEqualizerSavedProposal? {
         history(for: songIdentifier).first {
             $0.outputIdentity == outputIdentity
                 && $0.proposal.graphicEQMode == graphicEQMode
-                && $0.proposal.tuningIntensity == tuningIntensity
-                && $0.proposal.provider == provider
-                && $0.proposal.model == model
-                && $0.proposal.agentVersion == AIEqualizerPrompt.version
-                && $0.proposal.learningRevision == learningRevision
+                && ($0.proposal.tuningIntensity ?? .smart) == tuningIntensity
+                && ($0.proposal.tuningProfile ?? .standard) == tuningProfile
         }
     }
 

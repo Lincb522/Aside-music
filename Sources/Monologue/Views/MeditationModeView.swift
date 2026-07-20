@@ -47,7 +47,7 @@ struct MeditationModeView: View {
         } else if MujiStyle.isActive {
             MujiRootBackdrop()
         } else if SignalStyle.isActive {
-            ThemeRenderBackdrop(theme: .signal)
+            ThemeRenderBackdrop(theme: .default)
         } else {
             ThemedPageBackground()
                 .ignoresSafeArea()

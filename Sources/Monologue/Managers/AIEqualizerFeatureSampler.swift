@@ -1,5 +1,6 @@
 import Foundation
 import FFmpegSwiftSDK
+import UIKit
 
 private struct AIEqualizerSamplingDiagnostics: Sendable {
     let callbackFrames: Int
@@ -37,8 +38,27 @@ private struct AIEqualizerSamplingDiagnostics: Sendable {
 }
 
 private actor AIEqualizerSpectrumAccumulator {
+    struct PCMCaptureProfile: Sendable, Equatable {
+        let targetSampleRate: Double
+        let maximumDuration: Double
+        let estimatesTruePeak: Bool
+
+        static let normal = PCMCaptureProfile(
+            targetSampleRate: 12_000,
+            maximumDuration: 120,
+            estimatesTruePeak: true
+        )
+
+        static let protected = PCMCaptureProfile(
+            targetSampleRate: 10_000,
+            maximumDuration: 24,
+            estimatesTruePeak: false
+        )
+    }
+
     private let mode: GraphicEQMode
     private let centers: [Float]
+    private let pcmCaptureProfile: PCMCaptureProfile
 
     private var bandDBFrames: [[Float]]
     private var centroidFrames: [Float] = []
@@ -71,8 +91,9 @@ private actor AIEqualizerSpectrumAccumulator {
     private var lastRMS: Float = 0
     private(set) var frameCount = 0
 
-    init(mode: GraphicEQMode) {
+    init(mode: GraphicEQMode, pcmCaptureProfile: PCMCaptureProfile = .normal) {
         self.mode = mode
+        self.pcmCaptureProfile = pcmCaptureProfile
         centers = mode.centerFrequencies
         bandDBFrames = Array(repeating: [], count: mode.bandCount)
     }
@@ -216,12 +237,14 @@ private actor AIEqualizerSpectrumAccumulator {
         guard count > 3 else { return }
 
         let resolvedChannelCount = rightSamples == nil ? 1 : 2
-        let downsampleStride = max(1, Int((sampleRate / 12_000).rounded()))
+        let downsampleStride = max(1, Int((sampleRate / pcmCaptureProfile.targetSampleRate).rounded()))
         let reducedRate = sampleRate / Double(downsampleStride)
         if pcmAnalysisSamples.isEmpty {
             pcmChannelCount = resolvedChannelCount
             pcmAnalysisSampleRate = reducedRate
-            pcmAnalysisSamples.reserveCapacity(Int(min(120, 36) * reducedRate) * resolvedChannelCount)
+            pcmAnalysisSamples.reserveCapacity(
+                Int(min(pcmCaptureProfile.maximumDuration, 24) * reducedRate) * resolvedChannelCount
+            )
         } else if pcmChannelCount != resolvedChannelCount
                     || abs(pcmAnalysisSampleRate - reducedRate) > 1 {
             // Audio-route format changes invalidate phase and loudness history.
@@ -234,7 +257,7 @@ private actor AIEqualizerSpectrumAccumulator {
             pcmEstimatedTruePeak = 0
         }
 
-        let maximumStoredFrames = Int(120 * pcmAnalysisSampleRate)
+        let maximumStoredFrames = Int(pcmCaptureProfile.maximumDuration * pcmAnalysisSampleRate)
         for index in 0..<count {
             let left = leftSamples[index]
             let right = rightSamples?[index] ?? left
@@ -244,7 +267,7 @@ private actor AIEqualizerSpectrumAccumulator {
             if abs(left) >= 0.999 { pcmClippedSampleCount += 1 }
             if resolvedChannelCount == 2, abs(right) >= 0.999 { pcmClippedSampleCount += 1 }
 
-            if index >= 1, index + 2 < count {
+            if pcmCaptureProfile.estimatesTruePeak, index >= 1, index + 2 < count {
                 pcmEstimatedTruePeak = max(
                     pcmEstimatedTruePeak,
                     Self.estimatedIntersamplePeak(
@@ -311,9 +334,13 @@ private actor AIEqualizerSpectrumAccumulator {
         dynamicEQEnabled: Bool,
         multibandDynamicsEnabled: Bool,
         parametricEQEnabled: Bool,
-        duration: Double
+        duration: Double,
+        minimumFrames: Int
     ) throws -> AIEqualizerAudioFeatures {
-        guard frameCount >= 48 else { throw AIEqualizerError.sampleUnavailable }
+        // 门槛必须与采样循环的 minimumValidFrames 一致：受保护低频采样
+        // （录屏/沉浸模式）可能以 24 帧合法收尾，这里再卡 48 会把已判定
+        // 成功的采样翻案成 sampleUnavailable。
+        guard frameCount >= max(24, minimumFrames) else { throw AIEqualizerError.sampleUnavailable }
 
         let measuredBandLevels = bandDBFrames.map {
             Self.trimmedMean($0, trimFraction: 0.12)
@@ -1065,9 +1092,24 @@ final class AIEqualizerFeatureSampler {
         let pcmInterval: TimeInterval
     }
 
+    private struct SpectrumDelivery: Sendable {
+        let magnitudes: [Float]
+        let sampleRate: Double
+        let rms: Float
+        let timestamp: TimeInterval
+    }
+
+    private struct PCMDelivery: Sendable {
+        let leftSamples: [Float]
+        let rightSamples: [Float]?
+        let sampleRate: Double
+    }
+
     private static func samplingCadence(
         thermalState: ProcessInfo.ThermalState,
-        lowPowerMode: Bool
+        lowPowerMode: Bool,
+        screenCaptured: Bool,
+        immersiveMode: Bool
     ) -> SamplingCadence {
         let cadence: SamplingCadence
         switch thermalState {
@@ -1082,11 +1124,30 @@ final class AIEqualizerFeatureSampler {
         @unknown default:
             cadence = SamplingCadence(spectrumInterval: 0.15, pcmInterval: 0.24)
         }
-        guard lowPowerMode else { return cadence }
-        return SamplingCadence(
-            spectrumInterval: max(cadence.spectrumInterval, 0.16),
-            pcmInterval: max(cadence.pcmInterval, 0.28)
-        )
+        var protectedCadence = cadence
+        if lowPowerMode {
+            protectedCadence = SamplingCadence(
+                spectrumInterval: max(protectedCadence.spectrumInterval, 0.16),
+                pcmInterval: max(protectedCadence.pcmInterval, 0.28)
+            )
+        }
+        if screenCaptured {
+            protectedCadence = SamplingCadence(
+                spectrumInterval: max(protectedCadence.spectrumInterval, 0.18),
+                pcmInterval: max(protectedCadence.pcmInterval, 0.42)
+            )
+        }
+        // Aria runs an independent post-effect FFT for its visuals. Keep the
+        // pre-effect Agent measurement accurate, but lower its delivery rate
+        // while both analyzers are active so entering immersive mode cannot
+        // create an analysis-task burst that competes with audio rendering.
+        if immersiveMode {
+            protectedCadence = SamplingCadence(
+                spectrumInterval: max(protectedCadence.spectrumInterval, 0.14),
+                pcmInterval: max(protectedCadence.pcmInterval, 0.30)
+            )
+        }
+        return protectedCadence
     }
 
     func sample(
@@ -1095,21 +1156,26 @@ final class AIEqualizerFeatureSampler {
         graphicEQMode: GraphicEQMode,
         progress: @escaping @MainActor (Double, AIEqualizerSamplingStage) -> Void
     ) async throws -> AIEqualizerAudioFeatures {
-        let samplingDuration = min(120, max(8, requestedDuration))
+        var isScreenCaptured = UIScreen.main.isCaptured
+        var isImmersivePresented = ImmersiveModeController.shared.isPresented
+        let samplingDuration = min(isScreenCaptured ? 20 : 120, max(8, requestedDuration))
         let timeout = samplingDuration + 4
         let player = PlayerManager.shared
         guard isCurrentSong(song, in: player) else { throw AIEqualizerError.noSong }
         guard player.isPlaying else { throw AIEqualizerError.playbackRequired }
 
         let analyzer = player.analysisSpectrumAnalyzer
-        let accumulator = AIEqualizerSpectrumAccumulator(mode: graphicEQMode)
+        let accumulator = AIEqualizerSpectrumAccumulator(
+            mode: graphicEQMode,
+            pcmCaptureProfile: (isScreenCaptured || isImmersivePresented) ? .protected : .normal
+        )
         let startedAt = Date()
         let targetText = String(format: "%.1f", samplingDuration)
         let startPositionText = String(format: "%.1f", player.currentTime)
         let startDurationText = String(format: "%.1f", player.duration)
         let analyzerRateText = String(format: "%.0f", analyzer.sampleRate)
         AppLogger.info(
-            "[AIEqualizerSampler] Start source=\(song.musicSource.rawValue) songID=\(song.id) target=\(targetText)s eqBands=\(graphicEQMode.bandCount) playerState=\(String(describing: player.streamPlayer.state)) appPlaying=\(player.isPlaying) loading=\(player.isLoading) position=\(startPositionText)/\(startDurationText) analyzerEnabled=\(analyzer.isEnabled) calibrationEnabled=\(analyzer.isCalibrationEnabled) sampleRate=\(analyzerRateText)",
+            "[AIEqualizerSampler] Start source=\(song.musicSource.rawValue) songID=\(song.id) target=\(targetText)s eqBands=\(graphicEQMode.bandCount) screenCaptured=\(isScreenCaptured) immersive=\(isImmersivePresented) playerState=\(String(describing: player.streamPlayer.state)) appPlaying=\(player.isPlaying) loading=\(player.isLoading) position=\(startPositionText)/\(startDurationText) analyzerEnabled=\(analyzer.isEnabled) calibrationEnabled=\(analyzer.isCalibrationEnabled) sampleRate=\(analyzerRateText)",
             step: "sampling.start"
         )
         let processInfo = ProcessInfo.processInfo
@@ -1117,41 +1183,81 @@ final class AIEqualizerFeatureSampler {
         var lowPowerMode = processInfo.isLowPowerModeEnabled
         var cadence = Self.samplingCadence(
             thermalState: thermalState,
-            lowPowerMode: lowPowerMode
+            lowPowerMode: lowPowerMode,
+            screenCaptured: isScreenCaptured,
+            immersiveMode: isImmersivePresented
         )
         let expectedFrames = Int(samplingDuration / max(cadence.spectrumInterval, 0.08))
         let minimumValidFrames = max(24, min(64, Int(Double(expectedFrames) * 0.55)))
+
+        // Buffer only the newest undigested callback. The old implementation
+        // created a new unstructured task for every FFT and PCM delivery. Under
+        // immersive/video load those tasks could queue faster than the feature
+        // actor consumed them, causing CPU spikes and audible render underruns.
+        let spectrumPipe = AsyncStream<SpectrumDelivery>.makeStream(
+            bufferingPolicy: .bufferingNewest(1)
+        )
+        let pcmPipe = AsyncStream<PCMDelivery>.makeStream(
+            bufferingPolicy: .bufferingNewest(1)
+        )
+        let spectrumConsumerTask = Task.detached(priority: .utility) {
+            for await delivery in spectrumPipe.stream {
+                guard !Task.isCancelled else { break }
+                await accumulator.ingest(
+                    magnitudes: delivery.magnitudes,
+                    sampleRate: delivery.sampleRate,
+                    rms: delivery.rms,
+                    timestamp: delivery.timestamp
+                )
+            }
+        }
+        let pcmConsumerTask = Task.detached(priority: .utility) {
+            for await delivery in pcmPipe.stream {
+                guard !Task.isCancelled else { break }
+                await accumulator.ingestPCM(
+                    leftSamples: delivery.leftSamples,
+                    rightSamples: delivery.rightSamples,
+                    sampleRate: delivery.sampleRate
+                )
+            }
+        }
         let token = analyzer.addAnalysisObserver(
             minimumInterval: cadence.spectrumInterval
         ) { magnitudes, sampleRate, rms in
-            let timestamp = Date().timeIntervalSinceReferenceDate
-            Task(priority: .utility) {
-                await accumulator.ingest(
+            spectrumPipe.continuation.yield(
+                SpectrumDelivery(
                     magnitudes: magnitudes,
                     sampleRate: sampleRate,
                     rms: rms,
-                    timestamp: timestamp
+                    timestamp: Date().timeIntervalSinceReferenceDate
                 )
-            }
+            )
         }
         let pcmToken = analyzer.addPCMAnalysisObserver(
             minimumInterval: cadence.pcmInterval
         ) { leftSamples, rightSamples, sampleRate in
-            Task(priority: .utility) {
-                await accumulator.ingestPCM(
+            pcmPipe.continuation.yield(
+                PCMDelivery(
                     leftSamples: leftSamples,
                     rightSamples: rightSamples,
                     sampleRate: sampleRate
                 )
-            }
+            )
         }
         AppLogger.debug(
             "[AIEqualizerSampler] Observers registered spectrum=\(token.uuidString) pcm=\(pcmToken.uuidString)",
             step: "sampling.observer"
         )
+        var observersAreRegistered = true
         defer {
-            analyzer.removeAnalysisObserver(token)
-            analyzer.removePCMAnalysisObserver(pcmToken)
+            if observersAreRegistered {
+                analyzer.removeAnalysisObserver(token)
+                analyzer.removePCMAnalysisObserver(pcmToken)
+            }
+            spectrumPipe.continuation.finish()
+            pcmPipe.continuation.finish()
+            spectrumConsumerTask.cancel()
+            pcmConsumerTask.cancel()
             AppLogger.debug(
                 "[AIEqualizerSampler] Observers removed spectrum=\(token.uuidString) pcm=\(pcmToken.uuidString)",
                 step: "sampling.observer"
@@ -1163,8 +1269,9 @@ final class AIEqualizerFeatureSampler {
         var didLogMissingCallbackWarning = false
         var didLogRejectedFrameWarning = false
         var lastLoggedStage: AIEqualizerSamplingStage?
+        var immersiveTransitionProtectionUntil: Date?
         AppLogger.info(
-            "[AIEqualizerSampler] Cadence thermal=\(thermalState.rawValue) lowPower=\(lowPowerMode) spectrum=\(String(format: "%.2f", cadence.spectrumInterval))s pcm=\(String(format: "%.2f", cadence.pcmInterval))s minimumFrames=\(minimumValidFrames)",
+            "[AIEqualizerSampler] Cadence thermal=\(thermalState.rawValue) lowPower=\(lowPowerMode) screenCaptured=\(isScreenCaptured) immersive=\(isImmersivePresented) spectrum=\(String(format: "%.2f", cadence.spectrumInterval))s pcm=\(String(format: "%.2f", cadence.pcmInterval))s minimumFrames=\(minimumValidFrames)",
             step: "sampling.cadence"
         )
 
@@ -1183,28 +1290,60 @@ final class AIEqualizerFeatureSampler {
 
             let currentThermalState = processInfo.thermalState
             let currentLowPowerMode = processInfo.isLowPowerModeEnabled
-            if currentThermalState != thermalState || currentLowPowerMode != lowPowerMode {
+            let currentScreenCaptured = UIScreen.main.isCaptured
+            let currentImmersivePresented = ImmersiveModeController.shared.isPresented
+            let didEnterImmersive = currentImmersivePresented && !isImmersivePresented
+            if didEnterImmersive {
+                // Orientation, video background and Aria's visual FFT all start
+                // inside the same short window. Temporarily reduce Agent callback
+                // delivery while that transition settles; audio capture continues
+                // and the user does not lose sampling progress.
+                immersiveTransitionProtectionUntil = Date().addingTimeInterval(1.2)
+                AppLogger.info(
+                    "[AIEqualizerSampler] Immersive transition protection enabled for 1.2s",
+                    step: "sampling.immersive-transition"
+                )
+            }
+            let environmentChanged = currentThermalState != thermalState
+                || currentLowPowerMode != lowPowerMode
+                || currentScreenCaptured != isScreenCaptured
+                || currentImmersivePresented != isImmersivePresented
+            if environmentChanged {
                 thermalState = currentThermalState
                 lowPowerMode = currentLowPowerMode
-                let nextCadence = Self.samplingCadence(
-                    thermalState: thermalState,
-                    lowPowerMode: lowPowerMode
-                )
-                if nextCadence != cadence {
-                    cadence = nextCadence
-                    analyzer.setAnalysisObserverMinimumInterval(
-                        cadence.spectrumInterval,
-                        for: token
+                isScreenCaptured = currentScreenCaptured
+                isImmersivePresented = currentImmersivePresented
+            }
+            var nextCadence = Self.samplingCadence(
+                thermalState: thermalState,
+                lowPowerMode: lowPowerMode,
+                screenCaptured: isScreenCaptured,
+                immersiveMode: isImmersivePresented
+            )
+            if let protectionUntil = immersiveTransitionProtectionUntil {
+                if Date() < protectionUntil {
+                    nextCadence = SamplingCadence(
+                        spectrumInterval: max(nextCadence.spectrumInterval, 0.35),
+                        pcmInterval: max(nextCadence.pcmInterval, 0.70)
                     )
-                    analyzer.setPCMAnalysisObserverMinimumInterval(
-                        cadence.pcmInterval,
-                        for: pcmToken
-                    )
-                    AppLogger.warning(
-                        "[AIEqualizerSampler] Cadence adjusted thermal=\(thermalState.rawValue) lowPower=\(lowPowerMode) spectrum=\(String(format: "%.2f", cadence.spectrumInterval))s pcm=\(String(format: "%.2f", cadence.pcmInterval))s",
-                        step: "sampling.cadence"
-                    )
+                } else {
+                    immersiveTransitionProtectionUntil = nil
                 }
+            }
+            if nextCadence != cadence {
+                cadence = nextCadence
+                analyzer.setAnalysisObserverMinimumInterval(
+                    cadence.spectrumInterval,
+                    for: token
+                )
+                analyzer.setPCMAnalysisObserverMinimumInterval(
+                    cadence.pcmInterval,
+                    for: pcmToken
+                )
+                AppLogger.warning(
+                    "[AIEqualizerSampler] Cadence adjusted thermal=\(thermalState.rawValue) lowPower=\(lowPowerMode) screenCaptured=\(isScreenCaptured) immersive=\(isImmersivePresented) transitionProtected=\(immersiveTransitionProtectionUntil != nil) spectrum=\(String(format: "%.2f", cadence.spectrumInterval))s pcm=\(String(format: "%.2f", cadence.pcmInterval))s",
+                    step: "sampling.cadence"
+                )
             }
             let snapshot = await accumulator.diagnostics()
             let count = snapshot.acceptedFrames
@@ -1268,8 +1407,16 @@ final class AIEqualizerFeatureSampler {
             try await Task.sleep(for: .milliseconds(100))
         }
 
-        // Let observer tasks already enqueued by the audio callback reach the actor.
-        await Task.yield()
+        // Stop producers first, then drain the two bounded streams. This makes
+        // final diagnostics deterministic without leaving analysis work alive
+        // while feature synthesis is running.
+        analyzer.removeAnalysisObserver(token)
+        analyzer.removePCMAnalysisObserver(pcmToken)
+        observersAreRegistered = false
+        spectrumPipe.continuation.finish()
+        pcmPipe.continuation.finish()
+        await spectrumConsumerTask.value
+        await pcmConsumerTask.value
         let finalDiagnostics = await accumulator.diagnostics()
         guard finalDiagnostics.acceptedFrames >= minimumValidFrames else {
             let elapsedText = String(format: "%.1f", Date().timeIntervalSince(startedAt))
@@ -1323,7 +1470,8 @@ final class AIEqualizerFeatureSampler {
                 dynamicEQEnabled: dynamicEQEnabled,
                 multibandDynamicsEnabled: multibandDynamicsEnabled,
                 parametricEQEnabled: parametricEQEnabled,
-                duration: measuredDuration
+                duration: measuredDuration,
+                minimumFrames: minimumValidFrames
             )
         }.value
         let measuredDurationText = String(format: "%.1f", features.sampleDuration)

@@ -213,7 +213,7 @@ struct MotoPagerLayout: View {
             )
         }
         .fullScreenCover(isPresented: $showEQSettings) {
-            NavigationStack { EQSettingsView() }
+            NavigationStack { MonoAudioCenterView() }
         }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker){
             PlayerThemePickerSheet()
@@ -769,7 +769,7 @@ extension MotoPagerLayout {
                 
                 Spacer()
                 
-                Button(action: { CinemaModeController.shared.present() }) {
+                Button(action: { ImmersiveModeController.shared.present() }) {
                     MonologueIcon(icon: .immersive, size: 21, color: topBtnFgColor, lineWidth: 1.5)
                         .frame(width: 44, height: 44)
                         .monologueGlassCircle()

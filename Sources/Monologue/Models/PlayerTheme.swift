@@ -19,7 +19,6 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
     case mangaChat         // 漫画聊天 - 歌词以对话气泡形式展示
     case folk              // 民谣 - 旅行手记笔记本风格
     case game2048          // 2048 - 数字方块游戏风格
-    case cinema            // 影院 - 4K 视频背景 + 歌词，按歌曲/歌单绑定
     var id: String { rawValue }
     
     var displayName: String {
@@ -41,7 +40,6 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
         case .mangaChat:  return String(localized: "漫画")
         case .folk:       return String(localized: "信笺")
         case .game2048:   return String(localized: "2048")
-        case .cinema:     return String(localized: "影院")
         }
     }
     
@@ -64,7 +62,6 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
         case .mangaChat:  return "bubble.left.and.bubble.right.fill"
         case .folk:       return "envelope.fill"
         case .game2048:   return "square.grid.2x2.fill"
-        case .cinema:     return "film.fill"
         }
     }
     
@@ -87,7 +84,6 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
         case .mangaChat:  return String(localized: "漫画风聊天，歌词以对话气泡形式展示")
         case .folk:       return String(localized: "诗集信笺，非常规打字机逐行出现的打字信件")
         case .game2048:   return String(localized: "2048 方块游戏，滑动切歌点击方块控制")
-        case .cinema:     return String(localized: "4K 视频背景，按歌曲/歌单绑定的沉浸影院")
         }
     }
     
@@ -96,7 +92,7 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .classic, .vinyl, .lyricFocus, .poster, .breathing, .immersiveLyric:
             return false // 依赖全局模糊封面背景
-        case .card, .neumorphic, .motoPager, .typewriter, .pixel, .aqua, .cassette, .radio, .mangaChat, .folk, .game2048, .cinema:
+        case .card, .neumorphic, .motoPager, .typewriter, .pixel, .aqua, .cassette, .radio, .mangaChat, .folk, .game2048:
             return true  // 自带不透明的自定义背景
         }
     }

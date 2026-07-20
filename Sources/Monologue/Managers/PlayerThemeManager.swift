@@ -13,11 +13,12 @@ final class PlayerThemeManager: ObservableObject {
     
     private init() {
         let saved = UserDefaults.standard.string(forKey: AppConfig.StorageKeys.playerTheme) ?? ""
-        if let theme = PlayerTheme(rawValue: saved), theme != .cinema {
+        if let theme = PlayerTheme(rawValue: saved) {
             self.currentTheme = theme
         } else {
-            // 影院已从主题体系移出（改为沉浸模式入口），旧存档迁移回经典
+            // 已移除主题的旧存档统一迁移回经典。
             self.currentTheme = .classic
+            UserDefaults.standard.set(PlayerTheme.classic.rawValue, forKey: AppConfig.StorageKeys.playerTheme)
         }
     }
     

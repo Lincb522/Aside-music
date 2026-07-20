@@ -62,7 +62,7 @@ struct AlbumDetailView: View {
                 } else if NeumorphicStyle.isActive {
                     ThemeRenderBackdrop(theme: .neumorphic)
                 } else if SignalStyle.isActive {
-                    ThemeRenderBackdrop(theme: .signal)
+                    ThemeRenderBackdrop(theme: .default)
                 } else if SequoiaStyle.isActive {
                     SequoiaRootBackdrop()
                 } else if BentoStyle.isActive {
@@ -1148,7 +1148,10 @@ struct AlbumDetailView: View {
             } else if viewModel.songs.isEmpty {
                 albumEmptyState
             } else {
-                albumDescriptionCard
+                // Aside 的 Hero 头部已经承载专辑简介，避免歌曲列表前重复显示一份。
+                if !usesAsideHero {
+                    albumDescriptionCard
+                }
                 albumSearchBar
                 albumSongRows
                 NoMoreDataView()

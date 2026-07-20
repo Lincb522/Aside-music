@@ -15,11 +15,11 @@ struct DebugLogView: View {
     @State private var showClearAlert = false
     @State private var shareItems: [Any] = []
     @FocusState private var searchFocused: Bool
-
+    
     var body: some View {
         let _ = settings.globalThemeRevision
 
-        ZStack {
+            ZStack {
             ThemedSettingsBackground()
 
             ScrollViewReader { proxy in
@@ -61,8 +61,8 @@ struct DebugLogView: View {
             }
         }
         .asideSettingsDetailChrome(String(localized: "debug_title"))
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     searchFocused = false
                     withAnimation(.easeOut(duration: 0.18)) {
@@ -105,8 +105,8 @@ struct DebugLogView: View {
         }
         .monologueSheet(isPresented: $showShareSheet, preset: .standard) {
             DebugLogShareSheet(items: shareItems)
-        }
-        .onAppear {
+            }
+            .onAppear {
             model.refresh(force: true)
         }
     }
@@ -333,7 +333,7 @@ struct DebugLogView: View {
                             DebugLogRow(log: log)
                         }
                         .buttonStyle(.plain)
-                        .id(log.id)
+                            .id(log.id)
                         .contextMenu {
                             Button {
                                 UIPasteboard.general.string = log.exportText
@@ -495,7 +495,7 @@ private struct DebugLogMetricButton: View {
     let tint: Color
     let isSelected: Bool
     let action: () -> Void
-
+    
     var body: some View {
         Button(action: action) {
             VStack(spacing: 3) {
@@ -503,13 +503,13 @@ private struct DebugLogMetricButton: View {
                     .font(.system(size: 17, weight: .bold, design: .rounded))
                     .foregroundColor(isSelected ? tint : .monologueTextPrimary)
                     .monospacedDigit()
-
-                Text(title)
+            
+            Text(title)
                     .font(.system(size: 10.5, weight: .medium, design: .rounded))
-                    .foregroundColor(.monologueTextSecondary)
+                .foregroundColor(.monologueTextSecondary)
                     .lineLimit(1)
-            }
-            .frame(maxWidth: .infinity)
+        }
+        .frame(maxWidth: .infinity)
             .frame(height: 58)
             .background(isSelected ? tint.opacity(0.075) : Color.clear)
             .contentShape(Rectangle())
@@ -614,7 +614,7 @@ private extension LogEntry.LogLevel {
         case .success: return .green
         }
     }
-
+    
     var icon: MonologueIcon.IconType {
         switch self {
         case .info: return .logInfo

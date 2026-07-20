@@ -43,7 +43,7 @@ struct ArtistDetailView: View {
             } else if NeumorphicStyle.isActive {
                 ThemeRenderBackdrop(theme: .neumorphic)
             } else if SignalStyle.isActive {
-                ThemeRenderBackdrop(theme: .signal)
+                ThemeRenderBackdrop(theme: .default)
             } else if SequoiaStyle.isActive {
                 SequoiaRootBackdrop()
             } else if BentoStyle.isActive {
@@ -2621,7 +2621,7 @@ struct ArtistBioSheet: View {
                 if NeumorphicStyle.isActive {
                     ThemeRenderBackdrop(theme: .neumorphic)
                 } else if SignalStyle.isActive {
-                    ThemeRenderBackdrop(theme: .signal)
+                    ThemeRenderBackdrop(theme: .default)
                 } else if SequoiaStyle.isActive {
                     SequoiaRootBackdrop()
                 } else if MinimalWhiteStyle.isActive {

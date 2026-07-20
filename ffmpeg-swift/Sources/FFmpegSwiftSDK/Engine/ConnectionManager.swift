@@ -268,7 +268,7 @@ final class ConnectionManager {
             defer { workQueue.sync { connectionTask = nil } }
             return try await task.value
         } onCancel: { [weak self] in
-            self?.cancelActiveIO()
+            self?.interruptActiveIO()
         }
     }
 
@@ -372,9 +372,27 @@ final class ConnectionManager {
         task?.cancel()
     }
 
-    private func cancelActiveIO() {
+    /// Interrupts the FFmpeg call that currently owns this input without waiting
+    /// for its normal read deadline. Prepared-track handoff uses this to wake a
+    /// playback loop that is blocked in `av_read_frame`; the old connection is
+    /// discarded immediately after the prepared pipeline takes ownership.
+    func interruptActiveIO() {
         workQueue.sync {
             formatContext?.cancelIO()
+        }
+    }
+
+    /// Wakes an active read so the playback loop can process an interactive
+    /// seek without discarding the current connection.
+    func requestActiveIOWake() {
+        workQueue.sync {
+            formatContext?.requestIOWake()
+        }
+    }
+
+    func clearActiveIOWake() {
+        workQueue.sync {
+            formatContext?.clearIOWake()
         }
     }
 }

@@ -1,5 +1,38 @@
 import SwiftUI
 
+private struct SongRowLoadingIndicator: View {
+    let color: Color
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        TimelineView(
+            AppFrameRate.animationTimeline(
+                maximumFramesPerSecond: 24,
+                paused: reduceMotion
+            )
+        ) { timeline in
+            let phase = timeline.date.timeIntervalSinceReferenceDate
+                .truncatingRemainder(dividingBy: 0.9) / 0.9
+
+            ZStack {
+                Circle()
+                    .stroke(color.opacity(0.22), lineWidth: 1.8)
+
+                Circle()
+                    .trim(from: 0.08, to: 0.66)
+                    .stroke(
+                        color,
+                        style: StrokeStyle(lineWidth: 1.8, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(reduceMotion ? -54 : phase * 360 - 54))
+            }
+        }
+        .frame(width: 14, height: 14)
+        .accessibilityHidden(true)
+    }
+}
+
 struct SongListRow: View {
     
     @ObservedObject private var playback = SongRowPlaybackModel.shared
@@ -27,7 +60,15 @@ struct SongListRow: View {
     @State private var showQQAlbumDetail = false
     
     var isCurrent: Bool {
-        playback.currentSongId == song.id
+        playback.isCurrent(song: song)
+    }
+
+    private var isLoadingPlayback: Bool {
+        playback.isLoading(song: song)
+    }
+
+    private var isPlaybackEmphasized: Bool {
+        isCurrent || isLoadingPlayback
     }
 
     /// aside 默认主题（编辑部风格分支）
@@ -297,6 +338,8 @@ struct SongListRow: View {
                                 size: 18,
                                 color: isSelected ? CapsuleStyle.accent : CapsuleStyle.inkMuted.opacity(0.46)
                             )
+                        } else if isLoadingPlayback {
+                            SongRowLoadingIndicator(color: CapsuleStyle.accent)
                         } else {
                             Text(String(format: "%02d", index + 1))
                                 .font(CapsuleStyle.labelFont(10.5, weight: .black))
@@ -307,7 +350,7 @@ struct SongListRow: View {
                     .frame(width: 34, height: 46)
                     .background(
                         RoundedRectangle(cornerRadius: 15, style: .continuous)
-                            .fill(isCurrent ? CapsuleStyle.accent : CapsuleStyle.surfaceTint.opacity(0.54))
+                            .fill(isCurrent ? CapsuleStyle.accent : (isLoadingPlayback ? CapsuleStyle.accent.opacity(0.14) : CapsuleStyle.surfaceTint.opacity(0.54)))
                     )
 
                     CachedAsyncImage(
@@ -322,15 +365,19 @@ struct SongListRow: View {
                     .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 15, style: .continuous)
-                            .stroke(isCurrent ? CapsuleStyle.accent.opacity(0.46) : CapsuleStyle.separator.opacity(0.42), lineWidth: 0.7)
+                            .stroke(isPlaybackEmphasized ? CapsuleStyle.accent.opacity(0.46) : CapsuleStyle.separator.opacity(0.42), lineWidth: 0.7)
                     )
                     .overlay {
-                        if isCurrent && !isSelecting {
+                        if isPlaybackEmphasized && !isSelecting {
                             ZStack {
                                 RoundedRectangle(cornerRadius: 15, style: .continuous)
                                     .fill(Color.black.opacity(0.35))
-                                PlayingVisualizerView(isAnimating: playback.isPlaying, color: .white)
-                                    .scaleEffect(0.82)
+                                if isLoadingPlayback {
+                                    SongRowLoadingIndicator(color: .white)
+                                } else {
+                                    PlayingVisualizerView(isAnimating: playback.isPlaying, color: .white)
+                                        .scaleEffect(0.82)
+                                }
                             }
                         }
                     }
@@ -338,7 +385,7 @@ struct SongListRow: View {
 
                     VStack(alignment: .leading, spacing: 5) {
                         Text(song.name)
-                            .font(CapsuleStyle.bodyFont(15.5, weight: isCurrent ? .bold : .semibold))
+                            .font(CapsuleStyle.bodyFont(15.5, weight: isPlaybackEmphasized ? .bold : .semibold))
                             .foregroundStyle(CapsuleStyle.ink)
                             .lineLimit(1)
                             .layoutPriority(3)
@@ -369,7 +416,7 @@ struct SongListRow: View {
         .padding(.trailing, 10)
         .padding(.vertical, 7)
         .background {
-            if isCurrent {
+            if isPlaybackEmphasized {
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
                     .fill(
                         LinearGradient(
@@ -383,6 +430,7 @@ struct SongListRow: View {
                         )
                     )
                     .padding(.horizontal, 2)
+                    .opacity(isLoadingPlayback ? 0.72 : 1)
             }
         }
         .overlay(alignment: .bottom) {
@@ -415,6 +463,9 @@ struct SongListRow: View {
                                         size: 18,
                                         color: isSelected ? Theme.accent : Theme.secondaryText.opacity(0.4)
                                     )
+                                } else if isAsideTheme && isLoadingPlayback {
+                                    SongRowLoadingIndicator(color: .monologueAccent)
+                                        .frame(width: 16, height: 16)
                                 } else if isAsideTheme && isCurrent {
                                     // aside：正在播放时序号位换成律动条，避免高亮元素压住序号
                                     PlayingVisualizerView(isAnimating: playback.isPlaying, color: .monologueAccent)
@@ -422,7 +473,7 @@ struct SongListRow: View {
                                 } else {
                                     Text(String(format: "%02d", index + 1))
                                         .font(indexFont)
-                                        .foregroundColor(isCurrent ? Theme.accent : Theme.secondaryText.opacity(0.4))
+                                        .foregroundColor(isPlaybackEmphasized ? Theme.accent : Theme.secondaryText.opacity(0.4))
                                         .lineLimit(1)
                                         .minimumScaleFactor(0.5)
                                 }
@@ -462,12 +513,16 @@ struct SongListRow: View {
                             }
                             .overlay {
                                 // aside 的播放标记已移到序号位，封面不再压暗
-                                if isCurrent && !isSelecting && !isAsideTheme {
+                                if isPlaybackEmphasized && !isSelecting && !isAsideTheme {
                                     ZStack {
                                         RoundedRectangle(cornerRadius: coverCornerRadius, style: .continuous)
                                             .fill(Color.black.opacity(0.35))
-                                        PlayingVisualizerView(isAnimating: playback.isPlaying, color: .white)
-                                            .scaleEffect(0.85)
+                                        if isLoadingPlayback {
+                                            SongRowLoadingIndicator(color: .white)
+                                        } else {
+                                            PlayingVisualizerView(isAnimating: playback.isPlaying, color: .white)
+                                                .scaleEffect(0.85)
+                                        }
                                     }
                                 }
                             }
@@ -511,8 +566,9 @@ struct SongListRow: View {
                 .background {
                     if PetWhiteStyle.isActive {
                         petWhiteRowBackground
-                    } else if isCurrent {
+                    } else if isPlaybackEmphasized {
                         currentRowBackground
+                            .opacity(isLoadingPlayback ? 0.72 : 1)
                     }
                 }
                 .padding(.horizontal, PetWhiteStyle.isActive ? rowHorizontalPadding : 0)
@@ -820,8 +876,9 @@ struct SongListRow: View {
 
     @ViewBuilder
     private var petWhiteRowBackground: some View {
-        if isCurrent {
+        if isPlaybackEmphasized {
             petWhiteCurrentRowBackground
+                .opacity(isLoadingPlayback ? 0.72 : 1)
         } else {
             PetWhiteSurfaceBackground(
                 cornerRadius: rowCornerRadius,
@@ -880,18 +937,18 @@ struct SongListRow: View {
     }
 
     private var songTitleFont: Font {
-        if MangaStyle.isActive { return MangaStyle.bodyFont(16, weight: isCurrent ? .black : .bold) }
-        if PetWhiteStyle.isActive { return PetWhiteStyle.bodyFont(15.5, weight: isCurrent ? .black : .bold) }
-        if MujiStyle.isActive { return MujiStyle.bodyFont(15, weight: isCurrent ? .medium : .regular) }
-        if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(15, weight: isCurrent ? .semibold : .medium) }
-        if CapsuleStyle.isActive { return CapsuleStyle.bodyFont(15, weight: isCurrent ? .bold : .semibold) }
-        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(15, weight: isCurrent ? .semibold : .medium) }
-        return .system(size: 16, weight: isCurrent ? .bold : .medium)
+        if MangaStyle.isActive { return MangaStyle.bodyFont(16, weight: isPlaybackEmphasized ? .black : .bold) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.bodyFont(15.5, weight: isPlaybackEmphasized ? .black : .bold) }
+        if MujiStyle.isActive { return MujiStyle.bodyFont(15, weight: isPlaybackEmphasized ? .medium : .regular) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(15, weight: isPlaybackEmphasized ? .semibold : .medium) }
+        if CapsuleStyle.isActive { return CapsuleStyle.bodyFont(15, weight: isPlaybackEmphasized ? .bold : .semibold) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(15, weight: isPlaybackEmphasized ? .semibold : .medium) }
+        return .system(size: 16, weight: isPlaybackEmphasized ? .bold : .medium)
     }
 
     private var songTitleColor: Color {
         if isGrayed { return Theme.secondaryText.opacity(0.4) }
-        if isCurrent { return Theme.accent }
+        if isPlaybackEmphasized { return Theme.accent }
         if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if CapsuleStyle.isActive { return CapsuleStyle.ink }

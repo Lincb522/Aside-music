@@ -1535,6 +1535,7 @@ extension AudioAnalyzer {
         maxDuration: TimeInterval = 0,
         decryptionKey: String? = nil,
         outputChannelCount: Int? = nil,
+        shouldCancel: (() -> Bool)? = nil,
         onProgress: ((Float) -> Void)? = nil
     ) throws -> (samples: [Float], sampleRate: Int, channelCount: Int) {
         // 检测是否为流媒体 URL
@@ -1670,6 +1671,7 @@ extension AudioAnalyzer {
         let maxReadErrors = 10  // 最大连续读取错误次数
 
         while true {
+            if shouldCancel?() == true { throw CancellationError() }
             ret = av_read_frame(ctx, packet)
             
             if ret < 0 {
@@ -1692,6 +1694,7 @@ extension AudioAnalyzer {
             avcodec_send_packet(codecCtx, packet)
 
             while avcodec_receive_frame(codecCtx, frame) >= 0 {
+                if shouldCancel?() == true { throw CancellationError() }
                 let frameCount = Int(frame.pointee.nb_samples)
 
                 var outPtr: UnsafeMutablePointer<UInt8>? = UnsafeMutableRawPointer(outBuf)

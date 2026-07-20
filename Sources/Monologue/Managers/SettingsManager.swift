@@ -16,8 +16,7 @@ final class SettingsManager: ObservableObject {
 
     var globalThemeId: GlobalThemeId {
         get {
-            let id = Self.resolveStoredTheme(globalThemeIdRaw)
-            return Self.resolveRemovedTheme(id)
+            Self.resolveStoredTheme(globalThemeIdRaw)
         }
         set {
             selectGlobalTheme(newValue)
@@ -25,13 +24,12 @@ final class SettingsManager: ObservableObject {
     }
 
     func selectGlobalTheme(_ themeId: GlobalThemeId) {
-        let resolvedId = Self.resolveRemovedTheme(themeId)
         let previousId = globalThemeId
-        let isSameTheme = previousId == resolvedId
+        let isSameTheme = previousId == themeId
 
-        AppLogger.info("[ThemeSwitch] from=\(previousId.rawValue) to=\(resolvedId.rawValue) sameTheme=\(isSameTheme)")
+        AppLogger.info("[ThemeSwitch] from=\(previousId.rawValue) to=\(themeId.rawValue) sameTheme=\(isSameTheme)")
         applyGlobalThemeSelection(
-            resolvedId,
+            themeId,
             bumpRevision: true,
             bumpApplicationRevision: true,
             applyPreferredIconSet: !isSameTheme
@@ -40,7 +38,7 @@ final class SettingsManager: ObservableObject {
 
     func synchronizeGlobalThemeAfterLaunch(reason: String) {
         let storedRaw = UserDefaults.standard.string(forKey: GlobalThemeId.storageKey)
-        let resolvedId = Self.resolveRemovedTheme(GlobalThemeId.resolvedStoredTheme(storedRaw ?? globalThemeIdRaw))
+        let resolvedId = GlobalThemeId.resolvedStoredTheme(storedRaw ?? globalThemeIdRaw)
 
         AppLogger.info("[ThemeLaunchSync] reason=\(reason) persistedThemeId=\(storedRaw ?? "nil") finalThemeId=\(resolvedId.rawValue)")
         applyGlobalThemeSelection(
@@ -49,10 +47,6 @@ final class SettingsManager: ObservableObject {
             bumpApplicationRevision: true,
             applyPreferredIconSet: false
         )
-    }
-
-    private static func resolveRemovedTheme(_ id: GlobalThemeId) -> GlobalThemeId {
-        GlobalThemeId.resolveRemovedTheme(id)
     }
 
     private static func resolveStoredTheme(_ raw: String) -> GlobalThemeId {
@@ -364,8 +358,7 @@ final class SettingsManager: ObservableObject {
         }
 
         let storedRaw = defaults.string(forKey: GlobalThemeId.storageKey)
-        let restored = GlobalThemeId.resolvedStoredTheme(storedRaw ?? globalThemeIdRaw)
-        let resolved = Self.resolveRemovedTheme(restored)
+        let resolved = GlobalThemeId.resolvedStoredTheme(storedRaw ?? globalThemeIdRaw)
         let hasStoredInterfaceIconSet = defaults.object(forKey: AppConfig.StorageKeys.interfaceIconSet) != nil
 
         if storedRaw == nil || resolved.rawValue != globalThemeIdRaw {

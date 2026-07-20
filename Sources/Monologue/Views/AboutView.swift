@@ -99,7 +99,7 @@ struct AboutView: View {
                             rowDivider
                             factRow(
                                 String(localized: "播放引擎"),
-                                String(localized: "Mono 播放引擎"),
+                                String(localized: "Mono播放引擎"),
                                 detail: String(localized: "基于 FFmpeg + AVAudioEngine 深度定制")
                             )
                             rowDivider

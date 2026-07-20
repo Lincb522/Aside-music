@@ -38,7 +38,10 @@ struct AIProviderClient: Sendable {
         let sessionConfiguration = URLSessionConfiguration.ephemeral
         sessionConfiguration.timeoutIntervalForRequest = configuration.timeout
         sessionConfiguration.timeoutIntervalForResource = configuration.timeout + 5
-        let (data, response) = try await URLSession(configuration: sessionConfiguration).data(for: request)
+        // URLSession 会强引用自身直到被显式 invalidate；一次性会话必须回收。
+        let session = URLSession(configuration: sessionConfiguration)
+        defer { session.finishTasksAndInvalidate() }
+        let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw AIEqualizerError.invalidResponse
         }
@@ -59,6 +62,24 @@ struct AIProviderClient: Sendable {
         configuration: AIProviderConfiguration,
         apiKey: String,
         minimumTimeout: TimeInterval = 0
+    ) async throws -> String {
+        try await generate(
+            systemPrompt: systemPrompt,
+            userPrompt: userPrompt,
+            configuration: configuration,
+            apiKey: apiKey,
+            minimumTimeout: minimumTimeout,
+            allowsModelFallback: true
+        )
+    }
+
+    private func generate(
+        systemPrompt: String,
+        userPrompt: String,
+        configuration: AIProviderConfiguration,
+        apiKey: String,
+        minimumTimeout: TimeInterval,
+        allowsModelFallback: Bool
     ) async throws -> String {
         if configuration.wireProtocol == .appleIntelligence {
             return try await AppleIntelligenceEqualizerProvider.generate(
@@ -84,10 +105,14 @@ struct AIProviderClient: Sendable {
         sessionConfiguration.timeoutIntervalForRequest = responseTimeout
         sessionConfiguration.timeoutIntervalForResource = responseTimeout + 15
         sessionConfiguration.waitsForConnectivity = true
+        // URLSession 会强引用自身直到被显式 invalidate；一次性会话必须回收。
         let session = URLSession(configuration: sessionConfiguration)
+        defer { session.finishTasksAndInvalidate() }
         let startedAt = Date()
+        let endpointHost = request.url?.host ?? "unknown"
+        let endpointPath = request.url?.path ?? "unknown"
         AppLogger.network(
-            "[AIProviderClient] Generation request started protocol=\(configuration.wireProtocol.rawValue) model=\(configuration.resolvedModel) timeout=\(Int(responseTimeout))s promptCharacters=\(systemPrompt.count + userPrompt.count) requestBytes=\(request.httpBody?.count ?? 0)",
+            "[AIProviderClient] Generation request started protocol=\(configuration.wireProtocol.rawValue) model=\(configuration.resolvedModel) endpointHost=\(endpointHost) endpointPath=\(endpointPath) timeout=\(Int(responseTimeout))s promptCharacters=\(systemPrompt.count + userPrompt.count) requestBytes=\(request.httpBody?.count ?? 0)",
             step: "ai-provider.request-started"
         )
 
@@ -116,7 +141,29 @@ struct AIProviderClient: Sendable {
             step: "ai-provider.response-received"
         )
         guard (200...299).contains(http.statusCode) else {
-            throw AIEqualizerError.httpStatus(http.statusCode, Self.errorMessage(from: data))
+            let message = Self.errorMessage(from: data)
+            if allowsModelFallback,
+               Self.isUnsupportedModelResponse(statusCode: http.statusCode, message: message),
+               let fallbackModel = try? await fallbackModel(
+                   for: configuration,
+                   apiKey: normalizedKey
+               ) {
+                var fallbackConfiguration = configuration
+                fallbackConfiguration.model = fallbackModel
+                AppLogger.warning(
+                    "[AIProviderClient] Configured model unavailable; retrying with discovered model previous=\(configuration.resolvedModel) fallback=\(fallbackModel)",
+                    step: "ai-provider.model-fallback"
+                )
+                return try await generate(
+                    systemPrompt: systemPrompt,
+                    userPrompt: userPrompt,
+                    configuration: fallbackConfiguration,
+                    apiKey: apiKey,
+                    minimumTimeout: minimumTimeout,
+                    allowsModelFallback: false
+                )
+            }
+            throw AIEqualizerError.httpStatus(http.statusCode, message)
         }
         do {
             return try Self.extractText(from: data, wireProtocol: configuration.wireProtocol)
@@ -264,8 +311,14 @@ struct AIProviderClient: Sendable {
         switch configuration.wireProtocol {
         case .openAIResponses:
             return try appendingRoute("responses", to: base, acceptingSuffix: "/responses")
-        case .openAIChat, .openAICompatible:
+        case .openAIChat:
             return try appendingRoute("chat/completions", to: base, acceptingSuffix: "/chat/completions")
+        case .openAICompatible:
+            return try openAICompatibleEndpoint(
+                route: "chat/completions",
+                base: base,
+                acceptingSuffix: "/chat/completions"
+            )
         case .anthropicMessages:
             return try appendingRoute("messages", to: base, acceptingSuffix: "/messages")
         case .ollama:
@@ -315,6 +368,11 @@ struct AIProviderClient: Sendable {
             guard var components = URLComponents(string: customURL) else {
                 throw AIEqualizerError.invalidEndpoint
             }
+            if configuration.wireProtocol == .openAICompatible,
+               components.host?.lowercased() == "dengdeng.ganiran.com",
+               components.path == "/models" {
+                components.path = "/v1/models"
+            }
             if configuration.wireProtocol == .googleGemini,
                !(components.queryItems ?? []).contains(where: { $0.name == "key" }) {
                 var items = components.queryItems ?? []
@@ -335,18 +393,26 @@ struct AIProviderClient: Sendable {
         }
 
         let suffixes = ["/chat/completions", "/responses", "/messages", "/api/chat"]
+        let hadExplicitGenerationRoute = suffixes.contains { components.path.hasSuffix($0) }
         for suffix in suffixes where components.path.hasSuffix(suffix) {
             components.path.removeLast(suffix.count)
             break
         }
 
         switch configuration.wireProtocol {
-        case .openAIResponses, .openAIChat, .openAICompatible, .anthropicMessages:
+        case .openAIResponses, .openAIChat, .anthropicMessages:
             components.path = Self.appendingPath("models", to: components.path)
             if configuration.wireProtocol == .anthropicMessages {
                 var items = components.queryItems ?? []
                 items.append(URLQueryItem(name: "limit", value: "1000"))
                 components.queryItems = items
+            }
+        case .openAICompatible:
+            let path = components.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            if path.isEmpty, !hadExplicitGenerationRoute {
+                components.path = "/v1/models"
+            } else {
+                components.path = Self.appendingPath("models", to: components.path)
             }
         case .googleGemini:
             components.path = Self.appendingPath("models", to: components.path)
@@ -389,6 +455,38 @@ struct AIProviderClient: Sendable {
         let value = base.hasSuffix(suffix) ? base : "\(base)/\(route)"
         guard let url = URL(string: value) else { throw AIEqualizerError.invalidEndpoint }
         return url
+    }
+
+    private func openAICompatibleEndpoint(
+        route: String,
+        base: String,
+        acceptingSuffix suffix: String
+    ) throws -> URL {
+        if base.hasSuffix(suffix), let url = URL(string: base) {
+            return url
+        }
+        guard var components = URLComponents(string: base) else {
+            throw AIEqualizerError.invalidEndpoint
+        }
+        let path = components.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        components.path = path.isEmpty
+            ? "/v1/\(route)"
+            : Self.appendingPath(route, to: components.path)
+        guard let url = components.url else { throw AIEqualizerError.invalidEndpoint }
+        return url
+    }
+
+    private func fallbackModel(
+        for configuration: AIProviderConfiguration,
+        apiKey: String
+    ) async throws -> String? {
+        let models = try await fetchModels(configuration: configuration, apiKey: apiKey)
+        let current = configuration.resolvedModel
+        let preferred = configuration.wireProtocol.defaultModel
+        if preferred != current, models.contains(preferred) {
+            return preferred
+        }
+        return models.first { $0 != current }
     }
 
     private func applyCustomHeaders(_ json: String, to request: inout URLRequest) {
@@ -480,6 +578,26 @@ struct AIProviderClient: Sendable {
         if let error = root["error"] as? [String: Any], let message = error["message"] as? String {
             return message
         }
-        return root["message"] as? String ?? ""
+        if let error = root["error"] as? String {
+            return error
+        }
+        return root["message"] as? String
+            ?? root["detail"] as? String
+            ?? ""
+    }
+
+    private static func isUnsupportedModelResponse(
+        statusCode: Int,
+        message: String
+    ) -> Bool {
+        guard statusCode == 400 || statusCode == 404 || statusCode == 422 else { return false }
+        let normalized = message.lowercased()
+        return normalized.contains("model") && (
+            normalized.contains("not supported")
+                || normalized.contains("unsupported")
+                || normalized.contains("not found")
+                || normalized.contains("unavailable")
+                || normalized.contains("does not exist")
+        )
     }
 }

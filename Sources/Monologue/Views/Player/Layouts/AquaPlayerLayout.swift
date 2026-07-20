@@ -139,7 +139,7 @@ struct AquaPlayerLayout: View {
             )
         }
         .fullScreenCover(isPresented: $showEQSettings) {
-            NavigationStack { EQSettingsView() }
+            NavigationStack { MonoAudioCenterView() }
         }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker){
             PlayerThemePickerSheet()
@@ -330,7 +330,7 @@ extension AquaPlayerLayout {
 
             Spacer()
 
-            Button(action: { CinemaModeController.shared.present() }) {
+            Button(action: { ImmersiveModeController.shared.present() }) {
                 MonologueIcon(icon: .immersive, size: 20, color: textPrimary)
                     .frame(width: 40, height: 40)
                     .monologueGlassCircle()

@@ -172,12 +172,14 @@ class EQManager: ObservableObject {
                 isAuditioningReference = false
                 PlayerManager.shared.equalizer.setProcessingEnabled(false)
                 PlayerManager.shared.equalizer.reset()
-                PlayerManager.shared.audioEffects.setBassGain(0)
-                PlayerManager.shared.audioEffects.setTrebleGain(0)
-                PlayerManager.shared.audioEffects.setSurroundLevel(0)
-                PlayerManager.shared.audioEffects.setReverbLevel(0)
-                PlayerManager.shared.audioEffects.setStereoWidth(1)
-                PlayerManager.shared.audioEffects.applyMonoTuning(.neutral)
+                PlayerManager.shared.audioEffects.applyMonoTuning(
+                    .neutral,
+                    bassGain: 0,
+                    trebleGain: 0,
+                    surroundLevel: 0,
+                    reverbLevel: 0,
+                    stereoWidth: 1
+                )
                 PlayerManager.shared.setPitch(0)
                 disableSafetyMeasures()
                 saveAudioEffectsState()
@@ -441,12 +443,18 @@ class EQManager: ObservableObject {
     private func applyBuiltInProcessingProfile(_ preset: EQPreset) {
         let player = PlayerManager.shared
         let profile = preset.processingProfile
-        player.audioEffects.setBassGain(profile.bassGain)
-        player.audioEffects.setTrebleGain(profile.trebleGain)
-        player.audioEffects.setSurroundLevel(preset.surroundLevel)
-        player.audioEffects.setReverbLevel(preset.reverbLevel)
-        player.audioEffects.setStereoWidth(preset.stereoWidth)
+        let wasRestoring = isRestoring
+        isRestoring = true
         monoEffectTuning = profile.effects
+        isRestoring = wasRestoring
+        player.audioEffects.applyMonoTuning(
+            profile.effects,
+            bassGain: profile.bassGain,
+            trebleGain: profile.trebleGain,
+            surroundLevel: preset.surroundLevel,
+            reverbLevel: preset.reverbLevel,
+            stereoWidth: preset.stereoWidth
+        )
     }
 
     /// 切换歌曲时撤销上一首 AI 方案，恢复用户在开启 AI 调音前的处理链。
@@ -503,11 +511,14 @@ class EQManager: ObservableObject {
         } else {
             player.equalizer.setGraphicMode(restoredMode, gainsDB: customGains)
         }
-        player.audioEffects.setBassGain(snapshot.bassGain)
-        player.audioEffects.setTrebleGain(snapshot.trebleGain)
-        player.audioEffects.setSurroundLevel(snapshot.surroundLevel)
-        player.audioEffects.setReverbLevel(snapshot.reverbLevel)
-        player.audioEffects.setStereoWidth(snapshot.stereoWidth)
+        player.audioEffects.applyMonoTuning(
+            effectiveMonoEffectTuningForCurrentOutput(),
+            bassGain: snapshot.bassGain,
+            trebleGain: snapshot.trebleGain,
+            surroundLevel: snapshot.surroundLevel,
+            reverbLevel: snapshot.reverbLevel,
+            stereoWidth: snapshot.stereoWidth
+        )
 
         applyProfessionalConfiguration()
         applyMonoEffectTuning()
@@ -526,11 +537,15 @@ class EQManager: ObservableObject {
     }
 
     /// 将 AI 生成的完整 Mono 处理方案一次性写入引擎，避免逐项触发重复重建 DSP 链。
-    func applyAIConfiguration(_ proposal: AIEqualizerProposal) {
+    func applyAIConfiguration(
+        _ proposal: AIEqualizerProposal,
+        spatialOverride: AIEqualizerSpatialConfiguration? = nil
+    ) {
         stopLoudnessMatchedReferenceAudition()
         captureProcessingBeforeAIIfNeeded()
 
         let professional = proposal.professional
+        let resolvedSpatial = spatialOverride ?? proposal.spatial
         let dynamicBands = professional.dynamicEQ.bands.map {
             DynamicEQBand(
                 frequency: $0.frequency,
@@ -566,7 +581,7 @@ class EQManager: ObservableObject {
             id: "ai_\(proposal.songID)",
             name: proposal.profileName,
             category: .custom,
-            description: proposal.summary,
+            description: proposal.profileSpecificSummary,
             gains: proposal.gains,
             isCustom: true,
             presetType: proposal.graphicEQMode == .tenBand ? .standard10 : .graphic32,
@@ -605,14 +620,14 @@ class EQManager: ObservableObject {
             effectiveEffects,
             bassGain: proposal.tone.bassGain,
             trebleGain: proposal.tone.trebleGain,
-            surroundLevel: proposal.spatial.surroundLevel,
-            reverbLevel: proposal.spatial.reverbLevel,
-            stereoWidth: proposal.spatial.stereoWidth
+            surroundLevel: resolvedSpatial.surroundLevel,
+            reverbLevel: resolvedSpatial.reverbLevel,
+            stereoWidth: resolvedSpatial.stereoWidth
         )
         player.audioRepair.configureOutputSafety(
             limiterEnabled: effectiveEffects.finalLimiterEnabled,
             ceilingDB: effectiveEffects.finalLimiterCeilingDB,
-            transitionProtectionEnabled: true,
+            transitionProtectionEnabled: false,
             outputGainDB: player.audioRepair.outputGainDB,
             perceptualMakeupDB: player.audioRepair.perceptualMakeupDB
         )
@@ -653,6 +668,12 @@ class EQManager: ObservableObject {
         applyProfessionalConfiguration()
         if isEnabled { applyMonoEffectTuning() }
         updateSafetyLimiter()
+        let presetName = currentPreset?.name ?? "none"
+        let limiterCeiling = PlayerManager.shared.audioRepair.outputLimiterCeilingDB
+        AppLogger.info(
+            "[EQManager] Output route kind=\(currentOutputKind.rawValue) port=\(output?.portType.rawValue ?? "none") name=\(currentOutputName) preset=\(presetName) enabled=\(isEnabled) preamp=\(String(format: "%.2f", preampDB))dB limiter=\(isSafetyLimiterActive) ceiling=\(String(format: "%.2f", limiterCeiling))dBFS",
+            step: "audio-output.route-safety"
+        )
     }
 
     func addParametricBand() {
@@ -763,7 +784,7 @@ class EQManager: ObservableObject {
         smartSpectrumFrames = 0
         lastSmartUpdate = .distantPast
         adaptiveGains = Array(repeating: 0, count: 10)
-        PlayerManager.shared.equalizer.setAdaptiveGains(adaptiveGains)
+        applyCombinedAdaptiveGains()
     }
 
     private func headroomSettingChanged() {
@@ -815,7 +836,7 @@ class EQManager: ObservableObject {
         player.audioRepair.configureOutputSafety(
             limiterEnabled: isEnabled && configuration.finalLimiterEnabled,
             ceilingDB: configuration.finalLimiterCeilingDB,
-            transitionProtectionEnabled: true,
+            transitionProtectionEnabled: false,
             outputGainDB: preservesAILevel ? player.audioRepair.outputGainDB : 0,
             perceptualMakeupDB: preservesAILevel ? player.audioRepair.perceptualMakeupDB : 0
         )
@@ -834,7 +855,21 @@ class EQManager: ObservableObject {
             }
         }
         switch currentOutputKind {
-        case .wired, .bluetooth, .usb:
+        case .bluetooth:
+            // Bluetooth codecs are less tolerant of inter-sample peaks and
+            // phase tricks than the local Float32 chain. Haas widening and
+            // excessive synthesized harmonics are the most common source of
+            // the reported "interference" texture, especially on vocal-heavy
+            // material. Preserve the EQ intent while constraining only the
+            // codec-hostile mastering layer.
+            configuration.haasEnabled = false
+            configuration.exciterAmountDB = min(configuration.exciterAmountDB, 0.3)
+            configuration.compressorMakeupDB = min(configuration.compressorMakeupDB, 0.3)
+            configuration.finalLimiterCeilingDB = min(
+                configuration.finalLimiterCeilingDB,
+                -1.5
+            )
+        case .wired, .usb:
             break
         default:
             configuration.bs2bEnabled = false
@@ -857,9 +892,8 @@ class EQManager: ObservableObject {
             && (!aiManaged || !dynamicEnabled)
 
         equalizer.setCalibrationGains(bypassProfessionalChain ? zeroGains : effectiveCalibrationGains)
-        equalizer.setAdaptiveGains(
-            !bypassProfessionalChain && isSmartSongCompensationEnabled ? adaptiveGains : zeroGains
-        )
+        let smartLayer = isSmartSongCompensationEnabled ? adaptiveGains : zeroGains
+        equalizer.setAdaptiveGains(bypassProfessionalChain ? zeroGains : smartLayer)
         equalizer.setParametricBands(
             !bypassProfessionalChain && isParametricEQEnabled
                 ? Array(parametricBands.prefix(aiManaged ? parametricLimit : parametricBands.count))
@@ -925,7 +959,10 @@ class EQManager: ObservableObject {
     }
 
     private func configureSmartAnalysis() {
-        let analyzer = PlayerManager.shared.streamPlayer.spectrumAnalyzer
+        // 必须用 pre-effect 分析器：可视化用的 spectrumAnalyzer 取自 mixer tap，
+        // 读到的是 EQ/效果器处理后的频谱。用它做补偿会把自己的修正当成
+        // 素材缺陷继续修，和 AI 托管曲线形成反馈回路。
+        let analyzer = PlayerManager.shared.streamPlayer.analysisSpectrumAnalyzer
         guard isEnabled, isSmartSongCompensationEnabled else {
             analyzer.onCalibrationSpectrum = nil
             analyzer.isCalibrationEnabled = false
@@ -996,7 +1033,7 @@ class EQManager: ObservableObject {
         for index in 0..<10 {
             adaptiveGains[index] = adaptiveGains[index] * 0.72 + requested[index] * 0.28
         }
-        PlayerManager.shared.equalizer.setAdaptiveGains(adaptiveGains)
+        applyCombinedAdaptiveGains()
         updateSafetyLimiter()
     }
 
@@ -1004,8 +1041,14 @@ class EQManager: ObservableObject {
         smartSpectrumAverage = Array(repeating: 0, count: 10)
         smartSpectrumFrames = 0
         adaptiveGains = Array(repeating: 0, count: 10)
-        PlayerManager.shared.equalizer.setAdaptiveGains(adaptiveGains)
+        applyCombinedAdaptiveGains()
         updateSafetyLimiter()
+    }
+
+    private func applyCombinedAdaptiveGains() {
+        let zeroGains = Array(repeating: Float(0), count: 10)
+        let smartLayer = isSmartSongCompensationEnabled ? adaptiveGains : zeroGains
+        PlayerManager.shared.equalizer.setAdaptiveGains(isAuditioningReference ? zeroGains : smartLayer)
     }
 
     private static func outputKind(for port: AVAudioSession.Port?) -> MonoAudioOutputKind {
@@ -1040,7 +1083,7 @@ class EQManager: ObservableObject {
             if isSafetyLimiterActive {
                 repair.configureOutputSafety(
                     limiterEnabled: false,
-                    transitionProtectionEnabled: true
+                    transitionProtectionEnabled: false
                 )
                 isSafetyLimiterActive = false
             }
@@ -1088,7 +1131,11 @@ class EQManager: ObservableObject {
         
         // 按完整级联曲线的峰值做前级补偿，而不是只看最高的单个滑块。
         // 额外保留 0.25 dB 余量，避免母带接近 0 dBFS 时频段叠加触发硬削波。
-        let safetyTrim: Float = peakGain > 0.1 ? -(peakGain + 0.35) : 0
+        // Lossy Bluetooth encoding can create inter-sample peaks even when the
+        // decoded Float32 samples stay below 0 dBFS. Reserve a little more room
+        // before the final limiter on that route without flattening the curve.
+        let safetyMargin: Float = currentOutputKind == .bluetooth ? 0.75 : 0.35
+        let safetyTrim: Float = peakGain > 0.1 ? -(peakGain + safetyMargin) : 0
         let presetTrim: Float
         if currentPreset?.id == "custom" || currentPreset == nil {
             presetTrim = customPresetPreampDB
@@ -1114,11 +1161,14 @@ class EQManager: ObservableObject {
         let shouldLimit = effectiveTuning.finalLimiterEnabled || peakGain > 0.1
 
         // AI 安全前级负责给完整处理链留余量，最终输出先补回这部分固定损失。
+        // 蓝牙路线的有损编码会产生 inter-sample peak，补偿上限压到 +6 dB，
+        // 留出真正的 ISP 余量而不是全部推给限幅器兜底。
+        let makeupCeiling: Float = currentOutputKind == .bluetooth ? 6 : 9
         let aiOutputGainCompensation: Float = isAIManagedPresetActive
-            ? min(9, max(0, -newPreamp))
+            ? min(makeupCeiling, max(0, -newPreamp))
             : 0
         // 宽频削减和动态处理仍可能让主观响度略低。额外补偿保持在约 1 dB，
-        // 与固定前级补偿合计不超过 +9 dB，并在 AudioRepairEngine 内平滑推入。
+        // 与固定前级补偿合计不超过 makeupCeiling，并在 AudioRepairEngine 内平滑推入。
         let perceivedCurveLoss = max(0, -perceivedBoost)
         let dynamicsMakeup: Float = isDynamicEQEnabled || isMultibandDynamicsEnabled
             ? 0.16
@@ -1135,14 +1185,15 @@ class EQManager: ObservableObject {
             : 0
         let aiPerceptualMakeup = min(
             requestedPerceptualMakeup,
-            max(0, 9 - aiOutputGainCompensation)
+            max(0, makeupCeiling - aiOutputGainCompensation)
         )
+        let routeSafeCeiling: Float = currentOutputKind == .bluetooth ? -1.5 : -1
         repair.configureOutputSafety(
             limiterEnabled: shouldLimit,
             ceilingDB: shouldLimit && effectiveTuning.finalLimiterEnabled
-                ? effectiveTuning.finalLimiterCeilingDB
-                : -1,
-            transitionProtectionEnabled: true,
+                ? min(effectiveTuning.finalLimiterCeilingDB, routeSafeCeiling)
+                : routeSafeCeiling,
+            transitionProtectionEnabled: false,
             outputGainDB: aiOutputGainCompensation,
             perceptualMakeupDB: aiPerceptualMakeup
         )
@@ -1600,21 +1651,27 @@ class EQManager: ObservableObject {
             // 兼容：尝试从旧的缓存系统迁移
             if let state = OptimizedCacheManager.shared.getObject(forKey: "audio_effects_state", type: AudioEffectsState.self) {
                 let effects = PlayerManager.shared.audioEffects
-                if state.bassGain != 0 { effects.setBassGain(state.bassGain) }
-                if state.trebleGain != 0 { effects.setTrebleGain(state.trebleGain) }
-                if state.surroundLevel > 0 { effects.setSurroundLevel(state.surroundLevel) }
-                if state.reverbLevel > 0 { effects.setReverbLevel(state.reverbLevel) }
-                if let stereoWidth = state.stereoWidth { effects.setStereoWidth(stereoWidth) }
+                effects.applyMonoTuning(
+                    monoEffectTuning,
+                    bassGain: state.bassGain,
+                    trebleGain: state.trebleGain,
+                    surroundLevel: state.surroundLevel,
+                    reverbLevel: state.reverbLevel,
+                    stereoWidth: state.stereoWidth ?? 1
+                )
                 saveAudioEffectsState()
             }
             return
         }
         let effects = PlayerManager.shared.audioEffects
-        if state.bassGain != 0 { effects.setBassGain(state.bassGain) }
-        if state.trebleGain != 0 { effects.setTrebleGain(state.trebleGain) }
-        if state.surroundLevel > 0 { effects.setSurroundLevel(state.surroundLevel) }
-        if state.reverbLevel > 0 { effects.setReverbLevel(state.reverbLevel) }
-        if let stereoWidth = state.stereoWidth { effects.setStereoWidth(stereoWidth) }
+        effects.applyMonoTuning(
+            monoEffectTuning,
+            bassGain: state.bassGain,
+            trebleGain: state.trebleGain,
+            surroundLevel: state.surroundLevel,
+            reverbLevel: state.reverbLevel,
+            stereoWidth: state.stereoWidth ?? 1
+        )
     }
     
     private func restoreState() {

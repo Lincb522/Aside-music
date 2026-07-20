@@ -6,19 +6,11 @@ enum ClayStyle {
     }
 
     static var base: Color {
-        ThemeColorCustomization.backgroundBase(
-            for: .clay,
-            fallback: Color(light: Color(hex: "F7EAD8"), dark: Color(hex: "F7EAD8")),
-            fallbackHex: "F7EAD8"
-        )
+        Color(light: Color(hex: "F7EAD8"), dark: Color(hex: "F7EAD8"))
     }
 
     static var accent: Color {
-        ThemeColorCustomization.accentColor(
-            for: .clay,
-            fallback: Color(light: Color(hex: "35BFE6"), dark: Color(hex: "35BFE6")),
-            fallbackHex: "35BFE6"
-        )
+        Color(light: Color(hex: "35BFE6"), dark: Color(hex: "35BFE6"))
     }
 
     static let butter = Color(light: Color(hex: "FFC94A"), dark: Color(hex: "FFC94A"))
@@ -64,11 +56,10 @@ enum ClayStyle {
 struct ClayRootBackdrop: View {
     var body: some View {
         ZStack {
-            ThemeCustomDiffuseBackground(
-                theme: .clay,
-                fallbackHexes: ["F7EAD8", "DDF3FA"],
-                accentFallbackHexes: ["35BFE6", "FF7F91", "FFC94A"],
-                opacity: 1
+            LinearGradient(
+                colors: [Color(hex: "F7EAD8"), Color(hex: "DDF3FA")],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
             )
 
             ClaySoftBlob(color: ClayStyle.sky, x: 0.12, y: 0.08, size: 0.5, opacity: 0.22)

@@ -31,7 +31,8 @@ let package = Package(
             ]
         ),
 
-        // Single merged XCFramework for iOS (device + simulator)
+        // Single merged XCFramework for iOS (device + simulator). Every slice
+        // contains avformat, avcodec, avutil, swresample, swscale, and avfilter.
         // 改为本地直接引用，彻底解决 DerivedData 无法下载/定位远程 artifacts 导致的 XCFramework 缺失错误
         .binaryTarget(
             name: "FFmpegLibs",

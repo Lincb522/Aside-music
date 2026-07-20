@@ -125,8 +125,8 @@ struct ListeningReport {
 
 // MARK: - 报告数据服务
 
-/// 从播放日志聚合日报 / 周报 / 月报 / 年报。周期边界取自用户日历
-/// （周首日跟随系统区域设置），interval 为 [start, end) 半开区间。
+/// 从播放日志聚合日报 / 周报 / 月报 / 年报。日期与时区跟随系统，
+/// 周周期固定为周一至周日；interval 为 [start, end) 半开区间。
 @MainActor
 final class ListeningReportService {
     static let shared = ListeningReportService()
@@ -137,7 +137,7 @@ final class ListeningReportService {
 
     /// 包含指定日期的完整周期
     func interval(for kind: ListeningReportKind, containing date: Date) -> DateInterval {
-        let calendar = Calendar.current
+        let calendar = ListeningStatisticsCalendar.current
         return calendar.dateInterval(of: kind.calendarComponent, for: date)
             ?? DateInterval(start: date, duration: 0)
     }
@@ -163,7 +163,7 @@ final class ListeningReportService {
         now: Date = Date()
     ) -> DateInterval? {
         guard offset != 0 else { return interval }
-        let calendar = Calendar.current
+        let calendar = ListeningStatisticsCalendar.current
         guard let shifted = calendar.date(
             byAdding: kind.calendarComponent,
             value: offset,
@@ -188,7 +188,7 @@ final class ListeningReportService {
 
     /// 周期唯一键（弹窗去重用）："2026-W28" / "2026-06"
     func periodKey(for kind: ListeningReportKind, interval: DateInterval) -> String {
-        let calendar = Calendar.current
+        let calendar = ListeningStatisticsCalendar.current
         switch kind {
         case .day:
             let formatter = DateFormatter()
@@ -226,7 +226,7 @@ final class ListeningReportService {
     // MARK: 报告聚合
 
     func report(kind: ListeningReportKind, interval: DateInterval, now: Date = Date()) -> ListeningReport {
-        let calendar = Calendar.current
+        let calendar = ListeningStatisticsCalendar.current
         let records = records(in: interval)
         let isOngoing = interval.end > now
 
@@ -426,7 +426,8 @@ final class ListeningReportCenter: ObservableObject {
     @Published var pending: PendingPopup?
 
     /// 已展示（或已放弃展示）的周期键
-    private static let weeklySeenKey = "listeningReportWeeklySeenPeriod"
+    // v2 只在弹窗真正进入展示状态后写入，避开旧版“数据未恢复也算已读”的记录。
+    private static let weeklySeenKey = "listeningReportWeeklyPresentedPeriodV2"
     private static let monthlySeenKey = "listeningReportMonthlySeenPeriod"
 
     /// 弹窗门槛：上一周期收听不足时不打扰
@@ -434,8 +435,6 @@ final class ListeningReportCenter: ObservableObject {
     private static let monthlyMinSeconds = 900
 
     private var didPresentThisLaunch = false
-    /// 最近一次评估所在自然日；常驻后台跨天回前台时重新评估
-    private var lastEvaluatedDayKey: String?
     private var foregroundObserver: NSObjectProtocol?
     private var dayChangeObserver: NSObjectProtocol?
     private var presentTask: Task<Void, Never>?
@@ -472,13 +471,17 @@ final class ListeningReportCenter: ObservableObject {
 
     private func evaluateIfNewDay() {
         guard didPresentThisLaunch else { return }
-        guard Self.dayKey(Date()) != lastEvaluatedDayKey else { return }
+        scheduleEvaluation()
+    }
+
+    /// 云端听歌记录可能晚于主界面恢复；合并完成后补一次评估。
+    func retryAfterHistoryRestore() {
+        guard didPresentThisLaunch, pending == nil else { return }
         scheduleEvaluation()
     }
 
     private func scheduleEvaluation() {
         guard pending == nil, presentTask == nil else { return }
-        lastEvaluatedDayKey = Self.dayKey(Date())
 
         presentTask = Task { @MainActor [weak self] in
             defer { self?.presentTask = nil }
@@ -486,11 +489,10 @@ final class ListeningReportCenter: ObservableObject {
             // 等主界面首帧稳定
             try? await Task.sleep(nanoseconds: 1_100_000_000)
 
-            // 与更新日志 / 专属问候错峰（上限 3 分钟）
+            // 只避让已经出现的弹窗；后台生成问候不应阻塞听歌报告。
             var waitedTicks = 0
             while ChangelogManager.shared.pendingRelease != nil
-                || SpecialGreetingManager.shared.pending != nil
-                || SpecialGreetingManager.shared.isPreparing,
+                || SpecialGreetingManager.shared.pending != nil,
                 waitedTicks < 360
             {
                 try? await Task.sleep(nanoseconds: 500_000_000)
@@ -499,15 +501,12 @@ final class ListeningReportCenter: ObservableObject {
 
             guard let self, !Task.isCancelled, self.pending == nil else { return }
             guard let candidate = self.duePopup() else { return }
-            let input = AIListeningInsightInput.report(candidate.report)
-            let insight = await AIListeningInsightAgent.shared.automaticInsight(for: input)
-            guard !Task.isCancelled, self.pending == nil else { return }
-            let popup = PendingPopup(kind: candidate.kind, report: candidate.report, insight: insight)
-            self.markHandled(popup, now: Date())
 
             withAnimation(.spring(response: 0.46, dampingFraction: 0.84)) {
-                self.pending = popup
+                self.pending = candidate
             }
+            self.markHandled(candidate, now: Date())
+            self.enrichInsight(for: candidate)
         }
     }
 
@@ -527,11 +526,7 @@ final class ListeningReportCenter: ObservableObject {
         let lastWeek = service.interval(for: .week, containing: currentWeek.start.addingTimeInterval(-1))
         let weekKey = service.periodKey(for: .week, interval: lastWeek)
 
-        let isFirstDayOfMonth = Calendar.current.isDate(now, inSameDayAs: currentMonth.start)
-        let isFirstDayOfWeek = Calendar.current.isDate(now, inSameDayAs: currentWeek.start)
-
-        if isFirstDayOfMonth,
-           settings.listeningReportMonthlyPopupEnabled,
+        if settings.listeningReportMonthlyPopupEnabled,
            defaults.string(forKey: Self.monthlySeenKey) != monthKey
         {
             let seconds = service.totalSeconds(in: lastMonth)
@@ -543,12 +538,9 @@ final class ListeningReportCenter: ObservableObject {
                     insight: AIListeningInsightAgent.shared.fallbackResult(for: .report(report))
                 )
             }
-            // 数据不足：记为已处理，之后不再为该月重复评估
-            defaults.set(monthKey, forKey: Self.monthlySeenKey)
         }
 
-        if isFirstDayOfWeek,
-           settings.listeningReportWeeklyPopupEnabled,
+        if settings.listeningReportWeeklyPopupEnabled,
            defaults.string(forKey: Self.weeklySeenKey) != weekKey
         {
             let seconds = service.totalSeconds(in: lastWeek)
@@ -560,10 +552,23 @@ final class ListeningReportCenter: ObservableObject {
                     insight: AIListeningInsightAgent.shared.fallbackResult(for: .report(report))
                 )
             }
-            defaults.set(weekKey, forKey: Self.weeklySeenKey)
         }
 
         return nil
+    }
+
+    private func enrichInsight(for popup: PendingPopup) {
+        let popupID = popup.id
+        let input = AIListeningInsightInput.report(popup.report)
+        Task { @MainActor [weak self] in
+            let insight = await AIListeningInsightAgent.shared.automaticInsight(for: input)
+            guard let self, self.pending?.id == popupID else { return }
+            self.pending = PendingPopup(
+                kind: popup.kind,
+                report: popup.report,
+                insight: insight
+            )
+        }
     }
 
     private func markHandled(_ popup: PendingPopup, now: Date) {
@@ -574,7 +579,7 @@ final class ListeningReportCenter: ObservableObject {
         case .month:
             defaults.set(key, forKey: Self.monthlySeenKey)
             let currentWeek = service.interval(for: .week, containing: now)
-            if Calendar.current.isDate(now, inSameDayAs: currentWeek.start) {
+            if ListeningStatisticsCalendar.current.isDate(now, inSameDayAs: currentWeek.start) {
                 let previousWeek = service.interval(for: .week, containing: currentWeek.start.addingTimeInterval(-1))
                 defaults.set(service.periodKey(for: .week, interval: previousWeek), forKey: Self.weeklySeenKey)
             }
@@ -603,12 +608,6 @@ final class ListeningReportCenter: ObservableObject {
         }
     }
 
-    private static func dayKey(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.string(from: date)
-    }
 }
 
 // MARK: - 周期标签格式化
@@ -616,7 +615,7 @@ final class ListeningReportCenter: ObservableObject {
 enum ListeningReportFormatter {
     /// 周期主标签："7月14日" / "7月6日 – 7月12日" / "2026年6月" / "2026年"
     static func periodTitle(kind: ListeningReportKind, interval: DateInterval) -> String {
-        let calendar = Calendar.current
+        let calendar = ListeningStatisticsCalendar.current
         switch kind {
         case .day:
             let formatter = DateFormatter()
@@ -685,7 +684,7 @@ enum ListeningReportFormatter {
 
     /// 桶标签（走势图横轴）
     static func bucketAxisLabel(kind: ListeningReportKind, date: Date) -> String {
-        let calendar = Calendar.current
+        let calendar = ListeningStatisticsCalendar.current
         switch kind {
         case .day:
             return String(format: "%02d", calendar.component(.hour, from: date))
@@ -706,7 +705,7 @@ enum ListeningReportFormatter {
 
     /// 峰值桶说明："周三" / "18日" / "3月"
     static func busiestBucketLabel(kind: ListeningReportKind, date: Date) -> String {
-        let calendar = Calendar.current
+        let calendar = ListeningStatisticsCalendar.current
         switch kind {
         case .day:
             return String(format: "%02d:00", calendar.component(.hour, from: date))

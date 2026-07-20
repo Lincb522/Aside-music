@@ -92,7 +92,7 @@ struct PixelPlayerLayout: View {
             )
         }
         .fullScreenCover(isPresented: $showEQSettings) {
-            NavigationStack { EQSettingsView() }
+            NavigationStack { MonoAudioCenterView() }
         }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker){
             PlayerThemePickerSheet()
@@ -749,7 +749,7 @@ extension PixelPlayerLayout {
                     } else {
                         // 沉浸模式按钮 — 占用原下载按钮的位置
                         funcButton(icon: .immersive) {
-                            CinemaModeController.shared.present()
+                            ImmersiveModeController.shared.present()
                         }
                     }
                 }

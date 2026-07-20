@@ -281,7 +281,7 @@ struct Game2048PlayerLayout: View {
                 onSelectQishui: { info in player.switchQishuiQuality(info); showQualitySheet = false }
             )
         }
-        .fullScreenCover(isPresented: $showEQSettings) { NavigationStack { EQSettingsView() } }
+        .fullScreenCover(isPresented: $showEQSettings) { NavigationStack { MonoAudioCenterView() } }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker) { PlayerThemePickerSheet() }
         .monologueSheet(isPresented: $showComments, preset: .large) {
             if let s = player.currentSong {
@@ -696,7 +696,7 @@ extension Game2048PlayerLayout {
                               label: "64", dim: done) { if !done { showDownloadSheet = true } }.disabled(done)
                 } else {
                     // 沉浸模式按钮 — 占用原下载按钮的位置
-                    bottomBtn(icon: "tv", label: "64") { CinemaModeController.shared.present() }
+                    bottomBtn(icon: "tv", label: "64") { ImmersiveModeController.shared.present() }
                 }
             }
             bottomBtn(icon: "list.bullet", label: "32") { showPlaylist = true }

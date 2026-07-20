@@ -1,5 +1,16 @@
 import Foundation
 
+/// 听歌统计统一使用周一作为一周的起点，避免系统地区设置把周日
+/// 识别成新一周后，「本周」在周日退化成与「今天」相同的范围。
+enum ListeningStatisticsCalendar {
+    static var current: Calendar {
+        var calendar = Calendar.autoupdatingCurrent
+        calendar.firstWeekday = 2
+        calendar.minimumDaysInFirstWeek = 4
+        return calendar
+    }
+}
+
 // MARK: - 听歌统计服务
 
 /// 从播放日志（PlayHistory，由 ListeningStatsRecorder 写入真实秒数）
@@ -141,9 +152,9 @@ final class ListeningStatsService {
 
     /// 获取指定周期的统计数据
     func fetchStats(for period: Period) -> Stats {
-        let calendar = Calendar.current
+        let calendar = ListeningStatisticsCalendar.current
         let now = Date()
-        let startDate = startDate(for: period)
+        let startDate = startDate(for: period, now: now, calendar: calendar)
 
         let records = DatabaseManager.shared.store.fetch(
             PlayHistory.self,
@@ -276,21 +287,19 @@ final class ListeningStatsService {
     // MARK: - 辅助
 
     /// 周期起点；「全部」返回 nil
-    private func startDate(for period: Period) -> Date? {
-        let calendar = Calendar.current
-        let now = Date()
+    private func startDate(for period: Period, now: Date, calendar: Calendar) -> Date? {
         switch period {
         case .day:
             return calendar.startOfDay(for: now)
         case .week:
-            let components = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)
-            return calendar.date(from: components) ?? now
+            return calendar.dateInterval(of: .weekOfYear, for: now)?.start
+                ?? calendar.startOfDay(for: now)
         case .month:
-            let components = calendar.dateComponents([.year, .month], from: now)
-            return calendar.date(from: components) ?? now
+            return calendar.dateInterval(of: .month, for: now)?.start
+                ?? calendar.startOfDay(for: now)
         case .year:
-            let components = calendar.dateComponents([.year], from: now)
-            return calendar.date(from: components) ?? now
+            return calendar.dateInterval(of: .year, for: now)?.start
+                ?? calendar.startOfDay(for: now)
         case .all:
             return nil
         }
@@ -299,7 +308,7 @@ final class ListeningStatsService {
     /// 上一等长周期（昨天 / 上周 / 上月 / 去年）的总时长
     private func previousPeriodDuration(for period: Period, currentStart: Date?) -> Int {
         guard period != .all, let currentStart else { return 0 }
-        let calendar = Calendar.current
+        let calendar = ListeningStatisticsCalendar.current
 
         let component: Calendar.Component
         switch period {

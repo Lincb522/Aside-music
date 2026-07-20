@@ -328,9 +328,9 @@ struct AppearanceSettingsView: View {
             return .neumorphic
         case .petWhite:
             return .classic
-        case .capsule, .sequoia, .liquidGlass:
+        case .capsule:
             return .classic
-        case .default, .muji, .manga, .minimalWhite, .pureWhite, .bento, .clay, .signal, .material3Expressive:
+        case .default, .muji, .manga, .minimalWhite:
             return nil
         }
     }
@@ -650,18 +650,6 @@ private struct ThemeColorCustomizationSection: View {
             Circle()
                 .fill(CapsuleStyle.surfaceRaised.opacity(0.8))
                 .overlay(Circle().stroke(CapsuleStyle.separator.opacity(0.5), lineWidth: 0.65))
-        } else if theme == .sequoia {
-            SequoiaSurfaceBackground(cornerRadius: 15, elevated: false, pressed: true, role: .list)
-        } else if theme == .liquidGlass {
-            LiquidGlassSurfaceBackground(cornerRadius: 15, elevated: false, pressed: true, role: .list)
-        } else if theme == .clay {
-            ClaySurfaceBackground(cornerRadius: 15, tint: ClayStyle.cream, elevated: false, pressed: true, compact: true)
-        } else if theme == .signal {
-            SignalSurfaceBackground(cornerRadius: 10, elevated: false, pressed: true, fill: SignalStyle.control)
-        } else if theme == .bento {
-            Circle()
-                .fill(BentoStyle.surface)
-                .overlay(Circle().stroke(BentoStyle.hairline.opacity(0.58), lineWidth: 0.65))
         } else {
             Circle()
                 .fill(Color.monologueGlassTint)
@@ -1243,46 +1231,18 @@ private struct ThemeColorCustomizationSection: View {
         case (.capsule, .accent, _): return "3867FF"
         case (.capsule, .background, "end"): return "EAF1FF"
         case (.capsule, .background, _): return "F6F8FF"
-        case (.pureWhite, .accent, "end"): return "2563EB"
-        case (.pureWhite, .accent, _): return "2563EB"
-        case (.pureWhite, .background, "end"): return "F8FAFC"
-        case (.pureWhite, .background, _): return "FFFFFF"
         case (.petWhite, .accent, "end"): return "8FDCD5"
         case (.petWhite, .accent, _): return "F6A93B"
         case (.petWhite, .background, "end"): return "F6FAFA"
         case (.petWhite, .background, _): return "FFFFFF"
-        case (.sequoia, .accent, "end"): return "26AFCF"
-        case (.sequoia, .accent, _): return "0A84FF"
-        case (.sequoia, .background, "end"): return "E3EBF2"
-        case (.sequoia, .background, _): return "F4F7FB"
-        case (.liquidGlass, .accent, "end"): return "31D9E8"
-        case (.liquidGlass, .accent, _): return "18A7FF"
-        case (.liquidGlass, .background, "end"): return "F4F1FF"
-        case (.liquidGlass, .background, _): return "F2F8FF"
-        case (.clay, .accent, "end"): return "35BFE6"
-        case (.clay, .accent, _): return "35BFE6"
-        case (.clay, .background, "end"): return "DDF3FA"
-        case (.clay, .background, _): return "F7EAD8"
-        case (.signal, .accent, "end"): return "2F80ED"
-        case (.signal, .accent, _): return "2F80ED"
-        case (.signal, .background, "end"): return "F7F2EA"
-        case (.signal, .background, _): return "EEF5F8"
         case (.manga, .accent, "end"): return "FF4F84"
         case (.manga, .accent, _): return "FF4F84"
         case (.manga, .background, "end"): return "E8F1FF"
         case (.manga, .background, _): return "FFF3D7"
-        case (.bento, .accent, "end"): return "EB7E48"
-        case (.bento, .accent, _): return "E54B3B"
-        case (.bento, .background, "end"): return "EFE9DD"
-        case (.bento, .background, _): return "F5F1EA"
         case (.default, .accent, "end"): return "4D6F95"
         case (.default, .accent, _): return "4D6F95"
         case (.default, .background, "end"): return "E6EDF6"
         case (.default, .background, _): return "F8FAFC"
-        case (.material3Expressive, .accent, "end"): return "4D6F95"
-        case (.material3Expressive, .accent, _): return "4D6F95"
-        case (.material3Expressive, .background, "end"): return "E6EDF6"
-        case (.material3Expressive, .background, _): return "F8FAFC"
         }
     }
 
@@ -1329,24 +1289,6 @@ private struct ThemeColorCustomizationSection: View {
             Capsule()
                 .fill(isSelected ? CapsuleStyle.accent.opacity(0.16) : CapsuleStyle.surfaceRaised.opacity(0.82))
                 .overlay(Capsule().stroke(isSelected ? CapsuleStyle.accent.opacity(0.38) : CapsuleStyle.separator.opacity(0.5), lineWidth: isSelected ? 0.9 : 0.65))
-        } else if theme == .sequoia {
-            SequoiaSurfaceBackground(cornerRadius: 18, elevated: isSelected, pressed: !isSelected, fill: isSelected ? SequoiaStyle.accent.opacity(0.14) : SequoiaStyle.glass)
-        } else if theme == .liquidGlass {
-            LiquidGlassSurfaceBackground(
-                cornerRadius: 18,
-                elevated: isSelected,
-                pressed: !isSelected,
-                fill: isSelected ? LiquidGlassStyle.accent.opacity(0.1) : nil,
-                role: isSelected ? .selected : .list
-            )
-        } else if theme == .clay {
-            ClaySurfaceBackground(cornerRadius: 18, tint: isSelected ? ClayStyle.accent.opacity(0.16) : ClayStyle.cream, elevated: isSelected, pressed: !isSelected, compact: true)
-        } else if theme == .signal {
-            SignalSurfaceBackground(cornerRadius: 10, elevated: isSelected, pressed: !isSelected, fill: isSelected ? SignalStyle.accent.opacity(0.16) : SignalStyle.control)
-        } else if theme == .bento {
-            Capsule()
-                .fill(isSelected ? BentoStyle.tomato : BentoStyle.surface)
-                .overlay(Capsule().stroke(BentoStyle.hairline.opacity(isSelected ? 0.25 : 0.58), lineWidth: isSelected ? 0.9 : 0.65))
         } else {
             Capsule()
                 .fill(isSelected ? Color.monologueAccent.opacity(0.12) : Color.monologueGlassTint)
@@ -1376,18 +1318,6 @@ private struct ThemeColorCustomizationSection: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(CapsuleStyle.surfaceRaised.opacity(0.78))
                 .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(CapsuleStyle.separator.opacity(0.48), lineWidth: 0.65))
-        } else if theme == .sequoia {
-            SequoiaSurfaceBackground(cornerRadius: 14, elevated: false, pressed: true)
-        } else if theme == .liquidGlass {
-            LiquidGlassSurfaceBackground(cornerRadius: 14, elevated: false, pressed: true, role: .list)
-        } else if theme == .clay {
-            ClaySurfaceBackground(cornerRadius: 14, tint: ClayStyle.cream, elevated: false, pressed: true, compact: true)
-        } else if theme == .signal {
-            SignalSurfaceBackground(cornerRadius: 10, elevated: false, pressed: true, fill: SignalStyle.control)
-        } else if theme == .bento {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(BentoStyle.surface)
-                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(BentoStyle.hairline.opacity(0.58), lineWidth: 0.65))
         } else {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(Color.monologueGlassTint)
@@ -1400,12 +1330,7 @@ private struct ThemeColorCustomizationSection: View {
         if theme == .manga { return MangaStyle.ink }
         if theme == .muji { return MujiStyle.ink }
         if theme == .capsule { return CapsuleStyle.ink }
-        if theme == .sequoia { return SequoiaStyle.ink }
-        if theme == .liquidGlass { return LiquidGlassStyle.ink }
-        if theme == .clay { return ClayStyle.ink }
         if theme == .default { return Color.monologueTextPrimary }
-        if theme == .signal { return SignalStyle.ink }
-        if theme == .bento { return BentoStyle.ink }
         return NeumorphicStyle.ink
     }
 
@@ -1414,12 +1339,7 @@ private struct ThemeColorCustomizationSection: View {
         if theme == .manga { return MangaStyle.inkSub }
         if theme == .muji { return MujiStyle.inkSoft }
         if theme == .capsule { return CapsuleStyle.inkSoft }
-        if theme == .sequoia { return SequoiaStyle.inkSoft }
-        if theme == .liquidGlass { return LiquidGlassStyle.inkSoft }
-        if theme == .clay { return ClayStyle.inkSoft }
         if theme == .default { return Color.monologueTextSecondary }
-        if theme == .signal { return SignalStyle.inkSoft }
-        if theme == .bento { return BentoStyle.inkSoft }
         return NeumorphicStyle.inkSoft
     }
 
@@ -1428,12 +1348,7 @@ private struct ThemeColorCustomizationSection: View {
         if theme == .manga { return MangaStyle.strokeInk }
         if theme == .muji { return MujiStyle.hairline.opacity(0.54) }
         if theme == .capsule { return CapsuleStyle.separator.opacity(0.64) }
-        if theme == .sequoia { return SequoiaStyle.separator.opacity(0.74) }
-        if theme == .liquidGlass { return LiquidGlassStyle.separator.opacity(0.78) }
-        if theme == .clay { return ClayStyle.separator.opacity(0.62) }
         if theme == .default { return Color.monologueSeparator }
-        if theme == .signal { return SignalStyle.separator.opacity(0.72) }
-        if theme == .bento { return BentoStyle.hairline.opacity(0.64) }
         return NeumorphicStyle.separator.opacity(0.62)
     }
 
@@ -1444,12 +1359,7 @@ private struct ThemeColorCustomizationSection: View {
         }
         if theme == .muji { return MujiStyle.clay }
         if theme == .capsule { return CapsuleStyle.accent }
-        if theme == .sequoia { return SequoiaStyle.accent }
-        if theme == .liquidGlass { return LiquidGlassStyle.accent }
-        if theme == .clay { return ClayStyle.accent }
         if theme == .default { return Color.monologueAccent }
-        if theme == .signal { return SignalStyle.accent }
-        if theme == .bento { return BentoStyle.onAccent }
         return NeumorphicStyle.accent
     }
 
@@ -1462,9 +1372,6 @@ private struct ThemeColorCustomizationSection: View {
         }
         if theme == .muji {
             return ThemeColorCustomization.readableForegroundColor(on: MujiStyle.tea, light: MujiStyle.ink, dark: Color(hex: "FFF8EF"))
-        }
-        if theme == .clay {
-            return ThemeColorCustomization.readableForegroundColor(on: ClayStyle.butter.opacity(0.82), light: ClayStyle.ink, dark: .white)
         }
         return ThemeColorCustomization.accentForegroundColor(for: theme)
     }
@@ -1487,21 +1394,6 @@ private struct ThemeColorCustomizationSection: View {
         } else if theme == .capsule {
             Circle()
                 .fill(CapsuleStyle.accent)
-        } else if theme == .sequoia {
-            Circle()
-                .fill(SequoiaStyle.accent)
-        } else if theme == .liquidGlass {
-            Circle()
-                .fill(LiquidGlassStyle.accent)
-        } else if theme == .clay {
-            Circle()
-                .fill(ClayStyle.butter.opacity(0.82))
-        } else if theme == .signal {
-            Circle()
-                .fill(SignalStyle.accent)
-        } else if theme == .bento {
-            Circle()
-                .fill(BentoStyle.tomato)
         } else {
             Circle()
                 .fill(NeumorphicStyle.accent)
@@ -1514,9 +1406,6 @@ private struct ThemeColorCustomizationSection: View {
         }
         if theme == .manga {
             return ThemeColorCustomization.readableForegroundColor(on: MangaStyle.labelYellow, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk)
-        }
-        if theme == .clay {
-            return ThemeColorCustomization.readableForegroundColor(on: ClayStyle.butter.opacity(0.86), light: ClayStyle.ink, dark: .white)
         }
         return ThemeColorCustomization.accentForegroundColor(for: theme)
     }
@@ -1541,25 +1430,6 @@ private struct ThemeColorCustomizationSection: View {
             Circle()
                 .fill(CapsuleStyle.accent)
                 .shadow(color: CapsuleStyle.accent.opacity(0.16), radius: 6, x: 0, y: 3)
-        } else if theme == .sequoia {
-            Circle()
-                .fill(SequoiaStyle.accent)
-                .shadow(color: SequoiaStyle.accent.opacity(0.18), radius: 6, x: 0, y: 3)
-        } else if theme == .liquidGlass {
-            Circle()
-                .fill(LiquidGlassStyle.accent)
-                .shadow(color: LiquidGlassStyle.accent.opacity(0.22), radius: 7, x: 0, y: 4)
-        } else if theme == .clay {
-            Circle()
-                .fill(ClayStyle.butter.opacity(0.86))
-                .shadow(color: ClayStyle.accent.opacity(0.12), radius: 6, x: 0, y: 3)
-        } else if theme == .signal {
-            Circle()
-                .fill(SignalStyle.accent)
-                .shadow(color: Color.black.opacity(0.18), radius: 0, x: 2, y: 2)
-        } else if theme == .bento {
-            Circle()
-                .fill(BentoStyle.tomato)
         } else {
             Circle()
                 .fill(Color.monologueIconBackground)
@@ -1588,18 +1458,6 @@ private struct ThemeColorCustomizationSection: View {
             NeumorphicSurfaceBackground(cornerRadius: 16, elevated: true, pressed: false, tint: NeumorphicStyle.accent.opacity(0.08), lightweight: true)
         } else if theme == .capsule {
             CapsuleSurfaceBackground(cornerRadius: 16, elevated: true, tint: CapsuleStyle.surfaceRaised.opacity(0.86))
-        } else if theme == .sequoia {
-            SequoiaSurfaceBackground(cornerRadius: 16, elevated: true, fill: SequoiaStyle.accent.opacity(0.08))
-        } else if theme == .liquidGlass {
-            LiquidGlassSurfaceBackground(cornerRadius: 16, elevated: true, fill: LiquidGlassStyle.accent.opacity(0.08), role: .chrome)
-        } else if theme == .clay {
-            ClaySurfaceBackground(cornerRadius: 16, tint: ClayStyle.accent.opacity(0.1), elevated: true, compact: true)
-        } else if theme == .signal {
-            SignalSurfaceBackground(cornerRadius: 13, elevated: true, fill: SignalStyle.device)
-        } else if theme == .bento {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(BentoStyle.surface)
-                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(BentoStyle.hairline.opacity(0.58), lineWidth: 0.65))
         } else {
             RoundedRectangle(cornerRadius: 13, style: .continuous)
                 .fill(Color.monologueGlassTint)
@@ -1851,7 +1709,7 @@ private struct ThemeColorPickerSheet: View {
                 RoundedRectangle(cornerRadius: theme == .manga ? 18 : 20, style: .continuous)
                     .stroke(previewStrokeColor, lineWidth: theme == .manga ? 2 : 0.9)
             )
-            .shadow(color: previewShadowColor, radius: theme == .neumorphic ? 14 : (theme == .signal ? 16 : 8), x: 0, y: theme == .manga ? 3 : (theme == .signal ? 10 : 8))
+            .shadow(color: previewShadowColor, radius: theme == .neumorphic ? 14 : 8, x: 0, y: theme == .manga ? 3 : 8)
     }
 
     private var pickerRow: some View {
@@ -1935,32 +1793,12 @@ private struct ThemeColorPickerSheet: View {
             return ["B56B4B", "D8B56D", "78846B", "56677A", "B96D55", "CFA66F", "F7F1E8", "EFE5D6", "F3EEE3", "E4E8D9", "F4E8DC", "EAD9C8"]
         }
 
-        if theme == .sequoia {
-            return ["0A84FF", "26AFCF", "6E68E8", "2E9F73", "B9793B", "5D6B7B", "F4F7FB", "E3EBF2", "F7F9FB", "E5EBF1", "F7F6FD", "E3ECF5"]
-        }
-
-        if theme == .liquidGlass {
-            return ["18A7FF", "31D9E8", "A074FF", "55D7A8", "FF8EC6", "D99A3B", "F2F8FF", "E8FBFF", "F4F1FF", "EFFAF3", "EEF7FF", "F8F2FF"]
-        }
-
-        if theme == .clay {
-            return ["E97871", "F5A5C5", "A7DEC6", "A8C9F5", "FFE39B", "CDB4F6", "F6E8DD", "F1F5E9", "F3ECE5", "E8F0FA", "F8E8EA", "EFEAF7"]
-        }
-
         if theme == .minimalWhite {
             return ["111114", "3F3F46", "73737C", "DEDEE3", "EFEFF2", "F6F6F7", "FFFFFF", "FBFBFC", "F8FAFC", "F3F4F6", "EEF2F7", "E5E7EB"]
         }
 
-        if theme == .pureWhite {
-            return ["2563EB", "0F172A", "475569", "64748B", "94A3B8", "CBD5E1", "FFFFFF", "F8FAFC", "EEF2F7", "E2E8F0", "DBEAFE", "EFF6FF"]
-        }
-
         if theme == .default {
             return ["4D6F95", "B66E57", "4D8196", "6A8368", "6E72A7", "9F7559", "F8FAFC", "E6EDF6", "FFF6EB", "EAF0FA", "EEF6FA", "E9F2EC"]
-        }
-
-        if theme == .signal {
-            return ["2F80ED", "00A98F", "22C7E8", "E19A5E", "7F7BE8", "C8962C", "EEF5F8", "F7F2EA", "EDF8F5", "F8F2EA", "F1F2FC", "EDF3F7"]
         }
 
         return ["4F8E86", "7D9475", "C59A66", "C65A58", "5E7FA4", "7AB9B0", "E9EDF0", "F2EEE8", "EEE8E1", "E7EDF0", "E8EDF4", "F0F2F4"]
@@ -1982,16 +1820,6 @@ private struct ThemeColorPickerSheet: View {
             MinimalWhiteRootBackdrop()
         } else if theme == .default {
             Color.monologueSheetSurfaceBottom
-        } else if theme == .pureWhite {
-            PureWhiteRootBackdrop()
-        } else if theme == .sequoia {
-            SequoiaRootBackdrop()
-        } else if theme == .liquidGlass {
-            LiquidGlassRootBackdrop()
-        } else if theme == .clay {
-            ClayStyle.base
-        } else if theme == .signal {
-            SignalStyle.base
         } else {
             NeumorphicStyle.base
         }
@@ -2019,14 +1847,6 @@ private struct ThemeColorPickerSheet: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(Color.monologueGlassTint)
                 .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.monologueSeparator.opacity(0.66), lineWidth: 0.7))
-        } else if theme == .sequoia {
-            SequoiaSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true)
-        } else if theme == .liquidGlass {
-            LiquidGlassSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true, role: .list)
-        } else if theme == .clay {
-            ClaySurfaceBackground(cornerRadius: 16, tint: ClayStyle.cream, elevated: false, pressed: true, compact: true)
-        } else if theme == .signal {
-            SignalSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true, fill: SignalStyle.control)
         } else {
             NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true, lightweight: true)
         }
@@ -2048,14 +1868,6 @@ private struct ThemeColorPickerSheet: View {
             Circle()
                 .fill(Color.monologueGlassTint)
                 .overlay(Circle().stroke(Color.monologueSeparator.opacity(0.66), lineWidth: 0.7))
-        } else if theme == .sequoia {
-            SequoiaSurfaceBackground(cornerRadius: 17, elevated: true)
-        } else if theme == .liquidGlass {
-            LiquidGlassSurfaceBackground(cornerRadius: 17, elevated: true, role: .chrome)
-        } else if theme == .clay {
-            ClaySurfaceBackground(cornerRadius: 17, tint: ClayStyle.cream, elevated: true, compact: true)
-        } else if theme == .signal {
-            SignalSurfaceBackground(cornerRadius: 17, elevated: true, fill: SignalStyle.control)
         } else {
             NeumorphicSurfaceBackground(cornerRadius: 17, elevated: true, lightweight: true)
         }
@@ -2081,61 +1893,6 @@ private struct ThemeColorPickerSheet: View {
                 endPoint: .bottomTrailing
             )
             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        } else if theme == .sequoia {
-            ZStack(alignment: .topLeading) {
-                LinearGradient(
-                    colors: [Color.white.opacity(0.34), .clear, SequoiaStyle.accent.opacity(0.16)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                HStack(spacing: 5) {
-                    Capsule().fill(SequoiaStyle.accent.opacity(0.52)).frame(width: 24, height: 5)
-                    Capsule().fill(SequoiaStyle.aqua.opacity(0.34)).frame(width: 14, height: 5)
-                    Capsule().fill(SequoiaStyle.separator).frame(width: 5, height: 5)
-                }
-                    .padding(12)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        } else if theme == .liquidGlass {
-            ZStack(alignment: .topLeading) {
-                LinearGradient(
-                    colors: [
-                        LiquidGlassStyle.highlight(ColorScheme.light).opacity(0.42),
-                        .clear,
-                        LiquidGlassStyle.accent.opacity(0.18),
-                        LiquidGlassStyle.violet.opacity(0.1),
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                LiquidGlassCausticField(opacity: 0.08)
-                HStack(spacing: 5) {
-                    Capsule().fill(LiquidGlassStyle.accent.opacity(0.58)).frame(width: 24, height: 5)
-                    Capsule().fill(LiquidGlassStyle.cyan.opacity(0.38)).frame(width: 14, height: 5)
-                    Capsule().fill(LiquidGlassStyle.violet.opacity(0.32)).frame(width: 5, height: 5)
-                }
-                .padding(12)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        } else if theme == .clay {
-            ZStack(alignment: .topTrailing) {
-                LinearGradient(
-                    colors: [Color(hex: "F7EAD8"), Color(hex: "DDF3FA")],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                HStack(spacing: 7) {
-                    Circle().fill(ClayStyle.berry).frame(width: 18, height: 18)
-                    Circle().fill(ClayStyle.grape).frame(width: 18, height: 18)
-                    Circle().fill(ClayStyle.butter).frame(width: 18, height: 18)
-                }
-                .padding(11)
-                .shadow(color: Color(hex: "B88F68").opacity(0.24), radius: 6, x: 2, y: 4)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        } else if theme == .signal {
-            SignalGridTexture(opacity: 0.22, gap: 12)
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         } else {
             LinearGradient(
                 colors: [.white.opacity(0.32), .clear, .black.opacity(0.08)],
@@ -2151,10 +1908,6 @@ private struct ThemeColorPickerSheet: View {
         if theme == .manga { return MangaStyle.titleFont(19, weight: .black) }
         if theme == .muji { return MujiStyle.labelFont(18, weight: .semibold) }
         if theme == .default { return .system(size: 18, weight: .semibold, design: .rounded) }
-        if theme == .sequoia { return SequoiaStyle.titleFont(18, weight: .semibold) }
-        if theme == .liquidGlass { return LiquidGlassStyle.titleFont(18, weight: .semibold) }
-        if theme == .clay { return ClayStyle.labelFont(18, weight: .bold) }
-        if theme == .signal { return SignalStyle.labelFont(18, weight: .bold) }
         return NeumorphicStyle.labelFont(18, weight: .semibold)
     }
 
@@ -2163,10 +1916,6 @@ private struct ThemeColorPickerSheet: View {
         if theme == .manga { return MangaStyle.labelFont(13, weight: .black) }
         if theme == .muji { return MujiStyle.labelFont(13, weight: .semibold) }
         if theme == .default { return .system(size: 13, weight: .semibold, design: .rounded) }
-        if theme == .sequoia { return SequoiaStyle.labelFont(13, weight: .semibold) }
-        if theme == .liquidGlass { return LiquidGlassStyle.labelFont(13, weight: .semibold) }
-        if theme == .clay { return ClayStyle.labelFont(13, weight: .bold) }
-        if theme == .signal { return SignalStyle.labelFont(13, weight: .semibold) }
         return NeumorphicStyle.labelFont(13, weight: .semibold)
     }
 
@@ -2175,10 +1924,6 @@ private struct ThemeColorPickerSheet: View {
         if theme == .manga { return MangaStyle.ink }
         if theme == .muji { return MujiStyle.ink }
         if theme == .default { return Color.monologueTextPrimary }
-        if theme == .sequoia { return SequoiaStyle.ink }
-        if theme == .liquidGlass { return LiquidGlassStyle.ink }
-        if theme == .clay { return ClayStyle.ink }
-        if theme == .signal { return SignalStyle.ink }
         return NeumorphicStyle.ink
     }
 
@@ -2187,10 +1932,6 @@ private struct ThemeColorPickerSheet: View {
         if theme == .manga { return MangaStyle.inkSub }
         if theme == .muji { return MujiStyle.inkSoft }
         if theme == .default { return Color.monologueTextSecondary }
-        if theme == .sequoia { return SequoiaStyle.inkSoft }
-        if theme == .liquidGlass { return LiquidGlassStyle.inkSoft }
-        if theme == .clay { return ClayStyle.inkSoft }
-        if theme == .signal { return SignalStyle.inkSoft }
         return NeumorphicStyle.inkSoft
     }
 
@@ -2199,10 +1940,6 @@ private struct ThemeColorPickerSheet: View {
         if theme == .manga { return MangaStyle.strokeInk }
         if theme == .muji { return MujiStyle.inkSoft }
         if theme == .default { return Color.monologueTextSecondary }
-        if theme == .sequoia { return SequoiaStyle.inkSoft }
-        if theme == .liquidGlass { return LiquidGlassStyle.inkSoft }
-        if theme == .clay { return ClayStyle.inkSoft }
-        if theme == .signal { return SignalStyle.inkSoft }
         return NeumorphicStyle.inkSoft
     }
 
@@ -2211,10 +1948,6 @@ private struct ThemeColorPickerSheet: View {
         if theme == .manga { return MangaStyle.strokeInk }
         if theme == .muji { return MujiStyle.hairline.opacity(0.55) }
         if theme == .default { return Color.monologueSeparator.opacity(0.72) }
-        if theme == .sequoia { return SequoiaStyle.separator.opacity(0.78) }
-        if theme == .liquidGlass { return LiquidGlassStyle.separator.opacity(0.82) }
-        if theme == .clay { return ClayStyle.separator.opacity(0.58) }
-        if theme == .signal { return SignalStyle.separator.opacity(0.72) }
         return NeumorphicStyle.separator.opacity(0.58)
     }
 
@@ -2223,10 +1956,6 @@ private struct ThemeColorPickerSheet: View {
         if theme == .manga { return MangaStyle.strokeInk }
         if theme == .muji { return MujiStyle.clay }
         if theme == .default { return Color.monologueAccent }
-        if theme == .sequoia { return SequoiaStyle.accent }
-        if theme == .liquidGlass { return LiquidGlassStyle.accent }
-        if theme == .clay { return ClayStyle.accent }
-        if theme == .signal { return SignalStyle.accent }
         return NeumorphicStyle.accent
     }
 
@@ -2240,9 +1969,6 @@ private struct ThemeColorPickerSheet: View {
         if theme == .muji {
             return ThemeColorCustomization.readableForegroundColor(on: MujiStyle.tea, light: MujiStyle.ink, dark: Color(hex: "FFF8EF"))
         }
-        if theme == .clay {
-            return ThemeColorCustomization.readableForegroundColor(on: ClayStyle.butter, light: ClayStyle.ink, dark: .white)
-        }
         return ThemeColorCustomization.accentForegroundColor(for: theme)
     }
 
@@ -2251,10 +1977,6 @@ private struct ThemeColorPickerSheet: View {
         if theme == .manga { return MangaStyle.labelYellow }
         if theme == .muji { return MujiStyle.tea }
         if theme == .default { return Color.monologueIconBackground }
-        if theme == .sequoia { return SequoiaStyle.accent }
-        if theme == .liquidGlass { return LiquidGlassStyle.accent }
-        if theme == .clay { return ClayStyle.butter }
-        if theme == .signal { return SignalStyle.accent }
         return NeumorphicStyle.accent
     }
 
@@ -2263,10 +1985,6 @@ private struct ThemeColorPickerSheet: View {
         if theme == .manga { return MangaStyle.strokeInk.opacity(0.12) }
         if theme == .muji { return MujiStyle.ink.opacity(0.08) }
         if theme == .default { return Color.black.opacity(0.1) }
-        if theme == .sequoia { return Color.black.opacity(0.14) }
-        if theme == .liquidGlass { return LiquidGlassStyle.accent.opacity(0.16) }
-        if theme == .clay { return Color.black.opacity(0.12) }
-        if theme == .signal { return Color.black.opacity(0.18) }
         return NeumorphicStyle.darkShadow(.light, intensity: 0.42)
     }
 }

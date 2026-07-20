@@ -112,7 +112,7 @@ struct PosterPlayerLayout: View {
             )
         }
         .fullScreenCover(isPresented: $showEQSettings) {
-            NavigationStack { EQSettingsView() }
+            NavigationStack { MonoAudioCenterView() }
         }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker){
             PlayerThemePickerSheet()
@@ -179,7 +179,7 @@ extension PosterPlayerLayout {
                 
                 Spacer()
                 
-                Button(action: { CinemaModeController.shared.present() }) {
+                Button(action: { ImmersiveModeController.shared.present() }) {
                     Text("沉浸")
                         .font(.custom(posterFont, size: 16))
                         .foregroundColor(fg)

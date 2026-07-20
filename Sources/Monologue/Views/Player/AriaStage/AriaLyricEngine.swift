@@ -324,12 +324,28 @@ enum AriaLyricEngine {
 
     // MARK: 激活行判定（findLatestActiveLineIndex）
 
-    /// 从后往前找第一个 startTime ≤ t ≤ renderEndTime 的行；找不到返回 -1
+    /// 先二分定位最后一个 startTime ≤ t 的候选，再向前检查可能重叠的
+    /// renderEndTime。结果与原来的逆序线性扫描一致，但正常播放每帧只需
+    /// log₂(n) 次比较和一次候选检查。
     static func activeLineIndex(in lines: [AriaLine], at time: Double) -> Int {
-        for index in stride(from: lines.count - 1, through: 0, by: -1) {
+        guard !lines.isEmpty else { return -1 }
+
+        var lower = 0
+        var upper = lines.count
+        while lower < upper {
+            let middle = lower + (upper - lower) / 2
+            if lines[middle].startTime <= time {
+                lower = middle + 1
+            } else {
+                upper = middle
+            }
+        }
+
+        var index = lower - 1
+        while index >= 0 {
             let line = lines[index]
-            if time < line.startTime { continue }
             if time <= line.hints.renderEndTime { return index }
+            index -= 1
         }
         return -1
     }

@@ -96,7 +96,7 @@ struct CardPlayerLayout: View {
             )
         }
         .fullScreenCover(isPresented: $showEQSettings) {
-            NavigationStack { EQSettingsView() }
+            NavigationStack { MonoAudioCenterView() }
         }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker){
             PlayerThemePickerSheet()
@@ -510,7 +510,7 @@ extension CardPlayerLayout {
                     } else {
                         // 沉浸模式按钮 — 占用原下载按钮的位置
                         Button {
-                            CinemaModeController.shared.present()
+                            ImmersiveModeController.shared.present()
                         } label: {
                             MonologueIcon(icon: .immersive, size: 22, color: .secondary, lineWidth: 1.4)
                                 .frame(width: 44, height: 44)

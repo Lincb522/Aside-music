@@ -22,6 +22,11 @@ final class AudioRenderer {
     /// Give the render thread more slack to survive transient CPU spikes from
     /// system UI and third-party keyboard extensions without audible underruns.
     private static let recommendedIOBufferDuration: TimeInterval = 1024.0 / 44_100.0
+    /// Bluetooth output adds codec and radio scheduling jitter outside the app's
+    /// PCM queue. A slightly wider hardware runway prevents short system stalls
+    /// from becoming audible crackles; music playback does not need game-like
+    /// output latency.
+    private static let bluetoothIOBufferDuration: TimeInterval = 2048.0 / 48_000.0
 
     // MARK: - AVAudioEngine
 
@@ -42,6 +47,9 @@ final class AudioRenderer {
     /// Desired mixer volume survives AVAudioEngine disposal/recreation so a
     /// startup fade can begin muted before the first hardware render callback.
     private var outputVolumeStorage: Float = 1.0
+    /// Real-time spatial pan is applied by AVAudioMixerNode and therefore does
+    /// not rebuild FFmpeg filters or disturb the decoder queue.
+    private var outputPanStorage: Float = 0
     private let maintenanceQueue = DispatchQueue(label: "FFmpegSwiftSDK.AudioRenderer.maintenance", qos: .userInitiated)
 
     /// Output-stage processors stay behind the PCM queue so interactive changes
@@ -93,6 +101,11 @@ final class AudioRenderer {
     private var isRebuffering = false
     private var inputHasEnded = false
     private static let rebufferRecoveryDuration: TimeInterval = 0.35
+    /// 上次断粮时刻（uptime ns）。孤立的一次断粮（CPU 尖峰/锁竞争）
+    /// 下个回调直接恢复；短窗口内连续断粮才判定为网络饥饿，
+    /// 进入 rebufferRecoveryDuration 迟滞，避免把几毫秒的毛刺放大成长静音。
+    private var lastStarvationAt: UInt64 = 0
+    private static let starvationClusterWindowNanos: UInt64 = 1_500_000_000
 
     /// Secondary PCM lane used for real overlap mixing at a prepared-track boundary.
     private var crossfadeQueue: [QueuedAudioBuffer?] = []
@@ -105,6 +118,8 @@ final class AudioRenderer {
     private var crossfadePlannedDuration: TimeInterval = 0
     private var crossfadeTotalFrames = 0
     private var crossfadeFramesRendered = 0
+    private var crossfadeOutgoingTrim: Float = 1
+    private var crossfadeIncomingTrim: Float = 1
 
     /// Tracks the read offset (in samples) into the front buffer of the queue.
     private var currentBufferOffset: Int = 0
@@ -333,6 +348,20 @@ final class AudioRenderer {
         #endif
     }
 
+    #if os(iOS) || os(tvOS)
+    private static func preferredIOBufferDuration(for session: AVAudioSession) -> TimeInterval {
+        let usesBluetooth = session.currentRoute.outputs.contains { output in
+            switch output.portType {
+            case .bluetoothA2DP, .bluetoothHFP, .bluetoothLE:
+                return true
+            default:
+                return false
+            }
+        }
+        return usesBluetooth ? bluetoothIOBufferDuration : recommendedIOBufferDuration
+    }
+    #endif
+
     /// 混音台输出音量（0.0~1.0）。
     ///
     /// 直接作用于 `mainMixerNode.outputVolume`，在渲染混音阶段生效，
@@ -351,6 +380,22 @@ final class AudioRenderer {
             let clamped = max(0.0, min(newValue, 1.0))
             outputVolumeStorage = clamped
             engine?.mainMixerNode.outputVolume = clamped
+        }
+    }
+
+    /// Output-stage pan (-1...1). This is safe to update at motion-sensor rate.
+    var outputPan: Float {
+        get {
+            lifecycleLock.lock()
+            defer { lifecycleLock.unlock() }
+            return outputPanStorage
+        }
+        set {
+            lifecycleLock.lock()
+            defer { lifecycleLock.unlock() }
+            let clamped = max(-1, min(newValue, 1))
+            outputPanStorage = clamped
+            engine?.mainMixerNode.pan = clamped
         }
     }
 
@@ -388,6 +433,12 @@ final class AudioRenderer {
 
         guard actualSampleRate > 0, channelCount > 0 else { return false }
 
+        #if os(iOS) || os(tvOS)
+        let session = AVAudioSession.sharedInstance()
+        try? session.setPreferredIOBufferDuration(
+            Self.preferredIOBufferDuration(for: session)
+        )
+        #endif
         let newHWRate = currentHardwareSampleRate()
         let previousHWRate = hardwareSampleRate > 0 ? hardwareSampleRate : actualSampleRate
         let outputIsAlive = isStarted && (engine?.isRunning == true)
@@ -519,6 +570,7 @@ final class AudioRenderer {
         audioEngine.connect(node, to: audioEngine.mainMixerNode, format: avFormat)
         audioEngine.connect(audioEngine.mainMixerNode, to: audioEngine.outputNode, format: nil)
         audioEngine.mainMixerNode.outputVolume = outputVolumeStorage
+        audioEngine.mainMixerNode.pan = outputPanStorage
 
         let tapBufferSize: AVAudioFrameCount = 2048
         audioEngine.mainMixerNode.installTap(onBus: 0, bufferSize: tapBufferSize, format: nil) { [weak self] pcmBuffer, _ in
@@ -589,7 +641,9 @@ final class AudioRenderer {
         // Third-party keyboards can briefly monopolize CPU on the main/system side;
         // a ~23 ms hardware buffer gives AVAudioEngine more headroom and reduces
         // audible underruns/crackles when the keyboard appears.
-        try? session.setPreferredIOBufferDuration(Self.recommendedIOBufferDuration)
+        try? session.setPreferredIOBufferDuration(
+            Self.preferredIOBufferDuration(for: session)
+        )
         let hwRate = session.sampleRate
         #else
         let hwRate = format.mSampleRate
@@ -698,6 +752,7 @@ final class AudioRenderer {
         audioEngine.connect(node, to: audioEngine.mainMixerNode, format: avFormat)
         audioEngine.connect(audioEngine.mainMixerNode, to: audioEngine.outputNode, format: nil)
         audioEngine.mainMixerNode.outputVolume = outputVolumeStorage
+        audioEngine.mainMixerNode.pan = outputPanStorage
 
         // Install tap on mainMixerNode for spectrum analysis and audio data callbacks.
         // Runs on a separate (non-real-time) thread managed by AVAudioEngine.
@@ -801,7 +856,11 @@ final class AudioRenderer {
     /// Routes subsequently enqueued PCM to a second lane. The render callback
     /// starts consuming it only when the primary lane reaches the overlap window.
     @discardableResult
-    func beginCrossfade(duration: TimeInterval) -> Bool {
+    func beginCrossfade(
+        duration: TimeInterval,
+        outgoingGainDB: Float = 0,
+        incomingGainDB: Float = 0
+    ) -> Bool {
         os_unfair_lock_lock(&bufferLock)
         defer { os_unfair_lock_unlock(&bufferLock) }
         guard !isCrossfadeActive,
@@ -814,6 +873,8 @@ final class AudioRenderer {
         crossfadePlannedDuration = min(duration, queuedAudioDuration)
         crossfadeTotalFrames = max(1, Int(crossfadePlannedDuration * Double(max(sampleRate, 1))))
         crossfadeFramesRendered = 0
+        crossfadeOutgoingTrim = powf(10, min(3, max(-6, outgoingGainDB)) / 20)
+        crossfadeIncomingTrim = powf(10, min(3, max(-6, incomingGainDB)) / 20)
         crossfadePresentationTime = nil
         return true
     }
@@ -1167,8 +1228,10 @@ final class AudioRenderer {
                     Float(crossfadeFramesRendered + frame + 1)
                         / Float(max(crossfadeTotalFrames, 1))
                 )
-                let oldGain = sqrtf(max(0, 1 - progress))
-                let newGain = sqrtf(progress)
+                let outgoingLevel = 1 + (crossfadeOutgoingTrim - 1) * progress
+                let incomingLevel = crossfadeIncomingTrim + (1 - crossfadeIncomingTrim) * progress
+                let oldGain = sqrtf(max(0, 1 - progress)) * outgoingLevel
+                let newGain = sqrtf(progress) * incomingLevel
                 for channel in 0..<channelCount {
                     let index = frame * channelCount + channel
                     output[index] = output[index] * oldGain
@@ -1214,7 +1277,11 @@ final class AudioRenderer {
         }
 
         if samplesWritten < totalSamples, !inputHasEnded {
-            isRebuffering = true
+            let now = DispatchTime.now().uptimeNanoseconds
+            if now &- lastStarvationAt < Self.starvationClusterWindowNanos {
+                isRebuffering = true
+            }
+            lastStarvationAt = now
         }
 
         // `samplesWritten` still contains only PCM consumed from the primary or
@@ -1332,6 +1399,8 @@ final class AudioRenderer {
             )
             let processed = graph.process(buffer)
             if processed.data != output {
+                // 非原地输出指向滤镜图持有的持久 scratch，只读拷贝、
+                // 绝不在实时线程上释放。
                 let processedSampleCount = processed.frameCount * processed.channelCount
                 let copyCount = min(processedSampleCount, totalSamples)
                 output.update(from: processed.data, count: copyCount)
@@ -1341,7 +1410,6 @@ final class AudioRenderer {
                         count: totalSamples - copyCount
                     )
                 }
-                processed.data.deallocate()
             }
         }
 

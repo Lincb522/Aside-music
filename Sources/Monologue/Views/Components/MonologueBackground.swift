@@ -138,22 +138,10 @@ struct MonologueBackground: View {
             petWhiteBackground
         case .minimalWhite:
             MinimalWhiteRootBackdrop()
-        case .pureWhite:
-            PureWhiteRootBackdrop()
         case .neumorphic:
             neumorphicBackground
         case .capsule:
             CapsuleRootBackdrop()
-        case .material3Expressive, .bento:
-            defaultBackground
-        case .sequoia:
-            SequoiaRootBackdrop()
-        case .liquidGlass:
-            LiquidGlassRootBackdrop()
-        case .clay:
-            ClayRootBackdrop()
-        case .signal:
-            SignalRootBackdrop()
         case .default:
             defaultBackground
         }

@@ -22,7 +22,15 @@ import UIKit
 
 @MainActor
 final class AriaLyricStore: ObservableObject {
-    @Published private(set) var lines: [AriaLine] = []
+    private struct Content {
+        var lines: [AriaLine] = []
+        var language: AriaLyricLanguage = .chinese
+    }
+
+    @Published private var content = Content()
+
+    var lines: [AriaLine] { content.lines }
+    var language: AriaLyricLanguage { content.language }
 
     private var cancellables = Set<AnyCancellable>()
     private var sourceLyrics: [LyricLine] = []
@@ -33,23 +41,30 @@ final class AriaLyricStore: ObservableObject {
             .sink { [weak self] lyrics in
                 guard let self else { return }
                 sourceLyrics = lyrics
-                lines = AriaLyricEngine.buildLines(
+                replaceLines(AriaLyricEngine.buildLines(
                     from: lyrics,
                     forceUppercaseEnglish: UserDefaults.standard.bool(
                         forKey: "lyricsForceUppercaseEnglish"
                     )
-                )
+                ))
                 AriaFoliaTokenCache.clear()
             }
             .store(in: &cancellables)
     }
 
     func rebuild(forceUppercaseEnglish: Bool) {
-        lines = AriaLyricEngine.buildLines(
+        replaceLines(AriaLyricEngine.buildLines(
             from: sourceLyrics,
             forceUppercaseEnglish: forceUppercaseEnglish
-        )
+        ))
         AriaFoliaTokenCache.clear()
+    }
+
+    private func replaceLines(_ lines: [AriaLine]) {
+        content = Content(
+            lines: lines,
+            language: AriaLyricLanguage.resolve(lines: lines)
+        )
     }
 }
 
@@ -58,6 +73,7 @@ final class AriaLyricStore: ObservableObject {
 struct AriaStageView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
     @ObservedObject private var player = PlayerManager.shared
     /// 刻意不做 @ObservedObject：歌词由 TimelineView 逐帧驱动，
     /// 再订阅时间发布器会让整个舞台 body 每个时间 tick 重算一遍（双重驱动白耗 CPU）
@@ -65,9 +81,9 @@ struct AriaStageView: View {
     @ObservedObject private var bgManager = ImmersiveBackgroundManager.shared
 
     @StateObject private var lyricStore = AriaLyricStore()
-    @StateObject private var audioPulse = CinemaAudioPulse()
+    @StateObject private var audioPulse = AriaAudioPulse()
     @StateObject private var stageColors = CoverColorExtractor()
-    @ObservedObject private var perf = CinemaPerformanceGovernor.shared
+    @ObservedObject private var perf = AriaPerformanceGovernor.shared
 
     @AppStorage("showTranslation") private var showTranslation = true
     @AppStorage("ariaGeometricBackground") private var ambientMotion = true
@@ -205,7 +221,8 @@ struct AriaStageView: View {
     /// 暂停且不在拖动进度时，播放时间静止 → 每一帧都和上一帧完全相同，
     /// 直接停掉时间轴（seek 由 pausedSeekRefresh 单独触发重渲染）
     private var lyricTimelinePaused: Bool {
-        showLandscapeSettings
+        scenePhase != .active
+            || showLandscapeSettings
             || showVideoSheet
             || (!player.isPlaying && !isDraggingSlider)
     }
@@ -240,7 +257,8 @@ struct AriaStageView: View {
         let palette = self.palette
         let lyricPalette = self.lyricPalette
         let lyricEffect = self.lyricEffect
-        let lyricLanguage = AriaLyricLanguage.resolve(lines: lyricStore.lines)
+        let lyricLines = lyricStore.lines
+        let lyricLanguage = lyricStore.language
         // 翻译字体先于外语字体覆盖解析：确保 .custom 绑定的是主字体的导入 ID
         let translationFont: Font = {
             AriaLyricFontChoice.customFontIDOverride = nil
@@ -265,12 +283,13 @@ struct AriaStageView: View {
                     backgroundOpacity: backgroundOpacity,
                     reduceMotion: !ambientMotion,
                     videoURL: videoURL,
+                    isStageActive: scenePhase == .active && !showVideoSheet,
                     depthIntensity: lyricDepthIntensity
                 )
 
                 // 歌词舞台 + 字幕层：同一条时间轴逐帧驱动
                 Group {
-                    if lyricStore.lines.isEmpty {
+                    if lyricLines.isEmpty {
                         emptyLyricsState
                     } else {
                         TimelineView(AppFrameRate.throttledTimeline(
@@ -281,11 +300,11 @@ struct AriaStageView: View {
                             let _ = pausedSeekRefresh
                             let time = currentPlaybackTime
                             let activeIndex = AriaLyricEngine.activeLineIndex(
-                                in: lyricStore.lines,
+                                in: lyricLines,
                                 at: time
                             )
-                            let activeLine = lyricStore.lines.indices.contains(activeIndex)
-                                ? lyricStore.lines[activeIndex]
+                            let activeLine = lyricLines.indices.contains(activeIndex)
+                                ? lyricLines[activeIndex]
                                 : nil
 
                             ZStack {
@@ -314,7 +333,8 @@ struct AriaStageView: View {
                                         }
                                     } else {
                                         AriaFoliaLyricStage(
-                                            lines: lyricStore.lines,
+                                            lines: lyricLines,
+                                            activeIndex: activeIndex,
                                             palette: lyricPalette,
                                             effect: lyricEffect,
                                             language: lyricLanguage,
@@ -549,6 +569,7 @@ struct AriaStageView: View {
         }
         .onAppear {
             audioPulse.start()
+            updateStageRuntimeActivity()
             OrientationManager.shared.enterLandscape()
             // ProMotion 压回 60Hz：沉浸模式全屏动画在 120Hz 下渲染开销翻倍，是发热主源之一；
             // 录屏/投屏时系统还要逐帧抓取编码，进一步压到 30Hz。
@@ -620,8 +641,20 @@ struct AriaStageView: View {
         .onChange(of: perf.isScreenCaptured) { _, captured in
             AppFrameRate.pushFrameRateCeiling(
                 captured ? 30 : 60,
-                reason: "aria stage capture \(captured ? "on" : "off")"
+                reason: "aria stage"
             )
+        }
+        .onChange(of: scenePhase) { _, _ in
+            updateStageRuntimeActivity()
+            if scenePhase == .active {
+                AppFrameRate.pushFrameRateCeiling(
+                    perf.isScreenCaptured ? 30 : 60,
+                    reason: "aria stage"
+                )
+            }
+        }
+        .onChange(of: showVideoSheet) { _, _ in
+            updateStageRuntimeActivity()
         }
         .onChange(of: isDraggingSlider) { _, _ in markInteraction() }
         .task {
@@ -644,6 +677,14 @@ struct AriaStageView: View {
         }
         .task(id: player.currentSong?.coverUrl?.absoluteString) {
             stageColors.extract(from: player.currentSong?.coverUrl?.sized(200).absoluteString)
+        }
+    }
+
+    private func updateStageRuntimeActivity() {
+        if scenePhase == .active, !showVideoSheet {
+            audioPulse.resume()
+        } else {
+            audioPulse.suspend()
         }
     }
 
