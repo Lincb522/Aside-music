@@ -5,8 +5,7 @@ let package = Package(
     name: "Monologue",
     defaultLocalization: "zh-Hans",
     platforms: [
-        .iOS(.v26),
-        .macOS(.v26)
+        .iOS(.v16)
     ],
     products: [
         .library(
@@ -14,9 +13,9 @@ let package = Package(
             targets: ["Monologue"]),
     ],
     dependencies: [
-        // NeteaseCloudMusicAPI - ncm API 封装库（对齐后端 4.33.0 / 396+ 路由）
+        // NeteaseCloudMusicAPI - ncm API 封装库（对齐后端 4.36.2）
         .package(path: "NeteaseCloudMusicAPI-Swift"),
-        // FFmpegSwiftSDK - 基于 FFmpeg 8.0 的流媒体播放引擎
+        // FFmpegSwiftSDK - Mono播放引擎底层 FFmpeg 8.0 解码与流媒体 SDK
         .package(path: "ffmpeg-swift"),
         // QQMusicKit - qcm API 封装库（本地包）
         .package(path: "QQMusicKit"),
@@ -38,6 +37,10 @@ let package = Package(
         .package(path: "PawPrintIcons"),
         // DotDogSnakeIcons - 点狗蛇 PNG 图标包
         .package(path: "DotDogSnakeIcons"),
+        // MinimalWhiteIcons - 纯白主题配套 PNG 图标包
+        .package(path: "MinimalWhiteIcons"),
+        // ZIPFoundation - 用户字体 ZIP 压缩包导入
+        .package(url: "https://github.com/weichsel/ZIPFoundation.git", from: "0.9.20"),
     ],
     targets: [
         .target(
@@ -55,6 +58,8 @@ let package = Package(
                 "doodlePop",
                 "PawPrintIcons",
                 "DotDogSnakeIcons",
+                "MinimalWhiteIcons",
+                .product(name: "ZIPFoundation", package: "ZIPFoundation"),
             ],
             resources: [
                 .process("Resources/SanJiPoMoTi.ttf"),
@@ -64,6 +69,7 @@ let package = Package(
                 .process("Resources/WenDaoPaoPaoTi-2.ttf"),
                 .process("Resources/k8x12S-4.ttf"),
                 .process("Resources/eq_presets.json"),
+                .process("Resources/eq_presets_32.json"),
                 .process("Resources/en.lproj"),
                 .process("Resources/zh-Hans.lproj"),
             ]

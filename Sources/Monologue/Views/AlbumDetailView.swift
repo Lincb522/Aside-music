@@ -10,7 +10,7 @@ struct AlbumDetailView: View {
     let albumName: String?
     let albumCoverUrl: URL?
 
-    @State private var viewModel = AlbumDetailViewModel()
+    @StateObject private var viewModel = AlbumDetailViewModel()
     @ObservedObject var playerManager = PlayerManager.shared
     @ObservedObject var subManager = SubscriptionManager.shared
     @ObservedObject private var settings = SettingsManager.shared
@@ -27,6 +27,7 @@ struct AlbumDetailView: View {
     @State private var showBatchAddToPlaylist = false
     @State private var albumSearchText = ""
     @State private var isAlbumSearching = false
+    @State private var scrollOffset: CGFloat = 0
 
     private struct Theme {
         static let text = Color.monologueTextPrimary
@@ -39,6 +40,14 @@ struct AlbumDetailView: View {
         viewModel.albumInfo?.coverUrl?.sized(200) ?? albumCoverUrl?.sized(200)
     }
 
+    /// aside(default) 及无独立分支主题走歌手页式 Hero 头部
+    private var usesAsideHero: Bool {
+        !MangaStyle.isActive && !MinimalWhiteStyle.isActive
+            && !NeumorphicStyle.isActive && !SignalStyle.isActive
+            && !SequoiaStyle.isActive && !MujiStyle.isActive
+            && !CapsuleStyle.isActive && !BentoStyle.isActive
+    }
+
     var body: some View {
         let _ = settings.globalThemeRevision
 
@@ -46,12 +55,14 @@ struct AlbumDetailView: View {
             MonologueSheetAwareBackground {
                 if MangaStyle.isActive {
                     MangaRootBackdrop()
+                } else if MinimalWhiteStyle.isActive {
+                    MinimalWhiteRootBackdrop()
                 } else if MujiStyle.isActive {
                     MujiRootBackdrop()
                 } else if NeumorphicStyle.isActive {
                     ThemeRenderBackdrop(theme: .neumorphic)
                 } else if SignalStyle.isActive {
-                    ThemeRenderBackdrop(theme: .signal)
+                    ThemeRenderBackdrop(theme: .default)
                 } else if SequoiaStyle.isActive {
                     SequoiaRootBackdrop()
                 } else if BentoStyle.isActive {
@@ -67,19 +78,27 @@ struct AlbumDetailView: View {
 
             ScrollView {
                 VStack(spacing: 0) {
-                    albumHeaderContent
+                    if usesAsideHero {
+                        // Hero 头部自带拉伸/视差，不叠加收缩动效
+                        albumHeaderContent
+                    } else {
+                        albumHeaderContent
+                            .monologuePageHeaderCollapse()
+                    }
                     songListSection
                         .padding(.bottom, 100)
                 }
             }
             .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
+            .monologueScrollOffset($scrollOffset)
+            .ignoresSafeArea(edges: usesAsideHero ? .top : [])
         }
         .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                if let size = viewModel.albumInfo?.size, size > 0 {
+                if let size = viewModel.albumInfo?.size, size > 0, !MinimalWhiteStyle.isActive {
                     if NeumorphicStyle.isActive {
                         NeumorphicPill(text: "\(size)", tint: NeumorphicStyle.sage, icon: .musicNoteList, compact: true)
                     } else if SequoiaStyle.isActive {
@@ -128,6 +147,8 @@ struct AlbumDetailView: View {
     private var albumHeaderContent: some View {
         if MangaStyle.isActive {
             mangaAlbumHeaderContent
+        } else if MinimalWhiteStyle.isActive {
+            minimalWhiteAlbumHeaderContent
         } else if NeumorphicStyle.isActive {
             neumorphicAlbumHeaderContent
         } else if SignalStyle.isActive {
@@ -141,88 +162,207 @@ struct AlbumDetailView: View {
         } else if BentoStyle.isActive {
             bentoAlbumHeaderContent
         } else {
-            VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 16) {
-                // 封面：优先用详情接口返回的，回退到传入的
-                CachedAsyncImage(url: viewModel.albumInfo?.coverUrl?.sized(400) ?? albumCoverUrl?.sized(400)) {
-                    Color.gray.opacity(0.1)
+            AsideDetailHeroHeader(
+                coverUrl: viewModel.albumInfo?.coverUrl?.sized(800) ?? albumCoverUrl?.sized(800),
+                title: viewModel.albumInfo?.name ?? albumName ?? "",
+                subtitle: viewModel.albumInfo?.artistName,
+                onSubtitleTap: (viewModel.albumInfo?.artist?.id).map { artistId in
+                    {
+                        selectedArtistId = artistId
+                        showArtistDetail = true
+                    }
+                },
+                metaItems: asideHeroMetaItems,
+                descriptionText: viewModel.albumInfo?.description,
+                onDescriptionTap: { showAlbumDesc = true },
+                scrollOffset: scrollOffset,
+                playAllDisabled: viewModel.songs.isEmpty,
+                onPlayAll: {
+                    if let first = viewModel.songs.first {
+                        PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                    }
                 }
-                .aspectRatio(contentMode: .fill)
-                .frame(width: DeviceLayout.detailCoverSize, height: DeviceLayout.detailCoverSize)
-                .cornerRadius(16)
-                .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+            ) {
+                // 收藏专辑按钮
+                SubscribeButton(
+                    isSubscribed: viewModel.isSubscribed,
+                    action: { viewModel.toggleSubscription(id: albumId) }
+                )
+                .disabled(viewModel.isTogglingSubscription)
+            }
+            .padding(.bottom, DeviceLayout.isPad ? 20 : 12)
+            .iPadContentWidth(900)
+        }
+    }
 
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(viewModel.albumInfo?.name ?? albumName ?? "")
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
-                        .foregroundColor(Theme.text)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
+    /// Hero 头部元信息：发行时间 + 发行公司
+    private var asideHeroMetaItems: [String] {
+        var items: [String] = []
+        if let date = viewModel.albumInfo?.publishDateText, !date.isEmpty {
+            items.append(date)
+        }
+        if let company = viewModel.albumInfo?.company, !company.isEmpty {
+            items.append(company)
+        }
+        return items
+    }
 
-                    if let artistName = viewModel.albumInfo?.artistName, !artistName.isEmpty {
-                        Button(action: {
-                            if let artistId = viewModel.albumInfo?.artist?.id {
-                                selectedArtistId = artistId
-                                showArtistDetail = true
-                            }
-                        }) {
-                            Text(artistName)
-                                .font(.system(size: 13))
-                                .foregroundColor(Theme.secondaryText)
-                                .lineLimit(1)
-                        }
+    private var minimalWhiteAlbumHeaderContent: some View {
+        let album = viewModel.albumInfo
+        let coverURL = album?.coverUrl?.sized(900) ?? albumCoverUrl?.sized(900)
+        let coverSize: CGFloat = DeviceLayout.isPad ? 190 : 146
+        let heroHeight: CGFloat = DeviceLayout.isPad ? 414 : 358
+
+        return ZStack(alignment: .bottomLeading) {
+            CachedAsyncImage(url: coverURL) {
+                MinimalWhiteStyle.surfaceTint
+            }
+            .aspectRatio(contentMode: .fill)
+            .frame(height: heroHeight)
+            .frame(maxWidth: .infinity)
+            .blur(radius: 18)
+            .opacity(0.18)
+            .clipped()
+            .overlay {
+                LinearGradient(
+                    colors: [
+                        MinimalWhiteStyle.paper.opacity(0.36),
+                        MinimalWhiteStyle.paper.opacity(0.82),
+                        MinimalWhiteStyle.paper
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(alignment: .bottom, spacing: 18) {
+                    CachedAsyncImage(url: coverURL) {
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(MinimalWhiteStyle.controlGlassFill)
+                            .overlay(MonologueIcon(icon: .album, size: 32, color: MinimalWhiteStyle.inkMuted, lineWidth: 1.55))
                     }
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: coverSize, height: coverSize)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(MinimalWhiteStyle.separator, lineWidth: MinimalWhiteStyle.strokeWidth)
+                    )
+                    .shadow(color: MinimalWhiteStyle.ink.opacity(0.11), radius: 22, x: 0, y: 12)
 
-                    // 发行信息
-                    HStack(spacing: 8) {
-                        if let date = viewModel.albumInfo?.publishDateText, !date.isEmpty {
-                            Text(date)
-                                .font(.rounded(size: 11))
-                                .foregroundColor(Theme.secondaryText.opacity(0.7))
-                        }
-                        if let company = viewModel.albumInfo?.company, !company.isEmpty {
-                            Text(company)
-                                .font(.rounded(size: 11))
-                                .foregroundColor(Theme.secondaryText.opacity(0.7))
-                                .lineLimit(1)
-                        }
-                    }
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(album?.name ?? albumName ?? "")
+                            .font(MinimalWhiteStyle.titleFont(DeviceLayout.isPad ? 34 : 27, weight: .semibold))
+                            .foregroundStyle(MinimalWhiteStyle.ink)
+                            .lineLimit(3)
+                            .fixedSize(horizontal: false, vertical: true)
 
-                    Spacer().frame(height: 4)
-
-                    HStack(spacing: 8) {
-                        Button(action: {
-                            if let first = viewModel.songs.first {
-                                PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                        if let artistName = album?.artistName, !artistName.isEmpty {
+                            Button {
+                                if let artistId = album?.artist?.id {
+                                    selectedArtistId = artistId
+                                    showArtistDetail = true
+                                }
+                            } label: {
+                                Text(artistName)
+                                    .font(MinimalWhiteStyle.labelFont(12, weight: .regular))
+                                    .foregroundStyle(MinimalWhiteStyle.inkMuted)
+                                    .lineLimit(1)
                             }
-                        }) {
-                            HStack(spacing: 6) {
-                                MonologueIcon(icon: .play, size: 12, color: .monologueIconForeground)
-                                Text(LocalizedStringKey("play_now"))
-                                    .font(.system(size: 12, weight: .bold))
-                            }
-                            .foregroundColor(.monologueIconForeground)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(Theme.accent)
-                            .cornerRadius(20)
-                            .shadow(color: Theme.accent.opacity(0.2), radius: 5, x: 0, y: 2)
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
 
-                        // 收藏专辑按钮
-                        SubscribeButton(
-                            isSubscribed: viewModel.isSubscribed,
-                            action: { viewModel.toggleSubscription(id: albumId) }
-                        )
-                        .disabled(viewModel.isTogglingSubscription)
+                        minimalWhiteAlbumMetaLine
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                if let description = album?.description, !description.isEmpty {
+                    Button(action: { showAlbumDesc = true }) {
+                        HStack(alignment: .center, spacing: 12) {
+                            Text(description)
+                                .font(MinimalWhiteStyle.bodyFont(13, weight: .regular))
+                                .foregroundStyle(MinimalWhiteStyle.inkSoft)
+                                .lineLimit(2)
+                                .lineSpacing(3)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+
+                            MonologueIcon(icon: .chevronRight, size: 12, color: MinimalWhiteStyle.inkMuted, lineWidth: 1.55)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .background(MinimalWhiteSurfaceBackground(cornerRadius: 15, elevated: false, tint: MinimalWhiteStyle.glassStrongFill))
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                HStack(spacing: 10) {
+                    Button {
+                        if let first = viewModel.songs.first {
+                            PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                        }
+                    } label: {
+                        HStack(spacing: 7) {
+                            MonologueIcon(icon: .play, size: 13, color: MinimalWhiteStyle.onAccent, lineWidth: 1.75)
+                            Text(LocalizedStringKey("play_now"))
+                                .font(MinimalWhiteStyle.labelFont(13, weight: .semibold))
+                        }
+                        .foregroundStyle(MinimalWhiteStyle.onAccent)
+                        .padding(.horizontal, 18)
+                        .frame(height: 40)
+                        .background(MinimalWhiteStyle.ink, in: Capsule(style: .continuous))
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+                    .opacity(viewModel.songs.isEmpty ? 0.55 : 1)
+                    .disabled(viewModel.songs.isEmpty)
+
+                    SubscribeButton(
+                        isSubscribed: viewModel.isSubscribed,
+                        action: { viewModel.toggleSubscription(id: albumId) }
+                    )
+                    .disabled(viewModel.isTogglingSubscription)
+
+                    Spacer(minLength: 0)
                 }
             }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.bottom, 22)
+            .iPadContentWidth(900)
         }
-        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-        .padding(.top, 16)
-        .padding(.bottom, 24)
+        .frame(height: heroHeight)
+        .padding(.top, DeviceLayout.headerTopPadding)
+        .background(MinimalWhiteStyle.paper)
+    }
+
+    private var minimalWhiteAlbumMetadataItems: [String] {
+        var items: [String] = []
+        if let size = viewModel.albumInfo?.size, size > 0 {
+            items.append("\(size) \(String(localized: "songs_unit"))")
+        }
+        if let date = viewModel.albumInfo?.publishDateText, !date.isEmpty {
+            items.append(date)
+        }
+        if let company = viewModel.albumInfo?.company, !company.isEmpty {
+            items.append(company)
+        }
+        return items
+    }
+
+    private var minimalWhiteAlbumMetaLine: some View {
+        HStack(spacing: 7) {
+            ForEach(Array(minimalWhiteAlbumMetadataItems.enumerated()), id: \.offset) { index, item in
+                if index > 0 {
+                    Circle()
+                        .fill(MinimalWhiteStyle.inkMuted.opacity(0.32))
+                        .frame(width: 3, height: 3)
+                }
+
+                Text(item)
+                    .font(MinimalWhiteStyle.labelFont(11, weight: .regular))
+                    .foregroundStyle(MinimalWhiteStyle.inkMuted)
+                    .lineLimit(1)
+            }
         }
     }
 
@@ -486,8 +626,8 @@ struct AlbumDetailView: View {
                 .aspectRatio(contentMode: .fill)
                 .frame(width: DeviceLayout.isPad ? 170 : 124, height: DeviceLayout.isPad ? 170 : 124)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
-                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(MangaStyle.strokeInk).offset(x: 3, y: 3))
+                .overlay(RoundedRectangle(cornerRadius: MangaStyle.cardRadius, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
+                .background(RoundedRectangle(cornerRadius: MangaStyle.cardRadius, style: .continuous).fill(MangaStyle.strokeInk).offset(x: 3, y: 3))
                 .rotationEffect(.degrees(-1.2))
 
                 VStack(alignment: .leading, spacing: 9) {
@@ -496,10 +636,7 @@ struct AlbumDetailView: View {
                         MangaLabel(text: "ALBUM", tint: MangaStyle.bubbleBlue, small: true, foreground: MangaStyle.ink)
                     }
 
-                    Text(viewModel.albumInfo?.name ?? albumName ?? "")
-                        .font(MangaStyle.titleFont(DeviceLayout.isPad ? 26 : 22, weight: .black))
-                        .foregroundStyle(MangaStyle.ink)
-                        .lineLimit(3)
+                    MangaMisprintTitle(text: viewModel.albumInfo?.name ?? albumName ?? "", size: DeviceLayout.isPad ? 26 : 22)
                         .fixedSize(horizontal: false, vertical: true)
 
                     if let artistName = viewModel.albumInfo?.artistName, !artistName.isEmpty {
@@ -537,16 +674,20 @@ struct AlbumDetailView: View {
                     }
                 }) {
                     HStack(spacing: 7) {
-                        MonologueIcon(icon: .play, size: 13, color: MangaStyle.strokeInk, lineWidth: 2)
+                        MonologueIcon(icon: .play, size: 13, color: MangaStyle.onStrokeInk, lineWidth: 2)
                         Text(LocalizedStringKey("play_now"))
                             .font(MangaStyle.labelFont(12, weight: .black))
+                            .tracking(0.6)
                     }
-                    .foregroundStyle(MangaStyle.strokeInk)
+                    .foregroundStyle(MangaStyle.onStrokeInk)
                     .padding(.horizontal, 15)
                     .padding(.vertical, 10)
-                    .background(Capsule().fill(MangaStyle.labelYellow))
-                    .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
-                    .background(Capsule().fill(MangaStyle.strokeInk).offset(x: 2, y: 2))
+                    .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(MangaStyle.strokeInk))
+                    .background(
+                        RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            .fill(MangaStyle.accentPink)
+                            .offset(x: 2.5, y: 2.5)
+                    )
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
                 .opacity(viewModel.songs.isEmpty ? 0.55 : 1)
@@ -561,7 +702,10 @@ struct AlbumDetailView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, minHeight: DeviceLayout.isPad ? 266 : 232, alignment: .topLeading)
-        .background(MangaCardBackground(cornerRadius: 22, elevated: true, tint: MangaStyle.bubbleWhite))
+        .background(
+            // 专辑详情页唯一焦点分格：保留厚墨框错版投影
+            MangaCardBackground(cornerRadius: MangaStyle.cardRadius + 4, elevated: true, tint: MangaStyle.bubbleWhite, poster: true)
+        )
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
         .padding(.top, 18)
         .padding(.bottom, 12)
@@ -775,59 +919,89 @@ struct AlbumDetailView: View {
         return hasArtist || hasDate || hasCompany
     }
 
+    /// Muji：唱片特辑页 —— 眉题行 + 跨页封面 + 衬线标题 + 署名行
     private var mujiAlbumHeaderContent: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 8) {
-                    MujiPill(text: "ALBUM", tint: MujiStyle.indigo)
-                    if let date = viewModel.albumInfo?.publishDateText, !date.isEmpty {
-                        MujiPill(text: date, tint: MujiStyle.tea)
-                    }
-                    if let size = viewModel.albumInfo?.size, size > 0 {
-                        MujiPill(text: "\(size) \(String(localized: "songs_unit"))", tint: MujiStyle.clay)
-                    }
-                }
+        VStack(alignment: .leading, spacing: 0) {
+            // 眉题行
+            HStack(alignment: .center, spacing: 8) {
+                MujiDotMark()
 
-                Text(viewModel.albumInfo?.name ?? albumName ?? "")
-                    .font(MujiStyle.titleFont(DeviceLayout.isPad ? 32 : 28, weight: .regular))
-                    .foregroundStyle(MujiStyle.ink)
-                    .lineLimit(3)
-                    .fixedSize(horizontal: false, vertical: true)
+                Text("ALBUM")
+                    .font(MujiStyle.labelFont(10, weight: .semibold))
+                    .foregroundStyle(MujiStyle.clay)
+                    .tracking(2.2)
+                    .fixedSize()
 
-                if let artistName = viewModel.albumInfo?.artistName, !artistName.isEmpty {
-                    Button(action: {
-                        if let artistId = viewModel.albumInfo?.artist?.id {
-                            selectedArtistId = artistId
-                            showArtistDetail = true
-                        }
-                    }) {
-                        Text(artistName)
-                            .font(MujiStyle.labelFont(12, weight: .regular))
-                            .foregroundStyle(MujiStyle.inkSoft)
-                            .lineLimit(1)
-                    }
-                    .buttonStyle(.plain)
+                Spacer(minLength: 8)
+
+                if let size = viewModel.albumInfo?.size, size > 0 {
+                    Text("\(size) \(String(localized: "songs_unit"))")
+                        .font(MujiStyle.labelFont(10, weight: .semibold))
+                        .foregroundStyle(MujiStyle.inkMuted)
+                        .tracking(1.1)
+                        .fixedSize()
                 }
             }
             .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-            .frame(maxWidth: .infinity, minHeight: DeviceLayout.isPad ? 132 : 116, alignment: .topLeading)
 
-            VStack(alignment: .leading, spacing: 14) {
-                CachedAsyncImage(url: viewModel.albumInfo?.coverUrl?.sized(500) ?? albumCoverUrl?.sized(500)) {
-                    MujiStyle.surfaceRaised
-                }
-                .aspectRatio(contentMode: .fill)
-                .frame(width: DeviceLayout.isPad ? 230 : 190, height: DeviceLayout.isPad ? 230 : 190)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(MujiStyle.hairline.opacity(0.62), lineWidth: 0.65)
-                )
-                .shadow(color: Color.black.opacity(0.055), radius: 10, x: 0, y: 5)
+            // 跨页封面
+            CachedAsyncImage(url: viewModel.albumInfo?.coverUrl?.sized(800) ?? albumCoverUrl?.sized(800)) {
+                Rectangle().fill(MujiStyle.wash(MujiStyle.clay))
             }
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.vertical, 4)
+            .aspectRatio(contentMode: .fill)
+            .frame(maxWidth: .infinity)
+            .frame(height: DeviceLayout.isPad ? 300 : 216)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .shadow(color: MujiStyle.ink.opacity(0.08), radius: 12, x: 0, y: 6)
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, 14)
 
+            // 标题与署名
+            VStack(alignment: .leading, spacing: 8) {
+                Text(viewModel.albumInfo?.name ?? albumName ?? "")
+                    .font(MujiStyle.titleFont(DeviceLayout.isPad ? 30 : 26, weight: .regular))
+                    .foregroundStyle(MujiStyle.ink)
+                    .lineSpacing(4)
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 12) {
+                    if let artistName = viewModel.albumInfo?.artistName, !artistName.isEmpty {
+                        Button(action: {
+                            if let artistId = viewModel.albumInfo?.artist?.id {
+                                selectedArtistId = artistId
+                                showArtistDetail = true
+                            }
+                        }) {
+                            Text(artistName)
+                                .font(MujiStyle.labelFont(11, weight: .medium))
+                                .foregroundStyle(MujiStyle.inkSoft)
+                                .lineLimit(1)
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    if let date = viewModel.albumInfo?.publishDateText, !date.isEmpty {
+                        HStack(spacing: 5) {
+                            Circle()
+                                .fill(MujiStyle.clay.opacity(0.85))
+                                .frame(width: 3.5, height: 3.5)
+
+                            Text(date)
+                                .font(MujiStyle.labelFont(10.5, weight: .semibold))
+                                .foregroundStyle(MujiStyle.inkMuted)
+                                .tracking(0.8)
+                                .monospacedDigit()
+                        }
+                    }
+
+                    Spacer(minLength: 0)
+                }
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, 16)
+
+            // 动作行
             HStack(spacing: 10) {
                 Button(action: {
                     if let first = viewModel.songs.first {
@@ -850,14 +1024,18 @@ struct AlbumDetailView: View {
                     action: { viewModel.toggleSubscription(id: albumId) }
                 )
                 .disabled(viewModel.isTogglingSubscription)
+
+                Spacer(minLength: 0)
             }
             .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, 16)
 
             MujiListDivider()
                 .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                .padding(.top, 18)
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .padding(.top, 18)
+        .padding(.top, 14)
         .padding(.bottom, 12)
     }
 
@@ -865,7 +1043,9 @@ struct AlbumDetailView: View {
 
     private var songListSection: some View {
         Group {
-            if CapsuleStyle.isActive {
+            if MinimalWhiteStyle.isActive {
+                minimalWhiteAlbumSongListSection
+            } else if CapsuleStyle.isActive {
                 capsuleAlbumSongListSection
             } else {
                 defaultAlbumSongListSection
@@ -874,6 +1054,57 @@ struct AlbumDetailView: View {
         .monologueSheet(isPresented: $showBatchAddToPlaylist, preset: .standard) {
             BatchAddToPlaylistSheet(songs: albumFilteredSongs.filter { selectedSongIds.contains($0.id) })
         }
+    }
+
+    private var minimalWhiteAlbumSongListSection: some View {
+        LazyVStack(alignment: .leading, spacing: 16) {
+            MinimalWhiteSectionTitle(title: String(localized: "歌曲")) {
+                if !albumFilteredSongs.isEmpty {
+                    Text("\(albumFilteredSongs.count)")
+                        .font(MinimalWhiteStyle.labelFont(12, weight: .medium))
+                        .foregroundStyle(MinimalWhiteStyle.inkMuted)
+                }
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+
+            if viewModel.isLoading {
+                MonologueLoadingView(text: "")
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 32)
+                    .background(
+                        MinimalWhiteSurfaceBackground(
+                            cornerRadius: MinimalWhiteStyle.cardRadius,
+                            elevated: false,
+                            tint: MinimalWhiteStyle.glassFill
+                        )
+                    )
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            } else if viewModel.songs.isEmpty {
+                albumEmptyState
+            } else {
+                VStack(spacing: 0) {
+                    albumSearchBar
+                        .padding(.bottom, 6)
+
+                    Rectangle()
+                        .fill(MinimalWhiteStyle.hairline)
+                        .frame(height: MinimalWhiteStyle.strokeWidth)
+
+                    albumSongRows
+
+                    Rectangle()
+                        .fill(MinimalWhiteStyle.hairline)
+                        .frame(height: MinimalWhiteStyle.strokeWidth)
+
+                    NoMoreDataView()
+                }
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+
+                FloatingBarBottomSpacer()
+            }
+        }
+        .padding(.top, 0)
+        .background(MinimalWhiteStyle.paper)
     }
 
     private var capsuleAlbumSongListSection: some View {
@@ -917,7 +1148,10 @@ struct AlbumDetailView: View {
             } else if viewModel.songs.isEmpty {
                 albumEmptyState
             } else {
-                albumDescriptionCard
+                // Aside 的 Hero 头部已经承载专辑简介，避免歌曲列表前重复显示一份。
+                if !usesAsideHero {
+                    albumDescriptionCard
+                }
                 albumSearchBar
                 albumSongRows
                 NoMoreDataView()
@@ -928,7 +1162,9 @@ struct AlbumDetailView: View {
 
     private var albumEmptyState: some View {
         VStack(spacing: 14) {
-            if NeumorphicStyle.isActive {
+            if MinimalWhiteStyle.isActive {
+                MinimalWhiteIconBadge(icon: .musicNoteList, size: 54)
+            } else if NeumorphicStyle.isActive {
                 NeumorphicIconBadge(icon: .musicNoteList, tint: NeumorphicStyle.warm, size: 54)
             } else if SequoiaStyle.isActive {
                 SequoiaIconBadge(icon: .musicNoteList, tint: SequoiaStyle.violet, size: 54)
@@ -936,19 +1172,25 @@ struct AlbumDetailView: View {
                 MonologueIcon(icon: .musicNoteList, size: 40, color: Theme.secondaryText.opacity(0.3))
             }
             Text(LocalizedStringKey("album_no_songs"))
-                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(14, weight: .medium) : .rounded(size: 15)))
-                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : Theme.secondaryText))
+                .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.bodyFont(15, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(14, weight: .medium) : .rounded(size: 15))))
+                .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : Theme.secondaryText)))
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 34 : 0)
+        .padding(.vertical, (MinimalWhiteStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 34 : 0)
         .background {
-            if NeumorphicStyle.isActive {
+            if MinimalWhiteStyle.isActive {
+                MinimalWhiteSurfaceBackground(
+                    cornerRadius: MinimalWhiteStyle.cardRadius,
+                    elevated: false,
+                    tint: MinimalWhiteStyle.glassFill
+                )
+            } else if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: 24, elevated: false, pressed: true, lightweight: true)
             } else if SequoiaStyle.isActive {
                 SequoiaSurfaceBackground(cornerRadius: 24, elevated: true, role: .chrome)
             }
         }
-        .padding(.horizontal, (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? DeviceLayout.viewHorizontalPadding : 0)
+        .padding(.horizontal, (MinimalWhiteStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive) ? DeviceLayout.viewHorizontalPadding : 0)
         .padding(.top, 40)
     }
 
@@ -967,8 +1209,8 @@ struct AlbumDetailView: View {
                                 )
                             } else {
                                 Text(LocalizedStringKey("album_desc"))
-                                    .font(MangaStyle.isActive ? MangaStyle.titleFont(16, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(16, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(15, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.titleFont(15, weight: .semibold) : .rounded(size: 15, weight: .semibold)))))
-                                    .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : Theme.text))))
+                                    .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.titleFont(15, weight: .semibold) : (MangaStyle.isActive ? MangaStyle.titleFont(16, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(16, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(15, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.titleFont(15, weight: .semibold) : .rounded(size: 15, weight: .semibold))))))
+                                    .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.ink : (MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : Theme.text)))))
                             }
                             Spacer()
                             MonologueIcon(icon: .chevronRight, size: 12, color: albumDescriptionChevronColor)
@@ -1046,6 +1288,7 @@ struct AlbumDetailView: View {
     }
 
     private var albumDescriptionFont: Font {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.bodyFont(13, weight: .regular) }
         if CapsuleStyle.isActive { return CapsuleStyle.bodyFont(13, weight: .semibold) }
         if MangaStyle.isActive { return MangaStyle.bodyFont(13, weight: .bold) }
         if MujiStyle.isActive { return MujiStyle.bodyFont(13, weight: .regular) }
@@ -1055,6 +1298,7 @@ struct AlbumDetailView: View {
     }
 
     private var albumDescriptionTextColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if CapsuleStyle.isActive { return CapsuleStyle.inkSoft }
         if MangaStyle.isActive { return MangaStyle.inkSub }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
@@ -1064,6 +1308,7 @@ struct AlbumDetailView: View {
     }
 
     private var albumDescriptionChevronColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if CapsuleStyle.isActive { return CapsuleStyle.cyan }
         if MangaStyle.isActive { return MangaStyle.inkSub }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
@@ -1076,10 +1321,30 @@ struct AlbumDetailView: View {
         Group {
             if CapsuleStyle.isActive {
                 CapsuleSurfaceBackground(cornerRadius: 26, elevated: true, tint: CapsuleStyle.surface.opacity(0.9))
+            } else if MinimalWhiteStyle.isActive {
+                MinimalWhiteSurfaceBackground(
+                    cornerRadius: MinimalWhiteStyle.cardRadius,
+                    elevated: false,
+                    tint: MinimalWhiteStyle.glassFill
+                )
             } else if MangaStyle.isActive {
-                MangaCardBackground(cornerRadius: 18, elevated: true, tint: MangaStyle.bubbleWhite)
+                // 去卡片化：简介作引文，左侧粗墨竖线
+                HStack(spacing: 0) {
+                    Rectangle()
+                        .fill(MangaStyle.strokeInk.opacity(0.85))
+                        .frame(width: 3)
+                    Spacer()
+                }
+                .padding(.vertical, 2)
             } else if MujiStyle.isActive {
-                MujiPaperCardBackground(cornerRadius: 12)
+                // Muji：简介作引文，左侧陶土竖线
+                HStack(spacing: 0) {
+                    Rectangle()
+                        .fill(MujiStyle.clay.opacity(0.8))
+                        .frame(width: 2)
+                    Spacer()
+                }
+                .padding(.vertical, 4)
             } else if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: 22, elevated: false)
             } else if SequoiaStyle.isActive {

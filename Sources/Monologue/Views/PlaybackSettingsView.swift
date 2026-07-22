@@ -15,21 +15,21 @@ struct PlaybackSettingsView: View {
     @State private var showPlaybackQualitySheet = false
     @State private var showQQPlaybackQualitySheet = false
     @State private var showQishuiPlaybackQualitySheet = false
-    @State private var showBackgroundAudioPolicyDialog = false
+    @State private var showBackgroundAudioPolicySheet = false
 
     var body: some View {
         ZStack {
             ThemedSettingsBackground()
 
             ScrollView {
-                VStack(spacing: 20) {
+                VStack(spacing: SettingsPageLayout.sectionSpacing) {
                     SettingsScrollablePageHeader(
                         title: String(localized: "settings_navigation_playback_title"),
-                        eyebrow: "PLAY",
-                        icon: .soundQuality
+                        eyebrow: "PLAYBACK",
+                        icon: .playCircle
                     )
 
-                    VStack(spacing: 20) {
+                    VStack(spacing: SettingsPageLayout.sectionSpacing) {
                         qualitySection
                         queueSection
                         effectsSection
@@ -37,32 +37,26 @@ struct PlaybackSettingsView: View {
                         FloatingBarBottomSpacer()
                     }
                     .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
-                    .iPadContentWidth(700)
+                    .padding(.bottom, 44)
+                    .iPadContentWidth(SettingsPageLayout.contentWidth)
                 }
             }
             .scrollIndicators(.hidden)
+            .coordinateSpace(name: SettingsPageLayout.scrollCoordinateSpace)
             .themeRenderScrollLayer()
         }
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.hidden, for: .navigationBar)
+        .asideSettingsDetailChrome(String(localized: "settings_navigation_playback_title"))
         .onChange(of: settings.gaplessPlaybackEnabled) { _, enabled in
             PlayerManager.shared.handleGaplessPlaybackSettingChanged(enabled: enabled)
+        }
+        .onChange(of: settings.crossfadePlaybackEnabled) { _, enabled in
+            PlayerManager.shared.handleCrossfadePlaybackSettingChanged(enabled: enabled)
         }
         .onChange(of: settings.backgroundAudioPolicyRaw) { _, _ in
             PlayerManager.shared.handleBackgroundAudioPolicySettingChanged()
         }
-        .confirmationDialog(
-            String(localized: "settings_background_audio_policy"),
-            isPresented: $showBackgroundAudioPolicyDialog
-        ) {
-            ForEach(BackgroundAudioPolicy.allCases) { policy in
-                Button(policy.displayName) {
-                    settings.backgroundAudioPolicy = policy
-                }
-            }
-        } message: {
-            Text(backgroundAudioPolicySubtitle)
+        .monologueSheet(isPresented: $showBackgroundAudioPolicySheet, preset: .standard) {
+            BackgroundAudioPolicySheet()
         }
         .monologueSheet(isPresented: $showPlaybackQualitySheet, preset: .standard) {
             SoundQualitySheet(
@@ -179,24 +173,34 @@ struct PlaybackSettingsView: View {
                     .opacity(0.4)
                     .padding(.leading, 62)
 
-                // 无缝切歌设置项暂时隐藏，默认关闭
-                // SettingsToggleRow(
-                //     icon: .playNext,
-                //     title: String(localized: "settings_gapless_playback"),
-                //     subtitle: String(localized: "settings_gapless_playback_desc"),
-                //     isOn: $settings.gaplessPlaybackEnabled
-                // )
+                SettingsToggleRow(
+                    icon: .playNext,
+                    title: String(localized: "settings_gapless_playback"),
+                    subtitle: String(localized: "settings_gapless_playback_desc"),
+                    isOn: $settings.gaplessPlaybackEnabled
+                )
 
-                // Divider()
-                //     .opacity(0.4)
-                //     .padding(.leading, 62)
+                Divider()
+                    .opacity(0.4)
+                    .padding(.leading, 62)
+
+                SettingsToggleRow(
+                    icon: .waveform,
+                    title: String(localized: "settings_crossfade_playback"),
+                    subtitle: String(localized: "settings_crossfade_playback_duration"),
+                    isOn: $settings.crossfadePlaybackEnabled
+                )
+
+                Divider()
+                    .opacity(0.4)
+                    .padding(.leading, 62)
 
                 SettingsNavigationRow(
                     icon: .headphones,
                     title: String(localized: "settings_background_audio_policy"),
-                    subtitle: backgroundAudioPolicySubtitle
+                    subtitle: backgroundAudioPolicyRowSubtitle
                 ) {
-                    showBackgroundAudioPolicyDialog = true
+                    showBackgroundAudioPolicySheet = true
                 }
             }
         }
@@ -234,17 +238,6 @@ struct PlaybackSettingsView: View {
                     title: String(localized: "settings_qmc_decrypt"),
                     subtitle: String(localized: "settings_qmc_decrypt_desc"),
                     isOn: $settings.qmcDecryptEnabled
-                )
-
-                Divider()
-                    .opacity(0.4)
-                    .padding(.leading, 62)
-
-                SettingsToggleRow(
-                    icon: .download,
-                    title: String(localized: "settings_cache_play"),
-                    subtitle: String(localized: "settings_cache_play_desc"),
-                    isOn: $settings.listenAndSave
                 )
 
                 Divider()
@@ -306,7 +299,8 @@ struct PlaybackSettingsView: View {
             : String(localized: "game_mode_settings_subtitle_off")
     }
 
-    private var backgroundAudioPolicySubtitle: String {
-        settings.backgroundAudioPolicy.detailText
+    /// 行内副标题：当前模式名 + 一句话说明
+    private var backgroundAudioPolicyRowSubtitle: String {
+        "\(settings.backgroundAudioPolicy.displayName) · \(settings.backgroundAudioPolicy.detailText)"
     }
 }

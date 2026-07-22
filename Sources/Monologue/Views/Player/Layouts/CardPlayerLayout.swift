@@ -81,7 +81,7 @@ struct CardPlayerLayout: View {
         .monologueSheet(isPresented: $showPlaylist, preset: .standard){
             PlaylistPopupView()
         }
-        .monologueSheet(isPresented: $showQualitySheet, preset: .compact){
+        .monologueSheet(isPresented: $showQualitySheet, preset: .standard){
             SoundQualitySheet(
                 currentQuality: player.soundQuality,
                 currentQQQuality: player.qqMusicQuality,
@@ -95,8 +95,8 @@ struct CardPlayerLayout: View {
                 onSelectQishui: { info in player.switchQishuiQuality(info); showQualitySheet = false }
             )
         }
-        .monologueSheet(isPresented: $showEQSettings, preset: .large){
-            NavigationStack { EQSettingsView() }
+        .fullScreenCover(isPresented: $showEQSettings) {
+            NavigationStack { MonoAudioCenterView() }
         }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker){
             PlayerThemePickerSheet()
@@ -305,8 +305,18 @@ extension CardPlayerLayout {
                             Color.clear.frame(height: 20)
                             ForEach(Array(lyricVM.lyrics.enumerated()), id: \.element.id) { index, line in
                                 let isCurrent = index == lyricVM.currentLineIndex
-                                Text(line.text)
-                                    .font(.system(size: isCurrent ? 22 : 18, weight: isCurrent ? .bold : .medium, design: .rounded))
+                                Text(line.text.monologueLyricDisplayText)
+                                    .font(
+                                        MonologuePlayerFont.activeFont(
+                                            size: isCurrent ? 22 : 18,
+                                            weight: isCurrent ? .bold : .medium,
+                                            fallback: .system(
+                                                size: isCurrent ? 22 : 18,
+                                                weight: isCurrent ? .bold : .medium,
+                                                design: .rounded
+                                            )
+                                        )
+                                    )
                                     .foregroundColor(isCurrent ? .primary : .secondary.opacity(0.6))
                                     .multilineTextAlignment(.center)
                                     .scaleEffect(isCurrent ? 1.05 : 1.0)
@@ -323,7 +333,7 @@ extension CardPlayerLayout {
                         withAnimation { proxy.scrollTo(newIndex, anchor: .center) }
                     }
                     .onAppear {
-                        proxy.scrollTo(lyricVM.currentLineIndex, anchor: .center)
+                        proxy.monologueRestoreLyricPosition { lyricVM.currentLineIndex }
                     }
                 }
             } else {
@@ -346,7 +356,11 @@ extension CardPlayerLayout {
             // Song Text
             VStack(spacing: 6) {
                 Text(player.currentSong?.name ?? "Unknown Track")
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .monologuePlayerDisplayFont(
+                        size: 22,
+                        weight: .bold,
+                        fallback: .system(size: 22, weight: .bold, design: .rounded)
+                    )
                     .foregroundColor(.primary)
                     .lineLimit(1)
                 
@@ -474,23 +488,37 @@ extension CardPlayerLayout {
                     
                     Spacer()
                     
-                    Button {
-                        if !downloadManager.isDownloaded(songId: song.id) {
-                            showDownloadSheet = true
+                    if AppConfig.Features.downloadEnabled {
+                        // 下载按钮（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+                        Button {
+                            if !downloadManager.isDownloaded(songId: song.id) {
+                                showDownloadSheet = true
+                            }
+                        } label: {
+                            MonologueIcon(
+                                icon: .playerDownload,
+                                size: 22,
+                                color: downloadManager.isDownloaded(songId: song.id) ? .secondary.opacity(0.5) : .secondary,
+                                lineWidth: 1.4
+                            )
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                         }
-                    } label: {
-                        MonologueIcon(
-                            icon: .playerDownload,
-                            size: 22,
-                            color: downloadManager.isDownloaded(songId: song.id) ? .secondary.opacity(0.5) : .secondary,
-                            lineWidth: 1.4
-                        )
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
+                        .buttonStyle(MonologueBouncingButtonStyle())
+                        .disabled(downloadManager.isDownloaded(songId: song.id))
+                        .frame(width: 44)
+                    } else {
+                        // 沉浸模式按钮 — 占用原下载按钮的位置
+                        Button {
+                            ImmersiveModeController.shared.present()
+                        } label: {
+                            MonologueIcon(icon: .immersive, size: 22, color: .secondary, lineWidth: 1.4)
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(MonologueBouncingButtonStyle())
+                        .frame(width: 44)
                     }
-                    .buttonStyle(MonologueBouncingButtonStyle())
-                    .disabled(downloadManager.isDownloaded(songId: song.id))
-                    .frame(width: 44)
                 }
             }
         }

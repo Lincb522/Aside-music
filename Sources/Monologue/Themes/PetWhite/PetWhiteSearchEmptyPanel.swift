@@ -9,13 +9,13 @@ struct PetWhiteSearchEmptyPanel: View {
     let onClearHistory: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 26) {
             defaultKeywordCard
             historyShelf
             hotSearchShelf
         }
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-        .padding(.top, 4)
+        .padding(.top, 8)
         .padding(.bottom, 16)
     }
 
@@ -26,13 +26,20 @@ struct PetWhiteSearchEmptyPanel: View {
                 onSearch(defaultKeyword.realkeyword)
             } label: {
                 HStack(spacing: 12) {
-                    PetWhiteIconBadge(icon: .magnifyingGlass, tint: PetWhiteStyle.sky, size: 44)
+                    PetWhiteClayPuck(shape: Circle(), tint: PetWhiteStyle.sky)
+                        .frame(width: 38, height: 38)
+                        .overlay(
+                            PetWhitePackIcon(icon: .magnifyingGlass, size: 18, visualScale: 1.04, lineWidth: 1.7)
+                        )
 
-                    VStack(alignment: .leading, spacing: 4) {
-                        PetWhitePill(text: "TRY", tint: PetWhiteStyle.butter)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("TRY")
+                            .font(PetWhiteStyle.labelFont(10, weight: .semibold))
+                            .tracking(1.2)
+                            .foregroundStyle(PetWhiteStyle.dogEar)
 
                         Text(defaultKeyword.showKeyword)
-                            .font(PetWhiteStyle.titleFont(19, weight: .black))
+                            .font(PetWhiteStyle.titleFont(17, weight: .semibold))
                             .foregroundStyle(PetWhiteStyle.ink)
                             .lineLimit(1)
                             .minimumScaleFactor(0.76)
@@ -40,12 +47,13 @@ struct PetWhiteSearchEmptyPanel: View {
 
                     Spacer(minLength: 8)
 
-                    PetWhiteProfileHeadIcon(filled: true, size: 30)
+                    PetWhitePackIcon(icon: .chevronRight, size: 14, visualScale: 1.02, fallbackColor: PetWhiteStyle.inkMuted)
                 }
-                .padding(14)
-                .background(PetWhiteSurfaceBackground(cornerRadius: 22, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.sky))
+                .padding(.horizontal, 15)
+                .padding(.vertical, 13)
+                .background(PetWhiteSurfaceBackground(cornerRadius: PetWhiteStyle.cardRadius, elevated: false, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.sky))
             }
-            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+            .buttonStyle(PetWhiteSquishyButtonStyle(scale: 0.92))
         }
     }
 
@@ -54,19 +62,25 @@ struct PetWhiteSearchEmptyPanel: View {
         if !searchHistory.isEmpty {
             PetWhiteSearchShelf(
                 title: String(localized: "search_history"),
-                icon: .clock,
-                tint: PetWhiteStyle.mint,
                 action: onClearHistory
             ) {
-                VStack(spacing: 8) {
-                    ForEach(searchHistory, id: \.id) { item in
+                VStack(spacing: 0) {
+                    ForEach(Array(searchHistory.enumerated()), id: \.element.id) { index, item in
                         PetWhiteSearchHistoryRow(
                             item: item,
                             onSearch: onSearch,
                             onDelete: onDeleteHistory
                         )
+
+                        if index < searchHistory.count - 1 {
+                            Divider()
+                                .overlay(PetWhiteStyle.separator)
+                                .padding(.leading, 34)
+                        }
                     }
                 }
+                .padding(.horizontal, 6)
+                .background(PetWhiteSurfaceBackground(cornerRadius: PetWhiteStyle.cardRadius, elevated: false, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
             }
         }
     }
@@ -75,9 +89,7 @@ struct PetWhiteSearchEmptyPanel: View {
     private var hotSearchShelf: some View {
         if !hotSearchItems.isEmpty {
             PetWhiteSearchShelf(
-                title: String(localized: "search_hot"),
-                icon: .sparkle,
-                tint: PetWhiteStyle.dogOrange
+                title: String(localized: "search_hot")
             ) {
                 FlowLayout(spacing: 9) {
                     ForEach(Array(hotSearchItems.enumerated()), id: \.element.searchWord) { index, item in
@@ -95,45 +107,33 @@ struct PetWhiteSearchEmptyPanel: View {
 
 private struct PetWhiteSearchShelf<Content: View>: View {
     let title: String
-    let icon: MonologueIcon.IconType
-    let tint: Color
     var action: (() -> Void)?
     let content: Content
 
     init(
         title: String,
-        icon: MonologueIcon.IconType,
-        tint: Color,
         action: (() -> Void)? = nil,
         @ViewBuilder content: () -> Content
     ) {
         self.title = title
-        self.icon = icon
-        self.tint = tint
         self.action = action
         self.content = content()
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 11) {
-            HStack(spacing: 9) {
-                PetWhiteIconBadge(icon: icon, tint: tint, size: 34)
-
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline, spacing: 9) {
                 Text(title)
-                    .font(PetWhiteStyle.titleFont(17, weight: .black))
+                    .font(PetWhiteStyle.titleFont(18, weight: .bold))
                     .foregroundStyle(PetWhiteStyle.ink)
 
                 Spacer(minLength: 8)
 
                 if let action {
                     Button(action: action) {
-                        PetWhitePackIcon(icon: .trash, size: 20, visualScale: 1.08)
-                            .frame(width: 34, height: 34)
-                            .background(PetWhiteStyle.butter, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .stroke(PetWhiteStyle.stroke, lineWidth: 1.4)
-                            )
+                        Text(String(localized: "search_clear"))
+                            .font(PetWhiteStyle.labelFont(12, weight: .semibold))
+                            .foregroundStyle(PetWhiteStyle.dogEar)
                     }
                     .buttonStyle(.plain)
                 }
@@ -141,8 +141,6 @@ private struct PetWhiteSearchShelf<Content: View>: View {
 
             content
         }
-        .padding(13)
-        .background(PetWhiteSurfaceBackground(cornerRadius: 22, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: tint))
     }
 }
 
@@ -156,10 +154,10 @@ private struct PetWhiteSearchHistoryRow: View {
             onSearch(item.keyword)
         } label: {
             HStack(spacing: 10) {
-                PetWhitePackIcon(icon: .clock, size: 18, visualScale: 1.06)
+                PetWhitePackIcon(icon: .clock, size: 16, visualScale: 1.02, fallbackColor: PetWhiteStyle.inkMuted)
 
                 Text(item.keyword)
-                    .font(PetWhiteStyle.bodyFont(14, weight: .bold))
+                    .font(PetWhiteStyle.bodyFont(14, weight: .semibold))
                     .foregroundStyle(PetWhiteStyle.ink)
                     .lineLimit(1)
 
@@ -168,14 +166,15 @@ private struct PetWhiteSearchHistoryRow: View {
                 Button {
                     onDelete(item.keyword)
                 } label: {
-                    PetWhitePackIcon(icon: .xmark, size: 16, visualScale: 1.04, fallbackColor: PetWhiteStyle.inkSoft)
+                    PetWhitePackIcon(icon: .xmark, size: 14, visualScale: 1.02, fallbackColor: PetWhiteStyle.inkMuted)
                         .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(PetWhiteSurfaceBackground(cornerRadius: 16, elevated: false, tint: PetWhiteStyle.surfacePressed, accent: PetWhiteStyle.mint))
+            .padding(.vertical, 11)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
@@ -192,18 +191,23 @@ private struct PetWhiteHotSearchChip: View {
         } label: {
             HStack(spacing: 7) {
                 Text(String(format: "%02d", index + 1))
-                    .font(.system(size: 9, weight: .black, design: .rounded))
-                    .foregroundStyle(index < 3 ? PetWhiteStyle.dogOrange : PetWhiteStyle.inkSoft)
+                    .font(.system(size: 9, weight: .bold, design: .rounded))
+                    .foregroundStyle(index < 3 ? PetWhiteStyle.dogOrange : PetWhiteStyle.inkMuted)
 
                 Text(item.searchWord)
-                    .font(PetWhiteStyle.labelFont(13, weight: .bold))
+                    .font(PetWhiteStyle.labelFont(13, weight: .semibold))
                     .foregroundStyle(PetWhiteStyle.ink)
                     .lineLimit(1)
             }
-            .padding(.horizontal, 11)
-            .padding(.vertical, 9)
-            .background(PetWhiteSurfaceBackground(cornerRadius: 16, elevated: false, tint: PetWhiteStyle.surfaceRaised, accent: index < 3 ? PetWhiteStyle.dogOrange : PetWhiteStyle.sky))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(
+                PetWhiteClayPuck(
+                    shape: Capsule(style: .continuous),
+                    tint: index < 3 ? PetWhiteStyle.butter : PetWhiteStyle.surfaceRaised
+                )
+            )
         }
-        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+        .buttonStyle(PetWhiteSquishyButtonStyle(scale: 0.9))
     }
 }

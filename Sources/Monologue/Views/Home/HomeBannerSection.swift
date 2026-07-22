@@ -6,14 +6,17 @@ struct HomeBannerSection: View {
     let onTap: (Banner) -> Void
 
     @State private var bannerIndex: Int = 0
+    @State private var isVisible = false
     private let timer = Timer.publish(every: 5.0, on: .main, in: .common).autoconnect()
     private var bannerRadius: CGFloat {
+        if MinimalWhiteStyle.isActive { return 14 }
         if NeumorphicStyle.isActive { return DeviceLayout.isPad ? 30 : 26 }
         if MujiStyle.isActive { return DeviceLayout.isPad ? 26 : 20 }
         return DeviceLayout.isPad ? 28 : 22
     }
     private var sideInset: CGFloat {
-        DeviceLayout.homeHorizontalPadding + (DeviceLayout.isPad ? 12 : 8)
+        if MinimalWhiteStyle.isActive { return DeviceLayout.homeHorizontalPadding }
+        return DeviceLayout.homeHorizontalPadding + (DeviceLayout.isPad ? 12 : 8)
     }
 
     var body: some View {
@@ -26,14 +29,14 @@ struct HomeBannerSection: View {
                             cornerRadius: bannerRadius,
                             placeholder: {
                                 RoundedRectangle(cornerRadius: bannerRadius, style: .continuous)
-                                    .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
+                                    .fill(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint))
                             }
                         )
                         .frame(maxWidth: .infinity)
                         .frame(height: DeviceLayout.bannerHeight)
                         .background(
                             RoundedRectangle(cornerRadius: bannerRadius, style: .continuous)
-                                .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
+                                .fill(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint))
                         )
                         .compositingGroup()
                         .clipShape(RoundedRectangle(cornerRadius: bannerRadius, style: .continuous))
@@ -44,6 +47,9 @@ struct HomeBannerSection: View {
                             } else if MujiStyle.isActive {
                                 RoundedRectangle(cornerRadius: bannerRadius, style: .continuous)
                                     .stroke(MujiStyle.hairline.opacity(0.56), lineWidth: 0.7)
+                            } else if MinimalWhiteStyle.isActive {
+                                RoundedRectangle(cornerRadius: bannerRadius, style: .continuous)
+                                    .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
                             } else {
                                 RoundedRectangle(cornerRadius: bannerRadius, style: .continuous)
                                     .strokeBorder(Color.white.opacity(0.38), lineWidth: 1.2)
@@ -68,11 +74,13 @@ struct HomeBannerSection: View {
             .tabViewStyle(.page(indexDisplayMode: .never))
             .frame(height: DeviceLayout.bannerHeight + 32)
             .onReceive(timer) { _ in
-                guard !banners.isEmpty else { return }
+                guard isVisible, !banners.isEmpty else { return }
                 withAnimation {
                     bannerIndex = (bannerIndex + 1) % banners.count
                 }
             }
+            .onAppear { isVisible = true }
+            .onDisappear { isVisible = false }
 
             if banners.count > 1 {
                 HStack(spacing: 6) {
@@ -80,7 +88,7 @@ struct HomeBannerSection: View {
                         Capsule()
                             .fill(index == bannerIndex
                                   ? activeDotColor
-                                  : Color.monologueTextSecondary.opacity(0.25))
+                                  : Color.monologueTextSecondary.opacity(MinimalWhiteStyle.isActive ? 0.18 : 0.25))
                             .frame(width: index == bannerIndex ? 16 : 6, height: 6)
                             .animation(.spring(duration: 0.3), value: bannerIndex)
                     }
@@ -92,7 +100,8 @@ struct HomeBannerSection: View {
     @Environment(\.colorScheme) private var colorScheme
 
     private var activeDotColor: Color {
-        NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueTextPrimary.opacity(0.8)
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink.opacity(0.7) }
+        return NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueTextPrimary.opacity(0.8)
     }
 }
 

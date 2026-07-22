@@ -7,7 +7,7 @@ struct PlayerThemePickerSheet: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.monologueSheetContext) private var monologueSheetContext
     @ObservedObject private var settings = SettingsManager.shared
-    @State private var themeManager = PlayerThemeManager.shared
+    @ObservedObject private var themeManager = PlayerThemeManager.shared
 
     var body: some View {
         let _ = settings.globalThemeRevision
@@ -59,16 +59,16 @@ struct PlayerThemePickerSheet: View {
                 dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss)
             }
         } label: {
-            VStack(spacing: 10) {
-                // 预览区域
+            // 海报卡：主题名排进海报里，不再在卡片下方挂标签
+            ZStack(alignment: .topTrailing) {
                 themePreview(theme)
-                    .frame(height: 130)
+                    .frame(height: 150)
                     .clipShape(RoundedRectangle(cornerRadius: previewCornerRadius, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: previewCornerRadius, style: .continuous)
                             .stroke(
                                 previewStrokeColor(isSelected: isSelected),
-                                lineWidth: isSelected ? (NeumorphicStyle.isActive ? 1.4 : 2.5) : 1
+                                lineWidth: isSelected ? (NeumorphicStyle.isActive ? 1.4 : 2) : 1
                             )
                     )
                     .shadow(
@@ -78,15 +78,15 @@ struct PlayerThemePickerSheet: View {
                         y: NeumorphicStyle.isActive ? 6 : 4
                     )
 
-                // 标签
-                HStack(spacing: 6) {
-                    if isSelected {
-                        MonologueIcon(icon: .checkmark, size: 13, color: selectedTint)
+                if isSelected {
+                    ZStack {
+                        Circle().fill(selectedTint)
+                        MonologueIcon(icon: .checkmark, size: 10, color: .white, lineWidth: 2.2)
                     }
-
-                    Text(theme.displayName)
-                        .font(themeLabelFont(isSelected: isSelected))
-                        .foregroundColor(isSelected ? selectedLabelColor : secondaryLabelColor)
+                    .frame(width: 21, height: 21)
+                    .overlay(Circle().stroke(Color.white.opacity(0.9), lineWidth: 1.1))
+                    .shadow(color: selectedTint.opacity(0.35), radius: 5, y: 2)
+                    .padding(7)
                 }
             }
             .padding(NeumorphicStyle.isActive ? 10 : 0)
@@ -111,20 +111,6 @@ struct PlayerThemePickerSheet: View {
 
     private var selectedTint: Color {
         NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueAccent
-    }
-
-    private var selectedLabelColor: Color {
-        NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary
-    }
-
-    private var secondaryLabelColor: Color {
-        NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary
-    }
-
-    private func themeLabelFont(isSelected: Bool) -> Font {
-        NeumorphicStyle.isActive
-            ? NeumorphicStyle.labelFont(14, weight: isSelected ? .semibold : .medium)
-            : .rounded(size: 14, weight: isSelected ? .bold : .medium)
     }
 
     private func previewStrokeColor(isSelected: Bool) -> Color {
@@ -152,6 +138,9 @@ struct PlayerThemePickerSheet: View {
     }
 }
 
+/// 主题缩略预览 — 海报卡：主题标志物放大铺满 + 左下角主题名题签。
+/// 不再给每张卡挂同一套「进度条 + 三键」假控制台，识别度来自
+/// 标志物、配色与题签排印本身。
 private struct PlayerThemeStaticPreview: View {
     let theme: PlayerTheme
     @Environment(\.colorScheme) private var colorScheme
@@ -161,16 +150,678 @@ private struct PlayerThemeStaticPreview: View {
     private var muted: Color { isDark ? Color.white.opacity(0.45) : Color.black.opacity(0.36) }
 
     var body: some View {
-        GeometryReader { proxy in
-            let size = proxy.size
+        ZStack(alignment: .bottomLeading) {
+            previewBackground
 
-            ZStack {
-                previewBackground
-                previewContent(size: size)
-            }
-            .frame(width: size.width, height: size.height)
-            .clipped()
+            motif
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.top, 8)
+                .padding(.bottom, 30)
+
+            caption
+                .padding(.horizontal, 11)
+                .padding(.bottom, 10)
         }
+        .clipped()
+    }
+
+    // MARK: - 题签（主题名排进海报）
+
+    private var caption: some View {
+        HStack(spacing: 5.5) {
+            RoundedRectangle(cornerRadius: 1)
+                .fill(captionTint)
+                .frame(width: 3, height: 10)
+
+            Text(theme.displayName)
+                .font(captionFont)
+                .foregroundColor(captionInk)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+        }
+    }
+
+    private var captionFont: Font {
+        switch theme {
+        case .typewriter, .folk:
+            return .system(size: 11.5, weight: .semibold, design: .serif)
+        case .pixel, .motoPager:
+            return .system(size: 11, weight: .bold, design: .monospaced)
+        case .mangaChat:
+            return .system(size: 11.5, weight: .black, design: .rounded)
+        default:
+            return .system(size: 11.5, weight: .bold, design: .rounded)
+        }
+    }
+
+    /// 题签强调色（各主题的招牌色）
+    private var captionTint: Color {
+        switch theme {
+        case .classic:        return ink
+        case .vinyl:          return Color(hex: "D7B56D")
+        case .lyricFocus:     return Color(hex: "7A8CFF")
+        case .card:           return Color(hex: "FF7CA8")
+        case .neumorphic:     return Color(hex: "4F8E86")
+        case .poster:         return Color(hex: "EF2A2A")
+        case .motoPager:      return isDark ? Color(hex: "A8B47B") : Color(hex: "5F6D3A")
+        case .typewriter:     return Color(hex: "E9DCC8")
+        case .pixel:          return isDark ? Color(hex: "30FF6A") : Color(hex: "1E8C43")
+        case .aqua:           return Color(hex: "2E86C1")
+        case .breathing:      return Color(hex: "58D7FF")
+        case .cassette:       return ink
+        case .radio:          return Color(hex: "DCC8FF")
+        case .immersiveLyric: return ink
+        case .mangaChat:      return isDark ? Color.white : Color.black
+        case .folk:           return Color(hex: "B44A3B")
+        case .game2048:       return Color(hex: "EDC22E")
+        }
+    }
+
+    /// 题签文字色（保证在各自海报底色上可读）
+    private var captionInk: Color {
+        switch theme {
+        case .typewriter:
+            return Color(hex: "F3E8D2")
+        case .radio:
+            return .white.opacity(0.92)
+        case .pixel:
+            return isDark ? Color(hex: "30FF6A") : Color(hex: "17612F")
+        case .game2048:
+            return Color(hex: "F9F6F2")
+        case .aqua:
+            return isDark ? .white.opacity(0.92) : Color(hex: "175D86")
+        default:
+            return ink
+        }
+    }
+
+    // MARK: - 主题意象
+
+    @ViewBuilder
+    private var motif: some View {
+        switch theme {
+        case .classic: classicMotif
+        case .vinyl: vinylMotif
+        case .lyricFocus: lyricFocusMotif
+        case .card: cardMotif
+        case .neumorphic: neumorphicMotif
+        case .poster: posterMotif
+        case .motoPager: motoPagerMotif
+        case .typewriter: typewriterMotif
+        case .pixel: pixelMotif
+        case .aqua: aquaMotif
+        case .breathing: breathingMotif
+        case .cassette: cassetteMotif
+        case .radio: radioMotif
+        case .immersiveLyric: immersiveLyricMotif
+        case .mangaChat: mangaChatMotif
+        case .folk: folkMotif
+        case .game2048: game2048Motif
+        }
+    }
+
+    /// 经典：居中封面 + 真实曲名
+    private var classicMotif: some View {
+        VStack(spacing: 8) {
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: isDark
+                            ? [Color(hex: "3E4350"), Color(hex: "23262E")]
+                            : [Color.white, Color(hex: "D8DCE3")],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 58, height: 58)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 13, style: .continuous)
+                        .stroke(ink.opacity(0.1), lineWidth: 0.7)
+                )
+                .overlay(MonologueIcon(icon: .musicNote, size: 21, color: muted, lineWidth: 1.7))
+                .shadow(color: Color.black.opacity(isDark ? 0.3 : 0.1), radius: 7, y: 4)
+
+            VStack(spacing: 1.5) {
+                Text("晚风")
+                    .font(.system(size: 9, weight: .bold, design: .rounded))
+                    .foregroundColor(ink.opacity(0.85))
+                Text("Mono")
+                    .font(.system(size: 7, weight: .semibold, design: .rounded))
+                    .foregroundColor(muted)
+            }
+        }
+    }
+
+    /// 黑胶：唱片 + 唱臂
+    private var vinylMotif: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [Color(hex: "070707"), Color(hex: "2A2A2A"), Color(hex: "0A0A0A")],
+                            center: .center,
+                            startRadius: 3,
+                            endRadius: 38
+                        )
+                    )
+
+                ForEach([28, 43, 58], id: \.self) { diameter in
+                    Circle()
+                        .stroke(Color.white.opacity(0.07), lineWidth: 0.6)
+                        .frame(width: CGFloat(diameter), height: CGFloat(diameter))
+                }
+
+                Circle().fill(Color(hex: "D7B56D")).frame(width: 19, height: 19)
+                Circle().fill(Color.black.opacity(0.8)).frame(width: 4, height: 4)
+            }
+            .frame(width: 72, height: 72)
+            .shadow(color: Color.black.opacity(0.32), radius: 7, y: 4)
+
+            // 唱臂
+            VStack(alignment: .trailing, spacing: 0) {
+                Circle()
+                    .fill(ink.opacity(0.3))
+                    .frame(width: 8, height: 8)
+
+                RoundedRectangle(cornerRadius: 1.5)
+                    .fill(
+                        LinearGradient(
+                            colors: [ink.opacity(0.55), ink.opacity(0.25)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .frame(width: 2.5, height: 44)
+                    .rotationEffect(.degrees(-18), anchor: .top)
+                    .offset(x: -2)
+            }
+        }
+    }
+
+    /// 歌词焦点：真实歌词行，当前句点亮
+    private var lyricFocusMotif: some View {
+        VStack(spacing: 6.5) {
+            Text("夜色落进窗台")
+                .font(.system(size: 8, weight: .medium, design: .rounded))
+                .foregroundColor(muted.opacity(0.75))
+
+            Text("我们乘晚风而行")
+                .font(.system(size: 13, weight: .heavy, design: .rounded))
+                .foregroundColor(ink)
+                .shadow(color: Color(hex: "7A8CFF").opacity(0.45), radius: 7, y: 1)
+
+            Text("群星次第亮起")
+                .font(.system(size: 8, weight: .medium, design: .rounded))
+                .foregroundColor(muted.opacity(0.75))
+        }
+    }
+
+    /// 卡片：斜叠双卡
+    private var cardMotif: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(isDark ? Color.white.opacity(0.06) : Color.black.opacity(0.05))
+                .frame(width: 66, height: 58)
+                .rotationEffect(.degrees(-7))
+                .offset(x: -11, y: 2)
+
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(isDark ? Color.white.opacity(0.13) : Color.white)
+                .frame(width: 68, height: 60)
+                .rotationEffect(.degrees(3))
+                .offset(x: 7)
+                .shadow(color: Color.black.opacity(isDark ? 0.26 : 0.1), radius: 6, y: 4)
+                .overlay(
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color(hex: "FF7CA8"), Color(hex: "8B78FF")],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 30, height: 30)
+                        .offset(x: 7)
+                )
+        }
+    }
+
+    /// 新拟物：凸起圆钮
+    private var neumorphicMotif: some View {
+        let base = isDark ? Color(hex: "2B2D32") : Color(hex: "E9EDF4")
+
+        return Circle()
+            .fill(base)
+            .frame(width: 64, height: 64)
+            .shadow(color: isDark ? Color.black.opacity(0.42) : Color.black.opacity(0.13), radius: 6, x: 4.5, y: 4.5)
+            .shadow(color: isDark ? Color.white.opacity(0.05) : Color.white.opacity(0.9), radius: 6, x: -4.5, y: -4.5)
+            .overlay(
+                Circle()
+                    .stroke(Color(hex: "4F8E86").opacity(0.5), lineWidth: 1.5)
+                    .frame(width: 43, height: 43)
+            )
+            .overlay(
+                Circle()
+                    .fill(Color(hex: "4F8E86"))
+                    .frame(width: 11, height: 11)
+            )
+    }
+
+    /// 海报：大字标 + 红杠 + 刊号行
+    private var posterMotif: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text("MUSIC")
+                .font(.system(size: 26, weight: .black, design: .rounded))
+                .tracking(-0.8)
+                .foregroundStyle(ink)
+
+            Rectangle()
+                .fill(Color(hex: "EF2A2A"))
+                .frame(width: 42, height: 5.5)
+
+            Text("NIGHT FLIGHT · 45 RPM")
+                .font(.system(size: 6.5, weight: .heavy, design: .rounded))
+                .tracking(1.4)
+                .foregroundColor(ink.opacity(0.5))
+                .padding(.top, 2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.leading, 16)
+    }
+
+    /// Moto 寻呼机：LCD 视窗 + 点阵字
+    private var motoPagerMotif: some View {
+        let shell = isDark ? Color(hex: "2E3122") : Color(hex: "D5D0A8")
+        let lcd = isDark ? Color(hex: "39402A") : Color(hex: "AEB782")
+        let lcdInk = isDark ? Color(hex: "C8D49A") : Color(hex: "2E3318")
+
+        return RoundedRectangle(cornerRadius: 11, style: .continuous)
+            .fill(shell)
+            .frame(width: 96, height: 62)
+            .overlay(
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .fill(lcd.opacity(0.78))
+                    .frame(width: 74, height: 30)
+                    .overlay(
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("♪ 晚风")
+                                .font(.system(size: 8.5, weight: .bold, design: .monospaced))
+                                .foregroundColor(lcdInk)
+                            Text("23:47")
+                                .font(.system(size: 6.5, weight: .semibold, design: .monospaced))
+                                .foregroundColor(lcdInk.opacity(0.6))
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.leading, 7)
+                    )
+                    .offset(y: -6)
+            )
+            .overlay(alignment: .bottom) {
+                HStack(spacing: 5) {
+                    ForEach(0 ..< 3, id: \.self) { index in
+                        Circle()
+                            .fill(ink.opacity(index == 1 ? 0.4 : 0.2))
+                            .frame(width: index == 1 ? 7.5 : 6, height: index == 1 ? 7.5 : 6)
+                    }
+                }
+                .padding(.bottom, 7)
+            }
+            .shadow(color: Color.black.opacity(isDark ? 0.3 : 0.12), radius: 5, y: 3)
+    }
+
+    /// 打字机：纸页真实打字行 + 键帽
+    private var typewriterMotif: some View {
+        VStack(spacing: 7) {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(isDark ? Color(hex: "E5D2B3") : Color(hex: "FFF7E9"))
+                .frame(width: 74, height: 44)
+                .overlay(
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Dear music,")
+                            .font(.system(size: 8.5, weight: .semibold, design: .serif))
+                            .foregroundColor(Color(hex: "2D241C"))
+
+                        HStack(spacing: 1.5) {
+                            Text("sing to me")
+                                .font(.system(size: 8.5, weight: .semibold, design: .serif))
+                                .foregroundColor(Color(hex: "2D241C").opacity(0.72))
+
+                            Rectangle()
+                                .fill(Color(hex: "2D241C").opacity(0.75))
+                                .frame(width: 4.5, height: 8)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.leading, 8)
+                )
+                .shadow(color: Color.black.opacity(0.18), radius: 4, y: 3)
+
+            HStack(spacing: 5) {
+                ForEach(0 ..< 4, id: \.self) { _ in
+                    Circle()
+                        .fill(Color(hex: "E9DCC8"))
+                        .frame(width: 9, height: 9)
+                        .shadow(color: Color.black.opacity(0.3), radius: 1, y: 1)
+                }
+            }
+        }
+    }
+
+    /// 像素：CRT 均衡器
+    private var pixelMotif: some View {
+        let green = isDark ? Color(hex: "30FF6A") : Color(hex: "1E8C43")
+
+        return VStack(spacing: 8) {
+            HStack(spacing: 4) {
+                Rectangle().fill(green).frame(width: 9, height: 9)
+                Text("NOW PLAYING")
+                    .font(.system(size: 8.5, weight: .bold, design: .monospaced))
+                    .foregroundStyle(green)
+            }
+
+            HStack(alignment: .bottom, spacing: 3.5) {
+                ForEach(Array([13, 25, 17, 32, 10, 21, 27].enumerated()), id: \.offset) { _, height in
+                    Rectangle()
+                        .fill(green.opacity(height > 16 ? 0.9 : 0.45))
+                        .frame(width: 6, height: CGFloat(height))
+                }
+            }
+        }
+    }
+
+    /// 水波：玻璃气泡
+    private var aquaMotif: some View {
+        ZStack {
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color.white.opacity(isDark ? 0.3 : 0.66), Color(hex: "4BB6E0").opacity(0.12), .clear],
+                        center: .center,
+                        startRadius: 2,
+                        endRadius: 42
+                    )
+                )
+                .frame(width: 84, height: 84)
+
+            HStack(spacing: 12) {
+                aquaBubble(size: 16)
+                aquaBubble(size: 34, icon: .play)
+                aquaBubble(size: 16)
+            }
+        }
+    }
+
+    /// 呼吸：同心光环
+    private var breathingMotif: some View {
+        let cyan = Color(hex: "58D7FF")
+        let violet = Color(hex: "8F7BFF")
+
+        return ZStack {
+            Circle().fill(violet.opacity(0.16)).frame(width: 82, height: 82).blur(radius: 11)
+            Circle().stroke(cyan.opacity(0.3), lineWidth: 1).frame(width: 66, height: 66)
+            Circle().stroke(cyan.opacity(0.16), lineWidth: 1).frame(width: 82, height: 82)
+
+            Circle()
+                .fill(LinearGradient(colors: [violet, cyan], startPoint: .topLeading, endPoint: .bottomTrailing))
+                .frame(width: 38, height: 38)
+                .overlay(MonologueIcon(icon: .waveform, size: 14, color: .white.opacity(0.92), lineWidth: 1.6))
+                .shadow(color: cyan.opacity(0.4), radius: 9)
+        }
+    }
+
+    /// 磁带：卡带壳
+    private var cassetteMotif: some View {
+        let shell = isDark ? Color(hex: "2B2B31") : Color.white
+        let label = isDark ? Color(hex: "E5E0D2") : Color(hex: "F6F1E6")
+
+        return RoundedRectangle(cornerRadius: 9, style: .continuous)
+            .fill(shell)
+            .frame(width: 94, height: 60)
+            .overlay(
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(label)
+                    .frame(width: 76, height: 31)
+                    .overlay(
+                        HStack(spacing: 19) {
+                            cassetteReel
+                            cassetteReel
+                        }
+                    )
+                    .overlay(alignment: .top) {
+                        Text("MIXTAPE · A")
+                            .font(.system(size: 4.8, weight: .heavy, design: .monospaced))
+                            .tracking(0.5)
+                            .foregroundColor(Color(hex: "3A342A").opacity(0.55))
+                            .padding(.top, 2.5)
+                    }
+                    .offset(y: -5)
+            )
+            .overlay(alignment: .bottom) {
+                TrapezoidShape()
+                    .fill(Color.black.opacity(isDark ? 0.26 : 0.09))
+                    .frame(width: 44, height: 9)
+                    .padding(.bottom, 6)
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .stroke(ink.opacity(0.1), lineWidth: 0.7)
+            )
+            .shadow(color: Color.black.opacity(isDark ? 0.3 : 0.1), radius: 5, y: 3)
+    }
+
+    /// 收音机：LED 面板 + 旋钮
+    private var radioMotif: some View {
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .fill(isDark ? Color(hex: "312058") : Color(hex: "9272C8"))
+            .frame(width: 96, height: 62)
+            .overlay(alignment: .top) {
+                RoundedRectangle(cornerRadius: 4.5, style: .continuous)
+                    .fill(isDark ? Color(hex: "090711") : Color(hex: "1D1331"))
+                    .frame(width: 76, height: 18)
+                    .overlay(
+                        HStack(spacing: 5) {
+                            Text("FM 88.7")
+                                .font(.system(size: 7, weight: .bold, design: .monospaced))
+                                .foregroundColor(Color(hex: "DCC8FF"))
+
+                            HStack(spacing: 2.5) {
+                                ForEach(0 ..< 5, id: \.self) { index in
+                                    Circle()
+                                        .fill(Color(hex: "DCC8FF").opacity(index < 3 ? 1 : 0.22))
+                                        .frame(width: 2.5, height: 2.5)
+                                }
+                            }
+                        }
+                    )
+                    .padding(.top, 8)
+            }
+            .overlay(alignment: .bottomLeading) {
+                // 喇叭格栅
+                HStack(spacing: 3) {
+                    ForEach(0 ..< 5, id: \.self) { _ in
+                        Capsule()
+                            .fill(Color.black.opacity(0.3))
+                            .frame(width: 2.2, height: 14)
+                    }
+                }
+                .padding(.leading, 11)
+                .padding(.bottom, 9)
+            }
+            .overlay(alignment: .bottomTrailing) {
+                Circle()
+                    .fill(Color.white.opacity(0.24))
+                    .frame(width: 16, height: 16)
+                    .overlay(
+                        Rectangle()
+                            .fill(Color.white.opacity(0.6))
+                            .frame(width: 1.3, height: 6)
+                            .offset(y: -3)
+                    )
+                    .padding([.bottom, .trailing], 9)
+            }
+            .shadow(color: Color.black.opacity(isDark ? 0.34 : 0.16), radius: 6, y: 4)
+    }
+
+    /// 沉浸歌词：左对齐真实大字行
+    private var immersiveLyricMotif: some View {
+        VStack(alignment: .leading, spacing: 4.5) {
+            Text("晚风吹过")
+                .font(.system(size: 16, weight: .heavy, design: .rounded))
+                .foregroundColor(ink)
+
+            Text("山与海之间")
+                .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                .foregroundColor(ink.opacity(0.5))
+
+            Text("也吹过我")
+                .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                .foregroundColor(ink.opacity(0.24))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.leading, 16)
+    }
+
+    /// 漫画对话：气泡真实台词 + 音符
+    private var mangaChatMotif: some View {
+        ZStack {
+            mangaDotTexture
+
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.white)
+                .frame(width: 90, height: 38)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(Color.black.opacity(isDark ? 0.5 : 0.85), lineWidth: 1.5)
+                )
+                .overlay(
+                    HStack(spacing: 5) {
+                        MonologueIcon(icon: .musicNote, size: 11, color: .black, lineWidth: 1.7)
+                        Text("一起听歌吗")
+                            .font(.system(size: 9.5, weight: .heavy, design: .rounded))
+                            .foregroundColor(.black)
+                    }
+                )
+                .overlay(alignment: .bottomLeading) {
+                    Triangle()
+                        .fill(Color.white)
+                        .frame(width: 10, height: 9)
+                        .rotationEffect(.degrees(180))
+                        .offset(x: 16, y: 8)
+                }
+
+            HeartShape()
+                .fill(Color(hex: "FFE16B"))
+                .frame(width: 15, height: 13)
+                .overlay(HeartShape().stroke(Color.black.opacity(isDark ? 0.55 : 0.85), lineWidth: 1.1))
+                .offset(x: 47, y: -24)
+        }
+    }
+
+    /// 民谣：拍立得 + 邮票 + 手写笺
+    private var folkMotif: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(Color.white.opacity(isDark ? 0.22 : 0.9))
+                .frame(width: 50, height: 60)
+                .rotationEffect(.degrees(-6))
+                .overlay(
+                    Rectangle()
+                        .fill(Color(hex: "B44A3B").opacity(0.16))
+                        .frame(width: 37, height: 35)
+                        .rotationEffect(.degrees(-6))
+                        .offset(x: -1, y: -5)
+                )
+                .shadow(color: Color.black.opacity(0.13), radius: 3, y: 2)
+                .offset(x: -18)
+
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .stroke(Color(hex: "B44A3B").opacity(0.65), lineWidth: 1)
+                .frame(width: 34, height: 20)
+                .overlay(
+                    Text("邮")
+                        .font(.system(size: 8, weight: .medium, design: .serif))
+                        .foregroundColor(Color(hex: "B44A3B").opacity(0.8))
+                )
+                .rotationEffect(.degrees(6))
+                .offset(x: 30, y: -15)
+
+            Text("晚风与信")
+                .font(.system(size: 9, weight: .semibold, design: .serif))
+                .italic()
+                .foregroundColor(ink.opacity(0.72))
+                .rotationEffect(.degrees(-3))
+                .offset(x: 28, y: 16)
+        }
+    }
+
+    /// 2048：四格拼块
+    private var game2048Motif: some View {
+        VStack(spacing: 4.5) {
+            HStack(spacing: 4.5) {
+                gameTile("2048", fill: Color(hex: "EDC22E"))
+                gameTile("8", fill: Color(hex: "F2B179"))
+            }
+            HStack(spacing: 4.5) {
+                gameTile("2", fill: Color(hex: "EEE4DA"), textColor: Color(hex: "776E65"))
+                gameTile("♪", fill: Color(hex: "CDC1B4"))
+            }
+        }
+        .padding(8)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color(hex: "A99B8E"))
+        )
+    }
+
+    // MARK: - 小件
+
+    private func aquaBubble(size: CGFloat, icon: MonologueIcon.IconType? = nil) -> some View {
+        Circle()
+            .fill(Color.white.opacity(isDark ? 0.15 : 0.74))
+            .frame(width: size, height: size)
+            .overlay(Circle().stroke(Color.white.opacity(isDark ? 0.2 : 0.55), lineWidth: 0.8))
+            .overlay {
+                if let icon {
+                    MonologueIcon(
+                        icon: icon,
+                        size: size * 0.36,
+                        color: isDark ? Color.white.opacity(0.75) : Color(hex: "2E86C1"),
+                        lineWidth: 1.6
+                    )
+                    .offset(x: 1)
+                }
+            }
+    }
+
+    private var cassetteReel: some View {
+        Circle()
+            .fill(Color.black.opacity(0.13))
+            .frame(width: 16, height: 16)
+            .overlay(Circle().stroke(Color.black.opacity(0.2), lineWidth: 1))
+            .overlay(Circle().fill(Color.black.opacity(0.4)).frame(width: 4.5, height: 4.5))
+    }
+
+    private var mangaDotTexture: some View {
+        Canvas { ctx, size in
+            let color = Color.black.opacity(isDark ? 0.12 : 0.08)
+            for x in stride(from: 3, through: size.width, by: 11) {
+                for y in stride(from: 3, through: size.height, by: 11) {
+                    ctx.fill(Path(ellipseIn: CGRect(x: x, y: y, width: 2, height: 2)), with: .color(color))
+                }
+            }
+        }
+    }
+
+    private func gameTile(_ text: String, fill: Color, textColor: Color = .white) -> some View {
+        RoundedRectangle(cornerRadius: 5, style: .continuous)
+            .fill(fill)
+            .frame(width: 31, height: 23)
+            .overlay(
+                Text(text)
+                    .font(.system(size: text.count > 2 ? 7.5 : 9.5, weight: .black, design: .rounded))
+                    .foregroundStyle(textColor)
+            )
     }
 
     @ViewBuilder
@@ -224,34 +875,6 @@ private struct PlayerThemeStaticPreview: View {
     }
 
     @ViewBuilder
-    private func previewContent(size: CGSize) -> some View {
-        switch theme {
-        case .classic:
-            if PetWhiteStyle.isActive {
-                pawcelainPreview(size: size)
-            } else {
-                classicPreview(size: size)
-            }
-        case .vinyl: vinylPreview(size: size)
-        case .lyricFocus: lyricFocusPreview(size: size)
-        case .card: cardPreview(size: size)
-        case .neumorphic: neumorphicPreview(size: size)
-        case .poster: posterPreview(size: size)
-        case .motoPager: motoPagerPreview(size: size)
-        case .typewriter: typewriterPreview(size: size)
-        case .pixel: pixelPreview(size: size)
-        case .aqua: aquaPreview(size: size)
-        case .breathing: breathingPreview(size: size)
-        case .cassette: cassettePreview(size: size)
-        case .radio: radioPreview(size: size)
-        case .immersiveLyric: immersiveLyricPreview(size: size)
-        case .mangaChat: mangaChatPreview(size: size)
-        case .folk: folkPreview(size: size)
-        case .game2048: game2048Preview(size: size)
-        }
-    }
-
-    @ViewBuilder
     private var pawcelainPreviewBackground: some View {
         ZStack {
             PetWhiteRootBackdrop()
@@ -268,608 +891,6 @@ private struct PlayerThemeStaticPreview: View {
         }
     }
 
-    @ViewBuilder
-    private func classicPreview(size: CGSize) -> some View {
-        if NeumorphicStyle.isActive {
-            neumorphicClassicPreview(size: size)
-        } else {
-            VStack(spacing: 12) {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(LinearGradient(colors: isDark ? [Color(hex: "444854"), Color(hex: "262A34")] : [Color.white, Color(hex: "DADDE4")], startPoint: .topLeading, endPoint: .bottomTrailing))
-                    .frame(width: 60, height: 60)
-                    .shadow(color: Color.black.opacity(isDark ? 0.28 : 0.08), radius: 6, y: 3)
-                    .overlay(MonologueIcon(icon: .musicNote, size: 22, color: muted))
-                
-                HStack(spacing: 5) {
-                    Circle().fill(ink.opacity(0.8)).frame(width: 6, height: 6)
-                    Capsule().fill(ink.opacity(0.24)).frame(width: 44, height: 4)
-                }
-            }
-        }
-    }
-
-    private func pawcelainPreview(size: CGSize) -> some View {
-        ZStack {
-            VStack(spacing: 12) {
-                HStack(spacing: 8) {
-                    PetWhiteIconBadge(icon: .musicNoteList, tint: PetWhiteStyle.butter, size: 30)
-                    VStack(alignment: .leading, spacing: 4) {
-                        RoundedRectangle(cornerRadius: 5, style: .continuous)
-                            .fill(PetWhiteStyle.ink)
-                            .frame(width: 50, height: 7)
-                        RoundedRectangle(cornerRadius: 5, style: .continuous)
-                            .fill(PetWhiteStyle.inkSoft.opacity(0.6))
-                            .frame(width: 32, height: 6)
-                    }
-                    Spacer(minLength: 0)
-                }
-                
-                HStack(spacing: 8) {
-                    PetWhiteMascotMark(kind: .cat, size: 28)
-                        .frame(width: 34, height: 34)
-                        .background(PetWhiteStyle.surfaceRaised, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    PetWhiteMascotMark(kind: .dog, size: 28)
-                        .frame(width: 34, height: 34)
-                        .background(PetWhiteStyle.surfaceRaised, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    Spacer()
-                }
-            }
-            .padding(12)
-            .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color.white.opacity(isDark ? 0.07 : 0.82))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .stroke(PetWhiteStyle.stroke.opacity(0.8), lineWidth: 1.2)
-                    )
-            )
-            .padding(10)
-        }
-    }
-
-    private func neumorphicClassicPreview(size: CGSize) -> some View {
-        let base = isDark ? Color(hex: "252A30") : Color(hex: "EEF2F4")
-        let raised = isDark ? Color(hex: "2D333A") : Color(hex: "F8FAFA")
-        let pressed = isDark ? Color(hex: "1B1F24") : Color(hex: "DDE3E7")
-        let accent = isDark ? Color(hex: "7AB9B0") : Color(hex: "4F8E86")
-
-        return VStack(spacing: 12) {
-            HStack(spacing: 8) {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(raised)
-                    .frame(width: 44, height: 44)
-                    .shadow(color: isDark ? Color.black.opacity(0.28) : Color.black.opacity(0.1), radius: 3, x: 2, y: 2)
-                    .shadow(color: isDark ? Color.white.opacity(0.035) : Color.white.opacity(0.82), radius: 3, x: -2, y: -2)
-                    .overlay(MonologueIcon(icon: .musicNote, size: 14, color: accent.opacity(0.86), lineWidth: 1.5))
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Capsule().fill(ink.opacity(0.8)).frame(width: 42, height: 4)
-                    Capsule().fill(pressed).frame(width: 50, height: 6)
-                }
-            }
-            
-            HStack(spacing: 8) {
-                neumorphicButton(base: raised, icon: .previous, size: 18)
-                neumorphicButton(base: accent.opacity(0.24), icon: .play, size: 24)
-                neumorphicButton(base: raised, icon: .next, size: 18)
-            }
-        }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(base.opacity(0.86))
-                .shadow(color: isDark ? Color.black.opacity(0.28) : Color.black.opacity(0.1), radius: 5, x: 3, y: 3)
-                .shadow(color: isDark ? Color.white.opacity(0.035) : Color.white.opacity(0.82), radius: 5, x: -3, y: -3)
-        )
-    }
-
-    private func vinylPreview(size: CGSize) -> some View {
-        ZStack {
-            ZStack {
-                Circle()
-                    .fill(RadialGradient(colors: [Color(hex: "0B0B0C"), Color(hex: "242424"), Color(hex: "060606")], center: .center, startRadius: 5, endRadius: 54))
-                    .frame(width: 104, height: 104)
-                    .shadow(color: Color.black.opacity(0.35), radius: 8, y: 4)
-                
-                ForEach([40, 64, 88], id: \.self) { diameter in
-                    Circle().stroke(Color.white.opacity(0.06), lineWidth: 0.7).frame(width: CGFloat(diameter), height: CGFloat(diameter))
-                }
-                Circle().fill(Color(hex: "D7B56D")).frame(width: 28, height: 28)
-                Circle().fill(Color.black.opacity(0.75)).frame(width: 6, height: 5)
-            }
-            .offset(x: -16, y: 6)
-
-            RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .fill(LinearGradient(colors: [Color.white.opacity(0.78), Color.gray.opacity(0.35)], startPoint: .top, endPoint: .bottom))
-                .frame(width: 4, height: 58)
-                .rotationEffect(.degrees(-20), anchor: .top)
-                .offset(x: 36, y: -18)
-        }
-    }
-
-    private func lyricFocusPreview(size: CGSize) -> some View {
-        VStack(spacing: 8) {
-            Capsule().fill(muted.opacity(0.18)).frame(width: 76, height: 4)
-            Text("Focus on lyrics")
-                .font(.system(size: 13, weight: .bold, design: .rounded))
-                .foregroundColor(ink)
-            Capsule().fill(muted.opacity(0.18)).frame(width: 96, height: 4)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(
-            RadialGradient(colors: [ink.opacity(0.04), .clear], center: .center, startRadius: 0, endRadius: 70)
-        )
-    }
-
-    private func cardPreview(size: CGSize) -> some View {
-        ZStack {
-            // Underlayer card
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(isDark ? Color.white.opacity(0.05) : Color.black.opacity(0.03))
-                .frame(width: 80, height: 72)
-                .rotationEffect(.degrees(-6))
-                .offset(x: -8, y: -4)
-                
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(isDark ? Color.white.opacity(0.12) : Color.white.opacity(0.85))
-                .frame(width: 84, height: 76)
-                .shadow(color: Color.black.opacity(isDark ? 0.22 : 0.08), radius: 8, x: 0, y: 5)
-                .overlay(
-                    Circle()
-                        .fill(LinearGradient(colors: [Color(hex: "FF7CA8"), Color(hex: "8B78FF")], startPoint: .topLeading, endPoint: .bottomTrailing))
-                        .frame(width: 38, height: 38)
-                )
-                .overlay(alignment: .bottom) {
-                    Capsule().fill(ink.opacity(0.24)).frame(width: 34, height: 4).padding(.bottom, 10)
-                }
-        }
-    }
-
-    private func neumorphicPreview(size: CGSize) -> some View {
-        let base = isDark ? Color(hex: "2B2D32") : Color(hex: "E7EBF2")
-        return ZStack {
-            Circle()
-                .fill(base)
-                .frame(width: 66, height: 66)
-                .shadow(color: isDark ? Color.black.opacity(0.4) : Color.black.opacity(0.12), radius: 6, x: 4, y: 4)
-                .shadow(color: isDark ? Color.white.opacity(0.05) : Color.white.opacity(0.86), radius: 6, x: -4, y: -4)
-                .overlay(
-                    Circle()
-                        .fill(
-                            RadialGradient(colors: [Color(hex: "6E8DA8").opacity(0.24), .clear], center: .center, startRadius: 0, endRadius: 33)
-                        )
-                )
-                .overlay(
-                    Circle()
-                        .stroke(Color(hex: "6E8DA8").opacity(0.42), lineWidth: 1.2)
-                        .frame(width: 48, height: 44)
-                )
-        }
-    }
-
-    private func posterPreview(size: CGSize) -> some View {
-        let red = Color(hex: "EF2A2A")
-        return VStack(alignment: .leading, spacing: 3) {
-            Spacer()
-            Text("MUSIC")
-                .font(.system(size: 26, weight: .black, design: .rounded))
-                .foregroundStyle(ink)
-                .tracking(-1)
-            Rectangle()
-                .fill(red)
-                .frame(height: 5)
-                .frame(width: 44)
-            Spacer()
-        }
-        .padding(.horizontal, 16)
-    }
-
-    private func motoPagerPreview(size: CGSize) -> some View {
-        RoundedRectangle(cornerRadius: 12, style: .continuous)
-            .fill(isDark ? Color(hex: "303323") : Color(hex: "D5D0A8"))
-            .frame(width: 100, height: 72)
-            .overlay(
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .fill(isDark ? Color(hex: "A8B47B").opacity(0.32) : Color(hex: "5F6D3A").opacity(0.22))
-                    .frame(width: 82, height: 32)
-                    .overlay(
-                        HStack(spacing: 5) {
-                            Circle().fill(ink.opacity(0.65)).frame(width: 8, height: 8)
-                            Capsule().fill(ink.opacity(0.38)).frame(width: 44, height: 4)
-                        }
-                    )
-            )
-            .overlay(alignment: .bottom) {
-                HStack(spacing: 6) {
-                    Circle().fill(ink.opacity(0.15)).frame(width: 8, height: 8)
-                    Circle().fill(ink.opacity(0.24)).frame(width: 11, height: 11)
-                    Circle().fill(ink.opacity(0.15)).frame(width: 8, height: 8)
-                }
-                .padding(.bottom, 8)
-            }
-    }
-
-    private func typewriterPreview(size: CGSize) -> some View {
-        VStack(spacing: 6) {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(isDark ? Color(hex: "E5D2B3") : Color(hex: "FFF7E9"))
-                .frame(width: 74, height: 46)
-                .overlay(
-                    VStack(alignment: .center, spacing: 4) {
-                        Text("A")
-                            .font(.system(size: 16, weight: .black, design: .serif))
-                            .foregroundColor(Color(hex: "2D241C"))
-                        Capsule().fill(Color(hex: "2D241C").opacity(0.18)).frame(width: 44, height: 2)
-                    }
-                )
-                .shadow(color: Color.black.opacity(0.14), radius: 4, y: 3)
-            
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(isDark ? Color(hex: "44372F") : Color(hex: "5B493D"))
-                .frame(width: 92, height: 18)
-                .overlay(
-                    HStack(spacing: 4) {
-                        ForEach(0..<4, id: \.self) { _ in
-                            Circle().fill(Color(hex: "E9DCC8")).frame(width: 6, height: 6)
-                        }
-                    }
-                )
-        }
-    }
-
-    private func pixelPreview(size: CGSize) -> some View {
-        let green = Color(hex: "30FF6A")
-        return ZStack {
-            pixelGrid(color: isDark ? green.opacity(0.08) : Color.black.opacity(0.04), step: 8)
-            
-            VStack(spacing: 8) {
-                HStack(spacing: 4) {
-                    Rectangle().fill(green).frame(width: 10, height: 10)
-                    Text("CRT")
-                        .font(.system(size: 12, weight: .bold, design: .monospaced))
-                        .foregroundStyle(green)
-                }
-                
-                HStack(alignment: .bottom, spacing: 2) {
-                    ForEach([12, 24, 16, 8, 18], id: \.self) { h in
-                        Rectangle().fill(green.opacity(h > 12 ? 0.85 : 0.44)).frame(width: 4, height: CGFloat(h))
-                    }
-                }
-            }
-        }
-    }
-
-    private func aquaPreview(size: CGSize) -> some View {
-        ZStack {
-            Circle()
-                .fill(RadialGradient(colors: [Color.white.opacity(isDark ? 0.35 : 0.64), Color(hex: "4BB6E0").opacity(0.12), .clear], center: .center, startRadius: 2, endRadius: 36))
-                .frame(width: 74, height: 74)
-            
-            HStack(spacing: 12) {
-                bubble(size: 14)
-                bubble(size: 26, icon: .play)
-                bubble(size: 14)
-            }
-        }
-    }
-
-    private func breathingPreview(size: CGSize) -> some View {
-        let cyan = Color(hex: "58D7FF")
-        let violet = Color(hex: "8F7BFF")
-        return ZStack {
-            Circle().fill(violet.opacity(0.15)).frame(width: 90, height: 90).blur(radius: 12)
-            Circle().stroke(cyan.opacity(0.28), lineWidth: 1.2).frame(width: 72, height: 72)
-            Circle()
-                .fill(LinearGradient(colors: [violet, cyan], startPoint: .topLeading, endPoint: .bottomTrailing))
-                .frame(width: 44, height: 44)
-                .overlay(MonologueIcon(icon: .waveform, size: 16, color: .white.opacity(0.9)))
-        }
-    }
-
-    private func cassettePreview(size: CGSize) -> some View {
-        let shell = isDark ? Color(hex: "2B2B31") : Color.white
-        let label = isDark ? Color(hex: "E5E0D2") : Color(hex: "F6F1E6")
-
-        return RoundedRectangle(cornerRadius: 10, style: .continuous)
-            .fill(shell)
-            .frame(width: 98, height: 68)
-            .overlay(
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(label)
-                    .frame(width: 80, height: 34)
-                    .overlay(
-                        HStack(spacing: 20) {
-                            tapeReel()
-                            tapeReel()
-                        }
-                    )
-            )
-            .overlay(alignment: .bottom) {
-                TrapezoidShape()
-                    .fill(Color.black.opacity(isDark ? 0.24 : 0.08))
-                    .frame(width: 48, height: 10)
-                    .padding(.bottom, 6)
-            }
-    }
-
-    private func radioPreview(size: CGSize) -> some View {
-        RoundedRectangle(cornerRadius: 14, style: .continuous)
-            .fill(isDark ? Color(hex: "312058") : Color(hex: "9272C8"))
-            .frame(width: 104, height: 76)
-            .overlay(alignment: .top) {
-                RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .fill(isDark ? Color(hex: "090711") : Color(hex: "1D1331"))
-                    .frame(width: 86, height: 18)
-                    .padding(.top, 8)
-                    .overlay {
-                        HStack(spacing: 3) {
-                            ForEach(0..<8, id: \.self) { index in
-                                Circle()
-                                    .fill(index < 5 ? Color(hex: "DCC8FF") : Color(hex: "DCC8FF").opacity(0.2))
-                                    .frame(width: 2.5, height: 2.5)
-                            }
-                        }
-                    }
-            }
-            .overlay(alignment: .bottom) {
-                HStack(spacing: 8) {
-                    speaker()
-                        .scaleEffect(0.85)
-                        .frame(width: 34, height: 34)
-                    Spacer()
-                    Circle().fill(Color.white.opacity(0.18)).frame(width: 18, height: 18)
-                }
-                .padding(.horizontal, 12)
-                .padding(.bottom, 8)
-            }
-    }
-
-    private func immersiveLyricPreview(size: CGSize) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Spacer()
-            Capsule().fill(ink).frame(width: 86, height: 10)
-            Capsule().fill(ink.opacity(0.55)).frame(width: 66, height: 6)
-            Spacer()
-        }
-        .padding(.horizontal, 14)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(
-            LinearGradient(colors: isDark ? [Color(hex: "191526"), Color(hex: "0B0A11")] : [Color(hex: "FAF7FF"), Color(hex: "ECE9FA")], startPoint: .top, endPoint: .bottom)
-        )
-    }
-
-    private func mangaChatPreview(size: CGSize) -> some View {
-        ZStack {
-            mangaDotTexture()
-            
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    mangaMark(fill: Color(hex: "FFE16B"))
-                    Spacer()
-                }
-                
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.white)
-                    .frame(width: 80, height: 32)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(Color.black.opacity(isDark ? 0.48 : 0.82), lineWidth: 1.5)
-                    )
-                    .overlay(
-                        HStack(spacing: 5) {
-                            MonologueIcon(icon: .musicNote, size: 12, color: .black)
-                            Capsule().fill(Color.black.opacity(0.18)).frame(width: 38, height: 4)
-                        }
-                    )
-            }
-            .padding(14)
-        }
-    }
-
-    private func folkPreview(size: CGSize) -> some View {
-        VStack(spacing: 12) {
-            HStack {
-                Spacer()
-                stamp()
-            }
-            
-            HStack(spacing: 10) {
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(Color.white.opacity(isDark ? 0.24 : 0.86))
-                    .frame(width: 32, height: 38)
-                    .rotationEffect(.degrees(-6))
-                    .overlay(
-                        Rectangle()
-                            .fill(Color(hex: "B44A3B").opacity(0.12))
-                            .frame(width: 24, height: 24)
-                            .offset(y: -4)
-                    )
-                    .shadow(color: Color.black.opacity(0.1), radius: 3)
-                
-                VStack(alignment: .leading, spacing: 6) {
-                    Capsule().fill(Color(hex: "B44A3B")).frame(width: 30, height: 3)
-                    Capsule().fill(ink.opacity(0.42)).frame(width: 52, height: 3)
-                }
-            }
-            Spacer()
-        }
-        .padding(14)
-    }
-
-    private func game2048Preview(size: CGSize) -> some View {
-        VStack(spacing: 4) {
-            HStack(spacing: 4) {
-                gameTile("2048", color: Color(hex: "EDC22E"), textColor: .white, wide: true)
-                gameTile("Mono", color: Color(hex: "F2B179"), textColor: .white, wide: true)
-            }
-            HStack(spacing: 4) {
-                gameTile("", color: Color(hex: "CDC1B4"), textColor: .white)
-                gameTile("", color: Color(hex: "CDC1B4"), textColor: .white)
-                gameTile("", color: Color(hex: "CDC1B4"), textColor: .white)
-                gameTile("", color: Color(hex: "CDC1B4"), textColor: .white)
-            }
-        }
-        .padding(10)
-        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color(hex: "A99B8E")))
-    }
-
-    private func lineStack(widths: [CGFloat], color: Color, mutedColor: Color) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            ForEach(Array(widths.enumerated()), id: \.offset) { index, width in
-                Capsule()
-                    .fill(index == 0 ? color.opacity(0.82) : mutedColor.opacity(0.6))
-                    .frame(width: width, height: index == 0 ? 4 : 3)
-            }
-        }
-    }
-
-    private func progressBar(width: CGFloat, progress: CGFloat, tint: Color, track: Color) -> some View {
-        ZStack(alignment: .leading) {
-            Capsule().fill(track).frame(width: width, height: 4)
-            Capsule().fill(tint).frame(width: width * progress, height: 4)
-            Circle().fill(tint).frame(width: 8, height: 8).offset(x: width * progress - 4)
-        }
-        .frame(width: width, height: 8)
-    }
-
-    private func controlsRow(tint: Color, muted: Color) -> some View {
-        HStack(spacing: 13) {
-            MonologueIcon(icon: .previous, size: 11, color: muted, lineWidth: 1.5)
-            Circle()
-                .fill(tint)
-                .frame(width: 24, height: 24)
-                .overlay(MonologueIcon(icon: .play, size: 10, color: isDark ? .black : .white, lineWidth: 1.7))
-            MonologueIcon(icon: .next, size: 11, color: muted, lineWidth: 1.5)
-        }
-    }
-
-    private func neumorphicButton(base: Color, icon: MonologueIcon.IconType, size: CGFloat) -> some View {
-        Circle()
-            .fill(base)
-            .frame(width: size, height: size)
-            .shadow(color: isDark ? Color.black.opacity(0.34) : Color.black.opacity(0.12), radius: 3, x: 2, y: 2)
-            .shadow(color: isDark ? Color.white.opacity(0.04) : Color.white.opacity(0.84), radius: 3, x: -2, y: -2)
-            .overlay(MonologueIcon(icon: icon, size: size * 0.38, color: muted, lineWidth: 1.4))
-    }
-
-    private func keyCap() -> some View {
-        RoundedRectangle(cornerRadius: 4, style: .continuous)
-            .fill(Color(hex: "E9DCC8"))
-            .frame(width: 12, height: 8)
-    }
-
-    private func pixelGrid(color: Color, step: CGFloat) -> some View {
-        Canvas { ctx, size in
-            for x in stride(from: 0, through: size.width, by: step) {
-                ctx.stroke(Path { path in
-                    path.move(to: CGPoint(x: x, y: 0))
-                    path.addLine(to: CGPoint(x: x, y: size.height))
-                }, with: .color(color), lineWidth: 0.6)
-            }
-            for y in stride(from: 0, through: size.height, by: step) {
-                ctx.stroke(Path { path in
-                    path.move(to: CGPoint(x: 0, y: y))
-                    path.addLine(to: CGPoint(x: size.width, y: y))
-                }, with: .color(color), lineWidth: 0.6)
-            }
-        }
-    }
-
-    private func pixelButton(icon: MonologueIcon.IconType, color: Color) -> some View {
-        ZStack {
-            Rectangle().fill(color.opacity(0.18)).frame(width: 18, height: 18)
-            MonologueIcon(icon: icon, size: 9, color: color, lineWidth: 1.4)
-        }
-    }
-
-    private func bubble(size: CGFloat, icon: MonologueIcon.IconType? = nil) -> some View {
-        Circle()
-            .fill(Color.white.opacity(isDark ? 0.14 : 0.72))
-            .frame(width: size, height: size)
-            .overlay(Circle().stroke(Color.white.opacity(isDark ? 0.16 : 0.52), lineWidth: 0.8))
-            .overlay {
-                if let icon {
-                    MonologueIcon(icon: icon, size: size * 0.38, color: isDark ? Color.white.opacity(0.72) : Color(hex: "2E86C1"), lineWidth: 1.5)
-                }
-            }
-    }
-
-    private func breathingDotOffset(index: Int) -> CGSize {
-        let fraction = Double(index) / 18.0
-        let angle = fraction * .pi * 2
-        return CGSize(width: cos(angle) * 36, height: sin(angle) * 29)
-    }
-
-    private func tapeReel() -> some View {
-        Circle()
-            .fill(Color.black.opacity(0.14))
-            .frame(width: 18, height: 18)
-            .overlay(Circle().stroke(Color.black.opacity(0.16), lineWidth: 1))
-            .overlay(Circle().fill(Color.black.opacity(0.35)).frame(width: 5, height: 5))
-    }
-
-    private func speaker() -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color.black.opacity(0.28))
-                .frame(width: 42, height: 42)
-            ForEach([18, 28, 38], id: \.self) { diameter in
-                Circle().stroke(Color.white.opacity(0.09), lineWidth: 1).frame(width: CGFloat(diameter), height: CGFloat(diameter))
-            }
-        }
-    }
-
-    private func mangaDotTexture() -> some View {
-        Canvas { ctx, size in
-            let color = Color.black.opacity(isDark ? 0.1 : 0.08)
-            for x in stride(from: 4, through: size.width, by: 12) {
-                for y in stride(from: 4, through: size.height, by: 12) {
-                    ctx.fill(Path(ellipseIn: CGRect(x: x, y: y, width: 2.2, height: 2.2)), with: .color(color))
-                }
-            }
-        }
-    }
-
-    private func mangaMark(fill: Color) -> some View {
-        HeartShape()
-            .fill(fill)
-            .frame(width: 16, height: 14)
-            .overlay(HeartShape().stroke(Color.black.opacity(isDark ? 0.55 : 0.85), lineWidth: 1.2))
-    }
-
-    private func speechBubble(width: CGFloat, fill: Color, tailLeading: Bool) -> some View {
-        RoundedRectangle(cornerRadius: 10, style: .continuous)
-            .fill(fill.opacity(isDark ? 0.18 : 0.92))
-            .frame(width: width, height: 24)
-            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.black.opacity(isDark ? 0.48 : 0.82), lineWidth: 1.2))
-            .overlay(alignment: tailLeading ? .bottomLeading : .bottomTrailing) {
-                Triangle()
-                    .fill(fill.opacity(isDark ? 0.18 : 0.92))
-                    .frame(width: 9, height: 7)
-                    .rotationEffect(.degrees(tailLeading ? -90 : 90))
-                    .offset(x: tailLeading ? 7 : -7, y: 4)
-            }
-            .overlay(lineStack(widths: [width * 0.48, width * 0.32], color: ink, mutedColor: muted))
-    }
-
-    private func stamp() -> some View {
-        RoundedRectangle(cornerRadius: 4, style: .continuous)
-            .stroke(Color(hex: "B44A3B").opacity(0.62), lineWidth: 1)
-            .frame(width: 34, height: 18)
-            .overlay(Capsule().fill(Color(hex: "B44A3B").opacity(0.7)).frame(width: 22, height: 2))
-            .rotationEffect(.degrees(-5))
-    }
-
-    private func gameTile(_ text: String, color: Color, textColor: Color, wide: Bool = false) -> some View {
-        RoundedRectangle(cornerRadius: 5, style: .continuous)
-            .fill(color)
-            .frame(width: wide ? 54 : 25, height: 25)
-            .overlay(
-                Text(text)
-                    .font(.system(size: text.count > 2 ? 6 : 9, weight: .black, design: .rounded))
-                    .foregroundStyle(textColor)
-            )
-    }
 }
 
 private struct TrapezoidShape: Shape {

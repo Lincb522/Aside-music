@@ -38,6 +38,8 @@ public enum QQMusicError: LocalizedError {
     case apiError(code: Int, message: String, errors: [String]?)
     /// 未登录
     case notLoggedIn
+    /// 请求参数无法编码为查询字符串
+    case invalidParameter(name: String)
 
     public var errorDescription: String? {
         switch self {
@@ -52,8 +54,16 @@ public enum QQMusicError: LocalizedError {
             return "[\(code)] \(message)\(detail.isEmpty ? "" : " - \(detail)")"
         case .notLoggedIn:
             return "未登录，请先扫码登录"
+        case .invalidParameter(let name):
+            return "请求参数无法编码: \(name)"
         }
     }
+}
+
+/// QQMusicApi 后端版本信息。
+public enum QQMusicAPIVersion {
+    /// 当前 SDK 对齐的服务端版本。
+    public static let backend = "0.6.9"
 }
 
 // MARK: - JSON 动态类型

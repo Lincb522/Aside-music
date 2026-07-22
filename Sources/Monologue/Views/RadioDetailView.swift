@@ -3,7 +3,7 @@ import SwiftUI
 /// 电台详情页面，展示电台信息和节目列表
 struct RadioDetailView: View {
     let radioId: Int
-    @State private var viewModel: RadioDetailViewModel
+    @StateObject private var viewModel: RadioDetailViewModel
     @ObservedObject private var player = PlayerManager.shared
     @ObservedObject private var subManager = SubscriptionManager.shared
     @ObservedObject private var settings = SettingsManager.shared
@@ -11,11 +11,18 @@ struct RadioDetailView: View {
     @State private var showRadioPlayer = false
     @State private var isSearchExpanded = false
     @State private var searchText = ""
+    @State private var scrollOffset: CGFloat = 0
+    @State private var showDescSheet = false
     @FocusState private var isSearchFieldFocused: Bool
 
     init(radioId: Int) {
         self.radioId = radioId
-        _viewModel = State(initialValue: RadioDetailViewModel(radioId: radioId))
+        _viewModel = StateObject(wrappedValue: RadioDetailViewModel(radioId: radioId))
+    }
+
+    /// aside 主题走歌手页式 Hero 头部
+    private var usesAsideHero: Bool {
+        !ThemedPageStyle.isActive
     }
 
     var body: some View {
@@ -38,17 +45,32 @@ struct RadioDetailView: View {
             } else {
                 ScrollView {
                     VStack(spacing: 0) {
-                        headerSection
+                        if usesAsideHero {
+                            asideHeaderSection
+                        } else {
+                            headerSection
+                                .monologuePageHeaderCollapse()
+                        }
                         programListSection
                     }
                     .padding(.bottom, 120)
                 }
                 .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
+            .monologueScrollOffset($scrollOffset)
+            .ignoresSafeArea(edges: usesAsideHero ? .top : [])
             }
         }
         .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
+        .monologueSheet(isPresented: $showDescSheet, preset: .standard) {
+            PlaylistDescSheet(
+                coverUrl: viewModel.radioDetail?.coverUrl,
+                title: viewModel.radioDetail?.name ?? "",
+                subtitle: viewModel.radioDetail?.dj?.nickname,
+                descriptionText: viewModel.radioDetail?.desc
+            )
+        }
         .onAppear {
             if viewModel.radioDetail == nil {
                 viewModel.fetchDetail()
@@ -88,12 +110,56 @@ struct RadioDetailView: View {
                 viewModel.fetchDetail()
             }
             .font(MangaStyle.isActive ? MangaStyle.labelFont(15, weight: .black) : (MujiStyle.isActive ? MujiStyle.labelFont(15, weight: .semibold) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(15, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(15, weight: .semibold) : .system(size: 15, weight: .medium, design: .rounded)))))
-            .foregroundColor(MangaStyle.isActive ? MangaStyle.strokeInk : (MujiStyle.isActive ? MujiStyle.onTint : (NeumorphicStyle.isActive ? Color(light: .white, dark: .black) : (SequoiaStyle.isActive ? SequoiaStyle.onAccent : .monologueIconForeground))))
+            .foregroundColor(MangaStyle.isActive ? ThemeColorCustomization.readableForegroundColor(on: MangaStyle.labelYellow, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk) : (MujiStyle.isActive ? MujiStyle.onTint : (NeumorphicStyle.isActive ? Color(light: .white, dark: .black) : (SequoiaStyle.isActive ? SequoiaStyle.onAccent : .monologueIconForeground))))
             .padding(.horizontal, 24)
             .padding(.vertical, 10)
-            .background(MangaStyle.isActive ? MangaStyle.labelYellow : (MujiStyle.isActive ? MujiStyle.clay : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : (SequoiaStyle.isActive ? SequoiaStyle.accent : Color.monologueIconBackground))), in: Capsule())
+            .background(
+                MangaStyle.isActive ? MangaStyle.labelYellow : (MujiStyle.isActive ? MujiStyle.clay : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : (SequoiaStyle.isActive ? SequoiaStyle.accent : Color.monologueIconBackground))),
+                in: MangaStyle.isActive ? AnyShape(RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)) : AnyShape(Capsule())
+            )
         }
         .padding(.horizontal, 40)
+    }
+
+    // MARK: - aside Hero 头部
+
+    private var asideHeaderSection: some View {
+        Group {
+            if let radio = viewModel.radioDetail {
+                AsideDetailHeroHeader(
+                    coverUrl: radio.coverUrl?.sized(800),
+                    title: radio.name,
+                    subtitle: radio.dj?.nickname,
+                    metaItems: asideHeroMetaItems(for: radio),
+                    descriptionText: radio.desc,
+                    onDescriptionTap: { showDescSheet = true },
+                    scrollOffset: scrollOffset,
+                    playAllTitle: String(localized: "radio_mode"),
+                    playAllDisabled: false,
+                    onPlayAll: { showRadioPlayer = true }
+                ) {
+                    SubscribeButton(
+                        isSubscribed: subManager.isRadioSubscribed(radio.id),
+                        action: { subManager.toggleRadioSubscription(radio) }
+                    )
+                }
+                .padding(.bottom, 20)
+            }
+        }
+    }
+
+    private func asideHeroMetaItems(for radio: RadioStation) -> [String] {
+        var items: [String] = []
+        if let count = radio.programCount {
+            items.append(String(format: String(localized: "radio_episode_count"), count))
+        }
+        if let subCount = radio.subCount, subCount > 0 {
+            items.append(String(format: String(localized: "radio_sub_count"), formatCount(subCount)))
+        }
+        if let category = radio.category, !category.isEmpty {
+            items.append(category)
+        }
+        return items
     }
 
     // MARK: - 电台头部信息
@@ -109,7 +175,7 @@ struct RadioDetailView: View {
                 .clipShape(RoundedRectangle(cornerRadius: radioCoverRadius, style: .continuous))
                 .overlay {
                     if MangaStyle.isActive {
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        RoundedRectangle(cornerRadius: radioCoverRadius, style: .continuous)
                             .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
                     } else if MujiStyle.isActive {
                         RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -127,9 +193,9 @@ struct RadioDetailView: View {
                 }
                 .background {
                     if MangaStyle.isActive {
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        RoundedRectangle(cornerRadius: radioCoverRadius, style: .continuous)
                             .fill(MangaStyle.strokeInk)
-                            .offset(x: 3, y: 3)
+                            .offset(x: MangaStyle.shadowOffset, y: MangaStyle.shadowOffset)
                     } else if NeumorphicStyle.isActive {
                         NeumorphicSurfaceBackground(cornerRadius: radioCoverRadius, elevated: true)
                     } else if SequoiaStyle.isActive {
@@ -248,7 +314,8 @@ struct RadioDetailView: View {
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
         .background {
             if MangaStyle.isActive && viewModel.radioDetail != nil {
-                MangaCardBackground(cornerRadius: 22, elevated: true, tint: MangaStyle.bubbleWhite)
+                // 电台详情页唯一焦点分格：保留厚墨框错版投影
+                MangaCardBackground(cornerRadius: MangaStyle.cardRadius + 4, elevated: true, tint: MangaStyle.bubbleWhite, poster: true)
                     .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                     .padding(.top, 8)
                     .padding(.bottom, 12)
@@ -277,7 +344,7 @@ struct RadioDetailView: View {
     }
 
     private var radioCoverRadius: CGFloat {
-        if MangaStyle.isActive { return 14 }
+        if MangaStyle.isActive { return MangaStyle.cardRadius }
         if MujiStyle.isActive { return 10 }
         if NeumorphicStyle.isActive { return 26 }
         if SequoiaStyle.isActive { return 24 }
@@ -354,9 +421,20 @@ struct RadioDetailView: View {
             if !viewModel.programs.isEmpty {
                 VStack(spacing: 0) {
                     HStack {
-                        Text("radio_program_list_title")
-                            .font(programListTitleFont)
-                            .foregroundColor(programListTitleColor)
+                        if usesAsideHero {
+                            HStack(spacing: 10) {
+                                Capsule()
+                                    .fill(Color.monologueAccent)
+                                    .frame(width: 4, height: 15)
+                                Text("radio_program_list_title")
+                                    .font(.rounded(size: 19, weight: .bold))
+                                    .foregroundColor(.monologueTextPrimary)
+                            }
+                        } else {
+                            Text("radio_program_list_title")
+                                .font(programListTitleFont)
+                                .foregroundColor(programListTitleColor)
+                        }
 
                         Spacer()
 
@@ -492,6 +570,7 @@ struct RadioDetailView: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
         if BentoStyle.isActive { return BentoStyle.tomato }
+        if usesAsideHero { return .monologueTextPrimary.opacity(0.78) }
         return .monologueTextSecondary
     }
 
@@ -500,6 +579,7 @@ struct RadioDetailView: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed.opacity(0.72) }
         if SequoiaStyle.isActive { return SequoiaStyle.materialList.opacity(0.84) }
         if BentoStyle.isActive { return BentoStyle.surface }
+        if usesAsideHero { return .clear }
         return Color.monologueSeparator.opacity(0.9)
     }
 
@@ -508,6 +588,7 @@ struct RadioDetailView: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.55) }
         if SequoiaStyle.isActive { return SequoiaStyle.separator.opacity(0.62) }
         if BentoStyle.isActive { return BentoStyle.hairline.opacity(0.58) }
+        if usesAsideHero { return Color.monologueSeparator.opacity(0.95) }
         return .clear
     }
 
@@ -545,6 +626,7 @@ struct RadioDetailView: View {
         if MujiStyle.isActive { return MujiStyle.surface.opacity(0.84) }
         if SequoiaStyle.isActive { return SequoiaStyle.materialList.opacity(0.84) }
         if BentoStyle.isActive { return BentoStyle.surfaceRaised }
+        if usesAsideHero { return Color.monologueGlassTint.opacity(0.4) }
         return Color.monologueSeparator.opacity(0.85)
     }
 
@@ -566,7 +648,88 @@ struct RadioDetailView: View {
         return false
     }
 
+    @ViewBuilder
     private func programRow(program: RadioProgram, index: Int) -> some View {
+        if usesAsideHero {
+            asideProgramRow(program: program, index: index)
+        } else {
+            legacyProgramRow(program: program, index: index)
+        }
+    }
+
+    // MARK: aside 节目行（编辑部风）
+
+    private func asideProgramRow(program: RadioProgram, index: Int) -> some View {
+        let isCurrentPlaying = isOwnContent && player.currentSong?.id == program.mainSong?.id && player.isPlaying
+        let episodeNumber = displayEpisodeNumber(for: index)
+
+        return VStack(spacing: 0) {
+            HStack(spacing: 14) {
+                Text(String(format: "%02d", episodeNumber))
+                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                    .foregroundColor(isCurrentPlaying ? .monologueAccent : .monologueTextSecondary.opacity(0.6))
+                    .frame(width: 26, alignment: .leading)
+
+                CachedAsyncImage(url: program.programCoverUrl) {
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .fill(Color.monologueGlassTint)
+                }
+                .frame(width: 46, height: 46)
+                .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .stroke(Color.monologueSeparator.opacity(0.9), lineWidth: 0.8)
+                )
+                .overlay {
+                    if isCurrentPlaying {
+                        RoundedRectangle(cornerRadius: 9, style: .continuous)
+                            .fill(Color.black.opacity(0.32))
+                        PlayingVisualizerView(isAnimating: player.isPlaying, color: .white)
+                            .frame(width: 14, height: 12)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(program.name ?? String(localized: "radio_unknown_program"))
+                        .font(.rounded(size: 14, weight: .semibold))
+                        .foregroundColor(isCurrentPlaying ? .monologueAccent : .monologueTextPrimary)
+                        .lineLimit(1)
+
+                    HStack(spacing: 10) {
+                        if !program.durationText.isEmpty {
+                            Text(program.durationText)
+                                .monospacedDigit()
+                        }
+                        if let listeners = program.listenerCount, listeners > 0 {
+                            Text(String(format: String(localized: "radio_play_count"), formatCount(listeners)))
+                        }
+                    }
+                    .font(.rounded(size: 11.5))
+                    .foregroundColor(.monologueTextSecondary.opacity(0.85))
+                }
+
+                Spacer(minLength: 8)
+
+                if program.mainSong != nil {
+                    MonologueIcon(icon: .playCircle, size: 21, color: .monologueTextSecondary.opacity(0.7), lineWidth: 1.3)
+                } else {
+                    Text("radio_not_playable")
+                        .font(.rounded(size: 11))
+                        .foregroundColor(.monologueTextSecondary.opacity(0.55))
+                }
+            }
+            .padding(.vertical, 11)
+
+            Rectangle()
+                .fill(Color.monologueSeparator.opacity(0.7))
+                .frame(height: 0.6)
+                .padding(.leading, 40)
+        }
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .contentShape(Rectangle())
+    }
+
+    private func legacyProgramRow(program: RadioProgram, index: Int) -> some View {
         let isCurrentPlaying = isOwnContent && player.currentSong?.id == program.mainSong?.id && player.isPlaying
         let episodeNumber = displayEpisodeNumber(for: index)
         let themedRow = MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive || BentoStyle.isActive
@@ -641,7 +804,18 @@ struct RadioDetailView: View {
         .padding(.vertical, themedRow ? 11 : 10)
         .background {
             if MujiStyle.isActive {
-                MujiPaperCardBackground(cornerRadius: 10)
+                // Muji：电台节目行以针脚收尾；当前播放行加水洗底
+                ZStack(alignment: .leading) {
+                    if isCurrentPlaying {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(MujiStyle.wash(MujiStyle.clay, strength: 1.1))
+                    } else {
+                        VStack {
+                            Spacer()
+                            MujiListDivider()
+                        }
+                    }
+                }
             } else if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: 18, elevated: isCurrentPlaying)
             } else if SequoiaStyle.isActive {

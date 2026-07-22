@@ -123,7 +123,7 @@ struct CassettePlayerLayout: View {
         .monologueSheet(isPresented: $showPlaylist, preset: .standard){
             PlaylistPopupView()
         }
-        .monologueSheet(isPresented: $showQualitySheet, preset: .compact){
+        .monologueSheet(isPresented: $showQualitySheet, preset: .standard){
             SoundQualitySheet(
                 currentQuality: player.soundQuality,
                 currentQQQuality: player.qqMusicQuality,
@@ -137,8 +137,8 @@ struct CassettePlayerLayout: View {
                 onSelectQishui: { info in player.switchQishuiQuality(info); showQualitySheet = false }
             )
         }
-        .monologueSheet(isPresented: $showEQSettings, preset: .large){
-            NavigationStack { EQSettingsView() }
+        .fullScreenCover(isPresented: $showEQSettings) {
+            NavigationStack { MonoAudioCenterView() }
         }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker){
             PlayerThemePickerSheet()
@@ -459,6 +459,16 @@ extension CassettePlayerLayout {
 
             Spacer()
 
+            Button(action: { ImmersiveModeController.shared.present() }) {
+                MonologueIcon(icon: .immersive, size: 20, color: textPrimary)
+                    .frame(width: 44, height: 44)
+                    .background(shellColor)
+                    .clipShape(Circle())
+                    .overlay(Circle().stroke(strokeColor, lineWidth: 1))
+                    .contentShape(Circle())
+            }
+            .buttonStyle(MonologueBouncingButtonStyle())
+
             Button(action: {
                 withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) { showMoreMenu.toggle() }
             }) {
@@ -483,7 +493,11 @@ extension CassettePlayerLayout {
     private var songInfoArea: some View {
         VStack(spacing: 8) {
             Text(player.currentSong?.name ?? "")
-                .font(.system(size: 24, weight: .bold, design: .rounded))
+                .monologuePlayerDisplayFont(
+                    size: 24,
+                    weight: .bold,
+                    fallback: .system(size: 24, weight: .bold, design: .rounded)
+                )
                 .foregroundColor(textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)

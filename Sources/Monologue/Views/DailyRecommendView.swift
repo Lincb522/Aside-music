@@ -33,9 +33,11 @@ struct DailyRecommendView: View {
             } else if NeumorphicStyle.isActive {
                 ThemeRenderBackdrop(theme: .neumorphic)
             } else if SignalStyle.isActive {
-                ThemeRenderBackdrop(theme: .signal)
+                ThemeRenderBackdrop(theme: .default)
             } else if BentoStyle.isActive {
                 BentoRootBackdrop()
+            } else if MinimalWhiteStyle.isActive {
+                MinimalWhiteRootBackdrop()
             } else {
                 ThemedPageBackground()
             }
@@ -84,7 +86,7 @@ struct DailyRecommendView: View {
         if viewModel.isLoading && viewModel.songs.isEmpty {
             scrollableDailyShell {
                 headerSection
-                MonologueLoadingView(text: "LOADING...")
+                MonologueLoadingView(text: MinimalWhiteStyle.isActive ? nil : "LOADING...")
                     .frame(maxWidth: .infinity)
                     .padding(.top, 72)
             }
@@ -113,54 +115,169 @@ struct DailyRecommendView: View {
 
     @ViewBuilder
     private var headerSection: some View {
-        if MangaStyle.isActive {
-            mangaHeaderSection
-        } else if PetWhiteStyle.isActive {
-            petWhiteHeaderSection
-        } else if NeumorphicStyle.isActive {
-            neumorphicHeaderSection
-        } else if SignalStyle.isActive {
-            signalHeaderSection
-        } else if MujiStyle.isActive {
-            mujiHeaderSection
-        } else if SequoiaStyle.isActive {
-            sequoiaHeaderSection
-        } else if CapsuleStyle.isActive {
-            capsuleHeaderSection
-        } else if BentoStyle.isActive {
-            bentoHeaderSection
-        } else {
-            defaultHeaderSection
+        Group {
+            if MinimalWhiteStyle.isActive {
+                minimalWhiteHeaderSection
+            } else if MangaStyle.isActive {
+                mangaHeaderSection
+            } else if PetWhiteStyle.isActive {
+                petWhiteHeaderSection
+            } else if NeumorphicStyle.isActive {
+                neumorphicHeaderSection
+            } else if SignalStyle.isActive {
+                signalHeaderSection
+            } else if MujiStyle.isActive {
+                mujiHeaderSection
+            } else if SequoiaStyle.isActive {
+                sequoiaHeaderSection
+            } else if CapsuleStyle.isActive {
+                capsuleHeaderSection
+            } else if BentoStyle.isActive {
+                bentoHeaderSection
+            } else {
+                defaultHeaderSection
+            }
         }
+        .monologuePageHeaderCollapse()
+    }
+
+    private var minimalWhiteHeaderSection: some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(alignment: .center, spacing: 16) {
+                    VStack(spacing: 0) {
+                        Text(dayString)
+                            .font(MinimalWhiteStyle.titleFont(36, weight: .semibold))
+                            .foregroundStyle(MinimalWhiteStyle.ink)
+                        Text("/ \(monthString)")
+                            .font(MinimalWhiteStyle.labelFont(12, weight: .regular))
+                            .foregroundStyle(MinimalWhiteStyle.inkMuted)
+                    }
+                    .frame(width: 82, height: 82)
+                    .background(
+                        MinimalWhiteSurfaceBackground(
+                            cornerRadius: 24,
+                            elevated: false,
+                            tint: MinimalWhiteStyle.controlGlassFill
+                        )
+                    )
+
+                    VStack(alignment: .leading, spacing: 9) {
+                        HStack(spacing: 8) {
+                            minimalWhiteDailyChip(text: String(localized: "daily_recommend"), icon: .sparkle)
+                            if !viewModel.songs.isEmpty {
+                                minimalWhiteDailyChip(text: "\(viewModel.songs.count) \(String(localized: "songs_unit"))", icon: .musicNoteList)
+                            }
+                        }
+
+                        Text(dailyHeaderTitle)
+                            .font(MinimalWhiteStyle.titleFont(24, weight: .semibold))
+                            .foregroundStyle(MinimalWhiteStyle.ink)
+                            .lineLimit(2)
+                    }
+
+                    Spacer(minLength: 0)
+                }
+
+                HStack(spacing: 10) {
+                    Button(action: toggleStyleMenu) {
+                        minimalWhiteDailyChip(text: dailyStyleChipTitle, icon: .sparkle)
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+
+                    Button(action: { viewModel.loadHistoryDates() }) {
+                        minimalWhiteDailyChip(text: NSLocalizedString("daily_history", comment: ""), icon: .history)
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+
+                    Spacer(minLength: 0)
+                }
+
+                if !viewModel.songs.isEmpty {
+                    Button(action: {
+                        if let first = viewModel.songs.first {
+                            PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                        }
+                    }) {
+                        HStack(spacing: 8) {
+                            MonologueIcon(icon: .play, size: 14, color: MinimalWhiteStyle.onAccent, lineWidth: 1.6)
+                            Text(String(localized: "artist_play_all"))
+                                .font(MinimalWhiteStyle.labelFont(14, weight: .semibold))
+                        }
+                        .foregroundStyle(MinimalWhiteStyle.onAccent)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(MinimalWhiteStyle.ink, in: Capsule(style: .continuous))
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+                }
+            }
+            .padding(18)
+            .background(
+                MinimalWhiteSurfaceBackground(
+                    cornerRadius: MinimalWhiteStyle.chromeRadius,
+                    elevated: true,
+                    tint: MinimalWhiteStyle.glassStrongFill
+                )
+            )
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, 16)
+            .padding(.bottom, viewModel.showStyleMenu ? 8 : 10)
+
+            attachedStylePanel
+        }
+    }
+
+    private func minimalWhiteDailyChip(text: String, icon: MonologueIcon.IconType) -> some View {
+        HStack(spacing: 6) {
+            MonologueIcon(icon: icon, size: 12, color: MinimalWhiteStyle.inkMuted, lineWidth: 1.5)
+            Text(text)
+                .font(MinimalWhiteStyle.labelFont(12, weight: .medium))
+                .lineLimit(1)
+        }
+        .foregroundStyle(MinimalWhiteStyle.inkMuted)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(MinimalWhiteCapsuleBackground())
     }
 
     private var petWhiteHeaderSection: some View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(alignment: .center, spacing: 14) {
-                    ZStack {
-                        PetWhiteSurfaceBackground(cornerRadius: 24, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.butter)
-                        VStack(spacing: 0) {
-                            Text(dayString)
-                                .font(PetWhiteStyle.titleFont(36, weight: .black))
-                                .foregroundStyle(PetWhiteStyle.ink)
-                            Text("/ \(monthString)")
-                                .font(PetWhiteStyle.labelFont(12, weight: .black))
-                                .foregroundStyle(PetWhiteStyle.inkSoft)
-                        }
+                    VStack(spacing: 0) {
+                        Text(dayString)
+                            .font(PetWhiteStyle.titleFont(34, weight: .bold))
+                            .foregroundStyle(PetWhiteStyle.ink)
+                        Text("/ \(monthString)")
+                            .font(PetWhiteStyle.labelFont(12, weight: .semibold))
+                            .foregroundStyle(PetWhiteStyle.inkSoft)
                     }
-                    .frame(width: 84, height: 84)
+                    .frame(width: 80, height: 80)
+                    .background(
+                        PetWhiteClayPuck(
+                            shape: RoundedRectangle(cornerRadius: PetWhiteStyle.compactRadius + 3, style: .continuous),
+                            tint: PetWhiteStyle.butter
+                        )
+                    )
 
                     VStack(alignment: .leading, spacing: 8) {
-                        HStack(spacing: 7) {
-                            PetWhitePill(text: String(localized: "daily_recommend"), tint: PetWhiteStyle.mint)
+                        HStack(spacing: 6) {
+                            Text(String(localized: "daily_recommend").uppercased())
+                                .font(PetWhiteStyle.labelFont(11, weight: .semibold))
+                                .tracking(1.2)
+                                .foregroundStyle(PetWhiteStyle.dogEar)
+
                             if !viewModel.songs.isEmpty {
-                                PetWhitePill(text: "\(viewModel.songs.count) \(String(localized: "songs_unit"))", tint: PetWhiteStyle.butter)
+                                Text("· \(viewModel.songs.count) \(String(localized: "songs_unit"))")
+                                    .font(PetWhiteStyle.labelFont(11))
+                                    .foregroundStyle(PetWhiteStyle.inkMuted)
                             }
                         }
+                        .lineLimit(1)
 
                         Text(dailyHeaderTitle)
-                            .font(PetWhiteStyle.titleFont(24, weight: .black))
+                            .font(PetWhiteStyle.titleFont(24, weight: .bold))
                             .foregroundStyle(PetWhiteStyle.ink)
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
@@ -193,7 +310,7 @@ struct DailyRecommendView: View {
                 }
             }
             .padding(16)
-            .background(PetWhiteSurfaceBackground(cornerRadius: 28, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
+            .background(PetWhiteSurfaceBackground(cornerRadius: PetWhiteStyle.cardRadius, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
             .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
             .padding(.top, 16)
             .padding(.bottom, viewModel.showStyleMenu ? 8 : 10)
@@ -204,12 +321,12 @@ struct DailyRecommendView: View {
 
     private func petWhiteDailyChip(text: String, icon: MonologueIcon.IconType, tint: Color, filled: Bool = false) -> some View {
         HStack(spacing: 6) {
-            PetWhitePackIcon(icon: icon, size: 13, visualScale: 1.06, fallbackColor: filled ? PetWhiteStyle.onAccent : PetWhiteStyle.stroke)
+            PetWhitePackIcon(icon: icon, size: 13, visualScale: 1.06, fallbackColor: filled ? PetWhiteStyle.onAccent : PetWhiteStyle.ink)
             Text(text)
                 .font(PetWhiteStyle.labelFont(12, weight: .black))
                 .lineLimit(1)
         }
-        .foregroundStyle(filled ? PetWhiteStyle.onAccent : PetWhiteStyle.stroke)
+        .foregroundStyle(filled ? PetWhiteStyle.onAccent : PetWhiteStyle.ink)
         .padding(.horizontal, 11)
         .padding(.vertical, 8)
         .background(filled ? tint : PetWhiteStyle.surfaceRaised, in: Capsule())
@@ -387,41 +504,65 @@ struct DailyRecommendView: View {
         }
     }
 
+    /// Muji：日刊头版 —— 眉题行 + 衬线大日期 + 竖排信息栏 + 文字链动作
     private var mujiHeaderSection: some View {
         VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 14) {
+                // 眉题行
+                HStack(alignment: .center, spacing: 8) {
+                    MujiDotMark()
+
+                    Text("DAILY PICKS")
+                        .font(MujiStyle.labelFont(10, weight: .semibold))
+                        .foregroundStyle(MujiStyle.clay)
+                        .tracking(2.2)
+                        .fixedSize()
+
+                    Spacer(minLength: 8)
+
+                    if !viewModel.songs.isEmpty {
+                        Text("\(viewModel.songs.count) \(String(localized: "songs_unit"))")
+                            .font(MujiStyle.labelFont(10, weight: .semibold))
+                            .foregroundStyle(MujiStyle.inkMuted)
+                            .tracking(1.1)
+                            .fixedSize()
+                    }
+                }
+
+                // 大日期 + 标题
                 HStack(alignment: .top, spacing: 16) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(dayString)
                             .font(MujiStyle.titleFont(52, weight: .light))
-                            .foregroundStyle(MujiStyle.ink)
+                            .foregroundStyle(MujiStyle.clay)
                             .lineLimit(1)
 
                         Text("/ \(monthString)")
                             .font(MujiStyle.labelFont(12, weight: .regular))
                             .foregroundStyle(MujiStyle.inkMuted)
                     }
-                    .frame(width: 72, alignment: .leading)
+                    .frame(width: 76, alignment: .leading)
+                    .padding(.trailing, 4)
+                    .background(alignment: .topLeading) {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(MujiStyle.wash(MujiStyle.clay, strength: 0.9))
+                            .frame(width: 86, height: 84)
+                            .offset(x: -6, y: -2)
+                    }
 
-                    Rectangle()
-                        .fill(MujiStyle.separator)
-                        .frame(width: 0.65, height: 68)
-                        .padding(.top, 4)
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(spacing: 7) {
-                            MujiPill(text: String(localized: "daily_recommend"), tint: MujiStyle.clay)
-                            if !viewModel.songs.isEmpty {
-                                MujiPill(text: "\(viewModel.songs.count) \(String(localized: "songs_unit"))", tint: MujiStyle.tea)
-                            }
-                        }
-
+                    VStack(alignment: .leading, spacing: 6) {
                         Text(dailyHeaderTitle)
-                            .font(MujiStyle.titleFont(24, weight: .regular))
+                            .font(MujiStyle.titleFont(23, weight: .regular))
                             .foregroundStyle(MujiStyle.ink)
+                            .lineSpacing(3)
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
+
+                        Text(String(localized: "daily_recommend"))
+                            .font(MujiStyle.labelFont(11, weight: .regular))
+                            .foregroundStyle(MujiStyle.inkSoft)
                     }
+                    .padding(.top, 6)
 
                     Spacer(minLength: 8)
 
@@ -432,19 +573,20 @@ struct DailyRecommendView: View {
                             }
                         }) {
                             MonologueIcon(icon: .play, size: 15, color: MujiStyle.onTint, lineWidth: 1.5)
-                                .frame(width: 42, height: 42)
-                                .background(MujiStyle.clay, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                                .frame(width: 44, height: 44)
+                                .background(Circle().fill(MujiStyle.clay))
                         }
                         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+                        .padding(.top, 8)
                     }
                 }
 
-                HStack(spacing: 9) {
+                // 文字链动作行
+                HStack(spacing: 22) {
                     Button(action: toggleStyleMenu) {
-                        mujiHeaderChip(
+                        mujiHeaderLink(
                             text: dailyStyleChipTitle,
-                            icon: .sparkle,
-                            tint: viewModel.showStyleMenu ? MujiStyle.clay : MujiStyle.indigo
+                            active: viewModel.showStyleMenu
                         )
                     }
                     .buttonStyle(.plain)
@@ -452,13 +594,14 @@ struct DailyRecommendView: View {
                     Button(action: {
                         viewModel.loadHistoryDates()
                     }) {
-                        mujiHeaderChip(
+                        mujiHeaderLink(
                             text: NSLocalizedString("daily_history", comment: ""),
-                            icon: .history,
-                            tint: MujiStyle.tea
+                            active: false
                         )
                     }
                     .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+
+                    Spacer(minLength: 0)
                 }
 
                 if !viewModel.showStyleMenu {
@@ -472,6 +615,21 @@ struct DailyRecommendView: View {
             attachedStylePanel
         }
         .background(mujiHeaderBackground)
+    }
+
+    /// 清新文字签：水洗胶囊，激活时着色
+    private func mujiHeaderLink(text: String, active: Bool) -> some View {
+        Text(text)
+            .font(MujiStyle.labelFont(12, weight: active ? .semibold : .regular))
+            .foregroundStyle(active ? MujiStyle.clay : MujiStyle.inkSoft)
+            .lineLimit(1)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(
+                Capsule()
+                    .fill(MujiStyle.wash(active ? MujiStyle.clay : MujiStyle.inkSoft, strength: active ? 1.3 : 0.7))
+            )
+            .contentShape(Capsule())
     }
 
     private var neumorphicHeaderSection: some View {
@@ -848,33 +1006,12 @@ struct DailyRecommendView: View {
         .padding(.bottom, 10)
     }
 
-    private func mujiHeaderChip(text: String, icon: MonologueIcon.IconType, tint: Color) -> some View {
-        HStack(spacing: 7) {
-            MonologueIcon(icon: icon, size: 13, color: tint, lineWidth: 1.5)
-            Text(text)
-                .font(MujiStyle.labelFont(12, weight: .regular))
-                .foregroundStyle(MujiStyle.ink)
-                .lineLimit(1)
-                .minimumScaleFactor(0.78)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(MujiStyle.surface.opacity(0.84), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(MujiStyle.hairline.opacity(0.48), lineWidth: 0.6)
-        )
-    }
-
     private var mangaHeaderSection: some View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .center, spacing: 13) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(dayString)
-                            .font(MangaStyle.titleFont(42, weight: .black))
-                            .foregroundColor(MangaStyle.ink)
-                            .lineLimit(1)
+                        MangaMisprintTitle(text: dayString, size: 42)
 
                         Text("/ \(monthString)")
                             .font(MangaStyle.labelFont(13, weight: .black))
@@ -907,11 +1044,10 @@ struct DailyRecommendView: View {
                                 PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
                             }
                         }) {
-                            MonologueIcon(icon: .play, size: 16, color: MangaStyle.strokeInk, lineWidth: 2)
+                            MonologueIcon(icon: .play, size: 16, color: MangaStyle.onStrokeInk, lineWidth: 2)
                                 .frame(width: 44, height: 44)
-                                .background(MangaStyle.labelYellow, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
-                                .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 1.6))
-                                .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(MangaStyle.strokeInk).offset(x: 2, y: 2))
+                                .background(MangaStyle.strokeInk, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                                .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(MangaStyle.accentPink).offset(x: 2.5, y: 2.5))
                         }
                         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
                     }
@@ -968,7 +1104,8 @@ struct DailyRecommendView: View {
 
     @ViewBuilder
     private var mangaHeaderBackground: some View {
-        MangaCardBackground(cornerRadius: 22, elevated: true, tint: MangaStyle.bubbleWhite)
+        // 每日推荐页唯一焦点分格：保留厚墨框错版投影
+        MangaCardBackground(cornerRadius: MangaStyle.cardRadius + 4, elevated: true, tint: MangaStyle.bubbleWhite, poster: true)
     }
 
     @ViewBuilder
@@ -981,19 +1118,30 @@ struct DailyRecommendView: View {
         SignalSurfaceBackground(cornerRadius: 30, elevated: true, fill: SignalStyle.paper)
     }
 
-    private func mangaHeaderChip(text: String, icon: MonologueIcon.IconType, tint: Color, foreground: Color = MangaStyle.ink) -> some View {
-        HStack(spacing: 7) {
-            MonologueIcon(icon: icon, size: 13, color: foreground, lineWidth: 1.7)
+    private func mangaHeaderChip(text: String, icon: MonologueIcon.IconType, tint: Color, foreground: Color? = nil) -> some View {
+        // 印刷角标:矩形 + 墨线 + 可读前景
+        let resolvedForeground = foreground ?? ThemeColorCustomization.readableForegroundColor(
+            on: tint,
+            light: MangaStyle.strokeInk,
+            dark: MangaStyle.onStrokeInk
+        )
+        return HStack(spacing: 7) {
+            MonologueIcon(icon: icon, size: 13, color: resolvedForeground, lineWidth: 1.7)
             Text(text)
                 .font(MangaStyle.labelFont(12, weight: .black))
-                .foregroundColor(foreground)
+                .foregroundColor(resolvedForeground)
                 .lineLimit(1)
                 .minimumScaleFactor(0.74)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .background(Capsule().fill(tint))
-        .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: 1.3))
+        .background(RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous).fill(tint))
+        .overlay(RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 1.3))
+        .background(
+            RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
+                .fill(MangaStyle.strokeInk)
+                .offset(x: 1.6, y: 1.6)
+        )
     }
 
     private var dailyFilteredSongs: [Song] { viewModel.songs.filtered(by: searchText) }
@@ -1004,6 +1152,8 @@ struct DailyRecommendView: View {
                 capsuleSongList
             } else if PetWhiteStyle.isActive {
                 petWhiteSongList
+            } else if MinimalWhiteStyle.isActive {
+                minimalWhiteSongList
             } else {
                 ScrollView {
                     VStack(spacing: 0) {
@@ -1025,6 +1175,38 @@ struct DailyRecommendView: View {
         .monologueSheet(isPresented: $showBatchAddToPlaylist, preset: .standard) {
             BatchAddToPlaylistSheet(songs: dailyFilteredSongs.filter { selectedSongIds.contains($0.id) })
         }
+    }
+
+    private var minimalWhiteSongList: some View {
+        ScrollView {
+            VStack(spacing: 14) {
+                headerSection
+
+                VStack(alignment: .leading, spacing: 12) {
+                    if !viewModel.showStyleMenu {
+                        dailySearchBar
+                            .padding(.horizontal, -DeviceLayout.viewHorizontalPadding)
+                    }
+
+                    dailyRows
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    MinimalWhiteSurfaceBackground(
+                        cornerRadius: MinimalWhiteStyle.chromeRadius,
+                        elevated: false,
+                        tint: MinimalWhiteStyle.glassFill
+                    )
+                )
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            }
+            .padding(.bottom, 120)
+            .animation(.spring(response: 0.34, dampingFraction: 0.9), value: viewModel.showStyleMenu)
+        }
+        .scrollIndicators(.hidden)
+        .themeRenderScrollLayer()
     }
 
     private var petWhiteSongList: some View {
@@ -1050,7 +1232,7 @@ struct DailyRecommendView: View {
                 .padding(.horizontal, 8)
                 .padding(.vertical, 12)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(PetWhiteSurfaceBackground(cornerRadius: 26, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.butter))
+                .background(PetWhiteSurfaceBackground(cornerRadius: PetWhiteStyle.cardRadius, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.butter))
                 .padding(.horizontal, DeviceLayout.isPad ? 8 : 4)
             }
             .padding(.bottom, 120)
@@ -1127,7 +1309,7 @@ struct DailyRecommendView: View {
                     } else {
                         PlayerManager.shared.play(song: song, in: dailyFilteredSongs)
                     }
-                }, horizontalPadding: PetWhiteStyle.isActive ? CGFloat(0) : nil)
+                }, horizontalPadding: (PetWhiteStyle.isActive || MinimalWhiteStyle.isActive) ? CGFloat(0) : nil)
             }
         }
     }
@@ -1153,12 +1335,14 @@ struct DailyRecommendView: View {
                 SignalIconBadge(icon: .warning, tint: SignalStyle.rust, size: 56)
             } else if SequoiaStyle.isActive {
                 SequoiaIconBadge(icon: .warning, tint: SequoiaStyle.red, size: 56)
+            } else if MinimalWhiteStyle.isActive {
+                MinimalWhiteIconBadge(icon: .warning, size: 56)
             } else {
                 MonologueIcon(icon: .warning, size: 48, color: .monologueTextSecondary)
             }
             Text(msg)
-                .font(SignalStyle.isActive ? SignalStyle.labelFont(14, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(14, weight: .medium) : .body)))
-                .foregroundColor(SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)))
+                .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(14, weight: .medium) : (SignalStyle.isActive ? SignalStyle.labelFont(14, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(14, weight: .medium) : .body))))
+                .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary))))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
             Button("Retry") {
@@ -1171,9 +1355,15 @@ struct DailyRecommendView: View {
         .background {
             if SequoiaStyle.isActive {
                 SequoiaSurfaceBackground(cornerRadius: 22, elevated: true, role: .chrome)
+            } else if MinimalWhiteStyle.isActive {
+                MinimalWhiteSurfaceBackground(
+                    cornerRadius: MinimalWhiteStyle.cardRadius,
+                    elevated: false,
+                    tint: MinimalWhiteStyle.glassFill
+                )
             }
         }
-        .padding(.horizontal, SequoiaStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
+        .padding(.horizontal, (SequoiaStyle.isActive || MinimalWhiteStyle.isActive) ? DeviceLayout.viewHorizontalPadding : 0)
         .padding(.top, 72)
     }
 
@@ -1276,7 +1466,9 @@ struct DailyHistoryView: View {
                 if NeumorphicStyle.isActive {
                     ThemeRenderBackdrop(theme: .neumorphic)
                 } else if SignalStyle.isActive {
-                    ThemeRenderBackdrop(theme: .signal)
+                    ThemeRenderBackdrop(theme: .default)
+                } else if MinimalWhiteStyle.isActive {
+                    MinimalWhiteRootBackdrop()
                 } else {
                     ThemedPageBackground()
                 }
@@ -1290,7 +1482,7 @@ struct DailyHistoryView: View {
 
                 if isLoading {
                     Spacer()
-                    MonologueLoadingView(text: "LOADING")
+                    MonologueLoadingView(text: MinimalWhiteStyle.isActive ? nil : "LOADING")
                     Spacer()
                 } else if songs.isEmpty {
                     emptyState
@@ -1312,13 +1504,15 @@ struct DailyHistoryView: View {
     private var headerSection: some View {
         HStack {
             Button(action: { dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss) }) {
-                MonologueIcon(icon: .close, size: 20, color: MujiStyle.isActive ? MujiStyle.inkSoft : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : Theme.text)))
+                MonologueIcon(icon: .close, size: 20, color: MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : (MujiStyle.isActive ? MujiStyle.inkSoft : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : Theme.text))))
                     .padding(10)
                     .background {
                         if NeumorphicStyle.isActive {
                             NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, lightweight: true)
                         } else if SignalStyle.isActive {
                             SignalSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, fill: SignalStyle.controlPressed)
+                        } else if MinimalWhiteStyle.isActive {
+                            MinimalWhiteCircleBackground(elevated: false)
                         } else {
                             Circle().fill(MujiStyle.isActive ? MujiStyle.surfaceRaised : Color.monologueGlassTint.opacity(0.6))
                         }
@@ -1330,12 +1524,14 @@ struct DailyHistoryView: View {
 
             VStack(spacing: 2) {
                 Text(LocalizedStringKey("daily_history_title"))
-                    .font(MujiStyle.isActive ? MujiStyle.titleFont(19, weight: .regular) : (SignalStyle.isActive ? SignalStyle.titleFont(19, weight: .bold) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(19, weight: .semibold) : .system(size: 18, weight: .bold, design: .rounded))))
-                    .foregroundColor(MujiStyle.isActive ? MujiStyle.ink : (SignalStyle.isActive ? SignalStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : Theme.text)))
+                    .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.titleFont(18, weight: .semibold) : (MujiStyle.isActive ? MujiStyle.titleFont(19, weight: .regular) : (SignalStyle.isActive ? SignalStyle.titleFont(19, weight: .bold) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(19, weight: .semibold) : .system(size: 18, weight: .bold, design: .rounded)))))
+                    .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : (SignalStyle.isActive ? SignalStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : Theme.text))))
 
-                Text(LocalizedStringKey("daily_history_subtitle"))
-                    .font(MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : (SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, weight: .medium, design: .rounded))))
-                    .foregroundColor(MujiStyle.isActive ? MujiStyle.inkSoft : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : Theme.secondaryText)))
+                if !MinimalWhiteStyle.isActive {
+                    Text(LocalizedStringKey("daily_history_subtitle"))
+                        .font(MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : (SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .system(size: 12, weight: .medium, design: .rounded))))
+                        .foregroundColor(MujiStyle.isActive ? MujiStyle.inkSoft : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : Theme.secondaryText)))
+                }
             }
 
             Spacer()
@@ -1352,6 +1548,16 @@ struct DailyHistoryView: View {
                         NeumorphicPlayPill(title: String(localized: "artist_play_all"), tint: NeumorphicStyle.accent)
                     } else if SignalStyle.isActive {
                         SignalPlayPill(title: String(localized: "artist_play_all"))
+                    } else if MinimalWhiteStyle.isActive {
+                        HStack(spacing: 8) {
+                            MonologueIcon(icon: .play, size: 14, color: MinimalWhiteStyle.onAccent)
+                            Text(LocalizedStringKey("artist_play_all"))
+                                .font(MinimalWhiteStyle.labelFont(13, weight: .semibold))
+                                .foregroundColor(MinimalWhiteStyle.onAccent)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(MinimalWhiteStyle.ink, in: Capsule(style: .continuous))
                     } else {
                         HStack(spacing: 8) {
                             MonologueIcon(icon: .play, size: 14, color: .monologueIconForeground)
@@ -1402,8 +1608,8 @@ struct DailyHistoryView: View {
             }
         }) {
             Text(displayDate)
-                .font(MujiStyle.isActive ? MujiStyle.labelFont(14, weight: isSelected ? .semibold : .regular) : (SignalStyle.isActive ? SignalStyle.labelFont(14, weight: isSelected ? .bold : .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: isSelected ? .semibold : .medium) : .system(size: 14, weight: isSelected ? .bold : .medium, design: .rounded))))
-                .foregroundColor(MujiStyle.isActive ? (isSelected ? MujiStyle.onTint : MujiStyle.ink) : (SignalStyle.isActive ? (isSelected ? SignalStyle.onAccent : SignalStyle.inkSoft) : (NeumorphicStyle.isActive ? (isSelected ? NeumorphicStyle.accent : NeumorphicStyle.inkSoft) : (isSelected ? .monologueIconForeground : .monologueTextPrimary))))
+                .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(14, weight: isSelected ? .semibold : .regular) : (MujiStyle.isActive ? MujiStyle.labelFont(14, weight: isSelected ? .semibold : .regular) : (SignalStyle.isActive ? SignalStyle.labelFont(14, weight: isSelected ? .bold : .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: isSelected ? .semibold : .medium) : .system(size: 14, weight: isSelected ? .bold : .medium, design: .rounded)))))
+                .foregroundColor(MinimalWhiteStyle.isActive ? (isSelected ? MinimalWhiteStyle.ink : MinimalWhiteStyle.inkMuted) : (MujiStyle.isActive ? (isSelected ? MujiStyle.onTint : MujiStyle.ink) : (SignalStyle.isActive ? (isSelected ? SignalStyle.onAccent : SignalStyle.inkSoft) : (NeumorphicStyle.isActive ? (isSelected ? NeumorphicStyle.accent : NeumorphicStyle.inkSoft) : (isSelected ? .monologueIconForeground : .monologueTextPrimary)))))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
                 .background(dateButtonBackground(isSelected: isSelected))
@@ -1413,7 +1619,9 @@ struct DailyHistoryView: View {
 
     @ViewBuilder
     private func dateButtonBackground(isSelected: Bool) -> some View {
-        if NeumorphicStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            MinimalWhiteCapsuleBackground(selected: isSelected)
+        } else if NeumorphicStyle.isActive {
             NeumorphicSurfaceBackground(
                 cornerRadius: 17,
                 elevated: isSelected,
@@ -1428,12 +1636,15 @@ struct DailyHistoryView: View {
                         .stroke(isSelected ? Color.white.opacity(0.2) : SignalStyle.separator.opacity(0.75), lineWidth: 0.8)
                 )
                 .shadow(color: isSelected ? SignalStyle.accent.opacity(0.18) : .clear, radius: 12, x: 0, y: 7)
+        } else if MujiStyle.isActive {
+            Capsule()
+                .fill(isSelected ? AnyShapeStyle(MujiStyle.clay) : AnyShapeStyle(MujiStyle.wash(MujiStyle.clay)))
         } else {
             Capsule()
-                .fill(MujiStyle.isActive ? (isSelected ? MujiStyle.clay : MujiStyle.surfaceRaised) : (isSelected ? Color.monologueIconBackground.opacity(0.85) : Color.monologueGlassTint))
+                .fill(isSelected ? Color.monologueIconBackground.opacity(0.85) : Color.monologueGlassTint)
                 .overlay(
                     Capsule()
-                        .stroke(MujiStyle.isActive ? MujiStyle.hairline.opacity(isSelected ? 0 : 0.5) : Color.monologueSeparator, lineWidth: isSelected ? 0 : 1)
+                        .stroke(Color.monologueSeparator, lineWidth: isSelected ? 0 : 1)
                 )
         }
     }
@@ -1448,16 +1659,29 @@ struct DailyHistoryView: View {
                 NeumorphicIconBadge(icon: .clock, tint: NeumorphicStyle.warm, size: 56)
             } else if SignalStyle.isActive {
                 SignalIconBadge(icon: .clock, tint: SignalStyle.amber, size: 56)
+            } else if MinimalWhiteStyle.isActive {
+                MinimalWhiteIconBadge(icon: .clock, size: 56)
             } else {
                 MonologueIcon(icon: .clock, size: 48, color: .monologueTextSecondary.opacity(0.5))
             }
 
             Text(LocalizedStringKey("daily_select_date"))
-                .font(SignalStyle.isActive ? SignalStyle.labelFont(15, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(15, weight: .medium) : .system(size: 16, weight: .medium, design: .rounded)))
-                .foregroundColor(SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary))
+                .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(14, weight: .medium) : (SignalStyle.isActive ? SignalStyle.labelFont(15, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(15, weight: .medium) : .system(size: 16, weight: .medium, design: .rounded))))
+                .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)))
 
             Spacer()
         }
+        .frame(maxWidth: .infinity)
+        .background {
+            if MinimalWhiteStyle.isActive {
+                MinimalWhiteSurfaceBackground(
+                    cornerRadius: MinimalWhiteStyle.cardRadius,
+                    elevated: false,
+                    tint: MinimalWhiteStyle.glassFill
+                )
+            }
+        }
+        .padding(.horizontal, MinimalWhiteStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
     }
 
     private var songList: some View {

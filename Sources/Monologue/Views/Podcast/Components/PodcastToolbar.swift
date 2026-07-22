@@ -7,8 +7,12 @@ struct PodcastToolbar: View {
     var onTimerTap: () -> Void
     var onPlaylistTap: () -> Void
 
+    private var isAside: Bool {
+        !ThemedPageStyle.isActive
+    }
+
     var body: some View {
-        HStack(spacing: 24) {
+        HStack(spacing: isAside ? 14 : 24) {
             toolButton(label: model.speedText, icon: nil, action: onSpeedTap)
             toolButton(label: model.timerText, icon: .clock, action: onTimerTap)
             toolButton(label: nil, icon: .list, action: onPlaylistTap)
@@ -20,19 +24,28 @@ struct PodcastToolbar: View {
         Button(action: action) {
             HStack(spacing: 5) {
                 if let icon {
-                    MonologueIcon(icon: icon, size: 16, color: .monologueTextSecondary, lineWidth: 1.4)
+                    MonologueIcon(icon: icon, size: isAside ? 13 : 16, color: isAside ? .monologueTextPrimary.opacity(0.8) : .monologueTextSecondary, lineWidth: 1.4)
                 }
                 if let label {
                     Text(label)
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
-                        .foregroundColor(.monologueTextSecondary)
+                        .font(isAside ? .rounded(size: 12, weight: .semibold) : .system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundColor(isAside ? .monologueTextPrimary.opacity(0.8) : .monologueTextSecondary)
                         .monospacedDigit()
                 }
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .background(Color.monologueGlassTint.opacity(0.5))
-            .clipShape(Capsule())
+            .background {
+                if !isAside {
+                    Capsule().fill(Color.monologueGlassTint.opacity(0.5))
+                }
+            }
+            .overlay {
+                if isAside {
+                    Capsule().stroke(Color.monologueSeparator.opacity(0.95), lineWidth: 0.8)
+                }
+            }
+            .contentShape(Capsule())
         }
         .buttonStyle(MonologueBouncingButtonStyle())
     }

@@ -71,6 +71,11 @@ class SearchViewModel: ObservableObject {
     private var isFetchingMoreQishui = false
     private var qishuiTotalCountingTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
+    private var searchCancellables = Set<AnyCancellable>()
+    private var suggestionCancellable: AnyCancellable?
+    private var neteaseRequestID = 0
+    private var qqRequestID = 0
+    private var qishuiRequestID = 0
     private let apiService = APIService.shared
     private let cacheManager = OptimizedCacheManager.shared
 
@@ -120,6 +125,12 @@ class SearchViewModel: ObservableObject {
     private func resetState() {
         qishuiTotalCountingTask?.cancel()
         qishuiTotalCountingTask = nil
+        suggestionCancellable?.cancel()
+        suggestionCancellable = nil
+        searchCancellables.removeAll()
+        neteaseRequestID += 1
+        qqRequestID += 1
+        qishuiRequestID += 1
         neteaseResults = []
         neteaseArtistResults = []
         neteasePlaylistResults = []
@@ -137,6 +148,7 @@ class SearchViewModel: ObservableObject {
         suggestions = []
         hasSearched = false
         activeSearchKeyword = ""
+        lastSearchedKeyword = nil
         showSuggestions = false
         expandedSource = nil
         multimatchResult = nil
@@ -146,6 +158,34 @@ class SearchViewModel: ObservableObject {
         neteaseCanLoadMore = true
         qqCanLoadMore = true
         qishuiCanLoadMore = true
+        isNeteaseLoading = false
+        isQQLoading = false
+        isQishuiLoading = false
+        isFetchingMoreNetease = false
+        isFetchingMoreQQ = false
+        isFetchingMoreQishui = false
+    }
+
+    private func resetResultsForNewKeyword() {
+        searchCancellables.removeAll()
+        neteaseResults = []
+        neteaseArtistResults = []
+        neteasePlaylistResults = []
+        neteaseAlbumResults = []
+        neteaseMVResults = []
+        qqResults = []
+        qqArtistResults = []
+        qqPlaylistResults = []
+        qqAlbumResults = []
+        qqMVResults = []
+        qishuiResults = []
+        multimatchResult = nil
+        isNeteaseLoading = false
+        isQQLoading = false
+        isQishuiLoading = false
+        isFetchingMoreNetease = false
+        isFetchingMoreQQ = false
+        isFetchingMoreQishui = false
     }
     
     func loadSearchHistory() {
@@ -173,12 +213,28 @@ class SearchViewModel: ObservableObject {
     }
     
     func fetchSuggestions(keyword: String) {
-        self.showSuggestions = true
-        apiService.fetchSearchSuggestions(keyword: keyword)
+        let keyword = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !keyword.isEmpty else { return }
+
+        suggestionCancellable?.cancel()
+        showSuggestions = true
+        suggestionCancellable = apiService.fetchSearchSuggestions(keyword: keyword)
+            .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] suggestions in
-                self?.suggestions = suggestions
+                guard let self,
+                      self.query.trimmingCharacters(in: .whitespacesAndNewlines) == keyword else { return }
+                self.suggestions = suggestions
             })
-            .store(in: &cancellables)
+    }
+
+    func beginSearchEditing() {
+        let typedKeyword = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        lastSearchedKeyword = nil
+        if hasSearched, typedKeyword == activeSearchKeyword {
+            query = ""
+        }
+        showSuggestions = false
+        suggestions = []
     }
     
     func performSearch(keyword: String) {
@@ -186,6 +242,9 @@ class SearchViewModel: ObservableObject {
         guard !keyword.isEmpty else { return }
         qishuiTotalCountingTask?.cancel()
         qishuiTotalCountingTask = nil
+        suggestionCancellable?.cancel()
+        suggestionCancellable = nil
+        resetResultsForNewKeyword()
         lastSearchedKeyword = keyword
         showSuggestions = false
         suggestions = []
@@ -218,14 +277,15 @@ class SearchViewModel: ObservableObject {
         apiService.fetchSearchMultimatch(keywords: keyword)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] result in
+                guard let self, self.activeSearchKeyword == keyword else { return }
                 // 只有至少有一个匹配结果时才显示
                 if result.artist != nil || result.album != nil || result.playlist != nil {
-                    self?.multimatchResult = result
+                    self.multimatchResult = result
                 } else {
-                    self?.multimatchResult = nil
+                    self.multimatchResult = nil
                 }
             })
-            .store(in: &cancellables)
+            .store(in: &searchCancellables)
     }
     
     /// 切换搜索类型时重新搜索
@@ -292,8 +352,23 @@ class SearchViewModel: ObservableObject {
     }
 
     // MARK: - ncm搜索
+
+    private func isCurrentNeteaseRequest(_ requestID: Int, keyword: String) -> Bool {
+        neteaseRequestID == requestID && activeSearchKeyword == keyword
+    }
+
+    private func isCurrentQQRequest(_ requestID: Int, keyword: String) -> Bool {
+        qqRequestID == requestID && activeSearchKeyword == keyword
+    }
+
+    private func isCurrentQishuiRequest(_ requestID: Int, keyword: String) -> Bool {
+        qishuiRequestID == requestID && activeSearchKeyword == keyword
+    }
     
     private func executeNeteaseSearch(keyword: String, offset: Int, isLoadMore: Bool) {
+        neteaseRequestID += 1
+        let requestID = neteaseRequestID
+        if !isLoadMore { isFetchingMoreNetease = false }
         isNeteaseLoading = !isLoadMore
         
         switch currentTab {
@@ -301,70 +376,79 @@ class SearchViewModel: ObservableObject {
             apiService.searchSongsWithTotal(keyword: keyword, offset: offset)
                 .receive(on: DispatchQueue.main)
                 .sink(receiveCompletion: { [weak self] _ in
-                    self?.isNeteaseLoading = false
-                    if isLoadMore { self?.isFetchingMoreNetease = false }
+                    guard let self, self.isCurrentNeteaseRequest(requestID, keyword: keyword) else { return }
+                    self.isNeteaseLoading = false
+                    if isLoadMore { self.isFetchingMoreNetease = false }
                 }, receiveValue: { [weak self] result in
-                    guard let self = self else { return }
+                    guard let self, self.isCurrentNeteaseRequest(requestID, keyword: keyword) else { return }
+                    SongArtworkFallbackRegistry.shared.register(result.songs)
                     if let total = result.total {
                         self.neteaseSongTotal = total
                     }
                     self.handleNeteasePagination(newItems: result.songs, existing: &self.neteaseResults, isLoadMore: isLoadMore)
                 })
-                .store(in: &cancellables)
+                .store(in: &searchCancellables)
             
         case .artists:
             apiService.searchArtists(keyword: keyword, limit: 30, offset: offset)
                 .receive(on: DispatchQueue.main)
                 .sink(receiveCompletion: { [weak self] _ in
-                    self?.isNeteaseLoading = false
-                    if isLoadMore { self?.isFetchingMoreNetease = false }
+                    guard let self, self.isCurrentNeteaseRequest(requestID, keyword: keyword) else { return }
+                    self.isNeteaseLoading = false
+                    if isLoadMore { self.isFetchingMoreNetease = false }
                 }, receiveValue: { [weak self] artists in
-                    guard let self = self else { return }
+                    guard let self, self.isCurrentNeteaseRequest(requestID, keyword: keyword) else { return }
                     self.handleNeteasePagination(newItems: artists, existing: &self.neteaseArtistResults, isLoadMore: isLoadMore)
                 })
-                .store(in: &cancellables)
+                .store(in: &searchCancellables)
             
         case .playlists:
             apiService.searchPlaylists(keyword: keyword, limit: 30, offset: offset)
                 .receive(on: DispatchQueue.main)
                 .sink(receiveCompletion: { [weak self] _ in
-                    self?.isNeteaseLoading = false
-                    if isLoadMore { self?.isFetchingMoreNetease = false }
+                    guard let self, self.isCurrentNeteaseRequest(requestID, keyword: keyword) else { return }
+                    self.isNeteaseLoading = false
+                    if isLoadMore { self.isFetchingMoreNetease = false }
                 }, receiveValue: { [weak self] playlists in
-                    guard let self = self else { return }
+                    guard let self, self.isCurrentNeteaseRequest(requestID, keyword: keyword) else { return }
                     self.handleNeteasePagination(newItems: playlists, existing: &self.neteasePlaylistResults, isLoadMore: isLoadMore)
                 })
-                .store(in: &cancellables)
+                .store(in: &searchCancellables)
             
         case .albums:
             apiService.searchAlbums(keyword: keyword, limit: 30, offset: offset)
                 .receive(on: DispatchQueue.main)
                 .sink(receiveCompletion: { [weak self] _ in
-                    self?.isNeteaseLoading = false
-                    if isLoadMore { self?.isFetchingMoreNetease = false }
+                    guard let self, self.isCurrentNeteaseRequest(requestID, keyword: keyword) else { return }
+                    self.isNeteaseLoading = false
+                    if isLoadMore { self.isFetchingMoreNetease = false }
                 }, receiveValue: { [weak self] albums in
-                    guard let self = self else { return }
+                    guard let self, self.isCurrentNeteaseRequest(requestID, keyword: keyword) else { return }
                     self.handleNeteasePagination(newItems: albums, existing: &self.neteaseAlbumResults, isLoadMore: isLoadMore)
                 })
-                .store(in: &cancellables)
+                .store(in: &searchCancellables)
             
         case .mvs:
             apiService.searchMVs(keyword: keyword, limit: 30, offset: offset)
                 .receive(on: DispatchQueue.main)
                 .sink(receiveCompletion: { [weak self] _ in
-                    self?.isNeteaseLoading = false
-                    if isLoadMore { self?.isFetchingMoreNetease = false }
+                    guard let self, self.isCurrentNeteaseRequest(requestID, keyword: keyword) else { return }
+                    self.isNeteaseLoading = false
+                    if isLoadMore { self.isFetchingMoreNetease = false }
                 }, receiveValue: { [weak self] mvs in
-                    guard let self = self else { return }
+                    guard let self, self.isCurrentNeteaseRequest(requestID, keyword: keyword) else { return }
                     self.handleNeteasePagination(newItems: mvs, existing: &self.neteaseMVResults, isLoadMore: isLoadMore)
                 })
-                .store(in: &cancellables)
+                .store(in: &searchCancellables)
         }
     }
     
     // MARK: - qcm搜索
     
     private func executeQQSearch(keyword: String, page: Int, isLoadMore: Bool) {
+        qqRequestID += 1
+        let requestID = qqRequestID
+        if !isLoadMore { isFetchingMoreQQ = false }
         isQQLoading = !isLoadMore
         
         switch currentTab {
@@ -372,79 +456,90 @@ class SearchViewModel: ObservableObject {
             apiService.searchQQSongsWithTotal(keyword: keyword, page: page, num: 30)
                 .receive(on: DispatchQueue.main)
                 .sink(receiveCompletion: { [weak self] _ in
-                    self?.isQQLoading = false
-                    if isLoadMore { self?.isFetchingMoreQQ = false }
+                    guard let self, self.isCurrentQQRequest(requestID, keyword: keyword) else { return }
+                    self.isQQLoading = false
+                    if isLoadMore { self.isFetchingMoreQQ = false }
                 }, receiveValue: { [weak self] result in
-                    guard let self = self else { return }
+                    guard let self, self.isCurrentQQRequest(requestID, keyword: keyword) else { return }
+                    SongArtworkFallbackRegistry.shared.register(result.songs)
                     if let total = result.total {
                         self.qqSongTotal = total
                     }
                     self.handleQQPagination(newItems: result.songs, existing: &self.qqResults, isLoadMore: isLoadMore)
                 })
-                .store(in: &cancellables)
+                .store(in: &searchCancellables)
             
         case .artists:
             apiService.searchQQArtists(keyword: keyword, page: page, num: 30)
                 .receive(on: DispatchQueue.main)
                 .sink(receiveCompletion: { [weak self] _ in
-                    self?.isQQLoading = false
-                    if isLoadMore { self?.isFetchingMoreQQ = false }
+                    guard let self, self.isCurrentQQRequest(requestID, keyword: keyword) else { return }
+                    self.isQQLoading = false
+                    if isLoadMore { self.isFetchingMoreQQ = false }
                 }, receiveValue: { [weak self] artists in
-                    guard let self = self else { return }
+                    guard let self, self.isCurrentQQRequest(requestID, keyword: keyword) else { return }
                     self.handleQQPagination(newItems: artists, existing: &self.qqArtistResults, isLoadMore: isLoadMore)
                 })
-                .store(in: &cancellables)
+                .store(in: &searchCancellables)
             
         case .playlists:
             apiService.searchQQPlaylists(keyword: keyword, page: page, num: 30)
                 .receive(on: DispatchQueue.main)
                 .sink(receiveCompletion: { [weak self] _ in
-                    self?.isQQLoading = false
-                    if isLoadMore { self?.isFetchingMoreQQ = false }
+                    guard let self, self.isCurrentQQRequest(requestID, keyword: keyword) else { return }
+                    self.isQQLoading = false
+                    if isLoadMore { self.isFetchingMoreQQ = false }
                 }, receiveValue: { [weak self] playlists in
-                    guard let self = self else { return }
+                    guard let self, self.isCurrentQQRequest(requestID, keyword: keyword) else { return }
                     self.handleQQPagination(newItems: playlists, existing: &self.qqPlaylistResults, isLoadMore: isLoadMore)
                 })
-                .store(in: &cancellables)
+                .store(in: &searchCancellables)
             
         case .albums:
             apiService.searchQQAlbums(keyword: keyword, page: page, num: 30)
                 .receive(on: DispatchQueue.main)
                 .sink(receiveCompletion: { [weak self] _ in
-                    self?.isQQLoading = false
-                    if isLoadMore { self?.isFetchingMoreQQ = false }
+                    guard let self, self.isCurrentQQRequest(requestID, keyword: keyword) else { return }
+                    self.isQQLoading = false
+                    if isLoadMore { self.isFetchingMoreQQ = false }
                 }, receiveValue: { [weak self] albums in
-                    guard let self = self else { return }
+                    guard let self, self.isCurrentQQRequest(requestID, keyword: keyword) else { return }
                     self.handleQQPagination(newItems: albums, existing: &self.qqAlbumResults, isLoadMore: isLoadMore)
                 })
-                .store(in: &cancellables)
+                .store(in: &searchCancellables)
             
         case .mvs:
             apiService.searchQQMVs(keyword: keyword, page: page, num: 30)
                 .receive(on: DispatchQueue.main)
                 .sink(receiveCompletion: { [weak self] _ in
-                    self?.isQQLoading = false
-                    if isLoadMore { self?.isFetchingMoreQQ = false }
+                    guard let self, self.isCurrentQQRequest(requestID, keyword: keyword) else { return }
+                    self.isQQLoading = false
+                    if isLoadMore { self.isFetchingMoreQQ = false }
                 }, receiveValue: { [weak self] mvs in
-                    guard let self = self else { return }
+                    guard let self, self.isCurrentQQRequest(requestID, keyword: keyword) else { return }
                     self.handleQQPagination(newItems: mvs, existing: &self.qqMVResults, isLoadMore: isLoadMore)
                 })
-                .store(in: &cancellables)
+                .store(in: &searchCancellables)
         }
     }
 
     // MARK: - 汽水音乐搜索执行
 
     private func executeQishuiSearch(keyword: String, page: Int, isLoadMore: Bool) {
+        qishuiRequestID += 1
+        let requestID = qishuiRequestID
         guard currentTab == .songs else { return }
+        if !isLoadMore { isFetchingMoreQishui = false }
         isQishuiLoading = !isLoadMore
         apiService.searchQishuiSongsWithTotal(keyword: keyword, page: page)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] _ in
-                self?.isQishuiLoading = false
-                if isLoadMore { self?.isFetchingMoreQishui = false }
+                guard let self, self.isCurrentQishuiRequest(requestID, keyword: keyword) else { return }
+                self.isQishuiLoading = false
+                if isLoadMore { self.isFetchingMoreQishui = false }
             }, receiveValue: { [weak self] result in
-                guard let self = self else { return }
+                guard let self, self.isCurrentQishuiRequest(requestID, keyword: keyword) else { return }
+                SongArtworkFallbackRegistry.shared.register(result.songs)
                 if let total = result.total {
                     self.qishuiSongTotal = total
                 }
@@ -461,7 +556,7 @@ class SearchViewModel: ObservableObject {
                     }
                 }
             })
-            .store(in: &cancellables)
+            .store(in: &searchCancellables)
     }
 
     // MARK: - 分页处理
@@ -670,7 +765,7 @@ class SearchViewModel: ObservableObject {
         PlayerManager.shared.playReplacingContext(song: currentSongs[0], in: currentSongs)
         
         // 后台静默加载剩余页并追加到播放队列
-        let keyword = query
+        let keyword = requestKeyword
         guard !keyword.isEmpty else { return }
         
         switch source {
@@ -699,7 +794,7 @@ class SearchViewModel: ObservableObject {
         var page = startPage
         var keepLoading = true
         
-        while keepLoading {
+        while keepLoading, requestKeyword == keyword {
             let offset = page * 30
             do {
                 let songs: [Song] = try await withCheckedThrowingContinuation { continuation in
@@ -714,6 +809,9 @@ class SearchViewModel: ObservableObject {
                         })
                         .store(in: &cancellables)
                 }
+
+                guard requestKeyword == keyword else { return }
+                SongArtworkFallbackRegistry.shared.register(songs)
                 
                 if songs.isEmpty || songs.count < 30 {
                     keepLoading = false
@@ -736,7 +834,9 @@ class SearchViewModel: ObservableObject {
                 keepLoading = false
             }
         }
-        neteaseCanLoadMore = false
+        if requestKeyword == keyword {
+            neteaseCanLoadMore = false
+        }
     }
     
     /// 静默加载所有 QQ 剩余歌曲页
@@ -744,7 +844,7 @@ class SearchViewModel: ObservableObject {
         var page = startPage
         var keepLoading = true
         
-        while keepLoading {
+        while keepLoading, requestKeyword == keyword {
             do {
                 let songs: [Song] = try await withCheckedThrowingContinuation { continuation in
                     apiService.searchQQSongs(keyword: keyword, page: page, num: 30)
@@ -758,6 +858,9 @@ class SearchViewModel: ObservableObject {
                         })
                         .store(in: &cancellables)
                 }
+
+                guard requestKeyword == keyword else { return }
+                SongArtworkFallbackRegistry.shared.register(songs)
                 
                 if songs.isEmpty || songs.count < 30 {
                     keepLoading = false
@@ -778,7 +881,9 @@ class SearchViewModel: ObservableObject {
                 keepLoading = false
             }
         }
-        qqCanLoadMore = false
+        if requestKeyword == keyword {
+            qqCanLoadMore = false
+        }
     }
 
     /// 静默加载所有 汽水音乐 剩余歌曲页
@@ -786,7 +891,7 @@ class SearchViewModel: ObservableObject {
         var page = startPage
         var keepLoading = true
         
-        while keepLoading {
+        while keepLoading, requestKeyword == keyword {
             do {
                 let songs: [Song] = try await withCheckedThrowingContinuation { continuation in
                     apiService.searchQishuiSongs(keyword: keyword, page: page)
@@ -800,6 +905,9 @@ class SearchViewModel: ObservableObject {
                         })
                         .store(in: &cancellables)
                 }
+
+                guard requestKeyword == keyword else { return }
+                SongArtworkFallbackRegistry.shared.register(songs)
                 
                 if songs.isEmpty || songs.count < 20 {
                     keepLoading = false
@@ -820,6 +928,8 @@ class SearchViewModel: ObservableObject {
                 keepLoading = false
             }
         }
-        qishuiCanLoadMore = false
+        if requestKeyword == keyword {
+            qishuiCanLoadMore = false
+        }
     }
 }

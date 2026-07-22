@@ -149,12 +149,20 @@ struct QishuiQualityPickerSheet: View {
         MujiStyle.isActive ? 2.5 : 2
     }
 
+    /// aside 默认主题（编辑部风格分支）
+    private var isAsideTheme: Bool {
+        GlobalThemeId.persistedOrDefault == .default
+    }
+
     @ViewBuilder
     private var qualityBadgeBackground: some View {
         if SequoiaStyle.isActive {
             Capsule().fill(SequoiaStyle.accent.opacity(0.12))
         } else if NeumorphicStyle.isActive {
             Capsule().fill(NeumorphicStyle.accent.opacity(colorScheme == .dark ? 0.16 : 0.1))
+        } else if isAsideTheme {
+            // aside 编辑部风格：不填底色，只留发丝描边胶囊
+            Color.clear
         } else {
             Capsule().fill(Color.monologueSeparator.opacity(0.55))
         }
@@ -166,6 +174,8 @@ struct QishuiQualityPickerSheet: View {
             Capsule().stroke(SequoiaStyle.accent.opacity(0.22), lineWidth: 0.7)
         } else if NeumorphicStyle.isActive {
             Capsule().stroke(NeumorphicStyle.accent.opacity(0.16), lineWidth: 0.6)
+        } else if isAsideTheme {
+            Capsule().stroke(Color.monologueTextPrimary.opacity(0.32), lineWidth: 0.8)
         } else {
             Capsule().stroke(Color.monologueTextSecondary.opacity(0.08), lineWidth: 0.6)
         }

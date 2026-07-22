@@ -106,6 +106,7 @@ struct NeumorphicLibraryWorkspace: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 18) {
                     headerConsole
+                        .monologuePageHeaderCollapse()
                     pageContent
                 }
                 .padding(.bottom, 128)
@@ -1177,13 +1178,16 @@ struct NeumorphicLibraryWorkspace: View {
     }
 
     private static func parseQQUserPlaylists(_ result: JSON) -> [Playlist] {
-        let list = result["v_playlist"]?.arrayValue ?? result.arrayValue ?? []
+        // 新版 API: { playlists: [{ id, dirid, title, picurl, songnum }], total }
+        let list = result["playlists"]?.arrayValue
+            ?? result["v_playlist"]?.arrayValue
+            ?? result.arrayValue ?? []
         return list.compactMap { json in
             guard let obj = json.objectValue else { return nil }
-            let tid = obj["tid"]?.intValue ?? 0
-            let name = obj["dirName"]?.stringValue ?? obj["diss_name"]?.stringValue ?? ""
-            let cover = obj["picUrl"]?.stringValue ?? obj["logo"]?.stringValue ?? ""
-            let songCount = obj["songNum"]?.intValue ?? obj["song_cnt"]?.intValue ?? 0
+            let tid = obj["id"]?.intValue ?? obj["tid"]?.intValue ?? 0
+            let name = obj["title"]?.stringValue ?? obj["dirName"]?.stringValue ?? obj["diss_name"]?.stringValue ?? ""
+            let cover = obj["picurl"]?.stringValue ?? obj["picUrl"]?.stringValue ?? obj["logo"]?.stringValue ?? ""
+            let songCount = obj["songnum"]?.intValue ?? obj["songNum"]?.intValue ?? obj["song_cnt"]?.intValue ?? 0
             guard !name.isEmpty else { return nil }
             return Playlist(
                 id: tid,

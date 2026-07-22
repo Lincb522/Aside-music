@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 无印良品主题 — 极简暖色纸质感、大量留白、衬线字体
+/// 无印良品主题 — 青苔手帖：青竹绿 + 杏子暖 + 水洗色块，文艺清新
 struct MujiThemeProvider: GlobalThemeProvider {
     let id: GlobalThemeId = .muji
 
@@ -15,12 +15,12 @@ struct MujiThemeProvider: GlobalThemeProvider {
             accent: MujiStyle.clay,
             accentGradient: ThemeColorCustomization.accentGradientColors(
                 for: .muji,
-                fallback: [MujiStyle.clay, MujiStyle.straw, MujiStyle.tea],
-                fallbackHexes: ["B56B4B", "D8B56D"]
+                fallback: [MujiStyle.clay, MujiStyle.tea, MujiStyle.indigo],
+                fallbackHexes: ["5C8A6A", "C89B66"]
             ),
             separator: MujiStyle.separator,
             navBarTint: MujiStyle.ink,
-            iconBackground: MujiStyle.ink,
+            iconBackground: MujiStyle.clay,
             iconForeground: MujiStyle.onTint,
             cardBackground: MujiStyle.surfaceRaised,
             floatingBarFill: MujiStyle.surface.opacity(0.94),
@@ -30,7 +30,7 @@ struct MujiThemeProvider: GlobalThemeProvider {
 
     var typography: GlobalTypography {
         GlobalTypography(
-            titleFont: { size in .system(size: size, weight: .regular, design: .serif) },
+            titleFont: { size in .system(size: size, weight: .medium, design: .serif) },
             bodyFont: { size in .system(size: size, weight: .regular, design: .serif) },
             captionFont: { size in .system(size: size, weight: .medium, design: .rounded) },
             monoFont: { size in .system(size: size, weight: .regular, design: .monospaced) },
@@ -41,9 +41,9 @@ struct MujiThemeProvider: GlobalThemeProvider {
 
     var shapeLanguage: GlobalShapeLanguage {
         GlobalShapeLanguage(
-            cardRadius: 12,
-            buttonRadius: 8,
-            sheetRadius: 20,
+            cardRadius: 18,
+            buttonRadius: 12,
+            sheetRadius: 26,
             shadowStyle: .soft,
             borderWidth: 0
         )
@@ -53,16 +53,16 @@ struct MujiThemeProvider: GlobalThemeProvider {
         GlobalIconStyle(
             variant: .outlined,
             weight: .light,
-            badgeRadius: 6
+            badgeRadius: 9
         )
     }
 
     var animationStyle: GlobalAnimationStyle {
         GlobalAnimationStyle(
             pageTransition: .opacity,
-            cardAppear: .easeInOut(duration: 0.5),
-            buttonPress: .easeInOut(duration: 0.2),
-            staggerDelay: 0.08
+            cardAppear: .spring(response: 0.5, dampingFraction: 0.86),
+            buttonPress: .spring(response: 0.3, dampingFraction: 0.75),
+            staggerDelay: 0.07
         )
     }
 

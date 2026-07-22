@@ -2,6 +2,7 @@ import Foundation
 
 enum AppInterfaceIconSet: String, CaseIterable, Identifiable {
     case hicon
+    case sfSymbols
     case zappicon
     case lucide
     case solar
@@ -10,6 +11,7 @@ enum AppInterfaceIconSet: String, CaseIterable, Identifiable {
     case doodlePop
     case pawPrint
     case dotDogSnake
+    case minimalWhiteIcons
 
     var id: String { rawValue }
 
@@ -17,6 +19,8 @@ enum AppInterfaceIconSet: String, CaseIterable, Identifiable {
         switch self {
         case .hicon:
             return "Hicon"
+        case .sfSymbols:
+            return "SF Symbols"
         case .zappicon:
             return "Zappicon"
         case .lucide:
@@ -33,14 +37,16 @@ enum AppInterfaceIconSet: String, CaseIterable, Identifiable {
             return "Paw Print"
         case .dotDogSnake:
             return "Dot Dog-Snake"
+        case .minimalWhiteIcons:
+            return "Minimal White"
         }
     }
 
     var usesOriginalArtwork: Bool {
         switch self {
-        case .iconExport, .doodlePop, .pawPrint, .dotDogSnake:
+        case .iconExport, .doodlePop, .pawPrint, .dotDogSnake, .minimalWhiteIcons:
             return true
-        case .hicon, .zappicon, .lucide, .solar, .blobIcons:
+        case .hicon, .sfSymbols, .zappicon, .lucide, .solar, .blobIcons:
             return false
         }
     }
@@ -93,8 +99,8 @@ extension GlobalThemeId {
             return .doodlePop
         case .neumorphic, .capsule:
             return .blobIcons
-        case .pureWhite, .material3Expressive, .bento, .sequoia, .liquidGlass, .clay, .signal:
-            return .hicon
+        case .minimalWhite:
+            return .minimalWhiteIcons
         }
     }
 }

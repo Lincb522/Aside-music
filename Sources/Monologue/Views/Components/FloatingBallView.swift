@@ -15,6 +15,7 @@ struct FloatingBallView: View {
     @State private var lastTickDate: Date? = nil
 
     private var ballSize: CGFloat {
+        if MinimalWhiteStyle.isActive { return 54 }
         if PetWhiteStyle.isActive { return 58 }
         if CapsuleStyle.isActive { return 60 }
         return SequoiaStyle.isActive ? 60 : 56
@@ -81,7 +82,9 @@ struct FloatingBallView: View {
                 fill: progressFill
             )
 
-            if PetWhiteStyle.isActive {
+            if MinimalWhiteStyle.isActive {
+                minimalWhiteCoverDisc
+            } else if PetWhiteStyle.isActive {
                 PetWhiteSpinningCoverDisc(
                     coverURL: player.currentSong?.coverUrl,
                     size: ballSize - 8,
@@ -89,6 +92,24 @@ struct FloatingBallView: View {
                     strokeWidth: 1.5
                 )
                     .frame(width: ballSize - 8, height: ballSize - 8)
+            } else if settings.globalThemeId == .default {
+                // Aside：整面旋转封面 + 唱纹
+                TimelineView(AppFrameRate.animationTimeline(maximumFramesPerSecond: 30, paused: !player.isPlaying)) { timeline in
+                    asideCoverOrb
+                        .frame(width: ballSize - 9, height: ballSize - 9)
+                        .rotationEffect(.degrees(rotationAngle))
+                        .onChange(of: timeline.date) { _, newDate in
+                            guard player.isPlaying else {
+                                lastTickDate = nil
+                                return
+                            }
+                            if let last = lastTickDate {
+                                let dt = newDate.timeIntervalSince(last)
+                                rotationAngle += dt * 24.0
+                            }
+                            lastTickDate = newDate
+                        }
+                }
             } else {
                 // 黑胶唱片
                 TimelineView(AppFrameRate.animationTimeline(maximumFramesPerSecond: 30, paused: !player.isPlaying)) { timeline in
@@ -115,7 +136,40 @@ struct FloatingBallView: View {
         }
         .monologueFloatingChromeGlassCircle()
         .overlay {
-            if MangaStyle.isActive {
+            if settings.globalThemeId == .default {
+                Circle()
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(colorScheme == .dark ? 0.16 : 0.66),
+                                Color.white.opacity(colorScheme == .dark ? 0.04 : 0.14),
+                                Color.black.opacity(colorScheme == .dark ? 0.14 : 0.05),
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 0.8
+                    )
+                    .frame(width: ballSize + 4, height: ballSize + 4)
+                    .overlay(alignment: .bottomTrailing) {
+                        MonologueIcon(
+                            icon: player.isPlaying ? .pause : .play,
+                            size: 8.5,
+                            color: .monologueAccentForeground,
+                            lineWidth: 1.7
+                        )
+                        .frame(width: 19, height: 19)
+                        .background(Color.monologueAccent, in: Circle())
+                        .overlay(Circle().stroke(Color(light: .white, dark: Color(hex: "15171E")).opacity(0.92), lineWidth: 1.5))
+                        .offset(x: 0, y: 0)
+                    }
+                    .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.34 : 0.14), radius: 12, x: 0, y: 6)
+            } else if MinimalWhiteStyle.isActive {
+                Circle()
+                    .stroke(MinimalWhiteStyle.separator, lineWidth: MinimalWhiteStyle.strokeWidth)
+                    .frame(width: ballSize + 4, height: ballSize + 4)
+                    .shadow(color: MinimalWhiteStyle.ink.opacity(0.08), radius: 6, y: 2)
+            } else if MangaStyle.isActive {
                 Circle()
                     .stroke(MangaStyle.strokeInk, lineWidth: 2.2)
                     .frame(width: ballSize + 4, height: ballSize + 4)
@@ -126,7 +180,7 @@ struct FloatingBallView: View {
                     .shadow(color: MangaStyle.strokeInk.opacity(0.4), radius: 0, x: 3, y: 3)
             } else if PetWhiteStyle.isActive {
                 Circle()
-                    .stroke(PetWhiteStyle.stroke, lineWidth: 1.8)
+                    .stroke(PetWhiteStyle.stroke, lineWidth: 1)
                     .frame(width: ballSize + 4, height: ballSize + 4)
                     .overlay(alignment: .topTrailing) {
                         Circle()
@@ -135,7 +189,7 @@ struct FloatingBallView: View {
                             .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.1))
                             .offset(x: -2, y: 2)
                     }
-                    .shadow(color: PetWhiteStyle.stroke.opacity(colorScheme == .dark ? 0.22 : 0.14), radius: 8, x: 0, y: 4)
+                    .shadow(color: PetWhiteStyle.shadowInk.opacity(colorScheme == .dark ? 0.30 : 0.10), radius: 8, x: 0, y: 4)
             } else if SequoiaStyle.isActive {
                 Circle()
                     .stroke(
@@ -209,11 +263,90 @@ struct FloatingBallView: View {
         )
     }
 
+    @ViewBuilder
+    private var minimalWhiteCoverDisc: some View {
+        if let song = player.currentSong {
+            CachedAsyncImage(url: song.coverUrl) {
+                Circle()
+                    .fill(MinimalWhiteStyle.controlGlassFill)
+                    .overlay(Circle().stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth))
+            }
+            .aspectRatio(contentMode: .fill)
+            .frame(width: ballSize - 8, height: ballSize - 8)
+            .clipShape(Circle())
+            .overlay(Circle().stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth))
+            .overlay(alignment: .bottomTrailing) {
+                MonologueIcon(
+                    icon: player.isPlaying ? .pause : .play,
+                    size: 9,
+                    color: MinimalWhiteStyle.onAccent,
+                    lineWidth: 1.8
+                )
+                .frame(width: 18, height: 18)
+                .background(MinimalWhiteStyle.ink, in: Circle())
+                .overlay(Circle().stroke(MinimalWhiteStyle.surface, lineWidth: 1.4))
+                .offset(x: 1, y: 1)
+            }
+        } else {
+            Circle()
+                .fill(MinimalWhiteStyle.controlGlassFill)
+                .frame(width: ballSize - 8, height: ballSize - 8)
+                .overlay(MonologueIcon(icon: .musicNote, size: 16, color: MinimalWhiteStyle.inkMuted))
+                .overlay(Circle().stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth))
+        }
+    }
+
+    // MARK: - Aside 封面圆盘（整面封面 + 唱纹 + 轴心）
+
+    private var asideCoverOrb: some View {
+        ZStack {
+            if let song = player.currentSong {
+                CachedAsyncImage(url: song.coverUrl) {
+                    Circle().fill(Color.monologueTextPrimary.opacity(0.08))
+                }
+                .aspectRatio(contentMode: .fill)
+            } else {
+                Circle()
+                    .fill(Color.monologueTextPrimary.opacity(0.07))
+                    .overlay(MonologueIcon(icon: .musicNote, size: 15, color: .monologueTextSecondary.opacity(0.62), lineWidth: 1.6))
+            }
+
+            // 唱纹与边缘暗角
+            Circle()
+                .stroke(Color.black.opacity(0.16), lineWidth: 0.6)
+                .padding(5)
+            Circle()
+                .stroke(Color.black.opacity(0.10), lineWidth: 0.6)
+                .padding(9)
+            Circle()
+                .strokeBorder(
+                    RadialGradient(
+                        colors: [Color.clear, Color.black.opacity(0.22)],
+                        center: .center,
+                        startRadius: 12,
+                        endRadius: 24
+                    ),
+                    lineWidth: 5
+                )
+
+            // 轴心
+            if player.currentSong != nil {
+                Circle()
+                    .fill(Color(light: .white, dark: Color(hex: "15171E")).opacity(0.94))
+                    .frame(width: 10, height: 10)
+                    .overlay(Circle().fill(Color.monologueTextPrimary.opacity(0.85)).frame(width: 3.5, height: 3.5))
+            }
+        }
+        .clipShape(Circle())
+    }
+
     // MARK: - 黑胶唱片
 
     @ViewBuilder
     private var floatingBallChromeBackground: some View {
-        if PetWhiteStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            MinimalWhiteCircleBackground(elevated: true)
+        } else if PetWhiteStyle.isActive {
             PetWhiteFrostedFloatingSurface(
                 shape: Circle(),
                 tint: PetWhiteStyle.surfaceRaised,
@@ -302,11 +435,210 @@ struct FloatingBallView: View {
 
     @ViewBuilder
     private var controlPanel: some View {
-        if PetWhiteStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            minimalWhitePocketPanel
+        } else if PetWhiteStyle.isActive {
             petWhiteLeashPanel
+        } else if settings.globalThemeId == .default {
+            asideTrayPanel
         } else {
             defaultControlPanel
         }
+    }
+
+    // MARK: - Aside 托盘面板（正在播放 + 墨水圆点 Tab + 播放键）
+
+    private var asideTrayPanel: some View {
+        HStack(spacing: 10) {
+            if let song = player.currentSong {
+                HStack(spacing: 8) {
+                    CachedAsyncImage(url: song.coverUrl, width: 33, height: 33) {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color.monologueTextPrimary.opacity(0.07))
+                    }
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 33, height: 33)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .strokeBorder(Color.monologueTextPrimary.opacity(0.1), lineWidth: 0.7)
+                    )
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(song.name)
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundStyle(Color.monologueTextPrimary)
+                            .lineLimit(1)
+
+                        Text(player.lyricLineText ?? song.artistName)
+                            .font(.system(size: 10, weight: .medium, design: .rounded))
+                            .foregroundStyle(Color.monologueTextSecondary.opacity(0.9))
+                            .lineLimit(1)
+                    }
+                    .frame(width: 86, alignment: .leading)
+                }
+                .contentShape(Rectangle())
+                .onTapWithHaptic { openPlayer() }
+
+                Rectangle()
+                    .fill(Color.monologueTextPrimary.opacity(0.09))
+                    .frame(width: 0.7, height: 32)
+            }
+
+            HStack(spacing: 5) {
+                ForEach(Tab.allCases, id: \.self) { tab in
+                    let selected = currentTab == tab
+
+                    Button {
+                        HapticManager.shared.light()
+                        withAnimation(MonologueAnimation.tabSwitch) {
+                            currentTab = tab
+                        }
+                        withAnimation(MonologueAnimation.panelToggle) {
+                            isPanelOpen = false
+                        }
+                    } label: {
+                        MonologueIcon(
+                            icon: selected ? tab.icon : tab.monologueIcon,
+                            size: 17,
+                            color: selected ? .monologueAccentForeground : .monologueTextSecondary.opacity(0.62),
+                            lineWidth: 1.7
+                        )
+                        .frame(width: 36, height: 36)
+                        .background {
+                            if selected {
+                                Circle().fill(Color.monologueAccent)
+                            }
+                        }
+                        .contentShape(Circle())
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle())
+                }
+            }
+
+            Rectangle()
+                .fill(Color.monologueTextPrimary.opacity(0.09))
+                .frame(width: 0.7, height: 32)
+
+            Button {
+                player.togglePlayPause()
+            } label: {
+                ZStack {
+                    Circle()
+                        .fill(Color.monologueAccent)
+                        .frame(width: 38, height: 38)
+
+                    if player.isLoading {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .monologueAccentForeground))
+                            .scaleEffect(0.56)
+                    } else {
+                        MonologueIcon(
+                            icon: player.isPlaying ? .pause : .play,
+                            size: 14,
+                            color: .monologueAccentForeground,
+                            lineWidth: 1.8
+                        )
+                    }
+                }
+            }
+            .buttonStyle(MonologueBouncingButtonStyle())
+        }
+        .padding(.horizontal, 11)
+        .padding(.vertical, 9)
+        .background(asideTrayBackground)
+        .overlay(
+            RoundedRectangle(cornerRadius: 27, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(colorScheme == .dark ? 0.14 : 0.62),
+                            Color.white.opacity(colorScheme == .dark ? 0.04 : 0.14),
+                            Color.black.opacity(colorScheme == .dark ? 0.12 : 0.04),
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: 0.8
+                )
+        )
+        .compositingGroup()
+        .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.34 : 0.12), radius: 16, x: 0, y: 8)
+        .padding(.trailing, 8)
+    }
+
+    @ViewBuilder
+    private var asideTrayBackground: some View {
+        let shape = RoundedRectangle(cornerRadius: 27, style: .continuous)
+        if settings.defaultThemeUsesLiquidGlassTabBar {
+            shape
+                .fill(Color.monologueFloatingBarFill)
+                .monologueGlass(cornerRadius: 27)
+        } else {
+            shape
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    shape.fill(
+                        colorScheme == .dark
+                            ? Color(hex: "15171E").opacity(0.66)
+                            : Color.white.opacity(0.64)
+                    )
+                )
+        }
+    }
+
+    private var minimalWhitePocketPanel: some View {
+        HStack(spacing: 10) {
+            if let song = player.currentSong {
+                HStack(spacing: 9) {
+                    CachedAsyncImage(url: song.coverUrl, width: 34, height: 34) {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(MinimalWhiteStyle.controlGlassFill)
+                    }
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 34, height: 34)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth))
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(song.name)
+                            .font(MinimalWhiteStyle.bodyFont(12, weight: .semibold))
+                            .foregroundStyle(MinimalWhiteStyle.ink)
+                            .lineLimit(1)
+
+                        Text(player.lyricLineText ?? song.artistName)
+                            .font(MinimalWhiteStyle.labelFont(10, weight: .regular))
+                            .foregroundStyle(MinimalWhiteStyle.inkMuted)
+                            .lineLimit(1)
+                    }
+                    .frame(width: 88, alignment: .leading)
+                }
+                .contentShape(Rectangle())
+                .onTapWithHaptic { openPlayer() }
+
+                Rectangle()
+                    .fill(MinimalWhiteStyle.hairline)
+                    .frame(width: 1, height: 34)
+            }
+
+            tabSection
+
+            playbackSection
+        }
+        .padding(.horizontal, 11)
+        .padding(.vertical, 9)
+        .background(
+            MinimalWhiteSurfaceBackground(
+                cornerRadius: 24,
+                elevated: true,
+                tint: MinimalWhiteStyle.glassStrongFill
+            )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(MinimalWhiteStyle.separator, lineWidth: MinimalWhiteStyle.strokeWidth)
+        )
+        .padding(.trailing, 8)
     }
 
     private var defaultControlPanel: some View {
@@ -327,9 +659,12 @@ struct FloatingBallView: View {
         .padding(.vertical, 10)
         .contentShape(Rectangle())
         .background(panelBackground)
-        .monologueGlass(cornerRadius: panelCornerRadius)
+        .floatingBallPanelGlass(cornerRadius: panelCornerRadius)
         .overlay {
-            if MangaStyle.isActive {
+            if MinimalWhiteStyle.isActive {
+                RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
+                    .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
+            } else if MangaStyle.isActive {
                 RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
                     .stroke(MangaStyle.strokeInk, lineWidth: 2)
                     .overlay(alignment: .topLeading) {
@@ -359,11 +694,7 @@ struct FloatingBallView: View {
                     }
             } else if PetWhiteStyle.isActive {
                 RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
-                    .stroke(PetWhiteStyle.stroke, lineWidth: 1.5)
-                    .overlay(alignment: .topLeading) {
-                        PetWhiteFloatingSignature(compact: true, tint: PetWhiteStyle.mint)
-                            .offset(x: 14, y: -9)
-                    }
+                    .stroke(PetWhiteStyle.stroke, lineWidth: 1)
             } else if BentoStyle.isActive {
                 RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
                     .stroke(BentoStyle.ink.opacity(0.08), lineWidth: 1)
@@ -411,7 +742,7 @@ struct FloatingBallView: View {
                 }
 
             Capsule(style: .continuous)
-                .fill(PetWhiteStyle.stroke)
+                .fill(PetWhiteStyle.inkMuted.opacity(0.45))
                 .frame(width: 18, height: 3)
 
             playbackSection
@@ -419,7 +750,7 @@ struct FloatingBallView: View {
                 .background {
                     Circle()
                         .fill(PetWhiteStyle.butter)
-                        .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.3))
+                        .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1))
                 }
         }
         .padding(.horizontal, 10)
@@ -449,7 +780,13 @@ struct FloatingBallView: View {
 
     @ViewBuilder
     private var panelBackground: some View {
-        if SequoiaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            MinimalWhiteSurfaceBackground(
+                cornerRadius: panelCornerRadius,
+                elevated: true,
+                tint: MinimalWhiteStyle.glassStrongFill
+            )
+        } else if SequoiaStyle.isActive {
             SequoiaSurfaceBackground(cornerRadius: panelCornerRadius, elevated: true, role: .floating)
         } else if PetWhiteStyle.isActive {
             PetWhiteFrostedFloatingSurface(
@@ -590,6 +927,7 @@ struct FloatingBallView: View {
     }
 
     private var panelCornerRadius: CGFloat {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.chromeRadius }
         if CapsuleStyle.isActive { return 26 }
         if PetWhiteStyle.isActive { return 24 }
         return MangaStyle.isActive ? 22 : (NeumorphicStyle.isActive ? 24 : (SequoiaStyle.isActive ? 24 : 20))
@@ -605,8 +943,9 @@ struct FloatingBallView: View {
     }
 
     private var panelScrimColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink.opacity(0.045) }
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.24) }
-        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke.opacity(colorScheme == .dark ? 0.18 : 0.10) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.shadowInk.opacity(colorScheme == .dark ? 0.24 : 0.08) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink.opacity(0.18) }
         if SequoiaStyle.isActive { return Color.black.opacity(colorScheme == .dark ? 0.2 : 0.12) }
         if CapsuleStyle.isActive { return CapsuleStyle.ink.opacity(colorScheme == .dark ? 0.24 : 0.14) }
@@ -616,14 +955,16 @@ struct FloatingBallView: View {
     }
 
     private var progressLineWidth: CGFloat {
+        if MinimalWhiteStyle.isActive { return 2.5 }
         if PetWhiteStyle.isActive { return 3.6 }
         if CapsuleStyle.isActive { return 3 }
         return MangaStyle.isActive ? 3 : (NeumorphicStyle.isActive ? 3 : (SequoiaStyle.isActive ? 2.8 : 2.5))
     }
 
     private var progressTrackColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.hairline }
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.18) }
-        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke.opacity(0.20) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.ink.opacity(0.14) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.62) }
         if SequoiaStyle.isActive { return SequoiaStyle.separator.opacity(0.72) }
         if CapsuleStyle.isActive { return CapsuleStyle.separator.opacity(0.62) }
@@ -633,6 +974,12 @@ struct FloatingBallView: View {
     }
 
     private var progressFill: AnyShapeStyle {
+        if settings.globalThemeId == .default {
+            return AnyShapeStyle(Color.monologueAccent)
+        }
+        if MinimalWhiteStyle.isActive {
+            return AnyShapeStyle(MinimalWhiteStyle.ink)
+        }
         if MangaStyle.isActive {
             return AnyShapeStyle(LinearGradient(colors: [MangaStyle.accentPink, MangaStyle.labelYellow], startPoint: .topLeading, endPoint: .bottomTrailing))
         }
@@ -700,6 +1047,7 @@ struct FloatingBallView: View {
     }
 
     private var panelDividerColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.hairline }
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.28) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.58) }
         if SequoiaStyle.isActive { return SequoiaStyle.separator.opacity(0.72) }
@@ -710,6 +1058,7 @@ struct FloatingBallView: View {
     }
 
     private var playControlFill: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.accent }
         if MangaStyle.isActive { return MangaStyle.labelYellow }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfaceRaised }
         if SequoiaStyle.isActive { return SequoiaStyle.selectedWash }
@@ -720,6 +1069,7 @@ struct FloatingBallView: View {
     }
 
     private var playControlForeground: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.onAccent }
         if MangaStyle.isActive { return MangaStyle.strokeInk }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
@@ -731,10 +1081,12 @@ struct FloatingBallView: View {
 
     @ViewBuilder
     private var playControlStroke: some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            Circle().stroke(MinimalWhiteStyle.accent, lineWidth: 0)
+        } else if MangaStyle.isActive {
             Circle().stroke(MangaStyle.strokeInk, lineWidth: 1.6)
         } else if PetWhiteStyle.isActive {
-            Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.5)
+            Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1)
         } else if MujiStyle.isActive {
             Circle().stroke(MujiStyle.hairline.opacity(0.45), lineWidth: 0.6)
         } else if NeumorphicStyle.isActive {
@@ -750,6 +1102,7 @@ struct FloatingBallView: View {
 
     private func tabForeground(_ tab: Tab, isSelected: Bool) -> Color {
         guard isSelected else {
+            if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
             if MangaStyle.isActive { return MangaStyle.inkMuted }
             if PetWhiteStyle.isActive { return PetWhiteStyle.inkMuted }
             if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
@@ -760,30 +1113,39 @@ struct FloatingBallView: View {
             return .monologueTextSecondary
         }
 
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         if MangaStyle.isActive { return MangaStyle.strokeInk }
-        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
         if NeumorphicStyle.isActive { return neumorphicTabTint(tab) }
         if SequoiaStyle.isActive { return sequoiaTabTint(tab) }
         if CapsuleStyle.isActive { return CapsuleStyle.readableLabel(on: capsuleTabTint(tab)) }
-        if MujiStyle.isActive { return mujiTabTint(tab) }
+        if MujiStyle.isActive { return MujiStyle.ink }
         if BentoStyle.isActive { return bentoTabTint(tab) }
         return .monologueAccent
     }
 
     @ViewBuilder
     private func tabSelectionBackground(_ tab: Tab) -> some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            MinimalWhiteCircleBackground(selected: true)
+        } else if MangaStyle.isActive {
             Circle()
                 .fill(mangaTabTint(tab).opacity(0.88))
                 .overlay(Circle().stroke(MangaStyle.strokeInk, lineWidth: 1.5))
         } else if PetWhiteStyle.isActive {
             Circle()
                 .fill(petWhiteTabTint(tab))
-                .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.2))
+                .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1))
         } else if MujiStyle.isActive {
+            // Muji：发丝细圈 + 底部陶土点
             Circle()
-                .fill(MujiStyle.surface.opacity(0.78))
-                .overlay(Circle().stroke(MujiStyle.hairline.opacity(0.42), lineWidth: 0.6))
+                .stroke(MujiStyle.hairline.opacity(0.75), lineWidth: 0.8)
+                .overlay(alignment: .bottom) {
+                    Circle()
+                        .fill(MujiStyle.clay)
+                        .frame(width: 4, height: 4)
+                        .offset(y: 1.5)
+                }
         } else if BentoStyle.isActive {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(bentoTabTint(tab))
@@ -810,8 +1172,8 @@ struct FloatingBallView: View {
                 .overlay(Circle().stroke(sequoiaTabTint(tab).opacity(0.22), lineWidth: 0.55))
         } else {
             Circle()
-                .fill(Color.monologueFloatingBarFill)
-                .monologueGlassTinted(Color.monologueAccent.opacity(0.2))
+                .fill(Color.monologueAccent.opacity(colorScheme == .dark ? 0.18 : 0.13))
+                .overlay(Circle().stroke(Color.monologueAccent.opacity(colorScheme == .dark ? 0.32 : 0.24), lineWidth: 0.7))
         }
     }
 
@@ -830,15 +1192,6 @@ struct FloatingBallView: View {
         case .podcast: return PetWhiteStyle.mint
         case .library: return PetWhiteStyle.butter
         case .profile: return PetWhiteStyle.blush.opacity(0.84)
-        }
-    }
-
-    private func mujiTabTint(_ tab: Tab) -> Color {
-        switch tab {
-        case .home: return MujiStyle.clay
-        case .podcast: return MujiStyle.tea
-        case .library: return MujiStyle.indigo
-        case .profile: return MujiStyle.straw
         }
     }
 
@@ -905,5 +1258,16 @@ private struct FloatingBallProgressRing: View {
                 .animation(.linear(duration: 0.1), value: progress)
         }
         .frame(width: size, height: size)
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func floatingBallPanelGlass(cornerRadius: CGFloat) -> some View {
+        if MinimalWhiteStyle.isActive {
+            self
+        } else {
+            self.monologueGlass(cornerRadius: cornerRadius)
+        }
     }
 }

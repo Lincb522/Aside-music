@@ -1,5 +1,4 @@
 import Foundation
-import SwiftData
 import Combine
 
 struct LocalPlaylistExportPayload {
@@ -66,68 +65,58 @@ class LocalPlaylistManager: ObservableObject {
     @Published var playlists: [LocalPlaylist] = []
     private(set) var revision = 0
     
-    private let context: ModelContext
+    private let store: MonoStore
     private var downloadSyncCancellable: AnyCancellable?
     private var summaryCache: [String: (signature: LocalPlaylistCacheSignature, summary: LocalPlaylistSummary)] = [:]
     private var songCache: [String: (signature: LocalPlaylistCacheSignature, songs: [Song], ids: Set<Int>)] = [:]
     
     private init() {
-        self.context = DatabaseManager.shared.context
+        self.store = DatabaseManager.shared.store
         ensureSystemPlaylists()
         reload()
         observeDownloads()
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
-            self?.syncDownloadPlaylist()
+            self?.syncLocalMusicPlaylist()
         }
     }
     
     // MARK: - 系统预置歌单
     
-    /// 确保「我喜欢」「本地音乐」和「下载」歌单存在
+    /// 确保「我喜欢」「本地音乐」歌单存在。
+    /// 旧「下载」系统歌单不再新建、也绝不删除：老用户的历史下载条目
+    /// 原样保留在库里，内容并入「本地音乐」统一展示。
     private func ensureSystemPlaylists() {
         let favId = LocalPlaylist.favoriteId
         let localMusicId = LocalPlaylist.localMusicId
-        let dlId = LocalPlaylist.downloadId
         
-        let favDesc = FetchDescriptor<LocalPlaylist>(predicate: #Predicate { $0.id == favId })
-        if (try? context.fetch(favDesc))?.first == nil {
+        if store.first(LocalPlaylist.self, where: { $0.id == favId }) == nil {
             let fav = LocalPlaylist(id: favId, name: String(localized: "我喜欢"), isSystem: true)
-            context.insert(fav)
+            store.insert(fav)
         }
 
-        let localMusicDesc = FetchDescriptor<LocalPlaylist>(predicate: #Predicate { $0.id == localMusicId })
-        if (try? context.fetch(localMusicDesc))?.first == nil {
+        if store.first(LocalPlaylist.self, where: { $0.id == localMusicId }) == nil {
             let localMusic = LocalPlaylist(id: localMusicId, name: String(localized: "本地音乐"), isSystem: true)
-            context.insert(localMusic)
+            store.insert(localMusic)
         }
-        
-        let dlDesc = FetchDescriptor<LocalPlaylist>(predicate: #Predicate { $0.id == dlId })
-        if (try? context.fetch(dlDesc))?.first == nil {
-            let dl = LocalPlaylist(id: dlId, name: String(localized: "下载"), isSystem: true)
-            context.insert(dl)
-        }
-        
-        try? context.save()
+
+        store.save()
     }
     
     // MARK: - 刷新
     
     func reload() {
-        let descriptor = FetchDescriptor<LocalPlaylist>(
-            sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
-        )
-        var all = (try? context.fetch(descriptor)) ?? []
+        var all = store.fetch(LocalPlaylist.self, sortBy: { $0.updatedAt > $1.updatedAt })
         
-        // 系统歌单置顶：我喜欢 > 本地音乐 > 下载 > 其他按 updatedAt 排序
+        // 系统歌单置顶：我喜欢 > 本地音乐 > 其他按 updatedAt 排序。
+        // 旧「下载」歌单仍留在库里（历史数据不动），只是不再单独展示：
+        // 其内容已并入「本地音乐」。
         let favorite = all.first { $0.isFavorite }
         let localMusic = all.first { $0.isLocalMusic }
-        let download = all.first { $0.isDownload }
         all.removeAll { $0.isSystem }
         
         var sorted: [LocalPlaylist] = []
         if let f = favorite { sorted.append(f) }
         if let l = localMusic { sorted.append(l) }
-        if let d = download { sorted.append(d) }
         sorted.append(contentsOf: all)
         
         trimCaches(validIds: Set(sorted.map(\.id)))
@@ -140,13 +129,15 @@ class LocalPlaylistManager: ObservableObject {
     var favoritePlaylist: LocalPlaylist? {
         playlists.first { $0.isFavorite }
     }
-    
-    var downloadPlaylist: LocalPlaylist? {
-        playlists.first { $0.isDownload }
-    }
 
     var localMusicPlaylist: LocalPlaylist? {
         playlists.first { $0.isLocalMusic }
+    }
+
+    /// 旧「下载」系统歌单（已并入本地音乐，不在 playlists 中展示，
+    /// 仅供同步/恢复历史下载记录时读写）
+    var downloadPlaylist: LocalPlaylist? {
+        store.first(LocalPlaylist.self, where: { $0.id == LocalPlaylist.downloadId })
     }
     
     /// 检查歌曲是否在「我喜欢」歌单中
@@ -213,7 +204,7 @@ class LocalPlaylistManager: ObservableObject {
         removeSong(id: songId, from: fav)
     }
     
-    // MARK: - 下载歌单自动同步
+    // MARK: - 下载 / 本地音乐同步（下载内容并入本地音乐展示）
     
     private func observeDownloads() {
         downloadSyncCancellable = DownloadManager.shared.objectWillChange
@@ -223,45 +214,96 @@ class LocalPlaylistManager: ObservableObject {
             }
     }
     
+    /// 下载记录变化时：先把记录镜像回旧「下载」歌单（老用户历史数据存档），
+    /// 再刷新合并后的「本地音乐」歌单
     func syncDownloadPlaylist() {
-        guard let dl = downloadPlaylist else { return }
         let songs = DownloadManager.shared.fetchDownloadPlaylistSongs()
-        
-        let dlId = dl.id
-        let descriptor = FetchDescriptor<LocalPlaylist>(predicate: #Predicate { $0.id == dlId })
-        guard let target = (try? context.fetch(descriptor))?.first else { return }
-        target.songs = songs
-        try? context.save()
-        reload()
+
+        if let target = downloadPlaylist {
+            target.songs = songs
+            store.save()
+        }
+
+        syncLocalMusicPlaylist()
     }
 
-    func syncLocalMusicPlaylist(with songs: [Song]) {
+    /// 本地音乐歌单 = 导入的本地曲库 + 仍有本地文件的已下载歌曲，按 id 去重
+    func syncLocalMusicPlaylist(with librarySongs: [Song]? = nil) {
         guard let localMusic = localMusicPlaylist else { return }
         let playlistId = localMusic.id
-        let descriptor = FetchDescriptor<LocalPlaylist>(predicate: #Predicate { $0.id == playlistId })
-        guard let target = (try? context.fetch(descriptor))?.first else { return }
+        guard let target = store.first(LocalPlaylist.self, where: { $0.id == playlistId }) else { return }
 
-        target.songs = songs
-        try? context.save()
+        let imported = librarySongs ?? LocalMusicLibraryManager.shared.songs
+        let downloads = DownloadManager.shared.fetchDownloadPlaylistSongs()
+        // 下载功能开启时才兼容旧「下载」歌单；关闭期间不让缺失文件的历史条目重新进入本地音乐。
+        let legacyArchived: [Song] = AppConfig.Features.restrictedDownloadEnabled
+            ? (downloadPlaylist.map { songs(for: $0) } ?? [])
+                .filter { !DownloadTombstoneStore.shared.isTombstoned(songId: $0.id) }
+            : []
+
+        var seen = Set<Int>()
+        var merged: [Song] = []
+        for song in imported + downloads + legacyArchived {
+            guard seen.insert(song.id).inserted else { continue }
+            merged.append(song)
+        }
+
+        target.songs = merged
+        store.save()
         reload()
     }
 
-    /// 从云端恢复下载记录到下载歌单（仅补充元数据，不重复已存在的）
+    /// 在「本地音乐」里删除一首已下载歌曲：
+    /// 删除该 id 的**全部**下载记录与音频文件（兼容历史 key 变体与云端恢复的重复记录），
+    /// 并清掉旧「下载」存档里的对应条目，避免同步时被重新并回
+    func removeDownloadedSong(_ song: Song) {
+        DownloadManager.shared.deleteAllDownloadRecords(for: song)
+
+        if let archive = downloadPlaylist {
+            var current = songs(for: archive)
+            let originalCount = current.count
+            current.removeAll { $0.id == song.id }
+            if current.count != originalCount {
+                archive.songs = current
+                store.save()
+            }
+        }
+
+        syncLocalMusicPlaylist()
+    }
+
+    /// 从云端恢复下载记录（仅元数据）：补进旧「下载」歌单存档，并刷新合并后的「本地音乐」
     func restoreDownloadPlaylistSongs(_ cloudSongs: [Song]) {
-        guard let dl = downloadPlaylist else { return }
-        let dlId = dl.id
-        let descriptor = FetchDescriptor<LocalPlaylist>(predicate: #Predicate { $0.id == dlId })
-        guard let target = (try? context.fetch(descriptor))?.first else { return }
+        guard AppConfig.Features.restrictedDownloadEnabled else {
+            syncLocalMusicPlaylist()
+            return
+        }
+        // 本地明确删除过的条目不再从云端并回（删除墓碑权威）
+        let cloudSongs = cloudSongs.filter { !DownloadTombstoneStore.shared.isTombstoned(songId: $0.id) }
+
+        let target: LocalPlaylist
+        if let existing = downloadPlaylist {
+            target = existing
+        } else if !cloudSongs.isEmpty {
+            // 新设备恢复旧账号：重建存档歌单（不在列表中展示，仅存历史记录）
+            let archive = LocalPlaylist(id: LocalPlaylist.downloadId, name: String(localized: "下载"), isSystem: true)
+            store.insert(archive)
+            target = archive
+        } else {
+            syncLocalMusicPlaylist()
+            return
+        }
 
         let existingIds = songIds(for: target)
         let newSongs = cloudSongs.filter { !existingIds.contains($0.id) }
-        guard !newSongs.isEmpty else { return }
+        if !newSongs.isEmpty {
+            var current = songs(for: target)
+            current.append(contentsOf: newSongs)
+            target.songs = current
+            store.save()
+        }
 
-        var current = songs(for: target)
-        current.append(contentsOf: newSongs)
-        target.songs = current
-        try? context.save()
-        reload()
+        syncLocalMusicPlaylist()
     }
 
     var syncablePlaylists: [LocalPlaylist] {
@@ -275,7 +317,8 @@ class LocalPlaylistManager: ObservableObject {
             }
             return true
         }
-        let hasDownloads = !DownloadManager.shared.fetchCloudSyncedDownloads().isEmpty
+        let hasDownloads = AppConfig.Features.restrictedDownloadEnabled
+            && !DownloadManager.shared.fetchCloudSyncedDownloads().isEmpty
         let hasPodcasts = !SubscriptionManager.shared.localSubscribedRadios.isEmpty
         return hasPlaylistContent || hasDownloads || hasPodcasts
     }
@@ -293,7 +336,9 @@ class LocalPlaylistManager: ObservableObject {
                 songs: songs(for: playlist)
             )
         }
-        let downloads = DownloadManager.shared.fetchCloudSyncedDownloads().map { CloudDownloadRecord(from: $0) }
+        let downloads = AppConfig.Features.restrictedDownloadEnabled
+            ? DownloadManager.shared.fetchCloudSyncedDownloads().map { CloudDownloadRecord(from: $0) }
+            : []
         let podcasts = SubscriptionManager.shared.localSubscribedRadios
 
         struct DigestPayload: Encodable {
@@ -322,7 +367,9 @@ class LocalPlaylistManager: ObservableObject {
             )
         }
 
-        let downloads = DownloadManager.shared.fetchCloudSyncedDownloads().map { CloudDownloadRecord(from: $0) }
+        let downloads = AppConfig.Features.restrictedDownloadEnabled
+            ? DownloadManager.shared.fetchCloudSyncedDownloads().map { CloudDownloadRecord(from: $0) }
+            : []
         let podcasts = SubscriptionManager.shared.localSubscribedRadios
 
         return LocalPlaylistCloudSnapshot(
@@ -331,7 +378,11 @@ class LocalPlaylistManager: ObservableObject {
             deviceName: deviceName,
             playlists: cloudPlaylists,
             downloads: downloads.isEmpty ? nil : downloads,
-            localRadioSubscriptions: podcasts.isEmpty ? nil : podcasts
+            localRadioSubscriptions: podcasts.isEmpty ? nil : podcasts,
+            themeCustomization: nil,
+            playbackHistory: nil,
+            aiEqualizer: nil,
+            customEQPresets: nil
         )
     }
 
@@ -341,10 +392,7 @@ class LocalPlaylistManager: ObservableObject {
         let remotePlaylists = remotePlaylists.filter { Self.isCloudSyncablePlaylistId($0.id) }
 
         let favoriteId = LocalPlaylist.favoriteId
-        let favoriteDescriptor = FetchDescriptor<LocalPlaylist>(
-            predicate: #Predicate { $0.id == favoriteId }
-        )
-        let favorite = (try? context.fetch(favoriteDescriptor))?.first
+        let favorite = store.first(LocalPlaylist.self, where: { $0.id == favoriteId })
         let remoteFavorite = remotePlaylists.first { $0.id == favoriteId }
 
         if let favorite, let remoteFavorite {
@@ -356,11 +404,10 @@ class LocalPlaylistManager: ObservableObject {
             favorite.songs = []
         }
 
-        let descriptor = FetchDescriptor<LocalPlaylist>()
-        let locals = (try? context.fetch(descriptor)) ?? []
+        let locals = store.fetchAll(LocalPlaylist.self)
         locals
             .filter { !$0.isSystem }
-            .forEach(context.delete)
+            .forEach { store.delete($0) }
 
         remotePlaylists
             .filter { !$0.isSystem }
@@ -375,10 +422,10 @@ class LocalPlaylistManager: ObservableObject {
                 playlist.createdAt = remote.createdAt
                 playlist.songs = remote.songs
                 playlist.updatedAt = remote.updatedAt
-                context.insert(playlist)
+                store.insert(playlist)
             }
 
-        try? context.save()
+        store.save()
         reload()
         return remotePlaylists.count
     }
@@ -391,8 +438,7 @@ class LocalPlaylistManager: ObservableObject {
         ensureSystemPlaylists()
         let remotePlaylists = remotePlaylists.filter { Self.isCloudSyncablePlaylistId($0.id) }
 
-        let descriptor = FetchDescriptor<LocalPlaylist>()
-        let localPlaylists = (try? context.fetch(descriptor)) ?? []
+        let localPlaylists = store.fetchAll(LocalPlaylist.self)
         var remoteByID = Dictionary(uniqueKeysWithValues: remotePlaylists.map { ($0.id, $0) })
 
         for playlist in localPlaylists {
@@ -408,6 +454,9 @@ class LocalPlaylistManager: ObservableObject {
                 apply(remote, to: playlist)
                 continue
             }
+
+            // 旧「下载」歌单是老用户的历史下载存档：远端没有也绝不删除
+            if playlist.isDownload { continue }
 
             if playlist.isFavorite {
                 if shouldPreserveLocal {
@@ -426,7 +475,7 @@ class LocalPlaylistManager: ObservableObject {
                 continue
             }
 
-            context.delete(playlist)
+            store.delete(playlist)
         }
 
         for remote in remoteByID.values where !remote.isSystem {
@@ -440,10 +489,10 @@ class LocalPlaylistManager: ObservableObject {
             playlist.createdAt = remote.createdAt
             playlist.songs = remote.songs
             playlist.updatedAt = remote.updatedAt
-            context.insert(playlist)
+            store.insert(playlist)
         }
 
-        try? context.save()
+        store.save()
         reload()
         return playlists.filter { Self.isCloudSyncablePlaylist($0) }.count
     }
@@ -458,8 +507,8 @@ class LocalPlaylistManager: ObservableObject {
     @discardableResult
     func createPlaylist(name: String, desc: String? = nil) -> LocalPlaylist {
         let playlist = LocalPlaylist(name: name, desc: desc)
-        context.insert(playlist)
-        try? context.save()
+        store.insert(playlist)
+        store.save()
         reload()
         LocalPlaylistCloudSyncManager.shared.scheduleSyncForLocalMutation()
         return playlist
@@ -469,15 +518,15 @@ class LocalPlaylistManager: ObservableObject {
         guard !playlist.isSystem else { return }
         playlist.name = name
         playlist.updatedAt = Date()
-        try? context.save()
+        store.save()
         reload()
         LocalPlaylistCloudSyncManager.shared.scheduleSyncForLocalMutation()
     }
     
     func deletePlaylist(_ playlist: LocalPlaylist) {
         guard !playlist.isSystem else { return }
-        context.delete(playlist)
-        try? context.save()
+        store.delete(playlist)
+        store.save()
         reload()
         LocalPlaylistCloudSyncManager.shared.scheduleSyncForLocalMutation()
     }
@@ -493,10 +542,7 @@ class LocalPlaylistManager: ObservableObject {
         guard !songs.isEmpty else { return 0 }
 
         let targetId = playlist.id
-        let descriptor = FetchDescriptor<LocalPlaylist>(
-            predicate: #Predicate { $0.id == targetId }
-        )
-        guard let target = (try? context.fetch(descriptor))?.first else {
+        guard let target = store.first(LocalPlaylist.self, where: { $0.id == targetId }) else {
             AppLogger.error("添加歌曲失败: 找不到歌单 \(playlist.name)")
             return 0
         }
@@ -518,7 +564,7 @@ class LocalPlaylistManager: ObservableObject {
 
         current.insert(contentsOf: songsToInsert, at: 0)
         target.songs = current
-        try? context.save()
+        store.save()
         reload()
         if Self.isCloudSyncablePlaylist(target) {
             LocalPlaylistCloudSyncManager.shared.scheduleSyncForLocalMutation()
@@ -534,17 +580,14 @@ class LocalPlaylistManager: ObservableObject {
         guard !ids.isEmpty else { return }
 
         let targetId = playlist.id
-        let descriptor = FetchDescriptor<LocalPlaylist>(
-            predicate: #Predicate { $0.id == targetId }
-        )
-        guard let target = (try? context.fetch(descriptor))?.first else { return }
+        guard let target = store.first(LocalPlaylist.self, where: { $0.id == targetId }) else { return }
 
         var current = songs(for: target)
         let originalCount = current.count
         current.removeAll { ids.contains($0.id) }
         guard current.count != originalCount else { return }
         target.songs = current
-        try? context.save()
+        store.save()
         reload()
         if Self.isCloudSyncablePlaylist(target) {
             LocalPlaylistCloudSyncManager.shared.scheduleSyncForLocalMutation()
@@ -640,8 +683,8 @@ class LocalPlaylistManager: ObservableObject {
     func importPlaylist(name: String, songs: [Song]) -> LocalPlaylist {
         let playlist = LocalPlaylist(name: name)
         playlist.songs = songs
-        context.insert(playlist)
-        try? context.save()
+        store.insert(playlist)
+        store.save()
         reload()
         LocalPlaylistCloudSyncManager.shared.scheduleSyncForLocalMutation()
         return playlist

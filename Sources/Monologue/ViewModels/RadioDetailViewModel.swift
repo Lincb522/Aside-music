@@ -1,17 +1,16 @@
 import Foundation
-import Observation
 import Combine
 
 /// 电台详情 ViewModel，管理电台信息和节目列表的加载
 @MainActor
-@Observable class RadioDetailViewModel {
-    var radioDetail: RadioStation?
-    var programs: [RadioProgram] = []
-    var isAscendingOrder = UserDefaults.standard.bool(forKey: AppConfig.StorageKeys.podcastSortAscending)
-    var isLoading = true
-    var isLoadingMore = false
-    var hasMore = true
-    var errorMessage: String?
+class RadioDetailViewModel: ObservableObject {
+    @Published var radioDetail: RadioStation?
+    @Published var programs: [RadioProgram] = []
+    @Published var isAscendingOrder = UserDefaults.standard.bool(forKey: AppConfig.StorageKeys.podcastSortAscending)
+    @Published var isLoading = true
+    @Published var isLoadingMore = false
+    @Published var hasMore = true
+    @Published var errorMessage: String?
 
     let radioId: Int
     private var offset = 0

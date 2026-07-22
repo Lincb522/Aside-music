@@ -1,10 +1,8 @@
 import Foundation
-import SwiftData
 
 /// 本地歌单数据模型
-@Model
 final class LocalPlaylist {
-    @Attribute(.unique) var id: String
+    var id: String
     var name: String
     var desc: String?
     var coverUrl: String?
@@ -81,5 +79,41 @@ final class LocalPlaylist {
     /// 是否包含某首歌
     func containsSong(id: Int) -> Bool {
         songs.contains { $0.id == id }
+    }
+}
+
+// MARK: - MonoEntity
+
+extension LocalPlaylist: MonoEntity {
+    static let monoEntityName = "LocalPlaylist"
+    static let monoAttributes: [MonoAttribute] = [
+        .init("id", .string), .init("name", .string), .init("desc", .string),
+        .init("coverUrl", .string), .init("createdAt", .date), .init("updatedAt", .date),
+        .init("songsData", .data), .init("isSystem", .bool)
+    ]
+
+    var monoUniqueKey: String { id }
+
+    func monoSnapshot() -> [String: Any?] {
+        [
+            "id": id, "name": name, "desc": desc, "coverUrl": coverUrl,
+            "createdAt": createdAt, "updatedAt": updatedAt,
+            "songsData": songsData, "isSystem": isSystem
+        ]
+    }
+
+    static func monoMake(from s: [String: Any?]) -> Self {
+        let obj = LocalPlaylist(
+            id: MonoSnapshotValue.string(s, "id"),
+            name: MonoSnapshotValue.string(s, "name"),
+            desc: MonoSnapshotValue.stringOpt(s, "desc"),
+            isSystem: MonoSnapshotValue.bool(s, "isSystem")
+        )
+        obj.coverUrl = MonoSnapshotValue.stringOpt(s, "coverUrl")
+        obj.createdAt = MonoSnapshotValue.date(s, "createdAt")
+        obj.songsData = MonoSnapshotValue.dataOpt(s, "songsData")
+        // updatedAt 最后设置（songsData 直接赋值不会触发 didSet，但保险起见仍放最后）
+        obj.updatedAt = MonoSnapshotValue.date(s, "updatedAt")
+        return unsafeDowncast(obj, to: Self.self)
     }
 }

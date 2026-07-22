@@ -13,13 +13,15 @@ struct QCMNewSongsView: View {
     }
 
     private var qcmAccent: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         if PetWhiteStyle.isActive { return PetWhiteStyle.sky }
         if CapsuleStyle.isActive { return CapsuleStyle.mint }
         return NeumorphicStyle.isActive ? NeumorphicStyle.accent : MusicSource.qqmusic.themedBadgeColor
     }
 
     private var qcmAccentForeground: Color {
-        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke }
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.onAccent }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
         if CapsuleStyle.isActive {
             return CapsuleStyle.readableLabel(on: CapsuleStyle.mint)
         }
@@ -34,12 +36,14 @@ struct QCMNewSongsView: View {
     }
 
     private var qcmPrimaryText: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
         if CapsuleStyle.isActive { return CapsuleStyle.ink }
         return NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary
     }
 
     private var qcmSecondaryText: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if PetWhiteStyle.isActive { return PetWhiteStyle.inkSoft }
         if CapsuleStyle.isActive { return CapsuleStyle.inkSoft }
         return NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary
@@ -51,6 +55,8 @@ struct QCMNewSongsView: View {
         ZStack {
             if PetWhiteStyle.isActive {
                 PetWhiteRootBackdrop()
+            } else if MinimalWhiteStyle.isActive {
+                MinimalWhiteRootBackdrop()
             } else {
                 ThemedPageBackground()
                     .ignoresSafeArea()
@@ -66,7 +72,9 @@ struct QCMNewSongsView: View {
                         emptyState
                     } else if CapsuleStyle.isActive {
                         capsuleSongList
-                    } else if PetWhiteStyle.isActive {
+                    } else if PetWhiteStyle.isActive || MinimalWhiteStyle.isActive {
+                        // PetWhite / 纯白极简的 songRows 卡片内部已含 toolbar，
+                        // 外层不能再渲染一次，否则"全部播放"等按钮会重复
                         songRows
                     } else {
                         toolbar
@@ -84,17 +92,6 @@ struct QCMNewSongsView: View {
         .navigationTitle(ThemedPageStyle.isActive ? "" : "QCM 新歌")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    playAll()
-                } label: {
-                    MonologueIcon(icon: .play, size: 16)
-                }
-                .disabled(songs.isEmpty)
-                .opacity(songs.isEmpty ? 0.35 : 1)
-            }
-        }
         .onAppear {
             if songs.isEmpty {
                 viewModel.fetchData()
@@ -132,7 +129,18 @@ struct QCMNewSongsView: View {
                 subtitle: "\(songs.count) \(String(localized: "首"))",
                 icon: .musicNote
             ) {
-                PetWhiteAssetIconBadge(assetName: "qqMusic", tint: PetWhiteStyle.sky, size: 50)
+                EmptyView()
+            }
+            .padding(.bottom, 2)
+        } else if MinimalWhiteStyle.isActive {
+            MinimalWhitePageHeader(eyebrow: "", title: "QCM 新歌", icon: .musicNote) {
+                Text("\(songs.count) \(String(localized: "首"))")
+                    .font(MinimalWhiteStyle.labelFont(12, weight: .regular))
+                    .foregroundStyle(MinimalWhiteStyle.inkMuted)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Capsule().fill(MinimalWhiteStyle.controlGlassFill))
+                    .overlay(Capsule().stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth))
             }
             .padding(.bottom, 2)
         } else if ThemedPageStyle.isActive {
@@ -169,6 +177,7 @@ struct QCMNewSongsView: View {
             .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
             .padding(.top, DeviceLayout.headerTopPadding + 8)
             .padding(.bottom, 12)
+            .monologuePageHeaderCollapse()
         }
     }
 
@@ -204,8 +213,25 @@ struct QCMNewSongsView: View {
                 .padding(.horizontal, 8)
                 .padding(.vertical, 12)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(PetWhiteSurfaceBackground(cornerRadius: 26, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.sky))
+                .background(PetWhiteSurfaceBackground(cornerRadius: PetWhiteStyle.cardRadius, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.sky))
                 .padding(.horizontal, DeviceLayout.isPad ? 8 : 4)
+            } else if MinimalWhiteStyle.isActive {
+                VStack(alignment: .leading, spacing: 12) {
+                    toolbar
+                        .padding(.horizontal, -DeviceLayout.viewHorizontalPadding)
+                    songRowsContent
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    MinimalWhiteSurfaceBackground(
+                        cornerRadius: MinimalWhiteStyle.chromeRadius,
+                        elevated: false,
+                        tint: MinimalWhiteStyle.glassFill
+                    )
+                )
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
             } else {
                 songRowsContent
             }
@@ -226,7 +252,7 @@ struct QCMNewSongsView: View {
                         playerManager.play(song: song, in: songs)
                     }
                 },
-                horizontalPadding: PetWhiteStyle.isActive ? CGFloat(0) : nil
+                horizontalPadding: (PetWhiteStyle.isActive || MinimalWhiteStyle.isActive) ? CGFloat(0) : nil
             )
         }
     }
@@ -276,6 +302,16 @@ struct QCMNewSongsView: View {
                 SignalPlayPill(title: title, icon: icon, tint: tint)
             } else if CapsuleStyle.isActive {
                 CapsuleDetailActionPill(title: title, icon: icon, tint: tint)
+            } else if MinimalWhiteStyle.isActive {
+                HStack(spacing: 8) {
+                    MonologueIcon(icon: icon, size: 14, color: qcmAccentForeground, lineWidth: 1.6)
+                    Text(title)
+                        .font(MinimalWhiteStyle.labelFont(14, weight: .semibold))
+                        .foregroundStyle(qcmAccentForeground)
+                }
+                .padding(.horizontal, 18)
+                .padding(.vertical, 10)
+                .background(qcmAccent, in: Capsule(style: .continuous))
             } else {
                 HStack(spacing: 7) {
                     MonologueIcon(icon: icon, size: 12, color: qcmAccentForeground, lineWidth: 1.7)
@@ -298,6 +334,10 @@ struct QCMNewSongsView: View {
             if CapsuleStyle.isActive {
                 CapsuleDetailIconButton(icon: icon, tint: tint)
                     .frame(width: 34, height: 34)
+            } else if MinimalWhiteStyle.isActive {
+                MonologueIcon(icon: icon, size: 13, color: tint, lineWidth: 1.7)
+                    .frame(width: 34, height: 34)
+                    .background(MinimalWhiteCircleBackground(elevated: false))
             } else {
                 MonologueIcon(icon: icon, size: 13, color: tint, lineWidth: 1.7)
                     .frame(width: 32, height: 32)
@@ -307,7 +347,7 @@ struct QCMNewSongsView: View {
     }
 
     private var loadingState: some View {
-        MonologueLoadingView(text: "LOADING QCM")
+        MonologueLoadingView(text: MinimalWhiteStyle.isActive ? nil : "LOADING QCM")
             .frame(maxWidth: .infinity)
             .padding(.top, 120)
     }
@@ -322,11 +362,13 @@ struct QCMNewSongsView: View {
                 CapsuleIconBadge(icon: .musicNote, tint: CapsuleStyle.mint, size: 54)
             } else if PetWhiteStyle.isActive {
                 PetWhiteAssetIconBadge(assetName: "qqMusic", tint: PetWhiteStyle.sky, size: 54)
+            } else if MinimalWhiteStyle.isActive {
+                MinimalWhiteIconBadge(icon: .musicNote, size: 54)
             } else {
                 MonologueIcon(icon: .musicNote, size: 38, color: MusicSource.qqmusic.themedBadgeColor.opacity(0.65), lineWidth: 1.7)
             }
             Text("暂无 QCM 新歌")
-                .font(SignalStyle.isActive ? SignalStyle.bodyFont(15, weight: .semibold) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : (CapsuleStyle.isActive ? CapsuleStyle.bodyFont(15, weight: .semibold) : .rounded(size: 15, weight: .semibold))))
+                .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(14, weight: .medium) : (SignalStyle.isActive ? SignalStyle.bodyFont(15, weight: .semibold) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : (CapsuleStyle.isActive ? CapsuleStyle.bodyFont(15, weight: .semibold) : .rounded(size: 15, weight: .semibold)))))
                 .foregroundStyle(SignalStyle.isActive ? SignalStyle.inkSoft : qcmSecondaryText)
         }
         .frame(maxWidth: .infinity)

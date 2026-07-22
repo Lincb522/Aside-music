@@ -94,7 +94,9 @@ struct SearchView: View {
 
     @ViewBuilder
     private var searchRootContent: some View {
-        if viewModel.hasSearched {
+        if MinimalWhiteStyle.isActive {
+            minimalWhiteSearchRoot
+        } else if viewModel.hasSearched {
             ZStack {
                 searchContentView
                 suggestionsOverlay
@@ -120,6 +122,8 @@ struct SearchView: View {
                     liquidGlassSearchHeader
                 } else if CapsuleStyle.isActive {
                     capsuleSearchHeader
+                } else {
+                    defaultSearchHeader
                 }
 
                 searchBarSection
@@ -130,6 +134,20 @@ struct SearchView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+        }
+    }
+
+    private var minimalWhiteSearchRoot: some View {
+        VStack(spacing: 0) {
+            searchBarSection
+                .padding(.top, DeviceLayout.headerTopPadding + 8)
+                .padding(.bottom, 12)
+
+            ZStack {
+                searchContentView
+                suggestionsOverlay
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
@@ -158,16 +176,27 @@ struct SearchView: View {
 
     // MARK: - 搜索栏
 
-    private var mangaSearchHeader: some View {
-        HStack(alignment: .center, spacing: 12) {
-            MangaSectionMark(kind: .star, tint: MangaStyle.labelYellow)
+    /// aside：大标题页头，只在未搜索时出现（搜索后让位给结果摘要）
+    private var defaultSearchHeader: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text(String(localized: "搜索"))
+                .font(.rounded(size: 32, weight: .heavy))
+                .foregroundStyle(Color.monologueTextPrimary)
 
-            VStack(alignment: .leading, spacing: 4) {
+            Spacer(minLength: 12)
+        }
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.top, DeviceLayout.headerTopPadding + 6)
+        .padding(.bottom, 4)
+    }
+
+    private var mangaSearchHeader: some View {
+        // 周刊印刷刊头:话数眉题 + 错版标题
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 7) {
                 MangaLabel(text: "SEARCH", tint: MangaStyle.labelYellow, small: true)
 
-                Text(String(localized: "搜索"))
-                    .font(MangaStyle.comicFont(26, weight: .black))
-                    .foregroundStyle(MangaStyle.ink)
+                MangaMisprintTitle(text: String(localized: "搜索"), size: 26)
             }
 
             Spacer(minLength: 12)
@@ -175,33 +204,43 @@ struct SearchView: View {
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
         .padding(.top, DeviceLayout.headerTopPadding + 8)
         .padding(.bottom, 10)
+        .monologuePageHeaderCollapse()
     }
 
+    /// Muji：检索刊头 —— 圆点眉题 + 衬线大标题
     private var mujiSearchHeader: some View {
-        HStack(alignment: .bottom, spacing: 12) {
-            Text(String(localized: "搜索"))
-                .font(MujiStyle.titleFont(24, weight: .regular))
-                .foregroundStyle(MujiStyle.ink)
+        VStack(alignment: .leading, spacing: 11) {
+            HStack(alignment: .center, spacing: 8) {
+                MujiDotMark()
 
-            Rectangle()
-                .fill(MujiStyle.separator)
-                .frame(height: 0.6)
-                .padding(.bottom, 8)
+                Text("SEARCH DESK")
+                    .font(MujiStyle.labelFont(10, weight: .semibold))
+                    .foregroundStyle(MujiStyle.clay)
+                    .tracking(2.2)
+                    .fixedSize()
+            }
+
+            Text(String(localized: "搜索"))
+                .font(MujiStyle.titleFont(30, weight: .medium))
+                .foregroundStyle(MujiStyle.ink)
+                .tracking(0.3)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-        .padding(.top, DeviceLayout.headerTopPadding + 2)
-        .padding(.bottom, 8)
+        .padding(.top, DeviceLayout.headerTopPadding + 6)
+        .padding(.bottom, 10)
+        .monologuePageHeaderCollapse()
     }
 
     private var neumorphicSearchHeader: some View {
-        NeumorphicPageHeader(
-            eyebrow: "SEARCH",
-            title: String(localized: "搜索"),
-            subtitle: ""
-        ) {
-            NeumorphicIconBadge(icon: .magnifyingGlass, tint: NeumorphicStyle.accent, size: 46)
-        }
-        .padding(.bottom, 2)
+        Text(String(localized: "搜索"))
+            .font(NeumorphicStyle.titleFont(29, weight: .semibold))
+            .foregroundStyle(NeumorphicStyle.ink)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+            .padding(.top, DeviceLayout.headerTopPadding + 8)
+            .padding(.bottom, 10)
+            .monologuePageHeaderCollapse()
     }
 
     private var signalSearchHeader: some View {
@@ -259,33 +298,19 @@ struct SearchView: View {
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
         .padding(.top, DeviceLayout.headerTopPadding + 8)
         .padding(.bottom, 12)
+        .monologuePageHeaderCollapse()
     }
 
     private var capsuleSearchHeader: some View {
-        HStack(alignment: .center, spacing: 12) {
-            CapsuleIconBadge(icon: .magnifyingGlass, tint: CapsuleStyle.accent, size: 44)
-
-            VStack(alignment: .leading, spacing: 5) {
-                HStack(spacing: 6) {
-                    Capsule()
-                        .fill(CapsuleStyle.accent)
-                        .frame(width: 22, height: 7)
-                    Capsule()
-                        .fill(CapsuleStyle.cyan.opacity(0.72))
-                        .frame(width: 9, height: 7)
-                }
-
-                Text(String(localized: "搜索"))
-                    .font(CapsuleStyle.titleFont(26, weight: .bold))
-                    .foregroundStyle(CapsuleStyle.ink)
-                    .lineLimit(1)
-            }
-
-            Spacer(minLength: 8)
-        }
-        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-        .padding(.top, DeviceLayout.headerTopPadding + 8)
-        .padding(.bottom, 12)
+        Text(String(localized: "搜索"))
+            .font(CapsuleStyle.titleFont(26, weight: .bold))
+            .foregroundStyle(CapsuleStyle.ink)
+            .lineLimit(1)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, DeviceLayout.headerTopPadding + 8)
+            .padding(.bottom, 12)
+            .monologuePageHeaderCollapse()
     }
 
     private var petWhiteSearchHeader: some View {
@@ -313,23 +338,27 @@ struct SearchView: View {
 
                 HStack(spacing: 0) {
                     ZStack(alignment: .leading) {
-                        if viewModel.query.isEmpty, viewModel.hasSearched, !viewModel.displayKeyword.isEmpty {
-                            Text(viewModel.displayKeyword)
-                                .font(searchFieldFont(weight: .medium))
-                                .foregroundColor(searchPlaceholderColor)
-                                .lineLimit(1)
-                        } else if viewModel.query.isEmpty, let defaultKw = viewModel.defaultKeyword {
-                            Text(defaultKw.showKeyword)
-                                .font(searchFieldFont(weight: .medium))
-                                .foregroundColor(searchPlaceholderColor)
-                                .lineLimit(1)
-                                .onTapWithHaptic {
-                                    viewModel.performSearch(keyword: defaultKw.realkeyword)
-                                    isFocused = false
-                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                                        isSearchBarExpanded = false
-                                    }
+                        if viewModel.query.isEmpty {
+                            if viewModel.hasSearched {
+                                if !isFocused, !viewModel.displayKeyword.isEmpty {
+                                    Text(viewModel.displayKeyword)
+                                        .font(searchFieldFont(weight: .medium))
+                                        .foregroundColor(searchPlaceholderColor)
+                                        .lineLimit(1)
                                 }
+                            } else if let defaultKw = viewModel.defaultKeyword {
+                                Text(defaultKw.showKeyword)
+                                    .font(searchFieldFont(weight: .medium))
+                                    .foregroundColor(searchPlaceholderColor)
+                                    .lineLimit(1)
+                                    .onTapWithHaptic {
+                                        viewModel.performSearch(keyword: defaultKw.realkeyword)
+                                        isFocused = false
+                                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                            isSearchBarExpanded = false
+                                        }
+                                    }
+                            }
                         }
 
                         TextField("", text: $viewModel.query)
@@ -341,6 +370,7 @@ struct SearchView: View {
                             .onSubmit {
                                 if !viewModel.query.isEmpty {
                                     viewModel.performSearch(keyword: viewModel.query)
+                                    isFocused = false
                                     withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                                         isSearchBarExpanded = false
                                     }
@@ -351,6 +381,7 @@ struct SearchView: View {
                                     }
                                 } else if let defaultKw = viewModel.defaultKeyword {
                                     viewModel.performSearch(keyword: defaultKw.realkeyword)
+                                    isFocused = false
                                     withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                                         isSearchBarExpanded = false
                                     }
@@ -382,10 +413,18 @@ struct SearchView: View {
             .padding(.vertical, viewModel.hasSearched ? (NeumorphicStyle.isActive ? 7 : 8) : (showFullSearch ? (SequoiaStyle.isActive ? 9 : 10) : 12))
             .background(
                 Group {
-                    if MangaStyle.isActive {
+                    if MinimalWhiteStyle.isActive {
+                        MinimalWhiteSurfaceBackground(
+                            cornerRadius: searchRadius,
+                            elevated: true,
+                            tint: MinimalWhiteStyle.glassStrongFill
+                        )
+                    } else if MangaStyle.isActive {
                         MangaCardBackground(cornerRadius: searchRadius, elevated: true)
                     } else if MujiStyle.isActive {
-                        MujiPaperCardBackground(cornerRadius: searchRadius, elevated: true)
+                        // Muji：水洗胶囊输入面
+                        Capsule()
+                            .fill(MujiStyle.wash(MujiStyle.clay, strength: isFocused ? 1.35 : 0.9))
                     } else if NeumorphicStyle.isActive {
                         NeumorphicSurfaceBackground(cornerRadius: searchRadius, elevated: true)
                     } else if SignalStyle.isActive {
@@ -402,6 +441,7 @@ struct SearchView: View {
             .liquidGlassStyle(cornerRadius: searchRadius)
             .onTapGesture {
                 if !showFullSearch {
+                    viewModel.beginSearchEditing()
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                         isSearchBarExpanded = true
                     }
@@ -425,9 +465,10 @@ struct SearchView: View {
     }
 
     private func searchBarCornerRadius(showFullSearch: Bool) -> CGFloat {
+        if MinimalWhiteStyle.isActive { return showFullSearch ? 16 : 20 }
         if MangaStyle.isActive { return MangaStyle.cardRadius }
         if PetWhiteStyle.isActive { return showFullSearch ? 20 : 22 }
-        if MujiStyle.isActive { return 10 }
+        if MujiStyle.isActive { return showFullSearch ? 20 : 22 }
         if NeumorphicStyle.isActive { return showFullSearch ? 18 : 20 }
         if SignalStyle.isActive { return showFullSearch ? 20 : 22 }
         if SequoiaStyle.isActive { return showFullSearch ? 16 : 18 }
@@ -461,6 +502,7 @@ struct SearchView: View {
     }
 
     private var searchBackButtonRadius: CGFloat {
+        if MinimalWhiteStyle.isActive { return 14 }
         if MangaStyle.isActive { return MangaStyle.buttonRadius }
         if NeumorphicStyle.isActive { return 16 }
         if SignalStyle.isActive { return 17 }
@@ -471,9 +513,10 @@ struct SearchView: View {
     }
 
     private var searchBackButtonFill: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.glassStrongFill }
         if MangaStyle.isActive { return MangaStyle.surface }
         if PetWhiteStyle.isActive { return PetWhiteStyle.surfaceRaised }
-        if MujiStyle.isActive { return MujiStyle.surface }
+        if MujiStyle.isActive { return Color.clear }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfaceRaised }
         if SignalStyle.isActive { return SignalStyle.control }
         if SequoiaStyle.isActive { return SequoiaStyle.materialRaised }
@@ -483,9 +526,10 @@ struct SearchView: View {
     }
 
     private var searchBackButtonStroke: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.hairline }
         if MangaStyle.isActive { return MangaStyle.ink }
         if PetWhiteStyle.isActive { return PetWhiteStyle.stroke }
-        if MujiStyle.isActive { return MujiStyle.hairline.opacity(0.5) }
+        if MujiStyle.isActive { return MujiStyle.hairline.opacity(0.75) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.4) }
         if SignalStyle.isActive { return SignalStyle.separator.opacity(0.72) }
         if SequoiaStyle.isActive { return SequoiaStyle.separator }
@@ -495,14 +539,18 @@ struct SearchView: View {
     }
 
     private var searchBackButtonStrokeWidth: CGFloat {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.strokeWidth }
         if MangaStyle.isActive { return MangaStyle.strokeWidth }
-        if PetWhiteStyle.isActive { return 1.5 }
+        if PetWhiteStyle.isActive { return 1 }
+        if MujiStyle.isActive { return 0.8 }
         if CapsuleStyle.isActive { return 0.8 }
         return 0.5
     }
 
     private var searchBackButtonIconColor: Color {
-        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke }
+        if MujiStyle.isActive { return MujiStyle.ink }
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
         if SignalStyle.isActive { return SignalStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.ink }
@@ -512,8 +560,9 @@ struct SearchView: View {
     }
 
     private var searchIconColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if MangaStyle.isActive { return MangaStyle.inkMuted }
-        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.inkSoft }
         if MujiStyle.isActive { return MujiStyle.inkMuted }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         if SignalStyle.isActive { return SignalStyle.inkSoft }
@@ -524,6 +573,7 @@ struct SearchView: View {
     }
 
     private var searchPlaceholderColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if MangaStyle.isActive { return MangaStyle.inkMuted }
         if PetWhiteStyle.isActive { return PetWhiteStyle.inkMuted }
         if MujiStyle.isActive { return MujiStyle.inkMuted }
@@ -536,6 +586,7 @@ struct SearchView: View {
     }
 
     private var searchTextColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         if MangaStyle.isActive { return MangaStyle.ink }
         if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
         if MujiStyle.isActive { return MujiStyle.ink }
@@ -548,9 +599,10 @@ struct SearchView: View {
     }
 
     private func searchFieldFont(weight: Font.Weight) -> Font {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.bodyFont(15, weight: weight) }
         if MangaStyle.isActive { return MangaStyle.comicFont(15, weight: weight == .bold ? .bold : .medium) }
-        if PetWhiteStyle.isActive { return PetWhiteStyle.bodyFont(15, weight: .black) }
-        if MujiStyle.isActive { return MujiStyle.labelFont(15, weight: .regular) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.bodyFont(15, weight: .semibold) }
+        if MujiStyle.isActive { return MujiStyle.bodyFont(15.5, weight: .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(15, weight: .medium) }
         if SignalStyle.isActive { return SignalStyle.labelFont(15, weight: .semibold) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(15, weight: .regular) }
@@ -580,73 +632,74 @@ struct SearchView: View {
         } else if CapsuleStyle.isActive {
             capsuleSearchTabBar
         } else {
-            GeometryReader { proxy in
-                let spacing: CGFloat = 8
-                let itemWidth = searchTabItemWidth(totalWidth: proxy.size.width, spacing: spacing)
+            // aside：左对齐杂志式类型页签，短下划线锚在文字下方
+            HStack(spacing: 24) {
+                ForEach(SearchTab.allCases, id: \.self) { tab in
+                    let selected = viewModel.currentTab == tab
 
-                HStack(spacing: spacing) {
-                    ForEach(SearchTab.allCases, id: \.self) { tab in
-                        Button(action: {
-                            viewModel.switchTab(tab)
-                        }) {
-                            VStack(spacing: 6) {
-                                Text(tab.rawValue)
-                                    .font(.rounded(size: 15, weight: viewModel.currentTab == tab ? .bold : .medium))
-                                    .foregroundColor(viewModel.currentTab == tab ? .monologueTextPrimary : .monologueTextSecondary)
-                                    .animation(.none, value: viewModel.currentTab)
+                    Button(action: {
+                        viewModel.switchTab(tab)
+                    }) {
+                        VStack(spacing: 5) {
+                            Text(tab.rawValue)
+                                .font(.rounded(size: 15, weight: selected ? .heavy : .medium))
+                                .foregroundColor(
+                                    selected
+                                        ? .monologueTextPrimary
+                                        : .monologueTextSecondary.opacity(0.85)
+                                )
+                                .animation(.none, value: viewModel.currentTab)
 
-                                Capsule()
-                                    .fill(Color.monologueTextPrimary)
-                                    .frame(width: 24, height: 3)
-                                    .opacity(viewModel.currentTab == tab ? 1 : 0)
-                            }
-                            .frame(width: itemWidth, height: 36)
-                            .contentShape(Rectangle())
+                            Capsule()
+                                .fill(Color.monologueAccent)
+                                .frame(width: 16, height: 3)
+                                .opacity(selected ? 1 : 0)
                         }
-                        .buttonStyle(PlainButtonStyle())
+                        .contentShape(Rectangle())
                     }
+                    .buttonStyle(PlainButtonStyle())
                 }
-                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-                .padding(.vertical, 8)
+
+                Spacer(minLength: 0)
             }
-            .frame(height: 52)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, 10)
+            .padding(.bottom, 6)
             .animation(.spring(response: 0.35, dampingFraction: 0.8), value: viewModel.currentTab)
         }
     }
 
+    /// Muji：清新页签 —— 衬线文字 + 选中圆点标记
     private var mujiSearchTabBar: some View {
-        GeometryReader { proxy in
-            let spacing: CGFloat = 8
-            let itemWidth = searchTabItemWidth(totalWidth: proxy.size.width, spacing: spacing)
+        HStack(spacing: 24) {
+            ForEach(SearchTab.allCases, id: \.self) { tab in
+                let selected = viewModel.currentTab == tab
 
-            HStack(spacing: spacing) {
-                ForEach(SearchTab.allCases, id: \.self) { tab in
-                    Button {
-                        viewModel.switchTab(tab)
-                    } label: {
+                Button {
+                    viewModel.switchTab(tab)
+                } label: {
+                    VStack(spacing: 5) {
                         Text(tab.rawValue)
-                            .font(MujiStyle.labelFont(13, weight: viewModel.currentTab == tab ? .semibold : .regular))
-                            .foregroundStyle(viewModel.currentTab == tab ? MujiStyle.onTint : MujiStyle.inkSoft)
-                            .frame(width: itemWidth)
-                            .padding(.vertical, 9)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .fill(viewModel.currentTab == tab ? MujiStyle.ink : MujiStyle.surface.opacity(0.74))
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .stroke(viewModel.currentTab == tab ? Color.clear : MujiStyle.hairline.opacity(0.44), lineWidth: 0.6)
-                            )
+                            .font(MujiStyle.bodyFont(14.5, weight: selected ? .medium : .regular))
+                            .foregroundStyle(selected ? MujiStyle.ink : MujiStyle.inkMuted)
+                            .animation(.none, value: viewModel.currentTab)
+
+                        Circle()
+                            .fill(MujiStyle.clay)
+                            .frame(width: 4.5, height: 4.5)
+                            .opacity(selected ? 1 : 0)
                     }
-                    .buttonStyle(.plain)
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
             }
-            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-            .padding(.vertical, viewModel.hasSearched ? 4 : 8)
+
+            Spacer(minLength: 0)
         }
-        .frame(height: viewModel.hasSearched ? 44 : 52)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.top, viewModel.hasSearched ? 6 : 10)
+        .padding(.bottom, 6)
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: viewModel.currentTab)
     }
 
     private var neumorphicSearchTabBar: some View {
@@ -793,41 +846,48 @@ struct SearchView: View {
     }
 
     private var mangaSearchTabBar: some View {
+        // 报刊栏目条：文字页签 + 选中朱红下划线，夹在上下规则线之间
         GeometryReader { proxy in
-            let spacing: CGFloat = 8
+            let spacing: CGFloat = 0
             let itemWidth = searchTabItemWidth(totalWidth: proxy.size.width, spacing: spacing)
 
-            HStack(spacing: spacing) {
-                ForEach(SearchTab.allCases, id: \.self) { tab in
-                    Button {
-                        viewModel.switchTab(tab)
-                    } label: {
-                        Text(tab.rawValue)
-                            .font(MangaStyle.labelFont(13, weight: viewModel.currentTab == tab ? .black : .bold))
-                            .foregroundStyle(MangaStyle.ink)
+            VStack(spacing: 0) {
+                Rectangle()
+                    .fill(MangaStyle.ink.opacity(0.7))
+                    .frame(height: 1.4)
+
+                HStack(spacing: spacing) {
+                    ForEach(SearchTab.allCases, id: \.self) { tab in
+                        let selected = viewModel.currentTab == tab
+                        Button {
+                            viewModel.switchTab(tab)
+                        } label: {
+                            VStack(spacing: 5) {
+                                Text(tab.rawValue)
+                                    .font(MangaStyle.labelFont(13, weight: selected ? .black : .bold))
+                                    .foregroundStyle(selected ? MangaStyle.ink : MangaStyle.inkMuted)
+
+                                Rectangle()
+                                    .fill(selected ? MangaStyle.accentPink : Color.clear)
+                                    .frame(height: 2.5)
+                                    .padding(.horizontal, 10)
+                            }
                             .frame(width: itemWidth)
-                            .padding(.vertical, 9)
-                            .background(
-                                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                                    .fill(viewModel.currentTab == tab ? MangaStyle.labelYellow : MangaStyle.bubbleWhite)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                                    .stroke(MangaStyle.strokeInk, lineWidth: viewModel.currentTab == tab ? MangaStyle.strokeWidth : MangaStyle.fineStrokeWidth)
-                            )
-                            .background(
-                                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                                    .fill(MangaStyle.strokeInk)
-                                    .offset(x: viewModel.currentTab == tab ? 2 : 0, y: viewModel.currentTab == tab ? 2 : 0)
-                            )
+                            .padding(.top, 9)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
+
+                Rectangle()
+                    .fill(MangaStyle.ink.opacity(0.28))
+                    .frame(height: 0.8)
             }
             .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
             .padding(.vertical, 8)
         }
-        .frame(height: 52)
+        .frame(height: 56)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -961,25 +1021,29 @@ struct SearchView: View {
     private var searchedResultsScrollView: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                searchBarSection
+                if !MinimalWhiteStyle.isActive {
+                    searchBarSection
+                }
 
                 if CapsuleStyle.isActive {
                     capsuleSearchCommandBoard
                 } else {
-                    if MangaStyle.isActive {
-                        mangaResultConsole
-                    } else if MujiStyle.isActive {
-                        mujiResultConsole
-                    } else if NeumorphicStyle.isActive {
-                        neumorphicResultConsole
-                    } else if SignalStyle.isActive {
-                        signalResultConsole
-                    } else if SequoiaStyle.isActive {
-                        sequoiaResultConsole
-                    } else if LiquidGlassStyle.isActive {
-                        liquidGlassResultConsole
-                    } else {
-                        defaultResultConsole
+                    if !MinimalWhiteStyle.isActive {
+                        if MangaStyle.isActive {
+                            mangaResultConsole
+                        } else if MujiStyle.isActive {
+                            mujiResultConsole
+                        } else if NeumorphicStyle.isActive {
+                            neumorphicResultConsole
+                        } else if SignalStyle.isActive {
+                            signalResultConsole
+                        } else if SequoiaStyle.isActive {
+                            sequoiaResultConsole
+                        } else if LiquidGlassStyle.isActive {
+                            liquidGlassResultConsole
+                        } else {
+                            defaultResultConsole
+                        }
                     }
 
                     searchTabBar
@@ -1078,164 +1142,129 @@ struct SearchView: View {
             )
     }
 
+    /// aside 结果摘要：去掉卡片，改成杂志式标题行 —— 关键词大字 + 平台/类型/条数小注
     private var defaultResultConsole: some View {
-        return HStack(spacing: 12) {
-            MonologueIcon(icon: searchTabIcon(viewModel.currentTab), size: 18, color: .monologueTextPrimary, lineWidth: 1.7)
-                .frame(width: 42, height: 42)
-                .background(
-                    RoundedRectangle(cornerRadius: 15, style: .continuous)
-                        .fill(Color.monologueTextPrimary.opacity(0.07))
-                )
+        VStack(alignment: .leading, spacing: 6) {
+            Text(viewModel.displayKeyword.isEmpty ? String(localized: "搜索") : viewModel.displayKeyword)
+                .font(.rounded(size: 26, weight: .heavy))
+                .foregroundStyle(Color.monologueTextPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
 
-            VStack(alignment: .leading, spacing: 6) {
-                Text(viewModel.displayKeyword.isEmpty ? String(localized: "搜索") : viewModel.displayKeyword)
-                    .font(.rounded(size: 20, weight: .semibold))
-                    .foregroundStyle(Color.monologueTextPrimary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.82)
+            HStack(spacing: 7) {
+                Circle()
+                    .fill(viewModel.selectedPlatform.themedBadgeColor)
+                    .frame(width: 6, height: 6)
 
-                HStack(spacing: 6) {
-                    defaultResultChip(text: platformTabName(viewModel.selectedPlatform), tint: viewModel.selectedPlatform.themedBadgeColor)
-                    defaultResultChip(text: viewModel.currentTab.rawValue, tint: .monologueAccent)
+                Text(platformTabName(viewModel.selectedPlatform))
+                    .font(.rounded(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.monologueTextSecondary)
+
+                Text(verbatim: "·")
+                    .font(.rounded(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.monologueTextSecondary.opacity(0.5))
+
+                Text(viewModel.currentTab.rawValue)
+                    .font(.rounded(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.monologueTextSecondary)
+
+                Spacer(minLength: 8)
+
+                if isPlatformLoading {
+                    ProgressView()
+                        .scaleEffect(0.66)
+                        .tint(.monologueTextSecondary)
+                } else {
+                    Text(String(format: String(localized: "%d 条结果"), selectedPlatformResultCount))
+                        .font(.rounded(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.monologueTextSecondary.opacity(0.85))
+                        .monospacedDigit()
                 }
             }
-
-            Spacer(minLength: 8)
-
-            resultCountBadge(
-                textColor: .monologueAccent,
-                background: Color.monologueTextPrimary.opacity(0.06),
-                font: .rounded(size: 15, weight: .semibold)
-            )
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 11)
-        .background(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(Color.monologueGlassTint.opacity(0.62))
-                .monologueGlass(cornerRadius: 22)
-        )
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-        .padding(.bottom, 8)
+        .padding(.top, 8)
+        .padding(.bottom, 2)
     }
 
-    private func defaultResultChip(text: String, tint: Color) -> some View {
-        Text(text)
-            .font(.rounded(size: 10.5, weight: .semibold))
-            .foregroundStyle(tint)
-            .lineLimit(1)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(Capsule().fill(tint.opacity(0.12)))
-    }
-
+    /// Muji：检索结果摘要 —— 圆点标记 + 关键词 + 水洗小签
     private var mujiResultConsole: some View {
-        return HStack(spacing: 12) {
-            MonologueIcon(icon: searchTabIcon(viewModel.currentTab), size: 17, color: MujiStyle.clay, lineWidth: 1.55)
-                .frame(width: 40, height: 40)
-                .background(MujiStyle.surface, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .stroke(MujiStyle.hairline.opacity(0.5), lineWidth: 0.6)
-                )
+        return HStack(alignment: .top, spacing: 10) {
+            MujiDotMark()
+                .padding(.top, 9)
 
             VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 6) {
-                    mujiResultChip(text: platformTabName(viewModel.selectedPlatform), tint: viewModel.selectedPlatform.themedBadgeColor)
-                    mujiResultChip(text: viewModel.currentTab.rawValue, tint: MujiStyle.clay)
-                }
-
                 Text(viewModel.displayKeyword.isEmpty ? String(localized: "搜索") : viewModel.displayKeyword)
-                    .font(MujiStyle.titleFont(19, weight: .medium))
+                    .font(MujiStyle.titleFont(21, weight: .medium))
                     .foregroundStyle(MujiStyle.ink)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.82)
+                    .minimumScaleFactor(0.78)
+
+                HStack(spacing: 7) {
+                    MujiPill(text: platformTabName(viewModel.selectedPlatform), tint: viewModel.selectedPlatform.themedBadgeColor)
+                    MujiPill(text: viewModel.currentTab.rawValue, tint: MujiStyle.inkSoft)
+                }
             }
 
             Spacer(minLength: 8)
 
             resultCountBadge(
                 textColor: MujiStyle.clay,
-                background: MujiStyle.surface.opacity(0.82),
-                font: MujiStyle.labelFont(15, weight: .semibold)
+                background: Color.clear,
+                font: MujiStyle.titleFont(16, weight: .medium)
             )
         }
-        .padding(.horizontal, 13)
-        .padding(.vertical, 12)
-        .background(MujiPaperCardBackground(cornerRadius: 13, elevated: true))
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.top, 4)
         .padding(.bottom, 8)
     }
 
-    private func mujiResultChip(text: String, tint: Color) -> some View {
-        Text(text)
-            .font(MujiStyle.labelFont(10, weight: .semibold))
-            .foregroundStyle(tint)
-            .lineLimit(1)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(tint.opacity(0.09))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .stroke(tint.opacity(0.24), lineWidth: 0.55)
-            )
-    }
-
     private var mangaResultConsole: some View {
-        return HStack(spacing: 12) {
-            MangaSectionMark(kind: .star, tint: viewModel.selectedPlatform.themedBadgeColor)
-                .frame(width: 38, height: 38)
-
-            VStack(alignment: .leading, spacing: 7) {
+        // 去卡片化：编辑部摘要式——关键词大标题 + 小字条目，底部一根规则线
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Text(viewModel.displayKeyword.isEmpty ? String(localized: "搜索") : viewModel.displayKeyword)
-                    .font(MangaStyle.comicFont(20, weight: .black))
+                    .font(MangaStyle.titleFont(21, weight: .black))
                     .foregroundStyle(MangaStyle.ink)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
 
-                HStack(spacing: 7) {
-                    mangaResultChip(text: platformTabName(viewModel.selectedPlatform), tint: viewModel.selectedPlatform.themedBadgeColor)
-                    mangaResultChip(text: viewModel.currentTab.rawValue, tint: MangaStyle.labelYellow)
-                }
+                Spacer(minLength: 8)
+
+                resultCountBadge(
+                    textColor: MangaStyle.accentPink,
+                    background: Color.clear,
+                    font: .system(size: 15, weight: .black, design: .monospaced)
+                )
             }
 
-            Spacer(minLength: 8)
+            HStack(spacing: 7) {
+                mangaResultChip(text: platformTabName(viewModel.selectedPlatform), tint: viewModel.selectedPlatform.themedBadgeColor)
+                mangaResultChip(text: viewModel.currentTab.rawValue, tint: MangaStyle.labelYellow)
+            }
+            .padding(.top, 7)
 
-            resultCountBadge(
-                textColor: MangaStyle.ink,
-                background: MangaStyle.labelYellow.opacity(0.86),
-                font: MangaStyle.labelFont(15, weight: .black)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth)
-            )
+            Rectangle()
+                .fill(MangaStyle.strokeInk.opacity(0.24))
+                .frame(height: 1)
+                .padding(.top, 11)
         }
-        .padding(.horizontal, 13)
-        .padding(.vertical, 12)
-        .background(MangaCardBackground(cornerRadius: 16, elevated: true))
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
         .padding(.bottom, 8)
     }
 
     private func mangaResultChip(text: String, tint: Color) -> some View {
-        Text(text)
-            .font(MangaStyle.labelFont(10, weight: .black))
-            .foregroundStyle(MangaStyle.ink)
-            .lineLimit(1)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .fill(tint.opacity(0.22))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth)
-            )
+        HStack(spacing: 5) {
+            RoundedRectangle(cornerRadius: 1, style: .continuous)
+                .fill(tint)
+                .frame(width: 10, height: 3.5)
+
+            Text(text)
+                .font(MangaStyle.labelFont(10, weight: .black))
+                .foregroundStyle(MangaStyle.inkSub)
+                .lineLimit(1)
+        }
     }
 
     private var signalResultConsole: some View {
@@ -1737,7 +1766,8 @@ struct SearchView: View {
     }
 
     private var searchStateNeedsHorizontalPadding: Bool {
-        MangaStyle.isActive
+        MinimalWhiteStyle.isActive
+            || MangaStyle.isActive
             || MujiStyle.isActive
             || NeumorphicStyle.isActive
             || SignalStyle.isActive
@@ -2365,7 +2395,7 @@ struct SearchView: View {
     }
 
     private var themeToolbarIconCornerRadius: CGFloat {
-        if MangaStyle.isActive { return 8 }
+        if MangaStyle.isActive { return MangaStyle.buttonRadius }
         if MujiStyle.isActive { return 9 }
         if CapsuleStyle.isActive { return 11 }
         return 12
@@ -2374,14 +2404,9 @@ struct SearchView: View {
     @ViewBuilder
     private func themeToolbarButtonBackground(tint: Color, selected: Bool) -> some View {
         if MangaStyle.isActive {
-            ZStack {
-                RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .fill(MangaStyle.strokeInk.opacity(0.76))
-                    .offset(x: 1.8, y: 1.8)
-                RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .fill(selected ? tint.opacity(0.22) : MangaStyle.bubbleWhite)
-                    .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
-            }
+            RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
+                .fill(selected ? tint.opacity(0.22) : MangaStyle.bubbleWhite)
+                .overlay(RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous).stroke(MangaStyle.strokeInk.opacity(0.45), lineWidth: MangaStyle.fineStrokeWidth))
         } else if MujiStyle.isActive {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(MujiStyle.surfaceRaised.opacity(0.94))
@@ -2413,68 +2438,99 @@ struct SearchView: View {
         } else if CapsuleStyle.isActive {
             capsulePlatformTabBar
         } else {
+            // aside：胶囊分段的平台切换，平台色作为圆点标识
             let platforms: [MusicSource] = viewModel.currentTab == .songs
                 ? [.netease, .qqmusic, .qishui]
                 : [.netease, .qqmusic]
-            HStack(spacing: 0) {
+
+            HStack(spacing: 3) {
                 ForEach(platforms, id: \.self) { platform in
+                    let selected = viewModel.selectedPlatform == platform
+                    let tint = platform.themedBadgeColor
+
                     Button(action: {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                             viewModel.selectedPlatform = platform
                         }
                     }) {
-                        let tint = platform.themedBadgeColor
-                        Text(platformTabName(platform))
-                            .font(.rounded(size: 13, weight: viewModel.selectedPlatform == platform ? .bold : .medium))
-                            .foregroundColor(viewModel.selectedPlatform == platform ? tint : tint.opacity(0.72))
-                            .padding(.vertical, 8)
-                            .frame(maxWidth: .infinity)
-                            .background(
-                                viewModel.selectedPlatform == platform
-                                    ? Capsule().fill(tint.opacity(0.12))
-                                    : nil
-                            )
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(tint)
+                                .frame(width: 5.5, height: 5.5)
+                                .opacity(selected ? 1 : 0.5)
+
+                            Text(platformTabName(platform))
+                                .font(.rounded(size: 12.5, weight: selected ? .bold : .medium))
+                                .foregroundColor(
+                                    selected
+                                        ? .monologueTextPrimary
+                                        : .monologueTextSecondary.opacity(0.8)
+                                )
+                        }
+                        .padding(.horizontal, 13)
+                        .padding(.vertical, 7)
+                        .background {
+                            if selected {
+                                Capsule()
+                                    .fill(Color.monologueGlassTint.opacity(0.9))
+                                    .shadow(color: .black.opacity(0.07), radius: 4, y: 1)
+                            }
+                        }
+                        .contentShape(Capsule())
                     }
                     .buttonStyle(PlainButtonStyle())
                 }
             }
+            .padding(3)
+            .background(
+                Capsule().fill(Color.monologueTextPrimary.opacity(0.045))
+            )
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-            .padding(.bottom, 4)
+            .padding(.top, 2)
+            .padding(.bottom, 8)
         }
     }
 
+    /// Muji：平台切换 —— 水洗胶囊签，选中着色
     private var mujiPlatformTabBar: some View {
         let platforms: [MusicSource] = viewModel.currentTab == .songs
             ? [.netease, .qqmusic, .qishui]
             : [.netease, .qqmusic]
 
-        return HStack(spacing: 7) {
+        return HStack(spacing: 9) {
             ForEach(platforms, id: \.self) { platform in
+                let selected = viewModel.selectedPlatform == platform
+                let tint = platform.themedBadgeColor
+
                 Button {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                         viewModel.selectedPlatform = platform
                     }
                 } label: {
-                    let tint = platform.themedBadgeColor
-                    Text(platformTabName(platform))
-                        .font(MujiStyle.labelFont(11, weight: .semibold))
-                        .foregroundStyle(viewModel.selectedPlatform == platform ? tint : tint.opacity(0.68))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                        .background(
-                            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                .fill(viewModel.selectedPlatform == platform ? tint.opacity(0.12) : Color.clear)
-                        )
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(selected ? tint : MujiStyle.inkMuted.opacity(0.4))
+                            .frame(width: 4.5, height: 4.5)
+
+                        Text(platformTabName(platform))
+                            .font(MujiStyle.labelFont(11, weight: selected ? .semibold : .regular))
+                            .foregroundStyle(selected ? MujiStyle.ink : MujiStyle.inkMuted)
+                            .tracking(0.6)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .background(
+                        Capsule()
+                            .fill(selected ? MujiStyle.wash(tint, strength: 1.3) : Color.clear)
+                    )
+                    .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
             }
+
+            Spacer(minLength: 0)
         }
-        .padding(5)
-        .background(MujiStyle.surface.opacity(0.78), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(MujiStyle.hairline.opacity(0.42), lineWidth: 0.6)
-        )
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
         .padding(.bottom, viewModel.hasSearched ? 4 : 8)
     }
@@ -2588,37 +2644,44 @@ struct SearchView: View {
     }
 
     private var mangaPlatformTabBar: some View {
+        // 去卡片化：平台色短划 + 文字，选中压底部色线
         let platforms: [MusicSource] = viewModel.currentTab == .songs
             ? [.netease, .qqmusic, .qishui]
             : [.netease, .qqmusic]
 
-        return HStack(spacing: 7) {
+        return HStack(spacing: 0) {
             ForEach(platforms, id: \.self) { platform in
+                let tint = platform.themedBadgeColor
+                let selected = viewModel.selectedPlatform == platform
                 Button {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                         viewModel.selectedPlatform = platform
                     }
                 } label: {
-                    let tint = platform.themedBadgeColor
-                    Text(platformTabName(platform))
-                        .font(MangaStyle.labelFont(11, weight: .black))
-                        .foregroundStyle(tint)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(viewModel.selectedPlatform == platform ? tint.opacity(0.18) : Color.clear)
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(viewModel.selectedPlatform == platform ? MangaStyle.strokeInk : Color.clear, lineWidth: MangaStyle.fineStrokeWidth)
-                        )
+                    VStack(spacing: 5) {
+                        HStack(spacing: 6) {
+                            RoundedRectangle(cornerRadius: 1, style: .continuous)
+                                .fill(tint)
+                                .frame(width: 10, height: 3.5)
+                                .opacity(selected ? 1 : 0.45)
+
+                            Text(platformTabName(platform))
+                                .font(MangaStyle.labelFont(11, weight: selected ? .black : .bold))
+                                .foregroundStyle(selected ? MangaStyle.ink : MangaStyle.inkMuted)
+                        }
+
+                        Rectangle()
+                            .fill(selected ? tint : Color.clear)
+                            .frame(height: 2)
+                            .padding(.horizontal, 14)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 7)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(5)
-        .background(MangaCardBackground(cornerRadius: 12, elevated: true))
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
         .padding(.bottom, 8)
     }
@@ -2803,12 +2866,12 @@ struct SearchView: View {
     }
 
     private var searchResultOuterVerticalPadding: CGFloat {
-        if MujiStyle.isActive { return 5 }
+        if MujiStyle.isActive { return 0 }
         return themedSearchResultRowsActive ? 6 : 0
     }
 
     private var searchResultCoverCornerRadius: CGFloat {
-        if MangaStyle.isActive { return 14 }
+        if MangaStyle.isActive { return MangaStyle.cardRadius }
         if PetWhiteStyle.isActive { return 16 }
         if MujiStyle.isActive { return 10 }
         if CapsuleStyle.isActive { return 17 }
@@ -2828,7 +2891,7 @@ struct SearchView: View {
     }
 
     private var searchResultImageStrokeColor: Color {
-        if MangaStyle.isActive { return MangaStyle.ink.opacity(0.14) }
+        if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.85) }
         if PetWhiteStyle.isActive { return PetWhiteStyle.stroke.opacity(0.62) }
         if MujiStyle.isActive { return MujiStyle.hairline.opacity(0.55) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.42) }
@@ -2843,8 +2906,8 @@ struct SearchView: View {
     }
 
     private var searchResultTitleFont: Font {
-        if MangaStyle.isActive { return MangaStyle.comicFont(15.5, weight: .black) }
-        if PetWhiteStyle.isActive { return PetWhiteStyle.bodyFont(15.5, weight: .black) }
+        if MangaStyle.isActive { return MangaStyle.titleFont(15.5, weight: .black) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.bodyFont(15.5, weight: .semibold) }
         if MujiStyle.isActive { return MujiStyle.bodyFont(16, weight: .medium) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(16, weight: .semibold) }
         if SignalStyle.isActive { return SignalStyle.bodyFont(16, weight: .semibold) }
@@ -2888,7 +2951,7 @@ struct SearchView: View {
 
     private var searchResultChevronColor: Color {
         if MangaStyle.isActive { return MangaStyle.inkMuted }
-        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke.opacity(0.72) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.inkMuted }
         if MujiStyle.isActive { return MujiStyle.inkMuted }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
         if SignalStyle.isActive { return SignalStyle.inkMuted }
@@ -2900,16 +2963,28 @@ struct SearchView: View {
     @ViewBuilder
     private var searchResultRowBackground: some View {
         if MangaStyle.isActive {
-            MangaCardBackground(cornerRadius: 16, elevated: true)
+            // 周刊印刷：无卡片，行底一根细规则线
+            VStack(spacing: 0) {
+                Spacer(minLength: 0)
+                Rectangle()
+                    .fill(MangaStyle.strokeInk.opacity(0.16))
+                    .frame(height: 1)
+                    .padding(.horizontal, 6)
+            }
         } else if PetWhiteStyle.isActive {
             PetWhiteSurfaceBackground(
-                cornerRadius: 22,
+                cornerRadius: PetWhiteStyle.cardRadius,
                 elevated: false,
                 tint: PetWhiteStyle.surfaceRaised.opacity(0.88),
                 accent: PetWhiteStyle.sky
             )
         } else if MujiStyle.isActive {
-            MujiPaperCardBackground(cornerRadius: 10)
+            // Muji：无卡片，行间一道针脚
+            VStack(spacing: 0) {
+                Spacer(minLength: 0)
+                MujiListDivider()
+                    .padding(.horizontal, 6)
+            }
         } else if NeumorphicStyle.isActive {
             NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, lightweight: true)
         } else if SignalStyle.isActive {
@@ -3756,7 +3831,13 @@ struct SearchView: View {
 
     @ViewBuilder
     private var emptyResultsView: some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            themeSearchStatePanel(
+                icon: .magnifyingGlass,
+                title: String(localized: "search_no_results"),
+                tint: MinimalWhiteStyle.inkMuted
+            )
+        } else if MangaStyle.isActive {
             themeSearchStatePanel(
                 icon: .magnifyingGlass,
                 title: viewModel.displayKeyword.isEmpty ? String(localized: "search_no_results") : viewModel.displayKeyword,
@@ -3800,8 +3881,20 @@ struct SearchView: View {
                 subtitle: String(localized: "search_no_results"),
                 tint: CapsuleStyle.accent
             )
-        } else {
+        } else if #available(iOS 17.0, *) {
             ContentUnavailableView.search(text: viewModel.displayKeyword)
+        } else {
+            VStack(spacing: 13) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 42, weight: .regular))
+                    .foregroundStyle(.secondary)
+                Text("search_no_results")
+                    .font(.headline)
+                Text(viewModel.displayKeyword)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
@@ -3820,11 +3913,11 @@ struct SearchView: View {
             } else if MujiStyle.isActive {
                 MonologueIcon(icon: icon, size: 22, color: tint, lineWidth: 1.55)
                     .frame(width: 52, height: 52)
-                    .background(MujiStyle.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(MujiStyle.hairline.opacity(0.52), lineWidth: 0.65)
-                    )
+                    .background(MujiStyle.wash(tint, strength: 1.25), in: Circle())
+            } else if MinimalWhiteStyle.isActive {
+                MonologueIcon(icon: icon, size: 21, color: tint, lineWidth: 1.55)
+                    .frame(width: 50, height: 50)
+                    .background(MinimalWhiteCircleBackground())
             } else if CapsuleStyle.isActive {
                 CapsuleIconBadge(icon: icon, tint: tint, size: 52)
             } else {
@@ -3865,13 +3958,15 @@ struct SearchView: View {
     }
 
     private var themeSearchStateTitleFont: Font {
-        if MangaStyle.isActive { return MangaStyle.comicFont(18, weight: .black) }
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.titleFont(17, weight: .semibold) }
+        if MangaStyle.isActive { return MangaStyle.titleFont(18, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.titleFont(18, weight: .medium) }
         if CapsuleStyle.isActive { return CapsuleStyle.titleFont(18, weight: .bold) }
         return .rounded(size: 18, weight: .semibold)
     }
 
     private var themeSearchStateSubtitleFont: Font {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.labelFont(12, weight: .regular) }
         if MangaStyle.isActive { return MangaStyle.labelFont(12, weight: .bold) }
         if MujiStyle.isActive { return MujiStyle.labelFont(12, weight: .regular) }
         if CapsuleStyle.isActive { return CapsuleStyle.labelFont(12, weight: .semibold) }
@@ -3879,6 +3974,7 @@ struct SearchView: View {
     }
 
     private var themeSearchPrimaryColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         if MangaStyle.isActive { return MangaStyle.ink }
         if MujiStyle.isActive { return MujiStyle.ink }
         if CapsuleStyle.isActive { return CapsuleStyle.ink }
@@ -3886,6 +3982,7 @@ struct SearchView: View {
     }
 
     private var themeSearchSecondaryColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if MangaStyle.isActive { return MangaStyle.inkMuted }
         if MujiStyle.isActive { return MujiStyle.inkMuted }
         if CapsuleStyle.isActive { return CapsuleStyle.inkMuted }
@@ -3894,10 +3991,17 @@ struct SearchView: View {
 
     @ViewBuilder
     private var themeSearchStateBackground: some View {
-        if MangaStyle.isActive {
-            MangaCardBackground(cornerRadius: 18, elevated: true)
+        if MinimalWhiteStyle.isActive {
+            MinimalWhiteSurfaceBackground(
+                cornerRadius: MinimalWhiteStyle.cardRadius,
+                elevated: false,
+                tint: MinimalWhiteStyle.glassFill
+            )
+        } else if MangaStyle.isActive {
+            // 去卡片化：状态提示直接排在纸上
+            EmptyView()
         } else if MujiStyle.isActive {
-            MujiPaperCardBackground(cornerRadius: 13, elevated: true)
+            EmptyView()
         } else if CapsuleStyle.isActive {
             CapsuleSurfaceBackground(cornerRadius: 24, elevated: true, tint: CapsuleStyle.surface.opacity(0.92))
         } else {
@@ -3911,7 +4015,9 @@ struct SearchView: View {
 
     @ViewBuilder
     private var emptySearchView: some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            minimalWhiteEmptySearchView
+        } else if MangaStyle.isActive {
             mangaEmptySearchView
         } else if PetWhiteStyle.isActive {
             petWhiteEmptySearchView
@@ -3924,91 +4030,233 @@ struct SearchView: View {
         } else if CapsuleStyle.isActive {
             capsuleEmptySearchView
         } else {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    // 搜索历史
-                    if !viewModel.searchHistory.isEmpty {
-                        HStack {
-                            Text(LocalizedStringKey("search_history"))
-                                .font(.system(size: 14, weight: .semibold, design: .rounded))
-                                .foregroundColor(.monologueTextSecondary)
+            defaultEmptySearchView
+        }
+    }
 
-                            Spacer()
+    // MARK: aside 待搜索页：历史胶囊 + 热搜榜单
 
-                            Button(action: {
-                                viewModel.clearAllHistory()
-                            }) {
-                                MonologueIcon(icon: .trash, size: 16, color: .monologueTextSecondary)
+    private var defaultEmptySearchView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 30) {
+                // 搜索历史：可换行的胶囊，长按可单个删除
+                if !viewModel.searchHistory.isEmpty {
+                    VStack(alignment: .leading, spacing: 14) {
+                        defaultSearchSectionHeader(
+                            title: String(localized: "search_history")
+                        ) {
+                            Button {
+                                withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) {
+                                    viewModel.clearAllHistory()
+                                }
+                            } label: {
+                                MonologueIcon(icon: .trash, size: 14, color: .monologueTextSecondary.opacity(0.75))
+                                    .frame(width: 30, height: 30)
+                                    .background(
+                                        Circle().fill(Color.monologueTextPrimary.opacity(0.05))
+                                    )
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        }
+
+                        FlowLayout(spacing: 9) {
+                            ForEach(viewModel.searchHistory, id: \.id) { item in
+                                Button {
+                                    viewModel.performSearch(keyword: item.keyword)
+                                    isFocused = false
+                                } label: {
+                                    Text(item.keyword)
+                                        .font(.rounded(size: 13.5, weight: .medium))
+                                        .foregroundColor(.monologueTextPrimary.opacity(0.88))
+                                        .lineLimit(1)
+                                        .padding(.horizontal, 14)
+                                        .padding(.vertical, 8.5)
+                                        .background(
+                                            Capsule().fill(Color.monologueTextPrimary.opacity(0.055))
+                                        )
+                                        .overlay(
+                                            Capsule().stroke(Color.monologueTextPrimary.opacity(0.06), lineWidth: 1)
+                                        )
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                                .contextMenu {
+                                    Button(role: .destructive) {
+                                        viewModel.deleteHistoryItem(keyword: item.keyword)
+                                    } label: {
+                                        Label(String(localized: "删除"), systemImage: "trash")
+                                    }
+                                }
                             }
                         }
-                        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-                        .padding(.top, 16)
-                        .padding(.bottom, 12)
+                    }
+                }
 
+                // 热门搜索：双列榜单，前三名号码用强调色
+                if !viewModel.hotSearchItems.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        defaultSearchSectionHeader(
+                            title: String(localized: "search_hot")
+                        ) { EmptyView() }
+                            .padding(.bottom, 6)
+
+                        let items = Array(viewModel.hotSearchItems.prefix(20))
+                        LazyVGrid(
+                            columns: [
+                                GridItem(.flexible(), spacing: 22),
+                                GridItem(.flexible(), spacing: 0),
+                            ],
+                            alignment: .leading,
+                            spacing: 2
+                        ) {
+                            ForEach(Array(items.enumerated()), id: \.element.searchWord) { index, item in
+                                Button {
+                                    viewModel.performSearch(keyword: item.searchWord)
+                                    isFocused = false
+                                } label: {
+                                    HStack(spacing: 11) {
+                                        Text("\(index + 1)")
+                                            .font(.system(size: 14.5, weight: .heavy, design: .rounded))
+                                            .foregroundColor(
+                                                index < 3
+                                                    ? .monologueAccent
+                                                    : .monologueTextSecondary.opacity(0.45)
+                                            )
+                                            .monospacedDigit()
+                                            .lineLimit(1)
+                                            .minimumScaleFactor(0.7)
+                                            .frame(width: 24, alignment: .center)
+
+                                        Text(item.searchWord)
+                                            .font(.rounded(size: 14.5, weight: index < 3 ? .semibold : .regular))
+                                            .foregroundColor(.monologueTextPrimary)
+                                            .lineLimit(1)
+
+                                        Spacer(minLength: 0)
+                                    }
+                                    .padding(.vertical, 9)
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, 18)
+            .padding(.bottom, 120)
+        }
+        .scrollIndicators(.hidden)
+        .themeRenderScrollLayer()
+    }
+
+    /// aside 搜索区块头：强调色小竖标 + 标题
+    private func defaultSearchSectionHeader<Trailing: View>(
+        title: String,
+        @ViewBuilder trailing: () -> Trailing
+    ) -> some View {
+        HStack(spacing: 8) {
+            Capsule()
+                .fill(Color.monologueAccent)
+                .frame(width: 3, height: 13)
+
+            Text(title)
+                .font(.rounded(size: 15, weight: .bold))
+                .foregroundColor(.monologueTextPrimary)
+
+            Spacer()
+
+            trailing()
+        }
+    }
+
+    private var minimalWhiteEmptySearchView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                if viewModel.searchHistory.isEmpty && viewModel.hotSearchItems.isEmpty {
+                    themeSearchStatePanel(
+                        icon: .magnifyingGlass,
+                        title: String(localized: "搜索"),
+                        tint: MinimalWhiteStyle.inkMuted
+                    )
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                    .padding(.top, 36)
+                }
+
+                if !viewModel.searchHistory.isEmpty {
+                    MinimalWhiteSectionTitle(title: String(localized: "search_history")) {
+                        Button(action: viewModel.clearAllHistory) {
+                            MonologueIcon(icon: .trash, size: 15, color: MinimalWhiteStyle.inkMuted, lineWidth: 1.55)
+                                .frame(width: 32, height: 32)
+                                .background(MinimalWhiteCircleBackground())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+
+                    VStack(spacing: 0) {
                         ForEach(viewModel.searchHistory, id: \.id) { item in
-                            Button(action: {
+                            Button {
                                 viewModel.performSearch(keyword: item.keyword)
                                 isFocused = false
-                            }) {
-                                HStack(spacing: 14) {
-                                    MonologueIcon(icon: .clock, size: 16, color: .monologueTextSecondary)
+                            } label: {
+                                HStack(spacing: 12) {
+                                    MonologueIcon(icon: .clock, size: 15, color: MinimalWhiteStyle.inkMuted, lineWidth: 1.45)
 
                                     Text(item.keyword)
-                                        .font(.rounded(size: 16, weight: .regular))
-                                        .foregroundColor(.monologueTextPrimary)
+                                        .font(MinimalWhiteStyle.bodyFont(15, weight: .regular))
+                                        .foregroundStyle(MinimalWhiteStyle.ink)
                                         .lineLimit(1)
 
-                                    Spacer()
+                                    Spacer(minLength: 8)
 
-                                    Button(action: {
+                                    Button {
                                         viewModel.deleteHistoryItem(keyword: item.keyword)
-                                    }) {
-                                        MonologueIcon(icon: .xmark, size: 12, color: .monologueTextSecondary.opacity(0.5))
+                                    } label: {
+                                        MonologueIcon(icon: .xmark, size: 11, color: MinimalWhiteStyle.inkMuted.opacity(0.7), lineWidth: 1.5)
+                                            .frame(width: 28, height: 28)
                                     }
+                                    .buttonStyle(.plain)
                                 }
                                 .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                                 .padding(.vertical, 12)
                                 .contentShape(Rectangle())
                             }
-                            .buttonStyle(PlainButtonStyle())
+                            .buttonStyle(.plain)
+                            .minimalWhiteHairline(.bottom)
                         }
-                    }
-
-                    // 热门搜索
-                    if !viewModel.hotSearchItems.isEmpty {
-                        Text(LocalizedStringKey("search_hot"))
-                            .font(.system(size: 14, weight: .semibold, design: .rounded))
-                            .foregroundColor(.monologueTextSecondary)
-                            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-                            .padding(.top, 20)
-                            .padding(.bottom, 12)
-
-                        FlowLayout(spacing: 10) {
-                            ForEach(viewModel.hotSearchItems.prefix(20), id: \.searchWord) { item in
-                                Button(action: {
-                                    viewModel.performSearch(keyword: item.searchWord)
-                                    isFocused = false
-                                }) {
-                                    Text(item.searchWord)
-                                        .font(.rounded(size: 14, weight: .regular))
-                                        .foregroundColor(.monologueTextPrimary)
-                                        .padding(.horizontal, 14)
-                                        .padding(.vertical, 8)
-                                        .monologueGlass(cornerRadius: 16)
-                                        .clipShape(RoundedRectangle(cornerRadius: 16))
-                                        .shadow(color: .black.opacity(0.03), radius: 4, x: 0, y: 2)
-                                }
-                                .buttonStyle(PlainButtonStyle())
-                            }
-                        }
-                        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                     }
                 }
-                .padding(.bottom, 120)
+
+                if !viewModel.hotSearchItems.isEmpty {
+                    MinimalWhiteSectionTitle(title: String(localized: "search_hot"))
+                        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+
+                    FlowLayout(spacing: 10) {
+                        ForEach(viewModel.hotSearchItems.prefix(20), id: \.searchWord) { item in
+                            Button {
+                                viewModel.performSearch(keyword: item.searchWord)
+                                isFocused = false
+                            } label: {
+                                Text(item.searchWord)
+                                    .font(MinimalWhiteStyle.bodyFont(14, weight: .regular))
+                                    .foregroundStyle(MinimalWhiteStyle.ink)
+                                    .lineLimit(1)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 8)
+                                    .background(MinimalWhiteCapsuleBackground())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                }
             }
-            .scrollIndicators(.hidden)
-            .themeRenderScrollLayer()
+            .padding(.top, 18)
+            .padding(.bottom, 120)
         }
+        .scrollIndicators(.hidden)
+        .themeRenderScrollLayer()
     }
 
     private var petWhiteEmptySearchView: some View {
@@ -4319,24 +4567,17 @@ struct SearchView: View {
         .background(NeumorphicSurfaceBackground(cornerRadius: 24, elevated: true))
     }
 
+    /// Muji：空态检索页 —— 历史与热搜为清新目次列表，针脚分隔
     private var mujiEmptySearchView: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 30) {
                 if !viewModel.searchHistory.isEmpty {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack(alignment: .center) {
-                            MujiSectionTitle(title: String(localized: "search_history"))
-
-                            Spacer()
-
-                            Button(action: { viewModel.clearAllHistory() }) {
-                                MonologueIcon(icon: .trash, size: 15, color: MujiStyle.inkMuted)
-                                    .frame(width: 34, height: 34)
-                                    .background(MujiStyle.surface, in: Circle())
-                                    .overlay(Circle().stroke(MujiStyle.hairline.opacity(0.45), lineWidth: 0.6))
-                            }
-                            .buttonStyle(.plain)
-                        }
+                    VStack(alignment: .leading, spacing: 10) {
+                        MujiSectionTitle(
+                            title: String(localized: "search_history"),
+                            actionTitle: String(localized: "search_clear"),
+                            action: { viewModel.clearAllHistory() }
+                        )
 
                         VStack(spacing: 0) {
                             ForEach(Array(viewModel.searchHistory.enumerated()), id: \.element.id) { index, item in
@@ -4344,10 +4585,11 @@ struct SearchView: View {
                                     viewModel.performSearch(keyword: item.keyword)
                                     isFocused = false
                                 } label: {
-                                    HStack(spacing: 12) {
+                                    HStack(spacing: 13) {
                                         Text(String(format: "%02d", index + 1))
-                                            .font(MujiStyle.labelFont(10, weight: .semibold))
+                                            .font(MujiStyle.titleFont(12.5, weight: .medium))
                                             .foregroundStyle(MujiStyle.inkMuted)
+                                            .monospacedDigit()
                                             .frame(width: 24, alignment: .leading)
 
                                         Text(item.keyword)
@@ -4362,61 +4604,70 @@ struct SearchView: View {
                                         } label: {
                                             MonologueIcon(icon: .xmark, size: 11, color: MujiStyle.inkMuted.opacity(0.72))
                                                 .frame(width: 26, height: 26)
+                                                .contentShape(Rectangle())
                                         }
                                         .buttonStyle(.plain)
                                     }
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 12)
+                                    .padding(.vertical, 11)
+                                    .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
 
                                 if index < viewModel.searchHistory.count - 1 {
                                     MujiListDivider()
-                                        .padding(.leading, 52)
+                                        .padding(.leading, 37)
                                 }
                             }
                         }
-                        .background(MujiPaperCardBackground(cornerRadius: 12, elevated: true))
                     }
                 }
 
                 if !viewModel.hotSearchItems.isEmpty {
-                    VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 10) {
                         MujiSectionTitle(title: String(localized: "search_hot"))
 
-                        FlowLayout(spacing: 10) {
-                            ForEach(Array(viewModel.hotSearchItems.prefix(20).enumerated()), id: \.element.searchWord) { index, item in
+                        // 热搜排行：两栏目次，前三位用陶土衬线序号
+                        let items = Array(viewModel.hotSearchItems.prefix(20))
+                        let columns = [
+                            GridItem(.flexible(), spacing: 26),
+                            GridItem(.flexible(), spacing: 26),
+                        ]
+
+                        LazyVGrid(columns: columns, alignment: .leading, spacing: 0) {
+                            ForEach(Array(items.enumerated()), id: \.element.searchWord) { index, item in
                                 Button {
                                     viewModel.performSearch(keyword: item.searchWord)
                                     isFocused = false
                                 } label: {
-                                    HStack(spacing: 7) {
-                                        Text(String(format: "%02d", index + 1))
-                                            .font(MujiStyle.labelFont(9, weight: .semibold))
-                                            .foregroundStyle(index < 3 ? MujiStyle.clay : MujiStyle.inkMuted)
+                                    VStack(spacing: 0) {
+                                        HStack(spacing: 10) {
+                                            Text(String(format: "%02d", index + 1))
+                                                .font(MujiStyle.titleFont(12.5, weight: .medium))
+                                                .foregroundStyle(index < 3 ? MujiStyle.clay : MujiStyle.inkMuted)
+                                                .monospacedDigit()
+                                                .frame(width: 22, alignment: .leading)
 
-                                        Text(item.searchWord)
-                                            .font(MujiStyle.labelFont(13, weight: .regular))
-                                            .foregroundStyle(MujiStyle.ink)
+                                            Text(item.searchWord)
+                                                .font(MujiStyle.bodyFont(13.5, weight: index < 3 ? .medium : .regular))
+                                                .foregroundStyle(MujiStyle.ink)
+                                                .lineLimit(1)
+
+                                            Spacer(minLength: 0)
+                                        }
+                                        .padding(.vertical, 10)
+
+                                        MujiListDivider()
                                     }
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 9)
-                                    .background(MujiStyle.surface.opacity(0.82), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                            .stroke(MujiStyle.hairline.opacity(0.42), lineWidth: 0.6)
-                                    )
+                                    .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
                             }
                         }
                     }
-                    .padding(14)
-                    .background(MujiPaperCardBackground(cornerRadius: 12))
                 }
             }
-            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-            .padding(.top, 4)
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding + 6)
+            .padding(.top, 8)
             .padding(.bottom, 120)
         }
         .scrollIndicators(.hidden)
@@ -4424,34 +4675,37 @@ struct SearchView: View {
     }
 
     private var mangaEmptySearchView: some View {
+        // 去卡片化：默认词、历史与热搜全部直接排在纸面上，用规则线分栏
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 22) {
                 if let defaultKeyword = viewModel.defaultKeyword {
                     Button {
                         viewModel.performSearch(keyword: defaultKeyword.realkeyword)
                         isFocused = false
                     } label: {
-                        HStack(spacing: 12) {
-                            MangaSectionMark(kind: .heart, tint: MangaStyle.accentPink)
-                                .frame(width: 42, height: 42)
+                        VStack(alignment: .leading, spacing: 0) {
+                            HStack(spacing: 12) {
+                                MangaLabel(text: "PICK", tint: MangaStyle.accentPink, small: true)
 
-                            Text(defaultKeyword.showKeyword)
-                                .font(MangaStyle.comicFont(18, weight: .black))
-                                .foregroundStyle(MangaStyle.ink)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.78)
+                                Text(defaultKeyword.showKeyword)
+                                    .font(MangaStyle.titleFont(18, weight: .black))
+                                    .foregroundStyle(MangaStyle.ink)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.78)
 
-                            Spacer(minLength: 8)
+                                Spacer(minLength: 8)
 
-                            MonologueIcon(icon: .chevronRight, size: 12, color: MangaStyle.ink, lineWidth: 1.8)
-                                .frame(width: 30, height: 30)
-                                .background(MangaStyle.labelYellow, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
+                                MonologueIcon(icon: .chevronRight, size: 12, color: MangaStyle.inkMuted, lineWidth: 1.8)
+                            }
+                            .padding(.vertical, 12)
+
+                            Rectangle()
+                                .fill(MangaStyle.strokeInk.opacity(0.22))
+                                .frame(height: 1)
                         }
-                        .padding(13)
-                        .background(MangaCardBackground(cornerRadius: 16, elevated: true))
+                        .contentShape(Rectangle())
                     }
-                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
                 }
 
                 if !viewModel.searchHistory.isEmpty {
@@ -4461,7 +4715,7 @@ struct SearchView: View {
                         actionIcon: .trash,
                         action: { viewModel.clearAllHistory() }
                     ) {
-                        VStack(spacing: 8) {
+                        VStack(spacing: 0) {
                             ForEach(Array(viewModel.searchHistory.prefix(6).enumerated()), id: \.element.id) { index, item in
                                 Button {
                                     viewModel.performSearch(keyword: item.keyword)
@@ -4469,7 +4723,7 @@ struct SearchView: View {
                                 } label: {
                                     HStack(spacing: 10) {
                                         Text(String(format: "%02d", index + 1))
-                                            .font(MangaStyle.labelFont(10, weight: .black))
+                                            .font(.system(size: 11, weight: .black, design: .monospaced))
                                             .foregroundStyle(MangaStyle.inkMuted)
                                             .frame(width: 24, alignment: .leading)
 
@@ -4488,11 +4742,16 @@ struct SearchView: View {
                                         }
                                         .buttonStyle(.plain)
                                     }
-                                    .padding(.horizontal, 11)
-                                    .padding(.vertical, 10)
-                                    .background(MangaCardBackground(cornerRadius: 10, elevated: false, tint: MangaStyle.bubbleWhite))
+                                    .padding(.vertical, 7)
+                                    .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
+
+                                if index < min(viewModel.searchHistory.count, 6) - 1 {
+                                    Rectangle()
+                                        .fill(MangaStyle.strokeInk.opacity(0.12))
+                                        .frame(height: 1)
+                                }
                             }
                         }
                     }
@@ -4500,7 +4759,7 @@ struct SearchView: View {
 
                 if !viewModel.hotSearchItems.isEmpty {
                     mangaSearchShelf(title: String(localized: "search_hot"), tint: MangaStyle.labelYellow) {
-                        FlowLayout(spacing: 9) {
+                        FlowLayout(spacing: 12) {
                             ForEach(Array(viewModel.hotSearchItems.prefix(20).enumerated()), id: \.element.searchWord) { index, item in
                                 Button {
                                     viewModel.performSearch(keyword: item.searchWord)
@@ -4508,7 +4767,7 @@ struct SearchView: View {
                                 } label: {
                                     HStack(spacing: 6) {
                                         Text(String(format: "%02d", index + 1))
-                                            .font(MangaStyle.labelFont(9, weight: .black))
+                                            .font(.system(size: 10, weight: .black, design: .monospaced))
                                             .foregroundStyle(index < 3 ? MangaStyle.accentPink : MangaStyle.inkMuted)
 
                                         Text(item.searchWord)
@@ -4516,10 +4775,8 @@ struct SearchView: View {
                                             .foregroundStyle(MangaStyle.ink)
                                             .lineLimit(1)
                                     }
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 8)
-                                    .background(MangaStyle.bubbleWhite, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
+                                    .padding(.vertical, 6)
+                                    .contentShape(Rectangle())
                                 }
                                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
                             }
@@ -4542,23 +4799,31 @@ struct SearchView: View {
         action: (() -> Void)? = nil,
         @ViewBuilder content: () -> Content
     ) -> some View {
+        // 栏目：色块短划 + 黑体题 + 规则线，内容直接排在下方
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                MangaSectionMark(kind: .star, tint: tint)
-                    .frame(width: 28, height: 28)
+            HStack(spacing: 9) {
+                RoundedRectangle(cornerRadius: 1, style: .continuous)
+                    .fill(tint)
+                    .frame(width: 14, height: 4)
 
                 Text(title)
-                    .font(MangaStyle.comicFont(17, weight: .black))
+                    .font(MangaStyle.titleFont(17, weight: .black))
                     .foregroundStyle(MangaStyle.ink)
 
-                Spacer(minLength: 8)
+                VStack(spacing: 2.5) {
+                    Rectangle()
+                        .fill(MangaStyle.ink.opacity(0.72))
+                        .frame(height: 1.6)
+                    Rectangle()
+                        .fill(MangaStyle.ink.opacity(0.28))
+                        .frame(height: 0.8)
+                }
 
                 if let actionIcon, let action {
                     Button(action: action) {
-                        MonologueIcon(icon: actionIcon, size: 13, color: MangaStyle.ink, lineWidth: 1.7)
-                            .frame(width: 32, height: 32)
-                            .background(MangaStyle.bubbleWhite, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-                            .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
+                        MonologueIcon(icon: actionIcon, size: 13, color: MangaStyle.inkSub, lineWidth: 1.7)
+                            .frame(width: 30, height: 30)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                 }
@@ -4566,8 +4831,6 @@ struct SearchView: View {
 
             content()
         }
-        .padding(14)
-        .background(MangaCardBackground(cornerRadius: 16, elevated: true))
     }
 
     private var capsuleEmptySearchView: some View {
@@ -4911,8 +5174,6 @@ struct SearchView: View {
         } else if MujiStyle.isActive {
             MonologueIcon(icon: .magnifyingGlass, size: 13, color: MujiStyle.clay, lineWidth: 1.5)
                 .frame(width: 30, height: 30)
-                .background(MujiStyle.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(MujiStyle.hairline.opacity(0.45), lineWidth: 0.55))
         } else if CapsuleStyle.isActive {
             MonologueIcon(icon: .magnifyingGlass, size: 13, color: CapsuleStyle.accent, lineWidth: 1.6)
                 .frame(width: 30, height: 30)
@@ -4925,11 +5186,20 @@ struct SearchView: View {
     @ViewBuilder
     private var suggestionsRowBackground: some View {
         if MangaStyle.isActive {
-            MangaCardBackground(cornerRadius: 10, elevated: false, tint: MangaStyle.bubbleWhite)
+            // 去卡片化：候选词行只留底部细墨线
+            VStack(spacing: 0) {
+                Spacer(minLength: 0)
+                Rectangle()
+                    .fill(MangaStyle.strokeInk.opacity(0.14))
+                    .frame(height: 1)
+                    .padding(.horizontal, 4)
+            }
         } else if MujiStyle.isActive {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(MujiStyle.surface.opacity(0.82))
-                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(MujiStyle.hairline.opacity(0.35), lineWidth: 0.55))
+            VStack(spacing: 0) {
+                Spacer(minLength: 0)
+                MujiListDivider()
+                    .padding(.horizontal, 4)
+            }
         } else if CapsuleStyle.isActive {
             CapsuleSurfaceBackground(cornerRadius: 16, elevated: false, tint: CapsuleStyle.surfaceRaised.opacity(0.86))
         } else {
@@ -4941,7 +5211,7 @@ struct SearchView: View {
     @ViewBuilder
     private var suggestionsPanelBackground: some View {
         if MangaStyle.isActive {
-            MangaCardBackground(cornerRadius: 18, elevated: true)
+            MangaCardBackground(cornerRadius: MangaStyle.cardRadius + 4, elevated: true)
         } else if MujiStyle.isActive {
             MujiPaperCardBackground(cornerRadius: 13, elevated: true)
         } else if CapsuleStyle.isActive {

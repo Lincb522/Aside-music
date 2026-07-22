@@ -24,13 +24,19 @@ public final class AudioRepairEngine {
     public var isReverbTailGuardEnabled: Bool = false
     public var isPhaseContinuityEnabled: Bool = false
     public var isFilterTransitionEnabled: Bool = false
+    public var isDCBlockerEnabled: Bool = false
 
     public var isActive: Bool {
         return isDeclipEnabled || isDenoiseEnabled || isGapSmoothingEnabled ||
                isOverlapRemovalEnabled || isPopRemovalEnabled || isSoftLimiterEnabled ||
                isDitherEnabled || isFadeInProtectionEnabled ||
                isLoudnessStabilizerEnabled || isReverbTailGuardEnabled ||
-               isPhaseContinuityEnabled || isFilterTransitionEnabled
+               isPhaseContinuityEnabled || isFilterTransitionEnabled ||
+               isDCBlockerEnabled ||
+               abs(outputGainDB) > 0.001 ||
+               abs(outputGainCurrentLinear - 1) > 0.000_1 ||
+               abs(perceptualMakeupDBStorage) > 0.001 ||
+               abs(perceptualMakeupCurrentLinear - 1) > 0.000_1
     }
 
     // MARK: - 可调参数
@@ -44,10 +50,77 @@ public final class AudioRepairEngine {
     public var filterTransitionMaxSamples: Int = 1024
     public var reverbTailHistoryLength: Int = 4096
 
+    /// Atomically configures the final output guard that runs after every EQ
+    /// and FFmpeg effect stage. The public ceiling is expressed in dBFS while
+    /// the realtime limiter keeps its internal linear threshold.
+    public func configureOutputSafety(
+        limiterEnabled: Bool,
+        ceilingDB: Float = -1,
+        declipEnabled: Bool = false,
+        clipThreshold: Float = 0.98,
+        transitionProtectionEnabled: Bool = false,
+        outputGainDB: Float = 0,
+        perceptualMakeupDB: Float = 0
+    ) {
+        let safeCeiling = min(-0.05, max(-12, ceilingDB))
+        lock.lock()
+        isSoftLimiterEnabled = limiterEnabled
+        isDCBlockerEnabled = limiterEnabled
+        if !limiterEnabled {
+            truePeakLimiterGain = 1
+            truePeakHistory.removeAll(keepingCapacity: true)
+        }
+        limiterThreshold = powf(10, safeCeiling / 20)
+        isDeclipEnabled = declipEnabled
+        self.clipThreshold = min(0.999, max(0.5, clipThreshold))
+        isFilterTransitionEnabled = transitionProtectionEnabled
+        // This is a post-processing compensation, not a change to the EQ plan.
+        // Keep it bounded so a malformed or extremely attenuated proposal cannot
+        // turn the final limiter into a permanent heavy compressor.
+        setOutputGainTargetLocked(outputGainDB)
+        setPerceptualMakeupTargetLocked(perceptualMakeupDB)
+        lock.unlock()
+    }
+
+    /// Post-processing gain applied after FFmpeg/EQ and before the final limiter.
+    /// Mono uses this only to restore the level lost to AI safety preamp.
+    public var outputGainDB: Float {
+        get {
+            lock.lock()
+            let value = outputGainDBStorage
+            lock.unlock()
+            return value
+        }
+        set {
+            lock.lock()
+            setOutputGainTargetLocked(newValue)
+            setPerceptualMakeupTargetLocked(perceptualMakeupDBStorage)
+            lock.unlock()
+        }
+    }
+
+    public var outputLimiterCeilingDB: Float {
+        lock.lock()
+        let threshold = limiterThreshold
+        lock.unlock()
+        return 20 * log10f(max(threshold, 0.000_001))
+    }
+
+    /// A small listening-level correction layered after the safety-preamp
+    /// restoration. Unlike `outputGainDB`, changes are ramped so an AI profile
+    /// cannot produce an audible step in level while playback is running.
+    public var perceptualMakeupDB: Float {
+        lock.lock()
+        let value = perceptualMakeupDBStorage
+        lock.unlock()
+        return value
+    }
+
     // MARK: - 内部状态
 
     private let lock = NSLock()
     private var dcFilterState: [DCBlockerState] = []
+    private var ultrasonicFilterState: [Float] = []
     private var previousTail: [Float] = []
     private let tailLength: Int = 64
     private var lastSamples: [Float] = []
@@ -72,6 +145,8 @@ public final class AudioRepairEngine {
 
     // 相位连续性状态
     private var previousPhaseDirection: [Float] = []
+    // 实时回调复用的斜率 scratch，避免每个 block 重新分配
+    private var phaseDirectionScratch: [Float] = []
 
     // 滤镜重建过渡状态
     private var transitionBuffer: [Float] = []
@@ -79,6 +154,22 @@ public final class AudioRepairEngine {
     private var transitionLength: Int = 0
     private var prevFrameRMS: Float = 0
     private var stableFrameCount: Int = 0
+    private var outputGainDBStorage: Float = 0
+    private var outputGainCurrentLinear: Float = 1
+    private var outputGainStartLinear: Float = 1
+    private var outputGainTargetLinear: Float = 1
+    private var outputGainRampProcessedFrames = 0
+    private var outputGainRampTotalFrames = 0
+    private var outputGainRampPending = false
+    private var perceptualMakeupDBStorage: Float = 0
+    private var perceptualMakeupCurrentLinear: Float = 1
+    private var perceptualMakeupStartLinear: Float = 1
+    private var perceptualMakeupTargetLinear: Float = 1
+    private var perceptualMakeupRampProcessedFrames = 0
+    private var perceptualMakeupRampTotalFrames = 0
+    private var perceptualMakeupRampPending = false
+    private var truePeakLimiterGain: Float = 1
+    private var truePeakHistory: [Float] = []
 
     private var stats = RepairStats()
 
@@ -117,7 +208,16 @@ public final class AudioRepairEngine {
 
     // MARK: - 初始化
 
-    public init() {}
+    public init() {
+        // Music playback is normally stereo. Pre-size the state used by the
+        // final output guard so enabling an AI plan cannot allocate Arrays from
+        // the first hardware callback.
+        dcFilterState = Array(repeating: DCBlockerState(), count: 2)
+        ultrasonicFilterState = Array(repeating: 0, count: 2)
+        truePeakHistory = Array(repeating: 0, count: 2)
+        lastSamples = Array(repeating: 0, count: 2)
+        previousTail.reserveCapacity(tailLength * 8)
+    }
 
     // MARK: - 一键操作
 
@@ -134,6 +234,7 @@ public final class AudioRepairEngine {
         isReverbTailGuardEnabled = true
         isPhaseContinuityEnabled = true
         isFilterTransitionEnabled = true
+        isDCBlockerEnabled = true
     }
 
     public func disableAll() {
@@ -149,11 +250,13 @@ public final class AudioRepairEngine {
         isReverbTailGuardEnabled = false
         isPhaseContinuityEnabled = false
         isFilterTransitionEnabled = false
+        isDCBlockerEnabled = false
     }
 
     public func reset() {
         lock.lock()
         dcFilterState.removeAll()
+        ultrasonicFilterState.removeAll()
         previousTail.removeAll()
         lastSamples.removeAll()
         fadeInCounter = 0
@@ -176,6 +279,22 @@ public final class AudioRepairEngine {
         transitionLength = 0
         prevFrameRMS = 0
         stableFrameCount = 0
+        outputGainDBStorage = 0
+        outputGainCurrentLinear = 1
+        outputGainStartLinear = 1
+        outputGainTargetLinear = 1
+        outputGainRampProcessedFrames = 0
+        outputGainRampTotalFrames = 0
+        outputGainRampPending = false
+        perceptualMakeupDBStorage = 0
+        perceptualMakeupCurrentLinear = 1
+        perceptualMakeupStartLinear = 1
+        perceptualMakeupTargetLinear = 1
+        perceptualMakeupRampProcessedFrames = 0
+        perceptualMakeupRampTotalFrames = 0
+        perceptualMakeupRampPending = false
+        truePeakLimiterGain = 1
+        truePeakHistory.removeAll()
         lock.unlock()
     }
 
@@ -191,7 +310,8 @@ public final class AudioRepairEngine {
 
         let totalSamples = frameCount * channelCount
 
-        guard lock.try() else { return }
+        // 有界重试：输出增益/限制器整块跳过会造成瞬时电平跳变。
+        guard acquireRealtimeAudioLock(lock) else { return }
 
         ensureStateSize(channelCount: channelCount)
         self.frameCount += Int64(frameCount)
@@ -207,8 +327,13 @@ public final class AudioRepairEngine {
         if isLoudnessStabilizerEnabled {
             applyLoudnessStabilizer(data, frameCount: frameCount, channelCount: channelCount)
         }
-        if isDenoiseEnabled {
-            applyDCBlocker(data, frameCount: frameCount, channelCount: channelCount)
+        if isDCBlockerEnabled || isDenoiseEnabled {
+            applyDCBlocker(
+                data,
+                frameCount: frameCount,
+                channelCount: channelCount,
+                sampleRate: sampleRate
+            )
         }
         if isPhaseContinuityEnabled {
             applyPhaseContinuity(data, frameCount: frameCount, channelCount: channelCount)
@@ -231,8 +356,19 @@ public final class AudioRepairEngine {
         if isDenoiseEnabled {
             applyUltrasonicFilter(data, frameCount: frameCount, channelCount: channelCount, sampleRate: sampleRate)
         }
+        applyOutputGain(
+            data,
+            frameCount: frameCount,
+            channelCount: channelCount,
+            sampleRate: sampleRate
+        )
         if isSoftLimiterEnabled {
-            applySoftLimiter(data, totalSamples: totalSamples)
+            applySoftLimiter(
+                data,
+                frameCount: frameCount,
+                channelCount: channelCount,
+                sampleRate: sampleRate
+            )
         }
         if isDitherEnabled {
             applyDither(data, totalSamples: totalSamples)
@@ -241,10 +377,138 @@ public final class AudioRepairEngine {
             updateReverbHistory(data, frameCount: frameCount, channelCount: channelCount)
         }
 
-        saveTail(data, frameCount: frameCount, channelCount: channelCount)
+        // The normal AI output guard only needs gain, DC protection and the
+        // limiter. Preserve a PCM tail solely for modules that actually read
+        // it instead of copying 64 frames on every hardware callback forever.
+        if isGapSmoothingEnabled
+            || isOverlapRemovalEnabled
+            || isFilterTransitionEnabled
+            || isPhaseContinuityEnabled {
+            saveTail(data, frameCount: frameCount, channelCount: channelCount)
+        }
         stats.totalFramesProcessed += Int64(frameCount)
 
         lock.unlock()
+    }
+
+    private func applyOutputGain(
+        _ data: UnsafeMutablePointer<Float>,
+        frameCount: Int,
+        channelCount: Int,
+        sampleRate: Int
+    ) {
+        let rampFrames = max(1, Int(Double(sampleRate) * 0.32))
+        if outputGainRampPending {
+            outputGainStartLinear = outputGainCurrentLinear
+            outputGainRampProcessedFrames = 0
+            outputGainRampTotalFrames = rampFrames
+            outputGainRampPending = false
+        }
+        if perceptualMakeupRampPending {
+            perceptualMakeupStartLinear = perceptualMakeupCurrentLinear
+            perceptualMakeupRampProcessedFrames = 0
+            perceptualMakeupRampTotalFrames = rampFrames
+            perceptualMakeupRampPending = false
+        }
+
+        let outputIsRamping =
+            outputGainRampProcessedFrames < outputGainRampTotalFrames
+        let makeupIsRamping =
+            perceptualMakeupRampProcessedFrames < perceptualMakeupRampTotalFrames
+
+        if outputIsRamping || makeupIsRamping {
+            for frame in 0..<frameCount {
+                let outputLinear = interpolatedGain(
+                    start: outputGainStartLinear,
+                    target: outputGainTargetLinear,
+                    processedFrames: outputGainRampProcessedFrames + frame + 1,
+                    totalFrames: outputGainRampTotalFrames
+                )
+                let makeupLinear = interpolatedGain(
+                    start: perceptualMakeupStartLinear,
+                    target: perceptualMakeupTargetLinear,
+                    processedFrames: perceptualMakeupRampProcessedFrames + frame + 1,
+                    totalFrames: perceptualMakeupRampTotalFrames
+                )
+                let combinedGain = outputLinear * makeupLinear
+                let baseIndex = frame * channelCount
+                for channel in 0..<channelCount {
+                    data[baseIndex + channel] *= combinedGain
+                }
+            }
+
+            if outputIsRamping {
+                outputGainRampProcessedFrames = min(
+                    outputGainRampTotalFrames,
+                    outputGainRampProcessedFrames + frameCount
+                )
+                outputGainCurrentLinear = interpolatedGain(
+                    start: outputGainStartLinear,
+                    target: outputGainTargetLinear,
+                    processedFrames: outputGainRampProcessedFrames,
+                    totalFrames: outputGainRampTotalFrames
+                )
+            } else {
+                outputGainCurrentLinear = outputGainTargetLinear
+            }
+
+            if makeupIsRamping {
+                perceptualMakeupRampProcessedFrames = min(
+                    perceptualMakeupRampTotalFrames,
+                    perceptualMakeupRampProcessedFrames + frameCount
+                )
+                perceptualMakeupCurrentLinear = interpolatedGain(
+                    start: perceptualMakeupStartLinear,
+                    target: perceptualMakeupTargetLinear,
+                    processedFrames: perceptualMakeupRampProcessedFrames,
+                    totalFrames: perceptualMakeupRampTotalFrames
+                )
+            } else {
+                perceptualMakeupCurrentLinear = perceptualMakeupTargetLinear
+            }
+            return
+        }
+
+        outputGainCurrentLinear = outputGainTargetLinear
+        perceptualMakeupCurrentLinear = perceptualMakeupTargetLinear
+        let combinedGain = outputGainCurrentLinear * perceptualMakeupCurrentLinear
+        guard abs(combinedGain - 1) > 0.000_1 else { return }
+        let totalSamples = frameCount * channelCount
+        for index in 0..<totalSamples {
+            data[index] *= combinedGain
+        }
+    }
+
+    private func interpolatedGain(
+        start: Float,
+        target: Float,
+        processedFrames: Int,
+        totalFrames: Int
+    ) -> Float {
+        guard totalFrames > 0 else { return target }
+        let progress = min(1, max(0, Float(processedFrames) / Float(totalFrames)))
+        let eased = progress * progress * (3 - 2 * progress)
+        return start + (target - start) * eased
+    }
+
+    private func setOutputGainTargetLocked(_ value: Float) {
+        let safeValue = min(9, max(-9, value.isFinite ? value : 0))
+        guard abs(safeValue - outputGainDBStorage) > 0.005 else { return }
+        outputGainDBStorage = safeValue
+        outputGainTargetLinear = powf(10, safeValue / 20)
+        outputGainRampPending = true
+    }
+
+    private func setPerceptualMakeupTargetLocked(_ value: Float) {
+        let remainingPositiveGain = max(0, 9 - max(0, outputGainDBStorage))
+        let safeValue = min(
+            1.25,
+            min(remainingPositiveGain, max(0, value.isFinite ? value : 0))
+        )
+        guard abs(safeValue - perceptualMakeupDBStorage) > 0.005 else { return }
+        perceptualMakeupDBStorage = safeValue
+        perceptualMakeupTargetLinear = powf(10, safeValue / 20)
+        perceptualMakeupRampPending = true
     }
 
     // MARK: - 状态管理
@@ -252,6 +516,13 @@ public final class AudioRepairEngine {
     private func ensureStateSize(channelCount: Int) {
         if dcFilterState.count != channelCount {
             dcFilterState = Array(repeating: DCBlockerState(), count: channelCount)
+        }
+        if ultrasonicFilterState.count != channelCount {
+            ultrasonicFilterState = Array(repeating: 0, count: channelCount)
+        }
+        if truePeakHistory.count != channelCount {
+            truePeakHistory = Array(repeating: 0, count: channelCount)
+            truePeakLimiterGain = 1
         }
         if lastSamples.count != channelCount {
             lastSamples = Array(repeating: 0, count: channelCount)
@@ -261,7 +532,11 @@ public final class AudioRepairEngine {
     private func saveTail(_ data: UnsafeMutablePointer<Float>, frameCount: Int, channelCount: Int) {
         let samplesToSave = min(tailLength, frameCount) * channelCount
         let startIdx = (frameCount - min(tailLength, frameCount)) * channelCount
-        previousTail = Array(UnsafeBufferPointer(start: data + startIdx, count: samplesToSave))
+        // 复用已有容量，避免实时回调里每个 block 都重新分配数组存储
+        previousTail.removeAll(keepingCapacity: true)
+        previousTail.append(
+            contentsOf: UnsafeBufferPointer(start: data + startIdx, count: samplesToSave)
+        )
     }
 
     // MARK: - 1. 淡入保护
@@ -292,9 +567,12 @@ public final class AudioRepairEngine {
     private func applyDCBlocker(
         _ data: UnsafeMutablePointer<Float>,
         frameCount: Int,
-        channelCount: Int
+        channelCount: Int,
+        sampleRate: Int
     ) {
-        let R: Float = 0.9975
+        // A 5 Hz pole removes offset while remaining effectively transparent
+        // across the audible band at every supported source sample rate.
+        let R = expf(-2 * Float.pi * 5 / Float(max(sampleRate, 1)))
         for ch in 0..<channelCount {
             var xPrev = dcFilterState[ch].xPrev
             var yPrev = dcFilterState[ch].yPrev
@@ -502,36 +780,140 @@ public final class AudioRepairEngine {
         let dt = 1.0 / Float(sampleRate)
         let alpha = dt / (rc + dt)
         for ch in 0..<channelCount {
-            var prev = dcFilterState[ch].xPrev
+            var prev = ultrasonicFilterState[ch]
             for frame in 0..<frameCount {
                 let idx = frame * channelCount + ch
                 let filtered = prev + alpha * (data[idx] - prev)
                 data[idx] = filtered
                 prev = filtered
             }
+            ultrasonicFilterState[ch] = prev
         }
     }
 
     // MARK: - 8. 软限幅
 
     private func applySoftLimiter(
-        _ data: UnsafeMutablePointer<Float>, totalSamples: Int
+        _ data: UnsafeMutablePointer<Float>,
+        frameCount: Int,
+        channelCount: Int,
+        sampleRate: Int
     ) {
         let threshold = limiterThreshold
-        let invThreshold = 1.0 / threshold
-        var activated = false
-        for i in 0..<totalSamples {
-            let sample = data[i]
-            let absSample = abs(sample)
-            if absSample > threshold {
-                let sign: Float = sample >= 0 ? 1.0 : -1.0
-                let excess = (absSample - threshold) * invThreshold
-                let compressed = threshold + (1.0 - threshold) * tanhf(excess)
-                data[i] = sign * compressed
-                activated = true
+        let totalSamples = frameCount * channelCount
+        var samplePeak: Float = 0
+        vDSP_maxmgv(data, 1, &samplePeak, vDSP_Length(totalSamples))
+        var estimatedTruePeak = samplePeak
+
+        // Four evaluation points per source interval catch inter-sample peaks
+        // that a sample-only limiter misses. Catmull-Rom interpolation keeps the
+        // detector allocation-free in the realtime callback. A Catmull-Rom
+        // sample is bounded by 1.25x the largest control sample at these three
+        // evaluation points. Blocks below threshold / 1.25 therefore cannot
+        // contain a missed over-threshold inter-sample peak and take the exact
+        // fast path without changing limiter output.
+        let requiresTruePeakScan = samplePeak > threshold * 0.8
+        for channel in 0..<channelCount {
+            if requiresTruePeakScan {
+                let previous = truePeakHistory[channel]
+                for frame in 0..<frameCount {
+                    let p0 = frame > 0
+                        ? data[(frame - 1) * channelCount + channel]
+                        : previous
+                    let p1 = data[frame * channelCount + channel]
+                    let p2 = frame + 1 < frameCount
+                        ? data[(frame + 1) * channelCount + channel]
+                        : p1
+                    let p3 = frame + 2 < frameCount
+                        ? data[(frame + 2) * channelCount + channel]
+                        : p2
+                    if frame + 1 < frameCount {
+                        let controlPeak = max(
+                            abs(p0),
+                            max(abs(p1), max(abs(p2), abs(p3)))
+                        )
+                        guard controlPeak > threshold * 0.8 else { continue }
+                        let quarterPeak = abs(catmullRom(p0, p1, p2, p3, 0.25))
+                        let halfPeak = abs(catmullRom(p0, p1, p2, p3, 0.5))
+                        let threeQuarterPeak = abs(catmullRom(p0, p1, p2, p3, 0.75))
+                        estimatedTruePeak = max(
+                            estimatedTruePeak,
+                            max(quarterPeak, max(halfPeak, threeQuarterPeak))
+                        )
+                    }
+                }
+            }
+            truePeakHistory[channel] = data[(frameCount - 1) * channelCount + channel]
+        }
+
+        let requestedGain = estimatedTruePeak > threshold
+            ? threshold / max(estimatedTruePeak, 0.000_001)
+            : 1
+        let blockStartGain = truePeakLimiterGain
+        if requestedGain < truePeakLimiterGain {
+            truePeakLimiterGain = requestedGain
+        } else {
+            let blockDuration = Float(frameCount) / Float(max(sampleRate, 1))
+            let release = 1 - expf(-blockDuration / 0.12)
+            truePeakLimiterGain += (requestedGain - truePeakLimiterGain) * release
+        }
+        if truePeakLimiterGain < 0.999_9 {
+            let attackFrames = min(32, frameCount)
+            for frame in 0..<frameCount {
+                let gain: Float
+                if truePeakLimiterGain < blockStartGain, frame < attackFrames {
+                    let progress = Float(frame + 1) / Float(max(attackFrames, 1))
+                    let eased = progress * progress * (3 - 2 * progress)
+                    gain = blockStartGain
+                        + (truePeakLimiterGain - blockStartGain) * eased
+                } else {
+                    gain = truePeakLimiterGain
+                }
+                let baseIndex = frame * channelCount
+                for channel in 0..<channelCount {
+                    data[baseIndex + channel] *= gain
+                }
+            }
+        }
+
+        // Begin a narrow soft knee just below the requested ceiling. The old
+        // curve could still approach 0 dBFS, so its "ceiling" was not a real
+        // output ceiling after positive EQ or harmonic enhancement.
+        let kneeStart = threshold * 0.95
+        let kneeWidth = max(0.000_001, threshold - kneeStart)
+        var activated = requestedGain < 0.999_9
+        if samplePeak > kneeStart || truePeakLimiterGain < 0.999_9 {
+            for i in 0..<totalSamples {
+                let sample = data[i]
+                let absSample = abs(sample)
+                if absSample > kneeStart {
+                    let sign: Float = sample >= 0 ? 1.0 : -1.0
+                    let excess = (absSample - kneeStart) / kneeWidth
+                    let compressed = kneeStart + kneeWidth * tanhf(excess)
+                    data[i] = sign * compressed
+                    activated = true
+                }
             }
         }
         if activated { stats.limiterActivations += 1 }
+    }
+
+    @inline(__always)
+    private func catmullRom(
+        _ p0: Float,
+        _ p1: Float,
+        _ p2: Float,
+        _ p3: Float,
+        _ t: Float
+    ) -> Float {
+        let t2 = t * t
+        let t3 = t2 * t
+        return 0.5 * (
+            2 * p1
+                + (-p0 + p2) * t
+                + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2
+                + (-p0 + 3 * p1 - 3 * p2 + p3) * t3
+        )
     }
 
     // MARK: - 9. 抖动
@@ -606,20 +988,16 @@ public final class AudioRepairEngine {
                     if maxJump > 0.3 {
                         let jumpFactor = min(maxJump / 0.5, 1.0)
                         let fadeSamples = Int(Float(filterTransitionMaxSamples) * (0.3 + 0.7 * jumpFactor))
-                        let actualFade = min(fadeSamples, frameCount)
                         let tailFrameCount = previousTail.count / channelCount
-                        transitionBuffer = Array(repeating: Float(0), count: actualFade * channelCount)
-                        for frame in 0..<actualFade {
-                            for ch in 0..<channelCount {
-                                let srcFrame = tailFrameCount - actualFade + frame
-                                if srcFrame >= 0 {
-                                    let srcIdx = srcFrame * channelCount + ch
-                                    if srcIdx < previousTail.count {
-                                        transitionBuffer[frame * channelCount + ch] = previousTail[srcIdx]
-                                    }
-                                }
-                            }
-                        }
+                        // 只能交叉淡化真实保存下来的尾帧。旧实现最多申请
+                        // 1024 帧、却只有 64 帧历史，其余位置为零，等同于
+                        // 人为插入一次约 20ms 的音量凹陷。
+                        let actualFade = min(fadeSamples, frameCount, tailFrameCount)
+                        guard actualFade > 0 else { return }
+                        transitionBuffer.removeAll(keepingCapacity: true)
+                        transitionBuffer.append(
+                            contentsOf: previousTail.suffix(actualFade * channelCount)
+                        )
                         transitionLength = actualFade
                         transitionRemaining = actualFade
                         stableFrameCount = 0
@@ -781,14 +1159,15 @@ public final class AudioRepairEngine {
     ) {
         guard frameCount >= 4 else { return }
 
-        var currentDirection = [Float](repeating: 0, count: channelCount)
+        phaseDirectionScratch.removeAll(keepingCapacity: true)
         for ch in 0..<channelCount {
             var slope: Float = 0
             for frame in 1..<min(4, frameCount) {
                 slope += data[frame * channelCount + ch] - data[(frame - 1) * channelCount + ch]
             }
-            currentDirection[ch] = slope
+            phaseDirectionScratch.append(slope)
         }
+        let currentDirection = phaseDirectionScratch
 
         if !previousPhaseDirection.isEmpty && previousPhaseDirection.count == channelCount {
             var flippedChannels = 0
@@ -838,6 +1217,7 @@ public final class AudioRepairEngine {
                 }
             }
         }
-        previousPhaseDirection = currentDirection
+        // 两块存储交替复用，稳态下不触发分配
+        swap(&previousPhaseDirection, &phaseDirectionScratch)
     }
 }

@@ -29,6 +29,9 @@ const publicSiteBaseURL = stripTrailingSlash(
 const shareStorePath = process.env.MONO_PLAY_SHARE_STORE
   || envFile.MONO_PLAY_SHARE_STORE
   || resolve(__dirname, '../.mono-play-shares.json')
+const feedbackStorePath = process.env.MONO_FEEDBACK_STORE
+  || envFile.MONO_FEEDBACK_STORE
+  || resolve(__dirname, '../.mono-feedback.json')
 const qqMusicBaseURL = stripTrailingSlash(
   process.env.MONO_QQ_MUSIC_BASE_URL
     || envFile.MONO_QQ_MUSIC_BASE_URL
@@ -65,6 +68,8 @@ const vipCookie = process.env.VIP_COOKIE
   || secrets.VIP_COOKIE
   || vipMusicUCookie(process.env.VIP_MUSIC_U || envFile.VIP_MUSIC_U || secrets.VIP_MUSIC_U)
 const shareStore = loadShareStore()
+const feedbackStore = loadFeedbackStore()
+const feedbackRateLimits = new Map()
 
 const server = http.createServer(async (req, res) => {
   try {
@@ -87,6 +92,35 @@ const server = http.createServer(async (req, res) => {
       return
     }
 
+    if (req.method === 'POST' && url.pathname === '/api/public/feedback') {
+      const payload = await readJsonBody(req)
+
+      // Honeypot：对自动填表程序返回成功，但不写入公开列表。
+      if (sanitizeString(payload.company)) {
+        sendJson(res, 201, {
+          success: true,
+          data: publicFeedbackRecord(createFeedbackRecord({
+            category: 'other',
+            title: 'Feedback received',
+            description: 'Feedback received',
+          })),
+        })
+        return
+      }
+
+      if (!consumeFeedbackRateLimit(req)) {
+        sendJson(res, 429, { success: false, message: '提交过于频繁，请稍后再试。' })
+        return
+      }
+
+      const record = createFeedbackRecord(payload)
+      feedbackStore.records.unshift(record)
+      feedbackStore.records = feedbackStore.records.slice(0, 1000)
+      saveFeedbackStore()
+      sendJson(res, 201, { success: true, data: publicFeedbackRecord(record) })
+      return
+    }
+
     if (req.method !== 'GET') {
       sendJson(res, 405, { success: false, message: 'Method not allowed' })
       return
@@ -95,6 +129,16 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/public/player/recommend') {
       const tracks = await fetchDailyTracks()
       sendJson(res, 200, { success: true, tracks })
+      return
+    }
+
+    if (url.pathname === '/api/public/feedback') {
+      const category = sanitizeString(url.searchParams.get('category'))
+      const records = feedbackStore.records
+        .filter((record) => !category || category === 'all' || record.category === category)
+        .slice(0, 100)
+        .map(publicFeedbackRecord)
+      sendJson(res, 200, { success: true, data: records })
       return
     }
 
@@ -139,7 +183,8 @@ const server = http.createServer(async (req, res) => {
 
     sendJson(res, 404, { success: false, message: 'Not found' })
   } catch (error) {
-    sendJson(res, 500, { success: false, message: error.message || '播放器服务暂不可用' })
+    const status = Number.isInteger(error.statusCode) ? error.statusCode : 500
+    sendJson(res, status, { success: false, message: error.message || '服务暂不可用' })
   }
 })
 
@@ -356,6 +401,83 @@ function createShareRecord(payload) {
     qishuiQualityRaw: sanitizeString(payload.qishuiQualityRaw),
     createdAt: now,
   }
+}
+
+function createFeedbackRecord(payload) {
+  const categories = new Set(['bug', 'feature', 'experience', 'other'])
+  const platforms = new Set(['iPhone', 'iPad', 'Mac', '其他'])
+  const category = categories.has(payload.category) ? payload.category : 'other'
+  const title = normalizeFeedbackText(payload.title, 80)
+  const description = normalizeFeedbackText(payload.description, 4000)
+  const steps = normalizeFeedbackText(payload.steps, 2000)
+  const platform = platforms.has(payload.platform) ? payload.platform : '其他'
+  const appVersion = normalizeFeedbackText(payload.appVersion, 32)
+  const contact = normalizeFeedbackText(payload.contact, 120)
+
+  if (title.length < 4) throw httpError(400, '标题至少填写 4 个字。')
+  if (description.length < 10) throw httpError(400, '反馈内容至少填写 10 个字。')
+
+  return {
+    id: createFeedbackCode(),
+    category,
+    title,
+    description,
+    steps: category === 'bug' ? steps : '',
+    platform,
+    appVersion,
+    contact,
+    status: 'received',
+    createdAt: new Date().toISOString(),
+  }
+}
+
+function publicFeedbackRecord(record) {
+  return {
+    id: record.id,
+    category: record.category,
+    title: record.title,
+    description: record.description,
+    steps: record.steps,
+    platform: record.platform,
+    appVersion: record.appVersion,
+    status: record.status,
+    createdAt: record.createdAt,
+  }
+}
+
+function createFeedbackCode() {
+  const date = new Date()
+  const stamp = [
+    String(date.getFullYear()).slice(-2),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('')
+  return `FB-${stamp}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`
+}
+
+function normalizeFeedbackText(value, maxLength) {
+  return sanitizeString(value)
+    .replace(/\r\n?/g, '\n')
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
+    .slice(0, maxLength)
+}
+
+function consumeFeedbackRateLimit(req) {
+  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim()
+  const address = forwarded || req.socket.remoteAddress || 'unknown'
+  const now = Date.now()
+  const windowStart = now - 10 * 60 * 1000
+  const recent = (feedbackRateLimits.get(address) || []).filter((time) => time > windowStart)
+  if (recent.length >= 3) return false
+  recent.push(now)
+  feedbackRateLimits.set(address, recent)
+  return true
+}
+
+function httpError(statusCode, message) {
+  const error = new Error(message)
+  error.statusCode = statusCode
+  return error
 }
 
 function publicShareRecord(record) {
@@ -698,6 +820,20 @@ function loadShareStore() {
 
 function saveShareStore() {
   writeFileSync(shareStorePath, JSON.stringify(shareStore, null, 2))
+}
+
+function loadFeedbackStore() {
+  try {
+    if (existsSync(feedbackStorePath)) {
+      const parsed = JSON.parse(readFileSync(feedbackStorePath, 'utf8'))
+      if (parsed && Array.isArray(parsed.records)) return parsed
+    }
+  } catch {}
+  return { records: [] }
+}
+
+function saveFeedbackStore() {
+  writeFileSync(feedbackStorePath, JSON.stringify(feedbackStore, null, 2))
 }
 
 async function readJsonBody(req) {

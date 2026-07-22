@@ -4,48 +4,38 @@ import SwiftUI
 
 /// 全局主题枚举 — 控制整个 App 的视觉风格与布局结构
 /// 与 PlayerTheme（播放器内部 17 种布局）完全独立，互不影响
-enum GlobalThemeId: String, CaseIterable, Codable, Identifiable {
+enum GlobalThemeId: String, CaseIterable, Codable, Identifiable, Sendable {
     case `default`     // 经典 Aside — 原本的默认主题，保留 rawValue/文件名用于兼容
     case muji          // 无印良品 — 极简暖色纸质感、大量留白
     case manga         // 漫画风 — 粗描边、硬阴影、网点背景
     case neumorphic    // 新拟物 — 柔和凸起、凹陷控件、低对比实体感
     case capsule       // Capsule OS — 胶囊模块化系统界面
-    case petWhite      // Pawcelain — 当前新安装默认主题，纯白扁平、猫狗图标包语言
-    case pureWhite     // 已移除：仅用于迁移旧存档
-    case material3Expressive // 已移除：仅用于迁移旧存档
-    case bento         // 已移除：仅用于迁移旧存档
-    case sequoia       // 已移除：仅用于迁移旧存档
-    case liquidGlass   // 已移除：仅用于迁移旧存档
-    case clay          // 已移除：仅用于迁移旧存档
-    case signal        // 已移除：仅用于迁移旧存档
+    case petWhite      // Paw · 黏土玩具 — 厚圆角黏土块、马卡龙糖果色、squishy 按压（可选主题）
+    case minimalWhite  // 纯白极简 — 纯白表面、轻分隔、克制层级
 
     var id: String { rawValue }
 
-    /// 当前新安装默认主题是 Paw；`.default` 仍表示历史经典主题。
-    static let appDefault: GlobalThemeId = .petWhite
+    /// 当前新安装默认主题是经典 Aside（`.default`）；Paw 等为可选主题。
+    static let appDefault: GlobalThemeId = .default
     static let storageKey = "globalThemeId"
+    private static let removedRawValues: Set<String> = [
+        "doodlePop",
+        "pureWhite",
+        "material3Expressive",
+        "bento",
+        "sequoia",
+        "liquidGlass",
+        "clay",
+        "signal"
+    ]
 
     static var persistedOrDefault: GlobalThemeId {
         resolvedStoredTheme(UserDefaults.standard.string(forKey: storageKey))
     }
 
     static func resolvedStoredTheme(_ raw: String?) -> GlobalThemeId {
-        if raw == "doodlePop" { return .default }
-        let restored = raw.flatMap { GlobalThemeId(rawValue: $0) } ?? appDefault
-        return resolveRemovedTheme(restored)
-    }
-
-    static func resolveRemovedTheme(_ id: GlobalThemeId) -> GlobalThemeId {
-        switch id {
-        case .pureWhite, .bento, .sequoia, .liquidGlass, .clay, .signal, .material3Expressive:
-            return .default
-        default:
-            return id
-        }
-    }
-
-    static var allCases: [GlobalThemeId] {
-        [.petWhite, .default, .muji, .manga, .neumorphic, .capsule]
+        guard let raw, !removedRawValues.contains(raw) else { return appDefault }
+        return GlobalThemeId(rawValue: raw) ?? appDefault
     }
 
     var displayName: String {
@@ -62,8 +52,8 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable {
             return "Capsule OS"
         case .petWhite:
             return String(localized: "global_theme_pet_white_name")
-        case .pureWhite, .material3Expressive, .bento, .sequoia, .liquidGlass, .clay, .signal:
-            return String(localized: "global_theme_classic_name")
+        case .minimalWhite:
+            return String(localized: "global_theme_minimal_white_name")
         }
     }
 
@@ -81,8 +71,8 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable {
             return String(localized: "胶囊模块化音乐系统")
         case .petWhite:
             return String(localized: "global_theme_pet_white_description")
-        case .pureWhite, .material3Expressive, .bento, .sequoia, .liquidGlass, .clay, .signal:
-            return String(localized: "global_theme_classic_description")
+        case .minimalWhite:
+            return ""
         }
     }
 
@@ -100,8 +90,8 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable {
             return .layers
         case .petWhite:
             return .catLife
-        case .pureWhite, .material3Expressive, .bento, .sequoia, .liquidGlass, .clay, .signal:
-            return .playerTheme
+        case .minimalWhite:
+            return .sparkle
         }
     }
 }

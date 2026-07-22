@@ -13,14 +13,19 @@ import CFFmpeg
 ///
 /// 内部维护一个 AVFilterGraph，按需重建滤镜链。
 /// 线程安全：所有参数修改和处理都通过 NSLock 保护。
-final class AudioFilterGraph {
+final class AudioFilterGraph: @unchecked Sendable {
 
     // MARK: - 属性
 
     private let lock = NSLock()
+    private let rebuildQueue = DispatchQueue(
+        label: "FFmpegSwiftSDK.AudioFilterGraph.rebuild",
+        qos: .userInitiated
+    )
+    private var rebuildScheduled = false
 
     // ==================== 基础音量控制 ====================
-    
+
     /// 音量增益（dB），0 = 不变
     private(set) var volumeDB: Float = 0.0
     
@@ -221,24 +226,56 @@ final class AudioFilterGraph {
     private var filterGraph: UnsafeMutablePointer<AVFilterGraph>?
     private var bufferSrcCtx: UnsafeMutablePointer<AVFilterContext>?
     private var bufferSinkCtx: UnsafeMutablePointer<AVFilterContext>?
+    private var activeGraphSampleRate: Int = 0
+    private var activeGraphChannelCount: Int = 0
+    private var pendingFilterGraph: UnsafeMutablePointer<AVFilterGraph>?
+    private var pendingBufferSrcCtx: UnsafeMutablePointer<AVFilterContext>?
+    private var pendingBufferSinkCtx: UnsafeMutablePointer<AVFilterContext>?
+    /// Ownership of the replaced graph is handed to the next rebuild-queue
+    /// pass. Releasing an AVFilterGraph can lock and free deeply nested state,
+    /// so it must never be dispatched or destroyed from the render callback.
+    private var retiredFilterGraph: UnsafeMutablePointer<AVFilterGraph>?
+    private var pendingGraphCrossfadeFramesRemaining: Int = 0
     private var needsRebuild: Bool = true
     
-    // 用于平滑过渡的交叉淡化缓冲
-    private var crossfadeBuffer: [Float] = []
-    private var crossfadeSamplesRemaining: Int = 0
-    private let crossfadeDuration: Int = 256  // 交叉淡化采样数（约 5ms @ 48kHz）
+    // 首次建图仍由干声平滑接入。参数变化时替换图在后台独立构建，
+    // 交接采用“旧湿声 → 干声 → 新湿声”，避免一个回调并跑两套图。
+    private var effectFadeOutFramesRemaining: Int = 0
+    private var effectFadeInFramesRemaining: Int = 0
+    private var rebuildWaitingForFadeOut: Bool = false
+    private let effectTransitionDurationFrames: Int = 1_024
+    private var transitionInputScratch: UnsafeMutablePointer<Float>? =
+        .allocate(capacity: 16_384)
+    private var transitionInputCapacity: Int = 16_384
     
-    // 上一帧的最后几个采样，用于检测不连续
-    private var lastOutputSamples: [Float] = []
-    private let smoothingSamples: Int = 64
     private var cachedInputFrame: UnsafeMutablePointer<AVFrame>?
     private var cachedOutputFrame: UnsafeMutablePointer<AVFrame>?
+    private var pendingInputFrame: UnsafeMutablePointer<AVFrame>?
+    private var pendingOutputFrame: UnsafeMutablePointer<AVFrame>?
+    // 输入帧 PCM 缓冲池：实时回调里复用，稳态零 malloc/free
+    private var inputFramePool: OpaquePointer?
+    private var inputFramePoolBufferSize: Int = 0
+    // 输出兜底缓冲（滤镜改变样本数时使用），跨回调复用，由本类持有并释放
+    private var outputScratch: UnsafeMutablePointer<Float>?
+    private var outputScratchCapacity: Int = 0
+    private var pendingOutputScratch: UnsafeMutablePointer<Float>? =
+        .allocate(capacity: 16_384)
+    private var pendingOutputScratchCapacity: Int = 16_384
 
     /// 是否有任何滤镜处于激活状态
     var isActive: Bool {
         // 使用 tryLock 避免在实时线程上阻塞
-        guard lock.try() else { return false }
+        // 锁竞争期间继续进入 process 再尝试一次，避免一次竞争直接把整块
+        // 音频误判为“无效果”并退回干声。
+        guard lock.try() else { return true }
         let active = checkAnyFilterActive()
+            || needsRebuild
+            || rebuildScheduled
+            || rebuildWaitingForFadeOut
+            || effectFadeOutFramesRemaining > 0
+            || effectFadeInFramesRemaining > 0
+            || pendingFilterGraph != nil
+            || pendingGraphCrossfadeFramesRemaining > 0
         lock.unlock()
         return active
     }
@@ -290,12 +327,176 @@ final class AudioFilterGraph {
                dialogueEnhanceEnabled
     }
 
+    /// Applies the parameters used by Mono Audio Agent under one lock so the
+    /// render thread never observes a partially committed tuning plan.
+    func applyMonoTuning(
+        _ configuration: MonoEffectTuningConfiguration,
+        bassGain requestedBassGain: Float? = nil,
+        trebleGain requestedTrebleGain: Float? = nil,
+        surroundLevel requestedSurroundLevel: Float? = nil,
+        reverbLevel requestedReverbLevel: Float? = nil,
+        stereoWidth requestedStereoWidth: Float? = nil
+    ) {
+        // 入参换算全部在锁外完成，写侧临界区只留纯赋值和比较，
+        // 把与实时线程 process() 的碰撞窗口压到微秒级。
+        let nextBassGain = requestedBassGain.map { min(12, max(-12, $0)) }
+        let nextTrebleGain = requestedTrebleGain.map { min(12, max(-12, $0)) }
+        let nextSurroundLevel = requestedSurroundLevel.map { min(1, max(0, $0)) }
+        let nextReverbLevel = requestedReverbLevel.map { min(1, max(0, $0)) }
+        let nextStereoWidth = requestedStereoWidth.map { min(2, max(0, $0)) }
+        let nextLoudnormTarget = min(-5, max(-30, configuration.targetLUFS))
+        let nextLoudnormLRA = min(20, max(1, configuration.targetLRA))
+        let nextLoudnormTP = min(-0.05, max(-6, configuration.truePeakCeilingDB))
+        let nextCompressorThreshold = min(0, max(-60, configuration.compressorThresholdDB))
+        let nextCompressorRatio = min(20, max(1, configuration.compressorRatio))
+        let nextCompressorAttack = min(2_000, max(0.1, configuration.compressorAttackMS))
+        let nextCompressorRelease = min(5_000, max(10, configuration.compressorReleaseMS))
+        let nextCompressorMakeup = min(12, max(-12, configuration.compressorMakeupDB))
+        let nextSubboostGain = min(12, max(0, configuration.subboostGainDB))
+        let nextSubboostCutoff = min(250, max(35, configuration.subboostCutoffHz))
+        let nextBS2BCutoff = min(2_000, max(300, configuration.bs2bCutoffHz))
+        let nextBS2BFeed = min(150, max(0, configuration.bs2bFeed))
+        let nextCrossfeedStrength = min(1, max(0, configuration.crossfeedStrength))
+        let nextHaasDelay = min(40, max(0, configuration.haasDelayMS))
+        let nextVirtualBassCutoff = min(500, max(60, configuration.virtualBassCutoffHz))
+        let nextVirtualBassStrength = min(10, max(0, configuration.virtualBassStrength))
+        let nextExciterAmount = min(10, max(0, configuration.exciterAmountDB))
+        let nextExciterFrequency = min(16_000, max(2_000, configuration.exciterFrequencyHz))
+        let nextSoftclipType = min(7, max(0, configuration.softclipType))
+        @inline(__always)
+        func materiallyChanged(_ lhs: Float, _ rhs: Float) -> Bool {
+            abs(lhs - rhs) > 0.0005
+        }
+        @inline(__always)
+        func materiallyChanged(_ lhs: Int, _ rhs: Int) -> Bool {
+            lhs != rhs
+        }
+
+        lock.lock()
+        let toneOrSpatialChanged =
+            (nextBassGain.map { materiallyChanged($0, bassGain) } ?? false)
+            || (nextTrebleGain.map { materiallyChanged($0, trebleGain) } ?? false)
+            || (nextSurroundLevel.map { materiallyChanged($0, surroundLevel) } ?? false)
+            || (nextReverbLevel.map { materiallyChanged($0, reverbLevel) } ?? false)
+            || (nextStereoWidth.map { materiallyChanged($0, stereoWidth) } ?? false)
+        let loudnessChanged =
+            configuration.loudnessNormalizationEnabled != loudnormEnabled
+            || (configuration.loudnessNormalizationEnabled
+                && (materiallyChanged(nextLoudnormTarget, loudnormTarget)
+                    || materiallyChanged(nextLoudnormLRA, loudnormLRA)
+                    || materiallyChanged(nextLoudnormTP, loudnormTP)))
+        let compressorChanged =
+            configuration.compressorEnabled != compressorEnabled
+            || (configuration.compressorEnabled
+                && (materiallyChanged(nextCompressorThreshold, compressorThreshold)
+                    || materiallyChanged(nextCompressorRatio, compressorRatio)
+                    || materiallyChanged(nextCompressorAttack, compressorAttack)
+                    || materiallyChanged(nextCompressorRelease, compressorRelease)
+                    || materiallyChanged(nextCompressorMakeup, compressorMakeup)))
+        let bassEnhancementChanged =
+            configuration.subboostEnabled != subboostEnabled
+            || (configuration.subboostEnabled
+                && (materiallyChanged(nextSubboostGain, subboostGain)
+                    || materiallyChanged(nextSubboostCutoff, subboostCutoff)))
+            || configuration.virtualBassEnabled != virtualbassEnabled
+            || (configuration.virtualBassEnabled
+                && (materiallyChanged(nextVirtualBassCutoff, virtualbassCutoff)
+                    || materiallyChanged(nextVirtualBassStrength, virtualbassStrength)))
+        let headphoneSpatialChanged =
+            configuration.bs2bEnabled != bs2bEnabled
+            || (configuration.bs2bEnabled
+                && (materiallyChanged(nextBS2BCutoff, bs2bFcut)
+                    || materiallyChanged(nextBS2BFeed, bs2bFeed)))
+            || configuration.crossfeedEnabled != crossfeedEnabled
+            || (configuration.crossfeedEnabled
+                && materiallyChanged(nextCrossfeedStrength, crossfeedStrength))
+            || configuration.haasEnabled != haasEnabled
+            || (configuration.haasEnabled && materiallyChanged(nextHaasDelay, haasDelay))
+        let colorationChanged =
+            configuration.exciterEnabled != exciterEnabled
+            || (configuration.exciterEnabled
+                && (materiallyChanged(nextExciterAmount, exciterAmount)
+                    || materiallyChanged(nextExciterFrequency, exciterFreq)))
+            || configuration.softclipEnabled != softclipEnabled
+            || (configuration.softclipEnabled && nextSoftclipType != softclipType)
+        let graphChanged = toneOrSpatialChanged
+            || loudnessChanged
+            || compressorChanged
+            || bassEnhancementChanged
+            || headphoneSpatialChanged
+            || colorationChanged
+
+        if let nextBassGain { bassGain = nextBassGain }
+        if let nextTrebleGain { trebleGain = nextTrebleGain }
+        if let nextSurroundLevel { surroundLevel = nextSurroundLevel }
+        if let nextReverbLevel { reverbLevel = nextReverbLevel }
+        if let nextStereoWidth { stereoWidth = nextStereoWidth }
+        loudnormEnabled = configuration.loudnessNormalizationEnabled
+        loudnormTarget = nextLoudnormTarget
+        loudnormLRA = nextLoudnormLRA
+        loudnormTP = nextLoudnormTP
+        compressorEnabled = configuration.compressorEnabled
+        compressorThreshold = nextCompressorThreshold
+        compressorRatio = nextCompressorRatio
+        compressorAttack = nextCompressorAttack
+        compressorRelease = nextCompressorRelease
+        compressorMakeup = nextCompressorMakeup
+        subboostEnabled = configuration.subboostEnabled
+        subboostGain = nextSubboostGain
+        subboostCutoff = nextSubboostCutoff
+        bs2bEnabled = configuration.bs2bEnabled
+        bs2bFcut = nextBS2BCutoff
+        bs2bFeed = nextBS2BFeed
+        crossfeedEnabled = configuration.crossfeedEnabled
+        crossfeedStrength = nextCrossfeedStrength
+        haasEnabled = configuration.haasEnabled
+        haasDelay = nextHaasDelay
+        virtualbassEnabled = configuration.virtualBassEnabled
+        virtualbassCutoff = nextVirtualBassCutoff
+        virtualbassStrength = nextVirtualBassStrength
+        exciterEnabled = configuration.exciterEnabled
+        exciterAmount = nextExciterAmount
+        exciterFreq = nextExciterFrequency
+        softclipEnabled = configuration.softclipEnabled
+        softclipType = nextSoftclipType
+        if graphChanged {
+            needsRebuild = true
+            // This API is called from the control side. Queue graph work here
+            // so the next hardware callback does not allocate a Dispatch work
+            // item before it can render audio.
+            scheduleGraphRebuildUnsafe()
+        }
+        lock.unlock()
+    }
+
     // MARK: - 初始化
 
-    init() {}
+    init() {
+        // AVFrame allocation is not realtime-safe. Allocate the reusable frame
+        // shells when the graph object is created instead of on the first
+        // hardware callback after an effect becomes active.
+        cachedInputFrame = av_frame_alloc()
+        cachedOutputFrame = av_frame_alloc()
+        pendingInputFrame = av_frame_alloc()
+        pendingOutputFrame = av_frame_alloc()
+    }
 
     deinit {
         destroyGraph()
+        if cachedInputFrame != nil { av_frame_free(&cachedInputFrame) }
+        if cachedOutputFrame != nil { av_frame_free(&cachedOutputFrame) }
+        if pendingInputFrame != nil { av_frame_free(&pendingInputFrame) }
+        if pendingOutputFrame != nil { av_frame_free(&pendingOutputFrame) }
+        av_buffer_pool_uninit(&inputFramePool)
+        outputScratch?.deallocate()
+        outputScratch = nil
+        outputScratchCapacity = 0
+        pendingOutputScratch?.deallocate()
+        pendingOutputScratch = nil
+        pendingOutputScratchCapacity = 0
+        transitionInputScratch?.deallocate()
+        transitionInputScratch = nil
+        transitionInputCapacity = 0
     }
 
 
@@ -1074,6 +1275,10 @@ final class AudioFilterGraph {
         // 状态
         processedSamples = 0
         needsRebuild = true
+        effectFadeOutFramesRemaining = 0
+        effectFadeInFramesRemaining = 0
+        rebuildWaitingForFadeOut = false
+        pendingGraphCrossfadeFramesRemaining = 0
         lock.unlock()
         destroyGraph()
     }
@@ -1084,65 +1289,90 @@ final class AudioFilterGraph {
     /// 处理一个音频 buffer，返回滤镜处理后的结果。
     /// 如果没有激活的滤镜，直接返回原 buffer（零拷贝）。
     /// 
-    /// 修复音频电流声问题：
-    /// 1. 滤镜图重建时先 flush 旧图中的剩余帧
-    /// 2. 使用交叉淡化平滑过渡
-    /// 3. 检测并修复音频不连续
-    /// 4. 使用 tryLock 避免实时线程阻塞（获取锁失败时返回原 buffer）
+    /// 避免音效切换产生电流声或卡音：
+    /// 1. 参数变化期间继续使用旧滤镜图
+    /// 2. 替换图在后台独立构建，不占用实时处理锁
+    /// 3. 新图就绪后经由干声桥接，避免同一回调运行两套完整滤镜图
+    /// 4. 使用有界非休眠重试避免实时线程被调度器挂起
     func process(_ buffer: AudioBuffer) -> AudioBuffer {
-        // 使用 tryLock 避免在实时音频线程上阻塞
-        // 如果锁被其他线程持有（比如参数修改），直接返回原 buffer
-        // 这比阻塞等待更好——跳过一帧滤镜处理不会被听到，但阻塞会导致爆音
-        guard lock.try() else {
+        // 有界重试拿锁，避免在实时音频线程上无限阻塞。
+        // 直接跳过并非无害：效果激活时整块退回干声会被听到
+        // （音色/响度瞬间变平再弹回）；参数写侧的临界区只有微秒级，
+        // 两次 ~20µs 的短等几乎能吃掉所有碰撞。
+        guard acquireRealtimeAudioLock(lock) else {
             return buffer
         }
         
-        let active = checkAnyFilterActive()
-        
-        guard active else { 
-            // 清空交叉淡化状态
-            crossfadeBuffer.removeAll()
-            crossfadeSamplesRemaining = 0
-            lastOutputSamples.removeAll()
+        let desiredActive = checkAnyFilterActive()
+        let transitionActive = needsRebuild
+            || rebuildScheduled
+            || rebuildWaitingForFadeOut
+            || effectFadeOutFramesRemaining > 0
+            || effectFadeInFramesRemaining > 0
+            || pendingFilterGraph != nil
+            || pendingGraphCrossfadeFramesRemaining > 0
+
+        guard desiredActive || transitionActive else {
             lock.unlock()
-            return buffer 
+            return buffer
         }
 
         processedSamples += Int64(buffer.frameCount)
 
         // 检测格式是否变化（采样率或声道数）
         let formatChanged = sampleRate != buffer.sampleRate || channelCount != buffer.channelCount
-        
-        // 格式变化或参数变化时重建滤镜图
-        let needsGraphRebuild = needsRebuild || formatChanged
-        
-        if needsGraphRebuild {
-            // 保存旧图的最后输出用于交叉淡化
-            if filterGraph != nil && !lastOutputSamples.isEmpty {
-                crossfadeBuffer = lastOutputSamples
-                crossfadeSamplesRemaining = crossfadeDuration
-            }
-            
-            // 关键修复：当格式变化时，必须先完全销毁旧滤镜图
-            // 不能调用 flushFilterGraphUnsafe()，因为旧滤镜图期望的格式与新帧不同
-            // FFmpeg 会报错 "Changing audio frame properties on the fly is not supported"
-            if formatChanged {
-                // 格式变化时直接销毁，不 flush（避免格式不匹配错误）
-                destroyGraphUnsafe()
-            } else {
-                // 仅参数变化时，可以安全 flush 旧滤镜图中的剩余帧
-                flushFilterGraphUnsafe()
-            }
-            
+
+        // 格式已经变化时旧图不能再消费当前 buffer，只能立即退回干声并在
+        // 后台重建；普通参数变化仍由旧图继续处理。
+        if formatChanged {
             sampleRate = buffer.sampleRate
             channelCount = buffer.channelCount
-            rebuildGraph()
-            needsRebuild = false
-        }
-
-        guard filterGraph != nil, let srcCtx = bufferSrcCtx, let sinkCtx = bufferSinkCtx else {
+            needsRebuild = true
+            effectFadeOutFramesRemaining = 0
+            effectFadeInFramesRemaining = 0
+            rebuildWaitingForFadeOut = false
+            pendingGraphCrossfadeFramesRemaining = 0
+            scheduleGraphRebuildUnsafe()
             lock.unlock()
             return buffer
+        }
+
+        let hasUsableGraph = filterGraph != nil
+            && bufferSrcCtx != nil
+            && bufferSinkCtx != nil
+            && activeGraphSampleRate == buffer.sampleRate
+            && activeGraphChannelCount == buffer.channelCount
+
+        if needsRebuild {
+            // A newer parameter commit supersedes a replacement graph that has
+            // not completed its handoff yet. Keep the active graph until the
+            // latest replacement is ready.
+            if pendingFilterGraph != nil {
+                pendingGraphCrossfadeFramesRemaining = 0
+            }
+            if !rebuildScheduled {
+                scheduleGraphRebuildUnsafe()
+            }
+        }
+
+        guard hasUsableGraph,
+              filterGraph != nil,
+              let srcCtx = bufferSrcCtx,
+              let sinkCtx = bufferSinkCtx else {
+            lock.unlock()
+            return buffer
+        }
+
+        let inputSampleCount = buffer.frameCount * buffer.channelCount
+        let transitionInput: UnsafeMutablePointer<Float>?
+        if (effectFadeOutFramesRemaining > 0
+                || effectFadeInFramesRemaining > 0
+                || pendingGraphCrossfadeFramesRemaining > 0),
+           let scratch = ensureTransitionInputCapacityUnsafe(inputSampleCount) {
+            scratch.update(from: buffer.data, count: inputSampleCount)
+            transitionInput = scratch
+        } else {
+            transitionInput = nil
         }
 
         if cachedInputFrame == nil { cachedInputFrame = av_frame_alloc() }
@@ -1157,13 +1387,11 @@ final class AudioFilterGraph {
         frame.pointee.nb_samples = Int32(buffer.frameCount)
         av_channel_layout_default(&frame.pointee.ch_layout, Int32(buffer.channelCount))
 
-        let ret = av_frame_get_buffer(frame, 0)
-        guard ret >= 0 else {
+        let totalBytes = buffer.frameCount * buffer.channelCount * MemoryLayout<Float>.size
+        guard attachPooledInputBufferUnsafe(to: frame, byteCount: totalBytes) else {
             lock.unlock()
             return buffer
         }
-
-        let totalBytes = buffer.frameCount * buffer.channelCount * MemoryLayout<Float>.size
         if let dst = frame.pointee.data.0 {
             memcpy(dst, buffer.data, totalBytes)
         }
@@ -1192,7 +1420,27 @@ final class AudioFilterGraph {
         let outFrameCount = Int(outFrame.pointee.nb_samples)
         let outChannels = Int(outFrame.pointee.ch_layout.nb_channels)
         let outSamples = outFrameCount * outChannels
-        let outData = UnsafeMutablePointer<Float>.allocate(capacity: outSamples)
+        let inputCapacity = buffer.frameCount * buffer.channelCount
+        // 绝大多数实时滤镜保持采样数和声道数不变，直接复用渲染回调已经
+        // 提供的 PCM 缓冲。样本数变化（如 atempo）时使用本类持有的持久
+        // scratch，跨回调复用——调用方不得释放返回的 data 指针，且必须在
+        // 下一次 process 前用完（下次调用会覆写 scratch）。
+        let outData: UnsafeMutablePointer<Float>
+        if outSamples == inputCapacity && outChannels == buffer.channelCount {
+            outData = buffer.data
+        } else {
+            if outSamples > outputScratchCapacity, let stale = outputScratch {
+                stale.deallocate()
+                outputScratch = nil
+                outputScratchCapacity = 0
+            }
+            if outputScratch == nil {
+                let capacity = max(outSamples, 8192)
+                outputScratch = .allocate(capacity: capacity)
+                outputScratchCapacity = capacity
+            }
+            outData = outputScratch!
+        }
 
         if let src = outFrame.pointee.data.0 {
             memcpy(outData, src, outSamples * MemoryLayout<Float>.size)
@@ -1200,16 +1448,49 @@ final class AudioFilterGraph {
 
         let outRate = Int(outFrame.pointee.sample_rate)
 
-        // 应用交叉淡化平滑过渡（修复滤镜图重建时的电流声）
-        if crossfadeSamplesRemaining > 0 && !crossfadeBuffer.isEmpty {
-            applyCrossfadeUnsafe(outData, frameCount: outFrameCount, channelCount: outChannels)
+        if effectFadeOutFramesRemaining > 0, let transitionInput {
+            applyEffectTransitionUnsafe(
+                wetData: outData,
+                dryData: transitionInput,
+                wetFrameCount: outFrameCount,
+                dryFrameCount: buffer.frameCount,
+                wetChannelCount: outChannels,
+                dryChannelCount: buffer.channelCount,
+                fadingIn: false
+            )
+            if effectFadeOutFramesRemaining == 0, rebuildWaitingForFadeOut {
+                promotePendingGraphUnsafe(fadeIn: true)
+            }
+        } else if pendingGraphCrossfadeFramesRemaining > 0,
+           let transitionInput,
+           let pendingOutput = processPendingGraphUnsafe(
+               inputData: transitionInput,
+               frameCount: buffer.frameCount,
+               channelCount: buffer.channelCount,
+               sampleRate: buffer.sampleRate
+           ) {
+            applyPendingGraphCrossfadeUnsafe(
+                activeData: outData,
+                pendingData: pendingOutput.data,
+                activeFrameCount: outFrameCount,
+                pendingFrameCount: pendingOutput.frameCount,
+                activeChannelCount: outChannels,
+                pendingChannelCount: pendingOutput.channelCount
+            )
+            if pendingGraphCrossfadeFramesRemaining == 0 {
+                promotePendingGraphUnsafe(fadeIn: false)
+            }
+        } else if effectFadeInFramesRemaining > 0, let transitionInput {
+            applyEffectTransitionUnsafe(
+                wetData: outData,
+                dryData: transitionInput,
+                wetFrameCount: outFrameCount,
+                dryFrameCount: buffer.frameCount,
+                wetChannelCount: outChannels,
+                dryChannelCount: buffer.channelCount,
+                fadingIn: true
+            )
         }
-        
-        // 应用平滑处理（修复音频不连续导致的爆音）
-        applySmoothingUnsafe(outData, frameCount: outFrameCount, channelCount: outChannels)
-        
-        // 保存最后几个采样用于下次平滑
-        saveLastSamplesUnsafe(outData, frameCount: outFrameCount, channelCount: outChannels)
         
         lock.unlock()
 
@@ -1219,6 +1500,123 @@ final class AudioFilterGraph {
             channelCount: outChannels,
             sampleRate: outRate
         )
+    }
+
+    /// Runs the same unprocessed input through the replacement graph. Its
+    /// output is copied into persistent scratch so the pending AVFrame can be
+    /// safely reused on the next render callback.
+    private func processPendingGraphUnsafe(
+        inputData: UnsafeMutablePointer<Float>,
+        frameCount: Int,
+        channelCount: Int,
+        sampleRate: Int
+    ) -> AudioBuffer? {
+        guard pendingFilterGraph != nil,
+              let srcCtx = pendingBufferSrcCtx,
+              let sinkCtx = pendingBufferSinkCtx else {
+            return nil
+        }
+
+        if pendingInputFrame == nil { pendingInputFrame = av_frame_alloc() }
+        guard let inputFrame = pendingInputFrame else { return nil }
+        av_frame_unref(inputFrame)
+        inputFrame.pointee.format = AV_SAMPLE_FMT_FLT.rawValue
+        inputFrame.pointee.sample_rate = Int32(sampleRate)
+        inputFrame.pointee.nb_samples = Int32(frameCount)
+        av_channel_layout_default(&inputFrame.pointee.ch_layout, Int32(channelCount))
+
+        let byteCount = frameCount * channelCount * MemoryLayout<Float>.size
+        guard attachPooledInputBufferUnsafe(to: inputFrame, byteCount: byteCount) else {
+            return nil
+        }
+        if let destination = inputFrame.pointee.data.0 {
+            memcpy(destination, inputData, byteCount)
+        }
+        guard av_buffersrc_add_frame(srcCtx, inputFrame) >= 0 else { return nil }
+
+        if pendingOutputFrame == nil { pendingOutputFrame = av_frame_alloc() }
+        guard let outputFrame = pendingOutputFrame else { return nil }
+        av_frame_unref(outputFrame)
+        guard av_buffersink_get_frame(sinkCtx, outputFrame) >= 0 else { return nil }
+
+        let outputFrameCount = Int(outputFrame.pointee.nb_samples)
+        let outputChannelCount = Int(outputFrame.pointee.ch_layout.nb_channels)
+        let outputSampleCount = outputFrameCount * outputChannelCount
+        guard outputSampleCount > 0,
+              let outputData = ensurePendingOutputCapacityUnsafe(outputSampleCount),
+              let source = outputFrame.pointee.data.0 else {
+            return nil
+        }
+        memcpy(
+            outputData,
+            source,
+            outputSampleCount * MemoryLayout<Float>.size
+        )
+        return AudioBuffer(
+            data: outputData,
+            frameCount: outputFrameCount,
+            channelCount: outputChannelCount,
+            sampleRate: Int(outputFrame.pointee.sample_rate)
+        )
+    }
+
+    private func applyPendingGraphCrossfadeUnsafe(
+        activeData: UnsafeMutablePointer<Float>,
+        pendingData: UnsafeMutablePointer<Float>,
+        activeFrameCount: Int,
+        pendingFrameCount: Int,
+        activeChannelCount: Int,
+        pendingChannelCount: Int
+    ) {
+        let blendedChannelCount = min(activeChannelCount, pendingChannelCount)
+        let remaining = pendingGraphCrossfadeFramesRemaining
+        guard remaining > 0, blendedChannelCount > 0 else { return }
+        let frames = min(remaining, min(activeFrameCount, pendingFrameCount))
+        guard frames > 0 else { return }
+        let completed = effectTransitionDurationFrames - remaining
+
+        for frame in 0..<frames {
+            let linear = min(
+                1,
+                Float(completed + frame + 1) / Float(effectTransitionDurationFrames)
+            )
+            let pendingMix = linear * linear * (3 - 2 * linear)
+            let activeMix = 1 - pendingMix
+            for channel in 0..<blendedChannelCount {
+                let activeIndex = frame * activeChannelCount + channel
+                let pendingIndex = frame * pendingChannelCount + channel
+                activeData[activeIndex] =
+                    activeData[activeIndex] * activeMix
+                    + pendingData[pendingIndex] * pendingMix
+            }
+        }
+        pendingGraphCrossfadeFramesRemaining -= frames
+    }
+
+    private func promotePendingGraphUnsafe(fadeIn: Bool) {
+        guard let nextGraph = pendingFilterGraph,
+              let nextSource = pendingBufferSrcCtx,
+              let nextSink = pendingBufferSinkCtx else {
+            pendingGraphCrossfadeFramesRemaining = 0
+            return
+        }
+        let retiredGraph = filterGraph
+        filterGraph = nextGraph
+        bufferSrcCtx = nextSource
+        bufferSinkCtx = nextSink
+        activeGraphSampleRate = sampleRate
+        activeGraphChannelCount = channelCount
+        pendingFilterGraph = nil
+        pendingBufferSrcCtx = nil
+        pendingBufferSinkCtx = nil
+        pendingGraphCrossfadeFramesRemaining = 0
+        rebuildWaitingForFadeOut = false
+        effectFadeInFramesRemaining = fadeIn ? effectTransitionDurationFrames : 0
+
+        // The next rebuild-queue pass releases this before constructing another
+        // graph. Every promotion is preceded by such a pass, so one slot is
+        // sufficient and the realtime callback performs no allocation/dispatch.
+        retiredFilterGraph = retiredGraph
     }
     
     /// Flush 滤镜图中的剩余帧（在 lock 内调用）
@@ -1239,72 +1637,324 @@ final class AudioFilterGraph {
         }
     }
     
-    /// 应用交叉淡化（在 lock 内调用）
-    private func applyCrossfadeUnsafe(_ data: UnsafeMutablePointer<Float>, frameCount: Int, channelCount: Int) {
-        let samplesToFade = min(crossfadeSamplesRemaining, frameCount)
-        let fadeBufferChannels = crossfadeBuffer.count / smoothingSamples
-        
-        guard fadeBufferChannels == channelCount else {
-            crossfadeBuffer.removeAll()
-            crossfadeSamplesRemaining = 0
-            return
-        }
-        
-        for i in 0..<samplesToFade {
-            let fadeProgress = Float(crossfadeDuration - crossfadeSamplesRemaining + i) / Float(crossfadeDuration)
-            let newWeight = fadeProgress
-            let oldWeight = 1.0 - fadeProgress
-            
-            for ch in 0..<channelCount {
-                let idx = i * channelCount + ch
-                let oldIdx = min(i, smoothingSamples - 1) * channelCount + ch
-                
-                if oldIdx < crossfadeBuffer.count {
-                    data[idx] = data[idx] * newWeight + crossfadeBuffer[oldIdx] * oldWeight
-                }
+    /// 首次建图时用同一输入帧的干声与湿声做连续接入。
+    private func applyEffectTransitionUnsafe(
+        wetData: UnsafeMutablePointer<Float>,
+        dryData: UnsafeMutablePointer<Float>,
+        wetFrameCount: Int,
+        dryFrameCount: Int,
+        wetChannelCount: Int,
+        dryChannelCount: Int,
+        fadingIn: Bool
+    ) {
+        let blendedChannelCount = min(wetChannelCount, dryChannelCount)
+        let remaining = fadingIn
+            ? effectFadeInFramesRemaining
+            : effectFadeOutFramesRemaining
+        guard remaining > 0, blendedChannelCount > 0 else { return }
+        let frames = min(
+            remaining,
+            min(wetFrameCount, dryFrameCount)
+        )
+        guard frames > 0 else { return }
+        let completed = effectTransitionDurationFrames - remaining
+
+        for frame in 0..<frames {
+            let linear = min(
+                1,
+                Float(completed + frame + 1) / Float(effectTransitionDurationFrames)
+            )
+            let eased = linear * linear * (3 - 2 * linear)
+            let wetMix = fadingIn ? eased : 1 - eased
+            let dryMix = 1 - wetMix
+            for channel in 0..<blendedChannelCount {
+                let wetIndex = frame * wetChannelCount + channel
+                let dryIndex = frame * dryChannelCount + channel
+                wetData[wetIndex] =
+                    dryData[dryIndex] * dryMix + wetData[wetIndex] * wetMix
             }
         }
-        
-        crossfadeSamplesRemaining -= samplesToFade
-        if crossfadeSamplesRemaining <= 0 {
-            crossfadeBuffer.removeAll()
+        if fadingIn {
+            effectFadeInFramesRemaining -= frames
+        } else {
+            effectFadeOutFramesRemaining -= frames
         }
     }
-    
-    /// 应用平滑处理，修复帧边界不连续（在 lock 内调用）
-    private func applySmoothingUnsafe(_ data: UnsafeMutablePointer<Float>, frameCount: Int, channelCount: Int) {
-        guard !lastOutputSamples.isEmpty, lastOutputSamples.count == channelCount else { return }
-        
-        // 检测第一个采样与上一帧最后采样的差异
-        var maxDiff: Float = 0
-        for ch in 0..<channelCount {
-            let diff = abs(data[ch] - lastOutputSamples[ch])
-            maxDiff = max(maxDiff, diff)
+
+    private func ensureTransitionInputCapacityUnsafe(
+        _ sampleCount: Int
+    ) -> UnsafeMutablePointer<Float>? {
+        guard sampleCount > 0 else { return nil }
+        if sampleCount > transitionInputCapacity {
+            transitionInputScratch?.deallocate()
+            var capacity = max(16_384, transitionInputCapacity)
+            while capacity < sampleCount { capacity <<= 1 }
+            transitionInputScratch = .allocate(capacity: capacity)
+            transitionInputCapacity = capacity
         }
-        
-        // 如果差异过大（可能产生爆音），应用短时平滑
-        let threshold: Float = 0.3  // 约 -10dB 的跳变
-        if maxDiff > threshold {
-            let smoothSamples = min(32, frameCount)
-            for i in 0..<smoothSamples {
-                let weight = Float(i) / Float(smoothSamples)
-                for ch in 0..<channelCount {
-                    let idx = i * channelCount + ch
-                    data[idx] = data[idx] * weight + lastOutputSamples[ch] * (1.0 - weight)
-                }
-            }
-        }
+        return transitionInputScratch
     }
-    
-    /// 保存最后几个采样（在 lock 内调用）
-    private func saveLastSamplesUnsafe(_ data: UnsafeMutablePointer<Float>, frameCount: Int, channelCount: Int) {
-        let samplesToSave = min(smoothingSamples, frameCount)
-        let startIdx = (frameCount - samplesToSave) * channelCount
-        
-        lastOutputSamples = Array(UnsafeBufferPointer(start: data + startIdx, count: samplesToSave * channelCount))
+
+    private func ensurePendingOutputCapacityUnsafe(
+        _ sampleCount: Int
+    ) -> UnsafeMutablePointer<Float>? {
+        guard sampleCount > 0 else { return nil }
+        if sampleCount > pendingOutputScratchCapacity {
+            pendingOutputScratch?.deallocate()
+            var capacity = max(16_384, pendingOutputScratchCapacity)
+            while capacity < sampleCount { capacity <<= 1 }
+            pendingOutputScratch = .allocate(capacity: capacity)
+            pendingOutputScratchCapacity = capacity
+        }
+        return pendingOutputScratch
+    }
+
+    /// 从复用缓冲池为输入帧挂载 PCM buffer（在 lock 内调用）。
+    /// 池容量按 2 的幂增长，回调帧长小幅波动不会反复重建池；
+    /// 稳态下 av_buffer_pool_get 直接复用已归还的缓冲，不触发 malloc。
+    private func attachPooledInputBufferUnsafe(
+        to frame: UnsafeMutablePointer<AVFrame>,
+        byteCount: Int
+    ) -> Bool {
+        guard byteCount > 0 else { return false }
+        if inputFramePool == nil || byteCount > inputFramePoolBufferSize {
+            av_buffer_pool_uninit(&inputFramePool)
+            var poolSize = 16_384
+            while poolSize < byteCount { poolSize <<= 1 }
+            inputFramePool = av_buffer_pool_init(poolSize, nil)
+            inputFramePoolBufferSize = inputFramePool != nil ? poolSize : 0
+        }
+        guard let pool = inputFramePool,
+              let bufferRef = av_buffer_pool_get(pool) else {
+            // 池不可用时退回逐帧分配，保证功能不中断
+            return av_frame_get_buffer(frame, 0) >= 0
+        }
+        frame.pointee.buf.0 = bufferRef
+        frame.pointee.data.0 = bufferRef.pointee.data
+        frame.pointee.linesize.0 = Int32(byteCount)
+        frame.pointee.extended_data = UnsafeMutableRawPointer(frame)
+            .advanced(by: MemoryLayout<AVFrame>.offset(of: \AVFrame.data)!)
+            .assumingMemoryBound(to: UnsafeMutablePointer<UInt8>?.self)
+        return true
     }
 
     // MARK: - 滤镜图构建
+
+    /// Graph allocation and FFmpeg filter negotiation must never run inside
+    /// the real-time render callback. While rebuilding, `tryLock` callers
+    /// bypass the graph for a few blocks instead of blocking and underrunning.
+    private func scheduleGraphRebuildUnsafe() {
+        guard !rebuildScheduled else { return }
+        rebuildScheduled = true
+        rebuildQueue.async { [weak self] in
+            self?.performScheduledGraphRebuild()
+        }
+    }
+
+    private func performScheduledGraphRebuild() {
+        // Retired graph destruction stays entirely on the rebuild queue.
+        lock.lock()
+        var graphToRetire = retiredFilterGraph
+        retiredFilterGraph = nil
+        lock.unlock()
+        if graphToRetire != nil {
+            avfilter_graph_free(&graphToRetire)
+        }
+
+        // Allocation belongs to the rebuild queue, not the short state-snapshot
+        // critical section shared with the render thread.
+        let builder = AudioFilterGraph()
+        lock.lock()
+        guard needsRebuild, sampleRate > 0, channelCount > 0 else {
+            rebuildScheduled = false
+            rebuildWaitingForFadeOut = false
+            lock.unlock()
+            return
+        }
+
+        // Mark this snapshot as consumed before releasing the lock. A parameter
+        // change during construction sets needsRebuild again and causes the
+        // completed stale graph to be discarded.
+        needsRebuild = false
+        let targetSampleRate = sampleRate
+        let targetChannelCount = channelCount
+        copyGraphConfigurationUnsafe(to: builder)
+        lock.unlock()
+
+        builder.rebuildGraph()
+        var builtGraph = builder.filterGraph
+        let builtSource = builder.bufferSrcCtx
+        let builtSink = builder.bufferSinkCtx
+        builder.filterGraph = nil
+        builder.bufferSrcCtx = nil
+        builder.bufferSinkCtx = nil
+
+        lock.lock()
+        if needsRebuild
+            || sampleRate != targetSampleRate
+            || channelCount != targetChannelCount {
+            rebuildScheduled = false
+            needsRebuild = true
+            scheduleGraphRebuildUnsafe()
+            lock.unlock()
+            if builtGraph != nil { avfilter_graph_free(&builtGraph) }
+            return
+        }
+
+        rebuildScheduled = false
+        rebuildWaitingForFadeOut = false
+        effectFadeOutFramesRemaining = 0
+
+        guard let builtGraphValue = builtGraph,
+              let builtSource,
+              let builtSink else {
+            var stalePendingGraph = pendingFilterGraph
+            pendingFilterGraph = nil
+            pendingBufferSrcCtx = nil
+            pendingBufferSinkCtx = nil
+            pendingGraphCrossfadeFramesRemaining = 0
+            lock.unlock()
+            if builtGraph != nil { avfilter_graph_free(&builtGraph) }
+            if stalePendingGraph != nil { avfilter_graph_free(&stalePendingGraph) }
+            return
+        }
+
+        let activeGraphMatchesFormat = filterGraph != nil
+            && bufferSrcCtx != nil
+            && bufferSinkCtx != nil
+            && activeGraphSampleRate == targetSampleRate
+            && activeGraphChannelCount == targetChannelCount
+        var staleGraphs: [UnsafeMutablePointer<AVFilterGraph>?] = []
+
+        if activeGraphMatchesFormat {
+            staleGraphs.append(pendingFilterGraph)
+            pendingFilterGraph = builtGraphValue
+            pendingBufferSrcCtx = builtSource
+            pendingBufferSinkCtx = builtSink
+            // Do not run the complete active and replacement FFmpeg graphs in
+            // the same hardware callback. Under thermal/UI load that doubled
+            // DSP work can miss the render deadline and sound like a tape
+            // stutter. Fade the current wet signal to dry, swap graphs, then
+            // fade the replacement in; the audible result stays continuous
+            // while peak realtime cost remains one graph per callback.
+            pendingGraphCrossfadeFramesRemaining = 0
+            effectFadeOutFramesRemaining = effectTransitionDurationFrames
+            rebuildWaitingForFadeOut = true
+            effectFadeInFramesRemaining = 0
+        } else {
+            staleGraphs.append(filterGraph)
+            staleGraphs.append(pendingFilterGraph)
+            filterGraph = builtGraphValue
+            bufferSrcCtx = builtSource
+            bufferSinkCtx = builtSink
+            activeGraphSampleRate = targetSampleRate
+            activeGraphChannelCount = targetChannelCount
+            pendingFilterGraph = nil
+            pendingBufferSrcCtx = nil
+            pendingBufferSinkCtx = nil
+            pendingGraphCrossfadeFramesRemaining = 0
+            effectFadeInFramesRemaining =
+                checkAnyFilterActive() ? effectTransitionDurationFrames : 0
+        }
+        builtGraph = nil
+        lock.unlock()
+
+        for var staleGraph in staleGraphs where staleGraph != nil {
+            avfilter_graph_free(&staleGraph)
+        }
+    }
+
+    /// Copies only graph-building state into an isolated instance. The
+    /// replacement can then negotiate FFmpeg filters off the render lock while
+    /// the active instance continues processing audio.
+    private func copyGraphConfigurationUnsafe(to builder: AudioFilterGraph) {
+        builder.volumeDB = volumeDB
+        builder.loudnormEnabled = loudnormEnabled
+        builder.loudnormTarget = loudnormTarget
+        builder.loudnormLRA = loudnormLRA
+        builder.loudnormTP = loudnormTP
+        builder.compressorEnabled = compressorEnabled
+        builder.compressorThreshold = compressorThreshold
+        builder.compressorRatio = compressorRatio
+        builder.compressorAttack = compressorAttack
+        builder.compressorRelease = compressorRelease
+        builder.compressorMakeup = compressorMakeup
+        builder.limiterEnabled = limiterEnabled
+        builder.limiterLimit = limiterLimit
+        builder.gateEnabled = gateEnabled
+        builder.gateThreshold = gateThreshold
+        builder.autoGainEnabled = autoGainEnabled
+        builder.tempo = tempo
+        builder.pitchSemitones = pitchSemitones
+        builder.bassGain = bassGain
+        builder.trebleGain = trebleGain
+        builder.subboostEnabled = subboostEnabled
+        builder.subboostGain = subboostGain
+        builder.subboostCutoff = subboostCutoff
+        builder.bandpassEnabled = bandpassEnabled
+        builder.bandpassFrequency = bandpassFrequency
+        builder.bandpassWidth = bandpassWidth
+        builder.bandrejectEnabled = bandrejectEnabled
+        builder.bandrejectFrequency = bandrejectFrequency
+        builder.bandrejectWidth = bandrejectWidth
+        builder.surroundLevel = surroundLevel
+        builder.reverbLevel = reverbLevel
+        builder.stereoWidth = stereoWidth
+        builder.channelBalance = channelBalance
+        builder.monoEnabled = monoEnabled
+        builder.channelSwapEnabled = channelSwapEnabled
+        builder.fadeInDuration = fadeInDuration
+        builder.fadeOutDuration = fadeOutDuration
+        builder.fadeOutStartTime = fadeOutStartTime
+        builder.delayMs = delayMs
+        builder.vocalRemovalLevel = vocalRemovalLevel
+        builder.chorusEnabled = chorusEnabled
+        builder.chorusDepth = chorusDepth
+        builder.flangerEnabled = flangerEnabled
+        builder.flangerDepth = flangerDepth
+        builder.tremoloEnabled = tremoloEnabled
+        builder.tremoloFrequency = tremoloFrequency
+        builder.tremoloDepth = tremoloDepth
+        builder.vibratoEnabled = vibratoEnabled
+        builder.vibratoFrequency = vibratoFrequency
+        builder.vibratoDepth = vibratoDepth
+        builder.crusherEnabled = crusherEnabled
+        builder.crusherBits = crusherBits
+        builder.crusherSamples = crusherSamples
+        builder.telephoneEnabled = telephoneEnabled
+        builder.underwaterEnabled = underwaterEnabled
+        builder.radioEnabled = radioEnabled
+        builder.fftDenoiseEnabled = fftDenoiseEnabled
+        builder.fftDenoiseAmount = fftDenoiseAmount
+        builder.declickEnabled = declickEnabled
+        builder.declipEnabled = declipEnabled
+        builder.dynaudnormEnabled = dynaudnormEnabled
+        builder.dynaudnormFrameLen = dynaudnormFrameLen
+        builder.dynaudnormGaussSize = dynaudnormGaussSize
+        builder.dynaudnormPeak = dynaudnormPeak
+        builder.speechnormEnabled = speechnormEnabled
+        builder.compandEnabled = compandEnabled
+        builder.bs2bEnabled = bs2bEnabled
+        builder.bs2bFcut = bs2bFcut
+        builder.bs2bFeed = bs2bFeed
+        builder.crossfeedEnabled = crossfeedEnabled
+        builder.crossfeedStrength = crossfeedStrength
+        builder.haasEnabled = haasEnabled
+        builder.haasDelay = haasDelay
+        builder.virtualbassEnabled = virtualbassEnabled
+        builder.virtualbassCutoff = virtualbassCutoff
+        builder.virtualbassStrength = virtualbassStrength
+        builder.exciterEnabled = exciterEnabled
+        builder.exciterAmount = exciterAmount
+        builder.exciterFreq = exciterFreq
+        builder.softclipEnabled = softclipEnabled
+        builder.softclipType = softclipType
+        builder.dialogueEnhanceEnabled = dialogueEnhanceEnabled
+        builder.dialogueEnhanceOriginal = dialogueEnhanceOriginal
+        builder.dialogueEnhanceEnhance = dialogueEnhanceEnhance
+        builder.sampleRate = sampleRate
+        builder.channelCount = channelCount
+    }
 
     /// 重建 FFmpeg avfilter 图
     private func rebuildGraph() {
@@ -1479,8 +2129,12 @@ final class AudioFilterGraph {
 
         // 超低音增强
         if subboostEnabled {
+            // asubboost has no direct dB gain control. Map the public gain to
+            // its wet path so 0 dB is effectively neutral and 6 dB reaches a
+            // full-strength generated sub signal.
+            let wet = min(1, max(0, powf(10, subboostGain / 20) - 1))
             if let ctx = createFilter(graph: graph, name: "asubboost", label: "subboost",
-                                       args: "dry=0.5:wet=0.8:decay=0.7:feedback=0.5:cutoff=\(String(format: "%.0f", subboostCutoff))") {
+                                       args: "dry=1:wet=\(String(format: "%.3f", wet)):decay=0.7:feedback=0.5:cutoff=\(String(format: "%.0f", subboostCutoff))") {
                 guard avfilter_link(lastCtx, 0, ctx, 0) >= 0 else { destroyGraphUnsafe(); return }
                 lastCtx = ctx
             }
@@ -1573,61 +2227,81 @@ final class AudioFilterGraph {
             }
         }
 
-        // 立体声宽度
-        if stereoWidth != 1.0 && channelCount == 2 {
+        // Mono 空间声场：surroundLevel 控制侧声道能量，stereoWidth 控制基础宽度。
+        // 旧实现把 surroundLevel 写入 sbal（侧声道平衡），对左右均衡的音乐几乎
+        // 没有可闻变化。合并为一次 Mid/Side 侧声道增益后，参数才真正作用于声场。
+        // 0.55 的环绕系数让空间档（surround ≥ 0.3）与标准档拉开约 3-4 dB 的
+        // 侧声道差距，否则两档在人声居中的流行乐里听感几乎一致。
+        let effectiveStereoWidth = min(
+            1.85,
+            max(0.65, stereoWidth * (1 + surroundLevel * 0.55))
+        )
+        if abs(effectiveStereoWidth - 1.0) > 0.0005 && channelCount == 2 {
             if let ctx = createFilter(graph: graph, name: "stereotools", label: "width",
-                                       args: "slev=\(String(format: "%.2f", stereoWidth))") {
+                                       args: "slev=\(String(format: "%.3f", effectiveStereoWidth))") {
                 guard avfilter_link(lastCtx, 0, ctx, 0) >= 0 else { destroyGraphUnsafe(); return }
                 lastCtx = ctx
             }
         }
 
-        // 环绕增强（使用 stereotools 替代 extrastereo，更平滑）
-        if surroundLevel > 0.0 && channelCount == 2 {
-            // stereotools 的 sbal 参数控制立体声宽度，范围 -1 到 1
-            // 0 = 原始，正值增加分离度
-            let sbal = surroundLevel * 0.5  // 最大 0.5，避免失真
-            let args = "mode=lr>lr:sbal=\(String(format: "%.2f", sbal))"
-            if let ctx = createFilter(graph: graph, name: "stereotools", label: "surround", args: args) {
-                guard avfilter_link(lastCtx, 0, ctx, 0) >= 0 else { destroyGraphUnsafe(); return }
-                lastCtx = ctx
-            }
-        }
-
-        // 混响（使用更平滑的参数，减少电流声）
+        // 空间混响：reverbLevel 表示用户可理解的湿度，而不是直接拿它
+        // 当 aecho 的总输出增益。旧映射在提高混响时反而会压低整条干声，
+        // 导致百分比不敢超过 10%。现在保持主体响度，只增加短早期反射；
+        // 湿度超过 0.18 后再展开一组更长的反射尾，让空间档有可闻的“房间感”。
         if reverbLevel > 0.0 {
-            // 使用更长的延迟和更低的增益，避免金属感
-            let decay = 0.15 + reverbLevel * 0.35  // 更保守的衰减
-            let wetGain = 0.3 + reverbLevel * 0.4  // 湿信号增益
-            let dryGain = 1.0 - reverbLevel * 0.3  // 干信号保留更多
-            // 使用多个延迟点创建更自然的混响
-            let args = "in_gain=\(String(format: "%.2f", dryGain)):out_gain=\(String(format: "%.2f", wetGain)):delays=40|80|120|160:decays=\(String(format: "%.2f", decay))|\(String(format: "%.2f", decay * 0.8))|\(String(format: "%.2f", decay * 0.6))|\(String(format: "%.2f", decay * 0.4))"
+            let inputGain = 1 - reverbLevel * 0.18
+            let firstReflection = 0.02 + reverbLevel * 0.62
+            let tail = max(0, reverbLevel - 0.18) * 0.55
+            let delays: String
+            let decays: String
+            if tail > 0.005 {
+                delays = "29|53|89|137|191|251"
+                decays = [
+                    firstReflection,
+                    firstReflection * 0.72,
+                    firstReflection * 0.50,
+                    firstReflection * 0.34,
+                    tail,
+                    tail * 0.62
+                ].map { String(format: "%.3f", $0) }.joined(separator: "|")
+            } else {
+                delays = "29|53|89|137"
+                decays = [
+                    firstReflection,
+                    firstReflection * 0.72,
+                    firstReflection * 0.50,
+                    firstReflection * 0.34
+                ].map { String(format: "%.3f", $0) }.joined(separator: "|")
+            }
+            let args = "in_gain=\(String(format: "%.3f", inputGain)):out_gain=1.000:delays=\(delays):decays=\(decays)"
             if let ctx = createFilter(graph: graph, name: "aecho", label: "reverb", args: args) {
                 guard avfilter_link(lastCtx, 0, ctx, 0) >= 0 else { destroyGraphUnsafe(); return }
                 lastCtx = ctx
             }
         }
 
-        // 单声道（支持多声道混音到单声道）
+        // 单声道听感：先下混，再复制到稳定的双声道输出总线。
+        // StreamPlayer 的 Mono 总线固定为 stereo，滤镜不能在播放途中改变声道数。
         if monoEnabled && channelCount > 1 {
             // 根据声道数生成混音公式
-            let monoMixArgs: String
+            let monoExpression: String
             switch channelCount {
             case 2:
-                monoMixArgs = "mono|c0=0.5*c0+0.5*c1"
+                monoExpression = "0.5*c0+0.5*c1"
             case 6:
                 // 5.1: FL, FR, FC, LFE, BL, BR
                 // 标准 5.1 下混公式
-                monoMixArgs = "mono|c0=0.2*c0+0.2*c1+0.3*c2+0.1*c3+0.1*c4+0.1*c5"
+                monoExpression = "0.2*c0+0.2*c1+0.3*c2+0.1*c3+0.1*c4+0.1*c5"
             case 8:
                 // 7.1: FL, FR, FC, LFE, BL, BR, SL, SR
-                monoMixArgs = "mono|c0=0.15*c0+0.15*c1+0.25*c2+0.05*c3+0.1*c4+0.1*c5+0.1*c6+0.1*c7"
+                monoExpression = "0.15*c0+0.15*c1+0.25*c2+0.05*c3+0.1*c4+0.1*c5+0.1*c6+0.1*c7"
             default:
                 // 通用：所有声道等权重混合
                 let weight = 1.0 / Float(channelCount)
                 let channels = (0..<channelCount).map { "\(String(format: "%.3f", weight))*c\($0)" }.joined(separator: "+")
-                monoMixArgs = "mono|c0=\(channels)"
+                monoExpression = channels
             }
+            let monoMixArgs = "stereo|c0=\(monoExpression)|c1=\(monoExpression)"
             if let ctx = createFilter(graph: graph, name: "pan", label: "mono", args: monoMixArgs) {
                 guard avfilter_link(lastCtx, 0, ctx, 0) >= 0 else { destroyGraphUnsafe(); return }
                 lastCtx = ctx
@@ -1921,12 +2595,7 @@ final class AudioFilterGraph {
         // ==================== 输出格式 ====================
         
         // 根据声道数获取输出声道布局
-        let outputChannelLayout: String
-        if monoEnabled {
-            outputChannelLayout = "mono"
-        } else {
-            outputChannelLayout = getChannelLayoutString(for: channelCount)
-        }
+        let outputChannelLayout = monoEnabled ? "stereo" : getChannelLayoutString(for: channelCount)
         let aformatArgs = "sample_fmts=flt:sample_rates=\(sampleRate):channel_layouts=\(outputChannelLayout)"
         if let ctx = createFilter(graph: graph, name: "aformat", label: "aformat", args: aformatArgs) {
             guard avfilter_link(lastCtx, 0, ctx, 0) >= 0 else { destroyGraphUnsafe(); return }
@@ -1993,8 +2662,20 @@ final class AudioFilterGraph {
         if filterGraph != nil {
             avfilter_graph_free(&filterGraph)
         }
+        if pendingFilterGraph != nil {
+            avfilter_graph_free(&pendingFilterGraph)
+        }
+        if retiredFilterGraph != nil {
+            avfilter_graph_free(&retiredFilterGraph)
+        }
         filterGraph = nil
         bufferSrcCtx = nil
         bufferSinkCtx = nil
+        activeGraphSampleRate = 0
+        activeGraphChannelCount = 0
+        pendingFilterGraph = nil
+        pendingBufferSrcCtx = nil
+        pendingBufferSinkCtx = nil
+        pendingGraphCrossfadeFramesRemaining = 0
     }
 }

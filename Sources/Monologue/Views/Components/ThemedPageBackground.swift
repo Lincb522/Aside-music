@@ -1,54 +1,100 @@
 import SwiftUI
 
+private struct MonologuePageHeaderCollapseModifier: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(iOS 17.0, *), !reduceMotion {
+            content
+                .scrollTransition(
+                    .animated(.spring(response: 0.32, dampingFraction: 0.86)),
+                    axis: .vertical
+                ) { content, phase in
+                    content
+                        .scaleEffect(phase.isIdentity ? 1 : 0.92, anchor: .top)
+                        .opacity(phase.isIdentity ? 1 : 0.18)
+                        .offset(y: phase.isIdentity ? 0 : -12)
+                }
+        } else {
+            content
+        }
+    }
+}
+
+extension View {
+    /// Applies the same restrained shrink/fade used by the library header when
+    /// a page header leaves the top edge of its vertical scroll container.
+    func monologuePageHeaderCollapse() -> some View {
+        modifier(MonologuePageHeaderCollapseModifier())
+    }
+}
+
 struct ThemedPageBackground: View {
     var useRenderLayer = true
 
     @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.themeRenderContext) private var renderContext
+    @Environment(\.monologueSheetContext) private var monologueSheetContext
 
     var body: some View {
-        if useRenderLayer && renderContext.providesGlobalBackdrop {
+        if monologueSheetContext != nil {
+            // Sheet 内：背景上抛给 monologueSheet 容器铺满整个面板（含顶部把手区），
+            // 原位置只留占位，避免把手区露出一截默认毛玻璃。
+            Color.clear
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+                .monologueSheetSurface(id: backgroundIdentity) {
+                    backdropContent
+                }
+        } else if useRenderLayer && renderContext.providesGlobalBackdrop {
             Color.clear
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
         } else {
-            ZStack {
-                if useRenderLayer {
-                    ThemeRenderBackdrop(theme: renderTheme, revision: renderRevision)
+            backdropContent
+        }
+    }
+
+    private var backdropContent: some View {
+        ZStack {
+            if useRenderLayer {
+                ThemeRenderBackdrop(theme: renderTheme, revision: renderRevision)
+            } else {
+                if MangaStyle.isActive {
+                    MangaRootBackdrop()
+                } else if PetWhiteStyle.isActive {
+                    PetWhiteRootBackdrop()
+                } else if MinimalWhiteStyle.isActive {
+                    MinimalWhiteRootBackdrop()
+                } else if PureWhiteStyle.isActive {
+                    PureWhiteRootBackdrop()
+                } else if MujiStyle.isActive {
+                    MujiRootBackdrop()
+                } else if NeumorphicStyle.isActive {
+                    NeumorphicRenderBackdrop()
+                } else if CapsuleStyle.isActive {
+                    CapsuleRootBackdrop()
+                } else if SequoiaStyle.isActive {
+                    SequoiaRootBackdrop()
+                } else if LiquidGlassStyle.isActive {
+                    LiquidGlassRootBackdrop()
+                } else if ClayStyle.isActive {
+                    ClayRootBackdrop()
+                } else if SignalStyle.isActive {
+                    SignalRenderBackdrop()
+                } else if BentoStyle.isActive {
+                    BentoRootBackdrop()
                 } else {
-                    if MangaStyle.isActive {
-                        MangaRootBackdrop()
-                    } else if PetWhiteStyle.isActive {
-                        PetWhiteRootBackdrop()
-                    } else if PureWhiteStyle.isActive {
-                        PureWhiteRootBackdrop()
-                    } else if MujiStyle.isActive {
-                        MujiRootBackdrop()
-                    } else if NeumorphicStyle.isActive {
-                        NeumorphicRenderBackdrop()
-                    } else if CapsuleStyle.isActive {
-                        CapsuleRootBackdrop()
-                    } else if SequoiaStyle.isActive {
-                        SequoiaRootBackdrop()
-                    } else if LiquidGlassStyle.isActive {
-                        LiquidGlassRootBackdrop()
-                    } else if ClayStyle.isActive {
-                        ClayRootBackdrop()
-                    } else if SignalStyle.isActive {
-                        SignalRenderBackdrop()
-                    } else if BentoStyle.isActive {
-                        BentoRootBackdrop()
-                    } else {
-                        MonologueBackground()
-                            .ignoresSafeArea()
-                    }
+                    MonologueBackground()
+                        .ignoresSafeArea()
                 }
             }
-            .id(backgroundIdentity)
-            .transaction { transaction in
-                transaction.animation = nil
-                transaction.disablesAnimations = true
-            }
+        }
+        .id(backgroundIdentity)
+        .transaction { transaction in
+            transaction.animation = nil
+            transaction.disablesAnimations = true
         }
     }
 
@@ -107,32 +153,36 @@ struct ThemedPageHeader<Accessory: View>: View {
                 title: title,
                 subtitle: subtitle
             ) {
-                HStack(spacing: 10) {
-                    accessory
-                    PetWhiteIconBadge(icon: icon, tint: PetWhiteStyle.mint, size: 48)
-                }
+                accessory
+            }
+        } else if MinimalWhiteStyle.isActive {
+            MinimalWhitePageHeader(
+                eyebrow: eyebrow,
+                title: title,
+                subtitle: subtitle,
+                icon: icon
+            ) {
+                accessory
             }
         } else if PureWhiteStyle.isActive {
+            // PureWhitePageHeader 自带左侧图标徽章，这里只透传 accessory，
+            // 避免同一枚徽章在头部两端重复出现
             PureWhitePageHeader(
                 eyebrow: eyebrow,
                 title: title,
-                subtitle: subtitle
+                subtitle: subtitle,
+                icon: icon
             ) {
-                HStack(spacing: 10) {
-                    accessory
-                    PureWhiteIconBadge(icon: icon, tint: PureWhiteStyle.accent, size: 46)
-                }
+                accessory
             }
         } else if MujiStyle.isActive {
+            // 杂志刊头不需要装饰性图标章，只透传功能性 accessory
             MujiPageHeader(
                 eyebrow: eyebrow,
                 title: title,
                 subtitle: subtitle
             ) {
-                HStack(spacing: 10) {
-                    accessory
-                    MujiIconBadge(icon: icon, tint: MujiStyle.clay, size: 44)
-                }
+                accessory
             }
         } else if NeumorphicStyle.isActive {
             NeumorphicPageHeader(
@@ -230,6 +280,61 @@ extension ThemedPageHeader where Accessory == EmptyView {
     }
 }
 
+/// 二级页面紧凑头部：把标题放进导航栏 principal 位置，与返回按钮同排，
+/// 替代原先"返回按钮一排 + 大标题又一排"的高头部。
+private struct ThemedInlineNavigationTitleModifier: ViewModifier {
+    let title: String
+    @ObservedObject private var settings = SettingsManager.shared
+
+    func body(content: Content) -> some View {
+        let _ = settings.globalThemeRevision
+
+        content
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text(title)
+                        .font(inlineTitleFont)
+                        .foregroundColor(inlineTitleColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+            }
+    }
+
+    private var inlineTitleFont: Font {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.titleFont(17, weight: .semibold) }
+        if MangaStyle.isActive { return MangaStyle.titleFont(17, weight: .black) }
+        if MujiStyle.isActive { return MujiStyle.titleFont(17, weight: .medium) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.titleFont(17, weight: .semibold) }
+        if SignalStyle.isActive { return SignalStyle.titleFont(17, weight: .bold) }
+        if CapsuleStyle.isActive { return CapsuleStyle.bodyFont(17, weight: .bold) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(17, weight: .semibold) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.bodyFont(17, weight: .black) }
+        return .system(size: 17, weight: .semibold, design: .rounded)
+    }
+
+    private var inlineTitleColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
+        if MangaStyle.isActive { return MangaStyle.ink }
+        if MujiStyle.isActive { return MujiStyle.ink }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if SignalStyle.isActive { return SignalStyle.ink }
+        if CapsuleStyle.isActive { return CapsuleStyle.ink }
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
+        return .monologueTextPrimary
+    }
+}
+
+extension View {
+    /// 二级页面标题与返回按钮同排（导航栏内联标题），头部不再单独占一大块
+    func themedInlineNavigationTitle(_ title: String) -> some View {
+        modifier(ThemedInlineNavigationTitleModifier(title: title))
+    }
+}
+
 struct SettingsScrollablePageHeader: View {
     let title: String
     let eyebrow: String
@@ -290,6 +395,7 @@ struct SettingsScrollablePageHeader: View {
             .padding(.top, 12)
             .padding(.bottom, 4)
             .iPadContentWidth(700)
+            .monologuePageHeaderCollapse()
         }
     }
 
@@ -306,27 +412,19 @@ private struct ThemedNavigationChromeModifier: ViewModifier {
     @Environment(\.monologueSheetContext) private var monologueSheetContext
 
     private var isThemed: Bool {
-        MangaStyle.isActive || PetWhiteStyle.isActive || PureWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || SequoiaStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
+        MinimalWhiteStyle.isActive || MangaStyle.isActive || PetWhiteStyle.isActive || PureWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || SequoiaStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
     }
 
-    private var shouldRenderInlineHeader: Bool {
-        isThemed && !PetWhiteStyle.isActive && monologueSheetContext == nil
-    }
-
+    @ViewBuilder
     func body(content: Content) -> some View {
-        content
-            .navigationTitle(isThemed ? "" : title)
-            .safeAreaInset(edge: .top, spacing: 0) {
-                if shouldRenderInlineHeader {
-                    ThemedPageHeader(
-                        eyebrow: eyebrow,
-                        title: title,
-                        subtitle: subtitle,
-                        icon: icon
-                    )
-                    .padding(.bottom, 2)
-                }
-            }
+        // 标题放进导航栏与返回按钮同排，不再渲染独占一大块的页头
+        if isThemed && monologueSheetContext == nil {
+            content
+                .themedInlineNavigationTitle(title)
+        } else {
+            content
+                .navigationTitle(isThemed ? "" : title)
+        }
     }
 }
 
@@ -336,7 +434,17 @@ private struct ThemedPageSurfaceModifier: ViewModifier {
     let mangaTint: Color
 
     func body(content: Content) -> some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            content
+                .background(
+                    MinimalWhiteSurfaceBackground(
+                        cornerRadius: min(max(cornerRadius, 8), elevated ? MinimalWhiteStyle.chromeRadius : MinimalWhiteStyle.cardRadius),
+                        elevated: elevated,
+                        tint: elevated ? MinimalWhiteStyle.glassStrongFill : MinimalWhiteStyle.glassFill
+                    )
+                )
+                .themeRenderSurfaceLayer(isEnabled: elevated)
+        } else if MangaStyle.isActive {
             content
                 .background(MangaCardBackground(cornerRadius: cornerRadius, elevated: elevated, tint: mangaTint))
                 .themeRenderSurfaceLayer()
@@ -450,10 +558,11 @@ private struct ThemedPageSurfaceModifier: ViewModifier {
 
 enum ThemedPageStyle {
     static var isActive: Bool {
-        MangaStyle.isActive || PetWhiteStyle.isActive || PureWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || SequoiaStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
+        MinimalWhiteStyle.isActive || MangaStyle.isActive || PetWhiteStyle.isActive || PureWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || SequoiaStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
     }
 
     static var listSpacing: CGFloat {
+        if MinimalWhiteStyle.isActive { return 6 }
         if MangaStyle.isActive { return 10 }
         if PetWhiteStyle.isActive { return 10 }
         if PureWhiteStyle.isActive { return 10 }
@@ -469,6 +578,7 @@ enum ThemedPageStyle {
     }
 
     static var looseListSpacing: CGFloat {
+        if MinimalWhiteStyle.isActive { return 12 }
         if MangaStyle.isActive { return 14 }
         if PetWhiteStyle.isActive { return 14 }
         if PureWhiteStyle.isActive { return 14 }
@@ -492,6 +602,7 @@ enum ThemedPageStyle {
     }
 
     static var surfaceCornerRadius: CGFloat {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.chromeRadius }
         if MangaStyle.isActive { return 18 }
         if PetWhiteStyle.isActive { return 22 }
         if PureWhiteStyle.isActive { return 22 }
@@ -507,6 +618,7 @@ enum ThemedPageStyle {
     }
 
     static var compactSurfaceCornerRadius: CGFloat {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.compactRadius }
         if MangaStyle.isActive { return 14 }
         if PetWhiteStyle.isActive { return 16 }
         if PureWhiteStyle.isActive { return 16 }

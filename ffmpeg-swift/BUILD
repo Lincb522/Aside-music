@@ -1,6 +1,6 @@
 # Building FFmpeg for iOS
 
-This document describes how to cross-compile FFmpeg 7.1 for iOS and create the `FFmpegLibs.xcframework` used by FFmpegSwiftSDK.
+This document describes how to cross-compile FFmpeg 8.0 for iOS and create the `FFmpegLibs.xcframework` used by FFmpegSwiftSDK.
 
 ## Prerequisites
 
@@ -11,7 +11,7 @@ This document describes how to cross-compile FFmpeg 7.1 for iOS and create the `
 
 ```bash
 mkdir -p build-ffmpeg && cd build-ffmpeg
-curl -L https://ffmpeg.org/releases/ffmpeg-7.1.tar.xz | tar xJ
+curl -L https://ffmpeg.org/releases/ffmpeg-8.0.tar.xz | tar xJ
 cd ..
 ```
 
@@ -29,7 +29,7 @@ This script:
    - `iphonesimulator arm64` (Apple Silicon Mac simulator)
    - `iphonesimulator x86_64` (Intel Mac simulator)
 2. Merges simulator slices into a fat binary via `lipo`
-3. Merges all 5 FFmpeg static libs into a single `libFFmpegAll.a` per platform via `libtool`
+3. Merges all 6 FFmpeg static libs into a single `libFFmpegAll.a` per platform via `libtool`
 4. Creates `Frameworks/FFmpegLibs.xcframework` via `xcodebuild -create-xcframework`
 5. Removes platform-specific headers (D3D, VAAPI, Vulkan, etc.)
 6. Regenerates the Example Xcode project
@@ -69,7 +69,8 @@ Frameworks/FFmpegLibs.xcframework/
 │   │   ├── libavfilter/
 │   │   ├── libavformat/
 │   │   ├── libavutil/
-│   │   └── libswresample/
+│   │   ├── libswresample/
+│   │   └── libswscale/
 │   └── libFFmpegAll.a
 └── ios-arm64_x86_64-simulator/
     ├── Headers/

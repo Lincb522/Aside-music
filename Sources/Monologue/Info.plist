@@ -4,6 +4,16 @@
 <dict>
 	<key>API_BASE_URL</key>
 	<string>$(API_BASE_URL)</string>
+	<key>API_BASE_URL_BACKUP</key>
+	<string>$(API_BASE_URL_BACKUP)</string>
+	<key>AI_PROVIDER_PROTOCOL</key>
+	<string>$(AI_PROVIDER_PROTOCOL)</string>
+	<key>AI_PROVIDER_BASE_URL</key>
+	<string>$(AI_PROVIDER_BASE_URL)</string>
+	<key>AI_PROVIDER_API_KEY</key>
+	<string>$(AI_PROVIDER_API_KEY)</string>
+	<key>AI_PROVIDER_MODEL</key>
+	<string>$(AI_PROVIDER_MODEL)</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
@@ -123,6 +133,8 @@
 	</dict>
 	<key>NSAppleMusicUsageDescription</key>
 	<string>扫描系统音乐资料库需要访问你设备上的音乐</string>
+	<key>NSMotionUsageDescription</key>
+	<string>用于让 Mono Spatial Live 的空间舞台跟随头部转动</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>保存二维码到相册以便扫码登录</string>
 	<key>NSSupportsLiveActivities</key>
@@ -131,8 +143,12 @@
 	<true/>
 	<key>QQ_MUSIC_BASE_URL</key>
 	<string>$(QQ_MUSIC_BASE_URL)</string>
+	<key>QQ_MUSIC_BASE_URL_BACKUP</key>
+	<string>$(QQ_MUSIC_BASE_URL_BACKUP)</string>
 	<key>QISHUI_BASE_URL</key>
 	<string>$(QISHUI_BASE_URL)</string>
+	<key>QISHUI_BASE_URL_BACKUP</key>
+	<string>$(QISHUI_BASE_URL_BACKUP)</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>SanJiPoMoTi.ttf</string>

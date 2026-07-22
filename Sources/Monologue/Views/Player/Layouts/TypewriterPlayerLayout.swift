@@ -83,9 +83,8 @@ private struct TypewriterLyricsView: View {
                 }
             }
             .onAppear {
-                let idx = vm.currentLineIndex
-                if idx > 0 {
-                    proxy.scrollTo(idx, anchor: .top)
+                if vm.currentLineIndex > 0 {
+                    proxy.monologueRestoreLyricPosition(anchor: .top) { vm.currentLineIndex }
                 }
             }
         }
@@ -107,7 +106,7 @@ private struct TypewriterLyricsView: View {
     private func lyricRow(i: Int, line: LyricLine) -> some View {
         let idx = vm.currentLineIndex
         if i == idx {
-            TimelineView(AppFrameRate.animationTimeline(paused: !player.isPlaying)) { _ in
+            TimelineView(AppFrameRate.throttledTimeline(maximumFramesPerSecond: 60, paused: !player.isPlaying)) { _ in
                 let rawT = player.streamPlayer.currentTime
                 let t = (rawT.isFinite && !rawT.isNaN && rawT >= 0) ? rawT : 0
                 currentLine(line, realTime: t)
@@ -146,13 +145,25 @@ private struct TypewriterLyricsView: View {
     private func historyLine(_ line: LyricLine, opacity: Double) -> some View {
         Button { PlayerManager.shared.seek(to: line.time) } label: {
             VStack(alignment: .leading, spacing: 2) {
-                Text(line.text)
-                    .font(.system(size: 14, weight: .regular, design: .monospaced))
+                Text(line.text.monologueLyricDisplayText)
+                    .font(
+                        MonologuePlayerFont.activeFont(
+                            size: 14,
+                            weight: .regular,
+                            fallback: .system(size: 14, weight: .regular, design: .monospaced)
+                        )
+                    )
                     .foregroundStyle(inkFaded.opacity(opacity))
 
                 if let trans = line.translation {
-                    Text(trans)
-                        .font(.system(size: 11, weight: .regular, design: .serif))
+                    Text(trans.monologueLyricDisplayText)
+                        .font(
+                            MonologuePlayerFont.activeFont(
+                                size: 11,
+                                weight: .regular,
+                                fallback: .system(size: 11, weight: .regular, design: .serif)
+                            )
+                        )
                         .foregroundStyle(inkFaded.opacity(opacity * 0.6))
                 }
             }
@@ -165,16 +176,23 @@ private struct TypewriterLyricsView: View {
     // MARK: - Current Typing Line
 
     private func currentLine(_ line: LyricLine, realTime: TimeInterval) -> some View {
-        let total = line.text.count
+        let displayText = line.text.monologueLyricDisplayText
+        let total = displayText.count
         let visible = typedCharCount(line: line, realTime: realTime)
         let clamped = min(visible, total)
-        let typed = String(line.text.prefix(clamped))
+        let typed = String(displayText.prefix(clamped))
         let finished = clamped >= total
 
         return VStack(alignment: .leading, spacing: 3) {
             ZStack(alignment: .bottomTrailing) {
                 Text(typed)
-                    .font(.system(size: 17, weight: .semibold, design: .monospaced))
+                    .font(
+                        MonologuePlayerFont.activeFont(
+                            size: 17,
+                            weight: .semibold,
+                            fallback: .system(size: 17, weight: .semibold, design: .monospaced)
+                        )
+                    )
                     .foregroundStyle(ink)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -185,11 +203,18 @@ private struct TypewriterLyricsView: View {
                 }
             }
 
-            if let trans = line.translation {
+            if let rawTranslation = line.translation {
+                let trans = rawTranslation.monologueLyricDisplayText
                 let tTotal = trans.count
                 let tVisible = total > 0 ? Int(ceil(Double(clamped) / Double(total) * Double(tTotal))) : 0
                 Text(String(trans.prefix(max(0, min(tVisible, tTotal)))))
-                    .font(.system(size: 12, weight: .regular, design: .serif))
+                    .font(
+                        MonologuePlayerFont.activeFont(
+                            size: 12,
+                            weight: .regular,
+                            fallback: .system(size: 12, weight: .regular, design: .serif)
+                        )
+                    )
                     .foregroundStyle(inkFaded.opacity(0.75))
             }
         }
@@ -225,8 +250,14 @@ private struct TypewriterLyricsView: View {
 
     private func previewLine(_ line: LyricLine) -> some View {
         Button { PlayerManager.shared.seek(to: line.time) } label: {
-            Text(line.text)
-                .font(.system(size: 13, weight: .light, design: .monospaced))
+            Text(line.text.monologueLyricDisplayText)
+                .font(
+                    MonologuePlayerFont.activeFont(
+                        size: 13,
+                        weight: .light,
+                        fallback: .system(size: 13, weight: .light, design: .monospaced)
+                    )
+                )
                 .foregroundStyle(inkFaded.opacity(0.12))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.vertical, 3)
@@ -240,9 +271,7 @@ private struct TypewriterLyricsView: View {
         Text("▌")
             .font(.system(size: 17, weight: .semibold, design: .monospaced))
             .foregroundStyle(ribbon)
-            .phaseAnimator([false, true]) { content, phase in
-                content.opacity(phase ? 0.1 : 1.0)
-            } animation: { _ in .easeInOut(duration: 0.45) }
+            .compatBlink(dimOpacity: 0.1, duration: 0.45)
     }
 }
 
@@ -326,7 +355,7 @@ struct TypewriterPlayerLayout: View {
             }
         }
         .monologueSheet(isPresented: $showPlaylist, preset: .standard) { PlaylistPopupView() }
-        .monologueSheet(isPresented: $showQualitySheet, preset: .compact) {
+        .monologueSheet(isPresented: $showQualitySheet, preset: .standard) {
             SoundQualitySheet(
                 currentQuality: player.soundQuality,
                 currentQQQuality: player.qqMusicQuality,
@@ -340,8 +369,8 @@ struct TypewriterPlayerLayout: View {
                 onSelectQishui: { info in player.switchQishuiQuality(info); showQualitySheet = false }
             )
         }
-        .monologueSheet(isPresented: $showEQSettings, preset: .large) {
-            NavigationStack { EQSettingsView() }
+        .fullScreenCover(isPresented: $showEQSettings) {
+            NavigationStack { MonoAudioCenterView() }
         }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker) {
             PlayerThemePickerSheet()
@@ -559,7 +588,11 @@ struct TypewriterPlayerLayout: View {
 
                 MarqueeText(
                     text: player.currentSong?.name ?? "Insert Record",
-                    font: .system(size: 22, weight: .bold, design: .serif),
+                    font: MonologuePlayerFont.activeFont(
+                        size: 22,
+                        weight: .bold,
+                        fallback: .system(size: 22, weight: .bold, design: .serif)
+                    ),
                     color: ink,
                     speed: 26,
                     delayBeforeScroll: 1.6,
@@ -702,17 +735,26 @@ struct TypewriterPlayerLayout: View {
                         showComments = true
                     }
 
-                    let saved = player.currentSong.map {
-                        downloadManager.isDownloaded(songId: $0.id, isQQ: $0.isQQMusic)
-                    } ?? false
-                    labelKey(
-                        text: saved ? "SAVED" : "SAVE",
-                        icon: .playerDownload,
-                        disabled: saved
-                    ) {
-                        if !saved {
+                    if AppConfig.Features.downloadEnabled {
+                        // 下载按键（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+                        let saved = player.currentSong.map {
+                            downloadManager.isDownloaded(songId: $0.id, isQQ: $0.isQQMusic)
+                        } ?? false
+                        labelKey(
+                            text: saved ? "SAVED" : "SAVE",
+                            icon: .playerDownload,
+                            disabled: saved
+                        ) {
+                            if !saved {
+                                HapticManager.shared.light()
+                                showDownloadSheet = true
+                            }
+                        }
+                    } else {
+                        // 沉浸模式按键 — 占用原下载按键的位置
+                        labelKey(text: "CINEMA", icon: .immersive) {
                             HapticManager.shared.light()
-                            showDownloadSheet = true
+                            ImmersiveModeController.shared.present()
                         }
                     }
 
@@ -875,7 +917,11 @@ struct TypewriterPlayerLayout: View {
                 if let name = player.currentSong?.name {
                     MarqueeText(
                         text: name,
-                        font: .system(size: 10, weight: .medium, design: .monospaced),
+                        font: MonologuePlayerFont.activeFont(
+                            size: 10,
+                            weight: .medium,
+                            fallback: .system(size: 10, weight: .medium, design: .monospaced)
+                        ),
                         color: topBtnFg.opacity(0.7),
                         speed: 24,
                         delayBeforeScroll: 1.8,

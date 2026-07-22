@@ -455,14 +455,14 @@ struct PodcastTimerSheet: View {
                         role: selected ? .selected : .list
                     )
                 } else {
-                    selected ? Color.monologueAccentBlue.opacity(0.12) : Color.monologueTextPrimary.opacity(0.04)
+                    selected ? Color.monologueAccent.opacity(0.12) : Color.monologueTextPrimary.opacity(0.04)
                 }
             }
             .clipShape(.rect(cornerRadius: 18, style: .continuous))
             .overlay {
                 if !NeumorphicStyle.isActive && !SequoiaStyle.isActive {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(selected ? Color.monologueAccentBlue.opacity(0.22) : Color.monologueTextPrimary.opacity(0.06), lineWidth: 1)
+                        .stroke(selected ? Color.monologueAccent.opacity(0.25) : Color.monologueTextPrimary.opacity(0.06), lineWidth: 1)
                 }
             }
         }
@@ -485,7 +485,7 @@ struct PodcastTimerSheet: View {
     private var activeTint: Color {
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
-        return .monologueAccentBlue
+        return .monologueAccent
     }
 
     private var destructiveTint: Color {

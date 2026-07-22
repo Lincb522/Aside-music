@@ -6,6 +6,197 @@
 
 import Foundation
 
+/// Parameters that Mono can commit to the FFmpeg effect graph in one rebuild.
+/// Final output limiting is applied separately by AudioRepairEngine after EQ.
+public struct MonoEffectTuningConfiguration: Codable, Equatable, Sendable {
+    public var loudnessNormalizationEnabled: Bool
+    public var targetLUFS: Float
+    public var targetLRA: Float
+    public var truePeakCeilingDB: Float
+    public var compressorEnabled: Bool
+    public var compressorThresholdDB: Float
+    public var compressorRatio: Float
+    public var compressorAttackMS: Float
+    public var compressorReleaseMS: Float
+    public var compressorMakeupDB: Float
+    public var subboostEnabled: Bool
+    public var subboostGainDB: Float
+    public var subboostCutoffHz: Float
+    public var bs2bEnabled: Bool
+    public var bs2bCutoffHz: Int
+    public var bs2bFeed: Int
+    public var crossfeedEnabled: Bool
+    public var crossfeedStrength: Float
+    public var haasEnabled: Bool
+    public var haasDelayMS: Float
+    public var virtualBassEnabled: Bool
+    public var virtualBassCutoffHz: Float
+    public var virtualBassStrength: Float
+    public var exciterEnabled: Bool
+    public var exciterAmountDB: Float
+    public var exciterFrequencyHz: Float
+    public var softclipEnabled: Bool
+    public var softclipType: Int
+    public var finalLimiterEnabled: Bool
+    public var finalLimiterCeilingDB: Float
+
+    public init(
+        loudnessNormalizationEnabled: Bool = false,
+        targetLUFS: Float = -14,
+        targetLRA: Float = 9,
+        truePeakCeilingDB: Float = -1,
+        compressorEnabled: Bool = false,
+        compressorThresholdDB: Float = -18,
+        compressorRatio: Float = 2,
+        compressorAttackMS: Float = 18,
+        compressorReleaseMS: Float = 180,
+        compressorMakeupDB: Float = 0,
+        subboostEnabled: Bool = false,
+        subboostGainDB: Float = 0,
+        subboostCutoffHz: Float = 90,
+        bs2bEnabled: Bool = false,
+        bs2bCutoffHz: Int = 700,
+        bs2bFeed: Int = 50,
+        crossfeedEnabled: Bool = false,
+        crossfeedStrength: Float = 0.2,
+        haasEnabled: Bool = false,
+        haasDelayMS: Float = 12,
+        virtualBassEnabled: Bool = false,
+        virtualBassCutoffHz: Float = 180,
+        virtualBassStrength: Float = 0,
+        exciterEnabled: Bool = false,
+        exciterAmountDB: Float = 0,
+        exciterFrequencyHz: Float = 7_500,
+        softclipEnabled: Bool = false,
+        softclipType: Int = 0,
+        finalLimiterEnabled: Bool = true,
+        finalLimiterCeilingDB: Float = -1
+    ) {
+        self.loudnessNormalizationEnabled = loudnessNormalizationEnabled
+        self.targetLUFS = targetLUFS
+        self.targetLRA = targetLRA
+        self.truePeakCeilingDB = truePeakCeilingDB
+        self.compressorEnabled = compressorEnabled
+        self.compressorThresholdDB = compressorThresholdDB
+        self.compressorRatio = compressorRatio
+        self.compressorAttackMS = compressorAttackMS
+        self.compressorReleaseMS = compressorReleaseMS
+        self.compressorMakeupDB = compressorMakeupDB
+        self.subboostEnabled = subboostEnabled
+        self.subboostGainDB = subboostGainDB
+        self.subboostCutoffHz = subboostCutoffHz
+        self.bs2bEnabled = bs2bEnabled
+        self.bs2bCutoffHz = bs2bCutoffHz
+        self.bs2bFeed = bs2bFeed
+        self.crossfeedEnabled = crossfeedEnabled
+        self.crossfeedStrength = crossfeedStrength
+        self.haasEnabled = haasEnabled
+        self.haasDelayMS = haasDelayMS
+        self.virtualBassEnabled = virtualBassEnabled
+        self.virtualBassCutoffHz = virtualBassCutoffHz
+        self.virtualBassStrength = virtualBassStrength
+        self.exciterEnabled = exciterEnabled
+        self.exciterAmountDB = exciterAmountDB
+        self.exciterFrequencyHz = exciterFrequencyHz
+        self.softclipEnabled = softclipEnabled
+        self.softclipType = softclipType
+        self.finalLimiterEnabled = finalLimiterEnabled
+        self.finalLimiterCeilingDB = finalLimiterCeilingDB
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case loudnessNormalizationEnabled
+        case targetLUFS
+        case targetLRA
+        case truePeakCeilingDB
+        case compressorEnabled
+        case compressorThresholdDB
+        case compressorRatio
+        case compressorAttackMS
+        case compressorReleaseMS
+        case compressorMakeupDB
+        case subboostEnabled
+        case subboostGainDB
+        case subboostCutoffHz
+        case bs2bEnabled
+        case bs2bCutoffHz
+        case bs2bFeed
+        case crossfeedEnabled
+        case crossfeedStrength
+        case haasEnabled
+        case haasDelayMS
+        case virtualBassEnabled
+        case virtualBassCutoffHz
+        case virtualBassStrength
+        case exciterEnabled
+        case exciterAmountDB
+        case exciterFrequencyHz
+        case softclipEnabled
+        case softclipType
+        case finalLimiterEnabled
+        case finalLimiterCeilingDB
+    }
+
+    /// AI providers and older persisted presets may omit parameters that are
+    /// disabled or did not exist when the value was written. Missing values are
+    /// neutral defaults instead of making the entire tuning plan undecodable.
+    public init(from decoder: any Swift.Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        let defaults = MonoEffectTuningConfiguration()
+        self.init(
+            loudnessNormalizationEnabled: try values.decodeIfPresent(Bool.self, forKey: .loudnessNormalizationEnabled) ?? defaults.loudnessNormalizationEnabled,
+            targetLUFS: try values.decodeIfPresent(Float.self, forKey: .targetLUFS) ?? defaults.targetLUFS,
+            targetLRA: try values.decodeIfPresent(Float.self, forKey: .targetLRA) ?? defaults.targetLRA,
+            truePeakCeilingDB: try values.decodeIfPresent(Float.self, forKey: .truePeakCeilingDB) ?? defaults.truePeakCeilingDB,
+            compressorEnabled: try values.decodeIfPresent(Bool.self, forKey: .compressorEnabled) ?? defaults.compressorEnabled,
+            compressorThresholdDB: try values.decodeIfPresent(Float.self, forKey: .compressorThresholdDB) ?? defaults.compressorThresholdDB,
+            compressorRatio: try values.decodeIfPresent(Float.self, forKey: .compressorRatio) ?? defaults.compressorRatio,
+            compressorAttackMS: try values.decodeIfPresent(Float.self, forKey: .compressorAttackMS) ?? defaults.compressorAttackMS,
+            compressorReleaseMS: try values.decodeIfPresent(Float.self, forKey: .compressorReleaseMS) ?? defaults.compressorReleaseMS,
+            compressorMakeupDB: try values.decodeIfPresent(Float.self, forKey: .compressorMakeupDB) ?? defaults.compressorMakeupDB,
+            subboostEnabled: try values.decodeIfPresent(Bool.self, forKey: .subboostEnabled) ?? defaults.subboostEnabled,
+            subboostGainDB: try values.decodeIfPresent(Float.self, forKey: .subboostGainDB) ?? defaults.subboostGainDB,
+            subboostCutoffHz: try values.decodeIfPresent(Float.self, forKey: .subboostCutoffHz) ?? defaults.subboostCutoffHz,
+            bs2bEnabled: try values.decodeIfPresent(Bool.self, forKey: .bs2bEnabled) ?? defaults.bs2bEnabled,
+            bs2bCutoffHz: try values.decodeIfPresent(Int.self, forKey: .bs2bCutoffHz) ?? defaults.bs2bCutoffHz,
+            bs2bFeed: try values.decodeIfPresent(Int.self, forKey: .bs2bFeed) ?? defaults.bs2bFeed,
+            crossfeedEnabled: try values.decodeIfPresent(Bool.self, forKey: .crossfeedEnabled) ?? defaults.crossfeedEnabled,
+            crossfeedStrength: try values.decodeIfPresent(Float.self, forKey: .crossfeedStrength) ?? defaults.crossfeedStrength,
+            haasEnabled: try values.decodeIfPresent(Bool.self, forKey: .haasEnabled) ?? defaults.haasEnabled,
+            haasDelayMS: try values.decodeIfPresent(Float.self, forKey: .haasDelayMS) ?? defaults.haasDelayMS,
+            virtualBassEnabled: try values.decodeIfPresent(Bool.self, forKey: .virtualBassEnabled) ?? defaults.virtualBassEnabled,
+            virtualBassCutoffHz: try values.decodeIfPresent(Float.self, forKey: .virtualBassCutoffHz) ?? defaults.virtualBassCutoffHz,
+            virtualBassStrength: try values.decodeIfPresent(Float.self, forKey: .virtualBassStrength) ?? defaults.virtualBassStrength,
+            exciterEnabled: try values.decodeIfPresent(Bool.self, forKey: .exciterEnabled) ?? defaults.exciterEnabled,
+            exciterAmountDB: try values.decodeIfPresent(Float.self, forKey: .exciterAmountDB) ?? defaults.exciterAmountDB,
+            exciterFrequencyHz: try values.decodeIfPresent(Float.self, forKey: .exciterFrequencyHz) ?? defaults.exciterFrequencyHz,
+            softclipEnabled: try values.decodeIfPresent(Bool.self, forKey: .softclipEnabled) ?? defaults.softclipEnabled,
+            softclipType: try values.decodeIfPresent(Int.self, forKey: .softclipType) ?? defaults.softclipType,
+            finalLimiterEnabled: try values.decodeIfPresent(Bool.self, forKey: .finalLimiterEnabled) ?? defaults.finalLimiterEnabled,
+            finalLimiterCeilingDB: try values.decodeIfPresent(Float.self, forKey: .finalLimiterCeilingDB) ?? defaults.finalLimiterCeilingDB
+        )
+    }
+
+    /// Removes legacy realtime processors that are not stable enough for the
+    /// main music playback graph. Tone, spatial values and output limiting are
+    /// applied separately and remain untouched.
+    public var realtimePlaybackSafe: MonoEffectTuningConfiguration {
+        var configuration = self
+        configuration.loudnessNormalizationEnabled = false
+        configuration.compressorEnabled = false
+        configuration.subboostEnabled = false
+        configuration.bs2bEnabled = false
+        configuration.crossfeedEnabled = false
+        configuration.haasEnabled = false
+        configuration.virtualBassEnabled = false
+        configuration.exciterEnabled = false
+        configuration.softclipEnabled = false
+        return configuration
+    }
+
+    public static let neutral = MonoEffectTuningConfiguration(finalLimiterEnabled: false)
+}
+
 /// 音频效果控制器，封装 FFmpeg avfilter 提供的完整音频处理能力。
 ///
 /// 支持以下效果分类：
@@ -31,6 +222,32 @@ public final class AudioEffects {
 
     internal init(filterGraph: AudioFilterGraph) {
         self.filterGraph = filterGraph
+    }
+
+    /// Commits all automatic mastering and enhancement parameters atomically,
+    /// causing at most one FFmpeg graph rebuild.
+    public func applyMonoTuning(_ configuration: MonoEffectTuningConfiguration) {
+        filterGraph.applyMonoTuning(configuration.realtimePlaybackSafe)
+    }
+
+    /// Commits the complete AI playback plan under one graph lock. This keeps
+    /// the render thread from rebuilding once for every tone/spatial property.
+    public func applyMonoTuning(
+        _ configuration: MonoEffectTuningConfiguration,
+        bassGain: Float,
+        trebleGain: Float,
+        surroundLevel: Float,
+        reverbLevel: Float,
+        stereoWidth: Float
+    ) {
+        filterGraph.applyMonoTuning(
+            configuration.realtimePlaybackSafe,
+            bassGain: bassGain,
+            trebleGain: trebleGain,
+            surroundLevel: surroundLevel,
+            reverbLevel: reverbLevel,
+            stereoWidth: stereoWidth
+        )
     }
 
     // MARK: - 基础音量控制

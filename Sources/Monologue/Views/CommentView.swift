@@ -1,5 +1,5 @@
 // CommentView.swift
-// 评论页面 - 重新设计
+// 评论页面 - 杂志编辑风重设计
 
 import SwiftUI
 import NeteaseCloudMusicAPI
@@ -20,6 +20,10 @@ struct CommentView: View {
         self.songName = songName
         self.artistName = artistName
         self.coverUrl = coverUrl
+    }
+
+    private var isThemedSurface: Bool {
+        NeumorphicStyle.isActive || SequoiaStyle.isActive
     }
     
     var body: some View {
@@ -68,45 +72,52 @@ struct CommentView: View {
     
     private var commentHeader: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 14) {
+            HStack(alignment: .center, spacing: 14) {
+                // 标题信息
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack(spacing: 8) {
+                        Text(String(localized: "comment_title").uppercased())
+                            .font(.system(size: 10, weight: .heavy, design: .rounded))
+                            .tracking(2.4)
+                            .foregroundColor(commentSecondaryText.opacity(0.75))
+
+                        if vm.totalCount > 0 {
+                            Text(formatCount(vm.totalCount))
+                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                .foregroundColor(commentAccentInk)
+                        }
+                    }
+
+                    Text(songName.isEmpty ? String(localized: "comment_title") : songName)
+                        .font(.system(size: 19, weight: .heavy, design: .rounded))
+                        .foregroundColor(commentText)
+                        .lineLimit(1)
+
+                    if !artistName.isEmpty {
+                        Text(artistName)
+                            .font(.rounded(size: 12.5))
+                            .foregroundColor(commentSecondaryText)
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer(minLength: 8)
+
                 // 歌曲封面
                 if let url = coverUrl {
                     CachedAsyncImage(url: url) {
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(Color.monologueTextSecondary.opacity(0.1))
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(commentControlFill)
                     }
-                    .frame(width: 44, height: 44)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .frame(width: 48, height: 48)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .strokeBorder(commentSeparator.opacity(0.8), lineWidth: 0.8)
+                    )
+                    .rotationEffect(.degrees(-2.5))
+                    .shadow(color: .black.opacity(0.1), radius: 6, y: 3)
                 }
-                
-                // 歌曲信息
-                VStack(alignment: .leading, spacing: 2) {
-                    if !songName.isEmpty {
-                        Text(songName)
-                            .font(.rounded(size: 16, weight: .semibold))
-                            .foregroundColor(commentText)
-                            .lineLimit(1)
-                    }
-                    
-                    HStack(spacing: 6) {
-                        if !artistName.isEmpty {
-                            Text(artistName)
-                                .font(.rounded(size: 13))
-                                .foregroundColor(commentSecondaryText)
-                                .lineLimit(1)
-                        }
-                        
-                        if vm.totalCount > 0 {
-                            Text("·")
-                                .foregroundColor(commentSecondaryText)
-                            Text(String(format: NSLocalizedString("comment_count", comment: ""), vm.totalCount))
-                                .font(.rounded(size: 13))
-                                .foregroundColor(commentSecondaryText)
-                        }
-                    }
-                }
-                
-                Spacer()
                 
                 // 关闭按钮
                 Button { dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss) } label: {
@@ -120,6 +131,7 @@ struct CommentView: View {
                 .buttonStyle(MonologueBouncingButtonStyle())
             }
             .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, 4)
             .padding(.bottom, 14)
             
             // 分隔线
@@ -135,8 +147,8 @@ struct CommentView: View {
         ScrollView {
             LazyVStack(spacing: 0) {
                 sortTabBar
-                    .padding(.top, 12)
-                    .padding(.bottom, 16)
+                    .padding(.top, 14)
+                    .padding(.bottom, 18)
                 
                 if vm.isLoading {
                     loadingView
@@ -145,20 +157,18 @@ struct CommentView: View {
                     emptyView
                 } else {
                     if !vm.hotComments.isEmpty {
-                        HStack(spacing: 6) {
-                            MonologueIcon(icon: .sparkle, size: 14, color: .monologueOrange)
-                            Text(LocalizedStringKey("comment_hot_section"))
-                                .font(.rounded(size: 14, weight: .semibold))
-                                .foregroundColor(commentText)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.leading, 4)
-                        .padding(.bottom, 10)
+                        sectionMark(
+                            title: String(localized: "comment_hot_section"),
+                            count: vm.hotComments.count,
+                            tick: .monologueOrange
+                        )
+                        .padding(.bottom, 6)
                         
-                        ForEach(vm.hotComments) { comment in
+                        ForEach(Array(vm.hotComments.enumerated()), id: \.element.id) { index, comment in
                             CommentRow(
                                 comment: comment,
                                 isHot: true,
+                                hotRank: index + 1,
                                 onLike: { vm.toggleLike(comment: comment, isHot: true) },
                                 onReply: {
                                     vm.replyTarget = comment
@@ -167,25 +177,20 @@ struct CommentView: View {
                             )
                             
                             if comment.id != vm.hotComments.last?.id {
-                                Divider().padding(.leading, 52)
+                                rowDivider
                             }
                         }
-                        .padding(.bottom, 20)
+                        .padding(.bottom, 8)
+
+                        Spacer().frame(height: 18)
                     }
                     
-                    HStack(spacing: 6) {
-                        Text(LocalizedStringKey("comment_all_section"))
-                            .font(.rounded(size: 14, weight: .semibold))
-                            .foregroundColor(commentText)
-                        if vm.totalCount > 0 {
-                            Text("\(vm.totalCount)")
-                                .font(.rounded(size: 12, weight: .medium))
-                                .foregroundColor(commentSecondaryText)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.leading, 4)
-                    .padding(.bottom, 10)
+                    sectionMark(
+                        title: String(localized: "comment_all_section"),
+                        count: vm.totalCount,
+                        tick: commentAccentInk
+                    )
+                    .padding(.bottom, 6)
                     
                     ForEach(vm.comments) { comment in
                         CommentRow(
@@ -199,13 +204,13 @@ struct CommentView: View {
                         )
                         
                         if comment.id != vm.comments.last?.id {
-                            Divider().padding(.leading, 52)
+                            rowDivider
                         }
                     }
                     
                     if vm.hasMore {
                         loadMoreButton
-                            .padding(.top, 16)
+                            .padding(.top, 18)
                     }
                 }
             }
@@ -218,29 +223,77 @@ struct CommentView: View {
             vm.loadComments()
         }
     }
+
+    private var rowDivider: some View {
+        Rectangle()
+            .fill(commentSeparator.opacity(0.72))
+            .frame(height: 0.5)
+            .padding(.leading, isThemedSurface ? 60 : 50)
+    }
+
+    // MARK: - 小节标题
+
+    private func sectionMark(title: String, count: Int, tick: Color) -> some View {
+        HStack(spacing: 8) {
+            Capsule()
+                .fill(tick)
+                .frame(width: 3, height: 12)
+
+            Text(title)
+                .font(.rounded(size: 14, weight: .bold))
+                .foregroundColor(commentText)
+
+            if count > 0 {
+                Text(formatCount(count))
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .foregroundColor(commentSecondaryText.opacity(0.75))
+            }
+
+            Rectangle()
+                .fill(commentSeparator.opacity(0.6))
+                .frame(height: 0.5)
+        }
+        .padding(.horizontal, 2)
+        .padding(.bottom, 4)
+    }
     
     // MARK: - 排序标签栏
     
     private var sortTabBar: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: isThemedSurface ? 8 : 20) {
             ForEach(CommentSortType.allCases, id: \.rawValue) { type in
+                let isSelected = vm.sortType == type
                 Button {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                         vm.changeSortType(type)
                     }
                 } label: {
-                    Text(type.title)
-                        .font(.rounded(size: 13, weight: vm.sortType == type ? .semibold : .medium))
-                        .foregroundColor(sortForeground(isSelected: vm.sortType == type))
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 7)
-                        .background { sortPillBackground(isSelected: vm.sortType == type) }
+                    if isThemedSurface {
+                        Text(type.title)
+                            .font(.rounded(size: 13, weight: isSelected ? .semibold : .medium))
+                            .foregroundColor(sortForeground(isSelected: isSelected))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 7)
+                            .background { sortPillBackground(isSelected: isSelected) }
+                    } else {
+                        VStack(spacing: 5) {
+                            Text(type.title)
+                                .font(.rounded(size: 13.5, weight: isSelected ? .heavy : .medium))
+                                .foregroundColor(isSelected ? commentText : commentSecondaryText.opacity(0.85))
+
+                            Capsule()
+                                .fill(commentAccentInk)
+                                .frame(width: 16, height: 2.5)
+                                .opacity(isSelected ? 1 : 0)
+                        }
+                    }
                 }
                 .buttonStyle(.plain)
             }
             
             Spacer()
         }
+        .padding(.horizontal, 2)
     }
     
     // MARK: - 加载更多
@@ -255,79 +308,103 @@ struct CommentView: View {
                         .scaleEffect(0.8)
                 } else {
                     Text(LocalizedStringKey("comment_load_more_btn"))
-                        .font(.rounded(size: 14, weight: .medium))
+                        .font(.rounded(size: 13.5, weight: .semibold))
+                    MonologueIcon(icon: .chevronDown, size: 10, color: commentSecondaryText, lineWidth: 1.8)
                 }
             }
             .foregroundColor(commentSecondaryText)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(commentControlFill)
-            )
+            .padding(.horizontal, 22)
+            .padding(.vertical, 11)
+            .background {
+                if isThemedSurface {
+                    Capsule().fill(commentControlFill)
+                } else {
+                    Capsule().strokeBorder(commentSeparator, lineWidth: 1)
+                }
+            }
         }
         .disabled(vm.isLoadingMore)
-        .buttonStyle(.plain)
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+        .frame(maxWidth: .infinity)
     }
     
     // MARK: - 加载状态
     
     private var loadingView: some View {
-        VStack(spacing: 16) {
-            ForEach(0..<4, id: \.self) { _ in
+        VStack(spacing: 4) {
+            ForEach(0..<4, id: \.self) { index in
                 HStack(alignment: .top, spacing: 12) {
                     Circle()
                         .fill(commentControlFill)
-                        .frame(width: 36, height: 36)
+                        .frame(width: 34, height: 34)
                     
                     VStack(alignment: .leading, spacing: 8) {
                         RoundedRectangle(cornerRadius: 4)
                             .fill(commentControlFill)
-                            .frame(width: 80, height: 12)
+                            .frame(width: 80, height: 11)
                         
                         RoundedRectangle(cornerRadius: 4)
                             .fill(commentInputFill)
-                            .frame(height: 14)
+                            .frame(height: 13)
                         
                         RoundedRectangle(cornerRadius: 4)
                             .fill(commentInputFill)
-                            .frame(width: 200, height: 14)
+                            .frame(width: 180, height: 13)
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 12)
+                .opacity(1 - Double(index) * 0.18)
+
+                if index < 3 {
+                    Rectangle()
+                        .fill(commentSeparator.opacity(0.5))
+                        .frame(height: 0.5)
+                        .padding(.leading, 46)
+                }
             }
         }
-        .padding(.vertical, 4)
-        .themedPageSurface(cornerRadius: 16, elevated: false, mangaTint: MangaStyle.bubbleWhite)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(.horizontal, 4)
         .shimmer()
     }
     
     // MARK: - 空状态
     
     private var emptyView: some View {
-        VStack(spacing: 16) {
-            Spacer().frame(height: 40)
+        VStack(spacing: 0) {
+            Spacer().frame(height: 36)
+
+            Text("“")
+                .font(.system(size: 84, weight: .black, design: .serif))
+                .foregroundColor(commentAccentInk.opacity(0.16))
+                .frame(height: 52, alignment: .bottom)
             
-            ZStack {
-                Circle()
-                    .fill(commentControlFill)
-                    .frame(width: 80, height: 80)
-                MonologueIcon(icon: .comment, size: 36, color: commentSecondaryText.opacity(0.46))
+            Text(LocalizedStringKey("comment_no_comments"))
+                .font(.rounded(size: 17, weight: .bold))
+                .foregroundColor(commentText)
+                .padding(.top, 14)
+
+            Text(LocalizedStringKey("comment_be_first_text"))
+                .font(.rounded(size: 13.5))
+                .foregroundColor(commentSecondaryText)
+                .padding(.top, 6)
+
+            Button {
+                isInputFocused = true
+            } label: {
+                Text(LocalizedStringKey("comment_write"))
+                    .font(.rounded(size: 13.5, weight: .semibold))
+                    .foregroundColor(commentAccentForeground)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 10)
+                    .background(Capsule().fill(commentAccentFill))
             }
-            
-            VStack(spacing: 6) {
-                Text(LocalizedStringKey("comment_no_comments"))
-                    .font(.rounded(size: 17, weight: .semibold))
-                    .foregroundColor(commentText)
-                Text(LocalizedStringKey("comment_be_first_text"))
-                    .font(.rounded(size: 14))
-                    .foregroundColor(commentSecondaryText)
-            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+            .padding(.top, 20)
             
             Spacer().frame(height: 40)
         }
+        .frame(maxWidth: .infinity)
     }
     
     // MARK: - 输入栏
@@ -341,11 +418,14 @@ struct CommentView: View {
             // 回复提示
             if let reply = vm.replyTarget {
                 HStack(spacing: 8) {
-                    Text("回复")
+                    Capsule()
+                        .fill(commentAccentInk)
+                        .frame(width: 3, height: 12)
+                    Text(LocalizedStringKey("comment_reply_prefix"))
                         .font(.rounded(size: 12))
                         .foregroundColor(commentSecondaryText)
                     Text("@\(reply.user.nickname)")
-                        .font(.rounded(size: 12, weight: .medium))
+                        .font(.rounded(size: 12, weight: .semibold))
                         .foregroundColor(commentText)
                     Spacer()
                     Button {
@@ -453,6 +533,13 @@ struct CommentView: View {
         return Color.monologueIconForeground
     }
 
+    /// 用于小元素点缀的强调墨色
+    private var commentAccentInk: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        return Color.monologueAccent
+    }
+
     private var commentText: Color {
         if SequoiaStyle.isActive { return SequoiaStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
@@ -498,6 +585,13 @@ struct CommentView: View {
                 .fill(isSelected ? Color.monologueIconBackground : Color.monologueTextPrimary.opacity(0.05))
         }
     }
+
+    private func formatCount(_ count: Int) -> String {
+        if count >= 10000 {
+            return String(format: "%.1fw", Double(count) / 10000)
+        }
+        return "\(count)"
+    }
 }
 
 
@@ -506,8 +600,13 @@ struct CommentView: View {
 struct CommentRow: View {
     let comment: Comment
     var isHot: Bool = false
+    var hotRank: Int? = nil
     let onLike: () -> Void
     let onReply: () -> Void
+
+    private var isThemedSurface: Bool {
+        NeumorphicStyle.isActive || SequoiaStyle.isActive
+    }
 
     private var text: Color {
         if SequoiaStyle.isActive { return SequoiaStyle.ink }
@@ -531,6 +630,12 @@ struct CommentRow: View {
         if SequoiaStyle.isActive { return SequoiaStyle.materialPressed.opacity(0.62) }
         return Color.monologueTextPrimary.opacity(0.06)
     }
+
+    private var quoteBar: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.separator }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.separator }
+        return .monologueTextPrimary.opacity(0.14)
+    }
     
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -538,21 +643,36 @@ struct CommentRow: View {
             CachedAsyncImage(url: comment.user.avatarURL) {
                 Circle().fill(rowFill)
             }
-            .frame(width: 36, height: 36)
+            .frame(width: 34, height: 34)
             .clipShape(Circle())
             
             VStack(alignment: .leading, spacing: 6) {
-                // 用户名 + 时间
-                HStack(spacing: 6) {
+                // 排名 + 用户名 + 地点 + 时间
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    if let rank = hotRank {
+                        Text(String(format: "%02d", rank))
+                            .font(.system(size: 10.5, weight: .heavy, design: .monospaced))
+                            .foregroundColor(.monologueOrange.opacity(0.9))
+                    }
+
                     Text(comment.user.nickname)
                         .font(.rounded(size: 13, weight: .semibold))
                         .foregroundColor(secondaryText)
+                        .lineLimit(1)
                     
                     if let location = comment.locationText {
-                        Text("· \(location)")
-                            .font(.rounded(size: 11))
+                        Text(location)
+                            .font(.rounded(size: 10.5))
                             .foregroundColor(mutedText.opacity(0.76))
+                            .lineLimit(1)
                     }
+
+                    Spacer(minLength: 6)
+
+                    Text(comment.formattedTime)
+                        .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+                        .foregroundColor(mutedText.opacity(0.85))
+                        .lineLimit(1)
                 }
                 
                 // 评论内容
@@ -560,39 +680,34 @@ struct CommentRow: View {
                     .font(.rounded(size: 15))
                     .foregroundColor(text)
                     .fixedSize(horizontal: false, vertical: true)
-                    .lineSpacing(3)
+                    .lineSpacing(3.5)
                 
-                // 被回复内容
+                // 被回复内容（编辑部引文样式）
                 if let replies = comment.beReplied, let first = replies.first,
                    let user = first.user, let content = first.content {
-                    HStack(alignment: .top, spacing: 0) {
-                        Text("\(Text("@\(user.nickname)").font(.rounded(size: 13, weight: .medium)).foregroundColor(secondaryText))\(Text("：\(content)").font(.rounded(size: 13)).foregroundColor(secondaryText.opacity(0.8)))")
+                    HStack(alignment: .top, spacing: 8) {
+                        Capsule()
+                            .fill(quoteBar)
+                            .frame(width: 2)
+
+                        Text("\(Text("@\(user.nickname)").font(.rounded(size: 12.5, weight: .semibold)).foregroundColor(secondaryText))\(Text("：\(content)").font(.rounded(size: 12.5)).foregroundColor(secondaryText.opacity(0.8)))")
+                            .lineLimit(3)
+                            .lineSpacing(2.5)
                     }
-                    .lineLimit(3)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 8)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(SequoiaStyle.isActive ? SequoiaStyle.materialList.opacity(0.54) : Color.monologueTextPrimary.opacity(0.03))
-                    )
+                    .padding(.top, 2)
+                    .fixedSize(horizontal: false, vertical: true)
                 }
                 
-                // 时间 + 操作栏
+                // 操作栏
                 HStack(spacing: 0) {
-                    Text(comment.formattedTime)
-                        .font(.rounded(size: 12))
-                        .foregroundColor(mutedText)
-                    
                     Spacer()
                     
                     // 回复
                     Button(action: onReply) {
-                        HStack(spacing: 3) {
-                            MonologueIcon(icon: .comment, size: 14, color: mutedText.opacity(0.78))
-                        }
+                        MonologueIcon(icon: .comment, size: 14, color: mutedText.opacity(0.78))
+                            .padding(.vertical, 2)
                     }
-                    .padding(.trailing, 16)
+                    .padding(.trailing, 18)
                     
                     // 点赞
                     Button(action: onLike) {
@@ -604,17 +719,17 @@ struct CommentRow: View {
                             )
                             if comment.likedCount > 0 {
                                 Text(formatCount(comment.likedCount))
-                                    .font(.rounded(size: 12))
+                                    .font(.system(size: 11.5, weight: .medium, design: .monospaced))
                                     .foregroundColor(comment.liked ? .monologueAccentRed : mutedText)
                             }
                         }
+                        .padding(.vertical, 2)
                     }
                 }
-                .padding(.top, 2)
             }
         }
-        .padding(.horizontal, DeviceLayout.isPad ? 20 : 14)
-        .padding(.vertical, 12)
+        .padding(.horizontal, isThemedSurface ? (DeviceLayout.isPad ? 20 : 14) : 4)
+        .padding(.vertical, 13)
         .background {
             if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: 18, elevated: false)

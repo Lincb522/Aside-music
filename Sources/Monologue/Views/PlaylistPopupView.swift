@@ -1,15 +1,24 @@
 import SwiftUI
 
 private enum QueuePopupPalette {
+    /// aside 默认主题（编辑部风格分支）
+    static var isAside: Bool {
+        GlobalThemeId.persistedOrDefault == .default
+    }
+
     static var accent: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         if PetWhiteStyle.isActive { return PetWhiteStyle.dogOrange }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.accent }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if CapsuleStyle.isActive { return CapsuleStyle.accent }
         return .monologueAccent
     }
 
     static var accentForeground: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.onAccent }
         if PetWhiteStyle.isActive { return PetWhiteStyle.onAccent }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.onAccent }
         if NeumorphicStyle.isActive {
             return ThemeColorCustomization.readableForegroundColor(
                 on: NeumorphicStyle.accent,
@@ -24,35 +33,45 @@ private enum QueuePopupPalette {
     }
 
     static var primaryText: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if CapsuleStyle.isActive { return CapsuleStyle.ink }
         return .monologueTextPrimary
     }
 
     static var secondaryText: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkSoft }
         if PetWhiteStyle.isActive { return PetWhiteStyle.inkSoft }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.inkSoft }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         if CapsuleStyle.isActive { return CapsuleStyle.inkSoft }
         return .monologueTextSecondary
     }
 
     static var mutedText: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if PetWhiteStyle.isActive { return PetWhiteStyle.inkMuted }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.inkMuted }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
         if CapsuleStyle.isActive { return CapsuleStyle.inkMuted }
         return .monologueTextSecondary
     }
 
     static var separator: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.hairline }
         if PetWhiteStyle.isActive { return PetWhiteStyle.separator }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.separator }
         if NeumorphicStyle.isActive { return NeumorphicStyle.separator }
         if CapsuleStyle.isActive { return CapsuleStyle.separator }
         return .monologueSeparator
     }
 
     static var pressedSurface: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.controlGlassFill }
         if PetWhiteStyle.isActive { return PetWhiteStyle.surfacePressed }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.surfaceTint }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
         if CapsuleStyle.isActive { return CapsuleStyle.surfaceTint }
         return .monologueSeparator
@@ -118,13 +137,32 @@ struct PlaylistPopupView: View {
         return linearQueueItems.count
     }
 
+    /// 待播统计：曲目数 + 总时长（无待播时为 nil）
+    private var upcomingStatsText: String? {
+        let upcoming = player.contextRemainingSongs.filter { $0.podcastRadioId == nil }
+        guard !upcoming.isEmpty else { return nil }
+
+        let totalSeconds = upcoming.reduce(0) { $0 + (($1.dt ?? 0) / 1000) }
+        let countText = String(format: NSLocalizedString("queue_upcoming_count", comment: ""), upcoming.count)
+        guard totalSeconds >= 60 else { return countText }
+
+        let minutes = totalSeconds / 60
+        let durationText: String
+        if minutes >= 60 {
+            durationText = String(format: NSLocalizedString("queue_duration_hours", comment: ""), minutes / 60, minutes % 60)
+        } else {
+            durationText = String(format: NSLocalizedString("queue_duration_minutes", comment: ""), minutes)
+        }
+        return "\(countText) · \(durationText)"
+    }
+
     var body: some View {
         let _ = settings.globalThemeRevision
 
         VStack(spacing: 0) {
             headerView
-                .padding(.top, 24)
-                .padding(.bottom, 16)
+                .padding(.top, MinimalWhiteStyle.isActive ? 18 : 24)
+                .padding(.bottom, MinimalWhiteStyle.isActive ? 14 : 16)
 
             if selectedTab == 0 {
                 currentQueueView
@@ -142,30 +180,59 @@ struct PlaylistPopupView: View {
     }
 
     private var headerView: some View {
-        HStack(spacing: 0) {
-            HStack(spacing: 24) {
+        HStack(spacing: MinimalWhiteStyle.isActive ? 10 : 0) {
+            HStack(spacing: MinimalWhiteStyle.isActive ? 4 : 24) {
                 tabButton(title: "queue_tab_now_playing", tabIndex: 0)
                 tabButton(title: "queue_tab_history", tabIndex: 1)
+            }
+            .padding(.horizontal, MinimalWhiteStyle.isActive ? 5 : 0)
+            .padding(.vertical, MinimalWhiteStyle.isActive ? 5 : 0)
+            .background {
+                if MinimalWhiteStyle.isActive {
+                    MinimalWhiteSurfaceBackground(
+                        cornerRadius: MinimalWhiteStyle.chromeRadius,
+                        elevated: false,
+                        tint: MinimalWhiteStyle.glassFill
+                    )
+                }
             }
 
             Spacer()
 
             Button(action: { player.switchMode() }) {
                 HStack(spacing: 6) {
-                    MonologueIcon(icon: player.mode.monologueIcon, size: 16, color: QueuePopupPalette.primaryText)
+                    MonologueIcon(
+                        icon: player.mode.monologueIcon,
+                        size: QueuePopupPalette.isAside ? 14 : 16,
+                        color: QueuePopupPalette.isAside ? .monologueAccent : QueuePopupPalette.primaryText
+                    )
                     Text(modeName(player.mode))
-                        .font(.rounded(size: 14, weight: .medium))
+                        .font(.rounded(size: QueuePopupPalette.isAside ? 12.5 : 14, weight: QueuePopupPalette.isAside ? .semibold : .medium))
                 }
                 .foregroundColor(QueuePopupPalette.primaryText)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
+                .padding(.horizontal, QueuePopupPalette.isAside ? 13 : 16)
+                .padding(.vertical, QueuePopupPalette.isAside ? 7 : 8)
                 .background(
-                    Capsule()
-                        .fill(PetWhiteStyle.isActive ? PetWhiteStyle.surfaceRaised : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueSeparator))
-                        .overlay(
+                    Group {
+                        if MinimalWhiteStyle.isActive {
+                            MinimalWhiteCapsuleBackground()
+                        } else if PureWhiteStyle.isActive {
                             Capsule()
-                                .stroke(PetWhiteStyle.isActive ? PetWhiteStyle.stroke : Color.clear, lineWidth: PetWhiteStyle.isActive ? PetWhiteStyle.fineStrokeWidth : 0)
-                        )
+                                .fill(PureWhiteStyle.surfaceRaised)
+                                .overlay(Capsule().stroke(PureWhiteStyle.separator, lineWidth: 1))
+                        } else if QueuePopupPalette.isAside {
+                            Capsule()
+                                .fill(Color.monologueTextPrimary.opacity(0.05))
+                                .overlay(Capsule().stroke(Color.monologueTextPrimary.opacity(0.08), lineWidth: 1))
+                        } else {
+                            Capsule()
+                                .fill(PetWhiteStyle.isActive ? PetWhiteStyle.surfaceRaised : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueSeparator))
+                                .overlay(
+                                    Capsule()
+                                        .stroke(PetWhiteStyle.isActive ? PetWhiteStyle.stroke : Color.clear, lineWidth: PetWhiteStyle.isActive ? PetWhiteStyle.fineStrokeWidth : 0)
+                                )
+                        }
+                    }
                 )
             }
         }
@@ -174,18 +241,53 @@ struct PlaylistPopupView: View {
 
     private func tabButton(title: String, tabIndex: Int) -> some View {
         Button(action: { withAnimation(.easeInOut(duration: 0.2)) { selectedTab = tabIndex } }) {
-            VStack(spacing: 6) {
+            if MinimalWhiteStyle.isActive {
+                Text(LocalizedStringKey(title))
+                    .font(MinimalWhiteStyle.labelFont(13, weight: selectedTab == tabIndex ? .semibold : .regular))
+                    .foregroundStyle(selectedTab == tabIndex ? MinimalWhiteStyle.ink : MinimalWhiteStyle.inkMuted)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
+                    .background {
+                        if selectedTab == tabIndex {
+                            MinimalWhiteCapsuleBackground(selected: true)
+                                .matchedGeometryEffect(id: "tabIndicator", in: namespace)
+                        }
+                    }
+            } else if QueuePopupPalette.isAside {
+                // aside：与搜索/音乐库页签同语言——短强调色下划线
+                VStack(spacing: 6) {
+                    Text(LocalizedStringKey(title))
+                        .font(.system(size: 17, weight: selectedTab == tabIndex ? .heavy : .medium, design: .rounded))
+                        .foregroundColor(
+                            selectedTab == tabIndex
+                                ? .monologueTextPrimary
+                                : .monologueTextSecondary.opacity(0.8)
+                        )
+
+                    if selectedTab == tabIndex {
+                        Capsule()
+                            .fill(Color.monologueAccent)
+                            .frame(width: 16, height: 3)
+                            .matchedGeometryEffect(id: "tabIndicator", in: namespace)
+                    } else {
+                        Capsule().fill(Color.clear).frame(width: 16, height: 3)
+                    }
+                }
+                .contentShape(Rectangle())
+            } else {
+                VStack(spacing: 6) {
                 Text(LocalizedStringKey(title))
                     .font(.rounded(size: 18, weight: selectedTab == tabIndex ? .bold : .medium))
                     .foregroundColor(selectedTab == tabIndex ? QueuePopupPalette.primaryText : QueuePopupPalette.secondaryText)
 
                 if selectedTab == tabIndex {
                     Capsule()
-                        .fill(PetWhiteStyle.isActive ? PetWhiteStyle.dogOrange : (NeumorphicStyle.isActive ? QueuePopupPalette.accent : Color.monologueIconBackground))
+                        .fill(PetWhiteStyle.isActive ? PetWhiteStyle.dogOrange : ((NeumorphicStyle.isActive || PureWhiteStyle.isActive) ? QueuePopupPalette.accent : Color.monologueIconBackground))
                         .frame(width: 20, height: 4)
                         .matchedGeometryEffect(id: "tabIndicator", in: namespace)
                 } else {
                     Capsule().fill(Color.clear).frame(height: 4)
+                }
                 }
             }
         }
@@ -197,13 +299,53 @@ struct PlaylistPopupView: View {
                 ScrollViewReader { proxy in
                     VStack(spacing: 0) {
                         HStack(spacing: 8) {
-                            MonologueIcon(icon: .musicNoteList, size: 14, color: QueuePopupPalette.secondaryText, lineWidth: 1.5)
+                            if QueuePopupPalette.isAside {
+                                Capsule()
+                                    .fill(Color.monologueAccent)
+                                    .frame(width: 3, height: 13)
 
-                            Text(String(localized: "queue_tab_now_playing") + " · \(linearQueueItems.count)")
-                                .font(.rounded(size: 13, weight: .semibold))
-                                .foregroundColor(QueuePopupPalette.secondaryText)
+                                Text(String(localized: "queue_tab_now_playing"))
+                                    .font(.rounded(size: 13, weight: .bold))
+                                    .foregroundColor(QueuePopupPalette.primaryText)
 
-                            Spacer()
+                                Text("\(linearQueueItems.count)")
+                                    .font(.rounded(size: 12, weight: .semibold))
+                                    .monospacedDigit()
+                                    .foregroundColor(QueuePopupPalette.secondaryText.opacity(0.85))
+
+                                if let stats = upcomingStatsText {
+                                    Text(stats)
+                                        .font(.rounded(size: 11.5, weight: .medium))
+                                        .monospacedDigit()
+                                        .foregroundColor(QueuePopupPalette.secondaryText.opacity(0.62))
+                                        .lineLimit(1)
+                                }
+                            } else {
+                                MonologueIcon(icon: .musicNoteList, size: 14, color: QueuePopupPalette.secondaryText, lineWidth: 1.5)
+
+                                Text(String(localized: "queue_tab_now_playing") + " · \(linearQueueItems.count)")
+                                    .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(13, weight: .medium) : .rounded(size: 13, weight: .semibold))
+                                    .foregroundColor(QueuePopupPalette.secondaryText)
+
+                                if let stats = upcomingStatsText {
+                                    Text(stats)
+                                        .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(11.5, weight: .regular) : .rounded(size: 11.5, weight: .medium))
+                                        .monospacedDigit()
+                                        .foregroundColor(QueuePopupPalette.secondaryText.opacity(0.62))
+                                        .lineLimit(1)
+                                }
+                            }
+
+                            Spacer(minLength: 8)
+
+                            Button(action: {
+                                scrollToCurrentSong(using: proxy)
+                            }) {
+                                Text(NSLocalizedString("queue_locate_current", comment: ""))
+                                    .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(12, weight: .regular) : .rounded(size: 12, weight: .medium))
+                                    .foregroundColor(QueuePopupPalette.secondaryText)
+                            }
+                            .buttonStyle(.plain)
 
                             if !player.contextRemainingSongs.isEmpty {
                                 Button(action: {
@@ -212,7 +354,7 @@ struct PlaylistPopupView: View {
                                     }
                                 }) {
                                     Text(NSLocalizedString("queue_clear", comment: ""))
-                                        .font(.rounded(size: 12, weight: .medium))
+                                        .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(12, weight: .regular) : .rounded(size: 12, weight: .medium))
                                         .foregroundColor(QueuePopupPalette.secondaryText)
                                 }
                                 .buttonStyle(.plain)
@@ -222,10 +364,11 @@ struct PlaylistPopupView: View {
                         .padding(.bottom, 10)
 
                         List {
-                            ForEach(linearQueueItems) { item in
+                            ForEach(Array(linearQueueItems.enumerated()), id: \.element.id) { index, item in
                                 QueueLinearRow(
                                     song: item.song,
                                     role: item.role,
+                                    position: index + 1,
                                     action: {
                                         player.playFromQueue(song: item.song)
                                     },
@@ -241,9 +384,9 @@ struct PlaylistPopupView: View {
                                 .listRowSeparator(.hidden)
                                 .listRowInsets(
                                     EdgeInsets(
-                                        top: 4,
+                                        top: QueuePopupPalette.isAside ? 0 : 4,
                                         leading: DeviceLayout.viewHorizontalPadding,
-                                        bottom: 4,
+                                        bottom: QueuePopupPalette.isAside ? 0 : 4,
                                         trailing: DeviceLayout.viewHorizontalPadding
                                     )
                                 )
@@ -374,23 +517,44 @@ private struct QueueSectionHeader: View {
         let _ = settings.globalThemeRevision
 
         HStack(spacing: 8) {
-            MonologueIcon(icon: icon, size: 14, color: QueuePopupPalette.secondaryText, lineWidth: 1.5)
+            if QueuePopupPalette.isAside {
+                Capsule()
+                    .fill(Color.monologueAccent)
+                    .frame(width: 3, height: 13)
 
-            Text(title)
-                .font(.rounded(size: 11, weight: .bold))
-                .foregroundColor(QueuePopupPalette.secondaryText)
-                .tracking(1.4)
+                Text(title)
+                    .font(.rounded(size: 13, weight: .bold))
+                    .foregroundColor(QueuePopupPalette.primaryText)
 
-            if let count {
-                Text("\(count)")
-                    .font(.rounded(size: 11, weight: .semibold))
-                    .foregroundColor(QueuePopupPalette.secondaryText.opacity(0.8))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(
-                        Capsule()
-                            .fill(QueuePopupPalette.pressedSurface.opacity(NeumorphicStyle.isActive ? 0.9 : 0.45))
-                    )
+                if let count {
+                    Text("\(count)")
+                        .font(.rounded(size: 12, weight: .semibold))
+                        .monospacedDigit()
+                        .foregroundColor(QueuePopupPalette.secondaryText.opacity(0.85))
+                }
+            } else {
+                MonologueIcon(icon: icon, size: 14, color: QueuePopupPalette.secondaryText, lineWidth: 1.5)
+
+                Text(title)
+                    .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(12, weight: .medium) : .rounded(size: 11, weight: .bold))
+                    .foregroundColor(QueuePopupPalette.secondaryText)
+                    .tracking(MinimalWhiteStyle.isActive ? 0 : 1.4)
+
+                if let count {
+                    Text("\(count)")
+                        .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(11, weight: .regular) : .rounded(size: 11, weight: .semibold))
+                        .foregroundColor(QueuePopupPalette.secondaryText.opacity(0.8))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background {
+                            if MinimalWhiteStyle.isActive {
+                                MinimalWhiteCapsuleBackground()
+                            } else {
+                                Capsule()
+                                    .fill(QueuePopupPalette.pressedSurface.opacity(NeumorphicStyle.isActive ? 0.9 : 0.45))
+                            }
+                        }
+                }
             }
 
             Spacer()
@@ -398,7 +562,7 @@ private struct QueueSectionHeader: View {
             if let actionTitle, let action {
                 Button(action: action) {
                     Text(actionTitle)
-                        .font(.rounded(size: 12, weight: .medium))
+                        .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(12, weight: .regular) : .rounded(size: 12, weight: .medium))
                         .foregroundColor(QueuePopupPalette.secondaryText)
                 }
                 .buttonStyle(.plain)
@@ -453,6 +617,9 @@ private struct QueueShelfCard: View {
     @ObservedObject private var settings = SettingsManager.shared
 
     private var cardBackground: Color {
+        if MinimalWhiteStyle.isActive {
+            return MinimalWhiteStyle.glassFill
+        }
         if NeumorphicStyle.isActive {
             return NeumorphicStyle.surfacePressed
         }
@@ -466,7 +633,7 @@ private struct QueueShelfCard: View {
             HStack(spacing: 8) {
                 CachedAsyncImage(url: song.coverUrl) {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(Color.gray.opacity(0.18))
+                        .fill(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : Color.gray.opacity(0.18))
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(width: 44, height: 44)
@@ -474,25 +641,25 @@ private struct QueueShelfCard: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(song.name)
-                        .font(.rounded(size: 13, weight: .semibold))
+                        .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(13, weight: .medium) : .rounded(size: 13, weight: .semibold))
                         .foregroundColor(QueuePopupPalette.primaryText)
                         .lineLimit(1)
 
                     Text(song.artistName)
-                        .font(.rounded(size: 11, weight: .medium))
+                        .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(11, weight: .regular) : .rounded(size: 11, weight: .medium))
                         .foregroundColor(QueuePopupPalette.secondaryText)
                         .lineLimit(1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 Circle()
-                    .fill(NeumorphicStyle.isActive ? QueuePopupPalette.accent.opacity(0.18) : Color.black.opacity(colorScheme == .dark ? 0.22 : 0.10))
+                    .fill(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : (NeumorphicStyle.isActive ? QueuePopupPalette.accent.opacity(0.18) : Color.black.opacity(colorScheme == .dark ? 0.22 : 0.10)))
                     .frame(width: 22, height: 22)
                     .overlay {
                         MonologueIcon(
                             icon: icon,
                             size: 9,
-                            color: NeumorphicStyle.isActive ? QueuePopupPalette.accent : (colorScheme == .dark ? .white : .monologueTextPrimary),
+                            color: MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : (NeumorphicStyle.isActive ? QueuePopupPalette.accent : (colorScheme == .dark ? .white : .monologueTextPrimary)),
                             lineWidth: 1.4
                         )
                     }
@@ -501,8 +668,18 @@ private struct QueueShelfCard: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
             .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(cardBackground)
+                Group {
+                    if MinimalWhiteStyle.isActive {
+                        MinimalWhiteSurfaceBackground(
+                            cornerRadius: MinimalWhiteStyle.cardRadius,
+                            elevated: false,
+                            tint: MinimalWhiteStyle.glassFill
+                        )
+                    } else {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(cardBackground)
+                    }
+                }
             )
             .background {
                 if NeumorphicStyle.isActive {
@@ -518,6 +695,7 @@ private struct QueueShelfCard: View {
 private struct QueueLinearRow: View {
     let song: Song
     let role: PlaylistPopupView.LinearQueueItem.Role
+    var position: Int = 0
     let action: () -> Void
     var removeAction: (() -> Void)? = nil
 
@@ -550,7 +728,7 @@ private struct QueueLinearRow: View {
         case .current:
             PlayingVisualizerView(
                 isAnimating: player.isPlaying,
-                color: CapsuleStyle.isActive ? CapsuleStyle.onAccent : (NeumorphicStyle.isActive ? QueuePopupPalette.accent : QueuePopupPalette.primaryText)
+                color: CapsuleStyle.isActive ? CapsuleStyle.onAccent : ((NeumorphicStyle.isActive || PureWhiteStyle.isActive) ? QueuePopupPalette.accent : QueuePopupPalette.primaryText)
             )
                 .frame(width: 18, height: 18)
         case .played:
@@ -569,9 +747,241 @@ private struct QueueLinearRow: View {
             capsuleQueueRow
         } else if PetWhiteStyle.isActive {
             petWhiteQueueRow
+        } else if PureWhiteStyle.isActive {
+            pureWhiteQueueRow
+        } else if MinimalWhiteStyle.isActive {
+            minimalWhiteQueueRow
+        } else if QueuePopupPalette.isAside {
+            asideQueueRow
         } else {
             defaultQueueRow
         }
+    }
+
+    // aside：编辑部式序号行，去卡片化，当前行用强调色竖标 + 律动条
+    private var asideQueueRow: some View {
+        HStack(spacing: 10) {
+            Button(action: action) {
+                HStack(spacing: 12) {
+                    ZStack {
+                        if isCurrent {
+                            PlayingVisualizerView(
+                                isAnimating: player.isPlaying,
+                                color: .monologueAccent
+                            )
+                            .frame(width: 18, height: 18)
+                        } else {
+                            Text("\(position)")
+                                .font(.rounded(size: 13, weight: .semibold))
+                                .monospacedDigit()
+                                .foregroundColor(
+                                    QueuePopupPalette.secondaryText.opacity(isPlayed ? 0.45 : 0.7)
+                                )
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.6)
+                        }
+                    }
+                    .frame(width: 26, height: 18)
+
+                    CachedAsyncImage(url: song.coverUrl) {
+                        RoundedRectangle(cornerRadius: 9, style: .continuous)
+                            .fill(Color.monologueTextPrimary.opacity(0.06))
+                            .overlay(
+                                MonologueIcon(icon: .musicNote, size: 14, color: QueuePopupPalette.secondaryText.opacity(0.6), lineWidth: 1.5)
+                            )
+                    }
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 42, height: 42)
+                    .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 9, style: .continuous)
+                            .stroke(Color.monologueTextPrimary.opacity(0.07), lineWidth: 1)
+                    )
+
+                    VStack(alignment: .leading, spacing: 3.5) {
+                        Text(song.name)
+                            .font(.rounded(size: 14.5, weight: isCurrent ? .bold : .medium))
+                            .foregroundColor(
+                                isCurrent
+                                    ? QueuePopupPalette.primaryText
+                                    : QueuePopupPalette.primaryText.opacity(isPlayed ? 0.62 : 0.95)
+                            )
+                            .lineLimit(1)
+
+                        Text(song.artistName.isEmpty ? String(localized: "未知歌手") : song.artistName)
+                            .font(.rounded(size: 11.5, weight: .medium))
+                            .foregroundColor(QueuePopupPalette.secondaryText.opacity(isPlayed ? 0.55 : 0.9))
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    if isCurrent {
+                        Capsule()
+                            .fill(Color.monologueAccent)
+                            .frame(width: 3, height: 24)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if let removeAction, !isCurrent {
+                Button(action: removeAction) {
+                    MonologueIcon(icon: .xmark, size: 10, color: QueuePopupPalette.mutedText.opacity(0.5), lineWidth: 1.6)
+                        .frame(width: 30, height: 30)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.vertical, 7.5)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color.monologueTextPrimary.opacity(0.055))
+                .frame(height: 0.5)
+                .padding(.leading, 38)
+        }
+        .opacity(isPlayed ? 0.85 : 1)
+    }
+
+    private var pureWhiteQueueRow: some View {
+        HStack(spacing: 10) {
+            Button(action: action) {
+                HStack(spacing: 12) {
+                    leadingIndicator
+
+                    CachedAsyncImage(url: song.coverUrl) {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(PureWhiteStyle.surfaceTint)
+                            .overlay(MonologueIcon(icon: .musicNote, size: 16, color: PureWhiteStyle.inkMuted, lineWidth: 1.5))
+                    }
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 48, height: 48)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(PureWhiteStyle.separator, lineWidth: 1)
+                    )
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(song.name)
+                            .font(PureWhiteStyle.bodyFont(15, weight: isCurrent ? .black : .semibold))
+                            .foregroundStyle(PureWhiteStyle.ink.opacity(isPlayed ? 0.6 : 1))
+                            .lineLimit(1)
+
+                        Text(song.artistName.isEmpty ? String(localized: "未知歌手") : song.artistName)
+                            .font(PureWhiteStyle.labelFont(12, weight: .semibold))
+                            .foregroundStyle(PureWhiteStyle.inkSoft.opacity(isPlayed ? 0.6 : 1))
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    if isCurrent {
+                        Capsule(style: .continuous)
+                            .fill(PureWhiteStyle.accent)
+                            .frame(width: 22, height: 4)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+
+            if let removeAction, !isCurrent {
+                Button(action: removeAction) {
+                    MonologueIcon(icon: .xmark, size: 11, color: PureWhiteStyle.inkMuted, lineWidth: 1.6)
+                        .frame(width: 32, height: 32)
+                        .background(
+                            Circle()
+                                .fill(PureWhiteStyle.surfaceTint)
+                                .overlay(Circle().stroke(PureWhiteStyle.separator, lineWidth: 1))
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 10)
+        .background {
+            if isCurrent {
+                // 行高很紧凑，角落短线会压到头部指示器和尾部按钮，关掉
+                PureWhiteSurfaceBackground(
+                    cornerRadius: PureWhiteStyle.cardRadius,
+                    elevated: true,
+                    tint: PureWhiteStyle.surfaceRaised,
+                    showsCornerMarks: false
+                )
+            } else {
+                RoundedRectangle(cornerRadius: PureWhiteStyle.cardRadius, style: .continuous)
+                    .fill(PureWhiteStyle.surface.opacity(0.55))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: PureWhiteStyle.cardRadius, style: .continuous)
+                            .stroke(PureWhiteStyle.separator.opacity(0.7), lineWidth: PureWhiteStyle.fineStrokeWidth)
+                    )
+            }
+        }
+        .opacity(isPlayed ? 0.78 : 1)
+    }
+
+    private var minimalWhiteQueueRow: some View {
+        HStack(spacing: 10) {
+            Button(action: action) {
+                HStack(spacing: 12) {
+                    leadingIndicator
+
+                    CachedAsyncImage(url: song.coverUrl) {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(MinimalWhiteStyle.controlGlassFill)
+                            .overlay(MonologueIcon(icon: .musicNote, size: 16, color: MinimalWhiteStyle.inkMuted, lineWidth: 1.5))
+                    }
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 48, height: 48)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
+                    )
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(song.name)
+                            .font(MinimalWhiteStyle.bodyFont(15, weight: isCurrent ? .semibold : .medium))
+                            .foregroundStyle(MinimalWhiteStyle.ink.opacity(isPlayed ? 0.58 : 1))
+                            .lineLimit(1)
+
+                        Text(song.artistName.isEmpty ? String(localized: "未知歌手") : song.artistName)
+                            .font(MinimalWhiteStyle.labelFont(12, weight: .regular))
+                            .foregroundStyle(MinimalWhiteStyle.inkMuted.opacity(isPlayed ? 0.58 : 1))
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    if isCurrent {
+                        MinimalWhiteIconBadge(icon: .musicNoteList, size: 34, selected: true)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+
+            if let removeAction, !isCurrent {
+                Button(action: removeAction) {
+                    MonologueIcon(icon: .xmark, size: 11, color: MinimalWhiteStyle.inkMuted, lineWidth: 1.6)
+                        .frame(width: 32, height: 32)
+                        .background(MinimalWhiteCircleBackground())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 10)
+        .background(
+            MinimalWhiteSurfaceBackground(
+                cornerRadius: MinimalWhiteStyle.cardRadius,
+                elevated: isCurrent,
+                tint: isCurrent ? MinimalWhiteStyle.glassStrongFill : MinimalWhiteStyle.glassFill
+            )
+        )
+        .opacity(isPlayed ? 0.74 : 1)
     }
 
     private var defaultQueueRow: some View {
@@ -646,21 +1056,21 @@ private struct QueueLinearRow: View {
                         PetWhiteStyle.mint.opacity(0.22)
                     }
                     .aspectRatio(contentMode: .fill)
-                    .frame(width: 50, height: 50)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .frame(width: 48, height: 48)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(PetWhiteStyle.stroke.opacity(0.62), lineWidth: 1.2)
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(PetWhiteStyle.stroke, lineWidth: 1)
                     )
 
-                    VStack(alignment: .leading, spacing: 5) {
+                    VStack(alignment: .leading, spacing: 4) {
                         Text(song.name)
-                            .font(PetWhiteStyle.bodyFont(15, weight: isCurrent ? .black : .bold))
+                            .font(PetWhiteStyle.bodyFont(15, weight: isCurrent ? .bold : .semibold))
                             .foregroundStyle(PetWhiteStyle.ink.opacity(isPlayed ? 0.72 : 1))
                             .lineLimit(1)
 
                         Text(song.artistName.isEmpty ? String(localized: "未知歌手") : song.artistName)
-                            .font(PetWhiteStyle.labelFont(12, weight: .semibold))
+                            .font(PetWhiteStyle.labelFont(12))
                             .foregroundStyle(PetWhiteStyle.inkSoft.opacity(isPlayed ? 0.68 : 1))
                             .lineLimit(1)
                     }
@@ -673,23 +1083,25 @@ private struct QueueLinearRow: View {
 
             if let removeAction, !isCurrent {
                 Button(action: removeAction) {
-                    PetWhitePackIcon(icon: .xmark, size: 12, visualScale: 1.05, fallbackColor: PetWhiteStyle.stroke)
-                        .frame(width: 34, height: 34)
-                        .background(PetWhiteSurfaceBackground(cornerRadius: 14, elevated: false, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.sky))
+                    PetWhitePackIcon(icon: .xmark, size: 12, visualScale: 1.02, fallbackColor: PetWhiteStyle.inkMuted)
+                        .frame(width: 32, height: 32)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 12)
-        .background(
-            PetWhiteSurfaceBackground(
-                cornerRadius: 22,
-                elevated: isCurrent,
-                tint: isCurrent ? PetWhiteStyle.butter.opacity(0.48) : PetWhiteStyle.surfaceRaised.opacity(0.88),
-                accent: PetWhiteStyle.butter
-            )
-        )
+        .background {
+            if isCurrent {
+                PetWhiteSurfaceBackground(
+                    cornerRadius: PetWhiteStyle.cardRadius,
+                    elevated: false,
+                    tint: PetWhiteStyle.butter.opacity(0.42),
+                    accent: PetWhiteStyle.butter
+                )
+            }
+        }
         .opacity(isPlayed ? 0.78 : 1)
     }
 
@@ -823,19 +1235,19 @@ struct QueueRow: View {
         Button(action: action) {
             HStack(spacing: 12) {
                 CachedAsyncImage(url: song.coverUrl) {
-                    Color.gray.opacity(0.2)
+                    MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : Color.gray.opacity(0.2)
                 }
                 .aspectRatio(contentMode: .fill)
-                .frame(width: 44, height: 44)
-                .cornerRadius(8)
+                .frame(width: MinimalWhiteStyle.isActive ? 48 : 44, height: MinimalWhiteStyle.isActive ? 48 : 44)
+                .clipShape(RoundedRectangle(cornerRadius: MinimalWhiteStyle.isActive ? 12 : 8, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(song.name)
-                        .font(.rounded(size: 15, weight: .medium))
+                        .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.bodyFont(15, weight: isCurrent ? .semibold : .medium) : .rounded(size: 15, weight: .medium))
                         .foregroundColor(QueuePopupPalette.primaryText)
                         .lineLimit(1)
                     Text(song.artistName)
-                        .font(.rounded(size: 12, weight: .regular))
+                        .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(12, weight: .regular) : .rounded(size: 12, weight: .regular))
                         .foregroundColor(QueuePopupPalette.secondaryText)
                         .lineLimit(1)
                 }
@@ -851,8 +1263,18 @@ struct QueueRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, 8)
-            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.horizontal, MinimalWhiteStyle.isActive ? 10 : DeviceLayout.viewHorizontalPadding)
+            .background {
+                if MinimalWhiteStyle.isActive {
+                    MinimalWhiteSurfaceBackground(
+                        cornerRadius: MinimalWhiteStyle.cardRadius,
+                        elevated: isCurrent,
+                        tint: isCurrent ? MinimalWhiteStyle.glassStrongFill : MinimalWhiteStyle.glassFill
+                    )
+                }
+            }
         }
+        .padding(.horizontal, MinimalWhiteStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
         .buttonStyle(PlainButtonStyle())
     }
 }
@@ -908,33 +1330,98 @@ struct HistoryRow: View {
             .padding(.vertical, 4)
             .buttonStyle(CapsulePressStyle())
             .themeRenderRowLayer()
+        } else if SettingsManager.shared.globalThemeId == .default {
+            // aside：与队列行同语言的发丝线行
+            Button(action: action) {
+                HStack(spacing: 12) {
+                    CachedAsyncImage(url: song.coverUrl) {
+                        RoundedRectangle(cornerRadius: 9, style: .continuous)
+                            .fill(Color.monologueTextPrimary.opacity(0.06))
+                            .overlay(
+                                MonologueIcon(icon: .musicNote, size: 14, color: Color.monologueTextSecondary.opacity(0.6), lineWidth: 1.5)
+                            )
+                    }
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 42, height: 42)
+                    .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 9, style: .continuous)
+                            .stroke(Color.monologueTextPrimary.opacity(0.07), lineWidth: 1)
+                    )
+
+                    VStack(alignment: .leading, spacing: 3.5) {
+                        Text(song.name)
+                            .font(.rounded(size: 14.5, weight: .medium))
+                            .foregroundColor(.monologueTextPrimary.opacity(0.95))
+                            .lineLimit(1)
+
+                        Text(song.artistName.isEmpty ? String(localized: "未知歌手") : song.artistName)
+                            .font(.rounded(size: 11.5, weight: .medium))
+                            .foregroundColor(.monologueTextSecondary.opacity(0.9))
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    MonologueIcon(icon: .play, size: 11, color: .monologueTextSecondary.opacity(0.55), lineWidth: 1.6)
+                        .frame(width: 28, height: 28)
+                        .background(
+                            Circle().fill(Color.monologueTextPrimary.opacity(0.05))
+                        )
+                }
+                .padding(.vertical, 7.5)
+                .contentShape(Rectangle())
+                .overlay(alignment: .bottom) {
+                    Rectangle()
+                        .fill(Color.monologueTextPrimary.opacity(0.055))
+                        .frame(height: 0.5)
+                        .padding(.leading, 54)
+                }
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .buttonStyle(.plain)
         } else {
             Button(action: action) {
                 HStack(spacing: 12) {
                     CachedAsyncImage(url: song.coverUrl) {
-                        Color.gray.opacity(0.2)
+                        MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : Color.gray.opacity(0.2)
                     }
                     .aspectRatio(contentMode: .fill)
-                    .frame(width: 44, height: 44)
-                    .cornerRadius(8)
+                    .frame(width: MinimalWhiteStyle.isActive ? 48 : 44, height: MinimalWhiteStyle.isActive ? 48 : 44)
+                    .clipShape(RoundedRectangle(cornerRadius: MinimalWhiteStyle.isActive ? 12 : 8, style: .continuous))
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(song.name)
-                            .font(.rounded(size: 15, weight: .medium))
+                            .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.bodyFont(15, weight: .medium) : .rounded(size: 15, weight: .medium))
                             .foregroundColor(QueuePopupPalette.primaryText)
                             .lineLimit(1)
                         Text(song.artistName)
-                            .font(.rounded(size: 12, weight: .regular))
+                            .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(12, weight: .regular) : .rounded(size: 12, weight: .regular))
                             .foregroundColor(QueuePopupPalette.secondaryText)
                             .lineLimit(1)
                     }
                     Spacer()
-                    MonologueIcon(icon: .play, size: 24, color: NeumorphicStyle.isActive ? QueuePopupPalette.accent.opacity(0.72) : QueuePopupPalette.secondaryText.opacity(0.5))
+                    MonologueIcon(icon: .play, size: MinimalWhiteStyle.isActive ? 13 : 24, color: MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : (NeumorphicStyle.isActive ? QueuePopupPalette.accent.opacity(0.72) : QueuePopupPalette.secondaryText.opacity(0.5)))
+                        .frame(width: MinimalWhiteStyle.isActive ? 34 : 24, height: MinimalWhiteStyle.isActive ? 34 : 24)
+                        .background {
+                            if MinimalWhiteStyle.isActive {
+                                MinimalWhiteCircleBackground()
+                            }
+                        }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.vertical, 8)
-                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                .padding(.horizontal, MinimalWhiteStyle.isActive ? 10 : DeviceLayout.viewHorizontalPadding)
+                .background {
+                    if MinimalWhiteStyle.isActive {
+                        MinimalWhiteSurfaceBackground(
+                            cornerRadius: MinimalWhiteStyle.cardRadius,
+                            elevated: false,
+                            tint: MinimalWhiteStyle.glassFill
+                        )
+                    }
+                }
             }
+            .padding(.horizontal, MinimalWhiteStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
             .buttonStyle(PlainButtonStyle())
         }
     }
@@ -952,12 +1439,27 @@ struct EmptyStateView: View {
         VStack(spacing: 16) {
             Spacer()
                 .frame(height: 100)
-            MonologueIcon(icon: icon, size: 48, color: QueuePopupPalette.mutedText.opacity(0.36))
+            if MinimalWhiteStyle.isActive {
+                MinimalWhiteIconBadge(icon: icon, size: 54)
+            } else {
+                MonologueIcon(icon: icon, size: 48, color: QueuePopupPalette.mutedText.opacity(0.36))
+            }
             Text(LocalizedStringKey(text))
-                .font(.rounded(size: 16, weight: .medium))
+                .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.bodyFont(15, weight: .medium) : .rounded(size: 16, weight: .medium))
                 .foregroundColor(QueuePopupPalette.secondaryText)
             Spacer()
         }
+        .frame(maxWidth: .infinity)
+        .background {
+            if MinimalWhiteStyle.isActive {
+                MinimalWhiteSurfaceBackground(
+                    cornerRadius: MinimalWhiteStyle.cardRadius,
+                    elevated: false,
+                    tint: MinimalWhiteStyle.glassFill
+                )
+            }
+        }
+        .padding(.horizontal, MinimalWhiteStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
     }
 }
 

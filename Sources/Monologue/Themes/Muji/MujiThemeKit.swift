@@ -1,48 +1,73 @@
 import SwiftUI
 
+/// 无印良品主题基座 — 「青苔手帖」文艺清新
+///
+/// 设计基因：
+/// · 青竹绿 + 杏子暖 + 雾蓝，落在微微偏绿的清新米白纸面上；
+/// · 不用发丝线、不用描边：分区靠留白、水洗色块（低透明度色浸）与针脚点缀；
+/// · 衬线标题保留文艺气质，配圆体小注；圆角放大、阴影极柔，像一册手帖。
 enum MujiStyle {
     static var isActive: Bool {
         GlobalThemeId.persistedOrDefault == .muji
     }
 
+    // ── 纸与面 ──
+
     static var paper: Color {
-        ThemeColorCustomization.backgroundBase(for: .muji, fallback: Color(light: Color(hex: "F8F4ED"), dark: Color(hex: "1E1A16")), fallbackHex: "F8F4ED")
+        ThemeColorCustomization.backgroundBase(for: .muji, fallback: Color(light: Color(hex: "F7F6EF"), dark: Color(hex: "1C1E19")), fallbackHex: "F7F6EF")
     }
 
-    static let surface = Color(light: Color(hex: "FFFCF7"), dark: Color(hex: "2A2521"))
-    static let surfaceRaised = Color(light: Color(hex: "FBF6EE"), dark: Color(hex: "352E28"))
-    static let ink = Color(light: Color(hex: "2C2520"), dark: Color(hex: "F2EBE0"))
-    static let inkSoft = Color(light: Color(hex: "7A6F64"), dark: Color(hex: "B8A99A"))
-    static let inkMuted = Color(light: Color(hex: "9E9285"), dark: Color(hex: "8A7D70"))
+    static let surface = Color(light: Color(hex: "FDFCF6"), dark: Color(hex: "262922"))
+    static let surfaceRaised = Color(light: Color(hex: "F0EFE4"), dark: Color(hex: "2F332A"))
+
+    // ── 墨 ──
+
+    static let ink = Color(light: Color(hex: "31352B"), dark: Color(hex: "EDEEE3"))
+    static let inkSoft = Color(light: Color(hex: "6E7465"), dark: Color(hex: "A9B29D"))
+    static let inkMuted = Color(light: Color(hex: "98A08D"), dark: Color(hex: "7A8370"))
+
     static var onTint: Color {
-        ThemeColorCustomization.readableForegroundColor(on: clay, light: Color(hex: "211A15"), dark: Color(hex: "FFF8EF"))
+        // readableForegroundColor 约定:light = 亮底上用的深字,dark = 深底上用的浅字
+        ThemeColorCustomization.readableForegroundColor(on: clay, light: Color(hex: "13291C"), dark: Color(hex: "FBFDF8"))
     }
-    static let onImage = Color(light: Color(hex: "FFFDF8"), dark: Color(hex: "FFF7EA"))
+
+    static let onImage = Color(light: Color(hex: "FDFEF9"), dark: Color(hex: "F4F8EC"))
+
+    // ── 色：青竹绿为主，杏子 / 雾蓝 / 柔黄为辅 ──
+    // 注：token 名沿用旧版（clay 即主强调色），避免调用点大改
+
     static var clay: Color {
-        ThemeColorCustomization.accentColor(for: .muji, fallback: Color(light: Color(hex: "B8694A"), dark: Color(hex: "C98261")), fallbackHex: "B8694A")
+        ThemeColorCustomization.accentColor(for: .muji, fallback: Color(light: Color(hex: "5C8A6A"), dark: Color(hex: "8FBF9C")), fallbackHex: "5C8A6A")
     }
 
-    static let tea = Color(light: Color(hex: "6B7B5E"), dark: Color(hex: "8A9B7A"))
-    static let indigo = Color(light: Color(hex: "4A5B6B"), dark: Color(hex: "7A8B9B"))
-    static let straw = Color(light: Color(hex: "C4A55A"), dark: Color(hex: "D4B56A"))
-    static let red = Color(light: Color(hex: "B94E3D"), dark: Color(hex: "CF6858"))
-    static let separator = Color(light: Color(hex: "DDD2C2"), dark: Color(hex: "5A4E42"))
-    static let hairline = Color(light: Color(hex: "C8B9A6"), dark: Color(hex: "6E6054"))
+    static let tea = Color(light: Color(hex: "C89B66"), dark: Color(hex: "D9B584"))
+    static let indigo = Color(light: Color(hex: "6E93A3"), dark: Color(hex: "93B7C6"))
+    static let straw = Color(light: Color(hex: "C9AE6B"), dark: Color(hex: "D9C285"))
+    static let red = Color(light: Color(hex: "C06B5C"), dark: Color(hex: "D08A7C"))
 
-    static let cardRadius: CGFloat = 12
-    static let buttonRadius: CGFloat = 9
+    /// 分隔色：仅供针脚点缀使用，保持极浅
+    static let separator = Color(light: Color(hex: "B9BFA9"), dark: Color(hex: "4A5142"))
+    /// 旧发丝线 token：清新版整体弃用描边，此色压到近乎不可见，兼容尚未清理的旧调用点
+    static let hairline = Color(light: Color(hex: "C9CDBB").opacity(0.24), dark: Color(hex: "4A5142").opacity(0.3))
+
+    // ── 形 ──
+
+    static let cardRadius: CGFloat = 18
+    static let buttonRadius: CGFloat = 12
 
     static var accentGradient: LinearGradient {
         LinearGradient(
             colors: ThemeColorCustomization.accentGradientColors(
                 for: .muji,
-                fallback: [clay, straw.opacity(0.92), tea.opacity(0.82)],
-                fallbackHexes: ["B8694A", "C4A55A"]
+                fallback: [clay, tea.opacity(0.92), indigo.opacity(0.8)],
+                fallbackHexes: ["5C8A6A", "C89B66"]
             ),
             startPoint: ThemeColorCustomization.gradientStyle(for: .muji, role: .accent).points.start,
             endPoint: ThemeColorCustomization.gradientStyle(for: .muji, role: .accent).points.end
         )
     }
+
+    // ── 字：衬线文题 + 圆体小注 ──
 
     static func titleFont(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
         .system(size: size, weight: weight, design: .serif)
@@ -55,6 +80,13 @@ enum MujiStyle {
     static func labelFont(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
         .system(size: size, weight: weight, design: .rounded)
     }
+
+    // ── 水洗色块：清新版的容器语言 ──
+
+    /// 低透明度色浸底色（light 稍深、dark 稍亮，保证可感知）
+    static func wash(_ tint: Color, strength: Double = 1) -> Color {
+        tint.opacity(0.11 * strength)
+    }
 }
 
 struct MujiRootBackdrop: View {
@@ -66,70 +98,89 @@ struct MujiRootBackdrop: View {
         ZStack {
             MujiStyle.paper
 
-            MujiPaperTexture(opacity: colorScheme == .dark ? 0.15 : 0.30)
+            MujiFreshAirBackdrop()
+
+            MujiPaperTexture(opacity: colorScheme == .dark ? 0.1 : 0.2)
         }
         .ignoresSafeArea()
     }
 }
 
-struct MujiPaperTexture: View {
-    var opacity: Double = 0.30
-
-    /// 低电量模式下降低纹理复杂度
-    private var isLowPowerMode: Bool {
-        ProcessInfo.processInfo.isLowPowerModeEnabled
-    }
+/// 清新空气感底色：角落两团极淡的水彩色晕（青竹 + 杏子），像纸上洇开的颜料
+struct MujiFreshAirBackdrop: View {
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        Canvas { context, size in
-            let fiber = MujiStyle.inkMuted.opacity(opacity)
+        GeometryReader { proxy in
+            let size = proxy.size
+            let alpha = colorScheme == .dark ? 0.10 : 0.16
 
-            // 低电量模式：仅绘制稀疏水平纤维线，降低 GPU 负载
-            if isLowPowerMode {
-                for index in stride(from: 0, through: Int(size.height) + 24, by: 36) {
-                    var path = Path()
-                    let y = CGFloat(index)
-                    path.move(to: CGPoint(x: -12, y: y))
-                    path.addLine(to: CGPoint(x: size.width + 12, y: y + CGFloat((index % 5) - 2)))
-                    context.stroke(path, with: .color(fiber.opacity(0.10)), lineWidth: 0.4)
-                }
-                return
-            }
+            ZStack {
+                Ellipse()
+                    .fill(
+                        RadialGradient(
+                            colors: [MujiStyle.clay.opacity(alpha), .clear],
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: size.width * 0.62
+                        )
+                    )
+                    .frame(width: size.width * 1.24, height: size.width * 0.9)
+                    .position(x: size.width * 0.12, y: -size.width * 0.08)
 
-            // 水平纤维线，间距 18px
-            for index in stride(from: 0, through: Int(size.height) + 24, by: 18) {
-                var path = Path()
-                let y = CGFloat(index)
-                path.move(to: CGPoint(x: -12, y: y))
-                path.addLine(to: CGPoint(x: size.width + 12, y: y + CGFloat((index % 5) - 2)))
-                context.stroke(path, with: .color(fiber.opacity(index.isMultiple(of: 3) ? 0.16 : 0.08)), lineWidth: 0.45)
-            }
-
-            // 垂直纤维线，间距 26px
-            for index in stride(from: 0, through: Int(size.width) + 24, by: 26) {
-                var path = Path()
-                let x = CGFloat(index)
-                path.move(to: CGPoint(x: x, y: -12))
-                path.addLine(to: CGPoint(x: x + CGFloat((index % 7) - 3), y: size.height + 12))
-                context.stroke(path, with: .color(fiber.opacity(0.045)), lineWidth: 0.35)
-            }
-
-            // 暖色斑点，透明度 0.05
-            let warmSpot = MujiStyle.straw.opacity(0.05)
-            for index in 0 ..< 18 {
-                let rect = CGRect(
-                    x: size.width * CGFloat((index * 37) % 100) / 100,
-                    y: size.height * CGFloat((index * 53) % 100) / 100,
-                    width: CGFloat(28 + (index % 5) * 11),
-                    height: 1
-                )
-                context.fill(Path(roundedRect: rect, cornerRadius: 0.5), with: .color(warmSpot))
+                Ellipse()
+                    .fill(
+                        RadialGradient(
+                            colors: [MujiStyle.tea.opacity(alpha * 0.8), .clear],
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: size.width * 0.56
+                        )
+                    )
+                    .frame(width: size.width * 1.12, height: size.width * 0.84)
+                    .position(x: size.width * 0.96, y: size.height * 1.02)
             }
         }
         .allowsHitTesting(false)
     }
 }
 
+/// 纸面肌理：稀疏的细点颗粒，安静的手帖底噪
+struct MujiPaperTexture: View {
+    var opacity: Double = 0.2
+
+    /// 低电量模式下省掉纹理
+    private var isLowPowerMode: Bool {
+        ProcessInfo.processInfo.isLowPowerModeEnabled
+    }
+
+    var body: some View {
+        Canvas { context, size in
+            if isLowPowerMode { return }
+
+            let grain = MujiStyle.inkMuted.opacity(opacity)
+
+            // 伪随机散点颗粒
+            var seed: UInt64 = 0x9E3779B97F4A7C15
+            func next() -> CGFloat {
+                seed = seed &* 6364136223846793005 &+ 1442695040888963407
+                return CGFloat((seed >> 33) % 1000) / 1000
+            }
+
+            let count = Int(size.width * size.height / 5200)
+            for _ in 0 ..< count {
+                let x = next() * size.width
+                let y = next() * size.height
+                let d = 0.7 + next() * 0.9
+                let rect = CGRect(x: x, y: y, width: d, height: d)
+                context.fill(Path(ellipseIn: rect), with: .color(grain.opacity(0.16 + Double(next()) * 0.2)))
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// 纸面卡片底：柔和水洗面，无描边，阴影极轻
 struct MujiPaperCardBackground: View {
     @Environment(\.colorScheme) private var colorScheme
 
@@ -138,22 +189,28 @@ struct MujiPaperCardBackground: View {
 
     var body: some View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(elevated ? MujiStyle.surfaceRaised : MujiStyle.surface)
-            .overlay(MujiPaperTexture(opacity: colorScheme == .dark ? 0.06 : 0.10).clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)))
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(MujiStyle.hairline.opacity(colorScheme == .dark ? (elevated ? 0.84 : 0.66) : (elevated ? 0.72 : 0.54)), lineWidth: elevated ? 0.65 : 0.6)
-            )
+            .fill(elevated ? MujiStyle.surface : MujiStyle.surfaceRaised.opacity(colorScheme == .dark ? 0.9 : 0.75))
             .shadow(
-                color: Color.black.opacity(colorScheme == .dark ? (elevated ? 0.04 : 0.025) : (elevated ? 0.075 : 0.045)),
+                color: MujiStyle.ink.opacity(colorScheme == .dark ? 0.0 : (elevated ? 0.06 : 0.03)),
                 radius: elevated ? 14 : 8,
                 x: 0,
-                y: elevated ? 7 : 3
+                y: elevated ? 6 : 3
             )
             .themeRenderSurfaceLayer(isEnabled: elevated)
     }
 }
 
+/// 针脚线：手帖里的缝线点缀，替代一切发丝分隔线
+struct MujiStitchLine: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.midY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
+        return path
+    }
+}
+
+/// 分组标题：双色圆点标记 + 衬线标题 + 水洗胶囊动作
 struct MujiSectionTitle: View {
     let title: String
     var detail: String?
@@ -161,42 +218,69 @@ struct MujiSectionTitle: View {
     var action: (() -> Void)?
 
     var body: some View {
-        HStack(alignment: .bottom, spacing: 14) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(title)
-                    .font(MujiStyle.titleFont(18, weight: .medium))
-                    .foregroundStyle(MujiStyle.ink)
-                    .tracking(0.6)
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
+                    MujiDotMark()
+
+                    Text(title)
+                        .font(MujiStyle.titleFont(19, weight: .medium))
+                        .foregroundStyle(MujiStyle.ink)
+                        .tracking(0.6)
+                }
 
                 if let detail, !detail.isEmpty {
                     Text(detail)
-                        .font(MujiStyle.labelFont(11))
+                        .font(MujiStyle.labelFont(10.5))
                         .foregroundStyle(MujiStyle.inkMuted)
+                        .tracking(0.8)
+                        .padding(.leading, 22)
                 }
             }
+            .layoutPriority(1)
 
-            Rectangle()
-                .fill(MujiStyle.separator)
-                .frame(height: 0.6)
-                .padding(.bottom, 7)
+            Spacer(minLength: 8)
 
             if let actionTitle, let action {
                 Button(action: action) {
-                    Text(actionTitle)
-                        .font(MujiStyle.labelFont(10, weight: .semibold))
-                        .foregroundStyle(MujiStyle.inkSoft)
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 5)
-                        .background(MujiStyle.surface, in: Capsule())
-                        .overlay(Capsule().stroke(MujiStyle.hairline.opacity(0.44), lineWidth: 0.6))
+                    HStack(spacing: 4) {
+                        Text(actionTitle)
+                            .font(MujiStyle.labelFont(10.5, weight: .semibold))
+                            .tracking(0.6)
+
+                        MonologueIcon(icon: .chevronRight, size: 8, color: MujiStyle.clay, lineWidth: 1.6)
+                    }
+                    .foregroundStyle(MujiStyle.clay)
+                    .padding(.horizontal, 11)
+                    .padding(.vertical, 6)
+                    .background(MujiStyle.wash(MujiStyle.clay), in: Capsule())
+                    .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
-                .padding(.bottom, 1)
             }
         }
     }
 }
 
+/// 双色圆点标记：青竹实点 + 杏子小点，手帖里的段落记号
+struct MujiDotMark: View {
+    var tint: Color = MujiStyle.clay
+    var companion: Color = MujiStyle.tea
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Circle()
+                .fill(tint)
+                .frame(width: 7, height: 7)
+
+            Circle()
+                .fill(companion.opacity(0.85))
+                .frame(width: 4, height: 4)
+        }
+    }
+}
+
+/// 页面头部：清新刊头 —— 圆点眉题 + 衬线大标题 + 柔和引言
 struct MujiPageHeader<Accessory: View>: View {
     let eyebrow: String
     let title: String
@@ -204,36 +288,44 @@ struct MujiPageHeader<Accessory: View>: View {
     @ViewBuilder let accessory: Accessory
 
     var body: some View {
-        HStack(alignment: .top, spacing: 18) {
-            VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                MujiDotMark()
+
                 Text(eyebrow.uppercased())
                     .font(MujiStyle.labelFont(10, weight: .semibold))
                     .foregroundStyle(MujiStyle.clay)
-                    .tracking(1.2)
-
-                Text(title)
-                    .font(MujiStyle.titleFont(30, weight: .regular))
-                    .foregroundStyle(MujiStyle.ink)
-                    .tracking(0.3)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.78)
-
-                if !subtitle.isEmpty {
-                    Text(subtitle)
-                        .font(MujiStyle.labelFont(12, weight: .regular))
-                        .foregroundStyle(MujiStyle.inkSoft)
-                        .lineSpacing(3)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                    .tracking(2.2)
+                    .fixedSize()
             }
 
-            Spacer(minLength: 10)
+            HStack(alignment: .center, spacing: 16) {
+                VStack(alignment: .leading, spacing: 7) {
+                    Text(title)
+                        .font(MujiStyle.titleFont(30, weight: .medium))
+                        .foregroundStyle(MujiStyle.ink)
+                        .tracking(0.3)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.78)
 
-            accessory
+                    if !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(MujiStyle.bodyFont(12.5))
+                            .foregroundStyle(MujiStyle.inkSoft)
+                            .lineSpacing(3)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
+                Spacer(minLength: 10)
+
+                accessory
+            }
         }
         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
         .padding(.top, DeviceLayout.headerTopPadding + 8)
         .padding(.bottom, 12)
+        .monologuePageHeaderCollapse()
     }
 }
 
@@ -245,6 +337,7 @@ extension MujiPageHeader where Accessory == EmptyView {
     }
 }
 
+/// 图标记号：水洗圆底 + 着色图标，柔和友好
 struct MujiIconBadge: View {
     let icon: MonologueIcon.IconType
     var tint: Color = MujiStyle.clay
@@ -253,26 +346,23 @@ struct MujiIconBadge: View {
 
     var body: some View {
         let _ = settings.globalThemeRevision
-        RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .fill(tint.opacity(0.11))
+        Circle()
+            .fill(MujiStyle.wash(tint, strength: 1.25))
             .frame(width: size, height: size)
             .overlay(
-                MonologueIcon(icon: icon, size: size * 0.42, color: tint, lineWidth: 1.4)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(tint.opacity(0.28), lineWidth: 0.6)
+                MonologueIcon(icon: icon, size: size * 0.4, color: tint, lineWidth: 1.5)
             )
     }
 }
 
+/// 数据签：水洗圆角底上的衬线数字 + 小注
 struct MujiMetricTile: View {
     let value: String
     let label: String
     var tint: Color = MujiStyle.clay
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 5) {
             Text(value)
                 .font(MujiStyle.titleFont(22, weight: .medium))
                 .foregroundStyle(tint)
@@ -280,18 +370,19 @@ struct MujiMetricTile: View {
                 .minimumScaleFactor(0.7)
 
             Text(label)
-                .font(MujiStyle.labelFont(10, weight: .medium))
-                .foregroundStyle(MujiStyle.inkMuted)
+                .font(MujiStyle.labelFont(9.5, weight: .medium))
+                .foregroundStyle(MujiStyle.inkSoft)
+                .tracking(1.1)
+                .textCase(.uppercase)
                 .lineLimit(1)
                 .minimumScaleFactor(0.72)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 11)
-        .background(MujiStyle.surface.opacity(0.72), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(MujiStyle.hairline.opacity(0.42), lineWidth: 0.6)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(MujiStyle.wash(tint))
         )
     }
 }
@@ -306,31 +397,19 @@ struct MujiNowPlayingIndicator: View {
             HStack(alignment: .bottom, spacing: 3) {
                 ForEach(0 ..< 3, id: \.self) { index in
                     RoundedRectangle(cornerRadius: 1.4, style: .continuous)
-                        .fill(barColor(index).opacity(isAnimating ? 0.86 : 0.5))
+                        .fill(MujiStyle.clay.opacity(isAnimating ? 0.92 : 0.6))
                         .frame(width: 3, height: reduceMotion ? staticBarHeight(index) : barHeight(index, at: timeline.date))
                 }
             }
             .frame(width: 28, height: 24)
             .background(
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .fill(MujiStyle.surface.opacity(0.93))
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(MujiStyle.surface.opacity(0.95))
+                    .shadow(color: MujiStyle.ink.opacity(0.08), radius: 5, x: 0, y: 2)
             )
-            .overlay(
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .stroke(MujiStyle.hairline.opacity(0.5), lineWidth: 0.6)
-            )
-            .shadow(color: MujiStyle.clay.opacity(0.12), radius: 6, x: 0, y: 3)
         }
         .frame(width: 28, height: 24)
         .allowsHitTesting(false)
-    }
-
-    private func barColor(_ index: Int) -> Color {
-        switch index {
-        case 0: return MujiStyle.clay
-        case 1: return MujiStyle.tea
-        default: return MujiStyle.indigo
-        }
     }
 
     /// reduceMotion 启用时使用静态高度
@@ -349,6 +428,7 @@ struct MujiNowPlayingIndicator: View {
     }
 }
 
+/// 动作签：水洗胶囊，选中时青竹填色
 struct MujiActionPill: View {
     let title: String
     let icon: MonologueIcon.IconType
@@ -365,30 +445,32 @@ struct MujiActionPill: View {
                 .foregroundStyle(foreground)
                 .lineLimit(1)
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 14)
         .padding(.vertical, 9)
-        .background(selected ? tint : MujiStyle.surface.opacity(0.78), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(selected ? tint.opacity(0.0) : MujiStyle.hairline.opacity(0.48), lineWidth: 0.6)
-        )
+        .background(selected ? AnyShapeStyle(tint) : AnyShapeStyle(MujiStyle.wash(tint, strength: 1.1)), in: Capsule())
     }
 
     private var foreground: Color {
         selected
-            ? ThemeColorCustomization.readableForegroundColor(on: tint, light: MujiStyle.ink, dark: Color.white)
-            : MujiStyle.ink
+            ? ThemeColorCustomization.readableForegroundColor(on: tint, light: Color.white, dark: Color(hex: "13291C"))
+            : tint
     }
 }
 
+/// 针脚分隔：一排细小缝线点，替代旧发丝分隔线
 struct MujiListDivider: View {
     var body: some View {
-        Rectangle()
-            .fill(MujiStyle.separator.opacity(0.72))
-            .frame(height: 0.6)
+        MujiStitchLine()
+            .stroke(
+                MujiStyle.separator.opacity(0.55),
+                style: StrokeStyle(lineWidth: 1.7, lineCap: .round, dash: [0.1, 8])
+            )
+            .frame(height: 2)
+            .padding(.horizontal, 1)
     }
 }
 
+/// 标签：水洗小胶囊 + small caps 文字
 struct MujiPill: View {
     let text: String
     var tint: Color = MujiStyle.clay
@@ -397,13 +479,13 @@ struct MujiPill: View {
     var body: some View {
         let _ = settings.globalThemeRevision
         Text(text)
-            .font(MujiStyle.labelFont(10, weight: .semibold))
+            .font(MujiStyle.labelFont(9.5, weight: .semibold))
             .foregroundStyle(tint)
-            .tracking(0.8)
+            .tracking(1)
+            .textCase(.uppercase)
             .padding(.horizontal, 9)
-            .padding(.vertical, 5)
-            .background(tint.opacity(0.09), in: Capsule())
-            .overlay(Capsule().stroke(tint.opacity(0.28), lineWidth: 0.6))
+            .padding(.vertical, 4)
+            .background(MujiStyle.wash(tint, strength: 1.15), in: Capsule())
     }
 }
 

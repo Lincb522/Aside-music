@@ -77,7 +77,8 @@ struct ScrollableLibraryExperience: View {
     }
 
     private var contentHorizontalPadding: CGFloat {
-        PetWhiteStyle.isActive ? (DeviceLayout.isPad ? 16 : 10) : DeviceLayout.libraryHorizontalPadding
+        if MinimalWhiteStyle.isActive { return DeviceLayout.libraryHorizontalPadding }
+        return PetWhiteStyle.isActive ? (DeviceLayout.isPad ? 16 : 10) : DeviceLayout.libraryHorizontalPadding
     }
 
     var body: some View {
@@ -89,6 +90,7 @@ struct ScrollableLibraryExperience: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
                     header
+                        .monologuePageHeaderCollapse()
                     tabContent
                 }
                 .padding(.bottom, 128)
@@ -140,7 +142,9 @@ struct ScrollableLibraryExperience: View {
 
     @ViewBuilder
     private var header: some View {
-        if LiquidGlassStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            minimalWhiteHeader
+        } else if LiquidGlassStyle.isActive {
             liquidGlassHeaderDeck
         } else if PetWhiteStyle.isActive {
             petWhiteHeaderDeck
@@ -155,22 +159,28 @@ struct ScrollableLibraryExperience: View {
         } else {
             VStack(alignment: .leading, spacing: 14) {
                 if MujiStyle.isActive {
-                    MujiPageHeader(eyebrow: "collection shelves", title: String(localized: "tabbar_library"), subtitle: "") {
-                        MujiIconBadge(icon: .library, tint: MujiStyle.tea, size: 48)
+                    // 清新刊头：圆点眉题 + 衬线大标题
+                    VStack(alignment: .leading, spacing: 11) {
+                        HStack(alignment: .center, spacing: 8) {
+                            MujiDotMark()
+
+                            Text("MUSIC SHELF")
+                                .font(MujiStyle.labelFont(10, weight: .semibold))
+                                .foregroundStyle(MujiStyle.clay)
+                                .tracking(2.2)
+                                .fixedSize()
+                        }
+
+                        Text(String(localized: "tabbar_library"))
+                            .font(MujiStyle.titleFont(30, weight: .medium))
+                            .foregroundStyle(MujiStyle.ink)
+                            .tracking(0.3)
                     }
                 } else {
-                    HStack(spacing: 12) {
-                        MonologueIcon(icon: .libraryFilled, size: 24, color: .monologueIconForeground, lineWidth: 2)
-                            .frame(width: 50, height: 50)
-                            .background(Color.monologueIconBackground, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                            .shadow(color: Color.monologueIconBackground.opacity(0.18), radius: 10, y: 5)
-
-                        Text(LocalizedStringKey("tabbar_library"))
-                            .font(.system(size: 28, weight: .bold, design: .rounded))
-                            .foregroundColor(.monologueTextPrimary)
-
-                        Spacer(minLength: 0)
-                    }
+                    Text(LocalizedStringKey("tabbar_library"))
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .foregroundColor(.monologueTextPrimary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
                 tabStrip
@@ -180,47 +190,52 @@ struct ScrollableLibraryExperience: View {
         }
     }
 
+    private var minimalWhiteHeader: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text(String(localized: "tabbar_library"))
+                .font(MinimalWhiteStyle.titleFont(30, weight: .semibold))
+                .foregroundStyle(MinimalWhiteStyle.ink)
+
+            minimalWhiteTabStrip
+        }
+        .padding(.horizontal, contentHorizontalPadding)
+        .padding(.top, DeviceLayout.headerTopPadding + 8)
+    }
+
+    private var minimalWhiteTabStrip: some View {
+        HStack(spacing: 4) {
+            ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
+                let selected = tabIndex == index
+                Button {
+                    selectTab(tab, index: index)
+                } label: {
+                    Text(tab.localizedKey)
+                        .font(MinimalWhiteStyle.labelFont(13, weight: selected ? .medium : .regular))
+                        .foregroundStyle(selected ? MinimalWhiteStyle.ink : MinimalWhiteStyle.inkMuted)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                        .background {
+                            if selected {
+                                MinimalWhiteCapsuleBackground(elevated: false, selected: true)
+                            }
+                        }
+                        .contentShape(Capsule(style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(3)
+        .background(MinimalWhiteCapsuleBackground(elevated: true))
+    }
+
     private var neumorphicHeaderDeck: some View {
         VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 15) {
-                HStack(alignment: .top, spacing: 14) {
-                    NeumorphicIconBadge(icon: icon(for: selectedTab), tint: activeTabTint, size: 52)
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(activeTabEyebrow)
-                            .font(NeumorphicStyle.labelFont(10, weight: .semibold))
-                            .foregroundStyle(activeTabTint)
-                            .tracking(1.1)
-
-                        Text(String(localized: "tabbar_library"))
-                            .font(NeumorphicStyle.titleFont(30, weight: .semibold))
-                            .foregroundStyle(NeumorphicStyle.ink)
-                            .lineLimit(1)
-                    }
-
-                    Spacer(minLength: 8)
-
-                    Text(activeTabShortLabel)
-                        .font(NeumorphicStyle.labelFont(10, weight: .semibold))
-                        .foregroundStyle(activeTabTint)
-                        .lineLimit(1)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 7)
-                        .background(
-                            Capsule()
-                                .fill(activeTabTint.opacity(0.13))
-                        )
-                }
-
-            }
-            .padding(16)
-            .background(
-                NeumorphicSurfaceBackground(
-                    cornerRadius: 28,
-                    elevated: true,
-                    tint: activeTabTint.opacity(0.06)
-                )
-            )
+            Text(String(localized: "tabbar_library"))
+                .font(NeumorphicStyle.titleFont(29, weight: .semibold))
+                .foregroundStyle(NeumorphicStyle.ink)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
             tabStrip
         }
@@ -229,45 +244,21 @@ struct ScrollableLibraryExperience: View {
     }
 
     private var petWhiteHeaderDeck: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Elegant, frameless header with beautiful breathing room and playful elements
-            HStack(alignment: .center, spacing: 10) {
-                // Left badge - stands out beautifully on the paper backdrop
-                PetWhiteIconBadge(icon: icon(for: selectedTab), tint: activeTabTint, size: 38)
-                    .shadow(color: activeTabTint.opacity(0.10), radius: 5, y: 2)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 5) {
-                        PetWhitePill(text: activeTabEyebrow, tint: activeTabTint)
-                        PetWhitePill(text: activeTabShortLabel, tint: PetWhiteStyle.butter)
-                    }
-
-                    Text(String(localized: "tabbar_library"))
-                        .font(PetWhiteStyle.titleFont(24, weight: .black))
-                        .foregroundStyle(PetWhiteStyle.ink)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.82)
-                }
-                .layoutPriority(1)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 12) {
+                Text(String(localized: "tabbar_library"))
+                    .font(PetWhiteStyle.titleFont(26, weight: .bold))
+                    .foregroundStyle(PetWhiteStyle.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+                    .layoutPriority(1)
 
                 Spacer(minLength: 8)
 
-                // The mascot paw floats beautifully in a playful circle container
-                PetWhitePetPetIcon(size: 34)
-                    .padding(5)
-                    .background(
-                        Circle()
-                            .fill(PetWhiteStyle.surfaceRaised)
-                            .shadow(color: PetWhiteStyle.ink.opacity(0.05), radius: 4, y: 2)
-                    )
-                    .overlay(
-                        Circle()
-                            .stroke(PetWhiteStyle.stroke, lineWidth: 1.2)
-                    )
+                PetWhitePetPetIcon(size: 36)
             }
             .padding(.horizontal, 2)
 
-            // The main interactive tab controller (keeps its solid, tactile dock-like appearance)
             tabStrip
         }
         .padding(.horizontal, contentHorizontalPadding)
@@ -351,7 +342,9 @@ struct ScrollableLibraryExperience: View {
 
     @ViewBuilder
     private var tabStrip: some View {
-        if LiquidGlassStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            minimalWhiteTabStrip
+        } else if LiquidGlassStyle.isActive {
             liquidGlassTabDeck
         } else if PetWhiteStyle.isActive {
             petWhiteTabDeck
@@ -363,6 +356,8 @@ struct ScrollableLibraryExperience: View {
             sequoiaTabDeck
         } else if CapsuleStyle.isActive {
             capsuleTabDeck
+        } else if MujiStyle.isActive {
+            mujiTabStrip
         } else {
             HStack(spacing: 6) {
                 ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
@@ -392,47 +387,43 @@ struct ScrollableLibraryExperience: View {
         }
     }
 
+    /// Muji：目次式页签 —— 裸排衬线文字 + 陶土短下划线，无容器
+    private var mujiTabStrip: some View {
+        HStack(spacing: 24) {
+            ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
+                let selected = tabIndex == index
+                Button {
+                    selectTab(tab, index: index)
+                } label: {
+                    VStack(spacing: 6) {
+                        Text(tab.localizedKey)
+                            .font(MujiStyle.bodyFont(14.5, weight: selected ? .medium : .regular))
+                            .foregroundStyle(selected ? MujiStyle.ink : MujiStyle.inkMuted)
+                            .lineLimit(1)
+                            .animation(.none, value: tabIndex)
+
+                        Rectangle()
+                            .fill(MujiStyle.clay.opacity(0.85))
+                            .frame(width: 16, height: 1.4)
+                            .opacity(selected ? 1 : 0)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .animation(.spring(response: 0.34, dampingFraction: 0.86), value: tabIndex)
+    }
+
     private var capsuleHeaderDeck: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .center, spacing: 12) {
-                CapsuleIconBadge(icon: icon(for: selectedTab), tint: activeTabTint, size: 46)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(activeTabEyebrow)
-                        .font(CapsuleStyle.labelFont(10, weight: .bold))
-                        .foregroundStyle(activeTabTint)
-                        .tracking(1.1)
-
-                    Text(String(localized: "tabbar_library"))
-                        .font(CapsuleStyle.titleFont(25, weight: .bold))
-                        .foregroundStyle(CapsuleStyle.ink)
-                        .lineLimit(1)
-                }
-
-                Spacer(minLength: 8)
-
-                HStack(spacing: 6) {
-                    Capsule()
-                        .fill(activeTabTint)
-                        .frame(width: 24, height: 8)
-                    Capsule()
-                        .fill(CapsuleStyle.cyan.opacity(0.65))
-                        .frame(width: 10, height: 8)
-                    Text(activeTabShortLabel)
-                        .font(CapsuleStyle.labelFont(11, weight: .bold))
-                        .foregroundStyle(CapsuleStyle.ink)
-                        .lineLimit(1)
-                }
-                .padding(.horizontal, 10)
-                .frame(height: 36)
-                .background(
-                    CapsuleSurfaceBackground(
-                        cornerRadius: 18,
-                        elevated: true,
-                        tint: CapsuleStyle.surfaceRaised.opacity(0.82)
-                    )
-                )
-            }
+            Text(String(localized: "tabbar_library"))
+                .font(CapsuleStyle.titleFont(25, weight: .bold))
+                .foregroundStyle(CapsuleStyle.ink)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
             tabStrip
         }
@@ -441,19 +432,11 @@ struct ScrollableLibraryExperience: View {
     }
 
     private var capsuleTabDeck: some View {
-        HStack(spacing: 7) {
+        HStack(spacing: 6) {
             ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
                 capsuleTabButton(tab: tab, index: index)
             }
         }
-        .padding(5)
-        .background(
-            CapsuleSurfaceBackground(
-                cornerRadius: 22,
-                elevated: true,
-                tint: CapsuleStyle.surface.opacity(0.88)
-            )
-        )
         .animation(.spring(response: 0.34, dampingFraction: 0.88), value: tabIndex)
     }
 
@@ -479,23 +462,10 @@ struct ScrollableLibraryExperience: View {
                     .minimumScaleFactor(0.72)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 48)
+            .frame(height: 44)
             .background {
-                if selected {
-                    RoundedRectangle(cornerRadius: 17, style: .continuous)
-                        .fill(tint)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 17, style: .continuous)
-                                .stroke(Color.white.opacity(0.35), lineWidth: 0.8)
-                        )
-                } else {
-                    RoundedRectangle(cornerRadius: 17, style: .continuous)
-                        .fill(CapsuleStyle.surfaceRaised.opacity(0.62))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 17, style: .continuous)
-                                .stroke(CapsuleStyle.separator.opacity(0.35), lineWidth: 0.7)
-                        )
-                }
+                RoundedRectangle(cornerRadius: 15, style: .continuous)
+                    .fill(selected ? tint : Color.clear)
             }
         }
         .buttonStyle(CapsulePressStyle())
@@ -581,7 +551,7 @@ struct ScrollableLibraryExperience: View {
             }
         }
         .padding(4)
-        .background(PetWhiteSurfaceBackground(cornerRadius: 19, elevated: true, tint: PetWhiteStyle.surfacePressed, accent: activeTabTint))
+        .background(PetWhiteSurfaceBackground(cornerRadius: PetWhiteStyle.cardRadius, elevated: true, tint: PetWhiteStyle.surfacePressed, accent: activeTabTint))
         .animation(.spring(response: 0.32, dampingFraction: 0.88), value: tabIndex)
     }
 
@@ -597,13 +567,13 @@ struct ScrollableLibraryExperience: View {
                     icon: icon(for: tab),
                     size: 16,
                     visualScale: selected ? 1.08 : 0.98,
-                    fallbackColor: selected ? PetWhiteStyle.stroke : PetWhiteStyle.inkSoft,
+                    fallbackColor: selected ? PetWhiteStyle.ink : PetWhiteStyle.inkSoft,
                     lineWidth: selected ? 1.9 : 1.55
                 )
 
                 Text(tab.localizedKey)
                     .font(PetWhiteStyle.labelFont(10.5, weight: selected ? .black : .bold))
-                    .foregroundStyle(selected ? PetWhiteStyle.stroke : PetWhiteStyle.inkSoft)
+                    .foregroundStyle(selected ? PetWhiteStyle.ink : PetWhiteStyle.inkSoft)
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
             }
@@ -850,13 +820,13 @@ struct ScrollableLibraryExperience: View {
                                 .foregroundStyle(isLibraryActionsExpanded ? CapsuleStyle.readableLabel(on: defaultAccent) : CapsuleStyle.inkSoft)
                         }
                         .padding(.horizontal, 12)
-                        .frame(height: 36)
+                        .frame(height: 34)
                         .background(
                             Capsule()
-                                .fill(isLibraryActionsExpanded ? defaultAccent : CapsuleStyle.surfaceRaised.opacity(0.8))
+                                .fill(isLibraryActionsExpanded ? defaultAccent : Color.clear)
                                 .overlay(
                                     Capsule()
-                                        .stroke(isLibraryActionsExpanded ? Color.white.opacity(0.35) : CapsuleStyle.separator.opacity(0.45), lineWidth: 0.8)
+                                        .stroke(isLibraryActionsExpanded ? Color.clear : CapsuleStyle.separator.opacity(0.5), lineWidth: 0.9)
                                 )
                         )
                     }
@@ -867,24 +837,9 @@ struct ScrollableLibraryExperience: View {
 
                 LibraryDisclosureReveal(isExpanded: isLibraryActionsExpanded) {
                     actionStrip
-                        .padding(10)
-                        .background(
-                            CapsuleSurfaceBackground(
-                                cornerRadius: 20,
-                                elevated: false,
-                                tint: CapsuleStyle.surfaceTint.opacity(0.82)
-                            )
-                        )
+                        .padding(.top, 4)
                 }
             }
-            .padding(13)
-            .background(
-                CapsuleSurfaceBackground(
-                    cornerRadius: 26,
-                    elevated: true,
-                    tint: CapsuleStyle.surface.opacity(0.9)
-                )
-            )
             .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
         } else if NeumorphicStyle.isActive {
             VStack(alignment: .leading, spacing: 11) {
@@ -1008,12 +963,12 @@ struct ScrollableLibraryExperience: View {
                             icon: isLibraryActionsExpanded ? .close : .more,
                             size: 14,
                             visualScale: 1.05,
-                            fallbackColor: PetWhiteStyle.stroke,
+                            fallbackColor: PetWhiteStyle.ink,
                             lineWidth: 1.75
                         )
                         Text(String(localized: "工具"))
                             .font(PetWhiteStyle.labelFont(10, weight: .black))
-                            .foregroundStyle(PetWhiteStyle.stroke)
+                            .foregroundStyle(PetWhiteStyle.ink)
                     }
                     .padding(.horizontal, 10)
                     .frame(height: 30)
@@ -1075,7 +1030,7 @@ struct ScrollableLibraryExperience: View {
                                     icon: column.icon,
                                     size: 13,
                                     visualScale: selected ? 1.08 : 1,
-                                    fallbackColor: selected ? PetWhiteStyle.stroke : PetWhiteStyle.inkSoft,
+                                    fallbackColor: selected ? PetWhiteStyle.ink : PetWhiteStyle.inkSoft,
                                     lineWidth: selected ? 1.9 : 1.55
                                 )
                             } else {
@@ -1296,12 +1251,12 @@ struct ScrollableLibraryExperience: View {
                                 icon: isArtistFiltersExpanded ? .close : .filter,
                                 size: 14,
                                 visualScale: 1.05,
-                                fallbackColor: PetWhiteStyle.stroke,
+                                fallbackColor: PetWhiteStyle.ink,
                                 lineWidth: 1.75
                             )
                             Text(isArtistFiltersExpanded ? String(localized: "收起") : String(localized: "筛选"))
                                 .font(PetWhiteStyle.labelFont(11, weight: .black))
-                                .foregroundStyle(PetWhiteStyle.stroke)
+                                .foregroundStyle(PetWhiteStyle.ink)
                         }
                         .padding(.horizontal, 11)
                         .frame(height: 34)
@@ -1809,13 +1764,16 @@ struct ScrollableLibraryExperience: View {
     }
 
     private static func parseQQUserPlaylists(_ result: JSON) -> [Playlist] {
-        let list = result["v_playlist"]?.arrayValue ?? result.arrayValue ?? []
+        // 新版 API: { playlists: [{ id, dirid, title, picurl, songnum }], total }
+        let list = result["playlists"]?.arrayValue
+            ?? result["v_playlist"]?.arrayValue
+            ?? result.arrayValue ?? []
         return list.compactMap { json in
             guard let obj = json.objectValue else { return nil }
-            let tid = obj["tid"]?.intValue ?? 0
-            let name = obj["dirName"]?.stringValue ?? obj["diss_name"]?.stringValue ?? ""
-            let cover = obj["picUrl"]?.stringValue ?? obj["logo"]?.stringValue ?? ""
-            let songCount = obj["songNum"]?.intValue ?? obj["song_cnt"]?.intValue ?? 0
+            let tid = obj["id"]?.intValue ?? obj["tid"]?.intValue ?? 0
+            let name = obj["title"]?.stringValue ?? obj["dirName"]?.stringValue ?? obj["diss_name"]?.stringValue ?? ""
+            let cover = obj["picurl"]?.stringValue ?? obj["picUrl"]?.stringValue ?? obj["logo"]?.stringValue ?? ""
+            let songCount = obj["songnum"]?.intValue ?? obj["songNum"]?.intValue ?? obj["song_cnt"]?.intValue ?? 0
             guard !name.isEmpty else { return nil }
             return Playlist(
                 id: tid,
@@ -2213,7 +2171,7 @@ struct ScrollableLibraryExperience: View {
 
     private var selectedChipText: Color {
         if LiquidGlassStyle.isActive { return LiquidGlassStyle.ink }
-        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
         if CapsuleStyle.isActive { return CapsuleStyle.onAccent }
         return MujiStyle.isActive ? MujiStyle.onTint : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SignalStyle.isActive ? SignalStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueIconForeground)))
     }
@@ -2264,8 +2222,7 @@ struct ScrollableLibraryExperience: View {
                 SequoiaSurfaceBackground(cornerRadius: tabCornerRadius, elevated: selected, pressed: !selected, fill: selected ? SequoiaStyle.selectedWash : SequoiaStyle.materialList, role: selected ? .selected : .list)
             } else if MujiStyle.isActive {
                 RoundedRectangle(cornerRadius: tabCornerRadius, style: .continuous)
-                    .fill(selected ? MujiStyle.ink : MujiStyle.surface.opacity(0.78))
-                    .overlay(RoundedRectangle(cornerRadius: tabCornerRadius, style: .continuous).stroke(selected ? Color.clear : MujiStyle.hairline.opacity(0.45), lineWidth: 0.6))
+                    .fill(selected ? AnyShapeStyle(MujiStyle.clay) : AnyShapeStyle(MujiStyle.wash(MujiStyle.clay, strength: 0.75)))
             } else {
                 RoundedRectangle(cornerRadius: tabCornerRadius, style: .continuous)
                     .fill(selected ? Color.monologueIconBackground : Color.monologueGlassTint)
@@ -2275,7 +2232,17 @@ struct ScrollableLibraryExperience: View {
 
     private func chipBackground(selected: Bool, tint: Color, capsule: Bool) -> some View {
         Group {
-            if LiquidGlassStyle.isActive {
+            if MinimalWhiteStyle.isActive {
+                if capsule {
+                    MinimalWhiteCapsuleBackground(elevated: selected, selected: selected)
+                } else {
+                    MinimalWhiteSurfaceBackground(
+                        cornerRadius: MinimalWhiteStyle.compactRadius,
+                        elevated: selected,
+                        tint: selected ? MinimalWhiteStyle.selectedFill.opacity(0.92) : MinimalWhiteStyle.glassFill
+                    )
+                }
+            } else if LiquidGlassStyle.isActive {
                 LiquidGlassSurfaceBackground(cornerRadius: capsule ? 18 : 15, elevated: selected, pressed: !selected, fill: selected ? tint.opacity(0.15) : nil, role: selected ? .selected : .list)
             } else if PetWhiteStyle.isActive {
                 PetWhiteSurfaceBackground(cornerRadius: capsule ? 18 : 15, elevated: selected, tint: selected ? tint.opacity(0.86) : PetWhiteStyle.surfaceRaised, accent: tint)
@@ -2288,16 +2255,15 @@ struct ScrollableLibraryExperience: View {
             } else if CapsuleStyle.isActive {
                 let radius: CGFloat = capsule ? 18 : 15
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .fill(selected ? tint : CapsuleStyle.surfaceRaised.opacity(0.72))
+                    .fill(selected ? tint : Color.clear)
                     .overlay(
                         RoundedRectangle(cornerRadius: radius, style: .continuous)
-                            .stroke(selected ? Color.white.opacity(0.32) : CapsuleStyle.separator.opacity(0.46), lineWidth: 0.7)
+                            .stroke(selected ? Color.clear : CapsuleStyle.separator.opacity(0.5), lineWidth: 0.9)
                     )
             } else if MujiStyle.isActive {
-                let shape = RoundedRectangle(cornerRadius: capsule ? 18 : 8, style: .continuous)
+                let shape = RoundedRectangle(cornerRadius: capsule ? 18 : 12, style: .continuous)
                 shape
-                    .fill(selected ? MujiStyle.ink : MujiStyle.surface.opacity(0.78))
-                    .overlay(shape.stroke(selected ? Color.clear : MujiStyle.hairline.opacity(0.5), lineWidth: 0.6))
+                    .fill(selected ? AnyShapeStyle(MujiStyle.clay) : AnyShapeStyle(MujiStyle.wash(MujiStyle.clay, strength: 0.75)))
             } else if capsule {
                 Capsule().fill(selected ? Color.monologueIconBackground : Color.monologueGlassTint)
             } else {
@@ -2309,7 +2275,13 @@ struct ScrollableLibraryExperience: View {
 
     private func panelBackground(cornerRadius: CGFloat) -> some View {
         Group {
-            if LiquidGlassStyle.isActive {
+            if MinimalWhiteStyle.isActive {
+                MinimalWhiteSurfaceBackground(
+                    cornerRadius: min(max(cornerRadius, MinimalWhiteStyle.compactRadius), MinimalWhiteStyle.chromeRadius),
+                    elevated: true,
+                    tint: MinimalWhiteStyle.glassFill
+                )
+            } else if LiquidGlassStyle.isActive {
                 LiquidGlassSurfaceBackground(cornerRadius: min(cornerRadius, 24), elevated: true, role: .chrome)
             } else if PetWhiteStyle.isActive {
                 PetWhiteSurfaceBackground(cornerRadius: min(max(cornerRadius, 16), 24), elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: activeTabTint)
@@ -2320,15 +2292,15 @@ struct ScrollableLibraryExperience: View {
             } else if SequoiaStyle.isActive {
                 SequoiaSurfaceBackground(cornerRadius: min(cornerRadius, 20), elevated: true, role: .chrome)
             } else if CapsuleStyle.isActive {
-                CapsuleSurfaceBackground(
-                    cornerRadius: min(max(cornerRadius, 16), 26),
-                    elevated: true,
-                    tint: CapsuleStyle.surface.opacity(0.9)
-                )
+                RoundedRectangle(cornerRadius: min(max(cornerRadius, 16), 26), style: .continuous)
+                    .fill(CapsuleStyle.surface.opacity(0.45))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: min(max(cornerRadius, 16), 26), style: .continuous)
+                            .stroke(CapsuleStyle.separator.opacity(0.45), lineWidth: 0.8)
+                    )
             } else if MujiStyle.isActive {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(MujiStyle.surface.opacity(0.82))
-                    .overlay(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous).stroke(MujiStyle.hairline.opacity(0.44), lineWidth: 0.6))
+                    .fill(MujiStyle.wash(MujiStyle.clay, strength: 0.8))
             } else {
                 Color.clear.monologueGlass(cornerRadius: cornerRadius)
             }
@@ -2388,13 +2360,13 @@ private struct PetWhiteLibraryPlaylistCard: View {
                 .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .stroke(PetWhiteStyle.stroke, lineWidth: 1.4)
+                        .stroke(PetWhiteStyle.stroke, lineWidth: 1)
                 )
 
                 PetWhitePackIcon(icon: .play, size: 15, visualScale: 1.08)
                     .frame(width: 34, height: 34)
                     .background(tint, in: Circle())
-                    .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.2))
+                    .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1))
                     .padding(8)
             }
 

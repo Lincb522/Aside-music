@@ -23,7 +23,7 @@ struct Game2048PlayerLayout: View {
     @State private var showComments = false
     @State private var showArtistDetail = false
     @State private var showDownloadSheet = false
-    @State private var colorExtractor = CoverColorExtractor()
+    @StateObject private var colorExtractor = CoverColorExtractor()
 
     // 动画
     @State private var tilesAppeared = false
@@ -238,7 +238,7 @@ struct Game2048PlayerLayout: View {
                 }
             }
         }
-        .fontDesign(nil)
+        .compatFontDesign(nil)
         .onAppear {
             colorExtractor.extract(from: player.currentSong?.coverUrl?.absoluteString)
             currentLayout = Int.random(in: 0..<Self.layouts.count)
@@ -269,7 +269,7 @@ struct Game2048PlayerLayout: View {
         .monologueSheet(isPresented: $showPlaylist, preset: .standard) {
             if player.isPlayingPodcast { PodcastPlaylistPopupView() } else { PlaylistPopupView() }
         }
-        .monologueSheet(isPresented: $showQualitySheet, preset: .compact) {
+        .monologueSheet(isPresented: $showQualitySheet, preset: .standard) {
             SoundQualitySheet(
                 currentQuality: player.soundQuality, currentQQQuality: player.qqMusicQuality,
                 isQQMusic: player.currentSong?.isQQMusic == true,
@@ -281,7 +281,7 @@ struct Game2048PlayerLayout: View {
                 onSelectQishui: { info in player.switchQishuiQuality(info); showQualitySheet = false }
             )
         }
-        .monologueSheet(isPresented: $showEQSettings, preset: .large) { NavigationStack { EQSettingsView() } }
+        .fullScreenCover(isPresented: $showEQSettings) { NavigationStack { MonoAudioCenterView() } }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker) { PlayerThemePickerSheet() }
         .monologueSheet(isPresented: $showComments, preset: .large) {
             if let s = player.currentSong {
@@ -513,8 +513,14 @@ extension Game2048PlayerLayout {
                 }; Spacer() }
 
                 if let text = lyricVM.currentLineText, !text.isEmpty {
-                    Text(text)
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                    Text(text.monologueLyricDisplayText)
+                        .font(
+                            MonologuePlayerFont.activeFont(
+                                size: 14,
+                                weight: .bold,
+                                fallback: .system(size: 14, weight: .bold, design: .rounded)
+                            )
+                        )
                         .foregroundColor(tileFg(256)).multilineTextAlignment(.center)
                         .lineLimit(4).padding(10)
                         .id(lyricVM.currentLineIndex)
@@ -558,7 +564,7 @@ extension Game2048PlayerLayout {
         } label: {
             gameTile(value: 4, cell: cell) {
                 MonologueIcon(icon: isLiked ? .liked : .like, size: 17, color: isLiked ? .red : tileFg(4), lineWidth: 1.8)
-                    .symbolEffect(.bounce, value: isLiked)
+                    .compatSymbolBounce(value: isLiked)
             }
         }.buttonStyle(MonologueBouncingButtonStyle())
     }
@@ -588,7 +594,11 @@ extension Game2048PlayerLayout {
             Text("1024").font(.system(size: 10, weight: .black, design: .rounded))
                 .foregroundColor(tileFg(1024).opacity(0.25)).padding(5)
             Text(player.currentSong?.name ?? "")
-                .font(.system(size: 15, weight: .heavy, design: .rounded))
+                .monologuePlayerDisplayFont(
+                    size: 15,
+                    weight: .heavy,
+                    fallback: .system(size: 15, weight: .heavy, design: .rounded)
+                )
                 .foregroundColor(tileFg(1024)).lineLimit(2).multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity, maxHeight: .infinity).padding(.horizontal, 8)
             RoundedRectangle(cornerRadius: tileRadius, style: .continuous)
@@ -679,9 +689,15 @@ extension Game2048PlayerLayout {
         HStack(spacing: 10) {
             bottomBtn(icon: "bubble.left", label: "128") { showComments = true }
             if let s = player.currentSong {
-                let done = downloadManager.isDownloaded(songId: s.id)
-                bottomBtn(icon: done ? "checkmark.circle.fill" : "arrow.down.circle",
-                          label: "64", dim: done) { if !done { showDownloadSheet = true } }.disabled(done)
+                if AppConfig.Features.downloadEnabled {
+                    // 下载按钮（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+                    let done = downloadManager.isDownloaded(songId: s.id)
+                    bottomBtn(icon: done ? "checkmark.circle.fill" : "arrow.down.circle",
+                              label: "64", dim: done) { if !done { showDownloadSheet = true } }.disabled(done)
+                } else {
+                    // 沉浸模式按钮 — 占用原下载按钮的位置
+                    bottomBtn(icon: "tv", label: "64") { ImmersiveModeController.shared.present() }
+                }
             }
             bottomBtn(icon: "list.bullet", label: "32") { showPlaylist = true }
             bottomBtn(icon: "paintpalette", label: "16") { showThemePicker = true }

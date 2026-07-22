@@ -112,7 +112,7 @@ struct AquaPlayerLayout: View {
                 }
             }
             .animation(.easeInOut(duration: 0.3), value: showLyrics)
-        .fontDesign(nil) // 重置全局 .rounded，让泡泡体自定义字体生效
+        .compatFontDesign(nil) // 重置全局 .rounded，让泡泡体自定义字体生效
         }
         .onAppear { 
             loadLyricsIfNeeded() 
@@ -124,7 +124,7 @@ struct AquaPlayerLayout: View {
         .monologueSheet(isPresented: $showPlaylist, preset: .standard){
             PlaylistPopupView()
         }
-        .monologueSheet(isPresented: $showQualitySheet, preset: .compact){
+        .monologueSheet(isPresented: $showQualitySheet, preset: .standard){
             SoundQualitySheet(
                 currentQuality: player.soundQuality,
                 currentQQQuality: player.qqMusicQuality,
@@ -138,8 +138,8 @@ struct AquaPlayerLayout: View {
                 onSelectQishui: { info in player.switchQishuiQuality(info); showQualitySheet = false }
             )
         }
-        .monologueSheet(isPresented: $showEQSettings, preset: .large){
-            NavigationStack { EQSettingsView() }
+        .fullScreenCover(isPresented: $showEQSettings) {
+            NavigationStack { MonoAudioCenterView() }
         }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker){
             PlayerThemePickerSheet()
@@ -330,6 +330,14 @@ extension AquaPlayerLayout {
 
             Spacer()
 
+            Button(action: { ImmersiveModeController.shared.present() }) {
+                MonologueIcon(icon: .immersive, size: 20, color: textPrimary)
+                    .frame(width: 40, height: 40)
+                    .monologueGlassCircle()
+                    .contentShape(Circle())
+            }
+            .buttonStyle(MonologueBouncingButtonStyle())
+
             Button(action: {
                 withAnimation(.easeInOut(duration: 0.1)) { showMoreMenu.toggle() }
             }) {
@@ -353,7 +361,11 @@ extension AquaPlayerLayout {
         VStack(spacing: 16) {
             // 歌名 — 泡泡体，与水韵卡通风格一致
             Text(player.currentSong?.name ?? "")
-                .font(.custom(bubbleFont, size: 34))
+                .monologuePlayerDisplayFont(
+                    size: 34,
+                    weight: .bold,
+                    fallback: .custom(bubbleFont, size: 34)
+                )
                 .foregroundColor(textPrimary)
                 .lineLimit(2)
                 .multilineTextAlignment(.center)

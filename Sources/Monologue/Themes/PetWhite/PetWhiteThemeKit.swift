@@ -1,24 +1,22 @@
 import SwiftUI
 import PawPrintIcons
-
-#if canImport(UIKit)
 import UIKit
-#elseif canImport(AppKit)
-import AppKit
-#endif
 
+/// 黏土玩具（Clay Toy）× 新拟物：整块奶油黏土，部件不是「贴上去的卡片」，
+/// 而是从同一块黏土上凸起（双向大范围软阴影）或压凹（真内阴影）出来的形体。
+/// 表面与背景同色系，形体全靠光影；马卡龙糖果色只出现在小块黏土和强调件上。
 enum PetWhiteStyle {
-    private static let fallbackBase = Color(light: .white, dark: Color(hex: "121315"))
-    private static let fallbackSurface = Color(light: Color(hex: "FFFFFF"), dark: Color(hex: "191B1F"))
-    private static let fallbackSurfaceRaised = Color(light: Color(hex: "FFFFFF"), dark: Color(hex: "202328"))
-    private static let fallbackSurfacePressed = Color(light: Color(hex: "F6F7F8"), dark: Color(hex: "272A30"))
-    private static let fallbackDogOrange = Color(light: Color(hex: "F6A93B"), dark: Color(hex: "F3B45B"))
-    private static let fallbackDogEar = Color(light: Color(hex: "E08A24"), dark: Color(hex: "C97821"))
-    private static let fallbackMint = Color(light: Color(hex: "DDF5EE"), dark: Color(hex: "20463E"))
-    private static let fallbackBlush = Color(light: Color(hex: "FF8D7E"), dark: Color(hex: "FFB0A6"))
-    private static let fallbackButter = Color(light: Color(hex: "FFF1BF"), dark: Color(hex: "4B4020"))
-    private static let fallbackSky = Color(light: Color(hex: "EAF3FF"), dark: Color(hex: "203349"))
-    private static let fallbackLilac = Color(light: Color(hex: "F0ECFF"), dark: Color(hex: "332B4F"))
+    private static let fallbackBase = Color(light: Color(hex: "F3ECDF"), dark: Color(hex: "221D16"))
+    private static let fallbackSurface = Color(light: Color(hex: "F5EEE2"), dark: Color(hex: "262019"))
+    private static let fallbackSurfaceRaised = Color(light: Color(hex: "F7F0E4"), dark: Color(hex: "2A241C"))
+    private static let fallbackSurfacePressed = Color(light: Color(hex: "EAE1D0"), dark: Color(hex: "1D1811"))
+    private static let fallbackDogOrange = Color(light: Color(hex: "F59D54"), dark: Color(hex: "EBA660"))
+    private static let fallbackDogEar = Color(light: Color(hex: "DE7E3B"), dark: Color(hex: "D08E48"))
+    private static let fallbackMint = Color(light: Color(hex: "BEE5CE"), dark: Color(hex: "2E4A3F"))
+    private static let fallbackBlush = Color(light: Color(hex: "F6ACA1"), dark: Color(hex: "DD9A85"))
+    private static let fallbackButter = Color(light: Color(hex: "F9E4AE"), dark: Color(hex: "4A3E24"))
+    private static let fallbackSky = Color(light: Color(hex: "C3DDF3"), dark: Color(hex: "2C3E50"))
+    private static let fallbackLilac = Color(light: Color(hex: "DCD1F1"), dark: Color(hex: "3B3350"))
 
     static var isActive: Bool {
         GlobalThemeId.persistedOrDefault == .petWhite
@@ -28,35 +26,44 @@ enum PetWhiteStyle {
         ThemeColorCustomization.backgroundBase(
             for: .petWhite,
             fallback: fallbackBase,
-            fallbackHex: "FFFFFF"
+            fallbackHex: "FBF8F2"
         )
     }
 
     static var paper: Color { base }
 
     static var surface: Color { customBackgroundStop("start", fallback: fallbackSurface, fallbackHex: "FFFFFF") }
-    static var surfaceRaised: Color { customBackgroundStop("end", fallback: fallbackSurfaceRaised, fallbackHex: "F7F8FA") }
-    static var surfacePressed: Color { customBackgroundStop("stop3", fallback: fallbackSurfacePressed, fallbackHex: "F6F7F8") }
-    static let ink = Color(light: Color(hex: "111111"), dark: Color(hex: "FAFAFA"))
-    static let inkSoft = Color(light: Color(hex: "4B5563"), dark: Color(hex: "D1D5DB"))
-    static let inkMuted = Color(light: Color(hex: "8B95A1"), dark: Color(hex: "9CA3AF"))
-    static let stroke = Color(light: Color(hex: "111111"), dark: Color(hex: "F8FAFC"))
-    static let separator = Color(light: Color(hex: "E7E9EC"), dark: Color(hex: "343942"))
-    static let catWhite = Color(light: Color(hex: "FFFFFF"), dark: Color(hex: "F5F7FA"))
+    static var surfaceRaised: Color { customBackgroundStop("end", fallback: fallbackSurfaceRaised, fallbackHex: "FFFDF9") }
+    static var surfacePressed: Color { customBackgroundStop("stop3", fallback: fallbackSurfacePressed, fallbackHex: "F3EEE5") }
+    static let ink = Color(light: Color(hex: "4A4136"), dark: Color(hex: "F1EAE0"))
+    static let inkSoft = Color(light: Color(hex: "746A5C"), dark: Color(hex: "C4BBAC"))
+    static let inkMuted = Color(light: Color(hex: "998E7E"), dark: Color(hex: "94897A"))
+    /// 黏土语言几乎不用描边，边缘靠双向阴影塑形；此色仅作极淡的收边。文字/图标请用 `ink`。
+    static let stroke = Color(light: Color(hex: "EFE8DA"), dark: Color(hex: "3B3529"))
+    static let separator = Color(light: Color(hex: "EDE5D6"), dark: Color(hex: "332D24"))
+    static let catWhite = Color(light: Color(hex: "FFFFFF"), dark: Color(hex: "F5F1E8"))
+    /// 右下暗阴影：黏土从底面凸起时压出的暖棕落影（新拟物双向阴影的暗半）。
+    static let shadowInk = Color(light: Color(hex: "C4AD8B"), dark: .black)
+    /// 左上亮阴影：黏土受光面的奶白柔光（新拟物双向阴影的亮半）。
+    static let clayLightShadow = Color(light: Color.white, dark: Color.white.opacity(0.05))
+    /// 顶部高光：黏土表面的柔和反光带。
+    static let glazeHighlight = Color(light: Color.white.opacity(0.7), dark: Color.white.opacity(0.05))
+    /// 凹陷内壁的暗色（内阴影用，比落影更深一点）。
+    static let clayCaveShadow = Color(light: Color(hex: "A98F68"), dark: .black)
     static var dogOrange: Color {
         ThemeColorCustomization.accentColor(
             for: .petWhite,
             fallback: fallbackDogOrange,
-            fallbackHex: "F6A93B"
+            fallbackHex: "EC9E44"
         )
     }
-    static var dogEar: Color { customAccentTone(fallback: fallbackDogEar, fallbackHex: "E08A24") }
-    static var mint: Color { customBackgroundStop("stop4", fallback: fallbackMint, fallbackHex: "DDF5EE") }
-    static var blush: Color { customAccentTone(fallback: fallbackBlush, fallbackHex: "FF8D7E") }
-    static var butter: Color { customBackgroundStop("stop3", fallback: fallbackButter, fallbackHex: "FFF1BF") }
-    static var sky: Color { customBackgroundStop("end", fallback: fallbackSky, fallbackHex: "EAF3FF") }
-    static var lilac: Color { customBackgroundStop("stop4", fallback: fallbackLilac, fallbackHex: "F0ECFF") }
-    static let destructive = Color(light: Color(hex: "E94848"), dark: Color(hex: "FF7474"))
+    static var dogEar: Color { customAccentTone(fallback: fallbackDogEar, fallbackHex: "CF8630") }
+    static var mint: Color { customBackgroundStop("stop4", fallback: fallbackMint, fallbackHex: "DDEEE4") }
+    static var blush: Color { customAccentTone(fallback: fallbackBlush, fallbackHex: "F0B4A6") }
+    static var butter: Color { customBackgroundStop("stop3", fallback: fallbackButter, fallbackHex: "F6EBCC") }
+    static var sky: Color { customBackgroundStop("end", fallback: fallbackSky, fallbackHex: "E0EAF4") }
+    static var lilac: Color { customBackgroundStop("stop4", fallback: fallbackLilac, fallbackHex: "EAE5F4") }
+    static let destructive = Color(light: Color(hex: "D95F4E"), dark: Color(hex: "F08A7A"))
 
     static var accent: Color {
         dogOrange
@@ -65,7 +72,7 @@ enum PetWhiteStyle {
     static var onAccent: Color {
         ThemeColorCustomization.readableForegroundColor(
             on: accent,
-            light: Color(hex: "111111"),
+            light: Color(hex: "3D362D"),
             dark: Color(hex: "FFFFFF")
         )
     }
@@ -74,25 +81,34 @@ enum PetWhiteStyle {
         ThemeColorCustomization.accentGradientColors(
             for: .petWhite,
             fallback: [fallbackDogOrange, fallbackMint, fallbackBlush.opacity(0.78)],
-            fallbackHexes: ["F6A93B", "DDF5EE", "FF8D7E"]
+            fallbackHexes: ["EC9E44", "DDEEE4", "F0B4A6"]
         )
     }
 
-    static let strokeWidth: CGFloat = 2.2
-    static let fineStrokeWidth: CGFloat = 1.4
-    static let cardRadius: CGFloat = 20
-    static let compactRadius: CGFloat = 14
+    static let strokeWidth: CGFloat = 1
+    static let fineStrokeWidth: CGFloat = 0.75
+    /// 黏土块：厚圆角家族。
+    static let cardRadius: CGFloat = 28
+    static let compactRadius: CGFloat = 18
 
-    static func titleFont(_ size: CGFloat, weight: Font.Weight = .black) -> Font {
-        .system(size: size, weight: weight, design: .rounded)
+    /// 黏土玩具字重：比瓷器版厚一点点，圆润但不喊话。
+    private static func clayWeight(_ weight: Font.Weight) -> Font.Weight {
+        switch weight {
+        case .black, .heavy: return .bold
+        default: return weight
+        }
     }
 
-    static func bodyFont(_ size: CGFloat, weight: Font.Weight = .semibold) -> Font {
-        .system(size: size, weight: weight, design: .rounded)
+    static func titleFont(_ size: CGFloat, weight: Font.Weight = .bold) -> Font {
+        .system(size: size, weight: clayWeight(weight), design: .rounded)
     }
 
-    static func labelFont(_ size: CGFloat, weight: Font.Weight = .bold) -> Font {
-        .system(size: size, weight: weight, design: .rounded)
+    static func bodyFont(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+        .system(size: size, weight: clayWeight(weight), design: .rounded)
+    }
+
+    static func labelFont(_ size: CGFloat, weight: Font.Weight = .semibold) -> Font {
+        .system(size: size, weight: clayWeight(weight), design: .rounded)
     }
 
     static func tabTint(_ index: Int) -> Color {
@@ -136,19 +152,10 @@ struct PetWhiteRootBackdrop: View {
                     .opacity(colorScheme == .dark ? 0.02 : 0.10)
             } else {
                 PetWhiteBackdropWash()
-                    .opacity(colorScheme == .dark ? 0.34 : 1)
+                    .opacity(colorScheme == .dark ? 0.30 : 1)
 
                 PetWhitePawPattern()
-                    .opacity(colorScheme == .dark ? 0.30 : 0.78)
-
-                VStack {
-                    PetWhiteBackdropRibbon()
-                        .padding(.top, 58)
-                    Spacer()
-                }
-                .padding(.horizontal, 22)
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
+                    .opacity(colorScheme == .dark ? 0.24 : 0.55)
             }
         }
         .ignoresSafeArea()
@@ -172,7 +179,6 @@ private struct PetWhiteIllustratedBackdrop: View {
     private var illustratedImage: some View {
         let assetName = colorScheme == .dark ? "pawThemeBackgroundDark" : "pawThemeBackground"
 
-        #if canImport(UIKit)
         if let image = UIImage(pawPrintIconId: assetName) {
             Image(uiImage: image)
                 .renderingMode(.original)
@@ -181,48 +187,41 @@ private struct PetWhiteIllustratedBackdrop: View {
         } else {
             PetWhiteBackdropWash()
         }
-        #elseif canImport(AppKit)
-        if let image = NSImage.pawPrintIcon(id: assetName) {
-            Image(nsImage: image)
-                .renderingMode(.original)
-                .resizable()
-                .scaledToFill()
-        } else {
-            PetWhiteBackdropWash()
-        }
-        #else
-        PetWhiteBackdropWash()
-        #endif
     }
 }
 
 private struct PetWhiteBackdropWash: View {
     var body: some View {
         GeometryReader { proxy in
-            VStack(spacing: 0) {
-                RoundedRectangle(cornerRadius: 0, style: .continuous)
-                    .fill(PetWhiteStyle.sky.opacity(0.52))
-                    .frame(height: max(150, proxy.size.height * 0.24))
-                    .overlay(alignment: .bottomLeading) {
-                        Capsule()
-                            .fill(PetWhiteStyle.mint.opacity(0.64))
-                            .frame(width: min(proxy.size.width * 0.70, 340), height: 18)
-                            .padding(.leading, 22)
-                            .padding(.bottom, 20)
-                    }
+            let w = proxy.size.width
+            let h = proxy.size.height
 
-                Spacer(minLength: 0)
+            // 新拟物黏土底：形体交给光影，底色只留极淡的暖光呼吸，
+            // 左上一点奶白受光、右下一点暖棕收暗，加两抹几乎不可见的糖果晕。
+            ZStack {
+                Circle()
+                    .fill(PetWhiteStyle.clayLightShadow.opacity(0.5))
+                    .frame(width: w * 1.1)
+                    .position(x: w * 0.02, y: -h * 0.02)
+                    .blur(radius: 90)
 
-                RoundedRectangle(cornerRadius: 0, style: .continuous)
-                    .fill(PetWhiteStyle.butter.opacity(0.30))
-                    .frame(height: max(96, proxy.size.height * 0.14))
-                    .overlay(alignment: .topTrailing) {
-                        Capsule()
-                            .fill(PetWhiteStyle.dogOrange.opacity(0.24))
-                            .frame(width: min(proxy.size.width * 0.48, 240), height: 14)
-                            .padding(.top, 18)
-                            .padding(.trailing, 24)
-                    }
+                Circle()
+                    .fill(PetWhiteStyle.shadowInk.opacity(0.16))
+                    .frame(width: w * 1.0)
+                    .position(x: w * 1.02, y: h * 1.02)
+                    .blur(radius: 100)
+
+                Circle()
+                    .fill(PetWhiteStyle.butter.opacity(0.18))
+                    .frame(width: w * 0.7)
+                    .position(x: w * 0.88, y: h * 0.12)
+                    .blur(radius: 80)
+
+                Circle()
+                    .fill(PetWhiteStyle.sky.opacity(0.12))
+                    .frame(width: w * 0.6)
+                    .position(x: w * 0.10, y: h * 0.72)
+                    .blur(radius: 80)
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
         }
@@ -231,25 +230,13 @@ private struct PetWhiteBackdropWash: View {
     }
 }
 
-private struct PetWhiteBackdropRibbon: View {
-    var body: some View {
-        HStack(spacing: 8) {
-            Capsule().fill(PetWhiteStyle.dogOrange.opacity(0.28)).frame(width: 42, height: 7)
-            Capsule().fill(PetWhiteStyle.sky.opacity(0.86)).frame(width: 18, height: 7)
-            Capsule().fill(PetWhiteStyle.mint.opacity(0.72)).frame(width: 70, height: 7)
-            Capsule().fill(PetWhiteStyle.blush.opacity(0.26)).frame(width: 28, height: 7)
-            Spacer(minLength: 0)
-        }
-    }
-}
-
 struct PetWhitePawPattern: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         Canvas(rendersAsynchronously: true) { context, size in
-            let pawColor = PetWhiteStyle.stroke.opacity(colorScheme == .dark ? 0.06 : 0.045)
-            let accentColor = PetWhiteStyle.dogOrange.opacity(colorScheme == .dark ? 0.05 : 0.055)
+            let pawColor = PetWhiteStyle.ink.opacity(colorScheme == .dark ? 0.05 : 0.035)
+            let accentColor = PetWhiteStyle.dogOrange.opacity(colorScheme == .dark ? 0.04 : 0.045)
             let stepX: CGFloat = 118
             let stepY: CGFloat = 146
 
@@ -289,6 +276,31 @@ struct PetWhitePawPattern: View {
     }
 }
 
+/// 新拟物内阴影：把形体「压进」黏土里。
+/// 用暗描边（左上）+ 亮描边（右下）各自模糊后裁剪进形状，模拟真实凹陷。
+struct PetWhiteClayInnerShadow<S: Shape>: View {
+    var shape: S
+    var depth: CGFloat = 3
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        ZStack {
+            shape
+                .stroke(PetWhiteStyle.clayCaveShadow.opacity(colorScheme == .dark ? 0.85 : 0.55), lineWidth: depth)
+                .blur(radius: depth * 1.1)
+                .offset(x: depth * 0.8, y: depth * 0.8)
+
+            shape
+                .stroke(PetWhiteStyle.clayLightShadow.opacity(colorScheme == .dark ? 0.10 : 0.95), lineWidth: depth)
+                .blur(radius: depth * 1.1)
+                .offset(x: -depth * 0.8, y: -depth * 0.8)
+        }
+        .clipShape(shape)
+        .allowsHitTesting(false)
+    }
+}
+
 struct PetWhiteSurfaceBackground: View {
     var cornerRadius: CGFloat = PetWhiteStyle.cardRadius
     var elevated = true
@@ -301,19 +313,49 @@ struct PetWhiteSurfaceBackground: View {
     var body: some View {
         let _ = settings.globalThemeRevision
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        let fillOpacity = settings.petWhiteUsesIllustratedBackground ? (elevated ? 0.82 : 0.76) : 1
+        let fillOpacity = settings.petWhiteUsesIllustratedBackground ? (elevated ? 0.90 : 0.84) : 1
 
-        ZStack {
-            if elevated {
+        shape
+            // 与底同色系的黏土面：左上偏亮、右下微暗，形体来自光照而非色差
+            .fill(
+                LinearGradient(
+                    colors: [
+                        tint.opacity(fillOpacity),
+                        PetWhiteStyle.surface.opacity(fillOpacity * 0.97),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            // 受光棱线：左上边缘一道细亮边，像黏土转角接住光
+            .overlay(
                 shape
-                    .fill(PetWhiteStyle.stroke.opacity(colorScheme == .dark ? 0.18 : 0.10))
-                    .offset(x: 0, y: 3)
-            }
-
-            shape
-                .fill(tint.opacity(fillOpacity))
-                .overlay(shape.stroke(PetWhiteStyle.stroke, lineWidth: elevated ? PetWhiteStyle.strokeWidth : PetWhiteStyle.fineStrokeWidth))
-        }
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                PetWhiteStyle.clayLightShadow.opacity(colorScheme == .dark ? 0.10 : 0.9),
+                                PetWhiteStyle.shadowInk.opacity(colorScheme == .dark ? 0.5 : 0.16),
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: elevated ? 1.1 : 0.8
+                    )
+                    .allowsHitTesting(false)
+            )
+            // 新拟物双向大范围软阴影：左上亮 / 右下暗，凸起是「挤」出来的
+            .shadow(
+                color: PetWhiteStyle.clayLightShadow.opacity(colorScheme == .dark ? 0.04 : (elevated ? 0.95 : 0.75)),
+                radius: elevated ? 12 : 7,
+                x: elevated ? -8 : -5,
+                y: elevated ? -8 : -5
+            )
+            .shadow(
+                color: PetWhiteStyle.shadowInk.opacity(colorScheme == .dark ? 0.6 : (elevated ? 0.55 : 0.38)),
+                radius: elevated ? 14 : 8,
+                x: elevated ? 9 : 6,
+                y: elevated ? 10 : 6
+            )
     }
 }
 
@@ -331,49 +373,51 @@ struct PetWhiteFrostedFloatingSurface<SurfaceShape: Shape>: View {
     var body: some View {
         let _ = settings.globalThemeRevision
         let tintOpacity = settings.petWhiteUsesIllustratedBackground
-            ? (elevated ? 0.84 : 0.80)
-            : (colorScheme == .dark ? 0.90 : 0.96)
-        let materialOpacity = colorScheme == .dark ? 0.16 : 0.10
+            ? (elevated ? 0.90 : 0.86)
+            : (colorScheme == .dark ? 0.96 : 0.98)
+        let materialOpacity = colorScheme == .dark ? 0.18 : 0.10
 
-        ZStack {
-            if elevated {
+        shape
+            .fill(.ultraThinMaterial)
+            .opacity(materialOpacity)
+            .overlay(
+                shape.fill(
+                    LinearGradient(
+                        colors: [
+                            tint.opacity(tintOpacity),
+                            PetWhiteStyle.surface.opacity(tintOpacity * 0.97),
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+            )
+            .overlay(
                 shape
-                    .fill(PetWhiteStyle.stroke.opacity(colorScheme == .dark ? 0.16 : 0.09))
-                    .offset(y: 3)
-            }
-
-            shape
-                .fill(.ultraThinMaterial)
-                .opacity(materialOpacity)
-                .overlay(shape.fill(tint.opacity(tintOpacity)))
-                .overlay(
-                    shape.fill(
+                    .stroke(
                         LinearGradient(
                             colors: [
-                                Color.white.opacity(colorScheme == .dark ? 0.03 : 0.10),
-                                accent.opacity(colorScheme == .dark ? 0.025 : 0.035),
-                                PetWhiteStyle.sky.opacity(colorScheme == .dark ? 0.018 : 0.025),
+                                PetWhiteStyle.clayLightShadow.opacity(colorScheme == .dark ? 0.10 : 0.9),
+                                PetWhiteStyle.shadowInk.opacity(colorScheme == .dark ? 0.5 : 0.16),
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
-                        )
-                    )
-                )
-                .overlay(
-                    shape.stroke(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(colorScheme == .dark ? 0.06 : 0.24),
-                                strokeColor.opacity(colorScheme == .dark ? 0.92 : 0.98),
-                                PetWhiteStyle.stroke.opacity(colorScheme == .dark ? 0.12 : 0.08),
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
                         ),
-                        lineWidth: lineWidth
+                        lineWidth: 1.1
                     )
-                )
-        }
+            )
+            .shadow(
+                color: PetWhiteStyle.clayLightShadow.opacity(colorScheme == .dark ? 0.04 : 0.95),
+                radius: elevated ? 12 : 7,
+                x: -8,
+                y: -8
+            )
+            .shadow(
+                color: PetWhiteStyle.shadowInk.opacity(colorScheme == .dark ? 0.6 : (elevated ? 0.55 : 0.4)),
+                radius: elevated ? 15 : 9,
+                x: 9,
+                y: 10
+            )
     }
 }
 
@@ -399,46 +443,38 @@ struct PetWhitePageHeader<Accessory: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .center, spacing: 14) {
-                PetWhitePetPetIcon(size: 76)
+        HStack(alignment: .center, spacing: 16) {
+            PetWhitePetPetIcon(size: 64)
 
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 8) {
-                        PetWhitePill(text: eyebrow.uppercased(), tint: PetWhiteStyle.mint)
-                        PetWhitePackIcon(icon: icon, size: 17, visualScale: 1.12)
-                    }
+            VStack(alignment: .leading, spacing: 5) {
+                Text(eyebrow.uppercased())
+                    .font(PetWhiteStyle.labelFont(11, weight: .semibold))
+                    .tracking(1.6)
+                    .foregroundStyle(PetWhiteStyle.dogEar)
 
-                    Text(title)
-                        .font(PetWhiteStyle.titleFont(28, weight: .black))
-                        .foregroundStyle(PetWhiteStyle.ink)
+                Text(title)
+                    .font(PetWhiteStyle.titleFont(30, weight: .bold))
+                    .foregroundStyle(PetWhiteStyle.ink)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.82)
+
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(PetWhiteStyle.bodyFont(13))
+                        .foregroundStyle(PetWhiteStyle.inkSoft)
                         .lineLimit(2)
-                        .minimumScaleFactor(0.82)
-
-                    if !subtitle.isEmpty {
-                        Text(subtitle)
-                            .font(PetWhiteStyle.bodyFont(13, weight: .semibold))
-                            .foregroundStyle(PetWhiteStyle.inkSoft)
-                            .lineLimit(2)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-
-                Spacer(minLength: 8)
-
-                accessory
             }
 
-            HStack(spacing: 8) {
-                Capsule().fill(PetWhiteStyle.dogOrange).frame(width: 28, height: 5)
-                Capsule().fill(PetWhiteStyle.mint).frame(width: 48, height: 5)
-                Capsule().fill(PetWhiteStyle.sky).frame(width: 34, height: 5)
-                Spacer(minLength: 0)
-            }
+            Spacer(minLength: 8)
+
+            accessory
         }
         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-        .padding(.top, DeviceLayout.headerTopPadding + 4)
-        .padding(.bottom, 10)
+        .padding(.top, DeviceLayout.headerTopPadding + 6)
+        .padding(.bottom, 14)
+        .monologuePageHeaderCollapse()
     }
 }
 
@@ -459,7 +495,7 @@ struct PetWhitePackIcon: View {
     let icon: MonologueIcon.IconType
     var size: CGFloat = 24
     var visualScale: CGFloat = 1
-    var fallbackColor: Color = PetWhiteStyle.stroke
+    var fallbackColor: Color = PetWhiteStyle.ink
     var lineWidth: CGFloat?
 
     var body: some View {
@@ -467,7 +503,7 @@ struct PetWhitePackIcon: View {
             icon: icon,
             size: size,
             color: fallbackColor,
-            lineWidth: lineWidth ?? max(1.6, size * 0.045)
+            lineWidth: lineWidth ?? max(1.5, size * 0.042)
         )
         .scaleEffect(visualScale)
         .accessibilityHidden(true)
@@ -567,7 +603,6 @@ struct PetWhiteSelectedLyricToggleIcon: View {
 
     @ViewBuilder
     private var assetImage: some View {
-        #if canImport(UIKit)
         if let image = UIImage(pawPrintIconId: assetName) {
             Image(uiImage: image)
                 .renderingMode(.original)
@@ -578,20 +613,6 @@ struct PetWhiteSelectedLyricToggleIcon: View {
         } else {
             Color.clear
         }
-        #elseif canImport(AppKit)
-        if let image = NSImage.pawPrintIcon(id: assetName) {
-            Image(nsImage: image)
-                .renderingMode(.original)
-                .interpolation(.high)
-                .antialiased(true)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-        } else {
-            Color.clear
-        }
-        #else
-        Color.clear
-        #endif
     }
 }
 
@@ -617,7 +638,7 @@ struct PetWhiteChevronIcon: View {
 
     let direction: Direction
     var size: CGFloat = 18
-    var fallbackColor: Color = PetWhiteStyle.stroke
+    var fallbackColor: Color = PetWhiteStyle.ink
 
     var body: some View {
         chevronImage
@@ -627,7 +648,6 @@ struct PetWhiteChevronIcon: View {
 
     @ViewBuilder
     private var chevronImage: some View {
-        #if canImport(UIKit)
         if let image = UIImage(pawPrintIconId: direction.assetName) {
             Image(uiImage: image)
                 .renderingMode(.original)
@@ -638,20 +658,6 @@ struct PetWhiteChevronIcon: View {
         } else {
             fallbackChevron
         }
-        #elseif canImport(AppKit)
-        if let image = NSImage.pawPrintIcon(id: direction.assetName) {
-            Image(nsImage: image)
-                .renderingMode(.original)
-                .interpolation(.high)
-                .antialiased(true)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-        } else {
-            fallbackChevron
-        }
-        #else
-        fallbackChevron
-        #endif
     }
 
     private var fallbackChevron: some View {
@@ -763,7 +769,6 @@ struct PetWhitePetPetIcon: View {
 
     @ViewBuilder
     private var petPetImage: some View {
-        #if canImport(UIKit)
         if let image = UIImage(pawPrintIconId: "petPet") {
             Image(uiImage: image)
                 .renderingMode(.original)
@@ -774,20 +779,6 @@ struct PetWhitePetPetIcon: View {
         } else {
             PetWhiteMascotMark(kind: .pair, size: size)
         }
-        #elseif canImport(AppKit)
-        if let image = NSImage.pawPrintIcon(id: "petPet") {
-            Image(nsImage: image)
-                .renderingMode(.original)
-                .interpolation(.high)
-                .antialiased(true)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-        } else {
-            PetWhiteMascotMark(kind: .pair, size: size)
-        }
-        #else
-        PetWhiteMascotMark(kind: .pair, size: size)
-        #endif
     }
 }
 
@@ -806,7 +797,6 @@ struct PetWhitePetPetHeroIcon: View {
 
     @ViewBuilder
     private var petPetHeroImage: some View {
-        #if canImport(UIKit)
         if let image = UIImage(pawPrintIconId: "petPetHero") {
             Image(uiImage: image)
                 .renderingMode(.original)
@@ -817,20 +807,70 @@ struct PetWhitePetPetHeroIcon: View {
         } else {
             PetWhitePetPetIcon(size: min(width, height))
         }
-        #elseif canImport(AppKit)
-        if let image = NSImage.pawPrintIcon(id: "petPetHero") {
-            Image(nsImage: image)
-                .renderingMode(.original)
-                .interpolation(.high)
-                .antialiased(true)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
+    }
+}
+
+/// 小黏土块：与底同料的凸起（或糖果色强调件），
+/// `pressedLook = true` 时切换为真内阴影的凹陷态 —— 像用指头把它按进黏土里。
+struct PetWhiteClayPuck<S: Shape>: View {
+    var shape: S
+    var tint: Color = PetWhiteStyle.mint
+    var pressedLook = false
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        if pressedLook {
+            // 凹陷态：填色压暗一档 + 内阴影，无外阴影
+            shape
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            tint.opacity(colorScheme == .dark ? 0.8 : 0.9),
+                            tint,
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .overlay(PetWhiteClayInnerShadow(shape: shape, depth: 2.6))
         } else {
-            PetWhitePetPetIcon(size: min(width, height))
+            // 凸起态：左上亮右下暗的双向阴影 + 受光棱线
+            shape
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            tint,
+                            tint.opacity(colorScheme == .dark ? 0.88 : 0.94),
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .overlay(
+                    shape
+                        .stroke(
+                            LinearGradient(
+                                colors: [
+                                    PetWhiteStyle.clayLightShadow.opacity(colorScheme == .dark ? 0.08 : 0.8),
+                                    PetWhiteStyle.shadowInk.opacity(colorScheme == .dark ? 0.4 : 0.14),
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 0.9
+                        )
+                        .allowsHitTesting(false)
+                )
+                .shadow(
+                    color: PetWhiteStyle.clayLightShadow.opacity(colorScheme == .dark ? 0.04 : 0.9),
+                    radius: 5, x: -4, y: -4
+                )
+                .shadow(
+                    color: PetWhiteStyle.shadowInk.opacity(colorScheme == .dark ? 0.5 : 0.45),
+                    radius: 6, x: 4, y: 5
+                )
         }
-        #else
-        PetWhitePetPetIcon(size: min(width, height))
-        #endif
     }
 }
 
@@ -840,25 +880,19 @@ struct PetWhiteIconBadge: View {
     var size: CGFloat = 48
 
     var body: some View {
-        RoundedRectangle(cornerRadius: max(12, size * 0.30), style: .continuous)
-            .fill(tint)
-            .frame(width: size, height: size)
-            .overlay(
-                PetWhitePackIcon(
-                    icon: icon,
-                    size: size * 0.64,
-                    visualScale: 1.14,
-                    lineWidth: max(1.8, size * 0.044)
-                )
+        PetWhiteClayPuck(
+            shape: RoundedRectangle(cornerRadius: max(13, size * 0.36), style: .continuous),
+            tint: tint
+        )
+        .frame(width: size, height: size)
+        .overlay(
+            PetWhitePackIcon(
+                icon: icon,
+                size: size * 0.5,
+                visualScale: 1.04,
+                lineWidth: max(1.6, size * 0.038)
             )
-            .overlay(
-                RoundedRectangle(cornerRadius: max(12, size * 0.30), style: .continuous)
-                    .stroke(PetWhiteStyle.stroke, lineWidth: max(1.5, size * 0.04))
-            )
-            .overlay(alignment: .topTrailing) {
-                PetWhiteProfileHeadIcon(filled: true, size: max(14, size * 0.30))
-                    .offset(x: size * 0.10, y: -size * 0.10)
-            }
+        )
     }
 }
 
@@ -869,20 +903,14 @@ struct PetWhiteAssetIconBadge: View {
     var assetScale: CGFloat = 0.72
 
     var body: some View {
-        RoundedRectangle(cornerRadius: max(12, size * 0.30), style: .continuous)
-            .fill(tint)
-            .frame(width: size, height: size)
-            .overlay(
-                PetWhiteSelectedLyricToggleIcon(assetName: assetName, size: size * assetScale)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: max(12, size * 0.30), style: .continuous)
-                    .stroke(PetWhiteStyle.stroke, lineWidth: max(1.5, size * 0.04))
-            )
-            .overlay(alignment: .topTrailing) {
-                PetWhiteProfileHeadIcon(filled: true, size: max(14, size * 0.30))
-                    .offset(x: size * 0.10, y: -size * 0.10)
-            }
+        PetWhiteClayPuck(
+            shape: RoundedRectangle(cornerRadius: max(13, size * 0.36), style: .continuous),
+            tint: tint
+        )
+        .frame(width: size, height: size)
+        .overlay(
+            PetWhiteSelectedLyricToggleIcon(assetName: assetName, size: size * assetScale)
+        )
     }
 }
 
@@ -892,16 +920,14 @@ struct PetWhitePill: View {
 
     var body: some View {
         Text(text)
-            .font(PetWhiteStyle.labelFont(10, weight: .black))
+            .font(PetWhiteStyle.labelFont(10, weight: .bold))
             .foregroundStyle(PetWhiteStyle.ink)
             .tracking(0.8)
             .lineLimit(1)
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 11)
             .padding(.vertical, 6)
             .background(
-                Capsule(style: .continuous)
-                    .fill(tint)
-                    .overlay(Capsule(style: .continuous).stroke(PetWhiteStyle.separator, lineWidth: 1))
+                PetWhiteClayPuck(shape: Capsule(style: .continuous), tint: tint)
             )
     }
 }
@@ -915,24 +941,18 @@ struct PetWhiteSectionTitle: View {
     var action: (() -> Void)?
 
     var body: some View {
-        HStack(alignment: .center, spacing: 10) {
-            if let assetName {
-                PetWhiteAssetIconBadge(assetName: assetName, tint: tint, size: 34)
-            } else {
-                PetWhiteIconBadge(icon: icon, tint: tint, size: 34)
-            }
-
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(PetWhiteStyle.titleFont(18, weight: .black))
+                    .font(PetWhiteStyle.titleFont(20, weight: .bold))
                     .foregroundStyle(PetWhiteStyle.ink)
                     .lineLimit(1)
                     .minimumScaleFactor(0.82)
 
                 if let detail, !detail.isEmpty {
                     Text(detail)
-                        .font(PetWhiteStyle.labelFont(11, weight: .semibold))
-                        .foregroundStyle(PetWhiteStyle.inkSoft)
+                        .font(PetWhiteStyle.labelFont(11))
+                        .foregroundStyle(PetWhiteStyle.inkMuted)
                         .lineLimit(1)
                         .minimumScaleFactor(0.82)
                 }
@@ -942,22 +962,15 @@ struct PetWhiteSectionTitle: View {
 
             if let action {
                 Button(action: action) {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 3) {
                         Text(LocalizedStringKey("view_all"))
-                            .font(PetWhiteStyle.labelFont(11, weight: .black))
+                            .font(PetWhiteStyle.labelFont(12, weight: .semibold))
 
-                        PetWhitePackIcon(icon: .chevronRight, size: 15, visualScale: 1.05)
+                        PetWhitePackIcon(icon: .chevronRight, size: 12, visualScale: 1, fallbackColor: PetWhiteStyle.dogEar)
                     }
-                    .foregroundStyle(PetWhiteStyle.stroke)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(
-                        Capsule(style: .continuous)
-                            .fill(PetWhiteStyle.surfaceRaised)
-                            .overlay(Capsule(style: .continuous).stroke(PetWhiteStyle.separator, lineWidth: 1))
-                    )
+                    .foregroundStyle(PetWhiteStyle.dogEar)
                 }
-                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+                .buttonStyle(PetWhiteSquishyButtonStyle(scale: 0.92))
             }
         }
     }
@@ -965,7 +978,7 @@ struct PetWhiteSectionTitle: View {
 
 struct PetWhitePawPrint: View {
     var size: CGFloat = 26
-    var tint: Color = PetWhiteStyle.stroke.opacity(0.16)
+    var tint: Color = PetWhiteStyle.ink.opacity(0.10)
 
     var body: some View {
         ZStack {
@@ -1039,7 +1052,6 @@ struct PetWhiteProfileHeadIcon: View {
 
     @ViewBuilder
     private var headImage: some View {
-        #if canImport(UIKit)
         if let image = UIImage(pawPrintIconId: assetName) {
             Image(uiImage: image)
                 .renderingMode(.original)
@@ -1050,20 +1062,6 @@ struct PetWhiteProfileHeadIcon: View {
         } else {
             fallbackHead
         }
-        #elseif canImport(AppKit)
-        if let image = NSImage.pawPrintIcon(id: assetName) {
-            Image(nsImage: image)
-                .renderingMode(.original)
-                .interpolation(.high)
-                .antialiased(true)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-        } else {
-            fallbackHead
-        }
-        #else
-        fallbackHead
-        #endif
     }
 
     private var fallbackHead: some View {
@@ -1079,21 +1077,54 @@ struct PetWhiteDockSelectionBackground: View {
     var cornerRadius: CGFloat = 17
 
     var body: some View {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(isSelected ? tint : PetWhiteStyle.surfaceRaised)
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(PetWhiteStyle.stroke.opacity(isSelected ? 1 : 0.48), lineWidth: isSelected ? 1.5 : 1)
+        if isSelected {
+            // 选中 = 压进黏土里：内凹感（无外阴影、微暗、顶部反光收掉）
+            PetWhiteClayPuck(
+                shape: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous),
+                tint: tint,
+                pressedLook: true
             )
-            .overlay(alignment: .topTrailing) {
-                if isSelected {
-                    Circle()
-                        .fill(PetWhiteStyle.catWhite)
-                        .frame(width: 7, height: 7)
-                        .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1))
-                        .padding(6)
-                }
-            }
+        } else {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(Color.clear)
+        }
+    }
+}
+
+extension View {
+    /// 新拟物双向软阴影：左上奶白受光 + 右下暖棕落影。
+    /// 用于封面、头像等没有走 `PetWhiteSurfaceBackground` 的独立黏土件。
+    func petWhiteClayShadow(elevated: Bool = true, colorScheme: ColorScheme = .light) -> some View {
+        self
+            .shadow(
+                color: PetWhiteStyle.clayLightShadow.opacity(colorScheme == .dark ? 0.04 : (elevated ? 0.95 : 0.75)),
+                radius: elevated ? 10 : 6,
+                x: elevated ? -7 : -4,
+                y: elevated ? -7 : -4
+            )
+            .shadow(
+                color: PetWhiteStyle.shadowInk.opacity(colorScheme == .dark ? 0.55 : (elevated ? 0.5 : 0.36)),
+                radius: elevated ? 13 : 7,
+                x: elevated ? 8 : 5,
+                y: elevated ? 9 : 6
+            )
+    }
+}
+
+/// 黏土按压手感：按下明显缩小并微微下沉，松手 Q 弹回来。
+struct PetWhiteSquishyButtonStyle: ButtonStyle {
+    var scale: CGFloat = 0.9
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? scale : 1)
+            .offset(y: configuration.isPressed ? 1.5 : 0)
+            .animation(
+                configuration.isPressed
+                    ? .spring(response: 0.18, dampingFraction: 0.7)
+                    : .spring(response: 0.32, dampingFraction: 0.5),
+                value: configuration.isPressed
+            )
     }
 }
 

@@ -124,7 +124,7 @@ struct NeumorphicPlayerLayout: View {
         .monologueSheet(isPresented: $showPlaylist, preset: .standard){
             PlaylistPopupView()
         }
-        .monologueSheet(isPresented: $showQualitySheet, preset: .compact){
+        .monologueSheet(isPresented: $showQualitySheet, preset: .standard){
             SoundQualitySheet(
                 currentQuality: player.soundQuality,
                 currentQQQuality: player.qqMusicQuality,
@@ -138,8 +138,8 @@ struct NeumorphicPlayerLayout: View {
                 onSelectQishui: { info in player.switchQishuiQuality(info); showQualitySheet = false }
             )
         }
-        .monologueSheet(isPresented: $showEQSettings, preset: .large){
-            NavigationStack { EQSettingsView() }
+        .fullScreenCover(isPresented: $showEQSettings) {
+            NavigationStack { MonoAudioCenterView() }
         }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker){
             PlayerThemePickerSheet()
@@ -275,7 +275,11 @@ extension NeumorphicPlayerLayout {
     private var songInfoSection: some View {
         VStack(spacing: 8) {
             Text(player.currentSong?.name ?? "")
-                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .monologuePlayerDisplayFont(
+                    size: 22,
+                    weight: .bold,
+                    fallback: .system(size: 22, weight: .bold, design: .rounded)
+                )
                 .foregroundColor(textColor)
                 .lineLimit(1)
             
@@ -490,18 +494,28 @@ extension NeumorphicPlayerLayout {
             Spacer()
             
             if let song = player.currentSong {
-                neumorphicButton(size: 40) {
-                    if !downloadManager.isDownloaded(songId: song.id) {
-                        showDownloadSheet = true
+                if AppConfig.Features.downloadEnabled {
+                    // 下载按钮（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+                    neumorphicButton(size: 40) {
+                        if !downloadManager.isDownloaded(songId: song.id) {
+                            showDownloadSheet = true
+                        }
+                    } content: {
+                        MonologueIcon(
+                            icon: .playerDownload, size: 18,
+                            color: downloadManager.isDownloaded(songId: song.id) ? textColor : secondaryTextColor,
+                            lineWidth: 1.4
+                        )
                     }
-                } content: {
-                    MonologueIcon(
-                        icon: .playerDownload, size: 18,
-                        color: downloadManager.isDownloaded(songId: song.id) ? textColor : secondaryTextColor,
-                        lineWidth: 1.4
-                    )
+                    .disabled(downloadManager.isDownloaded(songId: song.id))
+                } else {
+                    // 沉浸模式按钮 — 占用原下载按钮的位置
+                    neumorphicButton(size: 40) {
+                        ImmersiveModeController.shared.present()
+                    } content: {
+                        MonologueIcon(icon: .immersive, size: 18, color: secondaryTextColor, lineWidth: 1.4)
+                    }
                 }
-                .disabled(downloadManager.isDownloaded(songId: song.id))
             }
             
             Spacer()

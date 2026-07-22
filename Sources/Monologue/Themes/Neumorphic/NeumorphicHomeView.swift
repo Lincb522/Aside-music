@@ -92,6 +92,7 @@ struct NeumorphicHomeView: View {
         ScrollView {
             LazyVStack(spacing: 24) {
                 topConsole
+                    .monologuePageHeaderCollapse()
                     .neumorphicStagger(appeared, order: 0)
 
                 tactileStage

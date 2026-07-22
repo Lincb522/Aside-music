@@ -31,6 +31,14 @@ struct DeviceLayout {
         }
         return 375
     }
+
+    static var screenHeight: CGFloat {
+        if let windowScene = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene }).first {
+            return windowScene.screen.bounds.height
+        }
+        return 812
+    }
     
     /// 动态计算顶部 Padding
     static var headerTopPadding: CGFloat {

@@ -45,45 +45,34 @@ struct SoundQualitySheet: View {
         availableQualities?.first { $0.quality == quality }
     }
     
+    /// 当前生效音质的展示名，用于头部「当前」行
+    private var currentQualityDisplayName: String {
+        if isQQMusic {
+            return currentQQQuality.displayName
+        }
+        return currentQuality.displayName
+    }
+
     var body: some View {
         let _ = settings.globalThemeRevision
 
         ZStack {
-            VStack(spacing: 20) {
-                HStack {
-                    Text(LocalizedStringKey("quality_title"))
-                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(20, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.titleFont(20, weight: .semibold) : .system(size: 20, weight: .bold, design: .rounded)))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary))
-                    
-                    if isQishui {
-                        PlatformBadgeLabel(text: "QSM", source: .qishui)
-                    } else if isQQMusic {
-                        PlatformBadgeLabel(text: String(localized: "quality_qq_source"), source: .qqmusic)
-                    }
-                    
-                    Spacer()
-                    Button(action: { dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss) }) {
-                        MonologueIcon(icon: .close, size: 14, color: SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)
-                            .padding(10)
-                            .background { closeButtonBackground }
-                    }
-                }
-                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-                .padding(.top, 8)
+            VStack(spacing: 18) {
+                header
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                    .padding(.top, 6)
 
                 ScrollView {
-                    VStack(spacing: 16) {
+                    VStack(spacing: 18) {
                         if isQishui {
                             if isLoadingQualities {
-                                ProgressView()
-                                    .padding(.vertical, 40)
+                                loadingSkeleton
                             } else {
                                 qishuiQualityList
                             }
                         } else if isQQMusic {
                             if isLoadingQualities {
-                                ProgressView()
-                                    .padding(.vertical, 40)
+                                loadingSkeleton
                             } else {
                                 let premium = filterQualities(qqPremiumQualities)
                                 let lossless = filterQualities(qqLosslessQualities)
@@ -105,8 +94,7 @@ struct SoundQualitySheet: View {
                             }
                         } else {
                             if isLoadingQualities {
-                                ProgressView()
-                                    .padding(.vertical, 40)
+                                loadingSkeleton
                             } else {
                                 neteaseQualityList
                             }
@@ -132,6 +120,70 @@ struct SoundQualitySheet: View {
                 await loadNeteaseQualities(id: id)
             }
         }
+    }
+
+    // MARK: - 头部
+
+    private var headerInk: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+        if SequoiaStyle.isActive { return SequoiaStyle.ink }
+        return .monologueTextPrimary
+    }
+
+    private var headerInkSoft: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        return .monologueTextSecondary
+    }
+
+    private var header: some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: 8) {
+                    Text(LocalizedStringKey("quality_title"))
+                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(21, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.titleFont(21, weight: .semibold) : .system(size: 21, weight: .heavy, design: .rounded)))
+                        .foregroundColor(headerInk)
+
+                    if isQishui {
+                        PlatformBadgeLabel(text: "QSM", source: .qishui)
+                    } else if isQQMusic {
+                        PlatformBadgeLabel(text: String(localized: "quality_qq_source"), source: .qqmusic)
+                    }
+                }
+
+                // 当前生效音质
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(Color.monologueAccent)
+                        .frame(width: 5, height: 5)
+
+                    Text(String(localized: "quality_current_prefix"))
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundColor(headerInkSoft.opacity(0.85))
+
+                    Text(currentQualityDisplayName)
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .foregroundColor(headerInk.opacity(0.9))
+                }
+            }
+
+            Spacer(minLength: 0)
+
+            Button(action: { dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss) }) {
+                MonologueIcon(icon: .close, size: 14, color: SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)
+                    .padding(10)
+                    .background { closeButtonBackground }
+            }
+        }
+    }
+
+    // MARK: - 加载骨架
+
+    private var loadingSkeleton: some View {
+        QualitySheetSkeleton(
+            panelBackground: AnyView(qualityPanelBackground),
+            cornerRadius: qualityPanelCornerRadius
+        )
     }
     
     private func loadQQQualities(mid: String) async {
@@ -202,7 +254,7 @@ struct SoundQualitySheet: View {
                 .buttonStyle(.plain)
                 
                 if index < qualities.count - 1 {
-                    Divider().padding(.leading, 56)
+                    Divider().padding(.leading, 65)
                 }
             }
         }
@@ -219,12 +271,23 @@ struct SoundQualitySheet: View {
     @ViewBuilder
     private func qualityGroup(title: String, qualities: [QQMusicQuality]) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(title)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundColor(.monologueTextSecondary)
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .padding(.bottom, 8)
+            HStack(spacing: 8) {
+                Capsule()
+                    .fill(rowAccent.opacity(0.85))
+                    .frame(width: 3, height: 11)
+
+                Text(title)
+                    .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                    .tracking(0.4)
+                    .foregroundColor(.monologueTextSecondary)
+
+                Rectangle()
+                    .fill(Color.monologueSeparator.opacity(0.5))
+                    .frame(height: 0.5)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 8)
             
             ForEach(Array(qualities.enumerated()), id: \.element) { index, quality in
                 let locked = qqPremiumBlocked && Self.premiumLocked.contains(quality)
@@ -248,7 +311,7 @@ struct SoundQualitySheet: View {
                 // Remove .disabled(locked) so they can tap it to see the toast
                 
                 if index < qualities.count - 1 {
-                    Divider().padding(.leading, 56)
+                    Divider().padding(.leading, 65)
                 }
             }
             
@@ -294,7 +357,7 @@ struct SoundQualitySheet: View {
                 .buttonStyle(.plain)
                 
                 if index < qualities.count - 1 {
-                    Divider().padding(.leading, 56)
+                    Divider().padding(.leading, 65)
                 }
             }
         }
@@ -305,40 +368,41 @@ struct SoundQualitySheet: View {
     }
     
     // MARK: - 音质行
-    
+
+    private var rowAccent: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
+        if MangaStyle.isActive { return MangaStyle.accentPink }
+        if MujiStyle.isActive { return MujiStyle.clay }
+        return .monologueTextPrimary
+    }
+
     private func qualityRow(name: String, subtitle: String, badge: String?, isSelected: Bool, isLocked: Bool = false) -> some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 13) {
+            // 等级字标：badge 文本直接做成方标，一眼分级
             ZStack {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Color.clear)
-                    .frame(width: 32, height: 32)
-                    .background {
-                        qualityIconTileBackground(isSelected: isSelected, isLocked: isLocked)
-                    }
-                
-                MonologueIcon(icon: .soundQuality, size: 16, color: qualityIconColor(isSelected: isSelected, isLocked: isLocked))
+                qualityIconTileBackground(isSelected: isSelected, isLocked: isLocked)
+
+                if let badge, !badge.isEmpty {
+                    Text(badge)
+                        .font(.system(size: badge.count > 3 ? 8 : 9.5, weight: .heavy, design: .rounded))
+                        .tracking(0.3)
+                        .foregroundColor(qualityIconColor(isSelected: isSelected, isLocked: isLocked))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                        .padding(.horizontal, 3)
+                } else {
+                    MonologueIcon(icon: .soundQuality, size: 16, color: qualityIconColor(isSelected: isSelected, isLocked: isLocked))
+                }
             }
-            
-            VStack(alignment: .leading, spacing: 2) {
+            .frame(width: 38, height: 38)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(name)
-                        .font(SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .semibold) : .system(size: 16, weight: .medium, design: .rounded))
+                        .font(SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .semibold) : .system(size: 15.5, weight: isSelected ? .bold : .semibold, design: .rounded))
                         .foregroundColor(isLocked ? (SequoiaStyle.isActive ? SequoiaStyle.inkMuted.opacity(0.58) : .monologueTextSecondary.opacity(0.5)) : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary))
-                    
-                    if let badge = badge {
-                        Text(badge)
-                            .font(qualityBadgeFont)
-                            .foregroundColor(qualityBadgeForeground(isLocked: isLocked))
-                            .tracking(MujiStyle.isActive ? 0.5 : 0)
-                            .padding(.horizontal, qualityBadgeHorizontalPadding)
-                            .padding(.vertical, qualityBadgeVerticalPadding)
-                            .background {
-                                qualityBadgeBackground(isLocked: isLocked)
-                            }
-                            .overlay {
-                                qualityBadgeStroke(isLocked: isLocked)
-                            }
-                    }
 
                     if isLocked {
                         Text("风控限制")
@@ -350,20 +414,44 @@ struct SoundQualitySheet: View {
                             .cornerRadius(4)
                     }
                 }
-                
+
                 Text(subtitle)
                     .font(SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .system(size: 12, weight: .regular, design: .rounded))
                     .foregroundColor(isLocked ? (SequoiaStyle.isActive ? SequoiaStyle.inkMuted.opacity(0.52) : .monologueTextSecondary.opacity(0.4)) : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
             }
-            
+
             Spacer()
-            
-            if isSelected && !isLocked {
-                MonologueIcon(icon: .checkmark, size: 14, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : (SequoiaStyle.isActive ? SequoiaStyle.accent : .monologueTextPrimary))
+
+            // 单选圈：选中实心，锁定换锁形
+            if isLocked {
+                MonologueIcon(icon: .lock, size: 13, color: .monologueTextSecondary.opacity(0.4))
+            } else {
+                ZStack {
+                    Circle()
+                        .stroke(
+                            isSelected ? rowAccent : Color.monologueSeparator.opacity(0.9),
+                            lineWidth: isSelected ? 5.5 : 1.4
+                        )
+                        .frame(width: isSelected ? 14.5 : 19, height: isSelected ? 14.5 : 19)
+                }
+                .frame(width: 20, height: 20)
+                .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isSelected)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background {
+            if isSelected && !isLocked {
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                    .fill(rowAccent.opacity(NeumorphicStyle.isActive || SequoiaStyle.isActive ? 0.08 : 0.055))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+            }
+        }
+        .contentShape(Rectangle())
     }
 
     private var qualityPanelCornerRadius: CGFloat {
@@ -434,76 +522,55 @@ struct SoundQualitySheet: View {
         return isSelected ? .monologueIconForeground : .monologueTextPrimary
     }
 
-    private var qualityBadgeFont: Font {
-        if MangaStyle.isActive { return MangaStyle.labelFont(9.5, weight: .black) }
-        if MujiStyle.isActive { return MujiStyle.labelFont(9, weight: .semibold) }
-        if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(9, weight: .semibold) }
-        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(9, weight: .semibold) }
-        return .system(size: 9, weight: .bold, design: .rounded)
-    }
+}
 
-    private var qualityBadgeHorizontalPadding: CGFloat {
-        if SequoiaStyle.isActive { return 6 }
-        return MangaStyle.isActive ? 6 : 5
-    }
+// MARK: - 加载骨架
 
-    private var qualityBadgeVerticalPadding: CGFloat {
-        if SequoiaStyle.isActive { return 2.5 }
-        return MangaStyle.isActive ? 2.5 : 2
-    }
+/// 音质加载中的占位行：呼吸明暗，尺寸与真实行一致，避免加载完成后跳版
+private struct QualitySheetSkeleton: View {
+    let panelBackground: AnyView
+    let cornerRadius: CGFloat
 
-    private var qualityBadgeCornerRadius: CGFloat {
-        if MangaStyle.isActive { return 6 }
-        if MujiStyle.isActive { return 5 }
-        if NeumorphicStyle.isActive { return 6 }
-        if SequoiaStyle.isActive { return 6 }
-        return 4
-    }
+    @State private var pulsing = false
 
-    private func qualityBadgeForeground(isLocked: Bool) -> Color {
-        if isLocked { return .monologueTextSecondary.opacity(0.4) }
-        if MangaStyle.isActive { return MangaStyle.ink }
-        if MujiStyle.isActive { return MujiStyle.clay }
-        if SequoiaStyle.isActive { return SequoiaStyle.accent }
-        return NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueIconForeground
-    }
+    var body: some View {
+        VStack(spacing: 0) {
+            ForEach(0 ..< 4, id: \.self) { index in
+                HStack(spacing: 13) {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color.monologueSeparator.opacity(0.45))
+                        .frame(width: 38, height: 38)
 
-    @ViewBuilder
-    private func qualityBadgeBackground(isLocked: Bool) -> some View {
-        let tint = MangaStyle.isActive ? MangaStyle.labelYellow : (MujiStyle.isActive ? MujiStyle.clay : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : (SequoiaStyle.isActive ? SequoiaStyle.accent : Color.monologueIconBackground)))
-        if isLocked {
-            RoundedRectangle(cornerRadius: qualityBadgeCornerRadius, style: .continuous)
-                .fill(Color.monologueIconBackground.opacity(0.3))
-        } else if NeumorphicStyle.isActive {
-            NeumorphicSurfaceBackground(
-                cornerRadius: qualityBadgeCornerRadius,
-                elevated: false,
-                pressed: true,
-                tint: tint.opacity(colorScheme == .dark ? 0.18 : 0.13)
-            )
-        } else if SequoiaStyle.isActive {
-            SequoiaSurfaceBackground(
-                cornerRadius: qualityBadgeCornerRadius,
-                elevated: false,
-                pressed: true,
-                fill: tint.opacity(0.12),
-                role: .selected
-            )
-        } else {
-            RoundedRectangle(cornerRadius: qualityBadgeCornerRadius, style: .continuous)
-                .fill(tint.opacity(MangaStyle.isActive ? 0.26 : (MujiStyle.isActive ? 0.10 : 1)))
+                    VStack(alignment: .leading, spacing: 6) {
+                        Capsule()
+                            .fill(Color.monologueSeparator.opacity(0.5))
+                            .frame(width: 92, height: 9)
+                        Capsule()
+                            .fill(Color.monologueSeparator.opacity(0.32))
+                            .frame(width: 150, height: 7)
+                    }
+
+                    Spacer()
+
+                    Circle()
+                        .stroke(Color.monologueSeparator.opacity(0.5), lineWidth: 1.4)
+                        .frame(width: 19, height: 19)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 13)
+
+                if index < 3 {
+                    Divider().padding(.leading, 65)
+                }
+            }
         }
-    }
-
-    @ViewBuilder
-    private func qualityBadgeStroke(isLocked: Bool) -> some View {
-        let tint = MangaStyle.isActive ? MangaStyle.strokeInk : (MujiStyle.isActive ? MujiStyle.clay : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : (SequoiaStyle.isActive ? SequoiaStyle.accent : Color.clear)))
-        if MangaStyle.isActive {
-            RoundedRectangle(cornerRadius: qualityBadgeCornerRadius, style: .continuous)
-                .stroke(tint, lineWidth: MangaStyle.fineStrokeWidth)
-        } else if MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive {
-            RoundedRectangle(cornerRadius: qualityBadgeCornerRadius, style: .continuous)
-                .stroke(tint.opacity(isLocked ? 0.12 : 0.28), lineWidth: 0.6)
+        .background(panelBackground)
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .opacity(pulsing ? 0.55 : 1)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.85).repeatForever(autoreverses: true)) {
+                pulsing = true
+            }
         }
     }
 }

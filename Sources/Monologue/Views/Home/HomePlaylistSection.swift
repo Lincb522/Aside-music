@@ -16,13 +16,13 @@ struct HomeNCMPlaylistSection: View {
             )
 
             ScrollView(.horizontal) {
-                HStack(spacing: 14) {
+                LazyHStack(spacing: 14) {
                     ForEach(Array(playlists.prefix(10).enumerated()), id: \.element.id) { idx, playlist in
                         Button(action: { onTap(playlist) }) {
                             playlistCard(playlist, index: idx)
                         }
                         .buttonStyle(MonologueBouncingButtonStyle())
-                        .scrollTransition(.animated(.spring(response: 0.35))) { content, phase in
+                        .compatScrollTransition(animation: .spring(response: 0.35)) { content, phase in
                             content
                                 .scaleEffect(phase.isIdentity ? 1 : 0.92)
                                 .opacity(phase.isIdentity ? 1 : 0.6)
@@ -31,11 +31,11 @@ struct HomeNCMPlaylistSection: View {
                     }
                 }
                 .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-                .scrollTargetLayout()
+                .compatScrollTargetLayout()
             }
             .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
-            .scrollTargetBehavior(.viewAligned(limitBehavior: .never))
+            .compatViewAlignedScrollBehavior(limitNever: true)
         }
     }
 
@@ -44,11 +44,13 @@ struct HomeNCMPlaylistSection: View {
     private var cardSize: CGFloat { DeviceLayout.playlistCardSize }
 
     private func playlistCard(_ playlist: Playlist, index: Int) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
+        let radius: CGFloat = MinimalWhiteStyle.isActive ? 12 : (DeviceLayout.isPad ? 24 : 20)
+
+        return VStack(alignment: .leading, spacing: 0) {
             ZStack(alignment: .topLeading) {
-                CachedAsyncImage(url: playlist.coverUrl?.sized(400)) {
+                CachedAsyncImage(url: playlist.coverUrl?.sized(400), width: cardSize, height: cardSize) {
                     Rectangle()
-                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueSeparator)
+                        .fill(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueSeparator))
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(width: cardSize, height: cardSize)
@@ -72,27 +74,37 @@ struct HomeNCMPlaylistSection: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(playlist.name)
-                    .font(.system(size: DeviceLayout.isPad ? 15 : 13, weight: .semibold, design: .rounded))
+                    .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.bodyFont(DeviceLayout.isPad ? 15 : 13, weight: .medium) : .system(size: DeviceLayout.isPad ? 15 : 13, weight: .semibold, design: .rounded))
                     .foregroundColor(.monologueTextPrimary)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
                     .frame(height: DeviceLayout.isPad ? 42 : 36, alignment: .top)
 
                 Text(playlist.trackCount.map { "\($0) " + NSLocalizedString("songs_unit", comment: "") } ?? " ")
-                    .font(.system(size: DeviceLayout.isPad ? 12 : 11, weight: .medium, design: .rounded))
+                    .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(DeviceLayout.isPad ? 12 : 11, weight: .regular) : .system(size: DeviceLayout.isPad ? 12 : 11, weight: .medium, design: .rounded))
                     .foregroundColor(.monologueTextSecondary)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
             .frame(width: cardSize, alignment: .leading)
-            .background(NeumorphicStyle.isActive ? NeumorphicStyle.surfaceRaised.opacity(0.74) : Color.monologueGlassTint)
+            .background(
+                NeumorphicStyle.isActive
+                    ? NeumorphicStyle.surfaceRaised.opacity(0.74)
+                    : (ThemedPageStyle.isActive ? Color.monologueGlassTint : Color.clear)
+            )
             .modifier(PlaylistCardInfoSurfaceModifier())
         }
         .frame(width: cardSize)
-        .clipShape(RoundedRectangle(cornerRadius: DeviceLayout.isPad ? 24 : 20, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+        .overlay {
+            if MinimalWhiteStyle.isActive {
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
+            }
+        }
         .background {
             if NeumorphicStyle.isActive {
-                NeumorphicSurfaceBackground(cornerRadius: DeviceLayout.isPad ? 24 : 20, elevated: true)
+                NeumorphicSurfaceBackground(cornerRadius: radius, elevated: true)
             }
         }
     }
@@ -134,7 +146,7 @@ private struct PlaylistCardInfoSurfaceModifier: ViewModifier {
         if NeumorphicStyle.isActive {
             content
         } else {
-            content.monologueGlass(cornerRadius: 0)
+            content.homeInformationSurface(cornerRadius: 0, showsTopSeparator: true)
         }
     }
 }

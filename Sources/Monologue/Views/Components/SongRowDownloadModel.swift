@@ -44,7 +44,8 @@ final class SongRowDownloadModel: ObservableObject {
     }
 
     func deleteDownload(song: Song) {
-        DownloadManager.shared.deleteDownload(songId: song.id, isQQ: song.isQQMusic)
+        // 清掉这首歌所有 key 变体的记录，避免历史数据 key 错配导致删不掉
+        DownloadManager.shared.deleteAllDownloadRecords(for: song)
     }
 
     func download(song: Song) {

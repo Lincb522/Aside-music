@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SongDetailView: View {
     let song: Song
-    @State private var viewModel = SongDetailViewModel()
+    @StateObject private var viewModel = SongDetailViewModel()
     @Environment(\.presentationMode) var presentationMode
     @ObservedObject var playerManager = PlayerManager.shared
     @ObservedObject private var settings = SettingsManager.shared
@@ -73,6 +73,7 @@ struct SongDetailView: View {
             ScrollView {
                 VStack(spacing: 0) {
                     songHeaderContent
+                        .monologuePageHeaderCollapse()
                     // 音乐百科
                     if !viewModel.wikiBlocks.isEmpty {
                         songWikiSection

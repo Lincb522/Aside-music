@@ -16,8 +16,13 @@ private struct MangaThemeRoot<Content: View>: View {
         let _ = settings.globalThemeRevision
 
         content()
-            .tint(MangaStyle.accentPink)
+            .tint(MangaComicPalette.red)
             .themeRenderSceneLayer()
+            .background {
+                MangaRootBackdrop()
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
     }
 }
 

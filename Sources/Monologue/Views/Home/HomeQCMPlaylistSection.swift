@@ -9,56 +9,68 @@ struct HomeQQPlaylistSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .bottom) {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(alignment: .center, spacing: 7) {
-                        Circle()
-                            .fill(NeumorphicStyle.isActive ? NeumorphicStyle.sage : Color.green)
-                            .frame(width: 7, height: 7)
-
-                        Text(LocalizedStringKey("qq_recommend_playlists"))
-                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(20, weight: .semibold) : .system(size: 22, weight: .heavy, design: .rounded))
-                            .foregroundColor(.monologueTextPrimary)
-                            .tracking(NeumorphicStyle.isActive ? 0 : -0.3)
-                    }
-
-                    Text(NSLocalizedString("qq_recommend_playlists_desc", comment: ""))
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundColor(.monologueTextSecondary)
-                }
-                Spacer()
-                
-                if let onViewAll {
-                    Button(action: onViewAll) {
-                        HStack(spacing: 4) {
-                            Text(LocalizedStringKey("view_all"))
-                                .font(.system(size: 11, weight: .bold, design: .rounded))
-                            MonologueIcon(icon: .chevronRight, size: 9, color: .monologueTextSecondary, lineWidth: 1.6)
+            if MinimalWhiteStyle.isActive {
+                MinimalWhiteSectionTitle(title: String(localized: "qq_recommend_playlists")) {
+                    if let onViewAll {
+                        Button(action: onViewAll) {
+                            MinimalWhiteDisclosureGlyph()
                         }
-                        .foregroundColor(.monologueTextSecondary)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background {
-                            if NeumorphicStyle.isActive {
-                                NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true, lightweight: true)
-                            } else {
-                                Capsule().fill(Color.monologueGlassTint)
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+            } else {
+                HStack(alignment: .bottom) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(alignment: .center, spacing: 7) {
+                            Circle()
+                                .fill(NeumorphicStyle.isActive ? NeumorphicStyle.sage : Color.green)
+                                .frame(width: 7, height: 7)
+
+                            Text(LocalizedStringKey("qq_recommend_playlists"))
+                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(20, weight: .semibold) : .system(size: 22, weight: .heavy, design: .rounded))
+                                .foregroundColor(.monologueTextPrimary)
+                                .tracking(NeumorphicStyle.isActive ? 0 : -0.3)
+                        }
+
+                        Text(NSLocalizedString("qq_recommend_playlists_desc", comment: ""))
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundColor(.monologueTextSecondary)
+                    }
+                    Spacer()
+
+                    if let onViewAll {
+                        Button(action: onViewAll) {
+                            HStack(spacing: 4) {
+                                Text(LocalizedStringKey("view_all"))
+                                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                                MonologueIcon(icon: .chevronRight, size: 9, color: .monologueTextSecondary, lineWidth: 1.6)
+                            }
+                            .foregroundColor(.monologueTextSecondary)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background {
+                                if NeumorphicStyle.isActive {
+                                    NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true, lightweight: true)
+                                } else {
+                                    Capsule().fill(Color.monologueGlassTint)
+                                }
                             }
                         }
                     }
                 }
+                .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
             }
-            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
 
             // 宽封面横滑
             ScrollView(.horizontal) {
-                HStack(spacing: 14) {
+                LazyHStack(spacing: 14) {
                     ForEach(playlists.prefix(8)) { playlist in
                         Button(action: { onTap(playlist) }) {
                             widePlaylistCard(playlist)
                         }
                         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
-                        .scrollTransition(.animated(.spring(response: 0.35))) { content, phase in
+                        .compatScrollTransition(animation: .spring(response: 0.35)) { content, phase in
                             content
                                 .scaleEffect(phase.isIdentity ? 1 : 0.93)
                                 .opacity(phase.isIdentity ? 1 : 0.5)
@@ -67,11 +79,11 @@ struct HomeQQPlaylistSection: View {
                     }
                 }
                 .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-                .scrollTargetLayout()
+                .compatScrollTargetLayout()
             }
             .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
-            .scrollTargetBehavior(.viewAligned(limitBehavior: .never))
+            .compatViewAlignedScrollBehavior(limitNever: true)
         }
     }
 
@@ -79,19 +91,21 @@ struct HomeQQPlaylistSection: View {
     private var qqH: CGFloat { DeviceLayout.qqCardHeight }
 
     private func widePlaylistCard(_ playlist: Playlist) -> some View {
-        ZStack(alignment: .bottomLeading) {
-            CachedAsyncImage(url: playlist.coverUrl?.sized(400)) {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueSeparator)
+        let radius: CGFloat = MinimalWhiteStyle.isActive ? 14 : 22
+
+        return ZStack(alignment: .bottomLeading) {
+            CachedAsyncImage(url: playlist.coverUrl?.sized(400), width: qqW, height: qqH) {
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueSeparator))
             }
             .aspectRatio(contentMode: .fill)
             .frame(width: qqW, height: qqH)
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
 
             // 悬浮在底部的毛玻璃胶囊层
             VStack(alignment: .leading, spacing: 2) {
                 Text(playlist.name)
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.bodyFont(14, weight: .medium) : .system(size: 14, weight: .bold, design: .rounded))
                     .foregroundColor(.monologueTextPrimary)
                     .lineLimit(1)
 
@@ -116,6 +130,12 @@ struct HomeQQPlaylistSection: View {
             .padding(8) // 让胶囊层内敛并悬浮
         }
         .frame(width: qqW, height: qqH)
+        .overlay {
+            if MinimalWhiteStyle.isActive {
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
+            }
+        }
         .background {
             if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: 24, elevated: true)
@@ -147,7 +167,7 @@ private struct QQPlaylistInfoSurfaceModifier: ViewModifier {
         if NeumorphicStyle.isActive {
             content
         } else {
-            content.monologueGlass(cornerRadius: 16)
+            content.homeInformationSurface(cornerRadius: 16)
         }
     }
 }

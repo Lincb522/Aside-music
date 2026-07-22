@@ -12,7 +12,9 @@ struct TogglePlaybackIntent: AudioPlaybackIntent {
     @MainActor
     func perform() async throws -> some IntentResult {
         #if MAIN_APP
-        PlayerManager.shared.togglePlayPause()
+        let player = PlayerManager.shared
+        player.beginTransitionKeepAlive(reason: "widget toggle playback")
+        player.togglePlayPause()
         WidgetCenter.shared.reloadAllTimelines()
         #endif
         return .result()
@@ -26,7 +28,9 @@ struct NextTrackIntent: AudioPlaybackIntent {
     @MainActor
     func perform() async throws -> some IntentResult {
         #if MAIN_APP
-        PlayerManager.shared.next()
+        let player = PlayerManager.shared
+        player.beginTransitionKeepAlive(reason: "widget next track")
+        player.next()
         WidgetCenter.shared.reloadAllTimelines()
         #endif
         return .result()
@@ -40,7 +44,9 @@ struct PreviousTrackIntent: AudioPlaybackIntent {
     @MainActor
     func perform() async throws -> some IntentResult {
         #if MAIN_APP
-        PlayerManager.shared.previous()
+        let player = PlayerManager.shared
+        player.beginTransitionKeepAlive(reason: "widget previous track")
+        player.previous()
         WidgetCenter.shared.reloadAllTimelines()
         #endif
         return .result()

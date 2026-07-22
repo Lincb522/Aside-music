@@ -97,7 +97,7 @@ struct PosterPlayerLayout: View {
         .monologueSheet(isPresented: $showPlaylist, preset: .standard){
             PlaylistPopupView()
         }
-        .monologueSheet(isPresented: $showQualitySheet, preset: .compact){
+        .monologueSheet(isPresented: $showQualitySheet, preset: .standard){
             SoundQualitySheet(
                 currentQuality: player.soundQuality,
                 currentQQQuality: player.qqMusicQuality,
@@ -111,8 +111,8 @@ struct PosterPlayerLayout: View {
                 onSelectQishui: { info in player.switchQishuiQuality(info); showQualitySheet = false }
             )
         }
-        .monologueSheet(isPresented: $showEQSettings, preset: .large){
-            NavigationStack { EQSettingsView() }
+        .fullScreenCover(isPresented: $showEQSettings) {
+            NavigationStack { MonoAudioCenterView() }
         }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker){
             PlayerThemePickerSheet()
@@ -179,6 +179,15 @@ extension PosterPlayerLayout {
                 
                 Spacer()
                 
+                Button(action: { ImmersiveModeController.shared.present() }) {
+                    Text("沉浸")
+                        .font(.custom(posterFont, size: 16))
+                        .foregroundColor(fg)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(MonologueBouncingButtonStyle())
+
                 Button(action: {
                     withAnimation(.easeInOut(duration: 0.1)) { showMoreMenu.toggle() }
                 }) {
@@ -214,7 +223,11 @@ extension PosterPlayerLayout {
             
             // 巨型歌名
             Text(songName)
-                .font(.custom(posterFont, size: 72))
+                .monologuePlayerDisplayFont(
+                    size: 72,
+                    weight: .bold,
+                    fallback: .custom(posterFont, size: 72)
+                )
                 .foregroundColor(fg)
                 .tracking(-3)
                 .lineSpacing(-8)
@@ -393,7 +406,11 @@ extension PosterPlayerLayout {
             
             // 歌名 — 使用字魂字体
             Text(player.currentSong?.name ?? "")
-                .font(.custom(posterFont, size: 14))
+                .monologuePlayerDisplayFont(
+                    size: 14,
+                    weight: .semibold,
+                    fallback: .custom(posterFont, size: 14)
+                )
                 .foregroundColor(fg)
                 .lineLimit(1)
             

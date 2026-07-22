@@ -1,3 +1,5 @@
 node_modules/
 dist/
 .DS_Store
+.mono-feedback.json
+.mono-play-shares.json

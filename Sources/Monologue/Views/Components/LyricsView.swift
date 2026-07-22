@@ -19,6 +19,89 @@ struct LyricLine: Identifiable, Equatable {
     var words: [LyricWord] = []
 }
 
+/// 普通歌词页与歌词播放器共用的逐字时间轴。
+/// 平台逐字数据可用时保留原时间；缺失、相对时间或明显异常时统一补齐。
+enum LyricKaraokeTimeline {
+    static func resolvedWords(for line: LyricLine, displayText: String? = nil) -> [LyricWord] {
+        let text = displayText ?? line.text.monologueLyricDisplayText
+        guard !text.isEmpty else { return [] }
+
+        let platformWords = normalizedPlatformWords(for: line, displayText: text)
+        if !platformWords.isEmpty {
+            return platformWords
+        }
+
+        return syntheticWords(for: line, displayText: text)
+    }
+
+    private static func normalizedPlatformWords(for line: LyricLine, displayText: String) -> [LyricWord] {
+        let validWords = line.words.filter {
+            !$0.text.isEmpty
+                && $0.startTime.isFinite
+                && $0.duration.isFinite
+                && $0.duration > 0
+                && $0.duration < 60
+        }
+        guard !validWords.isEmpty else { return [] }
+
+        let sorted = validWords.sorted { $0.startTime < $1.startTime }
+        guard let first = sorted.first, let last = sorted.last else { return [] }
+
+        let lineDuration = line.duration.isFinite && line.duration > 0 ? line.duration : 0
+        let rawEnd = last.startTime + last.duration
+        let looksRelative = line.time > 0.75
+            && first.startTime >= -0.1
+            && first.startTime < line.time - 0.5
+            && lineDuration > 0
+            && rawEnd <= lineDuration + 1
+        let timeOffset = looksRelative ? line.time : 0
+
+        let normalized = sorted.map {
+            LyricWord(
+                text: $0.text.monologueLyricDisplayText,
+                startTime: $0.startTime + timeOffset,
+                duration: $0.duration
+            )
+        }
+
+        let effectiveDuration = lineDuration > 0
+            ? lineDuration
+            : max((normalized.last.map { $0.startTime + $0.duration } ?? line.time) - line.time, 0)
+        let lineEnd = line.time + max(effectiveDuration, 0.5)
+        let overlapsLine = normalized.contains {
+            $0.startTime <= lineEnd + 0.75 && $0.startTime + $0.duration >= line.time - 0.35
+        }
+
+        let expectedCharacterCount = displayText.filter { !$0.isWhitespace }.count
+        let timedCharacterCount = normalized
+            .map(\.text)
+            .joined()
+            .filter { !$0.isWhitespace }
+            .count
+        let hasEnoughText = expectedCharacterCount == 0
+            || Double(timedCharacterCount) / Double(expectedCharacterCount) >= 0.45
+
+        return overlapsLine && hasEnoughText ? normalized : []
+    }
+
+    private static func syntheticWords(for line: LyricLine, displayText: String) -> [LyricWord] {
+        let characters = Array(displayText)
+        guard !characters.isEmpty else { return [] }
+
+        let fallbackDuration = min(max(Double(characters.count) * 0.16, 1.8), 8)
+        let duration = line.duration.isFinite && line.duration > 0 ? line.duration : fallbackDuration
+        let characterDuration = duration / Double(characters.count)
+
+        return characters.enumerated().map { index, character in
+            LyricWord(
+                text: String(character),
+                startTime: line.time + Double(index) * characterDuration,
+                duration: characterDuration
+            )
+        }
+    }
+}
+
 @MainActor
 class LyricViewModel: ObservableObject {
     static let shared = LyricViewModel()
@@ -27,6 +110,7 @@ class LyricViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var currentLineIndex: Int = 0
     @Published var hasLyrics = false
+    @Published private(set) var activeSource: LyricSource?
     
     var currentLineSafely: LyricLine? {
         guard lyrics.indices.contains(currentLineIndex) else { return nil }
@@ -46,23 +130,117 @@ class LyricViewModel: ObservableObject {
     private var translations: [TimeInterval: String] = [:]
     /// 当前歌词请求的会话 ID，防止旧请求回调覆盖新歌词
     private var lyricSessionId: Int = 0
+    /// 仅对当前歌曲有效；切歌后自动回到全局默认来源。
+    private var currentSongSourceOverride: (songId: Int, source: LyricSource)?
     
     func fetchLyrics(for song: Song) {
-        if applyCachedLyricsIfAvailable(for: song) {
+        if currentSongSourceOverride?.songId != song.id {
+            currentSongSourceOverride = nil
+        }
+
+        let source = currentSongSourceOverride?.source ?? LyricSource.resolvedGlobalSource(for: song)
+        activeSource = source
+
+        if applyDownloadedLyricsIfAvailable(for: song, source: source) {
             return
         }
 
-        if let trackId = song.qishuiTrackId {
-            fetchQishuiLyrics(trackId: trackId, songId: song.id)
+        // 旧缓存没有记录歌词来源。只有歌词来源与歌曲平台一致时才复用，
+        // 手动换源和跨平台默认源始终重新请求，防止显示错误来源的旧歌词。
+        let canUseLegacyCache = currentSongSourceOverride?.songId == nil
+            && source.musicSource == song.musicSource
+        if canUseLegacyCache, applyCachedLyricsIfAvailable(for: song) {
             return
         }
 
-        if song.isQQMusic, let mid = song.qqMid, !mid.isEmpty {
-            fetchQQLyrics(mid: mid, songId: song.id)
-            return
+        fetchLyrics(for: song, source: source, forceReload: false)
+    }
+
+    private func applyDownloadedLyricsIfAvailable(for song: Song, source: LyricSource) -> Bool {
+        guard let downloaded = LyricDownloadManager.offlineLyrics(for: song, source: source) else {
+            return false
         }
 
-        fetchNeteaseLyrics(for: song, fallbackQQMid: song.qqMid)
+        lyricSessionId += 1
+        currentSongId = song.id
+        activeSource = source
+        lyrics = []
+        hasLyrics = false
+        currentLineIndex = 0
+        currentLineProgress = 0
+        translations = [:]
+        isLoading = false
+
+        if let translated = downloaded.translated {
+            parseTranslations(translated)
+        }
+        parseQRC(downloaded.lyrics)
+        hasLyrics = !lyrics.isEmpty
+        return hasLyrics
+    }
+
+    func selectedSource(for song: Song) -> LyricSource {
+        if currentSongSourceOverride?.songId == song.id,
+           let source = currentSongSourceOverride?.source {
+            return source
+        }
+        if currentSongId == song.id, let activeSource {
+            return activeSource
+        }
+        return LyricSource.resolvedGlobalSource(for: song)
+    }
+
+    /// 临时更换当前歌曲的歌词来源；切歌后自动失效。
+    func changeSource(_ source: LyricSource, for song: Song) {
+        currentSongSourceOverride = (song.id, source)
+        fetchLyrics(for: song, source: source, forceReload: true)
+    }
+
+    /// 应用当前全局来源策略，并清除当前歌曲的临时覆盖。
+    func useGlobalSource(for song: Song) {
+        currentSongSourceOverride = nil
+        let source = LyricSource.resolvedGlobalSource(for: song)
+        fetchLyrics(for: song, source: source, forceReload: true)
+    }
+
+    private func fetchLyrics(for song: Song, source: LyricSource, forceReload: Bool) {
+        activeSource = source
+
+        switch source {
+        case .netease:
+            fetchNeteaseLyrics(
+                for: song,
+                fallbackQQMid: nil,
+                allowQQFallback: false,
+                forceReload: forceReload
+            )
+        case .qqmusic:
+            fetchQQLyrics(for: song, forceReload: forceReload)
+        case .qishui:
+            fetchQishuiLyrics(for: song, forceReload: forceReload)
+        }
+    }
+
+    private func beginLyricRequest(songId: Int, forceReload: Bool) -> Int? {
+        if !forceReload, songId == currentSongId, hasLyrics || isLoading {
+            return nil
+        }
+
+        let shouldClearLyrics = forceReload || songId != currentSongId
+
+        lyricSessionId += 1
+        currentSongId = songId
+        isLoading = true
+
+        if shouldClearLyrics {
+            lyrics = []
+            hasLyrics = false
+            currentLineIndex = 0
+            currentLineProgress = 0.0
+            translations = [:]
+        }
+
+        return lyricSessionId
     }
 
     private func applyCachedLyricsIfAvailable(for song: Song) -> Bool {
@@ -94,18 +272,18 @@ class LyricViewModel: ObservableObject {
         return hasLyrics
     }
 
-    private func fetchQishuiLyrics(trackId: Int, songId: Int) {
-        if songId == currentSongId && (hasLyrics || isLoading) { return }
+    private func fetchQishuiLyrics(for song: Song, forceReload: Bool) {
+        if let trackId = song.qishuiTrackId, trackId > 0 {
+            fetchQishuiLyrics(trackId: trackId, songId: song.id, forceReload: forceReload)
+            return
+        }
 
-        lyricSessionId += 1
-        let sessionId = lyricSessionId
-        currentSongId = songId
-        lyrics = []
-        hasLyrics = false
-        currentLineIndex = 0
-        currentLineProgress = 0.0
-        translations = [:]
-        isLoading = true
+        guard let sessionId = beginLyricRequest(songId: song.id, forceReload: forceReload) else { return }
+        searchQishuiLyricsByMetadata(for: song, sessionId: sessionId)
+    }
+
+    private func fetchQishuiLyrics(trackId: Int, songId: Int, forceReload: Bool = false) {
+        guard let sessionId = beginLyricRequest(songId: songId, forceReload: forceReload) else { return }
 
         APIService.shared.fetchQishuiLyric(trackId: trackId)
             .receive(on: DispatchQueue.main)
@@ -119,13 +297,58 @@ class LyricViewModel: ObservableObject {
                 guard let self, self.lyricSessionId == sessionId else { return }
                 self.isLoading = false
                 if !content.isEmpty {
-                    let parsed = self.parseQishuiLyric(content)
-                    self.lyrics = parsed
-                    self.hasLyrics = !parsed.isEmpty
-                    AppLogger.info("[Lyrics] 汽水歌词加载成功: \(parsed.count) 行")
+                    self.applyQishuiLyrics(content)
+                    AppLogger.info("[Lyrics] 汽水歌词加载成功: \(self.lyrics.count) 行")
                 }
             })
             .store(in: &cancellables)
+    }
+
+    private func searchQishuiLyricsByMetadata(for song: Song, sessionId: Int) {
+        guard !song.name.isEmpty || !song.artistName.isEmpty else {
+            isLoading = false
+            currentSongId = nil
+            return
+        }
+
+        Task { @MainActor [weak self] in
+            guard let self, self.lyricSessionId == sessionId else { return }
+
+            let query = "\(song.artistName) \(song.name)".trimmingCharacters(in: .whitespacesAndNewlines)
+
+            do {
+                let candidates = try await APIService.shared.searchQishuiSongs(keyword: query, page: 0).async()
+                guard self.lyricSessionId == sessionId else { return }
+
+                if let matchedSong = self.bestMetadataMatch(
+                    from: candidates,
+                    title: song.name,
+                    artist: song.artistName,
+                    durationMs: song.dt
+                ), let trackId = matchedSong.qishuiTrackId, trackId > 0 {
+                    let content = try await APIService.shared.fetchQishuiLyric(trackId: trackId).async()
+                    guard self.lyricSessionId == sessionId else { return }
+
+                    self.applyQishuiLyrics(content)
+                    self.isLoading = false
+                    if self.hasLyrics {
+                        AppLogger.info("[Lyrics] 已从 QSM 搜索结果补全歌词: \(song.name) - \(song.artistName)")
+                        return
+                    }
+                }
+            } catch {
+                AppLogger.warning("[Lyrics] QSM 搜索补全失败: \(query) - \(error.localizedDescription)")
+            }
+
+            self.isLoading = false
+            self.currentSongId = nil
+        }
+    }
+
+    private func applyQishuiLyrics(_ content: String) {
+        let parsed = parseQishuiLyric(content)
+        lyrics = parsed
+        hasLyrics = !parsed.isEmpty
     }
 
     private func parseQishuiLyric(_ raw: String) -> [LyricLine] {
@@ -138,22 +361,10 @@ class LyricViewModel: ObservableObject {
             let parts = timeStr.split(separator: ",")
             guard let startMs = Int(parts.first ?? "") else { continue }
             let time = Double(startMs) / 1000.0
-            var text = ""
             let afterBracket = String(trimmed[trimmed.index(after: bracketEnd)...])
-            for ch in afterBracket {
-                if ch == "<" { break }
-                text.append(ch)
-            }
-            let wordSegments = afterBracket.components(separatedBy: ">")
-            for seg in wordSegments {
-                let stripped = seg.replacingOccurrences(of: "<[^>]*", with: "", options: .regularExpression)
-                if !stripped.isEmpty && text.isEmpty {
-                    text += stripped
-                } else if !stripped.isEmpty {
-                    text += stripped
-                }
-            }
-            text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            let text = afterBracket
+                .replacingOccurrences(of: "<[^>]*>", with: "", options: .regularExpression)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
             if !text.isEmpty {
                 lines.append(LyricLine(time: time, text: text, translation: nil))
             }
@@ -162,6 +373,7 @@ class LyricViewModel: ObservableObject {
     }
 
     func fetchLyrics(for songId: Int) {
+        activeSource = .netease
         fetchNeteaseLyrics(for: Song(
             id: songId,
             name: "",
@@ -176,29 +388,27 @@ class LyricViewModel: ObservableObject {
             sq: nil,
             hr: nil,
             alia: nil
-        ), fallbackQQMid: nil)
+        ), fallbackQQMid: nil, allowQQFallback: false, forceReload: false)
     }
 
-    private func fetchNeteaseLyrics(for song: Song, fallbackQQMid: String?) {
+    private func fetchNeteaseLyrics(
+        for song: Song,
+        fallbackQQMid: String?,
+        allowQQFallback: Bool,
+        forceReload: Bool
+    ) {
         let songId = song.id
-        // 同一首歌且已加载或正在加载，跳过
-        if songId == currentSongId && (hasLyrics || isLoading) { return }
-        
-        let isNewSong = songId != currentSongId
-        
-        lyricSessionId += 1
-        let sessionId = lyricSessionId
-        
-        currentSongId = songId
-        isLoading = true
-        
-        // 仅切换新歌时清空歌词；同一首歌重试时保留旧数据避免闪烁
-        if isNewSong {
-            lyrics = []
-            hasLyrics = false
-            currentLineIndex = 0
-            currentLineProgress = 0.0
-            translations = [:]
+        guard let sessionId = beginLyricRequest(songId: songId, forceReload: forceReload) else { return }
+
+        // 跨平台歌曲的数值 ID 不属于 NCM，必须先按元数据搜索。
+        if song.musicSource != .netease {
+            fetchLyricsByMetadataFallback(
+                for: song,
+                fallbackQQMid: fallbackQQMid,
+                sessionId: sessionId,
+                allowQQFallback: allowQQFallback
+            )
+            return
         }
         
         APIService.shared.fetchLyric(id: songId)
@@ -206,14 +416,24 @@ class LyricViewModel: ObservableObject {
                 guard let self = self, self.lyricSessionId == sessionId else { return }
                 if case .failure(let error) = completion {
                     AppLogger.error("Failed to fetch lyrics: \(error)")
-                    self.fetchLyricsByMetadataFallback(for: song, fallbackQQMid: fallbackQQMid, sessionId: sessionId)
+                    self.fetchLyricsByMetadataFallback(
+                        for: song,
+                        fallbackQQMid: fallbackQQMid,
+                        sessionId: sessionId,
+                        allowQQFallback: allowQQFallback
+                    )
                 }
             }, receiveValue: { [weak self] response in
                 guard let self = self, self.lyricSessionId == sessionId else { return }
                 self.applyNeteaseLyrics(response)
 
                 if !self.hasLyrics {
-                    self.fetchLyricsByMetadataFallback(for: song, fallbackQQMid: fallbackQQMid, sessionId: sessionId)
+                    self.fetchLyricsByMetadataFallback(
+                        for: song,
+                        fallbackQQMid: fallbackQQMid,
+                        sessionId: sessionId,
+                        allowQQFallback: allowQQFallback
+                    )
                 } else {
                     self.isLoading = false
                 }
@@ -222,25 +442,18 @@ class LyricViewModel: ObservableObject {
     }
     
     /// 获取 qcm歌词
-    func fetchQQLyrics(mid: String, songId: Int) {
-        // 同一首歌且已加载或正在加载，跳过
-        if songId == currentSongId && (hasLyrics || isLoading) { return }
-        
-        let isNewSong = songId != currentSongId
-        
-        lyricSessionId += 1
-        let sessionId = lyricSessionId
-        
-        currentSongId = songId
-        isLoading = true
-        
-        if isNewSong {
-            lyrics = []
-            hasLyrics = false
-            currentLineIndex = 0
-            currentLineProgress = 0.0
-            translations = [:]
+    private func fetchQQLyrics(for song: Song, forceReload: Bool) {
+        if let mid = song.qqMid, !mid.isEmpty {
+            fetchQQLyrics(mid: mid, songId: song.id, forceReload: forceReload)
+            return
         }
+
+        guard let sessionId = beginLyricRequest(songId: song.id, forceReload: forceReload) else { return }
+        searchQQLyricsByMetadata(for: song, sessionId: sessionId)
+    }
+
+    func fetchQQLyrics(mid: String, songId: Int, forceReload: Bool = false) {
+        guard let sessionId = beginLyricRequest(songId: songId, forceReload: forceReload) else { return }
         
         APIService.shared.fetchQQLyric(mid: mid)
             .sink(receiveCompletion: { [weak self] completion in
@@ -283,9 +496,19 @@ class LyricViewModel: ObservableObject {
             .store(in: &cancellables)
     }
 
-    private func fetchLyricsByMetadataFallback(for song: Song, fallbackQQMid: String?, sessionId: Int) {
+    private func fetchLyricsByMetadataFallback(
+        for song: Song,
+        fallbackQQMid: String?,
+        sessionId: Int,
+        allowQQFallback: Bool
+    ) {
         guard !song.name.isEmpty || !song.artistName.isEmpty else {
-            fallbackToQQIfNeeded(mid: fallbackQQMid, song: song, sessionId: sessionId)
+            finishNeteaseFallback(
+                allowQQFallback: allowQQFallback,
+                fallbackQQMid: fallbackQQMid,
+                song: song,
+                sessionId: sessionId
+            )
             return
         }
 
@@ -299,7 +522,7 @@ class LyricViewModel: ObservableObject {
                 guard self.lyricSessionId == sessionId else { return }
 
                 if let matchedSong = self.bestMetadataMatch(from: candidates, title: song.name, artist: song.artistName, durationMs: song.dt),
-                   matchedSong.id != song.id {
+                   matchedSong.id != song.id || song.musicSource != .netease {
                     let response = try await APIService.shared.fetchLyric(id: matchedSong.id).async()
                     guard self.lyricSessionId == sessionId else { return }
 
@@ -314,7 +537,27 @@ class LyricViewModel: ObservableObject {
                 AppLogger.warning("[Lyrics] NCM 搜索补全失败: \(query) - \(error.localizedDescription)")
             }
 
-            self.fallbackToQQIfNeeded(mid: fallbackQQMid, song: song, sessionId: sessionId)
+            self.finishNeteaseFallback(
+                allowQQFallback: allowQQFallback,
+                fallbackQQMid: fallbackQQMid,
+                song: song,
+                sessionId: sessionId
+            )
+        }
+    }
+
+    private func finishNeteaseFallback(
+        allowQQFallback: Bool,
+        fallbackQQMid: String?,
+        song: Song,
+        sessionId: Int
+    ) {
+        guard lyricSessionId == sessionId else { return }
+        if allowQQFallback {
+            fallbackToQQIfNeeded(mid: fallbackQQMid, song: song, sessionId: sessionId)
+        } else {
+            isLoading = false
+            currentSongId = nil
         }
     }
 
@@ -806,7 +1049,6 @@ class LyricViewModel: ObservableObject {
                 : 0.0
             if abs(newProgress - currentLineProgress) > 0.02 {
                 currentLineProgress = newProgress
-                schedulePublish()
             }
 
         } else {
@@ -817,17 +1059,6 @@ class LyricViewModel: ObservableObject {
         }
     }
 
-    private var publishScheduled = false
-    private func schedulePublish() {
-        guard !publishScheduled else { return }
-        publishScheduled = true
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            self.publishScheduled = false
-            self.objectWillChange.send()
-        }
-    }
-    
     func clearLyrics() {
         lyrics = []
         hasLyrics = false
@@ -836,6 +1067,8 @@ class LyricViewModel: ObservableObject {
         translations = [:]
         currentSongId = nil
         isLoading = false
+        activeSource = nil
+        currentSongSourceOverride = nil
     }
 }
 
@@ -848,31 +1081,18 @@ struct KaraokeWordView: View {
     var activeColor: Color = .monologueTextPrimary
     var inactiveColor: Color = .gray.opacity(0.3)
     var activeGradient: LinearGradient? = nil
+    var style: KaraokeWordStyle = .flow
     
     var body: some View {
-        let progress = calculateProgress()
-        
-        Text(word.text)
-            .font(font)
-            .foregroundColor(inactiveColor)
-            .overlay(
-                GeometryReader { geo in
-                    Group {
-                        if let gradient = activeGradient {
-                            Text(word.text)
-                                .font(font)
-                                .foregroundStyle(gradient)
-                        } else {
-                            Text(word.text)
-                                .font(font)
-                                .foregroundColor(activeColor)
-                        }
-                    }
-                    .frame(width: geo.size.width * progress, alignment: .leading)
-                    .clipped()
-                }
-            )
-            .fixedSize(horizontal: true, vertical: false)
+        KaraokeStyledWordView(
+            text: word.text,
+            progress: calculateProgress(),
+            font: font,
+            style: style,
+            inactiveColor: inactiveColor,
+            activeColor: activeColor,
+            activeGradient: activeGradient
+        )
     }
     
     func calculateProgress() -> CGFloat {
@@ -885,6 +1105,9 @@ struct KaraokeWordView: View {
 
 struct FlowLayout: Layout {
     var spacing: CGFloat = 4
+    /// 行内对齐：默认靠左（标签云等场景）；歌词逐字用 .center，
+    /// 长句换行后每行都居中，而不是整块居中、行内靠左
+    var rowAlignment: HorizontalAlignment = .leading
     
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let rows = arrangeSubviews(proposal: proposal, subviews: subviews)
@@ -896,8 +1119,18 @@ struct FlowLayout: Layout {
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         let rows = arrangeSubviews(proposal: proposal, subviews: subviews)
         for row in rows {
+            let leftover = max(0, bounds.width - row.maxX)
+            let rowOffset: CGFloat
+            switch rowAlignment {
+            case .center: rowOffset = leftover / 2
+            case .trailing: rowOffset = leftover
+            default: rowOffset = 0
+            }
             for item in row.items {
-                item.view.place(at: CGPoint(x: bounds.minX + item.x, y: bounds.minY + row.y), proposal: .unspecified)
+                item.view.place(
+                    at: CGPoint(x: bounds.minX + rowOffset + item.x, y: bounds.minY + row.y),
+                    proposal: .unspecified
+                )
             }
         }
     }
@@ -958,6 +1191,12 @@ struct KaraokeLineView: View {
     var lyricSolidColorHex: String = "007AFF"
     var lyricGradientStartHex: String = "FF6B6B"
     var lyricGradientEndHex: String = "4ECDC4"
+    var lyricAutoPalette: [Color] = []
+    var forceUppercaseEnglish = false
+    var playerFontSelectionRaw = MonologuePlayerFont.followThemeRawValue
+    var playerCustomFontID = ""
+    var playerFontScale = 1.0
+    var karaokeStyle: KaraokeWordStyle = .flow
     
     @Environment(\.colorScheme) private var colorScheme
     
@@ -976,57 +1215,111 @@ struct KaraokeLineView: View {
         PlayerThemeManager.shared.currentTheme == .typewriter
     }
     
-    private var isDefaultTheme: Bool {
-        !isPoster && !isAqua && !isTypewriter
-    }
-    
     // 字魂半天云魅黑手书字体
     private let posterFont = "zihunbantianyunmeiheishoushu"
     
     // 文道泡泡体（水韵主题）
     private let aquaFont = "WDPPT"
+
+    private var displayText: String {
+        forceUppercaseEnglish
+            ? line.text.monologueUppercasingEnglish()
+            : line.text
+    }
+
+    private var displayTranslation: String? {
+        guard let translation = line.translation else { return nil }
+        return forceUppercaseEnglish
+            ? translation.monologueUppercasingEnglish()
+            : translation
+    }
     
     // 当前行字体
     private var currentLineFont: Font {
+        let size: CGFloat
+        let fallback: Font
         if isPoster {
-            return .custom(posterFont, size: 28)
+            size = 28 * CGFloat(playerFontScale)
+            fallback = .custom(posterFont, size: size)
         } else if isAqua {
-            return .custom(aquaFont, size: 26)
+            size = 26 * CGFloat(playerFontScale)
+            fallback = .custom(aquaFont, size: size)
         } else if isTypewriter {
-            return .system(size: 24, weight: .semibold, design: .monospaced)
+            size = 24 * CGFloat(playerFontScale)
+            fallback = .system(size: size, weight: .semibold, design: .monospaced)
+        } else {
+            size = 26 * CGFloat(playerFontScale)
+            fallback = .rounded(size: size, weight: .bold)
         }
-        return .rounded(size: 26, weight: .bold)
+        return MonologuePlayerFont.font(
+            selectionRaw: playerFontSelectionRaw,
+            customFontID: playerCustomFontID,
+            size: size,
+            weight: .bold,
+            fallback: fallback
+        )
     }
     
     // 非当前行字体
     private var normalLineFont: Font {
+        let size: CGFloat
+        let fallback: Font
         if isPoster {
-            return .custom(posterFont, size: 16)
+            size = 16 * CGFloat(playerFontScale)
+            fallback = .custom(posterFont, size: size)
         } else if isAqua {
-            return .custom(aquaFont, size: 16)
+            size = 16 * CGFloat(playerFontScale)
+            fallback = .custom(aquaFont, size: size)
         } else if isTypewriter {
-            return .system(size: 15, weight: .medium, design: .monospaced)
+            size = 15 * CGFloat(playerFontScale)
+            fallback = .system(size: size, weight: .medium, design: .monospaced)
+        } else {
+            size = 16 * CGFloat(playerFontScale)
+            fallback = .rounded(size: size, weight: .medium)
         }
-        return .rounded(size: 16, weight: .medium)
+        return MonologuePlayerFont.font(
+            selectionRaw: playerFontSelectionRaw,
+            customFontID: playerCustomFontID,
+            size: size,
+            weight: .medium,
+            fallback: fallback
+        )
     }
     
     // 翻译字体
     private func translationFont(isCurrent: Bool) -> Font {
+        let size: CGFloat
+        let fallback: Font
         if isPoster {
-            return .custom(posterFont, size: isCurrent ? 16 : 12)
+            size = (isCurrent ? 16 : 12) * CGFloat(playerFontScale)
+            fallback = .custom(posterFont, size: size)
         } else if isAqua {
-            return .custom(aquaFont, size: isCurrent ? 15 : 13)
+            size = (isCurrent ? 15 : 13) * CGFloat(playerFontScale)
+            fallback = .custom(aquaFont, size: size)
         } else if isTypewriter {
-            return .system(size: isCurrent ? 14 : 12, weight: .regular, design: .monospaced)
+            size = (isCurrent ? 14 : 12) * CGFloat(playerFontScale)
+            fallback = .system(size: size, weight: .regular, design: .monospaced)
+        } else {
+            size = (isCurrent ? 15 : 13) * CGFloat(playerFontScale)
+            fallback = .rounded(size: size, weight: .regular)
         }
-        return .rounded(size: isCurrent ? 15 : 13, weight: .regular)
+        return MonologuePlayerFont.font(
+            selectionRaw: playerFontSelectionRaw,
+            customFontID: playerCustomFontID,
+            size: size,
+            weight: .regular,
+            fallback: fallback
+        )
     }
     
     // MARK: - 自定义歌词颜色（仅默认主题）
     
     private var customActiveColor: Color {
-        guard isDefaultTheme, lyricColorMode != "default" else {
+        guard lyricColorMode != "default" else {
             return .monologueTextPrimary
+        }
+        if lyricColorMode == "auto" {
+            return lyricAutoPalette.first ?? .monologueTextPrimary
         }
         if lyricColorMode == "solid" {
             return Color(hex: lyricSolidColorHex)
@@ -1035,17 +1328,19 @@ struct KaraokeLineView: View {
     }
     
     private var customActiveGradient: LinearGradient? {
-        guard isDefaultTheme, lyricColorMode == "gradient" else { return nil }
+        if lyricColorMode == "auto", lyricAutoPalette.count > 1 {
+            return LinearGradient(
+                colors: Array(lyricAutoPalette.prefix(6)),
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        }
+        guard lyricColorMode == "gradient" else { return nil }
         return LinearGradient(
             colors: [Color(hex: lyricGradientStartHex), Color(hex: lyricGradientEndHex)],
             startPoint: .leading,
             endPoint: .trailing
         )
-    }
-    
-    // 大字报当前行颜色
-    private var posterActiveColor: Color {
-        Color(hex: "FF0000")
     }
     
     var body: some View {
@@ -1059,7 +1354,7 @@ struct KaraokeLineView: View {
             }
             
             // 翻译
-            if showTranslation, let trans = line.translation, !trans.isEmpty {
+            if showTranslation, let trans = displayTranslation, !trans.isEmpty {
                 if isPoster {
                     let transColor: Color = isCurrent
                         ? (colorScheme == .dark ? .black.opacity(0.7) : .white.opacity(0.7))
@@ -1087,7 +1382,7 @@ struct KaraokeLineView: View {
     // MARK: - 大字报歌词样式
     @ViewBuilder
     private var posterLyricContent: some View {
-        if isCurrent && !line.text.trimmingCharacters(in: .whitespaces).isEmpty {
+        if isCurrent && !displayText.trimmingCharacters(in: .whitespaces).isEmpty {
             // 当前行 — 黑条贴左边缘，和屏幕左边连成一体，支持自动换行
             HStack(spacing: 0) {
                 currentPosterLine
@@ -1106,7 +1401,7 @@ struct KaraokeLineView: View {
             .id("poster_\(line.time)")
         } else {
             // 非当前行
-            Text(line.text)
+            Text(displayText)
                 .font(normalLineFont)
                 .foregroundColor(.monologueTextPrimary.opacity(0.15))
                 .tracking(1)
@@ -1121,7 +1416,7 @@ struct KaraokeLineView: View {
         // 大字报当前行：背景是 fg（深色=白，浅色=黑），文字需要反色
         let invertedFg: Color = colorScheme == .dark ? .black : .white
         
-        Text(line.text)
+        Text(displayText)
             .font(currentLineFont)
             .foregroundColor(invertedFg)
             .tracking(-1)
@@ -1135,16 +1430,17 @@ struct KaraokeLineView: View {
     private var defaultLyricContent: some View {
         if isCurrent {
             if enableKaraoke {
-                if #available(iOS 16.0, macOS 13.0, *) {
-                    let words = syntheticWords()
-                    FlowLayout(spacing: 0) {
+                if #available(iOS 16.0, *) {
+                    let words = resolvedKaraokeWords()
+                    FlowLayout(spacing: 0, rowAlignment: .center) {
                         ForEach(words.indices, id: \.self) { i in
                             KaraokeWordView(
                                 word: words[i],
                                 currentTime: currentTime,
                                 font: currentLineFont,
                                 activeColor: customActiveColor,
-                                activeGradient: customActiveGradient
+                                activeGradient: customActiveGradient,
+                                style: karaokeStyle
                             )
                         }
                     }
@@ -1158,14 +1454,14 @@ struct KaraokeLineView: View {
                 }
             } else {
                 if let gradient = customActiveGradient {
-                    Text(line.text)
+                    Text(displayText)
                         .font(currentLineFont)
                         .foregroundStyle(gradient)
                         .multilineTextAlignment(.center)
                         .scaleEffect(1.05)
                         .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isCurrent)
                 } else {
-                    Text(line.text)
+                    Text(displayText)
                         .font(currentLineFont)
                         .foregroundColor(customActiveColor)
                         .multilineTextAlignment(.center)
@@ -1174,7 +1470,7 @@ struct KaraokeLineView: View {
                 }
             }
         } else {
-            Text(line.text)
+            Text(displayText)
                 .font(normalLineFont)
                 .foregroundColor(.gray.opacity(0.6))
                 .multilineTextAlignment(.center)
@@ -1183,21 +1479,12 @@ struct KaraokeLineView: View {
         }
     }
     
-    private func syntheticWords() -> [LyricWord] {
-        let chars = Array(line.text)
-        guard !chars.isEmpty, line.duration > 0 else { return [] }
-        let charDuration = line.duration / Double(chars.count)
-        return chars.enumerated().map { (i, char) in
-            LyricWord(
-                text: String(char),
-                startTime: line.time + Double(i) * charDuration,
-                duration: charDuration
-            )
-        }
+    private func resolvedKaraokeWords() -> [LyricWord] {
+        LyricKaraokeTimeline.resolvedWords(for: line, displayText: displayText)
     }
 
     private func constructFallbackText() -> Text {
-        let chars = Array(line.text)
+        let chars = Array(displayText)
         let threshold = Int(Double(chars.count) * progress)
         
         var combined = Text("")
@@ -1213,29 +1500,65 @@ struct KaraokeLineView: View {
     
 }
 
+// MARK: - 歌词初始定位
+
+extension ScrollViewProxy {
+    /// 歌词页挂载时把当前行定位到锚点。
+    ///
+    /// 单次 `scrollTo` 在播放器主题切换的 spring 过渡期间经常因为内容尚未完成布局而被吞掉，
+    /// 表现为「切完主题歌词要等到下一句才滚出来 / 一片空白」。
+    /// 这里在挂载后分三拍补位（立即 / 下一帧 / 过渡动画结束后），全部关闭动画，
+    /// 保证歌词一挂载就停在当前行。
+    @MainActor
+    func monologueRestoreLyricPosition(
+        anchor: UnitPoint = .center,
+        isCancelled: (@MainActor () -> Bool)? = nil,
+        index: @escaping @MainActor () -> Int
+    ) {
+        let jump = { @MainActor in
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                self.scrollTo(index(), anchor: anchor)
+            }
+        }
+        jump()
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 60_000_000)
+            if isCancelled?() == true { return }
+            jump()
+            try? await Task.sleep(nanoseconds: 440_000_000)
+            if isCancelled?() == true { return }
+            jump()
+        }
+    }
+}
+
 struct LyricsView: View {
     let song: Song
     var onBackgroundTap: (() -> Void)?
     @ObservedObject var player = PlayerManager.shared
     @ObservedObject private var viewModel = LyricViewModel.shared
     @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
+    @StateObject private var coverColors = CoverColorExtractor()
     
     @State private var isUserScrolling = false
     @State private var userScrollTimer: Timer?
     
     @AppStorage("showTranslation") var showTranslation: Bool = true
     @AppStorage("enableKaraoke") var enableKaraoke: Bool = false
+    @AppStorage(KaraokeWordStyle.storageKey) private var karaokeStyleRaw = KaraokeWordStyle.defaultStyle.rawValue
     @AppStorage("lyricColorMode") private var lyricColorMode: String = "default"
     @AppStorage("lyricSolidColorHex") private var lyricSolidColorHex: String = "007AFF"
     @AppStorage("lyricGradientStartHex") private var lyricGradientStartHex: String = "FF6B6B"
     @AppStorage("lyricGradientEndHex") private var lyricGradientEndHex: String = "4ECDC4"
+    @AppStorage("lyricsForceUppercaseEnglish") private var forceUppercaseEnglish = false
+    @AppStorage("playerDisplayFont") private var playerFontSelectionRaw = MonologuePlayerFont.followThemeRawValue
+    @AppStorage("playerCustomFontID") private var playerCustomFontID = ""
+    @AppStorage("playerFontScale") private var playerFontScale = 1.0
     
     var body: some View {
-        TimelineView(AppFrameRate.animationTimeline(paused: !player.isPlaying)) { timeline in
-            let rawTime = player.streamPlayer.currentTime
-            let realTime = (rawTime.isFinite && !rawTime.isNaN && rawTime >= 0) ? rawTime : timePublisher.currentTime
-            
-            VStack {
+        VStack {
                 if viewModel.isLoading {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: .monologueTextPrimary))
@@ -1253,78 +1576,120 @@ struct LyricsView: View {
                         ScrollView {
                             VStack(spacing: 24) {
                                 Color.clear.frame(height: 200)
-                                
+
                                 ForEach(Array(viewModel.lyrics.enumerated()), id: \.element.id) { index, line in
                                     Button(action: {
                                         HapticManager.shared.light()
                                         PlayerManager.shared.seek(to: line.time)
                                     }) {
-                                        KaraokeLineView(
-                                            line: line,
-                                            isCurrent: index == viewModel.currentLineIndex,
-                                            currentTime: realTime,
-                                            progress: index == viewModel.currentLineIndex ? viewModel.currentLineProgress : 0.0,
-                                            showTranslation: showTranslation,
-                                            enableKaraoke: enableKaraoke,
-                                            lyricColorMode: lyricColorMode,
-                                            lyricSolidColorHex: lyricSolidColorHex,
-                                            lyricGradientStartHex: lyricGradientStartHex,
-                                            lyricGradientEndHex: lyricGradientEndHex
-                                        )
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.horizontal, 32)
-                                    .animation(.easeInOut(duration: 0.3), value: viewModel.currentLineIndex)
+                                        renderedLyricLine(line, at: index)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.horizontal, 32)
+                                        .animation(.easeInOut(duration: 0.3), value: viewModel.currentLineIndex)
+                                    }
+                                    .buttonStyle(.plain)
                                     .id(index)
                                 }
-                                .buttonStyle(PlainButtonStyle())
+
+                                Color.clear.frame(height: 300)
                             }
-                            
-                            Color.clear.frame(height: 300)
                         }
                         .frame(maxWidth: .infinity)
                         .contentShape(Rectangle())
-                    }
-                    .scrollIndicators(.hidden)
-
-                    .simultaneousGesture(
-                        DragGesture().onChanged { _ in
-                            isUserScrolling = true
-                            resetScrollTimer()
-                        }
-                    )
-                    .onChange(of: viewModel.currentLineIndex) { _, newIndex in
-                        if !isUserScrolling {
-                            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                                proxy.scrollTo(newIndex, anchor: .center)
+                        .scrollIndicators(.hidden)
+                        .simultaneousGesture(
+                            DragGesture().onChanged { _ in
+                                isUserScrolling = true
+                                resetScrollTimer()
+                            }
+                        )
+                        .onChange(of: viewModel.currentLineIndex) { _, newIndex in
+                            if !isUserScrolling {
+                                withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                                    proxy.scrollTo(newIndex, anchor: .center)
+                                }
                             }
                         }
-                    }
-                    .onTapGesture {
-                        isUserScrolling = false
-                        onBackgroundTap?()
-                    }
-                    .onAppear {
-                        // 视图出现时立即无动画跳转到当前行，做到无缝定位
-                        isUserScrolling = false
-                        proxy.scrollTo(viewModel.currentLineIndex, anchor: .center)
+                        .onTapGesture {
+                            isUserScrolling = false
+                            onBackgroundTap?()
+                        }
+                        .onAppear {
+                            isUserScrolling = false
+                            proxy.monologueRestoreLyricPosition(isCancelled: { isUserScrolling }) {
+                                viewModel.currentLineIndex
+                            }
+                        }
+                        .mask(
+                            LinearGradient(
+                                gradient: Gradient(stops: [
+                                    .init(color: .clear, location: 0),
+                                    .init(color: .black, location: 0.15),
+                                    .init(color: .black, location: 0.85),
+                                    .init(color: .clear, location: 1.0)
+                                ]),
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
                     }
                 }
-                .mask(
-                    LinearGradient(
-                        gradient: Gradient(stops: [
-                            .init(color: .clear, location: 0),
-                            .init(color: .black, location: 0.15),
-                            .init(color: .black, location: 0.85),
-                            .init(color: .clear, location: 1.0)
-                        ]),
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                
             }
+        .task(id: song.coverUrl?.absoluteString) {
+            coverColors.extract(
+                from: song.coverUrl?.sized(200).absoluteString
+            )
         }
+    }
+
+    @ViewBuilder
+    private func renderedLyricLine(_ line: LyricLine, at index: Int) -> some View {
+        let isCurrent = index == viewModel.currentLineIndex
+        if isCurrent && enableKaraoke && player.isPlaying {
+            TimelineView(
+                AppFrameRate.throttledTimeline(maximumFramesPerSecond: 60)
+            ) { _ in
+                karaokeLine(line, isCurrent: true, currentTime: livePlaybackTime)
+            }
+        } else {
+            karaokeLine(
+                line,
+                isCurrent: isCurrent,
+                currentTime: isCurrent ? timePublisher.currentTime : 0
+            )
         }
+    }
+
+    private func karaokeLine(
+        _ line: LyricLine,
+        isCurrent: Bool,
+        currentTime: TimeInterval
+    ) -> some View {
+        KaraokeLineView(
+            line: line,
+            isCurrent: isCurrent,
+            currentTime: currentTime,
+            progress: isCurrent ? viewModel.currentLineProgress : 0,
+            showTranslation: showTranslation,
+            enableKaraoke: enableKaraoke,
+            lyricColorMode: lyricColorMode,
+            lyricSolidColorHex: lyricSolidColorHex,
+            lyricGradientStartHex: lyricGradientStartHex,
+            lyricGradientEndHex: lyricGradientEndHex,
+            lyricAutoPalette: coverColors.palette,
+            forceUppercaseEnglish: forceUppercaseEnglish,
+            playerFontSelectionRaw: playerFontSelectionRaw,
+            playerCustomFontID: playerCustomFontID,
+            playerFontScale: playerFontScale,
+            karaokeStyle: KaraokeWordStyle.resolve(karaokeStyleRaw)
+        )
+    }
+
+    private var livePlaybackTime: TimeInterval {
+        let rawTime = player.streamPlayer.currentTime
+        return rawTime.isFinite && !rawTime.isNaN && rawTime >= 0
+            ? rawTime
+            : timePublisher.currentTime
     }
     
     private func resetScrollTimer() {

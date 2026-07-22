@@ -4,7 +4,7 @@
 import SwiftUI
 
 struct NewSongExpressView: View {
-    @State private var viewModel = NewSongExpressViewModel()
+    @StateObject private var viewModel = NewSongExpressViewModel()
     @ObservedObject private var playerManager = PlayerManager.shared
     @ObservedObject private var settings = SettingsManager.shared
     @State private var selectedArtistId: Int?
@@ -30,7 +30,9 @@ struct NewSongExpressView: View {
             } else if MujiStyle.isActive {
                 MujiRootBackdrop()
             } else if SignalStyle.isActive {
-                ThemeRenderBackdrop(theme: .signal)
+                ThemeRenderBackdrop(theme: .default)
+            } else if MinimalWhiteStyle.isActive {
+                MinimalWhiteRootBackdrop()
             } else {
                 ThemedPageBackground()
                     .ignoresSafeArea()
@@ -46,14 +48,21 @@ struct NewSongExpressView: View {
                                 subtitle: ""
                             ) {
                                 ZStack {
-                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    RoundedRectangle(cornerRadius: MangaStyle.cardRadius, style: .continuous)
                                         .fill(MangaStyle.labelYellow)
-                                    MonologueIcon(icon: .musicNote, size: 23, color: MangaStyle.strokeInk, lineWidth: 2)
+                                    MonologueIcon(
+                                        icon: .musicNote,
+                                        size: 23,
+                                        color: ThemeColorCustomization.readableForegroundColor(on: MangaStyle.labelYellow, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk),
+                                        lineWidth: 2
+                                    )
                                 }
                                 .frame(width: 48, height: 48)
-                                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
+                                .overlay(RoundedRectangle(cornerRadius: MangaStyle.cardRadius, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
                                 .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(MangaStyle.strokeInk).offset(x: 2.5, y: 2.5))
                             }
+                        } else if MinimalWhiteStyle.isActive {
+                            MinimalWhitePageHeader(eyebrow: "", title: String(localized: "new_song_express"), icon: .musicNote)
                         } else if NeumorphicStyle.isActive {
                             NeumorphicPageHeader(
                                 eyebrow: "NEW SONGS",
@@ -101,7 +110,7 @@ struct NewSongExpressView: View {
                                 subtitle: "\(viewModel.songs.count) \(String(localized: "songs_unit"))",
                                 icon: .musicNote
                             ) {
-                                PetWhiteIconBadge(icon: .musicNote, tint: PetWhiteStyle.butter, size: 50)
+                                EmptyView()
                             }
                         }
 
@@ -109,8 +118,7 @@ struct NewSongExpressView: View {
                             .padding(.top, ThemedPageStyle.isActive ? 0 : 8)
 
                         if viewModel.isLoading {
-                            ProgressView()
-                                .tint(loadingTint)
+                            MonologueLoadingView(text: MinimalWhiteStyle.isActive ? nil : "LOADING")
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 120)
                         } else if viewModel.songs.isEmpty {
@@ -184,15 +192,17 @@ struct NewSongExpressView: View {
                         }
                     } label: {
                         let isSelected = viewModel.selectedType == type.id
-                        let mangaForeground = isSelected ? MangaStyle.strokeInk : MangaStyle.ink
+                        let mangaForeground = isSelected
+                            ? ThemeColorCustomization.readableForegroundColor(on: MangaStyle.labelYellow, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk)
+                            : MangaStyle.ink
                         Text(LocalizedStringKey(type.nameKey))
                             .font(typeChipFont(isSelected: isSelected))
                             .foregroundColor(MangaStyle.isActive ? mangaForeground : typeChipForeground(isSelected: isSelected))
                             .padding(.horizontal, MangaStyle.isActive ? 12 : (PetWhiteStyle.isActive ? 14 : (MujiStyle.isActive ? 13 : ((SignalStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || SequoiaStyle.isActive) ? 14 : 16))))
                             .padding(.vertical, ThemedPageStyle.isActive ? 9 : 8)
                             .background(typeChipBackground(isSelected: isSelected))
-                            .clipShape(Capsule())
-                            .contentShape(Capsule())
+                            .clipShape(MangaStyle.isActive ? AnyShape(RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)) : AnyShape(Capsule()))
+                            .contentShape(MangaStyle.isActive ? AnyShape(RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)) : AnyShape(Capsule()))
                     }
                     .buttonStyle(ScaleButtonStyle())
                 }
@@ -243,12 +253,19 @@ struct NewSongExpressView: View {
                         .stroke(isSelected ? Color.white.opacity(0.32) : CapsuleStyle.separator.opacity(0.48), lineWidth: 0.8)
                 )
                 .shadow(color: isSelected ? CapsuleStyle.amber.opacity(0.15) : .clear, radius: 12, x: 0, y: 7)
+        } else if MangaStyle.isActive {
+            RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
+                .fill(isSelected ? MangaStyle.labelYellow : MangaStyle.bubbleWhite.opacity(0.72))
+                .overlay(
+                    RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
+                        .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth)
+                )
         } else {
             Capsule()
-                .fill(MangaStyle.isActive ? (isSelected ? MangaStyle.labelYellow : MangaStyle.bubbleWhite.opacity(0.72)) : (MujiStyle.isActive ? (isSelected ? MujiStyle.clay : MujiStyle.surface.opacity(0.78)) : (isSelected ? Color.monologueAccent : Color.clear)))
+                .fill(MujiStyle.isActive ? (isSelected ? MujiStyle.clay : MujiStyle.surface.opacity(0.78)) : (isSelected ? Color.monologueAccent : Color.clear))
                 .overlay(
                     Capsule()
-                        .stroke(MangaStyle.isActive ? MangaStyle.strokeInk : (MujiStyle.isActive && !isSelected ? MujiStyle.hairline.opacity(0.48) : Color.clear), lineWidth: MangaStyle.isActive ? MangaStyle.fineStrokeWidth : 0.6)
+                        .stroke(MujiStyle.isActive && !isSelected ? MujiStyle.hairline.opacity(0.48) : Color.clear, lineWidth: 0.6)
                 )
         }
     }
@@ -263,6 +280,8 @@ struct NewSongExpressView: View {
                 CapsuleIconBadge(icon: .musicNote, tint: CapsuleStyle.amber, size: 54)
             } else if SequoiaStyle.isActive {
                 SequoiaIconBadge(icon: .musicNote, tint: SequoiaStyle.green, size: 54)
+            } else if MinimalWhiteStyle.isActive {
+                MinimalWhiteIconBadge(icon: .musicNote, size: 54)
             } else {
                 MonologueIcon(icon: .musicNote, size: 40, color: .monologueTextSecondary.opacity(0.3))
             }
@@ -270,6 +289,18 @@ struct NewSongExpressView: View {
                 .font(emptyStateFont)
                 .foregroundColor(emptyStateColor)
         }
+        .padding(.vertical, MinimalWhiteStyle.isActive ? 44 : 0)
+        .frame(maxWidth: .infinity)
+        .background {
+            if MinimalWhiteStyle.isActive {
+                MinimalWhiteSurfaceBackground(
+                    cornerRadius: MinimalWhiteStyle.cardRadius,
+                    elevated: false,
+                    tint: MinimalWhiteStyle.glassFill
+                )
+            }
+        }
+        .padding(.horizontal, MinimalWhiteStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
     }
 
     // MARK: - 完整列表
@@ -280,6 +311,8 @@ struct NewSongExpressView: View {
                 capsuleFullListSection
             } else if PetWhiteStyle.isActive {
                 petWhiteFullListSection
+            } else if MinimalWhiteStyle.isActive {
+                minimalWhiteFullListSection
             } else {
                 VStack(alignment: .leading, spacing: 12) {
                     fullListToolbar
@@ -291,6 +324,27 @@ struct NewSongExpressView: View {
         .monologueSheet(isPresented: $showBatchAddToPlaylist, preset: .standard) {
             BatchAddToPlaylistSheet(songs: newSongFiltered.filter { selectedSongIds.contains($0.id) })
         }
+    }
+
+    private var minimalWhiteFullListSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            fullListToolbar
+                .padding(.horizontal, -DeviceLayout.viewHorizontalPadding)
+
+            newSongSearchBar
+                .padding(.horizontal, -DeviceLayout.viewHorizontalPadding)
+
+            newSongRows
+        }
+        .padding(14)
+        .background(
+            MinimalWhiteSurfaceBackground(
+                cornerRadius: MinimalWhiteStyle.chromeRadius,
+                elevated: false,
+                tint: MinimalWhiteStyle.glassFill
+            )
+        )
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
     }
 
     private var petWhiteFullListSection: some View {
@@ -311,7 +365,7 @@ struct NewSongExpressView: View {
             newSongRows
         }
         .padding(14)
-        .background(PetWhiteSurfaceBackground(cornerRadius: 26, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.butter))
+        .background(PetWhiteSurfaceBackground(cornerRadius: PetWhiteStyle.cardRadius, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.butter))
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
     }
 
@@ -342,16 +396,20 @@ struct NewSongExpressView: View {
             }) {
                 if MangaStyle.isActive {
                     HStack(spacing: 7) {
-                        MonologueIcon(icon: .play, size: 13, color: MangaStyle.strokeInk, lineWidth: 2)
+                        MonologueIcon(icon: .play, size: 13, color: MangaStyle.onStrokeInk, lineWidth: 2)
                         Text(LocalizedStringKey("artist_play_all"))
                             .font(MangaStyle.labelFont(12, weight: .black))
+                            .tracking(0.6)
                     }
-                    .foregroundStyle(MangaStyle.strokeInk)
+                    .foregroundStyle(MangaStyle.onStrokeInk)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 9)
-                    .background(Capsule().fill(MangaStyle.labelYellow))
-                    .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
-                    .background(Capsule().fill(MangaStyle.strokeInk).offset(x: 2, y: 2))
+                    .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(MangaStyle.strokeInk))
+                    .background(
+                        RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            .fill(MangaStyle.accentPink)
+                            .offset(x: 2.2, y: 2.2)
+                    )
                 } else if MujiStyle.isActive {
                     MujiActionPill(title: String(localized: "artist_play_all"), icon: .play, selected: true, tint: MujiStyle.clay)
                 } else if NeumorphicStyle.isActive {
@@ -377,6 +435,16 @@ struct NewSongExpressView: View {
                     .frame(height: 38)
                     .background(PetWhiteStyle.dogOrange, in: Capsule())
                     .overlay(Capsule().stroke(PetWhiteStyle.stroke, lineWidth: PetWhiteStyle.fineStrokeWidth))
+                } else if MinimalWhiteStyle.isActive {
+                    HStack(spacing: 8) {
+                        MonologueIcon(icon: .play, size: 14, color: MinimalWhiteStyle.onAccent, lineWidth: 1.6)
+                        Text(LocalizedStringKey("artist_play_all"))
+                            .font(MinimalWhiteStyle.labelFont(14, weight: .semibold))
+                            .foregroundColor(MinimalWhiteStyle.onAccent)
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 10)
+                    .background(MinimalWhiteStyle.ink, in: Capsule(style: .continuous))
                 } else {
                     HStack(spacing: 6) {
                         MonologueIcon(icon: .play, size: 12, color: .monologueTextPrimary)
@@ -451,7 +519,7 @@ struct NewSongExpressView: View {
                             playerManager.play(song: song, in: newSongFiltered)
                         }
                     },
-                    horizontalPadding: PetWhiteStyle.isActive ? CGFloat(0) : nil
+                    horizontalPadding: (PetWhiteStyle.isActive || MinimalWhiteStyle.isActive) ? CGFloat(0) : nil
                 )
             }
 
@@ -466,6 +534,7 @@ struct NewSongExpressView: View {
         if SignalStyle.isActive { return SignalStyle.accent }
         if CapsuleStyle.isActive { return CapsuleStyle.amber }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         return .monologueTextSecondary
     }
 
@@ -481,7 +550,7 @@ struct NewSongExpressView: View {
     }
 
     private func typeChipForeground(isSelected: Bool) -> Color {
-        if PetWhiteStyle.isActive { return isSelected ? PetWhiteStyle.stroke : PetWhiteStyle.inkSoft }
+        if PetWhiteStyle.isActive { return isSelected ? PetWhiteStyle.ink : PetWhiteStyle.inkSoft }
         if MujiStyle.isActive { return isSelected ? MujiStyle.onTint : MujiStyle.inkSoft }
         if SignalStyle.isActive { return isSelected ? SignalStyle.onAccent : SignalStyle.inkSoft }
         if NeumorphicStyle.isActive { return isSelected ? NeumorphicStyle.accent : NeumorphicStyle.inkSoft }
@@ -495,6 +564,7 @@ struct NewSongExpressView: View {
         if SignalStyle.isActive { return SignalStyle.labelFont(14, weight: .medium) }
         if CapsuleStyle.isActive { return CapsuleStyle.labelFont(14, weight: .medium) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(14, weight: .medium) }
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.labelFont(14, weight: .medium) }
         return .system(size: 14, weight: .medium, design: .rounded)
     }
 
@@ -503,6 +573,7 @@ struct NewSongExpressView: View {
         if SignalStyle.isActive { return SignalStyle.inkSoft }
         if CapsuleStyle.isActive { return CapsuleStyle.inkSoft }
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         return .monologueTextSecondary
     }
 
@@ -514,6 +585,7 @@ struct NewSongExpressView: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(13, weight: .medium) }
         if CapsuleStyle.isActive { return CapsuleStyle.labelFont(13, weight: .bold) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(13, weight: .regular) }
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.labelFont(13, weight: .regular) }
         return .system(size: 13, weight: .medium, design: .rounded)
     }
 
@@ -525,6 +597,7 @@ struct NewSongExpressView: View {
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         if CapsuleStyle.isActive { return CapsuleStyle.inkSoft }
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         return .monologueTextSecondary
     }
 

@@ -62,12 +62,16 @@ private func monologueSystemSheetContent<SheetContent: View>(
     .environment(\.monologueSheetContext, MonologueSheetContext(preset: preset))
     .environment(\.monologueSheetDismiss, dismissAction)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-    .background {
-        if MonologueSheetThemeStyle.usesCustomThemeSurface && !supportsPresentationBackground {
-            monologueSheetBottomAttachedSurface(
-                MonologueSheetSurfaceBackground(cornerRadius: preset.monologueResolvedCornerRadius),
-                attachesToBottom: attachesToBottom
-            )
+    .backgroundPreferenceValue(MonologueSheetSurfacePreferenceKey.self) { customSurface in
+        ZStack {
+            if let customSurface {
+                customSurface.view
+            } else if MonologueSheetThemeStyle.usesCustomThemeSurface && !supportsPresentationBackground {
+                monologueSheetBottomAttachedSurface(
+                    MonologueSheetSurfaceBackground(cornerRadius: preset.monologueResolvedCornerRadius),
+                    attachesToBottom: attachesToBottom
+                )
+            }
         }
     }
     .overlay {
@@ -79,8 +83,8 @@ private func monologueSystemSheetContent<SheetContent: View>(
         }
     }
 
-    if #available(iOS 16.0, macOS 13.0, *) {
-        if #available(iOS 16.4, macOS 13.3, *) {
+    if #available(iOS 16.0, *) {
+        if #available(iOS 16.4, *) {
             if MonologueSheetThemeStyle.usesCustomThemeSurface {
                 root
                     .presentationDetents(preset.systemDetents)
@@ -92,13 +96,13 @@ private func monologueSystemSheetContent<SheetContent: View>(
                     }
                     .presentationDragIndicator(.hidden)
                     .interactiveDismissDisabled(!preset.allowsDragToDismiss)
-                    .presentationCornerRadius(preset.monologueResolvedCornerRadius)
+                    .compatPresentationCornerRadius(preset.monologueResolvedCornerRadius)
             } else {
                 root
                     .presentationDetents(preset.systemDetents)
                     .presentationDragIndicator(.hidden)
                     .interactiveDismissDisabled(!preset.allowsDragToDismiss)
-                    .presentationCornerRadius(preset.cornerRadius)
+                    .compatPresentationCornerRadius(preset.cornerRadius)
             }
         } else {
             root
@@ -112,7 +116,7 @@ private func monologueSystemSheetContent<SheetContent: View>(
 }
 
 private var supportsPresentationBackground: Bool {
-    if #available(iOS 16.4, macOS 13.3, *) {
+    if #available(iOS 16.4, *) {
         return true
     }
     return false

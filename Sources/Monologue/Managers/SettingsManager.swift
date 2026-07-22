@@ -16,8 +16,7 @@ final class SettingsManager: ObservableObject {
 
     var globalThemeId: GlobalThemeId {
         get {
-            let id = Self.resolveStoredTheme(globalThemeIdRaw)
-            return Self.resolveRemovedTheme(id)
+            Self.resolveStoredTheme(globalThemeIdRaw)
         }
         set {
             selectGlobalTheme(newValue)
@@ -25,13 +24,12 @@ final class SettingsManager: ObservableObject {
     }
 
     func selectGlobalTheme(_ themeId: GlobalThemeId) {
-        let resolvedId = Self.resolveRemovedTheme(themeId)
         let previousId = globalThemeId
-        let isSameTheme = previousId == resolvedId
+        let isSameTheme = previousId == themeId
 
-        AppLogger.info("[ThemeSwitch] from=\(previousId.rawValue) to=\(resolvedId.rawValue) sameTheme=\(isSameTheme)")
+        AppLogger.info("[ThemeSwitch] from=\(previousId.rawValue) to=\(themeId.rawValue) sameTheme=\(isSameTheme)")
         applyGlobalThemeSelection(
-            resolvedId,
+            themeId,
             bumpRevision: true,
             bumpApplicationRevision: true,
             applyPreferredIconSet: !isSameTheme
@@ -40,7 +38,7 @@ final class SettingsManager: ObservableObject {
 
     func synchronizeGlobalThemeAfterLaunch(reason: String) {
         let storedRaw = UserDefaults.standard.string(forKey: GlobalThemeId.storageKey)
-        let resolvedId = Self.resolveRemovedTheme(GlobalThemeId.resolvedStoredTheme(storedRaw ?? globalThemeIdRaw))
+        let resolvedId = GlobalThemeId.resolvedStoredTheme(storedRaw ?? globalThemeIdRaw)
 
         AppLogger.info("[ThemeLaunchSync] reason=\(reason) persistedThemeId=\(storedRaw ?? "nil") finalThemeId=\(resolvedId.rawValue)")
         applyGlobalThemeSelection(
@@ -49,10 +47,6 @@ final class SettingsManager: ObservableObject {
             bumpApplicationRevision: true,
             applyPreferredIconSet: false
         )
-    }
-
-    private static func resolveRemovedTheme(_ id: GlobalThemeId) -> GlobalThemeId {
-        GlobalThemeId.resolveRemovedTheme(id)
     }
 
     private static func resolveStoredTheme(_ raw: String) -> GlobalThemeId {
@@ -159,7 +153,11 @@ final class SettingsManager: ObservableObject {
 
     /// 是否启用下一首无缝切歌预加载
     @AppStorage(AppConfig.StorageKeys.gaplessPlaybackEnabled)
-    var gaplessPlaybackEnabled: Bool = false
+    var gaplessPlaybackEnabled: Bool = true
+
+    /// 是否在无缝切歌边界启用双路 PCM 交叉淡化
+    @AppStorage(AppConfig.StorageKeys.crossfadePlaybackEnabled)
+    var crossfadePlaybackEnabled: Bool = false
 
     /// 后台音频策略
     @AppStorage(AppConfig.StorageKeys.backgroundAudioPolicy)
@@ -285,6 +283,17 @@ final class SettingsManager: ObservableObject {
     /// 最大缓存大小 (MB)
     @AppStorage("maxCacheSize") var maxCacheSize: Int = 500
 
+    // MARK: - 听歌报告
+
+    /// 日报 / 周报 / 月报 / 年报功能总开关（关闭后隐藏入口且不再弹窗）
+    @AppStorage("listeningReportsEnabled") var listeningReportsEnabled: Bool = true
+
+    /// 新的一周开始后自动弹出上周听歌报告
+    @AppStorage("listeningReportWeeklyPopupEnabled") var listeningReportWeeklyPopupEnabled: Bool = true
+
+    /// 新的一月开始后自动弹出上月听歌报告
+    @AppStorage("listeningReportMonthlyPopupEnabled") var listeningReportMonthlyPopupEnabled: Bool = true
+
     // MARK: - 每日一言
 
     /// 每日一言开关
@@ -303,9 +312,6 @@ final class SettingsManager: ObservableObject {
 
     /// 喜欢时选择歌单（点喜欢新歌时弹出歌单选择器，而非直接加入「我喜欢」）
     @AppStorage("likeToChoosePlaylist") var likeToChoosePlaylist: Bool = false
-
-    /// 边听边存（播放时自动下载保存）
-    @AppStorage("listenAndSave") var listenAndSave: Bool = false
 
     /// QMC 解密开关（qcm加密流解密，默认关闭）
     @AppStorage("qmcDecryptEnabled") var qmcDecryptEnabled: Bool = false
@@ -345,13 +351,18 @@ final class SettingsManager: ObservableObject {
     @AppStorage("lyricGradientEndHex") var lyricGradientEndHex: String = "4ECDC4"
 
     private init() {
-        let storedRaw = UserDefaults.standard.string(forKey: GlobalThemeId.storageKey)
-        let restored = GlobalThemeId.resolvedStoredTheme(storedRaw ?? globalThemeIdRaw)
-        let resolved = Self.resolveRemovedTheme(restored)
-        let hasStoredInterfaceIconSet = UserDefaults.standard.object(forKey: AppConfig.StorageKeys.interfaceIconSet) != nil
+        let defaults = UserDefaults.standard
+        if !defaults.bool(forKey: AppConfig.StorageKeys.gaplessPlaybackEnabledMigrationV2) {
+            gaplessPlaybackEnabled = true
+            defaults.set(true, forKey: AppConfig.StorageKeys.gaplessPlaybackEnabledMigrationV2)
+        }
+
+        let storedRaw = defaults.string(forKey: GlobalThemeId.storageKey)
+        let resolved = GlobalThemeId.resolvedStoredTheme(storedRaw ?? globalThemeIdRaw)
+        let hasStoredInterfaceIconSet = defaults.object(forKey: AppConfig.StorageKeys.interfaceIconSet) != nil
 
         if storedRaw == nil || resolved.rawValue != globalThemeIdRaw {
-            UserDefaults.standard.set(resolved.rawValue, forKey: GlobalThemeId.storageKey)
+            defaults.set(resolved.rawValue, forKey: GlobalThemeId.storageKey)
             globalThemeIdRaw = resolved.rawValue
         }
 

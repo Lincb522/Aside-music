@@ -7,45 +7,25 @@ struct LoginView: View {
     @StateObject private var viewModel = LoginViewModel()
     @ObservedObject private var settings = SettingsManager.shared
     @AppStorage("isLoggedIn") private var isAppLoggedIn = false
-    
-    @State private var selectedTab: LoginTab = .qr
-    @State private var isLoading = false
+
     @State private var didHandleLoginSuccess = false
-    
-    enum LoginTab {
-        case qr
-        case phone
+    @State private var statusPulse = false
+
+    private var isAside: Bool {
+        GlobalThemeId.persistedOrDefault == .default
     }
-    
+
     var body: some View {
         let _ = settings.globalThemeRevision
 
         ZStack {
             ThemedPageBackground()
-            
-            VStack(spacing: 0) {
-                HStack {
-                    Button { dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss) } label: {
-                        MonologueIcon(icon: .xmark, size: 14, color: loginSecondaryText)
-                            .frame(width: 32, height: 32)
-                            .monologueGlassCircle()
-                    }
-                    Spacer()
-                }
-                .padding(.horizontal, 24)
-                .padding(.top, 8)
-                
-                headerView
-                
-                Spacer()
-                
-                loginContent
-                
-                Spacer()
-                
-                footerView
+
+            if isAside {
+                asideBody
+            } else {
+                themedBody
             }
-            .iPadContentWidth(500)
         }
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .navigationBar)
@@ -58,10 +38,238 @@ struct LoginView: View {
             // 双保险：如果 onChange 没触发，通过通知兜底。
             handleLoginSuccess()
         }
+        .onAppear {
+            viewModel.startQRLogin()
+        }
     }
-    
-    // MARK: - Header
-    
+
+    // MARK: - aside 版式
+
+    private var asideBody: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Button { dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss) } label: {
+                    MonologueIcon(icon: .xmark, size: 13, color: .monologueTextSecondary)
+                        .frame(width: 32, height: 32)
+                        .overlay(Circle().stroke(Color.monologueSeparator.opacity(0.9), lineWidth: 0.8))
+                        .contentShape(Circle())
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.92))
+
+                Spacer()
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 12)
+
+            asideMasthead
+                .padding(.horizontal, 28)
+                .padding(.top, 20)
+
+            Spacer(minLength: 20)
+
+            asideQRBlock
+                .frame(maxWidth: .infinity)
+
+            Spacer(minLength: 20)
+
+            asideSteps
+                .padding(.horizontal, 28)
+
+            asideFooter
+                .padding(.top, 22)
+                .padding(.bottom, 34)
+        }
+        .iPadContentWidth(520)
+    }
+
+    private var asideMasthead: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                Capsule()
+                    .fill(Color.monologueAccent)
+                    .frame(width: 18, height: 3)
+
+                Text("SIGN IN")
+                    .font(.system(size: 10.5, weight: .heavy, design: .rounded))
+                    .tracking(2.4)
+                    .foregroundColor(.monologueTextSecondary.opacity(0.72))
+                    .fixedSize()
+
+                Rectangle()
+                    .fill(Color.monologueSeparator.opacity(0.5))
+                    .frame(height: 0.5)
+            }
+            .padding(.bottom, 18)
+
+            Text(LocalizedStringKey("login_ncm_title"))
+                .font(.system(size: 29, weight: .heavy, design: .rounded))
+                .foregroundColor(.monologueTextPrimary)
+
+            Text(LocalizedStringKey("login_qr_only_hint"))
+                .font(.rounded(size: 13, weight: .medium))
+                .foregroundColor(.monologueTextSecondary.opacity(0.85))
+                .padding(.top, 6)
+        }
+    }
+
+    private var asideQRBlock: some View {
+        VStack(spacing: 18) {
+            ZStack {
+                if let qrImage = viewModel.qrCodeImage {
+                    Image(uiImage: qrImage)
+                        .resizable()
+                        .interpolation(.none)
+                        .scaledToFit()
+                        .frame(width: 186, height: 186)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                } else {
+                    VStack(spacing: 14) {
+                        ProgressView()
+                        Text(LocalizedStringKey("login_loading"))
+                            .font(.rounded(size: 12.5, weight: .medium))
+                            .foregroundColor(Color.black.opacity(0.45))
+                    }
+                    .frame(width: 186, height: 186)
+                }
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .fill(Color.white)
+                    .shadow(color: Color.black.opacity(0.10), radius: 26, x: 0, y: 14)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .stroke(Color.monologueTextPrimary.opacity(0.10), lineWidth: 0.8)
+            )
+            .overlay {
+                if viewModel.isQRExpired {
+                    asideExpiredOverlay
+                }
+            }
+
+            HStack(spacing: 7) {
+                Circle()
+                    .fill(Color.monologueAccent)
+                    .frame(width: 5, height: 5)
+                    .opacity(statusPulse ? 1 : 0.25)
+                    .animation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: statusPulse)
+
+                Text(viewModel.qrStatusMessage)
+                    .font(.rounded(size: 12.5, weight: .semibold))
+                    .foregroundColor(.monologueTextSecondary)
+                    .multilineTextAlignment(.center)
+            }
+            .onAppear { statusPulse = true }
+        }
+    }
+
+    private var asideExpiredOverlay: some View {
+        RoundedRectangle(cornerRadius: 26, style: .continuous)
+            .fill(.ultraThinMaterial)
+            .overlay(
+                VStack(spacing: 12) {
+                    MonologueIcon(icon: .refresh, size: 24, color: .monologueTextPrimary)
+
+                    Text(LocalizedStringKey("qr_expired"))
+                        .font(.rounded(size: 13, weight: .semibold))
+                        .foregroundColor(.monologueTextPrimary)
+
+                    Button(action: { viewModel.refreshQR() }) {
+                        Text(LocalizedStringKey("login_tap_refresh"))
+                            .font(.rounded(size: 12.5, weight: .semibold))
+                            .tracking(0.4)
+                            .foregroundColor(.monologueTextPrimary)
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 8)
+                            .overlay(Capsule().stroke(Color.monologueTextPrimary.opacity(0.35), lineWidth: 0.8))
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+                }
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+    }
+
+    private var asideSteps: some View {
+        VStack(spacing: 0) {
+            asideStepRow(index: "01", text: String(localized: "login_instruction_1"))
+            asideStepDivider
+            asideStepRow(index: "02", text: String(localized: "login_instruction_2"))
+            asideStepDivider
+            asideStepRow(index: "03", text: String(localized: "login_instruction_3"))
+        }
+    }
+
+    private var asideStepDivider: some View {
+        Rectangle()
+            .fill(Color.monologueSeparator.opacity(0.45))
+            .frame(height: 0.5)
+    }
+
+    private func asideStepRow(index: String, text: String) -> some View {
+        HStack(spacing: 14) {
+            Text(index)
+                .font(.system(size: 11, weight: .heavy, design: .rounded))
+                .tracking(0.6)
+                .foregroundColor(.monologueAccent)
+                .frame(width: 24, alignment: .leading)
+
+            Text(text)
+                .font(.rounded(size: 13, weight: .medium))
+                .foregroundColor(.monologueTextPrimary.opacity(0.82))
+
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 11)
+    }
+
+    private var asideFooter: some View {
+        VStack(spacing: 5) {
+            Text(LocalizedStringKey("login_agreement_prefix"))
+                .font(.rounded(size: 11, weight: .medium))
+                .foregroundColor(.monologueTextSecondary.opacity(0.7))
+
+            HStack(spacing: 4) {
+                Text(LocalizedStringKey("login_user_agreement"))
+                Text(LocalizedStringKey("login_and"))
+                    .foregroundColor(.monologueTextSecondary.opacity(0.7))
+                Text(LocalizedStringKey("login_privacy_policy"))
+            }
+            .font(.rounded(size: 11, weight: .semibold))
+            .foregroundColor(.monologueTextPrimary.opacity(0.75))
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    // MARK: - 其他主题版式
+
+    private var themedBody: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Button { dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss) } label: {
+                    MonologueIcon(icon: .xmark, size: 14, color: loginSecondaryText)
+                        .frame(width: 32, height: 32)
+                        .monologueGlassCircle()
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 8)
+
+            headerView
+
+            Spacer()
+
+            qrLoginContent
+                .padding(.horizontal, 24)
+
+            Spacer()
+
+            footerView
+        }
+        .iPadContentWidth(500)
+    }
+
     private var headerView: some View {
         VStack(spacing: 16) {
             VStack(spacing: 8) {
@@ -73,51 +281,7 @@ struct LoginView: View {
         }
         .padding(.horizontal, 24)
     }
-    
-    // MARK: - Login Content
-    
-    private var loginContent: some View {
-        VStack(spacing: 32) {
-            qrLoginContent
-        }
-        .padding(.horizontal, 24)
-    }
-    
-    private var tabSwitcher: some View {
-        HStack(spacing: 0) {
-            tabButton(title: String(localized: "scan_qr"), icon: .qr, tab: .qr)
-            tabButton(title: String(localized: "phone_login"), icon: .phone, tab: .phone)
-        }
-        .padding(4)
-        .themedPageSurface(cornerRadius: 16, elevated: false)
-        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 4)
-    }
-    
-    private func tabButton(title: String, icon: MonologueIcon.IconType, tab: LoginTab) -> some View {
-        Button(action: {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                selectedTab = tab
-                if tab == .qr {
-                    viewModel.startQRLogin()
-                }
-            }
-        }) {
-            HStack(spacing: 8) {
-                MonologueIcon(icon: icon, size: 18, color: selectedTab == tab ? loginAccentText : loginSecondaryText)
-                Text(title)
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    .foregroundColor(selectedTab == tab ? loginAccentText : loginSecondaryText)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .background(selectedTab == tab ? loginAccent : Color.clear)
-            .cornerRadius(12)
-        }
-        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
-    }
-    
-    // MARK: - QR Login
-    
+
     private var qrLoginContent: some View {
         VStack(spacing: 24) {
             ZStack {
@@ -125,7 +289,7 @@ struct LoginView: View {
                     .fill(SequoiaStyle.isActive ? SequoiaStyle.materialList.opacity(0.62) : (NeumorphicStyle.isActive ? Color.clear : Color.monologueGlassTint))
                     .monologueGlass(cornerRadius: 24)
                     .shadow(color: Color.black.opacity(SequoiaStyle.isActive ? 0.05 : 0.08), radius: SequoiaStyle.isActive ? 14 : 20, x: 0, y: 8)
-                
+
                 if let qrImage = viewModel.qrCodeImage {
                     Image(uiImage: qrImage)
                         .resizable()
@@ -142,17 +306,17 @@ struct LoginView: View {
                             .foregroundColor(loginSecondaryText)
                     }
                 }
-                
+
                 if viewModel.isQRExpired {
                     ZStack {
                         (SequoiaStyle.isActive ? SequoiaStyle.materialFloating : Color.monologueGlassTint).opacity(0.9)
-                        
+
                         VStack(spacing: 16) {
                             MonologueIcon(icon: .refresh, size: 32, color: loginText)
                             Text(LocalizedStringKey("qr_expired"))
                                 .font(.system(size: 14, weight: .medium, design: .rounded))
                                 .foregroundColor(loginText)
-                            
+
                             Button(action: { viewModel.refreshQR() }) {
                                 Text(LocalizedStringKey("login_tap_refresh"))
                                     .font(.system(size: 14, weight: .bold, design: .rounded))
@@ -170,12 +334,12 @@ struct LoginView: View {
             }
             .frame(width: 240, height: 240)
             .themedOnlyPageSurface(cornerRadius: 24, elevated: true, mangaTint: MangaStyle.bubbleWhite)
-            
+
             Text(viewModel.qrStatusMessage)
                 .font(.system(size: 14, weight: .medium, design: .rounded))
                 .foregroundColor(loginSecondaryText)
                 .multilineTextAlignment(.center)
-            
+
             VStack(spacing: 8) {
                 instructionRow(number: "1", text: String(localized: "login_instruction_1"))
                 instructionRow(number: "2", text: String(localized: "login_instruction_2"))
@@ -183,11 +347,8 @@ struct LoginView: View {
             }
             .padding(.top, 8)
         }
-        .onAppear {
-            viewModel.startQRLogin()
-        }
     }
-    
+
     private func instructionRow(number: String, text: String) -> some View {
         HStack(spacing: 12) {
             Text(number)
@@ -196,113 +357,23 @@ struct LoginView: View {
                 .frame(width: 20, height: 20)
                 .background(loginAccent.opacity(SequoiaStyle.isActive ? 0.92 : 0.2))
                 .cornerRadius(10)
-            
+
             Text(text)
                 .font(.system(size: 13, weight: .medium, design: .rounded))
                 .foregroundColor(loginSecondaryText)
-            
+
             Spacer()
         }
     }
-    
-    // MARK: - Phone Login
-    
-    private var phoneLoginContent: some View {
-        VStack(spacing: 24) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(LocalizedStringKey("phone_number"))
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(loginSecondaryText)
-                
-                HStack {
-                    Text("+86")
-                        .font(.system(size: 16, weight: .medium, design: .rounded))
-                        .foregroundColor(loginText)
-                        .padding(.trailing, 8)
-                    
-                    Divider()
-                        .frame(height: 20)
-                    
-                    TextField(String(localized: "login_phone_placeholder"), text: $viewModel.phoneNumber)
-                        .font(.system(size: 16, weight: .medium, design: .rounded))
-                        .monologueTextInputBehavior()
-                        .keyboardType(.phonePad)
-                        .padding(.leading, 8)
-                }
-                .padding(16)
-                .themedPageSurface(cornerRadius: 16, elevated: false)
-                .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
-            }
-            
-            VStack(alignment: .leading, spacing: 8) {
-                Text(LocalizedStringKey("captcha"))
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(loginSecondaryText)
-                
-                HStack {
-                    TextField(String(localized: "login_captcha_placeholder"), text: $viewModel.captchaCode)
-                        .font(.system(size: 16, weight: .medium, design: .rounded))
-                        .monologueTextInputBehavior()
-                        .keyboardType(.numberPad)
-                    
-                    Button(action: { viewModel.sendCaptcha() }) {
-                        Group {
-                            if viewModel.captchaCooldown > 0 {
-                                Text("\(viewModel.captchaCooldown)s")
-                            } else {
-                                Text(viewModel.isCaptchaSent ? String(localized: "login_resend") : String(localized: "get_captcha"))
-                            }
-                        }
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
-                        .foregroundColor(viewModel.phoneNumber.count == 11 && viewModel.captchaCooldown == 0 ? loginText : loginSecondaryText)
-                    }
-                    .disabled(viewModel.phoneNumber.count != 11 || viewModel.captchaCooldown > 0)
-                }
-                .padding(16)
-                .themedPageSurface(cornerRadius: 16, elevated: false)
-                .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
-            }
-            
-            if let error = viewModel.loginErrorMessage {
-                Text(error)
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(.red)
-            }
-            
-            Button(action: { viewModel.loginWithPhone() }) {
-                HStack {
-                    if isLoading {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            .scaleEffect(0.8)
-                    }
-                    Text(LocalizedStringKey("login"))
-                        .font(.system(size: 16, weight: .bold, design: .rounded))
-                }
-                .foregroundColor(loginAccentText)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(
-                    (viewModel.phoneNumber.count == 11 && viewModel.captchaCode.count >= 4)
-                    ? loginAccent
-                    : (SequoiaStyle.isActive ? SequoiaStyle.materialPressed : Color.gray.opacity(0.3))
-                )
-                .cornerRadius(16)
-            }
-            .disabled(viewModel.phoneNumber.count != 11 || viewModel.captchaCode.count < 4)
-            .buttonStyle(MonologueBouncingButtonStyle())
-            .padding(.top, 8)
-        }
-    }
-    
+
     // MARK: - Footer
-    
+
     private var footerView: some View {
         VStack(spacing: 8) {
             Text(LocalizedStringKey("login_agreement_prefix"))
                 .font(.system(size: 12, weight: .medium, design: .rounded))
                 .foregroundColor(loginSecondaryText)
-            
+
             HStack(spacing: 4) {
                 Text(LocalizedStringKey("login_user_agreement"))
                 Text(LocalizedStringKey("login_and"))
@@ -314,19 +385,19 @@ struct LoginView: View {
         }
         .padding(.bottom, 40)
     }
-    
+
     // MARK: - Actions
-    
+
     private func handleLoginSuccess() {
         guard !didHandleLoginSuccess else { return }
         didHandleLoginSuccess = true
         if !isAppLoggedIn {
             isAppLoggedIn = true
         }
-        
+
         // 触发全量数据刷新
         GlobalRefreshManager.shared.triggerLoginRefresh()
-        
+
         // 关闭登录界面
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss)

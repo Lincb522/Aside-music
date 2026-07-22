@@ -5,9 +5,13 @@
 //  外观与歌词设置子页面
 //
 
+import PhotosUI
 import SwiftUI
 
 private func appearanceSettingsFont(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+    if MinimalWhiteStyle.isActive {
+        return MinimalWhiteStyle.bodyFont(size, weight: weight)
+    }
     if MangaStyle.isActive {
         return MangaStyle.comicFont(size, weight: weight == .regular ? .bold : weight)
     }
@@ -37,14 +41,14 @@ struct AppearanceSettingsView: View {
             ThemedSettingsBackground()
 
             ScrollView {
-                LazyVStack(spacing: 20) {
+                LazyVStack(spacing: SettingsPageLayout.sectionSpacing) {
                     SettingsScrollablePageHeader(
                         title: String(localized: "settings_navigation_appearance_title"),
-                        eyebrow: "STYLE",
-                        icon: .sparkle
+                        eyebrow: "APPEARANCE",
+                        icon: .playerTheme
                     )
 
-                    LazyVStack(spacing: 20) {
+                    LazyVStack(spacing: SettingsPageLayout.sectionSpacing) {
                         globalThemeSection
                         if ThemeColorCustomization.supports(settings.globalThemeId) {
                             themeColorCustomizationSection
@@ -53,19 +57,18 @@ struct AppearanceSettingsView: View {
                         layoutSection
                         contentExperienceSection
                         dynamicBackgroundSection
-                        lyricSection
                         FloatingBarBottomSpacer()
                     }
                     .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
-                    .iPadContentWidth(700)
+                    .padding(.bottom, 44)
+                    .iPadContentWidth(SettingsPageLayout.contentWidth)
                 }
             }
             .scrollIndicators(.hidden)
+            .coordinateSpace(name: SettingsPageLayout.scrollCoordinateSpace)
             .themeRenderScrollLayer()
         }
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.hidden, for: .navigationBar)
+        .asideSettingsDetailChrome(String(localized: "settings_navigation_appearance_title"))
         .onAppear {
             settings.enforceCoverBackgroundPolicyForCurrentTheme()
         }
@@ -190,7 +193,12 @@ struct AppearanceSettingsView: View {
     }
 
     private var dynamicBackgroundSection: some View {
-        SettingsSection(title: String(localized: "settings_appearance_dynamic_background_section")) {
+        let paletteAccent = GlobalThemeManager.shared
+            .provider(for: settings.globalThemeId)
+            .colorPalette
+            .accent
+
+        return SettingsSection(title: String(localized: "settings_appearance_dynamic_background_section")) {
             VStack(spacing: 0) {
                 SettingsToggleRow(
                     icon: .layers,
@@ -223,6 +231,23 @@ struct AppearanceSettingsView: View {
                     isOn: $settings.coverBgPlayer,
                     isEnabled: !settings.locksCoverBackgroundSettings
                 )
+
+                Divider()
+                    .opacity(0.4)
+                    .padding(.leading, 62)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(String(localized: "全局自动取色"))
+                        .font(appearanceSettingsFont(14, weight: .semibold))
+                        .foregroundStyle(Color.monologueTextPrimary)
+
+                    CoverPaletteSettingsControls(
+                        accent: paletteAccent,
+                        darkStyle: false
+                    )
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
 
             }
         }
@@ -303,143 +328,25 @@ struct AppearanceSettingsView: View {
             return .neumorphic
         case .petWhite:
             return .classic
-        case .capsule, .sequoia, .liquidGlass:
+        case .capsule:
             return .classic
-        case .default, .muji, .manga, .pureWhite, .bento, .clay, .signal, .material3Expressive:
+        case .default, .muji, .manga, .minimalWhite:
             return nil
         }
     }
 
-    // MARK: - 歌词
-
-    private var lyricSection: some View {
-        SettingsSection(title: String(localized: "settings_lyrics")) {
-            VStack(spacing: 0) {
-                lyricColorModeRow
-
-                if settings.lyricColorMode == "solid" {
-                    Divider()
-                        .opacity(0.4)
-                        .padding(.leading, 62)
-
-                    lyricColorPickerRow(
-                        title: String(localized: "settings_lyric_color"),
-                        hex: $settings.lyricSolidColorHex
-                    )
-                }
-
-                if settings.lyricColorMode == "gradient" {
-                    Divider()
-                        .opacity(0.4)
-                        .padding(.leading, 62)
-
-                    lyricColorPickerRow(
-                        title: String(localized: "settings_lyric_color_start"),
-                        hex: $settings.lyricGradientStartHex
-                    )
-
-                    Divider()
-                        .opacity(0.4)
-                        .padding(.leading, 62)
-
-                    lyricColorPickerRow(
-                        title: String(localized: "settings_lyric_color_end"),
-                        hex: $settings.lyricGradientEndHex
-                    )
-                }
-
-                if settings.lyricColorMode != "default" {
-                    Divider()
-                        .opacity(0.4)
-                        .padding(.leading, 62)
-
-                    lyricPreview
-                }
-            }
-        }
-    }
-
-    // MARK: - Lyric Helpers
-
-    private var lyricColorModeRow: some View {
-        HStack(spacing: 12) {
-            SettingsIconBadge(icon: .sparkle)
-
-            Text(String(localized: "settings_lyric_color"))
-                .font(.system(size: 15, weight: .medium, design: .rounded))
-                .foregroundColor(.monologueTextPrimary)
-
-            Spacer()
-
-            Picker("", selection: $settings.lyricColorMode) {
-                Text(String(localized: "settings_lyric_color_mode_default")).tag("default")
-                Text(String(localized: "settings_lyric_color_mode_solid")).tag("solid")
-                Text(String(localized: "settings_lyric_color_mode_gradient")).tag("gradient")
-            }
-            .pickerStyle(.segmented)
-            .frame(width: 180)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
-    }
-
-    private func lyricColorPickerRow(title: String, hex: Binding<String>) -> some View {
-        HStack(spacing: 12) {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color(hex: hex.wrappedValue))
-                .frame(width: 30, height: 30)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(Color.monologueSeparator, lineWidth: 1)
-                )
-
-            Text(title)
-                .font(.system(size: 15, weight: .medium, design: .rounded))
-                .foregroundColor(.monologueTextPrimary)
-
-            Spacer()
-
-            ColorPicker("", selection: Binding(
-                get: { Color(hex: hex.wrappedValue) },
-                set: { hex.wrappedValue = $0.toHex() }
-            ), supportsOpacity: false)
-                .labelsHidden()
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
-    }
-
-    private var lyricPreview: some View {
-        VStack(spacing: 8) {
-            if settings.lyricColorMode == "gradient" {
-                Text(String(localized: "settings_lyric_preview"))
-                    .font(.rounded(size: 20, weight: .bold))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [
-                                Color(hex: settings.lyricGradientStartHex),
-                                Color(hex: settings.lyricGradientEndHex),
-                            ],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-            } else if settings.lyricColorMode == "solid" {
-                Text(String(localized: "settings_lyric_preview"))
-                    .font(.rounded(size: 20, weight: .bold))
-                    .foregroundColor(Color(hex: settings.lyricSolidColorHex))
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
-    }
+    // 歌词颜色设置已迁移到播放器右上角三点菜单 →「歌词外观」（MonologueFontPicker.swift）
 }
 
 private struct ThemeColorCustomizationSection: View {
     let theme: GlobalThemeId
     @Binding var isExpanded: Bool
+    @Environment(\.colorScheme) private var colorScheme
     @ObservedObject private var settings = SettingsManager.shared
     @State private var activeColorPicker: ThemeColorPickerTarget?
+    @State private var backgroundPhotoItem: PhotosPickerItem?
+    @State private var darkBackgroundPhotoItem: PhotosPickerItem?
+    @State private var showSavePresetOptions = false
 
     var body: some View {
         let _ = settings.globalThemeRevision
@@ -492,11 +399,25 @@ private struct ThemeColorCustomizationSection: View {
 
                         Divider().opacity(0.35)
 
-                        colorRoleEditor(role: .accent)
+                        if usesDarkAsideCustomization {
+                            darkAccentEditor
 
-                        Divider().opacity(0.35)
+                            Divider().opacity(0.35)
 
-                        colorRoleEditor(role: .background)
+                            darkBackgroundEditor
+                        } else {
+                            colorRoleEditor(role: .accent)
+
+                            Divider().opacity(0.35)
+
+                            colorRoleEditor(role: .background)
+
+                            if ThemeColorCustomization.supportsImageBackground(theme),
+                               theme != .default {
+                                Divider().opacity(0.35)
+                                darkBackgroundEditor
+                            }
+                        }
 
                         if theme == .manga {
                             Divider().opacity(0.35)
@@ -514,7 +435,7 @@ private struct ThemeColorCustomizationSection: View {
             preset: .custom(
                 height: .fixed(438),
                 maxContentWidth: 620,
-                cornerRadius: theme == .manga ? 22 : (theme == .muji ? 20 : 30)
+                cornerRadius: theme == .manga ? 22 : (theme == .minimalWhite ? MinimalWhiteStyle.chromeRadius : (theme == .muji ? 20 : 30))
             )
         ) { target in
             ThemeColorPickerSheet(
@@ -525,16 +446,31 @@ private struct ThemeColorCustomizationSection: View {
         }
     }
 
+    private var usesDarkAsideCustomization: Bool {
+        theme == .default && colorScheme == .dark
+    }
+
     private var currentPresetSummary: String {
-        ThemeColorCustomization.selectedPresetDisplayName(for: theme)
+        if usesDarkAsideCustomization {
+            return ThemeColorCustomization.selectedDarkPresetDisplayName(for: theme)
+        }
+        return ThemeColorCustomization.selectedPresetDisplayName(for: theme)
     }
 
     private var restoreDefaultColorsButton: some View {
-        let canRestore = ThemeColorCustomization.hasStoredCustomization(for: theme)
+        let canRestore = usesDarkAsideCustomization
+            ? ThemeColorCustomization.hasStoredDarkCustomization(for: theme)
+            : ThemeColorCustomization.hasStoredCustomization(for: theme)
 
         return Button {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
-                ThemeColorCustomization.resetThemeColors(for: theme)
+                if usesDarkAsideCustomization {
+                    ThemeColorCustomization.resetDarkThemeColors(for: theme)
+                } else if theme == .default {
+                    ThemeColorCustomization.resetLightThemeColors(for: theme)
+                } else {
+                    ThemeColorCustomization.resetThemeColors(for: theme)
+                }
             }
         } label: {
             HStack(spacing: 9) {
@@ -558,14 +494,20 @@ private struct ThemeColorCustomizationSection: View {
     }
 
     private var presetRail: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let builtInPresets = usesDarkAsideCustomization
+            ? ThemeColorCustomization.builtInDarkColorPresets(for: theme)
+            : ThemeColorCustomization.builtInColorPresets(for: theme)
+        let customPresets = usesDarkAsideCustomization
+            ? ThemeColorCustomization.customDarkPresets(for: theme)
+            : ThemeColorCustomization.customPresets(for: theme)
+
+        return VStack(alignment: .leading, spacing: 12) {
             presetGroup(
                 title: String(localized: "预设"),
-                presets: ThemeColorCustomization.builtInColorPresets(for: theme),
+                presets: builtInPresets,
                 allowsDelete: false
             )
 
-            let customPresets = ThemeColorCustomization.customPresets(for: theme)
             if !customPresets.isEmpty {
                 presetGroup(
                     title: String(localized: "自定义方案"),
@@ -592,12 +534,14 @@ private struct ThemeColorCustomizationSection: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
                 ForEach(presets) { preset in
-                    let isSelected = ThemeColorCustomization.isPresetSelected(preset, for: theme)
+                    let isSelected = usesDarkAsideCustomization
+                        ? ThemeColorCustomization.isDarkPresetSelected(preset, for: theme)
+                        : ThemeColorCustomization.isPresetSelected(preset, for: theme)
                     if allowsDelete {
                         HStack(spacing: 4) {
                             Button {
                                 withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
-                                    ThemeColorCustomization.applyPreset(preset, to: theme)
+                                    applyPreset(preset)
                                 }
                             } label: {
                                 presetChipLabel(preset: preset, isSelected: isSelected)
@@ -606,7 +550,7 @@ private struct ThemeColorCustomizationSection: View {
 
                             Button {
                                 withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
-                                    ThemeColorCustomization.deleteSavedPreset(preset, for: theme)
+                                    deletePreset(preset)
                                 }
                             } label: {
                                 MonologueIcon(icon: .trash, size: 10.5, color: themeSubtextColor.opacity(0.82), lineWidth: 1.55)
@@ -619,7 +563,7 @@ private struct ThemeColorCustomizationSection: View {
                     } else {
                         Button {
                             withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
-                                ThemeColorCustomization.applyPreset(preset, to: theme)
+                                applyPreset(preset)
                             }
                         } label: {
                             presetChipLabel(preset: preset, isSelected: isSelected)
@@ -630,6 +574,22 @@ private struct ThemeColorCustomizationSection: View {
             }
             .themeRenderScrollLayer()
             .padding(.vertical, 2)
+        }
+    }
+
+    private func applyPreset(_ preset: ThemeColorPreset) {
+        if usesDarkAsideCustomization {
+            ThemeColorCustomization.applyDarkPreset(preset, to: theme)
+        } else {
+            ThemeColorCustomization.applyPreset(preset, to: theme)
+        }
+    }
+
+    private func deletePreset(_ preset: ThemeColorPreset) {
+        if usesDarkAsideCustomization {
+            ThemeColorCustomization.deleteSavedDarkPreset(preset, for: theme)
+        } else {
+            ThemeColorCustomization.deleteSavedPreset(preset, for: theme)
         }
     }
 
@@ -652,7 +612,7 @@ private struct ThemeColorCustomizationSection: View {
                     .allowsTightening(true)
 
                 if preset.isCustom {
-                    Text(String(localized: "已存"))
+                    Text(preset.iconSetRaw == nil ? String(localized: "已存") : String(localized: "已存 · 含图标包"))
                         .font(appearanceSettingsFont(8.5, weight: .semibold))
                         .foregroundStyle(themeSubtextColor.opacity(0.72))
                         .textCase(.uppercase)
@@ -674,7 +634,9 @@ private struct ThemeColorCustomizationSection: View {
 
     @ViewBuilder
     private var deletePresetButtonBackground: some View {
-        if theme == .manga {
+        if theme == .minimalWhite {
+            MinimalWhiteCircleBackground()
+        } else if theme == .manga {
             Circle()
                 .fill(MangaStyle.bubbleWhite)
                 .overlay(Circle().stroke(MangaStyle.strokeInk, lineWidth: 1.1))
@@ -688,18 +650,6 @@ private struct ThemeColorCustomizationSection: View {
             Circle()
                 .fill(CapsuleStyle.surfaceRaised.opacity(0.8))
                 .overlay(Circle().stroke(CapsuleStyle.separator.opacity(0.5), lineWidth: 0.65))
-        } else if theme == .sequoia {
-            SequoiaSurfaceBackground(cornerRadius: 15, elevated: false, pressed: true, role: .list)
-        } else if theme == .liquidGlass {
-            LiquidGlassSurfaceBackground(cornerRadius: 15, elevated: false, pressed: true, role: .list)
-        } else if theme == .clay {
-            ClaySurfaceBackground(cornerRadius: 15, tint: ClayStyle.cream, elevated: false, pressed: true, compact: true)
-        } else if theme == .signal {
-            SignalSurfaceBackground(cornerRadius: 10, elevated: false, pressed: true, fill: SignalStyle.control)
-        } else if theme == .bento {
-            Circle()
-                .fill(BentoStyle.surface)
-                .overlay(Circle().stroke(BentoStyle.hairline.opacity(0.58), lineWidth: 0.65))
         } else {
             Circle()
                 .fill(Color.monologueGlassTint)
@@ -709,9 +659,7 @@ private struct ThemeColorCustomizationSection: View {
 
     private var saveCurrentPresetButton: some View {
         Button {
-            withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
-                ThemeColorCustomization.saveCurrentPreset(for: theme)
-            }
+            showSavePresetOptions = true
         } label: {
             HStack(spacing: 9) {
                 MonologueIcon(icon: .add, size: 10, color: savePresetIconColor, lineWidth: 1.8)
@@ -724,7 +672,9 @@ private struct ThemeColorCustomizationSection: View {
 
                 Spacer(minLength: 6)
 
-                let count = ThemeColorCustomization.savedPresets(for: theme).count
+                let count = usesDarkAsideCustomization
+                    ? ThemeColorCustomization.savedDarkPresets(for: theme).count
+                    : ThemeColorCustomization.savedPresets(for: theme).count
                 if count > 0 {
                     Text(String(localized: "已保存 \(count)"))
                         .font(appearanceSettingsFont(10, weight: .medium))
@@ -736,10 +686,48 @@ private struct ThemeColorCustomizationSection: View {
             .background(savePresetButtonBackground)
         }
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.985))
+        .confirmationDialog(
+            String(localized: "保存当前方案"),
+            isPresented: $showSavePresetOptions,
+            titleVisibility: .visible
+        ) {
+            Button(String(localized: "仅保存配色")) {
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                    if usesDarkAsideCustomization {
+                        ThemeColorCustomization.saveCurrentDarkPreset(for: theme)
+                    } else {
+                        ThemeColorCustomization.saveCurrentPreset(for: theme)
+                    }
+                }
+            }
+            Button(String(localized: "保存配色与图标包（\(SettingsManager.shared.interfaceIconSet.displayName)）")) {
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                    if usesDarkAsideCustomization {
+                        ThemeColorCustomization.saveCurrentDarkPreset(
+                            for: theme,
+                            includingIconSet: true
+                        )
+                    } else {
+                        ThemeColorCustomization.saveCurrentPreset(
+                            for: theme,
+                            includingIconSet: true
+                        )
+                    }
+                }
+            }
+            Button(String(localized: "取消"), role: .cancel) {}
+        } message: {
+            Text(String(localized: "选择是否将当前界面图标包一并保存到方案中"))
+        }
     }
 
     private func colorRoleEditor(role: ThemeCustomColorRole) -> some View {
         let usesSingleColor = role == .accent || (theme == .muji && role == .background)
+        let allowsImage = role == .background && ThemeColorCustomization.supportsImageBackground(theme)
+        let modeOptions: [ThemeCustomColorMode] = allowsImage
+            ? [.solid, .gradient, .image]
+            : ThemeCustomColorMode.allCases
+        let currentMode = ThemeColorCustomization.mode(for: theme, role: role)
 
         return VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -751,12 +739,12 @@ private struct ThemeColorCustomizationSection: View {
 
                 if !usesSingleColor {
                     Picker("", selection: modeBinding(role)) {
-                        ForEach(ThemeCustomColorMode.allCases) { mode in
+                        ForEach(modeOptions) { mode in
                             Text(mode.displayName).tag(mode)
                         }
                     }
                     .pickerStyle(.segmented)
-                    .frame(width: 132)
+                    .frame(width: allowsImage ? 196 : 132)
                 } else {
                     Text(String(localized: "单色"))
                         .font(appearanceSettingsFont(11, weight: .semibold))
@@ -767,15 +755,274 @@ private struct ThemeColorCustomizationSection: View {
                 }
             }
 
-            if !usesSingleColor && ThemeColorCustomization.mode(for: theme, role: role) == .gradient {
+            if !usesSingleColor && currentMode == .gradient {
                 backgroundGradientColorGrid(role: role)
                 gradientStyleSelector(role: role)
+            } else if allowsImage && currentMode == .image {
+                backgroundImageEditor(dark: false)
             } else {
                 colorPickerPill(
                     title: String(localized: "颜色"),
                     target: .role(role, suffix: "solid", title: String(localized: "颜色"), fallback: fallbackHex(role: role, suffix: "solid")),
                     binding: colorBinding(role: role, suffix: "solid", fallback: fallbackHex(role: role, suffix: "solid"))
                 )
+            }
+        }
+    }
+
+    private var darkAccentEditor: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(String(localized: "强调色"))
+                    .font(appearanceSettingsFont(13, weight: .semibold))
+                    .foregroundStyle(themeTextColor)
+
+                Spacer()
+
+                Text(String(localized: "单色"))
+                    .font(appearanceSettingsFont(11, weight: .semibold))
+                    .foregroundStyle(themeSubtextColor)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5)
+                    .background(Capsule().fill(themeStrokeColor.opacity(0.16)))
+            }
+
+            colorPickerPill(
+                title: String(localized: "颜色"),
+                target: .role(
+                    .accent,
+                    suffix: "darkSolid",
+                    title: String(localized: "颜色"),
+                    fallback: ThemeColorCustomization.defaultDarkAccentHex
+                ),
+                binding: colorBinding(
+                    role: .accent,
+                    suffix: "darkSolid",
+                    fallback: ThemeColorCustomization.defaultDarkAccentHex
+                )
+            )
+        }
+    }
+
+    // MARK: - 背景图（壁纸式铺满）
+
+    private func backgroundImageEditor(dark: Bool) -> some View {
+        let photoItemBinding = dark ? $darkBackgroundPhotoItem : $backgroundPhotoItem
+
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                PhotosPicker(selection: photoItemBinding, matching: .images, photoLibrary: .shared()) {
+                    ThemeBackgroundImagePickerLabel(theme: theme, dark: dark)
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.985))
+
+                if ThemeColorCustomization.hasBackgroundImage(for: theme, dark: dark) {
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
+                            ThemeColorCustomization.clearBackgroundImage(for: theme, dark: dark)
+                        }
+                    } label: {
+                        MonologueIcon(icon: .trash, size: 12, color: themeSubtextColor.opacity(0.85), lineWidth: 1.6)
+                            .frame(width: 38, height: 38)
+                            .background(deletePresetButtonBackground)
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.92))
+                    .accessibilityLabel(String(localized: "移除背景图"))
+                }
+            }
+
+            Text(String(localized: "图片将像系统壁纸一样缩放铺满屏幕"))
+                .font(appearanceSettingsFont(10.5, weight: .regular))
+                .foregroundStyle(themeSubtextColor.opacity(0.72))
+        }
+        .onChange(of: photoItemBinding.wrappedValue) { _, item in
+            guard let item else { return }
+            Task {
+                if let data = try? await item.loadTransferable(type: Data.self) {
+                    _ = withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
+                        ThemeColorCustomization.setBackgroundImageData(data, for: theme, dark: dark)
+                    }
+                }
+                photoItemBinding.wrappedValue = nil
+            }
+        }
+    }
+
+    // MARK: - 夜间背景（默认主题）
+
+    private var darkBackgroundEditor: some View {
+        let kind = ThemeColorCustomization.darkBackgroundKind(for: theme)
+
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(String(localized: "夜间背景"))
+                    .font(appearanceSettingsFont(13, weight: .semibold))
+                    .foregroundStyle(themeTextColor)
+
+                Spacer()
+
+                Picker("", selection: darkBackgroundKindBinding) {
+                    ForEach(ThemeDarkBackgroundKind.allCases) { kind in
+                        Text(kind.displayName).tag(kind)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 232)
+            }
+
+            switch kind {
+            case .solid:
+                darkSolidSwatchRow
+                colorPickerPill(
+                    title: String(localized: "夜间纯色"),
+                    target: .role(.background, suffix: "darkSolid", title: String(localized: "夜间纯色"), fallback: ThemeColorCustomization.defaultDarkBackgroundSolidHex),
+                    binding: colorBinding(role: .background, suffix: "darkSolid", fallback: ThemeColorCustomization.defaultDarkBackgroundSolidHex)
+                )
+            case .gradient:
+                darkBackgroundGradientColorGrid
+                darkGradientStyleSelector
+            case .image:
+                backgroundImageEditor(dark: true)
+            case .standard:
+                Text(String(localized: "夜间模式使用主题默认深色背景"))
+                    .font(appearanceSettingsFont(10.5, weight: .regular))
+                    .foregroundStyle(themeSubtextColor.opacity(0.72))
+            }
+        }
+    }
+
+    private var darkSolidSwatchRow: some View {
+        let swatches: [(name: String, hex: String)] = [
+            (String(localized: "纯黑"), "000000"),
+            (String(localized: "碳黑"), "0B0B0D"),
+            (String(localized: "暗夜蓝"), "070B14"),
+            (String(localized: "深灰"), "141418"),
+        ]
+        let currentHex = ThemeColorCustomization.normalizedHex(
+            ThemeColorCustomization.darkBackgroundSolidHex(for: theme)
+        )
+
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(swatches, id: \.hex) { swatch in
+                    let isSelected = currentHex == ThemeColorCustomization.normalizedHex(swatch.hex)
+                    Button {
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.88)) {
+                            ThemeColorCustomization.setHex(swatch.hex, for: theme, role: .background, suffix: "darkSolid")
+                        }
+                    } label: {
+                        HStack(spacing: 7) {
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .fill(Color(hex: swatch.hex))
+                                .frame(width: 20, height: 20)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                        .stroke(themeStrokeColor, lineWidth: 0.7)
+                                )
+
+                            Text(swatch.name)
+                                .font(appearanceSettingsFont(11.5, weight: isSelected ? .bold : .semibold))
+                                .foregroundStyle(isSelected ? selectedPresetTextColor : themeTextColor)
+                                .lineLimit(1)
+                                .fixedSize(horizontal: true, vertical: false)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .background(presetBackground(isSelected: isSelected))
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+                }
+            }
+            .padding(.vertical, 1)
+        }
+    }
+
+    private var darkBackgroundKindBinding: Binding<ThemeDarkBackgroundKind> {
+        Binding(
+            get: { ThemeColorCustomization.darkBackgroundKind(for: theme) },
+            set: { kind in
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
+                    ThemeColorCustomization.setDarkBackgroundKind(kind, for: theme)
+                }
+            }
+        )
+    }
+
+    private var darkBackgroundGradientColorGrid: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                darkGradientColorPill(suffix: "darkStart", title: String(localized: "颜色 1"))
+                darkGradientColorPill(suffix: "darkEnd", title: String(localized: "颜色 2"))
+            }
+
+            HStack(spacing: 10) {
+                darkGradientColorPill(suffix: "darkStop3", title: String(localized: "颜色 3"))
+                darkGradientColorPill(suffix: "darkStop4", title: String(localized: "颜色 4"))
+            }
+        }
+    }
+
+    private func darkGradientColorPill(suffix: String, title: String) -> some View {
+        let fallback = ThemeColorCustomization.defaultDarkBackgroundStopHex(suffix)
+        return colorPickerPill(
+            title: title,
+            target: .role(
+                .background,
+                suffix: suffix,
+                title: title,
+                fallback: fallback
+            ),
+            binding: colorBinding(
+                role: .background,
+                suffix: suffix,
+                fallback: fallback
+            )
+        )
+    }
+
+    private var darkGradientStyleSelector: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(String(localized: "渐变方式"))
+                .font(appearanceSettingsFont(11, weight: .semibold))
+                .foregroundStyle(themeSubtextColor.opacity(0.82))
+                .lineLimit(1)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(ThemeCustomGradientStyle.allCases) { style in
+                        let isSelected = ThemeColorCustomization.darkBackgroundGradientStyle(
+                            for: theme
+                        ) == style
+                        Button {
+                            withAnimation(.spring(response: 0.28, dampingFraction: 0.88)) {
+                                ThemeColorCustomization.setDarkBackgroundGradientStyle(
+                                    style,
+                                    for: theme
+                                )
+                            }
+                        } label: {
+                            Text(style.displayName)
+                                .font(
+                                    appearanceSettingsFont(
+                                        11.5,
+                                        weight: isSelected ? .bold : .semibold
+                                    )
+                                )
+                                .foregroundStyle(
+                                    isSelected ? selectedPresetTextColor : themeTextColor
+                                )
+                                .lineLimit(1)
+                                .fixedSize(horizontal: true, vertical: false)
+                                .padding(.horizontal, 11)
+                                .padding(.vertical, 7)
+                                .background(
+                                    gradientStyleChipBackground(isSelected: isSelected)
+                                )
+                        }
+                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+                    }
+                }
+                .padding(.vertical, 1)
             }
         }
     }
@@ -970,6 +1217,8 @@ private struct ThemeColorCustomizationSection: View {
         }
 
         switch (theme, role, suffix) {
+        case (.minimalWhite, .accent, _): return "18181B"
+        case (.minimalWhite, .background, _): return "FFFFFF"
         case (.muji, .accent, "end"): return "B56B4B"
         case (.muji, .accent, _): return "B56B4B"
         case (.muji, .background, "end"): return "F7F1E8"
@@ -982,46 +1231,18 @@ private struct ThemeColorCustomizationSection: View {
         case (.capsule, .accent, _): return "3867FF"
         case (.capsule, .background, "end"): return "EAF1FF"
         case (.capsule, .background, _): return "F6F8FF"
-        case (.pureWhite, .accent, "end"): return "2563EB"
-        case (.pureWhite, .accent, _): return "2563EB"
-        case (.pureWhite, .background, "end"): return "F8FAFC"
-        case (.pureWhite, .background, _): return "FFFFFF"
         case (.petWhite, .accent, "end"): return "8FDCD5"
         case (.petWhite, .accent, _): return "F6A93B"
         case (.petWhite, .background, "end"): return "F6FAFA"
         case (.petWhite, .background, _): return "FFFFFF"
-        case (.sequoia, .accent, "end"): return "26AFCF"
-        case (.sequoia, .accent, _): return "0A84FF"
-        case (.sequoia, .background, "end"): return "E3EBF2"
-        case (.sequoia, .background, _): return "F4F7FB"
-        case (.liquidGlass, .accent, "end"): return "31D9E8"
-        case (.liquidGlass, .accent, _): return "18A7FF"
-        case (.liquidGlass, .background, "end"): return "F4F1FF"
-        case (.liquidGlass, .background, _): return "F2F8FF"
-        case (.clay, .accent, "end"): return "35BFE6"
-        case (.clay, .accent, _): return "35BFE6"
-        case (.clay, .background, "end"): return "DDF3FA"
-        case (.clay, .background, _): return "F7EAD8"
-        case (.signal, .accent, "end"): return "2F80ED"
-        case (.signal, .accent, _): return "2F80ED"
-        case (.signal, .background, "end"): return "F7F2EA"
-        case (.signal, .background, _): return "EEF5F8"
         case (.manga, .accent, "end"): return "FF4F84"
         case (.manga, .accent, _): return "FF4F84"
         case (.manga, .background, "end"): return "E8F1FF"
         case (.manga, .background, _): return "FFF3D7"
-        case (.bento, .accent, "end"): return "EB7E48"
-        case (.bento, .accent, _): return "E54B3B"
-        case (.bento, .background, "end"): return "EFE9DD"
-        case (.bento, .background, _): return "F5F1EA"
         case (.default, .accent, "end"): return "4D6F95"
         case (.default, .accent, _): return "4D6F95"
         case (.default, .background, "end"): return "E6EDF6"
         case (.default, .background, _): return "F8FAFC"
-        case (.material3Expressive, .accent, "end"): return "4D6F95"
-        case (.material3Expressive, .accent, _): return "4D6F95"
-        case (.material3Expressive, .background, "end"): return "E6EDF6"
-        case (.material3Expressive, .background, _): return "F8FAFC"
         }
     }
 
@@ -1050,10 +1271,12 @@ private struct ThemeColorCustomizationSection: View {
 
     @ViewBuilder
     private func presetBackground(isSelected: Bool) -> some View {
-        if theme == .manga {
-            Capsule()
+        if theme == .minimalWhite {
+            MinimalWhiteCapsuleBackground(elevated: isSelected, selected: isSelected)
+        } else if theme == .manga {
+            RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
                 .fill(isSelected ? MangaStyle.labelYellow : MangaStyle.bubbleWhite)
-                .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: isSelected ? 1.9 : 1.3))
+                .overlay(RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: isSelected ? 1.9 : 1.3))
                 .shadow(color: isSelected ? MangaStyle.strokeInk.opacity(0.22) : .clear, radius: 0, x: 2, y: 2)
         } else if theme == .muji {
             Capsule()
@@ -1066,24 +1289,6 @@ private struct ThemeColorCustomizationSection: View {
             Capsule()
                 .fill(isSelected ? CapsuleStyle.accent.opacity(0.16) : CapsuleStyle.surfaceRaised.opacity(0.82))
                 .overlay(Capsule().stroke(isSelected ? CapsuleStyle.accent.opacity(0.38) : CapsuleStyle.separator.opacity(0.5), lineWidth: isSelected ? 0.9 : 0.65))
-        } else if theme == .sequoia {
-            SequoiaSurfaceBackground(cornerRadius: 18, elevated: isSelected, pressed: !isSelected, fill: isSelected ? SequoiaStyle.accent.opacity(0.14) : SequoiaStyle.glass)
-        } else if theme == .liquidGlass {
-            LiquidGlassSurfaceBackground(
-                cornerRadius: 18,
-                elevated: isSelected,
-                pressed: !isSelected,
-                fill: isSelected ? LiquidGlassStyle.accent.opacity(0.1) : nil,
-                role: isSelected ? .selected : .list
-            )
-        } else if theme == .clay {
-            ClaySurfaceBackground(cornerRadius: 18, tint: isSelected ? ClayStyle.accent.opacity(0.16) : ClayStyle.cream, elevated: isSelected, pressed: !isSelected, compact: true)
-        } else if theme == .signal {
-            SignalSurfaceBackground(cornerRadius: 10, elevated: isSelected, pressed: !isSelected, fill: isSelected ? SignalStyle.accent.opacity(0.16) : SignalStyle.control)
-        } else if theme == .bento {
-            Capsule()
-                .fill(isSelected ? BentoStyle.tomato : BentoStyle.surface)
-                .overlay(Capsule().stroke(BentoStyle.hairline.opacity(isSelected ? 0.25 : 0.58), lineWidth: isSelected ? 0.9 : 0.65))
         } else {
             Capsule()
                 .fill(isSelected ? Color.monologueAccent.opacity(0.12) : Color.monologueGlassTint)
@@ -1093,7 +1298,13 @@ private struct ThemeColorCustomizationSection: View {
 
     @ViewBuilder
     private var fieldBackground: some View {
-        if theme == .manga {
+        if theme == .minimalWhite {
+            MinimalWhiteSurfaceBackground(
+                cornerRadius: MinimalWhiteStyle.compactRadius,
+                elevated: false,
+                tint: MinimalWhiteStyle.controlGlassFill
+            )
+        } else if theme == .manga {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(MangaStyle.bubbleWhite)
                 .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 1.2))
@@ -1107,18 +1318,6 @@ private struct ThemeColorCustomizationSection: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(CapsuleStyle.surfaceRaised.opacity(0.78))
                 .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(CapsuleStyle.separator.opacity(0.48), lineWidth: 0.65))
-        } else if theme == .sequoia {
-            SequoiaSurfaceBackground(cornerRadius: 14, elevated: false, pressed: true)
-        } else if theme == .liquidGlass {
-            LiquidGlassSurfaceBackground(cornerRadius: 14, elevated: false, pressed: true, role: .list)
-        } else if theme == .clay {
-            ClaySurfaceBackground(cornerRadius: 14, tint: ClayStyle.cream, elevated: false, pressed: true, compact: true)
-        } else if theme == .signal {
-            SignalSurfaceBackground(cornerRadius: 10, elevated: false, pressed: true, fill: SignalStyle.control)
-        } else if theme == .bento {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(BentoStyle.surface)
-                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(BentoStyle.hairline.opacity(0.58), lineWidth: 0.65))
         } else {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(Color.monologueGlassTint)
@@ -1127,73 +1326,62 @@ private struct ThemeColorCustomizationSection: View {
     }
 
     private var themeTextColor: Color {
+        if theme == .minimalWhite { return MinimalWhiteStyle.ink }
         if theme == .manga { return MangaStyle.ink }
         if theme == .muji { return MujiStyle.ink }
         if theme == .capsule { return CapsuleStyle.ink }
-        if theme == .sequoia { return SequoiaStyle.ink }
-        if theme == .liquidGlass { return LiquidGlassStyle.ink }
-        if theme == .clay { return ClayStyle.ink }
         if theme == .default { return Color.monologueTextPrimary }
-        if theme == .signal { return SignalStyle.ink }
-        if theme == .bento { return BentoStyle.ink }
         return NeumorphicStyle.ink
     }
 
     private var themeSubtextColor: Color {
+        if theme == .minimalWhite { return MinimalWhiteStyle.inkMuted }
         if theme == .manga { return MangaStyle.inkSub }
         if theme == .muji { return MujiStyle.inkSoft }
         if theme == .capsule { return CapsuleStyle.inkSoft }
-        if theme == .sequoia { return SequoiaStyle.inkSoft }
-        if theme == .liquidGlass { return LiquidGlassStyle.inkSoft }
-        if theme == .clay { return ClayStyle.inkSoft }
         if theme == .default { return Color.monologueTextSecondary }
-        if theme == .signal { return SignalStyle.inkSoft }
-        if theme == .bento { return BentoStyle.inkSoft }
         return NeumorphicStyle.inkSoft
     }
 
     private var themeStrokeColor: Color {
+        if theme == .minimalWhite { return MinimalWhiteStyle.hairline }
         if theme == .manga { return MangaStyle.strokeInk }
         if theme == .muji { return MujiStyle.hairline.opacity(0.54) }
         if theme == .capsule { return CapsuleStyle.separator.opacity(0.64) }
-        if theme == .sequoia { return SequoiaStyle.separator.opacity(0.74) }
-        if theme == .liquidGlass { return LiquidGlassStyle.separator.opacity(0.78) }
-        if theme == .clay { return ClayStyle.separator.opacity(0.62) }
         if theme == .default { return Color.monologueSeparator }
-        if theme == .signal { return SignalStyle.separator.opacity(0.72) }
-        if theme == .bento { return BentoStyle.hairline.opacity(0.64) }
         return NeumorphicStyle.separator.opacity(0.62)
     }
 
     private var selectedPresetTextColor: Color {
-        if theme == .manga { return MangaStyle.strokeInk }
+        if theme == .minimalWhite { return MinimalWhiteStyle.ink }
+        if theme == .manga {
+            return ThemeColorCustomization.readableForegroundColor(on: MangaStyle.labelYellow, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk)
+        }
         if theme == .muji { return MujiStyle.clay }
         if theme == .capsule { return CapsuleStyle.accent }
-        if theme == .sequoia { return SequoiaStyle.accent }
-        if theme == .liquidGlass { return LiquidGlassStyle.accent }
-        if theme == .clay { return ClayStyle.accent }
         if theme == .default { return Color.monologueAccent }
-        if theme == .signal { return SignalStyle.accent }
-        if theme == .bento { return BentoStyle.onAccent }
         return NeumorphicStyle.accent
     }
 
     private var selectedPresetMarkColor: Color {
+        if theme == .minimalWhite {
+            return MinimalWhiteStyle.onAccent
+        }
         if theme == .manga {
             return ThemeColorCustomization.readableForegroundColor(on: MangaStyle.bubblePink, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk)
         }
         if theme == .muji {
             return ThemeColorCustomization.readableForegroundColor(on: MujiStyle.tea, light: MujiStyle.ink, dark: Color(hex: "FFF8EF"))
         }
-        if theme == .clay {
-            return ThemeColorCustomization.readableForegroundColor(on: ClayStyle.butter.opacity(0.82), light: ClayStyle.ink, dark: .white)
-        }
         return ThemeColorCustomization.accentForegroundColor(for: theme)
     }
 
     @ViewBuilder
     private var selectedPresetMarkBackground: some View {
-        if theme == .manga {
+        if theme == .minimalWhite {
+            Circle()
+                .fill(MinimalWhiteStyle.ink)
+        } else if theme == .manga {
             Circle()
                 .fill(MangaStyle.bubblePink)
                 .overlay(Circle().stroke(MangaStyle.strokeInk, lineWidth: 1.2))
@@ -1206,21 +1394,6 @@ private struct ThemeColorCustomizationSection: View {
         } else if theme == .capsule {
             Circle()
                 .fill(CapsuleStyle.accent)
-        } else if theme == .sequoia {
-            Circle()
-                .fill(SequoiaStyle.accent)
-        } else if theme == .liquidGlass {
-            Circle()
-                .fill(LiquidGlassStyle.accent)
-        } else if theme == .clay {
-            Circle()
-                .fill(ClayStyle.butter.opacity(0.82))
-        } else if theme == .signal {
-            Circle()
-                .fill(SignalStyle.accent)
-        } else if theme == .bento {
-            Circle()
-                .fill(BentoStyle.tomato)
         } else {
             Circle()
                 .fill(NeumorphicStyle.accent)
@@ -1228,18 +1401,21 @@ private struct ThemeColorCustomizationSection: View {
     }
 
     private var savePresetIconColor: Color {
+        if theme == .minimalWhite {
+            return MinimalWhiteStyle.onAccent
+        }
         if theme == .manga {
             return ThemeColorCustomization.readableForegroundColor(on: MangaStyle.labelYellow, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk)
-        }
-        if theme == .clay {
-            return ThemeColorCustomization.readableForegroundColor(on: ClayStyle.butter.opacity(0.86), light: ClayStyle.ink, dark: .white)
         }
         return ThemeColorCustomization.accentForegroundColor(for: theme)
     }
 
     @ViewBuilder
     private var savePresetIconBackground: some View {
-        if theme == .manga {
+        if theme == .minimalWhite {
+            Circle()
+                .fill(MinimalWhiteStyle.ink)
+        } else if theme == .manga {
             Circle()
                 .fill(MangaStyle.labelYellow)
                 .overlay(Circle().stroke(MangaStyle.strokeInk, lineWidth: 1.1))
@@ -1254,25 +1430,6 @@ private struct ThemeColorCustomizationSection: View {
             Circle()
                 .fill(CapsuleStyle.accent)
                 .shadow(color: CapsuleStyle.accent.opacity(0.16), radius: 6, x: 0, y: 3)
-        } else if theme == .sequoia {
-            Circle()
-                .fill(SequoiaStyle.accent)
-                .shadow(color: SequoiaStyle.accent.opacity(0.18), radius: 6, x: 0, y: 3)
-        } else if theme == .liquidGlass {
-            Circle()
-                .fill(LiquidGlassStyle.accent)
-                .shadow(color: LiquidGlassStyle.accent.opacity(0.22), radius: 7, x: 0, y: 4)
-        } else if theme == .clay {
-            Circle()
-                .fill(ClayStyle.butter.opacity(0.86))
-                .shadow(color: ClayStyle.accent.opacity(0.12), radius: 6, x: 0, y: 3)
-        } else if theme == .signal {
-            Circle()
-                .fill(SignalStyle.accent)
-                .shadow(color: Color.black.opacity(0.18), radius: 0, x: 2, y: 2)
-        } else if theme == .bento {
-            Circle()
-                .fill(BentoStyle.tomato)
         } else {
             Circle()
                 .fill(Color.monologueIconBackground)
@@ -1281,7 +1438,13 @@ private struct ThemeColorCustomizationSection: View {
 
     @ViewBuilder
     private var savePresetButtonBackground: some View {
-        if theme == .manga {
+        if theme == .minimalWhite {
+            MinimalWhiteSurfaceBackground(
+                cornerRadius: MinimalWhiteStyle.compactRadius,
+                elevated: true,
+                tint: MinimalWhiteStyle.glassFill
+            )
+        } else if theme == .manga {
             RoundedRectangle(cornerRadius: 13, style: .continuous)
                 .fill(MangaStyle.bubbleWhite)
                 .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 1.25))
@@ -1295,18 +1458,6 @@ private struct ThemeColorCustomizationSection: View {
             NeumorphicSurfaceBackground(cornerRadius: 16, elevated: true, pressed: false, tint: NeumorphicStyle.accent.opacity(0.08), lightweight: true)
         } else if theme == .capsule {
             CapsuleSurfaceBackground(cornerRadius: 16, elevated: true, tint: CapsuleStyle.surfaceRaised.opacity(0.86))
-        } else if theme == .sequoia {
-            SequoiaSurfaceBackground(cornerRadius: 16, elevated: true, fill: SequoiaStyle.accent.opacity(0.08))
-        } else if theme == .liquidGlass {
-            LiquidGlassSurfaceBackground(cornerRadius: 16, elevated: true, fill: LiquidGlassStyle.accent.opacity(0.08), role: .chrome)
-        } else if theme == .clay {
-            ClaySurfaceBackground(cornerRadius: 16, tint: ClayStyle.accent.opacity(0.1), elevated: true, compact: true)
-        } else if theme == .signal {
-            SignalSurfaceBackground(cornerRadius: 13, elevated: true, fill: SignalStyle.device)
-        } else if theme == .bento {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(BentoStyle.surface)
-                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(BentoStyle.hairline.opacity(0.58), lineWidth: 0.65))
         } else {
             RoundedRectangle(cornerRadius: 13, style: .continuous)
                 .fill(Color.monologueGlassTint)
@@ -1314,6 +1465,67 @@ private struct ThemeColorCustomizationSection: View {
         }
     }
 
+}
+
+/// PhotosPicker 的标签闭包是 nonisolated 的，初始化只保存可发送的值。
+private struct ThemeBackgroundImagePickerLabel: View {
+    let theme: GlobalThemeId
+    let dark: Bool
+
+    nonisolated init(theme: GlobalThemeId, dark: Bool = false) {
+        self.theme = theme
+        self.dark = dark
+    }
+
+    var body: some View {
+        let image = ThemeColorCustomization.backgroundImage(for: theme, dark: dark)
+
+        HStack(spacing: 10) {
+            Group {
+                if let image {
+                    Image(uiImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } else {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(Color.monologueGlassTint)
+                        .overlay(
+                            MonologueIcon(icon: .album, size: 14, color: .monologueTextSecondary, lineWidth: 1.5)
+                        )
+                }
+            }
+            .frame(width: 38, height: 38)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(Color.monologueSeparator.opacity(0.7), lineWidth: 0.7)
+            )
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(image == nil ? String(localized: "选择背景图") : String(localized: "更换背景图"))
+                    .font(appearanceSettingsFont(12, weight: .semibold))
+                    .foregroundStyle(Color.monologueTextPrimary)
+                    .lineLimit(1)
+
+                Text(String(localized: "从相册选取"))
+                    .font(appearanceSettingsFont(9.5, weight: .regular))
+                    .foregroundStyle(Color.monologueTextSecondary.opacity(0.8))
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 0)
+
+            MonologueIcon(icon: .chevronRight, size: 9, color: Color.monologueTextSecondary.opacity(0.72), lineWidth: 1.5)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.monologueGlassTint)
+                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.monologueSeparator.opacity(0.68), lineWidth: 0.65))
+        )
+    }
 }
 
 private struct ThemeColorPresetPreviewSwatch: View {
@@ -1497,7 +1709,7 @@ private struct ThemeColorPickerSheet: View {
                 RoundedRectangle(cornerRadius: theme == .manga ? 18 : 20, style: .continuous)
                     .stroke(previewStrokeColor, lineWidth: theme == .manga ? 2 : 0.9)
             )
-            .shadow(color: previewShadowColor, radius: theme == .neumorphic ? 14 : (theme == .signal ? 16 : 8), x: 0, y: theme == .manga ? 3 : (theme == .signal ? 10 : 8))
+            .shadow(color: previewShadowColor, radius: theme == .neumorphic ? 14 : 8, x: 0, y: theme == .manga ? 3 : 8)
     }
 
     private var pickerRow: some View {
@@ -1581,28 +1793,12 @@ private struct ThemeColorPickerSheet: View {
             return ["B56B4B", "D8B56D", "78846B", "56677A", "B96D55", "CFA66F", "F7F1E8", "EFE5D6", "F3EEE3", "E4E8D9", "F4E8DC", "EAD9C8"]
         }
 
-        if theme == .sequoia {
-            return ["0A84FF", "26AFCF", "6E68E8", "2E9F73", "B9793B", "5D6B7B", "F4F7FB", "E3EBF2", "F7F9FB", "E5EBF1", "F7F6FD", "E3ECF5"]
-        }
-
-        if theme == .liquidGlass {
-            return ["18A7FF", "31D9E8", "A074FF", "55D7A8", "FF8EC6", "D99A3B", "F2F8FF", "E8FBFF", "F4F1FF", "EFFAF3", "EEF7FF", "F8F2FF"]
-        }
-
-        if theme == .clay {
-            return ["E97871", "F5A5C5", "A7DEC6", "A8C9F5", "FFE39B", "CDB4F6", "F6E8DD", "F1F5E9", "F3ECE5", "E8F0FA", "F8E8EA", "EFEAF7"]
-        }
-
-        if theme == .pureWhite {
-            return ["2563EB", "0F172A", "475569", "64748B", "94A3B8", "CBD5E1", "FFFFFF", "F8FAFC", "EEF2F7", "E2E8F0", "DBEAFE", "EFF6FF"]
+        if theme == .minimalWhite {
+            return ["111114", "3F3F46", "73737C", "DEDEE3", "EFEFF2", "F6F6F7", "FFFFFF", "FBFBFC", "F8FAFC", "F3F4F6", "EEF2F7", "E5E7EB"]
         }
 
         if theme == .default {
             return ["4D6F95", "B66E57", "4D8196", "6A8368", "6E72A7", "9F7559", "F8FAFC", "E6EDF6", "FFF6EB", "EAF0FA", "EEF6FA", "E9F2EC"]
-        }
-
-        if theme == .signal {
-            return ["2F80ED", "00A98F", "22C7E8", "E19A5E", "7F7BE8", "C8962C", "EEF5F8", "F7F2EA", "EDF8F5", "F8F2EA", "F1F2FC", "EDF3F7"]
         }
 
         return ["4F8E86", "7D9475", "C59A66", "C65A58", "5E7FA4", "7AB9B0", "E9EDF0", "F2EEE8", "EEE8E1", "E7EDF0", "E8EDF4", "F0F2F4"]
@@ -1620,18 +1816,10 @@ private struct ThemeColorPickerSheet: View {
                 MujiStyle.paper
                 MujiPaperTexture(opacity: 0.09)
             }
+        } else if theme == .minimalWhite {
+            MinimalWhiteRootBackdrop()
         } else if theme == .default {
             Color.monologueSheetSurfaceBottom
-        } else if theme == .pureWhite {
-            PureWhiteRootBackdrop()
-        } else if theme == .sequoia {
-            SequoiaRootBackdrop()
-        } else if theme == .liquidGlass {
-            LiquidGlassRootBackdrop()
-        } else if theme == .clay {
-            ClayStyle.base
-        } else if theme == .signal {
-            SignalStyle.base
         } else {
             NeumorphicStyle.base
         }
@@ -1649,18 +1837,16 @@ private struct ThemeColorPickerSheet: View {
                 .fill(MujiStyle.surface.opacity(0.82))
                 .overlay(MujiPaperTexture(opacity: 0.07).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous)))
                 .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(MujiStyle.hairline.opacity(0.48), lineWidth: 0.65))
+        } else if theme == .minimalWhite {
+            MinimalWhiteSurfaceBackground(
+                cornerRadius: MinimalWhiteStyle.cardRadius,
+                elevated: false,
+                tint: MinimalWhiteStyle.glassFill
+            )
         } else if theme == .default {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(Color.monologueGlassTint)
                 .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.monologueSeparator.opacity(0.66), lineWidth: 0.7))
-        } else if theme == .sequoia {
-            SequoiaSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true)
-        } else if theme == .liquidGlass {
-            LiquidGlassSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true, role: .list)
-        } else if theme == .clay {
-            ClaySurfaceBackground(cornerRadius: 16, tint: ClayStyle.cream, elevated: false, pressed: true, compact: true)
-        } else if theme == .signal {
-            SignalSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true, fill: SignalStyle.control)
         } else {
             NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true, lightweight: true)
         }
@@ -1676,18 +1862,12 @@ private struct ThemeColorPickerSheet: View {
             Circle()
                 .fill(MujiStyle.surface.opacity(0.86))
                 .overlay(Circle().stroke(MujiStyle.hairline.opacity(0.44), lineWidth: 0.6))
+        } else if theme == .minimalWhite {
+            MinimalWhiteCircleBackground(elevated: true)
         } else if theme == .default {
             Circle()
                 .fill(Color.monologueGlassTint)
                 .overlay(Circle().stroke(Color.monologueSeparator.opacity(0.66), lineWidth: 0.7))
-        } else if theme == .sequoia {
-            SequoiaSurfaceBackground(cornerRadius: 17, elevated: true)
-        } else if theme == .liquidGlass {
-            LiquidGlassSurfaceBackground(cornerRadius: 17, elevated: true, role: .chrome)
-        } else if theme == .clay {
-            ClaySurfaceBackground(cornerRadius: 17, tint: ClayStyle.cream, elevated: true, compact: true)
-        } else if theme == .signal {
-            SignalSurfaceBackground(cornerRadius: 17, elevated: true, fill: SignalStyle.control)
         } else {
             NeumorphicSurfaceBackground(cornerRadius: 17, elevated: true, lightweight: true)
         }
@@ -1713,61 +1893,6 @@ private struct ThemeColorPickerSheet: View {
                 endPoint: .bottomTrailing
             )
             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        } else if theme == .sequoia {
-            ZStack(alignment: .topLeading) {
-                LinearGradient(
-                    colors: [Color.white.opacity(0.34), .clear, SequoiaStyle.accent.opacity(0.16)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                HStack(spacing: 5) {
-                    Capsule().fill(SequoiaStyle.accent.opacity(0.52)).frame(width: 24, height: 5)
-                    Capsule().fill(SequoiaStyle.aqua.opacity(0.34)).frame(width: 14, height: 5)
-                    Capsule().fill(SequoiaStyle.separator).frame(width: 5, height: 5)
-                }
-                    .padding(12)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        } else if theme == .liquidGlass {
-            ZStack(alignment: .topLeading) {
-                LinearGradient(
-                    colors: [
-                        LiquidGlassStyle.highlight(ColorScheme.light).opacity(0.42),
-                        .clear,
-                        LiquidGlassStyle.accent.opacity(0.18),
-                        LiquidGlassStyle.violet.opacity(0.1),
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                LiquidGlassCausticField(opacity: 0.08)
-                HStack(spacing: 5) {
-                    Capsule().fill(LiquidGlassStyle.accent.opacity(0.58)).frame(width: 24, height: 5)
-                    Capsule().fill(LiquidGlassStyle.cyan.opacity(0.38)).frame(width: 14, height: 5)
-                    Capsule().fill(LiquidGlassStyle.violet.opacity(0.32)).frame(width: 5, height: 5)
-                }
-                .padding(12)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        } else if theme == .clay {
-            ZStack(alignment: .topTrailing) {
-                LinearGradient(
-                    colors: [Color(hex: "F7EAD8"), Color(hex: "DDF3FA")],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                HStack(spacing: 7) {
-                    Circle().fill(ClayStyle.berry).frame(width: 18, height: 18)
-                    Circle().fill(ClayStyle.grape).frame(width: 18, height: 18)
-                    Circle().fill(ClayStyle.butter).frame(width: 18, height: 18)
-                }
-                .padding(11)
-                .shadow(color: Color(hex: "B88F68").opacity(0.24), radius: 6, x: 2, y: 4)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        } else if theme == .signal {
-            SignalGridTexture(opacity: 0.22, gap: 12)
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         } else {
             LinearGradient(
                 colors: [.white.opacity(0.32), .clear, .black.opacity(0.08)],
@@ -1779,114 +1904,87 @@ private struct ThemeColorPickerSheet: View {
     }
 
     private var titleFont: Font {
+        if theme == .minimalWhite { return MinimalWhiteStyle.titleFont(18, weight: .semibold) }
         if theme == .manga { return MangaStyle.titleFont(19, weight: .black) }
         if theme == .muji { return MujiStyle.labelFont(18, weight: .semibold) }
         if theme == .default { return .system(size: 18, weight: .semibold, design: .rounded) }
-        if theme == .sequoia { return SequoiaStyle.titleFont(18, weight: .semibold) }
-        if theme == .liquidGlass { return LiquidGlassStyle.titleFont(18, weight: .semibold) }
-        if theme == .clay { return ClayStyle.labelFont(18, weight: .bold) }
-        if theme == .signal { return SignalStyle.labelFont(18, weight: .bold) }
         return NeumorphicStyle.labelFont(18, weight: .semibold)
     }
 
     private var labelFont: Font {
+        if theme == .minimalWhite { return MinimalWhiteStyle.labelFont(13, weight: .medium) }
         if theme == .manga { return MangaStyle.labelFont(13, weight: .black) }
         if theme == .muji { return MujiStyle.labelFont(13, weight: .semibold) }
         if theme == .default { return .system(size: 13, weight: .semibold, design: .rounded) }
-        if theme == .sequoia { return SequoiaStyle.labelFont(13, weight: .semibold) }
-        if theme == .liquidGlass { return LiquidGlassStyle.labelFont(13, weight: .semibold) }
-        if theme == .clay { return ClayStyle.labelFont(13, weight: .bold) }
-        if theme == .signal { return SignalStyle.labelFont(13, weight: .semibold) }
         return NeumorphicStyle.labelFont(13, weight: .semibold)
     }
 
     private var titleColor: Color {
+        if theme == .minimalWhite { return MinimalWhiteStyle.ink }
         if theme == .manga { return MangaStyle.ink }
         if theme == .muji { return MujiStyle.ink }
         if theme == .default { return Color.monologueTextPrimary }
-        if theme == .sequoia { return SequoiaStyle.ink }
-        if theme == .liquidGlass { return LiquidGlassStyle.ink }
-        if theme == .clay { return ClayStyle.ink }
-        if theme == .signal { return SignalStyle.ink }
         return NeumorphicStyle.ink
     }
 
     private var subtitleColor: Color {
+        if theme == .minimalWhite { return MinimalWhiteStyle.inkMuted }
         if theme == .manga { return MangaStyle.inkSub }
         if theme == .muji { return MujiStyle.inkSoft }
         if theme == .default { return Color.monologueTextSecondary }
-        if theme == .sequoia { return SequoiaStyle.inkSoft }
-        if theme == .liquidGlass { return LiquidGlassStyle.inkSoft }
-        if theme == .clay { return ClayStyle.inkSoft }
-        if theme == .signal { return SignalStyle.inkSoft }
         return NeumorphicStyle.inkSoft
     }
 
     private var closeIconColor: Color {
+        if theme == .minimalWhite { return MinimalWhiteStyle.inkMuted }
         if theme == .manga { return MangaStyle.strokeInk }
         if theme == .muji { return MujiStyle.inkSoft }
         if theme == .default { return Color.monologueTextSecondary }
-        if theme == .sequoia { return SequoiaStyle.inkSoft }
-        if theme == .liquidGlass { return LiquidGlassStyle.inkSoft }
-        if theme == .clay { return ClayStyle.inkSoft }
-        if theme == .signal { return SignalStyle.inkSoft }
         return NeumorphicStyle.inkSoft
     }
 
     private var previewStrokeColor: Color {
+        if theme == .minimalWhite { return MinimalWhiteStyle.hairline }
         if theme == .manga { return MangaStyle.strokeInk }
         if theme == .muji { return MujiStyle.hairline.opacity(0.55) }
         if theme == .default { return Color.monologueSeparator.opacity(0.72) }
-        if theme == .sequoia { return SequoiaStyle.separator.opacity(0.78) }
-        if theme == .liquidGlass { return LiquidGlassStyle.separator.opacity(0.82) }
-        if theme == .clay { return ClayStyle.separator.opacity(0.58) }
-        if theme == .signal { return SignalStyle.separator.opacity(0.72) }
         return NeumorphicStyle.separator.opacity(0.58)
     }
 
     private var selectedStrokeColor: Color {
+        if theme == .minimalWhite { return MinimalWhiteStyle.ink }
         if theme == .manga { return MangaStyle.strokeInk }
         if theme == .muji { return MujiStyle.clay }
         if theme == .default { return Color.monologueAccent }
-        if theme == .sequoia { return SequoiaStyle.accent }
-        if theme == .liquidGlass { return LiquidGlassStyle.accent }
-        if theme == .clay { return ClayStyle.accent }
-        if theme == .signal { return SignalStyle.accent }
         return NeumorphicStyle.accent
     }
 
     private var selectedCheckColor: Color {
+        if theme == .minimalWhite {
+            return MinimalWhiteStyle.onAccent
+        }
         if theme == .manga {
             return ThemeColorCustomization.readableForegroundColor(on: MangaStyle.labelYellow, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk)
         }
         if theme == .muji {
             return ThemeColorCustomization.readableForegroundColor(on: MujiStyle.tea, light: MujiStyle.ink, dark: Color(hex: "FFF8EF"))
         }
-        if theme == .clay {
-            return ThemeColorCustomization.readableForegroundColor(on: ClayStyle.butter, light: ClayStyle.ink, dark: .white)
-        }
         return ThemeColorCustomization.accentForegroundColor(for: theme)
     }
 
     private var selectedCheckBackground: Color {
+        if theme == .minimalWhite { return MinimalWhiteStyle.ink }
         if theme == .manga { return MangaStyle.labelYellow }
         if theme == .muji { return MujiStyle.tea }
         if theme == .default { return Color.monologueIconBackground }
-        if theme == .sequoia { return SequoiaStyle.accent }
-        if theme == .liquidGlass { return LiquidGlassStyle.accent }
-        if theme == .clay { return ClayStyle.butter }
-        if theme == .signal { return SignalStyle.accent }
         return NeumorphicStyle.accent
     }
 
     private var previewShadowColor: Color {
+        if theme == .minimalWhite { return MinimalWhiteStyle.ink.opacity(0.035) }
         if theme == .manga { return MangaStyle.strokeInk.opacity(0.12) }
         if theme == .muji { return MujiStyle.ink.opacity(0.08) }
         if theme == .default { return Color.black.opacity(0.1) }
-        if theme == .sequoia { return Color.black.opacity(0.14) }
-        if theme == .liquidGlass { return LiquidGlassStyle.accent.opacity(0.16) }
-        if theme == .clay { return Color.black.opacity(0.12) }
-        if theme == .signal { return Color.black.opacity(0.18) }
         return NeumorphicStyle.darkShadow(.light, intensity: 0.42)
     }
 }
@@ -2220,17 +2318,19 @@ private struct InterfaceIconSetOptionCard: View {
 
     private var previewIconSize: CGFloat {
         switch iconSet {
-        case .iconExport, .doodlePop, .pawPrint, .dotDogSnake:
+        case .iconExport, .doodlePop, .pawPrint, .dotDogSnake, .minimalWhiteIcons:
             return 18
         case .blobIcons:
             return 17
-        case .hicon, .zappicon, .lucide, .solar:
+        case .hicon, .sfSymbols, .zappicon, .lucide, .solar:
             return 15
         }
     }
 
     private func originalArtworkScale(for icon: MonologueIcon.IconType) -> CGFloat {
         switch iconSet {
+        case .minimalWhiteIcons:
+            return 1.02
         case .doodlePop, .pawPrint, .dotDogSnake:
             switch icon {
             case .karaoke:
@@ -2242,7 +2342,7 @@ private struct InterfaceIconSetOptionCard: View {
             }
         case .iconExport:
             return 1.08
-        case .hicon, .zappicon, .lucide, .solar, .blobIcons:
+        case .hicon, .sfSymbols, .zappicon, .lucide, .solar, .blobIcons:
             return 1
         }
     }

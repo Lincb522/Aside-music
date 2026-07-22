@@ -10,7 +10,7 @@ struct BreathingPlayerLayout: View {
     @ObservedObject private var player = PlayerManager.shared
     @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
 
-    @State private var colorExtractor = CoverColorExtractor()
+    @StateObject private var colorExtractor = CoverColorExtractor()
     @State private var showQualitySheet = false
     @State private var showEQSettings = false
     @State private var showThemePicker = false
@@ -124,7 +124,7 @@ struct BreathingPlayerLayout: View {
                 scheduleLegendDismiss()
             }
         }
-        .monologueSheet(isPresented: $showQualitySheet, preset: .compact) {
+        .monologueSheet(isPresented: $showQualitySheet, preset: .standard) {
             SoundQualitySheet(
                 currentQuality: player.soundQuality,
                 currentQQQuality: player.qqMusicQuality,
@@ -144,8 +144,8 @@ struct BreathingPlayerLayout: View {
                 onSelectQishui: { info in player.switchQishuiQuality(info); showQualitySheet = false }
             )
         }
-        .monologueSheet(isPresented: $showEQSettings, preset: .large) {
-            NavigationStack { EQSettingsView() }
+        .fullScreenCover(isPresented: $showEQSettings) {
+            NavigationStack { MonoAudioCenterView() }
         }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker) {
             PlayerThemePickerSheet()
@@ -302,7 +302,11 @@ extension BreathingPlayerLayout {
 
     private func titleSignature(_ song: Song, metrics: BreathingLayoutMetrics) -> some View {
         Text(song.name)
-            .font(.system(size: metrics.titleFont, weight: .black, design: .rounded))
+            .monologuePlayerDisplayFont(
+                size: metrics.titleFont,
+                weight: .black,
+                fallback: .system(size: metrics.titleFont, weight: .black, design: .rounded)
+            )
             .foregroundStyle(textColor)
             .frame(width: metrics.titleWidth, alignment: metrics.isLandscape ? .leading : .center)
             .multilineTextAlignment(metrics.isLandscape ? .leading : .center)
@@ -682,6 +686,22 @@ extension BreathingPlayerLayout {
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
 
                 Spacer()
+
+                Button {
+                    ImmersiveModeController.shared.present()
+                } label: {
+                    MonologueIcon(icon: .immersive, size: 17, color: textColor.opacity(0.92), lineWidth: 1.5)
+                        .frame(width: 42, height: 42)
+                        .background(
+                            Circle()
+                                .fill(.ultraThinMaterial.opacity(colorScheme == .dark ? 0.76 : 0.94))
+                        )
+                        .overlay(
+                            Circle()
+                                .stroke(textColor.opacity(0.06), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
 
                 Button {
                     withAnimation(.spring(response: 0.25, dampingFraction: 0.86)) {

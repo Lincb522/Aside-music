@@ -2,7 +2,7 @@ import SwiftUI
 
 /// 广播电台列表页（支持地区/分类筛选）
 struct BroadcastListView: View {
-    @State private var viewModel = BroadcastListViewModel()
+    @StateObject private var viewModel = BroadcastListViewModel()
     @ObservedObject private var settings = SettingsManager.shared
     @State private var selectedChannel: BroadcastChannel?
     @Environment(\.dismiss) private var dismiss
@@ -21,13 +21,30 @@ struct BroadcastListView: View {
 
                 if viewModel.isLoading && viewModel.channels.isEmpty {
                     Spacer()
-                    MonologueLoadingView(text: "LOADING")
+                    MonologueLoadingView(text: MinimalWhiteStyle.isActive ? nil : "LOADING")
                     Spacer()
                 } else if viewModel.channels.isEmpty {
                     Spacer()
-                    Text(LocalizedStringKey("broadcast_no_stations"))
-                        .font(SequoiaStyle.isActive ? SequoiaStyle.labelFont(14, weight: .regular) : .system(size: 14, design: .rounded))
-                        .foregroundColor(SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)
+                    VStack(spacing: 12) {
+                        if MinimalWhiteStyle.isActive {
+                            MinimalWhiteIconBadge(icon: .radio, size: 54)
+                        }
+                        Text(LocalizedStringKey("broadcast_no_stations"))
+                            .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(14, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(14, weight: .regular) : .system(size: 14, design: .rounded)))
+                            .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary))
+                    }
+                    .padding(.vertical, 44)
+                    .frame(maxWidth: .infinity)
+                    .background {
+                        if MinimalWhiteStyle.isActive {
+                            MinimalWhiteSurfaceBackground(
+                                cornerRadius: MinimalWhiteStyle.cardRadius,
+                                elevated: false,
+                                tint: MinimalWhiteStyle.glassFill
+                            )
+                        }
+                    }
+                    .padding(.horizontal, MinimalWhiteStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
                     Spacer()
                 } else {
                     ScrollView {
@@ -92,13 +109,13 @@ struct BroadcastListView: View {
             Text(title)
                 .font(chipFont(isSelected: isSelected))
                 .foregroundColor(chipTextColor(isSelected: isSelected))
-                .padding(.horizontal, (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 16 : 14)
-                .padding(.vertical, (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 9 : 8)
+                .padding(.horizontal, (MinimalWhiteStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 16 : 14)
+                .padding(.vertical, (MinimalWhiteStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 9 : 8)
                 .background(chipBackground(isSelected: isSelected))
-                .clipShape(Capsule())
+                .clipShape(MangaStyle.isActive ? AnyShape(RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)) : AnyShape(Capsule()))
                 .overlay {
                     if MangaStyle.isActive {
-                        Capsule()
+                        RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
                             .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
                     } else if MujiStyle.isActive {
                         Capsule()
@@ -106,6 +123,9 @@ struct BroadcastListView: View {
                     } else if SequoiaStyle.isActive {
                         Capsule()
                             .stroke((isSelected ? SequoiaStyle.accent : SequoiaStyle.separator).opacity(0.45), lineWidth: 0.55)
+                    } else if MinimalWhiteStyle.isActive {
+                        Capsule()
+                            .stroke(isSelected ? MinimalWhiteStyle.separator : MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
                     }
                 }
         }
@@ -113,6 +133,7 @@ struct BroadcastListView: View {
     }
 
     private func chipFont(isSelected: Bool) -> Font {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.labelFont(13, weight: isSelected ? .semibold : .regular) }
         if MangaStyle.isActive { return MangaStyle.labelFont(13, weight: isSelected ? .black : .bold) }
         if MujiStyle.isActive { return MujiStyle.labelFont(13, weight: isSelected ? .semibold : .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(13, weight: isSelected ? .semibold : .medium) }
@@ -121,17 +142,27 @@ struct BroadcastListView: View {
     }
 
     private func chipTextColor(isSelected: Bool) -> Color {
-        if MangaStyle.isActive { return isSelected ? MangaStyle.ink : MangaStyle.inkSub }
+        if MinimalWhiteStyle.isActive { return isSelected ? MinimalWhiteStyle.ink : MinimalWhiteStyle.inkMuted }
+        if MangaStyle.isActive {
+            return isSelected
+                ? ThemeColorCustomization.readableForegroundColor(on: MangaStyle.labelYellow, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk)
+                : MangaStyle.inkSub
+        }
         if MujiStyle.isActive { return isSelected ? MujiStyle.paper : MujiStyle.ink }
         if NeumorphicStyle.isActive { return isSelected ? NeumorphicStyle.accent : NeumorphicStyle.inkSoft }
         if SequoiaStyle.isActive { return isSelected ? SequoiaStyle.onAccent : SequoiaStyle.inkSoft }
+        if !ThemedPageStyle.isActive { return isSelected ? .monologueIconForeground : .monologueTextPrimary.opacity(0.82) }
         return isSelected ? .white : .monologueTextPrimary
     }
 
     @ViewBuilder
     private func chipBackground(isSelected: Bool) -> some View {
-        if MangaStyle.isActive {
-            Capsule().fill(isSelected ? MangaStyle.labelYellow : MangaStyle.bubbleWhite)
+        if MinimalWhiteStyle.isActive {
+            MinimalWhiteCapsuleBackground(selected: isSelected)
+        } else if MangaStyle.isActive {
+            RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
+                .fill(isSelected ? MangaStyle.labelYellow : MangaStyle.bubbleWhite)
+                .overlay(RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth))
         } else if MujiStyle.isActive {
             Capsule().fill(isSelected ? MujiStyle.clay : MujiStyle.surfaceRaised)
         } else if NeumorphicStyle.isActive {
@@ -144,6 +175,14 @@ struct BroadcastListView: View {
         } else if SequoiaStyle.isActive {
             Capsule()
                 .fill(isSelected ? SequoiaStyle.accent : SequoiaStyle.materialList.opacity(0.76))
+        } else if !ThemedPageStyle.isActive {
+            Capsule()
+                .fill(isSelected ? Color.monologueIconBackground : Color.clear)
+                .overlay {
+                    if !isSelected {
+                        Capsule().stroke(Color.monologueSeparator.opacity(0.95), lineWidth: 0.8)
+                    }
+                }
         } else {
             Capsule().fill(isSelected ? Color.monologueTextPrimary : Color.monologueGlassTint)
         }
@@ -151,7 +190,78 @@ struct BroadcastListView: View {
 
     // MARK: - 频道行
 
+    @ViewBuilder
     private func channelRow(channel: BroadcastChannel) -> some View {
+        if !ThemedPageStyle.isActive {
+            asideChannelRow(channel: channel)
+        } else {
+            legacyChannelRow(channel: channel)
+        }
+    }
+
+    private func asideChannelRow(channel: BroadcastChannel) -> some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 14) {
+                Group {
+                    if let url = channel.coverImageUrl {
+                        CachedAsyncImage(url: url) {
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(Color.monologueGlassTint)
+                        }
+                        .aspectRatio(contentMode: .fill)
+                    } else {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color.monologueGlassTint)
+                            .overlay(
+                                MonologueIcon(icon: .radio, size: 20, color: .monologueTextSecondary.opacity(0.6), lineWidth: 1.4)
+                            )
+                    }
+                }
+                .frame(width: 54, height: 54)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(Color.monologueSeparator.opacity(0.9), lineWidth: 0.8)
+                )
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(channel.displayName)
+                        .font(.rounded(size: 15, weight: .semibold))
+                        .foregroundColor(.monologueTextPrimary)
+                        .lineLimit(1)
+
+                    if let program = channel.displayProgram, !program.isEmpty {
+                        Text(program)
+                            .font(.rounded(size: 12))
+                            .foregroundColor(.monologueTextSecondary.opacity(0.85))
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer(minLength: 8)
+
+                Text("FM")
+                    .font(.system(size: 9, weight: .heavy, design: .rounded))
+                    .tracking(0.8)
+                    .foregroundColor(.monologueTextSecondary.opacity(0.75))
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3.5)
+                    .overlay(Capsule().stroke(Color.monologueSeparator.opacity(0.95), lineWidth: 0.7))
+
+                MonologueIcon(icon: .playCircle, size: 22, color: .monologueTextSecondary.opacity(0.7), lineWidth: 1.3)
+            }
+            .padding(.vertical, 10)
+
+            Rectangle()
+                .fill(Color.monologueSeparator.opacity(0.7))
+                .frame(height: 0.6)
+                .padding(.leading, 68)
+        }
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .contentShape(Rectangle())
+    }
+
+    private func legacyChannelRow(channel: BroadcastChannel) -> some View {
         HStack(spacing: 14) {
             // 封面
             if let url = channel.coverImageUrl {
@@ -209,7 +319,8 @@ struct BroadcastListView: View {
     }
 
     private var coverRadius: CGFloat {
-        (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 14 : 12
+        if MinimalWhiteStyle.isActive { return 12 }
+        return (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 14 : 12
     }
 
     @ViewBuilder
@@ -220,28 +331,35 @@ struct BroadcastListView: View {
         } else if SequoiaStyle.isActive {
             RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
                 .stroke(SequoiaStyle.separator.opacity(0.78), lineWidth: 0.6)
+        } else if MinimalWhiteStyle.isActive {
+            RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
+                .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
         }
     }
 
     private var rowTitleFont: Font {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.bodyFont(15, weight: .medium) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(15, weight: .semibold) }
         if SequoiaStyle.isActive { return SequoiaStyle.bodyFont(15, weight: .semibold) }
         return .system(size: 15, weight: .medium, design: .rounded)
     }
 
     private var primaryTextColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.ink }
         return .monologueTextPrimary
     }
 
     private var secondaryTextColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
         return .monologueTextSecondary
     }
 
     private var coverPlaceholderFill: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.controlGlassFill }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
         if SequoiaStyle.isActive { return SequoiaStyle.materialList }
         return Color.monologueGlassTint

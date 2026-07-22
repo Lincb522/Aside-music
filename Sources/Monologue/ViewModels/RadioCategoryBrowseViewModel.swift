@@ -1,17 +1,16 @@
 import Foundation
-import Observation
 import Combine
 
 // MARK: - RadioCategoryBrowseViewModel
 
 @MainActor
-@Observable class RadioCategoryBrowseViewModel {
-    var categories: [RadioCategory] = []
-    var selectedCategory: RadioCategory?
-    var radios: [RadioStation] = []
-    var isLoading = false
-    var isLoadingMore = false
-    var hasMore = true
+class RadioCategoryBrowseViewModel: ObservableObject {
+    @Published var categories: [RadioCategory] = []
+    @Published var selectedCategory: RadioCategory?
+    @Published var radios: [RadioStation] = []
+    @Published var isLoading = false
+    @Published var isLoadingMore = false
+    @Published var hasMore = true
 
     private var offset = 0
     private let limit = 30

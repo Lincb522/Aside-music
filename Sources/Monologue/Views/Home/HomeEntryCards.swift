@@ -7,6 +7,7 @@ struct HomeEntryCards: View {
 
     @Environment(\.colorScheme) private var colorScheme
     private var cardCornerRadius: CGFloat {
+        if MinimalWhiteStyle.isActive { return 16 }
         if NeumorphicStyle.isActive { return 22 }
         return MujiStyle.isActive ? 16 : 20
     }
@@ -29,7 +30,9 @@ struct HomeEntryCards: View {
                 MonologueIcon(icon: icon, size: 20, color: .monologueTextPrimary)
                     .frame(width: 38, height: 38)
                     .background {
-                        if NeumorphicStyle.isActive {
+                        if MinimalWhiteStyle.isActive {
+                            MinimalWhiteCircleBackground()
+                        } else if NeumorphicStyle.isActive {
                             NeumorphicSurfaceBackground(cornerRadius: 15, elevated: false, pressed: true, lightweight: true)
                         } else {
                             Circle().fill(Color.monologueTextPrimary.opacity(0.07))
@@ -39,7 +42,7 @@ struct HomeEntryCards: View {
                 Spacer()
 
                 Text(LocalizedStringKey(title))
-                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(15, weight: .semibold) : .system(size: 15, weight: .bold, design: .rounded))
+                    .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(15, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(15, weight: .semibold) : .system(size: 15, weight: .bold, design: .rounded)))
                     .foregroundColor(.monologueTextPrimary)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
@@ -47,13 +50,13 @@ struct HomeEntryCards: View {
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: DeviceLayout.entryCardHeight)
-            .background(
-                RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
-                    .fill(entryFill)
-            )
+            .background(cardBackground)
             .clipShape(RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous))
             .overlay {
-                if MujiStyle.isActive {
+                if MinimalWhiteStyle.isActive {
+                    RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
+                        .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
+                } else if MujiStyle.isActive {
                     RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
                         .stroke(MujiStyle.hairline.opacity(0.52), lineWidth: 0.7)
                 }
@@ -63,7 +66,24 @@ struct HomeEntryCards: View {
     }
 
     private var entryFill: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.glassFill }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surface.opacity(colorScheme == .dark ? 0.78 : 0.88) }
         return colorScheme == .dark ? Color.white.opacity(0.08) : Color.white
+    }
+
+    @ViewBuilder
+    private var cardBackground: some View {
+        if MinimalWhiteStyle.isActive {
+            MinimalWhiteSurfaceBackground(
+                cornerRadius: cardCornerRadius,
+                elevated: false,
+                tint: entryFill
+            )
+        } else if ThemedPageStyle.isActive {
+            RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
+                .fill(entryFill)
+        } else {
+            ClassicAsideEmbeddedSurface(cornerRadius: cardCornerRadius)
+        }
     }
 }

@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 #if os(iOS)
 import QuartzCore
@@ -7,7 +8,10 @@ import UIKit
 
 enum AppFrameRate {
     static let preferredMaximumFramesPerSecond = 120
-    static let minimumLockedFramesPerSecond = 60
+    /// Continuous decorative motion does not gain meaningful clarity above
+    /// 60 fps, while driving every TimelineView at ProMotion cadence keeps the
+    /// main thread and render server awake even on otherwise static screens.
+    private static let continuousAnimationFramesPerSecond = 60
 
     static var screenMaximumFramesPerSecond: Int {
         #if os(iOS)
@@ -18,7 +22,15 @@ enum AppFrameRate {
     }
 
     static var preferredFramesPerSecond: Int {
+        #if os(iOS)
+        min(
+            screenMaximumFramesPerSecond,
+            preferredMaximumFramesPerSecond,
+            systemPerformanceCeiling
+        )
+        #else
         min(screenMaximumFramesPerSecond, preferredMaximumFramesPerSecond)
+        #endif
     }
 
     static var supportsHighRefreshRate: Bool {
@@ -30,15 +42,51 @@ enum AppFrameRate {
     }
 
     static func animationTimeline(paused: Bool = false) -> AnimationTimelineSchedule {
-        .animation(minimumInterval: displaySyncedMinimumInterval, paused: paused)
+        let fps = min(preferredFramesPerSecond, continuousAnimationFramesPerSecond)
+        return .animation(minimumInterval: 1.0 / Double(fps), paused: paused)
     }
 
     static func animationTimeline(maximumFramesPerSecond fpsCap: Int, paused: Bool = false) -> AnimationTimelineSchedule {
-        let fps = max(minimumLockedFramesPerSecond, min(fpsCap, preferredFramesPerSecond))
+        // `fpsCap` is a real cap. The previous 60 fps floor made every 20/24/30
+        // fps visualizer render at 60 fps, doubling or tripling its intended
+        // work without changing the animation itself.
+        let fps = max(1, min(fpsCap, preferredFramesPerSecond))
+        return .animation(minimumInterval: 1.0 / Double(fps), paused: paused)
+    }
+
+    /// 低功耗 timeline：不受 60fps 下限保护，fpsCap 是真实上限。
+    /// 供重负载全屏场景（沉浸模式的背景 Canvas / 歌词时间轴）使用，避免长时间高频重绘发热。
+    static func throttledTimeline(maximumFramesPerSecond fpsCap: Int, paused: Bool = false) -> AnimationTimelineSchedule {
+        let fps = max(1, min(fpsCap, preferredFramesPerSecond))
         return .animation(minimumInterval: 1.0 / Double(fps), paused: paused)
     }
 
     #if os(iOS)
+    /// 全局帧率封顶（nil = 不封顶）。沉浸模式等重负载全屏场景把 ProMotion 从 120Hz 压回 60Hz，
+    /// 整机渲染开销直接减半，是发热/耗电的第一杠杆。
+    @MainActor
+    private static var frameRateCeiling: Int?
+
+    @MainActor
+    private static var adaptivePolicyCancellables: Set<AnyCancellable> = []
+
+    @MainActor
+    private static var adaptivePolicyInstalled = false
+
+    /// 进入重负载场景时调用：把所有场景的锁定帧率压到 ceiling（如 60）
+    @MainActor
+    static func pushFrameRateCeiling(_ ceiling: Int, reason: String) {
+        frameRateCeiling = ceiling
+        lockConnectedScenesToPreferredFrameRate(reason: "ceiling on: \(reason)")
+    }
+
+    /// 离开重负载场景时调用：恢复原始锁定帧率
+    @MainActor
+    static func popFrameRateCeiling(reason: String) {
+        frameRateCeiling = nil
+        lockConnectedScenesToPreferredFrameRate(reason: "ceiling off: \(reason)")
+    }
+
     @MainActor
     private static var activeDisplayLinks: [ObjectIdentifier: CADisplayLink] = [:]
 
@@ -47,6 +95,7 @@ enum AppFrameRate {
 
     @MainActor
     static func lockConnectedScenesToPreferredFrameRate(reason: String) {
+        installAdaptivePolicyIfNeeded()
         let windowScenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
         let activeSceneIds = Set(windowScenes.map(ObjectIdentifier.init))
 
@@ -62,6 +111,21 @@ enum AppFrameRate {
 
     @MainActor
     static func lock(_ windowScene: UIWindowScene, reason: String) {
+        installAdaptivePolicyIfNeeded()
+        let sceneId = ObjectIdentifier(windowScene)
+
+        // In the normal thermal state, let iOS/ProMotion choose the refresh
+        // rate from actual interaction. Keeping a no-op CADisplayLink alive at
+        // 120 Hz forced wakeups while the UI was completely still.
+        guard shouldForceFrameRate else {
+            DisplayLinkStore.unlock(sceneId: sceneId)
+            if #available(iOS 18.0, *) {
+                UpdateLinkStore.unlock(sceneId: sceneId)
+            }
+            AppLogger.debug("[FrameRate] system adaptive reason=\(reason)")
+            return
+        }
+
         let targetFPS = preferredFramesPerSecond(for: windowScene.screen)
         let frameRateRange = CAFrameRateRange(
             minimum: Float(targetFPS),
@@ -69,7 +133,6 @@ enum AppFrameRate {
             preferred: Float(targetFPS)
         )
 
-        let sceneId = ObjectIdentifier(windowScene)
         if #available(iOS 18.0, *) {
             DisplayLinkStore.unlock(sceneId: sceneId)
             UpdateLinkStore.lock(sceneId: sceneId, windowScene: windowScene, frameRateRange: frameRateRange)
@@ -105,7 +168,55 @@ enum AppFrameRate {
 
     @MainActor
     private static func preferredFramesPerSecond(for screen: UIScreen) -> Int {
-        min(max(screen.maximumFramesPerSecond, 60), preferredMaximumFramesPerSecond)
+        let base = min(max(screen.maximumFramesPerSecond, 60), preferredMaximumFramesPerSecond)
+        let requested = frameRateCeiling.map { min(base, max($0, 30)) } ?? base
+        return min(requested, systemPerformanceCeiling)
+    }
+
+    @MainActor
+    private static var shouldForceFrameRate: Bool {
+        frameRateCeiling != nil
+            || ProcessInfo.processInfo.isLowPowerModeEnabled
+            || ProcessInfo.processInfo.thermalState != .nominal
+    }
+
+    /// Start reducing refresh work as soon as iOS reports heat pressure rather
+    /// than waiting for the app to enter the immersive player. This affects
+    /// cadence only; view content and animation equations stay unchanged.
+    private static var systemPerformanceCeiling: Int {
+        let processInfo = ProcessInfo.processInfo
+        if processInfo.isLowPowerModeEnabled { return 60 }
+        switch processInfo.thermalState {
+        case .nominal: return preferredMaximumFramesPerSecond
+        case .fair: return 80
+        case .serious: return 60
+        case .critical: return 30
+        @unknown default: return 60
+        }
+    }
+
+    @MainActor
+    private static func installAdaptivePolicyIfNeeded() {
+        guard !adaptivePolicyInstalled else { return }
+        adaptivePolicyInstalled = true
+
+        NotificationCenter.default.publisher(for: ProcessInfo.thermalStateDidChangeNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { _ in
+                Task { @MainActor in
+                    lockConnectedScenesToPreferredFrameRate(reason: "thermal state changed")
+                }
+            }
+            .store(in: &adaptivePolicyCancellables)
+
+        NotificationCenter.default.publisher(for: Notification.Name.NSProcessInfoPowerStateDidChange)
+            .receive(on: DispatchQueue.main)
+            .sink { _ in
+                Task { @MainActor in
+                    lockConnectedScenesToPreferredFrameRate(reason: "power state changed")
+                }
+            }
+            .store(in: &adaptivePolicyCancellables)
     }
 
     @MainActor

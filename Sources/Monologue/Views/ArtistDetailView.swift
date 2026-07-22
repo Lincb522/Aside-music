@@ -4,7 +4,7 @@ import SwiftUI
 
 struct ArtistDetailView: View {
     let artistId: Int
-    @State private var viewModel = ArtistDetailViewModel()
+    @StateObject private var viewModel = ArtistDetailViewModel()
     @ObservedObject var playerManager = PlayerManager.shared
     @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.colorScheme) private var colorScheme
@@ -34,14 +34,16 @@ struct ArtistDetailView: View {
         let _ = settings.globalThemeRevision
 
         ZStack {
-            if MangaStyle.isActive {
+            if MinimalWhiteStyle.isActive {
+                MinimalWhiteRootBackdrop()
+            } else if MangaStyle.isActive {
                 MangaRootBackdrop()
             } else if MujiStyle.isActive {
                 MujiRootBackdrop()
             } else if NeumorphicStyle.isActive {
                 ThemeRenderBackdrop(theme: .neumorphic)
             } else if SignalStyle.isActive {
-                ThemeRenderBackdrop(theme: .signal)
+                ThemeRenderBackdrop(theme: .default)
             } else if SequoiaStyle.isActive {
                 SequoiaRootBackdrop()
             } else if BentoStyle.isActive {
@@ -54,7 +56,10 @@ struct ArtistDetailView: View {
             }
 
             ScrollView {
-                if NeumorphicStyle.isActive {
+                if MinimalWhiteStyle.isActive {
+                    minimalWhiteArtistDetailBody
+                        .iPadContentWidth(900)
+                } else if NeumorphicStyle.isActive {
                     neumorphicArtistDetailBody
                         .iPadContentWidth(900)
                 } else if CapsuleStyle.isActive {
@@ -121,6 +126,154 @@ struct ArtistDetailView: View {
             if newTab == 1 { viewModel.loadAlbums(artistId: artistId) }
             if newTab == 2 { viewModel.loadMVs(artistId: artistId) }
             if newTab == 3 { viewModel.loadSimiArtists(artistId: artistId) }
+        }
+    }
+}
+
+// MARK: - 纯白歌手详情
+
+extension ArtistDetailView {
+    private var minimalWhiteArtistDetailBody: some View {
+        VStack(spacing: 0) {
+            minimalWhiteArtistImmersiveHeader
+
+            tabBar
+                .padding(.top, 18)
+
+            tabContent
+                .padding(.top, 12)
+                .padding(.bottom, 120)
+        }
+    }
+
+    private var minimalWhiteArtistImmersiveHeader: some View {
+        let coverURL = viewModel.artist?.coverUrl?.sized(900)
+        let portraitSize: CGFloat = DeviceLayout.isPad ? 168 : 136
+        let heroHeight: CGFloat = DeviceLayout.isPad ? 478 : 426
+
+        return ZStack(alignment: .bottom) {
+            CachedAsyncImage(url: coverURL) {
+                MinimalWhiteStyle.surfaceTint
+            }
+            .aspectRatio(contentMode: .fill)
+            .frame(height: heroHeight)
+            .frame(maxWidth: .infinity)
+            .blur(radius: 22)
+            .opacity(0.18)
+            .clipped()
+            .overlay {
+                LinearGradient(
+                    colors: [
+                        MinimalWhiteStyle.paper.opacity(0.42),
+                        MinimalWhiteStyle.paper.opacity(0.78),
+                        MinimalWhiteStyle.paper
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+
+            VStack(spacing: 13) {
+                CachedAsyncImage(url: coverURL) {
+                    Circle()
+                        .fill(MinimalWhiteStyle.controlGlassFill)
+                        .overlay(MonologueIcon(icon: .profile, size: 38, color: MinimalWhiteStyle.inkMuted, lineWidth: 1.55))
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: portraitSize, height: portraitSize)
+                .clipShape(Circle())
+                .overlay(
+                    Circle()
+                        .stroke(MinimalWhiteStyle.separator, lineWidth: MinimalWhiteStyle.strokeWidth)
+                )
+                .shadow(color: MinimalWhiteStyle.ink.opacity(0.10), radius: 22, x: 0, y: 12)
+
+                Text(viewModel.artist?.name ?? "")
+                    .font(MinimalWhiteStyle.titleFont(DeviceLayout.isPad ? 36 : 31, weight: .semibold))
+                    .foregroundStyle(MinimalWhiteStyle.ink)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                minimalWhiteArtistStatsLine
+
+                if let desc = viewModel.artist?.briefDesc, !desc.isEmpty {
+                    Button(action: { showFullDescription = true }) {
+                        HStack(alignment: .center, spacing: 12) {
+                            Text(desc)
+                                .font(MinimalWhiteStyle.bodyFont(13, weight: .regular))
+                                .foregroundStyle(MinimalWhiteStyle.inkSoft)
+                                .lineLimit(2)
+                                .lineSpacing(3)
+                                .multilineTextAlignment(.leading)
+
+                            MonologueIcon(icon: .chevronRight, size: 12, color: MinimalWhiteStyle.inkMuted, lineWidth: 1.55)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .background(MinimalWhiteSurfaceBackground(cornerRadius: 15, elevated: false, tint: MinimalWhiteStyle.glassStrongFill))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 2)
+                }
+
+                Button(action: {
+                    if let first = viewModel.songs.first {
+                        PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                    }
+                }) {
+                    HStack(spacing: 8) {
+                        MonologueIcon(icon: .play, size: 13, color: MinimalWhiteStyle.onAccent, lineWidth: 1.75)
+                        Text(LocalizedStringKey("artist_play_all"))
+                            .font(MinimalWhiteStyle.labelFont(13, weight: .semibold))
+                    }
+                    .foregroundStyle(MinimalWhiteStyle.onAccent)
+                    .padding(.horizontal, 18)
+                    .frame(height: 40)
+                    .background(MinimalWhiteStyle.ink, in: Capsule(style: .continuous))
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+                .opacity(viewModel.songs.isEmpty ? 0.5 : 1)
+                .disabled(viewModel.songs.isEmpty)
+                .padding(.top, 2)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.bottom, 24)
+        }
+        .frame(height: heroHeight)
+        .padding(.top, DeviceLayout.headerTopPadding + 24)
+    }
+
+    private var minimalWhiteArtistStats: [String] {
+        var items: [String] = []
+        if viewModel.fansCount > 0 {
+            items.append(String(format: NSLocalizedString("artist_fans_count", comment: ""), formatFansCount(viewModel.fansCount)))
+        }
+        if let albumSize = viewModel.artist?.albumSize, albumSize > 0 {
+            items.append(String(format: NSLocalizedString("artist_album_count", comment: ""), albumSize))
+        }
+        if let musicSize = viewModel.artist?.musicSize, musicSize > 0 {
+            items.append(String(format: NSLocalizedString("artist_song_count", comment: ""), musicSize))
+        }
+        return items
+    }
+
+    private var minimalWhiteArtistStatsLine: some View {
+        HStack(spacing: 7) {
+            ForEach(Array(minimalWhiteArtistStats.enumerated()), id: \.offset) { index, item in
+                if index > 0 {
+                    Circle()
+                        .fill(MinimalWhiteStyle.inkMuted.opacity(0.32))
+                        .frame(width: 3, height: 3)
+                }
+
+                Text(item)
+                    .font(MinimalWhiteStyle.labelFont(11, weight: .regular))
+                    .foregroundStyle(MinimalWhiteStyle.inkMuted)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
         }
     }
 }
@@ -397,7 +550,9 @@ extension ArtistDetailView {
 
     @ViewBuilder
     private var heroSection: some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            minimalWhiteHeroSection
+        } else if MangaStyle.isActive {
             mangaHeroSection
         } else if NeumorphicStyle.isActive {
             neumorphicHeroSection
@@ -447,6 +602,33 @@ extension ArtistDetailView {
         }
     }
 
+    private var minimalWhiteHeroSection: some View {
+        CachedAsyncImage(url: viewModel.artist?.coverUrl?.sized(900)) {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(MinimalWhiteStyle.controlGlassFill)
+                .overlay(MonologueIcon(icon: .profile, size: 46, color: MinimalWhiteStyle.inkMuted, lineWidth: 1.5))
+        }
+        .aspectRatio(contentMode: .fill)
+        .frame(height: DeviceLayout.isPad ? 290 : 220)
+        .frame(maxWidth: .infinity)
+        .clipped()
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
+        )
+        .background(
+            MinimalWhiteSurfaceBackground(
+                cornerRadius: MinimalWhiteStyle.chromeRadius,
+                elevated: true,
+                tint: MinimalWhiteStyle.glassFill
+            )
+        )
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.top, DeviceLayout.headerTopPadding + 22)
+        .padding(.bottom, 4)
+    }
+
     private var mangaHeroSection: some View {
         ZStack(alignment: .bottomTrailing) {
             CachedAsyncImage(url: viewModel.artist?.coverUrl?.sized(800)) {
@@ -456,15 +638,15 @@ extension ArtistDetailView {
             .frame(height: DeviceLayout.isPad ? 300 : 240)
             .frame(maxWidth: .infinity)
             .clipped()
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: MangaStyle.cardRadius + 2, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                RoundedRectangle(cornerRadius: MangaStyle.cardRadius + 2, style: .continuous)
                     .stroke(MangaStyle.strokeInk, lineWidth: 2.4)
             )
             .background(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                RoundedRectangle(cornerRadius: MangaStyle.cardRadius + 2, style: .continuous)
                     .fill(MangaStyle.strokeInk)
-                    .offset(x: 3, y: 3)
+                    .offset(x: MangaStyle.shadowOffset, y: MangaStyle.shadowOffset)
             )
 
             MangaSectionMark(kind: .star, tint: MangaStyle.labelYellow, size: 34)
@@ -476,23 +658,43 @@ extension ArtistDetailView {
         .padding(.bottom, 2)
     }
 
+    /// Muji：人物特写 —— 跨页大图，如手帖人物专访首页
     private var mujiHeroSection: some View {
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .center, spacing: 8) {
+                MujiDotMark()
+
+                Text("ARTIST")
+                    .font(MujiStyle.labelFont(10, weight: .semibold))
+                    .foregroundStyle(MujiStyle.clay)
+                    .tracking(2.2)
+                    .fixedSize()
+
+                Spacer(minLength: 8)
+
+                if viewModel.fansCount > 0 {
+                    Text(formatFansCount(viewModel.fansCount))
+                        .font(MujiStyle.labelFont(10, weight: .semibold))
+                        .foregroundStyle(MujiStyle.inkMuted)
+                        .tracking(1.1)
+                        .fixedSize()
+                }
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+
             CachedAsyncImage(url: viewModel.artist?.coverUrl?.sized(800)) {
-                MujiStyle.surfaceRaised
+                Rectangle().fill(MujiStyle.wash(MujiStyle.clay))
             }
             .aspectRatio(contentMode: .fill)
-            .frame(width: DeviceLayout.isPad ? 230 : 190, height: DeviceLayout.isPad ? 230 : 190)
+            .frame(maxWidth: .infinity)
+            .frame(height: DeviceLayout.isPad ? 320 : 236)
             .clipped()
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(MujiStyle.hairline.opacity(0.62), lineWidth: 0.65)
-            )
-            .shadow(color: Color.black.opacity(0.055), radius: 10, x: 0, y: 5)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .shadow(color: MujiStyle.ink.opacity(0.08), radius: 12, x: 0, y: 6)
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, 14)
         }
-        .frame(maxWidth: .infinity, alignment: .center)
-        .padding(.top, DeviceLayout.headerTopPadding + 22)
+        .padding(.top, DeviceLayout.headerTopPadding + 16)
         .padding(.bottom, 4)
     }
 
@@ -612,7 +814,9 @@ extension ArtistDetailView {
 
     @ViewBuilder
     private var infoSection: some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            minimalWhiteInfoSection
+        } else if MangaStyle.isActive {
             mangaInfoSection
         } else if NeumorphicStyle.isActive {
             neumorphicInfoSection
@@ -693,6 +897,85 @@ extension ArtistDetailView {
         }
     }
 
+    private var minimalWhiteInfoSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 7) {
+                minimalWhiteArtistPill(text: "ARTIST")
+                if viewModel.fansCount > 0 {
+                    minimalWhiteArtistPill(text: formatFansCount(viewModel.fansCount))
+                }
+            }
+
+            Text(viewModel.artist?.name ?? "")
+                .font(MinimalWhiteStyle.titleFont(DeviceLayout.isPad ? 34 : 30, weight: .semibold))
+                .foregroundStyle(MinimalWhiteStyle.ink)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 8) {
+                if let albumSize = viewModel.artist?.albumSize, albumSize > 0 {
+                    minimalWhiteArtistPill(text: String(format: NSLocalizedString("artist_album_count", comment: ""), albumSize))
+                }
+
+                if let musicSize = viewModel.artist?.musicSize, musicSize > 0 {
+                    minimalWhiteArtistPill(text: String(format: NSLocalizedString("artist_song_count", comment: ""), musicSize))
+                }
+            }
+
+            if let desc = viewModel.artist?.briefDesc, !desc.isEmpty {
+                Button(action: { showFullDescription = true }) {
+                    HStack(spacing: 8) {
+                        Text(desc)
+                            .font(MinimalWhiteStyle.bodyFont(13, weight: .regular))
+                            .foregroundStyle(MinimalWhiteStyle.inkMuted)
+                            .lineLimit(2)
+                        Spacer(minLength: 6)
+                        MonologueIcon(icon: .chevronRight, size: 10, color: MinimalWhiteStyle.inkMuted, lineWidth: 1.5)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+
+            Button(action: {
+                if let first = viewModel.songs.first {
+                    PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                }
+            }) {
+                HStack(spacing: 8) {
+                    MonologueIcon(icon: .play, size: 13, color: MinimalWhiteStyle.onAccent, lineWidth: 1.75)
+                    Text(LocalizedStringKey("artist_play_all"))
+                        .font(MinimalWhiteStyle.labelFont(13, weight: .semibold))
+                }
+                .foregroundStyle(MinimalWhiteStyle.onAccent)
+                .padding(.horizontal, 16)
+                .frame(height: 40)
+                .background(MinimalWhiteStyle.ink, in: Capsule(style: .continuous))
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+            .opacity(viewModel.songs.isEmpty ? 0.5 : 1)
+            .disabled(viewModel.songs.isEmpty)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .background(
+            MinimalWhiteSurfaceBackground(
+                cornerRadius: MinimalWhiteStyle.chromeRadius,
+                elevated: true,
+                tint: MinimalWhiteStyle.glassFill
+            )
+        )
+    }
+
+    private func minimalWhiteArtistPill(text: String) -> some View {
+        Text(text)
+            .font(MinimalWhiteStyle.labelFont(11, weight: .medium))
+            .foregroundStyle(MinimalWhiteStyle.inkMuted)
+            .lineLimit(1)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 4)
+            .background(MinimalWhiteCapsuleBackground())
+    }
+
     private var mangaInfoSection: some View {
         VStack(alignment: .leading, spacing: 13) {
             HStack(spacing: 8) {
@@ -700,10 +983,7 @@ extension ArtistDetailView {
                 MangaLabel(text: "ARTIST", tint: MangaStyle.labelYellow, small: true)
             }
 
-            Text(viewModel.artist?.name ?? "")
-                .font(MangaStyle.titleFont(30, weight: .black))
-                .foregroundColor(MangaStyle.ink)
-                .lineLimit(2)
+            MangaMisprintTitle(text: viewModel.artist?.name ?? "", size: 30)
                 .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: 8) {
@@ -742,16 +1022,20 @@ extension ArtistDetailView {
                 }
             }) {
                 HStack(spacing: 8) {
-                    MonologueIcon(icon: .play, size: 13, color: MangaStyle.strokeInk, lineWidth: 2)
+                    MonologueIcon(icon: .play, size: 13, color: MangaStyle.onStrokeInk, lineWidth: 2)
                     Text(LocalizedStringKey("artist_play_all"))
                         .font(MangaStyle.labelFont(13, weight: .black))
+                        .tracking(0.6)
                 }
-                .foregroundColor(MangaStyle.strokeInk)
+                .foregroundColor(MangaStyle.onStrokeInk)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 11)
-                .background(Capsule().fill(MangaStyle.labelYellow))
-                .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: 1.5))
-                .background(Capsule().fill(MangaStyle.strokeInk).offset(x: 2, y: 2))
+                .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(MangaStyle.strokeInk))
+                .background(
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .fill(MangaStyle.accentPink)
+                        .offset(x: 2.5, y: 2.5)
+                )
             }
             .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
             .opacity(viewModel.songs.isEmpty ? 0.5 : 1)
@@ -759,7 +1043,10 @@ extension ArtistDetailView {
         }
         .padding(16)
         .frame(maxWidth: .infinity, minHeight: DeviceLayout.isPad ? 238 : 218, alignment: .topLeading)
-        .background(MangaCardBackground(cornerRadius: 22, elevated: true, tint: MangaStyle.bubbleWhite))
+        .background(
+            // 歌手详情页唯一焦点分格：保留厚墨框错版投影
+            MangaCardBackground(cornerRadius: MangaStyle.cardRadius + 4, elevated: true, tint: MangaStyle.bubbleWhite, poster: true)
+        )
     }
 
     private var neumorphicInfoSection: some View {
@@ -980,46 +1267,61 @@ extension ArtistDetailView {
         .background(SequoiaGlassBand(tint: SequoiaStyle.violet, cornerRadius: 26))
     }
 
+    /// Muji：人物专访标题区 —— 衬线大名 + 作品统计脚注 + 引文式简介
     private var mujiInfoSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 8) {
-                MujiPill(text: "ARTIST", tint: MujiStyle.clay)
-                if viewModel.fansCount > 0 {
-                    MujiPill(text: formatFansCount(viewModel.fansCount), tint: MujiStyle.indigo)
-                }
-            }
-
+        VStack(alignment: .leading, spacing: 0) {
             Text(viewModel.artist?.name ?? "")
                 .font(MujiStyle.titleFont(DeviceLayout.isPad ? 34 : 30, weight: .regular))
                 .foregroundStyle(MujiStyle.ink)
+                .lineSpacing(4)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
 
-            HStack(spacing: 8) {
+            HStack(spacing: 12) {
                 if let albumSize = viewModel.artist?.albumSize, albumSize > 0 {
-                    MujiPill(text: String(format: NSLocalizedString("artist_album_count", comment: ""), albumSize), tint: MujiStyle.tea)
+                    Text(String(format: NSLocalizedString("artist_album_count", comment: ""), albumSize))
+                        .font(MujiStyle.labelFont(11, weight: .medium))
+                        .foregroundStyle(MujiStyle.inkSoft)
                 }
 
                 if let musicSize = viewModel.artist?.musicSize, musicSize > 0 {
-                    MujiPill(text: String(format: NSLocalizedString("artist_song_count", comment: ""), musicSize), tint: MujiStyle.clay)
+                    HStack(spacing: 5) {
+                        Circle()
+                            .fill(MujiStyle.clay.opacity(0.85))
+                            .frame(width: 3.5, height: 3.5)
+
+                        Text(String(format: NSLocalizedString("artist_song_count", comment: ""), musicSize))
+                            .font(MujiStyle.labelFont(11, weight: .medium))
+                            .foregroundStyle(MujiStyle.inkSoft)
+                    }
                 }
+
+                Spacer(minLength: 0)
             }
-            .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading)
+            .padding(.top, 10)
 
             if let desc = viewModel.artist?.briefDesc, !desc.isEmpty {
                 Button(action: { showFullDescription = true }) {
-                    HStack(spacing: 6) {
-                        Text(desc)
-                            .font(MujiStyle.bodyFont(13, weight: .regular))
+                    HStack(alignment: .top, spacing: 11) {
+                        Rectangle()
+                            .fill(MujiStyle.clay.opacity(0.8))
+                            .frame(width: 2)
+                            .padding(.vertical, 2)
+
+                        Text(desc.replacingOccurrences(of: "\n", with: " "))
+                            .font(MujiStyle.bodyFont(12.5, weight: .regular))
                             .foregroundStyle(MujiStyle.inkSoft)
+                            .lineSpacing(4)
                             .lineLimit(2)
-                        MonologueIcon(icon: .chevronRight, size: 10, color: MujiStyle.inkSoft)
+                            .multilineTextAlignment(.leading)
+
+                        Spacer(minLength: 0)
                     }
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .padding(.top, 14)
             }
-
-            Spacer(minLength: 0)
 
             Button(action: {
                 if let first = viewModel.songs.first {
@@ -1036,10 +1338,12 @@ extension ArtistDetailView {
             .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
             .opacity(viewModel.songs.isEmpty ? 0.5 : 1)
             .disabled(viewModel.songs.isEmpty)
+            .padding(.top, 16)
 
             MujiListDivider()
+                .padding(.top, 18)
         }
-        .frame(maxWidth: .infinity, minHeight: DeviceLayout.isPad ? 226 : 206, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 
     private var bentoInfoSection: some View {
@@ -1222,7 +1526,21 @@ extension ArtistDetailView {
 
     @ViewBuilder
     private var tabBar: some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            HStack(spacing: 0) {
+                minimalWhiteTabItem(NSLocalizedString("artist_tab_music", comment: ""), index: 0)
+                minimalWhiteTabItem(NSLocalizedString("artist_tab_album", comment: ""), index: 1)
+                minimalWhiteTabItem(NSLocalizedString("artist_tab_video", comment: ""), index: 2)
+                minimalWhiteTabItem(NSLocalizedString("artist_tab_similar", comment: ""), index: 3)
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(MinimalWhiteStyle.hairline)
+                    .frame(height: MinimalWhiteStyle.strokeWidth)
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            }
+        } else if MangaStyle.isActive {
             HStack(spacing: 8) {
                 mangaTabItem(NSLocalizedString("artist_tab_music", comment: ""), index: 0, tint: MangaStyle.labelYellow)
                 mangaTabItem(NSLocalizedString("artist_tab_album", comment: ""), index: 1, tint: MangaStyle.bubbleBlue)
@@ -1263,18 +1581,12 @@ extension ArtistDetailView {
         } else if MujiStyle.isActive {
             HStack(spacing: 24) {
                 mujiTabItem(NSLocalizedString("artist_tab_music", comment: ""), index: 0, tint: MujiStyle.clay)
-                mujiTabItem(NSLocalizedString("artist_tab_album", comment: ""), index: 1, tint: MujiStyle.tea)
-                mujiTabItem(NSLocalizedString("artist_tab_video", comment: ""), index: 2, tint: MujiStyle.indigo)
-                mujiTabItem(NSLocalizedString("artist_tab_similar", comment: ""), index: 3, tint: MujiStyle.straw)
+                mujiTabItem(NSLocalizedString("artist_tab_album", comment: ""), index: 1, tint: MujiStyle.clay)
+                mujiTabItem(NSLocalizedString("artist_tab_video", comment: ""), index: 2, tint: MujiStyle.clay)
+                mujiTabItem(NSLocalizedString("artist_tab_similar", comment: ""), index: 3, tint: MujiStyle.clay)
             }
             .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(MujiStyle.separator.opacity(0.72))
-                    .frame(height: 0.6)
-                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-            }
         } else if BentoStyle.isActive {
             HStack(spacing: 6) {
                 bentoTabItem(NSLocalizedString("artist_tab_music", comment: ""), index: 0, tint: BentoStyle.tomato)
@@ -1317,6 +1629,30 @@ extension ArtistDetailView {
         }
     }
 
+    private func minimalWhiteTabItem(_ title: String, index: Int) -> some View {
+        let isSelected = selectedTab == index
+
+        return Button {
+            withAnimation(.easeInOut(duration: 0.2)) { selectedTab = index }
+        } label: {
+            VStack(spacing: 8) {
+                Text(title)
+                    .font(MinimalWhiteStyle.labelFont(13, weight: isSelected ? .semibold : .regular))
+                    .foregroundStyle(isSelected ? MinimalWhiteStyle.ink : MinimalWhiteStyle.inkMuted)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+
+                Capsule(style: .continuous)
+                    .fill(isSelected ? MinimalWhiteStyle.ink : Color.clear)
+                    .frame(width: isSelected ? 18 : 4, height: 2)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
     private func mangaTabItem(_ title: String, index: Int, tint: Color) -> some View {
         let isSelected = selectedTab == index
 
@@ -1325,7 +1661,11 @@ extension ArtistDetailView {
         }) {
             Text(title)
                 .font(MangaStyle.labelFont(12, weight: isSelected ? .black : .bold))
-                .foregroundColor(isSelected ? MangaStyle.ink : MangaStyle.inkSub)
+                .foregroundColor(
+                    isSelected
+                        ? ThemeColorCustomization.readableForegroundColor(on: tint, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk)
+                        : MangaStyle.inkSub
+                )
                 .lineLimit(1)
                 .minimumScaleFactor(0.72)
                 .frame(maxWidth: .infinity)
@@ -1333,19 +1673,19 @@ extension ArtistDetailView {
                 .background {
                     if isSelected {
                         ZStack {
-                            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                            RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
                                 .fill(MangaStyle.strokeInk)
                                 .offset(x: 1.5, y: 1.5)
-                            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                            RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
                                 .fill(tint)
-                            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                            RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
                                 .stroke(MangaStyle.strokeInk, lineWidth: 1.4)
                         }
                     } else {
-                        RoundedRectangle(cornerRadius: 13, style: .continuous)
+                        RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
                             .fill(MangaStyle.bubbleWhite.opacity(0.6))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                                RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
                                     .stroke(MangaStyle.strokeInk.opacity(0.28), lineWidth: 1)
                             )
                     }
@@ -1360,16 +1700,16 @@ extension ArtistDetailView {
         return Button(action: {
             withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) { selectedTab = index }
         }) {
-            VStack(spacing: 7) {
+            VStack(spacing: 6) {
                 Text(title)
                     .font(MujiStyle.labelFont(13, weight: isSelected ? .semibold : .regular))
                     .foregroundStyle(isSelected ? MujiStyle.ink : MujiStyle.inkMuted)
                     .lineLimit(1)
                     .minimumScaleFactor(0.78)
 
-                Rectangle()
+                Circle()
                     .fill(isSelected ? tint : Color.clear)
-                    .frame(width: 18, height: 1.2)
+                    .frame(width: 4.5, height: 4.5)
             }
             .padding(.vertical, 8)
         }
@@ -1495,12 +1835,47 @@ extension ArtistDetailView {
 
     private var artistSongFiltered: [Song] { viewModel.songs.filtered(by: artistSongSearch) }
 
+    private func minimalWhiteArtistTabSection<Content: View>(
+        title: String,
+        count: Int,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            MinimalWhiteSectionTitle(title: title) {
+                Text("\(count)")
+                    .font(MinimalWhiteStyle.labelFont(12, weight: .medium))
+                    .foregroundStyle(MinimalWhiteStyle.inkMuted)
+            }
+
+            content()
+        }
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.top, 8)
+    }
+
     private var songsTab: some View {
         Group {
             if viewModel.isLoading && viewModel.songs.isEmpty {
                 loadingPlaceholder
             } else if viewModel.songs.isEmpty {
                 emptyPlaceholder(NSLocalizedString("artist_no_songs", comment: ""))
+            } else if MinimalWhiteStyle.isActive {
+                minimalWhiteArtistTabSection(title: String(localized: "artist_tab_music"), count: artistSongFiltered.count) {
+                    VStack(spacing: 0) {
+                        artistSongSearchBar
+                        artistSongRows
+                    }
+                    .background(
+                        MinimalWhiteSurfaceBackground(
+                            cornerRadius: MinimalWhiteStyle.cardRadius,
+                            elevated: false,
+                            tint: MinimalWhiteStyle.glassFill
+                        )
+                    )
+                }
+                .monologueSheet(isPresented: $showArtistBatchPlaylist, preset: .standard) {
+                    BatchAddToPlaylistSheet(songs: artistSongFiltered.filter { artistSelectedSongIds.contains($0.id) })
+                }
             } else if CapsuleStyle.isActive {
                 CapsuleDetailSection(
                     title: "SONGS",
@@ -1550,7 +1925,7 @@ extension ArtistDetailView {
     }
 
     private var artistSongRows: some View {
-        LazyVStack(spacing: CapsuleStyle.isActive ? 4 : 0) {
+        LazyVStack(spacing: (CapsuleStyle.isActive || MinimalWhiteStyle.isActive) ? 4 : 0) {
             ForEach(Array(artistSongFiltered.enumerated()), id: \.element.id) { index, song in
                 SongListRow(song: song, index: index, isSelecting: isArtistSelectMode, isSelected: artistSelectedSongIds.contains(song.id), onArtistTap: { artistId in
                     selectedArtistId = artistId
@@ -1597,6 +1972,14 @@ extension ArtistDetailView {
                 loadingPlaceholder
             } else if viewModel.albums.isEmpty {
                 emptyPlaceholder(NSLocalizedString("artist_no_albums", comment: ""))
+            } else if MinimalWhiteStyle.isActive {
+                minimalWhiteArtistTabSection(title: String(localized: "artist_tab_album"), count: viewModel.albums.count) {
+                    LazyVStack(spacing: 10) {
+                        ForEach(viewModel.albums) { album in
+                            albumRow(album)
+                        }
+                    }
+                }
             } else if CapsuleStyle.isActive {
                 CapsuleDetailSection(
                     title: "ALBUMS",
@@ -1624,7 +2007,7 @@ extension ArtistDetailView {
     }
 
     private func albumRow(_ album: AlbumInfo) -> some View {
-        let coverRadius: CGFloat = MangaStyle.isActive ? 8 : (MujiStyle.isActive ? 8 : (BentoStyle.isActive ? 16 : (SignalStyle.isActive ? 18 : (NeumorphicStyle.isActive ? 18 : (CapsuleStyle.isActive ? 24 : (SequoiaStyle.isActive ? 18 : 10))))))
+        let coverRadius: CGFloat = MinimalWhiteStyle.isActive ? 12 : (MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 8 : (BentoStyle.isActive ? 16 : (SignalStyle.isActive ? 18 : (NeumorphicStyle.isActive ? 18 : (CapsuleStyle.isActive ? 24 : (SequoiaStyle.isActive ? 18 : 10)))))))
         return Button(action: {
             selectedAlbumId = album.id
             showAlbumDetail = true
@@ -1634,7 +2017,7 @@ extension ArtistDetailView {
                 if let coverUrl = album.coverUrl {
                     CachedAsyncImage(url: coverUrl) {
                         RoundedRectangle(cornerRadius: coverRadius)
-                            .fill(MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : (BentoStyle.isActive ? BentoStyle.buckwheat.opacity(0.45) : (SignalStyle.isActive ? SignalStyle.controlPressed : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (CapsuleStyle.isActive ? CapsuleStyle.surfaceTint : (SequoiaStyle.isActive ? SequoiaStyle.materialList : Color.monologueGlassTint)))))))
+                            .fill(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : (MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : (BentoStyle.isActive ? BentoStyle.buckwheat.opacity(0.45) : (SignalStyle.isActive ? SignalStyle.controlPressed : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (CapsuleStyle.isActive ? CapsuleStyle.surfaceTint : (SequoiaStyle.isActive ? SequoiaStyle.materialList : Color.monologueGlassTint))))))))
                     }
                     .aspectRatio(contentMode: .fill)
                     .frame(width: 72, height: 72)
@@ -1643,6 +2026,9 @@ extension ArtistDetailView {
                         if MangaStyle.isActive {
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
                                 .stroke(MangaStyle.strokeInk, lineWidth: 1.5)
+                        } else if MinimalWhiteStyle.isActive {
+                            RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
+                                .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
                         } else if MujiStyle.isActive {
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
                                 .stroke(MujiStyle.hairline.opacity(0.55), lineWidth: 0.6)
@@ -1665,41 +2051,51 @@ extension ArtistDetailView {
                     }
                 } else {
                     RoundedRectangle(cornerRadius: coverRadius)
-                        .fill(MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : (BentoStyle.isActive ? BentoStyle.buckwheat.opacity(0.45) : (SignalStyle.isActive ? SignalStyle.controlPressed : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (CapsuleStyle.isActive ? CapsuleStyle.surfaceTint : (SequoiaStyle.isActive ? SequoiaStyle.materialList : Color.monologueGlassTint)))))))
+                        .fill(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : (MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : (BentoStyle.isActive ? BentoStyle.buckwheat.opacity(0.45) : (SignalStyle.isActive ? SignalStyle.controlPressed : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (CapsuleStyle.isActive ? CapsuleStyle.surfaceTint : (SequoiaStyle.isActive ? SequoiaStyle.materialList : Color.monologueGlassTint))))))))
                         .frame(width: 72, height: 72)
-                        .overlay(MonologueIcon(icon: .album, size: 24, color: MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkMuted : (BentoStyle.isActive ? BentoStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (CapsuleStyle.isActive ? CapsuleStyle.violet : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary.opacity(0.3)))))))))
+                        .overlay(MonologueIcon(icon: .album, size: 24, color: MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : (MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkMuted : (BentoStyle.isActive ? BentoStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (CapsuleStyle.isActive ? CapsuleStyle.violet : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary.opacity(0.3))))))))))
                 }
 
                 VStack(alignment: .leading, spacing: 5) {
                     Text(album.name)
-                        .font(MangaStyle.isActive ? MangaStyle.bodyFont(16, weight: .black) : (MujiStyle.isActive ? MujiStyle.bodyFont(16, weight: .regular) : (BentoStyle.isActive ? BentoStyle.bodyFont(15, weight: .heavy) : (SignalStyle.isActive ? SignalStyle.bodyFont(15, weight: .bold) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : (CapsuleStyle.isActive ? CapsuleStyle.bodyFont(15, weight: .bold) : (SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .semibold) : .rounded(size: 16, weight: .medium))))))))
-                        .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : (BentoStyle.isActive ? BentoStyle.ink : (SignalStyle.isActive ? SignalStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : (CapsuleStyle.isActive ? CapsuleStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary)))))))
+                        .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.bodyFont(15, weight: .medium) : (MangaStyle.isActive ? MangaStyle.bodyFont(16, weight: .black) : (MujiStyle.isActive ? MujiStyle.bodyFont(16, weight: .regular) : (BentoStyle.isActive ? BentoStyle.bodyFont(15, weight: .heavy) : (SignalStyle.isActive ? SignalStyle.bodyFont(15, weight: .bold) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : (CapsuleStyle.isActive ? CapsuleStyle.bodyFont(15, weight: .bold) : (SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .semibold) : .rounded(size: 16, weight: .medium)))))))))
+                        .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.ink : (MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : (BentoStyle.isActive ? BentoStyle.ink : (SignalStyle.isActive ? SignalStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : (CapsuleStyle.isActive ? CapsuleStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary))))))))
                         .lineLimit(1)
 
                     HStack(spacing: 8) {
                         if !album.publishDateText.isEmpty {
                             Text(album.publishDateText)
-                                .font(MangaStyle.isActive ? MangaStyle.bodyFont(12, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : (BentoStyle.isActive ? BentoStyle.labelFont(11, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : (CapsuleStyle.isActive ? CapsuleStyle.labelFont(12, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .rounded(size: 12))))))))
-                                .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkSoft : (BentoStyle.isActive ? BentoStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (CapsuleStyle.isActive ? CapsuleStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)))))))
+                                .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(12, weight: .regular) : (MangaStyle.isActive ? MangaStyle.bodyFont(12, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : (BentoStyle.isActive ? BentoStyle.labelFont(11, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : (CapsuleStyle.isActive ? CapsuleStyle.labelFont(12, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .rounded(size: 12)))))))))
+                                .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : (MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkSoft : (BentoStyle.isActive ? BentoStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (CapsuleStyle.isActive ? CapsuleStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary))))))))
                         }
                         if let size = album.size, size > 0 {
                             Text("\(size) Tracks")
-                                .font(MangaStyle.isActive ? MangaStyle.bodyFont(12, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : (BentoStyle.isActive ? BentoStyle.labelFont(11, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : (CapsuleStyle.isActive ? CapsuleStyle.labelFont(12, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .rounded(size: 12))))))))
-                                .foregroundColor(MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkSoft : (BentoStyle.isActive ? BentoStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (CapsuleStyle.isActive ? CapsuleStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)))))))
+                                .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(12, weight: .regular) : (MangaStyle.isActive ? MangaStyle.bodyFont(12, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : (BentoStyle.isActive ? BentoStyle.labelFont(11, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : (CapsuleStyle.isActive ? CapsuleStyle.labelFont(12, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .rounded(size: 12)))))))))
+                                .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : (MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkSoft : (BentoStyle.isActive ? BentoStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (CapsuleStyle.isActive ? CapsuleStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary))))))))
                         }
                     }
                 }
 
                 Spacer(minLength: 0)
 
-                MonologueIcon(icon: .chevronRight, size: 12, color: MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkMuted : (BentoStyle.isActive ? BentoStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkMuted : (NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (CapsuleStyle.isActive ? CapsuleStyle.cyan : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary.opacity(0.4))))))))
+                MonologueIcon(icon: .chevronRight, size: 12, color: MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : (MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkMuted : (BentoStyle.isActive ? BentoStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkMuted : (NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (CapsuleStyle.isActive ? CapsuleStyle.cyan : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary.opacity(0.4)))))))))
             }
             .padding(12)
             .background {
                 if MangaStyle.isActive {
-                    MangaCardBackground(cornerRadius: 15, elevated: true, tint: MangaStyle.bubbleWhite)
+                    // 去卡片化：专辑行只留底部细墨线
+                    VStack {
+                        Spacer()
+                        Rectangle()
+                            .fill(MangaStyle.strokeInk.opacity(0.16))
+                            .frame(height: 1)
+                            .padding(.horizontal, 4)
+                    }
                 } else if MujiStyle.isActive {
-                    MujiPaperCardBackground(cornerRadius: 10)
+                    VStack {
+                        Spacer()
+                        MujiListDivider()
+                    }
                 } else if BentoStyle.isActive {
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
                         .fill(BentoStyle.surface)
@@ -1715,6 +2111,12 @@ extension ArtistDetailView {
                     CapsuleSurfaceBackground(cornerRadius: 26, elevated: false, tint: CapsuleStyle.surface.opacity(0.86))
                 } else if SequoiaStyle.isActive {
                     SequoiaSurfaceBackground(cornerRadius: 20, elevated: false, fill: SequoiaStyle.materialList, role: .list)
+                } else if MinimalWhiteStyle.isActive {
+                    MinimalWhiteSurfaceBackground(
+                        cornerRadius: MinimalWhiteStyle.cardRadius,
+                        elevated: false,
+                        tint: MinimalWhiteStyle.glassFill
+                    )
                 } else {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
                         .fill(Color.monologueGlassTint)
@@ -1734,6 +2136,20 @@ extension ArtistDetailView {
                 loadingPlaceholder
             } else if viewModel.mvs.isEmpty {
                 emptyPlaceholder(NSLocalizedString("artist_no_videos", comment: ""))
+            } else if MinimalWhiteStyle.isActive {
+                let columns = [
+                    GridItem(.flexible(), spacing: 14),
+                    GridItem(.flexible(), spacing: 14)
+                ]
+                minimalWhiteArtistTabSection(title: String(localized: "artist_tab_video"), count: viewModel.mvs.count) {
+                    LazyVGrid(columns: columns, spacing: 16) {
+                        ForEach(viewModel.mvs) { mv in
+                            MVGridCard(mv: mv) {
+                                selectedMV = MVIdItem(id: mv.id)
+                            }
+                        }
+                    }
+                }
             } else if CapsuleStyle.isActive {
                 let columns = [
                     GridItem(.flexible(), spacing: 14),
@@ -1780,6 +2196,19 @@ extension ArtistDetailView {
                 loadingPlaceholder
             } else if viewModel.simiArtists.isEmpty {
                 emptyPlaceholder(NSLocalizedString("artist_no_similar", comment: ""))
+            } else if MinimalWhiteStyle.isActive {
+                let columns = [
+                    GridItem(.flexible(), spacing: 14),
+                    GridItem(.flexible(), spacing: 14),
+                    GridItem(.flexible(), spacing: 14)
+                ]
+                minimalWhiteArtistTabSection(title: String(localized: "artist_tab_similar"), count: viewModel.simiArtists.count) {
+                    LazyVGrid(columns: columns, spacing: 18) {
+                        ForEach(viewModel.simiArtists) { artist in
+                            minimalWhiteSimilarArtistCard(artist)
+                        }
+                    }
+                }
             } else if CapsuleStyle.isActive {
                 let columns = [
                     GridItem(.flexible(), spacing: 14),
@@ -1814,16 +2243,16 @@ extension ArtistDetailView {
                             VStack(spacing: 10) {
                                 if let coverUrl = artist.coverUrl?.sized(300) {
                                     CachedAsyncImage(url: coverUrl) {
-                                        RoundedRectangle(cornerRadius: MangaStyle.isActive ? 14 : (MujiStyle.isActive ? 12 : (SignalStyle.isActive ? 24 : (NeumorphicStyle.isActive ? 24 : 45))))
+                                        RoundedRectangle(cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 12 : (SignalStyle.isActive ? 24 : (NeumorphicStyle.isActive ? 24 : 45))))
                                             .fill(MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : (SignalStyle.isActive ? SignalStyle.controlPressed : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (SequoiaStyle.isActive ? SequoiaStyle.materialList : Color.monologueGlassTint)))))
                                     }
                                     .aspectRatio(contentMode: .fill)
                                     .frame(width: 90, height: 90)
-                                    .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 14 : (MujiStyle.isActive ? 12 : (SignalStyle.isActive ? 24 : (NeumorphicStyle.isActive ? 24 : 45))), style: .continuous))
+                                    .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 12 : (SignalStyle.isActive ? 24 : (NeumorphicStyle.isActive ? 24 : 45))), style: .continuous))
                                     .overlay {
                                         if MangaStyle.isActive {
-                                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                                .stroke(MangaStyle.strokeInk, lineWidth: 1.5)
+                                            RoundedRectangle(cornerRadius: MangaStyle.cardRadius, style: .continuous)
+                                                .stroke(MangaStyle.strokeInk.opacity(0.7), lineWidth: 1)
                                         } else if MujiStyle.isActive {
                                             RoundedRectangle(cornerRadius: 12, style: .continuous)
                                                 .stroke(MujiStyle.hairline.opacity(0.55), lineWidth: 0.6)
@@ -1839,7 +2268,7 @@ extension ArtistDetailView {
                                         }
                                     }
                                 } else {
-                                    RoundedRectangle(cornerRadius: MangaStyle.isActive ? 14 : (MujiStyle.isActive ? 12 : (SignalStyle.isActive ? 24 : (NeumorphicStyle.isActive ? 24 : 45))))
+                                    RoundedRectangle(cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 12 : (SignalStyle.isActive ? 24 : (NeumorphicStyle.isActive ? 24 : 45))))
                                         .fill(MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : (SignalStyle.isActive ? SignalStyle.controlPressed : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (SequoiaStyle.isActive ? SequoiaStyle.materialList : Color.monologueGlassTint)))))
                                         .frame(width: 90, height: 90)
                                         .overlay(MonologueIcon(icon: .personCircle, size: 32, color: MangaStyle.isActive ? MangaStyle.inkSub : (MujiStyle.isActive ? MujiStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary.opacity(0.3)))))))
@@ -1850,12 +2279,11 @@ extension ArtistDetailView {
                                     .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : (MujiStyle.isActive ? MujiStyle.ink : (SignalStyle.isActive ? SignalStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary)))))
                                     .lineLimit(1)
                             }
-                            .padding(ThemedPageStyle.isActive ? (SequoiaStyle.isActive ? 10 : 8) : 0)
+                            .padding(ThemedPageStyle.isActive && !MangaStyle.isActive ? (SequoiaStyle.isActive ? 10 : 8) : 0)
                             .background {
                                 if MangaStyle.isActive {
-                                    MangaCardBackground(cornerRadius: 15, elevated: true, tint: MangaStyle.bubbleWhite)
-                                } else if MujiStyle.isActive {
-                                    MujiPaperCardBackground(cornerRadius: 10)
+                                    // 去卡片化：相似歌手直接排在纸上
+                                    EmptyView()
                                 } else if NeumorphicStyle.isActive {
                                     NeumorphicSurfaceBackground(cornerRadius: 22, elevated: false)
                                 } else if SignalStyle.isActive {
@@ -1912,13 +2340,51 @@ extension ArtistDetailView {
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
     }
 
+    private func minimalWhiteSimilarArtistCard(_ artist: ArtistInfo) -> some View {
+        Button {
+            selectedArtistId = artist.id
+            showArtistDetail = true
+        } label: {
+            VStack(spacing: 9) {
+                CachedAsyncImage(url: artist.coverUrl?.sized(300), width: 78, height: 78) {
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .fill(MinimalWhiteStyle.controlGlassFill)
+                        .overlay(MonologueIcon(icon: .personCircle, size: 28, color: MinimalWhiteStyle.inkMuted, lineWidth: 1.7))
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 78, height: 78)
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
+                )
+
+                Text(artist.name)
+                    .font(MinimalWhiteStyle.labelFont(13, weight: .medium))
+                    .foregroundStyle(MinimalWhiteStyle.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(
+                MinimalWhiteSurfaceBackground(
+                    cornerRadius: MinimalWhiteStyle.cardRadius,
+                    elevated: false,
+                    tint: MinimalWhiteStyle.glassFill
+                )
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
     // MARK: 占位视图
 
     private var loadingPlaceholder: some View {
         VStack(spacing: 14) {
             Spacer().frame(height: 48)
             ProgressView()
-                .progressViewStyle(CircularProgressViewStyle(tint: SignalStyle.isActive ? SignalStyle.accent : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : (SequoiaStyle.isActive ? SequoiaStyle.accent : .monologueTextSecondary))))
+                .progressViewStyle(CircularProgressViewStyle(tint: MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.accent : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : (SequoiaStyle.isActive ? SequoiaStyle.accent : .monologueTextSecondary)))))
             if SignalStyle.isActive {
                 Text("LOADING")
                     .font(SignalStyle.labelFont(11, weight: .bold))
@@ -1942,9 +2408,15 @@ extension ArtistDetailView {
                 CapsuleSurfaceBackground(cornerRadius: 26, elevated: false, tint: CapsuleStyle.surface.opacity(0.82))
             } else if SequoiaStyle.isActive {
                 SequoiaSurfaceBackground(cornerRadius: 24, elevated: true, role: .chrome)
+            } else if MinimalWhiteStyle.isActive {
+                MinimalWhiteSurfaceBackground(
+                    cornerRadius: MinimalWhiteStyle.cardRadius,
+                    elevated: false,
+                    tint: MinimalWhiteStyle.glassFill
+                )
             }
         }
-        .padding(.horizontal, (CapsuleStyle.isActive || SequoiaStyle.isActive) ? DeviceLayout.viewHorizontalPadding : 0)
+        .padding(.horizontal, (CapsuleStyle.isActive || SequoiaStyle.isActive || MinimalWhiteStyle.isActive) ? DeviceLayout.viewHorizontalPadding : 0)
     }
 
     private func emptyPlaceholder(_ text: String) -> some View {
@@ -1958,10 +2430,12 @@ extension ArtistDetailView {
                 CapsuleIconBadge(icon: .sparkle, tint: CapsuleStyle.cyan, size: 52)
             } else if SequoiaStyle.isActive {
                 SequoiaIconBadge(icon: .sparkle, tint: SequoiaStyle.aqua, size: 52)
+            } else if MinimalWhiteStyle.isActive {
+                MinimalWhiteIconBadge(icon: .sparkle, size: 52)
             }
             Text(text)
-                .font(SignalStyle.isActive ? SignalStyle.labelFont(14, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : (CapsuleStyle.isActive ? CapsuleStyle.labelFont(14, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(14, weight: .medium) : .rounded(size: 15)))))
-                .foregroundColor(SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (CapsuleStyle.isActive ? CapsuleStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary))))
+                .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(14, weight: .medium) : (SignalStyle.isActive ? SignalStyle.labelFont(14, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : (CapsuleStyle.isActive ? CapsuleStyle.labelFont(14, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(14, weight: .medium) : .rounded(size: 15))))))
+                .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (CapsuleStyle.isActive ? CapsuleStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)))))
             Spacer().frame(height: 48)
         }
         .frame(maxWidth: .infinity)
@@ -1974,6 +2448,12 @@ extension ArtistDetailView {
                 CapsuleSurfaceBackground(cornerRadius: 26, elevated: false, tint: CapsuleStyle.surface.opacity(0.82))
             } else if SequoiaStyle.isActive {
                 SequoiaSurfaceBackground(cornerRadius: 24, elevated: true, role: .chrome)
+            } else if MinimalWhiteStyle.isActive {
+                MinimalWhiteSurfaceBackground(
+                    cornerRadius: MinimalWhiteStyle.cardRadius,
+                    elevated: false,
+                    tint: MinimalWhiteStyle.glassFill
+                )
             }
         }
         .padding(.horizontal, ThemedPageStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
@@ -1995,7 +2475,7 @@ struct ArtistBioSheet: View {
             HStack(spacing: 14) {
                 if let artist = viewModel.artist {
                     CachedAsyncImage(url: artist.coverUrl?.sized(200)) {
-                        Circle().fill(SignalStyle.isActive ? SignalStyle.controlPressed : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (SequoiaStyle.isActive ? SequoiaStyle.materialList : Color.monologueGlassTint)))
+                        Circle().fill(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : (SignalStyle.isActive ? SignalStyle.controlPressed : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (SequoiaStyle.isActive ? SequoiaStyle.materialList : Color.monologueGlassTint))))
                     }
                     .aspectRatio(contentMode: .fill)
                     .frame(width: 48, height: 48)
@@ -2010,31 +2490,34 @@ struct ArtistBioSheet: View {
                         } else if SequoiaStyle.isActive {
                             Circle()
                                 .stroke(SequoiaStyle.separator.opacity(0.78), lineWidth: 0.6)
+                        } else if MinimalWhiteStyle.isActive {
+                            Circle()
+                                .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
                         }
                     }
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(viewModel.artist?.name ?? "")
-                        .font(SignalStyle.isActive ? SignalStyle.titleFont(20, weight: .bold) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(20, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.titleFont(20, weight: .semibold) : .rounded(size: 20, weight: .bold))))
-                        .foregroundColor(SignalStyle.isActive ? SignalStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary)))
+                        .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.titleFont(20, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.titleFont(20, weight: .bold) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(20, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.titleFont(20, weight: .semibold) : .rounded(size: 20, weight: .bold)))))
+                        .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.ink : (SignalStyle.isActive ? SignalStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary))))
 
                     HStack(spacing: 12) {
                         if let albumSize = viewModel.artist?.albumSize, albumSize > 0 {
                             HStack(spacing: 4) {
-                                MonologueIcon(icon: .album, size: 12, color: SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)))
+                                MonologueIcon(icon: .album, size: 12, color: MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary))))
                                 Text(String(format: NSLocalizedString("artist_album_count", comment: ""), albumSize))
                             }
-                            .font(SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .rounded(size: 12))))
-                            .foregroundColor(SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)))
+                            .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(12, weight: .regular) : (SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .rounded(size: 12)))))
+                            .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary))))
                         }
                         if let musicSize = viewModel.artist?.musicSize, musicSize > 0 {
                             HStack(spacing: 4) {
-                                MonologueIcon(icon: .musicNote, size: 12, color: SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)))
+                                MonologueIcon(icon: .musicNote, size: 12, color: MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary))))
                                 Text(String(format: NSLocalizedString("artist_song_count", comment: ""), musicSize))
                             }
-                            .font(SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .rounded(size: 12))))
-                            .foregroundColor(SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)))
+                            .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(12, weight: .regular) : (SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .rounded(size: 12)))))
+                            .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary))))
                         }
                     }
                 }
@@ -2042,7 +2525,7 @@ struct ArtistBioSheet: View {
                 Spacer()
 
                 Button(action: { dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss) }) {
-                    MonologueIcon(icon: .close, size: 20, color: SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)))
+                    MonologueIcon(icon: .close, size: 20, color: MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary))))
                         .frame(width: 32, height: 32)
                         .background {
                             if NeumorphicStyle.isActive {
@@ -2051,6 +2534,8 @@ struct ArtistBioSheet: View {
                                 SignalSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true, fill: SignalStyle.controlPressed)
                             } else if SequoiaStyle.isActive {
                                 SequoiaSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true, role: .list)
+                            } else if MinimalWhiteStyle.isActive {
+                                MinimalWhiteCircleBackground(elevated: false)
                             } else {
                                 Circle().fill(Color.monologueSeparator)
                             }
@@ -2063,7 +2548,7 @@ struct ArtistBioSheet: View {
             .padding(.bottom, 16)
 
             Rectangle()
-                .fill(SignalStyle.isActive ? SignalStyle.separator.opacity(0.52) : (NeumorphicStyle.isActive ? NeumorphicStyle.separator.opacity(0.45) : (SequoiaStyle.isActive ? SequoiaStyle.separator : Color.monologueSeparator)))
+                .fill(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.hairline : (SignalStyle.isActive ? SignalStyle.separator.opacity(0.52) : (NeumorphicStyle.isActive ? NeumorphicStyle.separator.opacity(0.45) : (SequoiaStyle.isActive ? SequoiaStyle.separator : Color.monologueSeparator))))
                 .frame(height: 0.5)
 
             if viewModel.isLoadingDesc {
@@ -2076,8 +2561,8 @@ struct ArtistBioSheet: View {
                         if let brief = desc.briefDesc, !brief.isEmpty {
                             bioCard {
                                 Text(brief)
-                                    .font(SignalStyle.isActive ? SignalStyle.bodyFont(15, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .regular) : (SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .regular) : .rounded(size: 15, weight: .regular))))
-                                    .foregroundColor(SignalStyle.isActive ? SignalStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary)))
+                                    .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.bodyFont(15, weight: .regular) : (SignalStyle.isActive ? SignalStyle.bodyFont(15, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .regular) : (SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .regular) : .rounded(size: 15, weight: .regular)))))
+                                    .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkSoft : (SignalStyle.isActive ? SignalStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary))))
                                     .lineSpacing(6)
                             }
                         }
@@ -2086,11 +2571,11 @@ struct ArtistBioSheet: View {
                             bioCard {
                                 VStack(alignment: .leading, spacing: 10) {
                                     Text(section.title)
-                                        .font(SignalStyle.isActive ? SignalStyle.titleFont(16, weight: .bold) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(16, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.titleFont(16, weight: .semibold) : .rounded(size: 16, weight: .semibold))))
-                                        .foregroundColor(SignalStyle.isActive ? SignalStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary)))
+                                        .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.titleFont(16, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.titleFont(16, weight: .bold) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(16, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.titleFont(16, weight: .semibold) : .rounded(size: 16, weight: .semibold)))))
+                                        .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.ink : (SignalStyle.isActive ? SignalStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary))))
                                     Text(section.content)
-                                        .font(SignalStyle.isActive ? SignalStyle.bodyFont(14, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(14, weight: .regular) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(14, weight: .regular) : .rounded(size: 14, weight: .regular))))
-                                        .foregroundColor(SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)))
+                                        .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.bodyFont(14, weight: .regular) : (SignalStyle.isActive ? SignalStyle.bodyFont(14, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(14, weight: .regular) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(14, weight: .regular) : .rounded(size: 14, weight: .regular)))))
+                                        .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkSoft : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary))))
                                         .lineSpacing(5)
                                 }
                             }
@@ -2112,8 +2597,8 @@ struct ArtistBioSheet: View {
                         if let brief = viewModel.artist?.briefDesc, !brief.isEmpty {
                             bioCard {
                                 Text(brief)
-                                    .font(SignalStyle.isActive ? SignalStyle.bodyFont(15, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .regular) : (SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .regular) : .rounded(size: 15, weight: .regular))))
-                                    .foregroundColor(SignalStyle.isActive ? SignalStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary)))
+                                    .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.bodyFont(15, weight: .regular) : (SignalStyle.isActive ? SignalStyle.bodyFont(15, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .regular) : (SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .regular) : .rounded(size: 15, weight: .regular)))))
+                                    .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkSoft : (SignalStyle.isActive ? SignalStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monologueTextPrimary))))
                                     .lineSpacing(6)
                             }
                         } else {
@@ -2136,9 +2621,11 @@ struct ArtistBioSheet: View {
                 if NeumorphicStyle.isActive {
                     ThemeRenderBackdrop(theme: .neumorphic)
                 } else if SignalStyle.isActive {
-                    ThemeRenderBackdrop(theme: .signal)
+                    ThemeRenderBackdrop(theme: .default)
                 } else if SequoiaStyle.isActive {
                     SequoiaRootBackdrop()
+                } else if MinimalWhiteStyle.isActive {
+                    MinimalWhiteRootBackdrop()
                 } else {
                     ThemedPageBackground()
                 }
@@ -2159,6 +2646,12 @@ struct ArtistBioSheet: View {
                 SignalSurfaceBackground(cornerRadius: 24, elevated: false, fill: SignalStyle.paper)
             } else if SequoiaStyle.isActive {
                 SequoiaSurfaceBackground(cornerRadius: 22, elevated: true, role: .chrome)
+            } else if MinimalWhiteStyle.isActive {
+                MinimalWhiteSurfaceBackground(
+                    cornerRadius: MinimalWhiteStyle.cardRadius,
+                    elevated: false,
+                    tint: MinimalWhiteStyle.glassFill
+                )
             } else {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .fill(Color.monologueGlassTint)
@@ -2175,12 +2668,14 @@ struct ArtistBioSheet: View {
                 SignalIconBadge(icon: .info, tint: SignalStyle.olive, size: 52)
             } else if SequoiaStyle.isActive {
                 SequoiaIconBadge(icon: .info, tint: SequoiaStyle.aqua, size: 52)
+            } else if MinimalWhiteStyle.isActive {
+                MinimalWhiteIconBadge(icon: .info, size: 52)
             } else {
                 MonologueIcon(icon: .info, size: 36, color: .monologueTextSecondary.opacity(0.3))
             }
             Text(LocalizedStringKey("artist_no_bio"))
-                .font(SignalStyle.isActive ? SignalStyle.labelFont(14, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(14, weight: .medium) : .rounded(size: 15))))
-                .foregroundColor(SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary)))
+                .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(14, weight: .medium) : (SignalStyle.isActive ? SignalStyle.labelFont(14, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .medium) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(14, weight: .medium) : .rounded(size: 15)))))
+                .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : (SignalStyle.isActive ? SignalStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monologueTextSecondary))))
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 40)

@@ -2,7 +2,7 @@ import SwiftUI
 import AVFoundation
 import Combine
 
-/// 广播电台播放器 — FM 电台风格
+/// 广播电台播放器 — FM 电台仪表风格
 struct BroadcastPlayerView: View {
     let channel: BroadcastChannel
     @Environment(\.dismiss) private var dismiss
@@ -21,23 +21,25 @@ struct BroadcastPlayerView: View {
             ThemedPageBackground()
                 .ignoresSafeArea()
 
-            VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
                 topBar
                     .padding(.top, DeviceLayout.headerTopPadding)
+                    .padding(.horizontal, 24)
 
-                Spacer()
+                Spacer(minLength: 0)
 
-                frequencyDisplay
-                    .padding(.bottom, 32)
+                tunerSection
+                    .padding(.horizontal, 28)
 
                 signalWaveform
-                    .padding(.bottom, 40)
+                    .padding(.horizontal, 28)
+                    .padding(.top, 34)
 
-                stationInfo
-                    .padding(.bottom, 36)
+                Spacer(minLength: 0)
 
-                controlBar
-                    .padding(.bottom, 56)
+                consoleSection
+                    .padding(.horizontal, 28)
+                    .padding(.bottom, 46)
             }
         }
         .onAppear { viewModel.loadAndPlay() }
@@ -48,154 +50,233 @@ struct BroadcastPlayerView: View {
     private var topBar: some View {
         HStack {
             MonologueBackButton(style: .dismiss)
+
             Spacer()
+
             if viewModel.isPlaying {
                 HStack(spacing: 6) {
-                    Circle()
-                        .fill(liveTint)
-                        .frame(width: 8, height: 8)
-                        .shadow(color: liveTint.opacity(0.6), radius: 4)
+                    BroadcastBlinkingDot(color: liveTint)
+
                     Text("LIVE")
-                        .font(SequoiaStyle.isActive ? SequoiaStyle.labelFont(11, weight: .semibold) : .system(size: 11, weight: .bold, design: .monospaced))
+                        .font(SequoiaStyle.isActive ? SequoiaStyle.labelFont(11, weight: .semibold) : .system(size: 10.5, weight: .heavy, design: .rounded))
+                        .tracking(1.6)
                         .foregroundColor(liveTint)
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(liveTint.opacity(0.1))
-                .clipShape(Capsule())
+                .padding(.horizontal, 11)
+                .padding(.vertical, 6)
+                .overlay(
+                    Capsule().stroke(liveTint.opacity(0.4), lineWidth: 0.8)
+                )
             }
-            Spacer()
-            Color.clear.frame(width: 40, height: 40)
         }
-        .padding(.horizontal, 24)
     }
 
-    // MARK: - FM 频率显示
-    private var frequencyDisplay: some View {
-        VStack(spacing: 12) {
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text("FM")
-                    .font(.system(size: 16, weight: .medium, design: .monospaced))
-                    .foregroundColor(broadcastSecondary)
+    // MARK: - 调谐区：眉题 + 大号频率 + 刻度尺
+    private var tunerSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                Capsule()
+                    .fill(accentTint)
+                    .frame(width: 18, height: 3)
+
+                Text("FM BROADCAST")
+                    .font(.system(size: 10.5, weight: .heavy, design: .rounded))
+                    .tracking(2.4)
+                    .foregroundColor(broadcastSecondary.opacity(0.75))
+                    .fixedSize()
+
+                Rectangle()
+                    .fill(hairlineTint)
+                    .frame(height: 0.5)
+            }
+            .padding(.bottom, 20)
+
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(viewModel.frequencyText)
-                    .font(.system(size: 56, weight: .ultraLight, design: .rounded))
+                    .font(.system(size: 64, weight: .heavy, design: .rounded))
                     .foregroundColor(broadcastPrimary)
                     .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+
                 Text("MHz")
-                    .font(.system(size: 14, weight: .medium, design: .monospaced))
-                    .foregroundColor(broadcastSecondary)
+                    .font(.system(size: 15, weight: .heavy, design: .rounded))
+                    .tracking(0.8)
+                    .foregroundColor(broadcastSecondary.opacity(0.8))
+
+                Spacer(minLength: 0)
             }
+
             frequencyRuler
-                .frame(height: 24)
-                .padding(.horizontal, 32)
+                .frame(height: 26)
+                .padding(.top, 14)
         }
     }
 
     private var frequencyRuler: some View {
         GeometryReader { geo in
-            ZStack {
+            let needlePosition = geo.size.width * needleFraction
+
+            ZStack(alignment: .topLeading) {
                 HStack(spacing: 0) {
-                    ForEach(0..<30, id: \.self) { i in
-                        let isMajor = i % 5 == 0
+                    ForEach(0..<37, id: \.self) { i in
+                        let isMajor = i % 6 == 0
                         VStack(spacing: 0) {
                             Rectangle()
-                                .fill(broadcastSecondary.opacity(isMajor ? 0.4 : 0.15))
-                                .frame(width: 1, height: isMajor ? 14 : 7)
-                            Spacer()
+                                .fill(broadcastSecondary.opacity(isMajor ? 0.45 : 0.18))
+                                .frame(width: isMajor ? 1.2 : 0.6, height: isMajor ? 15 : 8)
+                            Spacer(minLength: 0)
                         }
-                        if i < 29 { Spacer() }
+                        if i < 36 { Spacer(minLength: 0) }
                     }
                 }
-                VStack(spacing: 0) {
-                    Spacer()
+
+                Rectangle()
+                    .fill(hairlineTint)
+                    .frame(height: 0.5)
+                    .offset(y: 20)
+
+                // 调谐指针
+                VStack(spacing: 2) {
+                    Rectangle()
+                        .fill(accentTint)
+                        .frame(width: 1.6, height: 17)
+
                     BroadcastTriangle()
-                        .fill(liveTint)
-                        .frame(width: 10, height: 6)
-                        .shadow(color: liveTint.opacity(0.4), radius: 3)
+                        .fill(accentTint)
+                        .frame(width: 7, height: 5)
+                        .rotationEffect(.degrees(180))
                 }
+                .offset(x: needlePosition - 3.5)
             }
         }
+    }
+
+    /// 依据频率把指针钉在 87.5–108 的相对位置
+    private var needleFraction: CGFloat {
+        let value = Double(viewModel.frequencyText) ?? 87.5
+        let fraction = (value - 87.5) / (108.0 - 87.5)
+        return CGFloat(min(max(fraction, 0.02), 0.98))
     }
 
     // MARK: - 信号波形
     private var signalWaveform: some View {
-        HStack(spacing: 3) {
-            ForEach(0..<20, id: \.self) { i in
-                RoundedRectangle(cornerRadius: 1.5)
-                    .fill(
-                        viewModel.isPlaying
-                            ? broadcastPrimary.opacity(0.6 + viewModel.waveHeights[i] * 0.4)
-                            : broadcastSecondary.opacity(0.15)
-                    )
-                    .frame(width: 3, height: viewModel.isPlaying ? CGFloat(viewModel.waveHeights[i]) * 28 + 4 : 4)
-                    .animation(.easeInOut(duration: 0.15).delay(Double(i) * 0.02), value: viewModel.waveHeights[i])
+        HStack(spacing: 0) {
+            HStack(spacing: 3) {
+                ForEach(0..<viewModel.waveHeights.count, id: \.self) { i in
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(
+                            viewModel.isPlaying
+                                ? broadcastPrimary.opacity(0.35 + viewModel.waveHeights[i] * 0.55)
+                                : broadcastSecondary.opacity(0.18)
+                        )
+                        .frame(width: 2.4, height: viewModel.isPlaying ? CGFloat(viewModel.waveHeights[i]) * 22 + 3 : 3)
+                        .animation(.easeInOut(duration: 0.15).delay(Double(i) * 0.015), value: viewModel.waveHeights[i])
+                }
             }
+            .frame(height: 26, alignment: .center)
+
+            Spacer(minLength: 12)
+
+            Text(viewModel.isPlaying ? "STEREO" : "STANDBY")
+                .font(.system(size: 9.5, weight: .heavy, design: .rounded))
+                .tracking(1.8)
+                .foregroundColor(viewModel.isPlaying ? accentTint : broadcastSecondary.opacity(0.55))
         }
-        .frame(height: 32)
     }
 
-    // MARK: - 电台信息
-    private var stationInfo: some View {
-        VStack(spacing: 14) {
+    // MARK: - 底部控制台：电台信息 + 播放键
+    private var consoleSection: some View {
+        VStack(spacing: 0) {
+            Rectangle()
+                .fill(hairlineTint)
+                .frame(height: 0.5)
+
+            HStack(spacing: 14) {
+                stationCover
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(channel.displayName)
+                        .font(stationTitleFont)
+                        .foregroundColor(broadcastPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+
+                    if let program = viewModel.currentProgram, !program.isEmpty {
+                        HStack(spacing: 6) {
+                            Circle().fill(programLiveTint).frame(width: 5, height: 5)
+                            Text(program)
+                                .font(stationSubtitleFont)
+                                .foregroundColor(broadcastSecondary)
+                                .lineLimit(1)
+                        }
+                    } else if viewModel.isPlaying {
+                        HStack(spacing: 6) {
+                            Circle().fill(programLiveTint).frame(width: 5, height: 5)
+                            Text("直播中")
+                                .font(stationSubtitleFont)
+                                .foregroundColor(broadcastSecondary)
+                        }
+                    }
+                }
+
+                Spacer(minLength: 12)
+
+                playButton
+            }
+            .padding(.vertical, 18)
+
+            Rectangle()
+                .fill(hairlineTint)
+                .frame(height: 0.5)
+        }
+    }
+
+    private var stationCover: some View {
+        Group {
             if let url = channel.coverImageUrl {
                 CachedAsyncImage(url: url) {
-                    RoundedRectangle(cornerRadius: 16).fill(broadcastSurfaceFill).monologueGlass(cornerRadius: 16)
+                    coverPlaceholder
                 }
                 .aspectRatio(contentMode: .fill)
-                .frame(width: 80, height: 80)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
             } else {
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(broadcastSurfaceFill)
-                    .frame(width: 80, height: 80)
-                    .monologueGlass(cornerRadius: 16)
-                    .overlay(MonologueIcon(icon: .radio, size: 32, color: broadcastSecondary, lineWidth: 1.4))
-            }
-
-            Text(channel.displayName)
-                .font(stationTitleFont)
-                .foregroundColor(broadcastPrimary)
-                .lineLimit(1)
-
-            if let program = viewModel.currentProgram, !program.isEmpty {
-                HStack(spacing: 6) {
-                    Circle().fill(programLiveTint).frame(width: 6, height: 6)
-                    Text(program)
-                        .font(stationSubtitleFont)
-                        .foregroundColor(broadcastSecondary)
-                        .lineLimit(1)
-                }
-            } else if viewModel.isPlaying {
-                Text("直播中")
-                    .font(stationSubtitleFont)
-                    .foregroundColor(broadcastSecondary)
+                coverPlaceholder
             }
         }
+        .frame(width: 58, height: 58)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(broadcastPrimary.opacity(0.1), lineWidth: 0.8)
+        )
     }
 
-    // MARK: - 播放控制
-    private var controlBar: some View {
+    private var coverPlaceholder: some View {
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .fill(broadcastSurfaceFill)
+            .overlay(MonologueIcon(icon: .radio, size: 24, color: broadcastSecondary, lineWidth: 1.4))
+    }
+
+    private var playButton: some View {
         Button { viewModel.togglePlay() } label: {
             ZStack {
                 Circle()
                     .fill(broadcastButtonFill)
-                    .frame(width: 72, height: 72)
-                    .shadow(color: .black.opacity(0.12), radius: 10, x: 0, y: 5)
+                    .frame(width: 58, height: 58)
+
                 if viewModel.isLoading {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: broadcastButtonForeground))
-                        .scaleEffect(1.2)
                 } else {
                     MonologueIcon(
                         icon: viewModel.isPlaying ? .pause : .play,
-                        size: 28, color: broadcastButtonForeground, lineWidth: 2.0
+                        size: 22, color: broadcastButtonForeground, lineWidth: 2.0
                     )
-                    .offset(x: viewModel.isPlaying ? 0 : 2)
+                    .offset(x: viewModel.isPlaying ? 0 : 1.5)
                 }
             }
         }
-        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.9))
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.92))
     }
 
     private var broadcastPrimary: Color {
@@ -228,6 +309,18 @@ struct BroadcastPlayerView: View {
         return .monologueIconForeground
     }
 
+    private var accentTint: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        if SequoiaStyle.isActive { return SequoiaStyle.accent }
+        return .monologueAccent
+    }
+
+    private var hairlineTint: Color {
+        if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.6) }
+        if SequoiaStyle.isActive { return SequoiaStyle.separator.opacity(0.75) }
+        return Color.monologueSeparator.opacity(0.55)
+    }
+
     private var liveTint: Color {
         SequoiaStyle.isActive ? SequoiaStyle.red : .monologueAccentRed
     }
@@ -237,13 +330,33 @@ struct BroadcastPlayerView: View {
     }
 
     private var stationTitleFont: Font {
-        if SequoiaStyle.isActive { return SequoiaStyle.titleFont(20, weight: .semibold) }
-        return .system(size: 20, weight: .bold, design: .rounded)
+        if SequoiaStyle.isActive { return SequoiaStyle.titleFont(17, weight: .semibold) }
+        return .system(size: 17, weight: .heavy, design: .rounded)
     }
 
     private var stationSubtitleFont: Font {
-        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(13, weight: .regular) }
-        return .system(size: 13, design: .rounded)
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(12.5, weight: .regular) }
+        return .system(size: 12.5, weight: .medium, design: .rounded)
+    }
+}
+
+/// LIVE 呼吸圆点
+private struct BroadcastBlinkingDot: View {
+    let color: Color
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var dimmed = false
+
+    var body: some View {
+        Circle()
+            .fill(color)
+            .frame(width: 7, height: 7)
+            .opacity(dimmed ? 0.35 : 1)
+            .onAppear {
+                guard !reduceMotion else { return }
+                withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
+                    dimmed = true
+                }
+            }
     }
 }
 
@@ -267,7 +380,7 @@ class BroadcastPlayerViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var currentProgram: String?
     @Published var frequencyText: String = "87.5"
-    @Published var waveHeights: [Double] = Array(repeating: 0, count: 20)
+    @Published var waveHeights: [Double] = Array(repeating: 0, count: 24)
 
     private var avPlayer: AVPlayer?
     private var waveTimer: Timer?
@@ -338,7 +451,7 @@ class BroadcastPlayerViewModel: ObservableObject {
             Task { @MainActor in
                 guard let self = self, self.isPlaying else { return }
                 withAnimation(.easeInOut(duration: 0.15)) {
-                    self.waveHeights = (0..<20).map { _ in Double.random(in: 0.15...1.0) }
+                    self.waveHeights = (0..<24).map { _ in Double.random(in: 0.15...1.0) }
                 }
             }
         }
@@ -348,7 +461,7 @@ class BroadcastPlayerViewModel: ObservableObject {
         waveTimer?.invalidate()
         waveTimer = nil
         withAnimation(.easeOut(duration: 0.3)) {
-            waveHeights = Array(repeating: 0, count: 20)
+            waveHeights = Array(repeating: 0, count: 24)
         }
     }
 

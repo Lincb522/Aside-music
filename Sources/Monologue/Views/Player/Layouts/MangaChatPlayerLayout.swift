@@ -16,15 +16,15 @@ struct MangaChatPlayerLayout: View {
     @ObservedObject var lyricVM = LyricViewModel.shared
     @ObservedObject var downloadManager = DownloadManager.shared
 
-    // MARK: - Colors
-    private var ink: Color { colorScheme == .dark ? Color(hex: "E8E8EF") : Color(hex: "2D2D3A") }
-    private var inkSub: Color { colorScheme == .dark ? Color(hex: "8A8A9E") : Color(hex: "8888A0") }
-    private var accentPink: Color { colorScheme == .dark ? Color(hex: "D86782") : Color(hex: "FF8FAB") }
-    private var labelYellow: Color { colorScheme == .dark ? Color(hex: "E6BD76") : Color(hex: "FFE4B5") }
-    private var decoBlue: Color { colorScheme == .dark ? Color(hex: "6A98BD") : Color(hex: "B8D4F0") }
-    private var bubbleWhite: Color { colorScheme == .dark ? Color(hex: "1F1F2A") : Color(hex: "FFFFFF") }
-    private var bubblePink: Color { colorScheme == .dark ? Color(hex: "2E1D25") : Color(hex: "FFE8F0") }
-    private var bubbleBlue: Color { colorScheme == .dark ? Color(hex: "1E2530") : Color(hex: "E8F0FF") }
+    // MARK: - Colors（周刊印刷：墨、新聞纸、朱红印章）
+    private var ink: Color { MangaStyle.ink }
+    private var inkSub: Color { MangaStyle.inkSub }
+    private var accentPink: Color { MangaStyle.accentPink }
+    private var labelYellow: Color { MangaStyle.labelYellow }
+    private var decoBlue: Color { MangaStyle.decoBlue }
+    private var bubbleWhite: Color { MangaStyle.bubbleWhite }
+    private var bubblePink: Color { MangaStyle.bubblePink }
+    private var bubbleBlue: Color { MangaStyle.bubbleBlue }
 
     // MARK: - State
     @State private var isAppeared = false
@@ -37,7 +37,7 @@ struct MangaChatPlayerLayout: View {
     @State private var showArtistDetail = false
     @State private var showDownloadSheet = false
     @State private var userAvatarUrl: String? = nil
-    @State private var colorExtractor = CoverColorExtractor()
+    @StateObject private var colorExtractor = CoverColorExtractor()
     @ObservedObject private var homeVM = HomeViewModel.shared
 
     var body: some View {
@@ -108,7 +108,7 @@ struct MangaChatPlayerLayout: View {
         .monologueSheet(isPresented: $showPlaylist, preset: .standard) {
             PlaylistPopupView()
         }
-        .monologueSheet(isPresented: $showQualitySheet, preset: .compact) {
+        .monologueSheet(isPresented: $showQualitySheet, preset: .standard) {
             SoundQualitySheet(
                 currentQuality: player.soundQuality,
                 currentQQQuality: player.qqMusicQuality,
@@ -122,8 +122,8 @@ struct MangaChatPlayerLayout: View {
                 onSelectQishui: { info in player.switchQishuiQuality(info); showQualitySheet = false }
             )
         }
-        .monologueSheet(isPresented: $showEQSettings, preset: .large) {
-            NavigationStack { EQSettingsView() }
+        .fullScreenCover(isPresented: $showEQSettings) {
+            NavigationStack { MonoAudioCenterView() }
         }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker) {
             PlayerThemePickerSheet()
@@ -161,32 +161,36 @@ extension MangaChatPlayerLayout {
 
     func mangaBackground(size: CGSize) -> some View {
         ZStack {
-            // 柔和渐变底色
+            // 新聞纸底色
             LinearGradient(
                 colors: colorScheme == .dark
-                    ? [Color(hex: "0B0E17"), Color(hex: "121828"), Color(hex: "16243A")]
-                : [Color(hex: "FFF8EC"), Color(hex: "FDE8F0"), Color(hex: "E8F4FD")],
+                    ? [MangaStyle.paper, MangaStyle.paperWarm, MangaStyle.paperCool]
+                    : [MangaStyle.surface, MangaStyle.paper, MangaStyle.paperWarm],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
 
-            // 网点图案
+            // 印刷网点
             Canvas { context, sz in
-                let gap: CGFloat = 14
-                let dotR: CGFloat = 0.8
+                let gap: CGFloat = 13
+                let dotR: CGFloat = 0.9
                 var y: CGFloat = gap / 2
                 var isEven = true
                 while y < sz.height + gap {
                     var x: CGFloat = isEven ? gap / 2 : gap
                     while x < sz.width + gap {
                         let rect = CGRect(x: x - dotR, y: y - dotR, width: dotR * 2, height: dotR * 2)
-                        context.fill(Path(ellipseIn: rect), with: .color(ink.opacity(0.08)))
+                        context.fill(Path(ellipseIn: rect), with: .color(ink.opacity(0.05)))
                         x += gap
                     }
                     y += gap
                     isEven.toggle()
                 }
             }
+
+            // 角落半调渐晕
+            MangaHalftoneCorner(opacity: colorScheme == .dark ? 0.07 : 0.06, extent: 240)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
         }
     }
 
@@ -203,36 +207,39 @@ extension MangaChatPlayerLayout {
                 MonologueSymbolIcon(name: "chevron.down", size: 16, color: ink)
                     .frame(width: 34, height: 34)
                     .background(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
                             .fill(bubbleWhite)
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(ink, lineWidth: 2.0)
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .stroke(ink, lineWidth: 2.2)
                     )
                     .background(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
                             .fill(ink)
-                            .offset(x: 2.0, y: 2.0)
+                            .offset(x: 2.4, y: 2.4)
                     )
             }
             .buttonStyle(MonologueBouncingButtonStyle())
 
             Spacer()
 
-            // NOW PLAYING 标签
-            HStack(spacing: 3) {
-                MonologueIcon(icon: .comment, size: 10, color: ink, lineWidth: 1.8)
+            // 话数印章：墨块 + 朱红错版
+            HStack(spacing: 4) {
+                MonologueIcon(icon: .comment, size: 10, color: MangaStyle.onStrokeInk, lineWidth: 1.8)
                 Text("CHAT")
-                    .font(.system(size: 10, weight: .black, design: .rounded))
-                    .tracking(1)
+                    .font(.system(size: 10, weight: .black))
+                    .tracking(1.4)
             }
-            .foregroundStyle(ink)
+            .foregroundStyle(MangaStyle.onStrokeInk)
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(Capsule().fill(labelYellow))
-            .overlay(Capsule().stroke(ink, lineWidth: 2.0))
-            .background(Capsule().fill(ink).offset(x: 2, y: 2))
+            .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(MangaStyle.strokeInk))
+            .background(
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(accentPink)
+                    .offset(x: 2.2, y: 2.2)
+            )
 
             Spacer()
 
@@ -240,17 +247,17 @@ extension MangaChatPlayerLayout {
                 MonologueIcon(icon: .more, size: 16, color: ink, lineWidth: 1.8)
                     .frame(width: 34, height: 34)
                     .background(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
                             .fill(bubbleWhite)
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(ink, lineWidth: 2.0)
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .stroke(ink, lineWidth: 2.2)
                     )
                     .background(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
                             .fill(ink)
-                            .offset(x: 2.0, y: 2.0)
+                            .offset(x: 2.4, y: 2.4)
                     )
             }
             .buttonStyle(MonologueBouncingButtonStyle())
@@ -269,7 +276,11 @@ extension MangaChatPlayerLayout {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(player.currentSong?.name ?? NSLocalizedString("not_playing", comment: "未在播放"))
-                    .font(.system(size: 18, weight: .heavy, design: .rounded))
+                    .monologuePlayerDisplayFont(
+                        size: 18,
+                        weight: .heavy,
+                        fallback: .system(size: 18, weight: .heavy, design: .rounded)
+                    )
                     .foregroundColor(ink)
                     .lineLimit(1)
 
@@ -289,16 +300,20 @@ extension MangaChatPlayerLayout {
                 mangaLikeButton(song: song)
             }
 
-            // 音质标签
+            // 音质标签：印刷角标
             Button { showQualitySheet = true } label: {
                 Text(player.qualityButtonText)
-                    .font(.system(size: 10, weight: .black, design: .rounded))
-                    .foregroundStyle(ink)
+                    .font(.system(size: 10, weight: .black))
+                    .tracking(0.6)
+                    .foregroundStyle(bubbleWhite)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 5)
-                    .background(Capsule().fill(decoBlue))
-                    .overlay(Capsule().stroke(ink, lineWidth: 2))
-                    .background(Capsule().fill(ink).offset(x: 2, y: 2))
+                    .background(RoundedRectangle(cornerRadius: 3, style: .continuous).fill(ink))
+                    .background(
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                            .fill(accentPink)
+                            .offset(x: 2, y: 2)
+                    )
             }
             .buttonStyle(MonologueBouncingButtonStyle())
             .playerQualitySelectionAvailability()
@@ -312,8 +327,8 @@ extension MangaChatPlayerLayout {
             LikeManager.shared.toggleLike(songId: song.id, isQQMusic: song.isQQMusic, song: song)
         } label: {
             MangaHeart()
-                .fill(isLiked ? accentPink : decoBlue)
-                .overlay(MangaHeart().stroke(ink, lineWidth: 1.2))
+                .fill(isLiked ? accentPink : bubbleWhite)
+                .overlay(MangaHeart().stroke(ink, lineWidth: 1.4))
                 .frame(width: 14, height: 12)
                 .background(
                     MangaHeart()
@@ -329,25 +344,25 @@ extension MangaChatPlayerLayout {
         Group {
             if let url = player.currentSong?.coverUrl?.sized(200) {
                 CachedAsyncImage(url: url) {
-                    Color(hex: "FFE4B5").opacity(0.4)
+                    bubblePink.opacity(0.6)
                 }
                 .aspectRatio(contentMode: .fill)
             } else {
                 ZStack {
-                    labelYellow.opacity(0.4)
+                    bubblePink.opacity(0.6)
                     MonologueIcon(icon: .musicNote, size: size * 0.35, color: inkSub.opacity(0.5), lineWidth: 1.8)
                 }
             }
         }
         .frame(width: size, height: size)
-        .clipShape(RoundedRectangle(cornerRadius: size * 0.3, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: size * 0.12, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: size * 0.3, style: .continuous)
-                .stroke(ink, lineWidth: 2.5)
+            RoundedRectangle(cornerRadius: size * 0.12, style: .continuous)
+                .stroke(ink, lineWidth: 2.4)
         )
         .background(
-            RoundedRectangle(cornerRadius: size * 0.3, style: .continuous)
-                .fill(ink)
+            RoundedRectangle(cornerRadius: size * 0.12, style: .continuous)
+                .fill(accentPink)
                 .offset(x: 3, y: 3)
         )
     }
@@ -373,8 +388,8 @@ extension MangaChatPlayerLayout {
                                     // 仅显示已经播放到或正在播放的歌词（类似聊天时逐条出现）
                                     if index <= lyricVM.currentLineIndex {
                                         chatBubble(
-                                            text: line.text,
-                                            translation: line.translation,
+                                            text: line.text.monologueLyricDisplayText,
+                                            translation: line.translation?.monologueLyricDisplayText,
                                             isLeft: isLeft,
                                             isCurrent: isCurrent,
                                             index: index
@@ -401,7 +416,7 @@ extension MangaChatPlayerLayout {
                         }
                     }
                     .onAppear {
-                        proxy.scrollTo(lyricVM.currentLineIndex, anchor: .center)
+                        proxy.monologueRestoreLyricPosition { lyricVM.currentLineIndex }
                     }
                 }
             } else {
@@ -419,12 +434,12 @@ extension MangaChatPlayerLayout {
                     }
                     .padding(30)
                     .background(
-                        RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
                             .fill(bubbleWhite.opacity(0.8))
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: 24, style: .continuous)
-                            .stroke(ink.opacity(0.15), lineWidth: 2)
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(ink.opacity(0.3), lineWidth: 2)
                     )
 
                     Spacer()
@@ -460,37 +475,37 @@ extension MangaChatPlayerLayout {
                 // 封面缩略图
                 if let url = player.currentSong?.coverUrl?.sized(100) {
                     CachedAsyncImage(url: url) {
-                        labelYellow.opacity(0.4)
+                        bubblePink.opacity(0.6)
                     }
                     .aspectRatio(contentMode: .fill)
                 } else {
                     ZStack {
-                        labelYellow.opacity(0.4)
+                        bubblePink.opacity(0.6)
                         MonologueIcon(icon: .microphone, size: 13, color: inkSub, lineWidth: 1.7)
                     }
                 }
             } else {
                 if let avatarStr = userAvatarUrl, let url = URL(string: avatarStr) {
                     CachedAsyncImage(url: url) {
-                        decoBlue.opacity(0.5)
+                        bubbleBlue.opacity(0.7)
                     }
                     .aspectRatio(contentMode: .fill)
                 } else {
                     ZStack {
-                        decoBlue.opacity(0.5)
+                        bubbleBlue.opacity(0.7)
                         MonologueIcon(icon: .profileFilled, size: 17, color: ink.opacity(0.5), lineWidth: 1.7)
                     }
                 }
             }
         }
         .frame(width: 30, height: 30)
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
+            RoundedRectangle(cornerRadius: 5, style: .continuous)
                 .stroke(ink, lineWidth: 2)
         )
         .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
+            RoundedRectangle(cornerRadius: 5, style: .continuous)
                 .fill(ink)
                 .offset(x: 2, y: 2)
         )
@@ -499,29 +514,45 @@ extension MangaChatPlayerLayout {
     func leftBubbleContent(text: String, translation: String?, isCurrent: Bool) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(text)
-                .font(.system(size: isCurrent ? 17 : 15, weight: isCurrent ? .heavy : .bold, design: .rounded))
+                .font(
+                    MonologuePlayerFont.activeFont(
+                        size: isCurrent ? 17 : 15,
+                        weight: isCurrent ? .heavy : .bold,
+                        fallback: .system(
+                            size: isCurrent ? 17 : 15,
+                            weight: isCurrent ? .heavy : .bold,
+                            design: .rounded
+                        )
+                    )
+                )
                 .foregroundColor(ink)
                 .multilineTextAlignment(.leading)
 
             if let trans = translation, !trans.isEmpty {
                 Text(trans)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .font(
+                        MonologuePlayerFont.activeFont(
+                            size: 12,
+                            weight: .medium,
+                            fallback: .system(size: 12, weight: .medium, design: .rounded)
+                        )
+                    )
                     .foregroundColor(inkSub)
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background(
-            UnevenRoundedRectangle(topLeadingRadius: 18, bottomLeadingRadius: 6, bottomTrailingRadius: 18, topTrailingRadius: 18, style: .continuous)
+            UnevenRoundedRectangle(topLeadingRadius: 12, bottomLeadingRadius: 3, bottomTrailingRadius: 12, topTrailingRadius: 12, style: .continuous)
                 .fill(isCurrent ? bubblePink : bubbleWhite)
         )
         .overlay(
-            UnevenRoundedRectangle(topLeadingRadius: 18, bottomLeadingRadius: 6, bottomTrailingRadius: 18, topTrailingRadius: 18, style: .continuous)
-                .stroke(ink, lineWidth: isCurrent ? 3 : 2)
+            UnevenRoundedRectangle(topLeadingRadius: 12, bottomLeadingRadius: 3, bottomTrailingRadius: 12, topTrailingRadius: 12, style: .continuous)
+                .stroke(ink, lineWidth: isCurrent ? 2.8 : 2)
         )
         .background(
-            UnevenRoundedRectangle(topLeadingRadius: 18, bottomLeadingRadius: 6, bottomTrailingRadius: 18, topTrailingRadius: 18, style: .continuous)
-                .fill(ink)
+            UnevenRoundedRectangle(topLeadingRadius: 12, bottomLeadingRadius: 3, bottomTrailingRadius: 12, topTrailingRadius: 12, style: .continuous)
+                .fill(isCurrent ? accentPink : ink)
                 .offset(x: 3, y: 3)
         )
     }
@@ -529,13 +560,29 @@ extension MangaChatPlayerLayout {
     func rightBubbleContent(text: String, translation: String?, isCurrent: Bool) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(text)
-                .font(.system(size: isCurrent ? 17 : 15, weight: isCurrent ? .heavy : .bold, design: .rounded))
+                .font(
+                    MonologuePlayerFont.activeFont(
+                        size: isCurrent ? 17 : 15,
+                        weight: isCurrent ? .heavy : .bold,
+                        fallback: .system(
+                            size: isCurrent ? 17 : 15,
+                            weight: isCurrent ? .heavy : .bold,
+                            design: .rounded
+                        )
+                    )
+                )
                 .foregroundColor(ink)
                 .multilineTextAlignment(.leading)
 
             if let trans = translation, !trans.isEmpty {
                 Text(trans)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .font(
+                        MonologuePlayerFont.activeFont(
+                            size: 12,
+                            weight: .medium,
+                            fallback: .system(size: 12, weight: .medium, design: .rounded)
+                        )
+                    )
                     .foregroundColor(inkSub)
                     .multilineTextAlignment(.leading)
             }
@@ -543,16 +590,16 @@ extension MangaChatPlayerLayout {
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background(
-            UnevenRoundedRectangle(topLeadingRadius: 18, bottomLeadingRadius: 18, bottomTrailingRadius: 6, topTrailingRadius: 18, style: .continuous)
+            UnevenRoundedRectangle(topLeadingRadius: 12, bottomLeadingRadius: 12, bottomTrailingRadius: 3, topTrailingRadius: 12, style: .continuous)
                 .fill(isCurrent ? bubbleBlue : bubbleWhite)
         )
         .overlay(
-            UnevenRoundedRectangle(topLeadingRadius: 18, bottomLeadingRadius: 18, bottomTrailingRadius: 6, topTrailingRadius: 18, style: .continuous)
-                .stroke(ink, lineWidth: isCurrent ? 3 : 2)
+            UnevenRoundedRectangle(topLeadingRadius: 12, bottomLeadingRadius: 12, bottomTrailingRadius: 3, topTrailingRadius: 12, style: .continuous)
+                .stroke(ink, lineWidth: isCurrent ? 2.8 : 2)
         )
         .background(
-            UnevenRoundedRectangle(topLeadingRadius: 18, bottomLeadingRadius: 18, bottomTrailingRadius: 6, topTrailingRadius: 18, style: .continuous)
-                .fill(ink)
+            UnevenRoundedRectangle(topLeadingRadius: 12, bottomLeadingRadius: 12, bottomTrailingRadius: 3, topTrailingRadius: 12, style: .continuous)
+                .fill(isCurrent ? decoBlue : ink)
                 .offset(x: -3, y: 3)
         )
     }
@@ -611,19 +658,30 @@ extension MangaChatPlayerLayout {
 
                 Spacer()
 
-                // 下载
-                if let song = player.currentSong {
-                    Button {
-                        if !downloadManager.isDownloaded(songId: song.id) {
-                            showDownloadSheet = true
+                // 下载（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled；隐藏期间该位置显示沉浸模式按钮）
+                if player.currentSong != nil {
+                    if AppConfig.Features.downloadEnabled, let song = player.currentSong {
+                        Button {
+                            if !downloadManager.isDownloaded(songId: song.id) {
+                                showDownloadSheet = true
+                            }
+                        } label: {
+                            mangaControlIcon(symbolName: "arrow.down.circle.fill", size: 16,
+                                            dimmed: downloadManager.isDownloaded(songId: song.id))
+                                .frame(width: 36, height: 36)
                         }
-                    } label: {
-                        mangaControlIcon(symbolName: "arrow.down.circle.fill", size: 16,
-                                        dimmed: downloadManager.isDownloaded(songId: song.id))
-                            .frame(width: 36, height: 36)
+                        .buttonStyle(MonologueBouncingButtonStyle())
+                        .disabled(downloadManager.isDownloaded(songId: song.id))
+                    } else {
+                        // 沉浸模式按钮 — 占用原下载按钮的位置
+                        Button {
+                            ImmersiveModeController.shared.present()
+                        } label: {
+                            MonologueIcon(icon: .immersive, size: 16, color: inkSub)
+                                .frame(width: 36, height: 36)
+                        }
+                        .buttonStyle(MonologueBouncingButtonStyle())
                     }
-                    .buttonStyle(MonologueBouncingButtonStyle())
-                    .disabled(downloadManager.isDownloaded(songId: song.id))
                 } else {
                     Color.clear.frame(width: 36)
                 }
@@ -641,15 +699,20 @@ extension MangaChatPlayerLayout {
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
         .background(
-            RoundedRectangle(cornerRadius: 32, style: .continuous)
-                .fill(bubbleWhite.opacity(0.95))
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(bubbleWhite.opacity(0.97))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 32, style: .continuous)
-                .stroke(ink, lineWidth: 2.5)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(ink, lineWidth: 2.4)
+        )
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(ink.opacity(0.85))
+                .offset(x: 3.5, y: 3.5)
         )
         .padding(.horizontal, 16)
-        .padding(.bottom, 0)
+        .padding(.bottom, 4)
     }
 
     var mangaProgressBar: some View {
@@ -660,20 +723,22 @@ extension MangaChatPlayerLayout {
                     : 0.0
 
                 ZStack(alignment: .leading) {
-                    // 轨道
-                    Capsule()
-                        .fill(ink.opacity(0.1))
+                    // 轨道：印刷空格
+                    RoundedRectangle(cornerRadius: 2.5, style: .continuous)
+                        .fill(ink.opacity(0.08))
                         .frame(height: 8)
                         .overlay(
-                            Capsule().stroke(ink, lineWidth: 2)
+                            RoundedRectangle(cornerRadius: 2.5, style: .continuous)
+                                .stroke(ink, lineWidth: 2)
                         )
 
-                    // 已播放
-                    Capsule()
-                        .fill(colorExtractor.dominantColor)
+                    // 已播放：朱红墨条
+                    RoundedRectangle(cornerRadius: 2.5, style: .continuous)
+                        .fill(accentPink)
                         .frame(width: max(8, barGeo.size.width * CGFloat(progress)), height: 8)
                         .overlay(
-                            Capsule().stroke(ink, lineWidth: 2)
+                            RoundedRectangle(cornerRadius: 2.5, style: .continuous)
+                                .stroke(ink, lineWidth: 2)
                         )
                 }
                 .contentShape(Rectangle())
@@ -699,19 +764,19 @@ extension MangaChatPlayerLayout {
     }
 
     func mangaButton(symbolName: String, w: CGFloat, h: CGFloat, isPlay: Bool) -> some View {
-        MonologueSymbolIcon(name: symbolName, size: min(w, h) * 0.44, color: isPlay ? .white : ink)
+        MonologueSymbolIcon(name: symbolName, size: min(w, h) * 0.44, color: isPlay ? MangaStyle.onStrokeInk : ink)
             .frame(width: w, height: h)
             .background(
-                RoundedRectangle(cornerRadius: min(w, h) * 0.32, style: .continuous)
-                    .fill(isPlay ? colorExtractor.dominantColor : bubbleWhite)
+                RoundedRectangle(cornerRadius: min(w, h) * 0.14, style: .continuous)
+                    .fill(isPlay ? MangaStyle.strokeInk : bubbleWhite)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: min(w, h) * 0.32, style: .continuous)
-                    .stroke(ink, lineWidth: 2.5)
+                RoundedRectangle(cornerRadius: min(w, h) * 0.14, style: .continuous)
+                    .stroke(ink, lineWidth: 2.4)
             )
             .background(
-                RoundedRectangle(cornerRadius: min(w, h) * 0.32, style: .continuous)
-                    .fill(ink)
+                RoundedRectangle(cornerRadius: min(w, h) * 0.14, style: .continuous)
+                    .fill(isPlay ? accentPink : ink)
                     .offset(x: 3, y: 3)
             )
     }
@@ -833,10 +898,10 @@ struct FloatingMangaDecorations: View, Equatable {
     @State private var floaters: [Floater] = []
     let timer = Timer.publish(every: 0.8, on: .main, in: .common).autoconnect()
     
-    private var ink: Color { colorScheme == .dark ? Color(hex: "E8E8EF") : Color(hex: "2D2D3A") }
-    private var accentPink: Color { colorScheme == .dark ? Color(hex: "D86782") : Color(hex: "FF8FAB") }
-    private var labelYellow: Color { colorScheme == .dark ? Color(hex: "E6BD76") : Color(hex: "FFE4B5") }
-    private var decoBlue: Color { colorScheme == .dark ? Color(hex: "6A98BD") : Color(hex: "B8D4F0") }
+    private var ink: Color { MangaStyle.ink }
+    private var accentPink: Color { MangaStyle.accentPink }
+    private var labelYellow: Color { MangaStyle.bubbleWhite }
+    private var decoBlue: Color { MangaStyle.mint }
     
     var body: some View {
         ZStack {
@@ -877,6 +942,7 @@ struct FloatingMangaDecorations: View, Equatable {
             if colorScheme == .dark {
                 MangaBreathingStar(ink: ink, fill: labelYellow)
             } else {
+                // 印刷风：白底墨线星，少量朱红
                 MangaStar()
                     .fill(labelYellow)
                     .overlay(MangaStar().stroke(ink, lineWidth: 1.5))
@@ -889,8 +955,8 @@ struct FloatingMangaDecorations: View, Equatable {
                 .frame(width: 14, height: 12)
         case .dot:
             Circle()
-                .fill(decoBlue)
-                .overlay(Circle().stroke(ink, lineWidth: 1.2))
+                .fill(decoBlue.opacity(0.7))
+                .overlay(Circle().stroke(ink.opacity(0.8), lineWidth: 1.2))
                 .frame(width: 10, height: 10)
         case .meteor:
             EmptyView() // Handled externally by MangaFluidMeteor

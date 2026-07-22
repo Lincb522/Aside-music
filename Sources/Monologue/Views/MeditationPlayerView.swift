@@ -627,6 +627,10 @@ private struct MeditationTimerSheet: View {
         .padding(.top, 18)
         .padding(.bottom, 28)
         .background(MeditationTimerBackground().ignoresSafeArea())
+        // 深色背景铺满整个 sheet 面板（含把手区），把手处不再露一截毛玻璃
+        .monologueSheetSurface(id: "meditation-timer") {
+            MeditationTimerBackground()
+        }
     }
 
     private var hasActiveTimer: Bool {

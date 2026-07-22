@@ -1,6 +1,7 @@
 import HiconIcons
 import SwiftUI
 
+@MainActor
 public struct ContentView: View {
     @AppStorage("isLoggedIn") private var isLoggedIn: Bool = false
     @State private var showWelcome = true
@@ -9,13 +10,15 @@ public struct ContentView: View {
     @State private var didSynchronizeLaunchTheme = false
     @ObservedObject private var settings = SettingsManager.shared
     @ObservedObject private var onlineAccess = OnlineAccessManager.shared
-    @State private var themeManager = GlobalThemeManager.shared
+    @ObservedObject private var themeManager = GlobalThemeManager.shared
     @Environment(\.colorScheme) private var systemColorScheme
 
     @State private var showPersonalFM = false
     @State private var showNormalPlayer = false
+    @State private var showImmersivePlayer = false
     @State private var showRadioPlayer = false
     @State private var radioPlayerRadioId: Int? = nil
+    @AppStorage("immersivePersistent") private var immersivePersistent = false
 
     public init() {}
 
@@ -27,6 +30,18 @@ public struct ContentView: View {
                         .transition(.identity)
                 }
 
+                // 版本更新后的更新日志弹窗（欢迎页关闭后触发检查）
+                ChangelogPopupOverlay()
+                    .zIndex(60)
+
+                // 周报 / 月报弹窗（与更新日志、专属问候错峰弹出）
+                ListeningReportPopupOverlay()
+                    .zIndex(65)
+
+                // 浆糊专属问候弹窗（特定 Token 生效，与更新日志错峰弹出）
+                SpecialGreetingOverlay()
+                    .zIndex(70)
+
                 if showWelcome {
                     WelcomeView(isPresented: $showWelcome)
                         .transition(.identity)
@@ -36,6 +51,11 @@ public struct ContentView: View {
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.82), value: settings.floatingBarStyle)
         .onChange(of: showNormalPlayer) { _, show in
+            withAnimation(MonologueAnimation.playerTransition) {
+                PlayerManager.shared.isTabBarHidden = show
+            }
+        }
+        .onChange(of: showImmersivePlayer) { _, show in
             withAnimation(MonologueAnimation.playerTransition) {
                 PlayerManager.shared.isTabBarHidden = show
             }
@@ -66,6 +86,9 @@ public struct ContentView: View {
             if !isShowing {
                 mountMainContentWithoutAnimation()
                 onlineAccess.refreshOnLaunch(showInvalidAlert: true)
+                ChangelogManager.shared.presentLatestAfterUpdateIfNeeded()
+                SpecialGreetingManager.shared.presentOnLaunchIfEligible()
+                ListeningReportCenter.shared.presentOnLaunchIfEligible()
             }
         }
         .onOpenURL { url in
@@ -87,7 +110,7 @@ public struct ContentView: View {
                     showPersonalFM = true
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .init("OpenNormalPlayer"))) { _ in
-                    showNormalPlayer = true
+                    openNormalPlaybackSurface()
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToLibrarySquare"))) { _ in
                     selectTabImmediately(.library)
@@ -112,6 +135,9 @@ public struct ContentView: View {
                 }
                 .fullScreenCover(isPresented: $showNormalPlayer) {
                     FullScreenPlayerView()
+                }
+                .fullScreenCover(isPresented: $showImmersivePlayer) {
+                    AriaStageView()
                 }
                 .fullScreenCover(isPresented: $showRadioPlayer) {
                     if let radioId = radioPlayerRadioId {
@@ -157,7 +183,7 @@ public struct ContentView: View {
     /// 其他场景保持原有行为。
     @ViewBuilder
     private var tabViewContent: some View {
-        if #available(iOS 26.0, *), settings.useSystemTabBar {
+        if #available(iOS 26.0, *), settings.useSystemTabBar, settings.globalThemeId != .manga {
             SystemTabBarWithAccessory(content: { tabViewCore })
         } else {
             tabViewCore
@@ -173,7 +199,7 @@ public struct ContentView: View {
         return TabView(selection: tabSelectionBinding) {
             tabRootView(for: .home)
                 .id(tabRootIdentity(for: .home))
-                .toolbar(settings.useSystemTabBar ? .automatic : .hidden, for: .tabBar)
+                .toolbar(settings.useSystemTabBar && settings.globalThemeId != .manga ? .automatic : .hidden, for: .tabBar)
                 .tabItem {
                     Label {
                         Text(tabLabel(for: .home))
@@ -184,7 +210,7 @@ public struct ContentView: View {
                 .tag(Tab.home)
             tabRootView(for: .podcast)
                 .id(tabRootIdentity(for: .podcast))
-                .toolbar(settings.useSystemTabBar ? .automatic : .hidden, for: .tabBar)
+                .toolbar(settings.useSystemTabBar && settings.globalThemeId != .manga ? .automatic : .hidden, for: .tabBar)
                 .tabItem {
                     Label {
                         Text(tabLabel(for: .podcast))
@@ -195,7 +221,7 @@ public struct ContentView: View {
                 .tag(Tab.podcast)
             tabRootView(for: .library)
                 .id(tabRootIdentity(for: .library))
-                .toolbar(settings.useSystemTabBar ? .automatic : .hidden, for: .tabBar)
+                .toolbar(settings.useSystemTabBar && settings.globalThemeId != .manga ? .automatic : .hidden, for: .tabBar)
                 .tabItem {
                     Label {
                         Text(tabLabel(for: .library))
@@ -206,7 +232,7 @@ public struct ContentView: View {
                 .tag(Tab.library)
             tabRootView(for: .profile)
                 .id(tabRootIdentity(for: .profile))
-                .toolbar(settings.useSystemTabBar ? .automatic : .hidden, for: .tabBar)
+                .toolbar(settings.useSystemTabBar && settings.globalThemeId != .manga ? .automatic : .hidden, for: .tabBar)
                 .tabItem {
                     Label {
                         Text(tabLabel(for: .profile))
@@ -218,6 +244,17 @@ public struct ContentView: View {
         }
         .id("tab-view-\(settings.globalThemeId.rawValue)-\(settings.globalThemeApplicationRevision)-\(accessMode)")
         .tint(tabTint)
+        .background {
+            if settings.useSystemTabBar && settings.globalThemeId != .manga {
+                SystemTabBarAppearanceBridge(
+                    accent: tabTint,
+                    colorScheme: settings.activeColorScheme,
+                    revision: settings.globalThemeRevision
+                )
+                .frame(width: 0, height: 0)
+                .accessibilityHidden(true)
+            }
+        }
     }
 
     @ViewBuilder
@@ -267,7 +304,12 @@ public struct ContentView: View {
     private var tabSelectionBinding: Binding<Tab> {
         Binding(
             get: { currentTab },
-            set: { selectTabImmediately($0) }
+            set: { tab in
+                if currentTab != tab, settings.useSystemTabBar {
+                    UISelectionFeedbackGenerator().selectionChanged()
+                }
+                selectTabImmediately(tab)
+            }
         )
     }
 
@@ -299,21 +341,65 @@ public struct ContentView: View {
     private func tabIcon(for tab: Tab) -> some View {
         let iconSet = AppInterfaceIconSet.selectedFromDefaults
 
-        if iconSet == .pawPrint {
-            MonologueIcon(
-                icon: pawPrintTabIcon(for: tab),
-                size: pawPrintTabIconVisualSize(for: tab)
-            )
-            .frame(width: tabIconFrameSize, height: tabIconFrameSize)
+        if iconSet == .sfSymbols {
+            // 系统 TabBar 会提取 tabItem 内部的原始 UIImage，并忽略自定义
+            // View 的 frame。SF 图标包内部使用 60pt 符号源，必须在这里
+            // 交回原生 Image(systemName:) 才会应用系统标准 Tab 图标尺寸。
+            systemTabSymbolIcon(for: tab)
         } else if iconSet == .hicon {
             defaultTabIcon(for: tab)
+        } else if iconSet == .pawPrint {
+            originalArtworkTabIcon(
+                icon: pawPrintTabIcon(for: tab),
+                iconSet: iconSet,
+                visualSize: pawPrintTabIconVisualSize(for: tab)
+            )
+        } else if iconSet.usesOriginalArtwork {
+            originalArtworkTabIcon(
+                icon: themedTabIcon(for: tab),
+                iconSet: iconSet,
+                visualSize: themedTabIconVisualSize(for: iconSet)
+            )
         } else {
             MonologueIcon(
                 icon: themedTabIcon(for: tab),
-                size: themedTabIconVisualSize(for: iconSet)
+                size: themedTabIconVisualSize(for: iconSet),
+                normalizesBitmapScale: true
             )
             .frame(width: tabIconFrameSize, height: tabIconFrameSize)
         }
+    }
+
+    @ViewBuilder
+    private func systemTabSymbolIcon(for tab: Tab) -> some View {
+        switch tab {
+        case .home:
+            Image(systemName: currentTab == .home ? "house.fill" : "house")
+        case .podcast:
+            if onlineAccess.canUseOnlineFeatures {
+                Image(systemName: currentTab == .podcast ? "mic.fill" : "mic")
+            } else {
+                Image(systemName: currentTab == .podcast ? "music.note.list" : "music.note")
+            }
+        case .library:
+            Image(systemName: currentTab == .library ? "square.stack.fill" : "square.stack")
+        case .profile:
+            Image(systemName: currentTab == .profile ? "person.fill" : "person")
+        }
+    }
+
+    private func originalArtworkTabIcon(
+        icon: MonologueIcon.IconType,
+        iconSet: AppInterfaceIconSet,
+        visualSize: CGFloat
+    ) -> some View {
+        Image(uiImage: iconSet.image(for: icon).withRenderingMode(.alwaysOriginal))
+            .resizable()
+            .interpolation(.high)
+            .antialiased(true)
+            .scaledToFit()
+            .frame(width: visualSize, height: visualSize)
+            .frame(width: tabIconFrameSize, height: tabIconFrameSize)
     }
 
     private var tabIconFrameSize: CGFloat { 23 }
@@ -350,11 +436,11 @@ public struct ContentView: View {
         switch iconSet {
         case .doodlePop:
             return 16.5
-        case .blobIcons, .iconExport, .dotDogSnake:
+        case .blobIcons, .iconExport, .dotDogSnake, .minimalWhiteIcons:
             return 17
         case .pawPrint:
             return 18
-        case .hicon, .zappicon, .lucide, .solar:
+        case .hicon, .sfSymbols, .zappicon, .lucide, .solar:
             return 23
         }
     }
@@ -431,6 +517,17 @@ public struct ContentView: View {
             radioPlayerRadioId = radioID
             showRadioPlayer = true
         case .normal:
+            openNormalPlaybackSurface()
+        }
+    }
+
+    private func openNormalPlaybackSurface() {
+        guard PlayerManager.shared.currentSong != nil else { return }
+
+        if immersivePersistent {
+            OrientationManager.shared.enterLandscape()
+            showImmersivePlayer = true
+        } else {
             showNormalPlayer = true
         }
     }
@@ -486,13 +583,14 @@ public struct ContentView: View {
 
 // MARK: - 悬浮栏容器（隔离 PlayerManager 订阅）
 
+@MainActor
 private struct ContentViewFloatingBarContainer: View {
     @Binding var currentTab: Tab
     @ObservedObject var settings: SettingsManager
     @ObservedObject private var player = FloatingBarPlaybackModel.shared
 
     var body: some View {
-        if !settings.useSystemTabBar && !player.isTabBarHidden {
+        if (!settings.useSystemTabBar || settings.globalThemeId == .manga) && !player.isTabBarHidden {
             floatingBarView
                 .id("\(settings.globalThemeId.rawValue)-\(settings.globalThemeRevision)")
                 .themeRenderInteractiveLayer()
@@ -506,30 +604,40 @@ private struct ContentViewFloatingBarContainer: View {
 
     @ViewBuilder
     private var floatingBarView: some View {
-        switch settings.floatingBarStyle {
-        case .unified:
+        if settings.globalThemeId == .manga {
             VStack {
                 Spacer()
                 UnifiedFloatingBar(currentTab: $currentTab)
                     .iPadContentWidth(600)
-                    .padding(.horizontal, DeviceLayout.isPad ? 40 : 24)
+                    .padding(.horizontal, DeviceLayout.isPad ? 40 : 6)
                     .padding(.bottom, 0)
             }
+        } else {
+            switch settings.floatingBarStyle {
+            case .unified:
+                VStack {
+                    Spacer()
+                    UnifiedFloatingBar(currentTab: $currentTab)
+                        .iPadContentWidth(600)
+                        .padding(.horizontal, DeviceLayout.isPad ? 40 : 24)
+                        .padding(.bottom, 0)
+                }
 
-        case .classic:
-            ClassicFloatingBar(currentTab: $currentTab)
+            case .classic:
+                ClassicFloatingBar(currentTab: $currentTab)
 
-        case .minimal:
-            VStack {
-                Spacer()
-                MinimalMiniPlayer(currentTab: $currentTab)
-                    .iPadContentWidth(600)
-                    .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
-                    .padding(.bottom, 8)
+            case .minimal:
+                VStack {
+                    Spacer()
+                    MinimalMiniPlayer(currentTab: $currentTab)
+                        .iPadContentWidth(600)
+                        .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
+                        .padding(.bottom, 8)
+                }
+
+            case .floatingBall:
+                FloatingBallView(currentTab: $currentTab)
             }
-
-        case .floatingBall:
-            FloatingBallView(currentTab: $currentTab)
         }
     }
 
@@ -537,6 +645,7 @@ private struct ContentViewFloatingBarContainer: View {
 
 // MARK: - 紧凑迷你播放器容器（隔离 PlayerManager + PlaybackTimePublisher 订阅）
 
+@MainActor
 private struct ContentViewCompactPlayerContainer: View {
     @ObservedObject var settings: SettingsManager
     @ObservedObject private var player = FloatingBarPlaybackModel.shared
@@ -544,14 +653,14 @@ private struct ContentViewCompactPlayerContainer: View {
     /// iOS 26+ 时改用 `.tabViewBottomAccessory` 原生嵌入，这里跳过避免重复显示
     private var shouldUseNativeBottomAccessory: Bool {
         if #available(iOS 26.0, *) {
-            return settings.useSystemTabBar
+            return settings.useSystemTabBar && settings.globalThemeId != .manga
         }
         return false
     }
 
     var body: some View {
         if !shouldUseNativeBottomAccessory,
-           settings.useSystemTabBar && !player.isTabBarHidden,
+           settings.useSystemTabBar && settings.globalThemeId != .manga && !player.isTabBarHidden,
            let song = player.currentSong
         {
             VStack {
@@ -583,6 +692,7 @@ private struct ContentViewCompactPlayerContainer: View {
 /// 若直接在 accessory 上 present sheet，点击按钮瞬间会和系统 bottomAccessory
 /// 的点击/hover 交互冲突，导致 sheet 刚出现就被即刻关闭。
 @available(iOS 26.0, *)
+@MainActor
 private struct SystemTabBarWithAccessory<Content: View>: View {
     let content: () -> Content
     @State private var playlistPresented = false
@@ -612,6 +722,7 @@ private struct SystemTabBarWithAccessory<Content: View>: View {
 /// 文字使用 `.primary` / `.secondary` 语义色，系统会根据 Liquid Glass 背景
 /// 自动补偿对比度（浅色背景自动变深色字、反之亦然）。
 @available(iOS 26.0, *)
+@MainActor
 private struct TabViewBottomMiniPlayer: View {
     @Binding var playlistPresented: Bool
     @ObservedObject private var player = FloatingBarPlaybackModel.shared
@@ -755,6 +866,7 @@ private struct TabBottomAccessoryPlaceholder: View {
 /// - 支持左右滑动切歌（`swipeToSkip()`：右滑下一首、左滑上一首）。
 /// - 歌名/歌词使用 `MarqueeText` 跑马灯滚动，不再缩略。
 @available(iOS 26.0, *)
+@MainActor
 private struct TabBottomAccessoryContent: View {
     let song: Song
     @Binding var playlistPresented: Bool
@@ -890,6 +1002,7 @@ private struct TabBottomAccessoryContent: View {
 
 // MARK: - 紧凑迷你播放器（独立视图，隔离高频订阅）
 
+@MainActor
 private struct CompactMiniPlayerView: View {
     let song: Song
     @ObservedObject private var player = FloatingBarPlaybackModel.shared
@@ -1027,6 +1140,7 @@ private struct CompactMiniPlayerView: View {
     }
 }
 
+@MainActor
 private struct MiniPlayerProgressStrip: View {
     let height: CGFloat
     let minFillWidth: CGFloat

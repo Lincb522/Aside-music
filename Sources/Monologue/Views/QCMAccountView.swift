@@ -32,7 +32,7 @@ struct QQAccountView: View {
     }
 
     private var themeAccentText: Color {
-        if MangaStyle.isActive { return MangaStyle.ink }
+        if MangaStyle.isActive { return ThemeColorCustomization.readableForegroundColor(on: MangaStyle.labelYellow, light: MangaStyle.ink, dark: MangaStyle.onStrokeInk) }
         if MujiStyle.isActive { return MujiStyle.paper }
         if SequoiaStyle.isActive { return SequoiaStyle.onAccent }
         if NeumorphicStyle.isActive { return Color(light: .white, dark: .black) }
@@ -217,7 +217,7 @@ struct QQAccountView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 32)
-        .themedPageSurface(cornerRadius: MangaStyle.isActive ? 24 : 20, elevated: true, mangaTint: MangaStyle.bubbleWhite)
+        .themedPageSurface(cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius + 4 : 20, elevated: true, mangaTint: MangaStyle.bubbleWhite)
     }
 
     private var avatarPlaceholder: some View {
@@ -247,7 +247,7 @@ struct QQAccountView: View {
                 )
             )
         }
-        .themedPageSurface(cornerRadius: 18, elevated: true, mangaTint: MangaStyle.bubbleWhite)
+        .themedPageSurface(cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius + 2 : 18, elevated: true, mangaTint: MangaStyle.bubbleWhite)
     }
 
     private func detailRow(icon: MonologueIcon.IconType, title: String, trailing: AnyView) -> some View {
@@ -315,10 +315,10 @@ struct QQAccountView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 15)
                 .background(themeAccent)
-                .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 16 : 14, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius + 2 : 14, style: .continuous))
                 .overlay {
                     if MangaStyle.isActive {
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        RoundedRectangle(cornerRadius: MangaStyle.cardRadius + 2, style: .continuous)
                             .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
                     }
                 }
@@ -356,13 +356,13 @@ struct QQAccountView: View {
             Spacer().frame(height: 60)
 
             ZStack {
-                RoundedRectangle(cornerRadius: MangaStyle.isActive ? 24 : 36, style: .continuous)
+                RoundedRectangle(cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius + 4 : 36, style: .continuous)
                     .fill(accountHeroFill)
                     .frame(width: 120, height: 120)
                     .shadow(color: .black.opacity(0.06), radius: 20, x: 0, y: 8)
                     .overlay {
                         if MangaStyle.isActive {
-                            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                            RoundedRectangle(cornerRadius: MangaStyle.cardRadius + 4, style: .continuous)
                                 .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
                         }
                     }
@@ -405,7 +405,7 @@ struct QQAccountView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
                 .background(themeAccent)
-                .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 18 : 20, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius + 2 : 20, style: .continuous))
             }
             .buttonStyle(MonologueBouncingButtonStyle())
             .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -428,7 +428,7 @@ struct QQAccountView: View {
             Divider().padding(.leading, 56)
             featureRow(icon: .translate, title: NSLocalizedString("qq_feature_lyrics", comment: ""), subtitle: NSLocalizedString("qq_feature_lyrics_desc", comment: ""))
         }
-        .themedPageSurface(cornerRadius: 18, elevated: true, mangaTint: MangaStyle.bubbleWhite)
+        .themedPageSurface(cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius + 2 : 18, elevated: true, mangaTint: MangaStyle.bubbleWhite)
     }
 
     private var accountTitleFont: Font {
@@ -532,12 +532,15 @@ struct QQAccountView: View {
                 let homepage = try await userSession.withUserSession { client in
                     try await client.userHomepage(euin: euin)
                 }
-                if let baseInfo = homepage["Info"]?["BaseInfo"] {
+                // 新版 API: { base_info: { name, avatar }, singer, tab_detail }
+                if let baseInfo = homepage["base_info"] ?? homepage["Info"]?["BaseInfo"] {
                     if nickname == nil || nickname?.isEmpty == true {
-                        nickname = baseInfo["Name"]?.stringValue
+                        nickname = baseInfo["name"]?.stringValue ?? baseInfo["Name"]?.stringValue
                     }
                     if avatarURL == nil || avatarURL?.isEmpty == true {
-                        avatarURL = baseInfo["BigAvatar"]?.stringValue ?? baseInfo["Avatar"]?.stringValue
+                        avatarURL = baseInfo["avatar"]?.stringValue
+                            ?? baseInfo["BigAvatar"]?.stringValue
+                            ?? baseInfo["Avatar"]?.stringValue
                     }
                 }
             }

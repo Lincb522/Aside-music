@@ -16,6 +16,9 @@ extension AudioLabManager {
         timeoutNanoseconds: UInt64 = 5_000_000_000
     ) async throws -> [Float] {
         let analyzer = PlayerManager.shared.spectrumAnalyzer
+        // 记录进入前的状态：分析器可能正被其它消费者（如沉浸模式视觉引擎）占用，
+        // 收集结束后必须还原而不是粗暴关闭
+        let wasEnabled = analyzer.isEnabled
         analyzer.isEnabled = true
         
         var collectedSpectrums: [[Float]] = []
@@ -45,7 +48,7 @@ extension AudioLabManager {
             }
         }
         
-        analyzer.isEnabled = false
+        analyzer.isEnabled = wasEnabled
         
         guard !collectedSpectrums.isEmpty else { return [] }
         

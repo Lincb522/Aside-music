@@ -112,7 +112,7 @@ private struct PetWhiteSideRail: View {
                 ForEach(0..<5, id: \.self) { index in
                     PetWhitePawPrint(
                         size: index.isMultiple(of: 2) ? 18 : 14,
-                        tint: index.isMultiple(of: 2) ? page.tint.opacity(0.62) : PetWhiteStyle.stroke.opacity(0.12)
+                        tint: index.isMultiple(of: 2) ? page.tint.opacity(0.45) : PetWhiteStyle.ink.opacity(0.08)
                     )
                     .rotationEffect(.degrees(index.isMultiple(of: 2) ? -12 : 12))
                 }
@@ -476,9 +476,13 @@ struct PetWhiteHomeView: View {
 
     private var scrollBody: some View {
         let homeData = displayHomeData
+        // 读取渲染版本号：缓存回退数据（getObject）不可观察，靠版本号驱动重算。
+        // 注意只做依赖读取，不能当 .id 用 —— id 变化会整棵重建 ScrollView，
+        // 冷启动时版本号连续跳变十几次，曾导致首页整页空白。
+        let _ = homeRenderRevision
 
         return ScrollView {
-            VStack(spacing: 18) {
+            VStack(spacing: 30) {
                 heroPanel
                     .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
                     .petWhiteAppear(appeared, order: 0)
@@ -501,7 +505,10 @@ struct PetWhiteHomeView: View {
                         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
                         .petWhiteAppear(appeared, order: 3)
                 } else if isHomeDataEmpty {
-                    PetWhiteLoadingView()
+                    // 加载已结束但数据仍为空：给出可点重试的空态，而不是无限转圈
+                    PetWhiteHomeEmptyState {
+                        retryPetWhiteHome(reason: "pet white empty retry tap")
+                    }
                     .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
                     .petWhiteAppear(appeared, order: 3)
                 }
@@ -555,7 +562,6 @@ struct PetWhiteHomeView: View {
         }
         .scrollIndicators(.hidden)
         .themeRenderScrollLayer()
-        .id(homeRenderIdentity)
         .refreshable {
             retryPetWhiteHome(reason: "pet white pull refresh")
             viewModel.refreshHitokoto(force: true)
@@ -563,21 +569,19 @@ struct PetWhiteHomeView: View {
     }
 
     private var heroPanel: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top, spacing: 14) {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .center, spacing: 16) {
                 PetWhitePetPetHeroIcon(width: petPetHeroWidth)
-                    .padding(.top, 6)
 
-                VStack(alignment: .leading, spacing: 7) {
-                    PetWhitePill(text: "PET RADIO", tint: PetWhiteStyle.mint)
-
+                VStack(alignment: .leading, spacing: 6) {
                     Text(String(localized: LocalizedStringResource(stringLiteral: MonologueTimeGreeting.localizedKey)))
-                        .font(PetWhiteStyle.labelFont(12, weight: .black))
-                        .foregroundStyle(PetWhiteStyle.inkSoft)
+                        .font(PetWhiteStyle.labelFont(12, weight: .semibold))
+                        .tracking(1.2)
+                        .foregroundStyle(PetWhiteStyle.dogEar)
                         .lineLimit(1)
 
                     Text(viewModel.userProfile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
-                        .font(PetWhiteStyle.titleFont(30, weight: .black))
+                        .font(PetWhiteStyle.titleFont(32, weight: .bold))
                         .foregroundStyle(PetWhiteStyle.ink)
                         .lineLimit(1)
                         .minimumScaleFactor(0.78)
@@ -591,56 +595,49 @@ struct PetWhiteHomeView: View {
                 } label: {
                     avatarView
                 }
-                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+                .buttonStyle(PetWhiteSquishyButtonStyle(scale: 0.92))
             }
 
             if settings.hitokotoEnabled {
-                HStack(alignment: .top, spacing: 10) {
-                    PetWhiteProfileHeadIcon(filled: false, size: 24)
+                HStack(alignment: .center, spacing: 12) {
+                    Capsule()
+                        .fill(PetWhiteStyle.dogOrange.opacity(0.7))
+                        .frame(width: 3)
+                        .frame(maxHeight: .infinity)
 
-                    if petWhiteHitokotoText.isEmpty {
-                        Text(HitokotoFallbackSlogan.text)
-                            .font(PetWhiteStyle.bodyFont(14, weight: .semibold))
-                            .foregroundStyle(PetWhiteStyle.inkSoft)
-                            .lineLimit(3)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .frame(maxWidth: .infinity, minHeight: 34, alignment: .leading)
-                    } else {
-                        Text(petWhiteHitokotoText)
-                            .font(PetWhiteStyle.bodyFont(14, weight: .semibold))
-                            .foregroundStyle(PetWhiteStyle.inkSoft)
-                            .lineLimit(3)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-
-                    Spacer(minLength: 0)
+                    Text(petWhiteHitokotoText.isEmpty ? HitokotoFallbackSlogan.text : petWhiteHitokotoText)
+                        .font(PetWhiteStyle.bodyFont(14))
+                        .foregroundStyle(PetWhiteStyle.inkSoft)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
                     Button {
                         refreshPetWhiteHitokotoWithFeedback()
                     } label: {
-                        PetWhitePackIcon(icon: .refresh, size: 21, visualScale: 1.08)
-                            .frame(width: 34, height: 34)
+                        PetWhitePackIcon(icon: .refresh, size: 18, visualScale: 1.04, fallbackColor: PetWhiteStyle.inkMuted)
+                            .frame(width: 32, height: 32)
                             .rotationEffect(.degrees(hitokotoRefreshRotation))
                             .animation(.linear(duration: 0.58), value: hitokotoRefreshRotation)
-                            .background(PetWhiteStyle.butter, in: Circle())
-                            .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.4))
                     }
-                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.92))
+                    .buttonStyle(PetWhiteSquishyButtonStyle(scale: 0.92))
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
-                .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(PetWhiteStyle.surfacePressed)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(PetWhiteStyle.stroke, lineWidth: 1.4)
-                        )
-                )
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.leading, 4)
             }
         }
-        .padding(18)
-        .background(PetWhiteSurfaceBackground(cornerRadius: 26, elevated: true, tint: settings.petWhiteUsesIllustratedBackground ? PetWhiteStyle.surfaceRaised.opacity(0.78) : PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
+        .padding(.top, 4)
+        .padding(settings.petWhiteUsesIllustratedBackground ? 14 : 0)
+        .background {
+            if settings.petWhiteUsesIllustratedBackground {
+                RoundedRectangle(cornerRadius: PetWhiteStyle.cardRadius, style: .continuous)
+                    .fill(PetWhiteStyle.surfaceRaised.opacity(0.82))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: PetWhiteStyle.cardRadius, style: .continuous)
+                            .strokeBorder(PetWhiteStyle.stroke, lineWidth: 1)
+                    )
+            }
+        }
     }
 
     private var petWhiteHitokotoText: String {
@@ -669,35 +666,29 @@ struct PetWhiteHomeView: View {
             .aspectRatio(contentMode: .fill)
             .frame(width: size, height: size)
             .clipShape(Circle())
-            .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 2))
+            .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1))
         } else {
             PetWhiteMascotMark(kind: .cat, size: size)
         }
     }
 
     private var quickActionBoard: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 14) {
             PetWhiteMeditationRoute {
                 navigationPath.append(HomeView.HomeDestination.meditationMode)
             }
 
-            LazyVGrid(
-                columns: [
-                    GridItem(.flexible(), spacing: 12),
-                    GridItem(.flexible(), spacing: 12),
-                ],
-                spacing: 12
-            ) {
-                PetWhiteQuickAction(title: "FM", subtitle: String(localized: "私人漫游"), icon: .fm, tint: PetWhiteStyle.dogOrange) {
+            HStack(spacing: 12) {
+                PetWhiteQuickAction(title: "FM", icon: .fm, tint: PetWhiteStyle.dogOrange) {
                     showPersonalFM = true
                 }
-                PetWhiteQuickAction(title: String(localized: "搜索"), subtitle: "SNIFF", icon: .magnifyingGlass, tint: PetWhiteStyle.sky) {
+                PetWhiteQuickAction(title: String(localized: "搜索"), icon: .magnifyingGlass, tint: PetWhiteStyle.sky) {
                     navigationPath.append(HomeView.HomeDestination.search)
                 }
-                PetWhiteQuickAction(title: String(localized: "new_song_express"), subtitle: "EXPRESS", icon: .musicNote, tint: PetWhiteStyle.mint) {
+                PetWhiteQuickAction(title: String(localized: "new_song_express"), icon: .musicNote, tint: PetWhiteStyle.mint) {
                     navigationPath.append(HomeView.HomeDestination.newSongExpress)
                 }
-                PetWhiteQuickAction(title: "MV", subtitle: "VIDEO", icon: .mv, tint: PetWhiteStyle.butter) {
+                PetWhiteQuickAction(title: "MV", icon: .mv, tint: PetWhiteStyle.butter) {
                     navigationPath.append(HomeView.HomeDestination.mvDiscover)
                 }
             }
@@ -707,7 +698,7 @@ struct PetWhiteHomeView: View {
     private var dailyTreats: some View {
         let songs = displayHomeData.dailySongs
 
-        return VStack(alignment: .leading, spacing: 12) {
+        return VStack(alignment: .leading, spacing: 14) {
             PetWhiteSectionTitle(
                 title: String(localized: "每日推荐"),
                 detail: String(localized: "今天的第一口音乐"),
@@ -716,18 +707,24 @@ struct PetWhiteHomeView: View {
                 action: { navigationPath.append(HomeView.HomeDestination.dailyRecommend) }
             )
 
-            VStack(spacing: 9) {
+            VStack(spacing: 0) {
                 ForEach(Array(songs.prefix(4).enumerated()), id: \.element.id) { index, song in
                     Button {
                         PlayerManager.shared.play(song: song, in: songs)
                     } label: {
                         PetWhiteSongTreatRow(index: index + 1, song: song)
                     }
-                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+                    .buttonStyle(PetWhiteSquishyButtonStyle(scale: 0.965))
+
+                    if index < min(songs.count, 4) - 1 {
+                        Divider()
+                            .overlay(PetWhiteStyle.separator)
+                            .padding(.leading, 66)
+                    }
                 }
             }
-            .padding(12)
-            .background(PetWhiteSurfaceBackground(cornerRadius: 22, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.dogOrange))
+            .padding(.horizontal, 6)
+            .background(PetWhiteSurfaceBackground(cornerRadius: PetWhiteStyle.cardRadius, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.dogOrange))
         }
     }
 
@@ -814,27 +811,27 @@ private struct PetWhiteMeditationRoute: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 13) {
-                PetWhiteIconBadge(icon: .moon, tint: PetWhiteStyle.sky, size: 46)
+            HStack(spacing: 12) {
+                PetWhiteClayPuck(shape: Circle(), tint: PetWhiteStyle.sky)
+                    .frame(width: 40, height: 40)
+                    .overlay(
+                        PetWhitePackIcon(icon: .moon, size: 19, visualScale: 1.05, lineWidth: 1.7)
+                    )
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(String(localized: "meditation_mode_title"))
-                        .font(PetWhiteStyle.titleFont(18, weight: .black))
-                        .foregroundStyle(PetWhiteStyle.ink)
-                        .lineLimit(1)
-                }
+                Text(String(localized: "meditation_mode_title"))
+                    .font(PetWhiteStyle.titleFont(17, weight: .semibold))
+                    .foregroundStyle(PetWhiteStyle.ink)
+                    .lineLimit(1)
 
                 Spacer(minLength: 8)
 
-                PetWhitePackIcon(icon: .chevronRight, size: 18, visualScale: 1.08)
-                    .frame(width: 36, height: 36)
-                    .background(PetWhiteStyle.butter, in: Circle())
-                    .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.4))
+                PetWhitePackIcon(icon: .chevronRight, size: 16, visualScale: 1.04, fallbackColor: PetWhiteStyle.inkMuted)
             }
-            .padding(13)
-            .background(PetWhiteSurfaceBackground(cornerRadius: 22, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.sky))
+            .padding(.horizontal, 15)
+            .padding(.vertical, 13)
+            .background(PetWhiteSurfaceBackground(cornerRadius: PetWhiteStyle.cardRadius, elevated: false, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.sky))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PetWhiteSquishyButtonStyle(scale: 0.92))
     }
 }
 
@@ -872,36 +869,30 @@ private struct PetWhiteHomeDataSnapshot {
 
 private struct PetWhiteQuickAction: View {
     let title: String
-    let subtitle: String
     let icon: MonologueIcon.IconType
     let tint: Color
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 10) {
-                PetWhiteIconBadge(icon: icon, tint: tint, size: 40)
+            VStack(spacing: 8) {
+                PetWhiteClayPuck(shape: Circle(), tint: tint)
+                    .frame(width: 40, height: 40)
+                    .overlay(
+                        PetWhitePackIcon(icon: icon, size: 19, visualScale: 1.05, lineWidth: 1.7)
+                    )
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(title)
-                        .font(PetWhiteStyle.labelFont(14, weight: .black))
-                        .foregroundStyle(PetWhiteStyle.ink)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.78)
-
-                    Text(subtitle)
-                        .font(PetWhiteStyle.labelFont(10, weight: .black))
-                        .foregroundStyle(PetWhiteStyle.inkMuted)
-                        .tracking(0.7)
-                        .lineLimit(1)
-                }
-
-                Spacer(minLength: 0)
+                Text(title)
+                    .font(PetWhiteStyle.labelFont(11, weight: .semibold))
+                    .foregroundStyle(PetWhiteStyle.inkSoft)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
             }
-            .padding(12)
-            .background(PetWhiteSurfaceBackground(cornerRadius: 20, elevated: false, tint: PetWhiteStyle.surfaceRaised, accent: tint))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 13)
+            .background(PetWhiteSurfaceBackground(cornerRadius: PetWhiteStyle.cardRadius, elevated: false, tint: PetWhiteStyle.surfaceRaised, accent: tint))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PetWhiteSquishyButtonStyle(scale: 0.92))
     }
 }
 
@@ -910,54 +901,43 @@ private struct PetWhiteSongTreatRow: View {
     let song: Song
 
     var body: some View {
-        HStack(spacing: 11) {
-            Text(String(format: "%02d", index))
-                .font(PetWhiteStyle.labelFont(11, weight: .black))
-                .foregroundStyle(PetWhiteStyle.stroke)
-                .frame(width: 34, height: 34)
-                .background(PetWhiteStyle.mint, in: Circle())
-                .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.4))
+        HStack(spacing: 12) {
+            Text("\(index)")
+                .font(PetWhiteStyle.labelFont(13, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(PetWhiteStyle.inkMuted)
+                .frame(width: 18, alignment: .center)
 
             CachedAsyncImage(url: song.coverUrl) {
                 PetWhiteMascotMark(kind: index.isMultiple(of: 2) ? .dog : .cat, size: 42)
             }
             .aspectRatio(contentMode: .fill)
-            .frame(width: 42, height: 42)
+            .frame(width: 44, height: 44)
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(PetWhiteStyle.stroke, lineWidth: 1.5)
+                    .strokeBorder(PetWhiteStyle.stroke, lineWidth: 1)
             )
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(song.name)
-                    .font(PetWhiteStyle.bodyFont(14, weight: .black))
+                    .font(PetWhiteStyle.bodyFont(14, weight: .semibold))
                     .foregroundStyle(PetWhiteStyle.ink)
                     .lineLimit(1)
 
                 Text(song.artistName)
-                    .font(PetWhiteStyle.labelFont(11, weight: .semibold))
+                    .font(PetWhiteStyle.labelFont(11))
                     .foregroundStyle(PetWhiteStyle.inkSoft)
                     .lineLimit(1)
             }
 
             Spacer(minLength: 8)
 
-            PetWhitePackIcon(icon: .play, size: 20, visualScale: 1.08)
-                .frame(width: 30, height: 30)
-                .background(PetWhiteStyle.butter, in: Circle())
-                .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.3))
+            PetWhitePackIcon(icon: .play, size: 17, visualScale: 1.04, fallbackColor: PetWhiteStyle.inkMuted)
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 9)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(PetWhiteStyle.surfacePressed)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(PetWhiteStyle.separator, lineWidth: 1)
-                )
-        )
+        .padding(.vertical, 12)
+        .contentShape(Rectangle())
     }
 }
 
@@ -977,7 +957,7 @@ private struct PetWhiteBannerCarousel: View {
                     } label: {
                         PetWhiteBannerCard(banner: banner)
                     }
-                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+                    .buttonStyle(PetWhiteSquishyButtonStyle(scale: 0.965))
                     .padding(.horizontal, DeviceLayout.isPad ? 12 : 8)
                     .padding(.vertical, 5)
                     .tag(index)
@@ -996,7 +976,7 @@ private struct PetWhiteBannerCarousel: View {
                 HStack(spacing: 6) {
                     ForEach(0..<min(banners.count, 6), id: \.self) { index in
                         Capsule()
-                            .fill(index == bannerIndex ? PetWhiteStyle.stroke : PetWhiteStyle.separator)
+                            .fill(index == bannerIndex ? PetWhiteStyle.dogOrange : PetWhiteStyle.separator)
                             .frame(width: index == bannerIndex ? 20 : 7, height: 7)
                             .animation(MonologueAnimation.micro, value: bannerIndex)
                     }
@@ -1011,9 +991,7 @@ private struct PetWhiteBannerCard: View {
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
-            PetWhiteSurfaceBackground(cornerRadius: 32, elevated: false, tint: PetWhiteStyle.surfacePressed, accent: PetWhiteStyle.sky)
-
-            HomeBannerArtwork(url: banner.imageUrl, cornerRadius: 32) {
+            HomeBannerArtwork(url: banner.imageUrl, cornerRadius: PetWhiteStyle.cardRadius) {
                 PetWhiteStyle.surfacePressed
                     .overlay {
                         PetWhitePetPetIcon(size: 64)
@@ -1023,39 +1001,24 @@ private struct PetWhiteBannerCard: View {
             .frame(maxHeight: .infinity)
 
             LinearGradient(
-                colors: [.clear, PetWhiteStyle.stroke.opacity(0.34)],
-                startPoint: .top,
+                colors: [.clear, PetWhiteStyle.shadowInk.opacity(0.46)],
+                startPoint: .center,
                 endPoint: .bottom
             )
-            .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
 
-            HStack(spacing: 8) {
-                PetWhiteIconBadge(icon: .sparkle, tint: PetWhiteStyle.butter, size: 36)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(banner.typeTitle ?? "PET PICK")
-                        .font(PetWhiteStyle.labelFont(12, weight: .black))
-                        .foregroundStyle(PetWhiteStyle.paper)
-                        .lineLimit(1)
-
-                    Text("Furry Paws")
-                        .font(PetWhiteStyle.labelFont(10, weight: .black))
-                        .foregroundStyle(PetWhiteStyle.paper.opacity(0.82))
-                        .tracking(0.8)
-                }
-
-                Spacer(minLength: 0)
+            if let title = banner.typeTitle, !title.isEmpty {
+                Text(title)
+                    .font(PetWhiteStyle.labelFont(12, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 12)
             }
-            .padding(12)
         }
         .frame(height: DeviceLayout.isPad ? 176 : 146)
         .compositingGroup()
-        .background(PetWhiteSurfaceBackground(cornerRadius: 32, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.sky))
-        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 32, style: .continuous)
-                .strokeBorder(PetWhiteStyle.stroke, lineWidth: 2.2)
-        )
+        .clipShape(RoundedRectangle(cornerRadius: PetWhiteStyle.cardRadius, style: .continuous))
+        .petWhiteClayShadow()
     }
 }
 
@@ -1089,15 +1052,15 @@ private struct PetWhitePlaylistShelf: View {
                         } label: {
                             PetWhitePlaylistCard(playlist: playlist, index: index, tint: tint)
                         }
-                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+                        .buttonStyle(PetWhiteSquishyButtonStyle(scale: 0.94))
                     }
                 }
                 .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-                .scrollTargetLayout()
+                .compatScrollTargetLayout()
             }
             .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
-            .scrollTargetBehavior(.viewAligned(limitBehavior: .never))
+            .compatViewAlignedScrollBehavior(limitNever: true)
         }
     }
 }
@@ -1112,7 +1075,7 @@ private struct PetWhitePlaylistCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 9) {
             ZStack(alignment: .topLeading) {
                 CachedAsyncImage(url: playlist.coverUrl?.sized(400)) {
                     PetWhiteMascotMark(kind: index.isMultiple(of: 2) ? .cat : .dog, size: 58)
@@ -1121,43 +1084,39 @@ private struct PetWhitePlaylistCard: View {
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(width: cardWidth, height: cardWidth)
-                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: PetWhiteStyle.cardRadius, style: .continuous))
 
                 if let playCount = playlist.playCount, playCount > 0 {
                     HStack(spacing: 4) {
-                        PetWhitePackIcon(icon: .play, size: 13, visualScale: 1.05)
+                        PetWhitePackIcon(icon: .play, size: 11, visualScale: 1.02)
                         Text(PetWhiteHomeFormat.count(playCount))
-                            .font(PetWhiteStyle.labelFont(10, weight: .black))
+                            .font(PetWhiteStyle.labelFont(10, weight: .semibold))
                     }
-                    .foregroundStyle(PetWhiteStyle.stroke)
+                    .foregroundStyle(PetWhiteStyle.ink)
                     .padding(.horizontal, 8)
-                    .padding(.vertical, 5)
-                    .background(PetWhiteStyle.paper.opacity(0.86), in: Capsule())
-                    .overlay(Capsule().stroke(PetWhiteStyle.stroke, lineWidth: 1))
-                    .padding(9)
+                    .padding(.vertical, 4)
+                    .background(PetWhiteStyle.paper.opacity(0.9), in: Capsule())
+                    .padding(8)
                 }
             }
-            .overlay(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(PetWhiteStyle.stroke, lineWidth: 1.5)
-            )
+            .petWhiteClayShadow(elevated: false)
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(playlist.name)
-                    .font(PetWhiteStyle.bodyFont(13, weight: .black))
+                    .font(PetWhiteStyle.bodyFont(13, weight: .semibold))
                     .foregroundStyle(PetWhiteStyle.ink)
                     .lineLimit(2)
+                    .multilineTextAlignment(.leading)
                     .frame(height: 36, alignment: .top)
 
                 Text(playlist.trackCount.map { "\($0) \(String(localized: "songs_unit"))" } ?? "Furry list")
-                    .font(PetWhiteStyle.labelFont(10, weight: .semibold))
-                    .foregroundStyle(PetWhiteStyle.inkSoft)
+                    .font(PetWhiteStyle.labelFont(10))
+                    .foregroundStyle(PetWhiteStyle.inkMuted)
                     .lineLimit(1)
             }
+            .padding(.horizontal, 2)
         }
-        .padding(10)
-        .frame(width: cardWidth + 20)
-        .background(PetWhiteSurfaceBackground(cornerRadius: 28, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: tint))
+        .frame(width: cardWidth)
     }
 }
 
@@ -1177,18 +1136,24 @@ private struct PetWhiteNewSongsBoard: View {
                 action: onViewAll
             )
 
-            VStack(spacing: 10) {
+            VStack(spacing: 0) {
                 ForEach(Array(songs.prefix(5).enumerated()), id: \.element.id) { index, song in
                     Button {
                         onPlay(song)
                     } label: {
                         PetWhiteNewSongRow(index: index + 1, song: song)
                     }
-                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+                    .buttonStyle(PetWhiteSquishyButtonStyle(scale: 0.965))
+
+                    if index < min(songs.count, 5) - 1 {
+                        Divider()
+                            .overlay(PetWhiteStyle.separator)
+                            .padding(.leading, 70)
+                    }
                 }
             }
-            .padding(12)
-            .background(PetWhiteSurfaceBackground(cornerRadius: 24, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
+            .padding(.horizontal, 6)
+            .background(PetWhiteSurfaceBackground(cornerRadius: PetWhiteStyle.cardRadius, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.mint))
         }
         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
     }
@@ -1200,58 +1165,44 @@ private struct PetWhiteNewSongRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            ZStack(alignment: .bottomTrailing) {
-                CachedAsyncImage(url: song.coverUrl) {
-                    PetWhitePetPetIcon(size: 38)
-                        .frame(width: 48, height: 48)
-                        .background(PetWhiteStyle.surfacePressed)
-                }
-                .aspectRatio(contentMode: .fill)
-                .frame(width: 48, height: 48)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(PetWhiteStyle.stroke, lineWidth: 1.4)
-                )
+            Text("\(index)")
+                .font(PetWhiteStyle.labelFont(13, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(PetWhiteStyle.inkMuted)
+                .frame(width: 18, alignment: .center)
 
-                Text("\(index)")
-                    .font(PetWhiteStyle.labelFont(10, weight: .black))
-                    .foregroundStyle(PetWhiteStyle.stroke)
-                    .frame(width: 20, height: 20)
-                    .background(PetWhiteStyle.butter, in: Circle())
-                    .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1))
-                    .offset(x: 5, y: 5)
+            CachedAsyncImage(url: song.coverUrl) {
+                PetWhitePetPetIcon(size: 38)
+                    .frame(width: 46, height: 46)
+                    .background(PetWhiteStyle.surfacePressed)
             }
+            .aspectRatio(contentMode: .fill)
+            .frame(width: 46, height: 46)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(PetWhiteStyle.stroke, lineWidth: 1)
+            )
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(song.name)
-                    .font(PetWhiteStyle.bodyFont(14, weight: .black))
+                    .font(PetWhiteStyle.bodyFont(14, weight: .semibold))
                     .foregroundStyle(PetWhiteStyle.ink)
                     .lineLimit(1)
 
                 Text(song.artistName)
-                    .font(PetWhiteStyle.labelFont(11, weight: .semibold))
+                    .font(PetWhiteStyle.labelFont(11))
                     .foregroundStyle(PetWhiteStyle.inkSoft)
                     .lineLimit(1)
             }
 
             Spacer(minLength: 8)
 
-            PetWhitePackIcon(icon: .playCircle, size: 24, visualScale: 1.06)
-                .frame(width: 34, height: 34)
-                .background(PetWhiteStyle.mint, in: Circle())
-                .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1.2))
+            PetWhitePackIcon(icon: .play, size: 17, visualScale: 1.04, fallbackColor: PetWhiteStyle.inkMuted)
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 9)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(PetWhiteStyle.surfacePressed)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(PetWhiteStyle.separator, lineWidth: 1)
-                )
-        )
+        .padding(.vertical, 12)
+        .contentShape(Rectangle())
     }
 }
 
@@ -1317,9 +1268,9 @@ private struct PetWhiteHomeEmptyState: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
                 .background(PetWhiteStyle.accent, in: Capsule())
-                .overlay(Capsule().stroke(PetWhiteStyle.stroke, lineWidth: 1.4))
+                .overlay(Capsule().stroke(PetWhiteStyle.stroke, lineWidth: 1))
             }
-            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
+            .buttonStyle(PetWhiteSquishyButtonStyle(scale: 0.92))
         }
         .padding(18)
         .frame(maxWidth: .infinity)
@@ -1392,10 +1343,12 @@ struct PetWhiteLocalProfileView: View {
 
 private extension View {
     func petWhiteAppear(_ appeared: Bool, order: Int) -> some View {
-        opacity(appeared ? 1 : 0.96)
-            .offset(y: appeared ? 0 : 6)
+        // 黏土块「弹」上桌面：轻微过冲的果冻感
+        opacity(appeared ? 1 : 0)
+            .offset(y: appeared ? 0 : 14)
+            .scaleEffect(appeared ? 1 : 0.96)
             .animation(
-                .spring(response: 0.42, dampingFraction: 0.84).delay(Double(order) * 0.04),
+                .spring(response: 0.48, dampingFraction: 0.68).delay(Double(order) * 0.05),
                 value: appeared
             )
     }

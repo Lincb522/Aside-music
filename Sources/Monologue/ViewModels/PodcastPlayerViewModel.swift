@@ -2,10 +2,11 @@ import SwiftUI
 import Combine
 
 @MainActor
-@Observable class PodcastPlayerViewModel {
+class PodcastPlayerViewModel: ObservableObject {
     let radioId: Int
     private let detailVM: RadioDetailViewModel
     private let player = PlayerManager.shared
+    private var forwardingCancellables = Set<AnyCancellable>()
 
     var isAscendingOrder: Bool { detailVM.isAscendingOrder }
 
@@ -20,6 +21,15 @@ import Combine
     init(radioId: Int) {
         self.radioId = radioId
         self.detailVM = RadioDetailViewModel(radioId: radioId)
+
+        // 本类的属性均为透传 detailVM / player 的计算属性，
+        // 需转发其变更信号以驱动视图刷新（对齐原 @Observable 的追踪行为）
+        detailVM.objectWillChange
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &forwardingCancellables)
+        player.objectWillChange
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &forwardingCancellables)
     }
 
     // MARK: - State

@@ -5,7 +5,7 @@ struct TopRadioListView: View {
     let title: String
     let listType: ListType
 
-    @State private var viewModel: TopRadioListViewModel
+    @StateObject private var viewModel: TopRadioListViewModel
     @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.dismiss) private var dismiss
 
@@ -17,7 +17,7 @@ struct TopRadioListView: View {
     init(title: String, listType: ListType) {
         self.title = title
         self.listType = listType
-        _viewModel = State(initialValue: TopRadioListViewModel(listType: listType))
+        _viewModel = StateObject(wrappedValue: TopRadioListViewModel(listType: listType))
     }
 
     var body: some View {
@@ -28,20 +28,36 @@ struct TopRadioListView: View {
                 .ignoresSafeArea()
 
             if viewModel.isLoading && viewModel.radios.isEmpty {
-                MonologueLoadingView(text: "LOADING")
+                MonologueLoadingView(text: MinimalWhiteStyle.isActive ? nil : "LOADING")
             } else if viewModel.radios.isEmpty && !viewModel.isLoading {
                 VStack(spacing: 12) {
-                    MonologueIcon(icon: .micSlash, size: 40, color: emptyStateColor)
+                    if MinimalWhiteStyle.isActive {
+                        MinimalWhiteIconBadge(icon: .micSlash, size: 54)
+                    } else {
+                        MonologueIcon(icon: .micSlash, size: 40, color: emptyStateColor)
+                    }
                     Text("radio_empty")
                         .font(emptyStateFont)
                         .foregroundColor(emptyStateColor)
                 }
+                .padding(.vertical, 44)
+                .frame(maxWidth: .infinity)
+                .background {
+                    if MinimalWhiteStyle.isActive {
+                        MinimalWhiteSurfaceBackground(
+                            cornerRadius: MinimalWhiteStyle.cardRadius,
+                            elevated: false,
+                            tint: MinimalWhiteStyle.glassFill
+                        )
+                    }
+                }
+                .padding(.horizontal, MinimalWhiteStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
             } else {
                 ScrollView {
                     LazyVStack(spacing: ThemedPageStyle.listSpacing) {
                         ForEach(Array(viewModel.radios.enumerated()), id: \.element.id) { index, radio in
                             NavigationLink(value: PodcastView.PodcastDestination.radioDetail(radio.id)) {
-                                radioRow(radio: radio)
+                                radioRow(radio: radio, index: index)
                             }
                             .buttonStyle(.plain)
                             .onAppear {
@@ -78,7 +94,16 @@ struct TopRadioListView: View {
         }
     }
 
-    private func radioRow(radio: RadioStation) -> some View {
+    @ViewBuilder
+    private func radioRow(radio: RadioStation, index: Int) -> some View {
+        if !ThemedPageStyle.isActive {
+            AsideRadioListRow(radio: radio, rank: listType == .toplist ? index + 1 : nil)
+        } else {
+            legacyRadioRow(radio: radio)
+        }
+    }
+
+    private func legacyRadioRow(radio: RadioStation) -> some View {
         HStack(spacing: 14) {
             CachedAsyncImage(url: radio.coverUrl) {
                 RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
@@ -120,7 +145,8 @@ struct TopRadioListView: View {
     }
 
     private var coverRadius: CGFloat {
-        (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 14 : 10
+        if MinimalWhiteStyle.isActive { return 12 }
+        return (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 14 : 10
     }
 
     @ViewBuilder
@@ -131,56 +157,68 @@ struct TopRadioListView: View {
         } else if SequoiaStyle.isActive {
             RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
                 .stroke(SequoiaStyle.separator.opacity(0.78), lineWidth: 0.6)
+        } else if MinimalWhiteStyle.isActive {
+            RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
+                .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
         }
     }
 
     private var rowTitleFont: Font {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.bodyFont(15, weight: .medium) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(15, weight: .semibold) }
         if SequoiaStyle.isActive { return SequoiaStyle.bodyFont(15, weight: .semibold) }
         return .system(size: 15, weight: .medium, design: .rounded)
     }
 
     private var rowMetaFont: Font {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.labelFont(12, weight: .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(12, weight: .medium) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(12, weight: .regular) }
         return .system(size: 12, design: .rounded)
     }
 
     private var emptyStateFont: Font {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.labelFont(14, weight: .medium) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(16, weight: .medium) }
         return .system(size: 16, weight: .medium, design: .rounded)
     }
 
     private var primaryTextColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.ink }
         return .monologueTextPrimary
     }
 
     private var secondaryTextColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
         return .monologueTextSecondary
     }
 
     private var tertiaryTextColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
         if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
         return .monologueTextSecondary
     }
 
     private var emptyStateColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
         return .monologueTextSecondary
     }
 
     private var accentColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
         return .monologueTextSecondary
     }
 
     private var coverPlaceholderFill: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.controlGlassFill }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
         if SequoiaStyle.isActive { return SequoiaStyle.materialList }
         return Color.monologueGlassTint

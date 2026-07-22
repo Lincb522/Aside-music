@@ -6,19 +6,11 @@ enum SignalStyle {
     }
 
     static var base: Color {
-        ThemeColorCustomization.backgroundBase(
-            for: .signal,
-            fallback: Color(light: Color(hex: "EEF5F8"), dark: Color(hex: "071116")),
-            fallbackHex: "EEF5F8"
-        )
+        Color(light: Color(hex: "EEF5F8"), dark: Color(hex: "071116"))
     }
 
     static var accent: Color {
-        ThemeColorCustomization.accentColor(
-            for: .signal,
-            fallback: Color(light: Color(hex: "2F80ED"), dark: Color(hex: "68E3FF")),
-            fallbackHex: "2F80ED"
-        )
+        Color(light: Color(hex: "2F80ED"), dark: Color(hex: "68E3FF"))
     }
 
     static let baseWarm = Color(light: Color(hex: "F7F2EA"), dark: Color(hex: "101A1A"))
@@ -92,11 +84,12 @@ struct SignalRootBackdrop: View {
 
     var body: some View {
         ZStack {
-            ThemeCustomDiffuseBackground(
-                theme: .signal,
-                fallbackHexes: colorScheme == .dark ? ["071116", "101A1A"] : ["EEF5F8", "F7F2EA"],
-                accentFallbackHexes: ["2F80ED", "00A98F", "E19A5E"],
-                opacity: colorScheme == .dark ? 0.8 : 0.98
+            LinearGradient(
+                colors: colorScheme == .dark
+                    ? [Color(hex: "071116"), Color(hex: "101A1A")]
+                    : [Color(hex: "EEF5F8"), Color(hex: "F7F2EA")],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
             )
 
             SignalAmbientTexture(opacity: colorScheme == .dark ? 0.17 : 0.22)
@@ -511,6 +504,7 @@ struct SignalPageHeader<Accessory: View>: View {
         .padding(.top, DeviceLayout.headerTopPadding + 8)
         .padding(.bottom, 12)
         .themeRenderSurfaceLayer()
+        .monologuePageHeaderCollapse()
     }
 }
 

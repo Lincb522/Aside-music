@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct CapsulePodcastExperience: View {
-    @State private var viewModel = PodcastViewModel.shared
+    @ObservedObject private var viewModel = PodcastViewModel.shared
     @State private var showRadioPlayer = false
     @State private var radioIdToOpen = 0
     @State private var selectedBroadcastChannel: BroadcastChannel?

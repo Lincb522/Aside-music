@@ -28,7 +28,13 @@ struct LiquidGlassBlur: View {
     
     var body: some View {
         Group {
-            if MangaStyle.isActive {
+            if MinimalWhiteStyle.isActive {
+                MinimalWhiteSurfaceBackground(
+                    cornerRadius: cornerRadius == 0 ? 1 : min(max(cornerRadius, 8), MinimalWhiteStyle.chromeRadius),
+                    elevated: useFloatingBarFill,
+                    tint: useFloatingBarFill ? MinimalWhiteStyle.glassStrongFill : MinimalWhiteStyle.glassFill
+                )
+            } else if MangaStyle.isActive {
                 MangaCardBackground(cornerRadius: cornerRadius == 0 ? 1 : min(cornerRadius, 16), elevated: useFloatingBarFill)
             } else if MujiStyle.isActive {
                 MujiPaperCardBackground(cornerRadius: cornerRadius == 0 ? 1 : min(cornerRadius, 16), elevated: useFloatingBarFill)
@@ -67,7 +73,16 @@ struct MonologueLiquidCard<Content: View>: View {
     
     var body: some View {
         Group {
-            if MangaStyle.isActive {
+            if MinimalWhiteStyle.isActive {
+                content
+                    .background(
+                        MinimalWhiteSurfaceBackground(
+                            cornerRadius: min(max(cornerRadius, 8), MinimalWhiteStyle.chromeRadius),
+                            elevated: false,
+                            tint: MinimalWhiteStyle.glassFill
+                        )
+                    )
+            } else if MangaStyle.isActive {
                 content
                     .background(MangaCardBackground(cornerRadius: cornerRadius, elevated: true))
             } else if MujiStyle.isActive {
@@ -100,7 +115,16 @@ extension View {
     /// Monologue 统一液态玻璃效果（iOS 26+: glassEffect，低版本: ultraThinMaterial）
     @ViewBuilder
     func monologueGlass(cornerRadius: CGFloat = 16) -> some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            self.background(
+                MinimalWhiteSurfaceBackground(
+                    cornerRadius: min(max(cornerRadius, 8), MinimalWhiteStyle.chromeRadius),
+                    elevated: false,
+                    tint: MinimalWhiteStyle.glassFill
+                )
+            )
+            .themeRenderSurfaceLayer()
+        } else if MangaStyle.isActive {
             self.background(MangaCardBackground(cornerRadius: cornerRadius))
                 .themeRenderSurfaceLayer()
         } else if MujiStyle.isActive {
@@ -132,14 +156,19 @@ extension View {
         }
     }
     
-    /// 圆形液态玻璃效果
+    /// 圆形液态玻璃效果；可交互表面会响应触摸与指针输入。
     @ViewBuilder
-    func monologueGlassCircle() -> some View {
-        if MangaStyle.isActive {
+    func monologueGlassCircle(interactive: Bool = false) -> some View {
+        if MinimalWhiteStyle.isActive {
+            self.background(
+                MinimalWhiteCircleBackground(elevated: interactive)
+            )
+            .themeRenderSurfaceLayer()
+        } else if MangaStyle.isActive {
             self.background(
                 Circle()
                     .fill(MangaStyle.bubbleWhite)
-                    .overlay(Circle().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
+                    .overlay(Circle().stroke(MangaStyle.strokeInk.opacity(0.55), lineWidth: MangaStyle.fineStrokeWidth))
             )
             .themeRenderSurfaceLayer()
         } else if MujiStyle.isActive {
@@ -179,7 +208,7 @@ extension View {
             .themeRenderSurfaceLayer()
         } else if #available(iOS 26, *) {
             self
-                .glassEffect(.regular, in: .circle)
+                .glassEffect(.regular.interactive(interactive), in: .circle)
                 .themeRenderSurfaceLayer()
         } else {
             self.background(
@@ -194,11 +223,18 @@ extension View {
     /// 胶囊形液态玻璃效果
     @ViewBuilder
     func monologueGlassCapsule() -> some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            self.background(MinimalWhiteCapsuleBackground(elevated: false))
+                .themeRenderSurfaceLayer()
+        } else if MangaStyle.isActive {
+            // 去卡片化：安静的纸白小面 + 细墨线，不再压错位投影
             self.background(
-                Capsule()
+                RoundedRectangle(cornerRadius: MangaStyle.buttonRadius + 1, style: .continuous)
                     .fill(MangaStyle.bubbleWhite)
-                    .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: MangaStyle.buttonRadius + 1, style: .continuous)
+                            .stroke(MangaStyle.strokeInk.opacity(0.55), lineWidth: MangaStyle.fineStrokeWidth)
+                    )
             )
             .themeRenderSurfaceLayer()
         } else if MujiStyle.isActive {
@@ -253,7 +289,16 @@ extension View {
     /// 毛玻璃背景（兼容旧调用）
     @ViewBuilder
     func liquidGlassBackground(cornerRadius: CGFloat = 16) -> some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            self.background(
+                MinimalWhiteSurfaceBackground(
+                    cornerRadius: min(max(cornerRadius, 8), MinimalWhiteStyle.chromeRadius),
+                    elevated: false,
+                    tint: MinimalWhiteStyle.glassFill
+                )
+            )
+            .themeRenderSurfaceLayer()
+        } else if MangaStyle.isActive {
             self.background(MangaCardBackground(cornerRadius: cornerRadius))
                 .themeRenderSurfaceLayer()
         } else if MujiStyle.isActive {
@@ -284,7 +329,16 @@ extension View {
     /// 液态玻璃样式（兼容旧调用）
     @ViewBuilder
     func liquidGlassStyle(cornerRadius: CGFloat = 20, useMetal: Bool = false) -> some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            self.background(
+                MinimalWhiteSurfaceBackground(
+                    cornerRadius: min(max(cornerRadius, 8), MinimalWhiteStyle.chromeRadius),
+                    elevated: useMetal,
+                    tint: useMetal ? MinimalWhiteStyle.glassStrongFill : MinimalWhiteStyle.glassFill
+                )
+            )
+            .themeRenderSurfaceLayer(isEnabled: useMetal)
+        } else if MangaStyle.isActive {
             self.background(MangaCardBackground(cornerRadius: cornerRadius, elevated: useMetal))
                 .themeRenderSurfaceLayer()
         } else if MujiStyle.isActive {
@@ -380,7 +434,13 @@ extension View {
 
     @ViewBuilder
     private func themedGlassReplacement(cornerRadius: CGFloat) -> some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            MinimalWhiteSurfaceBackground(
+                cornerRadius: min(max(cornerRadius, 8), MinimalWhiteStyle.chromeRadius),
+                elevated: true,
+                tint: MinimalWhiteStyle.glassFill
+            )
+        } else if MangaStyle.isActive {
             MangaCardBackground(cornerRadius: cornerRadius)
         } else if MujiStyle.isActive {
             MujiPaperCardBackground(cornerRadius: min(cornerRadius, 16))
@@ -398,7 +458,9 @@ extension View {
     /// 默认主题滚动时如果继续用 glass/material，底下内容每帧变化都会触发昂贵合成。
     @ViewBuilder
     func monologueFloatingChromeGlass(cornerRadius: CGFloat) -> some View {
-        if ThemedPageStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            self
+        } else if ThemedPageStyle.isActive {
             self.monologueGlass(cornerRadius: cornerRadius)
         } else {
             self
@@ -407,7 +469,9 @@ extension View {
 
     @ViewBuilder
     func monologueFloatingChromeGlassCircle() -> some View {
-        if ThemedPageStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            self
+        } else if ThemedPageStyle.isActive {
             self.monologueGlassCircle()
         } else {
             self
@@ -437,7 +501,9 @@ extension View {
     /// buttonStyle(.glass) 兼容
     @ViewBuilder
     func monologueGlassButtonStyle() -> some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            self.buttonStyle(.plain)
+        } else if MangaStyle.isActive {
             self.buttonStyle(.plain)
         } else if MujiStyle.isActive {
             self.buttonStyle(.plain)
@@ -501,10 +567,15 @@ struct MonologueGlassContainer<Content: View>: View {
 extension Shape {
     @ViewBuilder
     func fillWithGlass(_ color: Color = .monologueGlassTint, cornerRadius: CGFloat = 16) -> some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            self
+                .fill(.ultraThinMaterial)
+                .overlay(self.fill(color.opacity(0.84)))
+                .overlay(self.stroke(MinimalWhiteStyle.separator, lineWidth: MinimalWhiteStyle.strokeWidth))
+        } else if MangaStyle.isActive {
             self
                 .fill(color)
-                .overlay(self.stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
+                .overlay(self.stroke(MangaStyle.strokeInk.opacity(0.55), lineWidth: MangaStyle.fineStrokeWidth))
         } else if MujiStyle.isActive {
             self
                 .fill(color)
@@ -522,10 +593,15 @@ extension Shape {
 
     @ViewBuilder
     func fillWithGlassCircle(_ color: Color = .monologueGlassTint) -> some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            self
+                .fill(.ultraThinMaterial)
+                .overlay(self.fill(color.opacity(0.84)))
+                .overlay(self.stroke(MinimalWhiteStyle.separator, lineWidth: MinimalWhiteStyle.strokeWidth))
+        } else if MangaStyle.isActive {
             self
                 .fill(color)
-                .overlay(self.stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
+                .overlay(self.stroke(MangaStyle.strokeInk.opacity(0.55), lineWidth: MangaStyle.fineStrokeWidth))
         } else if MujiStyle.isActive {
             self
                 .fill(color)
@@ -542,10 +618,15 @@ extension Shape {
 
     @ViewBuilder
     func fillWithGlassCapsule(_ color: Color = .monologueGlassTint) -> some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            self
+                .fill(.ultraThinMaterial)
+                .overlay(self.fill(color.opacity(0.84)))
+                .overlay(self.stroke(MinimalWhiteStyle.separator, lineWidth: MinimalWhiteStyle.strokeWidth))
+        } else if MangaStyle.isActive {
             self
                 .fill(color)
-                .overlay(self.stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
+                .overlay(self.stroke(MangaStyle.strokeInk.opacity(0.55), lineWidth: MangaStyle.fineStrokeWidth))
         } else if MujiStyle.isActive {
             self
                 .fill(color)

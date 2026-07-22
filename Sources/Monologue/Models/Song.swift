@@ -108,16 +108,43 @@ struct Song: Identifiable, Codable, Hashable, Equatable {
         (ar ?? []).map { $0.name }.joined(separator: ", ")
     }
     
+    var artworkURLCandidates: [URL] {
+        var urls: [URL] = []
+        var seen = Set<String>()
+
+        func append(_ rawValue: String?) {
+            guard var value = rawValue?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !value.isEmpty else { return }
+            if value.hasPrefix("//") {
+                value = "https:\(value)"
+            } else if value.hasPrefix("http://") {
+                value = "https://\(value.dropFirst("http://".count))"
+            }
+            guard let url = URL(string: value), seen.insert(url.absoluteString).inserted else { return }
+            urls.append(url)
+        }
+
+        // QQ 接口的直接图片字段常只有 180/300px，甚至部分接口不返回图片字段。
+        // 歌曲模型已经保留了专辑 MID，优先据此生成稳定的高清 CDN 地址。
+        if isQQMusic {
+            if let albumMid = qqAlbumMid?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !albumMid.isEmpty {
+                append("https://y.gtimg.cn/music/photo_new/T002R800x800M000\(albumMid).jpg")
+            }
+            append(al?.picUrl)
+            if let artistMid = qqArtistMid?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !artistMid.isEmpty {
+                append("https://y.gtimg.cn/music/photo_new/T001R800x800M000\(artistMid).jpg")
+            }
+        }
+
+        append(al?.picUrl)
+        append(podcastCoverUrl)
+        return urls
+    }
+
     var coverUrl: URL? {
-        // 优先使用专辑封面（排除空字符串）
-        if let picUrl = al?.picUrl, !picUrl.isEmpty {
-            return URL(string: picUrl)
-        }
-        // 播客节目封面备用
-        if let podcastCover = podcastCoverUrl, !podcastCover.isEmpty {
-            return URL(string: podcastCover)
-        }
-        return nil
+        artworkURLCandidates.first
     }
 
     var localFileURL: URL? {
@@ -219,6 +246,109 @@ struct Song: Identifiable, Codable, Hashable, Equatable {
     /// 判断歌曲是否不可用（无版权 或 VIP 限制 或 未购数字专辑）
     var isUnavailable: Bool {
         isNoCopyright || isVIPRestricted || isUnpurchasedDigitalAlbum
+    }
+}
+
+/// 将同一歌曲在不同平台、不同专辑版本中的封面地址关联起来。
+/// 图片 CDN 返回失效地址时，加载器可以只回退封面，不改变歌曲来源与播放身份。
+final class SongArtworkFallbackRegistry: @unchecked Sendable {
+    static let shared = SongArtworkFallbackRegistry()
+
+    private let lock = NSLock()
+    private let maximumIdentityCount = 2_500
+    private var identityOrder: [String] = []
+    private var candidatesByIdentity: [String: [URL]] = [:]
+    private var identityByURLKey: [String: String] = [:]
+
+    private init() {}
+
+    func register(_ songs: [Song]) {
+        guard !songs.isEmpty else { return }
+
+        lock.lock()
+        defer { lock.unlock() }
+
+        for song in songs {
+            guard let identity = Self.identity(for: song) else { continue }
+            let candidates = song.artworkURLCandidates
+            guard !candidates.isEmpty else { continue }
+
+            if candidatesByIdentity[identity] == nil {
+                candidatesByIdentity[identity] = []
+                identityOrder.append(identity)
+            }
+
+            var existing = candidatesByIdentity[identity] ?? []
+            var existingKeys = Set(existing.map { Self.urlKey(for: $0) })
+            for candidate in candidates {
+                let key = Self.urlKey(for: candidate)
+                identityByURLKey[key] = identity
+                guard existingKeys.insert(key).inserted else { continue }
+                existing.append(candidate)
+            }
+            candidatesByIdentity[identity] = existing
+        }
+
+        trimIfNeeded()
+    }
+
+    func fallbackCandidates(for failedURL: URL) -> [URL] {
+        lock.lock()
+        defer { lock.unlock() }
+
+        let failedKey = Self.urlKey(for: failedURL)
+        guard let identity = identityByURLKey[failedKey],
+              let candidates = candidatesByIdentity[identity] else { return [] }
+        return candidates.filter { Self.urlKey(for: $0) != failedKey }
+    }
+
+    private func trimIfNeeded() {
+        guard identityOrder.count > maximumIdentityCount else { return }
+        let overflow = identityOrder.count - maximumIdentityCount
+        let removed = identityOrder.prefix(overflow)
+        identityOrder.removeFirst(overflow)
+        for identity in removed {
+            candidatesByIdentity.removeValue(forKey: identity)
+            identityByURLKey = identityByURLKey.filter { $0.value != identity }
+        }
+    }
+
+    private static func identity(for song: Song) -> String? {
+        let title = normalizedIdentityText(song.name)
+        let artist = normalizedIdentityText(song.artistName)
+        guard !title.isEmpty, !artist.isEmpty else { return nil }
+        return "\(title)|\(artist)"
+    }
+
+    private static func normalizedIdentityText(_ value: String) -> String {
+        let compatible = value.precomposedStringWithCompatibilityMapping
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+        return compatible.unicodeScalars
+            .filter { CharacterSet.alphanumerics.contains($0) }
+            .map(String.init)
+            .joined()
+    }
+
+    private static func urlKey(for url: URL) -> String {
+        var value = url.absoluteString
+        if var components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+           components.host?.lowercased().contains("music.126.net") == true {
+            components.host = "music.126.net"
+            components.scheme = "https"
+            components.queryItems = components.queryItems?.filter { $0.name != "param" }
+            value = components.url?.absoluteString ?? value
+        }
+        value = value.replacingOccurrences(
+            of: #"R\d+x\d+"#,
+            with: "R_SIZE_",
+            options: .regularExpression
+        )
+        value = value.replacingOccurrences(
+            of: #"/w/\d+/h/\d+"#,
+            with: "/w/_/h/_",
+            options: .regularExpression
+        )
+        return value
     }
 }
 
@@ -333,40 +463,96 @@ extension URL {
     }
 
     func sized(_ size: Int) -> URL {
+        resizedArtworkURL(pixelSize: size, preserveLargerRequest: false)
+    }
+
+    /// 图片视图按点布局、CDN 按像素返回。加载器调用此方法保证现有 URL
+    /// 至少达到目标像素，不会把调用方已经请求的高清图反向降级。
+    func artworkURL(atLeastPixelSize size: Int) -> URL {
+        resizedArtworkURL(pixelSize: size, preserveLargerRequest: true)
+    }
+
+    private func resizedArtworkURL(pixelSize requestedSize: Int, preserveLargerRequest: Bool) -> URL {
         if isFileURL {
             return self
         }
 
-        let str = absoluteString
+        let targetSize = max(requestedSize, 1)
+        var normalizedURL = self
+        if scheme == "http", var components = URLComponents(url: self, resolvingAgainstBaseURL: false) {
+            components.scheme = "https"
+            normalizedURL = components.url ?? self
+        }
+
+        let str = normalizedURL.absoluteString
+        let host = normalizedURL.host?.lowercased() ?? ""
 
         // qcm CDN: 替换路径中的 R{w}x{h} 尺寸段（T001/T002/T003 等）
         if str.contains("y.gtimg.cn/music/photo_new/"),
            let range = str.range(of: #"R\d+x\d+"#, options: .regularExpression) {
-            let s = Self.nearestQQSize(size)
+            let currentSize = String(str[range])
+                .dropFirst()
+                .split(separator: "x")
+                .first
+                .flatMap { Int($0) } ?? 0
+            let requested = preserveLargerRequest ? max(targetSize, currentSize) : targetSize
+            let s = Self.nearestQQSize(requested)
             let replaced = str.replacingCharacters(in: range, with: "R\(s)x\(s)")
-            return URL(string: replaced) ?? self
+            return URL(string: replaced) ?? normalizedURL
         }
 
-        // qcm歌单封面 CDN（p.qpic.cn 只支持 /300 和 /600，不做尺寸替换）
+        // qcm歌单封面 CDN 主要提供 /300 与 /600 两档。
         if str.contains("qpic.cn") {
-            return self
+            guard let range = str.range(of: #"/\d{2,4}(?=[?&/]|$)"#, options: .regularExpression) else {
+                return normalizedURL
+            }
+            let currentSize = Int(str[range].dropFirst()) ?? 0
+            let requested = preserveLargerRequest ? max(targetSize, currentSize) : targetSize
+            let s = requested > 300 ? 600 : 300
+            return URL(string: str.replacingCharacters(in: range, with: "/\(s)")) ?? normalizedURL
+        }
+
+        // qcm 新版推荐歌单使用 imageView2/4/w/300/h/300 参数。
+        if host == "music-file.y.qq.com",
+           let range = str.range(of: #"/w/\d+/h/\d+"#, options: .regularExpression) {
+            let segment = String(str[range])
+            let currentSize = segment
+                .split(separator: "/")
+                .compactMap { Int($0) }
+                .max() ?? 0
+            let requested = preserveLargerRequest ? max(targetSize, currentSize) : targetSize
+            let s = min(requested, 1200)
+            return URL(string: str.replacingCharacters(in: range, with: "/w/\(s)/h/\(s)")) ?? normalizedURL
         }
 
         // qcm其他 CDN（pic.ugcimg.cn 等带 /N 尺寸路径）
         if str.contains("gtimg.cn") || str.contains("ugcimg.cn") {
             var result = str
             if let range = result.range(of: #"/\d{2,4}(?=[?&/]|$)"#, options: .regularExpression) {
+                let currentSize = Int(result[range].dropFirst()) ?? 0
+                let size = preserveLargerRequest ? max(targetSize, currentSize) : targetSize
                 result = result.replacingCharacters(in: range, with: "/\(size)")
             }
-            return URL(string: result) ?? self
+            return URL(string: result) ?? normalizedURL
         }
 
         // ncm CDN
-        guard var components = URLComponents(url: self, resolvingAgainstBaseURL: false) else {
-            return self
+        guard host.contains("music.126.net"),
+              var components = URLComponents(url: normalizedURL, resolvingAgainstBaseURL: false) else {
+            return normalizedURL
         }
-        components.queryItems = [URLQueryItem(name: "param", value: "\(size)y\(size)")]
-        return components.url ?? self
+        var queryItems = components.queryItems ?? []
+        let currentSize: Int = queryItems
+            .first(where: { $0.name == "param" })?
+            .value?
+            .split(separator: "y")
+            .first
+            .flatMap { Int($0) } ?? 0
+        let size = preserveLargerRequest ? max(targetSize, currentSize) : targetSize
+        queryItems.removeAll(where: { $0.name == "param" })
+        queryItems.append(URLQueryItem(name: "param", value: "\(size)y\(size)"))
+        components.queryItems = queryItems
+        return components.url ?? normalizedURL
     }
 }
 

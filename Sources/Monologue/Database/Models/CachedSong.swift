@@ -1,10 +1,9 @@
 import Foundation
-import SwiftData
 
 /// 缓存的歌曲数据模型
-@Model
+/// 持久化：iOS 17+ 走 SwiftData 镜像实体，iOS 16 走 Core Data（见 MonoStoreBackend）
 final class CachedSong {
-    @Attribute(.unique) var id: Int
+    var id: Int
     var name: String
     var artistName: String
     var albumName: String?
@@ -103,5 +102,51 @@ final class CachedSong {
     func recordPlay() {
         lastPlayedAt = Date()
         playCount += 1
+    }
+}
+
+// MARK: - MonoEntity
+
+extension CachedSong: MonoEntity {
+    static let monoEntityName = "CachedSong"
+    static let monoAttributes: [MonoAttribute] = [
+        .init("id", .int), .init("name", .string), .init("artistName", .string),
+        .init("albumName", .string), .init("coverUrl", .string), .init("duration", .int),
+        .init("cachedAt", .date), .init("lastPlayedAt", .date), .init("playCount", .int),
+        .init("maxBitrate", .int), .init("fee", .int), .init("canPlay", .bool),
+        .init("sourceRaw", .string), .init("qqMid", .string), .init("qishuiTrackId", .int)
+    ]
+
+    var monoUniqueKey: String { String(id) }
+
+    func monoSnapshot() -> [String: Any?] {
+        [
+            "id": id, "name": name, "artistName": artistName, "albumName": albumName,
+            "coverUrl": coverUrl, "duration": duration, "cachedAt": cachedAt,
+            "lastPlayedAt": lastPlayedAt, "playCount": playCount, "maxBitrate": maxBitrate,
+            "fee": fee, "canPlay": canPlay, "sourceRaw": sourceRaw, "qqMid": qqMid,
+            "qishuiTrackId": qishuiTrackId
+        ]
+    }
+
+    static func monoMake(from s: [String: Any?]) -> Self {
+        let obj = CachedSong(
+            id: MonoSnapshotValue.int(s, "id"),
+            name: MonoSnapshotValue.string(s, "name"),
+            artistName: MonoSnapshotValue.string(s, "artistName"),
+            albumName: MonoSnapshotValue.stringOpt(s, "albumName"),
+            coverUrl: MonoSnapshotValue.stringOpt(s, "coverUrl"),
+            duration: MonoSnapshotValue.intOpt(s, "duration"),
+            maxBitrate: MonoSnapshotValue.intOpt(s, "maxBitrate"),
+            fee: MonoSnapshotValue.intOpt(s, "fee"),
+            canPlay: MonoSnapshotValue.bool(s, "canPlay", default: true),
+            sourceRaw: MonoSnapshotValue.stringOpt(s, "sourceRaw"),
+            qqMid: MonoSnapshotValue.stringOpt(s, "qqMid"),
+            qishuiTrackId: MonoSnapshotValue.intOpt(s, "qishuiTrackId")
+        )
+        obj.cachedAt = MonoSnapshotValue.date(s, "cachedAt")
+        obj.lastPlayedAt = MonoSnapshotValue.dateOpt(s, "lastPlayedAt")
+        obj.playCount = MonoSnapshotValue.int(s, "playCount")
+        return unsafeDowncast(obj, to: Self.self)
     }
 }

@@ -63,7 +63,7 @@ struct PlaylistSearchBar: View {
             .padding(.vertical, MangaStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || SequoiaStyle.isActive ? 10 : 8)
             .background {
                 if MangaStyle.isActive {
-                    MangaCardBackground(cornerRadius: 12, elevated: false, tint: MangaStyle.bubbleWhite)
+                    MangaCardBackground(cornerRadius: MangaStyle.cardRadius, elevated: false, tint: MangaStyle.bubbleWhite)
                 } else if NeumorphicStyle.isActive {
                     NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true, lightweight: true)
                 } else if CapsuleStyle.isActive {
@@ -122,7 +122,7 @@ struct PlaylistSearchBar: View {
                             .frame(width: MangaStyle.isActive || NeumorphicStyle.isActive ? 34 : 28, height: MangaStyle.isActive || NeumorphicStyle.isActive ? 34 : 28)
                             .background {
                                 if MangaStyle.isActive {
-                                    MangaCardBackground(cornerRadius: 10, tint: MangaStyle.bubblePink)
+                                    MangaCardBackground(cornerRadius: MangaStyle.cardRadius, tint: MangaStyle.bubblePink)
                                 } else if NeumorphicStyle.isActive {
                                     NeumorphicSurfaceBackground(cornerRadius: 12, elevated: false, pressed: true, lightweight: true)
                                 }
@@ -151,7 +151,7 @@ struct PlaylistSearchBar: View {
                         .frame(width: MangaStyle.isActive || NeumorphicStyle.isActive ? 34 : 28, height: MangaStyle.isActive || NeumorphicStyle.isActive ? 34 : 28)
                         .background {
                             if MangaStyle.isActive {
-                                MangaCardBackground(cornerRadius: 10, tint: MangaStyle.paperCool)
+                                MangaCardBackground(cornerRadius: MangaStyle.cardRadius, tint: MangaStyle.paperCool)
                             } else if NeumorphicStyle.isActive {
                                 NeumorphicSurfaceBackground(cornerRadius: 12, elevated: false, pressed: true, lightweight: true)
                             }
@@ -173,11 +173,11 @@ struct PlaylistSearchBar: View {
                         CapsuleDetailIconButton(icon: .checkmark, tint: CapsuleStyle.mint)
                             .frame(width: 34, height: 34)
                     } else {
-                        MonologueIcon(icon: .checkmark, size: 14, color: MangaStyle.isActive ? MangaStyle.strokeInk : (NeumorphicStyle.isActive ? NeumorphicStyle.sage : .monologueTextSecondary))
+                        MonologueIcon(icon: .checkmark, size: 14, color: MangaStyle.isActive ? ThemeColorCustomization.readableForegroundColor(on: MangaStyle.labelYellow, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk) : (NeumorphicStyle.isActive ? NeumorphicStyle.sage : .monologueTextSecondary))
                             .frame(width: MangaStyle.isActive || NeumorphicStyle.isActive ? 34 : 28, height: MangaStyle.isActive || NeumorphicStyle.isActive ? 34 : 28)
                             .background {
                                 if MangaStyle.isActive {
-                                    MangaCardBackground(cornerRadius: 10, tint: MangaStyle.labelYellow)
+                                    MangaCardBackground(cornerRadius: MangaStyle.cardRadius, tint: MangaStyle.labelYellow)
                                 } else if NeumorphicStyle.isActive {
                                     NeumorphicSurfaceBackground(cornerRadius: 12, elevated: false, pressed: true, lightweight: true)
                                 }
@@ -232,20 +232,24 @@ struct PlaylistSearchBar: View {
                     .buttonStyle(.plain)
                 }
                 
-                Button { onBatchDownload?() } label: {
-                    MonologueIcon(icon: .download, size: 18, color: MangaStyle.isActive ? MangaStyle.strokeInk : (NeumorphicStyle.isActive ? NeumorphicStyle.warm : (CapsuleStyle.isActive ? CapsuleStyle.cyan : (SequoiaStyle.isActive ? SequoiaStyle.aqua : .monologueTextPrimary))))
-                        .frame(width: 32, height: 32)
-                        .background(MangaStyle.isActive ? MangaStyle.labelYellow : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (CapsuleStyle.isActive ? CapsuleStyle.surfaceTint : (SequoiaStyle.isActive ? SequoiaStyle.materialList : Color.monologueTextPrimary.opacity(0.06)))))
-                        .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 10 : (NeumorphicStyle.isActive ? 11 : (CapsuleStyle.isActive ? 13 : (SequoiaStyle.isActive ? 11 : 16))), style: .continuous))
+                // 下载功能暂时隐藏（AppConfig.Features.downloadEnabled = false）：
+                // 批量下载按钮不显示，前面的「加入队列 / 收藏」图标自然向右补位；后期恢复下载时改回开关即可。
+                if AppConfig.Features.downloadEnabled {
+                    Button { onBatchDownload?() } label: {
+                        MonologueIcon(icon: .download, size: 18, color: MangaStyle.isActive ? ThemeColorCustomization.readableForegroundColor(on: MangaStyle.labelYellow, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk) : (NeumorphicStyle.isActive ? NeumorphicStyle.warm : (CapsuleStyle.isActive ? CapsuleStyle.cyan : (SequoiaStyle.isActive ? SequoiaStyle.aqua : .monologueTextPrimary))))
+                            .frame(width: 32, height: 32)
+                            .background(MangaStyle.isActive ? MangaStyle.labelYellow : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (CapsuleStyle.isActive ? CapsuleStyle.surfaceTint : (SequoiaStyle.isActive ? SequoiaStyle.materialList : Color.monologueTextPrimary.opacity(0.06)))))
+                            .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? MangaStyle.buttonRadius : (NeumorphicStyle.isActive ? 11 : (CapsuleStyle.isActive ? 13 : (SequoiaStyle.isActive ? 11 : 16))), style: .continuous))
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
 
                 if onBatchRemove != nil {
                     Button { onBatchRemove?() } label: {
-                        MonologueIcon(icon: .trash, size: 18, color: MangaStyle.isActive ? MangaStyle.strokeInk : (NeumorphicStyle.isActive ? NeumorphicStyle.red : (CapsuleStyle.isActive ? CapsuleStyle.coral : (SequoiaStyle.isActive ? SequoiaStyle.red : .monologueTextPrimary))))
+                        MonologueIcon(icon: .trash, size: 18, color: MangaStyle.isActive ? ThemeColorCustomization.readableForegroundColor(on: MangaStyle.labelYellow, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk) : (NeumorphicStyle.isActive ? NeumorphicStyle.red : (CapsuleStyle.isActive ? CapsuleStyle.coral : (SequoiaStyle.isActive ? SequoiaStyle.red : .monologueTextPrimary))))
                             .frame(width: 32, height: 32)
                             .background(MangaStyle.isActive ? MangaStyle.labelYellow : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (CapsuleStyle.isActive ? CapsuleStyle.surfaceTint : (SequoiaStyle.isActive ? SequoiaStyle.materialList : Color.monologueTextPrimary.opacity(0.06)))))
-                            .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? 10 : (NeumorphicStyle.isActive ? 11 : (CapsuleStyle.isActive ? 13 : (SequoiaStyle.isActive ? 11 : 16))), style: .continuous))
+                            .clipShape(RoundedRectangle(cornerRadius: MangaStyle.isActive ? MangaStyle.buttonRadius : (NeumorphicStyle.isActive ? 11 : (CapsuleStyle.isActive ? 13 : (SequoiaStyle.isActive ? 11 : 16))), style: .continuous))
                     }
                     .buttonStyle(.plain)
                 }
@@ -267,7 +271,7 @@ struct PlaylistSearchBar: View {
         .padding(.vertical, MangaStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || SequoiaStyle.isActive ? 9 : 0)
         .background {
             if MangaStyle.isActive {
-                MangaCardBackground(cornerRadius: 14, elevated: false, tint: MangaStyle.bubbleWhite)
+                MangaCardBackground(cornerRadius: MangaStyle.cardRadius + 2, elevated: false, tint: MangaStyle.bubbleWhite)
             } else if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true, lightweight: true)
             } else if CapsuleStyle.isActive {

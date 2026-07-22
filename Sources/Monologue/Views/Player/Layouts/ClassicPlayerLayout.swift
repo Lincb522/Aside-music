@@ -5,11 +5,13 @@ import FFmpegSwiftSDK
 struct ClassicPlayerLayout: View {
     @Environment(\.dismiss) var dismiss
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject var player = PlayerManager.shared
     @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
     @ObservedObject var downloadManager = DownloadManager.shared
     @ObservedObject var lyricVM = LyricViewModel.shared
     @ObservedObject private var settings = SettingsManager.shared
+    @StateObject private var asideCoverColors = CoverColorExtractor()
 
     @State private var isDraggingSlider = false
     @State private var dragTimeValue: Double = 0
@@ -23,12 +25,11 @@ struct ClassicPlayerLayout: View {
     @State private var showArtistDetail = false
     @State private var showDownloadSheet = false
 
-    @AppStorage("showTranslation") var showTranslation: Bool = true
-    @AppStorage("enableKaraoke") var enableKaraoke: Bool = false
 
     private var isThemedClassic: Bool { ThemedPageStyle.isActive }
 
     private var contentColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         if MangaStyle.isActive { return MangaStyle.ink }
         if MujiStyle.isActive { return MujiStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
@@ -39,6 +40,7 @@ struct ClassicPlayerLayout: View {
     }
 
     private var secondaryContentColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if MangaStyle.isActive { return MangaStyle.inkSub }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
@@ -48,7 +50,21 @@ struct ClassicPlayerLayout: View {
         return .monologueTextSecondary
     }
 
+    private var asideCoverAccent: Color {
+        guard player.currentSong != nil else { return .monologueIconBackground }
+        return asideCoverColors.dominantColor
+    }
+
+    private var asideCoverAccentForeground: Color {
+        ThemeColorCustomization.readableForegroundColor(
+            on: asideCoverAccent,
+            light: Color(hex: "111318"),
+            dark: .white
+        )
+    }
+
     private var progressColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         if MangaStyle.isActive { return MangaStyle.accentPink }
         if MujiStyle.isActive { return MujiStyle.clay }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
@@ -59,16 +75,18 @@ struct ClassicPlayerLayout: View {
     }
 
     private var classicArtworkCornerRadius: CGFloat {
+        if MinimalWhiteStyle.isActive { return 12 }
         if MangaStyle.isActive { return 12 }
-        if MujiStyle.isActive { return 14 }
+        if MujiStyle.isActive { return 22 }
         if NeumorphicStyle.isActive { return 22 }
         if CapsuleStyle.isActive { return 28 }
         if SequoiaStyle.isActive { return 24 }
         if ClayStyle.isActive { return 30 }
-        return 24
+        return isThemedClassic ? 24 : 14
     }
 
     private func classicTitleFont(_ size: CGFloat, weight: Font.Weight = .bold) -> Font {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.titleFont(size, weight: weight) }
         if MangaStyle.isActive { return MangaStyle.titleFont(size, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.titleFont(size, weight: weight == .bold ? .medium : weight) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.titleFont(size, weight: weight == .bold ? .semibold : weight) }
@@ -79,6 +97,7 @@ struct ClassicPlayerLayout: View {
     }
 
     private func classicBodyFont(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.bodyFont(size, weight: weight) }
         if MangaStyle.isActive { return MangaStyle.bodyFont(size, weight: weight == .regular ? .bold : weight) }
         if MujiStyle.isActive { return MujiStyle.bodyFont(size, weight: weight == .bold ? .medium : weight) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(size, weight: weight) }
@@ -115,8 +134,10 @@ struct ClassicPlayerLayout: View {
                     capsulePlayerContent(geometry: geometry)
                 } else if ClayStyle.isActive {
                     clayPlayerContent(geometry: geometry)
-                } else {
+                } else if isThemedClassic {
                     classicPlayerContent(geometry: geometry)
+                } else {
+                    asideDefaultPlayerContent(geometry: geometry)
                 }
 
                 // 三点菜单浮层
@@ -133,8 +154,18 @@ struct ClassicPlayerLayout: View {
             PlaylistPopupView()
 
         }
-        .onAppear { }
-        .monologueSheet(isPresented: $showQualitySheet, preset: .compact){
+        .onAppear {
+            refreshAsideCoverAccent()
+        }
+        .onChange(of: player.currentSong?.coverUrl?.absoluteString) { _, _ in
+            refreshAsideCoverAccent()
+        }
+        .onChange(of: isThemedClassic) { _, themed in
+            if !themed {
+                refreshAsideCoverAccent()
+            }
+        }
+        .monologueSheet(isPresented: $showQualitySheet, preset: .standard){
             SoundQualitySheet(
                 currentQuality: player.soundQuality,
                 currentQQQuality: player.qqMusicQuality,
@@ -155,8 +186,8 @@ struct ClassicPlayerLayout: View {
             )
 
         }
-        .monologueSheet(isPresented: $showEQSettings, preset: .large){
-            NavigationStack { EQSettingsView() }
+        .fullScreenCover(isPresented: $showEQSettings) {
+            NavigationStack { MonoAudioCenterView() }
 
         }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker){
@@ -198,6 +229,491 @@ struct ClassicPlayerLayout: View {
     }
 
     // MARK: - 子视图
+
+    @ViewBuilder
+    private func asideDefaultPlayerContent(geometry: GeometryProxy) -> some View {
+        let usesWideLayout = geometry.size.width >= 560 && geometry.size.width > geometry.size.height
+
+        if (DeviceLayout.isPad && geometry.size.width >= 760) || usesWideLayout {
+            asideWidePlayerContent(geometry: geometry)
+        } else {
+            asidePhonePlayerContent(geometry: geometry)
+        }
+    }
+
+    private func asidePhonePlayerContent(geometry: GeometryProxy) -> some View {
+        let compactHeight = geometry.size.height < 740
+        let horizontalPadding: CGFloat = compactHeight ? 22 : 24
+        let widthBound = max(190, geometry.size.width - horizontalPadding * 2)
+        let heightBound = geometry.size.height * (compactHeight ? 0.35 : 0.41)
+        let asideArtworkMaxSize: CGFloat = DeviceLayout.isPad ? 480 : 380
+        let artworkSize = min(asideArtworkMaxSize, min(widthBound, heightBound))
+        let sectionSpacing: CGFloat = compactHeight ? 12 : 18
+
+        return VStack(spacing: 0) {
+            asideHeaderView
+                .padding(.top, DeviceLayout.headerTopPadding)
+
+            Spacer(minLength: compactHeight ? 6 : 14)
+
+            asidePlaybackStage(size: artworkSize)
+
+            Spacer(minLength: compactHeight ? 9 : 16)
+
+            VStack(spacing: sectionSpacing) {
+                asideTrackSummary
+                asideProgressSection
+                asideTransportBar
+            }
+            .frame(maxWidth: 560)
+            .padding(.horizontal, horizontalPadding)
+            .padding(.bottom, max(DeviceLayout.safeAreaBottom + 10, compactHeight ? 18 : 26))
+        }
+    }
+
+    private func asideWidePlayerContent(geometry: GeometryProxy) -> some View {
+        let isCompactWide = !DeviceLayout.isPad
+        let horizontalPadding: CGFloat = isCompactWide ? 28 : 54
+        let columnSpacing: CGFloat = isCompactWide ? 28 : 52
+        let artworkSize = min(
+            isCompactWide ? 320 : 500,
+            min(
+                geometry.size.width * (isCompactWide ? 0.36 : 0.46),
+                geometry.size.height * (isCompactWide ? 0.64 : 0.58)
+            )
+        )
+
+        return VStack(spacing: 0) {
+            asideHeaderView
+                .padding(.top, DeviceLayout.headerTopPadding)
+
+            HStack(spacing: columnSpacing) {
+                asidePlaybackStage(size: artworkSize)
+
+                VStack(spacing: isCompactWide ? 16 : 24) {
+                    asideTrackSummary
+                    asideProgressSection
+                    asideTransportBar
+                }
+                .frame(maxWidth: 470)
+            }
+            .frame(maxWidth: 1080, maxHeight: .infinity)
+            .padding(.horizontal, horizontalPadding)
+            .padding(
+                .bottom,
+                max(DeviceLayout.safeAreaBottom + (isCompactWide ? 6 : 18), isCompactWide ? 12 : 34)
+            )
+        }
+    }
+
+    private var asideHeaderView: some View {
+        HStack(spacing: 12) {
+            MonologueBackButton(style: .dismiss, isDarkBackground: false)
+                .contentShape(Circle())
+
+            Spacer(minLength: 0)
+
+            VStack(spacing: 3) {
+                Text(LocalizedStringKey("player_now_playing"))
+                    .font(.system(size: 12.5, weight: .semibold, design: .default))
+                    .foregroundColor(contentColor)
+
+                if let info = player.streamInfo {
+                    Text(streamInfoText(info))
+                        .font(.system(size: 9.5, weight: .medium, design: .monospaced))
+                        .foregroundColor(secondaryContentColor)
+                        .lineLimit(1)
+                }
+            }
+            .frame(maxWidth: 190)
+
+            Spacer(minLength: 0)
+
+            asideHeaderIconButton(
+                icon: .more,
+                accessibilityLabel: String(localized: "player_more_title")
+            ) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {
+                    showMoreMenu.toggle()
+                }
+            }
+        }
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+    }
+
+    @ViewBuilder
+    private func asidePlaybackStage(size: CGFloat) -> some View {
+        if showLyrics, let song = player.currentSong {
+            LyricsView(song: song, onBackgroundTap: {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
+                    showLyrics = false
+                }
+            })
+            .frame(width: size, height: size)
+            .transition(.opacity)
+        } else {
+            artworkTile(size: size)
+                .contentShape(RoundedRectangle(cornerRadius: classicArtworkCornerRadius, style: .continuous))
+                .onTapWithHaptic {
+                    guard player.currentSong != nil else { return }
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
+                        showLyrics = true
+                    }
+                }
+                .accessibilityLabel(String(localized: "settings_lyrics"))
+                .accessibilityAddTraits(.isButton)
+                .accessibilityHidden(player.currentSong == nil)
+                .frame(width: size, height: size)
+                .gesture(
+                    DragGesture()
+                        .onEnded { value in
+                            if value.translation.height > 100 { dismiss() }
+                        }
+                )
+                .transition(.opacity)
+        }
+    }
+
+    @ViewBuilder
+    private var asideTrackSummary: some View {
+        if showLyrics, player.currentSong != nil {
+            lyricsModeSongInfo
+        } else {
+            asideTrackInfo
+        }
+    }
+
+    private var asideTrackInfo: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .center, spacing: 12) {
+                Text(player.currentSong?.name ?? "")
+                    .monologuePlayerDisplayFont(
+                        size: 27,
+                        weight: .semibold,
+                        fallback: .system(size: 27, weight: .semibold, design: .default)
+                    )
+                    .foregroundColor(contentColor)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.78)
+
+                Spacer(minLength: 4)
+
+                if let song = player.currentSong {
+                    LikeButton(
+                        songId: song.id,
+                        isQQMusic: song.isQQMusic,
+                        song: song,
+                        size: 23,
+                        activeColor: .red,
+                        inactiveColor: contentColor
+                    )
+                    .frame(width: 44, height: 44)
+                }
+            }
+
+            HStack(spacing: 8) {
+                Button { showArtistDetail = true } label: {
+                    Text(player.currentSong?.artistName ?? String(localized: "search_unknown_artist"))
+                        .font(.system(size: 15, weight: .medium, design: .default))
+                        .foregroundColor(secondaryContentColor)
+                        .lineLimit(1)
+                }
+                .buttonStyle(.plain)
+                .disabled(player.currentSong == nil)
+
+                Spacer(minLength: 6)
+
+                asideQualityButton
+
+                if player.currentSong != nil {
+                    asideInlineIconButton(
+                        icon: .comment,
+                        accessibilityLabel: String(localized: "comment_title")
+                    ) {
+                        showComments = true
+                    }
+                }
+
+                if AppConfig.Features.downloadEnabled, let song = player.currentSong {
+                    let isDownloaded = downloadManager.isDownloaded(songId: song.id)
+
+                    asideInlineIconButton(
+                        icon: .playerDownload,
+                        accessibilityLabel: String(localized: "song_download")
+                    ) {
+                        if !isDownloaded {
+                            showDownloadSheet = true
+                        }
+                    }
+                    .disabled(isDownloaded)
+                    .opacity(isDownloaded ? 0.46 : 1)
+                }
+            }
+        }
+    }
+
+    private var asideProgressSection: some View {
+        VStack(spacing: 4) {
+            asideProgressRail
+
+            HStack {
+                Text(formatTime(isDraggingSlider ? dragTimeValue : timePublisher.currentTime))
+                Spacer()
+                Text(formatTime(timePublisher.duration))
+            }
+            .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+            .foregroundColor(secondaryContentColor)
+            .monospacedDigit()
+        }
+    }
+
+    private var asideProgressRail: some View {
+        GeometryReader { geometry in
+            let width = max(geometry.size.width, 1)
+            let rawDuration = timePublisher.duration
+            let duration = rawDuration.isFinite && rawDuration > 0 ? rawDuration : 0
+            let rawDisplayedTime = isDraggingSlider ? dragTimeValue : timePublisher.currentTime
+            let displayedTime = rawDisplayedTime.isFinite ? rawDisplayedTime : 0
+            let progress = duration > 0 ? min(max(displayedTime / duration, 0), 1) : 0
+            let progressX = width * CGFloat(progress)
+            let railHeight: CGFloat = isDraggingSlider ? 6 : 4
+            let thumbSize: CGFloat = isDraggingSlider ? 14 : 8
+            let thumbOffset = min(
+                max(progressX - thumbSize / 2, 0),
+                max(width - thumbSize, 0)
+            )
+
+            ZStack(alignment: .leading) {
+                Capsule(style: .continuous)
+                    .fill(contentColor.opacity(colorScheme == .dark ? 0.18 : 0.1))
+                    .frame(height: 4)
+
+                if progress > 0 {
+                    Capsule(style: .continuous)
+                        .fill(asideCoverAccent)
+                        .frame(
+                            width: max(progressX, railHeight),
+                            height: railHeight
+                        )
+                }
+
+                if duration > 0 {
+                    if isDraggingSlider {
+                        Circle()
+                            .fill(asideCoverAccent.opacity(0.16))
+                            .frame(width: 26, height: 26)
+                            .offset(x: thumbOffset - 6)
+                    }
+
+                    Circle()
+                        .fill(asideCoverAccent)
+                        .frame(width: thumbSize, height: thumbSize)
+                        .shadow(
+                            color: Color.black.opacity(colorScheme == .dark ? 0.22 : 0.12),
+                            radius: isDraggingSlider ? 3 : 1.5,
+                            y: 1
+                        )
+                        .offset(x: thumbOffset)
+                }
+            }
+            .frame(width: width, height: geometry.size.height, alignment: .center)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0, coordinateSpace: .local)
+                    .onChanged { value in
+                        guard duration > 0 else { return }
+                        isDraggingSlider = true
+                        let ratio = min(max(value.location.x / width, 0), 1)
+                        dragTimeValue = Double(ratio) * duration
+                    }
+                    .onEnded { value in
+                        guard duration > 0 else {
+                            isDraggingSlider = false
+                            return
+                        }
+                        let ratio = min(max(value.location.x / width, 0), 1)
+                        let target = Double(ratio) * duration
+                        dragTimeValue = target
+                        isDraggingSlider = false
+                        player.seek(to: target)
+                    }
+            )
+        }
+        .frame(height: 28)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: isDraggingSlider)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(String(localized: "播放进度"))
+        .accessibilityValue(
+            "\(formatTime(isDraggingSlider ? dragTimeValue : timePublisher.currentTime)) / \(formatTime(timePublisher.duration))"
+        )
+        .accessibilityAdjustableAction { direction in
+            let duration = timePublisher.duration
+            guard duration.isFinite, duration > 0 else { return }
+            let rawCurrent = isDraggingSlider ? dragTimeValue : timePublisher.currentTime
+            let current = rawCurrent.isFinite ? rawCurrent : 0
+            let step = max(5, min(15, duration * 0.01))
+
+            switch direction {
+            case .increment:
+                player.seek(to: min(current + step, duration))
+            case .decrement:
+                player.seek(to: max(current - step, 0))
+            @unknown default:
+                break
+            }
+        }
+    }
+
+    private var asideTransportBar: some View {
+        let playButtonSize: CGFloat = DeviceLayout.isPad ? 72 : 68
+
+        return HStack(spacing: 0) {
+            asideTransportIconButton(
+                icon: player.mode.monologueIcon,
+                accessibilityLabel: player.mode.displayName
+            ) {
+                player.switchMode()
+            }
+
+            Spacer(minLength: 0)
+
+            Button(action: { player.previous() }) {
+                MonologueIcon(icon: .previous, size: 29, color: contentColor)
+                    .frame(width: 50, height: 50)
+                    .contentShape(Circle())
+            }
+            .buttonStyle(MonologueBouncingButtonStyle())
+            .accessibilityLabel(String(localized: "上一首"))
+
+            Spacer(minLength: 0)
+
+            Button(action: { player.togglePlayPause() }) {
+                ZStack {
+                    Circle()
+                        .fill(asideCoverAccent)
+                        .shadow(
+                            color: asideCoverAccent.opacity(colorScheme == .dark ? 0.18 : 0.24),
+                            radius: 7,
+                            y: 4
+                        )
+
+                    if player.isLoading {
+                        ProgressView()
+                            .progressViewStyle(
+                                CircularProgressViewStyle(tint: asideCoverAccentForeground)
+                            )
+                    } else {
+                        MonologueIcon(
+                            icon: player.isPlaying ? .pause : .play,
+                            size: 29,
+                            color: asideCoverAccentForeground
+                        )
+                    }
+                }
+                .frame(width: playButtonSize, height: playButtonSize)
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.92))
+            .accessibilityLabel(
+                player.isPlaying
+                    ? String(localized: "暂停")
+                    : String(localized: "action_play")
+            )
+
+            Spacer(minLength: 0)
+
+            Button(action: { player.next() }) {
+                MonologueIcon(icon: .next, size: 29, color: contentColor)
+                    .frame(width: 50, height: 50)
+                    .contentShape(Circle())
+            }
+            .buttonStyle(MonologueBouncingButtonStyle())
+            .accessibilityLabel(String(localized: "playback_next_track"))
+
+            Spacer(minLength: 0)
+
+            asideTransportIconButton(
+                icon: .list,
+                accessibilityLabel: String(localized: "player_queue")
+            ) {
+                showPlaylist = true
+            }
+        }
+    }
+
+    private func refreshAsideCoverAccent() {
+        guard !isThemedClassic else { return }
+        asideCoverColors.extract(
+            from: player.currentSong?.coverUrl?.sized(300).absoluteString
+        )
+    }
+
+    private func asideHeaderIconButton(
+        icon: MonologueIcon.IconType,
+        accessibilityLabel: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            MonologueIcon(icon: icon, size: 20, color: contentColor)
+                .frame(width: 40, height: 40)
+                .contentShape(Circle())
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.92))
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    private var asideQualityButton: some View {
+        Button(action: { showQualitySheet = true }) {
+            Text(player.qualityButtonText)
+                .font(.system(size: 9.5, weight: .semibold, design: .default))
+                .tracking(0.2)
+                .foregroundColor(contentColor)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(contentColor.opacity(0.045))
+                )
+                .overlay(
+                    Capsule(style: .continuous)
+                        .stroke(contentColor.opacity(0.16), lineWidth: 0.7)
+                )
+        }
+        .buttonStyle(.plain)
+        .frame(minHeight: 44)
+        .playerQualitySelectionAvailability()
+    }
+
+    private func asideInlineIconButton(
+        icon: MonologueIcon.IconType,
+        accessibilityLabel: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            MonologueIcon(icon: icon, size: 18, color: secondaryContentColor)
+                .frame(width: 44, height: 44)
+                .background(
+                    Circle()
+                        .fill(contentColor.opacity(0.055))
+                )
+                .contentShape(Circle())
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.92))
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    private func asideTransportIconButton(
+        icon: MonologueIcon.IconType,
+        accessibilityLabel: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            MonologueIcon(icon: icon, size: 19, color: secondaryContentColor)
+                .frame(width: 44, height: 44)
+                .contentShape(Circle())
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.92))
+        .accessibilityLabel(accessibilityLabel)
+    }
 
     private func classicPlayerContent(geometry: GeometryProxy) -> some View {
         VStack(spacing: 0) {
@@ -312,9 +828,7 @@ struct ClassicPlayerLayout: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background {
                 if MangaStyle.isActive {
-                    MangaCardBackground(cornerRadius: 22, elevated: true, tint: MangaStyle.bubbleWhite)
-                } else if MujiStyle.isActive {
-                    MujiPaperCardBackground(cornerRadius: 18, elevated: false)
+                    MangaCardBackground(cornerRadius: MangaStyle.cardRadius + 4, elevated: true, tint: MangaStyle.bubbleWhite)
                 } else if NeumorphicStyle.isActive {
                     NeumorphicSurfaceBackground(cornerRadius: 26, elevated: true, tint: NeumorphicStyle.surface)
                 } else if CapsuleStyle.isActive {
@@ -371,7 +885,7 @@ struct ClassicPlayerLayout: View {
             }
         }
         .padding(18)
-        .background(MangaCardBackground(cornerRadius: 24, elevated: true, tint: MangaStyle.paperWarm))
+        .background(MangaCardBackground(cornerRadius: MangaStyle.cardRadius + 4, elevated: true, tint: MangaStyle.paperWarm))
         .overlay(alignment: .topTrailing) {
             MangaStar()
                 .fill(MangaStyle.labelYellow)
@@ -386,7 +900,11 @@ struct ClassicPlayerLayout: View {
     private var mangaTitleBlock: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(player.currentSong?.name ?? "Unknown Song")
-                .font(MangaStyle.titleFont(25, weight: .black))
+                .monologuePlayerDisplayFont(
+                    size: 25,
+                    weight: .black,
+                    fallback: MangaStyle.titleFont(25, weight: .black)
+                )
                 .foregroundColor(MangaStyle.ink)
                 .lineLimit(3)
                 .minimumScaleFactor(0.76)
@@ -402,10 +920,10 @@ struct ClassicPlayerLayout: View {
     }
 
     private func mangaPill(_ color: Color) -> some View {
-        Capsule()
+        RoundedRectangle(cornerRadius: 3, style: .continuous)
             .fill(color)
             .frame(width: 38, height: 12)
-            .overlay(Capsule().stroke(MangaStyle.strokeInk, lineWidth: 1.2))
+            .overlay(RoundedRectangle(cornerRadius: 3, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: 1.2))
     }
 
     private var mangaTransportPanel: some View {
@@ -423,17 +941,15 @@ struct ClassicPlayerLayout: View {
         .padding(.horizontal, 6)
         .padding(.top, 14)
         .padding(.bottom, 16)
-        .background(MangaCardBackground(cornerRadius: 22, elevated: true, tint: MangaStyle.bubbleWhite))
+        .background(MangaCardBackground(cornerRadius: MangaStyle.cardRadius + 4, elevated: true, tint: MangaStyle.bubbleWhite))
     }
 
     private func mujiListeningTray(geometry: GeometryProxy) -> some View {
         let artSize = min(DeviceLayout.isPad ? 300 : 246, max(190, geometry.size.width - 112))
 
-        return VStack(spacing: 18) {
+        return VStack(spacing: 24) {
             artworkTile(size: artSize)
                 .frame(width: artSize, height: artSize)
-                .padding(12)
-                .background(MujiPaperCardBackground(cornerRadius: 24, elevated: true))
                 .onTapWithHaptic {
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                         showLyrics.toggle()
@@ -447,16 +963,31 @@ struct ClassicPlayerLayout: View {
 
     private var mujiTrackLabel: some View {
         HStack(alignment: .center, spacing: 14) {
-            VStack(alignment: .leading, spacing: 7) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 7) {
+                    MujiDotMark()
+
+                    Text("NOW PLAYING")
+                        .font(MujiStyle.labelFont(9.5, weight: .semibold))
+                        .foregroundColor(MujiStyle.clay)
+                        .tracking(2)
+                }
+
                 Text(player.currentSong?.name ?? "Unknown Song")
-                    .font(MujiStyle.titleFont(24, weight: .medium))
+                    .monologuePlayerDisplayFont(
+                        size: 25,
+                        weight: .medium,
+                        fallback: MujiStyle.titleFont(25, weight: .medium)
+                    )
                     .foregroundColor(MujiStyle.ink)
                     .lineLimit(2)
                     .minimumScaleFactor(0.82)
 
                 Button { showArtistDetail = true } label: {
                     Text(player.currentSong?.artistName ?? "Unknown Artist")
-                        .font(MujiStyle.bodyFont(15, weight: .regular))
+                        .font(MujiStyle.labelFont(12.5, weight: .medium))
+                        .textCase(.uppercase)
+                        .tracking(1.4)
                         .foregroundColor(MujiStyle.inkSoft)
                         .lineLimit(1)
                 }
@@ -473,13 +1004,11 @@ struct ClassicPlayerLayout: View {
                 }
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .background(MujiPaperCardBackground(cornerRadius: 14, elevated: false))
+        .padding(.top, 18)
     }
 
     private var mujiTransportPanel: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 15) {
             if showLyrics {
                 lyricsModeSongInfo
                     .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
@@ -487,16 +1016,24 @@ struct ClassicPlayerLayout: View {
 
             progressSection
 
-            Rectangle()
-                .fill(MujiStyle.hairline.opacity(0.5))
-                .frame(height: 0.7)
+            MujiStitchLine()
+                .stroke(
+                    MujiStyle.separator.opacity(0.45),
+                    style: StrokeStyle(lineWidth: 1.6, lineCap: .round, dash: [0.1, 8])
+                )
+                .frame(height: 2)
                 .padding(.horizontal, 22)
 
             controlsView
         }
-        .padding(.top, 16)
-        .padding(.bottom, 18)
-        .background(MujiPaperCardBackground(cornerRadius: 18, elevated: false))
+        .padding(.horizontal, 6)
+        .padding(.top, 18)
+        .padding(.bottom, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .fill(MujiStyle.surface.opacity(0.92))
+                .shadow(color: MujiStyle.ink.opacity(0.06), radius: 16, x: 0, y: 6)
+        )
     }
 
     private func neumorphicPlayerContent(geometry: GeometryProxy) -> some View {
@@ -555,7 +1092,11 @@ struct ClassicPlayerLayout: View {
                 VStack(alignment: .leading, spacing: 13) {
                     VStack(alignment: .leading, spacing: 7) {
                         Text(player.currentSong?.name ?? "Unknown Song")
-                            .font(NeumorphicStyle.titleFont(24, weight: .semibold))
+                            .monologuePlayerDisplayFont(
+                                size: 24,
+                                weight: .semibold,
+                                fallback: NeumorphicStyle.titleFont(24, weight: .semibold)
+                            )
                             .foregroundStyle(NeumorphicStyle.ink)
                             .lineLimit(3)
                             .minimumScaleFactor(0.74)
@@ -924,7 +1465,15 @@ struct ClassicPlayerLayout: View {
                 showComments = true
             }
 
-            neumorphicDownloadButton(song: song)
+            if AppConfig.Features.downloadEnabled {
+                // 下载按钮（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+                neumorphicDownloadButton(song: song)
+            } else {
+                // 沉浸模式按钮 — 占用原下载按钮的位置
+                neumorphicUtilityButton(icon: .immersive, tint: NeumorphicStyle.warm) {
+                    ImmersiveModeController.shared.present()
+                }
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -1094,7 +1643,11 @@ struct ClassicPlayerLayout: View {
 
             VStack(spacing: 6) {
                 Text(player.currentSong?.name ?? "Unknown Song")
-                    .font(CapsuleStyle.titleFont(24, weight: .bold))
+                    .monologuePlayerDisplayFont(
+                        size: 24,
+                        weight: .bold,
+                        fallback: CapsuleStyle.titleFont(24, weight: .bold)
+                    )
                     .foregroundStyle(CapsuleStyle.ink)
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
@@ -1167,8 +1720,27 @@ struct ClassicPlayerLayout: View {
             capsuleLikeControl
             capsuleLyricsToggle
             capsuleCommentQuick
-            capsuleDownloadQuick
+            if AppConfig.Features.downloadEnabled {
+                // 下载按钮（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+                capsuleDownloadQuick
+            } else {
+                // 沉浸模式按钮 — 占用原下载按钮的位置
+                capsuleImmersiveQuick
+            }
         }
+    }
+
+    private var capsuleImmersiveQuick: some View {
+        Button {
+            ImmersiveModeController.shared.present()
+        } label: {
+            MonologueIcon(icon: .immersive, size: 16, color: CapsuleStyle.mint, lineWidth: 1.6)
+                .frame(width: 36, height: 36)
+                .background(capsulePillBackground(tint: CapsuleStyle.surfaceRaised.opacity(0.78)))
+        }
+        .buttonStyle(CapsulePressStyle())
+        .disabled(player.currentSong == nil)
+        .opacity(player.currentSong == nil ? 0.4 : 1)
     }
 
     private var capsuleQualityChip: some View {
@@ -1283,26 +1855,6 @@ struct ClassicPlayerLayout: View {
         return VStack(spacing: 12) {
             HStack(spacing: 8) {
                 capsuleLyricsToggle
-                capsuleToggleButton(
-                    icon: .translate,
-                    isActive: showTranslation,
-                    tint: CapsuleStyle.cyan,
-                    selectedPetWhiteAssetName: "translateSelected"
-                ) {
-                    withAnimation(.spring(response: 0.28, dampingFraction: 0.84)) {
-                        showTranslation.toggle()
-                    }
-                }
-                capsuleToggleButton(
-                    icon: .karaoke,
-                    isActive: enableKaraoke,
-                    tint: CapsuleStyle.violet,
-                    selectedPetWhiteAssetName: "karaokeSelected"
-                ) {
-                    withAnimation(.spring(response: 0.28, dampingFraction: 0.84)) {
-                        enableKaraoke.toggle()
-                    }
-                }
 
                 Spacer(minLength: 0)
 
@@ -1337,85 +1889,6 @@ struct ClassicPlayerLayout: View {
         .padding(.horizontal, horizontalPadding)
         .frame(maxWidth: maxWidth)
         .frame(maxWidth: .infinity)
-    }
-
-    private func capsuleToggleButton(
-        icon: MonologueIcon.IconType,
-        isActive: Bool,
-        tint: Color,
-        selectedPetWhiteAssetName: String? = nil,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            let usesPetWhiteAssetState = PetWhiteStyle.isActive && selectedPetWhiteAssetName != nil
-
-            ZStack {
-                lyricModeToggleIcon(
-                    icon: icon,
-                    isActive: isActive,
-                    activeColor: ThemeColorCustomization.readableForegroundColor(on: tint, light: Color(hex: "111821"), dark: .white),
-                    inactiveColor: tint,
-                    selectedPetWhiteAssetName: selectedPetWhiteAssetName,
-                    size: 16,
-                    lineWidth: 1.6
-                )
-            }
-            .frame(width: 36, height: 36)
-            .background(
-                capsulePillBackground(
-                    tint: usesPetWhiteAssetState
-                        ? CapsuleStyle.surfaceRaised.opacity(0.78)
-                        : (isActive ? tint : CapsuleStyle.surfaceRaised.opacity(0.78))
-                )
-            )
-            .overlay(alignment: .topTrailing) {
-                if !usesPetWhiteAssetState {
-                    Circle()
-                        .fill(isActive ? tint : CapsuleStyle.separator.opacity(0.34))
-                        .frame(width: 6, height: 6)
-                        .padding(5)
-                }
-            }
-            .overlay(alignment: .bottom) {
-                if !usesPetWhiteAssetState {
-                    Capsule()
-                        .fill(isActive ? tint.opacity(0.96) : CapsuleStyle.separator.opacity(0.34))
-                        .frame(width: isActive ? 16 : 10, height: 2.5)
-                        .padding(.bottom, 4)
-                }
-            }
-        }
-        .buttonStyle(CapsulePressStyle())
-    }
-
-    @ViewBuilder
-    private func lyricModeToggleIcon(
-        icon: MonologueIcon.IconType,
-        isActive: Bool,
-        activeColor: Color,
-        inactiveColor: Color,
-        selectedPetWhiteAssetName: String? = nil,
-        size: CGFloat,
-        lineWidth: CGFloat
-    ) -> some View {
-        if PetWhiteStyle.isActive, let selectedPetWhiteAssetName {
-            let assetName = isActive ? selectedPetWhiteAssetName : String(describing: icon)
-            PetWhiteSelectedLyricToggleIcon(
-                assetName: assetName,
-                size: max(size + 6, 22)
-            )
-            .scaleEffect(isActive ? 1.08 : 1)
-            .offset(y: isActive ? -0.5 : 0)
-        } else {
-            MonologueIcon(
-                icon: icon,
-                size: size,
-                color: isActive ? activeColor : inactiveColor,
-                lineWidth: lineWidth
-            )
-            .scaleEffect(isActive ? 1.08 : 1)
-            .offset(y: isActive ? -0.5 : 0)
-        }
     }
 
     // MARK: - 底部控件舱(单一 Capsule Deck)
@@ -1644,7 +2117,11 @@ struct ClassicPlayerLayout: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(player.currentSong?.name ?? "Unknown Song")
-                    .font(ClayStyle.titleFont(23, weight: .bold))
+                    .monologuePlayerDisplayFont(
+                        size: 23,
+                        weight: .bold,
+                        fallback: ClayStyle.titleFont(23, weight: .bold)
+                    )
                     .foregroundStyle(ClayStyle.ink)
                     .lineLimit(2)
                     .minimumScaleFactor(0.78)
@@ -1696,13 +2173,15 @@ struct ClassicPlayerLayout: View {
     private var qualityButton: some View {
         Button(action: { showQualitySheet = true }) {
             Text(player.qualityButtonText)
-                .font(.system(size: 10, weight: .bold))
+                .font(.system(size: 10, weight: isThemedClassic ? .bold : .heavy, design: isThemedClassic ? .default : .rounded))
+                .tracking(isThemedClassic ? 0 : 0.5)
                 .foregroundColor(qualityBadgeForeground)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 5)
                 .background(qualityBadgeBackground)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 5)
+                    // aside 编辑部风格：极细描边胶囊
+                    RoundedRectangle(cornerRadius: isThemedClassic ? 5 : 20)
                         .stroke(qualityBadgeStroke, lineWidth: MangaStyle.isActive ? 1.4 : 0.8)
                 )
         }
@@ -1712,7 +2191,10 @@ struct ClassicPlayerLayout: View {
 
     @ViewBuilder
     private var classicThemeBackdrop: some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            MinimalWhiteRootBackdrop()
+                .ignoresSafeArea()
+        } else if MangaStyle.isActive {
             ZStack {
                 MangaRootBackdrop()
                 MangaDotsTexture(opacity: colorScheme == .dark ? 0.03 : 0.045, gap: 15)
@@ -1728,7 +2210,7 @@ struct ClassicPlayerLayout: View {
             ThemeRenderBackdrop(theme: .capsule)
                 .ignoresSafeArea()
         } else if SequoiaStyle.isActive {
-            ThemeRenderBackdrop(theme: .sequoia)
+            ThemeRenderBackdrop(theme: .default)
                 .ignoresSafeArea()
         } else if ClayStyle.isActive {
             ClayRootBackdrop()
@@ -1788,6 +2270,9 @@ struct ClassicPlayerLayout: View {
                                     .stroke(CapsuleStyle.hairline.opacity(0.7), lineWidth: 0.8)
                             )
                             .shadow(color: CapsuleStyle.accent.opacity(0.08), radius: 10, x: 0, y: 5)
+                    } else if MinimalWhiteStyle.isActive {
+                        MinimalWhiteCircleBackground(elevated: true)
+                            .frame(width: 44, height: 44)
                     } else if SequoiaStyle.isActive {
                         Circle()
                             .fill(SequoiaStyle.materialRaised.opacity(0.82))
@@ -1799,6 +2284,10 @@ struct ClassicPlayerLayout: View {
                             .fill(Color.clear)
                             .frame(width: 44, height: 44)
                             .background(ClaySurfaceBackground(cornerRadius: 22, tint: ClayStyle.cream, elevated: true, compact: true))
+                    } else if MujiStyle.isActive {
+                        Circle()
+                            .fill(MujiStyle.wash(MujiStyle.clay, strength: 1.1))
+                            .frame(width: 44, height: 44)
                     } else {
                         Circle()
                             .fill(Color.monologueGlassTint)
@@ -1828,25 +2317,41 @@ struct ClassicPlayerLayout: View {
         return classicArtworkFrame(
             ZStack {
                 if let song = player.currentSong {
-                    ZStack {
-                        CachedAsyncImage(url: song.coverUrl?.sized(800)) {
-                            MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (CapsuleStyle.isActive ? CapsuleStyle.surfaceTint : (SequoiaStyle.isActive ? SequoiaStyle.materialPressed : (ClayStyle.isActive ? ClayStyle.creamPressed : Color.gray.opacity(0.2))))))
-                        }
-                        .aspectRatio(contentMode: .fill)
+                    CachedAsyncImage(
+                        url: song.coverUrl?.sized(800),
+                        width: size,
+                        height: size
+                    ) {
+                            MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : (MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (CapsuleStyle.isActive ? CapsuleStyle.surfaceTint : (SequoiaStyle.isActive ? SequoiaStyle.materialPressed : (ClayStyle.isActive ? ClayStyle.creamPressed : Color.gray.opacity(0.2)))))))
+                    }
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: size, height: size)
+                    .clipped()
 
-                        if let dynamicUrl = player.dynamicCoverUrl, !dynamicUrl.isEmpty {
-                            DynamicCoverView(urlString: dynamicUrl, cornerRadius: cornerRadius)
-                        }
+                    if let dynamicUrl = player.dynamicCoverUrl, !dynamicUrl.isEmpty {
+                        DynamicCoverView(urlString: dynamicUrl, cornerRadius: cornerRadius)
+                            .frame(width: size, height: size)
+                            .clipped()
                     }
                 } else {
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (CapsuleStyle.isActive ? CapsuleStyle.surfaceTint : (SequoiaStyle.isActive ? SequoiaStyle.materialPressed : (ClayStyle.isActive ? ClayStyle.creamPressed : Color.gray.opacity(0.1)))))))
+                        .fill(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : (MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (CapsuleStyle.isActive ? CapsuleStyle.surfaceTint : (SequoiaStyle.isActive ? SequoiaStyle.materialPressed : (ClayStyle.isActive ? ClayStyle.creamPressed : Color.gray.opacity(0.1))))))))
                         .overlay(
                             MonologueIcon(icon: .musicNoteList, size: 80, color: secondaryContentColor.opacity(0.32))
                         )
                 }
             }
             .frame(width: size, height: size)
+            .overlay(alignment: .bottomTrailing) {
+                if player.currentSong != nil {
+                    AIEqualizerArtworkStatusView(
+                        accent: asideCoverAccent,
+                        isDarkArtwork: asideCoverColors.isDark
+                    )
+                    .padding(max(10, min(15, size * 0.038)))
+                    .zIndex(1)
+                }
+            }
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)),
             cornerRadius: cornerRadius
         )
@@ -1854,7 +2359,14 @@ struct ClassicPlayerLayout: View {
 
     @ViewBuilder
     private func classicArtworkFrame<Content: View>(_ content: Content, cornerRadius: CGFloat) -> some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            content
+                .overlay(
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
+                )
+                .shadow(color: MinimalWhiteStyle.ink.opacity(0.045), radius: 10, x: 0, y: 4)
+        } else if MangaStyle.isActive {
             content
                 .overlay(
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -1867,13 +2379,14 @@ struct ClassicPlayerLayout: View {
                 )
                 .rotationEffect(.degrees(-1.6))
         } else if MujiStyle.isActive {
+            // Muji 手帖：杏色水洗底纸错位衬托 + 极柔投影，像贴在手帖上的照片
             content
-                .padding(8)
-                .background(MujiPaperCardBackground(cornerRadius: cornerRadius + 8, elevated: true))
-                .overlay(
-                    RoundedRectangle(cornerRadius: cornerRadius + 8, style: .continuous)
-                        .stroke(MujiStyle.hairline.opacity(0.7), lineWidth: 0.7)
+                .background(
+                    RoundedRectangle(cornerRadius: cornerRadius + 4, style: .continuous)
+                        .fill(MujiStyle.wash(MujiStyle.tea, strength: 1.35))
+                        .offset(x: 12, y: 14)
                 )
+                .shadow(color: MujiStyle.ink.opacity(0.1), radius: 22, x: 0, y: 10)
         } else if NeumorphicStyle.isActive {
             content
                 .padding(10)
@@ -1906,13 +2419,25 @@ struct ClassicPlayerLayout: View {
                     RoundedRectangle(cornerRadius: cornerRadius + 14, style: .continuous)
                         .stroke(ClayStyle.separator.opacity(0.34), lineWidth: 0.8)
                 )
-        } else {
+        } else if isThemedClassic {
             content
                 .monologueBackgroundExtension()
                 .shadow(color: Color.black.opacity(0.25), radius: 30, x: 0, y: 15)
                 .overlay(
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                         .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                )
+        } else {
+            content
+                .shadow(
+                    color: Color.black.opacity(colorScheme == .dark ? 0.24 : 0.16),
+                    radius: 8,
+                    x: 0,
+                    y: 4
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .stroke(contentColor.opacity(0.1), lineWidth: 0.7)
                 )
         }
     }
@@ -1921,7 +2446,11 @@ struct ClassicPlayerLayout: View {
         HStack(alignment: .center, spacing: 16) {
             VStack(alignment: .leading, spacing: 8) {
                 Text(player.currentSong?.name ?? "Unknown Song")
-                    .font(classicTitleFont(26, weight: .bold))
+                    .monologuePlayerDisplayFont(
+                        size: 26,
+                        weight: .bold,
+                        fallback: classicTitleFont(26, weight: .bold)
+                    )
                     .foregroundColor(contentColor)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
@@ -1939,14 +2468,16 @@ struct ClassicPlayerLayout: View {
 
             Button(action: { showQualitySheet = true }) {
                 Text(player.qualityButtonText)
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.system(size: 10, weight: isThemedClassic ? .bold : .heavy, design: isThemedClassic ? .default : .rounded))
+                    .tracking(isThemedClassic ? 0 : 0.5)
                     .foregroundColor(qualityBadgeForeground)
-                    .padding(.horizontal, 6)
+                    .padding(.horizontal, isThemedClassic ? 6 : 7)
                     .padding(.vertical, 3)
                     .background(qualityBadgeBackground)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 4)
-                            .stroke(qualityBadgeStroke, lineWidth: MangaStyle.isActive ? 1.4 : 1)
+                        // aside 编辑部风格：极细描边胶囊
+                        RoundedRectangle(cornerRadius: isThemedClassic ? 4 : 20)
+                            .stroke(qualityBadgeStroke, lineWidth: MangaStyle.isActive ? 1.4 : 0.8)
                     )
             }
             .playerQualitySelectionAvailability()
@@ -1967,9 +2498,7 @@ struct ClassicPlayerLayout: View {
     @ViewBuilder
     private var classicInfoBackground: some View {
         if MangaStyle.isActive {
-            MangaCardBackground(cornerRadius: 16, elevated: true, tint: MangaStyle.bubbleWhite)
-        } else if MujiStyle.isActive {
-            MujiPaperCardBackground(cornerRadius: 12, elevated: false)
+            MangaCardBackground(cornerRadius: MangaStyle.cardRadius + 2, elevated: true, tint: MangaStyle.bubbleWhite)
         } else if NeumorphicStyle.isActive {
             NeumorphicSurfaceBackground(cornerRadius: 18, elevated: true)
         } else if CapsuleStyle.isActive {
@@ -1985,12 +2514,15 @@ struct ClassicPlayerLayout: View {
 
     @ViewBuilder
     private var qualityBadgeBackground: some View {
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                .fill(MinimalWhiteStyle.controlGlassFill)
+        } else if MangaStyle.isActive {
             RoundedRectangle(cornerRadius: 4, style: .continuous)
                 .fill(MangaStyle.labelYellow)
         } else if MujiStyle.isActive {
-            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .fill(MujiStyle.surfaceRaised)
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(MujiStyle.wash(MujiStyle.clay, strength: 1.2))
         } else if NeumorphicStyle.isActive {
             RoundedRectangle(cornerRadius: 6, style: .continuous)
                 .fill(NeumorphicStyle.surfaceRaised)
@@ -2009,17 +2541,19 @@ struct ClassicPlayerLayout: View {
     }
 
     private var qualityBadgeStroke: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.hairline }
         if MangaStyle.isActive { return MangaStyle.strokeInk }
-        if MujiStyle.isActive { return MujiStyle.hairline }
+        if MujiStyle.isActive { return Color.clear }
         if NeumorphicStyle.isActive { return NeumorphicStyle.separator }
         if CapsuleStyle.isActive { return CapsuleStyle.accent.opacity(0.2) }
         if SequoiaStyle.isActive { return SequoiaStyle.accent.opacity(0.24) }
         if ClayStyle.isActive { return ClayStyle.accent.opacity(0.28) }
-        return contentColor.opacity(0.5)
+        return contentColor.opacity(0.34)
     }
 
     private var qualityBadgeForeground: Color {
         if MangaStyle.isActive { return MangaStyle.strokeInk }
+        if MujiStyle.isActive { return MujiStyle.clay }
         if CapsuleStyle.isActive { return CapsuleStyle.accent }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
         if ClayStyle.isActive { return ClayStyle.accent }
@@ -2030,7 +2564,11 @@ struct ClassicPlayerLayout: View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(player.currentSong?.name ?? "")
-                    .font(classicTitleFont(20, weight: .bold))
+                    .monologuePlayerDisplayFont(
+                        size: 20,
+                        weight: .bold,
+                        fallback: classicTitleFont(20, weight: .bold)
+                    )
                     .foregroundColor(contentColor)
                     .lineLimit(1)
                 Button { showArtistDetail = true } label: {
@@ -2044,86 +2582,17 @@ struct ClassicPlayerLayout: View {
 
             Spacer()
 
-            let usesPetWhiteLyricAssets = PetWhiteStyle.isActive
-
-            Button(action: { withAnimation { enableKaraoke.toggle() } }) {
-                ZStack {
-                    Circle()
-                        .fill(
-                            usesPetWhiteLyricAssets
-                                ? contentColor.opacity(0.05)
-                                : (enableKaraoke ? contentColor.opacity(0.11) : contentColor.opacity(0.05))
-                        )
-                    lyricModeToggleIcon(
-                        icon: .karaoke,
-                        isActive: enableKaraoke,
-                        activeColor: contentColor,
-                        inactiveColor: secondaryContentColor.opacity(0.3),
-                        selectedPetWhiteAssetName: "karaokeSelected",
-                        size: 20,
-                        lineWidth: 1.6
-                    )
-                }
-                .frame(width: 36, height: 36)
-                .overlay(
-                    Circle().stroke(
-                        usesPetWhiteLyricAssets
-                            ? contentColor.opacity(0.12)
-                            : (enableKaraoke ? contentColor.opacity(0.28) : contentColor.opacity(0.12)),
-                        lineWidth: usesPetWhiteLyricAssets ? 0.8 : (enableKaraoke ? 1.2 : 0.8)
-                    )
-                )
-                .overlay(alignment: .topTrailing) {
-                    if !usesPetWhiteLyricAssets {
-                        Circle()
-                            .fill(enableKaraoke ? CapsuleStyle.violet : secondaryContentColor.opacity(0.25))
-                            .frame(width: 6, height: 6)
-                            .padding(4)
-                    }
-                }
-            }
-
-            Button(action: { withAnimation { showTranslation.toggle() } }) {
-                ZStack {
-                    Circle()
-                        .fill(
-                            usesPetWhiteLyricAssets
-                                ? contentColor.opacity(0.05)
-                                : (showTranslation ? contentColor.opacity(0.11) : contentColor.opacity(0.05))
-                        )
-                    lyricModeToggleIcon(
-                        icon: .translate,
-                        isActive: showTranslation,
-                        activeColor: contentColor,
-                        inactiveColor: secondaryContentColor.opacity(0.3),
-                        selectedPetWhiteAssetName: "translateSelected",
-                        size: 20,
-                        lineWidth: 1.6
-                    )
-                }
-                .frame(width: 36, height: 36)
-                .overlay(
-                    Circle().stroke(
-                        usesPetWhiteLyricAssets
-                            ? contentColor.opacity(0.12)
-                            : (showTranslation ? contentColor.opacity(0.28) : contentColor.opacity(0.12)),
-                        lineWidth: usesPetWhiteLyricAssets ? 0.8 : (showTranslation ? 1.2 : 0.8)
-                    )
-                )
-                .overlay(alignment: .topTrailing) {
-                    if !usesPetWhiteLyricAssets {
-                        Circle()
-                            .fill(showTranslation ? CapsuleStyle.cyan : secondaryContentColor.opacity(0.25))
-                            .frame(width: 6, height: 6)
-                            .padding(4)
-                    }
-                }
-            }
-
             if let song = player.currentSong {
-                LikeButton(songId: song.id, isQQMusic: song.isQQMusic, song: song, size: 22, activeColor: .red, inactiveColor: contentColor)
-                    .background(contentColor.opacity(0.05))
-                    .clipShape(Circle())
+                LikeButton(
+                    songId: song.id,
+                    isQQMusic: song.isQQMusic,
+                    song: song,
+                    size: 22,
+                    activeColor: .red,
+                    inactiveColor: contentColor
+                )
+                .background(contentColor.opacity(0.05))
+                .clipShape(Circle())
             }
         }
         .padding(.horizontal, 4)
@@ -2158,7 +2627,7 @@ struct ClassicPlayerLayout: View {
                 Spacer()
                 Text(formatTime(timePublisher.duration))
             }
-            .font(.rounded(size: 11, weight: .medium))
+            .font(classicBodyFont(11, weight: .medium))
             .foregroundColor(secondaryContentColor.opacity(0.6))
             .monospacedDigit()
         }
@@ -2169,7 +2638,11 @@ struct ClassicPlayerLayout: View {
     private var classicPlayButtonBackground: some View {
         let size = DeviceLayout.playerPlayButtonSize
 
-        if MangaStyle.isActive {
+        if MinimalWhiteStyle.isActive {
+            Circle()
+                .fill(MinimalWhiteStyle.accent)
+                .frame(width: size, height: size)
+        } else if MangaStyle.isActive {
             Circle()
                 .fill(MangaStyle.labelYellow)
                 .frame(width: size, height: size)
@@ -2181,10 +2654,9 @@ struct ClassicPlayerLayout: View {
                 )
         } else if MujiStyle.isActive {
             Circle()
-                .fill(MujiStyle.surfaceRaised)
+                .fill(MujiStyle.clay)
                 .frame(width: size, height: size)
-                .overlay(Circle().stroke(MujiStyle.hairline.opacity(0.72), lineWidth: 0.75))
-                .shadow(color: Color.black.opacity(0.07), radius: 14, x: 0, y: 7)
+                .shadow(color: MujiStyle.clay.opacity(0.32), radius: 16, x: 0, y: 8)
         } else if NeumorphicStyle.isActive {
             Circle()
                 .fill(Color.clear)
@@ -2226,8 +2698,9 @@ struct ClassicPlayerLayout: View {
     }
 
     private var classicPlayIconColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.onAccent }
         if MangaStyle.isActive { return MangaStyle.strokeInk }
-        if MujiStyle.isActive { return MujiStyle.clay }
+        if MujiStyle.isActive { return MujiStyle.onTint }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if CapsuleStyle.isActive { return CapsuleStyle.onAccent }
         if SequoiaStyle.isActive { return SequoiaStyle.onAccent }
@@ -2301,23 +2774,37 @@ struct ClassicPlayerLayout: View {
 
                     Spacer()
 
-                    Button {
-                        if !downloadManager.isDownloaded(songId: song.id) {
-                            showDownloadSheet = true
+                    if AppConfig.Features.downloadEnabled {
+                        // 下载按钮（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+                        Button {
+                            if !downloadManager.isDownloaded(songId: song.id) {
+                                showDownloadSheet = true
+                            }
+                        } label: {
+                            MonologueIcon(
+                                icon: .playerDownload,
+                                size: 22,
+                                color: downloadManager.isDownloaded(songId: song.id) ? .monologueTextSecondary : secondaryContentColor,
+                                lineWidth: 1.4
+                            )
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                         }
-                    } label: {
-                        MonologueIcon(
-                            icon: .playerDownload,
-                            size: 22,
-                            color: downloadManager.isDownloaded(songId: song.id) ? .monologueTextSecondary : secondaryContentColor,
-                            lineWidth: 1.4
-                        )
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
+                        .buttonStyle(MonologueBouncingButtonStyle())
+                        .disabled(downloadManager.isDownloaded(songId: song.id))
+                        .frame(width: 44)
+                    } else {
+                        // 沉浸模式按钮 — 占用原下载按钮的位置
+                        Button {
+                            ImmersiveModeController.shared.present()
+                        } label: {
+                            MonologueIcon(icon: .immersive, size: 22, color: secondaryContentColor, lineWidth: 1.4)
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(MonologueBouncingButtonStyle())
+                        .frame(width: 44)
                     }
-                    .buttonStyle(MonologueBouncingButtonStyle())
-                    .disabled(downloadManager.isDownloaded(songId: song.id))
-                    .frame(width: 44)
                 }
             }
         }

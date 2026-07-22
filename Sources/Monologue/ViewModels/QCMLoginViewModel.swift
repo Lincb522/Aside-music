@@ -15,18 +15,9 @@ class QQLoginViewModel: ObservableObject {
     @Published var isQRExpired = false
     @Published var qrLoginType: QRLoginType = .qq
 
-    // MARK: - 手机登录状态
-    @Published var phoneNumber: String = ""
-    @Published var captchaCode: String = ""
-    @Published var isCaptchaSent = false
-    @Published var phoneErrorMessage: String?
-    @Published var needCaptchaVerify = false
-    @Published var captchaVerifyURL: String?
-
     // MARK: - 通用状态
     @Published var isLoggedIn = false
     @Published var isVIP = false
-    @Published var isLoading = false
     @Published var loginStatusText: String?
     @Published var qqMusicId: Int?
 
@@ -161,75 +152,6 @@ class QQLoginViewModel: ObservableObject {
         qrLoginType = type
         qrLoginStarted = false
         startQRLogin()
-    }
-
-    // MARK: - 手机登录
-
-    func sendPhoneCode() {
-        guard let phone = Int(phoneNumber), phoneNumber.count == 11 else {
-            phoneErrorMessage = String(localized: "请输入正确的手机号")
-            return
-        }
-
-        isLoading = true
-        phoneErrorMessage = nil
-
-        Task {
-            do {
-                let result = try await userSession.withUserSession { client in
-                    try await client.sendPhoneCode(phone: phone)
-                }
-                isLoading = false
-                if result.isSent {
-                    isCaptchaSent = true
-                    phoneErrorMessage = nil
-                } else if result.needCaptcha {
-                    needCaptchaVerify = true
-                    captchaVerifyURL = result.url
-                    phoneErrorMessage = String(localized: "需要滑块验证，请在浏览器中完成后重试")
-                }
-            } catch {
-                isLoading = false
-                phoneErrorMessage = String(localized: "发送验证码失败: \(error.localizedDescription)")
-            }
-        }
-    }
-
-    func loginWithPhone() {
-        guard let phone = Int(phoneNumber),
-              let code = Int(captchaCode) else {
-            phoneErrorMessage = String(localized: "请输入正确的手机号和验证码")
-            return
-        }
-
-        isLoading = true
-        phoneErrorMessage = nil
-
-        Task {
-            do {
-                _ = try await userSession.withUserSession { client in
-                    try await client.phoneLogin(phone: phone, code: code)
-                }
-                let status = try await userSession.withUserSession { client in
-                    try await client.authStatus()
-                }
-                isLoading = false
-                if status.loggedIn {
-                    userSession.onLoginSuccess(
-                        musicId: status.musicid,
-                        musicKey: status.musickey,
-                        encryptUin: status.euin,
-                        loginType: status.loginType
-                    )
-                    syncFromUserSession()
-                } else {
-                    phoneErrorMessage = String(localized: "登录失败，请重试")
-                }
-            } catch {
-                isLoading = false
-                phoneErrorMessage = String(localized: "登录失败: \(error.localizedDescription)")
-            }
-        }
     }
 
     // MARK: - 退出登录

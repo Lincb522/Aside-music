@@ -50,6 +50,12 @@ final class MonologueSceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
     }
 
+    func sceneDidEnterBackground(_ scene: UIScene) {
+        // Background audio must not keep a display-synchronization source alive.
+        // The foreground policy is restored by sceneWillEnterForeground.
+        AppFrameRate.unlock(scene)
+    }
+
     func sceneDidDisconnect(_ scene: UIScene) {
         AppFrameRate.unlock(scene)
     }

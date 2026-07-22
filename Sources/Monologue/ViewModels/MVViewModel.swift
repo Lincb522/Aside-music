@@ -2,19 +2,18 @@
 // MV 系统 ViewModel
 
 import Foundation
-import Observation
 import Combine
 
 // MARK: - MV 发现页 ViewModel
 
 @MainActor
-@Observable class MVDiscoverViewModel {
-    var latestMVs: [MV] = []
-    var topMVs: [MV] = []
-    var exclusiveMVs: [MV] = []
-    var mlogItems: [MlogItem] = []
-    var isLoading = false
-    var errorMessage: String?
+class MVDiscoverViewModel: ObservableObject {
+    @Published var latestMVs: [MV] = []
+    @Published var topMVs: [MV] = []
+    @Published var exclusiveMVs: [MV] = []
+    @Published var mlogItems: [MlogItem] = []
+    @Published var isLoading = false
+    @Published var errorMessage: String?
 
     private var cancellables = Set<AnyCancellable>()
     private let api = APIService.shared
@@ -63,7 +62,7 @@ import Combine
 
 // MARK: - MV 列表 ViewModel（分页加载）
 
-@Observable class MVListViewModel {
+class MVListViewModel: ObservableObject {
     enum ListType {
         case latest
         case top
@@ -72,10 +71,10 @@ import Combine
         case artist(Int)
     }
 
-    var mvs: [MV] = []
-    var isLoading = false
-    var isLoadingMore = false
-    var hasMore = true
+    @Published var mvs: [MV] = []
+    @Published var isLoading = false
+    @Published var isLoadingMore = false
+    @Published var hasMore = true
 
     let listType: ListType
     private var offset = 0
@@ -138,15 +137,15 @@ import Combine
 
 // MARK: - MV 播放器 ViewModel
 
-@Observable class MVPlayerViewModel {
-    var detail: MVDetail?
-    var detailInfo: MVDetailInfo?
-    var videoUrl: String?
-    var simiMVs: [MV] = []
-    var relatedMVs: [MV] = []
-    var isLoading = false
-    var errorMessage: String?
-    var isSubscribed = false
+class MVPlayerViewModel: ObservableObject {
+    @Published var detail: MVDetail?
+    @Published var detailInfo: MVDetailInfo?
+    @Published var videoUrl: String?
+    @Published var simiMVs: [MV] = []
+    @Published var relatedMVs: [MV] = []
+    @Published var isLoading = false
+    @Published var errorMessage: String?
+    @Published var isSubscribed = false
 
     let mvId: Int
     private var cancellables = Set<AnyCancellable>()
@@ -262,11 +261,11 @@ import Combine
 
 // MARK: - 已收藏 MV 列表 ViewModel
 
-@Observable class MVSublistViewModel {
-    var items: [MVSubItem] = []
-    var isLoading = false
-    var isLoadingMore = false
-    var hasMore = true
+class MVSublistViewModel: ObservableObject {
+    @Published var items: [MVSubItem] = []
+    @Published var isLoading = false
+    @Published var isLoadingMore = false
+    @Published var hasMore = true
 
     private var offset = 0
     private let pageSize = 25

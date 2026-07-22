@@ -1,6 +1,10 @@
 import SwiftUI
 import CoreImage
 
+private nonisolated(unsafe) let playlistBrightnessContext = CIContext(
+    options: [.workingColorSpace: kCFNull as Any]
+)
+
 /// 封面模糊背景 — 封面图放大铺满 + 高斯模糊 + 蒙层
 struct PlaylistColorBackground: View {
     let coverUrl: URL?
@@ -8,6 +12,7 @@ struct PlaylistColorBackground: View {
 
     @Environment(\.colorScheme) private var colorScheme
     @State private var coverImage: UIImage?
+    @StateObject private var colorExtractor = CoverColorExtractor()
 
     private var baseColor: Color {
         colorScheme == .dark ? Color(hex: "050507") : Color(hex: "F8F9FB")
@@ -28,6 +33,13 @@ struct PlaylistColorBackground: View {
                     .ignoresSafeArea()
                     .transition(.opacity.animation(.easeOut(duration: 0.6)))
 
+                DynamicCoverPaletteLayer(
+                    colors: colorExtractor.palette,
+                    opacity: colorScheme == .dark ? 0.52 : 0.34
+                )
+                .drawingGroup(opaque: false)
+                .blendMode(colorScheme == .dark ? .plusLighter : .softLight)
+
                 tintOverlay
                 bottomFade
             }
@@ -39,9 +51,17 @@ struct PlaylistColorBackground: View {
                     coverImage = nil
                 }
                 onBrightnessChanged?(false)
+                colorExtractor.reset()
                 return
             }
-            let loaded = await ImageLoadCoordinator.shared.loadImage(url: url)
+            colorExtractor.extract(from: url.absoluteString)
+            // A heavily blurred background does not benefit from a 1200 px
+            // decode. A 320 pt source preserves the rendered appearance while
+            // reducing texture upload and blur working-set cost.
+            let loaded = await ImageLoadCoordinator.shared.loadImage(
+                url: url,
+                maxSize: 320
+            )
             if let loaded {
                 let isDark = loaded.averageBrightness < 0.45
                 onBrightnessChanged?(isDark)
@@ -49,6 +69,9 @@ struct PlaylistColorBackground: View {
             withAnimation(.easeOut(duration: 0.6)) {
                 coverImage = loaded
             }
+        }
+        .onChange(of: colorExtractor.isDark) { _, isDark in
+            onBrightnessChanged?(isDark)
         }
     }
 
@@ -92,13 +115,14 @@ extension UIImage {
         guard let outputImage = filter?.outputImage else { return 0.5 }
 
         var bitmap = [UInt8](repeating: 0, count: 4)
-        CIContext(options: [.workingColorSpace: kCFNull as Any])
-            .render(outputImage,
-                    toBitmap: &bitmap,
-                    rowBytes: 4,
-                    bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
-                    format: .RGBA8,
-                    colorSpace: CGColorSpaceCreateDeviceRGB())
+        playlistBrightnessContext.render(
+            outputImage,
+            toBitmap: &bitmap,
+            rowBytes: 4,
+            bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
+            format: .RGBA8,
+            colorSpace: CGColorSpaceCreateDeviceRGB()
+        )
 
         let r = CGFloat(bitmap[0]) / 255
         let g = CGFloat(bitmap[1]) / 255

@@ -180,19 +180,15 @@ enum QQMusicQuality: String, CaseIterable, Codable {
     ]
     
     static func fallbackCandidates(from preferred: QQMusicQuality?) -> [QQMusicQuality] {
-        var order = descendingPreferenceOrder
-        
-        let isPremiumBlocked = UserDefaults.standard.bool(forKey: "qqPremiumBlocked")
-        if isPremiumBlocked {
-            let premiumList: Set<QQMusicQuality> = [.master, .atmos2, .atmos51]
-            order = order.filter { !premiumList.contains($0) }
-        }
+        // 普通播放直链不依赖 QMC 解密，Cookie 风控状态不能在这里提前删掉
+        // 高音质候选。风控只用于决定普通直链全部失败后是否进入加密兜底。
+        let order = descendingPreferenceOrder
         
         guard let preferred else {
             return order
         }
         
-        // If the preferred quality is blocked, start from the highest available
+        // 未知档位回到完整的从高到低候选链。
         guard let startIndex = order.firstIndex(of: preferred) else {
             return order
         }

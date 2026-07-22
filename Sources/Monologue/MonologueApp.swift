@@ -1,8 +1,6 @@
 import SwiftUI
-import SwiftData
 import HiconIcons
 import UserNotifications
-import WidgetKit
 
 // MARK: - AppDelegate（控制设备方向 + 场景配置）
 
@@ -38,7 +36,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         let token = deviceToken.map { String(format: "%02x", $0) }.joined()
-        AppLogger.info("APNs Device Token: \(token)")
+        AppLogger.info("APNs 推送凭据已更新")
         UserDefaults.standard.set(token, forKey: "apns_device_token")
         PushService.shared.registerToken(token)
     }
@@ -48,20 +46,15 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     }
     
     func applicationWillTerminate(_ application: UIApplication) {
-        // App被划掉后台时，强制小组件回退到暂停态，但保留最后播放的歌曲信息
+        // 终止回调只有很短的执行窗口。播放与数据库状态已在进入后台时保存，
+        // 这里仅落一个轻量标记，避免同步刷新小组件或等待异步任务触发 0x8BADF00D。
         UserDefaults(suiteName: "group.zijiu.Monologue.com")?
             .set("paused", forKey: "widget_playbackState")
-        WidgetCenter.shared.reloadAllTimelines()
-
-        #if canImport(ActivityKit) && os(iOS)
-        Task { @MainActor in
-            await LyricsLiveActivityManager.shared.endCurrentActivity()
-        }
-        #endif
     }
 }
 
 @main
+@MainActor
 struct MonologueApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var styleManager = StyleManager.shared
@@ -73,6 +66,10 @@ struct MonologueApp: App {
         Self.cleanupKeychainIfNeeded()
         
         _ = EQManager.shared
+        _ = AIEqualizerAgent.shared
+        _ = MonoNextSuiteManager.shared
+        _ = MonoSessionManager.shared
+        _ = CustomFontManager.shared
         
         // iOS 26: 系统 TabView 自动使用 Liquid Glass 浮动标签栏，不再需要自定义外观
         
@@ -113,7 +110,7 @@ struct MonologueApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .fontDesign(.rounded)
+                .compatFontDesign(.rounded)
                 .preferredColorScheme(effectiveColorScheme)
                 .background(SwipeBackInjector())
                 .onAppear {
@@ -122,7 +119,10 @@ struct MonologueApp: App {
                     let hasStoredToken = OnlineAccessManager.shared.hasStoredToken
 
                     AlertWindow.shared.setup()
-                    
+
+                    // 多线路：应用上次线路并启动健康探测/繁忙分流
+                    ServerLineManager.shared.start()
+
                     // 双重风控前置探测入口
                     RiskControlManager.shared.performRiskCheck()
                     
@@ -130,6 +130,9 @@ struct MonologueApp: App {
                         OnlineAccessManager.shared.refreshOnLaunch(showInvalidAlert: false)
                         GlobalRefreshManager.shared.triggerAppLaunchRefresh()
                         PushService.shared.setup()
+                        Task { @MainActor in
+                            await AIProviderConfigurationStore.shared.refreshRemoteConfigurationIfNeeded(force: true)
+                        }
                     } else {
                         AppLogger.info("未配置 Token，跳过在线启动刷新")
                     }
@@ -182,6 +185,8 @@ struct MonologueApp: App {
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
                     AppFrameRate.lockConnectedScenesToPreferredFrameRate(reason: "application did become active")
 
+                    ServerLineManager.shared.kickRefresh(trigger: .foreground)
+
                     if settings.themeMode == "system" {
                         DispatchQueue.main.async {
                             settings.applyTheme()
@@ -189,6 +194,9 @@ struct MonologueApp: App {
                     }
                     if OnlineAccessManager.shared.hasStoredToken {
                         OnlineAccessManager.shared.refreshOnLaunch(showInvalidAlert: true)
+                        Task { @MainActor in
+                            await AIProviderConfigurationStore.shared.refreshRemoteConfigurationIfNeeded()
+                        }
                     }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
@@ -196,17 +204,8 @@ struct MonologueApp: App {
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
                     PlayerManager.shared.saveStateImmediately()
-                    UserDefaults.standard.set(false, forKey: "qqDevMode")
+                    DatabaseManager.shared.save()
                 }
-                .onReceive(NotificationCenter.default.publisher(for: UIApplication.willTerminateNotification)) { _ in
-                    PlayerManager.shared.saveStateImmediately()
-                    #if canImport(ActivityKit) && os(iOS)
-                    Task { @MainActor in
-                        await LyricsLiveActivityManager.shared.endCurrentActivity()
-                    }
-                    #endif
-                }
-                .modelContainer(DatabaseManager.shared.container)
         }
     }
     

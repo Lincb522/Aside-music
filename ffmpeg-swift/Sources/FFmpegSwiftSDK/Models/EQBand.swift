@@ -6,6 +6,95 @@
 
 import Foundation
 
+/// The selectable graphic-EQ resolution used by Mono's realtime audio engine.
+/// Curves are kept in frequency order and can be converted without changing
+/// their broad tonal balance.
+public enum GraphicEQMode: String, CaseIterable, Codable, Identifiable, Sendable {
+    case tenBand
+    case thirtyTwoBand
+
+    public var id: String { rawValue }
+
+    public var bandCount: Int { centerFrequencies.count }
+
+    public var centerFrequencies: [Float] {
+        switch self {
+        case .tenBand:
+            return EQBand.allCases.map(\.centerFrequency)
+        case .thirtyTwoBand:
+            // ISO-style one-third-octave centres, including the 16 Hz and
+            // 20 kHz edge bands so the selectable bank contains 32 bands.
+            return [
+                16, 20, 25, 31.5, 40, 50, 63, 80,
+                100, 125, 160, 200, 250, 315, 400, 500,
+                630, 800, 1_000, 1_250, 1_600, 2_000, 2_500, 3_150,
+                4_000, 5_000, 6_300, 8_000, 10_000, 12_500, 16_000, 20_000
+            ]
+        }
+    }
+
+    public var qValues: [Float] {
+        switch self {
+        case .tenBand:
+            return EQBand.allCases.map(\.q)
+        case .thirtyTwoBand:
+            return Array(repeating: 4.318, count: bandCount)
+        }
+    }
+
+    public var frequencyLabels: [String] {
+        centerFrequencies.map(Self.frequencyLabel)
+    }
+
+    public func normalizedGains(_ gains: [Float], limit: Float = EQBandGain.maxGain) -> [Float] {
+        var output = Array(repeating: Float(0), count: bandCount)
+        for index in 0..<min(gains.count, output.count) {
+            let value = gains[index]
+            output[index] = value.isFinite ? min(max(value, -limit), limit) : 0
+        }
+        return output
+    }
+
+    /// Resamples a graphic curve in logarithmic-frequency space. This keeps a
+    /// ten-band preset recognizable when it is used by the optional 32-band EQ.
+    public func resampledGains(_ gains: [Float], from sourceMode: GraphicEQMode) -> [Float] {
+        let source = sourceMode.normalizedGains(gains)
+        guard sourceMode != self else { return normalizedGains(source) }
+
+        let sourceFrequencies = sourceMode.centerFrequencies
+        return centerFrequencies.map { frequency in
+            guard let firstFrequency = sourceFrequencies.first,
+                  let lastFrequency = sourceFrequencies.last,
+                  let firstGain = source.first,
+                  let lastGain = source.last else { return 0 }
+            if frequency <= firstFrequency { return firstGain }
+            if frequency >= lastFrequency { return lastGain }
+
+            let upperIndex = sourceFrequencies.firstIndex(where: { $0 >= frequency }) ?? (sourceFrequencies.count - 1)
+            let lowerIndex = max(0, upperIndex - 1)
+            let lowerFrequency = sourceFrequencies[lowerIndex]
+            let upperFrequency = sourceFrequencies[upperIndex]
+            let denominator = max(logf(upperFrequency) - logf(lowerFrequency), 0.000_001)
+            let progress = (logf(frequency) - logf(lowerFrequency)) / denominator
+            return source[lowerIndex] + (source[upperIndex] - source[lowerIndex]) * progress
+        }
+    }
+
+    private static func frequencyLabel(_ frequency: Float) -> String {
+        if frequency >= 1_000 {
+            let value = frequency / 1_000
+            if value.rounded() == value { return "\(Int(value))k" }
+            if (value * 10).rounded() == value * 10 {
+                return String(format: "%.1fk", value)
+            }
+            return String(format: "%.2fk", value)
+        }
+        return frequency.rounded() == frequency
+            ? "\(Int(frequency))"
+            : String(format: "%.1f", frequency)
+    }
+}
+
 /// Represents the ten frequency bands of the audio equalizer.
 ///
 /// Standard 10-band EQ with ISO center frequencies covering the full
@@ -49,21 +138,21 @@ public enum EQBand: Int, CaseIterable, Comparable {
     }
 
     /// 每个频段的 Q 值（带宽控制）。
-    /// 低频段用更低的 Q（更宽带宽）以获得更饱满的低频体感，
-    /// 高频段用稍高的 Q 以保持精确度。
-    /// 整体比默认 Q=1.0 更宽，让 10 段之间无缝衔接。
+    /// 十段中心频率按倍频程排列；中间频段采用接近一倍频程的恒定 Q，
+    /// 两端略放宽，让 31 Hz 与 16 kHz 更接近低/高架式听感。
+    /// 避免旧版过宽带宽导致相邻增益过度叠加、曲线与滑块读数不一致。
     public var q: Float {
         switch self {
-        case .hz31:  return 0.5   // 超低频需要宽带宽
-        case .hz62:  return 0.6
-        case .hz125: return 0.7
-        case .hz250: return 0.7
-        case .hz500: return 0.8
-        case .hz1k:  return 0.8
-        case .hz2k:  return 0.8
-        case .hz4k:  return 0.7
-        case .hz8k:  return 0.6
-        case .hz16k: return 0.5   // 超高频也需要宽带宽
+        case .hz31:  return 0.95
+        case .hz62:  return 1.15
+        case .hz125: return 1.30
+        case .hz250: return 1.35
+        case .hz500: return 1.40
+        case .hz1k:  return 1.40
+        case .hz2k:  return 1.40
+        case .hz4k:  return 1.35
+        case .hz8k:  return 1.20
+        case .hz16k: return 0.95
         }
     }
 
@@ -103,6 +192,220 @@ public struct EQBandGain {
     public init(band: EQBand, gainDB: Float) {
         self.band = band
         self.gainDB = gainDB
+    }
+}
+
+// MARK: - Mono 专业均衡与动态处理模型
+
+public enum ParametricEQFilterType: String, Codable, CaseIterable, Sendable {
+    case peak
+    case lowShelf
+    case highShelf
+    case lowPass
+    case highPass
+    case notch
+}
+
+public struct ParametricEQBand: Identifiable, Codable, Equatable, Sendable {
+    public var id: UUID
+    public var isEnabled: Bool
+    public var type: ParametricEQFilterType
+    public var frequency: Float
+    public var gainDB: Float
+    public var q: Float
+
+    public init(
+        id: UUID = UUID(),
+        isEnabled: Bool = true,
+        type: ParametricEQFilterType = .peak,
+        frequency: Float = 1_000,
+        gainDB: Float = 0,
+        q: Float = 1
+    ) {
+        self.id = id
+        self.isEnabled = isEnabled
+        self.type = type
+        self.frequency = min(max(frequency, 20), 20_000)
+        self.gainDB = min(max(gainDB, -18), 18)
+        self.q = min(max(q, 0.1), 12)
+    }
+}
+
+public struct DynamicEQBand: Identifiable, Codable, Equatable, Sendable {
+    public var id: UUID
+    public var isEnabled: Bool
+    public var frequency: Float
+    public var q: Float
+    public var thresholdDB: Float
+    public var ratio: Float
+    public var maxReductionDB: Float
+    public var attackMS: Float
+    public var releaseMS: Float
+
+    public init(
+        id: UUID = UUID(),
+        isEnabled: Bool = true,
+        frequency: Float,
+        q: Float,
+        thresholdDB: Float,
+        ratio: Float,
+        maxReductionDB: Float,
+        attackMS: Float,
+        releaseMS: Float
+    ) {
+        self.id = id
+        self.isEnabled = isEnabled
+        self.frequency = min(max(frequency, 20), 20_000)
+        self.q = min(max(q, 0.2), 10)
+        self.thresholdDB = min(max(thresholdDB, -60), 0)
+        self.ratio = min(max(ratio, 1), 10)
+        self.maxReductionDB = min(max(maxReductionDB, 0), 12)
+        self.attackMS = min(max(attackMS, 1), 500)
+        self.releaseMS = min(max(releaseMS, 10), 2_000)
+    }
+
+    public static let monoDefaults: [DynamicEQBand] = [
+        DynamicEQBand(frequency: 72, q: 0.85, thresholdDB: -17, ratio: 1.7, maxReductionDB: 2.4, attackMS: 28, releaseMS: 190),
+        DynamicEQBand(frequency: 280, q: 1.05, thresholdDB: -19, ratio: 1.55, maxReductionDB: 1.8, attackMS: 35, releaseMS: 230),
+        DynamicEQBand(frequency: 7_200, q: 2.2, thresholdDB: -25, ratio: 2.3, maxReductionDB: 3.0, attackMS: 5, releaseMS: 95)
+    ]
+}
+
+public struct MultibandDynamicsConfiguration: Codable, Equatable, Sendable {
+    public var isEnabled: Bool
+    public var lowCrossoverHz: Float
+    public var highCrossoverHz: Float
+    public var thresholdsDB: [Float]
+    public var ratios: [Float]
+    public var maxReductionDB: [Float]
+    public var attackMS: Float
+    public var releaseMS: Float
+
+    public init(
+        isEnabled: Bool = false,
+        lowCrossoverHz: Float = 180,
+        highCrossoverHz: Float = 3_800,
+        thresholdsDB: [Float] = [-13, -11, -15],
+        ratios: [Float] = [1.45, 1.28, 1.5],
+        maxReductionDB: [Float] = [2.2, 1.5, 2.0],
+        attackMS: Float = 22,
+        releaseMS: Float = 210
+    ) {
+        self.isEnabled = isEnabled
+        self.lowCrossoverHz = min(max(lowCrossoverHz, 60), 600)
+        self.highCrossoverHz = min(max(highCrossoverHz, 1_200), 10_000)
+        self.thresholdsDB = Self.normalized(thresholdsDB, fallback: [-13, -11, -15])
+        self.ratios = Self.normalized(ratios, fallback: [1.45, 1.28, 1.5]).map { min(max($0, 1), 6) }
+        self.maxReductionDB = Self.normalized(maxReductionDB, fallback: [2.2, 1.5, 2.0]).map { min(max($0, 0), 8) }
+        self.attackMS = min(max(attackMS, 1), 500)
+        self.releaseMS = min(max(releaseMS, 10), 2_000)
+    }
+
+    private static func normalized(_ values: [Float], fallback: [Float]) -> [Float] {
+        values.count == 3 ? values : fallback
+    }
+}
+
+/// Native, low-latency listening enhancement that runs inside Mono's realtime
+/// Float32 path. Values are normalized amounts rather than user-facing dB so
+/// the engine can keep every stage bounded and interpolate changes safely.
+public struct MonoEnhanceConfiguration: Codable, Equatable, Sendable {
+    public var isEnabled: Bool
+    public var transientAttack: Float
+    public var transientSustain: Float
+    public var vocalFocus: Float
+    public var airAmount: Float
+    public var deEssAmount: Float
+    public var lowFrequencyFocus: Float
+    public var stageWidth: Float
+    public var microDynamics: Float
+    public var lowLevelCompensation: Float
+
+    public init(
+        isEnabled: Bool = false,
+        transientAttack: Float = 0,
+        transientSustain: Float = 0,
+        vocalFocus: Float = 0,
+        airAmount: Float = 0,
+        deEssAmount: Float = 0,
+        lowFrequencyFocus: Float = 0,
+        stageWidth: Float = 0,
+        microDynamics: Float = 0,
+        lowLevelCompensation: Float = 0
+    ) {
+        self.isEnabled = isEnabled
+        self.transientAttack = Self.unit(transientAttack)
+        self.transientSustain = Self.unit(transientSustain)
+        self.vocalFocus = Self.unit(vocalFocus)
+        self.airAmount = Self.unit(airAmount)
+        self.deEssAmount = Self.unit(deEssAmount)
+        self.lowFrequencyFocus = Self.unit(lowFrequencyFocus)
+        self.stageWidth = Self.unit(stageWidth)
+        self.microDynamics = Self.unit(microDynamics)
+        self.lowLevelCompensation = Self.unit(lowLevelCompensation)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case isEnabled
+        case transientAttack
+        case transientSustain
+        case vocalFocus
+        case airAmount
+        case deEssAmount
+        case lowFrequencyFocus
+        case stageWidth
+        case microDynamics
+        case lowLevelCompensation
+    }
+
+    public init(from decoder: any Swift.Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            isEnabled: try values.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true,
+            transientAttack: try values.decodeIfPresent(Float.self, forKey: .transientAttack) ?? 0,
+            transientSustain: try values.decodeIfPresent(Float.self, forKey: .transientSustain) ?? 0,
+            vocalFocus: try values.decodeIfPresent(Float.self, forKey: .vocalFocus) ?? 0,
+            airAmount: try values.decodeIfPresent(Float.self, forKey: .airAmount) ?? 0,
+            deEssAmount: try values.decodeIfPresent(Float.self, forKey: .deEssAmount) ?? 0,
+            lowFrequencyFocus: try values.decodeIfPresent(Float.self, forKey: .lowFrequencyFocus) ?? 0,
+            stageWidth: try values.decodeIfPresent(Float.self, forKey: .stageWidth) ?? 0,
+            microDynamics: try values.decodeIfPresent(Float.self, forKey: .microDynamics) ?? 0,
+            lowLevelCompensation: try values.decodeIfPresent(Float.self, forKey: .lowLevelCompensation) ?? 0
+        )
+    }
+
+    public static let neutral = MonoEnhanceConfiguration()
+
+    /// Conservative peak allowance used by Mono's final headroom calculation.
+    public var estimatedPeakBoostDB: Float {
+        guard isEnabled else { return 0 }
+        return transientAttack * 0.55
+            + transientSustain * 0.25
+            + vocalFocus * 0.10
+            + airAmount * 0.45
+            + lowFrequencyFocus * 0.12
+            + stageWidth * 0.50
+            + microDynamics * 0.35
+            + lowLevelCompensation * 0.55
+    }
+
+    public var hasAudibleProcessing: Bool {
+        isEnabled && (
+            transientAttack > 0.000_5
+                || transientSustain > 0.000_5
+                || vocalFocus > 0.000_5
+                || airAmount > 0.000_5
+                || deEssAmount > 0.000_5
+                || lowFrequencyFocus > 0.000_5
+                || stageWidth > 0.000_5
+                || microDynamics > 0.000_5
+                || lowLevelCompensation > 0.000_5
+        )
+    }
+
+    private static func unit(_ value: Float) -> Float {
+        guard value.isFinite else { return 0 }
+        return min(1, max(0, value))
     }
 }
 

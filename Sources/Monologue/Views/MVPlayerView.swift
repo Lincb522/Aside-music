@@ -123,7 +123,7 @@ final class MVPlayerWrapper: ObservableObject, @unchecked Sendable {
 
 struct MVPlayerView: View {
     let mvId: Int
-    @State private var viewModel: MVPlayerViewModel
+    @StateObject private var viewModel: MVPlayerViewModel
     @StateObject private var commentVM: CommentViewModel
     @ObservedObject private var player = PlayerManager.shared
     @ObservedObject private var settings = SettingsManager.shared
@@ -145,7 +145,7 @@ struct MVPlayerView: View {
 
     init(mvId: Int) {
         self.mvId = mvId
-        _viewModel = State(initialValue: MVPlayerViewModel(mvId: mvId))
+        _viewModel = StateObject(wrappedValue: MVPlayerViewModel(mvId: mvId))
         _commentVM = StateObject(wrappedValue: CommentViewModel(resourceId: mvId, resourceType: .mv))
     }
 
@@ -262,13 +262,30 @@ struct MVPlayerView: View {
 
     // MARK: - 顶部栏
 
+    /// aside 编辑部风格：默认主题走平排编辑部版式
+    private var isAside: Bool {
+        !ThemedPageStyle.isActive
+    }
+
     private var topBar: some View {
         HStack {
             MonologueBackButton(style: .dismiss)
             Spacer()
-            Text(String(localized: "mv_title"))
-                .font(.rounded(size: 18, weight: .bold))
-                .foregroundColor(.monologueTextPrimary)
+            if isAside {
+                HStack(spacing: 8) {
+                    Capsule()
+                        .fill(Color.monologueAccent)
+                        .frame(width: 16, height: 3)
+                    Text("MV")
+                        .font(.system(size: 13, weight: .heavy, design: .rounded))
+                        .tracking(3.0)
+                        .foregroundColor(.monologueTextPrimary)
+                }
+            } else {
+                Text(String(localized: "mv_title"))
+                    .font(.rounded(size: 18, weight: .bold))
+                    .foregroundColor(.monologueTextPrimary)
+            }
             Spacer()
             // 占位
             Color.clear.frame(width: 40, height: 40)
@@ -280,17 +297,19 @@ struct MVPlayerView: View {
     // MARK: - 视频区域
 
     private var videoSection: some View {
-        ZStack {
+        let radius: CGFloat = isAside ? 18 : 20
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+
+        return ZStack {
             // 视频背景
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color.black)
+            shape.fill(Color.black)
 
             if viewModel.videoUrl != nil {
                 AVPlayerVideoView(player: mvPlayerWrapper.player)
-                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .clipShape(shape)
 
                 mvVideoControlsOverlay(fullscreen: false)
-                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .clipShape(shape)
             } else if let error = viewModel.errorMessage {
                 // 错误状态
                 VStack(spacing: 14) {
@@ -313,14 +332,103 @@ struct MVPlayerView: View {
             }
         }
         .aspectRatio(16/9, contentMode: .fit)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .shadow(color: .black.opacity(0.12), radius: 12, x: 0, y: 6)
+        .clipShape(shape)
+        .overlay {
+            if isAside {
+                shape.stroke(Color.monologueSeparator.opacity(0.9), lineWidth: 0.8)
+            }
+        }
+        .shadow(color: .black.opacity(isAside ? 0 : 0.12), radius: 12, x: 0, y: 6)
         .padding(.horizontal, 24)
     }
 
     // MARK: - MV 信息 + 收藏
 
+    @ViewBuilder
     private var infoSection: some View {
+        if isAside {
+            asideInfoSection
+        } else {
+            themedInfoSection
+        }
+    }
+
+    /// aside 编辑部式：眉题刻度 + 大标题 + 发丝元信息行，收藏为描边圆钮
+    private var asideInfoSection: some View {
+        HStack(alignment: .top, spacing: 14) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Capsule()
+                        .fill(Color.monologueAccent)
+                        .frame(width: 18, height: 3)
+
+                    Text("NOW SHOWING")
+                        .font(.system(size: 10, weight: .heavy, design: .rounded))
+                        .tracking(2.2)
+                        .foregroundColor(.monologueTextSecondary.opacity(0.72))
+                }
+
+                if let detail = viewModel.detail {
+                    Text(detail.name ?? String(localized: "mv_unknown"))
+                        .font(.rounded(size: 22, weight: .bold))
+                        .foregroundColor(.monologueTextPrimary)
+                        .lineLimit(2)
+
+                    HStack(spacing: 8) {
+                        Text(detail.displayArtistName)
+                            .font(.rounded(size: 13.5, weight: .medium))
+                            .foregroundColor(.monologueTextSecondary)
+
+                        if let count = detail.playCount {
+                            Rectangle()
+                                .fill(Color.monologueSeparator.opacity(0.9))
+                                .frame(width: 0.7, height: 10)
+
+                            Text(formatCount(count) + String(localized: "mv_play_count"))
+                                .font(.rounded(size: 12))
+                                .foregroundColor(.monologueTextSecondary.opacity(0.65))
+                        }
+                    }
+                } else {
+                    // 骨架占位
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.monologueTextSecondary.opacity(0.08))
+                        .frame(height: 22)
+                        .frame(maxWidth: 200)
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.monologueTextSecondary.opacity(0.06))
+                        .frame(height: 16)
+                        .frame(maxWidth: 120)
+                }
+            }
+
+            Spacer()
+
+            // 收藏按钮
+            Button {
+                viewModel.toggleSubscribe()
+            } label: {
+                MonologueIcon(
+                    icon: viewModel.isSubscribed ? .liked : .like,
+                    size: 18,
+                    color: viewModel.isSubscribed ? .monologueAccentRed : .monologueTextSecondary,
+                    lineWidth: 1.4
+                )
+                .frame(width: 40, height: 40)
+                .overlay(
+                    Circle()
+                        .stroke(
+                            viewModel.isSubscribed ? Color.monologueAccentRed.opacity(0.45) : Color.monologueSeparator.opacity(0.95),
+                            lineWidth: 0.8
+                        )
+                )
+            }
+            .buttonStyle(MonologueBouncingButtonStyle())
+        }
+        .padding(.horizontal, 24)
+    }
+
+    private var themedInfoSection: some View {
         HStack(alignment: .top, spacing: 14) {
             VStack(alignment: .leading, spacing: 6) {
                 if let detail = viewModel.detail {
@@ -377,19 +485,53 @@ struct MVPlayerView: View {
 
     private var relatedPreview: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text(String(localized: "mv_related"))
-                    .font(.rounded(size: 18, weight: .bold))
-                    .foregroundColor(.monologueTextPrimary)
+            HStack(alignment: isAside ? .firstTextBaseline : .center) {
+                if isAside {
+                    VStack(alignment: .leading, spacing: 7) {
+                        HStack(spacing: 8) {
+                            Capsule()
+                                .fill(Color.monologueAccent)
+                                .frame(width: 18, height: 3)
+
+                            Text("RELATED")
+                                .font(.system(size: 10, weight: .heavy, design: .rounded))
+                                .tracking(2.2)
+                                .foregroundColor(.monologueTextSecondary.opacity(0.72))
+                        }
+
+                        Text(String(localized: "mv_related"))
+                            .font(.system(size: 20, weight: .bold, design: .rounded))
+                            .foregroundColor(.monologueTextPrimary)
+                    }
+                } else {
+                    Text(String(localized: "mv_related"))
+                        .font(.rounded(size: 18, weight: .bold))
+                        .foregroundColor(.monologueTextPrimary)
+                }
+
                 Spacer()
+
                 let total = viewModel.simiMVs.count + viewModel.relatedMVs.count
                 if total > 3 {
                     Button(action: { showSimiSheet = true }) {
-                        HStack(spacing: 4) {
-                            Text(String(localized: "mv_more"))
-                                .font(.rounded(size: 14, weight: .medium))
-                                .foregroundColor(.monologueTextSecondary)
-                            MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary)
+                        if isAside {
+                            HStack(spacing: 3) {
+                                Text("MORE")
+                                    .font(.system(size: 10, weight: .heavy, design: .rounded))
+                                    .tracking(1.4)
+                                MonologueIcon(icon: .chevronRight, size: 10, color: .monologueTextSecondary.opacity(0.75), lineWidth: 1.6)
+                            }
+                            .foregroundColor(.monologueTextSecondary.opacity(0.75))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5.5)
+                            .overlay(Capsule().stroke(Color.monologueSeparator.opacity(0.95), lineWidth: 0.7))
+                        } else {
+                            HStack(spacing: 4) {
+                                Text(String(localized: "mv_more"))
+                                    .font(.rounded(size: 14, weight: .medium))
+                                    .foregroundColor(.monologueTextSecondary)
+                                MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary)
+                            }
                         }
                     }
                 }
@@ -404,27 +546,41 @@ struct MVPlayerView: View {
                         Button(action: { switchToMV(mv.id) }) {
                             VStack(alignment: .leading, spacing: 6) {
                                 ZStack(alignment: .bottomTrailing) {
-                                    if let urlStr = mv.coverUrl, let url = URL(string: urlStr) {
-                                        CachedAsyncImage(url: url) {
+                                    Group {
+                                        if let urlStr = mv.coverUrl, let url = URL(string: urlStr) {
+                                            CachedAsyncImage(url: url) {
+                                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                                    .fill(Color.monologueTextSecondary.opacity(0.06))
+                                            }
+                                            .aspectRatio(16/9, contentMode: .fill)
+                                            .frame(width: 180, height: 100)
+                                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                        } else {
                                             RoundedRectangle(cornerRadius: 12, style: .continuous)
                                                 .fill(Color.monologueTextSecondary.opacity(0.06))
+                                                .frame(width: 180, height: 100)
                                         }
-                                        .aspectRatio(16/9, contentMode: .fill)
-                                        .frame(width: 180, height: 100)
-                                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                                    } else {
-                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                            .fill(Color.monologueTextSecondary.opacity(0.06))
-                                            .frame(width: 180, height: 100)
+                                    }
+                                    .overlay {
+                                        if isAside {
+                                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                                .stroke(Color.monologueSeparator.opacity(0.9), lineWidth: 0.8)
+                                        }
                                     }
 
                                     if !mv.durationText.isEmpty {
                                         Text(mv.durationText)
                                             .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                                            .foregroundColor(.primary)
+                                            .foregroundColor(isAside ? .white : .primary)
                                             .padding(.horizontal, 5)
                                             .padding(.vertical, 2)
-                                            .background(.clear).monologueGlassCapsule()
+                                            .background {
+                                                if isAside {
+                                                    Capsule().fill(Color.black.opacity(0.55))
+                                                } else {
+                                                    Color.clear.monologueGlassCapsule()
+                                                }
+                                            }
                                             .padding(6)
                                     }
                                 }
@@ -562,30 +718,47 @@ struct MVPlayerView: View {
 
     private var simiSheet: some View {
         VStack(spacing: 0) {
-            HStack {
-                Text(String(localized: "mv_related"))
-                    .font(.rounded(size: 20, weight: .bold))
-                    .foregroundColor(.monologueTextPrimary)
-                Spacer()
-                let total = viewModel.simiMVs.count + viewModel.relatedMVs.count
-                Text("\(total)个")
-                    .font(.rounded(size: 13))
-                    .foregroundColor(.monologueTextSecondary)
+            VStack(alignment: .leading, spacing: 7) {
+                if isAside {
+                    HStack(spacing: 8) {
+                        Capsule()
+                            .fill(Color.monologueAccent)
+                            .frame(width: 18, height: 3)
+
+                        Text("RELATED")
+                            .font(.system(size: 10, weight: .heavy, design: .rounded))
+                            .tracking(2.2)
+                            .foregroundColor(.monologueTextSecondary.opacity(0.72))
+                    }
+                }
+
+                HStack(alignment: .firstTextBaseline) {
+                    Text(String(localized: "mv_related"))
+                        .font(isAside ? .system(size: 22, weight: .bold, design: .rounded) : .rounded(size: 20, weight: .bold))
+                        .foregroundColor(.monologueTextPrimary)
+                    Spacer()
+                    let total = viewModel.simiMVs.count + viewModel.relatedMVs.count
+                    Text("\(total)个")
+                        .font(.rounded(size: 13))
+                        .foregroundColor(.monologueTextSecondary)
+                        .monospacedDigit()
+                }
             }
             .padding(.horizontal, 24)
             .padding(.top, 16)
             .padding(.bottom, 14)
 
             Rectangle()
-                .fill(Color.monologueSeparator)
-                .frame(height: 0.5)
+                .fill(isAside ? Color.monologueSeparator.opacity(0.7) : Color.monologueSeparator)
+                .frame(height: isAside ? 0.6 : 0.5)
 
             ScrollView {
-                LazyVStack(spacing: 10) {
+                LazyVStack(spacing: isAside ? 0 : 10) {
                     if !viewModel.simiMVs.isEmpty {
                         simiSectionLabel(String(localized: "mv_similar"))
+                        let lastId = viewModel.simiMVs.last?.id
                         ForEach(viewModel.simiMVs) { mv in
-                            MVRowCard(mv: mv) {
+                            MVRowCard(mv: mv, showsDivider: mv.id != lastId) {
                                 showSimiSheet = false
                                 switchToMV(mv.id)
                             }
@@ -594,8 +767,9 @@ struct MVPlayerView: View {
 
                     if !viewModel.relatedMVs.isEmpty {
                         simiSectionLabel(String(localized: "mv_related_videos"))
+                        let lastId = viewModel.relatedMVs.last?.id
                         ForEach(viewModel.relatedMVs) { mv in
-                            MVRowCard(mv: mv) {
+                            MVRowCard(mv: mv, showsDivider: mv.id != lastId) {
                                 showSimiSheet = false
                                 switchToMV(mv.id)
                             }
@@ -603,7 +777,7 @@ struct MVPlayerView: View {
                     }
                 }
                 .padding(.horizontal, 24)
-                .padding(.top, 14)
+                .padding(.top, isAside ? 8 : 14)
                 .padding(.bottom, 30)
             }
             .scrollIndicators(.hidden)
@@ -617,11 +791,26 @@ struct MVPlayerView: View {
         .ignoresSafeArea(edges: .bottom)
     }
 
+    @ViewBuilder
     private func simiSectionLabel(_ text: String) -> some View {
-        Text(text)
-            .font(.rounded(size: 14, weight: .semibold))
-            .foregroundColor(.monologueTextSecondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, 6)
+        if isAside {
+            HStack(spacing: 8) {
+                Text(text)
+                    .font(.rounded(size: 13, weight: .bold))
+                    .foregroundColor(.monologueTextPrimary.opacity(0.85))
+
+                Rectangle()
+                    .fill(Color.monologueSeparator.opacity(0.7))
+                    .frame(height: 0.6)
+            }
+            .padding(.top, 12)
+            .padding(.bottom, 4)
+        } else {
+            Text(text)
+                .font(.rounded(size: 14, weight: .semibold))
+                .foregroundColor(.monologueTextSecondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 6)
+        }
     }
 }

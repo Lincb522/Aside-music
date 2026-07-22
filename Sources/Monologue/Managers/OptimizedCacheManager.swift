@@ -1,11 +1,10 @@
 import Foundation
 import Combine
-import SwiftData
 import UIKit
 import SwiftUI
 
 /// 优化的缓存管理器
-/// 三级缓存架构：内存缓存 -> SwiftData 数据库 -> 磁盘文件缓存
+/// 三级缓存架构：内存缓存 -> 本地数据库 -> 磁盘文件缓存
 @MainActor
 final class OptimizedCacheManager: ObservableObject {
     static let shared = OptimizedCacheManager()

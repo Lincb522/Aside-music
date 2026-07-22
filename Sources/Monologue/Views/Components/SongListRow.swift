@@ -1,5 +1,38 @@
 import SwiftUI
 
+private struct SongRowLoadingIndicator: View {
+    let color: Color
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        TimelineView(
+            AppFrameRate.animationTimeline(
+                maximumFramesPerSecond: 24,
+                paused: reduceMotion
+            )
+        ) { timeline in
+            let phase = timeline.date.timeIntervalSinceReferenceDate
+                .truncatingRemainder(dividingBy: 0.9) / 0.9
+
+            ZStack {
+                Circle()
+                    .stroke(color.opacity(0.22), lineWidth: 1.8)
+
+                Circle()
+                    .trim(from: 0.08, to: 0.66)
+                    .stroke(
+                        color,
+                        style: StrokeStyle(lineWidth: 1.8, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(reduceMotion ? -54 : phase * 360 - 54))
+            }
+        }
+        .frame(width: 14, height: 14)
+        .accessibilityHidden(true)
+    }
+}
+
 struct SongListRow: View {
     
     @ObservedObject private var playback = SongRowPlaybackModel.shared
@@ -27,7 +60,20 @@ struct SongListRow: View {
     @State private var showQQAlbumDetail = false
     
     var isCurrent: Bool {
-        playback.currentSongId == song.id
+        playback.isCurrent(song: song)
+    }
+
+    private var isLoadingPlayback: Bool {
+        playback.isLoading(song: song)
+    }
+
+    private var isPlaybackEmphasized: Bool {
+        isCurrent || isLoadingPlayback
+    }
+
+    /// aside 默认主题（编辑部风格分支）
+    private var isAsideTheme: Bool {
+        GlobalThemeId.persistedOrDefault == .default
     }
     
     /// 灰色条件：
@@ -190,7 +236,7 @@ struct SongListRow: View {
                 return MangaStyle.strokeInk.opacity(isDisabled ? 0.34 : 0.72)
             }
             if PetWhiteStyle.isActive {
-                return PetWhiteStyle.stroke.opacity(isDisabled ? 0.34 : 0.72)
+                return PetWhiteStyle.ink.opacity(isDisabled ? 0.34 : 0.72)
             }
             return Theme.secondaryText.opacity(isDisabled ? 0.34 : 0.62)
         }
@@ -198,7 +244,7 @@ struct SongListRow: View {
             return MangaStyle.strokeInk.opacity(isDisabled ? 0.34 : 1)
         }
         if PetWhiteStyle.isActive {
-            return PetWhiteStyle.stroke.opacity(isDisabled ? 0.34 : 1)
+            return PetWhiteStyle.ink.opacity(isDisabled ? 0.34 : 1)
         }
         if MujiStyle.isActive {
             return quickActionTint(for: kind).opacity(isDisabled ? 0.34 : 0.95)
@@ -257,7 +303,12 @@ struct SongListRow: View {
     }
 
     private var rowHorizontalPadding: CGFloat {
-        if let horizontalPadding = horizontalPadding { return horizontalPadding }
+        if let horizontalPadding = horizontalPadding {
+            // 纯白极简列表以 0 边距嵌入卡片，行内容需要最小内边距，
+            // 否则序号会顶在当前播放高亮的圆角边缘上
+            if MinimalWhiteStyle.isActive { return max(horizontalPadding, 10) }
+            return horizontalPadding
+        }
         if MangaStyle.isActive { return max(DeviceLayout.viewHorizontalPadding - 2, 14) }
         if PetWhiteStyle.isActive { return DeviceLayout.viewHorizontalPadding }
         if MujiStyle.isActive { return max(DeviceLayout.viewHorizontalPadding - 2, 14) }
@@ -287,6 +338,8 @@ struct SongListRow: View {
                                 size: 18,
                                 color: isSelected ? CapsuleStyle.accent : CapsuleStyle.inkMuted.opacity(0.46)
                             )
+                        } else if isLoadingPlayback {
+                            SongRowLoadingIndicator(color: CapsuleStyle.accent)
                         } else {
                             Text(String(format: "%02d", index + 1))
                                 .font(CapsuleStyle.labelFont(10.5, weight: .black))
@@ -297,7 +350,7 @@ struct SongListRow: View {
                     .frame(width: 34, height: 46)
                     .background(
                         RoundedRectangle(cornerRadius: 15, style: .continuous)
-                            .fill(isCurrent ? CapsuleStyle.accent : CapsuleStyle.surfaceTint.opacity(0.54))
+                            .fill(isCurrent ? CapsuleStyle.accent : (isLoadingPlayback ? CapsuleStyle.accent.opacity(0.14) : CapsuleStyle.surfaceTint.opacity(0.54)))
                     )
 
                     CachedAsyncImage(
@@ -312,15 +365,19 @@ struct SongListRow: View {
                     .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 15, style: .continuous)
-                            .stroke(isCurrent ? CapsuleStyle.accent.opacity(0.46) : CapsuleStyle.separator.opacity(0.42), lineWidth: 0.7)
+                            .stroke(isPlaybackEmphasized ? CapsuleStyle.accent.opacity(0.46) : CapsuleStyle.separator.opacity(0.42), lineWidth: 0.7)
                     )
                     .overlay {
-                        if isCurrent && !isSelecting {
+                        if isPlaybackEmphasized && !isSelecting {
                             ZStack {
                                 RoundedRectangle(cornerRadius: 15, style: .continuous)
                                     .fill(Color.black.opacity(0.35))
-                                PlayingVisualizerView(isAnimating: playback.isPlaying, color: .white)
-                                    .scaleEffect(0.82)
+                                if isLoadingPlayback {
+                                    SongRowLoadingIndicator(color: .white)
+                                } else {
+                                    PlayingVisualizerView(isAnimating: playback.isPlaying, color: .white)
+                                        .scaleEffect(0.82)
+                                }
                             }
                         }
                     }
@@ -328,7 +385,7 @@ struct SongListRow: View {
 
                     VStack(alignment: .leading, spacing: 5) {
                         Text(song.name)
-                            .font(CapsuleStyle.bodyFont(15.5, weight: isCurrent ? .bold : .semibold))
+                            .font(CapsuleStyle.bodyFont(15.5, weight: isPlaybackEmphasized ? .bold : .semibold))
                             .foregroundStyle(CapsuleStyle.ink)
                             .lineLimit(1)
                             .layoutPriority(3)
@@ -359,7 +416,7 @@ struct SongListRow: View {
         .padding(.trailing, 10)
         .padding(.vertical, 7)
         .background {
-            if isCurrent {
+            if isPlaybackEmphasized {
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
                     .fill(
                         LinearGradient(
@@ -373,6 +430,7 @@ struct SongListRow: View {
                         )
                     )
                     .padding(.horizontal, 2)
+                    .opacity(isLoadingPlayback ? 0.72 : 1)
             }
         }
         .overlay(alignment: .bottom) {
@@ -405,10 +463,17 @@ struct SongListRow: View {
                                         size: 18,
                                         color: isSelected ? Theme.accent : Theme.secondaryText.opacity(0.4)
                                     )
+                                } else if isAsideTheme && isLoadingPlayback {
+                                    SongRowLoadingIndicator(color: .monologueAccent)
+                                        .frame(width: 16, height: 16)
+                                } else if isAsideTheme && isCurrent {
+                                    // aside：正在播放时序号位换成律动条，避免高亮元素压住序号
+                                    PlayingVisualizerView(isAnimating: playback.isPlaying, color: .monologueAccent)
+                                        .frame(width: 16, height: 16)
                                 } else {
                                     Text(String(format: "%02d", index + 1))
                                         .font(indexFont)
-                                        .foregroundColor(isCurrent ? Theme.accent : Theme.secondaryText.opacity(0.4))
+                                        .foregroundColor(isPlaybackEmphasized ? Theme.accent : Theme.secondaryText.opacity(0.4))
                                         .lineLimit(1)
                                         .minimumScaleFactor(0.5)
                                 }
@@ -447,12 +512,17 @@ struct SongListRow: View {
                                 }
                             }
                             .overlay {
-                                if isCurrent && !isSelecting {
+                                // aside 的播放标记已移到序号位，封面不再压暗
+                                if isPlaybackEmphasized && !isSelecting && !isAsideTheme {
                                     ZStack {
                                         RoundedRectangle(cornerRadius: coverCornerRadius, style: .continuous)
                                             .fill(Color.black.opacity(0.35))
-                                        PlayingVisualizerView(isAnimating: playback.isPlaying, color: .white)
-                                            .scaleEffect(0.85)
+                                        if isLoadingPlayback {
+                                            SongRowLoadingIndicator(color: .white)
+                                        } else {
+                                            PlayingVisualizerView(isAnimating: playback.isPlaying, color: .white)
+                                                .scaleEffect(0.85)
+                                        }
                                     }
                                 }
                             }
@@ -496,8 +566,9 @@ struct SongListRow: View {
                 .background {
                     if PetWhiteStyle.isActive {
                         petWhiteRowBackground
-                    } else if isCurrent {
+                    } else if isPlaybackEmphasized {
                         currentRowBackground
+                            .opacity(isLoadingPlayback ? 0.72 : 1)
                     }
                 }
                 .padding(.horizontal, PetWhiteStyle.isActive ? rowHorizontalPadding : 0)
@@ -506,6 +577,9 @@ struct SongListRow: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .onAppear {
+            SongArtworkFallbackRegistry.shared.register([song])
+        }
         .contextMenu {
             Button {
                 playback.playNext(song: song)
@@ -521,8 +595,8 @@ struct SongListRow: View {
             
             Divider()
             
-            if !isLocalSong {
-                // 下载选项
+            // 下载选项（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+            if AppConfig.Features.downloadEnabled, !isLocalSong {
                 if rowDownloads.isDownloaded(songId: song.id) {
                     Button(role: .destructive) {
                         rowDownloads.deleteDownload(song: song)
@@ -652,23 +726,26 @@ struct SongListRow: View {
     @ViewBuilder
     private var currentRowBackground: some View {
         if MangaStyle.isActive {
+            // 周刊印刷:朱红浅网点底 + 左侧墨条书签
             ZStack(alignment: .leading) {
-                MangaCardBackground(cornerRadius: rowCornerRadius, elevated: true, tint: MangaStyle.labelYellow.opacity(0.54))
+                MangaCardBackground(cornerRadius: rowCornerRadius, elevated: true, tint: MangaStyle.bubblePink)
 
-                Capsule()
+                RoundedRectangle(cornerRadius: 1.5, style: .continuous)
                     .fill(MangaStyle.accentPink)
                     .frame(width: 5, height: 30)
                     .padding(.leading, 6)
             }
             .padding(.horizontal, 4)
         } else if MujiStyle.isActive {
+            // Muji：不抬卡片，仅左侧一道陶土墨线 + 极淡纸色晕染
             ZStack(alignment: .leading) {
-                MujiPaperCardBackground(cornerRadius: rowCornerRadius, elevated: true)
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(MujiStyle.clay.opacity(0.06))
 
-                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                Rectangle()
                     .fill(MujiStyle.clay)
-                    .frame(width: 3, height: 24)
-                    .padding(.leading, 8)
+                    .frame(width: 2)
+                    .padding(.vertical, 6)
             }
             .padding(.horizontal, 5)
         } else if NeumorphicStyle.isActive {
@@ -740,6 +817,29 @@ struct SongListRow: View {
             .padding(.horizontal, 5)
         } else if PetWhiteStyle.isActive {
             petWhiteCurrentRowBackground
+        } else if MinimalWhiteStyle.isActive {
+            // 纯白极简：列表行以零边距嵌在卡片里，高亮必须与内容同宽、
+            // 且不加左侧强调条（会压在序号上）——用整行淡色选中面 + 细描边
+            RoundedRectangle(cornerRadius: MinimalWhiteStyle.compactRadius, style: .continuous)
+                .fill(MinimalWhiteStyle.selectedFill.opacity(0.9))
+                .overlay(
+                    RoundedRectangle(cornerRadius: MinimalWhiteStyle.compactRadius, style: .continuous)
+                        .stroke(MinimalWhiteStyle.separator, lineWidth: MinimalWhiteStyle.strokeWidth)
+                )
+                .padding(.horizontal, 3)
+        } else if isAsideTheme {
+            // aside 编辑部风格：淡强调色水洗 + 贴边竖标，与播放队列弹层同语言，
+            // 不再用玻璃渐变和辉光条，也不会贴到序号位
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: rowCornerRadius, style: .continuous)
+                    .fill(Color.monologueAccent.opacity(0.07))
+
+                Capsule()
+                    .fill(Color.monologueAccent)
+                    .frame(width: 3, height: 24)
+                    .padding(.leading, 8)
+            }
+            .padding(.horizontal, 8)
         } else {
             ZStack(alignment: .leading) {
                 RoundedRectangle(cornerRadius: rowCornerRadius, style: .continuous)
@@ -779,8 +879,9 @@ struct SongListRow: View {
 
     @ViewBuilder
     private var petWhiteRowBackground: some View {
-        if isCurrent {
+        if isPlaybackEmphasized {
             petWhiteCurrentRowBackground
+                .opacity(isLoadingPlayback ? 0.72 : 1)
         } else {
             PetWhiteSurfaceBackground(
                 cornerRadius: rowCornerRadius,
@@ -839,18 +940,18 @@ struct SongListRow: View {
     }
 
     private var songTitleFont: Font {
-        if MangaStyle.isActive { return MangaStyle.comicFont(16, weight: isCurrent ? .bold : .medium) }
-        if PetWhiteStyle.isActive { return PetWhiteStyle.bodyFont(15.5, weight: isCurrent ? .black : .bold) }
-        if MujiStyle.isActive { return MujiStyle.bodyFont(15, weight: isCurrent ? .medium : .regular) }
-        if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(15, weight: isCurrent ? .semibold : .medium) }
-        if CapsuleStyle.isActive { return CapsuleStyle.bodyFont(15, weight: isCurrent ? .bold : .semibold) }
-        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(15, weight: isCurrent ? .semibold : .medium) }
-        return .system(size: 16, weight: isCurrent ? .bold : .medium)
+        if MangaStyle.isActive { return MangaStyle.bodyFont(16, weight: isPlaybackEmphasized ? .black : .bold) }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.bodyFont(15.5, weight: isPlaybackEmphasized ? .black : .bold) }
+        if MujiStyle.isActive { return MujiStyle.bodyFont(15, weight: isPlaybackEmphasized ? .medium : .regular) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(15, weight: isPlaybackEmphasized ? .semibold : .medium) }
+        if CapsuleStyle.isActive { return CapsuleStyle.bodyFont(15, weight: isPlaybackEmphasized ? .bold : .semibold) }
+        if SequoiaStyle.isActive { return SequoiaStyle.labelFont(15, weight: isPlaybackEmphasized ? .semibold : .medium) }
+        return .system(size: 16, weight: isPlaybackEmphasized ? .bold : .medium)
     }
 
     private var songTitleColor: Color {
         if isGrayed { return Theme.secondaryText.opacity(0.4) }
-        if isCurrent { return Theme.accent }
+        if isPlaybackEmphasized { return Theme.accent }
         if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if CapsuleStyle.isActive { return CapsuleStyle.ink }
@@ -907,29 +1008,29 @@ struct SongListRow: View {
 
     @ViewBuilder
     private var songBadgeRail: some View {
-        HStack(spacing: songBadgeRailSpacing) {
+        HStack(spacing: isAsideTheme ? 6 : songBadgeRailSpacing) {
             if song.isNoCopyright {
                 songMetaBadge(String(localized: "song_no_copyright"), color: Theme.accent, fontSize: 7)
             }
 
             if song.isQQMusic {
-                songMetaBadge("QCM", color: qcmBrandColor)
+                songMetaBadge("QCM", color: qcmBrandColor, kind: .platform)
 
                 if let badge = song.qqMaxQuality?.badgeText {
                     songMetaBadge(badge, color: qcmBrandColor)
                 }
             } else if song.isQishui {
-                songMetaBadge("QSM", color: qsmBrandColor)
+                songMetaBadge("QSM", color: qsmBrandColor, kind: .platform)
 
                 if let badge = song.qualityBadge {
                     songMetaBadge(badge, color: qsmBrandColor)
                 }
             } else if isLocalSong {
-                songMetaBadge("LOCAL", color: localBrandColor)
+                songMetaBadge("LOCAL", color: localBrandColor, kind: .platform)
             } else if let radioName = song.podcastRadioName {
-                songMetaBadge(radioName.uppercased(), color: ncmBrandColor, maxWidth: 92)
+                songMetaBadge(radioName.uppercased(), color: ncmBrandColor, maxWidth: 92, kind: .platform)
             } else {
-                songMetaBadge("NCM", color: ncmBrandColor)
+                songMetaBadge("NCM", color: ncmBrandColor, kind: .platform)
 
                 if let badge = song.qualityBadge {
                     let maxQ = song.maxQuality
@@ -943,22 +1044,77 @@ struct SongListRow: View {
         .allowsHitTesting(false)
     }
 
-    private func songMetaBadge(_ text: String, color: Color, fontSize: CGFloat = 8, maxWidth: CGFloat? = nil) -> some View {
-        return Text(text)
-            .font(songMetaBadgeFont(fontSize: fontSize))
-            .foregroundColor(songMetaBadgeForeground(color))
-            .lineLimit(1)
-            .truncationMode(.tail)
-            .tracking(MujiStyle.isActive ? 0.35 : 0)
-            .padding(.horizontal, songMetaBadgeHorizontalPadding)
-            .padding(.vertical, songMetaBadgeVerticalPadding)
+    private enum MetaBadgeKind {
+        case platform
+        case quality
+    }
+
+    @ViewBuilder
+    private func songMetaBadge(
+        _ text: String,
+        color: Color,
+        fontSize: CGFloat = 8,
+        maxWidth: CGFloat? = nil,
+        kind: MetaBadgeKind = .quality
+    ) -> some View {
+        if isAsideTheme {
+            asideMetaBadge(text, color: color, maxWidth: maxWidth, kind: kind)
+        } else {
+            Text(text)
+                .font(songMetaBadgeFont(fontSize: fontSize))
+                .foregroundColor(songMetaBadgeForeground(color))
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .tracking(MujiStyle.isActive ? 0.35 : 0)
+                .padding(.horizontal, songMetaBadgeHorizontalPadding)
+                .padding(.vertical, songMetaBadgeVerticalPadding)
+                .frame(maxWidth: maxWidth, alignment: .leading)
+                .background {
+                    songMetaBadgeBackground(color)
+                }
+                .overlay {
+                    songMetaBadgeStroke(color)
+                }
+        }
+    }
+
+    /// aside 编辑部风格：平台标识 = 平台色圆点 + 字距小字（去框），
+    /// 音质标识 = 极细描边胶囊（去底色填充）
+    @ViewBuilder
+    private func asideMetaBadge(
+        _ text: String,
+        color: Color,
+        maxWidth: CGFloat?,
+        kind: MetaBadgeKind
+    ) -> some View {
+        switch kind {
+        case .platform:
+            HStack(spacing: 3.5) {
+                Circle()
+                    .fill(color)
+                    .frame(width: 4, height: 4)
+
+                Text(text)
+                    .font(.system(size: 8.5, weight: .heavy, design: .rounded))
+                    .tracking(0.7)
+                    .foregroundColor(Theme.secondaryText.opacity(0.72))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
             .frame(maxWidth: maxWidth, alignment: .leading)
-            .background {
-                songMetaBadgeBackground(color)
-            }
-            .overlay {
-                songMetaBadgeStroke(color)
-            }
+
+        case .quality:
+            Text(text)
+                .font(.system(size: 8, weight: .bold, design: .rounded))
+                .tracking(0.4)
+                .foregroundColor(color.opacity(0.92))
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .padding(.horizontal, 5.5)
+                .padding(.vertical, 1.5)
+                .overlay(Capsule().stroke(color.opacity(0.34), lineWidth: 0.8))
+                .frame(maxWidth: maxWidth, alignment: .leading)
+        }
     }
 
     private func songMetaBadgeFont(fontSize: CGFloat) -> Font {
@@ -1014,7 +1170,7 @@ struct SongListRow: View {
     }
 
     private func songMetaBadgeForeground(_ color: Color) -> Color {
-        if PetWhiteStyle.isActive { return PetWhiteStyle.stroke }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
         if CapsuleStyle.isActive { return color }
         return MangaStyle.isActive ? MangaStyle.ink : color
     }
@@ -1111,7 +1267,8 @@ struct SongListRow: View {
                 playback.addToQueue(song: song)
             }
 
-            if !isLocalSong {
+            // 下载快捷按钮（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+            if AppConfig.Features.downloadEnabled, !isLocalSong {
                 quickActionButton(icon: .download, kind: .download, isDisabled: isDownloaded) {
                     downloadSong()
                 }

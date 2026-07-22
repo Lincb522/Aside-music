@@ -3,6 +3,7 @@ import Combine
 
 // MARK: - 图片缓存配置
 private struct ImageCacheConfig {
+    static let schemaVersion = 3
     static let maxMemoryCost = 80 * 1024 * 1024   // 80MB 内存限制
     static let maxCount = 700                      // 歌单长列表需要保留更多缩略图，最终仍受内存成本限制
     static let maxConcurrentLoads = 6              // 最大并发加载数
@@ -22,7 +23,7 @@ private struct ImageCacheConfig {
     }
 
     static func cacheKey(for url: URL, maxSize: CGFloat) -> String {
-        "\(url.absoluteString)#decode:\(Int(normalizedMaxPointSize(maxSize)))"
+        "artwork-v\(schemaVersion):\(url.absoluteString)#decode:\(Int(normalizedMaxPointSize(maxSize)))"
     }
 }
 
@@ -64,24 +65,131 @@ actor ImageLoadCoordinator {
         
         let task = Task<UIImage?, Never> {
             defer { inFlightTasks.removeValue(forKey: key) }
-            
-            do {
-                if url.isFileURL {
-                    let data = try Data(contentsOf: url)
-                    return downsampleImage(data: data, maxSize: normalizedMaxSize)
-                }
-                let (data, response) = try await imageSession.data(from: url)
-                if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
-                    return nil
-                }
-                return downsampleImage(data: data, maxSize: normalizedMaxSize)
-            } catch {
-                return nil
+
+            if let image = await requestImage(url: url, maxSize: normalizedMaxSize) {
+                return image
             }
+
+            // 同一资源先尝试 CDN 的等价地址。网易云图片签名可跨 p1-p4，
+            // QQ 专辑图则可能只保留部分固定尺寸。
+            for candidate in directCDNFallbackCandidates(for: url) where !Task.isCancelled {
+                if let image = await requestImage(url: candidate, maxSize: normalizedMaxSize) {
+                    AppLogger.info(
+                        "[Artwork] CDN 地址回退成功 primary=\(url.host ?? "unknown") fallback=\(candidate.host ?? "unknown")",
+                        step: "artwork.cdn-fallback"
+                    )
+                    return image
+                }
+            }
+
+            // 搜索的三个平台会并行返回。主封面先失败时短暂等待其余平台完成注册，
+            // 再使用同名同歌手的其他专辑版本或平台封面回退。
+            var fallbacks = SongArtworkFallbackRegistry.shared.fallbackCandidates(for: url)
+            if fallbacks.isEmpty, !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 320_000_000)
+                fallbacks = SongArtworkFallbackRegistry.shared.fallbackCandidates(for: url)
+            }
+
+            let requestedPixels = Int(ceil(normalizedMaxSize * ImageCacheConfig.screenScale))
+            for candidate in fallbacks.prefix(5) where !Task.isCancelled {
+                let fallbackURL = candidate.artworkURL(atLeastPixelSize: requestedPixels)
+                if let image = await requestImage(url: fallbackURL, maxSize: normalizedMaxSize) {
+                    AppLogger.info(
+                        "[Artwork] 同曲封面回退成功 primary=\(url.host ?? "unknown") fallback=\(fallbackURL.host ?? "unknown")",
+                        step: "artwork.song-fallback"
+                    )
+                    return image
+                }
+            }
+
+            AppLogger.debug(
+                "[Artwork] 封面加载失败 url=\(url.absoluteString)",
+                step: "artwork.failed"
+            )
+            return nil
         }
         
         inFlightTasks[key] = task
         return await task.value
+    }
+
+    private func requestImage(url: URL, maxSize: CGFloat) async -> UIImage? {
+        do {
+            if url.isFileURL {
+                let data = try Data(contentsOf: url)
+                return downsampleImage(data: data, maxSize: maxSize)
+            }
+
+            let (data, response) = try await imageSession.data(from: url)
+            if let http = response as? HTTPURLResponse,
+               !(200...299).contains(http.statusCode) {
+                AppLogger.debug(
+                    "[Artwork] CDN 响应异常 status=\(http.statusCode) host=\(url.host ?? "unknown") path=\(url.lastPathComponent)",
+                    step: "artwork.http"
+                )
+                return nil
+            }
+
+            guard !data.isEmpty else {
+                AppLogger.debug(
+                    "[Artwork] CDN 返回空数据 host=\(url.host ?? "unknown")",
+                    step: "artwork.empty-data"
+                )
+                return nil
+            }
+            guard let image = downsampleImage(data: data, maxSize: maxSize) else {
+                AppLogger.debug(
+                    "[Artwork] 返回内容不是有效图片 host=\(url.host ?? "unknown") bytes=\(data.count)",
+                    step: "artwork.decode"
+                )
+                return nil
+            }
+            return image
+        } catch is CancellationError {
+            return nil
+        } catch {
+            AppLogger.debug(
+                "[Artwork] 请求失败 host=\(url.host ?? "unknown") error=\(error.localizedDescription)",
+                step: "artwork.request"
+            )
+            return nil
+        }
+    }
+
+    private func directCDNFallbackCandidates(for url: URL) -> [URL] {
+        var candidates: [URL] = []
+        var seen = Set([url.absoluteString])
+
+        func append(_ candidate: URL?) {
+            guard let candidate, seen.insert(candidate.absoluteString).inserted else { return }
+            candidates.append(candidate)
+        }
+
+        let host = url.host?.lowercased() ?? ""
+        if host.range(of: #"^p[1-4]\.music\.126\.net$"#, options: .regularExpression) != nil {
+            for index in 1...4 {
+                guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { continue }
+                components.host = "p\(index).music.126.net"
+                components.scheme = "https"
+                append(components.url)
+            }
+
+            if var components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+                components.queryItems = components.queryItems?.filter { $0.name != "param" }
+                append(components.url)
+            }
+        }
+
+        if host == "y.gtimg.cn" {
+            let value = url.absoluteString
+            if let range = value.range(of: #"R\d+x\d+"#, options: .regularExpression) {
+                for size in [500, 300, 180] {
+                    append(URL(string: value.replacingCharacters(in: range, with: "R\(size)x\(size)")))
+                }
+            }
+        }
+
+        return candidates
     }
     
     private func downsampleImage(data: Data, maxSize: CGFloat) -> UIImage? {
@@ -126,11 +234,9 @@ class ImageLoader: ObservableObject {
         let normalizedMaxSize = ImageCacheConfig.normalizedMaxPointSize(maxSize)
         let cacheKeyStr = ImageCacheConfig.cacheKey(for: url, maxSize: normalizedMaxSize)
         let cacheKey = cacheKeyStr as NSString
-        let legacyCacheKey = url.absoluteString as NSString
         
         // 1. 内存缓存命中 → 立即返回
-        if let cachedImage = imageCache.object(forKey: cacheKey)
-            ?? (normalizedMaxSize >= ImageCacheConfig.defaultMaxPointSize ? imageCache.object(forKey: legacyCacheKey) : nil) {
+        if let cachedImage = imageCache.object(forKey: cacheKey) {
             self.image = cachedImage
             self.isLoading = false
             self.currentUrl = url
@@ -150,12 +256,10 @@ class ImageLoader: ObservableObject {
             guard let self = self else { return }
             
             let key = cacheKeyStr
-            let legacyKey = url.absoluteString
             
             // 2. 磁盘缓存命中（在后台线程读取和降采样）
             let diskImage: UIImage? = await Task.detached(priority: .userInitiated) {
-                guard let data = CacheManager.shared.getImageData(forKey: key)
-                    ?? CacheManager.shared.getImageData(forKey: legacyKey) else { return nil }
+                guard let data = CacheManager.shared.getImageData(forKey: key) else { return nil }
                 return Self.downsampleImageStatic(data: data, maxSize: normalizedMaxSize)
             }.value
             
@@ -187,7 +291,7 @@ class ImageLoader: ObservableObject {
                 let cost = image.cgImage.map { $0.bytesPerRow * $0.height } ?? 0
                 imageCache.setObject(image, forKey: key as NSString, cost: cost)
                 
-                let jpegData = image.jpegData(compressionQuality: 0.85)
+                let jpegData = image.jpegData(compressionQuality: 0.92)
                 if let jpegData {
                     Task.detached(priority: .background) {
                         CacheManager.shared.setImageData(jpegData, forKey: key)
@@ -249,17 +353,26 @@ struct CachedAsyncImage<Placeholder: View>: View {
         width: CGFloat? = nil,
         height: CGFloat? = nil
     ) {
-        if let url, url.scheme == "http",
-           var components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+        let normalizedMaxSize = ImageCacheConfig.normalizedMaxPointSize(width: width, height: height)
+        let minimumPixelSize = Int(ceil(normalizedMaxSize * ImageCacheConfig.screenScale))
+
+        var requestURL = url
+        if let url, url.absoluteString.hasPrefix("//") {
+            requestURL = URL(string: "https:\(url.absoluteString)")
+        }
+        if let requestURL, requestURL.scheme == "http",
+           var components = URLComponents(url: requestURL, resolvingAgainstBaseURL: false) {
             components.scheme = "https"
-            self.url = components.url ?? url
+            self.url = (components.url ?? requestURL).artworkURL(atLeastPixelSize: minimumPixelSize)
+        } else if let requestURL {
+            self.url = requestURL.artworkURL(atLeastPixelSize: minimumPixelSize)
         } else {
-            self.url = url
+            self.url = nil
         }
         self.placeholder = placeholder()
         self.transition = transition
         self.contentMode = contentMode
-        self.maxDecodeSize = ImageCacheConfig.normalizedMaxPointSize(width: width, height: height)
+        self.maxDecodeSize = normalizedMaxSize
     }
 
     init(
@@ -306,7 +419,6 @@ struct CachedAsyncImage<Placeholder: View>: View {
         // 两个来源合并到同一个 if 分支，防止 loader 加载后分支切换触发 transition 动画。
         let resolvedImage: UIImage? = loader.image
             ?? (url.flatMap { imageCache.object(forKey: ImageCacheConfig.cacheKey(for: $0, maxSize: maxDecodeSize) as NSString) })
-            ?? (maxDecodeSize >= ImageCacheConfig.defaultMaxPointSize ? url.flatMap { imageCache.object(forKey: $0.absoluteString as NSString) } : nil)
 
         if let resolvedImage {
             Image(uiImage: resolvedImage)

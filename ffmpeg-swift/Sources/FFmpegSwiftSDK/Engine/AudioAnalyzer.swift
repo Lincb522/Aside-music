@@ -1526,11 +1526,16 @@ extension AudioAnalyzer {
     /// - Parameters:
     ///   - url: 音频文件或流媒体 URL
     ///   - maxDuration: 最大解码时长（秒），0 = 全部（对于直播流默认 30 秒）
+    ///   - decryptionKey: FFmpeg 输入层解密密钥，明文音频传 nil
+    ///   - outputChannelCount: 输出声道数，nil 表示保持输入声道数
     ///   - onProgress: 进度回调
     /// - Returns: (采样数据, 采样率, 声道数)
     public static func decodeAudioFile(
         url: String,
         maxDuration: TimeInterval = 0,
+        decryptionKey: String? = nil,
+        outputChannelCount: Int? = nil,
+        shouldCancel: (() -> Bool)? = nil,
         onProgress: ((Float) -> Void)? = nil
     ) throws -> (samples: [Float], sampleRate: Int, channelCount: Int) {
         // 检测是否为流媒体 URL
@@ -1548,6 +1553,9 @@ extension AudioAnalyzer {
             av_dict_set(&options, "reconnect", "1", 0)
             av_dict_set(&options, "reconnect_streamed", "1", 0)
             av_dict_set(&options, "reconnect_delay_max", "5", 0)
+        }
+        if let decryptionKey, !decryptionKey.isEmpty {
+            av_dict_set(&options, "decryption_key", decryptionKey, 0)
         }
         defer { av_dict_free(&options) }
         
@@ -1604,9 +1612,10 @@ extension AudioAnalyzer {
         guard ret >= 0 else { throw FFmpegError.from(code: ret) }
 
         let sampleRate = Int(codecCtx.pointee.sample_rate)
-        let channelCount = Int(codecpar.pointee.ch_layout.nb_channels)
+        let sourceChannelCount = Int(codecpar.pointee.ch_layout.nb_channels)
+        let channelCount = min(max(outputChannelCount ?? sourceChannelCount, 1), 2)
         
-        // 设置 SwrContext 转换为 Float32（保持原始声道数）
+        // 设置 SwrContext 转换为 Float32，可按分析用途缩减声道数。
         var swrCtx: OpaquePointer?
         var outLayout = AVChannelLayout()
         av_channel_layout_default(&outLayout, Int32(channelCount))
@@ -1662,6 +1671,7 @@ extension AudioAnalyzer {
         let maxReadErrors = 10  // 最大连续读取错误次数
 
         while true {
+            if shouldCancel?() == true { throw CancellationError() }
             ret = av_read_frame(ctx, packet)
             
             if ret < 0 {
@@ -1684,6 +1694,7 @@ extension AudioAnalyzer {
             avcodec_send_packet(codecCtx, packet)
 
             while avcodec_receive_frame(codecCtx, frame) >= 0 {
+                if shouldCancel?() == true { throw CancellationError() }
                 let frameCount = Int(frame.pointee.nb_samples)
 
                 var outPtr: UnsafeMutablePointer<UInt8>? = UnsafeMutableRawPointer(outBuf)

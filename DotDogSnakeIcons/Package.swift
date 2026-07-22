@@ -4,8 +4,7 @@ import PackageDescription
 let package = Package(
     name: "DotDogSnakeIcons",
     platforms: [
-        .iOS(.v17),
-        .macOS(.v14)
+        .iOS(.v16)
     ],
     products: [
         .library(name: "DotDogSnakeIcons", targets: ["DotDogSnakeIcons"]),

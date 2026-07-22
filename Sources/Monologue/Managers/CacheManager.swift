@@ -8,6 +8,11 @@ class CacheManager: @unchecked Sendable {
     
     /// 串行队列保护磁盘 I/O，避免并发写入冲突
     private let diskQueue = DispatchQueue(label: "zijiu.Monologue.com.cache.disk", qos: .utility)
+    private let diskQueueKey = DispatchSpecificKey<UInt8>()
+
+    /// TTL 与数据保存在同一个文件中，避免将高频缓存元数据写入 UserDefaults。
+    private static let diskRecordMagic = Data([0x4D, 0x4F, 0x4E, 0x4F, 0x43, 0x48, 0x45, 0x32]) // MONOCHE2
+    private static let diskRecordHeaderSize = 16
     
     private var diskCacheURL: URL {
         guard let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else {
@@ -34,6 +39,7 @@ class CacheManager: @unchecked Sendable {
     init() {
         memoryCache.totalCostLimit = memoryLimit
         memoryCache.countLimit = 200 // 提高内存缓存条目上限
+        diskQueue.setSpecific(key: diskQueueKey, value: 1)
         diskQueue.async {
             self.cleanExpiredDiskCache()
         }
@@ -112,12 +118,12 @@ class CacheManager: @unchecked Sendable {
             return
         }
         
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+        diskQueue.async { [weak self] in
             guard let self = self else {
                 completion(nil)
                 return
             }
-            let data = self.loadFromDisk(key: key)
+            let data = self.loadFromDiskOnDiskQueue(key: key)
             if let data = data {
                 self.memoryCache.setObject(data as NSData, forKey: key as NSString, cost: data.count)
             }
@@ -129,33 +135,38 @@ class CacheManager: @unchecked Sendable {
     
     func removeObject(forKey key: String) {
         memoryCache.removeObject(forKey: key as NSString)
-        removeFromDisk(key: key)
+        performDiskSync {
+            removeFromDiskOnDiskQueue(key: key)
+        }
     }
     
     func clearAll() {
         memoryCache.removeAllObjects()
-        clearExpirationMetadata()
-        let url = diskCacheURL
-        try? FileManager.default.removeItem(at: url)
-        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        performDiskSync {
+            let url = diskCacheURL
+            try? FileManager.default.removeItem(at: url)
+            try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        }
     }
     
     // MARK: - 缓存信息
     
     func calculateCacheSize() -> String {
-        guard let urls = try? FileManager.default.contentsOfDirectory(at: diskCacheURL, includingPropertiesForKeys: [.totalFileAllocatedSizeKey], options: .skipsHiddenFiles) else {
-            return "0 MB"
-        }
-        
-        var size: Int64 = 0
-        for url in urls {
-            if let resourceValues = try? url.resourceValues(forKeys: [.totalFileAllocatedSizeKey]),
-               let allocatedSize = resourceValues.totalFileAllocatedSize {
-                size += Int64(allocatedSize)
+        performDiskSync {
+            guard let urls = try? FileManager.default.contentsOfDirectory(at: diskCacheURL, includingPropertiesForKeys: [.totalFileAllocatedSizeKey], options: .skipsHiddenFiles) else {
+                return "0 MB"
             }
+
+            var size: Int64 = 0
+            for url in urls {
+                if let resourceValues = try? url.resourceValues(forKeys: [.totalFileAllocatedSizeKey]),
+                   let allocatedSize = resourceValues.totalFileAllocatedSize {
+                    size += Int64(allocatedSize)
+                }
+            }
+
+            return ByteCountFormatter.string(fromByteCount: size, countStyle: .file)
         }
-        
-        return ByteCountFormatter.string(fromByteCount: size, countStyle: .file)
     }
     
     func clearCache(completion: @escaping @Sendable () -> Void) {
@@ -186,114 +197,158 @@ class CacheManager: @unchecked Sendable {
         let cacheFileName = key.cacheFileName
         let fileURL = diskCacheURL.appendingPathComponent(cacheFileName)
         do {
-            try data.write(to: fileURL)
-            
             let expirationDate = Date().addingTimeInterval(ttl ?? defaultExpiration)
-            let attributes: [FileAttributeKey: Any] = [
-                .modificationDate: Date()
-            ]
-            try FileManager.default.setAttributes(attributes, ofItemAtPath: fileURL.path)
-            UserDefaults.standard.set(expirationDate, forKey: expirationStorageKey(forCacheFileName: cacheFileName))
+            try writeDiskRecord(data: data, to: fileURL, expirationDate: expirationDate)
         } catch {
             AppLogger.error("磁盘缓存写入失败: \(error)")
         }
     }
     
     private func loadFromDisk(key: String) -> Data? {
+        performDiskSync {
+            loadFromDiskOnDiskQueue(key: key)
+        }
+    }
+
+    private func loadFromDiskOnDiskQueue(key: String) -> Data? {
         let cacheFileName = key.cacheFileName
         let fileURL = diskCacheURL.appendingPathComponent(cacheFileName)
-        
+
         guard FileManager.default.fileExists(atPath: fileURL.path) else { return nil }
-        
-        if let attributes = try? FileManager.default.attributesOfItem(atPath: fileURL.path) {
-            let expirationKey = expirationStorageKey(forCacheFileName: cacheFileName)
-            if let expirationDate = UserDefaults.standard.object(forKey: expirationKey) as? Date {
-                if Date() > expirationDate {
-                    try? FileManager.default.removeItem(at: fileURL)
-                    UserDefaults.standard.removeObject(forKey: expirationKey)
-                    return nil
-                }
-            } else if let modificationDate = attributes[.modificationDate] as? Date {
-                if Date().timeIntervalSince(modificationDate) > defaultExpiration {
-                    try? FileManager.default.removeItem(at: fileURL)
-                    return nil
-                }
+
+        guard let storedData = try? Data(contentsOf: fileURL) else { return nil }
+        let payload: Data
+
+        if storedData.starts(with: Self.diskRecordMagic) {
+            guard let record = decodeDiskRecord(storedData) else {
+                try? FileManager.default.removeItem(at: fileURL)
+                return nil
+            }
+            guard Date() <= record.expirationDate else {
+                try? FileManager.default.removeItem(at: fileURL)
+                return nil
+            }
+            payload = record.data
+        } else {
+            // 兼容升级前的原始缓存文件，旧文件按最后修改时间判定过期。
+            let attributes = try? FileManager.default.attributesOfItem(atPath: fileURL.path)
+            let modificationDate = attributes?[.modificationDate] as? Date ?? Date()
+            let legacyExpirationDate = modificationDate.addingTimeInterval(defaultExpiration)
+            if Date() > legacyExpirationDate {
+                try? FileManager.default.removeItem(at: fileURL)
+                return nil
+            }
+            payload = storedData
+            // 首次命中时就地迁移，之后的过期判定不再依赖旧版偏好元数据。
+            do {
+                try writeDiskRecord(data: storedData, to: fileURL, expirationDate: legacyExpirationDate)
+            } catch {
+                AppLogger.error("旧版磁盘缓存迁移失败: \(error)")
             }
         }
-        
-        if let data = try? Data(contentsOf: fileURL) {
-            try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: fileURL.path)
-            return data
-        }
-        return nil
+
+        try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: fileURL.path)
+        return payload
     }
     
-    private func removeFromDisk(key: String) {
+    private func removeFromDiskOnDiskQueue(key: String) {
         let cacheFileName = key.cacheFileName
         let fileURL = diskCacheURL.appendingPathComponent(cacheFileName)
         try? FileManager.default.removeItem(at: fileURL)
-        UserDefaults.standard.removeObject(forKey: expirationStorageKey(forCacheFileName: cacheFileName))
     }
     
     private func cleanExpiredDiskCache() {
-        diskQueue.async {
-            guard let fileURLs = try? FileManager.default.contentsOfDirectory(at: self.diskCacheURL, includingPropertiesForKeys: [.contentModificationDateKey, .totalFileAllocatedSizeKey], options: .skipsHiddenFiles) else { return }
-            
-            var files = [(url: URL, date: Date, size: Int)]()
-            var totalSize = 0
-            var removedCount = 0
-            
-            for url in fileURLs {
-                if let resourceValues = try? url.resourceValues(forKeys: [.contentModificationDateKey, .totalFileAllocatedSizeKey]),
-                   let date = resourceValues.contentModificationDate,
-                   let size = resourceValues.totalFileAllocatedSize {
+        guard let fileURLs = try? FileManager.default.contentsOfDirectory(at: diskCacheURL, includingPropertiesForKeys: [.contentModificationDateKey, .totalFileAllocatedSizeKey], options: .skipsHiddenFiles) else { return }
 
-                    let expirationKey = self.expirationStorageKey(forCacheFileName: url.lastPathComponent)
-                    if let expirationDate = UserDefaults.standard.object(forKey: expirationKey) as? Date {
-                        if Date() > expirationDate {
-                            try? FileManager.default.removeItem(at: url)
-                            UserDefaults.standard.removeObject(forKey: expirationKey)
-                            removedCount += 1
-                            continue
-                        }
-                    } else if Date().timeIntervalSince(date) > self.defaultExpiration {
+        var files = [(url: URL, date: Date, size: Int)]()
+        var totalSize = 0
+        var removedCount = 0
+
+        for url in fileURLs {
+            if let resourceValues = try? url.resourceValues(forKeys: [.contentModificationDateKey, .totalFileAllocatedSizeKey]),
+               let date = resourceValues.contentModificationDate,
+               let size = resourceValues.totalFileAllocatedSize {
+                if let storedData = try? Data(contentsOf: url, options: .mappedIfSafe),
+                   storedData.starts(with: Self.diskRecordMagic) {
+                    guard let expirationDate = diskRecordExpirationDate(storedData) else {
                         try? FileManager.default.removeItem(at: url)
                         removedCount += 1
                         continue
                     }
-                    
-                    files.append((url, date, size))
-                    totalSize += size
-                }
-            }
-            
-            // LRU 淘汰：超出磁盘限制时按最后访问时间排序删除最旧的
-            if totalSize > self.diskLimit {
-                files.sort { $0.date < $1.date }
-                
-                for file in files {
-                    if totalSize <= self.diskLimit / 2 { break } // 清理到 50% 容量，留出余量
-                    try? FileManager.default.removeItem(at: file.url)
-                    totalSize -= file.size
+                    if Date() > expirationDate {
+                        try? FileManager.default.removeItem(at: url)
+                        removedCount += 1
+                        continue
+                    }
+                } else if Date().timeIntervalSince(date) > defaultExpiration {
+                    try? FileManager.default.removeItem(at: url)
                     removedCount += 1
+                    continue
                 }
+
+                files.append((url, date, size))
+                totalSize += size
             }
-            
-            if removedCount > 0 {
-                AppLogger.debug("磁盘缓存清理完成：删除 \(removedCount) 个文件")
+        }
+
+        // LRU 淘汰：超出磁盘限制时按最后访问时间排序删除最旧的
+        if totalSize > diskLimit {
+            files.sort { $0.date < $1.date }
+
+            for file in files {
+                if totalSize <= diskLimit / 2 { break } // 清理到 50% 容量，留出余量
+                try? FileManager.default.removeItem(at: file.url)
+                totalSize -= file.size
+                removedCount += 1
             }
+        }
+
+        if removedCount > 0 {
+            AppLogger.debug("磁盘缓存清理完成：删除 \(removedCount) 个文件")
         }
     }
 
-    private func expirationStorageKey(forCacheFileName fileName: String) -> String {
-        "monologue_cache_expiration_\(fileName)"
+    private func makeDiskRecord(data: Data, expirationDate: Date) -> Data {
+        let milliseconds = UInt64(max(0, expirationDate.timeIntervalSince1970 * 1_000))
+        var encodedMilliseconds = milliseconds.bigEndian
+        var record = Data(capacity: Self.diskRecordHeaderSize + data.count)
+        record.append(Self.diskRecordMagic)
+        withUnsafeBytes(of: &encodedMilliseconds) { bytes in
+            record.append(contentsOf: bytes)
+        }
+        record.append(data)
+        return record
     }
 
-    private func clearExpirationMetadata() {
-        let prefix = "monologue_cache_expiration_"
-        for key in UserDefaults.standard.dictionaryRepresentation().keys where key.hasPrefix(prefix) {
-            UserDefaults.standard.removeObject(forKey: key)
+    private func writeDiskRecord(data: Data, to fileURL: URL, expirationDate: Date) throws {
+        let record = makeDiskRecord(data: data, expirationDate: expirationDate)
+        try record.write(to: fileURL, options: .atomic)
+        try FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: fileURL.path)
+    }
+
+    private func decodeDiskRecord(_ record: Data) -> (data: Data, expirationDate: Date)? {
+        guard let expirationDate = diskRecordExpirationDate(record) else { return nil }
+        return (Data(record.dropFirst(Self.diskRecordHeaderSize)), expirationDate)
+    }
+
+    private func diskRecordExpirationDate(_ record: Data) -> Date? {
+        guard record.count >= Self.diskRecordHeaderSize,
+              record.starts(with: Self.diskRecordMagic) else {
+            return nil
         }
+
+        var milliseconds: UInt64 = 0
+        for byte in record[Self.diskRecordMagic.count..<Self.diskRecordHeaderSize] {
+            milliseconds = (milliseconds << 8) | UInt64(byte)
+        }
+        return Date(timeIntervalSince1970: TimeInterval(milliseconds) / 1_000)
+    }
+
+    private func performDiskSync<T>(_ work: () -> T) -> T {
+        if DispatchQueue.getSpecific(key: diskQueueKey) != nil {
+            return work()
+        }
+        return diskQueue.sync(execute: work)
     }
 }
 

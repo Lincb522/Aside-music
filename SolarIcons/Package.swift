@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "SolarIcons",
-    platforms: [.iOS(.v17), .macOS(.v14)],
+    platforms: [.iOS(.v16)],
     products: [
         .library(name: "SolarIcons", targets: ["SolarIcons"]),
     ],

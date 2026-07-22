@@ -77,7 +77,7 @@ struct PixelPlayerLayout: View {
         .monologueSheet(isPresented: $showPlaylist, preset: .standard){
             PlaylistPopupView()
         }
-        .monologueSheet(isPresented: $showQualitySheet, preset: .compact){
+        .monologueSheet(isPresented: $showQualitySheet, preset: .standard){
             SoundQualitySheet(
                 currentQuality: player.soundQuality,
                 currentQQQuality: player.qqMusicQuality,
@@ -91,8 +91,8 @@ struct PixelPlayerLayout: View {
                 onSelectQishui: { info in player.switchQishuiQuality(info); showQualitySheet = false }
             )
         }
-        .monologueSheet(isPresented: $showEQSettings, preset: .large){
-            NavigationStack { EQSettingsView() }
+        .fullScreenCover(isPresented: $showEQSettings) {
+            NavigationStack { MonoAudioCenterView() }
         }
         .monologueSheet(isPresented: $showThemePicker, preset: .themePicker){
             PlayerThemePickerSheet()
@@ -461,7 +461,11 @@ extension PixelPlayerLayout {
         VStack(spacing: 4) {
             MarqueeText(
                 text: player.currentSong?.name ?? "NO DATA",
-                font: .custom(pixelFont, size: 18),
+                font: MonologuePlayerFont.activeFont(
+                    size: 18,
+                    weight: .bold,
+                    fallback: .custom(pixelFont, size: 18)
+                ),
                 color: fg,
                 speed: 30,
                 alignment: .center
@@ -596,8 +600,17 @@ extension PixelPlayerLayout {
                                         .foregroundColor(accent)
                                         .frame(width: 20)
                                     
-                                    Text(line.text)
-                                        .font(.custom(pixelFont, size: isCurrent ? 16 : 13))
+                                    Text(line.text.monologueLyricDisplayText)
+                                        .font(
+                                            MonologuePlayerFont.activeFont(
+                                                size: isCurrent ? 16 : 13,
+                                                weight: isCurrent ? .bold : .medium,
+                                                fallback: .custom(
+                                                    pixelFont,
+                                                    size: isCurrent ? 16 : 13
+                                                )
+                                            )
+                                        )
                                         .foregroundColor(
                                             isCurrent ? fg :
                                             (isPast ? fgDim : fg.opacity(0.25))
@@ -621,7 +634,7 @@ extension PixelPlayerLayout {
                         withAnimation { proxy.scrollTo(newIndex, anchor: .center) }
                     }
                     .onAppear {
-                        proxy.scrollTo(lyricVM.currentLineIndex, anchor: .center)
+                        proxy.monologueRestoreLyricPosition { lyricVM.currentLineIndex }
                     }
                 }
             } else {
@@ -723,12 +736,20 @@ extension PixelPlayerLayout {
                 funcButton(icon: .comment) { showComments = true }
                 Spacer()
                 if let song = player.currentSong {
-                    funcButton(
-                        icon: .playerDownload,
-                        tint: downloadManager.isDownloaded(songId: song.id) ? accent : fg
-                    ) {
-                        if !downloadManager.isDownloaded(songId: song.id) {
-                            showDownloadSheet = true
+                    if AppConfig.Features.downloadEnabled {
+                        // 下载按钮（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
+                        funcButton(
+                            icon: .playerDownload,
+                            tint: downloadManager.isDownloaded(songId: song.id) ? accent : fg
+                        ) {
+                            if !downloadManager.isDownloaded(songId: song.id) {
+                                showDownloadSheet = true
+                            }
+                        }
+                    } else {
+                        // 沉浸模式按钮 — 占用原下载按钮的位置
+                        funcButton(icon: .immersive) {
+                            ImmersiveModeController.shared.present()
                         }
                     }
                 }

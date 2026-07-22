@@ -1,10 +1,8 @@
 import Foundation
-import SwiftData
 
 /// 缓存的艺术家数据模型
-@Model
 final class CachedArtist {
-    @Attribute(.unique) var id: Int
+    var id: Int
     var name: String
     var coverUrl: String?
     var briefDesc: String?
@@ -64,5 +62,40 @@ final class CachedArtist {
     /// 记录访问
     func recordAccess() {
         lastAccessedAt = Date()
+    }
+}
+
+// MARK: - MonoEntity
+
+extension CachedArtist: MonoEntity {
+    static let monoEntityName = "CachedArtist"
+    static let monoAttributes: [MonoAttribute] = [
+        .init("id", .int), .init("name", .string), .init("coverUrl", .string),
+        .init("briefDesc", .string), .init("albumSize", .int), .init("musicSize", .int),
+        .init("cachedAt", .date), .init("lastAccessedAt", .date)
+    ]
+
+    var monoUniqueKey: String { String(id) }
+
+    func monoSnapshot() -> [String: Any?] {
+        [
+            "id": id, "name": name, "coverUrl": coverUrl, "briefDesc": briefDesc,
+            "albumSize": albumSize, "musicSize": musicSize, "cachedAt": cachedAt,
+            "lastAccessedAt": lastAccessedAt
+        ]
+    }
+
+    static func monoMake(from s: [String: Any?]) -> Self {
+        let obj = CachedArtist(
+            id: MonoSnapshotValue.int(s, "id"),
+            name: MonoSnapshotValue.string(s, "name"),
+            coverUrl: MonoSnapshotValue.stringOpt(s, "coverUrl"),
+            briefDesc: MonoSnapshotValue.stringOpt(s, "briefDesc"),
+            albumSize: MonoSnapshotValue.intOpt(s, "albumSize"),
+            musicSize: MonoSnapshotValue.intOpt(s, "musicSize")
+        )
+        obj.cachedAt = MonoSnapshotValue.date(s, "cachedAt")
+        obj.lastAccessedAt = MonoSnapshotValue.dateOpt(s, "lastAccessedAt")
+        return unsafeDowncast(obj, to: Self.self)
     }
 }

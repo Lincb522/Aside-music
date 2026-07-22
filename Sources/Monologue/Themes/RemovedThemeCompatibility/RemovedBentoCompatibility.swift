@@ -11,11 +11,7 @@ enum BentoStyle {
 
     // ── 底色 ──
     static var paper: Color {
-        ThemeColorCustomization.backgroundBase(
-            for: .bento,
-            fallback: Color(light: Color(hex: "F5F1EA"), dark: Color(hex: "121211")),
-            fallbackHex: "F5F1EA"
-        )
+        Color(light: Color(hex: "F5F1EA"), dark: Color(hex: "121211"))
     }
 
     static let paperWarm = Color(light: Color(hex: "EFE9DD"), dark: Color(hex: "1B1B19"))
@@ -31,11 +27,7 @@ enum BentoStyle {
     // ── 模块色（高饱和便当配色，参考日本便当盒子的颜色 + 现代 bento UI 设计） ──
     /// 番茄红 — 主推荐 / 立即播放
     static var tomato: Color {
-        ThemeColorCustomization.accentColor(
-            for: .bento,
-            fallback: Color(light: Color(hex: "E54B3B"), dark: Color(hex: "F26B5B")),
-            fallbackHex: "E54B3B"
-        )
+        Color(light: Color(hex: "E54B3B"), dark: Color(hex: "F26B5B"))
     }
     /// 抹茶绿 — 收藏 / 自然分类
     static let matcha = Color(light: Color(hex: "5E8C44"), dark: Color(hex: "7AAB60"))
@@ -86,13 +78,9 @@ enum BentoStyle {
     // ── 渐变（保留以兼容协议） ──
     static var accentGradient: LinearGradient {
         LinearGradient(
-            colors: ThemeColorCustomization.accentGradientColors(
-                for: .bento,
-                fallback: [tomato, salmon],
-                fallbackHexes: ["E54B3B", "EB7E48"]
-            ),
-            startPoint: ThemeColorCustomization.gradientStyle(for: .bento, role: .accent).points.start,
-            endPoint: ThemeColorCustomization.gradientStyle(for: .bento, role: .accent).points.end
+            colors: [tomato, salmon],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
         )
     }
 }
@@ -263,6 +251,7 @@ struct BentoPageHeader<Accessory: View>: View {
         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
         .padding(.top, DeviceLayout.headerTopPadding + 6)
         .padding(.bottom, 14)
+        .monologuePageHeaderCollapse()
     }
 }
 

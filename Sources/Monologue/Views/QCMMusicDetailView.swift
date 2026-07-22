@@ -18,10 +18,12 @@ enum QQDetailType {
 
 private enum QQDetailPalette {
     static var accent: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         return NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueIconBackground
     }
 
     static var accentForeground: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.onAccent }
         if NeumorphicStyle.isActive {
             return ThemeColorCustomization.readableForegroundColor(
                 on: NeumorphicStyle.accent,
@@ -33,22 +35,29 @@ private enum QQDetailPalette {
     }
 
     static var primaryText: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         return NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary
     }
 
     static var secondaryText: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkSoft }
         return NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary
     }
 
     static var mutedText: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         return NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monologueTextSecondary
     }
 
     static var placeholderFill: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.controlGlassFill }
         return NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : .monologueGlassTint
     }
 
     static func pageBase(for colorScheme: ColorScheme) -> Color {
+        if MinimalWhiteStyle.isActive {
+            return MinimalWhiteStyle.paper
+        }
         if NeumorphicStyle.isActive {
             return NeumorphicStyle.base
         }
@@ -178,12 +187,14 @@ class QQArtistDetailViewModel: ObservableObject {
 
     private func applyResolvedInfo(from json: JSON) {
         let info = artistInfoContainer(from: json)
-        let baseInfo = info["BaseInfo"] ?? info["baseInfo"]
+        let baseInfo = info["BaseInfo"] ?? info["baseInfo"] ?? info["base_info"]
         let singerInfo = info["Singer"] ?? info["singer"]
 
         if let name = firstNonEmptyString([
             baseInfo?["Name"]?.stringValue,
+            baseInfo?["name"]?.stringValue,
             singerInfo?["Name"]?.stringValue,
+            singerInfo?["name"]?.stringValue,
             json["name"]?.stringValue,
             json["singerName"]?.stringValue
         ]) {
@@ -192,9 +203,12 @@ class QQArtistDetailViewModel: ObservableObject {
 
         if let coverURL = firstNonEmptyString([
             baseInfo?["BackgroundImage"]?.stringValue,
+            baseInfo?["background_image"]?.stringValue,
             baseInfo?["Avatar"]?.stringValue,
+            baseInfo?["avatar"]?.stringValue,
             baseInfo?["BigAvatar"]?.stringValue,
             singerInfo?["SingerPic"]?.stringValue,
+            singerInfo?["singer_pic"]?.stringValue,
             json["pic"]?.stringValue,
             json["singerPic"]?.stringValue,
             json["singer_pic"]?.stringValue,
@@ -341,7 +355,9 @@ struct QQArtistDetailView: View {
         let _ = settings.globalThemeRevision
 
         ZStack {
-            if NeumorphicStyle.isActive {
+            if MinimalWhiteStyle.isActive {
+                MinimalWhiteRootBackdrop()
+            } else if NeumorphicStyle.isActive {
                 ThemeRenderBackdrop(theme: .neumorphic)
             } else if ThemedPageStyle.isActive {
                 ThemedPageBackground()
@@ -354,6 +370,9 @@ struct QQArtistDetailView: View {
             ScrollView {
                 if NeumorphicStyle.isActive {
                     neumorphicQQArtistDetailBody
+                        .iPadContentWidth(900)
+                } else if MinimalWhiteStyle.isActive {
+                    minimalWhiteQQArtistDetailBody
                         .iPadContentWidth(900)
                 } else {
                     VStack(spacing: 0) {
@@ -418,6 +437,115 @@ struct QQArtistDetailView: View {
             if newTab == 1 { viewModel.loadAlbums() }
             if newTab == 2 { viewModel.loadMVs() }
         }
+    }
+
+    private var minimalWhiteQQArtistDetailBody: some View {
+        VStack(spacing: 24) {
+            minimalWhiteQQArtistHeroCard
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                .padding(.top, DeviceLayout.headerTopPadding + 16)
+
+            tabBar
+
+            tabContent
+                .padding(.top, 2)
+                .padding(.bottom, 120)
+        }
+    }
+
+    private var minimalWhiteQQArtistHeroCard: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top, spacing: 18) {
+                CachedAsyncImage(url: displayCoverUrl) {
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .fill(MinimalWhiteStyle.controlGlassFill)
+                        .overlay(MonologueIcon(icon: .profile, size: 38, color: MinimalWhiteStyle.inkMuted, lineWidth: 1.6))
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: DeviceLayout.isPad ? 168 : 132, height: DeviceLayout.isPad ? 168 : 132)
+                .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
+                )
+
+                VStack(alignment: .leading, spacing: 12) {
+                    PlatformBadgeLabel(text: "QCM", source: .qqmusic, fontSize: 10)
+
+                    Text(displayName)
+                        .font(MinimalWhiteStyle.titleFont(DeviceLayout.isPad ? 30 : 26, weight: .semibold))
+                        .foregroundStyle(MinimalWhiteStyle.ink)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.86)
+
+                    HStack(spacing: 8) {
+                        if let fans = viewModel.fansCount, fans > 0 {
+                            minimalWhiteQQPill(String(format: String(localized: "qq_fans_count"), formatCount(fans)))
+                        }
+                        if let ac = viewModel.albumCount, ac > 0 {
+                            minimalWhiteQQPill(String(format: String(localized: "qq_album_count"), ac))
+                        }
+                        if let sc = viewModel.songCount, sc > 0 {
+                            minimalWhiteQQPill(String(format: String(localized: "qq_song_count"), sc))
+                        }
+                    }
+                    .lineLimit(1)
+
+                    Spacer(minLength: 0)
+                }
+            }
+
+            if let desc = viewModel.resolvedDesc, !desc.isEmpty {
+                Button(action: { showFullDescription = true }) {
+                    HStack(spacing: 8) {
+                        Text(desc)
+                            .font(MinimalWhiteStyle.bodyFont(13, weight: .regular))
+                            .foregroundStyle(MinimalWhiteStyle.inkMuted)
+                            .lineLimit(1)
+
+                        MinimalWhiteDisclosureGlyph()
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+            }
+
+            Button(action: {
+                if let first = viewModel.songs.first {
+                    PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                }
+            }) {
+                HStack(spacing: 8) {
+                    MonologueIcon(icon: .play, size: 14, color: MinimalWhiteStyle.onAccent)
+                    Text("qq_play_all")
+                        .font(MinimalWhiteStyle.labelFont(14, weight: .semibold))
+                }
+                .foregroundStyle(MinimalWhiteStyle.onAccent)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 13)
+                .background(MinimalWhiteStyle.ink, in: Capsule(style: .continuous))
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+            .opacity(viewModel.songs.isEmpty ? 0.45 : 1)
+            .disabled(viewModel.songs.isEmpty)
+        }
+        .padding(18)
+        .background(
+            MinimalWhiteSurfaceBackground(
+                cornerRadius: MinimalWhiteStyle.chromeRadius,
+                elevated: true,
+                tint: MinimalWhiteStyle.glassStrongFill
+            )
+        )
+    }
+
+    private func minimalWhiteQQPill(_ text: String) -> some View {
+        Text(text)
+            .font(MinimalWhiteStyle.labelFont(11, weight: .regular))
+            .foregroundStyle(MinimalWhiteStyle.inkMuted)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .background(MinimalWhiteCapsuleBackground())
     }
 
     // MARK: - 新拟物 QCM 歌手详情
@@ -784,26 +912,50 @@ struct QQArtistDetailView: View {
     // MARK: - Tab 栏
     
     private var tabBar: some View {
-        HStack(spacing: 28) {
+        HStack(spacing: MinimalWhiteStyle.isActive ? 4 : 28) {
             tabItem(String(localized: "qq_tab_music"), index: 0)
             tabItem(String(localized: "qq_tab_album"), index: 1)
             tabItem(String(localized: "qq_tab_video"), index: 2)
         }
-        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.horizontal, MinimalWhiteStyle.isActive ? 6 : DeviceLayout.viewHorizontalPadding)
+        .padding(.vertical, MinimalWhiteStyle.isActive ? 6 : 0)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            if MinimalWhiteStyle.isActive {
+                MinimalWhiteSurfaceBackground(
+                    cornerRadius: MinimalWhiteStyle.chromeRadius,
+                    elevated: false,
+                    tint: MinimalWhiteStyle.glassFill
+                )
+            }
+        }
+        .padding(.horizontal, MinimalWhiteStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
     }
     
     private func tabItem(_ title: String, index: Int) -> some View {
         Button(action: {
             withAnimation(.easeInOut(duration: 0.2)) { selectedTab = index }
         }) {
-            VStack(spacing: 6) {
+            if MinimalWhiteStyle.isActive {
                 Text(title)
-                    .font(.rounded(size: 17, weight: selectedTab == index ? .bold : .medium))
-                    .foregroundColor(selectedTab == index ? QQDetailPalette.primaryText : QQDetailPalette.secondaryText)
-                Capsule()
-                    .fill(selectedTab == index ? QQDetailPalette.accent : Color.clear)
-                    .frame(width: 20, height: 3)
+                    .font(MinimalWhiteStyle.labelFont(13, weight: selectedTab == index ? .semibold : .regular))
+                    .foregroundStyle(selectedTab == index ? MinimalWhiteStyle.ink : MinimalWhiteStyle.inkMuted)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background {
+                        if selectedTab == index {
+                            MinimalWhiteCapsuleBackground(selected: true)
+                        }
+                    }
+            } else {
+                VStack(spacing: 6) {
+                    Text(title)
+                        .font(.rounded(size: 17, weight: selectedTab == index ? .bold : .medium))
+                        .foregroundColor(selectedTab == index ? QQDetailPalette.primaryText : QQDetailPalette.secondaryText)
+                    Capsule()
+                        .fill(selectedTab == index ? QQDetailPalette.accent : Color.clear)
+                        .frame(width: 20, height: 3)
+                }
             }
         }
     }
@@ -872,7 +1024,17 @@ struct QQArtistDetailView: View {
                         }
                     }
                 }
-                .padding(.vertical, 10)
+                .padding(.vertical, MinimalWhiteStyle.isActive ? 8 : 10)
+                .background {
+                    if MinimalWhiteStyle.isActive {
+                        MinimalWhiteSurfaceBackground(
+                            cornerRadius: MinimalWhiteStyle.chromeRadius,
+                            elevated: false,
+                            tint: MinimalWhiteStyle.glassFill
+                        )
+                    }
+                }
+                .padding(.horizontal, MinimalWhiteStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
             }
         }
     }
@@ -943,9 +1105,19 @@ struct QQArtistDetailView: View {
             }
             .padding(12)
             .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(QQDetailPalette.placeholderFill)
-                    .monologueGlass(cornerRadius: 20)
+                Group {
+                    if MinimalWhiteStyle.isActive {
+                        MinimalWhiteSurfaceBackground(
+                            cornerRadius: MinimalWhiteStyle.cardRadius,
+                            elevated: false,
+                            tint: MinimalWhiteStyle.glassFill
+                        )
+                    } else {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(QQDetailPalette.placeholderFill)
+                            .monologueGlass(cornerRadius: 20)
+                    }
+                }
             )
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
@@ -1005,9 +1177,19 @@ struct QQArtistDetailView: View {
                     }
                 }
                 Text(mv.name)
-                    .font(.rounded(size: 13, weight: .medium))
+                    .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(13, weight: .medium) : .rounded(size: 13, weight: .medium))
                     .foregroundColor(QQDetailPalette.primaryText)
                     .lineLimit(1)
+            }
+            .padding(MinimalWhiteStyle.isActive ? 8 : 0)
+            .background {
+                if MinimalWhiteStyle.isActive {
+                    MinimalWhiteSurfaceBackground(
+                        cornerRadius: MinimalWhiteStyle.cardRadius,
+                        elevated: false,
+                        tint: MinimalWhiteStyle.glassFill
+                    )
+                }
             }
         }
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
@@ -1022,15 +1204,40 @@ struct QQArtistDetailView: View {
             Spacer().frame(height: 60)
         }
         .frame(maxWidth: .infinity)
+        .background {
+            if MinimalWhiteStyle.isActive {
+                MinimalWhiteSurfaceBackground(
+                    cornerRadius: MinimalWhiteStyle.cardRadius,
+                    elevated: false,
+                    tint: MinimalWhiteStyle.glassFill
+                )
+            }
+        }
+        .padding(.horizontal, MinimalWhiteStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
     }
     
     private func emptyView(_ text: String) -> some View {
         VStack(spacing: 12) {
             Spacer().frame(height: 60)
-            Text(text).font(.rounded(size: 15)).foregroundColor(QQDetailPalette.secondaryText)
+            if MinimalWhiteStyle.isActive {
+                MinimalWhiteIconBadge(icon: .musicNoteList, size: 52)
+            }
+            Text(text)
+                .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(14, weight: .medium) : .rounded(size: 15))
+                .foregroundColor(QQDetailPalette.secondaryText)
             Spacer().frame(height: 60)
         }
         .frame(maxWidth: .infinity)
+        .background {
+            if MinimalWhiteStyle.isActive {
+                MinimalWhiteSurfaceBackground(
+                    cornerRadius: MinimalWhiteStyle.cardRadius,
+                    elevated: false,
+                    tint: MinimalWhiteStyle.glassFill
+                )
+            }
+        }
+        .padding(.horizontal, MinimalWhiteStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
     }
     
     private func formatCount(_ count: Int) -> String {
@@ -1114,7 +1321,8 @@ class QQAlbumDetailViewModel: ObservableObject {
     private func handleAlbumDetail(_ json: JSON) {
         AppLogger.debug("[QQAlbum] 专辑详情: \(json)")
 
-        let basicInfo = json["basicInfo"] ?? json["basic_info"] ?? json
+        // 新版 API: { album: { name, mid, desc, time_public }, singers: [...], company: {...} }
+        let basicInfo = json["album"] ?? json["basicInfo"] ?? json["basic_info"] ?? json
         let singerList = json["singer"]?["singerList"]?.arrayValue
             ?? json["singer"]?["list"]?.arrayValue
             ?? json["singerList"]?.arrayValue
@@ -1192,6 +1400,7 @@ class QQAlbumDetailViewModel: ObservableObject {
             basicInfo["aDate"]?.stringValue,
             basicInfo["publicTime"]?.stringValue,
             basicInfo["publish_date"]?.stringValue,
+            basicInfo["time_public"]?.stringValue,
             json["publishDate"]?.stringValue,
             json["aDate"]?.stringValue,
             json["publicTime"]?.stringValue,
@@ -1249,7 +1458,11 @@ struct QQAlbumDetailView: View {
     @State private var isAlbumSelectMode = false
     @State private var albumSelectedIds: Set<Int> = []
     @State private var showAlbumBatchPlaylist = false
-    
+    @State private var scrollOffset: CGFloat = 0
+
+    /// aside(默认)分支使用歌手页风格 Hero 头部
+    private var usesAsideHero: Bool { !MinimalWhiteStyle.isActive }
+
     init(mid: String, name: String, coverUrl: String?, artistName: String?) {
         self.mid = mid
         self.name = name
@@ -1272,41 +1485,47 @@ struct QQAlbumDetailView: View {
 
         ZStack {
             MonologueSheetAwareBackground {
-                if SettingsManager.shared.coverBgPlaylist {
+                if MinimalWhiteStyle.isActive {
+                    MinimalWhiteRootBackdrop()
+                } else if SettingsManager.shared.coverBgPlaylist {
                     PlaylistColorBackground(coverUrl: displayCoverUrl?.sized(200))
                 } else {
                     ThemedPageBackground()
                 }
             }
 
-            VStack(spacing: 0) {
-                headerView
-                
-                ScrollView {
-                    VStack(spacing: 0) {
-                        PlaylistSearchBar(
-                            searchText: $albumSearchText,
-                            isSearching: $isAlbumSearching,
-                            isSelectMode: $isAlbumSelectMode,
-                            selectedIds: $albumSelectedIds,
-                            songs: viewModel.songs.filtered(by: albumSearchText),
-                            onBatchQueue: {
-                                let selected = viewModel.songs.filtered(by: albumSearchText).filter { albumSelectedIds.contains($0.id) }
-                                SongBatchActionHelper.addToQueue(selected) {
-                                    isAlbumSelectMode = false
-                                    albumSelectedIds.removeAll()
-                                }
-                            },
-                            onBatchDownload: { batchDownload(from: viewModel.songs.filtered(by: albumSearchText), ids: albumSelectedIds, reset: { isAlbumSelectMode = false; albumSelectedIds.removeAll() }) },
-                            onBatchCollect: { showAlbumBatchPlaylist = true }
-                        )
-                        songListSection
+            ScrollView {
+                VStack(spacing: 0) {
+                    if usesAsideHero {
+                        headerView
+                    } else {
+                        headerView
+                            .monologuePageHeaderCollapse()
                     }
-                    .padding(.bottom, 100)
+                    PlaylistSearchBar(
+                        searchText: $albumSearchText,
+                        isSearching: $isAlbumSearching,
+                        isSelectMode: $isAlbumSelectMode,
+                        selectedIds: $albumSelectedIds,
+                        songs: viewModel.songs.filtered(by: albumSearchText),
+                        onBatchQueue: {
+                            let selected = viewModel.songs.filtered(by: albumSearchText).filter { albumSelectedIds.contains($0.id) }
+                            SongBatchActionHelper.addToQueue(selected) {
+                                isAlbumSelectMode = false
+                                albumSelectedIds.removeAll()
+                            }
+                        },
+                        onBatchDownload: { batchDownload(from: viewModel.songs.filtered(by: albumSearchText), ids: albumSelectedIds, reset: { isAlbumSelectMode = false; albumSelectedIds.removeAll() }) },
+                        onBatchCollect: { showAlbumBatchPlaylist = true }
+                    )
+                    songListSection
                 }
-                .scrollIndicators(.hidden)
-            .themeRenderScrollLayer()
+                .padding(.bottom, 100)
             }
+            .scrollIndicators(.hidden)
+            .monologueScrollOffset($scrollOffset)
+            .ignoresSafeArea(edges: usesAsideHero ? .top : [])
+            .themeRenderScrollLayer()
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
@@ -1314,8 +1533,15 @@ struct QQAlbumDetailView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 if let count = viewModel.songCount ?? (viewModel.songs.isEmpty ? nil : viewModel.songs.count), count > 0 {
                     Text(String(format: String(localized: "qq_track_count"), count))
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(12, weight: .medium) : .system(size: 13, weight: .medium, design: .rounded))
                         .foregroundColor(QQDetailPalette.secondaryText)
+                        .padding(.horizontal, MinimalWhiteStyle.isActive ? 10 : 0)
+                        .padding(.vertical, MinimalWhiteStyle.isActive ? 6 : 0)
+                        .background {
+                            if MinimalWhiteStyle.isActive {
+                                MinimalWhiteCapsuleBackground()
+                            }
+                        }
                 }
             }
         }
@@ -1334,65 +1560,112 @@ struct QQAlbumDetailView: View {
     
     // MARK: - 头部
     
+    @ViewBuilder
     private var headerView: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        if MinimalWhiteStyle.isActive {
+            minimalWhiteQQAlbumHeaderView
+        } else {
+            AsideDetailHeroHeader(
+                coverUrl: displayCoverUrl,
+                title: displayName,
+                subtitle: (displayArtist?.isEmpty == false) ? displayArtist : nil,
+                metaItems: {
+                    var items = ["QCM"]
+                    if let date = viewModel.publishDate, !date.isEmpty { items.append(date) }
+                    return items
+                }(),
+                descriptionText: viewModel.resolvedDesc,
+                onDescriptionTap: viewModel.resolvedDesc == nil ? nil : { showAlbumDesc = true },
+                scrollOffset: scrollOffset,
+                heroHeight: displayCoverUrl == nil ? 220 : 320,
+                playAllTitle: String(localized: "qq_play"),
+                playAllDisabled: viewModel.songs.isEmpty,
+                onPlayAll: {
+                    if let first = viewModel.songs.first {
+                        PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                    }
+                }
+            )
+            .padding(.bottom, DeviceLayout.isPad ? 20 : 12)
+        }
+    }
+
+    private var minimalWhiteQQAlbumHeaderView: some View {
+        VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .top, spacing: 16) {
                 CachedAsyncImage(url: displayCoverUrl) {
-                    QQDetailPalette.placeholderFill
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .fill(MinimalWhiteStyle.controlGlassFill)
+                        .overlay(MonologueIcon(icon: .album, size: 34, color: MinimalWhiteStyle.inkMuted, lineWidth: 1.6))
                 }
                 .aspectRatio(contentMode: .fill)
-                .frame(width: DeviceLayout.detailCoverSize, height: DeviceLayout.detailCoverSize)
-                .cornerRadius(16)
-                .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 6) {
-                        PlatformBadgeLabel(text: "QCM", source: .qqmusic, fontSize: 10)
-                        
-                        Text(displayName)
-                            .font(.system(size: 20, weight: .bold, design: .rounded))
-                            .foregroundColor(QQDetailPalette.primaryText)
-                            .lineLimit(2)
-                    }
-                    
+                .frame(width: DeviceLayout.isPad ? 150 : 118, height: DeviceLayout.isPad ? 150 : 118)
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
+                )
+
+                VStack(alignment: .leading, spacing: 10) {
+                    PlatformBadgeLabel(text: "QCM", source: .qqmusic, fontSize: 10)
+
+                    Text(displayName)
+                        .font(MinimalWhiteStyle.titleFont(24, weight: .semibold))
+                        .foregroundStyle(MinimalWhiteStyle.ink)
+                        .lineLimit(2)
+
                     if let artist = displayArtist, !artist.isEmpty {
                         Text(artist)
-                            .font(.system(size: 13))
-                            .foregroundColor(QQDetailPalette.secondaryText)
+                            .font(MinimalWhiteStyle.bodyFont(13, weight: .regular))
+                            .foregroundStyle(MinimalWhiteStyle.inkSoft)
                             .lineLimit(1)
                     }
-                    
+
                     if let date = viewModel.publishDate, !date.isEmpty {
-                        Text(date)
-                            .font(.rounded(size: 11))
-                            .foregroundColor(QQDetailPalette.mutedText.opacity(0.78))
+                        minimalWhiteQQPill(date)
                     }
-                    
-                    Spacer().frame(height: 4)
-                    
-                    Button(action: {
-                        if let first = viewModel.songs.first {
-                                PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
-                        }
-                    }) {
-                        HStack(spacing: 6) {
-                            MonologueIcon(icon: .play, size: 12, color: QQDetailPalette.accentForeground)
-                            Text(String(localized: "qq_play"))
-                                .font(.system(size: 12, weight: .bold))
-                        }
-                        .foregroundColor(QQDetailPalette.accentForeground)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(QQDetailPalette.accent)
-                        .cornerRadius(20)
-                    }
-                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
                 }
             }
+
+            Button(action: {
+                if let first = viewModel.songs.first {
+                    PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                }
+            }) {
+                HStack(spacing: 8) {
+                    MonologueIcon(icon: .play, size: 13, color: MinimalWhiteStyle.onAccent)
+                    Text(String(localized: "qq_play"))
+                        .font(MinimalWhiteStyle.labelFont(13, weight: .semibold))
+                }
+                .foregroundStyle(MinimalWhiteStyle.onAccent)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(MinimalWhiteStyle.ink, in: Capsule(style: .continuous))
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+            .disabled(viewModel.songs.isEmpty)
+            .opacity(viewModel.songs.isEmpty ? 0.45 : 1)
         }
+        .padding(18)
+        .background(
+            MinimalWhiteSurfaceBackground(
+                cornerRadius: MinimalWhiteStyle.chromeRadius,
+                elevated: true,
+                tint: MinimalWhiteStyle.glassStrongFill
+            )
+        )
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-        .padding(.bottom, 24)
-        .padding(.top, 16)
+        .padding(.top, DeviceLayout.headerTopPadding + 12)
+        .padding(.bottom, 18)
+    }
+
+    private func minimalWhiteQQPill(_ text: String) -> some View {
+        Text(text)
+            .font(MinimalWhiteStyle.labelFont(11, weight: .regular))
+            .foregroundStyle(MinimalWhiteStyle.inkMuted)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .background(MinimalWhiteCapsuleBackground())
     }
     
     // MARK: - 歌曲列表
@@ -1400,13 +1673,30 @@ struct QQAlbumDetailView: View {
     private var songListSection: some View {
         LazyVStack(spacing: 0) {
             if viewModel.isLoading {
-                MonologueLoadingView(text: "LOADING TRACKS")
+                MonologueLoadingView(text: MinimalWhiteStyle.isActive ? nil : "LOADING TRACKS")
             } else if viewModel.songs.isEmpty {
                 VStack(spacing: 14) {
-                    MonologueIcon(icon: .musicNoteList, size: 40, color: QQDetailPalette.mutedText.opacity(0.36))
-                    Text(String(localized: "qq_no_songs")).font(.rounded(size: 15)).foregroundColor(QQDetailPalette.secondaryText)
+                    if MinimalWhiteStyle.isActive {
+                        MinimalWhiteIconBadge(icon: .musicNoteList, size: 52)
+                    } else {
+                        MonologueIcon(icon: .musicNoteList, size: 40, color: QQDetailPalette.mutedText.opacity(0.36))
+                    }
+                    Text(String(localized: "qq_no_songs"))
+                        .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(14, weight: .medium) : .rounded(size: 15))
+                        .foregroundColor(QQDetailPalette.secondaryText)
                 }
-                .padding(.top, 40)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 44)
+                .background {
+                    if MinimalWhiteStyle.isActive {
+                        MinimalWhiteSurfaceBackground(
+                            cornerRadius: MinimalWhiteStyle.cardRadius,
+                            elevated: false,
+                            tint: MinimalWhiteStyle.glassFill
+                        )
+                    }
+                }
+                .padding(.horizontal, MinimalWhiteStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
             } else {
                 // 专辑简介
                 if let desc = viewModel.resolvedDesc, !desc.isEmpty {
@@ -1428,10 +1718,18 @@ struct QQAlbumDetailView: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(16)
-                        .background(
-                            Color.clear // glassEffect applied via modifier
-                                .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
-                        )
+                        .background {
+                            if MinimalWhiteStyle.isActive {
+                                MinimalWhiteSurfaceBackground(
+                                    cornerRadius: MinimalWhiteStyle.cardRadius,
+                                    elevated: false,
+                                    tint: MinimalWhiteStyle.glassFill
+                                )
+                            } else {
+                                Color.clear
+                                    .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
+                            }
+                        }
                     }
                     .buttonStyle(.plain)
                     .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
@@ -1454,6 +1752,15 @@ struct QQAlbumDetailView: View {
                             PlayerManager.shared.play(song: song, in: albumDisplaySongs)
                         }
                     })
+                }
+                .background {
+                    if MinimalWhiteStyle.isActive {
+                        MinimalWhiteSurfaceBackground(
+                            cornerRadius: MinimalWhiteStyle.cardRadius,
+                            elevated: false,
+                            tint: MinimalWhiteStyle.glassFill
+                        )
+                    }
                 }
                 
                 if !isAlbumSearching {
@@ -1495,37 +1802,42 @@ struct QQAlbumDescSheet: View {
         VStack(spacing: 0) {
             HStack(spacing: 14) {
                 CachedAsyncImage(url: coverUrl) {
-                    RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 14 : 10)
-                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
+                    RoundedRectangle(cornerRadius: MinimalWhiteStyle.isActive ? 14 : (NeumorphicStyle.isActive ? 14 : 10))
+                        .fill(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint))
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(width: 48, height: 48)
-                .clipShape(RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 14 : 10, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: MinimalWhiteStyle.isActive ? 14 : (NeumorphicStyle.isActive ? 14 : 10), style: .continuous))
                 .overlay {
                     if NeumorphicStyle.isActive {
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
                             .stroke(NeumorphicStyle.separator.opacity(0.35), lineWidth: 0.7)
+                    } else if MinimalWhiteStyle.isActive {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
                     }
                 }
                 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(name)
-                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(20, weight: .semibold) : .rounded(size: 20, weight: .bold))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                        .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.titleFont(20, weight: .semibold) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(20, weight: .semibold) : .rounded(size: 20, weight: .bold)))
+                        .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary))
                         .lineLimit(1)
                     if let artist = artistName {
                         Text(artist)
-                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .rounded(size: 12))
-                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                            .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(12, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .medium) : .rounded(size: 12)))
+                            .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary))
                     }
                 }
                 Spacer()
                 Button(action: { dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss) }) {
-                    MonologueIcon(icon: .close, size: 20, color: NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                    MonologueIcon(icon: .close, size: 20, color: MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary))
                         .frame(width: 32, height: 32)
                         .background {
                             if NeumorphicStyle.isActive {
                                 NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true, lightweight: true)
+                            } else if MinimalWhiteStyle.isActive {
+                                MinimalWhiteCircleBackground(elevated: false)
                             } else {
                                 Circle().fill(Color.monologueSeparator)
                             }
@@ -1538,13 +1850,13 @@ struct QQAlbumDescSheet: View {
             .padding(.bottom, 16)
             
             Rectangle()
-                .fill(NeumorphicStyle.isActive ? NeumorphicStyle.separator.opacity(0.45) : Color.monologueSeparator)
+                .fill(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.hairline : (NeumorphicStyle.isActive ? NeumorphicStyle.separator.opacity(0.45) : Color.monologueSeparator))
                 .frame(height: 0.5)
             
             ScrollView {
                 Text(desc)
-                    .font(.rounded(size: 15, weight: .regular))
-                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                    .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.bodyFont(15, weight: .regular) : .rounded(size: 15, weight: .regular))
+                    .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary))
                     .lineSpacing(6)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(16)
@@ -1552,6 +1864,12 @@ struct QQAlbumDescSheet: View {
                         Group {
                             if NeumorphicStyle.isActive {
                                 NeumorphicSurfaceBackground(cornerRadius: 22, elevated: false)
+                            } else if MinimalWhiteStyle.isActive {
+                                MinimalWhiteSurfaceBackground(
+                                    cornerRadius: MinimalWhiteStyle.cardRadius,
+                                    elevated: false,
+                                    tint: MinimalWhiteStyle.glassFill
+                                )
                             } else {
                                 Color.clear
                                     .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
@@ -1583,7 +1901,7 @@ struct QQArtistBioSheet: View {
         VStack(spacing: 0) {
             HStack(spacing: 14) {
                 CachedAsyncImage(url: coverUrl) {
-                    Circle().fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint)
+                    Circle().fill(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monologueGlassTint))
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(width: 48, height: 48)
@@ -1592,13 +1910,16 @@ struct QQArtistBioSheet: View {
                     if NeumorphicStyle.isActive {
                         Circle()
                             .stroke(NeumorphicStyle.separator.opacity(0.35), lineWidth: 0.7)
+                    } else if MinimalWhiteStyle.isActive {
+                        Circle()
+                            .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
                     }
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(name)
-                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(20, weight: .semibold) : .rounded(size: 20, weight: .bold))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                        .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.titleFont(20, weight: .semibold) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(20, weight: .semibold) : .rounded(size: 20, weight: .bold)))
+                        .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary))
                         .lineLimit(1)
                     PlatformBadgeLabel(text: "QCM", source: .qqmusic, fontSize: 10)
                 }
@@ -1606,11 +1927,13 @@ struct QQArtistBioSheet: View {
                 Spacer()
 
                 Button(action: { dismissCurrentPresentation(systemDismiss: dismiss, monologueSheetDismiss: monologueSheetDismiss) }) {
-                    MonologueIcon(icon: .close, size: 20, color: NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
+                    MonologueIcon(icon: .close, size: 20, color: MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkMuted : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary))
                         .frame(width: 32, height: 32)
                         .background {
                             if NeumorphicStyle.isActive {
                                 NeumorphicSurfaceBackground(cornerRadius: 16, elevated: false, pressed: true, lightweight: true)
+                            } else if MinimalWhiteStyle.isActive {
+                                MinimalWhiteCircleBackground(elevated: false)
                             } else {
                                 Circle().fill(Color.monologueSeparator)
                             }
@@ -1623,16 +1946,25 @@ struct QQArtistBioSheet: View {
             .padding(.bottom, 16)
 
             Rectangle()
-                .fill(NeumorphicStyle.isActive ? NeumorphicStyle.separator.opacity(0.45) : Color.monologueSeparator)
+                .fill(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.hairline : (NeumorphicStyle.isActive ? NeumorphicStyle.separator.opacity(0.45) : Color.monologueSeparator))
                 .frame(height: 0.5)
 
             ScrollView {
                 Text(desc)
-                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .regular) : .rounded(size: 15, weight: .regular))
-                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                    .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.bodyFont(15, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .regular) : .rounded(size: 15, weight: .regular)))
+                    .foregroundColor(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary))
                     .lineSpacing(6)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(16)
+                    .background {
+                        if MinimalWhiteStyle.isActive {
+                            MinimalWhiteSurfaceBackground(
+                                cornerRadius: MinimalWhiteStyle.cardRadius,
+                                elevated: false,
+                                tint: MinimalWhiteStyle.glassFill
+                            )
+                        }
+                    }
                     .padding(.horizontal, DeviceLayout.viewHorizontalPadding - 16)
                     .padding(.top, 4)
                     .padding(.bottom, 40)
@@ -1735,12 +2067,31 @@ class QQPlaylistDetailViewModel: ObservableObject {
     func fetchDetail() {
         APIService.shared.fetchQQPlaylistDetail(playlistId: playlistId)
             .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] json in
-                if let logo = json["logo"]?.stringValue ?? json["dirpicurl"]?.stringValue
-                    ?? json["coverImgUrl"]?.stringValue ?? json["cover"]?.stringValue, !logo.isEmpty {
+                // 新版 API 信息嵌套在 info 下: { info: { title, picurl, desc, ... }, songs: [...] }
+                let info = json["info"] ?? json["dirinfo"] ?? json
+                let logoCandidates: [String?] = [
+                    info["picurl"]?.stringValue,
+                    info["logo"]?.stringValue,
+                    info["dirpicurl"]?.stringValue,
+                    info["coverImgUrl"]?.stringValue,
+                    info["cover"]?.stringValue,
+                    json["logo"]?.stringValue,
+                    json["dirpicurl"]?.stringValue,
+                    json["coverImgUrl"]?.stringValue,
+                    json["cover"]?.stringValue
+                ]
+                if let logo = logoCandidates.compactMap({ $0 }).first(where: { !$0.isEmpty }) {
                     self?.resolvedCoverUrl = logo
                 }
-                if let name = json["dissname"]?.stringValue ?? json["title"]?.stringValue
-                    ?? json["name"]?.stringValue, !name.isEmpty {
+                let nameCandidates: [String?] = [
+                    info["title"]?.stringValue,
+                    info["dissname"]?.stringValue,
+                    info["name"]?.stringValue,
+                    json["dissname"]?.stringValue,
+                    json["title"]?.stringValue,
+                    json["name"]?.stringValue
+                ]
+                if let name = nameCandidates.compactMap({ $0 }).first(where: { !$0.isEmpty }) {
                     self?.resolvedName = name
                 }
             })
@@ -1766,7 +2117,11 @@ struct QQPlaylistDetailView: View {
     @State private var isPlaylistSelectMode = false
     @State private var playlistSelectedIds: Set<Int> = []
     @State private var showPlaylistBatchPlaylist = false
-    
+    @State private var scrollOffset: CGFloat = 0
+
+    /// aside(默认)分支使用歌手页风格 Hero 头部
+    private var usesAsideHero: Bool { !MinimalWhiteStyle.isActive }
+
     init(playlistId: Int, name: String, coverUrl: String?, creatorName: String?) {
         self.playlistId = playlistId
         self.name = name
@@ -1788,7 +2143,9 @@ struct QQPlaylistDetailView: View {
 
         ZStack {
             MonologueSheetAwareBackground {
-                if SettingsManager.shared.coverBgPlaylist {
+                if MinimalWhiteStyle.isActive {
+                    MinimalWhiteRootBackdrop()
+                } else if SettingsManager.shared.coverBgPlaylist {
                     PlaylistColorBackground(coverUrl: displayCoverUrl?.sized(200))
                         .ignoresSafeArea()
                 } else {
@@ -1799,7 +2156,12 @@ struct QQPlaylistDetailView: View {
             VStack(spacing: 0) {
                 ScrollView {
                     VStack(spacing: 0) {
-                        headerSection
+                        if usesAsideHero {
+                            headerSection
+                        } else {
+                            headerSection
+                                .monologuePageHeaderCollapse()
+                        }
                         PlaylistSearchBar(
                             searchText: $searchText,
                             isSearching: $isSearching,
@@ -1822,6 +2184,8 @@ struct QQPlaylistDetailView: View {
                     .padding(.bottom, 120)
                 }
                 .scrollIndicators(.hidden)
+                .monologueScrollOffset($scrollOffset)
+                .ignoresSafeArea(edges: usesAsideHero ? .top : [])
             .themeRenderScrollLayer()
             }
         }
@@ -1842,95 +2206,140 @@ struct QQPlaylistDetailView: View {
         }
         .overlay {
             if viewModel.isLoading && viewModel.songs.isEmpty {
-                MonologueLoadingView(text: "LOADING")
+                MonologueLoadingView(text: MinimalWhiteStyle.isActive ? nil : "LOADING")
             }
         }
     }
     
+    @ViewBuilder
     private var headerSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        if MinimalWhiteStyle.isActive {
+            minimalWhiteQQPlaylistHeaderSection
+        } else {
+            AsideDetailHeroHeader(
+                coverUrl: displayCoverUrl,
+                title: displayName,
+                subtitle: creatorName.map { "by \($0)" },
+                metaItems: ["QCM"],
+                scrollOffset: scrollOffset,
+                heroHeight: displayCoverUrl == nil ? 220 : 320,
+                playAllDisabled: viewModel.songs.isEmpty,
+                onPlayAll: {
+                    if let first = viewModel.songs.first {
+                        PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                        viewModel.loadAllSongs(appendToQueue: true)
+                    }
+                }
+            ) {
+                SubscribeButton(
+                    isSubscribed: isCollectedLocally,
+                    action: {
+                        guard !isCollectedLocally, !viewModel.songs.isEmpty else { return }
+                        Task {
+                            let allSongs = await viewModel.loadAllSongsAsync()
+                            LocalPlaylistManager.shared.importPlaylist(name: displayName, songs: allSongs)
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                isCollectedLocally = true
+                            }
+                        }
+                    }
+                )
+                .disabled(isCollectedLocally || viewModel.songs.isEmpty)
+            }
+            .padding(.bottom, DeviceLayout.isPad ? 20 : 12)
+            .iPadContentWidth(900)
+        }
+    }
+
+    private var minimalWhiteQQPlaylistHeaderSection: some View {
+        VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .top, spacing: 16) {
                 Group {
                     if let url = displayCoverUrl {
                         CachedAsyncImage(url: url) {
-                            QQDetailPalette.placeholderFill
+                            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                .fill(MinimalWhiteStyle.controlGlassFill)
+                                .overlay(MonologueIcon(icon: .musicNote, size: 34, color: MinimalWhiteStyle.inkMuted, lineWidth: 1.6))
                         }
                         .aspectRatio(contentMode: .fill)
                     } else {
-                        ZStack {
-                            QQDetailPalette.placeholderFill
-                            MonologueIcon(icon: .musicNote, size: 32, color: QQDetailPalette.mutedText.opacity(0.36))
-                        }
+                        RoundedRectangle(cornerRadius: 24, style: .continuous)
+                            .fill(MinimalWhiteStyle.controlGlassFill)
+                            .overlay(MonologueIcon(icon: .musicNote, size: 34, color: MinimalWhiteStyle.inkMuted, lineWidth: 1.6))
                     }
                 }
-                .frame(width: DeviceLayout.isPad ? 180 : 120, height: DeviceLayout.isPad ? 180 : 120)
-                .cornerRadius(DeviceLayout.isPad ? 20 : 16)
-                .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
-                
-                VStack(alignment: .leading, spacing: 8) {
+                .frame(width: DeviceLayout.isPad ? 150 : 118, height: DeviceLayout.isPad ? 150 : 118)
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
+                )
+
+                VStack(alignment: .leading, spacing: 10) {
+                    PlatformBadgeLabel(text: "QCM", source: .qqmusic, fontSize: 10)
+
                     Text(displayName)
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
-                        .foregroundColor(QQDetailPalette.primaryText)
+                        .font(MinimalWhiteStyle.titleFont(24, weight: .semibold))
+                        .foregroundStyle(MinimalWhiteStyle.ink)
                         .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                    
+
                     if let creator = creatorName {
-                        Text("by \(creator)")
-                            .font(.system(size: 13))
-                            .foregroundColor(QQDetailPalette.secondaryText)
+                        Text(creator)
+                            .font(MinimalWhiteStyle.bodyFont(13, weight: .regular))
+                            .foregroundStyle(MinimalWhiteStyle.inkMuted)
                             .lineLimit(1)
-                    }
-                    
-                    HStack(spacing: 6) {
-                        PlatformBadgeLabel(text: "QCM", source: .qqmusic, fontSize: 10)
-                    }
-                    
-                    Spacer().frame(height: 4)
-                    
-                    HStack(spacing: 8) {
-                        Button(action: {
-                            if let first = viewModel.songs.first {
-                                PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
-                                viewModel.loadAllSongs(appendToQueue: true)
-                            }
-                        }) {
-                            HStack(spacing: 6) {
-                                MonologueIcon(icon: .play, size: 12, color: QQDetailPalette.accentForeground)
-                                Text(LocalizedStringKey("play_now"))
-                                    .font(.system(size: 12, weight: .bold))
-                            }
-                            .foregroundColor(QQDetailPalette.accentForeground)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(QQDetailPalette.accent)
-                            .cornerRadius(20)
-                            .monologueGlassCapsule()
-                            .shadow(color: QQDetailPalette.accent.opacity(0.2), radius: 5, x: 0, y: 2)
-                        }
-                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
-                        
-                        SubscribeButton(
-                            isSubscribed: isCollectedLocally,
-                            action: {
-                                guard !isCollectedLocally, !viewModel.songs.isEmpty else { return }
-                                Task {
-                                    let allSongs = await viewModel.loadAllSongsAsync()
-                                    LocalPlaylistManager.shared.importPlaylist(name: displayName, songs: allSongs)
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                        isCollectedLocally = true
-                                    }
-                                }
-                            }
-                        )
-                        .disabled(isCollectedLocally || viewModel.songs.isEmpty)
                     }
                 }
             }
+
+            HStack(spacing: 10) {
+                Button(action: {
+                    if let first = viewModel.songs.first {
+                        PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                        viewModel.loadAllSongs(appendToQueue: true)
+                    }
+                }) {
+                    HStack(spacing: 8) {
+                        MonologueIcon(icon: .play, size: 13, color: MinimalWhiteStyle.onAccent)
+                        Text(LocalizedStringKey("play_now"))
+                            .font(MinimalWhiteStyle.labelFont(13, weight: .semibold))
+                    }
+                    .foregroundStyle(MinimalWhiteStyle.onAccent)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(MinimalWhiteStyle.ink, in: Capsule(style: .continuous))
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+                .disabled(viewModel.songs.isEmpty)
+                .opacity(viewModel.songs.isEmpty ? 0.45 : 1)
+
+                SubscribeButton(
+                    isSubscribed: isCollectedLocally,
+                    action: {
+                        guard !isCollectedLocally, !viewModel.songs.isEmpty else { return }
+                        Task {
+                            let allSongs = await viewModel.loadAllSongsAsync()
+                            LocalPlaylistManager.shared.importPlaylist(name: displayName, songs: allSongs)
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                isCollectedLocally = true
+                            }
+                        }
+                    }
+                )
+                .disabled(isCollectedLocally || viewModel.songs.isEmpty)
+            }
         }
-        .padding(.horizontal, DeviceLayout.isPad ? 40 : 24)
-        .padding(.top, DeviceLayout.isPad ? 24 : 16)
-        .padding(.bottom, DeviceLayout.isPad ? 32 : 24)
-        .iPadContentWidth(900)
+        .padding(18)
+        .background(
+            MinimalWhiteSurfaceBackground(
+                cornerRadius: MinimalWhiteStyle.chromeRadius,
+                elevated: true,
+                tint: MinimalWhiteStyle.glassStrongFill
+            )
+        )
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.top, DeviceLayout.headerTopPadding + 12)
+        .padding(.bottom, 18)
     }
     
     private var qqFilteredSongs: [Song] {
@@ -1939,6 +2348,31 @@ struct QQPlaylistDetailView: View {
     
     private var songsList: some View {
         LazyVStack(spacing: 0) {
+            if !viewModel.isLoading && qqFilteredSongs.isEmpty {
+                VStack(spacing: 14) {
+                    if MinimalWhiteStyle.isActive {
+                        MinimalWhiteIconBadge(icon: .musicNoteList, size: 52)
+                    } else {
+                        MonologueIcon(icon: .musicNoteList, size: 40, color: QQDetailPalette.mutedText.opacity(0.36))
+                    }
+                    Text(String(localized: "qq_no_songs"))
+                        .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(14, weight: .medium) : .rounded(size: 15))
+                        .foregroundColor(QQDetailPalette.secondaryText)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 44)
+                .background {
+                    if MinimalWhiteStyle.isActive {
+                        MinimalWhiteSurfaceBackground(
+                            cornerRadius: MinimalWhiteStyle.cardRadius,
+                            elevated: false,
+                            tint: MinimalWhiteStyle.glassFill
+                        )
+                    }
+                }
+                .padding(.horizontal, MinimalWhiteStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
+            }
+
             ForEach(Array(qqFilteredSongs.enumerated()), id: \.element.id) { index, song in
                 SongListRow(song: song, index: index, isSelecting: isPlaylistSelectMode, isSelected: playlistSelectedIds.contains(song.id), onArtistTap: { _ in }, onDetailTap: { s in
                     selectedSongForDetail = s
@@ -1956,6 +2390,15 @@ struct QQPlaylistDetailView: View {
                 })
                 .onAppear {
                     if !isSearching && index == viewModel.songs.count - 3 { viewModel.loadMore() }
+                }
+            }
+            .background {
+                if MinimalWhiteStyle.isActive && !qqFilteredSongs.isEmpty {
+                    MinimalWhiteSurfaceBackground(
+                        cornerRadius: MinimalWhiteStyle.cardRadius,
+                        elevated: false,
+                        tint: MinimalWhiteStyle.glassFill
+                    )
                 }
             }
             

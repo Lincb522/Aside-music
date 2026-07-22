@@ -1,15 +1,14 @@
 import Foundation
-import Observation
 import Combine
 
 // MARK: - TopRadioListViewModel
 
 @MainActor
-@Observable class TopRadioListViewModel {
-    var radios: [RadioStation] = []
-    var isLoading = false
-    var isLoadingMore = false
-    var hasMore = true
+class TopRadioListViewModel: ObservableObject {
+    @Published var radios: [RadioStation] = []
+    @Published var isLoading = false
+    @Published var isLoadingMore = false
+    @Published var hasMore = true
 
     private let listType: TopRadioListView.ListType
     private var offset = 0

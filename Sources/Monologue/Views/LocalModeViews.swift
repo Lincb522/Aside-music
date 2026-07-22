@@ -16,10 +16,8 @@ private struct LocalSystemPlaylistDestinationView: View {
     var body: some View {
         if let playlistId {
             LocalPlaylistDetailView(playlistId: playlistId)
-
         } else {
             LocalMusicView(initialFilter: fallbackFilter)
-
         }
     }
 }
@@ -99,6 +97,17 @@ private func recentOfflineSongs(limit: Int, using downloadManager: DownloadManag
     return songs
 }
 
+@MainActor
+private func localTotalDurationText(for songs: [Song]) -> String {
+    let totalMs = songs.reduce(0) { $0 + ($1.dt ?? 0) }
+    let hours = Double(totalMs) / 3_600_000
+    if hours >= 10 { return "\(Int(hours))h" }
+    if hours >= 1 { return String(format: "%.1fh", hours) }
+    return "\(max(totalMs / 60_000, 0))m"
+}
+
+// MARK: - 首页
+
 struct LocalModeHomeView: View {
     @ObservedObject private var localLibrary = LocalMusicLibraryManager.shared
     @ObservedObject private var localPlaylists = LocalPlaylistManager.shared
@@ -119,8 +128,7 @@ struct LocalModeHomeView: View {
     }
 
     private var downloadedSongs: [Song] {
-        guard let playlist = localPlaylists.downloadPlaylist else { return [] }
-        return offlinePlayableSongs(from: localPlaylists.songs(for: playlist), using: downloadManager)
+        offlinePlayableSongs(from: downloadManager.fetchDownloadPlaylistSongs(), using: downloadManager)
     }
 
     private var recentlyAddedSongs: [Song] {
@@ -136,62 +144,67 @@ struct LocalModeHomeView: View {
                     .ignoresSafeArea()
 
                 ScrollView {
-                    VStack(spacing: 22) {
-                        if MangaStyle.isActive {
-                            mangaLocalHomeHeader
-                        } else if MujiStyle.isActive {
-                            mujiLocalHomeHeader
-                        } else if NeumorphicStyle.isActive {
-                            neumorphicLocalHomeHeader
-                        }
+                    VStack(alignment: .leading, spacing: 0) {
+                        masthead
+                            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                            .padding(.top, 12)
+                            .monologuePageHeaderCollapse()
 
                         if let progress = localLibrary.importProgress {
                             LocalImportProgressPanel(progress: progress)
+                                .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                                .padding(.top, 18)
                         }
 
-                        homeHeroCard
-
-                        actionCards
-
-                        quickAccessSection
+                        if localLibrary.songs.isEmpty {
+                            // 空库时不摆一排 0 的数据带，直接给起步引导
+                            LocalStarterPanel(onImport: { showImporter = true })
+                                .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                                .padding(.top, 24)
+                        } else {
+                            LocalStatsBand(items: [
+                                (value: "\(localLibrary.songCount)", label: localModeText("tabbar_local_music")),
+                                (value: "\(favoriteSongs.count)", label: localModeText("local_filter_favorites")),
+                                (value: localTotalDurationText(for: localLibrary.songs), label: localModeText("local_stat_duration"))
+                            ])
+                            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                            .padding(.top, 22)
+                        }
 
                         if !recentSongs.isEmpty {
-                            localSongSection(
+                            localSongShelf(
                                 title: localModeText("local_home_continue_title"),
                                 songs: recentSongs,
                                 destination: LocalMusicView(initialFilter: .recent)
                             )
+                            .padding(.top, 30)
                         }
 
                         if !recentlyAddedSongs.isEmpty {
-                            localSongSection(
+                            localSongShelf(
                                 title: localModeText("local_home_recent_added_title"),
                                 songs: recentlyAddedSongs,
                                 destination: LocalMusicView(initialFilter: .all)
                             )
+                            .padding(.top, 30)
                         }
+
+                        quickAccessIndex
+                            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                            .padding(.top, 30)
 
                         playlistsPreviewSection
-
-                        if localLibrary.songs.isEmpty {
-                            LocalEmptyStateView(
-                                title: localModeText("local_empty_music_title"),
-                                subtitle: localModeText("local_home_empty_hint"),
-                                buttonTitle: localModeText("local_action_import_title"),
-                                buttonAction: { showImporter = true }
-                            )
-                        }
+                            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                            .padding(.top, 30)
 
                         FloatingBarBottomSpacer()
                     }
-                    .padding(.top, ThemedPageStyle.isActive ? 0 : DeviceLayout.headerTopPadding + 12)
-                    .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
                     .iPadContentWidth(700)
                 }
                 .scrollIndicators(.hidden)
-            .themeRenderScrollLayer()
+                .themeRenderScrollLayer()
             }
-            .navigationTitle(ThemedPageStyle.isActive ? "" : localModeText("tabbar_home"))
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
@@ -231,226 +244,107 @@ struct LocalModeHomeView: View {
         }
     }
 
-    private var mujiLocalHomeHeader: some View {
-        MujiPageHeader(
-            eyebrow: "offline room",
-            title: localModeText("tabbar_home"),
-            subtitle: ""
-        ) {
-            MujiIconBadge(icon: .musicNoteList, tint: MujiStyle.tea, size: 48)
-        }
-        .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
-    }
+    private var masthead: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            LocalEyebrowRow(label: "COLLECTION")
+                .padding(.bottom, 18)
 
-    private var mangaLocalHomeHeader: some View {
-        MangaPageHeader(
-            eyebrow: "LOCAL",
-            title: localModeText("tabbar_home"),
-            subtitle: ""
-        ) {
-            MangaIconBadge(icon: .musicNoteList, size: 48, tint: MangaStyle.labelYellow)
-        }
-        .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
-    }
+            Text(localModeText("local_home_hero_title"))
+                .font(.system(size: 30, weight: .heavy, design: .rounded))
+                .foregroundColor(.monologueTextPrimary)
 
-    private var neumorphicLocalHomeHeader: some View {
-        NeumorphicPageHeader(
-            eyebrow: "LOCAL",
-            title: localModeText("tabbar_home"),
-            subtitle: ""
-        ) {
-            NeumorphicIconBadge(icon: .musicNoteList, tint: NeumorphicStyle.sage, size: 48)
-        }
-        .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
-    }
-
-    private var homeHeroCard: some View {
-        MonologueLiquidGlassCard(cornerRadius: 28) {
-            VStack(alignment: .leading, spacing: 18) {
-                HStack(alignment: .top, spacing: 16) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(localModeText("local_home_hero_title"))
-                            .font(MangaStyle.isActive ? MangaStyle.titleFont(26, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(26, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(26, weight: .semibold) : .system(size: 28, weight: .heavy, design: .rounded))))
-                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
-                            .tracking(ThemedPageStyle.isActive ? 0 : -0.5)
+            if !localLibrary.songs.isEmpty {
+                // 强调线用 overlay 贴在文本上，高度永远等于文本高度
+                Text(localModeFormat("local_home_hero_subtitle", localLibrary.songCount))
+                    .font(.rounded(size: 13))
+                    .foregroundColor(.monologueTextSecondary)
+                    .lineSpacing(3)
+                    .padding(.leading, 12)
+                    .overlay(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 1)
+                            .fill(Color.monologueAccent.opacity(0.8))
+                            .frame(width: 2)
+                            .padding(.vertical, 1)
                     }
+                    .padding(.top, 12)
+                    .padding(.leading, 2)
+            }
 
-                    Spacer(minLength: 16)
-
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    (NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueAccent).opacity(0.85),
-                                    (NeumorphicStyle.isActive ? NeumorphicStyle.sage : Color.monologueAccent).opacity(0.35)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 52, height: 52)
-                        .overlay(
-                            MonologueIcon(icon: .musicNote, size: 24, color: .white)
-                        )
+            HStack(spacing: 10) {
+                LocalInkCapsuleButton(
+                    title: localModeText("local_home_play_all"),
+                    icon: .play,
+                    disabled: localLibrary.songs.isEmpty
+                ) {
+                    playAllLocalSongs()
                 }
 
-                HStack(spacing: 10) {
-                    LocalMetricBadge(
-                        title: localModeText("tabbar_local_music"),
-                        value: "\(localLibrary.songCount)"
-                    )
-                    LocalMetricBadge(
-                        title: localModeText("profile_local_playlists"),
-                        value: "\(customPlaylists.count)"
-                    )
-                    LocalMetricBadge(
-                        title: localModeText("local_downloads_title"),
-                        value: "\(downloadManager.downloadedSongIds.count)"
-                    )
-                }
-
-                HStack(spacing: 12) {
-                    Button {
-                        playAllLocalSongs()
-                    } label: {
-                        HStack(spacing: 8) {
-                            MonologueIcon(icon: .play, size: 13, color: .monologueIconForeground)
-                            Text(localModeText("local_home_play_all"))
-                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .semibold) : .system(size: 14, weight: .bold, design: .rounded))
-                        }
-                        .foregroundColor(NeumorphicStyle.isActive ? Color(light: .white, dark: .black) : .monologueIconForeground)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueIconBackground)
-                        .clipShape(RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 18 : 16, style: .continuous))
-                    }
-                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
-                    .disabled(localLibrary.songs.isEmpty)
-
-                    NavigationLink(
-                        destination: LocalLibraryView()
-                    ) {
-                        HStack(spacing: 8) {
-                            MonologueIcon(icon: .library, size: 14, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextPrimary)
-                            Text(localModeText("local_home_open_library"))
-                                .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .semibold) : .system(size: 14, weight: .bold, design: .rounded))
-                                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed.opacity(0.72) : Color.monologueGlassTint.opacity(0.65))
-                        .monologueGlass(cornerRadius: NeumorphicStyle.isActive ? 18 : 16)
-                    }
-                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+                LocalHairlineCapsuleButton(
+                    title: localModeText("local_action_import_title"),
+                    icon: .download
+                ) {
+                    showImporter = true
                 }
             }
-            .padding(22)
+            .padding(.top, 20)
         }
     }
 
-    private var actionCards: some View {
-        HStack(spacing: 14) {
-            LocalPrimaryActionCard(
-                title: localModeText("local_action_scan_title"),
-                icon: .refresh,
-                isLoading: localLibrary.isProcessing
-            ) {
-                Task {
-                    _ = await localLibrary.scanLibrary()
-                    refreshRecentSongs()
-                }
+    private var quickAccessIndex: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            LocalSectionHeader(title: localModeText("local_home_quick_access_title"))
+                .padding(.bottom, 6)
+
+            NavigationLink(destination: LocalMusicView(initialFilter: .all)) {
+                LocalIndexRow(index: 1, title: localModeText("local_filter_all"), value: "\(localLibrary.songCount)")
             }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
 
-            LocalPrimaryActionCard(
-                title: localModeText("local_action_import_title"),
-                icon: .download,
-                isLoading: false
+            LocalIndexHairline()
+
+            NavigationLink(
+                destination: LocalSystemPlaylistDestinationView(
+                    playlistId: localPlaylists.favoritePlaylist?.id,
+                    fallbackFilter: .favorites
+                )
             ) {
-                showImporter = true
+                LocalIndexRow(index: 2, title: localModeText("local_filter_favorites"), value: "\(favoriteSongs.count)")
             }
-        }
-    }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
 
-    private var quickAccessSection: some View {
-        VStack(spacing: 14) {
-            SectionHeader(
-                title: localModeText("local_home_quick_access_title"),
-                subtitle: nil
-            )
+            LocalIndexHairline()
 
-            LazyVGrid(
-                columns: Array(repeating: GridItem(.flexible(), spacing: 14), count: 2),
-                spacing: 14
-            ) {
-                NavigationLink(
-                    destination: LocalMusicView(initialFilter: .all)
-                ) {
-                    LocalShortcutCard(
-                        title: localModeText("local_filter_all"),
-                        value: "\(localLibrary.songCount)",
-                        icon: .musicNoteList,
-                        accent: .blue
-                    )
-                }
-                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+            NavigationLink(destination: LocalMusicView(initialFilter: .recent)) {
+                LocalIndexRow(index: 3, title: localModeText("local_filter_recent"), value: "\(recentSongs.count)")
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
 
-                NavigationLink(
-                    destination: LocalSystemPlaylistDestinationView(
-                        playlistId: localPlaylists.favoritePlaylist?.id,
-                        fallbackFilter: .favorites
-                    )
-                ) {
-                    LocalShortcutCard(
-                        title: localModeText("local_filter_favorites"),
-                        value: "\(favoriteSongs.count)",
-                        icon: .liked,
-                        accent: .pink
-                    )
-                }
-                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+            if !downloadedSongs.isEmpty {
+                LocalIndexHairline()
 
-                NavigationLink(
-                    destination: LocalSystemPlaylistDestinationView(
-                        playlistId: localPlaylists.downloadPlaylist?.id,
-                        fallbackFilter: .downloads
-                    )
-                ) {
-                    LocalShortcutCard(
-                        title: localModeText("local_filter_downloads"),
-                        value: "\(downloadedSongs.count)",
-                        icon: .download,
-                        accent: .cyan
-                    )
-                }
-                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
-
-                NavigationLink(
-                    destination: LocalMusicView(initialFilter: .recent)
-                ) {
-                    LocalShortcutCard(
-                        title: localModeText("local_filter_recent"),
-                        value: "\(recentSongs.count)",
-                        icon: .history,
-                        accent: .orange
-                    )
+                NavigationLink(destination: LocalMusicView(initialFilter: .downloads)) {
+                    LocalIndexRow(index: 4, title: localModeText("local_downloads_title"), value: "\(downloadedSongs.count)")
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
             }
-            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
         }
     }
 
     @ViewBuilder
-    private func localSongSection<Destination: View>(
+    private func localSongShelf<Destination: View>(
         title: String,
         songs: [Song],
         destination: Destination
     ) -> some View {
-        VStack(spacing: 14) {
+        VStack(alignment: .leading, spacing: 14) {
             NavigationLink(destination: destination) {
-                SectionHeader(title: title, subtitle: nil)
+                HStack(spacing: 8) {
+                    LocalSectionHeader(title: title)
+                    MonologueIcon(icon: .chevronRight, size: 11, color: .monologueTextSecondary.opacity(0.5))
+                }
             }
             .buttonStyle(.plain)
+            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
 
             ScrollView(.horizontal) {
                 HStack(spacing: 14) {
@@ -468,40 +362,37 @@ struct LocalModeHomeView: View {
     }
 
     private var playlistsPreviewSection: some View {
-        VStack(spacing: 14) {
-            SectionHeader(
-                title: localModeText("local_home_playlists_title"),
-                subtitle: nil
-            )
+        VStack(alignment: .leading, spacing: 0) {
+            LocalSectionHeader(title: localModeText("local_home_playlists_title"))
+                .padding(.bottom, 6)
 
             if customPlaylists.isEmpty {
-                LocalEmptyStateView(
-                    title: localModeText("local_empty_playlist_title"),
-                    subtitle: localModeText("local_home_playlist_empty_hint")
-                )
-                .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                Text(localModeText("local_home_playlist_empty_hint"))
+                    .font(.rounded(size: 13))
+                    .foregroundColor(.monologueTextSecondary)
+                    .lineSpacing(3)
+                    .padding(.vertical, 14)
             } else {
-                VStack(spacing: 12) {
-                    ForEach(customPlaylists.prefix(3), id: \.id) { playlist in
-                        NavigationLink(
-                            destination: LocalPlaylistDetailView(playlistId: playlist.id)
-                        ) {
-                            LocalPlaylistRow(summary: localPlaylists.summary(for: playlist))
-                        }
-                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+                ForEach(Array(customPlaylists.prefix(3).enumerated()), id: \.element.id) { index, playlist in
+                    if index > 0 {
+                        LocalIndexHairline(leading: 64)
                     }
 
-                    NavigationLink(
-                        destination: LocalLibraryView()
-                    ) {
-                        LocalInlineActionCard(
-                            title: localModeText("local_home_manage_playlists"),
-                            icon: .library
-                        )
+                    NavigationLink(destination: LocalPlaylistDetailView(playlistId: playlist.id)) {
+                        LocalPlaylistIndexRow(summary: localPlaylists.summary(for: playlist))
                     }
                     .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
                 }
-                .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+
+                LocalIndexHairline(leading: 0)
+
+                NavigationLink(destination: LocalLibraryView()) {
+                    LocalIndexRow(
+                        title: localModeText("local_home_manage_playlists"),
+                        value: "\(customPlaylists.count)"
+                    )
+                }
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
             }
         }
     }
@@ -534,6 +425,8 @@ struct LocalModeHomeView: View {
     }
 }
 
+// MARK: - 本地音乐
+
 struct LocalMusicView: View {
     @ObservedObject private var localLibrary = LocalMusicLibraryManager.shared
     @ObservedObject private var localPlaylists = LocalPlaylistManager.shared
@@ -551,6 +444,13 @@ struct LocalMusicView: View {
         _selectedFilter = State(initialValue: initialFilter)
     }
 
+    private var visibleFilters: [LocalMusicFilter] {
+        LocalMusicFilter.allCases.filter { filter in
+            guard filter == .downloads else { return true }
+            return selectedFilter == .downloads || !downloadManager.downloadedSongIds.isEmpty
+        }
+    }
+
     private var sourceSongs: [Song] {
         switch selectedFilter {
         case .all:
@@ -559,8 +459,7 @@ struct LocalMusicView: View {
             guard let playlist = localPlaylists.favoritePlaylist else { return [] }
             return offlinePlayableSongs(from: localPlaylists.songs(for: playlist), using: downloadManager)
         case .downloads:
-            guard let playlist = localPlaylists.downloadPlaylist else { return [] }
-            return offlinePlayableSongs(from: localPlaylists.songs(for: playlist), using: downloadManager)
+            return offlinePlayableSongs(from: downloadManager.fetchDownloadPlaylistSongs(), using: downloadManager)
         case .recent:
             return recentSongs
         }
@@ -613,36 +512,38 @@ struct LocalMusicView: View {
                 ThemedPageBackground(useRenderLayer: true)
                     .ignoresSafeArea()
 
-                VStack(spacing: 16) {
-                    if MangaStyle.isActive {
-                        mangaLocalMusicHeader
-                    } else if MujiStyle.isActive {
-                        mujiLocalMusicHeader
-                    } else if NeumorphicStyle.isActive {
-                        neumorphicLocalMusicHeader
-                    }
+                VStack(alignment: .leading, spacing: 0) {
+                    masthead
+                        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                        .padding(.top, 12)
+
+                    filterBar
+                        .padding(.top, 18)
 
                     if let progress = localLibrary.importProgress {
                         LocalImportProgressPanel(progress: progress)
                             .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                            .padding(.top, 14)
                     }
 
-                    overviewCard
-                        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-                        .padding(.top, ThemedPageStyle.isActive ? 0 : DeviceLayout.headerTopPadding + 10)
-
-                    filterBar
-
                     if filteredSongs.isEmpty {
-                        Spacer()
-                        LocalEmptyStateView(
-                            title: emptyTitle,
-                            subtitle: emptySubtitle,
-                            buttonTitle: localLibrary.songs.isEmpty && selectedFilter == .all ? localModeText("local_action_import_title") : nil,
-                            buttonAction: localLibrary.songs.isEmpty && selectedFilter == .all ? { showImporter = true } : nil
-                        )
-                        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-                        Spacer()
+                        ScrollView {
+                            Group {
+                                if localLibrary.songs.isEmpty && selectedFilter == .all
+                                    && searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                    // 空库：给完整的起步引导，而不是一句话孤零零挂着
+                                    LocalStarterPanel(onImport: { showImporter = true })
+                                } else {
+                                    LocalEmptyStateView(
+                                        title: emptyTitle,
+                                        subtitle: emptySubtitle
+                                    )
+                                }
+                            }
+                            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                            .padding(.top, 26)
+                        }
+                        .scrollIndicators(.hidden)
                     } else {
                         List {
                             ForEach(Array(filteredSongs.enumerated()), id: \.element.id) { index, song in
@@ -653,20 +554,18 @@ struct LocalMusicView: View {
                                         playerManager.play(song: song, in: filteredSongs)
                                     }
                                 )
-                                .if(song.isLocal) { row in
-                                    row.swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                        Button(role: .destructive) {
-                                            localLibrary.deleteSong(song)
-                                        } label: {
-                                            Label(localModeText("local_action_delete_local_song"), systemImage: "trash")
-                                        }
+                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                    Button(role: .destructive) {
+                                        deleteLocalEntry(song)
+                                    } label: {
+                                        Label(localModeText("local_action_delete_local_song"), systemImage: "trash")
                                     }
-                                    .contextMenu {
-                                        Button(role: .destructive) {
-                                            localLibrary.deleteSong(song)
-                                        } label: {
-                                            Label(localModeText("local_action_delete_local_song"), systemImage: "trash")
-                                        }
+                                }
+                                .contextMenu {
+                                    Button(role: .destructive) {
+                                        deleteLocalEntry(song)
+                                    } label: {
+                                        Label(localModeText("local_action_delete_local_song"), systemImage: "trash")
                                     }
                                 }
                                 .listRowBackground(Color.clear)
@@ -684,12 +583,12 @@ struct LocalMusicView: View {
                     }
                 }
             }
-            .navigationTitle(ThemedPageStyle.isActive ? "" : localModeText("tabbar_local_music"))
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .searchable(text: $searchText, prompt: localModeText("local_music_search_prompt"))
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
                     Menu {
                         ForEach(LocalMusicSort.allCases) { mode in
                             Button {
@@ -704,17 +603,6 @@ struct LocalMusicView: View {
                         }
                     } label: {
                         MonologueIcon(icon: .filter, size: 16, color: .monologueTextPrimary)
-                    }
-                }
-
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button {
-                        Task {
-                            _ = await localLibrary.scanLibrary()
-                            refreshRecentSongs()
-                        }
-                    } label: {
-                        MonologueIcon(icon: .refresh, size: 16, color: .monologueTextPrimary)
                     }
 
                     Button {
@@ -752,125 +640,67 @@ struct LocalMusicView: View {
         }
     }
 
-    private var mujiLocalMusicHeader: some View {
-        MujiPageHeader(
-            eyebrow: "local shelf",
-            title: localModeText("tabbar_local_music"),
-            subtitle: ""
-        ) {
-            MujiIconBadge(icon: .musicNoteList, tint: MujiStyle.indigo, size: 48)
+    /// 删除本地条目：导入的本地文件走曲库删除，下载的歌曲连记录带文件一起删
+    private func deleteLocalEntry(_ song: Song) {
+        if song.isLocal {
+            localLibrary.deleteSong(song)
+        } else {
+            localPlaylists.removeDownloadedSong(song)
         }
+        refreshRecentSongs()
     }
 
-    private var mangaLocalMusicHeader: some View {
-        MangaPageHeader(
-            eyebrow: "TRACKS",
-            title: localModeText("tabbar_local_music"),
-            subtitle: ""
-        ) {
-            MangaIconBadge(icon: .waveform, size: 48, tint: MangaStyle.bubbleBlue)
-        }
-    }
+    private var masthead: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            LocalEyebrowRow(label: "TRACKS")
+                .padding(.bottom, 16)
 
-    private var neumorphicLocalMusicHeader: some View {
-        NeumorphicPageHeader(
-            eyebrow: "TRACKS",
-            title: localModeText("tabbar_local_music"),
-            subtitle: ""
-        ) {
-            NeumorphicIconBadge(icon: .waveform, tint: NeumorphicStyle.accent, size: 48)
-        }
-    }
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text(localModeText("tabbar_local_music"))
+                    .font(.system(size: 28, weight: .heavy, design: .rounded))
+                    .foregroundColor(.monologueTextPrimary)
 
-    private var overviewCard: some View {
-        MonologueLiquidGlassCard(cornerRadius: 24) {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .top, spacing: 12) {
-                    Text(localModeText(selectedFilter.titleKey))
-                        .font(MangaStyle.isActive ? MangaStyle.titleFont(24, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(24, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(24, weight: .semibold) : .system(size: 24, weight: .heavy, design: .rounded))))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                Text("\(filteredSongs.count)")
+                    .font(.system(size: 15, weight: .heavy, design: .rounded))
+                    .foregroundColor(.monologueAccent)
+                    .monospacedDigit()
 
-                    Spacer(minLength: 16)
-
-                    Text("\(filteredSongs.count)")
-                        .font(MangaStyle.isActive ? MangaStyle.titleFont(24, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(24, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(24, weight: .semibold) : .system(size: 24, weight: .heavy, design: .rounded))))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueAccent)
-                }
-
-                HStack(spacing: 12) {
-                    LocalInlinePill(
-                        title: localModeText("local_toolbar_scan"),
-                        icon: .refresh
-                    ) {
-                        Task {
-                            _ = await localLibrary.scanLibrary()
-                            refreshRecentSongs()
-                        }
-                    }
-
-                    LocalInlinePill(
-                        title: localModeText("local_toolbar_import"),
-                        icon: .download
-                    ) {
-                        showImporter = true
-                    }
-                }
+                Spacer(minLength: 0)
             }
-            .padding(20)
         }
     }
 
     private var filterBar: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: 10) {
-                ForEach(LocalMusicFilter.allCases) { filter in
+        VStack(spacing: 0) {
+            HStack(spacing: 24) {
+                ForEach(visibleFilters) { filter in
                     Button {
                         withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
                             selectedFilter = filter
                         }
                     } label: {
-                        HStack(spacing: 8) {
-                            MonologueIcon(
-                                icon: filter.icon,
-                                size: 13,
-                                color: localFilterIconColor(isSelected: selectedFilter == filter)
-                            )
+                        VStack(spacing: 8) {
                             Text(localModeText(filter.titleKey))
-                                .font(MangaStyle.isActive ? MangaStyle.labelFont(12, weight: .black) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .semibold) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: selectedFilter == filter ? .semibold : .medium) : .system(size: 13, weight: .bold, design: .rounded))))
-                                .foregroundColor(localFilterTextColor(isSelected: selectedFilter == filter))
+                                .font(.rounded(size: 14, weight: selectedFilter == filter ? .bold : .semibold))
+                                .foregroundColor(selectedFilter == filter ? .monologueTextPrimary : .monologueTextSecondary.opacity(0.72))
+
+                            Capsule()
+                                .fill(selectedFilter == filter ? Color.monologueAccent : Color.clear)
+                                .frame(width: 18, height: 2.5)
                         }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .background(
-                            Group {
-                                if selectedFilter == filter {
-                                    RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 16 : (ThemedPageStyle.isActive ? 8 : 16), style: .continuous)
-                                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.accent.opacity(0.16) : Color.monologueIconBackground)
-                                } else {
-                                    RoundedRectangle(cornerRadius: NeumorphicStyle.isActive ? 16 : (ThemedPageStyle.isActive ? 8 : 16), style: .continuous)
-                                        .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed.opacity(0.68) : Color.monologueGlassTint.opacity(0.65))
-                                        .monologueGlass(cornerRadius: NeumorphicStyle.isActive ? 16 : (ThemedPageStyle.isActive ? 8 : 16))
-                                }
-                            }
-                        )
+                        .contentShape(Rectangle())
                     }
-                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+                    .buttonStyle(.plain)
                 }
+
+                Spacer(minLength: 0)
             }
             .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+
+            Rectangle()
+                .fill(Color.monologueSeparator.opacity(0.5))
+                .frame(height: 0.5)
         }
-        .scrollIndicators(.hidden)
-            .themeRenderScrollLayer()
-    }
-
-    private func localFilterIconColor(isSelected: Bool) -> Color {
-        if NeumorphicStyle.isActive { return isSelected ? NeumorphicStyle.accent : NeumorphicStyle.inkSoft }
-        return isSelected ? .monologueIconForeground : .monologueTextPrimary
-    }
-
-    private func localFilterTextColor(isSelected: Bool) -> Color {
-        if NeumorphicStyle.isActive { return isSelected ? NeumorphicStyle.accent : NeumorphicStyle.inkSoft }
-        return isSelected ? .monologueIconForeground : .monologueTextPrimary
     }
 
     private var emptyTitle: String {
@@ -898,6 +728,8 @@ struct LocalMusicView: View {
     }
 }
 
+// MARK: - 资料库
+
 struct LocalLibraryView: View {
     @ObservedObject private var localLibrary = LocalMusicLibraryManager.shared
     @ObservedObject private var localPlaylists = LocalPlaylistManager.shared
@@ -918,8 +750,7 @@ struct LocalLibraryView: View {
     }
 
     private var downloadedSongs: [Song] {
-        guard let playlist = localPlaylists.downloadPlaylist else { return [] }
-        return offlinePlayableSongs(from: localPlaylists.songs(for: playlist), using: downloadManager)
+        offlinePlayableSongs(from: downloadManager.fetchDownloadPlaylistSongs(), using: downloadManager)
     }
 
     var body: some View {
@@ -931,43 +762,46 @@ struct LocalLibraryView: View {
                     .ignoresSafeArea()
 
                 ScrollView {
-                    VStack(spacing: 22) {
-                        if MangaStyle.isActive {
-                            mangaLocalLibraryHeader
-                        } else if MujiStyle.isActive {
-                            mujiLocalLibraryHeader
-                        } else if NeumorphicStyle.isActive {
-                            neumorphicLocalLibraryHeader
-                        } else if SignalStyle.isActive {
-                            signalLocalLibraryHeader
-                        }
+                    VStack(alignment: .leading, spacing: 0) {
+                        masthead
+                            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                            .padding(.top, 12)
+                            .monologuePageHeaderCollapse()
 
                         if let progress = localLibrary.importProgress {
                             LocalImportProgressPanel(progress: progress)
+                                .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                                .padding(.top, 18)
                         }
 
-                        libraryOverviewCard
+                        LocalStatsBand(items: [
+                            (value: "\(localLibrary.songCount)", label: localModeText("tabbar_local_music")),
+                            (value: "\(favoriteSongs.count)", label: localModeText("local_filter_favorites")),
+                            (value: "\(customPlaylists.count)", label: localModeText("profile_local_playlists"))
+                        ])
+                        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                        .padding(.top, 22)
 
-                        managementSection
-
-                        systemCollectionsSection
+                        systemCollectionsIndex
+                            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                            .padding(.top, 30)
 
                         customPlaylistsSection
+                            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                            .padding(.top, 30)
 
                         FloatingBarBottomSpacer()
                     }
-                    .padding(.top, ThemedPageStyle.isActive ? 0 : DeviceLayout.headerTopPadding + 12)
-                    .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
                     .iPadContentWidth(700)
                 }
                 .scrollIndicators(.hidden)
-            .themeRenderScrollLayer()
+                .themeRenderScrollLayer()
                 .refreshable {
                     refreshRecentSongs()
                     _ = try? await LocalPlaylistCloudSyncManager.shared.refreshAndSync()
                 }
             }
-            .navigationTitle(ThemedPageStyle.isActive ? "" : localModeText("local_library_navigation_title"))
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
@@ -1008,200 +842,78 @@ struct LocalLibraryView: View {
         }
     }
 
-    private var mujiLocalLibraryHeader: some View {
-        MujiPageHeader(
-            eyebrow: "offline shelves",
-            title: localModeText("local_library_navigation_title"),
-            subtitle: ""
-        ) {
-            MujiIconBadge(icon: .library, tint: MujiStyle.tea, size: 48)
-        }
-        .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
-    }
+    private var masthead: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            LocalEyebrowRow(label: "SHELF")
+                .padding(.bottom, 16)
 
-    private var mangaLocalLibraryHeader: some View {
-        MangaPageHeader(
-            eyebrow: "SHELF",
-            title: localModeText("local_library_navigation_title"),
-            subtitle: ""
-        ) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(MangaStyle.mint)
+            Text(localModeText("local_library_navigation_title"))
+                .font(.system(size: 28, weight: .heavy, design: .rounded))
+                .foregroundColor(.monologueTextPrimary)
 
-                MonologueIcon(icon: .libraryFilled, size: 22, color: MangaStyle.strokeInk, lineWidth: 2)
-            }
-            .frame(width: 48, height: 48)
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
-            )
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(MangaStyle.strokeInk)
-                    .offset(x: 2.5, y: 2.5)
-            )
-        }
-        .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
-    }
-
-    private var neumorphicLocalLibraryHeader: some View {
-        NeumorphicPageHeader(
-            eyebrow: "SHELF",
-            title: localModeText("local_library_navigation_title"),
-            subtitle: ""
-        ) {
-            NeumorphicIconBadge(icon: .library, tint: NeumorphicStyle.sage, size: 48)
-        }
-        .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
-    }
-
-    private var signalLocalLibraryHeader: some View {
-        SignalPageHeader(
-            eyebrow: "SHELF",
-            title: localModeText("local_library_navigation_title"),
-            subtitle: ""
-        ) {
-            SignalIconBadge(icon: .library, tint: SignalStyle.olive, size: 48)
-        }
-        .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
-    }
-
-    @ViewBuilder
-    private var libraryOverviewCard: some View {
-        if SignalStyle.isActive {
-            libraryOverviewContent
-                .padding(20)
-                .background(SignalSurfaceBackground(cornerRadius: 28, elevated: true, fill: SignalStyle.paper))
-        } else {
-            MonologueLiquidGlassCard(cornerRadius: 24) {
-                libraryOverviewContent
-                    .padding(20)
-            }
-        }
-    }
-
-    private var libraryOverviewContent: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text(localModeText("local_library_overview_title"))
-                .font(MangaStyle.isActive ? MangaStyle.titleFont(24, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(24, weight: .regular) : (SignalStyle.isActive ? SignalStyle.titleFont(24, weight: .bold) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(24, weight: .semibold) : .system(size: 24, weight: .heavy, design: .rounded)))))
-                .foregroundColor(SignalStyle.isActive ? SignalStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary))
-
-            HStack(spacing: 0) {
-                StatCell(value: "\(localLibrary.songCount)", label: localModeText("tabbar_local_music"))
-                Rectangle()
-                    .fill(SignalStyle.isActive ? SignalStyle.separator.opacity(0.7) : Color.monologueSeparator)
-                    .frame(width: 0.5, height: 28)
-                StatCell(value: "\(favoriteSongs.count)", label: localModeText("local_filter_favorites"))
-                Rectangle()
-                    .fill(SignalStyle.isActive ? SignalStyle.separator.opacity(0.7) : Color.monologueSeparator)
-                    .frame(width: 0.5, height: 28)
-                StatCell(value: "\(downloadedSongs.count)", label: localModeText("local_filter_downloads"))
-            }
-        }
-    }
-
-    private var managementSection: some View {
-        VStack(spacing: 14) {
-            SectionHeader(
-                title: localModeText("local_library_manage_title"),
-                subtitle: nil
-            )
-
-            HStack(spacing: 14) {
-                LocalManagementButton(
+            HStack(spacing: 10) {
+                LocalInkCapsuleButton(
                     title: localModeText("lib_create_playlist"),
                     icon: .add
                 ) {
                     createPlaylist()
                 }
 
-                LocalManagementButton(
+                LocalHairlineCapsuleButton(
                     title: localModeText("lib_import_playlist"),
                     icon: .arrowDownToLine
                 ) {
                     showFileImporter = true
                 }
             }
-            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+            .padding(.top, 18)
         }
     }
 
-    private var systemCollectionsSection: some View {
-        VStack(spacing: 14) {
-            SectionHeader(
-                title: localModeText("local_library_system_title"),
-                subtitle: nil
-            )
+    private var systemCollectionsIndex: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            LocalSectionHeader(title: localModeText("local_library_system_title"))
+                .padding(.bottom, 6)
 
-            LazyVGrid(
-                columns: Array(repeating: GridItem(.flexible(), spacing: 14), count: 2),
-                spacing: 14
+            NavigationLink(destination: LocalMusicView(initialFilter: .all)) {
+                LocalIndexRow(index: 1, title: localModeText("local_filter_all"), value: "\(localLibrary.songCount)")
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+
+            LocalIndexHairline()
+
+            NavigationLink(
+                destination: LocalSystemPlaylistDestinationView(
+                    playlistId: localPlaylists.favoritePlaylist?.id,
+                    fallbackFilter: .favorites
+                )
             ) {
-                NavigationLink(
-                    destination: LocalMusicView(initialFilter: .all)
-                ) {
-                    LocalShortcutCard(
-                        title: localModeText("local_filter_all"),
-                        value: "\(localLibrary.songCount)",
-                        icon: .musicNoteList,
-                        accent: .blue
-                    )
-                }
-                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+                LocalIndexRow(index: 2, title: localModeText("local_filter_favorites"), value: "\(favoriteSongs.count)")
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
 
-                NavigationLink(
-                    destination: LocalSystemPlaylistDestinationView(
-                        playlistId: localPlaylists.favoritePlaylist?.id,
-                        fallbackFilter: .favorites
-                    )
-                ) {
-                    LocalShortcutCard(
-                        title: localModeText("local_filter_favorites"),
-                        value: "\(favoriteSongs.count)",
-                        icon: .liked,
-                        accent: .pink
-                    )
-                }
-                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+            LocalIndexHairline()
 
-                NavigationLink(
-                    destination: LocalSystemPlaylistDestinationView(
-                        playlistId: localPlaylists.downloadPlaylist?.id,
-                        fallbackFilter: .downloads
-                    )
-                ) {
-                    LocalShortcutCard(
-                        title: localModeText("local_filter_downloads"),
-                        value: "\(downloadedSongs.count)",
-                        icon: .download,
-                        accent: .cyan
-                    )
-                }
-                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+            NavigationLink(destination: LocalMusicView(initialFilter: .recent)) {
+                LocalIndexRow(index: 3, title: localModeText("local_filter_recent"), value: "\(recentSongs.count)")
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
 
-                NavigationLink(
-                    destination: LocalMusicView(initialFilter: .recent)
-                ) {
-                    LocalShortcutCard(
-                        title: localModeText("local_filter_recent"),
-                        value: "\(recentSongs.count)",
-                        icon: .history,
-                        accent: .orange
-                    )
+            if !downloadedSongs.isEmpty {
+                LocalIndexHairline()
+
+                NavigationLink(destination: LocalMusicView(initialFilter: .downloads)) {
+                    LocalIndexRow(index: 4, title: localModeText("local_downloads_title"), value: "\(downloadedSongs.count)")
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
             }
-            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
         }
     }
 
     private var customPlaylistsSection: some View {
-        VStack(spacing: 14) {
-            SectionHeader(
-                title: localModeText("local_library_custom_title"),
-                subtitle: nil
-            )
+        VStack(alignment: .leading, spacing: 0) {
+            LocalSectionHeader(title: localModeText("local_library_custom_title"))
+                .padding(.bottom, 6)
 
             if customPlaylists.isEmpty {
                 LocalEmptyStateView(
@@ -1210,32 +922,31 @@ struct LocalLibraryView: View {
                     buttonTitle: localModeText("lib_create_playlist"),
                     buttonAction: createPlaylist
                 )
-                .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                .padding(.top, 12)
             } else {
-                VStack(spacing: 12) {
-                    ForEach(customPlaylists, id: \.id) { playlist in
-                        NavigationLink(
-                            destination: LocalPlaylistDetailView(playlistId: playlist.id)
-                        ) {
-                            LocalPlaylistRow(summary: localPlaylists.summary(for: playlist))
-                        }
-                        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
-                        .contextMenu {
-                            Button {
-                                renamePlaylist(playlist)
-                            } label: {
-                                Label(localModeText("local_playlist_rename"), systemImage: "pencil")
-                            }
+                ForEach(Array(customPlaylists.enumerated()), id: \.element.id) { index, playlist in
+                    if index > 0 {
+                        LocalIndexHairline(leading: 64)
+                    }
 
-                            Button(role: .destructive) {
-                                deletePlaylist(playlist)
-                            } label: {
-                                Label(localModeText("local_playlist_delete"), systemImage: "trash")
-                            }
+                    NavigationLink(destination: LocalPlaylistDetailView(playlistId: playlist.id)) {
+                        LocalPlaylistIndexRow(summary: localPlaylists.summary(for: playlist))
+                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+                    .contextMenu {
+                        Button {
+                            renamePlaylist(playlist)
+                        } label: {
+                            Label(localModeText("local_playlist_rename"), systemImage: "pencil")
+                        }
+
+                        Button(role: .destructive) {
+                            deletePlaylist(playlist)
+                        } label: {
+                            Label(localModeText("local_playlist_delete"), systemImage: "trash")
                         }
                     }
                 }
-                .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
             }
         }
     }
@@ -1362,6 +1073,8 @@ struct LocalLibraryView: View {
     }
 }
 
+// MARK: - 我的
+
 struct LocalModeProfileView: View {
     @ObservedObject private var onlineAccess = OnlineAccessManager.shared
     @ObservedObject private var localLibrary = LocalMusicLibraryManager.shared
@@ -1393,39 +1106,41 @@ struct LocalModeProfileView: View {
                     .ignoresSafeArea()
 
                 ScrollView {
-                    VStack(spacing: 18) {
-                        if MangaStyle.isActive {
-                            mangaLocalProfileHeader
-                        } else if MujiStyle.isActive {
-                            mujiLocalProfileHeader
-                        } else if NeumorphicStyle.isActive {
-                            neumorphicLocalProfileHeader
-                        }
+                    VStack(alignment: .leading, spacing: 0) {
+                        masthead
+                            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                            .padding(.top, 12)
+                            .monologuePageHeaderCollapse()
 
-                        profileHeroCard
-                            .padding(.top, ThemedPageStyle.isActive ? 0 : DeviceLayout.headerTopPadding + 10)
-
-                        statsBar
-
-                        shortcutsSection
+                        LocalStatsBand(items: [
+                            (value: "\(localLibrary.songCount)", label: localModeText("tabbar_local_music")),
+                            (value: "\(customPlaylistCount)", label: localModeText("profile_local_playlists")),
+                            (value: "\(favoriteSongs.count)", label: localModeText("local_filter_favorites"))
+                        ])
+                        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                        .padding(.top, 22)
 
                         if !recentSongs.isEmpty {
-                            localRecentSection
+                            recentPlaysShelf
+                                .padding(.top, 30)
                         }
 
-                        managementMenu
+                        menuIndex
+                            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                            .padding(.top, 30)
 
-                        localAccessCard
+                        activationSection
+                            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                            .padding(.top, 38)
 
                         FloatingBarBottomSpacer()
                     }
-                    .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
                     .iPadContentWidth(700)
                 }
                 .scrollIndicators(.hidden)
-            .themeRenderScrollLayer()
+                .themeRenderScrollLayer()
             }
-            .navigationTitle(ThemedPageStyle.isActive ? "" : localModeText("tabbar_profile"))
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .navigationDestination(for: ProfileNavigationDestination.self) { destination in
@@ -1444,155 +1159,41 @@ struct LocalModeProfileView: View {
         }
     }
 
-    private var mujiLocalProfileHeader: some View {
-        MujiPageHeader(
-            eyebrow: "local notebook",
-            title: localModeText("tabbar_profile"),
-            subtitle: ""
-        ) {
-            MujiIconBadge(icon: .profileFilled, tint: MujiStyle.indigo, size: 48)
+    private var masthead: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            LocalEyebrowRow(label: "PROFILE")
+                .padding(.bottom, 18)
+
+            Text(String(localized: LocalizedStringResource(stringLiteral: MonologueTimeGreeting.localizedKey)))
+                .font(.rounded(size: 12.5, weight: .semibold))
+                .foregroundColor(.monologueTextSecondary.opacity(0.85))
+
+            Text(localModeText("local_profile_hero_title"))
+                .font(.system(size: 32, weight: .heavy, design: .rounded))
+                .foregroundColor(.monologueTextPrimary)
+                .padding(.top, 5)
         }
-        .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
     }
 
-    private var mangaLocalProfileHeader: some View {
-        MangaPageHeader(
-            eyebrow: "PROFILE",
-            title: localModeText("tabbar_profile"),
-            subtitle: ""
-        ) {
-            MangaIconBadge(icon: .profileFilled, size: 48, tint: MangaStyle.bubblePink)
-        }
-        .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
-    }
-
-    private var neumorphicLocalProfileHeader: some View {
-        NeumorphicPageHeader(
-            eyebrow: "PROFILE",
-            title: localModeText("tabbar_profile"),
-            subtitle: ""
-        ) {
-            NeumorphicIconBadge(icon: .profileFilled, tint: NeumorphicStyle.accent, size: 48)
-        }
-        .padding(.horizontal, -DeviceLayout.homeHorizontalPadding)
-    }
-
-    private var profileHeroCard: some View {
-        MonologueLiquidGlassCard(cornerRadius: 24) {
-            HStack(spacing: 16) {
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                (NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueAccent).opacity(0.9),
-                                (NeumorphicStyle.isActive ? NeumorphicStyle.sage : Color.monologueAccent).opacity(0.3)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 72, height: 72)
-                    .overlay(
-                        MonologueIcon(icon: .profileFilled, size: 30, color: .white)
-                    )
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(localModeText("local_profile_hero_title"))
-                        .font(MangaStyle.isActive ? MangaStyle.titleFont(22, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(22, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(22, weight: .semibold) : .system(size: 22, weight: .heavy, design: .rounded))))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
-                }
+    private var recentPlaysShelf: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                LocalSectionHeader(title: localModeText("profile_recently_played"))
 
                 Spacer(minLength: 0)
-            }
-            .padding(20)
-        }
-    }
 
-    private var statsBar: some View {
-        HStack(spacing: 0) {
-            StatCell(value: "\(localLibrary.songCount)", label: localModeText("tabbar_local_music"))
-            Rectangle()
-                .fill(Color.monologueSeparator)
-                .frame(width: 0.5, height: 28)
-            StatCell(value: "\(customPlaylistCount)", label: localModeText("profile_local_playlists"))
-            Rectangle()
-                .fill(Color.monologueSeparator)
-                .frame(width: 0.5, height: 28)
-            StatCell(value: "\(downloadManager.downloadedSongIds.count)", label: localModeText("local_downloads_title"))
-        }
-        .padding(.vertical, 14)
-        .background {
-            if NeumorphicStyle.isActive {
-                NeumorphicSurfaceBackground(cornerRadius: 20, elevated: true)
-            } else {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color.clear)
-                    .monologueGlass(cornerRadius: 18)
-            }
-        }
-    }
-
-    private var shortcutsSection: some View {
-        VStack(spacing: 14) {
-            SectionHeader(
-                title: localModeText("local_profile_shortcuts_title"),
-                subtitle: nil
-            )
-
-            HStack(spacing: 14) {
-                NavigationLink(
-                    destination: LocalSystemPlaylistDestinationView(
-                        playlistId: localPlaylists.favoritePlaylist?.id,
-                        fallbackFilter: .favorites
-                    )
-                ) {
-                    LocalShortcutCard(
-                        title: localModeText("local_filter_favorites"),
-                        value: "\(favoriteSongs.count)",
-                        icon: .liked,
-                        accent: .pink
-                    )
-                }
-                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
-
-                NavigationLink(
-                    destination: LocalMusicView(initialFilter: .recent)
-                ) {
-                    LocalShortcutCard(
-                        title: localModeText("local_filter_recent"),
-                        value: "\(recentSongs.count)",
-                        icon: .history,
-                        accent: .orange
-                    )
-                }
-                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
-            }
-            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-        }
-    }
-
-    private var localRecentSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text(localModeText("profile_recently_played"))
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
-
-                Spacer()
-
-                NavigationLink(
-                    destination: RecentPlayHistoryView()
-                ) {
+                NavigationLink(destination: RecentPlayHistoryView()) {
                     HStack(spacing: 4) {
                         Text(localModeText("view_all"))
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
-                            .foregroundColor(.monologueTextSecondary)
-                        MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary)
+                            .font(.rounded(size: 12.5, weight: .semibold))
+                            .foregroundColor(.monologueTextSecondary.opacity(0.85))
+
+                        MonologueIcon(icon: .chevronRight, size: 10, color: .monologueTextSecondary.opacity(0.6))
                     }
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
 
             ScrollView(.horizontal) {
                 HStack(spacing: 14) {
@@ -1602,118 +1203,99 @@ struct LocalModeProfileView: View {
                         }
                     }
                 }
-                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
             }
             .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
         }
     }
 
-    private var managementMenu: some View {
-        VStack(spacing: 14) {
-            SectionHeader(
-                title: localModeText("local_profile_manage_title"),
-                subtitle: nil
-            )
+    private var menuIndex: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            LocalSectionHeader(title: localModeText("local_profile_manage_title"))
+                .padding(.bottom, 6)
 
-            VStack(spacing: 0) {
-                NavigationLink(
-                    destination: LocalLibraryView()
-                ) {
-                    ProfileMenuRow(
-                        icon: .library,
-                        title: localModeText("local_library_navigation_title"),
-                        trailingText: "\(customPlaylistCount)"
-                    )
-                }
-                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
-
-                Divider().padding(.leading, 56)
-
-                NavigationLink(
-                    destination: DownloadManageView()
-                ) {
-                    ProfileMenuRow(
-                        icon: .download,
-                        title: localModeText("local_downloads_title"),
-                        trailingText: "\(downloadManager.downloadedSongIds.count)"
-                    )
-                }
-                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
-
-                Divider().padding(.leading, 56)
-
-                NavigationLink(
-                    destination: StorageManageView()
-                ) {
-                    ProfileMenuRow(
-                        icon: .storage,
-                        title: localModeText("settings_storage_manage")
-                    )
-                }
-                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
-
-                Divider().padding(.leading, 56)
-
-                NavigationLink(value: ProfileNavigationDestination.settings) {
-                    ProfileMenuRow(
-                        icon: .settings,
-                        title: localModeText("settings_title")
-                    )
-                }
-                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+            NavigationLink(destination: LocalLibraryView()) {
+                LocalIndexRow(
+                    index: 1,
+                    title: localModeText("local_library_navigation_title"),
+                    value: "\(customPlaylistCount)"
+                )
             }
-            .monologueGlass(cornerRadius: 20)
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+
+            LocalIndexHairline()
+
+            NavigationLink(destination: ListeningStatsView()) {
+                LocalIndexRow(index: 2, title: localModeText("听歌统计"))
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+
+            LocalIndexHairline()
+
+            NavigationLink(destination: StorageManageView()) {
+                LocalIndexRow(index: 3, title: localModeText("settings_storage_manage"))
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
+
+            LocalIndexHairline()
+
+            NavigationLink(value: ProfileNavigationDestination.settings) {
+                LocalIndexRow(index: 4, title: localModeText("settings_title"))
+            }
+            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
         }
     }
 
-    private var localAccessCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
+    /// Token 入口刻意保持低调：发丝线框内的一段小字与下划线输入，不做视觉重心
+    private var activationSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Rectangle()
+                .fill(Color.monologueSeparator.opacity(0.5))
+                .frame(height: 0.5)
+                .padding(.bottom, 16)
+
             Text(localModeText("access_unlock_title"))
-                .font(.system(size: 22, weight: .bold, design: .rounded))
-                .foregroundColor(.monologueTextPrimary)
+                .font(.rounded(size: 13, weight: .semibold))
+                .foregroundColor(.monologueTextSecondary.opacity(0.85))
 
             HStack(spacing: 10) {
-                MonologueIcon(icon: .unlock, size: 14, color: .monologueAccent)
-
                 TextField(localModeText("access_token_input_placeholder"), text: $tokenInput)
-                    .font(.system(size: 14, weight: .medium, design: .monospaced))
+                    .font(.system(size: 13.5, weight: .medium, design: .monospaced))
+                    .foregroundColor(.monologueTextPrimary)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .monologueTextInputBehavior()
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.monologueSeparator.opacity(0.18))
-            )
 
-            Button {
-                submitToken()
-            } label: {
-                HStack(spacing: 8) {
-                    if isSubmitting || onlineAccess.isVerifying {
-                        ProgressView()
-                            .tint(.monologueIconForeground)
-                    } else {
-                        MonologueIcon(icon: .sparkle, size: 13, color: .monologueIconForeground)
+                Button {
+                    submitToken()
+                } label: {
+                    HStack(spacing: 6) {
+                        if isSubmitting || onlineAccess.isVerifying {
+                            ProgressView()
+                                .scaleEffect(0.7)
+                        }
+
+                        Text(localModeText("access_unlock_button"))
+                            .font(.rounded(size: 12, weight: .semibold))
+                            .foregroundColor(.monologueTextSecondary.opacity(0.9))
                     }
-
-                    Text(localModeText("access_unlock_button"))
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .padding(.horizontal, 13)
+                    .padding(.vertical, 7)
+                    .overlay(
+                        Capsule().stroke(Color.monologueSeparator.opacity(0.9), lineWidth: 0.8)
+                    )
                 }
-                .foregroundColor(.monologueIconForeground)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(Color.monologueIconBackground)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
+                .disabled(isSubmitting || tokenInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
-            .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
-            .disabled(isSubmitting || tokenInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .padding(.top, 12)
+
+            Rectangle()
+                .fill(Color.monologueSeparator.opacity(0.7))
+                .frame(height: 0.5)
+                .padding(.top, 9)
         }
-        .padding(20)
-        .monologueGlass(cornerRadius: 22)
     }
 
     private func submitToken() {
@@ -1778,206 +1360,250 @@ struct LocalModeProfileView: View {
     }
 }
 
-private struct LocalPrimaryActionCard: View {
-    let title: String
-    var subtitle: String? = nil
-    let icon: MonologueIcon.IconType
-    let isLoading: Bool
-    let action: () -> Void
+// MARK: - 编辑部组件
+
+/// 眉题行：强调色胶囊 + 追踪字距标签 + 发丝线
+private struct LocalEyebrowRow: View {
+    let label: String
 
     var body: some View {
-        Button(action: action) {
-            MonologueLiquidGlassCard(cornerRadius: ThemedPageStyle.isActive ? 12 : 24) {
-                VStack(alignment: .leading, spacing: 16) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .fill(NeumorphicStyle.isActive ? NeumorphicStyle.accent.opacity(0.16) : Color.monologueIconBackground)
-                            .frame(width: 54, height: 54)
+        HStack(spacing: 8) {
+            Capsule()
+                .fill(Color.monologueAccent)
+                .frame(width: 18, height: 3)
 
-                        if isLoading {
-                            ProgressView()
-                                .tint(.monologueIconForeground)
-                        } else {
-                            MonologueIcon(
-                                icon: icon,
-                                size: 23,
-                                color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueIconForeground,
-                                lineWidth: 1.6
-                            )
-                        }
-                    }
+            Text(label)
+                .font(.system(size: 10.5, weight: .heavy, design: .rounded))
+                .tracking(2.4)
+                .foregroundColor(.monologueTextSecondary.opacity(0.72))
+                .fixedSize()
 
-                    Spacer(minLength: 0)
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(title)
-                            .font(MangaStyle.isActive ? MangaStyle.titleFont(19, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(19, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(19, weight: .semibold) : .system(size: 19, weight: .bold, design: .rounded))))
-                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
-                            .multilineTextAlignment(.leading)
-
-                    if let subtitle {
-                        Text(subtitle)
-                            .font(MangaStyle.isActive ? MangaStyle.bodyFont(12, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .regular) : .system(size: 12, weight: .medium, design: .rounded)))
-                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
-                            .multilineTextAlignment(.leading)
-                            .lineLimit(2)
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, minHeight: 162, alignment: .leading)
-                .padding(18)
-            }
-        }
-        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
-    }
-}
-
-private struct LocalShortcutCard: View {
-    let title: String
-    let value: String
-    let icon: MonologueIcon.IconType
-    let accent: Color
-
-    var body: some View {
-        MonologueLiquidGlassCard(cornerRadius: ThemedPageStyle.isActive ? 12 : 22) {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack {
-                    Circle()
-                        .fill(accent.opacity(0.18))
-                        .frame(width: 36, height: 36)
-                        .overlay(
-                            MonologueIcon(icon: icon, size: 16, color: accent)
-                        )
-
-                    Spacer(minLength: 12)
-
-                    Text(value)
-                        .font(MangaStyle.isActive ? MangaStyle.titleFont(22, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(22, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(22, weight: .semibold) : .system(size: 22, weight: .heavy, design: .rounded))))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
-                }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .font(MangaStyle.isActive ? MangaStyle.bodyFont(15, weight: .black) : (MujiStyle.isActive ? MujiStyle.bodyFont(15, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : .system(size: 15, weight: .bold, design: .rounded))))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
-                }
-            }
-            .frame(maxWidth: .infinity, minHeight: 130, alignment: .leading)
-            .padding(16)
+            Rectangle()
+                .fill(Color.monologueSeparator.opacity(0.5))
+                .frame(height: 0.5)
         }
     }
 }
 
-private struct LocalMetricBadge: View {
+/// 小节标题：短竖线 + 粗体
+private struct LocalSectionHeader: View {
     let title: String
-    let value: String
 
     var body: some View {
-        VStack(spacing: 5) {
-            Text(value)
-                .font(MangaStyle.isActive ? MangaStyle.titleFont(18, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(18, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(18, weight: .semibold) : .system(size: 18, weight: .heavy, design: .rounded))))
-                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+        HStack(spacing: 8) {
+            Capsule()
+                .fill(Color.monologueAccent)
+                .frame(width: 3, height: 13)
 
             Text(title)
-                .font(MangaStyle.isActive ? MangaStyle.labelFont(10, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(10, weight: .medium) : .system(size: 10, weight: .bold, design: .rounded)))
-                .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
-                .lineLimit(1)
+                .font(.rounded(size: 15, weight: .bold))
+                .foregroundColor(.monologueTextPrimary)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: ThemedPageStyle.isActive ? 8 : 16, style: .continuous)
-                .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed.opacity(0.66) : Color.monologueGlassTint.opacity(0.55))
-                .monologueGlass(cornerRadius: ThemedPageStyle.isActive ? 8 : 16)
-        )
     }
 }
 
-private struct LocalInlineActionCard: View {
+/// 数据带：上下发丝线之间的裸排大数字
+private struct LocalStatsBand: View {
+    let items: [(value: String, label: String)]
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 0) {
+            ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(item.value)
+                        .font(.system(size: 22, weight: .heavy, design: .rounded))
+                        .foregroundColor(.monologueTextPrimary)
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+
+                    HStack(spacing: 5) {
+                        Circle()
+                            .fill(Color.monologueAccent)
+                            .frame(width: 4, height: 4)
+
+                        Text(item.label)
+                            .font(.rounded(size: 10.5, weight: .semibold))
+                            .foregroundColor(.monologueTextSecondary.opacity(0.85))
+                            .lineLimit(1)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.leading, 4)
+            }
+        }
+        .padding(.vertical, 16)
+        .overlay(alignment: .top) {
+            Rectangle().fill(Color.monologueSeparator.opacity(0.55)).frame(height: 0.5)
+        }
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Color.monologueSeparator.opacity(0.55)).frame(height: 0.5)
+        }
+    }
+}
+
+/// 索引行：编号 + 标题 + 尾注 + 箭头
+private struct LocalIndexRow: View {
+    var index: Int? = nil
     let title: String
-    let icon: MonologueIcon.IconType
+    var value: String? = nil
 
     var body: some View {
         HStack(spacing: 14) {
-            Circle()
-                .fill(Color.monologueAccent.opacity(0.15))
-                .frame(width: 40, height: 40)
-                .overlay(
-                    MonologueIcon(icon: icon, size: 16, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueAccent)
-                )
+            if let index {
+                Text(String(format: "%02d", index))
+                    .font(.system(size: 11, weight: .heavy, design: .rounded))
+                    .tracking(1)
+                    .foregroundColor(.monologueTextSecondary.opacity(0.45))
+                    .monospacedDigit()
+            }
+
+            Text(title)
+                .font(.rounded(size: 15.5, weight: .semibold))
+                .foregroundColor(.monologueTextPrimary)
+                .lineLimit(1)
+
+            Spacer(minLength: 0)
+
+            if let value {
+                Text(value)
+                    .font(.rounded(size: 12.5))
+                    .foregroundColor(.monologueTextSecondary.opacity(0.85))
+                    .monospacedDigit()
+            }
+
+            MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary.opacity(0.4))
+        }
+        .padding(.vertical, 15)
+        .padding(.horizontal, 2)
+        .contentShape(Rectangle())
+    }
+}
+
+private struct LocalIndexHairline: View {
+    var leading: CGFloat = 32
+
+    var body: some View {
+        Rectangle()
+            .fill(Color.monologueSeparator.opacity(0.5))
+            .frame(height: 0.5)
+            .padding(.leading, leading)
+    }
+}
+
+/// 歌单行：发丝描边封面 + 名称 + 曲目数
+private struct LocalPlaylistIndexRow: View {
+    let summary: LocalPlaylistSummary
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Group {
+                if let url = summary.displayCoverUrl {
+                    CachedAsyncImage(url: url.sized(200)) {
+                        coverPlaceholder
+                    }
+                    .aspectRatio(contentMode: .fill)
+                } else {
+                    coverPlaceholder
+                }
+            }
+            .frame(width: 50, height: 50)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color.monologueTextPrimary.opacity(0.1), lineWidth: 0.8)
+            )
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(MangaStyle.isActive ? MangaStyle.bodyFont(14, weight: .black) : (MujiStyle.isActive ? MujiStyle.bodyFont(14, weight: .regular) : .system(size: 14, weight: .bold, design: .rounded)))
-                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                Text(summary.name)
+                    .font(.rounded(size: 15, weight: .semibold))
+                    .foregroundColor(.monologueTextPrimary)
+                    .lineLimit(1)
+
+                Text(localModeFormat("local_playlist_track_count", summary.trackCount))
+                    .font(.rounded(size: 12))
+                    .foregroundColor(.monologueTextSecondary.opacity(0.85))
             }
 
             Spacer(minLength: 0)
 
-            MonologueIcon(icon: .chevronRight, size: 12, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextSecondary.opacity(0.7))
+            MonologueIcon(icon: .chevronRight, size: 12, color: .monologueTextSecondary.opacity(0.4))
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: ThemedPageStyle.isActive ? 10 : 18, style: .continuous)
-                .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed.opacity(0.68) : Color.monologueGlassTint.opacity(0.7))
-                .monologueGlass(cornerRadius: ThemedPageStyle.isActive ? 10 : 18)
-        )
+        .padding(.vertical, 12)
+        .padding(.horizontal, 2)
+        .contentShape(Rectangle())
+    }
+
+    private var coverPlaceholder: some View {
+        RoundedRectangle(cornerRadius: 10, style: .continuous)
+            .fill(Color.monologueGlassTint)
+            .overlay(
+                MonologueIcon(
+                    icon: summary.isFavorite ? .liked : .musicNoteList,
+                    size: 18,
+                    color: .monologueTextSecondary.opacity(0.55)
+                )
+            )
     }
 }
 
-private struct LocalManagementButton: View {
+/// 墨色主按钮
+private struct LocalInkCapsuleButton: View {
     let title: String
-    let icon: MonologueIcon.IconType
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            MonologueLiquidGlassCard(cornerRadius: ThemedPageStyle.isActive ? 12 : 22) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Circle()
-                        .fill((NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueAccent).opacity(0.14))
-                        .frame(width: 40, height: 40)
-                        .overlay(
-                            MonologueIcon(icon: icon, size: 16, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueAccent)
-                        )
-
-                Text(title)
-                    .font(MangaStyle.isActive ? MangaStyle.bodyFont(15, weight: .black) : (MujiStyle.isActive ? MujiStyle.bodyFont(15, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .semibold) : .system(size: 15, weight: .bold, design: .rounded))))
-                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
-            }
-            .frame(maxWidth: .infinity, minHeight: 132, alignment: .leading)
-                .padding(16)
-            }
-        }
-        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.98))
-    }
-}
-
-private struct LocalInlinePill: View {
-    let title: String
-    let icon: MonologueIcon.IconType
+    var icon: MonologueIcon.IconType? = nil
+    var disabled = false
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
-                MonologueIcon(icon: icon, size: 12, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextPrimary)
+                if let icon {
+                    MonologueIcon(icon: icon, size: 13, color: .monologueIconForeground)
+                }
+
                 Text(title)
-                    .font(MangaStyle.isActive ? MangaStyle.labelFont(12, weight: .black) : (MujiStyle.isActive ? MujiStyle.labelFont(12, weight: .semibold) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: .semibold) : .system(size: 12, weight: .bold, design: .rounded))))
-                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
+                    .font(.rounded(size: 14, weight: .bold))
+                    .foregroundColor(.monologueIconForeground)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 9)
-            .background(
-                Capsule()
-                    .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed.opacity(0.72) : Color.monologueGlassTint.opacity(0.65))
-                    .monologueGlassCapsule()
-            )
+            .padding(.horizontal, 22)
+            .padding(.vertical, 12)
+            .background(Capsule().fill(Color.monologueIconBackground))
         }
-        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+        .opacity(disabled ? 0.5 : 1)
+        .disabled(disabled)
     }
 }
 
+/// 发丝描边次按钮
+private struct LocalHairlineCapsuleButton: View {
+    let title: String
+    var icon: MonologueIcon.IconType? = nil
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                if let icon {
+                    MonologueIcon(icon: icon, size: 13, color: .monologueTextPrimary.opacity(0.85))
+                }
+
+                Text(title)
+                    .font(.rounded(size: 14, weight: .semibold))
+                    .foregroundColor(.monologueTextPrimary.opacity(0.85))
+            }
+            .padding(.horizontal, 22)
+            .padding(.vertical, 12)
+            .overlay(
+                Capsule().stroke(Color.monologueSeparator.opacity(0.95), lineWidth: 0.8)
+            )
+            .contentShape(Capsule())
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.95))
+    }
+}
+
+/// 空状态：左对齐的编辑部排版
 private struct LocalEmptyStateView: View {
     let title: String
     let subtitle: String
@@ -1985,43 +1611,139 @@ private struct LocalEmptyStateView: View {
     var buttonAction: (() -> Void)? = nil
 
     var body: some View {
-        VStack(spacing: 14) {
-            Circle()
-                .fill(NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed.opacity(0.78) : Color.monologueGlassTint.opacity(0.85))
-                .frame(width: 62, height: 62)
-                .overlay(
-                    MonologueIcon(icon: .musicNoteList, size: 24, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monologueTextSecondary)
-                )
+        VStack(alignment: .leading, spacing: 0) {
+            Text(title)
+                .font(.system(size: 20, weight: .heavy, design: .rounded))
+                .foregroundColor(.monologueTextPrimary)
 
-            VStack(spacing: 6) {
-                Text(title)
-                    .font(MangaStyle.isActive ? MangaStyle.titleFont(20, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(20, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(20, weight: .semibold) : .system(size: 20, weight: .bold, design: .rounded))))
-                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monologueTextPrimary)
-                    .multilineTextAlignment(.center)
-
-                Text(subtitle)
-                    .font(MangaStyle.isActive ? MangaStyle.bodyFont(13, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(13, weight: .regular) : .system(size: 13, weight: .medium, design: .rounded)))
-                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monologueTextSecondary)
-                    .multilineTextAlignment(.center)
-            }
+            // 强调线用 overlay 贴在文本上，高度永远等于文本高度，
+            // 不会在非滚动容器里被拉成整屏长竖线
+            Text(subtitle)
+                .font(.rounded(size: 13))
+                .foregroundColor(.monologueTextSecondary)
+                .lineSpacing(3)
+                .padding(.leading, 12)
+                .overlay(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(Color.monologueAccent.opacity(0.8))
+                        .frame(width: 2)
+                        .padding(.vertical, 1)
+                }
+                .padding(.top, 12)
+                .padding(.leading, 2)
 
             if let buttonTitle, let buttonAction {
-                Button(action: buttonAction) {
-                    Text(buttonTitle)
-                        .font(MangaStyle.isActive ? MangaStyle.labelFont(14, weight: .black) : (MujiStyle.isActive ? MujiStyle.labelFont(14, weight: .semibold) : .system(size: 14, weight: .bold, design: .rounded)))
-                        .foregroundColor(NeumorphicStyle.isActive ? Color(light: .white, dark: .black) : .monologueIconForeground)
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 10)
-                        .background(NeumorphicStyle.isActive ? NeumorphicStyle.accent : Color.monologueIconBackground)
-                        .clipShape(Capsule())
-                }
-                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
+                LocalInkCapsuleButton(title: buttonTitle, action: buttonAction)
+                    .padding(.top, 18)
             }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 20)
-        .padding(.vertical, 28)
-        .monologueGlass(cornerRadius: ThemedPageStyle.isActive ? 12 : 20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 22)
+        .overlay(alignment: .top) {
+            Rectangle().fill(Color.monologueSeparator.opacity(0.55)).frame(height: 0.5)
+        }
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Color.monologueSeparator.opacity(0.55)).frame(height: 0.5)
+        }
+    }
+}
+
+/// 起步引导面板：资料库为空时的主指引 —— 虚线卡片 + 步骤索引 + 支持格式
+private struct LocalStarterPanel: View {
+    let onImport: () -> Void
+
+    private static let formats = ["MP3", "FLAC", "WAV", "M4A", "AAC", "OGG"]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 13, style: .continuous)
+                        .fill(Color.monologueAccent.opacity(0.12))
+
+                    MonologueIcon(icon: .download, size: 17, color: .monologueAccent, lineWidth: 1.8)
+                }
+                .frame(width: 42, height: 42)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(localModeText("local_starter_title"))
+                        .font(.system(size: 17, weight: .heavy, design: .rounded))
+                        .foregroundColor(.monologueTextPrimary)
+
+                    Text(localModeText("local_starter_subtitle"))
+                        .font(.rounded(size: 12))
+                        .foregroundColor(.monologueTextSecondary.opacity(0.9))
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 0) {
+                starterStep(1, text: localModeText("local_starter_step1"))
+                LocalIndexHairline(leading: 30)
+                starterStep(2, text: localModeText("local_starter_step2"))
+                LocalIndexHairline(leading: 30)
+                starterStep(3, text: localModeText("local_starter_step3"))
+            }
+            .padding(.top, 12)
+
+            LocalInkCapsuleButton(
+                title: localModeText("local_action_import_title"),
+                icon: .download,
+                action: onImport
+            )
+            .padding(.top, 14)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(localModeText("local_starter_formats_label"))
+                    .font(.system(size: 10, weight: .heavy, design: .rounded))
+                    .tracking(1.6)
+                    .foregroundColor(.monologueTextSecondary.opacity(0.6))
+
+                HStack(spacing: 6) {
+                    ForEach(Self.formats, id: \.self) { format in
+                        Text(format)
+                            .font(.system(size: 9.5, weight: .heavy, design: .rounded))
+                            .tracking(0.4)
+                            .foregroundColor(.monologueTextSecondary.opacity(0.78))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .overlay(
+                                Capsule().stroke(Color.monologueSeparator.opacity(0.9), lineWidth: 0.7)
+                            )
+                    }
+                }
+            }
+            .padding(.top, 18)
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color.monologueGlassTint.opacity(0.55))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(
+                    Color.monologueSeparator.opacity(0.85),
+                    style: StrokeStyle(lineWidth: 1, dash: [5, 5])
+                )
+        )
+    }
+
+    private func starterStep(_ number: Int, text: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(String(format: "%02d", number))
+                .font(.system(size: 11, weight: .heavy, design: .rounded))
+                .tracking(1)
+                .foregroundColor(.monologueAccent)
+                .monospacedDigit()
+
+            Text(text)
+                .font(.rounded(size: 13))
+                .foregroundColor(.monologueTextSecondary)
+                .lineSpacing(2)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.vertical, 10)
     }
 }
 

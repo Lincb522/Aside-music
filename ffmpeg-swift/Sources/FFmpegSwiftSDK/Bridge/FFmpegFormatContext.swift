@@ -8,6 +8,95 @@
 import Foundation
 import CFFmpeg
 
+private final class FFmpegIOInterruptionController {
+    private var lock = os_unfair_lock_s()
+    private var cancelled = false
+    /// One-shot wake used by interactive seek. Unlike `cancelled`, this is
+    /// cleared before the same input performs `av_seek_frame` and continues.
+    private var wakeRequested = false
+    private var deadlineUptimeNanoseconds: UInt64?
+    private var timedOut = false
+
+    func arm(timeout: TimeInterval?) {
+        os_unfair_lock_lock(&lock)
+        cancelled = false
+        wakeRequested = false
+        timedOut = false
+        if let timeout {
+            let delta = UInt64(max(0, timeout) * 1_000_000_000)
+            deadlineUptimeNanoseconds = DispatchTime.now().uptimeNanoseconds &+ delta
+        } else {
+            deadlineUptimeNanoseconds = nil
+        }
+        os_unfair_lock_unlock(&lock)
+    }
+
+    func clearDeadline() {
+        os_unfair_lock_lock(&lock)
+        deadlineUptimeNanoseconds = nil
+        os_unfair_lock_unlock(&lock)
+    }
+
+    func cancel() {
+        os_unfair_lock_lock(&lock)
+        cancelled = true
+        os_unfair_lock_unlock(&lock)
+    }
+
+    func requestWake() {
+        os_unfair_lock_lock(&lock)
+        wakeRequested = true
+        os_unfair_lock_unlock(&lock)
+    }
+
+    func clearWake() {
+        os_unfair_lock_lock(&lock)
+        wakeRequested = false
+        os_unfair_lock_unlock(&lock)
+    }
+
+    func shouldInterrupt() -> Bool {
+        os_unfair_lock_lock(&lock)
+        defer { os_unfair_lock_unlock(&lock) }
+        if cancelled || wakeRequested { return true }
+        if let deadlineUptimeNanoseconds,
+           DispatchTime.now().uptimeNanoseconds >= deadlineUptimeNanoseconds {
+            timedOut = true
+            return true
+        }
+        return false
+    }
+
+    var didTimeOut: Bool {
+        os_unfair_lock_lock(&lock)
+        let value = timedOut
+        os_unfair_lock_unlock(&lock)
+        return value
+    }
+
+    var wasCancelled: Bool {
+        os_unfair_lock_lock(&lock)
+        let value = cancelled
+        os_unfair_lock_unlock(&lock)
+        return value
+    }
+
+    var hasPendingWake: Bool {
+        os_unfair_lock_lock(&lock)
+        let value = wakeRequested
+        os_unfair_lock_unlock(&lock)
+        return value
+    }
+}
+
+private func monoFFmpegInterruptCallback(_ opaque: UnsafeMutableRawPointer?) -> Int32 {
+    guard let opaque else { return 0 }
+    let controller = Unmanaged<FFmpegIOInterruptionController>
+        .fromOpaque(opaque)
+        .takeUnretainedValue()
+    return controller.shouldInterrupt() ? 1 : 0
+}
+
 /// Wraps an FFmpeg `AVFormatContext`, providing safe allocation, input opening,
 /// stream information discovery, and automatic resource cleanup.
 ///
@@ -27,6 +116,9 @@ final class FFmpegFormatContext {
     /// Whether `avformat_open_input` has been successfully called.
     /// Used to determine the correct cleanup path in `deinit`.
     private var isInputOpened: Bool = false
+
+    /// Retained for at least as long as AVFormatContext may call its C callback.
+    private let interruptionController = FFmpegIOInterruptionController()
 
     /// Provides read-only access to the underlying pointer for engine-layer consumers.
     /// Returns `nil` if the context has been freed or was never allocated.
@@ -51,6 +143,7 @@ final class FFmpegFormatContext {
         guard pointer != nil else {
             throw FFmpegError.resourceAllocationFailed(resource: "AVFormatContext")
         }
+        installInterruptCallback()
     }
 
     /// Creates a wrapper around an existing `AVFormatContext` pointer.
@@ -60,6 +153,51 @@ final class FFmpegFormatContext {
     ///   Pass `nil` to create an empty (no-op) wrapper.
     init(existingPointer: UnsafeMutablePointer<AVFormatContext>?) {
         self.pointer = existingPointer
+        installInterruptCallback()
+    }
+
+    private func installInterruptCallback() {
+        guard let pointer else { return }
+        pointer.pointee.interrupt_callback = AVIOInterruptCB(
+            callback: monoFFmpegInterruptCallback,
+            opaque: Unmanaged.passUnretained(interruptionController).toOpaque()
+        )
+    }
+
+    /// Arms a hard deadline checked by FFmpeg while it is blocked in network I/O.
+    func armInterrupt(timeout: TimeInterval?) {
+        interruptionController.arm(timeout: timeout)
+    }
+
+    /// Keeps explicit cancellation active but removes the short connection deadline.
+    func clearInterruptDeadline() {
+        interruptionController.clearDeadline()
+    }
+
+    func cancelIO() {
+        interruptionController.cancel()
+    }
+
+    /// Wakes a blocking FFmpeg read for an in-place seek. This does not cancel
+    /// the input permanently; call `clearIOWake()` before seeking on it.
+    func requestIOWake() {
+        interruptionController.requestWake()
+    }
+
+    func clearIOWake() {
+        interruptionController.clearWake()
+    }
+
+    var didInterruptForTimeout: Bool {
+        interruptionController.didTimeOut
+    }
+
+    var wasExplicitlyCancelled: Bool {
+        interruptionController.wasCancelled
+    }
+
+    var hasPendingIOWake: Bool {
+        interruptionController.hasPendingWake
     }
 
     // MARK: - Operations
@@ -104,6 +242,9 @@ final class FFmpegFormatContext {
         }
         pointer = ctx
         isInputOpened = true
+        // `avformat_open_input` may replace the context pointer. Restore the
+        // callback before stream probing and subsequent packet reads.
+        installInterruptCallback()
     }
 
     /// Reads packets to determine stream information (codecs, duration, etc.).

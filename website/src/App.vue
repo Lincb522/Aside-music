@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import FeedbackPage from './components/FeedbackPage.vue'
 import { useLandingViewModel } from './viewmodels/useLandingViewModel'
 
 const showSplash = ref(!window.location.pathname.startsWith('/play/'))
@@ -179,7 +180,14 @@ const {
     ></audio>
   </aside>
 
-  <main id="top" class="page-shell" :class="{ 'page-shell-subpage': currentPage !== 'home' }">
+  <main
+    id="top"
+    class="page-shell"
+    :class="{
+      'page-shell-subpage': currentPage !== 'home',
+      'page-shell-feedback': currentPage === 'feedback',
+    }"
+  >
     <section v-if="currentPage === 'home'" class="hero-section" aria-labelledby="hero-title">
       <img class="app-icon" :src="assets.pawIcon" alt="" />
       <img class="hero-wordmark" :src="assets.monoTextBlack" alt="Mono" />
@@ -200,9 +208,17 @@ const {
           <a href="/token" @click="navigateTo('/token', $event)">{{ content.tokenQuery.label }}</a>
           <a :href="content.ipaDownload.href" @click="navigateTo(content.ipaDownload.href, $event)">{{ content.ipaDownload.label }}</a>
           <a href="/updates" @click="navigateTo('/updates', $event)">{{ content.updates.label }}</a>
+          <a href="/feedback" @click="navigateTo('/feedback', $event)">意见反馈</a>
         </div>
       </div>
     </section>
+
+    <FeedbackPage
+      v-if="currentPage === 'feedback'"
+      :icon="assets.pawIcon"
+      :wordmark="assets.monoTextBlack"
+      @navigate-home="navigateTo('/', $event)"
+    />
 
     <section v-if="currentPage === 'token'" class="subpage-section token-page" aria-labelledby="token-query-title">
       <header class="subpage-brand-hero">
@@ -633,6 +649,13 @@ const {
         <p v-if="testFlightNoticeDialog.email">
           <strong>{{ testFlightNoticeDialog.email }}</strong>
         </p>
+        <div v-if="testFlightNoticeDialog.token" style="margin: 10px 0 4px; padding: 12px 14px; border-radius: 12px; background: rgba(0,0,0,.05); display: flex; flex-direction: column; gap: 6px; align-items: center;">
+          <span style="font-size: 12px; opacity: .7;">你的 Token（请妥善保存）</span>
+          <code style="font-size: 16px; font-weight: 700; letter-spacing: 1px; word-break: break-all;">{{ testFlightNoticeDialog.token }}</code>
+          <button type="button" class="tf-duplicate-secondary" @click="copyTokenKey(testFlightNoticeDialog.token)">
+            {{ copiedTokenKey === testFlightNoticeDialog.token ? content.tokenQuery.copiedLabel : content.tokenQuery.copyLabel }}
+          </button>
+        </div>
         <div class="tf-duplicate-actions" :class="{ 'is-single': !(testFlightNoticeDialog.canOpenMailbox && testFlightNoticeDialog.canQueryToken) }">
           <button v-if="testFlightNoticeDialog.canOpenMailbox" class="tf-duplicate-primary" type="button" @click="openMailboxForTestFlight(testFlightNoticeDialog.email)">
             前往邮箱

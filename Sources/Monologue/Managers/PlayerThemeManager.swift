@@ -1,11 +1,11 @@
 import SwiftUI
 
 /// 播放器主题管理器
-@MainActor @Observable
-final class PlayerThemeManager {
+@MainActor
+final class PlayerThemeManager: ObservableObject {
     static let shared = PlayerThemeManager()
     
-    var currentTheme: PlayerTheme {
+    @Published var currentTheme: PlayerTheme {
         didSet {
             UserDefaults.standard.set(currentTheme.rawValue, forKey: AppConfig.StorageKeys.playerTheme)
         }
@@ -16,7 +16,9 @@ final class PlayerThemeManager {
         if let theme = PlayerTheme(rawValue: saved) {
             self.currentTheme = theme
         } else {
+            // 已移除主题的旧存档统一迁移回经典。
             self.currentTheme = .classic
+            UserDefaults.standard.set(PlayerTheme.classic.rawValue, forKey: AppConfig.StorageKeys.playerTheme)
         }
     }
     

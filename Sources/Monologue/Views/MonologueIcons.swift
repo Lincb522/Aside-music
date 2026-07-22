@@ -8,6 +8,7 @@ import BlobIcons
 import doodlePop
 import PawPrintIcons
 import DotDogSnakeIcons
+import MinimalWhiteIcons
 
 // MARK: - Monologue Icon System (Hicon Icons)
 
@@ -164,6 +165,7 @@ struct MonologueIcon: View {
     var size: CGFloat = 24
     var color: Color = .primary
     var lineWidth: CGFloat? = nil
+    var normalizesBitmapScale: Bool = false
     @AppStorage(AppConfig.StorageKeys.interfaceIconSet) private var iconSetRaw: String = AppInterfaceIconSet.hicon.rawValue
     @AppStorage(AppInterfaceIconSet.zappiconStyleKey) private var zappiconStyleRaw: String = ZappiconIconStyle.light.rawValue
     @AppStorage(AppInterfaceIconSet.solarStyleKey) private var solarStyleRaw: String = SolarIconStyle.line.rawValue
@@ -190,6 +192,8 @@ struct MonologueIcon: View {
         switch iconSet {
         case .hicon:
             return icon.hiconImage
+        case .sfSymbols:
+            return icon.sfSymbolImage
         case .zappicon:
             let style = ZappiconIconStyle(rawValue: zappiconStyleRaw) ?? .light
             return icon.zappiconImage(style: style)
@@ -208,6 +212,8 @@ struct MonologueIcon: View {
             return icon.pawPrintImage
         case .dotDogSnake:
             return icon.dotDogSnakeImage
+        case .minimalWhiteIcons:
+            return icon.minimalWhiteIconImage
         }
     }
 
@@ -216,11 +222,13 @@ struct MonologueIcon: View {
     }
 
     private var usesBitmapVisualScale: Bool {
-        iconSet == .iconExport || iconSet == .blobIcons || iconSet == .doodlePop || iconSet == .pawPrint || iconSet == .dotDogSnake
+        iconSet == .iconExport || iconSet == .blobIcons || iconSet == .doodlePop || iconSet == .pawPrint || iconSet == .dotDogSnake || iconSet == .minimalWhiteIcons
     }
 
     private var bitmapIconVisualScale: CGFloat {
         switch iconSet {
+        case .minimalWhiteIcons:
+            return 1.18
         case .doodlePop, .pawPrint, .dotDogSnake:
             switch icon {
             case .karaoke:
@@ -239,6 +247,11 @@ struct MonologueIcon: View {
         }
     }
 
+    private var effectiveBitmapVisualScale: CGFloat {
+        guard usesBitmapVisualScale, !normalizesBitmapScale else { return 1 }
+        return bitmapIconVisualScale
+    }
+
     private var iconImage: some View {
         rawIconImage(currentImage)
     }
@@ -250,7 +263,7 @@ struct MonologueIcon: View {
             .renderingMode(usesOriginalArtwork ? .original : .template)
             .resizable()
             .aspectRatio(contentMode: .fit)
-            .scaleEffect(usesBitmapVisualScale ? bitmapIconVisualScale : 1)
+            .scaleEffect(effectiveBitmapVisualScale)
     }
     
     @ViewBuilder
@@ -270,7 +283,7 @@ struct MonologueIcon: View {
                     .aspectRatio(contentMode: .fit)
                     .foregroundColor(color)
             }
-            .scaleEffect(usesBitmapVisualScale ? bitmapIconVisualScale : 1)
+            .scaleEffect(effectiveBitmapVisualScale)
         }
     }
 }
@@ -343,7 +356,6 @@ private struct MonologuePawPrintChevronIcon: View {
 
     @ViewBuilder
     private var platformImage: some View {
-        #if canImport(UIKit)
         if let image = UIImage(pawPrintIconId: direction.assetName) {
             Image(uiImage: image)
                 .renderingMode(.original)
@@ -354,20 +366,6 @@ private struct MonologuePawPrintChevronIcon: View {
         } else {
             fallbackIcon
         }
-        #elseif canImport(AppKit)
-        if let image = NSImage.pawPrintIcon(id: direction.assetName) {
-            Image(nsImage: image)
-                .renderingMode(.original)
-                .interpolation(.high)
-                .antialiased(true)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-        } else {
-            fallbackIcon
-        }
-        #else
-        fallbackIcon
-        #endif
     }
 
     private var fallbackIcon: some View {
@@ -436,6 +434,8 @@ extension MonologueIcon.IconType {
             return (.shuffle, .zero)
         case "waveform":
             return (.waveform, .zero)
+        case "tv", "film", "play.tv":
+            return (.immersive, .zero)
         case "bubble.left.fill", "bubble.left.and.bubble.right.fill":
             return (.comment, .zero)
         case "cart":
@@ -560,7 +560,8 @@ extension MonologueIcon.IconType {
         
         // Settings Icons
         case .equalizer:        return Hicon.setting
-        case .immersive:        return Hicon.zoomIn
+        // 沉浸模式改用电视/影院图标（原为 zoomIn 放大镜样式）
+        case .immersive:        return Hicon.tv
         case .playerTheme:      return Hicon.palette
         
         // Podcast Categories
@@ -624,6 +625,8 @@ extension AppInterfaceIconSet {
         switch self {
         case .hicon:
             return icon.hiconImage
+        case .sfSymbols:
+            return icon.sfSymbolImage
         case .zappicon:
             return icon.zappiconImage(style: AppInterfaceIconSet.selectedZappiconStyle)
         case .lucide:
@@ -640,6 +643,187 @@ extension AppInterfaceIconSet {
             return icon.pawPrintImage
         case .dotDogSnake:
             return icon.dotDogSnakeImage
+        case .minimalWhiteIcons:
+            return icon.minimalWhiteIconImage
+        }
+    }
+}
+
+// MARK: - IconType → SF Symbols Mapping
+
+extension MonologueIcon.IconType {
+    /// SF Symbols 图标包：全部映射到系统符号，按模板着色渲染。
+    /// 个别新符号在旧系统不可用时回退到 Hicon 同名图标，保证永不缺图。
+    var sfSymbolImage: UIImage {
+        let configuration = UIImage.SymbolConfiguration(pointSize: 60, weight: .medium)
+        for name in sfSymbolNames {
+            if let image = UIImage(systemName: name, withConfiguration: configuration) {
+                return image
+            }
+        }
+        return hiconImage
+    }
+
+    /// 首选符号在前，兼容回退在后
+    private var sfSymbolNames: [String] {
+        switch self {
+        // Tab Bar / Navigation
+        case .home:             return ["house"]
+        case .homeFilled:       return ["house.fill"]
+        case .podcast:          return ["mic"]
+        case .podcastFilled:    return ["mic.fill"]
+        case .library:          return ["square.stack"]
+        case .libraryFilled:    return ["square.stack.fill"]
+        case .search:           return ["magnifyingglass"]
+        case .profile:          return ["person"]
+        case .profileFilled:    return ["person.fill"]
+
+        // Playback Controls
+        case .play:             return ["play.fill"]
+        case .pause:            return ["pause.fill"]
+        case .next:             return ["forward.fill"]
+        case .previous:         return ["backward.fill"]
+        case .stop:             return ["stop.fill"]
+        case .repeatMode:       return ["repeat"]
+        case .repeatOne:        return ["repeat.1"]
+        case .shuffle:          return ["shuffle"]
+        case .refresh:          return ["arrow.clockwise"]
+
+        // Actions
+        case .like:             return ["heart"]
+        case .liked:            return ["heart.fill"]
+        case .list:             return ["line.3.horizontal"]
+        case .back:             return ["chevron.left"]
+        case .more:             return ["ellipsis"]
+        case .close:            return ["xmark"]
+        case .trash:            return ["trash"]
+        case .fm:               return ["radio"]
+        case .bell:             return ["bell"]
+
+        // Settings & Utility
+        case .settings:         return ["gearshape"]
+        case .download:         return ["arrow.down.circle"]
+        case .cloud:            return ["icloud"]
+        case .chevronRight:     return ["chevron.right"]
+        case .chevronLeft:      return ["chevron.left"]
+        case .chevronDown:      return ["chevron.down"]
+        case .chevronUp:        return ["chevron.up"]
+        case .magnifyingGlass:  return ["magnifyingglass"]
+        case .xmark:            return ["xmark"]
+        case .fullscreen:       return ["arrow.up.left.and.arrow.down.right"]
+        case .sparkle:          return ["sparkles"]
+        case .soundQuality:     return ["waveform"]
+        case .storage:          return ["internaldrive"]
+        case .haptic:           return ["iphone.radiowaves.left.and.right", "waveform.path"]
+        case .info:             return ["info.circle"]
+
+        // Media Info
+        case .clock:            return ["clock"]
+        case .musicNoteList:    return ["music.note.list"]
+        case .chart:            return ["chart.bar"]
+        case .translate:        return ["textformat"]
+        case .karaoke:          return ["music.mic"]
+        case .lock:             return ["lock"]
+        case .unlock:           return ["lock.open"]
+        case .qr:               return ["qrcode.viewfinder"]
+        case .phone:            return ["phone"]
+        case .send:             return ["paperplane"]
+        case .musicNote:        return ["music.note"]
+        case .save:             return ["bookmark"]
+
+        // Player
+        case .playerDownload:   return ["arrow.down.to.line"]
+        case .comment:          return ["bubble.left"]
+
+        // Library
+        case .history:          return ["clock.arrow.circlepath"]
+        case .playCircle:       return ["play.circle"]
+        case .warning:          return ["exclamationmark.triangle"]
+        case .personEmpty:      return ["person.crop.circle.badge.questionmark"]
+        case .playNext:         return ["text.line.first.and.arrowtriangle.forward", "text.insert"]
+        case .add:              return ["plus"]
+        case .addToQueue:       return ["text.badge.plus"]
+
+        // Podcast
+        case .radio:            return ["radio"]
+        case .micSlash:         return ["mic.slash"]
+        case .waveform:         return ["waveform"]
+        case .skipBack:         return ["backward.end"]
+        case .skipForward:      return ["forward.end"]
+        case .rewind15:         return ["gobackward.15"]
+        case .forward15:        return ["goforward.15"]
+        case .xmarkCircle:      return ["xmark.circle"]
+        case .playCircleFill:   return ["play.circle.fill"]
+        case .gridSquare:       return ["square.grid.2x2"]
+
+        // Symbols
+        case .checkmark:        return ["checkmark"]
+        case .shrinkScreen:     return ["arrow.down.right.and.arrow.up.left"]
+        case .expandScreen:     return ["arrow.up.left.and.arrow.down.right"]
+        case .headphones:       return ["headphones"]
+        case .heartSlash:       return ["heart.slash"]
+        case .personCircle:     return ["person.circle"]
+        case .album:            return ["opticaldisc"]
+        case .infoCircle:       return ["info.circle"]
+        case .arrowDownCircle:  return ["arrow.down.circle"]
+        case .sun:              return ["sun.max"]
+        case .moon:             return ["moon"]
+        case .halfCircle:       return ["circle.lefthalf.filled", "circle.lefthalf.fill"]
+
+        // Settings Icons
+        case .equalizer:        return ["slider.horizontal.3"]
+        case .immersive:        return ["play.tv"]
+        case .playerTheme:      return ["paintpalette"]
+
+        // Podcast Categories
+        case .catMusic:         return ["music.note"]
+        case .catLife:          return ["leaf"]
+        case .catEmotion:       return ["heart"]
+        case .catCreate:        return ["pencil.and.outline"]
+        case .catAcg:           return ["gamecontroller"]
+        case .catEntertain:     return ["tv"]
+        case .catTalkshow:      return ["mic"]
+        case .catBook:          return ["book"]
+        case .catKnowledge:     return ["graduationcap"]
+        case .catBusiness:      return ["briefcase"]
+        case .catHistory:       return ["building.columns"]
+        case .catNews:          return ["newspaper"]
+        case .catParenting:     return ["face.smiling"]
+        case .catTravel:        return ["map"]
+        case .catCrosstalk:     return ["person.2.wave.2"]
+        case .catFood:          return ["cup.and.saucer"]
+        case .catTech:          return ["desktopcomputer"]
+        case .catDefault:       return ["folder"]
+        case .catPodcast:       return ["dot.radiowaves.left.and.right"]
+        case .catElectronic:    return ["waveform.path"]
+        case .catStar:          return ["star"]
+        case .catDrama:         return ["theatermasks"]
+        case .catStory:         return ["text.book.closed"]
+        case .catOther:         return ["ellipsis.circle"]
+        case .catPublish:       return ["doc.text"]
+
+        // Emoji & Debug
+        case .emoji:            return ["face.smiling"]
+        case .share:            return ["square.and.arrow.up"]
+        case .logInfo:          return ["info.circle"]
+        case .logDebug:         return ["ladybug"]
+        case .logError:         return ["exclamationmark.octagon"]
+        case .logNetwork:       return ["wifi"]
+        case .logSuccess:       return ["checkmark.circle"]
+        case .arrowDownToLine:  return ["arrow.down.to.line"]
+
+        // Filters & Misc
+        case .filter:           return ["line.3.horizontal.decrease"]
+        case .microphone:       return ["mic"]
+        case .fmMode:           return ["radio"]
+        case .audioWave:        return ["waveform.path"]
+
+        case .mv:               return ["play.rectangle"]
+        case .layers:           return ["square.3.layers.3d", "square.stack.3d.up"]
+        case .hitokoto:         return ["quote.bubble"]
+        case .tabBar:           return ["rectangle.bottomthird.inset.filled", "dock.rectangle"]
+        case .minimalBar:       return ["minus"]
+        case .floatingBall:     return ["circle.circle"]
         }
     }
 }
@@ -647,24 +831,37 @@ extension AppInterfaceIconSet {
 // MARK: - IconType → Icon Export Mapping
 
 extension MonologueIcon.IconType {
+    /// 位图图标包的资源 id。
+    /// 沉浸模式改用「mv」视频图标（各包原有的 immersive 资源为放大箭头样式，与当前沉浸模式含义不符）。
+    private var bitmapIconId: String {
+        switch self {
+        case .immersive: return "mv"
+        default: return String(describing: self)
+        }
+    }
+
     var iconExportImage: UIImage {
-        UIImage(iconExportId: String(describing: self)) ?? hiconImage
+        UIImage(iconExportId: bitmapIconId) ?? hiconImage
     }
 
     var blobIconImage: UIImage {
-        UIImage(blobIconId: String(describing: self)) ?? hiconImage
+        UIImage(blobIconId: bitmapIconId) ?? hiconImage
     }
 
     var doodlePopImage: UIImage {
-        UIImage(doodlePopIconId: String(describing: self)) ?? hiconImage
+        UIImage(doodlePopIconId: bitmapIconId) ?? hiconImage
     }
 
     var pawPrintImage: UIImage {
-        UIImage(pawPrintIconId: String(describing: self)) ?? hiconImage
+        UIImage(pawPrintIconId: bitmapIconId) ?? hiconImage
     }
 
     var dotDogSnakeImage: UIImage {
-        UIImage(dotDogSnakeIconId: String(describing: self)) ?? hiconImage
+        UIImage(dotDogSnakeIconId: bitmapIconId) ?? hiconImage
+    }
+
+    var minimalWhiteIconImage: UIImage {
+        UIImage(minimalWhiteIconId: bitmapIconId) ?? hiconImage
     }
 }
 
@@ -791,7 +988,8 @@ extension MonologueIcon.IconType {
 
         // Settings Icons
         case .equalizer:        name = "gear"
-        case .immersive:        name = "arrows-expand"
+        // 沉浸模式改用电视/影院图标（原为 arrows-expand）
+        case .immersive:        name = "tv"
         case .playerTheme:      name = "palette"
 
         // Podcast Categories
@@ -964,7 +1162,8 @@ extension MonologueIcon.IconType {
 
         // Settings Icons
         case .equalizer:        name = "settings-2"
-        case .immersive:        name = "maximize-2"
+        // 沉浸模式改用「电视 + 播放」图标（原为 maximize-2）
+        case .immersive:        name = "tv-minimal-play"
         case .playerTheme:      name = "palette"
 
         // Podcast Categories
@@ -1116,7 +1315,8 @@ extension MonologueIcon.IconType {
         case .moon:             name = "moon"
         case .halfCircle:       name = "moon"
         case .equalizer:        name = "gear"
-        case .immersive:        name = "expand"
+        // 沉浸模式改用电视/影院图标（原为 expand）
+        case .immersive:        name = "tv"
         case .playerTheme:      name = "color-palette"
         case .catMusic:         name = "music"
         case .catLife:          name = "compass"

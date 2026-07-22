@@ -17,7 +17,9 @@ struct MonologueLoadingView: View {
     }
     
     private var loadingContent: some View {
-        VStack(spacing: text != nil ? 20 : 0) {
+        let showsText = !MinimalWhiteStyle.isActive && !(text ?? "").isEmpty
+
+        return VStack(spacing: showsText ? 20 : 0) {
             // 节奏波浪加载动画
             HStack(spacing: 6) {
                 ForEach(0..<4) { index in
@@ -27,17 +29,18 @@ struct MonologueLoadingView: View {
             .frame(height: 32)
             
             // 文字
-            if let text = text, !text.isEmpty {
+            if showsText, let text = text {
                 Text(text)
                     .font(loadingTextFont)
-                    .tracking(2)
+                    .tracking(MinimalWhiteStyle.isActive ? 0 : 2)
                     .foregroundColor(loadingTextColor)
-                    .textCase(.uppercase)
+                    .textCase(MinimalWhiteStyle.isActive ? nil : .uppercase)
             }
         }
     }
 
     private var loadingTextFont: Font {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.labelFont(12, weight: .medium) }
         if MangaStyle.isActive { return MangaStyle.comicFont(12, weight: .bold) }
         if MujiStyle.isActive { return MujiStyle.labelFont(12, weight: .semibold) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(12, weight: .semibold) }
@@ -46,6 +49,7 @@ struct MonologueLoadingView: View {
     }
 
     private var loadingTextColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkSoft }
         if MangaStyle.isActive { return MangaStyle.ink.opacity(0.84) }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
@@ -72,6 +76,7 @@ private struct LoadingBar: View {
     }
 
     private var barColor: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         if MangaStyle.isActive { return MangaStyle.ink }
         if MujiStyle.isActive { return MujiStyle.clay }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }

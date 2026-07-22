@@ -24,6 +24,9 @@ internal enum FFmpegErrorCode {
     static let AVERROR_INVALIDDATA: Int32  = -1094995529
     // AVERROR_EOF = FFERRTAG('E','O','F',' ')
     static let AVERROR_EOF: Int32          = -541478725
+    // AVERROR_EXIT = FFERRTAG('E','X','I','T')
+    // Returned when AVIOInterruptCB wakes a blocking FFmpeg operation.
+    static let AVERROR_EXIT: Int32         = -1414092869
     // AVERROR_DEMUXER_NOT_FOUND = FFERRTAG(0xF8,'D','E','M')
     static let AVERROR_DEMUXER_NOT_FOUND: Int32 = -1296385272
     // AVERROR_DECODER_NOT_FOUND = FFERRTAG(0xF8,'D','E','C')
@@ -69,6 +72,12 @@ public enum FFmpegError: Error, CustomStringConvertible, Equatable {
     /// The network connection was lost during an active session.
     case networkDisconnected
 
+    /// A blocking FFmpeg operation was intentionally interrupted.
+    ///
+    /// StreamPlayer uses this for transient seek and prepared-track wake-ups.
+    /// It must never be treated as a decoder or transport failure by itself.
+    case operationInterrupted
+
     /// An unknown or unmapped FFmpeg error occurred.
     /// - Parameter code: The original FFmpeg error code.
     case unknown(code: Int32)
@@ -89,6 +98,8 @@ public enum FFmpegError: Error, CustomStringConvertible, Equatable {
             return "Resource allocation failed: \(resource)"
         case .networkDisconnected:
             return "Network disconnected"
+        case .operationInterrupted:
+            return "FFmpeg operation interrupted"
         case .unknown(let code):
             return "Unknown FFmpeg error (code: \(code))"
         }
@@ -111,6 +122,8 @@ public enum FFmpegError: Error, CustomStringConvertible, Equatable {
             return FFmpegErrorCode.AVERROR_ENOMEM
         case .networkDisconnected:
             return FFmpegErrorCode.AVERROR_ECONNRESET
+        case .operationInterrupted:
+            return FFmpegErrorCode.AVERROR_EXIT
         case .unknown(let code):
             return code
         }
@@ -128,7 +141,7 @@ public enum FFmpegError: Error, CustomStringConvertible, Equatable {
         case .connectionFailed, .connectionTimeout, .resourceAllocationFailed,
              .networkDisconnected, .unsupportedFormat:
             return true
-        case .decodingFailed:
+        case .decodingFailed, .operationInterrupted:
             return false
         case .unknown:
             // Unknown errors are treated as unrecoverable to be safe
@@ -186,6 +199,10 @@ public enum FFmpegError: Error, CustomStringConvertible, Equatable {
         // End of file
         case FFmpegErrorCode.AVERROR_EOF:
             return .decodingFailed(code: code, message: "End of file reached")
+
+        // AVIO interrupt callback (seek wake, cancellation, prepared handoff)
+        case FFmpegErrorCode.AVERROR_EXIT:
+            return .operationInterrupted
 
         // Out of memory
         case FFmpegErrorCode.AVERROR_ENOMEM:

@@ -86,8 +86,11 @@ enum MonologueSheetPreset: Equatable {
     }
 
     var monologueResolvedCornerRadius: CGFloat {
+        if MinimalWhiteStyle.isActive {
+            return min(cornerRadius, MinimalWhiteStyle.chromeRadius)
+        }
         if MangaStyle.isActive {
-            return min(cornerRadius, 22)
+            return min(cornerRadius, 14)
         }
         if PetWhiteStyle.isActive {
             return min(max(cornerRadius, 26), 34)
@@ -178,7 +181,7 @@ enum MonologueSheetPreset: Equatable {
     }
 }
 
-@available(iOS 16.0, macOS 13.0, *)
+@available(iOS 16.0, *)
 extension MonologueSheetPreset {
     var systemDetents: Set<PresentationDetent> {
         switch heightConstraint {
