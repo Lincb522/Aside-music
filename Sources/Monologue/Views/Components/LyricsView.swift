@@ -141,6 +141,10 @@ class LyricViewModel: ObservableObject {
         let source = currentSongSourceOverride?.source ?? LyricSource.resolvedGlobalSource(for: song)
         activeSource = source
 
+        if applyDownloadedLyricsIfAvailable(for: song, source: source) {
+            return
+        }
+
         // 旧缓存没有记录歌词来源。只有歌词来源与歌曲平台一致时才复用，
         // 手动换源和跨平台默认源始终重新请求，防止显示错误来源的旧歌词。
         let canUseLegacyCache = currentSongSourceOverride?.songId == nil
@@ -150,6 +154,29 @@ class LyricViewModel: ObservableObject {
         }
 
         fetchLyrics(for: song, source: source, forceReload: false)
+    }
+
+    private func applyDownloadedLyricsIfAvailable(for song: Song, source: LyricSource) -> Bool {
+        guard let downloaded = LyricDownloadManager.offlineLyrics(for: song, source: source) else {
+            return false
+        }
+
+        lyricSessionId += 1
+        currentSongId = song.id
+        activeSource = source
+        lyrics = []
+        hasLyrics = false
+        currentLineIndex = 0
+        currentLineProgress = 0
+        translations = [:]
+        isLoading = false
+
+        if let translated = downloaded.translated {
+            parseTranslations(translated)
+        }
+        parseQRC(downloaded.lyrics)
+        hasLyrics = !lyrics.isEmpty
+        return hasLyrics
     }
 
     func selectedSource(for song: Song) -> LyricSource {
@@ -1531,11 +1558,7 @@ struct LyricsView: View {
     @AppStorage("playerFontScale") private var playerFontScale = 1.0
     
     var body: some View {
-        TimelineView(AppFrameRate.throttledTimeline(maximumFramesPerSecond: 60, paused: !player.isPlaying)) { _ in
-            let rawTime = player.streamPlayer.currentTime
-            let realTime = (rawTime.isFinite && !rawTime.isNaN && rawTime >= 0) ? rawTime : timePublisher.currentTime
-            
-            VStack {
+        VStack {
                 if viewModel.isLoading {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: .monologueTextPrimary))
@@ -1559,24 +1582,7 @@ struct LyricsView: View {
                                         HapticManager.shared.light()
                                         PlayerManager.shared.seek(to: line.time)
                                     }) {
-                                        KaraokeLineView(
-                                            line: line,
-                                            isCurrent: index == viewModel.currentLineIndex,
-                                            currentTime: realTime,
-                                            progress: index == viewModel.currentLineIndex ? viewModel.currentLineProgress : 0.0,
-                                            showTranslation: showTranslation,
-                                            enableKaraoke: enableKaraoke,
-                                            lyricColorMode: lyricColorMode,
-                                            lyricSolidColorHex: lyricSolidColorHex,
-                                            lyricGradientStartHex: lyricGradientStartHex,
-                                            lyricGradientEndHex: lyricGradientEndHex,
-                                            lyricAutoPalette: coverColors.palette,
-                                            forceUppercaseEnglish: forceUppercaseEnglish,
-                                            playerFontSelectionRaw: playerFontSelectionRaw,
-                                            playerCustomFontID: playerCustomFontID,
-                                            playerFontScale: playerFontScale,
-                                            karaokeStyle: KaraokeWordStyle.resolve(karaokeStyleRaw)
-                                        )
+                                        renderedLyricLine(line, at: index)
                                         .frame(maxWidth: .infinity)
                                         .padding(.horizontal, 32)
                                         .animation(.easeInOut(duration: 0.3), value: viewModel.currentLineIndex)
@@ -1629,12 +1635,61 @@ struct LyricsView: View {
                     }
                 }
             }
-        }
         .task(id: song.coverUrl?.absoluteString) {
             coverColors.extract(
                 from: song.coverUrl?.sized(200).absoluteString
             )
         }
+    }
+
+    @ViewBuilder
+    private func renderedLyricLine(_ line: LyricLine, at index: Int) -> some View {
+        let isCurrent = index == viewModel.currentLineIndex
+        if isCurrent && enableKaraoke && player.isPlaying {
+            TimelineView(
+                AppFrameRate.throttledTimeline(maximumFramesPerSecond: 60)
+            ) { _ in
+                karaokeLine(line, isCurrent: true, currentTime: livePlaybackTime)
+            }
+        } else {
+            karaokeLine(
+                line,
+                isCurrent: isCurrent,
+                currentTime: isCurrent ? timePublisher.currentTime : 0
+            )
+        }
+    }
+
+    private func karaokeLine(
+        _ line: LyricLine,
+        isCurrent: Bool,
+        currentTime: TimeInterval
+    ) -> some View {
+        KaraokeLineView(
+            line: line,
+            isCurrent: isCurrent,
+            currentTime: currentTime,
+            progress: isCurrent ? viewModel.currentLineProgress : 0,
+            showTranslation: showTranslation,
+            enableKaraoke: enableKaraoke,
+            lyricColorMode: lyricColorMode,
+            lyricSolidColorHex: lyricSolidColorHex,
+            lyricGradientStartHex: lyricGradientStartHex,
+            lyricGradientEndHex: lyricGradientEndHex,
+            lyricAutoPalette: coverColors.palette,
+            forceUppercaseEnglish: forceUppercaseEnglish,
+            playerFontSelectionRaw: playerFontSelectionRaw,
+            playerCustomFontID: playerCustomFontID,
+            playerFontScale: playerFontScale,
+            karaokeStyle: KaraokeWordStyle.resolve(karaokeStyleRaw)
+        )
+    }
+
+    private var livePlaybackTime: TimeInterval {
+        let rawTime = player.streamPlayer.currentTime
+        return rawTime.isFinite && !rawTime.isNaN && rawTime >= 0
+            ? rawTime
+            : timePublisher.currentTime
     }
     
     private func resetScrollTimer() {

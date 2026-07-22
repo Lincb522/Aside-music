@@ -38,8 +38,27 @@ public protocol StreamPlayerDelegate: AnyObject {
     func player(_ player: StreamPlayer, didEncounterError error: FFmpegError)
     /// Called when the player updates the current playback duration/time.
     func player(_ player: StreamPlayer, didUpdateDuration duration: TimeInterval)
+    /// Called with the exact input that produced the measured duration.
+    ///
+    /// The input identity prevents a delayed main-queue callback from applying
+    /// an old pipeline's duration after a prepared-track handoff.
+    func player(
+        _ player: StreamPlayer,
+        didUpdateDuration duration: TimeInterval,
+        forPlaybackInput playbackInput: String
+    )
     /// 无缝切歌：当前歌曲播放完毕，已自动切换到预加载的下一首
     func playerDidTransitionToNextTrack(_ player: StreamPlayer)
+}
+
+public extension StreamPlayerDelegate {
+    func player(
+        _ player: StreamPlayer,
+        didUpdateDuration duration: TimeInterval,
+        forPlaybackInput _: String
+    ) {
+        self.player(player, didUpdateDuration: duration)
+    }
 }
 
 // MARK: - StreamPlayer
@@ -224,7 +243,11 @@ public final class StreamPlayer {
     // MARK: - Queues & State
 
     /// Dedicated background queue for demuxing and decoding.
-    private let playbackQueue = DispatchQueue(label: "com.ffmpeg-sdk.playback", qos: .userInitiated)
+    /// `.userInteractive` keeps PCM production ahead of the render callback even
+    /// while keyboard/IME activity floods the system with `.userInitiated` UI work;
+    /// the loop is naturally paced by queue backpressure, so the higher QoS does
+    /// not increase steady-state CPU usage.
+    private let playbackQueue = DispatchQueue(label: "com.ffmpeg-sdk.playback", qos: .userInteractive)
 
     /// Video decode and presentation waits never block audio packet consumption.
     private let videoDecodeQueue = DispatchQueue(
@@ -1163,7 +1186,11 @@ public final class StreamPlayer {
             DispatchQueue.main.async { [weak self] in
                 guard let self = self,
                       self.isActive(generation: generation) else { return }
-                self.delegate?.player(self, didUpdateDuration: duration)
+                self.delegate?.player(
+                    self,
+                    didUpdateDuration: duration,
+                    forPlaybackInput: url
+                )
             }
         }
 
@@ -1269,6 +1296,26 @@ public final class StreamPlayer {
             let packet: Demuxer.PacketType?
             do {
                 packet = try currentDemuxer.readNextPacket()
+            } catch Demuxer.ReadInterruption.transientWake {
+                // A seek wakes av_read_frame through AVIOInterruptCB. The wake
+                // can arrive just after the playback loop consumed that seek,
+                // so always clear the one-shot flag and retry instead of
+                // publishing AVERROR_EXIT as a fatal playback error.
+                let activeConnection = stateQueue.sync { self.connectionManager }
+                activeConnection?.clearActiveIOWake()
+                guard isActive(generation: generation) else { return }
+                _ = consumeForcedPreparedTrackTransition()
+                continue
+            } catch Demuxer.ReadInterruption.cancelled {
+                guard isActive(generation: generation) else { return }
+                if consumeForcedPreparedTrackTransition() {
+                    continue
+                }
+                handleUnrecoverableError(
+                    FFmpegError.operationInterrupted,
+                    generation: generation
+                )
+                return
             } catch let error as FFmpegError where error == .networkDisconnected {
                 if consumeForcedPreparedTrackTransition() {
                     continue

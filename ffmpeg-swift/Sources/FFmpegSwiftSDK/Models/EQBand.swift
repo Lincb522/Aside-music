@@ -306,6 +306,109 @@ public struct MultibandDynamicsConfiguration: Codable, Equatable, Sendable {
     }
 }
 
+/// Native, low-latency listening enhancement that runs inside Mono's realtime
+/// Float32 path. Values are normalized amounts rather than user-facing dB so
+/// the engine can keep every stage bounded and interpolate changes safely.
+public struct MonoEnhanceConfiguration: Codable, Equatable, Sendable {
+    public var isEnabled: Bool
+    public var transientAttack: Float
+    public var transientSustain: Float
+    public var vocalFocus: Float
+    public var airAmount: Float
+    public var deEssAmount: Float
+    public var lowFrequencyFocus: Float
+    public var stageWidth: Float
+    public var microDynamics: Float
+    public var lowLevelCompensation: Float
+
+    public init(
+        isEnabled: Bool = false,
+        transientAttack: Float = 0,
+        transientSustain: Float = 0,
+        vocalFocus: Float = 0,
+        airAmount: Float = 0,
+        deEssAmount: Float = 0,
+        lowFrequencyFocus: Float = 0,
+        stageWidth: Float = 0,
+        microDynamics: Float = 0,
+        lowLevelCompensation: Float = 0
+    ) {
+        self.isEnabled = isEnabled
+        self.transientAttack = Self.unit(transientAttack)
+        self.transientSustain = Self.unit(transientSustain)
+        self.vocalFocus = Self.unit(vocalFocus)
+        self.airAmount = Self.unit(airAmount)
+        self.deEssAmount = Self.unit(deEssAmount)
+        self.lowFrequencyFocus = Self.unit(lowFrequencyFocus)
+        self.stageWidth = Self.unit(stageWidth)
+        self.microDynamics = Self.unit(microDynamics)
+        self.lowLevelCompensation = Self.unit(lowLevelCompensation)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case isEnabled
+        case transientAttack
+        case transientSustain
+        case vocalFocus
+        case airAmount
+        case deEssAmount
+        case lowFrequencyFocus
+        case stageWidth
+        case microDynamics
+        case lowLevelCompensation
+    }
+
+    public init(from decoder: any Swift.Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            isEnabled: try values.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true,
+            transientAttack: try values.decodeIfPresent(Float.self, forKey: .transientAttack) ?? 0,
+            transientSustain: try values.decodeIfPresent(Float.self, forKey: .transientSustain) ?? 0,
+            vocalFocus: try values.decodeIfPresent(Float.self, forKey: .vocalFocus) ?? 0,
+            airAmount: try values.decodeIfPresent(Float.self, forKey: .airAmount) ?? 0,
+            deEssAmount: try values.decodeIfPresent(Float.self, forKey: .deEssAmount) ?? 0,
+            lowFrequencyFocus: try values.decodeIfPresent(Float.self, forKey: .lowFrequencyFocus) ?? 0,
+            stageWidth: try values.decodeIfPresent(Float.self, forKey: .stageWidth) ?? 0,
+            microDynamics: try values.decodeIfPresent(Float.self, forKey: .microDynamics) ?? 0,
+            lowLevelCompensation: try values.decodeIfPresent(Float.self, forKey: .lowLevelCompensation) ?? 0
+        )
+    }
+
+    public static let neutral = MonoEnhanceConfiguration()
+
+    /// Conservative peak allowance used by Mono's final headroom calculation.
+    public var estimatedPeakBoostDB: Float {
+        guard isEnabled else { return 0 }
+        return transientAttack * 0.55
+            + transientSustain * 0.25
+            + vocalFocus * 0.10
+            + airAmount * 0.45
+            + lowFrequencyFocus * 0.12
+            + stageWidth * 0.50
+            + microDynamics * 0.35
+            + lowLevelCompensation * 0.55
+    }
+
+    public var hasAudibleProcessing: Bool {
+        isEnabled && (
+            transientAttack > 0.000_5
+                || transientSustain > 0.000_5
+                || vocalFocus > 0.000_5
+                || airAmount > 0.000_5
+                || deEssAmount > 0.000_5
+                || lowFrequencyFocus > 0.000_5
+                || stageWidth > 0.000_5
+                || microDynamics > 0.000_5
+                || lowLevelCompensation > 0.000_5
+        )
+    }
+
+    private static func unit(_ value: Float) -> Float {
+        guard value.isFinite else { return 0 }
+        return min(1, max(0, value))
+    }
+}
+
 // MARK: - EQ 预设
 
 /// EQ 预设，包含各频段增益和可选的环绕效果设置

@@ -338,8 +338,8 @@ enum AIEqualizerTuningIntensity: String, CaseIterable, Codable, Identifiable, Se
 
     fileprivate var reverbRange: ClosedRange<Float> {
         switch self {
-        case .gentle: return 0...0.10
-        case .standard: return 0...0.26
+        case .gentle: return 0...0.28
+        case .standard: return 0...0.38
         case .smart, .strong: return 0...0.6
         }
     }
@@ -411,9 +411,9 @@ enum AIEqualizerTuningProfile: String, CaseIterable, Codable, Identifiable, Send
     var promptDirective: String {
         switch self {
         case .standard:
-            return "Use the default Mono tuning direction. Prioritize faithful balance, stable playback, and measured correction."
+            return "Use the default Mono tuning direction. The processed result must be clearly audible against bypass through purposeful frequency correction, bass and treble balance, vocal focus, transient definition, micro-dynamics, loudness continuity, and safe headroom. Preserve the original stereo image instead of sounding untreated, and avoid spatial widening reserved for the Mono spatial profile."
         case .monoSpatialEnhancement:
-            return "Use a Mono spatial enhancement direction without referencing Dolby or any licensed brand. Favor a wider stage, gentle surround energy, restrained ambience, protected center vocals, controlled low-frequency weight, phase safety, and limiter headroom. Do not exaggerate reverb, do not hollow out vocals, and keep mono compatibility safe."
+            return "Use a clearly audible Mono spatial enhancement direction without referencing Dolby or any licensed brand. It must be meaningfully different from the standard profile: widen the stage, add controlled surround energy and audible but restrained ambience, while keeping center vocals stable, bass focused, mono compatibility safe, and enough limiter headroom. Do not return standard-profile spatial values unless phase or mono measurements require protection."
         }
     }
 
@@ -483,6 +483,7 @@ struct AIEqualizerModelOutput: Decodable, Equatable, Sendable {
     let preampDB: Float
     let tone: AIEqualizerToneConfiguration?
     let spatial: AIEqualizerSpatialConfiguration?
+    let enhance: MonoEnhanceConfiguration?
     let calibration: AIEqualizerCalibrationConfiguration?
     let professional: AIEqualizerProfessionalConfiguration?
     let effects: MonoEffectTuningConfiguration?
@@ -497,6 +498,7 @@ struct AIEqualizerModelOutput: Decodable, Equatable, Sendable {
         case preampDB
         case tone
         case spatial
+        case enhance
         case calibration
         case professional
         case effects
@@ -516,6 +518,7 @@ struct AIEqualizerModelOutput: Decodable, Equatable, Sendable {
         // curve. Proposal validation supplies safe defaults for that section.
         tone = try? values.decode(AIEqualizerToneConfiguration.self, forKey: .tone)
         spatial = try? values.decode(AIEqualizerSpatialConfiguration.self, forKey: .spatial)
+        enhance = try? values.decode(MonoEnhanceConfiguration.self, forKey: .enhance)
         calibration = try? values.decode(AIEqualizerCalibrationConfiguration.self, forKey: .calibration)
         professional = try? values.decode(AIEqualizerProfessionalConfiguration.self, forKey: .professional)
         effects = try? values.decode(MonoEffectTuningConfiguration.self, forKey: .effects)
@@ -531,11 +534,12 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
     let id: UUID
     let songID: Int
     let profileName: String
-    let graphicEQMode: GraphicEQMode
-    let gains: [Float]
+    private(set) var graphicEQMode: GraphicEQMode
+    private(set) var gains: [Float]
     let preampDB: Float
     let tone: AIEqualizerToneConfiguration
     let spatial: AIEqualizerSpatialConfiguration
+    let enhance: MonoEnhanceConfiguration
     let calibration: AIEqualizerCalibrationConfiguration
     let professional: AIEqualizerProfessionalConfiguration
     let effects: MonoEffectTuningConfiguration
@@ -564,6 +568,99 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
         let base = trimmed.isEmpty ? resolvedTuningProfile.summaryFallback : trimmed
         guard !base.contains(focus) else { return base }
         return "\(base)\n\(focus)"
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case songID
+        case profileName
+        case graphicEQMode
+        case gains
+        case preampDB
+        case tone
+        case spatial
+        case enhance
+        case calibration
+        case professional
+        case effects
+        case confidence
+        case summary
+        case artistStyleReference
+        case vocalCharacterReference
+        case provider
+        case model
+        case agentVersion
+        case learningRevision
+        case learningConfidence
+        case learningEvidenceCount
+        case createdAt
+        case tuningIntensity
+        case tuningProfile
+        case timing
+    }
+
+    /// Persisted proposals predate several required sections (graphic-EQ mode,
+    /// effects and learning metadata). Decode the durable EQ core first and use
+    /// neutral defaults for sections an older app could not have written.
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        let decodedGains = try values.decode([Float].self, forKey: .gains)
+        let decodedMode = (try? values.decode(GraphicEQMode.self, forKey: .graphicEQMode))
+            ?? (decodedGains.count > GraphicEQMode.tenBand.bandCount ? .thirtyTwoBand : .tenBand)
+        let decodedIntensity = try? values.decode(
+            AIEqualizerTuningIntensity.self,
+            forKey: .tuningIntensity
+        )
+        let decodedTuningProfile = try? values.decode(
+            AIEqualizerTuningProfile.self,
+            forKey: .tuningProfile
+        )
+
+        id = (try? values.decode(UUID.self, forKey: .id)) ?? UUID()
+        songID = try values.decode(Int.self, forKey: .songID)
+        profileName = (try? values.decode(String.self, forKey: .profileName)) ?? "Mono AI"
+        graphicEQMode = decodedMode
+        gains = decodedMode.normalizedGains(decodedGains)
+        preampDB = min(0, max(
+            -18,
+            (try? values.decode(Float.self, forKey: .preampDB)) ?? 0
+        ))
+        tone = (try? values.decode(AIEqualizerToneConfiguration.self, forKey: .tone))
+            ?? AIEqualizerToneConfiguration(bassGain: 0, trebleGain: 0)
+        spatial = (try? values.decode(AIEqualizerSpatialConfiguration.self, forKey: .spatial))
+            ?? AIEqualizerSpatialConfiguration(surroundLevel: 0, reverbLevel: 0, stereoWidth: 1)
+        enhance = (try? values.decode(MonoEnhanceConfiguration.self, forKey: .enhance))
+            ?? Self.persistedEnhanceFallback(
+                tuningProfile: decodedTuningProfile ?? .standard,
+                tuningIntensity: decodedIntensity ?? .smart
+            )
+        calibration = (try? values.decode(AIEqualizerCalibrationConfiguration.self, forKey: .calibration))
+            ?? AIEqualizerCalibrationConfiguration(
+                outputCalibrationEnabled: false,
+                loudnessMatchingEnabled: false,
+                smartSongCompensationEnabled: false
+            )
+        professional = (try? values.decode(AIEqualizerProfessionalConfiguration.self, forKey: .professional))
+            ?? Self.neutralProfessionalConfiguration
+        effects = (try? values.decode(MonoEffectTuningConfiguration.self, forKey: .effects))
+            ?? MonoEffectTuningConfiguration(finalLimiterEnabled: true)
+        confidence = min(1, max(
+            0,
+            (try? values.decode(Float.self, forKey: .confidence)) ?? 0.65
+        ))
+        summary = (try? values.decode(String.self, forKey: .summary)) ?? ""
+        artistStyleReference = try? values.decode(String.self, forKey: .artistStyleReference)
+        vocalCharacterReference = try? values.decode(String.self, forKey: .vocalCharacterReference)
+        provider = (try? values.decode(AIWireProtocol.self, forKey: .provider)) ?? .openAICompatible
+        model = (try? values.decode(String.self, forKey: .model)) ?? ""
+        agentVersion = try? values.decode(String.self, forKey: .agentVersion)
+        learningRevision = try? values.decode(Int.self, forKey: .learningRevision)
+        learningConfidence = try? values.decode(Float.self, forKey: .learningConfidence)
+        learningEvidenceCount = try? values.decode(Int.self, forKey: .learningEvidenceCount)
+        createdAt = (try? values.decode(Date.self, forKey: .createdAt)) ?? Date()
+        tuningIntensity = decodedIntensity
+        tuningProfile = decodedTuningProfile
+        timing = try? values.decode(AIEqualizerTiming.self, forKey: .timing)
     }
 
     init(
@@ -619,6 +716,12 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
             intensity: tuningIntensity,
             tuningProfile: tuningProfile
         )
+        let resolvedEnhance = Self.validatedEnhance(
+            output.enhance,
+            features: features,
+            intensity: tuningIntensity,
+            tuningProfile: tuningProfile
+        )
         let baseProfessional = Self.validatedProfessional(
             output.professional,
             features: features,
@@ -654,7 +757,12 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
             + max(0, resolvedEffects.compressorMakeupDB)
         let requiredHeadroom = -min(
             18,
-            graphicPeak + tonePeak + spatialReserve + enhancementReserve + 0.75
+            graphicPeak
+                + tonePeak
+                + spatialReserve
+                + enhancementReserve
+                + resolvedEnhance.estimatedPeakBoostDB
+                + 0.75
         )
 
         id = UUID()
@@ -672,6 +780,7 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
         preampDB = min(0, max(-18, min(output.preampDB, requiredHeadroom)))
         tone = resolvedTone
         spatial = resolvedSpatial
+        enhance = resolvedEnhance
         calibration = output.calibration ?? AIEqualizerCalibrationConfiguration(
             outputCalibrationEnabled: true,
             loudnessMatchingEnabled: true,
@@ -697,6 +806,60 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
         timing = nil
     }
 
+    /// Manual history restore follows the user's current graphic-EQ resolution.
+    /// The saved curve is resampled in logarithmic frequency space rather than
+    /// rejecting an otherwise valid proposal.
+    func adapted(to mode: GraphicEQMode) -> AIEqualizerProposal {
+        guard mode != graphicEQMode else { return self }
+        var adapted = self
+        adapted.gains = mode.resampledGains(gains, from: graphicEQMode)
+        adapted.graphicEQMode = mode
+        return adapted
+    }
+
+    private static var neutralProfessionalConfiguration: AIEqualizerProfessionalConfiguration {
+        AIEqualizerProfessionalConfiguration(
+            processingIntensity: 1,
+            dynamicEQ: AIEqualizerDynamicEQConfiguration(enabled: false, bands: []),
+            multiband: AIEqualizerMultibandConfiguration(
+                enabled: false,
+                lowCrossoverHz: 180,
+                highCrossoverHz: 3_800,
+                thresholdsDB: [-13, -11, -15],
+                ratios: [1.45, 1.28, 1.5],
+                maxReductionDB: [2.2, 1.5, 2],
+                attackMS: 22,
+                releaseMS: 210
+            ),
+            parametricEQ: AIEqualizerParametricEQConfiguration(enabled: false, bands: [])
+        )
+    }
+
+    private static func persistedEnhanceFallback(
+        tuningProfile: AIEqualizerTuningProfile,
+        tuningIntensity: AIEqualizerTuningIntensity
+    ) -> MonoEnhanceConfiguration {
+        let scale: Float
+        switch tuningIntensity {
+        case .gentle: scale = 0.68
+        case .standard: scale = 0.86
+        case .smart: scale = 1
+        case .strong: scale = 1.10
+        }
+        return MonoEnhanceConfiguration(
+            isEnabled: true,
+            transientAttack: 0.16 * scale,
+            transientSustain: 0.10 * scale,
+            vocalFocus: 0.16 * scale,
+            airAmount: 0.10 * scale,
+            deEssAmount: 0.22 * scale,
+            lowFrequencyFocus: 0.32 * scale,
+            stageWidth: (tuningProfile == .monoSpatialEnhancement ? 0.42 : 0.07) * scale,
+            microDynamics: 0.16 * scale,
+            lowLevelCompensation: 0.14 * scale
+        )
+    }
+
     private static func validatedGains(
         _ values: [Float],
         mode: GraphicEQMode,
@@ -718,19 +881,42 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
         case .smart, .strong:
             maximumAdjacentDelta = mode == .thirtyTwoBand ? 3 : 4.5
         }
-        for index in 1..<result.count {
-            result[index] = min(
-                result[index - 1] + maximumAdjacentDelta,
-                max(result[index - 1] - maximumAdjacentDelta, result[index])
-            )
-        }
-        if result.count > 1 {
+        func smoothAdjacentDeltas() {
+            for index in 1..<result.count {
+                result[index] = min(
+                    result[index - 1] + maximumAdjacentDelta,
+                    max(result[index - 1] - maximumAdjacentDelta, result[index])
+                )
+            }
+            guard result.count > 1 else { return }
             for index in stride(from: result.count - 2, through: 0, by: -1) {
                 result[index] = min(
                     result[index + 1] + maximumAdjacentDelta,
                     max(result[index + 1] - maximumAdjacentDelta, result[index])
                 )
             }
+        }
+        smoothAdjacentDeltas()
+
+        // 模型经常给出 ±1 dB 内的“礼貌曲线”，在响度匹配下与原声几乎无法
+        // 区分。保留曲线形状，把峰值提升到可闻门限；全零曲线视为刻意中性，
+        // 不做放大。
+        let audibilityFloor: Float
+        switch intensity {
+        case .gentle: audibilityFloor = 1.6
+        case .standard: audibilityFloor = 2.0
+        case .smart, .strong: audibilityFloor = 2.4
+        }
+        let peak = result.map(abs).max() ?? 0
+        if peak >= 0.3, peak < audibilityFloor {
+            let scale = min(2.2, audibilityFloor / peak)
+            result = result.map {
+                min(
+                    intensity.graphicGainRange.upperBound,
+                    max(intensity.graphicGainRange.lowerBound, $0 * scale)
+                )
+            }
+            smoothAdjacentDeltas()
         }
         return result
     }
@@ -751,21 +937,227 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
         intensity: AIEqualizerTuningIntensity,
         tuningProfile: AIEqualizerTuningProfile
     ) -> AIEqualizerSpatialConfiguration {
-        let proposedSurround = clampedFinite(value?.surroundLevel, fallback: 0, range: intensity.surroundRange)
-        let proposedReverb = clampedFinite(value?.reverbLevel, fallback: 0, range: intensity.reverbRange)
-        let proposedWidth = clampedFinite(value?.stereoWidth, fallback: 1, range: intensity.stereoWidthRange)
+        let isSpatialProfile = tuningProfile == .monoSpatialEnhancement
+        let maximum: (surround: Float, reverb: Float, width: Float)
+        let minimum: (surround: Float, reverb: Float, width: Float)
+        switch (isSpatialProfile, features.outputKind) {
+        // 内置扬声器的物理间距太小，slev 宽度类处理几乎不可闻；
+        // 依赖更高的混响湿度与舞台展宽才能让空间档在外放时成立。
+        case (true, "builtInSpeaker"):
+            maximum = (0.32, 0.40, 1.26)
+            minimum = (0.18, 0.24, 1.14)
+        case (true, "bluetooth"):
+            maximum = (0.40, 0.40, 1.36)
+            minimum = (0.24, 0.22, 1.18)
+        case (true, "wired"), (true, "usb"):
+            maximum = (0.44, 0.44, 1.40)
+            minimum = (0.28, 0.24, 1.22)
+        case (true, "car"):
+            maximum = (0.28, 0.34, 1.24)
+            minimum = (0.16, 0.18, 1.12)
+        case (true, "airPlay"):
+            maximum = (0.32, 0.36, 1.28)
+            minimum = (0.18, 0.19, 1.14)
+        case (true, _):
+            maximum = (0.36, 0.38, 1.31)
+            minimum = (0.20, 0.20, 1.16)
+        case (false, "builtInSpeaker"):
+            maximum = (0.08, 0.035, 1.06)
+            minimum = (0, 0, 1)
+        case (false, "wired"), (false, "usb"):
+            maximum = (0.14, 0.07, 1.12)
+            minimum = (0, 0, 1)
+        case (false, "bluetooth"):
+            maximum = (0.13, 0.06, 1.10)
+            minimum = (0, 0, 1)
+        case (false, "car"):
+            maximum = (0.10, 0.05, 1.08)
+            minimum = (0, 0, 1)
+        case (false, "airPlay"):
+            maximum = (0.11, 0.05, 1.09)
+            minimum = (0, 0, 1)
+        case (false, _):
+            maximum = (0.11, 0.05, 1.09)
+            minimum = (0, 0, 1)
+        }
+
+        let phaseSafety: Float
+        if features.phaseCorrelation < 0 || features.monoCompatibility < 0.45 {
+            phaseSafety = 0.56
+        } else if features.phaseCorrelation < 0.12 || features.monoCompatibility < 0.62 {
+            phaseSafety = 0.78
+        } else {
+            phaseSafety = 1
+        }
+        let ambienceSafety: Float = features.spectralFlatness > 0.68 ? 0.72 : 1
+        let surroundMaximum = min(intensity.surroundRange.upperBound, maximum.surround * phaseSafety)
+        let reverbMaximum = min(intensity.reverbRange.upperBound, maximum.reverb * ambienceSafety)
+        let widthMaximum = min(
+            intensity.stereoWidthRange.upperBound,
+            1 + (maximum.width - 1) * phaseSafety
+        )
+        let surroundMinimum = isSpatialProfile
+            ? min(surroundMaximum, minimum.surround * phaseSafety)
+            : 0
+        let reverbMinimum = isSpatialProfile
+            ? min(reverbMaximum, minimum.reverb * ambienceSafety)
+            : 0
+        let widthMinimum = isSpatialProfile
+            ? min(widthMaximum, 1 + (minimum.width - 1) * phaseSafety)
+            : 1
+
+        let proposedSurround = clampedFinite(
+            value?.surroundLevel,
+            fallback: 0,
+            range: 0...surroundMaximum
+        )
+        let proposedReverb = clampedFinite(
+            value?.reverbLevel,
+            fallback: 0,
+            range: 0...reverbMaximum
+        )
+        let proposedWidth = clampedFinite(
+            value?.stereoWidth,
+            fallback: 1,
+            range: min(1, intensity.stereoWidthRange.lowerBound)...widthMaximum
+        )
         let fallback = spatialFallback(for: features, tuningProfile: tuningProfile)
 
+        let resolvedSurround = proposedSurround <= 0.005
+            ? min(surroundMaximum, fallback.surroundLevel)
+            : proposedSurround
+        let resolvedReverb = proposedReverb <= 0.005
+            ? min(reverbMaximum, fallback.reverbLevel)
+            : proposedReverb
+        let resolvedWidth = abs(proposedWidth - 1) <= 0.005
+            ? min(widthMaximum, max(1, fallback.stereoWidth))
+            : proposedWidth
+
         return AIEqualizerSpatialConfiguration(
-            surroundLevel: proposedSurround <= 0.005
-                ? min(intensity.surroundRange.upperBound, fallback.surroundLevel)
-                : proposedSurround,
-            reverbLevel: proposedReverb <= 0.005
-                ? min(intensity.reverbRange.upperBound, fallback.reverbLevel)
-                : proposedReverb,
-            stereoWidth: abs(proposedWidth - 1) <= 0.005
-                ? min(intensity.stereoWidthRange.upperBound, max(intensity.stereoWidthRange.lowerBound, fallback.stereoWidth))
-                : proposedWidth
+            surroundLevel: min(surroundMaximum, max(surroundMinimum, resolvedSurround)),
+            reverbLevel: min(reverbMaximum, max(reverbMinimum, resolvedReverb)),
+            stereoWidth: min(widthMaximum, max(widthMinimum, resolvedWidth))
+        )
+    }
+
+    private static func validatedEnhance(
+        _ value: MonoEnhanceConfiguration?,
+        features: AIEqualizerAudioFeatures,
+        intensity: AIEqualizerTuningIntensity,
+        tuningProfile: AIEqualizerTuningProfile
+    ) -> MonoEnhanceConfiguration {
+        let fallback = monoEnhanceFallback(
+            for: features,
+            tuningProfile: tuningProfile
+        )
+        // `isEnabled = false` cannot bypass the complete Mono tuning stage.
+        // Phase/peak hazards are handled per parameter below; disabling every
+        // tonal and dynamics control made a valid AI proposal sound identical
+        // to bypass whenever a provider was overly conservative.
+        let source = value.flatMap {
+            $0.isEnabled && $0.hasAudibleProcessing ? $0 : nil
+        } ?? fallback
+
+        let intensityScale: Float
+        switch intensity {
+        case .gentle: intensityScale = 0.64
+        case .standard: intensityScale = 0.84
+        case .smart: intensityScale = 1
+        case .strong: intensityScale = 1.12
+        }
+        let phaseSafety: Float = features.phaseCorrelation < 0
+            || features.monoCompatibility < 0.48 ? 0.48
+            : (features.phaseCorrelation < 0.15 || features.monoCompatibility < 0.65 ? 0.76 : 1)
+        let peakSafety: Float = features.clippingRatio > 0.000_5
+            || features.estimatedTruePeakDBTP > -0.25 ? 0.58 : 1
+        let spatialProfile = tuningProfile == .monoSpatialEnhancement
+
+        return MonoEnhanceConfiguration(
+            isEnabled: true,
+            transientAttack: clampedFinite(
+                source.transientAttack,
+                fallback: fallback.transientAttack,
+                range: 0...min(0.38, 0.32 * intensityScale * peakSafety)
+            ),
+            transientSustain: clampedFinite(
+                source.transientSustain,
+                fallback: fallback.transientSustain,
+                range: 0...min(0.30, 0.24 * intensityScale)
+            ),
+            vocalFocus: clampedFinite(
+                source.vocalFocus,
+                fallback: fallback.vocalFocus,
+                range: 0...min(0.48, 0.40 * intensityScale)
+            ),
+            airAmount: clampedFinite(
+                source.airAmount,
+                fallback: fallback.airAmount,
+                range: 0...min(0.34, 0.28 * intensityScale * peakSafety)
+            ),
+            deEssAmount: clampedFinite(
+                source.deEssAmount,
+                fallback: fallback.deEssAmount,
+                range: 0...min(0.72, 0.62 * intensityScale)
+            ),
+            lowFrequencyFocus: clampedFinite(
+                source.lowFrequencyFocus,
+                fallback: fallback.lowFrequencyFocus,
+                range: 0...min(0.72, 0.62 * intensityScale)
+            ),
+            stageWidth: clampedFinite(
+                source.stageWidth,
+                fallback: fallback.stageWidth,
+                range: 0...(spatialProfile
+                    ? min(0.80, 0.74 * intensityScale * phaseSafety)
+                    : min(0.20, 0.16 * intensityScale * phaseSafety))
+            ),
+            microDynamics: clampedFinite(
+                source.microDynamics,
+                fallback: fallback.microDynamics,
+                range: 0...min(0.42, 0.34 * intensityScale * peakSafety)
+            ),
+            lowLevelCompensation: clampedFinite(
+                source.lowLevelCompensation,
+                fallback: fallback.lowLevelCompensation,
+                range: 0...min(0.58, 0.48 * intensityScale)
+            )
+        )
+    }
+
+    private static func monoEnhanceFallback(
+        for features: AIEqualizerAudioFeatures,
+        tuningProfile: AIEqualizerTuningProfile
+    ) -> MonoEnhanceConfiguration {
+        let crestFactor = min(1, max(0, (features.crestFactorDB - 5) / 11))
+        let transientActivity = min(1, max(0, features.transientDensity))
+        let density = min(1, max(0, (features.spectralFlatness - 0.25) / 0.55))
+        let vocalConfidence = features.vocalReference?.confidence ?? 0
+        let vocalPresence = features.vocalReference?.presence ?? 0
+        let vocalBrightness = max(
+            features.vocalReference?.brightness ?? 0,
+            features.vocalReference?.airiness ?? 0
+        )
+        let highDeficit = min(1, max(0, (0.24 - features.highEnergyRatio) / 0.18))
+        let dynamicCompression = min(1, max(0, (9 - features.dynamicSpreadDB) / 7))
+        let spatialProfile = tuningProfile == .monoSpatialEnhancement
+        let deviceLowFocus: Float
+        switch features.outputKind {
+        case "builtInSpeaker": deviceLowFocus = 0.24
+        case "car", "airPlay": deviceLowFocus = 0.34
+        default: deviceLowFocus = 0.42
+        }
+
+        return MonoEnhanceConfiguration(
+            isEnabled: true,
+            transientAttack: 0.10 + crestFactor * 0.11 + transientActivity * 0.05,
+            transientSustain: 0.07 + dynamicCompression * 0.10,
+            vocalFocus: 0.10 + vocalConfidence * vocalPresence * 0.20,
+            airAmount: 0.07 + highDeficit * 0.12,
+            deEssAmount: 0.12 + vocalConfidence * vocalBrightness * 0.30,
+            lowFrequencyFocus: deviceLowFocus + max(0, features.lowEnergyRatio - 0.34) * 0.35,
+            stageWidth: spatialProfile ? 0.60 - density * 0.12 : 0.08,
+            microDynamics: 0.10 + dynamicCompression * 0.16,
+            lowLevelCompensation: features.outputKind == "builtInSpeaker" ? 0.20 : 0.14
         )
     }
 
@@ -779,26 +1171,6 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
             return MonoEffectTuningConfiguration(finalLimiterEnabled: true)
         }
 
-        let supportsHeadphoneSpatial = ["wired", "bluetooth", "usb"].contains(features.outputKind)
-        let bs2bEnabled = supportsHeadphoneSpatial && value.bs2bEnabled
-        var crossfeedEnabled = supportsHeadphoneSpatial && value.crossfeedEnabled
-        if bs2bEnabled && crossfeedEnabled {
-            // Both solve the same headphone-crosstalk problem. Avoid stacking.
-            crossfeedEnabled = false
-        }
-        let phaseSafe = features.phaseCorrelation >= 0.05 && features.monoCompatibility >= 0.45
-        let haasEnabled = value.haasEnabled && phaseSafe && !bs2bEnabled && !crossfeedEnabled
-
-        var subboostEnabled = value.subboostEnabled
-        var virtualBassEnabled = value.virtualBassEnabled
-        if subboostEnabled && virtualBassEnabled {
-            if features.outputKind == "builtInSpeaker" {
-                subboostEnabled = false
-            } else {
-                virtualBassEnabled = false
-            }
-        }
-
         return MonoEffectTuningConfiguration(
             // Offline-style loudnorm is not safe in Mono's realtime render
             // chain. Measured loudness matching and the final limiter cover it.
@@ -806,9 +1178,7 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
             targetLUFS: clampedFinite(value.targetLUFS, fallback: -14, range: -24 ... -9),
             targetLRA: clampedFinite(value.targetLRA, fallback: 9, range: 3...18),
             truePeakCeilingDB: clampedFinite(value.truePeakCeilingDB, fallback: -1, range: -3 ... -0.2),
-            compressorEnabled: value.compressorEnabled
-                && !professional.dynamicEQ.enabled
-                && !professional.multiband.enabled,
+            compressorEnabled: false,
             compressorThresholdDB: clampedFinite(value.compressorThresholdDB, fallback: -18, range: -36 ... -4),
             compressorRatio: clampedFinite(
                 value.compressorRatio,
@@ -822,35 +1192,35 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
                 fallback: 0,
                 range: -min(3, intensity.enhancementGainMaximum)...min(6, intensity.enhancementGainMaximum)
             ),
-            subboostEnabled: subboostEnabled,
+            subboostEnabled: false,
             subboostGainDB: clampedFinite(
                 value.subboostGainDB,
                 fallback: 0,
                 range: 0...intensity.enhancementGainMaximum
             ),
             subboostCutoffHz: clampedFinite(value.subboostCutoffHz, fallback: 90, range: 40...180),
-            bs2bEnabled: bs2bEnabled,
+            bs2bEnabled: false,
             bs2bCutoffHz: min(1_500, max(400, value.bs2bCutoffHz)),
             bs2bFeed: min(100, max(10, value.bs2bFeed)),
-            crossfeedEnabled: crossfeedEnabled,
+            crossfeedEnabled: false,
             crossfeedStrength: clampedFinite(value.crossfeedStrength, fallback: 0.2, range: 0...0.55),
-            haasEnabled: haasEnabled,
+            haasEnabled: false,
             haasDelayMS: clampedFinite(value.haasDelayMS, fallback: 12, range: 1...25),
-            virtualBassEnabled: virtualBassEnabled,
+            virtualBassEnabled: false,
             virtualBassCutoffHz: clampedFinite(value.virtualBassCutoffHz, fallback: 180, range: 80...320),
             virtualBassStrength: clampedFinite(
                 value.virtualBassStrength,
                 fallback: 0,
                 range: 0...min(6, intensity.enhancementGainMaximum)
             ),
-            exciterEnabled: value.exciterEnabled,
+            exciterEnabled: false,
             exciterAmountDB: clampedFinite(
                 value.exciterAmountDB,
                 fallback: 0,
                 range: 0...min(6, intensity.enhancementGainMaximum)
             ),
             exciterFrequencyHz: clampedFinite(value.exciterFrequencyHz, fallback: 7_500, range: 3_000...14_000),
-            softclipEnabled: value.softclipEnabled,
+            softclipEnabled: false,
             softclipType: min(7, max(0, value.softclipType)),
             finalLimiterEnabled: value.finalLimiterEnabled,
             finalLimiterCeilingDB: clampedFinite(value.finalLimiterCeilingDB, fallback: -1, range: -3 ... -0.2)
@@ -888,23 +1258,33 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
             let deviceLimit: (surround: Float, reverb: Float, width: Float)
             switch features.outputKind {
             case "builtInSpeaker":
-                deviceLimit = (0.11, 0.04, 1.08)
+                deviceLimit = (0.32, 0.40, 1.26)
             case "car":
-                deviceLimit = (0.18, 0.07, 1.12)
-            case "wired", "bluetooth", "usb":
-                deviceLimit = (0.30, 0.14, 1.24)
+                deviceLimit = (0.28, 0.34, 1.24)
+            case "airPlay":
+                deviceLimit = (0.32, 0.36, 1.28)
+            case "bluetooth":
+                deviceLimit = (0.40, 0.40, 1.36)
+            case "wired", "usb":
+                deviceLimit = (0.44, 0.44, 1.40)
             default:
-                deviceLimit = (0.22, 0.10, 1.18)
+                deviceLimit = (0.36, 0.38, 1.31)
             }
-            surround = min(deviceLimit.surround, surround + 0.06 + 0.03 * dynamicFactor)
-            reverb = min(deviceLimit.reverb, max(minimumReverb, reverb + 0.018 + 0.012 * dynamicFactor))
-            width = min(deviceLimit.width, max(1.04, width + 0.05 + 0.02 * dynamicFactor))
+            surround = min(deviceLimit.surround, surround + 0.14 + 0.05 * dynamicFactor)
+            reverb = min(deviceLimit.reverb, max(minimumReverb, reverb + 0.05 + 0.022 * dynamicFactor))
+            width = min(deviceLimit.width, max(1.08, width + 0.12 + 0.04 * dynamicFactor))
+
+            return AIEqualizerSpatialConfiguration(
+                surroundLevel: min(deviceLimit.surround, max(0, surround)),
+                reverbLevel: min(deviceLimit.reverb, max(minimumReverb, reverb)),
+                stereoWidth: min(deviceLimit.width, max(1, width))
+            )
         }
 
         return AIEqualizerSpatialConfiguration(
-            surroundLevel: min(0.24, max(0, surround)),
-            reverbLevel: min(0.10, max(minimumReverb, reverb)),
-            stereoWidth: min(1.16, max(1, width))
+            surroundLevel: min(0.14, max(0, surround)),
+            reverbLevel: min(0.07, max(minimumReverb, reverb)),
+            stereoWidth: min(1.12, max(1, width))
         )
     }
 

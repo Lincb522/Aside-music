@@ -80,6 +80,13 @@ private final class FFmpegIOInterruptionController {
         os_unfair_lock_unlock(&lock)
         return value
     }
+
+    var hasPendingWake: Bool {
+        os_unfair_lock_lock(&lock)
+        let value = wakeRequested
+        os_unfair_lock_unlock(&lock)
+        return value
+    }
 }
 
 private func monoFFmpegInterruptCallback(_ opaque: UnsafeMutableRawPointer?) -> Int32 {
@@ -187,6 +194,10 @@ final class FFmpegFormatContext {
 
     var wasExplicitlyCancelled: Bool {
         interruptionController.wasCancelled
+    }
+
+    var hasPendingIOWake: Bool {
+        interruptionController.hasPendingWake
     }
 
     // MARK: - Operations

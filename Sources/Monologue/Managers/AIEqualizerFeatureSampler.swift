@@ -44,9 +44,9 @@ private actor AIEqualizerSpectrumAccumulator {
         let estimatesTruePeak: Bool
 
         static let normal = PCMCaptureProfile(
-            targetSampleRate: 12_000,
-            maximumDuration: 120,
-            estimatesTruePeak: true
+            targetSampleRate: 10_000,
+            maximumDuration: 36,
+            estimatesTruePeak: false
         )
 
         static let protected = PCMCaptureProfile(
@@ -338,9 +338,9 @@ private actor AIEqualizerSpectrumAccumulator {
         minimumFrames: Int
     ) throws -> AIEqualizerAudioFeatures {
         // 门槛必须与采样循环的 minimumValidFrames 一致：受保护低频采样
-        // （录屏/沉浸模式）可能以 24 帧合法收尾，这里再卡 48 会把已判定
+        // （录屏/沉浸模式）可能以 16 帧合法收尾，这里再卡 48 会把已判定
         // 成功的采样翻案成 sampleUnavailable。
-        guard frameCount >= max(24, minimumFrames) else { throw AIEqualizerError.sampleUnavailable }
+        guard frameCount >= max(16, minimumFrames) else { throw AIEqualizerError.sampleUnavailable }
 
         let measuredBandLevels = bandDBFrames.map {
             Self.trimmedMean($0, trimFraction: 0.12)
@@ -1114,27 +1114,27 @@ final class AIEqualizerFeatureSampler {
         let cadence: SamplingCadence
         switch thermalState {
         case .nominal:
-            cadence = SamplingCadence(spectrumInterval: 0.08, pcmInterval: 0.08)
+            cadence = SamplingCadence(spectrumInterval: 0.16, pcmInterval: 0.50)
         case .fair:
-            cadence = SamplingCadence(spectrumInterval: 0.11, pcmInterval: 0.14)
+            cadence = SamplingCadence(spectrumInterval: 0.22, pcmInterval: 0.70)
         case .serious:
-            cadence = SamplingCadence(spectrumInterval: 0.15, pcmInterval: 0.24)
+            cadence = SamplingCadence(spectrumInterval: 0.32, pcmInterval: 1.00)
         case .critical:
-            cadence = SamplingCadence(spectrumInterval: 0.20, pcmInterval: 0.36)
+            cadence = SamplingCadence(spectrumInterval: 0.45, pcmInterval: 1.40)
         @unknown default:
-            cadence = SamplingCadence(spectrumInterval: 0.15, pcmInterval: 0.24)
+            cadence = SamplingCadence(spectrumInterval: 0.32, pcmInterval: 1.00)
         }
         var protectedCadence = cadence
         if lowPowerMode {
             protectedCadence = SamplingCadence(
-                spectrumInterval: max(protectedCadence.spectrumInterval, 0.16),
-                pcmInterval: max(protectedCadence.pcmInterval, 0.28)
+                spectrumInterval: max(protectedCadence.spectrumInterval, 0.32),
+                pcmInterval: max(protectedCadence.pcmInterval, 1.10)
             )
         }
         if screenCaptured {
             protectedCadence = SamplingCadence(
-                spectrumInterval: max(protectedCadence.spectrumInterval, 0.18),
-                pcmInterval: max(protectedCadence.pcmInterval, 0.42)
+                spectrumInterval: max(protectedCadence.spectrumInterval, 0.38),
+                pcmInterval: max(protectedCadence.pcmInterval, 1.35)
             )
         }
         // Aria runs an independent post-effect FFT for its visuals. Keep the
@@ -1143,8 +1143,8 @@ final class AIEqualizerFeatureSampler {
         // create an analysis-task burst that competes with audio rendering.
         if immersiveMode {
             protectedCadence = SamplingCadence(
-                spectrumInterval: max(protectedCadence.spectrumInterval, 0.14),
-                pcmInterval: max(protectedCadence.pcmInterval, 0.30)
+                spectrumInterval: max(protectedCadence.spectrumInterval, 0.30),
+                pcmInterval: max(protectedCadence.pcmInterval, 1.00)
             )
         }
         return protectedCadence
@@ -1187,8 +1187,8 @@ final class AIEqualizerFeatureSampler {
             screenCaptured: isScreenCaptured,
             immersiveMode: isImmersivePresented
         )
-        let expectedFrames = Int(samplingDuration / max(cadence.spectrumInterval, 0.08))
-        let minimumValidFrames = max(24, min(64, Int(Double(expectedFrames) * 0.55)))
+        let expectedFrames = Int(samplingDuration / max(cadence.spectrumInterval, 0.16))
+        let minimumValidFrames = max(16, min(48, Int(Double(expectedFrames) * 0.55)))
 
         // Buffer only the newest undigested callback. The old implementation
         // created a new unstructured task for every FFT and PCM delivery. Under
@@ -1323,8 +1323,8 @@ final class AIEqualizerFeatureSampler {
             if let protectionUntil = immersiveTransitionProtectionUntil {
                 if Date() < protectionUntil {
                     nextCadence = SamplingCadence(
-                        spectrumInterval: max(nextCadence.spectrumInterval, 0.35),
-                        pcmInterval: max(nextCadence.pcmInterval, 0.70)
+                        spectrumInterval: max(nextCadence.spectrumInterval, 0.50),
+                        pcmInterval: max(nextCadence.pcmInterval, 1.60)
                     )
                 } else {
                     immersiveTransitionProtectionUntil = nil

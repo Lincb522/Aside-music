@@ -120,17 +120,33 @@ enum SecureConfig {
     }
     
     // MARK: - API 服务器
-    
-    /// ncm API 服务器地址
-    static var apiBaseURL: String {
-        if let envURL = ProcessInfo.processInfo.environment["API_BASE_URL"],
-           !envURL.isEmpty {
-            return envURL
+
+    /// 读取配置值：环境变量优先，其次 Info.plist（忽略未展开的 $(...) 占位）
+    private static func configValue(_ key: String) -> String? {
+        if let envValue = ProcessInfo.processInfo.environment[key],
+           !envValue.isEmpty {
+            return envValue
         }
-        if let plistURL = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String,
-           !plistURL.isEmpty,
-           !plistURL.hasPrefix("$(") {
-            return plistURL
+        if let plistValue = Bundle.main.object(forInfoDictionaryKey: key) as? String,
+           !plistValue.isEmpty,
+           !plistValue.hasPrefix("$(") {
+            return plistValue
+        }
+        return nil
+    }
+
+    /// 是否配置了备用线路
+    static var hasBackupLine: Bool {
+        configValue("API_BASE_URL_BACKUP") != nil
+    }
+
+    /// ncm API 服务器地址（指定线路）
+    static func apiBaseURL(for line: ServerLine) -> String {
+        if line == .backup, let backup = configValue("API_BASE_URL_BACKUP") {
+            return backup
+        }
+        if let primary = configValue("API_BASE_URL") {
+            return primary
         }
         AppLogger.error("API_BASE_URL 未配置，请在 Secrets.xcconfig 中设置")
         #if DEBUG
@@ -140,17 +156,14 @@ enum SecureConfig {
         return "http://localhost:3000"
         #endif
     }
-    
-    /// qcm API 服务器地址
-    static var qqMusicBaseURL: String {
-        if let envURL = ProcessInfo.processInfo.environment["QQ_MUSIC_BASE_URL"],
-           !envURL.isEmpty {
-            return envURL
+
+    /// qcm API 服务器地址（指定线路）
+    static func qqMusicBaseURL(for line: ServerLine) -> String {
+        if line == .backup, let backup = configValue("QQ_MUSIC_BASE_URL_BACKUP") {
+            return backup
         }
-        if let plistURL = Bundle.main.object(forInfoDictionaryKey: "QQ_MUSIC_BASE_URL") as? String,
-           !plistURL.isEmpty,
-           !plistURL.hasPrefix("$(") {
-            return plistURL
+        if let primary = configValue("QQ_MUSIC_BASE_URL") {
+            return primary
         }
         AppLogger.error("QQ_MUSIC_BASE_URL 未配置，请在 Secrets.xcconfig 中设置")
         #if DEBUG
@@ -160,23 +173,34 @@ enum SecureConfig {
         return "http://localhost:8000"
         #endif
     }
-    
-    /// 汽水音乐 API 服务器地址
-    static var qishuiBaseURL: String {
-        if let envURL = ProcessInfo.processInfo.environment["QISHUI_BASE_URL"],
-           !envURL.isEmpty {
-            return envURL
+
+    /// 汽水音乐 API 服务器地址（指定线路）
+    static func qishuiBaseURL(for line: ServerLine) -> String {
+        if line == .backup, let backup = configValue("QISHUI_BASE_URL_BACKUP") {
+            return backup
         }
-        if let plistURL = Bundle.main.object(forInfoDictionaryKey: "QISHUI_BASE_URL") as? String,
-           !plistURL.isEmpty,
-           !plistURL.hasPrefix("$(") {
-            return plistURL
+        if line == .primary, let primary = configValue("QISHUI_BASE_URL") {
+            return primary
         }
-        // 回退机制：如果没配专门的汽水地址，就用 QCM 的地址加上 /qishui
-        let base = qqMusicBaseURL.hasSuffix("/")
-            ? String(qqMusicBaseURL.dropLast())
-            : qqMusicBaseURL
+        // 回退机制：如果没配专门的汽水地址，就用对应线路 QCM 的地址加上 /qishui
+        let qqBase = qqMusicBaseURL(for: line)
+        let base = qqBase.hasSuffix("/") ? String(qqBase.dropLast()) : qqBase
         return "\(base)/qishui"
+    }
+
+    /// ncm API 服务器地址（当前线路）
+    static var apiBaseURL: String {
+        apiBaseURL(for: ServerLineManager.currentLine)
+    }
+
+    /// qcm API 服务器地址（当前线路）
+    static var qqMusicBaseURL: String {
+        qqMusicBaseURL(for: ServerLineManager.currentLine)
+    }
+
+    /// 汽水音乐 API 服务器地址（当前线路）
+    static var qishuiBaseURL: String {
+        qishuiBaseURL(for: ServerLineManager.currentLine)
     }
 
     /// Mono 官网地址，用于公开分享页与短链接

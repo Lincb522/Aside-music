@@ -528,8 +528,12 @@ private struct AriaFoliaAtmosphere: View {
                 let driftA = CGFloat(sin(time / 17 + phase))
                 let driftB = CGFloat(cos(time / 23 + phase * 0.7))
                 let snapshot = pulse.snapshot()
+                // 副歌预判蓄力：命中前光场逐渐升温；导演氛围值垫高梦境段的底光
+                let tensionCurve = pow(snapshot.tension, 1.18)
+                let tensionLift = tensionCurve * (0.22 + tensionCurve * 0.28)
+                let ambienceLift = snapshot.ambience * 0.36
                 let energy = isPlaying
-                    ? min(max(snapshot.energy * 0.82 + snapshot.mid * 0.18, 0), 1)
+                    ? min(max(snapshot.energy * 0.82 + snapshot.mid * 0.18 + tensionLift + ambienceLift, 0), 1)
                     : 0
                 let ribbonLift = driftA * size.height * 0.025
                 let lowerRibbonLift = driftB * size.height * 0.022
@@ -599,11 +603,15 @@ private struct AriaFoliaAtmosphere: View {
                         Gradient(stops: [
                             .init(color: .clear, location: 0),
                             .init(
-                                color: palette.secondary.opacity(0.035 + energy * 0.03),
+                                color: palette.secondary.opacity(
+                                    0.035 + energy * 0.03 + snapshot.ambience * 0.055
+                                ),
                                 location: max(0.02, washCenterB - 0.16)
                             ),
                             .init(
-                                color: palette.secondary.opacity(0.05 + energy * 0.035),
+                                color: palette.secondary.opacity(
+                                    0.05 + energy * 0.035 + snapshot.ambience * 0.09
+                                ),
                                 location: washCenterB
                             ),
                             .init(color: .clear, location: 1)
@@ -762,6 +770,10 @@ struct AriaStageShell: View {
     var isStageActive = true
     /// 歌词景深强度：以「背景更虚、更沉」表达对焦分离，不绘制任何形状化底衬。
     var depthIntensity: Double = 0
+    /// GPU 着色器舞台（iOS 17+）：连续光学折射 + 镜头色散，只作用于封面背景层。
+    var gpuEffectsEnabled = false
+    /// AI 舞台导演：段落基调光幕（分幕色彩），叠加在背景组之上。
+    var directorMoodEnabled = false
 
     var body: some View {
         let depth = pow(min(max(depthIntensity, 0), 1), 0.72)
@@ -778,24 +790,38 @@ struct AriaStageShell: View {
                 Color.black.opacity(0.16 * depth)
 
             } else {
-                AriaFluidBackground(
-                    coverUrl: coverUrl,
-                    palette: palette,
-                    backgroundOpacity: backgroundOpacity,
-                    depthIntensity: depthIntensity
-                )
-                .equatable()
+                ZStack {
+                    AriaFluidBackground(
+                        coverUrl: coverUrl,
+                        palette: palette,
+                        backgroundOpacity: backgroundOpacity,
+                        depthIntensity: depthIntensity
+                    )
+                    .equatable()
 
-                AriaFoliaAtmosphere(
+                    AriaFoliaAtmosphere(
+                        pulse: pulse,
+                        palette: palette,
+                        isPlaying: isPlaying && isStageActive,
+                        motionEnabled: !reduceMotion,
+                        seed: seed
+                    )
+                    // Rebuild on track changes so each album gets a stable scene.
+                    .id(seed)
+                }
+                // 着色器只包背景组：暗角/颗粒等完成层不参与扭曲，屏幕边缘不会晃
+                .ariaGPUStage(
                     pulse: pulse,
-                    palette: palette,
-                    isPlaying: isPlaying && isStageActive,
-                    motionEnabled: !reduceMotion,
-                    seed: seed
+                    isActive: isPlaying && isStageActive && !reduceMotion,
+                    enabled: gpuEffectsEnabled
                 )
-                // Rebuild on track changes so each album gets a stable scene.
-                .id(seed)
 
+            }
+
+            // 分幕光幕同时覆盖封面与视频背景。它不参与 GPU 位移，避免色彩
+            // 被拉扯；完成层仍在其上方统一保证歌词可读性。
+            if directorMoodEnabled {
+                AriaDirectorMoodVeil(isPlaying: isPlaying && isStageActive)
             }
 
             // 遮罩、颗粒和暗角都是静态完成层。隔离为 Equatable 子树，避免

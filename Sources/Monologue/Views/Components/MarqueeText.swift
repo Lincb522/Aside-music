@@ -24,7 +24,9 @@ struct MarqueeText: View {
             let cw = geo.size.width
             ZStack {
                 if needsScroll {
-                    TimelineView(.animation) { context in
+                    TimelineView(
+                        AppFrameRate.animationTimeline(maximumFramesPerSecond: 60)
+                    ) { context in
                         HStack(spacing: spacing) {
                             textView
                             textView

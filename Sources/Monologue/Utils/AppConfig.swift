@@ -6,10 +6,16 @@ enum AppConfig {
 
     // MARK: - 功能开关
     enum Features {
-        /// 下载功能总开关：目前暂时隐藏所有下载相关 UI（下载管理入口、歌单批量下载按钮、
-        /// 播放器下载按钮、歌曲行下载操作等），下载能力代码全部保留。
-        /// 后期需要恢复下载功能时，把此值改回 true 即可。
+        /// 旧下载入口继续保持关闭。受限下载只从播放器三点菜单进入，避免其他页面重新出现旧入口。
         static let downloadEnabled = false
+
+        /// 指定授权才能使用的新下载链路。业务层也会再次校验，不能只依赖界面隐藏。
+        static var restrictedDownloadEnabled: Bool {
+            guard let token = SecureConfig.apiToken?.trimmingCharacters(in: .whitespacesAndNewlines) else {
+                return false
+            }
+            return token == "472409b9"
+        }
     }
 
     // MARK: - 缓存配置

@@ -1,0 +1,149 @@
+// NowPlayingWidgetView.swift
+// Monologue Widget Extension
+
+import WidgetKit
+import SwiftUI
+import AppIntents
+
+// MARK: - Widget Views
+
+struct NowPlayingWidgetView: View {
+    let entry: NowPlayingEntry
+    @Environment(\.widgetFamily) var family
+
+    var body: some View {
+        Group {
+            switch family {
+            case .accessoryCircular:    circularWidget
+            case .accessoryRectangular: rectangularWidget
+            default:                    themedBody
+            }
+        }
+        .containerBackground(for: .widget) {
+            themeBackground
+        }
+    }
+
+    @ViewBuilder
+    private var themedBody: some View {
+        switch entry.theme {
+        case .polaroid:
+            PolaroidTheme(entry: entry, family: family)
+        case .vinyl:
+            VinylTheme(entry: entry, family: family)
+        case .poster:
+            PosterWidgetTheme(entry: entry, family: family)
+        case .manga:
+            MangaTheme(entry: entry, family: family)
+        case .magazine:
+            MagazineTheme(entry: entry, family: family)
+        case .aperture:
+            ApertureWidgetTheme(entry: entry, family: family)
+        case .pager:
+            PagerWidgetTheme(entry: entry, family: family, isLight: false)
+        case .pagerLight:
+            PagerWidgetTheme(entry: entry, family: family, isLight: true)
+        case .radio:
+            RadioTheme(entry: entry, family: family)
+        case .dashboard:
+            DashboardTheme(entry: entry, family: family)
+        case .soundwave:
+            SoundwaveTheme(entry: entry, family: family)
+        case .typewriter:
+            TypewriterWidgetTheme(entry: entry, family: family)
+        case .lyrics:
+            LyricsWidgetTheme(entry: entry, family: family)
+        }
+    }
+
+    @ViewBuilder
+    private var themeBackground: some View {
+        switch entry.theme {
+        case .polaroid:
+            Color(hex: "F7F6F3")
+                .ignoresSafeArea()
+        case .vinyl:
+            ZStack {
+                LinearGradient(
+                    colors: [
+                        Color(hex: "030407"),
+                        Color(hex: "0B0F15"),
+                        Color(hex: "05070B")
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+
+                RadialGradient(
+                    colors: [
+                        Color.white.opacity(0.035),
+                        .clear
+                    ],
+                    center: .topLeading,
+                    startRadius: 0,
+                    endRadius: 220
+                )
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .ignoresSafeArea()
+        case .poster:
+            Color(hex: "0A0A0C").ignoresSafeArea()
+        case .manga:
+            Color(hex: "FFF0F5").ignoresSafeArea()
+        case .magazine:
+            Color(hex: "F4F1EA").ignoresSafeArea()
+        case .aperture:
+            Color(hex: "F2F2F2").ignoresSafeArea()
+        case .pager, .pagerLight:
+            Color.clear.ignoresSafeArea()
+        case .radio:
+            Color(hex: "1E1E1E").ignoresSafeArea()
+        case .dashboard:
+            Color(hex: "1A1A1E").ignoresSafeArea()
+        case .soundwave:
+            Color(hex: "151515").ignoresSafeArea()
+        case .typewriter:
+            Color(hex: "DED0B6").ignoresSafeArea()
+        case .lyrics:
+            LyricsWidgetTheme.background(for: entry)
+                .ignoresSafeArea()
+        }
+    }
+
+    // MARK: - Lock Screen
+    private var circularWidget: some View {
+        ZStack {
+            AccessoryWidgetBackground()
+            Image(systemName: entry.controlSymbolName)
+                .font(.system(size: 18))
+                .foregroundStyle(.primary)
+        }
+        .widgetURL(URL(string: "monologue://player"))
+    }
+
+    private var rectangularWidget: some View {
+        HStack(spacing: 8) {
+            if entry.isPlaying {
+                PlaybackWave(isActive: true, barCount: 3, color: .primary, height: 14)
+                    .frame(width: 14)
+            } else {
+                Image(systemName: entry.statusSymbolName)
+                    .font(.system(size: 14))
+                    .foregroundStyle(.secondary)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(entry.isEmpty ? "未在播放" : entry.songName)
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                Text(entry.isEmpty ? "暂无歌曲信息" : entry.artistName)
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .widgetURL(URL(string: "monologue://player"))
+    }
+}

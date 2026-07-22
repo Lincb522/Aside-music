@@ -62,12 +62,16 @@ private func monologueSystemSheetContent<SheetContent: View>(
     .environment(\.monologueSheetContext, MonologueSheetContext(preset: preset))
     .environment(\.monologueSheetDismiss, dismissAction)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-    .background {
-        if MonologueSheetThemeStyle.usesCustomThemeSurface && !supportsPresentationBackground {
-            monologueSheetBottomAttachedSurface(
-                MonologueSheetSurfaceBackground(cornerRadius: preset.monologueResolvedCornerRadius),
-                attachesToBottom: attachesToBottom
-            )
+    .backgroundPreferenceValue(MonologueSheetSurfacePreferenceKey.self) { customSurface in
+        ZStack {
+            if let customSurface {
+                customSurface.view
+            } else if MonologueSheetThemeStyle.usesCustomThemeSurface && !supportsPresentationBackground {
+                monologueSheetBottomAttachedSurface(
+                    MonologueSheetSurfaceBackground(cornerRadius: preset.monologueResolvedCornerRadius),
+                    attachesToBottom: attachesToBottom
+                )
+            }
         }
     }
     .overlay {

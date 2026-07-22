@@ -1579,7 +1579,6 @@ private struct EQProfessionalSettingsView: View {
             AnyView(
                 VStack(alignment: .leading, spacing: 16) {
                     masteringSection
-                    enhancementSection
                 }
             )
         )
@@ -1590,7 +1589,6 @@ private struct EQProfessionalSettingsView: View {
             AnyView(
                 VStack(alignment: .leading, spacing: 16) {
                     headphoneSection
-                    headphoneSpatialSection
                 }
             )
         )
@@ -1728,80 +1726,6 @@ private struct EQProfessionalSettingsView: View {
     private var masteringSection: some View {
         professionalSection("eq_mastering") {
             switchRow(
-                "eq_loudness_normalization",
-                detail: String(format: "%.1f LUFS · %.1f LU", manager.monoEffectTuning.targetLUFS, manager.monoEffectTuning.targetLRA),
-                isOn: monoEffectBoolBinding(\.loudnessNormalizationEnabled)
-            )
-            if manager.monoEffectTuning.loudnessNormalizationEnabled {
-                parameterSlider(
-                    title: String(localized: "eq_target_lufs"),
-                    value: monoEffectFloatBinding(\.targetLUFS),
-                    range: -24 ... -9,
-                    step: 0.5,
-                    valueText: String(format: "%.1f LUFS", manager.monoEffectTuning.targetLUFS)
-                )
-                parameterSlider(
-                    title: String(localized: "eq_target_lra"),
-                    value: monoEffectFloatBinding(\.targetLRA),
-                    range: 3...18,
-                    step: 0.5,
-                    valueText: String(format: "%.1f LU", manager.monoEffectTuning.targetLRA)
-                )
-                parameterSlider(
-                    title: String(localized: "eq_true_peak_ceiling"),
-                    value: monoEffectFloatBinding(\.truePeakCeilingDB),
-                    range: -3 ... -0.2,
-                    step: 0.1,
-                    valueText: String(format: "%.1f dBTP", manager.monoEffectTuning.truePeakCeilingDB)
-                )
-            }
-
-            sectionDivider
-            switchRow(
-                "eq_compressor",
-                detail: String(format: "%.1f dB · %.1f:1", manager.monoEffectTuning.compressorThresholdDB, manager.monoEffectTuning.compressorRatio),
-                isOn: monoEffectBoolBinding(\.compressorEnabled)
-            )
-            if manager.monoEffectTuning.compressorEnabled {
-                parameterSlider(
-                    title: String(localized: "eq_compressor_threshold"),
-                    value: monoEffectFloatBinding(\.compressorThresholdDB),
-                    range: -36 ... -4,
-                    step: 0.5,
-                    valueText: String(format: "%.1f dB", manager.monoEffectTuning.compressorThresholdDB)
-                )
-                parameterSlider(
-                    title: String(localized: "eq_compressor_ratio"),
-                    value: monoEffectFloatBinding(\.compressorRatio),
-                    range: 1...6,
-                    step: 0.1,
-                    valueText: String(format: "%.1f:1", manager.monoEffectTuning.compressorRatio)
-                )
-                parameterSlider(
-                    title: String(localized: "eq_attack"),
-                    value: monoEffectFloatBinding(\.compressorAttackMS),
-                    range: 1...200,
-                    step: 1,
-                    valueText: String(format: "%.0f ms", manager.monoEffectTuning.compressorAttackMS)
-                )
-                parameterSlider(
-                    title: String(localized: "eq_release"),
-                    value: monoEffectFloatBinding(\.compressorReleaseMS),
-                    range: 30...1_200,
-                    step: 5,
-                    valueText: String(format: "%.0f ms", manager.monoEffectTuning.compressorReleaseMS)
-                )
-                parameterSlider(
-                    title: String(localized: "eq_makeup_gain"),
-                    value: monoEffectFloatBinding(\.compressorMakeupDB),
-                    range: -3...6,
-                    step: 0.1,
-                    valueText: String(format: "%+.1f dB", manager.monoEffectTuning.compressorMakeupDB)
-                )
-            }
-
-            sectionDivider
-            switchRow(
                 "eq_final_limiter",
                 detail: String(format: "%.1f dBFS", manager.monoEffectTuning.finalLimiterCeilingDB),
                 isOn: monoEffectBoolBinding(\.finalLimiterEnabled)
@@ -1859,152 +1783,6 @@ private struct EQProfessionalSettingsView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-            }
-        }
-    }
-
-    private var headphoneSpatialSection: some View {
-        professionalSection("eq_headphone_spatial") {
-            switchRow(
-                "eq_bs2b",
-                detail: String(format: "%d Hz · %.1f dB", manager.monoEffectTuning.bs2bCutoffHz, Float(manager.monoEffectTuning.bs2bFeed) / 10),
-                isOn: exclusiveHeadphoneBinding(\.bs2bEnabled)
-            )
-            if manager.monoEffectTuning.bs2bEnabled {
-                parameterSlider(
-                    title: String(localized: "eq_bs2b_cutoff"),
-                    value: monoEffectIntBinding(\.bs2bCutoffHz),
-                    range: 400...1_500,
-                    step: 10,
-                    valueText: "\(manager.monoEffectTuning.bs2bCutoffHz) Hz"
-                )
-                parameterSlider(
-                    title: String(localized: "eq_bs2b_feed"),
-                    value: monoEffectIntBinding(\.bs2bFeed),
-                    range: 10...100,
-                    step: 1,
-                    valueText: String(format: "%.1f dB", Float(manager.monoEffectTuning.bs2bFeed) / 10)
-                )
-            }
-
-            sectionDivider
-            switchRow(
-                "eq_crossfeed",
-                detail: "\(Int(manager.monoEffectTuning.crossfeedStrength * 100))%",
-                isOn: exclusiveHeadphoneBinding(\.crossfeedEnabled)
-            )
-            if manager.monoEffectTuning.crossfeedEnabled {
-                parameterSlider(
-                    title: String(localized: "eq_crossfeed_strength"),
-                    value: monoEffectFloatBinding(\.crossfeedStrength),
-                    range: 0...0.55,
-                    step: 0.01,
-                    valueText: "\(Int(manager.monoEffectTuning.crossfeedStrength * 100))%"
-                )
-            }
-
-            sectionDivider
-            switchRow(
-                "eq_haas",
-                detail: String(format: "%.1f ms", manager.monoEffectTuning.haasDelayMS),
-                isOn: exclusiveHeadphoneBinding(\.haasEnabled)
-            )
-            if manager.monoEffectTuning.haasEnabled {
-                parameterSlider(
-                    title: String(localized: "eq_haas_delay"),
-                    value: monoEffectFloatBinding(\.haasDelayMS),
-                    range: 1...25,
-                    step: 0.5,
-                    valueText: String(format: "%.1f ms", manager.monoEffectTuning.haasDelayMS)
-                )
-            }
-        }
-    }
-
-    private var enhancementSection: some View {
-        professionalSection("eq_tone_enhancement") {
-            switchRow(
-                "eq_subboost",
-                detail: String(format: "%+.1f dB · %.0f Hz", manager.monoEffectTuning.subboostGainDB, manager.monoEffectTuning.subboostCutoffHz),
-                isOn: exclusiveBassBinding(\.subboostEnabled)
-            )
-            if manager.monoEffectTuning.subboostEnabled {
-                parameterSlider(
-                    title: String(localized: "eq_subboost_gain"),
-                    value: monoEffectFloatBinding(\.subboostGainDB),
-                    range: 0...8,
-                    step: 0.1,
-                    valueText: String(format: "%+.1f dB", manager.monoEffectTuning.subboostGainDB)
-                )
-                parameterSlider(
-                    title: String(localized: "eq_subboost_cutoff"),
-                    value: monoEffectFloatBinding(\.subboostCutoffHz),
-                    range: 40...180,
-                    step: 1,
-                    valueText: String(format: "%.0f Hz", manager.monoEffectTuning.subboostCutoffHz)
-                )
-            }
-
-            sectionDivider
-            switchRow(
-                "eq_virtual_bass",
-                detail: "\(Int(manager.monoEffectTuning.virtualBassStrength * 100 / 6))%",
-                isOn: exclusiveBassBinding(\.virtualBassEnabled)
-            )
-            if manager.monoEffectTuning.virtualBassEnabled {
-                parameterSlider(
-                    title: String(localized: "eq_virtual_bass_cutoff"),
-                    value: monoEffectFloatBinding(\.virtualBassCutoffHz),
-                    range: 80...320,
-                    step: 5,
-                    valueText: String(format: "%.0f Hz", manager.monoEffectTuning.virtualBassCutoffHz)
-                )
-                parameterSlider(
-                    title: String(localized: "eq_virtual_bass_strength"),
-                    value: monoEffectFloatBinding(\.virtualBassStrength),
-                    range: 0...6,
-                    step: 0.1,
-                    valueText: String(format: "%.1f", manager.monoEffectTuning.virtualBassStrength)
-                )
-            }
-
-            sectionDivider
-            switchRow(
-                "eq_exciter",
-                detail: String(format: "%+.1f dB · %.1f kHz", manager.monoEffectTuning.exciterAmountDB, manager.monoEffectTuning.exciterFrequencyHz / 1_000),
-                isOn: monoEffectBoolBinding(\.exciterEnabled)
-            )
-            if manager.monoEffectTuning.exciterEnabled {
-                parameterSlider(
-                    title: String(localized: "eq_exciter_amount"),
-                    value: monoEffectFloatBinding(\.exciterAmountDB),
-                    range: 0...6,
-                    step: 0.1,
-                    valueText: String(format: "%+.1f dB", manager.monoEffectTuning.exciterAmountDB)
-                )
-                parameterSlider(
-                    title: String(localized: "eq_exciter_frequency"),
-                    value: monoEffectFloatBinding(\.exciterFrequencyHz),
-                    range: 3_000...14_000,
-                    step: 100,
-                    valueText: String(format: "%.1f kHz", manager.monoEffectTuning.exciterFrequencyHz / 1_000)
-                )
-            }
-
-            sectionDivider
-            switchRow(
-                "eq_softclip",
-                detail: "\(manager.monoEffectTuning.softclipType + 1)",
-                isOn: monoEffectBoolBinding(\.softclipEnabled)
-            )
-            if manager.monoEffectTuning.softclipEnabled {
-                parameterSlider(
-                    title: String(localized: "eq_softclip_type"),
-                    value: monoEffectIntBinding(\.softclipType),
-                    range: 0...7,
-                    step: 1,
-                    valueText: "\(manager.monoEffectTuning.softclipType + 1)"
-                )
             }
         }
     }
@@ -2360,54 +2138,6 @@ private struct EQProfessionalSettingsView: View {
             get: { manager.monoEffectTuning[keyPath: keyPath] },
             set: { value in
                 var configuration = manager.monoEffectTuning
-                configuration[keyPath: keyPath] = value
-                manager.monoEffectTuning = configuration
-            }
-        )
-    }
-
-    private func monoEffectIntBinding(
-        _ keyPath: WritableKeyPath<MonoEffectTuningConfiguration, Int>
-    ) -> Binding<Float> {
-        Binding(
-            get: { Float(manager.monoEffectTuning[keyPath: keyPath]) },
-            set: { value in
-                var configuration = manager.monoEffectTuning
-                configuration[keyPath: keyPath] = Int(value.rounded())
-                manager.monoEffectTuning = configuration
-            }
-        )
-    }
-
-    private func exclusiveHeadphoneBinding(
-        _ keyPath: WritableKeyPath<MonoEffectTuningConfiguration, Bool>
-    ) -> Binding<Bool> {
-        Binding(
-            get: { manager.monoEffectTuning[keyPath: keyPath] },
-            set: { value in
-                var configuration = manager.monoEffectTuning
-                if value {
-                    configuration.bs2bEnabled = false
-                    configuration.crossfeedEnabled = false
-                    configuration.haasEnabled = false
-                }
-                configuration[keyPath: keyPath] = value
-                manager.monoEffectTuning = configuration
-            }
-        )
-    }
-
-    private func exclusiveBassBinding(
-        _ keyPath: WritableKeyPath<MonoEffectTuningConfiguration, Bool>
-    ) -> Binding<Bool> {
-        Binding(
-            get: { manager.monoEffectTuning[keyPath: keyPath] },
-            set: { value in
-                var configuration = manager.monoEffectTuning
-                if value {
-                    configuration.subboostEnabled = false
-                    configuration.virtualBassEnabled = false
-                }
                 configuration[keyPath: keyPath] = value
                 manager.monoEffectTuning = configuration
             }

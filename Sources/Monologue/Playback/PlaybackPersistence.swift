@@ -217,6 +217,15 @@ final class PlaybackPersistence {
             player.contextIndex = insertIndex
         }
 
+        let distinctQueueSongCount = Set(
+            player.currentContextList.map {
+                PlayerManager.playbackIdentityKey(for: $0)
+            }
+        ).count
+        if player.mode != .loopSingle, distinctQueueSongCount <= 1 {
+            player.queueExhaustionBehavior = .stopAtEnd
+        }
+
         let restoredDuration = state.duration ?? song.dt.map { Double($0) / 1000 }
         let restoredTime = min(max(state.currentTime ?? 0, 0), max((restoredDuration ?? 0) - 0.5, 0))
         player.duration = restoredDuration ?? 0
@@ -308,6 +317,9 @@ final class PlaybackPersistence {
                 player.currentSong = song
                 player.context = [song]
                 player.contextIndex = 0
+                if player.mode != .loopSingle {
+                    player.queueExhaustionBehavior = .stopAtEnd
+                }
             }
             saveStateImmediately()
             CacheManager.shared.removeObject(forKey: "player_state_v4")

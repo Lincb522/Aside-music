@@ -231,6 +231,8 @@ struct AriaForeignClassicLyricStage: View {
     let fontScale: Double
     let time: Double
     let stageSize: CGSize
+    /// 人声呼吸字重 0~1（0 = 关闭）
+    var breathing: Double = 0
 
     var body: some View {
         if line.isInterlude {
@@ -251,7 +253,8 @@ struct AriaForeignClassicLyricStage: View {
                         palette: palette,
                         fontChoice: fontChoice,
                         fontSize: fontSize,
-                        time: time
+                        time: time,
+                        breathing: breathing
                     )
                 }
             }
@@ -267,6 +270,7 @@ private struct AriaForeignClassicWord: View {
     let fontChoice: AriaLyricFontChoice
     let fontSize: CGFloat
     let time: Double
+    var breathing: Double = 0
 
     private var status: AriaWordStatus {
         AriaFoliaRuntime.status(for: token, hints: hints, time: time)
@@ -280,9 +284,18 @@ private struct AriaForeignClassicWord: View {
             : AriaFoliaColor.mix(palette.primary, palette.accent, amount: mix)
 
         Text(token.text)
-            .font(fontChoice.font(size: fontSize, weight: .bold))
+            .font(
+                breathing > 0.001 && status == .active
+                    ? fontChoice.breathingFont(size: fontSize, amount: breathing, baseWeight: .bold)
+                    : fontChoice.font(size: fontSize, weight: .bold)
+            )
             .italic(status == .active)
             .foregroundStyle(color)
+            .ariaSyntheticBreathingWeight(
+                fontChoice: fontChoice,
+                amount: breathing,
+                active: status == .active
+            )
             .lineLimit(1)
             .fixedSize()
             .opacity(status == .passed ? 0.66 : 1)

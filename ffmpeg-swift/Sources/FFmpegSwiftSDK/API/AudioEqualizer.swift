@@ -116,6 +116,10 @@ public final class AudioEqualizer {
         filter.setProcessingEnabled(enabled)
     }
 
+    public var isProcessingEnabled: Bool {
+        filter.processingEnabled()
+    }
+
     /// Sets the automatic output/headphone correction layer. These values are
     /// deliberately separate from the ten visible user sliders.
     public func setCalibrationGains(_ gainsDB: [Float]) {
@@ -145,6 +149,17 @@ public final class AudioEqualizer {
     /// Configures the linked three-band dynamics stage.
     public func setMultibandDynamics(_ configuration: MultibandDynamicsConfiguration) {
         filter.setMultibandDynamics(configuration)
+    }
+
+    /// Applies Mono's native listening-enhancement stage without rebuilding
+    /// the FFmpeg effect graph. Parameter changes are interpolated in the
+    /// realtime processor so profile switches remain continuous.
+    public func setMonoEnhance(_ configuration: MonoEnhanceConfiguration) {
+        filter.setMonoEnhance(configuration)
+    }
+
+    public var monoEnhanceConfiguration: MonoEnhanceConfiguration {
+        filter.currentMonoEnhanceConfiguration()
     }
     
     // MARK: - 预设功能

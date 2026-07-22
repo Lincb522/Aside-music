@@ -381,6 +381,7 @@ class SearchViewModel: ObservableObject {
                     if isLoadMore { self.isFetchingMoreNetease = false }
                 }, receiveValue: { [weak self] result in
                     guard let self, self.isCurrentNeteaseRequest(requestID, keyword: keyword) else { return }
+                    SongArtworkFallbackRegistry.shared.register(result.songs)
                     if let total = result.total {
                         self.neteaseSongTotal = total
                     }
@@ -460,6 +461,7 @@ class SearchViewModel: ObservableObject {
                     if isLoadMore { self.isFetchingMoreQQ = false }
                 }, receiveValue: { [weak self] result in
                     guard let self, self.isCurrentQQRequest(requestID, keyword: keyword) else { return }
+                    SongArtworkFallbackRegistry.shared.register(result.songs)
                     if let total = result.total {
                         self.qqSongTotal = total
                     }
@@ -537,6 +539,7 @@ class SearchViewModel: ObservableObject {
                 if isLoadMore { self.isFetchingMoreQishui = false }
             }, receiveValue: { [weak self] result in
                 guard let self, self.isCurrentQishuiRequest(requestID, keyword: keyword) else { return }
+                SongArtworkFallbackRegistry.shared.register(result.songs)
                 if let total = result.total {
                     self.qishuiSongTotal = total
                 }
@@ -808,6 +811,7 @@ class SearchViewModel: ObservableObject {
                 }
 
                 guard requestKeyword == keyword else { return }
+                SongArtworkFallbackRegistry.shared.register(songs)
                 
                 if songs.isEmpty || songs.count < 30 {
                     keepLoading = false
@@ -856,6 +860,7 @@ class SearchViewModel: ObservableObject {
                 }
 
                 guard requestKeyword == keyword else { return }
+                SongArtworkFallbackRegistry.shared.register(songs)
                 
                 if songs.isEmpty || songs.count < 30 {
                     keepLoading = false
@@ -902,6 +907,7 @@ class SearchViewModel: ObservableObject {
                 }
 
                 guard requestKeyword == keyword else { return }
+                SongArtworkFallbackRegistry.shared.register(songs)
                 
                 if songs.isEmpty || songs.count < 20 {
                     keepLoading = false

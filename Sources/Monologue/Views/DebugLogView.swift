@@ -6,9 +6,6 @@ struct DebugLogView: View {
         case detail(LogEntry)
     }
 
-    @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @ObservedObject private var settings = SettingsManager.shared
     @StateObject private var model = DebugLogViewModel()
     @State private var showMoreMenu = false
     @State private var showShareSheet = false
@@ -17,64 +14,32 @@ struct DebugLogView: View {
     @FocusState private var searchFocused: Bool
     
     var body: some View {
-        let _ = settings.globalThemeRevision
-
+        GeometryReader { geometry in
             ZStack {
-            ThemedSettingsBackground()
+                debugBackdrop
 
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 18) {
-                        SettingsScrollablePageHeader(
-                            title: String(localized: "debug_title"),
-                            eyebrow: "DIAGNOSTICS",
-                            icon: .logDebug
-                        )
-
-                        LazyVStack(alignment: .leading, spacing: 18) {
-                            consoleHeader
-                            metricRail
-
-                            if let token = apnsToken {
-                                tokenRow(token)
-                            }
-
-                            searchField
-                            levelFilters
-                            logSection
-                            FloatingBarBottomSpacer()
+                ScrollViewReader { proxy in
+                    Group {
+                        if geometry.size.width >= 760 {
+                            wideWorkspace(width: geometry.size.width, proxy: proxy)
+                        } else {
+                            compactWorkspace(width: geometry.size.width, proxy: proxy)
                         }
-                        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-                        .iPadContentWidth(760)
-                    }
-                }
-                .scrollDismissesKeyboard(.interactively)
-                .scrollIndicators(.hidden)
-                .coordinateSpace(name: SettingsPageLayout.scrollCoordinateSpace)
-                .themeRenderScrollLayer()
-                .onChange(of: model.latestVisibleEntryID) { _, identifier in
-                    guard model.followsLatest, let identifier else { return }
-                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {
-                        proxy.scrollTo(identifier, anchor: model.newestFirst ? .top : .bottom)
                     }
                 }
             }
         }
-        .asideSettingsDetailChrome(String(localized: "debug_title"))
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    searchFocused = false
-                    withAnimation(.easeOut(duration: 0.18)) {
-                        showMoreMenu.toggle()
-                    }
-                } label: {
-                    MonologueIcon(icon: .more, size: 16, color: .monologueTextSecondary)
-                        .frame(width: 36, height: 36)
-                        .monologueGlassCircle(interactive: true)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(String(localized: "player_more_title"))
+        .environment(\.colorScheme, .dark)
+        .compatFontDesign(nil)
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
+        .toolbar(.hidden, for: .tabBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                MonologueToolbarBackButton(iconColor: .white)
             }
         }
         .overlay {
@@ -82,7 +47,7 @@ struct DebugLogView: View {
                 MonologueMoreMenuOverlay(
                     isPresented: $showMoreMenu,
                     title: String(localized: "player_more_title"),
-                    isDarkBackground: colorScheme == .dark
+                    isDarkBackground: true
                 ) {
                     moreMenuContent
                 }
@@ -105,235 +70,456 @@ struct DebugLogView: View {
         }
         .monologueSheet(isPresented: $showShareSheet, preset: .standard) {
             DebugLogShareSheet(items: shareItems)
-            }
-            .onAppear {
-            model.refresh(force: true)
         }
     }
 
-    private var consoleHeader: some View {
-        HStack(alignment: .center, spacing: 12) {
-            HStack(spacing: 8) {
-                Text(String(format: String(localized: "debug_log_count"), model.totalCount))
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundColor(.monologueTextSecondary)
+    private var debugBackdrop: some View {
+        ZStack {
+            Color(red: 0.024, green: 0.027, blue: 0.034)
 
-                if model.droppedCount > 0 {
-                    Circle()
-                        .fill(Color.monologueTextSecondary.opacity(0.45))
-                        .frame(width: 3, height: 3)
-
-                    Text(String(format: String(localized: "debug_dropped_count"), model.droppedCount))
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundColor(.orange)
-                }
-
-                if let lastUpdatedAt = model.lastUpdatedAt {
-                    Circle()
-                        .fill(Color.monologueTextSecondary.opacity(0.45))
-                        .frame(width: 3, height: 3)
-
-                    Text(
-                        String(
-                            format: String(localized: "debug_updated_at"),
-                            lastUpdatedAt.formatted(date: .omitted, time: .standard)
-                        )
-                    )
-                        .font(.system(size: 11.5, weight: .medium, design: .monospaced))
-                        .foregroundColor(.monologueTextSecondary)
-                        .monospacedDigit()
-                }
-            }
-
-            Spacer(minLength: 8)
-
-            collectionButton
-        }
-        .padding(.horizontal, 12)
-        .frame(minHeight: 52)
-        .debugGlassSurface(cornerRadius: 14)
-    }
-
-    private var collectionButton: some View {
-        Button {
-            model.isCollecting.toggle()
-            HapticManager.shared.light()
-        } label: {
-            HStack(spacing: 7) {
-                Circle()
-                    .fill(model.isCollecting ? Color.green : Color.monologueTextSecondary)
-                    .frame(width: 7, height: 7)
-
-                Text(
-                    model.isCollecting
-                        ? String(localized: "debug_collecting")
-                        : String(localized: "debug_collection_paused")
-                )
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
-                .foregroundColor(.monologueTextPrimary)
-            }
-            .padding(.horizontal, 11)
-            .frame(height: 34)
-            .debugGlassCapsule(
-                tint: model.isCollecting
-                    ? Color.green.opacity(0.075)
-                    : Color.monologueTextPrimary.opacity(0.025)
+            RadialGradient(
+                colors: [Color.cyan.opacity(0.1), Color.clear],
+                center: .topTrailing,
+                startRadius: 0,
+                endRadius: 420
             )
-            .contentShape(Capsule())
+
+            LinearGradient(
+                colors: [Color.black.opacity(0.05), Color.black.opacity(0.42)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
         }
-        .buttonStyle(.plain)
-        .accessibilityValue(
-            model.isCollecting
-                ? String(localized: "debug_collecting")
-                : String(localized: "debug_collection_paused")
-        )
+        .ignoresSafeArea()
     }
 
-    private var metricRail: some View {
+    private func compactWorkspace(width: CGFloat, proxy: ScrollViewProxy) -> some View {
+        let inset: CGFloat = width < 370 ? 12 : 16
+
+        return ScrollView {
+            LazyVStack(alignment: .leading, spacing: 18) {
+                compactHeader
+                compactStatusStrip
+                severityRail
+                streamToolbar
+                logTimeline
+                FloatingBarBottomSpacer()
+            }
+            .padding(.horizontal, inset)
+            .padding(.top, 8)
+        }
+        .scrollDismissesKeyboard(.interactively)
+        .scrollIndicators(.hidden)
+        .transaction { $0.animation = nil }
+        .onChange(of: model.latestVisibleEntryID) { _, identifier in
+            scrollToLatest(identifier, proxy: proxy)
+        }
+    }
+
+    private func wideWorkspace(width: CGFloat, proxy: ScrollViewProxy) -> some View {
+        let workspaceWidth = min(width - 40, 1160)
+
+        return HStack(spacing: 0) {
+            Spacer(minLength: 20)
+
+            HStack(spacing: 0) {
+                diagnosticSidebar
+                    .frame(width: 240)
+
+                Rectangle()
+                    .fill(Color.white.opacity(0.07))
+                    .frame(width: 0.5)
+
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 16) {
+                        wideStreamHeader
+                        streamToolbar
+                        logTimeline
+                        FloatingBarBottomSpacer()
+                    }
+                    .padding(.horizontal, 22)
+                    .padding(.vertical, 18)
+                }
+                .scrollDismissesKeyboard(.interactively)
+                .scrollIndicators(.hidden)
+                .transaction { $0.animation = nil }
+                .onChange(of: model.latestVisibleEntryID) { _, identifier in
+                    scrollToLatest(identifier, proxy: proxy)
+                }
+            }
+            .frame(width: workspaceWidth)
+            .background(Color.black.opacity(0.18))
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(Color.white.opacity(0.075), lineWidth: 0.7)
+            }
+            .padding(.vertical, 12)
+            .frame(maxHeight: .infinity)
+
+            Spacer(minLength: 20)
+        }
+    }
+
+    private var compactHeader: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(String(localized: "debug_title"))
+                    .font(.system(size: 25, weight: .heavy, design: .rounded))
+                    .foregroundStyle(.white)
+
+                Text(model.isCollecting
+                     ? String(localized: "debug_collecting")
+                     : String(localized: "debug_collection_paused"))
+                    .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+                    .foregroundStyle(model.isCollecting ? Color.green : Color.white.opacity(0.48))
+            }
+
+            Spacer(minLength: 0)
+            headerActions
+        }
+    }
+
+    private var headerActions: some View {
+        HStack(spacing: 8) {
+            Button {
+                model.isCollecting.toggle()
+                HapticManager.shared.light()
+            } label: {
+                MonologueIcon(
+                    icon: model.isCollecting ? .pause : .play,
+                    size: 14,
+                    color: model.isCollecting ? .black : .white
+                )
+                .frame(width: 40, height: 40)
+                .background(model.isCollecting ? Color.green : Color.white.opacity(0.07))
+                .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                searchFocused = false
+                showMoreMenu = true
+            } label: {
+                MonologueIcon(icon: .more, size: 15, color: .white.opacity(0.82))
+                    .frame(width: 40, height: 40)
+                    .background(Color.white.opacity(0.07))
+                    .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var compactStatusStrip: some View {
         HStack(spacing: 0) {
-            DebugLogMetricButton(
-                title: String(localized: "debug_stat_total"),
-                value: model.totalCount,
-                tint: .monologueAccent,
-                isSelected: model.selectedLevel == nil
-            ) {
-                model.select(nil)
-            }
-
-            metricDivider
-
-            DebugLogMetricButton(
-                title: String(localized: "debug_stat_error"),
-                value: model.count(for: .error),
-                tint: .red,
-                isSelected: model.selectedLevel == .error
-            ) {
-                model.select(.error)
-            }
-
-            metricDivider
-
-            DebugLogMetricButton(
-                title: String(localized: "debug_stat_warning"),
-                value: model.count(for: .warning),
-                tint: .orange,
-                isSelected: model.selectedLevel == .warning
-            ) {
-                model.select(.warning)
-            }
-
-            metricDivider
-
-            DebugLogMetricButton(
-                title: String(localized: "debug_level_network"),
-                value: model.count(for: .network),
-                tint: .cyan,
-                isSelected: model.selectedLevel == .network
-            ) {
-                model.select(.network)
-            }
+            consoleMetric(value: "\(model.totalCount)", title: String(localized: "debug_stat_total"))
+            consoleMetricDivider
+            consoleMetric(value: "\(model.visibleEntries.count)", title: String(localized: "debug_visible_count"))
+            consoleMetricDivider
+            consoleMetric(
+                value: "\(model.droppedCount)",
+                title: String(localized: "debug_dropped_count_short"),
+                tint: model.droppedCount > 0 ? .orange : .white
+            )
         }
-        .debugGlassSurface(cornerRadius: 14)
+        .padding(.vertical, 13)
+        .debugConsoleSurface(cornerRadius: 16)
     }
 
-    private var metricDivider: some View {
+    private func consoleMetric(value: String, title: String, tint: Color = .white) -> some View {
+        VStack(spacing: 3) {
+            Text(value)
+                .font(.system(size: 18, weight: .bold, design: .monospaced))
+                .foregroundStyle(tint)
+                .monospacedDigit()
+            Text(title)
+                .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                .foregroundStyle(.white.opacity(0.46))
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var consoleMetricDivider: some View {
         Rectangle()
-            .fill(Color.monologueSeparator)
+            .fill(Color.white.opacity(0.07))
             .frame(width: 0.5, height: 30)
     }
 
-    private var searchField: some View {
-        HStack(spacing: 11) {
-            MonologueIcon(icon: .magnifyingGlass, size: 15, color: .monologueTextSecondary)
+    private var diagnosticSidebar: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 7) {
+                MonologueIcon(icon: .logDebug, size: 24, color: .cyan)
+                    .frame(width: 48, height: 48)
+                    .background(Color.cyan.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
 
-            TextField(String(localized: "debug_search_placeholder"), text: $model.searchText)
-                .focused($searchFocused)
-                .font(.system(size: 14.5, weight: .medium, design: .rounded))
-                .foregroundColor(.monologueTextPrimary)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .submitLabel(.search)
-                .monologueTextInputBehavior()
+                Text(String(localized: "debug_title"))
+                    .font(.system(size: 23, weight: .heavy, design: .rounded))
+                    .foregroundStyle(.white)
 
-            if !model.searchText.isEmpty {
-                Button {
-                    model.searchText = ""
-                } label: {
-                    MonologueIcon(icon: .xmarkCircle, size: 15, color: .monologueTextSecondary)
-                        .frame(width: 30, height: 30)
+                HStack(spacing: 7) {
+                    Circle()
+                        .fill(model.isCollecting ? Color.green : Color.white.opacity(0.3))
+                        .frame(width: 7, height: 7)
+                    Text(model.isCollecting
+                         ? String(localized: "debug_collecting")
+                         : String(localized: "debug_collection_paused"))
+                        .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.56))
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(String(localized: "common_clear"))
             }
+            .padding(.horizontal, 20)
+            .padding(.top, 22)
+            .padding(.bottom, 18)
+
+            Rectangle().fill(Color.white.opacity(0.07)).frame(height: 0.5)
+
+            ScrollView {
+                VStack(spacing: 4) {
+                    sidebarFilter(level: nil)
+                    ForEach(LogEntry.LogLevel.allCases, id: \.self) { level in
+                        sidebarFilter(level: level)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 14)
+            }
+            .scrollIndicators(.hidden)
+
+            Rectangle().fill(Color.white.opacity(0.07)).frame(height: 0.5)
+
+            VStack(spacing: 8) {
+                sidebarControl(
+                    title: String(localized: "debug_collection"),
+                    icon: model.isCollecting ? .pause : .play,
+                    isActive: model.isCollecting
+                ) {
+                    model.isCollecting.toggle()
+                }
+                sidebarControl(
+                    title: String(localized: "debug_follow_latest"),
+                    icon: .history,
+                    isActive: model.followsLatest
+                ) {
+                    model.followsLatest.toggle()
+                }
+                sidebarControl(
+                    title: String(localized: "debug_newest_first"),
+                    icon: .arrowDownToLine,
+                    isActive: model.newestFirst
+                ) {
+                    model.newestFirst.toggle()
+                }
+            }
+            .padding(12)
+
+            Button {
+                showMoreMenu = true
+            } label: {
+                HStack(spacing: 9) {
+                    MonologueIcon(icon: .more, size: 13, color: .white.opacity(0.65))
+                    Text(String(localized: "player_more_title"))
+                        .font(.system(size: 12.5, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.68))
+                    Spacer()
+                }
+                .padding(.horizontal, 14)
+                .frame(height: 42)
+                .background(Color.white.opacity(0.045))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 12)
+            .padding(.bottom, 16)
         }
-        .padding(.leading, 14)
-        .padding(.trailing, 7)
-        .frame(height: 46)
-        .debugGlassSurface(
-            cornerRadius: 12,
-            tint: Color.monologueTextPrimary.opacity(searchFocused ? 0.04 : 0.018)
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(
-                    searchFocused ? Color.monologueAccent.opacity(0.55) : Color.clear,
-                    lineWidth: 1
-                )
+    }
+
+    private func sidebarFilter(level: LogEntry.LogLevel?) -> some View {
+        let isSelected = model.selectedLevel == level
+        let tint = level?.tint ?? Color.cyan
+
+        return Button {
+            model.select(level)
+        } label: {
+            HStack(spacing: 10) {
+                if let level {
+                    MonologueIcon(icon: level.icon, size: 13, color: isSelected ? tint : .white.opacity(0.5))
+                } else {
+                    Circle()
+                        .fill(isSelected ? tint : Color.white.opacity(0.38))
+                        .frame(width: 8, height: 8)
+                        .frame(width: 13)
+                }
+
+                Text(level?.localizedTitle ?? String(localized: "filter_all"))
+                    .font(.system(size: 12.5, weight: isSelected ? .bold : .medium, design: .rounded))
+                    .foregroundStyle(isSelected ? Color.white : Color.white.opacity(0.56))
+
+                Spacer()
+
+                Text("\(model.count(for: level))")
+                    .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(isSelected ? tint : Color.white.opacity(0.35))
+                    .monospacedDigit()
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 40)
+            .background(isSelected ? tint.opacity(0.11) : Color.clear)
+            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func sidebarControl(
+        title: String,
+        icon: MonologueIcon.IconType,
+        isActive: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 9) {
+                MonologueIcon(icon: icon, size: 12, color: isActive ? .cyan : .white.opacity(0.42))
+                Text(title)
+                    .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(isActive ? 0.82 : 0.45))
+                    .lineLimit(1)
+                Spacer()
+                Circle()
+                    .fill(isActive ? Color.green : Color.white.opacity(0.18))
+                    .frame(width: 6, height: 6)
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 38)
+            .background(Color.white.opacity(0.035))
+            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var wideStreamHeader: some View {
+        HStack(alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(model.selectedLevel?.localizedTitle ?? String(localized: "debug_records_section"))
+                    .font(.system(size: 21, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                Text("\(model.visibleEntries.count) / \(model.totalCount)")
+                    .font(.system(size: 11.5, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.42))
+                    .monospacedDigit()
+            }
+
+            Spacer()
+            headerActions
+        }
+    }
+
+    private var streamToolbar: some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 10) {
+                MonologueIcon(icon: .magnifyingGlass, size: 14, color: .white.opacity(0.42))
+
+                TextField(String(localized: "debug_search_placeholder"), text: $model.searchText)
+                    .focused($searchFocused)
+                    .font(.system(size: 13.5, weight: .medium, design: .rounded))
+                    .foregroundColor(.white)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .submitLabel(.search)
+                    .monologueTextInputBehavior()
+
+                if !model.searchText.isEmpty {
+                    Button {
+                        model.searchText = ""
+                    } label: {
+                        MonologueIcon(icon: .xmarkCircle, size: 14, color: .white.opacity(0.45))
+                            .frame(width: 28, height: 28)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(String(localized: "common_clear"))
+                }
+            }
+            .padding(.leading, 13)
+            .padding(.trailing, 7)
+            .frame(height: 43)
+            .background(Color.white.opacity(searchFocused ? 0.09 : 0.055))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(searchFocused ? Color.cyan.opacity(0.48) : Color.white.opacity(0.05), lineWidth: 0.7)
+            }
+
+            Text("\(model.visibleEntries.count)")
+                .font(.system(size: 11.5, weight: .bold, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.62))
+                .frame(minWidth: 34, minHeight: 34)
+                .padding(.horizontal, 4)
+                .background(Color.white.opacity(0.055))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .monospacedDigit()
         }
         .animation(.easeOut(duration: 0.16), value: searchFocused)
     }
 
-    private var levelFilters: some View {
+    private var severityRail: some View {
         ScrollView(.horizontal) {
             HStack(spacing: 8) {
-                DebugLogFilterChip(
-                    title: String(localized: "filter_all"),
-                    tint: .monologueAccent,
-                    isSelected: model.selectedLevel == nil
-                ) {
-                    model.select(nil)
-                }
+                severityButton(level: nil)
 
                 ForEach(LogEntry.LogLevel.allCases, id: \.self) { level in
-                    DebugLogFilterChip(
-                        title: level.localizedTitle,
-                        tint: level.tint,
-                        isSelected: model.selectedLevel == level
-                    ) {
-                        model.select(level)
-                    }
+                    severityButton(level: level)
                 }
             }
         }
         .scrollIndicators(.hidden)
     }
 
-    private var logSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(String(localized: "debug_records_section"))
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundColor(.monologueTextPrimary)
+    private func severityButton(level: LogEntry.LogLevel?) -> some View {
+        let selected = model.selectedLevel == level
+        let tint = level?.tint ?? Color.cyan
 
-                Spacer(minLength: 8)
-
-                Text("\(model.visibleEntries.count) / \(model.totalCount)")
-                    .font(.system(size: 11.5, weight: .medium, design: .monospaced))
-                    .foregroundColor(.monologueTextSecondary)
+        return Button {
+            model.select(level)
+        } label: {
+            HStack(spacing: 7) {
+                Circle()
+                    .fill(selected ? tint : Color.white.opacity(0.28))
+                    .frame(width: 6, height: 6)
+                Text(level?.localizedTitle ?? String(localized: "filter_all"))
+                    .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+                Text("\(model.count(for: level))")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .opacity(0.55)
                     .monospacedDigit()
             }
-            .padding(.horizontal, 2)
+            .foregroundStyle(selected ? Color.white : Color.white.opacity(0.48))
+            .padding(.horizontal, 12)
+            .frame(height: 36)
+            .background(selected ? tint.opacity(0.13) : Color.white.opacity(0.04))
+            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .stroke(selected ? tint.opacity(0.28) : Color.white.opacity(0.045), lineWidth: 0.6)
+            }
+        }
+        .buttonStyle(.plain)
+    }
 
+    private var logTimeline: some View {
+        Group {
             if model.visibleEntries.isEmpty {
                 emptyState
             } else {
                 LazyVStack(spacing: 0) {
-                    ForEach(model.visibleEntries) { log in
+                    ForEach(Array(model.visibleEntries.enumerated()), id: \.element.id) { index, log in
                         NavigationLink(value: Destination.detail(log)) {
-                            DebugLogRow(log: log)
+                            DebugLogTimelineRow(
+                                log: log,
+                                isLast: index == model.visibleEntries.count - 1
+                            )
                         }
                         .buttonStyle(.plain)
-                            .id(log.id)
+                        .id(log.id)
                         .contextMenu {
                             Button {
                                 UIPasteboard.general.string = log.exportText
@@ -342,16 +528,11 @@ struct DebugLogView: View {
                                 Label(String(localized: "debug_copy_log"), systemImage: "doc.on.doc")
                             }
                         }
-
-                        if log.id != model.visibleEntries.last?.id {
-                            Rectangle()
-                                .fill(Color.monologueSeparator)
-                                .frame(height: 0.5)
-                                .padding(.leading, 52)
-                        }
                     }
                 }
-                .debugGlassSurface(cornerRadius: 14)
+                .padding(.top, 6)
+                .padding(.horizontal, 12)
+                .debugConsoleSurface(cornerRadius: 16)
             }
         }
     }
@@ -369,50 +550,13 @@ struct DebugLogView: View {
             .foregroundColor(.monologueTextSecondary)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 54)
-        .debugGlassSurface(cornerRadius: 14)
+        .padding(.vertical, 64)
+        .debugConsoleSurface(cornerRadius: 16)
     }
 
-    private func tokenRow(_ token: String) -> some View {
-        HStack(spacing: 11) {
-            MonologueIcon(icon: .bell, size: 14, color: .monologueTextSecondary)
-                .frame(width: 30, height: 30)
-                .debugGlassSurface(cornerRadius: 9)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(String(localized: "debug_apns_token"))
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-                    .foregroundColor(.monologueTextSecondary)
-
-                Text("\(token.prefix(16))…\(token.suffix(8))")
-                    .font(.system(size: 11.5, weight: .medium, design: .monospaced))
-                    .foregroundColor(.monologueTextPrimary)
-                    .lineLimit(1)
-            }
-
-            Spacer(minLength: 8)
-
-            Button {
-                UIPasteboard.general.string = token
-                HapticManager.shared.success()
-            } label: {
-                MonologueIcon(icon: .layers, size: 14, color: .monologueAccent)
-                    .frame(width: 36, height: 36)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(String(localized: "debug_copy"))
-        }
-        .padding(.leading, 10)
-        .padding(.trailing, 6)
-        .frame(minHeight: 50)
-        .debugGlassSurface(cornerRadius: 12)
-    }
-
-    private var apnsToken: String? {
-        guard let value = UserDefaults.standard.string(forKey: "apns_device_token"), !value.isEmpty else {
-            return nil
-        }
-        return value
+    private func scrollToLatest(_ identifier: UUID?, proxy: ScrollViewProxy) {
+        guard model.followsLatest, let identifier else { return }
+        proxy.scrollTo(identifier, anchor: model.newestFirst ? .top : .bottom)
     }
 
     private var moreMenuContent: some View {
@@ -489,104 +633,74 @@ struct DebugLogView: View {
     }
 }
 
-private struct DebugLogMetricButton: View {
-    let title: String
-    let value: Int
-    let tint: Color
-    let isSelected: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 3) {
-                Text("\(value)")
-                    .font(.system(size: 17, weight: .bold, design: .rounded))
-                    .foregroundColor(isSelected ? tint : .monologueTextPrimary)
-                    .monospacedDigit()
-            
-            Text(title)
-                    .font(.system(size: 10.5, weight: .medium, design: .rounded))
-                .foregroundColor(.monologueTextSecondary)
-                    .lineLimit(1)
-        }
-        .frame(maxWidth: .infinity)
-            .frame(height: 58)
-            .background(isSelected ? tint.opacity(0.075) : Color.clear)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityValue("\(value)")
-    }
-}
-
-private struct DebugLogFilterChip: View {
-    let title: String
-    let tint: Color
-    let isSelected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.system(size: 12.5, weight: .semibold, design: .rounded))
-                .foregroundColor(isSelected ? tint : .monologueTextSecondary)
-                .padding(.horizontal, 13)
-                .frame(height: 34)
-                .debugGlassCapsule(
-                    tint: isSelected
-                        ? tint.opacity(0.09)
-                        : Color.monologueTextPrimary.opacity(0.015)
-                )
-                .overlay {
-                    Capsule()
-                        .stroke(isSelected ? tint.opacity(0.26) : Color.clear, lineWidth: 0.75)
-                }
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-private struct DebugLogRow: View {
+private struct DebugLogTimelineRow: View {
     let log: LogEntry
+    let isLast: Bool
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            MonologueIcon(icon: log.level.icon, size: 14, color: log.level.tint)
-                .frame(width: 32, height: 32)
-                .debugGlassSurface(cornerRadius: 9, tint: log.level.tint.opacity(0.08))
+        HStack(alignment: .top, spacing: 0) {
+            Text(log.formattedTime)
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.38))
+                .monospacedDigit()
+                .frame(width: 54, alignment: .leading)
+                .padding(.top, 3)
 
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 7) {
+            VStack(spacing: 0) {
+                Circle()
+                    .fill(log.level.tint)
+                    .frame(width: 8, height: 8)
+                    .overlay(Circle().stroke(log.level.tint.opacity(0.25), lineWidth: 5))
+                    .padding(.top, 5)
+
+                if !isLast {
+                    Rectangle()
+                        .fill(Color.white.opacity(0.08))
+                        .frame(width: 1)
+                        .frame(maxHeight: .infinity)
+                        .padding(.top, 5)
+                }
+            }
+            .frame(width: 22)
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
                     Text(log.level.localizedTitle)
                         .font(.system(size: 10.5, weight: .bold, design: .rounded))
                         .foregroundColor(log.level.tint)
 
-                    Text(log.formattedTime)
-                        .font(.system(size: 10.5, weight: .medium, design: .monospaced))
-                        .foregroundColor(.monologueTextSecondary)
-                        .monospacedDigit()
-
-                    Spacer(minLength: 6)
-
                     Text(log.sourceDescription)
                         .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundColor(.monologueTextSecondary.opacity(0.75))
+                        .foregroundColor(.white.opacity(0.35))
                         .lineLimit(1)
+
+                    Spacer(minLength: 0)
+
+                    MonologueIcon(icon: .chevronRight, size: 8, color: .white.opacity(0.22))
                 }
 
                 Text(log.message)
-                    .font(.system(size: 12.25, weight: .regular, design: .monospaced))
-                    .foregroundColor(.monologueTextPrimary)
+                    .font(.system(size: 12, weight: .regular, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.86))
                     .lineLimit(3)
-                    .lineSpacing(2)
+                    .lineSpacing(3)
                     .multilineTextAlignment(.leading)
-            }
 
-            MonologueIcon(icon: .chevronRight, size: 9, color: .monologueTextSecondary.opacity(0.5))
-                .frame(height: 32)
+                if log.resolvedStep != "—" {
+                    Text(log.resolvedStep)
+                        .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.36))
+                        .lineLimit(1)
+                        .padding(.horizontal, 8)
+                        .frame(height: 24)
+                        .background(Color.white.opacity(0.04))
+                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                }
+            }
+            .padding(.leading, 5)
+            .padding(.bottom, isLast ? 16 : 20)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 12)
+        .padding(.top, 15)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
     }
@@ -939,12 +1053,34 @@ private struct DebugLogDetailView: View {
     let log: LogEntry
     private let analysis: DebugLogAnalysis
 
-    @ObservedObject private var settings = SettingsManager.shared
     @State private var copiedTarget: CopyTarget?
+    @State private var selectedPanel: DetailPanel = .message
 
     private enum CopyTarget {
         case message
         case log
+    }
+
+    private enum DetailPanel: CaseIterable, Hashable {
+        case message
+        case context
+        case analysis
+
+        var title: String {
+            switch self {
+            case .message: return String(localized: "debug_message_section")
+            case .context: return String(localized: "debug_context_section")
+            case .analysis: return String(localized: "debug_analysis_section")
+            }
+        }
+
+        var icon: MonologueIcon.IconType {
+            switch self {
+            case .message: return .layers
+            case .context: return .infoCircle
+            case .analysis: return .logDebug
+            }
+        }
     }
 
     init(log: LogEntry) {
@@ -953,96 +1089,306 @@ private struct DebugLogDetailView: View {
     }
 
     var body: some View {
-        let _ = settings.globalThemeRevision
+        GeometryReader { geometry in
+            ZStack {
+                debugDetailBackdrop
 
-        ZStack {
-            ThemedSettingsBackground()
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
-                    SettingsScrollablePageHeader(
-                        title: String(localized: "debug_detail_title"),
-                        eyebrow: "LOG DETAIL",
-                        icon: .logDebug
-                    )
-
-                    VStack(alignment: .leading, spacing: 22) {
-                        identityHeader
-                        copyActions
-                        metadataSection
-                        messageSection
-                        analysisSection
-                        FloatingBarBottomSpacer()
-                    }
-                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-                    .iPadContentWidth(760)
+                if geometry.size.width >= 760 {
+                    wideDetailWorkspace(width: geometry.size.width)
+                } else {
+                    compactDetailWorkspace(width: geometry.size.width)
                 }
             }
-            .scrollIndicators(.hidden)
-            .coordinateSpace(name: SettingsPageLayout.scrollCoordinateSpace)
-            .themeRenderScrollLayer()
         }
-        .asideSettingsDetailChrome(String(localized: "debug_detail_title"))
+        .environment(\.colorScheme, .dark)
+        .compatFontDesign(nil)
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
+        .toolbar(.hidden, for: .tabBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                MonologueToolbarBackButton(iconColor: .white)
+            }
+        }
     }
 
-    private var identityHeader: some View {
-        HStack(alignment: .top, spacing: 13) {
-            MonologueIcon(icon: log.level.icon, size: 18, color: log.level.tint)
-                .frame(width: 42, height: 42)
-                .debugGlassSurface(cornerRadius: 12, tint: log.level.tint.opacity(0.09))
+    private var debugDetailBackdrop: some View {
+        ZStack {
+            Color(red: 0.022, green: 0.025, blue: 0.032)
+            RadialGradient(
+                colors: [log.level.tint.opacity(0.1), Color.clear],
+                center: .topTrailing,
+                startRadius: 0,
+                endRadius: 480
+            )
+        }
+        .ignoresSafeArea()
+    }
 
-            VStack(alignment: .leading, spacing: 5) {
+    private func compactDetailWorkspace(width: CGFloat) -> some View {
+        let inset: CGFloat = width < 370 ? 12 : 16
+
+        return ScrollView {
+            LazyVStack(alignment: .leading, spacing: 16) {
+                compactDetailHeader
+                detailSegment
+                detailPanelContent
+                FloatingBarBottomSpacer()
+            }
+            .padding(.horizontal, inset)
+            .padding(.top, 8)
+        }
+        .scrollIndicators(.hidden)
+    }
+
+    private func wideDetailWorkspace(width: CGFloat) -> some View {
+        let workspaceWidth = min(width - 40, 1120)
+
+        return HStack(spacing: 0) {
+            Spacer(minLength: 20)
+
+            HStack(spacing: 0) {
+                detailSidebar
+                    .frame(width: 250)
+
+                Rectangle()
+                    .fill(Color.white.opacity(0.07))
+                    .frame(width: 0.5)
+
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 18) {
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(selectedPanel.title)
+                                .font(.system(size: 22, weight: .bold, design: .rounded))
+                                .foregroundStyle(.white)
+                            Spacer()
+                            Text(analysis.kind.localizedTitle)
+                                .font(.system(size: 11, weight: .bold, design: .rounded))
+                                .foregroundStyle(log.level.tint)
+                        }
+
+                        detailPanelContent
+                        FloatingBarBottomSpacer()
+                    }
+                    .padding(22)
+                }
+                .scrollIndicators(.hidden)
+            }
+            .frame(width: workspaceWidth)
+            .background(Color.black.opacity(0.18))
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(Color.white.opacity(0.075), lineWidth: 0.7)
+            }
+            .padding(.vertical, 12)
+            .frame(maxHeight: .infinity)
+
+            Spacer(minLength: 20)
+        }
+    }
+
+    private var compactDetailHeader: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(String(localized: "debug_detail_title"))
+                        .font(.system(size: 24, weight: .heavy, design: .rounded))
+                        .foregroundStyle(.white)
+
+                    Text(log.detailedTimestamp)
+                        .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.42))
+                        .monospacedDigit()
+                }
+
+                Spacer(minLength: 0)
+
+                MonologueIcon(icon: log.level.icon, size: 18, color: log.level.tint)
+                    .frame(width: 44, height: 44)
+                    .background(log.level.tint.opacity(0.11))
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+
+            HStack(alignment: .top, spacing: 10) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(log.level.localizedTitle)
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundStyle(log.level.tint)
+
+                    Text(log.sourceDescription)
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.55))
+                        .lineLimit(2)
+
+                    if log.resolvedStep != "—" {
+                        Text(log.resolvedStep)
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(.white.opacity(0.36))
+                            .lineLimit(2)
+                    }
+                }
+
+                Spacer(minLength: 8)
+                compactCopyActions
+            }
+            .padding(14)
+            .debugConsoleSurface(cornerRadius: 16, tint: log.level.tint.opacity(0.025))
+        }
+    }
+
+    private var compactCopyActions: some View {
+        HStack(spacing: 7) {
+            iconCopyButton(icon: .layers, target: .message, value: log.message)
+            iconCopyButton(icon: .share, target: .log, value: log.exportText)
+        }
+    }
+
+    private func iconCopyButton(
+        icon: MonologueIcon.IconType,
+        target: CopyTarget,
+        value: String
+    ) -> some View {
+        Button {
+            copy(value, target: target)
+        } label: {
+            MonologueIcon(
+                icon: copiedTarget == target ? .checkmark : icon,
+                size: 13,
+                color: copiedTarget == target ? .green : .white.opacity(0.72)
+            )
+            .frame(width: 36, height: 36)
+            .background(Color.white.opacity(0.055))
+            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var detailSegment: some View {
+        HStack(spacing: 4) {
+            ForEach(DetailPanel.allCases, id: \.self) { panel in
+                detailPanelButton(panel, compact: true)
+            }
+        }
+        .padding(4)
+        .debugConsoleSurface(cornerRadius: 14)
+    }
+
+    private var detailSidebar: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 8) {
+                MonologueIcon(icon: log.level.icon, size: 21, color: log.level.tint)
+                    .frame(width: 46, height: 46)
+                    .background(log.level.tint.opacity(0.11))
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+                Text(String(localized: "debug_detail_title"))
+                    .font(.system(size: 22, weight: .heavy, design: .rounded))
+                    .foregroundStyle(.white)
+
                 Text(log.level.localizedTitle)
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
-                    .foregroundColor(log.level.tint)
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundStyle(log.level.tint)
 
                 Text(log.detailedTimestamp)
-                    .font(.system(size: 11.5, weight: .medium, design: .monospaced))
-                    .foregroundColor(.monologueTextSecondary)
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.4))
                     .monospacedDigit()
+            }
+            .padding(20)
+
+            Rectangle().fill(Color.white.opacity(0.07)).frame(height: 0.5)
+
+            VStack(spacing: 5) {
+                ForEach(DetailPanel.allCases, id: \.self) { panel in
+                    detailPanelButton(panel, compact: false)
+                }
+            }
+            .padding(12)
+
+            Rectangle().fill(Color.white.opacity(0.07)).frame(height: 0.5)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(log.sourceDescription)
+                    .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.54))
+                    .lineLimit(3)
 
                 if log.resolvedStep != "—" {
                     Text(log.resolvedStep)
-                        .font(.system(size: 11.5, weight: .semibold, design: .rounded))
-                        .foregroundColor(.monologueTextPrimary)
-                        .lineLimit(2)
+                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.34))
+                        .lineLimit(4)
                 }
             }
+            .padding(16)
 
-            Spacer(minLength: 8)
+            Spacer(minLength: 12)
 
-            Text(analysis.kind.localizedTitle)
-                .font(.system(size: 11.5, weight: .semibold, design: .rounded))
-                .foregroundColor(.monologueTextPrimary)
-                .padding(.horizontal, 10)
-                .frame(height: 30)
-                .debugGlassCapsule(tint: Color.monologueTextPrimary.opacity(0.025))
+            VStack(spacing: 8) {
+                copyButton(
+                    title: copiedTarget == .message
+                        ? String(localized: "debug_copied")
+                        : String(localized: "debug_copy_message"),
+                    icon: copiedTarget == .message ? .checkmark : .layers,
+                    isPrimary: false
+                ) {
+                    copy(log.message, target: .message)
+                }
+
+                copyButton(
+                    title: copiedTarget == .log
+                        ? String(localized: "debug_copied")
+                        : String(localized: "debug_copy_log"),
+                    icon: copiedTarget == .log ? .checkmark : .share,
+                    isPrimary: true
+                ) {
+                    copy(log.exportText, target: .log)
+                }
+            }
+            .padding(14)
         }
-        .padding(14)
-        .debugGlassSurface(cornerRadius: 14, tint: log.level.tint.opacity(0.025))
     }
 
-    private var copyActions: some View {
-        HStack(spacing: 9) {
-            copyButton(
-                title: copiedTarget == .message
-                    ? String(localized: "debug_copied")
-                    : String(localized: "debug_copy_message"),
-                icon: copiedTarget == .message ? .checkmark : .layers,
-                isPrimary: false
-            ) {
-                copy(log.message, target: .message)
-            }
+    private func detailPanelButton(_ panel: DetailPanel, compact: Bool) -> some View {
+        let selected = selectedPanel == panel
 
-            copyButton(
-                title: copiedTarget == .log
-                    ? String(localized: "debug_copied")
-                    : String(localized: "debug_copy_log"),
-                icon: copiedTarget == .log ? .checkmark : .share,
-                isPrimary: true
-            ) {
-                copy(log.exportText, target: .log)
+        return Button {
+            selectedPanel = panel
+            HapticManager.shared.selection()
+        } label: {
+            HStack(spacing: 8) {
+                MonologueIcon(
+                    icon: panel.icon,
+                    size: 12,
+                    color: selected ? .black : .white.opacity(0.45)
+                )
+                Text(panel.title)
+                    .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+                    .foregroundStyle(selected ? Color.black : Color.white.opacity(0.5))
+                if !compact { Spacer() }
             }
+            .frame(maxWidth: .infinity, alignment: compact ? .center : .leading)
+            .padding(.horizontal, compact ? 8 : 12)
+            .frame(height: compact ? 39 : 42)
+            .background(selected ? Color.white.opacity(0.9) : Color.clear)
+            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var detailPanelContent: some View {
+        switch selectedPanel {
+        case .message:
+            messageSection
+        case .context:
+            metadataSection
+        case .analysis:
+            analysisSection
         }
     }
 
@@ -1057,20 +1403,20 @@ private struct DebugLogDetailView: View {
                 MonologueIcon(
                     icon: icon,
                     size: 14,
-                    color: isPrimary ? .monologueIconForeground : .monologueTextPrimary
+                    color: isPrimary ? .black : .white.opacity(0.78)
                 )
 
                 Text(title)
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundColor(isPrimary ? .monologueIconForeground : .monologueTextPrimary)
+                    .foregroundColor(isPrimary ? .black : .white.opacity(0.78))
             }
             .frame(maxWidth: .infinity)
             .frame(height: 44)
-            .debugGlassSurface(
+            .debugConsoleSurface(
                 cornerRadius: 12,
                 tint: isPrimary
-                    ? Color.monologueIconBackground.opacity(0.78)
-                    : Color.monologueTextPrimary.opacity(0.02)
+                    ? Color.white.opacity(0.88)
+                    : Color.white.opacity(0.02)
             )
             .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
@@ -1078,66 +1424,56 @@ private struct DebugLogDetailView: View {
     }
 
     private var metadataSection: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            sectionTitle(String(localized: "debug_context_section"))
+        VStack(spacing: 0) {
+            metadataRow(String(localized: "debug_step"), log.resolvedStep)
+            detailDivider
 
-            VStack(spacing: 0) {
-                metadataRow(String(localized: "debug_step"), log.resolvedStep)
-                detailDivider
+            metadataRow(
+                String(localized: "debug_file"),
+                log.fileName.isEmpty ? "—" : log.fileName
+            )
+            detailDivider
 
-                metadataRow(
-                    String(localized: "debug_file"),
-                    log.fileName.isEmpty ? "—" : log.fileName
-                )
-                detailDivider
+            metadataRow(
+                String(localized: "debug_line"),
+                log.line > 0 ? "\(log.line)" : "—"
+            )
+            detailDivider
 
-                metadataRow(
-                    String(localized: "debug_line"),
-                    log.line > 0 ? "\(log.line)" : "—"
-                )
-                detailDivider
+            metadataRow(
+                String(localized: "debug_function"),
+                log.function.isEmpty ? "—" : log.function
+            )
+            detailDivider
 
-                metadataRow(
-                    String(localized: "debug_function"),
-                    log.function.isEmpty ? "—" : log.function
-                )
-                detailDivider
+            metadataRow(
+                String(localized: "debug_thread"),
+                log.thread.isEmpty ? "—" : log.thread
+            )
+            detailDivider
 
-                metadataRow(
-                    String(localized: "debug_thread"),
-                    log.thread.isEmpty ? "—" : log.thread
-                )
-                detailDivider
-
-                metadataRow(
-                    String(localized: "debug_path"),
-                    log.file.isEmpty ? "—" : log.file
-                )
-            }
-            .debugGlassSurface(cornerRadius: 12)
+            metadataRow(
+                String(localized: "debug_path"),
+                log.file.isEmpty ? "—" : log.file
+            )
         }
+        .debugConsoleSurface(cornerRadius: 14)
     }
 
     private var messageSection: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            sectionTitle(String(localized: "debug_message_section"))
-
-            Text(log.message)
-                .font(.system(size: 12.25, weight: .regular, design: .monospaced))
-                .foregroundColor(.monologueTextPrimary)
-                .lineSpacing(4)
-                .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(14)
-                .debugGlassSurface(cornerRadius: 12)
-        }
+        Text(log.message)
+            .font(.system(size: 12.25, weight: .regular, design: .monospaced))
+            .foregroundColor(.white.opacity(0.88))
+            .lineSpacing(5)
+            .textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
+            .debugConsoleSurface(cornerRadius: 14, tint: log.level.tint.opacity(0.018))
     }
 
     private var analysisSection: some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 9) {
-                sectionTitle(String(localized: "debug_analysis_section"))
-
                 VStack(spacing: 0) {
                     metadataRow(String(localized: "debug_analysis_type"), analysis.kind.localizedTitle)
                     detailDivider
@@ -1155,7 +1491,7 @@ private struct DebugLogDetailView: View {
                         metadataRow(String(localized: "debug_status_code"), statusCode)
                     }
                 }
-                .debugGlassSurface(cornerRadius: 12)
+                .debugConsoleSurface(cornerRadius: 14)
             }
 
             if let javaScript = analysis.javaScript {
@@ -1190,7 +1526,7 @@ private struct DebugLogDetailView: View {
                             }
                         }
                     }
-                    .debugGlassSurface(cornerRadius: 12)
+                    .debugConsoleSurface(cornerRadius: 12)
                 }
             }
 
@@ -1209,7 +1545,7 @@ private struct DebugLogDetailView: View {
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(14)
-                        .debugGlassSurface(cornerRadius: 12)
+                        .debugConsoleSurface(cornerRadius: 12)
                 }
             }
         }
@@ -1269,7 +1605,7 @@ private struct DebugLogDetailView: View {
                     }
                 }
             }
-            .debugGlassSurface(cornerRadius: 12)
+            .debugConsoleSurface(cornerRadius: 12)
         }
     }
 
@@ -1285,7 +1621,7 @@ private struct DebugLogDetailView: View {
                     }
                 }
             }
-            .debugGlassSurface(cornerRadius: 12)
+            .debugConsoleSurface(cornerRadius: 12)
         }
     }
 
@@ -1326,7 +1662,7 @@ private struct DebugLogDetailView: View {
                     }
                 }
             }
-            .debugGlassSurface(cornerRadius: 12)
+            .debugConsoleSurface(cornerRadius: 12)
         }
     }
 
@@ -1341,7 +1677,7 @@ private struct DebugLogDetailView: View {
                 .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(14)
-                .debugGlassSurface(cornerRadius: 12)
+                .debugConsoleSurface(cornerRadius: 12)
         }
     }
 
@@ -1397,20 +1733,22 @@ private struct DebugLogDetailView: View {
 }
 
 private extension View {
-    func debugGlassSurface(cornerRadius: CGFloat, tint: Color = .clear) -> some View {
-        background(
+    func debugConsoleSurface(cornerRadius: CGFloat, tint: Color = .clear) -> some View {
+        background {
+            ZStack {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(Color(red: 0.045, green: 0.05, blue: 0.061))
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(tint)
+            }
+        }
+        .overlay {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(tint)
-        )
-        .monologueGlass(cornerRadius: cornerRadius)
+                .stroke(Color.white.opacity(0.07), lineWidth: 0.65)
+        }
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 
-    func debugGlassCapsule(tint: Color = .clear) -> some View {
-        background(Capsule().fill(tint))
-            .monologueGlassCapsule()
-            .clipShape(Capsule())
-    }
 }
 
 private struct DebugLogShareSheet: UIViewControllerRepresentable {

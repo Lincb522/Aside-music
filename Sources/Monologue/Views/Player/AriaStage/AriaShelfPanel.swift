@@ -536,6 +536,14 @@ struct AriaTuningControls: View {
     @AppStorage("ariaLyricDepthIntensity") private var lyricDepthIntensity = 0.68
     @AppStorage("immersivePersistent") private var immersivePersistent = false
     @AppStorage("ariaLyricEmboss") private var lyricEmbossEnabled = true
+    // 沉浸实验室
+    @AppStorage("ariaHapticBeatEnabled") private var hapticBeatEnabled = false
+    @AppStorage("ariaVocalBreathingWeight") private var vocalBreathingEnabled = false
+    @AppStorage("ariaTensionSystemEnabled") private var tensionSystemEnabled = false
+    @AppStorage("ariaGPUStageEnabled") private var gpuStageEnabled = false
+    @AppStorage("monoStageDirectorEnabled") private var stageDirectorEnabled = false
+
+    @ObservedObject private var stageDirector = MonoStageDirector.shared
 
     let palette: AriaPalette
 
@@ -556,7 +564,94 @@ struct AriaTuningControls: View {
             stageToggle(String(localized: "立体浮雕"), isOn: $lyricEmbossEnabled)
             stageToggle(String(localized: "动态色彩呼吸"), isOn: $ambientMotion)
             stageToggle(String(localized: "常驻沉浸模式"), isOn: $immersivePersistent)
+
+            labDivider
+
+            if AriaHapticBeat.supportsHaptics {
+                labToggle(
+                    String(localized: "节拍触觉"),
+                    caption: String(localized: "鼓点命中同步触觉反馈，重拍更沉、军鼓更脆"),
+                    isOn: $hapticBeatEnabled
+                )
+            }
+            labToggle(
+                String(localized: "人声呼吸字重"),
+                caption: String(localized: "经典字幕的当前字随人声力度改变粗细"),
+                isOn: $vocalBreathingEnabled
+            )
+            labToggle(
+                String(localized: "副歌预判张力"),
+                caption: String(localized: "副歌来临前光场蓄力升温，命中瞬间镜头释放"),
+                isOn: $tensionSystemEnabled
+            )
+            if #available(iOS 17.0, *) {
+                labToggle(
+                    String(localized: "GPU 着色器舞台"),
+                    caption: String(localized: "aria_gpu_stage_caption"),
+                    isOn: $gpuStageEnabled
+                )
+            }
+            labToggle(
+                String(localized: "AI 舞台导演"),
+                caption: directorCaption,
+                isOn: $stageDirectorEnabled
+            )
         }
+    }
+
+    /// 导演开启后 caption 变成实时编排状态，让「有没有在工作」一目了然
+    private var directorCaption: String {
+        guard stageDirectorEnabled else {
+            return String(localized: "aria_stage_director_caption")
+        }
+        switch stageDirector.phase {
+        case .idle:
+            return String(localized: "aria_stage_director_status_idle")
+        case .generating:
+            return String(localized: "aria_stage_director_status_generating")
+        case .ready:
+            return String(
+                format: String(localized: "aria_stage_director_status_ready_format"),
+                stageDirector.sectionCount
+            )
+        case .failed:
+            return String(localized: "aria_stage_director_status_failed")
+        case .unavailable:
+            return String(localized: "aria_stage_director_status_unavailable")
+        }
+    }
+
+    private var labDivider: some View {
+        HStack(spacing: 8) {
+            Text(String(localized: "沉浸实验室"))
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.42))
+            Rectangle()
+                .fill(Color.white.opacity(0.10))
+                .frame(height: 1)
+        }
+        .padding(.top, 6)
+    }
+
+    private func labToggle(
+        _ title: String,
+        caption: String,
+        isOn: Binding<Bool>
+    ) -> some View {
+        Toggle(isOn: isOn) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.75))
+                Text(caption)
+                    .font(.system(size: 10, weight: .regular, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.38))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .tint(palette.accent)
+        .padding(.vertical, 4)
+        .padding(.trailing, 3)
     }
 
     private func tuningSlider(

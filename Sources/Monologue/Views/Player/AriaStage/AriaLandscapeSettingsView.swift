@@ -34,9 +34,19 @@ struct AriaLandscapeSettingsView: View {
     @AppStorage("lyricsForceUppercaseEnglish") private var forceUppercaseEnglish = false
     @AppStorage("immersivePersistent") private var immersivePersistent = false
     @AppStorage("ariaLyricEmboss") private var lyricEmbossEnabled = true
+    // 沉浸实验室
+    @AppStorage("ariaHapticBeatEnabled") private var hapticBeatEnabled = false
+    @AppStorage("ariaVocalBreathingWeight") private var vocalBreathingEnabled = false
+    @AppStorage("ariaTensionSystemEnabled") private var tensionSystemEnabled = false
+    @AppStorage("ariaGPUStageEnabled") private var gpuStageEnabled = false
+    @AppStorage("monoStageDirectorEnabled") private var stageDirectorEnabled = false
 
     @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var stageDirector = MonoStageDirector.shared
     @State private var showVideoSheet = false
+    @State private var effectHasMoreContent = false
+    @State private var styleHasMoreContent = false
+    @State private var stageHasMoreContent = false
 
     private var lyricEffect: AriaLyricEffect {
         AriaLyricEffect.resolveStored(lyricEffectRaw)
@@ -151,11 +161,11 @@ struct AriaLandscapeSettingsView: View {
     }
 
     private var effectPanel: some View {
-        panel {
+        panel(showsDownIndicator: effectHasMoreContent) {
             VStack(alignment: .leading, spacing: 10) {
                 panelTitle(String(localized: "字幕特效"))
 
-                ScrollView(showsIndicators: false) {
+                AriaLandscapePanelScrollView(hasMoreContent: $effectHasMoreContent) {
                     LazyVStack(spacing: 7) {
                         ForEach(AriaLyricEffect.allCases, id: \.rawValue) { effect in
                             effectButton(effect)
@@ -204,8 +214,8 @@ struct AriaLandscapeSettingsView: View {
     }
 
     private var stylePanel: some View {
-        panel {
-            ScrollView(showsIndicators: false) {
+        panel(showsDownIndicator: styleHasMoreContent) {
+            AriaLandscapePanelScrollView(hasMoreContent: $styleHasMoreContent) {
                 VStack(alignment: .leading, spacing: 14) {
                     fontPreview
                     fontGrid
@@ -420,7 +430,7 @@ struct AriaLandscapeSettingsView: View {
 
             if lyricEffect == .canopy {
                 landscapeToggle(
-                    String(localized: "天幕碎幕律动"),
+                    String(localized: "巨幕碎幕律动"),
                     isOn: $canopyFragmentStage
                 )
             }
@@ -432,8 +442,8 @@ struct AriaLandscapeSettingsView: View {
     }
 
     private var stagePanel: some View {
-        panel {
-            ScrollView(showsIndicators: false) {
+        panel(showsDownIndicator: stageHasMoreContent) {
+            AriaLandscapePanelScrollView(hasMoreContent: $stageHasMoreContent) {
                 VStack(alignment: .leading, spacing: 13) {
                     panelTitle(String(localized: "舞台背景"))
                     coverPreview
@@ -450,6 +460,21 @@ struct AriaLandscapeSettingsView: View {
                         String(localized: "常驻沉浸模式"),
                         isOn: $immersivePersistent
                     )
+
+                    panelTitle(String(localized: "沉浸实验室"))
+                    if AriaHapticBeat.supportsHaptics {
+                        landscapeToggle(String(localized: "节拍触觉"), isOn: $hapticBeatEnabled)
+                    }
+                    landscapeToggle(String(localized: "人声呼吸字重"), isOn: $vocalBreathingEnabled)
+                    landscapeToggle(String(localized: "副歌预判张力"), isOn: $tensionSystemEnabled)
+                    if #available(iOS 17.0, *) {
+                        landscapeToggle(String(localized: "GPU 着色器舞台"), isOn: $gpuStageEnabled)
+                    }
+                    landscapeToggle(String(localized: "AI 舞台导演"), isOn: $stageDirectorEnabled)
+                    if stageDirectorEnabled {
+                        directorStatusRow
+                    }
+
                     videoButton
                 }
             }
@@ -507,7 +532,65 @@ struct AriaLandscapeSettingsView: View {
         .buttonStyle(MonologueBouncingButtonStyle(scale: 0.97))
     }
 
+    private var directorStatusRow: some View {
+        HStack(spacing: 7) {
+            Circle()
+                .fill(directorStatusColor)
+                .frame(width: 6, height: 6)
+                .shadow(color: directorStatusColor.opacity(0.55), radius: 4)
+
+            Text(directorStatusText)
+                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.56))
+                .lineLimit(1)
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 10)
+        .frame(height: 30)
+        .background(
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .fill(Color.white.opacity(0.045))
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .stroke(Color.white.opacity(0.06), lineWidth: 1)
+        }
+    }
+
+    private var directorStatusText: String {
+        switch stageDirector.phase {
+        case .idle:
+            String(localized: "aria_stage_director_status_idle")
+        case .generating:
+            String(localized: "aria_stage_director_status_generating")
+        case .ready:
+            String(
+                format: String(localized: "aria_stage_director_status_ready_format"),
+                stageDirector.sectionCount
+            )
+        case .failed:
+            String(localized: "aria_stage_director_status_failed")
+        case .unavailable:
+            String(localized: "aria_stage_director_status_unavailable")
+        }
+    }
+
+    private var directorStatusColor: Color {
+        switch stageDirector.phase {
+        case .ready:
+            palette.accent
+        case .generating:
+            .white.opacity(0.82)
+        case .failed:
+            .orange
+        case .idle, .unavailable:
+            .white.opacity(0.30)
+        }
+    }
+
     private func panel<Content: View>(
+        showsDownIndicator: Bool,
         @ViewBuilder content: () -> Content
     ) -> some View {
         content()
@@ -525,6 +608,29 @@ struct AriaLandscapeSettingsView: View {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .stroke(Color.white.opacity(0.07), lineWidth: 1)
             }
+            .overlay(alignment: .bottom) {
+                if showsDownIndicator {
+                    MonologueIcon(
+                        icon: .chevronDown,
+                        size: 8,
+                        color: .white.opacity(0.38),
+                        lineWidth: 1.7
+                    )
+                    .frame(width: 24, height: 14)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(Color.black.opacity(0.34))
+                            .overlay {
+                                Capsule(style: .continuous)
+                                    .stroke(Color.white.opacity(0.07), lineWidth: 0.8)
+                            }
+                    )
+                    .offset(y: 7)
+                    .transition(.opacity.combined(with: .scale(scale: 0.82)))
+                    .allowsHitTesting(false)
+                }
+            }
+            .animation(.easeOut(duration: 0.16), value: showsDownIndicator)
     }
 
     private func panelTitle(_ text: String) -> some View {
@@ -575,5 +681,54 @@ struct AriaLandscapeSettingsView: View {
         }
         .tint(palette.accent)
         .padding(.trailing, 3)
+    }
+}
+
+private struct AriaLandscapePanelBottomPreferenceKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
+/// 单独测量每个板块的内容底边。只有底边仍在可视区域下方时，
+/// 外层板块才显示向下提示；滚到底或内容本身不足一屏时自动隐藏。
+private struct AriaLandscapePanelScrollView<Content: View>: View {
+    @Binding var hasMoreContent: Bool
+    @State private var coordinateSpaceName = UUID()
+    private let content: Content
+
+    init(
+        hasMoreContent: Binding<Bool>,
+        @ViewBuilder content: () -> Content
+    ) {
+        _hasMoreContent = hasMoreContent
+        self.content = content()
+    }
+
+    var body: some View {
+        GeometryReader { viewport in
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 0) {
+                    content
+
+                    GeometryReader { marker in
+                        Color.clear.preference(
+                            key: AriaLandscapePanelBottomPreferenceKey.self,
+                            value: marker.frame(in: .named(coordinateSpaceName)).maxY
+                        )
+                    }
+                    .frame(height: 1)
+                }
+            }
+            .coordinateSpace(name: coordinateSpaceName)
+            .onPreferenceChange(AriaLandscapePanelBottomPreferenceKey.self) { bottomY in
+                let hasRoomBelow = bottomY > viewport.size.height + 2
+                if hasMoreContent != hasRoomBelow {
+                    hasMoreContent = hasRoomBelow
+                }
+            }
+        }
     }
 }

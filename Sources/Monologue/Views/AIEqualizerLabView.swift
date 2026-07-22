@@ -16,6 +16,7 @@ struct AIEqualizerLabView: View {
     @State private var isCalibrationExpanded = false
     @State private var isTuningConfigurationExpanded = false
     @State private var isShowingClearLearningConfirmation = false
+    @State private var isShowingClearAllProposalsConfirmation = false
     @State private var comparisonProposal: AIEqualizerSavedProposal?
     @State private var selectedWorkspace: AIEqualizerWorkspace = .tuning
 
@@ -42,7 +43,7 @@ struct AIEqualizerLabView: View {
         presentationRoot
         .sheet(item: $comparisonProposal) { historical in
             NavigationStack {
-                AIEqualizerProposalComparisonView(
+                AIEqualizerProposalComparisonRedesignView(
                     current: agent.proposal,
                     historical: historical,
                     accent: accent
@@ -59,6 +60,17 @@ struct AIEqualizerLabView: View {
             }
         } message: {
             Text(String(localized: "ai_learning_clear_message"))
+        }
+        .alert(
+            String(localized: "ai_lab_clear_all_proposals_title"),
+            isPresented: $isShowingClearAllProposalsConfirmation
+        ) {
+            Button(String(localized: "cancel"), role: .cancel) {}
+            Button(String(localized: "ai_lab_clear_all_proposals"), role: .destructive) {
+                agent.deleteAllSavedProposals()
+            }
+        } message: {
+            Text(String(localized: "ai_lab_clear_all_proposals_message"))
         }
         .onAppear { refreshCoverAccent() }
         .onChange(of: player.currentSong?.id) { _, _ in
@@ -250,6 +262,10 @@ struct AIEqualizerLabView: View {
                         )
                     } else {
                         savedResultsSection
+                    }
+
+                    if agent.hasAnySavedProposals {
+                        clearAllProposalsButton
                     }
                 }
                 .padding(.horizontal, centerLayout.horizontalInset)
@@ -683,7 +699,7 @@ struct AIEqualizerLabView: View {
                 ForEach(AIEqualizerTuningProfile.allCases) { profile in
                     Button {
                         withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
-                            agent.tuningProfile = profile
+                            agent.selectTuningProfile(profile)
                         }
                         UISelectionFeedbackGenerator().selectionChanged()
                     } label: {
@@ -1408,7 +1424,7 @@ struct AIEqualizerLabView: View {
                         Button {
                             agent.deleteAllSavedProposalsForCurrentSong()
                         } label: {
-                            Text(String(localized: "ai_lab_delete_all"))
+                            Text(String(localized: "ai_lab_delete_current_song"))
                                 .font(.system(size: 11, weight: .semibold))
                                 .foregroundStyle(.red.opacity(0.86))
                         }
@@ -1423,6 +1439,32 @@ struct AIEqualizerLabView: View {
                 .background(cardBackground)
             )
         )
+    }
+
+    private var clearAllProposalsButton: some View {
+        Button {
+            isShowingClearAllProposalsConfirmation = true
+        } label: {
+            HStack(spacing: 8) {
+                MonologueIcon(icon: .trash, size: 13, color: .red.opacity(0.88))
+                Text(String(localized: "ai_lab_clear_all_proposals"))
+                    .font(.system(size: 12.5, weight: .bold))
+                    .foregroundStyle(.red.opacity(0.88))
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 14)
+            .frame(minHeight: 46)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.red.opacity(0.075))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(Color.red.opacity(0.16), lineWidth: 1)
+                    }
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(MonologueBouncingButtonStyle())
     }
 
     private func previousSavedProposal(
@@ -1443,6 +1485,13 @@ struct AIEqualizerLabView: View {
             title: String(localized: "ai_lab_automatic_comparison"),
             content: AnyView(
                 VStack(alignment: .leading, spacing: 12) {
+                    AIEqualizerComparisonCurve(
+                        current: current.gains,
+                        previous: previous.gains,
+                        accent: accent
+                    )
+                    .frame(height: 94)
+
                     HStack(spacing: 8) {
                         comparisonSummaryMetric(
                             title: String(localized: "ai_lab_changed_bands"),
@@ -1513,28 +1562,41 @@ struct AIEqualizerLabView: View {
     }
 
     private func automaticChangeRow(_ change: AIEqualizerComparisonChange) -> some View {
-        HStack(spacing: 8) {
-            Text(change.title)
-                .font(.system(size: 11.5, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.6))
-                .frame(maxWidth: .infinity, alignment: .leading)
+        VStack(spacing: 7) {
+            HStack(spacing: 8) {
+                Text(change.title)
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.66))
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-            Text(change.previousValue)
-                .font(.system(size: 10.5, weight: .medium, design: .monospaced))
-                .foregroundStyle(.white.opacity(0.42))
+                Text(change.previousValue)
+                    .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.42))
 
-            MonologueIcon(icon: .chevronRight, size: 9, color: .white.opacity(0.3))
+                MonologueIcon(icon: .chevronRight, size: 8, color: .white.opacity(0.26))
 
-            Text(change.currentValue)
-                .font(.system(size: 11, weight: .bold, design: .monospaced))
-                .foregroundStyle(accent)
+                Text(change.currentValue)
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundStyle(accent)
 
-            Text(change.deltaValue)
-                .font(.system(size: 10.5, weight: .bold, design: .monospaced))
-                .foregroundStyle(change.delta >= 0 ? accent : .white.opacity(0.5))
-                .frame(width: 48, alignment: .trailing)
+                Text(change.deltaValue)
+                    .font(.system(size: 10.5, weight: .bold, design: .monospaced))
+                    .foregroundStyle(change.delta >= 0 ? accent : .white.opacity(0.54))
+                    .frame(width: 48, alignment: .trailing)
+            }
+
+            GeometryReader { proxy in
+                let magnitude = min(1, abs(CGFloat(change.delta)) / 12)
+                ZStack(alignment: change.delta >= 0 ? .leading : .trailing) {
+                    Capsule().fill(Color.white.opacity(0.055))
+                    Capsule()
+                        .fill(change.delta >= 0 ? accent : Color.white.opacity(0.34))
+                        .frame(width: max(3, proxy.size.width * magnitude))
+                }
+            }
+            .frame(height: 2)
         }
-        .frame(minHeight: 34)
+        .padding(.vertical, 8)
     }
 
     private func changedBandCount(

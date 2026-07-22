@@ -46,6 +46,8 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
     private var lastRemoteRevision: String?
     private var pendingUploadDigest: String?
     private var uploadRetryTask: Task<Void, Never>?
+    private var isCheckingRemoteSnapshot = false
+    private var lastAutomaticRefreshAt: Date?
 
     // MARK: - Upload Throttling
     //
@@ -56,7 +58,9 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
     // 硬止血：连续两次上传之间至少间隔 `minUploadInterval` 秒；短时间内发生的
     // 重复变更会合并到一次后续上传。
     /// 连续两次上传的最小间隔
-    private static let minUploadInterval: TimeInterval = 10
+    private static let minUploadInterval: TimeInterval = 60
+    /// 生命周期和多个页面可能连续触发检查；自动 GET 在此窗口内只执行一次。
+    private static let minAutomaticRefreshInterval: TimeInterval = 60
     /// 最近一次真正完成 uploadCloudPlaylistSnapshot 的时间戳
     private var lastUploadCompletedAt: Date?
 
@@ -98,6 +102,8 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
         uploadRetryTask?.cancel()
         uploadRetryTask = nil
         pendingUploadDigest = nil
+        isCheckingRemoteSnapshot = false
+        lastAutomaticRefreshAt = nil
         _ = playlistManager.clearSyncablePlaylistsLocally()
         refreshLocalContentSummary()
         lastObservedDigest = currentLocalDigest()
@@ -125,6 +131,7 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
 
         refreshLocalContentSummary()
         let response = try await APIService.shared.fetchCloudPlaylistSnapshot()
+        lastAutomaticRefreshAt = Date()
 
         // 云端没有快照时绝不动本地内容（清空动作只允许由
         // refreshRemoteSnapshotIfNeeded 的跨设备清空流程触发）
@@ -206,9 +213,11 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
         isSyncing = true
         defer { isSyncing = false }
 
+        let response = try await APIService.shared.fetchCloudPlaylistSnapshot()
+        lastAutomaticRefreshAt = Date()
+
         // 云端为空时「恢复」只提示，不把本地内容清掉
-        guard let response = try await APIService.shared.fetchCloudPlaylistSnapshot(),
-              response.hasSnapshot else {
+        guard let response, response.hasSnapshot else {
             if showStatus {
                 persistStatus(NSLocalizedString("playlist_sync_cloud_empty", comment: ""))
             }
@@ -219,6 +228,18 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
     }
 
     func refreshFromCloudIfNeeded(showStatus: Bool = false) async {
+        guard !isCheckingRemoteSnapshot else { return }
+        let now = Date()
+        if !showStatus,
+           let lastAutomaticRefreshAt,
+           now.timeIntervalSince(lastAutomaticRefreshAt) < Self.minAutomaticRefreshInterval {
+            return
+        }
+
+        isCheckingRemoteSnapshot = true
+        lastAutomaticRefreshAt = now
+        defer { isCheckingRemoteSnapshot = false }
+
         do {
             _ = try await refreshRemoteSnapshotIfNeeded(showStatus: showStatus)
         } catch {
@@ -248,7 +269,9 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
         }
 
         do {
-            guard let response = try await APIService.shared.fetchCloudPlaylistSnapshot() else {
+            let response = try await APIService.shared.fetchCloudPlaylistSnapshot()
+            lastAutomaticRefreshAt = Date()
+            guard let response else {
                 if hasCloudSyncableContent && settings.playlistSyncAutoEnabled {
                     _ = try await syncToCloud(showStatus: false)
                     persistStatus(NSLocalizedString("playlist_sync_auto_uploaded", comment: ""))
@@ -481,11 +504,13 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
         guard !isBootstrappingCurrentToken else { return nil }
         guard !isApplyingRemoteSnapshot else { return nil }
         guard !isSyncing else { return nil }
-        guard lastRemoteRevision != nil else { return nil }
-        guard let response = try await APIService.shared.fetchCloudPlaylistSnapshot() else { return nil }
+        let knownRevision = lastRemoteRevision
+        guard let response = try await APIService.shared.fetchCloudPlaylistSnapshot(
+            ifChangedFrom: knownRevision
+        ) else { return nil }
 
-        let remoteChanged = response.revision != lastRemoteRevision
-        let remoteCleared = !response.hasSnapshot && lastRemoteRevision != nil
+        let remoteChanged = response.revision != knownRevision
+        let remoteCleared = !response.hasSnapshot && knownRevision != nil
 
         guard remoteChanged || remoteCleared else { return nil }
         return applyRemoteResponse(response, showStatus: showStatus)
@@ -538,7 +563,7 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
         }
 
         // 恢复下载记录到下载歌单（仅元数据，显示用）
-        if AppConfig.Features.downloadEnabled,
+        if AppConfig.Features.restrictedDownloadEnabled,
            let downloads = downloads,
            !downloads.isEmpty {
             DownloadManager.shared.restoreCloudDownloadRecords(downloads)
@@ -663,6 +688,7 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
         }
 
         persistRemoteRevision(nil)
+        lastAutomaticRefreshAt = nil
         // 换账号后旧的同步基线不再可信：留着会让 merge 把旧账号时期的
         // 本地歌单误判为「没改过」而被新账号的云端快照覆盖/删除。
         lastSyncedAt = nil
@@ -694,9 +720,74 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
         )
         snapshot.themeCustomization = ThemeColorCustomization.makeCloudSnapshot()
         snapshot.playbackHistory = HistoryRepository().makeCloudPlaybackHistorySnapshot()
-        snapshot.aiEqualizer = AIEqualizerAgent.shared.makeCloudSnapshot()
+        if var aiEqualizer = AIEqualizerAgent.shared.makeCloudSnapshot() {
+            let proposalMetadata = makeAIEqualizerSongMetadata(
+                from: snapshot.playlists,
+                matching: aiEqualizer
+            )
+            aiEqualizer.proposalMetadata = proposalMetadata.isEmpty ? nil : proposalMetadata
+            snapshot.aiEqualizer = aiEqualizer
+        } else {
+            snapshot.aiEqualizer = nil
+        }
         snapshot.customEQPresets = EQManager.shared.makeCloudCustomPresets()
         return snapshot
+    }
+
+    private func makeAIEqualizerSongMetadata(
+        from playlists: [LocalPlaylistCloudPlaylist],
+        matching aiEqualizer: CloudAIEqualizerSnapshot
+    ) -> [String: CloudAIEqualizerSongMetadata] {
+        var requestedKeys = Set(aiEqualizer.cachedProposals.keys)
+        var requestedSongIds = Set(aiEqualizer.cachedProposals.values.map(\.songID))
+
+        for (songIdentifier, entries) in aiEqualizer.savedProposals {
+            requestedKeys.insert(songIdentifier)
+            entries.forEach { entry in
+                requestedSongIds.insert(entry.proposal.songID)
+            }
+        }
+
+        var metadata: [String: CloudAIEqualizerSongMetadata] = [:]
+
+        for playlist in playlists {
+            for song in playlist.songs {
+                let item = CloudAIEqualizerSongMetadata(song: song)
+                let source = item.sourceRaw
+                let songId = String(item.songId)
+                var keys = [
+                    item.songIdentifier,
+                    songId,
+                    "\(source):\(songId)"
+                ]
+
+                if source == MusicSource.netease.rawValue {
+                    keys.append("netease|\(songId)")
+                }
+
+                if let qqMid = song.qqMid?.trimmingCharacters(in: .whitespacesAndNewlines),
+                   !qqMid.isEmpty {
+                    keys.append(qqMid)
+                    keys.append("qqmusic:\(qqMid)")
+                }
+
+                if let qishuiTrackId = song.qishuiTrackId {
+                    let trackId = String(qishuiTrackId)
+                    keys.append(trackId)
+                    keys.append("qishui:\(trackId)")
+                }
+
+                guard requestedSongIds.contains(song.id) || keys.contains(where: requestedKeys.contains) else {
+                    continue
+                }
+
+                for key in keys {
+                    metadata[key] = item
+                }
+            }
+        }
+
+        return metadata
     }
 
     private func currentLocalDigest() -> String {

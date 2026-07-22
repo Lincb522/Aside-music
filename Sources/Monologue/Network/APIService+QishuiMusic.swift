@@ -9,10 +9,11 @@ import Foundation
 
 extension APIService {
 
-    private static let qishuiBaseURL: String = {
+    /// 计算属性：跟随当前服务器线路
+    private static var qishuiBaseURL: String {
         let url = SecureConfig.qishuiBaseURL
         return url.hasSuffix("/") ? String(url.dropLast()) : url
-    }()
+    }
 
     private static let qishuiSessionID: String = {
         if let sessionID = Bundle.main.infoDictionary?["QISHUI_SESSION_ID"] as? String,

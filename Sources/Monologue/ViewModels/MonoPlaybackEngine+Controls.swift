@@ -27,6 +27,13 @@ extension PlayerManager {
     @discardableResult
     func playPlayback() -> Bool {
         if isLoading {
+            if let song = pendingPlaybackPresentationSong ?? currentSong {
+                mediaResolver.ensureLoadWatchdog(
+                    song: song,
+                    sessionId: playbackSessionId,
+                    engineInput: streamPlayer.currentPlaybackInput
+                )
+            }
             return currentSong != nil
         }
         if isPlaying {
@@ -100,6 +107,13 @@ extension PlayerManager {
             return currentSong != nil
         case .connecting:
             isLoading = true
+            if let song = pendingPlaybackPresentationSong ?? currentSong {
+                mediaResolver.ensureLoadWatchdog(
+                    song: song,
+                    sessionId: playbackSessionId,
+                    engineInput: streamPlayer.currentPlaybackInput
+                )
+            }
             refreshPlaybackSurfaceState()
             return currentSong != nil
         case .paused:
@@ -177,13 +191,7 @@ extension PlayerManager {
     }
 
     private var isCurrentPlaybackAtEnd: Bool {
-        let expectedDuration: Double = {
-            if let metaMs = currentSong?.dt, metaMs > 0 {
-                return Double(metaMs) / 1000.0
-            }
-            return duration
-        }()
-
+        let expectedDuration = effectivePlaybackDuration
         guard expectedDuration > 0 else { return false }
         let referenceTime = max(currentTime, streamPlayer.currentTime)
         return referenceTime >= max(expectedDuration - 0.75, 0)

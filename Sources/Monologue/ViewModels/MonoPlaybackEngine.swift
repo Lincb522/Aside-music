@@ -66,15 +66,30 @@ class PlayerManager: ObservableObject {
             }
         }
     }
+    /// Duration measured by the decoder for the pipeline that is currently
+    /// audible. API metadata is only a fallback because alternate/unblocked
+    /// assets can legitimately have a different length.
+    var engineReportedDuration: Double?
     private var lastPlaybackClockOverflowLogAt = Date.distantPast
+
+    var effectivePlaybackDuration: Double {
+        if let engineReportedDuration,
+           engineReportedDuration.isFinite,
+           engineReportedDuration > 0 {
+            return engineReportedDuration
+        }
+        if duration.isFinite, duration > 0 {
+            return duration
+        }
+        return Double(currentSong?.dt ?? 0) / 1_000
+    }
 
     /// Keeps the UI/Now Playing clock inside the active track's real duration.
     /// A failed near-EOF seek can otherwise map audio restarted at zero onto the
     /// old resume timestamp and make a four-minute song appear five minutes long.
     func boundedEnginePlaybackTime(_ rawTime: Double) -> Double? {
         guard rawTime.isFinite, !rawTime.isNaN, rawTime >= 0 else { return nil }
-        let metadataDuration = Double(currentSong?.dt ?? 0) / 1_000
-        let expectedDuration = max(duration, metadataDuration)
+        let expectedDuration = effectivePlaybackDuration
         guard expectedDuration > 0 else { return rawTime }
 
         if rawTime > expectedDuration + 1,
@@ -89,8 +104,7 @@ class PlayerManager: ObservableObject {
     }
 
     func isCurrentPlaybackNearNaturalEnd() -> Bool {
-        let metadataDuration = Double(currentSong?.dt ?? 0) / 1_000
-        let expectedDuration = max(duration, metadataDuration)
+        let expectedDuration = effectivePlaybackDuration
         guard expectedDuration > 1 else { return false }
         let position = min(
             max(currentTime, streamPlayer.currentTime),
@@ -307,6 +321,8 @@ class PlayerManager: ObservableObject {
     var pendingPlaybackPresentationStartTime: Double = 0
     var pendingPlaybackPresentationIsUnblocked = false
     var pendingPlaybackPresentationResolvedQuality: ResolvedPlaybackQuality?
+    /// Decoder duration received before a deferred manual switch becomes audible.
+    var pendingPlaybackPresentationDuration: Double?
     /// 未命中预热管线时，先在旧歌持续播放期间装配新管线；就绪后再热切。
     var manualPreparedSwitchSessionId: Int?
     var manualSwitchPreparationTask: Task<Void, Never>?
@@ -547,6 +563,9 @@ class PlayerManager: ObservableObject {
     // MARK: - Init
     
     init() {
+        // AudioPlaybackIntent can instantiate the player directly in a
+        // background-launched process before lifecycle notifications fire.
+        isAppInBackground = UIApplication.shared.applicationState == .background
         audioSessionCoordinator.setupAudioSession()
         nowPlayingController.setupRemoteCommands()
         setupBackgroundStateObservers()
@@ -633,7 +652,8 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
         let isRetryableStreamError: Bool = {
             if case .error(let e) = state {
                 switch e {
-                case .networkDisconnected, .connectionFailed, .connectionTimeout, .unknown:
+                case .networkDisconnected, .connectionFailed, .connectionTimeout,
+                     .operationInterrupted, .unknown:
                     return true
                 case .unsupportedFormat, .decodingFailed, .resourceAllocationFailed:
                     return false
@@ -666,6 +686,28 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
                 )
                 return
             }
+            let callbackBelongsToActiveLoad =
+                pm.mediaResolver.stateCallbackBelongsToActiveLoad(
+                    sessionId: sessionAtCallback,
+                    engineInput: playbackInput
+                )
+            guard callbackBelongsToActiveLoad else {
+                if case .stopped = kind,
+                   let pending = pm.pendingPlaybackPresentationSong {
+                    pm.isPlaying = false
+                    pm.isLoading = true
+                    pm.refreshPlaybackSurfaceState()
+                    AppLogger.info(
+                        "[PlaybackTransition] 旧管线已结束，继续等待目标歌曲 target=\(pending.name) engine=\(playbackInput ?? "nil")",
+                        step: "playback.transition.old-pipeline-ended"
+                    )
+                } else {
+                    AppLogger.debug(
+                        "[PlaybackLoad] 忽略非目标管线回调 kind=\(String(describing: kind)) engine=\(playbackInput ?? "nil")"
+                    )
+                }
+                return
+            }
             switch kind {
             case .idle:
                 pm.isPlaying = false
@@ -676,6 +718,10 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
                 pm.isPlaying = false
                 pm.refreshPlaybackSurfaceState()
             case .playing:
+                pm.mediaResolver.completeLoadIfCurrent(
+                    sessionId: sessionAtCallback,
+                    engineInput: playbackInput
+                )
                 if let info = streamInfo {
                     pm.streamInfo = info
                 }
@@ -720,6 +766,10 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
                 }
                 pm.scheduleGaplessMediaPrefetchIfNeeded()
             case .paused:
+                pm.mediaResolver.completeLoadIfCurrent(
+                    sessionId: sessionAtCallback,
+                    engineInput: playbackInput
+                )
                 if let info = streamInfo {
                     pm.streamInfo = info
                 }
@@ -747,42 +797,77 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
                     return
                 }
                 pm.suppressStopHandlingUntil = nil
-                // 手动下一首仍在取址 / 下载 / preroll 时，这个 stop 属于旧歌。
-                // 无论旧歌的元数据时长是否准确，都不能把它当成异常再次续播，
-                // 否则会出现旧歌从头播第二遍，而界面已经准备显示下一首。
+                // Input gating above has already filtered stops from the old
+                // audible pipeline. A matching stop here belongs to the target
+                // pipeline itself and must recover immediately instead of
+                // waiting for the transaction watchdog.
                 if let pending = pm.pendingPlaybackPresentationSong {
-                    pm.isLoading = true
-                    pm.refreshPlaybackSurfaceState()
-                    AppLogger.info(
-                        "[PlaybackTransition] 旧管线已结束，继续等待目标歌曲 target=\(pending.name) engine=\(playbackInput ?? "nil")",
-                        step: "playback.transition.old-pipeline-ended"
-                    )
+                    pm.mediaResolver.cancelLoadWatchdog()
+                    if pm.networkDisconnectRetryCount < pm.maxNetworkDisconnectRetries {
+                        pm.networkDisconnectRetryCount += 1
+                        let resumeTime = pm.pendingPlaybackPresentationStartTime
+                        pm.isLoading = true
+                        pm.refreshPlaybackSurfaceState()
+                        PlaybackURLCache.shared.invalidate(song: pending)
+                        AppLogger.warning(
+                            "[PlaybackTransition] 目标管线提前停止，刷新地址重试 target=\(pending.name) attempt=\(pm.networkDisconnectRetryCount)",
+                            step: "playback.transition.target-stopped"
+                        )
+                        pm.loadAndPlay(
+                            song: pending,
+                            startTime: resumeTime,
+                            fadeInDuration: 0.8,
+                            fadeInReason: "target pipeline stopped",
+                            preserveRetryBudget: true
+                        )
+                    } else {
+                        pm.networkDisconnectRetryCount = 0
+                        pm.endTransitionKeepAlive()
+                        pm.showPlaybackError(
+                            song: pending,
+                            error: APIService.PlaybackError.networkError
+                        )
+                    }
                     return
                 }
+                pm.mediaResolver.completeLoadIfCurrent(
+                    sessionId: sessionAtCallback,
+                    engineInput: playbackInput
+                )
                 if !pm.isUserStopping && pm.currentSong != nil {
-                    // 以 API 元数据 dt 为基准判断预期时长，FFmpeg duration 作为备选
-                    let expectedDuration: Double = {
-                        if let metaMs = pm.currentSong?.dt, metaMs > 0 {
-                            return Double(metaMs) / 1000.0
-                        }
-                        return pm.duration
-                    }()
-                    let remainingTime = expectedDuration - pm.currentTime
+                    // Decoder-measured duration is authoritative. Alternate CDN
+                    // and unblocked assets can be shorter than API metadata; using
+                    // metadata here misclassifies their natural EOF as truncation.
+                    let expectedDuration = pm.effectivePlaybackDuration
+                    let observedPosition = max(
+                        pm.currentTime,
+                        pm.streamPlayer.currentTime
+                    )
+                    let remainingTime = expectedDuration - observedPosition
+                    let naturalEndGuard = max(
+                        2,
+                        min(8, expectedDuration * 0.03)
+                    )
+                    let reachedMeasuredEnd = expectedDuration > 0
+                        && observedPosition >= expectedDuration - naturalEndGuard
 
                     // 歌曲正常播完：将 currentTime 拉满到 duration，让进度条显示 100%
-                    if pm.currentTime > 0 && pm.duration > 0 && pm.currentTime / pm.duration > 0.8 && remainingTime <= 15 {
-                        pm.currentTime = pm.duration
+                    if reachedMeasuredEnd {
+                        pm.currentTime = expectedDuration
                     }
                     
                     let isAbnormal: Bool
                     if expectedDuration <= 0 {
-                        isAbnormal = pm.currentTime < 30
+                        isAbnormal = observedPosition < 30
+                    } else if reachedMeasuredEnd {
+                        isAbnormal = false
                     } else {
-                        let playedRatio = pm.currentTime / expectedDuration
+                        let playedRatio = observedPosition / expectedDuration
                         // 异常条件（满足其一即重试）：
                         // 1. 播放不到一半且不到 30 秒（原有：URL 失效、解码失败等）
                         // 2. 距离预期结束还有超过 15 秒（CDN 截断 / 文件不完整）
-                        isAbnormal = (playedRatio < 0.5 && pm.currentTime < 30) || (remainingTime > 15)
+                        isAbnormal = (playedRatio < 0.5 && observedPosition < 30)
+                            || (remainingTime > 15)
                     }
                     
                     if isAbnormal {
@@ -792,9 +877,12 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
                             pm.abnormalStopRetryCount = 0
                             pm.autoNext()
                         } else {
-                            let resumeTime = pm.currentTime
+                            // Re-open slightly before the last decoded frame.
+                            // Resuming exactly at a truncated EOF can immediately
+                            // fail again without giving the refreshed URL a chance.
+                            let resumeTime = max(0, observedPosition - 1.5)
                             AppLogger.warning(
-                                String(localized: "异常结束: 只播放了 \(String(format: "%.1f", pm.currentTime))s / ") +
+                                String(localized: "异常结束: 只播放了 \(String(format: "%.1f", observedPosition))s / ") +
                                 String(localized: "期望 \(String(format: "%.1f", expectedDuration))s (剩余 \(String(format: "%.1f", remainingTime))s)，") +
                                 String(localized: "重试第\(pm.abnormalStopRetryCount)次，从 \(String(format: "%.1f", resumeTime))s 续播")
                             )
@@ -819,6 +907,7 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
                     }
                 }
             case .error:
+                pm.mediaResolver.cancelLoadWatchdog()
                 pm.qualitySwitchTimeoutTask?.cancel()
                 pm.qualitySwitchTimeoutTask = nil
 
@@ -835,10 +924,7 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
                     pm.clearPlaybackStartFade(restoreVolume: true)
                     pm.cancelPlaybackFade(restoreVolume: true)
                     pm.endTransitionKeepAlive()
-                    pm.currentTime = max(
-                        pm.duration,
-                        Double(pm.currentSong?.dt ?? 0) / 1_000
-                    )
+                    pm.currentTime = pm.effectivePlaybackDuration
                     pm.refreshPlaybackSurfaceState()
                     pm.updateNowPlayingTime()
                     AppLogger.info(
@@ -913,30 +999,57 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
     }
     
     func player(_ player: StreamPlayer, didUpdateDuration duration: TimeInterval) {
+        dispatchDurationUpdate(
+            duration,
+            playbackInput: player.currentPlaybackInput
+        )
+    }
+
+    func player(
+        _: StreamPlayer,
+        didUpdateDuration duration: TimeInterval,
+        forPlaybackInput playbackInput: String
+    ) {
+        dispatchDurationUpdate(duration, playbackInput: playbackInput)
+    }
+
+    private func dispatchDurationUpdate(
+        _ duration: TimeInterval,
+        playbackInput: String?
+    ) {
         let dur = duration
         let sessionAtCallback = self.currentSessionId
         Task { @MainActor [weak self] in
             guard let pm = self?.playerManager else { return }
             guard sessionAtCallback == pm.playbackSessionId else { return }
             guard dur.isFinite && !dur.isNaN && dur > 0 else { return }
-
-            // 过滤明显来自上一首的延迟回调（切歌后极短时间内收到比新歌元数据短很多的旧值）
-            // 注意：不过滤 FFmpeg 值比元数据长的情况——那说明真实时长更长，应该信任
-            if let metaMs = pm.currentSong?.dt, metaMs > 0 {
-                let metaDuration = Double(metaMs) / 1000.0
-                let isLikelyStaleDuration =
-                    pm.currentTime < 0.5 &&
-                    pm.duration > 0 &&
-                    dur < metaDuration - 10.0  // FFmpeg 值比元数据短超过 10s，才视为旧歌回调
-
-                if isLikelyStaleDuration {
-                    AppLogger.debug(
-                        String(localized: "忽略疑似旧歌曲 duration 回调: dur=\(dur), meta=\(metaDuration), song=\(pm.currentSong?.name ?? "nil")")
-                    )
-                    return
-                }
+            guard let playbackInput else {
+                AppLogger.debug("[PlaybackDuration] 忽略无活动输入的时长回调")
+                return
             }
 
+            // A deferred manual switch can finish probing while the old song is
+            // still audible. Keep its measured duration with that transaction;
+            // applying it to the visible old song makes EOF classification wrong.
+            if pm.pendingPlaybackPresentationSessionId == sessionAtCallback,
+               let expectedInput = pm.pendingPlaybackPresentationInput,
+               expectedInput == playbackInput {
+                pm.pendingPlaybackPresentationDuration = dur
+                return
+            }
+
+            // Session IDs alone cannot identify a delayed delegate task because
+            // the adapter's session value may already have advanced. The exact
+            // decoder input is the authoritative identity for duration updates.
+            if let currentInput = pm.currentPlayingURL,
+               playbackInput != currentInput {
+                AppLogger.debug(
+                    "[PlaybackDuration] 忽略非当前管线回调 input=\(playbackInput) current=\(currentInput)"
+                )
+                return
+            }
+
+            pm.engineReportedDuration = dur
             pm.duration = dur
             if pm.currentTime > dur {
                 pm.currentTime = dur

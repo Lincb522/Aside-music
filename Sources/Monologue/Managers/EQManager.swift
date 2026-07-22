@@ -132,6 +132,7 @@ class EQManager: ObservableObject {
     @Published var monoEffectTuning = MonoEffectTuningConfiguration.neutral {
         didSet { monoEffectTuningChanged() }
     }
+    private var monoEnhanceConfiguration = MonoEnhanceConfiguration.neutral
     @Published var customPresetPreampDB: Float = 0 {
         didSet {
             // Keep this guard before the corrective assignment. The previous order
@@ -160,6 +161,8 @@ class EQManager: ObservableObject {
     private var smartSpectrumFrames = 0
     private var smartSongIdentifier: String?
     private var lastSmartUpdate = Date.distantPast
+    private var lastSmartDSPCommit = Date.distantPast
+    private var committedAdaptiveGains = Array(repeating: Float(0), count: 10)
     private var isSafetyLimiterActive = false
     private var preAIProcessingSnapshot: AIProcessingSnapshot?
     
@@ -338,6 +341,24 @@ class EQManager: ObservableObject {
     var isAIManagedPresetActive: Bool {
         currentPreset?.id.hasPrefix("ai_") == true
     }
+
+    func isActivelyApplyingAIProposal(_ proposal: AIEqualizerProposal) -> Bool {
+        guard isEnabled,
+              isAIManagedPresetActive,
+              currentPreset?.id == "ai_\(proposal.songID)",
+              graphicEQMode == proposal.graphicEQMode else {
+            return false
+        }
+        let equalizer = PlayerManager.shared.equalizer
+        guard equalizer.isProcessingEnabled,
+              equalizer.monoEnhanceConfiguration.hasAudibleProcessing else {
+            return false
+        }
+        let expected = proposal.graphicEQMode.normalizedGains(proposal.gains)
+        let applied = equalizer.graphicGains
+        guard expected.count == applied.count else { return false }
+        return zip(expected, applied).allSatisfy { abs($0 - $1) < 0.02 }
+    }
     
     func presets(for category: EQPresetCategory) -> [EQPreset] {
         if category == .custom {
@@ -496,7 +517,10 @@ class EQManager: ObservableObject {
         isParametricEQEnabled = snapshot.isParametricEQEnabled
         parametricBands = snapshot.parametricBands
         monoEffectTuning = snapshot.monoEffectTuning ?? .neutral
+        monoEnhanceConfiguration = snapshot.monoEnhanceConfiguration ?? .neutral
         adaptiveGains = Array(repeating: 0, count: 10)
+        committedAdaptiveGains = adaptiveGains
+        lastSmartDSPCommit = Date()
         isRestoring = false
 
         let player = PlayerManager.shared
@@ -545,7 +569,62 @@ class EQManager: ObservableObject {
         captureProcessingBeforeAIIfNeeded()
 
         let professional = proposal.professional
-        let resolvedSpatial = spatialOverride ?? proposal.spatial
+        let requestedSpatial = spatialOverride ?? proposal.spatial
+        let isSpatialProfile = proposal.resolvedTuningProfile == .monoSpatialEnhancement
+        let spatialMinimum: (surround: Float, reverb: Float, width: Float)
+        let spatialMaximum: (surround: Float, reverb: Float, width: Float)
+        // 空间档的下限要保证与标准档拉开可闻差距：标准档上限（约 0.06/0.03/1.05）
+        // 与这里的下限之间需要留出足够的侧声道与湿度间隔，否则两档听感趋同。
+        switch (isSpatialProfile, currentOutputKind) {
+        // 外放时宽度感知弱，主要靠混响湿度与舞台展宽制造空间感。
+        case (true, .builtInSpeaker):
+            spatialMinimum = (0.22, 0.26, 1.16)
+            spatialMaximum = (0.32, 0.40, 1.26)
+        case (true, .bluetooth):
+            spatialMinimum = (0.28, 0.22, 1.24)
+            spatialMaximum = (0.40, 0.40, 1.36)
+        case (true, .wired), (true, .usb):
+            spatialMinimum = (0.30, 0.24, 1.26)
+            spatialMaximum = (0.44, 0.44, 1.40)
+        case (true, .car):
+            spatialMinimum = (0.18, 0.18, 1.15)
+            spatialMaximum = (0.28, 0.34, 1.24)
+        case (true, .airPlay):
+            spatialMinimum = (0.20, 0.19, 1.17)
+            spatialMaximum = (0.32, 0.36, 1.28)
+        case (true, .other):
+            spatialMinimum = (0.24, 0.20, 1.19)
+            spatialMaximum = (0.36, 0.38, 1.31)
+        case (false, .builtInSpeaker):
+            spatialMinimum = (0, 0, 1)
+            spatialMaximum = (0.03, 0.012, 1.025)
+        case (false, .wired), (false, .usb):
+            spatialMinimum = (0, 0, 1)
+            spatialMaximum = (0.06, 0.025, 1.05)
+        case (false, .bluetooth):
+            spatialMinimum = (0, 0, 1)
+            spatialMaximum = (0.055, 0.022, 1.045)
+        case (false, .car):
+            spatialMinimum = (0, 0, 1)
+            spatialMaximum = (0.04, 0.018, 1.035)
+        case (false, .airPlay), (false, .other):
+            spatialMinimum = (0, 0, 1)
+            spatialMaximum = (0.05, 0.020, 1.04)
+        }
+        let resolvedSpatial = AIEqualizerSpatialConfiguration(
+            surroundLevel: min(
+                spatialMaximum.surround,
+                max(spatialMinimum.surround, requestedSpatial.surroundLevel)
+            ),
+            reverbLevel: min(
+                spatialMaximum.reverb,
+                max(spatialMinimum.reverb, requestedSpatial.reverbLevel)
+            ),
+            stereoWidth: min(
+                spatialMaximum.width,
+                max(spatialMinimum.width, requestedSpatial.stereoWidth)
+            )
+        )
         let dynamicBands = professional.dynamicEQ.bands.map {
             DynamicEQBand(
                 frequency: $0.frequency,
@@ -577,6 +656,100 @@ class EQManager: ObservableObject {
             attackMS: multiband.attackMS,
             releaseMS: multiband.releaseMS
         )
+        var resolvedEnhance = proposal.enhance
+        // Applying an AI proposal always enables the safe native tuning core.
+        // Providers may reduce individual values, but cannot silently turn the
+        // entire result into bypass while the UI reports “已应用”.
+        resolvedEnhance.isEnabled = true
+        if resolvedEnhance.isEnabled {
+            let intensityScale: Float
+            switch proposal.tuningIntensity ?? .smart {
+            case .gentle: intensityScale = 0.72
+            case .standard: intensityScale = 0.88
+            case .smart: intensityScale = 1
+            case .strong: intensityScale = 1.14
+            }
+            let tonalFloor: (
+                attack: Float,
+                sustain: Float,
+                vocal: Float,
+                air: Float,
+                deEss: Float,
+                lowFocus: Float,
+                microDynamics: Float,
+                lowLevel: Float
+            )
+            switch currentOutputKind {
+            case .builtInSpeaker:
+                tonalFloor = (0.36, 0.22, 0.30, 0.18, 0.22, 0.42, 0.28, 0.24)
+            case .bluetooth:
+                tonalFloor = (0.32, 0.20, 0.26, 0.20, 0.25, 0.34, 0.26, 0.18)
+            case .wired, .usb:
+                tonalFloor = (0.34, 0.21, 0.25, 0.21, 0.25, 0.35, 0.27, 0.18)
+            case .car, .airPlay, .other:
+                tonalFloor = (0.31, 0.20, 0.27, 0.18, 0.23, 0.37, 0.25, 0.20)
+            }
+            // 标准与空间方案都要先完成可闻的音色、瞬态和动态处理；
+            // 空间方案只是在同一调音底座上额外展开声场，不能靠削弱标准方案制造差异。
+            resolvedEnhance.transientAttack = max(
+                tonalFloor.attack * intensityScale,
+                resolvedEnhance.transientAttack
+            )
+            resolvedEnhance.transientSustain = max(
+                tonalFloor.sustain * intensityScale,
+                resolvedEnhance.transientSustain
+            )
+            resolvedEnhance.vocalFocus = max(
+                tonalFloor.vocal * intensityScale,
+                resolvedEnhance.vocalFocus
+            )
+            resolvedEnhance.airAmount = max(
+                tonalFloor.air * intensityScale,
+                resolvedEnhance.airAmount
+            )
+            resolvedEnhance.deEssAmount = max(
+                tonalFloor.deEss * intensityScale,
+                resolvedEnhance.deEssAmount
+            )
+            resolvedEnhance.lowFrequencyFocus = max(
+                tonalFloor.lowFocus * intensityScale,
+                resolvedEnhance.lowFrequencyFocus
+            )
+            resolvedEnhance.microDynamics = max(
+                tonalFloor.microDynamics * intensityScale,
+                resolvedEnhance.microDynamics
+            )
+            resolvedEnhance.lowLevelCompensation = max(
+                tonalFloor.lowLevel * intensityScale,
+                resolvedEnhance.lowLevelCompensation
+            )
+            if isSpatialProfile {
+                let minimumStageWidth: Float
+                switch currentOutputKind {
+                case .builtInSpeaker: minimumStageWidth = 0.76
+                case .bluetooth, .wired, .usb: minimumStageWidth = 0.78
+                case .car, .airPlay, .other: minimumStageWidth = 0.72
+                }
+                resolvedEnhance.stageWidth = max(minimumStageWidth, resolvedEnhance.stageWidth)
+                resolvedEnhance.vocalFocus = max(0.16, resolvedEnhance.vocalFocus)
+            } else {
+                // 标准方案的调音保持完整，但不主动扩张原始声场。
+                resolvedEnhance.stageWidth = min(0.08, resolvedEnhance.stageWidth)
+            }
+            let outputVolume = AVAudioSession.sharedInstance().outputVolume
+            let quietness = min(1, max(0, (0.62 - outputVolume) / 0.62))
+            let deviceMaximum: Float
+            switch currentOutputKind {
+            case .builtInSpeaker: deviceMaximum = 0.34
+            case .bluetooth, .wired, .usb: deviceMaximum = 0.42
+            case .car, .airPlay, .other: deviceMaximum = 0.38
+            }
+            let highVolumeFloor = resolvedEnhance.lowLevelCompensation * 0.35
+            resolvedEnhance.lowLevelCompensation = min(
+                deviceMaximum,
+                highVolumeFloor + (deviceMaximum - highVolumeFloor) * quietness
+            )
+        }
         let generatedPreset = EQPreset(
             id: "ai_\(proposal.songID)",
             name: proposal.profileName,
@@ -609,6 +782,7 @@ class EQManager: ObservableObject {
         isParametricEQEnabled = professional.parametricEQ.enabled && !parametricBands.isEmpty
         self.parametricBands = parametricBands
         monoEffectTuning = proposal.effects
+        monoEnhanceConfiguration = resolvedEnhance
         isEnabled = true
         isRestoring = false
 
@@ -637,6 +811,25 @@ class EQManager: ObservableObject {
         applyProfessionalConfiguration()
         configureSmartAnalysis()
         updateSafetyLimiter()
+        let committedGains = player.equalizer.graphicGains
+        let committedEnhance = player.equalizer.monoEnhanceConfiguration
+        let maximumCurveDelta = zip(
+            proposal.graphicEQMode.normalizedGains(proposal.gains),
+            committedGains
+        ).map { abs($0 - $1) }.max() ?? .infinity
+        let committedPresetID = currentPreset?.id ?? "none"
+        let curveDeltaText = String(format: "%.4f", maximumCurveDelta)
+        let attackText = String(format: "%.3f", committedEnhance.transientAttack)
+        let vocalText = String(format: "%.3f", committedEnhance.vocalFocus)
+        let airText = String(format: "%.3f", committedEnhance.airAmount)
+        let stageText = String(format: "%.3f", committedEnhance.stageWidth)
+        let surroundText = String(format: "%.3f", player.audioEffects.surroundLevel)
+        let reverbText = String(format: "%.3f", player.audioEffects.reverbLevel)
+        let widthText = String(format: "%.3f", player.audioEffects.stereoWidth)
+        AppLogger.info(
+            "[EQManager] AI DSP commit enabled=\(player.equalizer.isProcessingEnabled) preset=\(committedPresetID) mode=\(graphicEQMode.rawValue) curveDelta=\(curveDeltaText) enhance=\(committedEnhance.hasAudibleProcessing) attack=\(attackText) vocal=\(vocalText) air=\(airText) stage=\(stageText) surround=\(surroundText) reverb=\(reverbText) width=\(widthText)",
+            step: "ai-tuning.dsp-commit"
+        )
         saveState()
         saveProfessionalState()
         saveAudioEffectsState()
@@ -784,6 +977,8 @@ class EQManager: ObservableObject {
         smartSpectrumFrames = 0
         lastSmartUpdate = .distantPast
         adaptiveGains = Array(repeating: 0, count: 10)
+        committedAdaptiveGains = adaptiveGains
+        lastSmartDSPCommit = Date()
         applyCombinedAdaptiveGains()
     }
 
@@ -844,16 +1039,7 @@ class EQManager: ObservableObject {
     }
 
     private func effectiveMonoEffectTuningForCurrentOutput() -> MonoEffectTuningConfiguration {
-        var configuration = monoEffectTuning
-        if isAIManagedPresetActive {
-            // FFmpeg loudnorm may internally upsample to 192 kHz when used
-            // without a full offline measurement pass. Mono already performs
-            // measured loudness matching through its realtime EQ/preamp stage.
-            configuration.loudnessNormalizationEnabled = false
-            if isDynamicEQEnabled || isMultibandDynamicsEnabled {
-                configuration.compressorEnabled = false
-            }
-        }
+        var configuration = monoEffectTuning.realtimePlaybackSafe
         switch currentOutputKind {
         case .bluetooth:
             // Bluetooth codecs are less tolerant of inter-sample peaks and
@@ -906,6 +1092,9 @@ class EQManager: ObservableObject {
         var dynamics = effectiveMultibandConfiguration
         dynamics.isEnabled = multibandEnabled
         equalizer.setMultibandDynamics(dynamics)
+        equalizer.setMonoEnhance(
+            bypassProfessionalChain ? .neutral : monoEnhanceConfiguration
+        )
     }
 
     private var effectiveDynamicEQBands: [DynamicEQBand] {
@@ -1033,6 +1222,22 @@ class EQManager: ObservableObject {
         for index in 0..<10 {
             adaptiveGains[index] = adaptiveGains[index] * 0.72 + requested[index] * 0.28
         }
+
+        // The analyzer may produce a frame every second. Committing arrays and
+        // output-safety state on every frame needlessly collides with the three
+        // locks used by the realtime DSP path. Coalesce changes below the
+        // inaudible 0.025 dB threshold, while forcing a refresh every 3 seconds
+        // so slow spectral movement is still followed accurately.
+        let maximumCommittedDelta = zip(adaptiveGains, committedAdaptiveGains)
+            .map { pair in abs(pair.0 - pair.1) }
+            .max() ?? 0
+        let now = Date()
+        guard maximumCommittedDelta >= 0.025
+                || now.timeIntervalSince(lastSmartDSPCommit) >= 3 else {
+            return
+        }
+        committedAdaptiveGains = adaptiveGains
+        lastSmartDSPCommit = now
         applyCombinedAdaptiveGains()
         updateSafetyLimiter()
     }
@@ -1041,6 +1246,8 @@ class EQManager: ObservableObject {
         smartSpectrumAverage = Array(repeating: 0, count: 10)
         smartSpectrumFrames = 0
         adaptiveGains = Array(repeating: 0, count: 10)
+        committedAdaptiveGains = adaptiveGains
+        lastSmartDSPCommit = Date()
         applyCombinedAdaptiveGains()
         updateSafetyLimiter()
     }
@@ -1116,13 +1323,14 @@ class EQManager: ObservableObject {
         // 使用效果器当前值，兼容用户在任何预设上手动叠加环绕或混响。
         let spatialHeadroom = max(
             effects.surroundLevel * 0.7,
-            effects.reverbLevel * 0.45
+            effects.reverbLevel * 4.5
         )
         let effectiveTuning = effectiveMonoEffectTuningForCurrentOutput()
         let enhancementHeadroom = (effectiveTuning.subboostEnabled ? effectiveTuning.subboostGainDB * 0.45 : 0)
             + (effectiveTuning.virtualBassEnabled ? effectiveTuning.virtualBassStrength * 0.25 : 0)
             + (effectiveTuning.exciterEnabled ? effectiveTuning.exciterAmountDB * 0.18 : 0)
             + (effectiveTuning.compressorEnabled ? max(0, effectiveTuning.compressorMakeupDB) : 0)
+            + monoEnhanceConfiguration.estimatedPeakBoostDB
         let peakGain = curvePeakBoost
             + parametricPeakBoost
             + toneControlBoost
@@ -1458,6 +1666,7 @@ class EQManager: ObservableObject {
         let dynamicEQBands: [DynamicEQBand]
         let multibandConfiguration: MultibandDynamicsConfiguration
         let monoEffectTuning: MonoEffectTuningConfiguration?
+        let monoEnhanceConfiguration: MonoEnhanceConfiguration?
         let customPresetPreampDB: Float
         let selectedHeadphoneProfileID: String
         let headphoneProfiles: [MonoHeadphoneCorrectionProfile]
@@ -1483,6 +1692,7 @@ class EQManager: ObservableObject {
         let isParametricEQEnabled: Bool
         let parametricBands: [ParametricEQBand]
         let monoEffectTuning: MonoEffectTuningConfiguration?
+        let monoEnhanceConfiguration: MonoEnhanceConfiguration?
         let bassGain: Float
         let trebleGain: Float
         let surroundLevel: Float
@@ -1517,6 +1727,7 @@ class EQManager: ObservableObject {
             isParametricEQEnabled: isParametricEQEnabled,
             parametricBands: parametricBands,
             monoEffectTuning: monoEffectTuning,
+            monoEnhanceConfiguration: monoEnhanceConfiguration,
             bassGain: effects.bassGain,
             trebleGain: effects.trebleGain,
             surroundLevel: effects.surroundLevel,
@@ -1557,6 +1768,7 @@ class EQManager: ObservableObject {
             isParametricEQEnabled: false,
             parametricBands: [],
             monoEffectTuning: .neutral,
+            monoEnhanceConfiguration: .neutral,
             bassGain: 0,
             trebleGain: 0,
             surroundLevel: 0,
@@ -1597,6 +1809,7 @@ class EQManager: ObservableObject {
             dynamicEQBands: dynamicEQBands,
             multibandConfiguration: multibandConfiguration,
             monoEffectTuning: monoEffectTuning,
+            monoEnhanceConfiguration: monoEnhanceConfiguration,
             customPresetPreampDB: customPresetPreampDB,
             selectedHeadphoneProfileID: selectedHeadphoneProfileID,
             headphoneProfiles: headphoneProfiles,
@@ -1624,6 +1837,7 @@ class EQManager: ObservableObject {
         dynamicEQBands = state.dynamicEQBands
         multibandConfiguration = state.multibandConfiguration
         monoEffectTuning = state.monoEffectTuning ?? .neutral
+        monoEnhanceConfiguration = state.monoEnhanceConfiguration ?? .neutral
         customPresetPreampDB = Self.clampedPreamp(state.customPresetPreampDB)
         selectedHeadphoneProfileID = state.selectedHeadphoneProfileID
         headphoneProfiles = state.headphoneProfiles

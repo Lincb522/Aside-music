@@ -177,6 +177,23 @@ public struct MonoEffectTuningConfiguration: Codable, Equatable, Sendable {
         )
     }
 
+    /// Removes legacy realtime processors that are not stable enough for the
+    /// main music playback graph. Tone, spatial values and output limiting are
+    /// applied separately and remain untouched.
+    public var realtimePlaybackSafe: MonoEffectTuningConfiguration {
+        var configuration = self
+        configuration.loudnessNormalizationEnabled = false
+        configuration.compressorEnabled = false
+        configuration.subboostEnabled = false
+        configuration.bs2bEnabled = false
+        configuration.crossfeedEnabled = false
+        configuration.haasEnabled = false
+        configuration.virtualBassEnabled = false
+        configuration.exciterEnabled = false
+        configuration.softclipEnabled = false
+        return configuration
+    }
+
     public static let neutral = MonoEffectTuningConfiguration(finalLimiterEnabled: false)
 }
 
@@ -210,7 +227,7 @@ public final class AudioEffects {
     /// Commits all automatic mastering and enhancement parameters atomically,
     /// causing at most one FFmpeg graph rebuild.
     public func applyMonoTuning(_ configuration: MonoEffectTuningConfiguration) {
-        filterGraph.applyMonoTuning(configuration)
+        filterGraph.applyMonoTuning(configuration.realtimePlaybackSafe)
     }
 
     /// Commits the complete AI playback plan under one graph lock. This keeps
@@ -224,7 +241,7 @@ public final class AudioEffects {
         stereoWidth: Float
     ) {
         filterGraph.applyMonoTuning(
-            configuration,
+            configuration.realtimePlaybackSafe,
             bassGain: bassGain,
             trebleGain: trebleGain,
             surroundLevel: surroundLevel,

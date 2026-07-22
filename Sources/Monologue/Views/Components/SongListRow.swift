@@ -577,6 +577,9 @@ struct SongListRow: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .onAppear {
+            SongArtworkFallbackRegistry.shared.register([song])
+        }
         .contextMenu {
             Button {
                 playback.playNext(song: song)

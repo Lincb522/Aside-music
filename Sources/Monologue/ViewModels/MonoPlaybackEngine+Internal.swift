@@ -93,11 +93,25 @@ extension PlayerManager {
         guard !list.isEmpty else { return nil }
 
         let safeCurrentIndex = (contextIndex >= 0 && contextIndex < list.count) ? contextIndex : 0
-        let nextIndex = safeCurrentIndex + 1
-        if nextIndex >= list.count {
-            return queueExhaustionBehavior == .stopAtEnd ? nil : list.first
+        let allowsWrapping = queueExhaustionBehavior == .loop
+        let maximumSteps = allowsWrapping
+            ? list.count
+            : max(0, list.count - safeCurrentIndex - 1)
+        guard maximumSteps > 0 else { return nil }
+
+        for offset in 1...maximumSteps {
+            let rawIndex = safeCurrentIndex + offset
+            if !allowsWrapping, rawIndex >= list.count {
+                break
+            }
+            let candidate = list[rawIndex % list.count]
+            if let currentSong,
+               matchesPlaybackTarget(candidate, expected: currentSong) {
+                continue
+            }
+            return candidate
         }
-        return list[nextIndex]
+        return nil
     }
 
     func stopAfterQueueExhausted() {
@@ -213,6 +227,7 @@ extension PlayerManager {
         pendingPlaybackPresentationStartTime = 0
         pendingPlaybackPresentationIsUnblocked = false
         pendingPlaybackPresentationResolvedQuality = nil
+        pendingPlaybackPresentationDuration = nil
     }
 
     private func capturePlaybackQueueTransactionSnapshot() -> PlaybackQueueTransactionSnapshot {
@@ -303,6 +318,9 @@ extension PlayerManager {
     ) {
         commitPendingPlaybackQueueMutation()
         let isNewPresentation = !matchesPlaybackTarget(currentSong, expected: song)
+        if isNewPresentation {
+            engineReportedDuration = nil
+        }
         currentSong = song
         if let index = currentContextList.firstIndex(where: {
             matchesPlaybackTarget($0, expected: song)
@@ -310,7 +328,9 @@ extension PlayerManager {
             contextIndex = index
         }
         currentTime = max(0, startTime)
-        duration = song.dt.map { Double($0) / 1000.0 } ?? 0
+        duration = engineReportedDuration
+            ?? song.dt.map { Double($0) / 1000.0 }
+            ?? 0
         isCurrentSongUnblocked = isUnblocked
 
         fetchLyricsForSong(song)
@@ -355,6 +375,7 @@ extension PlayerManager {
         let isUnblocked = pendingPlaybackPresentationIsUnblocked
         let resolvedQuality = pendingPlaybackPresentationResolvedQuality
         let decryptionKey = pendingPlaybackPresentationDecryptionKey
+        let reportedDuration = pendingPlaybackPresentationDuration
         clearPendingPlaybackPresentation()
         commitPendingPlaybackQueueMutation()
         currentPlayingURL = engineInput
@@ -366,6 +387,13 @@ extension PlayerManager {
             startTime: startTime,
             isUnblocked: isUnblocked
         )
+        if let reportedDuration,
+           reportedDuration.isFinite,
+           reportedDuration > 0 {
+            engineReportedDuration = reportedDuration
+            duration = reportedDuration
+            updateNowPlayingInfo()
+        }
         AppLogger.info("播放管线已出声，提交歌曲界面: \(song.name)")
     }
 
@@ -421,6 +449,10 @@ extension PlayerManager {
             return
         }
 
+        mediaResolver.completeLoadIfCurrent(
+            sessionId: sessionId,
+            engineInput: engineInput
+        )
         manualSwitchPreparationTask?.cancel()
         manualSwitchPreparationTask = nil
         manualPreparedSwitchSessionId = nil
@@ -441,6 +473,7 @@ extension PlayerManager {
             engineInput: engineInput
         )
         if let streamDuration = preparedStreamInfo?.duration, streamDuration > 0 {
+            engineReportedDuration = streamDuration
             duration = streamDuration
         }
         LyricViewModel.shared.updateCurrentTime(transitionTime)
@@ -509,6 +542,7 @@ extension PlayerManager {
 
         mediaResolver.cancelPlaybackURLResolution()
         mediaResolver.cancelActiveMediaLoad()
+        mediaResolver.cancelLoadWatchdog()
         gapless.cancelNextTrackResolution()
         gapless.cancelQmcPrefetch()
         gapless.cancelScheduledMediaPrefetch()

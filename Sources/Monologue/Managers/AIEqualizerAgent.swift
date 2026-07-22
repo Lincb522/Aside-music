@@ -52,7 +52,7 @@ final class AIEqualizerAgent: ObservableObject {
             )
         }
     }
-    @Published var tuningProfile: AIEqualizerTuningProfile {
+    @Published private(set) var tuningProfile: AIEqualizerTuningProfile {
         didSet {
             UserDefaults.standard.set(tuningProfile.rawValue, forKey: Self.tuningProfileKey)
             AppLogger.info(
@@ -325,23 +325,29 @@ final class AIEqualizerAgent: ObservableObject {
     var isCurrentProposalApplied: Bool {
         guard let proposal else { return false }
         return appliedProposalID == proposal.id
+            && EQManager.shared.isActivelyApplyingAIProposal(proposal)
     }
 
     var applicableSavedProposals: [AIEqualizerSavedProposal] {
         guard let song = PlayerManager.shared.currentSong else { return [] }
         let identifier = songIdentifier(song)
-        let outputIdentity = currentOutputIdentity()
-        let graphicEQMode = EQManager.shared.graphicEQMode
         return savedProposals.filter {
             $0.songIdentifier == identifier
-                && $0.outputIdentity == outputIdentity
-                && $0.proposal.graphicEQMode == graphicEQMode
         }
     }
 
+    var hasAnySavedProposals: Bool {
+        proposalCache.hasStoredProposals
+    }
+
     func selectTuningProfile(_ profile: AIEqualizerTuningProfile) {
-        guard tuningProfile != profile else { return }
-        tuningProfile = profile
+        let selectionChanged = tuningProfile != profile
+        let appliedProfileMatches = proposal?.resolvedTuningProfile == profile
+            && isCurrentProposalApplied
+        guard selectionChanged || !appliedProfileMatches else { return }
+        if selectionChanged {
+            tuningProfile = profile
+        }
 
         automaticTask?.cancel()
         automaticRetryTask?.cancel()
@@ -374,13 +380,22 @@ final class AIEqualizerAgent: ObservableObject {
             tuningIntensity: tuningIntensity,
             tuningProfile: profile
         ) {
-            proposal = saved.proposal
+            let generatedAgentVersion = saved.proposal.agentVersion ?? "legacy"
+            let requiresSpatialUpgrade = profile == .monoSpatialEnhancement
+                && generatedAgentVersion != AIEqualizerPrompt.version
+            if !requiresSpatialUpgrade {
+                proposal = saved.proposal
+                AppLogger.info(
+                    "[AIEqualizerAgent] Tuning profile selection reused saved proposal song=\(identifier) profile=\(profile.rawValue) proposal=\(saved.id.uuidString)",
+                    step: "ai-tuning.profile-reuse"
+                )
+                apply(saved.proposal)
+                return
+            }
             AppLogger.info(
-                "[AIEqualizerAgent] Tuning profile selection reused saved proposal song=\(identifier) profile=\(profile.rawValue) proposal=\(saved.id.uuidString)",
-                step: "ai-tuning.profile-reuse"
+                "[AIEqualizerAgent] Tuning profile selection requires spatial upgrade song=\(identifier) proposal=\(saved.id.uuidString) generatedBy=\(generatedAgentVersion) currentAgent=\(AIEqualizerPrompt.version)",
+                step: "ai-tuning.spatial-upgrade"
             )
-            apply(saved.proposal)
-            return
         }
 
         EQManager.shared.prepareForAIAnalysis(songIdentifier: identifier)
@@ -447,14 +462,9 @@ final class AIEqualizerAgent: ObservableObject {
             rejectManualApply(reason: "song mismatch", saved: saved)
             return
         }
-        let outputIdentity = EQManager.shared.currentOutputName.isEmpty
-            ? EQManager.shared.currentOutputKind.rawValue
-            : "\(EQManager.shared.currentOutputKind.rawValue):\(EQManager.shared.currentOutputName)"
-        guard outputIdentity == saved.outputIdentity,
-              EQManager.shared.graphicEQMode == saved.proposal.graphicEQMode else {
-            rejectManualApply(reason: "output/mode mismatch", saved: saved)
-            return
-        }
+        let currentMode = EQManager.shared.graphicEQMode
+        let adaptedProposal = saved.proposal.adapted(to: currentMode)
+        let currentOutputIdentity = currentOutputIdentity()
         automaticTask?.cancel()
         automaticRetryTask?.cancel()
         analysisTask?.cancel()
@@ -463,12 +473,12 @@ final class AIEqualizerAgent: ObservableObject {
         scheduledAutomaticRunID = nil
         scheduledAutomaticSongIdentifier = nil
         tuningStartedAt = nil
-        tuningIntensity = saved.proposal.tuningIntensity ?? .smart
-        tuningProfile = saved.proposal.tuningProfile ?? .standard
-        proposal = saved.proposal
-        apply(saved.proposal, isManualAction: true)
+        tuningIntensity = adaptedProposal.tuningIntensity ?? .smart
+        tuningProfile = adaptedProposal.tuningProfile ?? .standard
+        proposal = adaptedProposal
+        apply(adaptedProposal, isManualAction: true)
         AppLogger.info(
-            "[AIEqualizerAgent] Applied saved proposal song=\(saved.songIdentifier) proposal=\(saved.id.uuidString)",
+            "[AIEqualizerAgent] Applied saved proposal song=\(saved.songIdentifier) proposal=\(saved.id.uuidString) savedOutput=\(saved.outputIdentity) currentOutput=\(currentOutputIdentity) savedMode=\(saved.proposal.graphicEQMode.rawValue) currentMode=\(currentMode.rawValue)",
             step: "ai-tuning.saved-apply"
         )
     }
@@ -503,6 +513,38 @@ final class AIEqualizerAgent: ObservableObject {
         AppLogger.info(
             "[AIEqualizerAgent] Deleted all saved proposals song=\(identifier)",
             step: "ai-tuning.saved-delete-all"
+        )
+    }
+
+    func deleteAllSavedProposals() {
+        automaticTask?.cancel()
+        automaticRetryTask?.cancel()
+        analysisTask?.cancel()
+        analysisTask = nil
+        activeAnalysisRunID = nil
+        activeAnalysisSongIdentifier = nil
+        scheduledAutomaticRunID = nil
+        scheduledAutomaticSongIdentifier = nil
+        tuningStartedAt = nil
+        generationStartedAt = nil
+        samplingRetryCount.removeAll()
+        activeLearningSession = nil
+        currentLearningFeedback = nil
+
+        proposalCache.deleteAll()
+        savedProposals = []
+        proposal = nil
+        appliedProposalID = nil
+        appliedSongIdentifier = nil
+        samplingStage = .preparing
+        generationStage = .preparing
+        phase = .idle
+        EQManager.shared.restoreProcessingBeforeAI(reason: "all-proposals-deleted")
+
+        HapticManager.shared.success()
+        AppLogger.info(
+            "[AIEqualizerAgent] Deleted all saved and cached proposals",
+            step: "ai-tuning.saved-delete-all-global"
         )
     }
 
@@ -664,10 +706,9 @@ final class AIEqualizerAgent: ObservableObject {
         let graphicEQMode = EQManager.shared.graphicEQMode
         let outputIdentity = currentOutputIdentity()
 
-        // Replaying a song should restore its already validated result before
-        // resolving the provider or starting a new sample. Learning revisions,
-        // provider changes and Agent prompt upgrades are generation context; they
-        // do not make an existing set of audio parameters unsafe to apply.
+        // Replaying a song restores its validated result before sampling. The
+        // current spatial profile is the exception because earlier versions were
+        // clamped to standard-profile spatial ranges and need one regeneration.
         if !forceRegeneration,
            let saved = proposalCache.latestReusable(
                for: identifier,
@@ -676,16 +717,25 @@ final class AIEqualizerAgent: ObservableObject {
                tuningIntensity: requestedIntensity,
                tuningProfile: requestedProfile
            ) {
-            samplingRetryCount[identifier] = nil
-            savedProposals = proposalCache.history(for: identifier)
-            proposal = saved.proposal
             let generatedAgentVersion = saved.proposal.agentVersion ?? "legacy"
-            AppLogger.info(
-                "[AIEqualizerAgent] Reused saved proposal before analysis song=\(identifier) proposal=\(saved.id.uuidString) output=\(outputIdentity) generatedBy=\(generatedAgentVersion) currentAgent=\(AIEqualizerPrompt.version)",
-                step: "ai-tuning.saved-reuse"
-            )
-            apply(saved.proposal)
-            return
+            let requiresSpatialUpgrade = requestedProfile == .monoSpatialEnhancement
+                && generatedAgentVersion != AIEqualizerPrompt.version
+            if requiresSpatialUpgrade {
+                AppLogger.info(
+                    "[AIEqualizerAgent] Regenerating legacy spatial proposal song=\(identifier) proposal=\(saved.id.uuidString) generatedBy=\(generatedAgentVersion) currentAgent=\(AIEqualizerPrompt.version)",
+                    step: "ai-tuning.spatial-upgrade"
+                )
+            } else {
+                samplingRetryCount[identifier] = nil
+                savedProposals = proposalCache.history(for: identifier)
+                proposal = saved.proposal
+                AppLogger.info(
+                    "[AIEqualizerAgent] Reused saved proposal before analysis song=\(identifier) proposal=\(saved.id.uuidString) output=\(outputIdentity) generatedBy=\(generatedAgentVersion) currentAgent=\(AIEqualizerPrompt.version)",
+                    step: "ai-tuning.saved-reuse"
+                )
+                apply(saved.proposal)
+                return
+            }
         }
 
         let configuration: AIProviderConfiguration
@@ -1121,10 +1171,12 @@ final class AIEqualizerAgent: ObservableObject {
         manager.applyAIConfiguration(proposal, spatialOverride: resolvedSpatial)
         let effects = proposal.effects
         let professional = proposal.professional
+        let enhance = proposal.enhance
+        let appliedAudioEffects = PlayerManager.shared.audioEffects
         let outputGainDB = PlayerManager.shared.audioRepair.outputGainDB
         let perceptualMakeupDB = PlayerManager.shared.audioRepair.perceptualMakeupDB
         AppLogger.success(
-            "[AIEqualizerAgent] Applied songID=\(proposal.songID) profile=\(proposal.profileName) bands=\(proposal.graphicEQMode.bandCount) preamp=\(String(format: "%.2f", proposal.preampDB))dB outputGain=\(String(format: "%.2f", outputGainDB))dB perceptualMakeup=\(String(format: "%.2f", perceptualMakeupDB))dB dynamicEQ=\(professional.dynamicEQ.enabled ? professional.dynamicEQ.bands.count : 0) multiband=\(professional.multiband.enabled) parametricEQ=\(professional.parametricEQ.enabled ? professional.parametricEQ.bands.count : 0) loudnorm=\(effects.loudnessNormalizationEnabled) compressor=\(effects.compressorEnabled) subboost=\(effects.subboostEnabled) virtualBass=\(effects.virtualBassEnabled) bs2b=\(effects.bs2bEnabled) crossfeed=\(effects.crossfeedEnabled) haas=\(effects.haasEnabled) exciter=\(effects.exciterEnabled) softclip=\(effects.softclipEnabled) limiter=\(effects.finalLimiterEnabled) ceiling=\(String(format: "%.2f", effects.finalLimiterCeilingDB))dBFS",
+            "[AIEqualizerAgent] Applied songID=\(proposal.songID) profile=\(proposal.profileName) tuningProfile=\(proposal.resolvedTuningProfile.rawValue) bands=\(proposal.graphicEQMode.bandCount) preamp=\(String(format: "%.2f", proposal.preampDB))dB surround=\(String(format: "%.3f", appliedAudioEffects.surroundLevel)) reverb=\(String(format: "%.3f", appliedAudioEffects.reverbLevel)) width=\(String(format: "%.3f", appliedAudioEffects.stereoWidth)) outputGain=\(String(format: "%.2f", outputGainDB))dB perceptualMakeup=\(String(format: "%.2f", perceptualMakeupDB))dB nativeEnhance=\(enhance.isEnabled) transient=\(String(format: "%.3f", enhance.transientAttack)) vocal=\(String(format: "%.3f", enhance.vocalFocus)) air=\(String(format: "%.3f", enhance.airAmount)) stage=\(String(format: "%.3f", enhance.stageWidth)) micro=\(String(format: "%.3f", enhance.microDynamics)) dynamicEQ=\(professional.dynamicEQ.enabled ? professional.dynamicEQ.bands.count : 0) multiband=\(professional.multiband.enabled) parametricEQ=\(professional.parametricEQ.enabled ? professional.parametricEQ.bands.count : 0) loudnorm=\(effects.loudnessNormalizationEnabled) compressor=\(effects.compressorEnabled) subboost=\(effects.subboostEnabled) virtualBass=\(effects.virtualBassEnabled) bs2b=\(effects.bs2bEnabled) crossfeed=\(effects.crossfeedEnabled) haas=\(effects.haasEnabled) exciter=\(effects.exciterEnabled) softclip=\(effects.softclipEnabled) limiter=\(effects.finalLimiterEnabled) ceiling=\(String(format: "%.2f", effects.finalLimiterCeilingDB))dBFS",
             step: "ai-tuning.applied"
         )
         appliedProposalID = proposal.id
@@ -1491,6 +1543,17 @@ final class AIEqualizerAgent: ObservableObject {
     }
 }
 
+/// A malformed or obsolete persisted entry must not make sibling entries
+/// undecodable. The durable proposal model supplies migration defaults; this
+/// wrapper contains damage when an individual record is genuinely corrupt.
+private struct LossyDecodable<Value: Decodable>: Decodable {
+    let value: Value?
+
+    init(from decoder: Decoder) throws {
+        value = try? Value(from: decoder)
+    }
+}
+
 @MainActor
 private final class AIEqualizerProposalCacheStore {
     private static let storageKey = "ai.eq.agent.proposal-cache.v1"
@@ -1504,18 +1567,8 @@ private final class AIEqualizerProposalCacheStore {
     private var histories: [String: [AIEqualizerSavedProposal]]
 
     init() {
-        if let data = UserDefaults.standard.data(forKey: Self.storageKey),
-           let decoded = try? JSONDecoder().decode([String: AIEqualizerProposal].self, from: data) {
-            values = decoded
-        } else {
-            values = [:]
-        }
-        if let data = UserDefaults.standard.data(forKey: Self.historyStorageKey),
-           let decoded = try? JSONDecoder().decode([String: [AIEqualizerSavedProposal]].self, from: data) {
-            histories = decoded
-        } else {
-            histories = [:]
-        }
+        values = Self.restoreCachedProposals()
+        histories = Self.restoreSavedProposalHistory()
         removeExpiredEntries()
     }
 
@@ -1621,6 +1674,17 @@ private final class AIEqualizerProposalCacheStore {
         persistHistory()
     }
 
+    var hasStoredProposals: Bool {
+        !values.isEmpty || !histories.isEmpty
+    }
+
+    func deleteAll() {
+        values.removeAll()
+        histories.removeAll()
+        persist()
+        persistHistory()
+    }
+
     func makeCloudSnapshot() -> CloudAIEqualizerSnapshot? {
         removeExpiredEntries()
         guard !values.isEmpty || !histories.isEmpty else { return nil }
@@ -1721,7 +1785,20 @@ private final class AIEqualizerProposalCacheStore {
             return true
         }
 
-        if current.calibration != previous.calibration
+        let enhanceDeltas = [
+            abs(current.enhance.transientAttack - previous.enhance.transientAttack),
+            abs(current.enhance.transientSustain - previous.enhance.transientSustain),
+            abs(current.enhance.vocalFocus - previous.enhance.vocalFocus),
+            abs(current.enhance.airAmount - previous.enhance.airAmount),
+            abs(current.enhance.deEssAmount - previous.enhance.deEssAmount),
+            abs(current.enhance.lowFrequencyFocus - previous.enhance.lowFrequencyFocus),
+            abs(current.enhance.stageWidth - previous.enhance.stageWidth),
+            abs(current.enhance.microDynamics - previous.enhance.microDynamics),
+            abs(current.enhance.lowLevelCompensation - previous.enhance.lowLevelCompensation)
+        ]
+        if current.enhance.isEnabled != previous.enhance.isEnabled
+            || (enhanceDeltas.max() ?? 0) >= 0.05
+            || current.calibration != previous.calibration
             || current.professional.dynamicEQ.enabled != previous.professional.dynamicEQ.enabled
             || current.professional.multiband.enabled != previous.professional.multiband.enabled
             || current.professional.parametricEQ.enabled != previous.professional.parametricEQ.enabled {
@@ -1746,6 +1823,64 @@ private final class AIEqualizerProposalCacheStore {
         return abs(currentEffects.subboostGainDB - previousEffects.subboostGainDB) >= 0.5
             || abs(currentEffects.exciterAmountDB - previousEffects.exciterAmountDB) >= 0.5
             || abs(currentEffects.finalLimiterCeilingDB - previousEffects.finalLimiterCeilingDB) >= 0.5
+    }
+
+    private static func restoreCachedProposals() -> [String: AIEqualizerProposal] {
+        guard let data = UserDefaults.standard.data(forKey: storageKey) else { return [:] }
+        do {
+            let decoded = try JSONDecoder().decode(
+                [String: LossyDecodable<AIEqualizerProposal>].self,
+                from: data
+            )
+            let restored = decoded.compactMapValues(\.value)
+            if restored.count != decoded.count {
+                AppLogger.warning(
+                    "[AIEqualizerAgent] Skipped \(decoded.count - restored.count) corrupt cached proposals while preserving \(restored.count)",
+                    step: "ai-tuning.proposal-restore"
+                )
+            }
+            return restored
+        } catch {
+            AppLogger.error(
+                "[AIEqualizerAgent] Cached proposal archive could not be decoded; original data was left untouched error=\(error.localizedDescription)",
+                step: "ai-tuning.proposal-restore-failed"
+            )
+            return [:]
+        }
+    }
+
+    private static func restoreSavedProposalHistory() -> [String: [AIEqualizerSavedProposal]] {
+        guard let data = UserDefaults.standard.data(forKey: historyStorageKey) else { return [:] }
+        do {
+            let decoded = try JSONDecoder().decode(
+                [String: [LossyDecodable<AIEqualizerSavedProposal>]].self,
+                from: data
+            )
+            var skippedCount = 0
+            let restored = decoded.reduce(
+                into: [String: [AIEqualizerSavedProposal]]()
+            ) { result, item in
+                let entries = item.value.compactMap(\.value)
+                skippedCount += item.value.count - entries.count
+                if !entries.isEmpty {
+                    result[item.key] = entries
+                }
+            }
+            if skippedCount > 0 {
+                let restoredCount = restored.values.reduce(0) { $0 + $1.count }
+                AppLogger.warning(
+                    "[AIEqualizerAgent] Skipped \(skippedCount) corrupt saved proposals while preserving \(restoredCount)",
+                    step: "ai-tuning.proposal-history-restore"
+                )
+            }
+            return restored
+        } catch {
+            AppLogger.error(
+                "[AIEqualizerAgent] Saved proposal archive could not be decoded; original data was left untouched error=\(error.localizedDescription)",
+                step: "ai-tuning.proposal-history-restore-failed"
+            )
+            return [:]
+        }
     }
 
     private func persist() {
@@ -1787,10 +1922,10 @@ private final class AIEqualizerMeasurementStore {
         if let storageURL,
            let data = try? Data(contentsOf: storageURL),
            let decoded = try? JSONDecoder().decode(
-               [String: AIEqualizerMeasuredFeatureRecord].self,
+               [String: LossyDecodable<AIEqualizerMeasuredFeatureRecord>].self,
                from: data
            ) {
-            records = decoded
+            records = decoded.compactMapValues(\.value)
         } else {
             records = [:]
         }

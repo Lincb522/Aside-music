@@ -236,7 +236,7 @@ class LocalPlaylistManager: ObservableObject {
         let imported = librarySongs ?? LocalMusicLibraryManager.shared.songs
         let downloads = DownloadManager.shared.fetchDownloadPlaylistSongs()
         // 下载功能开启时才兼容旧「下载」歌单；关闭期间不让缺失文件的历史条目重新进入本地音乐。
-        let legacyArchived: [Song] = AppConfig.Features.downloadEnabled
+        let legacyArchived: [Song] = AppConfig.Features.restrictedDownloadEnabled
             ? (downloadPlaylist.map { songs(for: $0) } ?? [])
                 .filter { !DownloadTombstoneStore.shared.isTombstoned(songId: $0.id) }
             : []
@@ -274,7 +274,7 @@ class LocalPlaylistManager: ObservableObject {
 
     /// 从云端恢复下载记录（仅元数据）：补进旧「下载」歌单存档，并刷新合并后的「本地音乐」
     func restoreDownloadPlaylistSongs(_ cloudSongs: [Song]) {
-        guard AppConfig.Features.downloadEnabled else {
+        guard AppConfig.Features.restrictedDownloadEnabled else {
             syncLocalMusicPlaylist()
             return
         }
@@ -317,7 +317,8 @@ class LocalPlaylistManager: ObservableObject {
             }
             return true
         }
-        let hasDownloads = !DownloadManager.shared.fetchCloudSyncedDownloads().isEmpty
+        let hasDownloads = AppConfig.Features.restrictedDownloadEnabled
+            && !DownloadManager.shared.fetchCloudSyncedDownloads().isEmpty
         let hasPodcasts = !SubscriptionManager.shared.localSubscribedRadios.isEmpty
         return hasPlaylistContent || hasDownloads || hasPodcasts
     }
@@ -335,7 +336,9 @@ class LocalPlaylistManager: ObservableObject {
                 songs: songs(for: playlist)
             )
         }
-        let downloads = DownloadManager.shared.fetchCloudSyncedDownloads().map { CloudDownloadRecord(from: $0) }
+        let downloads = AppConfig.Features.restrictedDownloadEnabled
+            ? DownloadManager.shared.fetchCloudSyncedDownloads().map { CloudDownloadRecord(from: $0) }
+            : []
         let podcasts = SubscriptionManager.shared.localSubscribedRadios
 
         struct DigestPayload: Encodable {
@@ -364,7 +367,9 @@ class LocalPlaylistManager: ObservableObject {
             )
         }
 
-        let downloads = DownloadManager.shared.fetchCloudSyncedDownloads().map { CloudDownloadRecord(from: $0) }
+        let downloads = AppConfig.Features.restrictedDownloadEnabled
+            ? DownloadManager.shared.fetchCloudSyncedDownloads().map { CloudDownloadRecord(from: $0) }
+            : []
         let podcasts = SubscriptionManager.shared.localSubscribedRadios
 
         return LocalPlaylistCloudSnapshot(

@@ -761,6 +761,7 @@
 "debug_auto_scroll" = "Auto Scroll";
 "debug_search_placeholder" = "Search logs...";
 "debug_stat_total" = "Total";
+"debug_visible_count" = "Visible";
 "debug_stat_error" = "Errors";
 "debug_stat_warning" = "Warnings";
 "debug_stat_success" = "Success";
@@ -786,6 +787,7 @@
 "debug_fields_section" = "Fields";
 "debug_links_section" = "Links";
 "debug_dropped_count" = "%d dropped";
+"debug_dropped_count_short" = "Dropped";
 "debug_collecting" = "Collecting";
 "debug_collection_paused" = "Paused";
 "debug_collection" = "Collect Logs";
@@ -1696,10 +1698,15 @@
 "ai_lab_changed_bands" = "Changed Bands";
 "ai_lab_changed_bands_format" = "%d";
 "ai_lab_largest_change" = "Largest Change";
+"ai_lab_average_change" = "Average Change";
 "ai_lab_no_change" = "No clear change";
 "ai_lab_no_key_changes" = "Bass, treble, spatial and professional parameters are largely unchanged; the main differences are in the EQ bands.";
 "ai_lab_view_full_comparison" = "View Full Comparison";
 "ai_lab_delete_all" = "Delete All";
+"ai_lab_delete_current_song" = "Clear Current Song";
+"ai_lab_clear_all_proposals" = "Clear All Profiles";
+"ai_lab_clear_all_proposals_title" = "Clear All Profiles?";
+"ai_lab_clear_all_proposals_message" = "All standard and spatial tuning profiles for every song will be deleted.";
 "ai_lab_current_result" = "Active";
 "ai_lab_previous_result" = "History";
 "ai_lab_compare" = "Compare Parameters";
@@ -1714,6 +1721,7 @@
 "ai_lab_current_short" = "Current";
 "ai_lab_previous_short" = "Saved";
 "ai_lab_difference_short" = "Delta";
+"ai_lab_all_band_details" = "All Bands";
 "ai_sampling_mode" = "Sampling Mode";
 "ai_tuning_settings" = "Tuning Settings";
 "ai_tuning_profile" = "Tuning Profile";
@@ -2037,3 +2045,37 @@
 "mono_hint_guitar" = "Guitar";
 "mono_hint_piano" = "Piano";
 "mono_hint_strings" = "Strings";
+
+// MARK: - Server Line
+"settings_server_line_title" = "Server Line";
+"server_line_auto" = "Auto";
+"server_line_primary" = "Primary";
+"server_line_backup" = "Backup";
+"server_line_current_format" = "Current: %@";
+"server_line_unreachable" = "Unreachable";
+
+/* Aria stage lab */
+"沉浸实验室" = "Stage Lab";
+"节拍触觉" = "Haptic Beat";
+"鼓点命中同步触觉反馈，重拍更沉、军鼓更脆" = "Haptic feedback on beat hits: heavier kicks, crisper snares";
+"人声呼吸字重" = "Vocal Breathing Weight";
+"经典字幕的当前字随人声力度改变粗细（系统字体最明显）" = "Active lyric glyphs thicken with vocal intensity (best with system fonts)";
+"经典字幕的当前字随人声力度改变粗细" = "Active lyric glyphs thicken with vocal intensity";
+"副歌预判张力" = "Chorus Tension";
+"副歌来临前光场蓄力升温，命中瞬间镜头释放" = "Light field charges up before the chorus, camera releases on the drop";
+"GPU 着色器舞台" = "GPU Shader Stage";
+"节拍涟漪折射 + 镜头级色散辉光 + 呼吸暗角（过热时自动停用）" = "Beat refraction ripples, lens-grade chromatic bloom and a breathing vignette (auto-off when hot)";
+"AI 舞台导演" = "AI Stage Director";
+"Mono Agent 为整首歌编排分幕光色，每首歌仅生成一次" = "Mono Agent scripts scene-by-scene stage colors for the whole song, generated once per track";
+"等待歌词就绪后开始编排" = "Waiting for lyrics before scripting";
+"Mono Agent 正在编排本曲分幕…" = "Mono Agent is scripting this song's scenes…";
+"本曲已编排 %d 幕，光色与镜头随段落基调变化" = "%d scenes scripted — stage color and camera follow each section's mood";
+"本曲编排失败，重开开关或切歌后重试" = "Scripting failed — toggle again or skip track to retry";
+"本曲歌词太少，不参与编排" = "Not enough lyrics to script this track";
+"aria_gpu_stage_caption" = "Beat refraction, lyric prism edges and a breathing vignette";
+"aria_stage_director_caption" = "Mono Agent scripts stage color, camera and lyrics by section";
+"aria_stage_director_status_idle" = "Waiting for lyrics";
+"aria_stage_director_status_generating" = "Scripting scenes";
+"aria_stage_director_status_ready_format" = "%d scenes scripted";
+"aria_stage_director_status_failed" = "Scripting failed";
+"aria_stage_director_status_unavailable" = "Not available for this song";

@@ -21,7 +21,10 @@ import AVFoundation
 final class AudioRenderer {
     /// Give the render thread more slack to survive transient CPU spikes from
     /// system UI and third-party keyboard extensions without audible underruns.
-    private static let recommendedIOBufferDuration: TimeInterval = 1024.0 / 44_100.0
+    /// 23 ms proved insufficient against IME/keyboard bursts (typing loads both
+    /// the app main thread and mediaserverd); music playback tolerates ~46 ms
+    /// of output latency with no downside, so favor stability aggressively.
+    private static let recommendedIOBufferDuration: TimeInterval = 2048.0 / 44_100.0
     /// Bluetooth output adds codec and radio scheduling jitter outside the app's
     /// PCM queue. A slightly wider hardware runway prevents short system stalls
     /// from becoming audible crackles; music playback does not need game-like
@@ -83,8 +86,59 @@ final class AudioRenderer {
         let presentationTime: TimeInterval?
     }
 
-    private var bufferQueue: [QueuedAudioBuffer?] = []
-    private var bufferQueueHead: Int = 0
+    /// Fixed-capacity SPSC-style storage. Access is still serialized by
+    /// `bufferLock`, but enqueue/dequeue are O(1) and never compact an Array
+    /// while the hardware render thread is waiting for the same lock.
+    private struct AudioBufferRing {
+        private var storage: [QueuedAudioBuffer?]
+        private(set) var count = 0
+        private var readIndex = 0
+        private var writeIndex = 0
+
+        init(capacity: Int) {
+            storage = Array(repeating: nil, count: max(1, capacity))
+        }
+
+        var isEmpty: Bool { count == 0 }
+
+        var first: QueuedAudioBuffer? {
+            guard count > 0 else { return nil }
+            return storage[readIndex]
+        }
+
+        @discardableResult
+        mutating func append(_ value: QueuedAudioBuffer) -> Bool {
+            guard count < storage.count else { return false }
+            storage[writeIndex] = value
+            writeIndex = (writeIndex + 1) % storage.count
+            count += 1
+            return true
+        }
+
+        @discardableResult
+        mutating func removeFirst() -> QueuedAudioBuffer? {
+            guard count > 0 else { return nil }
+            let value = storage[readIndex]
+            storage[readIndex] = nil
+            readIndex = (readIndex + 1) % storage.count
+            count -= 1
+            if count == 0 {
+                readIndex = 0
+                writeIndex = 0
+            }
+            return value
+        }
+
+        mutating func drainPointers(into destination: inout [UnsafeMutablePointer<Float>]) {
+            while let queued = removeFirst() {
+                destination.append(queued.buffer.data)
+            }
+        }
+    }
+
+    // Decoder backpressure is capped at 400 buffers. Keep ample fixed runway
+    // for handoffs without ever growing storage from the realtime path.
+    private var bufferQueue = AudioBufferRing(capacity: 1_024)
     /// O(1) queue duration and audible clock. Both are updated while holding
     /// `bufferLock`, so UI reads never scan the PCM queue used by the render thread.
     private var queuedAudioDuration: TimeInterval = 0
@@ -108,8 +162,7 @@ final class AudioRenderer {
     private static let starvationClusterWindowNanos: UInt64 = 1_500_000_000
 
     /// Secondary PCM lane used for real overlap mixing at a prepared-track boundary.
-    private var crossfadeQueue: [QueuedAudioBuffer?] = []
-    private var crossfadeQueueHead = 0
+    private var crossfadeQueue = AudioBufferRing(capacity: 1_024)
     private var crossfadeBufferOffset = 0
     private var crossfadeQueuedDuration: TimeInterval = 0
     private var crossfadePresentationTime: TimeInterval?
@@ -190,8 +243,7 @@ final class AudioRenderer {
     /// Returns the current number of queued audio buffers.
     var queuedBufferCount: Int {
         os_unfair_lock_lock(&bufferLock)
-        let count = max(0, bufferQueue.count - bufferQueueHead)
-            + max(0, crossfadeQueue.count - crossfadeQueueHead)
+        let count = bufferQueue.count + crossfadeQueue.count
         os_unfair_lock_unlock(&bufferLock)
         return count
     }
@@ -263,31 +315,6 @@ final class AudioRenderer {
         os_unfair_lock_unlock(&renderObservationLock)
     }
 
-    private func compactBufferQueueLockedIfNeeded() {
-        guard bufferQueueHead > 0 else { return }
-        if bufferQueueHead >= bufferQueue.count {
-            bufferQueue.removeAll(keepingCapacity: true)
-            bufferQueueHead = 0
-            return
-        }
-        guard bufferQueueHead >= 32, bufferQueueHead * 2 >= bufferQueue.count else { return }
-        bufferQueue.removeFirst(bufferQueueHead)
-        bufferQueueHead = 0
-    }
-
-    private func compactCrossfadeQueueLockedIfNeeded() {
-        guard crossfadeQueueHead > 0 else { return }
-        if crossfadeQueueHead >= crossfadeQueue.count {
-            crossfadeQueue.removeAll(keepingCapacity: true)
-            crossfadeQueueHead = 0
-            return
-        }
-        guard crossfadeQueueHead >= 32,
-              crossfadeQueueHead * 2 >= crossfadeQueue.count else { return }
-        crossfadeQueue.removeFirst(crossfadeQueueHead)
-        crossfadeQueueHead = 0
-    }
-
     private func drainPendingBufferDeallocations() {
         deallocationDrainScratch.removeAll(keepingCapacity: true)
         os_unfair_lock_lock(&bufferLock)
@@ -325,8 +352,6 @@ final class AudioRenderer {
     // MARK: - Initialization
 
     init() {
-        bufferQueue.reserveCapacity(512)
-        crossfadeQueue.reserveCapacity(128)
         // Completed PCM buffers are retired by the maintenance timer. Reserving
         // generously keeps the render callback's append path allocation-free.
         pendingBufferDeallocations.reserveCapacity(1024)
@@ -830,19 +855,26 @@ final class AudioRenderer {
 
         os_unfair_lock_lock(&bufferLock)
         let queued = QueuedAudioBuffer(buffer: buffer, presentationTime: presentationTime)
+        let didEnqueue: Bool
         if isCrossfadeActive {
-            crossfadeQueue.append(queued)
-            crossfadeQueuedDuration += buffer.duration
-            compactCrossfadeQueueLockedIfNeeded()
+            didEnqueue = crossfadeQueue.append(queued)
+            if didEnqueue { crossfadeQueuedDuration += buffer.duration }
         } else {
-            bufferQueue.append(queued)
-            queuedAudioDuration += buffer.duration
-            compactBufferQueueLockedIfNeeded()
+            didEnqueue = bufferQueue.append(queued)
+            if didEnqueue { queuedAudioDuration += buffer.duration }
         }
-        let count = max(0, bufferQueue.count - bufferQueueHead)
-            + max(0, crossfadeQueue.count - crossfadeQueueHead)
+        let count = bufferQueue.count + crossfadeQueue.count
         os_unfair_lock_unlock(&bufferLock)
         lifecycleLock.unlock()
+
+        guard didEnqueue else {
+            // Backpressure should keep each lane far below the fixed capacity.
+            // Release ownership safely if a broken producer violates that
+            // contract instead of overwriting unread PCM.
+            buffer.data.deallocate()
+            print("[AudioRenderer] rejected PCM: realtime ring is full")
+            return
+        }
 
         if count <= 3 {
             let now = DispatchTime.now().uptimeNanoseconds
@@ -865,7 +897,7 @@ final class AudioRenderer {
         defer { os_unfair_lock_unlock(&bufferLock) }
         guard !isCrossfadeActive,
               duration > 0,
-              bufferQueueHead < bufferQueue.count,
+              !bufferQueue.isEmpty,
               queuedAudioDuration > 0 else { return false }
 
         isCrossfadeActive = true
@@ -944,19 +976,9 @@ final class AudioRenderer {
         setStopping(true)
         var pendingDeallocations: [UnsafeMutablePointer<Float>] = []
         os_unfair_lock_lock(&bufferLock)
-        let flushedCount = max(0, bufferQueue.count - bufferQueueHead)
-        for index in bufferQueueHead..<bufferQueue.count {
-            bufferQueue[index]?.buffer.data.deallocate()
-            bufferQueue[index] = nil
-        }
-        for index in crossfadeQueueHead..<crossfadeQueue.count {
-            crossfadeQueue[index]?.buffer.data.deallocate()
-            crossfadeQueue[index] = nil
-        }
-        bufferQueue.removeAll()
-        crossfadeQueue.removeAll()
-        bufferQueueHead = 0
-        crossfadeQueueHead = 0
+        let flushedCount = bufferQueue.count + crossfadeQueue.count
+        bufferQueue.drainPointers(into: &pendingDeallocations)
+        crossfadeQueue.drainPointers(into: &pendingDeallocations)
         currentBufferOffset = 0
         crossfadeBufferOffset = 0
         queuedAudioDuration = 0
@@ -970,7 +992,7 @@ final class AudioRenderer {
         crossfadePlannedDuration = 0
         crossfadeTotalFrames = 0
         crossfadeFramesRendered = 0
-        pendingDeallocations = pendingBufferDeallocations
+        pendingDeallocations.append(contentsOf: pendingBufferDeallocations)
         pendingBufferDeallocations.removeAll()
         os_unfair_lock_unlock(&bufferLock)
         for pointer in pendingDeallocations {
@@ -1046,18 +1068,8 @@ final class AudioRenderer {
 
         var pendingDeallocations: [UnsafeMutablePointer<Float>] = []
         os_unfair_lock_lock(&bufferLock)
-        for index in bufferQueueHead..<bufferQueue.count {
-            bufferQueue[index]?.buffer.data.deallocate()
-            bufferQueue[index] = nil
-        }
-        for index in crossfadeQueueHead..<crossfadeQueue.count {
-            crossfadeQueue[index]?.buffer.data.deallocate()
-            crossfadeQueue[index] = nil
-        }
-        bufferQueue.removeAll()
-        crossfadeQueue.removeAll()
-        bufferQueueHead = 0
-        crossfadeQueueHead = 0
+        bufferQueue.drainPointers(into: &pendingDeallocations)
+        crossfadeQueue.drainPointers(into: &pendingDeallocations)
         currentBufferOffset = 0
         crossfadeBufferOffset = 0
         queuedAudioDuration = 0
@@ -1071,7 +1083,7 @@ final class AudioRenderer {
         crossfadePlannedDuration = 0
         crossfadeTotalFrames = 0
         crossfadeFramesRendered = 0
-        pendingDeallocations = pendingBufferDeallocations
+        pendingDeallocations.append(contentsOf: pendingBufferDeallocations)
         pendingBufferDeallocations.removeAll()
         os_unfair_lock_unlock(&bufferLock)
         for pointer in pendingDeallocations {
@@ -1126,9 +1138,9 @@ final class AudioRenderer {
             isRebuffering = false
         }
 
-        while samplesWritten < totalSamples && bufferQueueHead < bufferQueue.count {
-            guard let queued = bufferQueue[bufferQueueHead] else {
-                bufferQueueHead += 1
+        while samplesWritten < totalSamples && !bufferQueue.isEmpty {
+            guard let queued = bufferQueue.first else {
+                _ = bufferQueue.removeFirst()
                 currentBufferOffset = 0
                 continue
             }
@@ -1153,8 +1165,7 @@ final class AudioRenderer {
 
             if currentBufferOffset >= frontTotalSamples {
                 pendingBufferDeallocations.append(front.data)
-                bufferQueue[bufferQueueHead] = nil
-                bufferQueueHead += 1
+                _ = bufferQueue.removeFirst()
                 currentBufferOffset = 0
             }
         }
@@ -1169,14 +1180,14 @@ final class AudioRenderer {
 
         if isCrossfadeMixing,
            let crossfadeScratch,
-           crossfadeQueueHead < crossfadeQueue.count {
+           !crossfadeQueue.isEmpty {
             crossfadeScratch.update(repeating: 0, count: totalSamples)
             var secondarySamplesWritten = 0
 
             while secondarySamplesWritten < totalSamples,
-                  crossfadeQueueHead < crossfadeQueue.count {
-                guard let queued = crossfadeQueue[crossfadeQueueHead] else {
-                    crossfadeQueueHead += 1
+                  !crossfadeQueue.isEmpty {
+                guard let queued = crossfadeQueue.first else {
+                    _ = crossfadeQueue.removeFirst()
                     crossfadeBufferOffset = 0
                     continue
                 }
@@ -1206,8 +1217,7 @@ final class AudioRenderer {
 
                 if crossfadeBufferOffset >= frontTotalSamples {
                     pendingBufferDeallocations.append(front.data)
-                    crossfadeQueue[crossfadeQueueHead] = nil
-                    crossfadeQueueHead += 1
+                    _ = crossfadeQueue.removeFirst()
                     crossfadeBufferOffset = 0
                 }
             }
@@ -1256,16 +1266,12 @@ final class AudioRenderer {
             samplesWritten = max(primarySamplesWritten, secondarySamplesWritten)
         }
 
-        if isCrossfadeActive, bufferQueueHead >= bufferQueue.count {
-            bufferQueue.removeAll(keepingCapacity: true)
+        if isCrossfadeActive, bufferQueue.isEmpty {
             swap(&bufferQueue, &crossfadeQueue)
-            bufferQueueHead = crossfadeQueueHead
             currentBufferOffset = crossfadeBufferOffset
             queuedAudioDuration = crossfadeQueuedDuration
             audiblePresentationTime = crossfadePresentationTime
 
-            crossfadeQueue.removeAll(keepingCapacity: true)
-            crossfadeQueueHead = 0
             crossfadeBufferOffset = 0
             crossfadeQueuedDuration = 0
             crossfadePresentationTime = nil

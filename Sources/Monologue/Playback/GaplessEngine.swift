@@ -82,10 +82,7 @@ final class GaplessEngine {
 
     /// 预期整曲时长：优先 API 元数据，回落 FFmpeg 实测
     private var expectedCurrentTrackDuration: Double {
-        if let metaMs = player.currentSong?.dt, metaMs > 0 {
-            return Double(metaMs) / 1000.0
-        }
-        return player.duration
+        player.effectivePlaybackDuration
     }
 
     // MARK: - 设置变化
@@ -618,6 +615,7 @@ final class GaplessEngine {
         player.commitPendingPlaybackQueueMutation()
         player.currentSong = song
         player.currentTime = transitionTime
+        player.engineReportedDuration = nil
         player.duration = song.dt.map { Double($0) / 1000.0 } ?? 0
         player.applyResolvedPlaybackQuality(pendingGaplessResolvedQuality, for: song)
         pendingGaplessResolvedQuality = nil
@@ -629,6 +627,7 @@ final class GaplessEngine {
 
         // 从 streamInfo 获取下一首的 duration（transitionToNextTrack 中不再单独发送 didUpdateDuration）
         if let nextDuration = player.streamPlayer.streamInfo?.duration, nextDuration > 0 {
+            player.engineReportedDuration = nextDuration
             player.duration = nextDuration
         }
 

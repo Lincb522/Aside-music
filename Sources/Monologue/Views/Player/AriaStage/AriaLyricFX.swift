@@ -23,13 +23,13 @@ enum AriaLyricEffect: String, CaseIterable {
 
     var label: String {
         switch self {
-        case .classic: return String(localized: "流光")
-        case .cadenza: return String(localized: "心象")
-        case .partita: return String(localized: "云阶")
-        case .fume: return String(localized: "浮名")
-        case .tilt: return String(localized: "倾诉")
-        case .cappella: return String(localized: "群唱")
-        case .canopy: return String(localized: "天幕")
+        case .classic: return String(localized: "追光")
+        case .cadenza: return String(localized: "聚光")
+        case .partita: return String(localized: "轮唱")
+        case .fume: return String(localized: "全景")
+        case .tilt: return String(localized: "独白")
+        case .cappella: return String(localized: "对白")
+        case .canopy: return String(localized: "巨幕")
         }
     }
 
@@ -133,6 +133,35 @@ enum AriaLyricFontChoice: String, CaseIterable {
         }
     }
 
+    /// 人声呼吸字重：按人声包络在基准字重附近连续插值
+    /// （唱得越用力字越"绷"）。系统字体族在这里使用连续字重；
+    /// 自定义/内置美术字体由下方字形完成层补齐增厚效果。
+    func breathingFont(
+        size: CGFloat,
+        amount: Double,
+        baseWeight: UIFont.Weight = .heavy
+    ) -> Font {
+        switch self {
+        case .system, .serif:
+            let clamped = min(1, max(0, amount))
+            let raw = min(0.62, baseWeight.rawValue - 0.12 + clamped * 0.26)
+            let base = UIFont.systemFont(ofSize: size, weight: UIFont.Weight(rawValue: raw))
+            let design: UIFontDescriptor.SystemDesign = self == .serif ? .serif : .rounded
+            guard let descriptor = base.fontDescriptor.withDesign(design) else {
+                return Font(base)
+            }
+            return Font(UIFont(descriptor: descriptor, size: size))
+        default:
+            return font(size: size, weight: baseWeight == .bold ? .bold : .heavy)
+        }
+    }
+
+    /// 系统字体可以通过 UIFont 的连续字重直接呼吸；内置美术字体与
+    /// 用户导入字体通常只有单一字重，需要在字形完成层做轻量增厚。
+    var supportsNativeBreathingWeight: Bool {
+        self == .system || self == .serif
+    }
+
     func uiFont(size: CGFloat, weight: UIFont.Weight = .bold) -> UIFont {
         for name in uiFontNames {
             if let custom = UIFont(name: name, size: size) {
@@ -168,6 +197,57 @@ enum AriaLyricFontChoice: String, CaseIterable {
         case .custom:
             return CustomFontStorage.postScriptName(for: Self.effectiveCustomFontID)
                 .map { [$0] } ?? []
+        }
+    }
+}
+
+// MARK: - Synthetic breathing weight
+
+extension View {
+    /// 为没有可变字重轴的美术字体与导入字体补齐人声呼吸。
+    /// 保留中心原字形，只用亚像素级的左右字形叠印增加墨量，避免模糊。
+    func ariaSyntheticBreathingWeight(
+        fontChoice: AriaLyricFontChoice,
+        amount: Double,
+        active: Bool
+    ) -> some View {
+        modifier(
+            AriaSyntheticBreathingWeightModifier(
+                fontChoice: fontChoice,
+                amount: amount,
+                active: active
+            )
+        )
+    }
+}
+
+private struct AriaSyntheticBreathingWeightModifier: ViewModifier {
+    let fontChoice: AriaLyricFontChoice
+    let amount: Double
+    let active: Bool
+
+    func body(content: Content) -> some View {
+        let envelope = pow(min(1, max(0, amount)), 0.72)
+        let edgeOffset = 0.18 + envelope * 0.54
+        let inkOpacity = 0.10 + envelope * 0.24
+
+        Group {
+            if active, envelope > 0.001, !fontChoice.supportsNativeBreathingWeight {
+                content
+                    .scaleEffect(x: 1 + envelope * 0.006, y: 1, anchor: .center)
+                    .overlay {
+                        content
+                            .opacity(inkOpacity)
+                            .offset(x: -edgeOffset)
+                    }
+                    .overlay {
+                        content
+                            .opacity(inkOpacity)
+                            .offset(x: edgeOffset)
+                    }
+            } else {
+                content
+            }
         }
     }
 }

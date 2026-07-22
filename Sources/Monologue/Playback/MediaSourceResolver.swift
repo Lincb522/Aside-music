@@ -9,6 +9,7 @@
 
 import Foundation
 import Combine
+import UIKit
 import FFmpegSwiftSDK
 import QQMusicKit
 
@@ -27,6 +28,15 @@ final class MediaSourceResolver {
     var playbackURLCancellable: AnyCancellable?
     /// 重媒体加载任务（汽水下载 / QMC 边下边解密）
     var activeMediaLoadTask: Task<Void, Never>?
+    /// Whole-transaction watchdog. Individual provider attempts can each have
+    /// their own timeout, so the user-facing load needs one absolute deadline.
+    private var loadWatchdogTask: Task<Void, Never>?
+    private(set) var activeLoadStartedAt: Date?
+    private var activeLoadSessionId: Int?
+    private var activeLoadExpectedInput: String?
+    private var activeLoadSong: Song?
+    private var activeLoadAutoPlay = true
+    private static let playbackLoadTimeout: TimeInterval = 20
 
     // MARK: - 取消
 
@@ -40,10 +50,162 @@ final class MediaSourceResolver {
         activeMediaLoadTask = nil
     }
 
+    func cancelLoadWatchdog() {
+        loadWatchdogTask?.cancel()
+        loadWatchdogTask = nil
+        activeLoadStartedAt = nil
+        activeLoadSessionId = nil
+        activeLoadExpectedInput = nil
+        activeLoadSong = nil
+        activeLoadAutoPlay = true
+    }
+
+    var hasActiveLoad: Bool {
+        activeLoadSessionId != nil
+    }
+
+    func stateCallbackBelongsToActiveLoad(
+        sessionId: Int,
+        engineInput: String?
+    ) -> Bool {
+        guard let activeLoadSessionId else { return true }
+        guard activeLoadSessionId == sessionId,
+              let activeLoadExpectedInput,
+              activeLoadExpectedInput == engineInput else { return false }
+        return true
+    }
+
+    @discardableResult
+    func completeLoadIfCurrent(sessionId: Int, engineInput: String?) -> Bool {
+        guard stateCallbackBelongsToActiveLoad(
+            sessionId: sessionId,
+            engineInput: engineInput
+        ) else { return false }
+        cancelLoadWatchdog()
+        return true
+    }
+
+    func ensureLoadWatchdog(
+        song: Song,
+        sessionId: Int,
+        engineInput: String?
+    ) {
+        if activeLoadSessionId == sessionId {
+            return
+        }
+        armLoadWatchdog(song: song, sessionId: sessionId, autoPlay: true)
+        activeLoadExpectedInput = engineInput
+    }
+
+    func registerExpectedEngineInput(_ input: String, sessionId: Int) {
+        guard activeLoadSessionId == sessionId else { return }
+        activeLoadExpectedInput = input
+    }
+
+    private func armLoadWatchdog(song: Song, sessionId: Int, autoPlay: Bool) {
+        cancelLoadWatchdog()
+        activeLoadStartedAt = Date()
+        activeLoadSessionId = sessionId
+        activeLoadExpectedInput = nil
+        activeLoadSong = song
+        activeLoadAutoPlay = autoPlay
+        let timeout = resolvedLoadTimeout()
+        loadWatchdogTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(
+                    nanoseconds: UInt64(timeout * 1_000_000_000)
+                )
+            } catch {
+                return
+            }
+            guard let self,
+                  player.playbackSessionId == sessionId,
+                  activeLoadSessionId == sessionId else { return }
+
+            AppLogger.error(
+                "[PlaybackLoad] 事务超时 \(Int(timeout))s target=\(song.name) session=\(sessionId)",
+                step: "playback.load.timeout"
+            )
+            expireActiveLoad(
+                song: song,
+                sessionId: sessionId,
+                autoPlay: autoPlay,
+                error: APIService.PlaybackError.networkError
+            )
+        }
+    }
+
+    private func resolvedLoadTimeout() -> TimeInterval {
+        guard player.isAppInBackground
+                || UIApplication.shared.applicationState != .active else {
+            return Self.playbackLoadTimeout
+        }
+        let remaining = UIApplication.shared.backgroundTimeRemaining
+        guard remaining.isFinite,
+              remaining < Double.greatestFiniteMagnitude else {
+            return Self.playbackLoadTimeout
+        }
+        return min(Self.playbackLoadTimeout, max(3, remaining - 2))
+    }
+
+    private func expireActiveLoad(
+        song: Song,
+        sessionId: Int,
+        autoPlay: Bool,
+        error: Error
+    ) {
+        guard player.playbackSessionId == sessionId,
+              activeLoadSessionId == sessionId else { return }
+        let expectedInput = activeLoadExpectedInput
+        cancelPlaybackURLResolution()
+        cancelActiveMediaLoad()
+        player.manualSwitchPreparationTask?.cancel()
+        player.manualSwitchPreparationTask = nil
+        player.manualPreparedSwitchSessionId = nil
+        player.streamPlayer.cancelNextPreparation()
+
+        if let expectedInput,
+           player.streamPlayer.currentPlaybackInput == expectedInput {
+            switch player.streamPlayer.state {
+            case .connecting, .playing, .paused:
+                player.suppressStopHandlingUntil = Date().addingTimeInterval(1)
+                player.streamPlayer.stop()
+            case .idle, .stopped, .error:
+                break
+            }
+        }
+
+        settlePlaybackLoadFailure(
+            song: song,
+            sessionId: sessionId,
+            autoPlay: autoPlay,
+            error: error
+        )
+    }
+
+    @discardableResult
+    func handleBackgroundExecutionExpiring() -> Bool {
+        guard let song = activeLoadSong,
+              let sessionId = activeLoadSessionId else { return false }
+        // There is no execution time left for another silent attempt.
+        player.networkDisconnectRetryCount = max(
+            player.networkDisconnectRetryCount,
+            1
+        )
+        expireActiveLoad(
+            song: song,
+            sessionId: sessionId,
+            autoPlay: activeLoadAutoPlay,
+            error: APIService.PlaybackError.networkError
+        )
+        return true
+    }
+
     /// deinit 清理
     func cancelAll() {
         cancelPlaybackURLResolution()
         cancelActiveMediaLoad()
+        cancelLoadWatchdog()
     }
 
     // MARK: - loadAndPlay 主入口
@@ -60,6 +222,14 @@ final class MediaSourceResolver {
             return
         }
 
+        let retriesPendingTarget = player.matchesPlaybackTarget(
+            player.pendingPlaybackPresentationSong,
+            expected: song
+        )
+        let inheritedQueueCommitSnapshot =
+            (preserveRetryBudget || retriesPendingTarget)
+            ? player.pendingPlaybackQueueCommitSnapshot
+            : nil
         let isNewSong = !player.matchesPlaybackTarget(player.currentSong, expected: song)
         if autoPlay, let fadeInDuration {
             player.sleepAndFade.requestPlaybackStartFade(
@@ -121,6 +291,12 @@ final class MediaSourceResolver {
             player.pendingPlaybackPresentationStartTime = max(0, startTime)
             player.pendingPlaybackPresentationIsUnblocked = false
             player.pendingPlaybackPresentationResolvedQuality = nil
+            player.pendingPlaybackPresentationDuration = nil
+            if let inheritedQueueCommitSnapshot {
+                // Internal URL/stream retries must retain the user's original
+                // target queue instead of snapshotting the audible old queue.
+                player.pendingPlaybackQueueCommitSnapshot = inheritedQueueCommitSnapshot
+            }
         } else {
             // 重新加载当前可闻歌曲不应误提交上一笔尚未完成的目标队列。
             player.rollbackPendingPlaybackQueueMutationIfNeeded()
@@ -138,6 +314,11 @@ final class MediaSourceResolver {
             player.abnormalStopRetryCount = 0
             player.networkDisconnectRetryCount = 0
         }
+        armLoadWatchdog(
+            song: song,
+            sessionId: player.playbackSessionId,
+            autoPlay: autoPlay
+        )
         // 优先使用本地已下载文件
         if let localURL = player.localPlaybackURL(for: song) {
             AppLogger.info("使用本地文件播放: \(song.name)")
@@ -181,7 +362,18 @@ final class MediaSourceResolver {
         error: Error
     ) {
         guard player.playbackSessionId == sessionId else { return }
+        cancelLoadWatchdog()
         player.endTransitionKeepAlive()
+        let applicationIsInactive = player.isAppInBackground
+            || UIApplication.shared.applicationState != .active
+        if autoPlay, applicationIsInactive {
+            settleInactivePlaybackLoadFailure(
+                song: song,
+                sessionId: sessionId,
+                error: error
+            )
+            return
+        }
         if autoPlay {
             player.showPlaybackError(song: song, error: error)
             return
@@ -196,6 +388,89 @@ final class MediaSourceResolver {
         player.isLoading = false
         player.refreshPlaybackSurfaceState()
         player.saveState()
+    }
+
+    private func settleInactivePlaybackLoadFailure(
+        song: Song,
+        sessionId: Int,
+        error: Error
+    ) {
+        let retryable = isRetryableLoadFailure(error)
+        if retryable, player.networkDisconnectRetryCount < 1 {
+            player.networkDisconnectRetryCount += 1
+            let targetsPendingSong = player.matchesPlaybackTarget(
+                player.pendingPlaybackPresentationSong,
+                expected: song
+            )
+            let resumeTime = targetsPendingSong
+                ? player.pendingPlaybackPresentationStartTime
+                : player.currentTime
+            PlaybackURLCache.shared.invalidate(song: song)
+            AppLogger.warning(
+                "[PlaybackLoad] 后台加载失败，静默重试 target=\(song.name) attempt=\(player.networkDisconnectRetryCount)",
+                step: "playback.load.background-retry"
+            )
+            player.loadAndPlay(
+                song: song,
+                startTime: max(0, resumeTime),
+                fadeInDuration: 0.8,
+                fadeInReason: "background load retry",
+                preserveRetryBudget: true
+            )
+            return
+        }
+
+        let preservedAudibleSong = player.discardPendingPlaybackPresentationIfNeeded(
+            song: song,
+            sessionId: sessionId
+        ) && player.streamPlayer.state == .playing
+            && player.streamPlayer.isAudioOutputRunning
+        player.isPlaying = preservedAudibleSong
+        player.isLoading = false
+        player.clearPlaybackStartFade(restoreVolume: true)
+        player.refreshPlaybackSurfaceState()
+        player.saveState()
+        PlaybackURLCache.shared.invalidate(song: song)
+        AppLogger.error(
+            "[PlaybackLoad] 后台加载最终失败 target=\(song.name) error=\(error.localizedDescription)",
+            step: "playback.load.background-failed"
+        )
+
+        guard shouldSkipAfterInactiveFailure(error), !preservedAudibleSong else {
+            return
+        }
+        if player.upcomingPlaybackSong() != nil {
+            player.next()
+        } else {
+            player.stopAfterQueueExhausted()
+        }
+    }
+
+    private func isRetryableLoadFailure(_ error: Error) -> Bool {
+        if let playbackError = error as? APIService.PlaybackError {
+            switch playbackError {
+            case .networkError, .unknown:
+                return true
+            case .unavailable, .tokenRequired, .tokenExpired:
+                return false
+            }
+        }
+        if let urlError = error as? URLError {
+            return urlError.code != .cancelled
+        }
+        return true
+    }
+
+    private func shouldSkipAfterInactiveFailure(_ error: Error) -> Bool {
+        guard let playbackError = error as? APIService.PlaybackError else {
+            return true
+        }
+        switch playbackError {
+        case .networkError, .unknown, .unavailable:
+            return true
+        case .tokenRequired, .tokenExpired:
+            return false
+        }
     }
 
     // MARK: - NCM 管线
@@ -345,6 +620,7 @@ final class MediaSourceResolver {
         player.scheduleDecryptedAudioCacheCleanup()
         let defersPresentation = player.pendingPlaybackPresentationSessionId == player.playbackSessionId
         let input = url.playerInputString
+        registerExpectedEngineInput(input, sessionId: player.playbackSessionId)
         if defersPresentation {
             player.pendingPlaybackPresentationInput = input
             player.pendingPlaybackPresentationDecryptionKey = decryptionKey
@@ -412,7 +688,7 @@ final class MediaSourceResolver {
         // 未命中开播后的预热结果时，不立即 stop 旧管线。先把目标歌曲装进
         // Mono next 通道并完成 preroll，真正 ready 后再丢弃旧尾音热切。
         // fastStart 用更小的预卷门槛尽早开声；装配一旦确定失败立即回退
-        // 普通 play 路径（不再傻等超时），最长兜底等待 4 秒。
+        // 普通 play 路径（不再傻等超时），最长兜底等待 2 秒。
         if defersPresentation,
            autoPlay,
            startTime <= 0,
@@ -451,7 +727,7 @@ final class MediaSourceResolver {
                     player.manualSwitchPreparationTask = nil
                     player.streamPlayer.play(url: input, decryptionKey: decryptionKey)
                 }
-                for _ in 0..<160 {
+                for _ in 0..<80 {
                     do {
                         try await Task.sleep(nanoseconds: 25_000_000)
                     } catch {
@@ -467,7 +743,7 @@ final class MediaSourceResolver {
                         // engine input; if the handoff is not consumed promptly,
                         // rebuild only the latest target instead of leaving the
                         // whole player in a permanent loading state.
-                        for _ in 0..<60 {
+                        for _ in 0..<30 {
                             do {
                                 try await Task.sleep(nanoseconds: 25_000_000)
                             } catch {

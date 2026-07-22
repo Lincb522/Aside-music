@@ -43,6 +43,14 @@ final class Demuxer {
         case video(UnsafeMutablePointer<AVPacket>)
     }
 
+    /// Distinguishes intentional AVIO wake-ups from real transport failures.
+    /// FFmpeg reports both as AVERROR_EXIT, so preserving the callback reason
+    /// here prevents a seek wake from tearing down the playback pipeline.
+    enum ReadInterruption: Error {
+        case transientWake
+        case cancelled
+    }
+
     // MARK: - Properties
 
     /// The format context containing the opened media input.
@@ -233,6 +241,15 @@ final class Demuxer {
 
                 if ret == FFmpegErrorCode.AVERROR_EOF {
                     return nil
+                }
+
+                if ret == FFmpegErrorCode.AVERROR_EXIT {
+                    if formatContext.wasExplicitlyCancelled {
+                        throw ReadInterruption.cancelled
+                    }
+                    if formatContext.hasPendingIOWake {
+                        throw ReadInterruption.transientWake
+                    }
                 }
 
                 if ret == -Int32(EAGAIN) {

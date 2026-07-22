@@ -197,6 +197,8 @@ struct AriaClassicLyricStage: View {
     let fontScale: Double
     let time: Double
     let stageSize: CGSize
+    /// 人声呼吸字重 0~1（0 = 关闭，激活字素保持固定 heavy）
+    var breathing: Double = 0
 
     var body: some View {
         if line.isInterlude {
@@ -232,7 +234,8 @@ struct AriaClassicLyricStage: View {
                             palette: palette,
                             fontChoice: fontChoice,
                             fontSize: plan.fontSize,
-                            time: time
+                            time: time,
+                            breathing: breathing
                         )
                     }
                 }
@@ -277,6 +280,7 @@ private struct AriaClassicTokenView: View {
     let fontChoice: AriaLyricFontChoice
     let fontSize: CGFloat
     let time: Double
+    var breathing: Double = 0
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 0) {
@@ -291,7 +295,8 @@ private struct AriaClassicTokenView: View {
                     palette: palette,
                     fontChoice: fontChoice,
                     fontSize: fontSize,
-                    time: time
+                    time: time,
+                    breathing: breathing
                 )
             }
         }
@@ -309,6 +314,7 @@ private struct AriaClassicGraphemeView: View {
     let fontChoice: AriaLyricFontChoice
     let fontSize: CGFloat
     let time: Double
+    var breathing: Double = 0
 
     private var effectiveEnd: Double {
         switch hints.revealMode {
@@ -356,8 +362,17 @@ private struct AriaClassicGraphemeView: View {
         )
 
         Text(text)
-            .font(fontChoice.font(size: fontSize, weight: .heavy))
+            .font(
+                breathing > 0.001 && status == .active
+                    ? fontChoice.breathingFont(size: fontSize, amount: breathing)
+                    : fontChoice.font(size: fontSize, weight: .heavy)
+            )
             .foregroundStyle(color)
+            .ariaSyntheticBreathingWeight(
+                fontChoice: fontChoice,
+                amount: breathing,
+                active: status == .active
+            )
             .opacity(opacity)
             .scaleEffect(scale + activePulse)
             .rotationEffect(.degrees(status == .waiting ? deterministicTilt : 0))

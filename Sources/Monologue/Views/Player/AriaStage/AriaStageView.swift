@@ -109,6 +109,16 @@ struct AriaStageView: View {
     @AppStorage("ariaLyricEmboss") private var lyricEmbossEnabled = true
     @AppStorage("ariaCanopyCaptionTranslation") private var canopyCaptionTranslation = false
     @AppStorage("ariaGestureGuideShown.v1") private var hasShownGestureGuide = false
+    // 沉浸实验室（全部默认关闭）
+    @AppStorage("ariaHapticBeatEnabled") private var hapticBeatEnabled = false
+    @AppStorage("ariaVocalBreathingWeight") private var vocalBreathingEnabled = false
+    @AppStorage("ariaTensionSystemEnabled") private var tensionSystemEnabled = false
+    @AppStorage("ariaGPUStageEnabled") private var gpuStageEnabled = false
+    @AppStorage("monoStageDirectorEnabled") private var stageDirectorEnabled = false
+
+    /// 节拍触觉 / 副歌张力：引用类型状态，逐帧推进不触发视图失效
+    @State private var hapticBeat = AriaHapticBeat()
+    @State private var tensionEngine = AriaTensionEngine()
 
     @State private var showPanel = false
     @State private var panelTab: AriaPanelTab = .cover
@@ -284,7 +294,16 @@ struct AriaStageView: View {
                     reduceMotion: !ambientMotion,
                     videoURL: videoURL,
                     isStageActive: scenePhase == .active && !showVideoSheet,
-                    depthIntensity: lyricDepthIntensity
+                    depthIntensity: lyricDepthIntensity,
+                    gpuEffectsEnabled: gpuStageEnabled,
+                    directorMoodEnabled: stageDirectorEnabled
+                )
+
+                // 导演参数由独立轻量子视图注入，不再依赖某一种歌词效果的
+                // TimelineView；视频背景、空歌词状态与暂停恢复都能得到同一幕提示。
+                AriaDirectorCueDriver(
+                    pulse: audioPulse,
+                    enabled: stageDirectorEnabled
                 )
 
                 // 歌词舞台 + 字幕层：同一条时间轴逐帧驱动
@@ -306,6 +325,15 @@ struct AriaStageView: View {
                             let activeLine = lyricLines.indices.contains(activeIndex)
                                 ? lyricLines[activeIndex]
                                 : nil
+                            // 副歌张力仍跟随歌词时间轴；AI 导演由独立驱动器推进。
+                            let _ = advanceStageIntelligence(time: time, lines: lyricLines)
+                            let stagePulse = audioPulse.snapshot()
+                            let directorCue = stageDirectorEnabled
+                                ? MonoStageDirector.shared.cue(at: time)
+                                : nil
+                            let breathing = vocalBreathingEnabled
+                                ? stagePulse.vocal
+                                : 0
 
                             ZStack {
                                 Group {
@@ -318,7 +346,8 @@ struct AriaStageView: View {
                                                     fontChoice: lyricFont,
                                                     fontScale: fontScale,
                                                     time: time,
-                                                    stageSize: geo.size
+                                                    stageSize: geo.size,
+                                                    breathing: breathing
                                                 )
                                             } else {
                                                 AriaClassicLyricStage(
@@ -327,7 +356,8 @@ struct AriaStageView: View {
                                                     fontChoice: lyricFont,
                                                     fontScale: fontScale,
                                                     time: time,
-                                                    stageSize: geo.size
+                                                    stageSize: geo.size,
+                                                    breathing: breathing
                                                 )
                                             }
                                         }
@@ -373,8 +403,18 @@ struct AriaStageView: View {
                                     usesFullStage: lyricEffect.usesFullStage,
                                     embossEnabled: lyricEmbossEnabled
                                 )
+                                .ariaLyricStageOptics(
+                                    pulse: stagePulse,
+                                    cue: directorCue,
+                                    fallbackAccent: lyricPalette.accent,
+                                    gpuEnabled: gpuStageEnabled,
+                                    directorEnabled: stageDirectorEnabled,
+                                    isActive: player.isPlaying && scenePhase == .active,
+                                    reduceMotion: reduceMotion,
+                                    time: time
+                                )
 
-                                // 天幕开启「小字显示翻译」后，翻译已内嵌到注音位，
+                                // 巨幕开启「小字显示翻译」后，翻译已内嵌到注音位，
                                 // 不再叠加底部字幕胶囊
                                 if showTranslation,
                                    !(lyricEffect == .canopy && canopyCaptionTranslation),
@@ -569,6 +609,9 @@ struct AriaStageView: View {
         }
         .onAppear {
             audioPulse.start()
+            if hapticBeatEnabled {
+                hapticBeat.attach(to: audioPulse)
+            }
             updateStageRuntimeActivity()
             OrientationManager.shared.enterLandscape()
             // ProMotion 压回 60Hz：沉浸模式全屏动画在 120Hz 下渲染开销翻倍，是发热主源之一；
@@ -583,6 +626,8 @@ struct AriaStageView: View {
             }
         }
         .onDisappear {
+            hapticBeat.detach()
+            MonoStageDirector.shared.cancelGeneration()
             audioPulse.stop()
             OrientationManager.shared.exitLandscape()
             AppFrameRate.popFrameRateCeiling(reason: "aria stage")
@@ -625,6 +670,38 @@ struct AriaStageView: View {
         .onChange(of: player.currentSong?.id) { _, _ in
             markInteraction()
             audioPulse.resetForNewTrack()
+            tensionEngine.reset()
+        }
+        .onChange(of: hapticBeatEnabled) { _, enabled in
+            if enabled {
+                hapticBeat.attach(to: audioPulse)
+            } else {
+                hapticBeat.detach()
+            }
+        }
+        .onChange(of: tensionSystemEnabled) { _, enabled in
+            if !enabled {
+                tensionEngine.clearTension(pulse: audioPulse)
+            }
+        }
+        .onChange(of: stageDirectorEnabled) { _, enabled in
+            if enabled {
+                // 手动重开视为重试指令：解除本会话的失败锁
+                MonoStageDirector.shared.resetFailureLock()
+            } else {
+                MonoStageDirector.shared.cancelGeneration()
+                audioPulse.setDirectorCue(energy: nil, ambience: nil)
+            }
+        }
+        .task(id: stageDirectorPreparationID) {
+            guard stageDirectorEnabled, let song = player.currentSong else { return }
+            MonoStageDirector.shared.prepare(
+                songIdentifier: "\(song.musicSource.rawValue):\(song.id)",
+                songName: song.name,
+                artistName: song.artistName,
+                duration: max(player.duration, lyricStore.lines.last?.endTime ?? 0),
+                lines: lyricStore.lines
+            )
         }
         .onChange(of: player.isPlaying) { _, playing in
             // folia：暂停时胶囊常驻展开
@@ -686,6 +763,24 @@ struct AriaStageView: View {
         } else {
             audioPulse.suspend()
         }
+    }
+
+    private var stageDirectorPreparationID: String {
+        let song = player.currentSong
+        let duration = max(player.duration, lyricStore.lines.last?.endTime ?? 0)
+        return "\(song?.musicSource.rawValue ?? "none")|\(song?.id ?? 0)|\(lyricStore.lines.count)|\(Int(duration.rounded()))|\(stageDirectorEnabled)"
+    }
+
+    /// 副歌张力逐帧推进（歌词时间轴驱动）：
+    /// 只写入 AriaAudioPulse 的外部通道，不触碰任何 SwiftUI 状态。
+    /// 返回值仅为满足 ViewBuilder 里 `let _ =` 的调用形式。
+    @discardableResult
+    private func advanceStageIntelligence(time: Double, lines: [AriaLine]) -> Bool {
+        if tensionSystemEnabled {
+            tensionEngine.syncWindows(lines: lines)
+            tensionEngine.update(time: time, pulse: audioPulse)
+        }
+        return true
     }
 
     private func subtitleOverlay(

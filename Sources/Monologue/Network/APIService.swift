@@ -377,9 +377,13 @@ class APIService: @unchecked Sendable {
                 }
                 return .invalid
             } else {
+                if http.statusCode >= 500 {
+                    ServerLineManager.shared.noteNetworkFailure()
+                }
                 return .networkError
             }
         } catch {
+            reportLineFailureIfNeeded(error)
             return .networkError
         }
     }
@@ -394,6 +398,24 @@ class APIService: @unchecked Sendable {
         ncm.apiToken = runtimeToken
         ncmVIP?.apiToken = runtimeToken
         qqClient.apiToken = runtimeToken
+    }
+
+    // MARK: - 线路切换
+
+    /// 线路切换后重绑各网络客户端的服务器地址。
+    /// NCM 客户端的 serverUrl 是启动时捕获的，QQ 客户端是单例重建；
+    /// 汽水/云同步等直接读 SecureConfig 的路径会自动跟随当前线路。
+    func rebindServerLine() {
+        let serverUrl = SecureConfig.apiBaseURL
+        ncm.serverUrl = serverUrl
+        ncmVIP?.serverUrl = serverUrl
+
+        if let qqURL = URL(string: SecureConfig.qqMusicBaseURL) {
+            QQMusicClient.configure(baseURL: qqURL, timeout: 30, maxRetries: 1)
+            qqClient.apiToken = SecureConfig.apiToken
+        }
+
+        AppLogger.info("[APIService] 已重绑服务器线路: \(serverUrl)")
     }
     
     // MARK: - VIP 状态检测

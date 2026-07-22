@@ -65,24 +65,131 @@ actor ImageLoadCoordinator {
         
         let task = Task<UIImage?, Never> {
             defer { inFlightTasks.removeValue(forKey: key) }
-            
-            do {
-                if url.isFileURL {
-                    let data = try Data(contentsOf: url)
-                    return downsampleImage(data: data, maxSize: normalizedMaxSize)
-                }
-                let (data, response) = try await imageSession.data(from: url)
-                if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
-                    return nil
-                }
-                return downsampleImage(data: data, maxSize: normalizedMaxSize)
-            } catch {
-                return nil
+
+            if let image = await requestImage(url: url, maxSize: normalizedMaxSize) {
+                return image
             }
+
+            // 同一资源先尝试 CDN 的等价地址。网易云图片签名可跨 p1-p4，
+            // QQ 专辑图则可能只保留部分固定尺寸。
+            for candidate in directCDNFallbackCandidates(for: url) where !Task.isCancelled {
+                if let image = await requestImage(url: candidate, maxSize: normalizedMaxSize) {
+                    AppLogger.info(
+                        "[Artwork] CDN 地址回退成功 primary=\(url.host ?? "unknown") fallback=\(candidate.host ?? "unknown")",
+                        step: "artwork.cdn-fallback"
+                    )
+                    return image
+                }
+            }
+
+            // 搜索的三个平台会并行返回。主封面先失败时短暂等待其余平台完成注册，
+            // 再使用同名同歌手的其他专辑版本或平台封面回退。
+            var fallbacks = SongArtworkFallbackRegistry.shared.fallbackCandidates(for: url)
+            if fallbacks.isEmpty, !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 320_000_000)
+                fallbacks = SongArtworkFallbackRegistry.shared.fallbackCandidates(for: url)
+            }
+
+            let requestedPixels = Int(ceil(normalizedMaxSize * ImageCacheConfig.screenScale))
+            for candidate in fallbacks.prefix(5) where !Task.isCancelled {
+                let fallbackURL = candidate.artworkURL(atLeastPixelSize: requestedPixels)
+                if let image = await requestImage(url: fallbackURL, maxSize: normalizedMaxSize) {
+                    AppLogger.info(
+                        "[Artwork] 同曲封面回退成功 primary=\(url.host ?? "unknown") fallback=\(fallbackURL.host ?? "unknown")",
+                        step: "artwork.song-fallback"
+                    )
+                    return image
+                }
+            }
+
+            AppLogger.debug(
+                "[Artwork] 封面加载失败 url=\(url.absoluteString)",
+                step: "artwork.failed"
+            )
+            return nil
         }
         
         inFlightTasks[key] = task
         return await task.value
+    }
+
+    private func requestImage(url: URL, maxSize: CGFloat) async -> UIImage? {
+        do {
+            if url.isFileURL {
+                let data = try Data(contentsOf: url)
+                return downsampleImage(data: data, maxSize: maxSize)
+            }
+
+            let (data, response) = try await imageSession.data(from: url)
+            if let http = response as? HTTPURLResponse,
+               !(200...299).contains(http.statusCode) {
+                AppLogger.debug(
+                    "[Artwork] CDN 响应异常 status=\(http.statusCode) host=\(url.host ?? "unknown") path=\(url.lastPathComponent)",
+                    step: "artwork.http"
+                )
+                return nil
+            }
+
+            guard !data.isEmpty else {
+                AppLogger.debug(
+                    "[Artwork] CDN 返回空数据 host=\(url.host ?? "unknown")",
+                    step: "artwork.empty-data"
+                )
+                return nil
+            }
+            guard let image = downsampleImage(data: data, maxSize: maxSize) else {
+                AppLogger.debug(
+                    "[Artwork] 返回内容不是有效图片 host=\(url.host ?? "unknown") bytes=\(data.count)",
+                    step: "artwork.decode"
+                )
+                return nil
+            }
+            return image
+        } catch is CancellationError {
+            return nil
+        } catch {
+            AppLogger.debug(
+                "[Artwork] 请求失败 host=\(url.host ?? "unknown") error=\(error.localizedDescription)",
+                step: "artwork.request"
+            )
+            return nil
+        }
+    }
+
+    private func directCDNFallbackCandidates(for url: URL) -> [URL] {
+        var candidates: [URL] = []
+        var seen = Set([url.absoluteString])
+
+        func append(_ candidate: URL?) {
+            guard let candidate, seen.insert(candidate.absoluteString).inserted else { return }
+            candidates.append(candidate)
+        }
+
+        let host = url.host?.lowercased() ?? ""
+        if host.range(of: #"^p[1-4]\.music\.126\.net$"#, options: .regularExpression) != nil {
+            for index in 1...4 {
+                guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { continue }
+                components.host = "p\(index).music.126.net"
+                components.scheme = "https"
+                append(components.url)
+            }
+
+            if var components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+                components.queryItems = components.queryItems?.filter { $0.name != "param" }
+                append(components.url)
+            }
+        }
+
+        if host == "y.gtimg.cn" {
+            let value = url.absoluteString
+            if let range = value.range(of: #"R\d+x\d+"#, options: .regularExpression) {
+                for size in [500, 300, 180] {
+                    append(URL(string: value.replacingCharacters(in: range, with: "R\(size)x\(size)")))
+                }
+            }
+        }
+
+        return candidates
     }
     
     private func downsampleImage(data: Data, maxSize: CGFloat) -> UIImage? {

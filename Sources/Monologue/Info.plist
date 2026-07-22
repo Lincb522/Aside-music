@@ -4,6 +4,8 @@
 <dict>
 	<key>API_BASE_URL</key>
 	<string>$(API_BASE_URL)</string>
+	<key>API_BASE_URL_BACKUP</key>
+	<string>$(API_BASE_URL_BACKUP)</string>
 	<key>AI_PROVIDER_PROTOCOL</key>
 	<string>$(AI_PROVIDER_PROTOCOL)</string>
 	<key>AI_PROVIDER_BASE_URL</key>
@@ -141,8 +143,12 @@
 	<true/>
 	<key>QQ_MUSIC_BASE_URL</key>
 	<string>$(QQ_MUSIC_BASE_URL)</string>
+	<key>QQ_MUSIC_BASE_URL_BACKUP</key>
+	<string>$(QQ_MUSIC_BASE_URL_BACKUP)</string>
 	<key>QISHUI_BASE_URL</key>
 	<string>$(QISHUI_BASE_URL)</string>
+	<key>QISHUI_BASE_URL_BACKUP</key>
+	<string>$(QISHUI_BASE_URL_BACKUP)</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>SanJiPoMoTi.ttf</string>

@@ -45,8 +45,8 @@ extension PlayerManager {
         }
         backgroundStateObservers.append(didEnterBackground)
 
-        let willEnterForeground = NotificationCenter.default.addObserver(
-            forName: UIApplication.willEnterForegroundNotification,
+        let didBecomeActive = NotificationCenter.default.addObserver(
+            forName: UIApplication.didBecomeActiveNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
@@ -55,7 +55,7 @@ extension PlayerManager {
                 self.isAppInBackground = false
                 self.heartbeat.backgroundTickSkipCounter = 0
                 self.endTransitionKeepAlive()
-                self.reconcilePendingTrackTransitionWithEngine(reason: "willEnterForeground")
+                self.reconcilePendingTrackTransitionWithEngine(reason: "didBecomeActive")
                 // 回前台立即同步一次，避免 UI 显示后台期间的旧进度
                 if self.currentSong != nil {
                     if let time = self.boundedEnginePlaybackTime(
@@ -64,13 +64,13 @@ extension PlayerManager {
                         self.currentTime = time
                     }
                     LyricViewModel.shared.updateCurrentTime(self.currentTime)
-                    self.repairSystemPlaybackSurfacesIfNeeded(reason: "willEnterForeground")
+                    self.repairSystemPlaybackSurfacesIfNeeded(reason: "didBecomeActive")
                     self.updateNowPlayingTime()
-                    self.audioSessionCoordinator.scheduleAutomaticAudioPolicyReevaluation(reason: "willEnterForeground")
+                    self.audioSessionCoordinator.scheduleAutomaticAudioPolicyReevaluation(reason: "didBecomeActive")
                 }
             }
         }
-        backgroundStateObservers.append(willEnterForeground)
+        backgroundStateObservers.append(didBecomeActive)
     }
 
     // MARK: - 后台切歌保活
@@ -79,11 +79,18 @@ extension PlayerManager {
     /// 系统可能在请求完成前挂起 App，导致「后台放完一首就停」。
     /// 这里申请一个短时后台任务（约 30s 窗口）保住切歌流程。
     func beginTransitionKeepAlive(reason: String) {
-        guard isAppInBackground else { return }
+        let applicationState = UIApplication.shared.applicationState
+        guard isAppInBackground || applicationState != .active else { return }
+        if applicationState == .background {
+            isAppInBackground = true
+        }
         guard transitionKeepAliveTaskId == .invalid else { return }
         transitionKeepAliveTaskId = UIApplication.shared.beginBackgroundTask(withName: "Monologue.TrackTransition") { [weak self] in
             Task { @MainActor [weak self] in
-                self?.endTransitionKeepAlive()
+                guard let self else { return }
+                if !self.mediaResolver.handleBackgroundExecutionExpiring() {
+                    self.endTransitionKeepAlive()
+                }
             }
         }
         if transitionKeepAliveTaskId != .invalid {

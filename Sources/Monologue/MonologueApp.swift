@@ -36,7 +36,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         let token = deviceToken.map { String(format: "%02x", $0) }.joined()
-        AppLogger.info("APNs Device Token: \(token)")
+        AppLogger.info("APNs 推送凭据已更新")
         UserDefaults.standard.set(token, forKey: "apns_device_token")
         PushService.shared.registerToken(token)
     }
@@ -119,7 +119,10 @@ struct MonologueApp: App {
                     let hasStoredToken = OnlineAccessManager.shared.hasStoredToken
 
                     AlertWindow.shared.setup()
-                    
+
+                    // 多线路：应用上次线路并启动健康探测/繁忙分流
+                    ServerLineManager.shared.start()
+
                     // 双重风控前置探测入口
                     RiskControlManager.shared.performRiskCheck()
                     
@@ -181,6 +184,8 @@ struct MonologueApp: App {
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
                     AppFrameRate.lockConnectedScenesToPreferredFrameRate(reason: "application did become active")
+
+                    ServerLineManager.shared.kickRefresh(trigger: .foreground)
 
                     if settings.themeMode == "system" {
                         DispatchQueue.main.async {

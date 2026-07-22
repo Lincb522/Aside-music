@@ -761,6 +761,7 @@
 "debug_auto_scroll" = "自动滚动";
 "debug_search_placeholder" = "搜索日志...";
 "debug_stat_total" = "总计";
+"debug_visible_count" = "当前";
 "debug_stat_error" = "错误";
 "debug_stat_warning" = "警告";
 "debug_stat_success" = "成功";
@@ -786,6 +787,7 @@
 "debug_fields_section" = "字段";
 "debug_links_section" = "链接";
 "debug_dropped_count" = "已丢弃 %d 条";
+"debug_dropped_count_short" = "丢弃";
 "debug_collecting" = "收集中";
 "debug_collection_paused" = "已暂停";
 "debug_collection" = "收集日志";
@@ -1695,10 +1697,15 @@
 "ai_lab_changed_bands" = "变化频段";
 "ai_lab_changed_bands_format" = "%d 个";
 "ai_lab_largest_change" = "最大变化";
+"ai_lab_average_change" = "平均变化";
 "ai_lab_no_change" = "无明显变化";
 "ai_lab_no_key_changes" = "低音、高音、空间和专业参数没有明显变化，主要差异在均衡器频段。";
 "ai_lab_view_full_comparison" = "查看完整参数对比";
 "ai_lab_delete_all" = "全部删除";
+"ai_lab_delete_current_song" = "清空当前歌曲";
+"ai_lab_clear_all_proposals" = "清空所有方案";
+"ai_lab_clear_all_proposals_title" = "清空所有方案？";
+"ai_lab_clear_all_proposals_message" = "所有歌曲的标准与空间调音方案都将被删除。";
 "ai_lab_current_result" = "当前使用";
 "ai_lab_previous_result" = "历史方案";
 "ai_lab_compare" = "参数对比";
@@ -1713,6 +1720,7 @@
 "ai_lab_current_short" = "当前";
 "ai_lab_previous_short" = "历史";
 "ai_lab_difference_short" = "差值";
+"ai_lab_all_band_details" = "全部频段";
 "ai_sampling_mode" = "采样方式";
 "ai_tuning_settings" = "调音设置";
 "ai_tuning_profile" = "调音方案";
@@ -2036,3 +2044,20 @@
 "mono_hint_guitar" = "吉他";
 "mono_hint_piano" = "钢琴";
 "mono_hint_strings" = "弦乐";
+
+// MARK: - 服务器线路
+"settings_server_line_title" = "服务器线路";
+"server_line_auto" = "自动";
+"server_line_primary" = "主线路";
+"server_line_backup" = "备用线路";
+"server_line_current_format" = "当前：%@";
+"server_line_unreachable" = "不可用";
+
+// MARK: - 沉浸实验室
+"aria_gpu_stage_caption" = "背景节拍折射、歌词棱镜与呼吸暗角";
+"aria_stage_director_caption" = "Mono Agent 按分幕编排光色、镜头与歌词";
+"aria_stage_director_status_idle" = "等待歌词";
+"aria_stage_director_status_generating" = "正在编排";
+"aria_stage_director_status_ready_format" = "已编排 %d 幕";
+"aria_stage_director_status_failed" = "编排失败";
+"aria_stage_director_status_unavailable" = "当前歌曲不适用";

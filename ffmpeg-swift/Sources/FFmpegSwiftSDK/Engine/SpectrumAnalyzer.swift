@@ -62,6 +62,10 @@ public final class SpectrumAnalyzer {
     private var storedOnCalibrationSpectrum: ((_ linearMagnitudes: [Float], _ sampleRate: Double, _ rms: Float) -> Void)?
     private var analysisObservers: [UUID: AnalysisObserverEntry] = [:]
     private var pcmAnalysisObservers: [UUID: PCMObserverEntry] = [:]
+    /// Smart calibration updates much more slowly than visual FFT. Throttling it
+    /// at the analyzer prevents needless FFT work and MainActor task creation.
+    private var calibrationMinimumInterval: TimeInterval = 1.0
+    private var lastCalibrationDeliveryUptime: TimeInterval = 0
     private var storedSmoothing: Float = 0.7
     private var storedSampleRate: Double = 44100
 
@@ -75,14 +79,25 @@ public final class SpectrumAnalyzer {
     /// A visualizer may turn `isEnabled` off without stopping intelligent EQ.
     public var isCalibrationEnabled: Bool {
         get { configurationLock.monoWithLock { storedCalibrationIsEnabled } }
-        set { configurationLock.monoWithLock { storedCalibrationIsEnabled = newValue } }
+        set {
+            configurationLock.monoWithLock {
+                if newValue, !storedCalibrationIsEnabled {
+                    lastCalibrationDeliveryUptime = 0
+                }
+                storedCalibrationIsEnabled = newValue
+            }
+        }
     }
 
     var isActive: Bool {
         // AudioRenderer queries this from a realtime callback. Missing one
         // analysis window is always preferable to waiting behind UI/config work.
         guard configurationLock.try() else { return false }
-        let active = storedIsEnabled || storedCalibrationIsEnabled
+        let visualActive = storedIsEnabled
+            && (storedOnSpectrum != nil || storedOnRawSpectrum != nil)
+        let calibrationActive = storedCalibrationIsEnabled
+            && storedOnCalibrationSpectrum != nil
+        let active = visualActive || calibrationActive
             || !analysisObservers.isEmpty || !pcmAnalysisObservers.isEmpty
         configurationLock.unlock()
         return active
@@ -109,7 +124,12 @@ public final class SpectrumAnalyzer {
     /// intelligent EQ can run at the same time.
     public var onCalibrationSpectrum: ((_ linearMagnitudes: [Float], _ sampleRate: Double, _ rms: Float) -> Void)? {
         get { configurationLock.monoWithLock { storedOnCalibrationSpectrum } }
-        set { configurationLock.monoWithLock { storedOnCalibrationSpectrum = newValue } }
+        set {
+            configurationLock.monoWithLock {
+                storedOnCalibrationSpectrum = newValue
+                lastCalibrationDeliveryUptime = 0
+            }
+        }
     }
 
     /// Adds an independent analysis consumer without replacing visualizer or
@@ -283,8 +303,21 @@ public final class SpectrumAnalyzer {
         // Independent observers are analysis owners too. Previously the outer
         // renderer saw `isActive == true`, but feed discarded the same buffer
         // unless a visualizer or calibration happened to be enabled.
-        let enabled = storedIsEnabled || storedCalibrationIsEnabled
-            || !analysisObservers.isEmpty || !pcmAnalysisObservers.isEmpty
+        let visualActive = storedIsEnabled
+            && (storedOnSpectrum != nil || storedOnRawSpectrum != nil)
+        // Agent observers are temporary and need dense source windows for an
+        // accurate 30-second measurement. Keep their collection continuous;
+        // only the always-on smart calibration is cadence-gated here.
+        let transientAnalysisActive = !analysisObservers.isEmpty
+            || !pcmAnalysisObservers.isEmpty
+        let uptime = visualActive || transientAnalysisActive
+            ? 0
+            : ProcessInfo.processInfo.systemUptime
+        let calibrationDue = storedCalibrationIsEnabled
+            && storedOnCalibrationSpectrum != nil
+            && (lastCalibrationDeliveryUptime == 0
+                || uptime - lastCalibrationDeliveryUptime >= calibrationMinimumInterval)
+        let enabled = visualActive || transientAnalysisActive || calibrationDue
         configurationLock.unlock()
         guard enabled, channelCount > 0 else { return }
 
@@ -373,10 +406,14 @@ public final class SpectrumAnalyzer {
 
     private func hasDueConsumer(at uptime: TimeInterval) -> Bool {
         configurationLock.monoWithLock {
-            if storedOnSpectrum != nil || storedOnRawSpectrum != nil {
+            if storedIsEnabled,
+               storedOnSpectrum != nil || storedOnRawSpectrum != nil {
                 return true
             }
-            if storedCalibrationIsEnabled && storedOnCalibrationSpectrum != nil {
+            if storedCalibrationIsEnabled,
+               storedOnCalibrationSpectrum != nil,
+               lastCalibrationDeliveryUptime == 0
+                || uptime - lastCalibrationDeliveryUptime >= calibrationMinimumInterval {
                 return true
             }
             if analysisObservers.values.contains(where: { entry in
@@ -426,6 +463,20 @@ public final class SpectrumAnalyzer {
         }
     }
 
+    private func takeDueCalibrationObserver(
+        at uptime: TimeInterval
+    ) -> ((_ linearMagnitudes: [Float], _ sampleRate: Double, _ rms: Float) -> Void)? {
+        configurationLock.monoWithLock {
+            guard storedCalibrationIsEnabled,
+                  let callback = storedOnCalibrationSpectrum else { return nil }
+            let isDue = lastCalibrationDeliveryUptime == 0
+                || uptime - lastCalibrationDeliveryUptime >= calibrationMinimumInterval
+            guard isDue else { return nil }
+            lastCalibrationDeliveryUptime = uptime
+            return callback
+        }
+    }
+
     // MARK: - FFT 计算
 
     private func performFFT(
@@ -434,17 +485,17 @@ public final class SpectrumAnalyzer {
         deliveryUptime: TimeInterval
     ) {
         let analysisCallbacks = takeDueAnalysisObservers(at: deliveryUptime)
+        let calibrationCallback = takeDueCalibrationObserver(at: deliveryUptime)
         let callbacks = configurationLock.monoWithLock {
             (
                 storedOnRawSpectrum,
                 storedOnSpectrum,
-                storedOnCalibrationSpectrum,
                 storedSmoothing
             )
         }
         guard callbacks.0 != nil
                 || callbacks.1 != nil
-                || callbacks.2 != nil
+                || calibrationCallback != nil
                 || !analysisCallbacks.isEmpty else {
             return
         }
@@ -485,7 +536,7 @@ public final class SpectrumAnalyzer {
         // 1) 线性幅度做 smoothingTimeConstant=0.8 平滑
         // 2) 转 dB 后按 [minDb=-100, maxDb=-30] 归一化到 [0,1]
         var timeDomainRMS: Float = 0
-        if callbacks.0 != nil || callbacks.2 != nil || !analysisCallbacks.isEmpty {
+        if callbacks.0 != nil || calibrationCallback != nil || !analysisCallbacks.isEmpty {
             for sample in samples {
                 let value = min(1, max(-1, sample))
                 timeDomainRMS += value * value
@@ -508,23 +559,24 @@ public final class SpectrumAnalyzer {
             rawCallback(rawBytes, sampleRate, timeDomainRMS)
         }
 
-        callbacks.2?(scaledMags, sampleRate, timeDomainRMS)
+        calibrationCallback?(scaledMags, sampleRate, timeDomainRMS)
         for observer in analysisCallbacks {
             observer(scaledMags, sampleRate, timeDomainRMS)
         }
 
-        // 合并 bin 到指定频段数（对数分布）
-        let bands = mergeToBands(magnitudes: &scaledMags)
-
-        // 平滑
-        var smoothed = [Float](repeating: 0, count: bandCount)
-        for i in 0..<bandCount {
-            smoothed[i] = callbacks.3 * previousMagnitudes[i] + (1.0 - callbacks.3) * bands[i]
+        // Raw spectrum / calibration users do not need the logarithmic UI
+        // bands. Avoid another merge, normalization and allocation unless a
+        // visual band callback is actually attached.
+        if let spectrumCallback = callbacks.1 {
+            let bands = mergeToBands(magnitudes: &scaledMags)
+            var smoothed = [Float](repeating: 0, count: bandCount)
+            for i in 0..<bandCount {
+                smoothed[i] = callbacks.2 * previousMagnitudes[i]
+                    + (1.0 - callbacks.2) * bands[i]
+            }
+            previousMagnitudes = smoothed
+            spectrumCallback(smoothed)
         }
-        previousMagnitudes = smoothed
-
-        // 回调
-        callbacks.1?(smoothed)
     }
 
     /// 将线性 FFT bin 合并为对数分布的频段

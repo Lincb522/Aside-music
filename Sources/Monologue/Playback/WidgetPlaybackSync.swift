@@ -61,7 +61,9 @@ final class WidgetPlaybackSync {
         let playbackState = player.playbackSurfaceState
         let progressReferenceDate = Date()
         let safeCurrentTime = player.currentSong == nil ? 0 : max(player.currentTime, 0)
-        let safeDuration = player.currentSong == nil ? 0 : max(player.duration, player.currentSong?.dt.map { Double($0) / 1000.0 } ?? 0)
+        let safeDuration = player.currentSong == nil
+            ? 0
+            : max(player.effectivePlaybackDuration, 0)
         defaults.set(songName, forKey: "widget_songName")
         defaults.set(artistName, forKey: "widget_artistName")
         defaults.set(player.currentSong?.id ?? 0, forKey: "widget_song_id")

@@ -38,6 +38,19 @@ final class DownloadManager: NSObject, ObservableObject {
         /// QMC 加密文件的 ekey（下载完成后需解密）
         var qmcEkey: String?
     }
+
+    func task(for song: Song) -> DownloadTask? {
+        downloadingTasks[Self.makeKey(for: song)]
+    }
+
+    func isDownloading(_ song: Song) -> Bool {
+        let key = Self.makeKey(for: song)
+        return downloadingTasks[key] != nil || waitingQueue.contains(key)
+    }
+
+    func cancelDownload(for song: Song) {
+        cancelDownload(key: Self.makeKey(for: song))
+    }
     
     // MARK: - URLSession
     private lazy var urlSession: URLSession = {
@@ -94,7 +107,7 @@ final class DownloadManager: NSObject, ObservableObject {
     
     /// 下载歌曲
     func download(song: Song, quality: SoundQuality? = nil) {
-        guard AppConfig.Features.downloadEnabled else {
+        guard AppConfig.Features.restrictedDownloadEnabled else {
             AppLogger.info("[DownloadManager] 下载功能已关闭，忽略下载请求: \(song.id)")
             return
         }
@@ -137,7 +150,7 @@ final class DownloadManager: NSObject, ObservableObject {
     
     /// 下载 qcm歌曲（指定 QQ 音质）
     func downloadQQ(song: Song, quality: QQMusicQuality) {
-        guard AppConfig.Features.downloadEnabled else {
+        guard AppConfig.Features.restrictedDownloadEnabled else {
             AppLogger.info("[DownloadManager] 下载功能已关闭，忽略 QQ 下载请求: \(song.id)")
             return
         }
@@ -163,7 +176,7 @@ final class DownloadManager: NSObject, ObservableObject {
     
     /// 下载汽水音乐歌曲（通过服务端代理）
     func downloadQishui(song: Song, quality: String = "highest") {
-        guard AppConfig.Features.downloadEnabled else {
+        guard AppConfig.Features.restrictedDownloadEnabled else {
             AppLogger.info("[DownloadManager] 下载功能已关闭，忽略汽水下载请求: \(song.id)")
             return
         }
@@ -202,8 +215,10 @@ final class DownloadManager: NSObject, ObservableObject {
 
     /// 取消下载
     func cancelDownload(songId: Int, isQQ: Bool = false) {
-        let key = Self.makeKey(songId: songId, isQQ: isQQ)
-        
+        cancelDownload(key: Self.makeKey(songId: songId, isQQ: isQQ))
+    }
+
+    private func cancelDownload(key: String) {
         // 取消活跃任务
         if let task = downloadingTasks[key] {
             if let sessionTask = task.urlSessionTask {
@@ -321,30 +336,31 @@ final class DownloadManager: NSObject, ObservableObject {
         downloadingTasks.removeAll()
         waitingQueue.removeAll()
         
-        // 删除下载目录（包含所有音频文件）
+        // 只删除音频记录对应文件；歌词使用 Downloads/Lyrics 独立保存，不能一并清掉。
         let dir = DownloadedSong.downloadsDirectory
         let fm = FileManager.default
-        
-        // 先逐个删除文件（确保即使目录删除失败，文件也被清理）
-        if let files = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) {
+
+        for record in allRecords {
+            guard let url = record.localFileURL, fm.fileExists(atPath: url.path) else { continue }
+            do {
+                try fm.removeItem(at: url)
+            } catch {
+                AppLogger.error("删除下载文件失败: \(url.lastPathComponent), error=\(error)")
+            }
+        }
+
+        // 兼容没有数据库记录的旧音频文件，只清理目录第一层文件，保留 Lyrics 子目录。
+        if let files = try? fm.contentsOfDirectory(
+            at: dir,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) {
             for file in files {
-                do {
-                    try fm.removeItem(at: file)
-                } catch {
-                    AppLogger.error("删除下载文件失败: \(file.lastPathComponent), error=\(error)")
-                }
+                let isDirectory = (try? file.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
+                guard !isDirectory else { continue }
+                try? fm.removeItem(at: file)
             }
         }
-        
-        // 再删除整个目录并重建
-        do {
-            if fm.fileExists(atPath: dir.path) {
-                try fm.removeItem(at: dir)
-            }
-        } catch {
-            AppLogger.error("删除下载目录失败: \(error)")
-        }
-        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
         
         // 清空数据库中的下载记录
         let store = DatabaseManager.shared.store
@@ -420,7 +436,7 @@ final class DownloadManager: NSObject, ObservableObject {
     }
 
     func restoreCloudDownloadRecords(_ records: [CloudDownloadRecord]) {
-        guard AppConfig.Features.downloadEnabled, !records.isEmpty else { return }
+        guard AppConfig.Features.restrictedDownloadEnabled, !records.isEmpty else { return }
 
         let store = DatabaseManager.shared.store
         let tombstones = DownloadTombstoneStore.shared
@@ -482,7 +498,7 @@ final class DownloadManager: NSObject, ObservableObject {
     }
 
     func enqueueRestoredDownloadIfNeeded(for song: Song) {
-        guard AppConfig.Features.downloadEnabled else { return }
+        guard AppConfig.Features.restrictedDownloadEnabled else { return }
         let key = Self.makeKey(for: song)
         guard localFileURL(forKey: key) == nil,
               downloadingTasks[key] == nil,
@@ -523,6 +539,7 @@ final class DownloadManager: NSObject, ObservableObject {
     
     /// 处理下载队列
     private func processQueue() {
+        guard AppConfig.Features.restrictedDownloadEnabled else { return }
         while activeCount < maxConcurrent, let key = waitingQueue.first {
             waitingQueue.removeFirst()
             startDownload(key: key)
@@ -846,7 +863,7 @@ final class DownloadManager: NSObject, ObservableObject {
                 return lhs > rhs
             }
         )
-        let allowedStatuses: Set<DownloadedSong.Status> = includingRestored && AppConfig.Features.downloadEnabled
+        let allowedStatuses: Set<DownloadedSong.Status> = includingRestored && AppConfig.Features.restrictedDownloadEnabled
             ? [.completed, .restored, .waiting, .downloading]
             : [.completed]
         let records = sorted.filter { record in
@@ -934,5 +951,313 @@ extension DownloadManager: URLSessionDownloadDelegate {
                 self.processQueue()
             }
         }
+    }
+}
+
+// MARK: - 歌词下载
+
+struct DownloadedLyric: Codable, Identifiable, Equatable {
+    let id: String
+    let songKey: String
+    let songId: Int
+    let songName: String
+    let artistName: String
+    let coverURLString: String?
+    let source: LyricSource
+    let primaryFileName: String
+    let translatedFileName: String?
+    let fileSize: Int64
+    let downloadedAt: Date
+
+    var primaryFileURL: URL {
+        LyricDownloadManager.downloadsDirectory.appendingPathComponent(primaryFileName)
+    }
+
+    var translatedFileURL: URL? {
+        guard let translatedFileName else { return nil }
+        return LyricDownloadManager.downloadsDirectory.appendingPathComponent(translatedFileName)
+    }
+
+    var fileSizeText: String {
+        ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file)
+    }
+}
+
+@MainActor
+final class LyricDownloadManager: ObservableObject {
+    struct ActiveTask: Identifiable, Equatable {
+        let id: String
+        let songName: String
+        let artistName: String
+        let coverURLString: String?
+        let source: LyricSource
+    }
+
+    static let shared = LyricDownloadManager()
+
+    @Published private(set) var records: [DownloadedLyric] = []
+    @Published private(set) var activeRecordIDs: Set<String> = []
+    @Published private(set) var activeTasks: [String: ActiveTask] = [:]
+    @Published var lastError: String?
+
+    nonisolated static var downloadsDirectory: URL {
+        let directory = DownloadedSong.downloadsDirectory.appendingPathComponent("Lyrics", isDirectory: true)
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
+    }
+
+    nonisolated private static var indexURL: URL {
+        downloadsDirectory.appendingPathComponent("lyrics-index.json")
+    }
+
+    private let lyricViewModel = LyricViewModel.shared
+
+    private init() {
+        loadRecords()
+    }
+
+    static func offlineLyrics(
+        for song: Song,
+        source: LyricSource
+    ) -> (lyrics: String, translated: String?)? {
+        guard let data = try? Data(contentsOf: indexURL),
+              let decoded = try? JSONDecoder().decode([DownloadedLyric].self, from: data),
+              let record = decoded.first(where: { $0.id == recordID(for: song, source: source) }),
+              let lyrics = try? String(contentsOf: record.primaryFileURL, encoding: .utf8) else {
+            return nil
+        }
+        let translated = record.translatedFileURL.flatMap {
+            try? String(contentsOf: $0, encoding: .utf8)
+        }
+        return (lyrics, translated)
+    }
+
+    func record(for song: Song, source: LyricSource? = nil) -> DownloadedLyric? {
+        let resolvedSource = source ?? lyricViewModel.selectedSource(for: song)
+        let recordID = Self.recordID(for: song, source: resolvedSource)
+        return records.first { $0.id == recordID }
+    }
+
+    func isDownloading(_ song: Song, source: LyricSource? = nil) -> Bool {
+        let resolvedSource = source ?? lyricViewModel.selectedSource(for: song)
+        return activeRecordIDs.contains(Self.recordID(for: song, source: resolvedSource))
+    }
+
+    func downloadLyrics(for song: Song) async {
+        guard AppConfig.Features.restrictedDownloadEnabled else {
+            lastError = String(localized: "当前账号不支持下载")
+            return
+        }
+
+        let source = lyricViewModel.selectedSource(for: song)
+        let recordID = Self.recordID(for: song, source: source)
+        guard !activeRecordIDs.contains(recordID) else { return }
+
+        if let existing = records.first(where: { $0.id == recordID }),
+           FileManager.default.fileExists(atPath: existing.primaryFileURL.path) {
+            return
+        }
+
+        activeRecordIDs.insert(recordID)
+        activeTasks[recordID] = ActiveTask(
+            id: recordID,
+            songName: song.name,
+            artistName: song.artistName,
+            coverURLString: song.coverUrl?.absoluteString,
+            source: source
+        )
+        lastError = nil
+        defer {
+            activeRecordIDs.remove(recordID)
+            activeTasks.removeValue(forKey: recordID)
+        }
+
+        if lyricViewModel.currentSongId != song.id
+            || lyricViewModel.activeSource != source
+            || !lyricViewModel.hasLyrics {
+            lyricViewModel.fetchLyrics(for: song)
+        }
+
+        for _ in 0..<180 {
+            if lyricViewModel.currentSongId == song.id,
+               lyricViewModel.activeSource == source,
+               lyricViewModel.hasLyrics,
+               !lyricViewModel.lyrics.isEmpty {
+                break
+            }
+            if !lyricViewModel.isLoading, lyricViewModel.currentSongId == nil {
+                break
+            }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+
+        guard lyricViewModel.currentSongId == song.id,
+              lyricViewModel.activeSource == source,
+              lyricViewModel.hasLyrics,
+              !lyricViewModel.lyrics.isEmpty else {
+            lastError = String(localized: "未获取到可下载歌词")
+            return
+        }
+
+        do {
+            try save(
+                song: song,
+                source: source,
+                lines: lyricViewModel.lyrics
+            )
+            HapticManager.shared.success()
+        } catch {
+            lastError = String(localized: "歌词保存失败")
+            AppLogger.error("[LyricDownload] 保存失败: \(error.localizedDescription)")
+        }
+    }
+
+    func delete(_ record: DownloadedLyric) {
+        try? FileManager.default.removeItem(at: record.primaryFileURL)
+        if let translatedFileURL = record.translatedFileURL {
+            try? FileManager.default.removeItem(at: translatedFileURL)
+        }
+        records.removeAll { $0.id == record.id }
+        persistRecords()
+    }
+
+    func deleteAll() {
+        for record in records {
+            try? FileManager.default.removeItem(at: record.primaryFileURL)
+            if let translatedFileURL = record.translatedFileURL {
+                try? FileManager.default.removeItem(at: translatedFileURL)
+            }
+        }
+        records.removeAll()
+        persistRecords()
+    }
+
+    func totalDownloadSize() -> Int64 {
+        records.reduce(0) { $0 + $1.fileSize }
+    }
+
+    private func save(song: Song, source: LyricSource, lines: [LyricLine]) throws {
+        let recordID = Self.recordID(for: song, source: source)
+        let safeName = Self.safeFileComponent("\(song.name)-\(song.artistName)")
+        let fileStem = "\(Self.songKey(for: song))-\(source.rawValue)-\(safeName)"
+        let primaryFileName = "\(fileStem).qrc"
+        let translatedFileName = lines.contains(where: { !($0.translation ?? "").isEmpty })
+            ? "\(fileStem)-translation.lrc"
+            : nil
+
+        let primaryText = Self.makeTimedLyrics(from: lines)
+        let primaryData = Data(primaryText.utf8)
+        let primaryURL = Self.downloadsDirectory.appendingPathComponent(primaryFileName)
+        try primaryData.write(to: primaryURL, options: .atomic)
+
+        var fileSize = Int64(primaryData.count)
+        if let translatedFileName {
+            let translatedText = Self.makeTranslations(from: lines)
+            let translatedData = Data(translatedText.utf8)
+            try translatedData.write(
+                to: Self.downloadsDirectory.appendingPathComponent(translatedFileName),
+                options: .atomic
+            )
+            fileSize += Int64(translatedData.count)
+        }
+
+        OptimizedCacheManager.shared.cacheLyrics(
+            songId: song.id,
+            lyrics: primaryText,
+            translated: translatedFileName == nil ? nil : Self.makeTranslations(from: lines)
+        )
+
+        let record = DownloadedLyric(
+            id: recordID,
+            songKey: Self.songKey(for: song),
+            songId: song.id,
+            songName: song.name,
+            artistName: song.artistName,
+            coverURLString: song.coverUrl?.absoluteString,
+            source: source,
+            primaryFileName: primaryFileName,
+            translatedFileName: translatedFileName,
+            fileSize: fileSize,
+            downloadedAt: Date()
+        )
+
+        records.removeAll { $0.id == record.id }
+        records.insert(record, at: 0)
+        persistRecords()
+        AppLogger.info("[LyricDownload] 已保存歌词: \(song.name) source=\(source.rawValue)")
+    }
+
+    private func loadRecords() {
+        guard let data = try? Data(contentsOf: Self.indexURL),
+              let decoded = try? JSONDecoder().decode([DownloadedLyric].self, from: data) else {
+            records = []
+            return
+        }
+        records = decoded
+            .filter { FileManager.default.fileExists(atPath: $0.primaryFileURL.path) }
+            .sorted { $0.downloadedAt > $1.downloadedAt }
+        persistRecords()
+    }
+
+    private func persistRecords() {
+        guard let data = try? JSONEncoder().encode(records) else { return }
+        try? data.write(to: Self.indexURL, options: .atomic)
+    }
+
+    private static func songKey(for song: Song) -> String {
+        if song.isQishui, let trackId = song.qishuiTrackId {
+            return "qishui_\(trackId)"
+        }
+        return "\(song.musicSource.rawValue)_\(song.id)"
+    }
+
+    private static func recordID(for song: Song, source: LyricSource) -> String {
+        "\(songKey(for: song))_\(source.rawValue)"
+    }
+
+    private static func safeFileComponent(_ value: String) -> String {
+        let invalid = CharacterSet(charactersIn: "/\\:?%*|\"<>\n\r\t")
+        let sanitized = value.components(separatedBy: invalid).joined(separator: "-")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return String(sanitized.prefix(80)).isEmpty ? "lyrics" : String(sanitized.prefix(80))
+    }
+
+    private static func makeTimedLyrics(from lines: [LyricLine]) -> String {
+        lines.enumerated().map { index, line in
+            let start = max(0, Int((line.time * 1000).rounded()))
+            let words = line.words.filter { !$0.text.isEmpty && $0.duration > 0 }
+            let nextLineDuration = lines.indices.contains(index + 1)
+                ? max(0, lines[index + 1].time - line.time)
+                : 5
+            let wordDuration = words.last.map { max(0, $0.startTime + $0.duration - line.time) } ?? 0
+            let resolvedDuration = line.duration > 0.05
+                ? line.duration
+                : max(nextLineDuration, wordDuration, 0.5)
+            let duration = max(1, Int((resolvedDuration * 1000).rounded()))
+            if words.isEmpty {
+                return "[\(start),\(duration)]\(qrcSafeText(line.text))(\(start),\(duration))"
+            }
+            let content = words.map { word in
+                let wordStart = max(0, Int((word.startTime * 1000).rounded()))
+                let wordDuration = max(1, Int((word.duration * 1000).rounded()))
+                return "\(qrcSafeText(word.text))(\(wordStart),\(wordDuration))"
+            }.joined()
+            return "[\(start),\(duration)]\(content)"
+        }.joined(separator: "\n")
+    }
+
+    private static func qrcSafeText(_ text: String) -> String {
+        text.replacingOccurrences(of: "(", with: "（")
+            .replacingOccurrences(of: ")", with: "）")
+    }
+
+    private static func makeTranslations(from lines: [LyricLine]) -> String {
+        lines.compactMap { line in
+            guard let translation = line.translation?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !translation.isEmpty else { return nil }
+            let minutes = Int(line.time) / 60
+            let seconds = line.time - Double(minutes * 60)
+            return String(format: "[%02d:%05.2f]%@", minutes, seconds, translation)
+        }.joined(separator: "\n")
     }
 }

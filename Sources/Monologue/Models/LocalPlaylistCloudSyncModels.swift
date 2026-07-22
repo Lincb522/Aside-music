@@ -142,9 +142,31 @@ struct CloudThemeCustomizationSnapshot: Codable {
     var entries: [CloudThemeCustomizationEntry]
 }
 
+struct CloudAIEqualizerSongMetadata: Codable, Hashable {
+    var songIdentifier: String
+    var songId: Int
+    var songName: String
+    var artistName: String
+    var albumName: String?
+    var coverUrl: String?
+    var sourceRaw: String
+
+    init(song: Song) {
+        let source = song.musicSource
+        songIdentifier = "\(source.rawValue):\(song.id)"
+        songId = song.id
+        songName = song.name
+        artistName = song.artistName
+        albumName = song.al?.name
+        coverUrl = song.coverUrl?.absoluteString
+        sourceRaw = source.rawValue
+    }
+}
+
 struct CloudAIEqualizerSnapshot: Codable {
     var cachedProposals: [String: AIEqualizerProposal]
     var savedProposals: [String: [AIEqualizerSavedProposal]]
+    var proposalMetadata: [String: CloudAIEqualizerSongMetadata]? = nil
 }
 
 // MARK: - 云端快照

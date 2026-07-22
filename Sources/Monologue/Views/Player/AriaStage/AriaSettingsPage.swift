@@ -323,7 +323,7 @@ struct AriaSettingsPage: View {
                 if lyricEffect == .canopy {
                     Toggle(isOn: $canopyFragmentStage) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(String(localized: "天幕碎幕律动"))
+                            Text(String(localized: "巨幕碎幕律动"))
                                 .font(.system(size: 14, weight: .semibold, design: .rounded))
                                 .foregroundStyle(.white)
                             Text(String(localized: "整句拆成小段接力显示，排版与动画随旋律逐句变化"))

@@ -42,7 +42,6 @@ extension PlayerManager {
 
     private func replacePlaybackContext(song: Song, in newContext: [Song]) {
         self.playSource = .normal
-        self.queueExhaustionBehavior = .loop
 
         if let tapIndex = newContext.firstIndex(where: {
             matchesPlaybackTarget($0, expected: song)
@@ -62,11 +61,13 @@ extension PlayerManager {
                 contextIndex = shuffledIndex
             }
         }
+        queueExhaustionBehavior = currentContextList.count > 1
+            ? .loop
+            : .stopAtEnd
     }
 
     private func insertPlaybackContext(song: Song, in newContext: [Song]) {
         self.playSource = .normal
-        self.queueExhaustionBehavior = .loop
 
         let reordered: [Song]
         if let tapIndex = newContext.firstIndex(where: {
@@ -92,6 +93,9 @@ extension PlayerManager {
                 contextIndex = shuffledIndex
             }
         }
+        queueExhaustionBehavior = currentContextList.count > 1
+            ? .loop
+            : .stopAtEnd
     }
 
     private var hasRetainableCurrentQueue: Bool {

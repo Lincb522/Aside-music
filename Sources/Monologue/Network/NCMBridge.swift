@@ -136,8 +136,10 @@ func asyncToPublisher<T>(
             Task {
                 do {
                     let result = try await sendableOp.value()
+                    ServerLineManager.shared.noteNetworkSuccess()
                     sendablePromise.value(.success(result))
                 } catch {
+                    reportLineFailureIfNeeded(error)
                     sendablePromise.value(.failure(error))
                 }
             }
@@ -145,6 +147,23 @@ func asyncToPublisher<T>(
     }
     .receive(on: DispatchQueue.main)
     .eraseToAnyPublisher()
+}
+
+/// 传输层失败（超时/连接失败/5xx）上报线路管理器；业务错误不算线路故障
+func reportLineFailureIfNeeded(_ error: Error) {
+    if let urlError = error as? URLError {
+        switch urlError.code {
+        case .timedOut, .cannotConnectToHost, .cannotFindHost,
+             .networkConnectionLost, .dnsLookupFailed, .secureConnectionFailed:
+            ServerLineManager.shared.noteNetworkFailure()
+        default:
+            break
+        }
+        return
+    }
+    if case let NCMError.networkError(statusCode, _) = error, statusCode >= 500 {
+        ServerLineManager.shared.noteNetworkFailure()
+    }
 }
 
 /// 包装非 Sendable 值使其可跨 Task 边界传递

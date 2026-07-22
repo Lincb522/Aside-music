@@ -3,10 +3,23 @@ import Foundation
 
 @MainActor
 final class DebugLogViewModel: ObservableObject {
-    @Published private(set) var visibleEntries: [LogEntry] = []
-    @Published private(set) var totalCount = 0
-    @Published private(set) var droppedCount = 0
-    @Published private(set) var lastUpdatedAt: Date?
+    private struct PresentationState {
+        var visibleEntries: [LogEntry] = []
+        var totalCount = 0
+        var droppedCount = 0
+        var levelCounts: [LogEntry.LogLevel: Int] = [:]
+    }
+
+    @Published private var presentation = PresentationState()
+
+    var visibleEntries: [LogEntry] { presentation.visibleEntries }
+    var totalCount: Int { presentation.totalCount }
+    var droppedCount: Int { presentation.droppedCount }
+
+    func count(for level: LogEntry.LogLevel?) -> Int {
+        guard let level else { return presentation.totalCount }
+        return presentation.levelCounts[level, default: 0]
+    }
 
     @Published var searchText = "" {
         didSet { scheduleFilter() }
@@ -30,7 +43,6 @@ final class DebugLogViewModel: ObservableObject {
     }
 
     private var allEntries: [LogEntry] = []
-    private var counts: [LogEntry.LogLevel: Int] = [:]
     private var revision: UInt64 = .max
     private var changeCancellable: AnyCancellable?
     private var filterTask: Task<Void, Never>?
@@ -39,6 +51,7 @@ final class DebugLogViewModel: ObservableObject {
         isCollecting = AppLogger.isCollectionEnabled
         changeCancellable = NotificationCenter.default.publisher(for: .appLoggerDidChange)
             .receive(on: RunLoop.main)
+            .throttle(for: .milliseconds(220), scheduler: RunLoop.main, latest: true)
             .sink { [weak self] _ in
                 self?.refresh()
             }
@@ -61,10 +74,6 @@ final class DebugLogViewModel: ObservableObject {
         newestFirst ? allEntries.reversed() : allEntries
     }
 
-    func count(for level: LogEntry.LogLevel) -> Int {
-        counts[level, default: 0]
-    }
-
     func select(_ level: LogEntry.LogLevel?) {
         selectedLevel = selectedLevel == level ? nil : level
     }
@@ -75,15 +84,17 @@ final class DebugLogViewModel: ObservableObject {
 
         revision = snapshot.revision
         allEntries = snapshot.entries
-        counts = snapshot.counts
-        totalCount = snapshot.entries.count
-        droppedCount = snapshot.droppedCount
         let collectionState = AppLogger.isCollectionEnabled
         if isCollecting != collectionState {
             isCollecting = collectionState
         }
-        lastUpdatedAt = Date()
-        applyFilter()
+
+        presentation = PresentationState(
+            visibleEntries: filteredEntries(),
+            totalCount: snapshot.entries.count,
+            droppedCount: snapshot.droppedCount,
+            levelCounts: snapshot.counts
+        )
     }
 
     func clear() {
@@ -110,6 +121,14 @@ final class DebugLogViewModel: ObservableObject {
     }
 
     private func applyFilter() {
+        let result = filteredEntries()
+        guard result != presentation.visibleEntries else { return }
+        var updated = presentation
+        updated.visibleEntries = result
+        presentation = updated
+    }
+
+    private func filteredEntries() -> [LogEntry] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         let level = selectedLevel
 
@@ -124,6 +143,6 @@ final class DebugLogViewModel: ObservableObject {
         if newestFirst {
             result.reverse()
         }
-        visibleEntries = result
+        return result
     }
 }

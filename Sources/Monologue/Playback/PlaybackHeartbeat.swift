@@ -83,19 +83,12 @@ final class PlaybackHeartbeat {
         let boundedTime = player.boundedEnginePlaybackTime(rawTime)
         let time = boundedTime ?? rawTime
         let timeValid = boundedTime != nil
-        let loadingTimeout = player.isLoading
-            && player.playbackStartedAt.map { Date().timeIntervalSince($0) > 60.0 } == true
         let playing = player.isPlaying
         let seeking = player.isSeeking
         let seekTarget = player.seekTargetTime
         let seekStarted = player.seekStartedAt
 
-        guard playing || (timeValid && time > 0) || loadingTimeout else { return }
-
-        if loadingTimeout {
-            AppLogger.warning("isLoading 超时（60s），强制解除")
-            player.isLoading = false
-        }
+        guard playing || (timeValid && time > 0) else { return }
 
         // ── isSeeking 状态解除 ──
         if seeking {

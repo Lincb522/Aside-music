@@ -28,6 +28,19 @@ final class AriaAudioPulse: ObservableObject {
         var thetaKick: Double = 0     // 镜头偏航冲击
         var rollKick: Double = 0      // 镜头滚转冲击
         var lyricSun: Double = 0      // 副歌溢光 0~1
+        var vocal: Double = 0         // 人声包络 0~1（呼吸字重）
+        var tension: Double = 0       // 副歌预判蓄力 0~1（外部注入）
+        var ambience: Double = 0      // AI 舞台导演的段落氛围 0~1
+    }
+
+    /// 实时节拍命中事件（节拍触觉等外部消费者用）。
+    struct BeatHit {
+        let strength: Double     // 0~1 综合强度
+        let low: Double          // 低频占比（鼓皮厚重感）
+        let snap: Double         // 高频瞬态占比（军鼓/镲的锐利感）
+        let mass: Double         // 体量
+        let sharpness: Double    // 锐度
+        let combo: String        // downbeat / push / drop / rebound / accent
     }
 
     // MARK: - Mineradio 状态结构
@@ -119,6 +132,21 @@ final class AriaAudioPulse: ObservableObject {
     private var prevEnergy = 0.0
     private var beatPulse = 0.0
 
+    // 人声包络（200-3000Hz 归一化，呼吸字重）
+    private var smoothVocal = 0.0
+    private var vocalEnvPeak = 0.040
+
+    // 副歌预判张力（AriaTensionEngine 注入；只在快照输出，不参与内部包络）
+    private var externalTension = 0.0
+
+    // AI 舞台导演段落基调（0.5 = 中性；影响能量输出与镜头冲击幅度）
+    private var directorEnergy = 0.5
+    private var directorAmbience = 0.0
+
+    // 节拍命中回调（音频线程触发后转投独立队列，绝不阻塞频谱回调）
+    private var beatHitHandler: ((BeatHit) -> Void)?
+    private static let beatHitQueue = DispatchQueue(label: "aria.beat.haptic", qos: .userInteractive)
+
     // 歌词阳光溢光
     private var lyricSunAvg = 0.0, lyricSunPeak = 0.48, lyricSunHold = 0.0
     private var lyricSunTarget = 0.0, lyricSunEnergy = 0.0
@@ -179,6 +207,9 @@ final class AriaAudioPulse: ObservableObject {
         rtBeat = RTBeat()
         trackProfile = AriaTrackProfile()
         beatCam.events.removeAll()
+        externalTension = 0
+        directorEnergy = 0.5
+        directorAmbience = 0
         cachedSnapshot = Snapshot()
         cachedSnapshotAt = 0
         lock.unlock()
@@ -190,6 +221,77 @@ final class AriaAudioPulse: ObservableObject {
     func reattachIfNeeded() {
         guard isRunning, !isSuspended else { return }
         attachAnalyzer()
+    }
+
+    // MARK: - 外部消费者接口（节拍触觉 / 张力系统）
+
+    /// 注册节拍命中回调；回调在独立高优队列执行，可安全驱动 CoreHaptics。
+    func setBeatHitHandler(_ handler: ((BeatHit) -> Void)?) {
+        lock.lock()
+        beatHitHandler = handler
+        lock.unlock()
+    }
+
+    /// 注入副歌预判蓄力值（0~1）；快照原样输出给各视觉层。
+    func setExternalTension(_ value: Double) {
+        lock.lock()
+        externalTension = min(1, max(0, value))
+        lock.unlock()
+    }
+
+    /// AI 舞台导演的段落基调：energy 缩放能量输出与镜头冲击（0.5 = 中性），
+    /// ambience 作为独立氛围值输出给光场。传 nil 恢复中性。
+    func setDirectorCue(energy: Double?, ambience: Double?) {
+        lock.lock()
+        directorEnergy = min(1, max(0, energy ?? 0.5))
+        directorAmbience = min(1, max(0, ambience ?? 0))
+        lock.unlock()
+    }
+
+    /// 副歌命中瞬间的释放冲击：合成一个大振幅镜头事件并抬升节拍脉冲，
+    /// 即使实时节拍引擎恰好漏检这一拍，视觉上也保证有一次明确的释放。
+    func triggerTensionRelease(strength: Double) {
+        let s = min(1, max(0, strength))
+        let now = CACurrentMediaTime()
+        lock.lock()
+        beatPulse = max(beatPulse, 0.38 + s * 0.25)
+        beatCam.events.append(BeatCamEvent(
+            start: now,
+            hit: now,
+            amp: 0.46 + s * 0.30,
+            attack: 0.030,
+            hold: 0.050,
+            release: 0.46,
+            zoomAmp: 0.24 + s * 0.14,
+            thetaAmp: 0.00035,
+            phiAmp: 0.003,
+            rollAmp: 0.0008,
+            mode: "deep",
+            combo: "downbeat",
+            phase: 0,
+            low: 0.8,
+            body: 0.15,
+            snap: 0.05,
+            mass: 0.85,
+            source: "tension"
+        ))
+        if beatCam.events.count > 8 {
+            beatCam.events.removeFirst(beatCam.events.count - 8)
+        }
+        let handler = beatHitHandler
+        lock.unlock()
+        if let handler {
+            Self.beatHitQueue.async {
+                handler(BeatHit(
+                    strength: max(0.72, s),
+                    low: 0.85,
+                    snap: 0.10,
+                    mass: 0.85,
+                    sharpness: 0.25,
+                    combo: "downbeat"
+                ))
+            }
+        }
     }
 
     @MainActor
@@ -210,6 +312,9 @@ final class AriaAudioPulse: ObservableObject {
         smoothBass = 0; smoothMid = 0; smoothTreb = 0; smoothEnergy = 0
         bassPeak = 0.030; midPeak = 0.026; treblePeak = 0.018; energyPeak = 0.030
         prevEnergy = 0; beatPulse = 0
+        smoothVocal = 0; vocalEnvPeak = 0.040
+        externalTension = 0
+        directorEnergy = 0.5; directorAmbience = 0
         lyricSunAvg = 0; lyricSunPeak = 0.48; lyricSunHold = 0; lyricSunTarget = 0; lyricSunEnergy = 0
         lastIngestAt = 0
         lastSnapshotAt = 0
@@ -241,6 +346,7 @@ final class AriaAudioPulse: ObservableObject {
             // Mineradio 渲染循环暂停分支（26772）
             let f = pow(0.91, dt * 60)
             smoothBass *= f; smoothMid *= f; smoothTreb *= f; smoothEnergy *= f
+            smoothVocal *= f
             beatPulse *= pow(0.82, dt * 60)
             lyricSunTarget = 0
             lyricSunHold *= pow(0.90, dt * 60)
@@ -252,7 +358,10 @@ final class AriaAudioPulse: ObservableObject {
         updateBeatCamera(dt: dt, now: now, paused: paused)
 
         // 输出（26783-26786，fx.intensity = 1）
-        let audioEnergy = max(smoothEnergy, beatPulse * 0.30)
+        // 导演基调使用足够宽的光场动态（0.46x~1.62x）。此前范围过窄，
+        // 不同分幕只产生数个百分点的变化，用户几乎无法感知。
+        let directorLift = 0.46 + directorEnergy * 1.16
+        let audioEnergy = min(1, max(smoothEnergy, beatPulse * 0.30) * directorLift)
         let bass = min(0.90, smoothBass * 1.05 + beatPulse * 0.18)
         let mid = min(0.72, smoothMid * 1.12)
         let treble = min(0.62, smoothTreb * 1.20)
@@ -265,7 +374,10 @@ final class AriaAudioPulse: ObservableObject {
             phiKick: beatCam.phiKick,
             thetaKick: beatCam.thetaKick,
             rollKick: beatCam.rollKick,
-            lyricSun: lyricSunEnergy
+            lyricSun: lyricSunEnergy,
+            vocal: min(1, smoothVocal),
+            tension: paused ? 0 : externalTension,
+            ambience: paused ? 0 : directorAmbience
         )
         cachedSnapshot = snapshot
         cachedSnapshotAt = now
@@ -336,6 +448,18 @@ final class AriaAudioPulse: ObservableObject {
                 let previewPulseScale = 0.68
                 let rtPulse = min(0.46, beat.strength * (beat.tempoAssist ? 0.62 : 0.68) * previewPulseScale)
                 beatPulse = max(beatPulse, rtPulse)
+
+                if let handler = beatHitHandler {
+                    let hit = BeatHit(
+                        strength: beat.strength,
+                        low: beat.low,
+                        snap: beat.snap,
+                        mass: beat.mass,
+                        sharpness: beat.sharpness,
+                        combo: beat.combo
+                    )
+                    Self.beatHitQueue.async { handler(hit) }
+                }
             }
         } else if bassOnset > 0.075, rb > 0.32, energyOnset > 0.020 {
             beatPulse = max(beatPulse, min(0.12, bassOnset * 0.18))
@@ -351,6 +475,11 @@ final class AriaAudioPulse: ObservableObject {
         smoothMid = env(smoothMid, min(0.68, rm * 0.64 + re * 0.025), 0.18, 0.060)
         smoothTreb = env(smoothTreb, min(0.56, rt * 0.54), 0.18, 0.055)
         smoothEnergy = env(smoothEnergy, min(0.72, re), 0.16, 0.055)
+
+        // 人声包络：attack 快（跟上咬字）、release 慢（句间不闪烁）
+        vocalEnvPeak = max(vocalEnvPeak * 0.993, voc, 0.040)
+        let rv = min(1, pow(voc / max(0.030, vocalEnvPeak * 0.72), 0.88))
+        smoothVocal = env(smoothVocal, rv, 0.30, 0.045)
 
         updateAriaDynamics(rawEnergy: re, rawLow: rb)
         updateAriaTrackProfile(energy: re, low: rb, vocal: voc, melody: rm,
@@ -583,6 +712,9 @@ final class AriaAudioPulse: ObservableObject {
 
         var amp = max(0.18, min(0.72, 0.15 + strength * 0.34 + confidence * 0.06 + mass * 0.13 + snapTone * 0.04))
         amp *= 0.78
+        // 镜头冲击随分幕在 0.52x~1.48x 之间变化，低能段真正收束，
+        // 高能段保留节拍冲击，但仍受后续安全上限保护。
+        amp *= 0.52 + directorEnergy * 0.96
         if mode == "deep" { amp = min(0.62, amp * 1.12) }
         let dynScale = cameraDynamicsScale(extra: 0.92 + visualImpact * 0.12 + mass * 0.08)
         amp *= dynScale

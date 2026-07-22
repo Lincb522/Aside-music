@@ -1622,6 +1622,10 @@ struct SettingsView: View {
                 }
                 .buttonStyle(MonologueBouncingButtonStyle(scale: 0.92))
             }
+
+            if ServerLineManager.isBackupConfigured {
+                ServerLineSelectorView()
+            }
         }
     }
 
@@ -1859,6 +1863,10 @@ struct SettingsView: View {
                             }
                             .buttonStyle(MonologueBouncingButtonStyle(scale: 0.92))
                         }
+                    }
+
+                    if ServerLineManager.isBackupConfigured {
+                        ServerLineSelectorView()
                     }
                 }
                 .padding(.top, 16)

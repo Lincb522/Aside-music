@@ -31,31 +31,32 @@ extension APIService {
         guard
             let token = SecureConfig.apiToken?.trimmingCharacters(in: .whitespacesAndNewlines),
             !token.isEmpty,
-            let baseURL = playlistCloudSyncURL(),
-            var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)
+            let url = playlistCloudSyncURL()
         else {
-            return nil
-        }
-
-        components.queryItems = [
-            URLQueryItem(name: "token", value: token),
-            URLQueryItem(name: "deviceId", value: playlistCloudSyncDeviceId)
-        ]
-
-        guard let url = components.url else {
             return nil
         }
 
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.timeoutInterval = 45
+        request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
+        // Keep credentials out of URLs and nginx access logs. The server still
+        // accepts legacy query parameters for older app versions.
+        request.setValue(token, forHTTPHeaderField: "X-Api-Token")
+        request.setValue(playlistCloudSyncDeviceId, forHTTPHeaderField: "X-Device-ID")
         return request
     }
 
-    func fetchCloudPlaylistSnapshot() async throws -> LocalPlaylistCloudFetchResponse? {
-        guard let request = playlistCloudRequest(method: "GET") else {
+    func fetchCloudPlaylistSnapshot(
+        ifChangedFrom knownRevision: String? = nil
+    ) async throws -> LocalPlaylistCloudFetchResponse? {
+        guard var request = playlistCloudRequest(method: "GET") else {
             return nil
+        }
+        if let knownRevision = knownRevision?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !knownRevision.isEmpty {
+            request.setValue("\"\(knownRevision)\"", forHTTPHeaderField: "If-None-Match")
         }
 
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -63,6 +64,9 @@ extension APIService {
             throw URLError(.badServerResponse)
         }
 
+        if http.statusCode == 304 {
+            return nil
+        }
         if http.statusCode == 401 || http.statusCode == 403 {
             throw URLError(.userAuthenticationRequired)
         }
