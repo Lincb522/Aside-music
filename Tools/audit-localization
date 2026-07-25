@@ -1,0 +1,369 @@
+#!/usr/bin/env python3
+"""Audit Mono localization resources without requiring an Xcode build."""
+
+from __future__ import annotations
+
+import argparse
+import collections
+import re
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+
+
+STRING_ENTRY = re.compile(
+    r'^\s*"((?:\\.|[^"\\])*)"\s*=\s*"((?:\\.|[^"\\])*)"\s*;\s*$'
+)
+LOCALIZED_LITERAL = re.compile(
+    r'(?:String\s*\(\s*localized\s*:|NSLocalizedString\s*\(|'
+    r'L10n\s*\.\s*(?:text|format)\s*\()\s*'
+    r'"((?:\\.|[^"\\])*)"'
+)
+FORMAT_SPECIFIER = re.compile(
+    r"%(?:\d+\$)?[-+#0 'I]*(?:\d+|\*)?(?:\.(?:\d+|\*))?"
+    r"[hlLzjtq]*[@diuoxXfFeEgGcCsSpaA%]"
+)
+CJK = re.compile(r"[\u3400-\u9fff]")
+SEMANTIC_KEY = re.compile(r"^[a-z][a-z0-9]*(?:[_.-][a-z0-9]+)*$")
+SWIFT_STRING_LITERAL = re.compile(r'"((?:\\.|[^"\\])*)"')
+OWNED_SOURCE_EXTENSIONS = {
+    ".swift",
+    ".m",
+    ".mm",
+    ".h",
+    ".plist",
+    ".entitlements",
+    ".json",
+    ".xcconfig",
+}
+KNOWN_DYNAMIC_PREFIXES = {"dev_popup_"}
+
+
+@dataclass(frozen=True)
+class ResourceEntry:
+    value: str
+    line: int
+
+
+def parse_resource(path: Path) -> tuple[dict[str, list[ResourceEntry]], list[int]]:
+    entries: dict[str, list[ResourceEntry]] = collections.defaultdict(list)
+    malformed: list[int] = []
+    for line_number, raw_line in enumerate(
+        path.read_text(encoding="utf-8").splitlines(), 1
+    ):
+        stripped = raw_line.strip()
+        if not stripped or stripped.startswith("//") or stripped.startswith("/*"):
+            continue
+        match = STRING_ENTRY.match(raw_line)
+        if match:
+            entries[match.group(1)].append(ResourceEntry(match.group(2), line_number))
+        elif '"' in stripped or "=" in stripped:
+            malformed.append(line_number)
+    return dict(entries), malformed
+
+
+def normalized_specifiers(value: str) -> list[str]:
+    result: list[str] = []
+    for item in FORMAT_SPECIFIER.findall(value):
+        if item == "%%":
+            continue
+        result.append(re.sub(r"^%(?:\d+\$)?", "%", item))
+    return result
+
+
+def swift_references(source_root: Path) -> tuple[dict[str, list[str]], list[str]]:
+    references: dict[str, list[str]] = collections.defaultdict(list)
+    dynamic: list[str] = []
+    for path in source_root.rglob("*.swift"):
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        for match in LOCALIZED_LITERAL.finditer(text):
+            key = match.group(1)
+            line = text.count("\n", 0, match.start()) + 1
+            location = f"{path.relative_to(source_root.parent.parent)}:{line}"
+            if r"\(" in key:
+                dynamic.append(f"{location}: {key}")
+            else:
+                references[key].append(location)
+    return dict(references), dynamic
+
+
+def owned_source_literals(project_root: Path) -> tuple[set[str], set[str]]:
+    literals: set[str] = set()
+    dynamic_prefixes = set(KNOWN_DYNAMIC_PREFIXES)
+    source_roots = [
+        project_root / "Sources" / "Monologue",
+        project_root / "music",
+        project_root / "Shared",
+    ]
+
+    for source_root in source_roots:
+        if not source_root.exists():
+            continue
+        for path in source_root.rglob("*"):
+            if (
+                not path.is_file()
+                or path.suffix.lower() not in OWNED_SOURCE_EXTENSIONS
+                or ".lproj" in path.parts
+            ):
+                continue
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            file_literals = SWIFT_STRING_LITERAL.findall(text)
+            literals.update(file_literals)
+            for value in file_literals:
+                if re.fullmatch(r"[a-z][a-z0-9_.-]*[_\.-]", value):
+                    if re.search(
+                        rf'"{re.escape(value)}"\s*(?:\+|\))',
+                        text,
+                    ):
+                        dynamic_prefixes.add(value)
+
+    return literals, dynamic_prefixes
+
+
+def unused_resource_keys(
+    project_root: Path,
+    resource_keys: set[str],
+) -> list[str]:
+    literals, dynamic_prefixes = owned_source_literals(project_root)
+    return sorted(
+        key
+        for key in resource_keys
+        if key not in literals
+        and not any(key.startswith(prefix) for prefix in dynamic_prefixes)
+    )
+
+
+def prune_resource(path: Path, keys: set[str]) -> int:
+    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+    kept: list[str] = []
+    removed = 0
+    for line in lines:
+        match = STRING_ENTRY.match(line.rstrip("\r\n"))
+        if match and match.group(1) in keys:
+            removed += 1
+            continue
+        kept.append(line)
+    path.write_text("".join(kept), encoding="utf-8")
+    return removed
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--project-root",
+        type=Path,
+        default=Path(__file__).resolve().parents[1],
+    )
+    parser.add_argument(
+        "--strict-references",
+        action="store_true",
+        help="Treat missing semantic keys and interpolated keys as errors.",
+    )
+    parser.add_argument(
+        "--strict-legacy",
+        action="store_true",
+        help="Also fail for legacy source-copy localization keys.",
+    )
+    parser.add_argument(
+        "--max-items",
+        type=int,
+        default=100,
+        help="Maximum diagnostics to print per category; use 0 for all.",
+    )
+    parser.add_argument(
+        "--prune-unused",
+        action="store_true",
+        help="Remove high-confidence unused keys from every locale.",
+    )
+    parser.add_argument(
+        "--strict-unused",
+        action="store_true",
+        help="Fail when high-confidence unused keys remain.",
+    )
+    args = parser.parse_args()
+
+    project_root = args.project_root.resolve()
+    source_root = project_root / "Sources" / "Monologue"
+    resources_root = source_root / "Resources"
+    locale_paths = {
+        path.parent.name.removesuffix(".lproj"): path
+        for path in resources_root.glob("*.lproj/Localizable.strings")
+    }
+    if not locale_paths:
+        print("error: no Localizable.strings resources found")
+        return 1
+
+    parsed: dict[str, dict[str, list[ResourceEntry]]] = {}
+    errors: list[str] = []
+    untranslated_values: list[str] = []
+    missing_semantic_references: list[str] = []
+    legacy_literal_references: list[str] = []
+    dynamic_references: list[str] = []
+
+    for locale, path in sorted(locale_paths.items()):
+        entries, malformed = parse_resource(path)
+        parsed[locale] = entries
+        for line in malformed:
+            errors.append(f"{path}:{line}: malformed .strings entry")
+        for key, values in entries.items():
+            if len(values) > 1:
+                lines = ", ".join(str(item.line) for item in values)
+                errors.append(f"{path}: duplicate key {key!r} at lines {lines}")
+
+    reference_locale = "zh-Hans" if "zh-Hans" in parsed else sorted(parsed)[0]
+    reference_keys = set(parsed[reference_locale])
+    unused_keys = unused_resource_keys(project_root, reference_keys)
+    if args.prune_unused and unused_keys:
+        unused_key_set = set(unused_keys)
+        for path in locale_paths.values():
+            prune_resource(path, unused_key_set)
+        print(f"pruned unused keys: {len(unused_keys)}")
+        return main_after_prune(project_root, args)
+    for locale, entries in sorted(parsed.items()):
+        keys = set(entries)
+        for key in sorted(reference_keys - keys):
+            errors.append(f"{locale}: missing key {key!r}")
+        for key in sorted(keys - reference_keys):
+            errors.append(f"{locale}: unexpected key {key!r}")
+
+    if "zh-Hans" in parsed and "en" in parsed:
+        zh = parsed["zh-Hans"]
+        en = parsed["en"]
+        for key in sorted(set(zh) & set(en)):
+            zh_value = zh[key][-1].value
+            en_value = en[key][-1].value
+            if normalized_specifiers(zh_value) != normalized_specifiers(en_value):
+                errors.append(f"placeholder mismatch for {key!r}")
+            if zh_value == en_value and CJK.search(en_value):
+                untranslated_values.append(
+                    f"English value still contains untranslated Chinese: {key!r}"
+                )
+
+    info_plist_parsed: dict[str, dict[str, list[ResourceEntry]]] = {}
+    for locale in sorted(parsed):
+        path = resources_root / f"{locale}.lproj" / "InfoPlist.strings"
+        if not path.exists():
+            errors.append(f"{locale}: missing InfoPlist.strings")
+            continue
+        entries, malformed = parse_resource(path)
+        info_plist_parsed[locale] = entries
+        for line in malformed:
+            errors.append(f"{path}:{line}: malformed .strings entry")
+        for key, values in entries.items():
+            if len(values) > 1:
+                lines = ", ".join(str(item.line) for item in values)
+                errors.append(f"{path}: duplicate key {key!r} at lines {lines}")
+
+    if info_plist_parsed:
+        info_reference = (
+            "zh-Hans"
+            if "zh-Hans" in info_plist_parsed
+            else sorted(info_plist_parsed)[0]
+        )
+        info_reference_keys = set(info_plist_parsed[info_reference])
+        for locale, entries in sorted(info_plist_parsed.items()):
+            keys = set(entries)
+            for key in sorted(info_reference_keys - keys):
+                errors.append(f"{locale} InfoPlist: missing key {key!r}")
+            for key in sorted(keys - info_reference_keys):
+                errors.append(f"{locale} InfoPlist: unexpected key {key!r}")
+
+        if "zh-Hans" in info_plist_parsed and "en" in info_plist_parsed:
+            zh_info = info_plist_parsed["zh-Hans"]
+            en_info = info_plist_parsed["en"]
+            for key in sorted(set(zh_info) & set(en_info)):
+                zh_value = zh_info[key][-1].value
+                en_value = en_info[key][-1].value
+                if normalized_specifiers(zh_value) != normalized_specifiers(en_value):
+                    errors.append(f"InfoPlist placeholder mismatch for {key!r}")
+                if zh_value == en_value and CJK.search(en_value):
+                    untranslated_values.append(
+                        f"English InfoPlist value still contains Chinese: {key!r}"
+                    )
+
+    references, interpolated_references = swift_references(source_root)
+    for key, locations in sorted(references.items()):
+        missing_locales = [
+            locale for locale, entries in parsed.items() if key not in entries
+        ]
+        if missing_locales:
+            diagnostic = (
+                f"missing static key {key!r} in {', '.join(missing_locales)} "
+                f"(first use: {locations[0]})"
+            )
+            if SEMANTIC_KEY.fullmatch(key):
+                missing_semantic_references.append(diagnostic)
+            else:
+                legacy_literal_references.append(diagnostic)
+    for item in interpolated_references:
+        dynamic_references.append(f"interpolated localization key: {item}")
+
+    def print_category(name: str, items: list[str]) -> None:
+        print(f"{name}: {len(items)}")
+        limit = len(items) if args.max_items == 0 else max(args.max_items, 0)
+        for item in items[:limit]:
+            print(f"  WARN  {item}")
+        if len(items) > limit:
+            print(f"  … {len(items) - limit} more; rerun with --max-items 0")
+
+    print(
+        "locales:",
+        ", ".join(
+            f"{locale}={len(entries)}"
+            for locale, entries in sorted(parsed.items())
+        ),
+    )
+    if info_plist_parsed:
+        print(
+            "InfoPlist:",
+            ", ".join(
+                f"{locale}={len(entries)}"
+                for locale, entries in sorted(info_plist_parsed.items())
+            ),
+        )
+    print(f"errors: {len(errors)}")
+    for item in errors:
+        print(f"  ERROR {item}")
+    print_category("untranslated English values", untranslated_values)
+    print_category("missing semantic references", missing_semantic_references)
+    print_category("legacy source-copy references", legacy_literal_references)
+    print_category("interpolated keys", dynamic_references)
+    print_category(
+        "high-confidence unused keys",
+        [f"unused resource key {key!r}" for key in unused_keys],
+    )
+
+    if errors:
+        return 1
+    if args.strict_references and (
+        untranslated_values or missing_semantic_references or dynamic_references
+    ):
+        return 2
+    if args.strict_legacy and legacy_literal_references:
+        return 3
+    if args.strict_unused and unused_keys:
+        return 4
+    return 0
+
+
+def main_after_prune(project_root: Path, args: argparse.Namespace) -> int:
+    rerun_arguments = [
+        str(Path(__file__).resolve()),
+        "--project-root",
+        str(project_root),
+        "--max-items",
+        str(args.max_items),
+    ]
+    if args.strict_references:
+        rerun_arguments.append("--strict-references")
+    if args.strict_legacy:
+        rerun_arguments.append("--strict-legacy")
+    if args.strict_unused:
+        rerun_arguments.append("--strict-unused")
+    import subprocess
+
+    return subprocess.run([sys.executable, *rerun_arguments], check=False).returncode
+
+
+if __name__ == "__main__":
+    sys.exit(main())

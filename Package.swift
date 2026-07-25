@@ -14,31 +14,31 @@ let package = Package(
     ],
     dependencies: [
         // NeteaseCloudMusicAPI - ncm API 封装库（对齐后端 4.36.2）
-        .package(path: "NeteaseCloudMusicAPI-Swift"),
+        .package(path: "Packages/MusicServices/NeteaseCloudMusicAPI-Swift"),
         // FFmpegSwiftSDK - Mono播放引擎底层 FFmpeg 8.0 解码与流媒体 SDK
-        .package(path: "ffmpeg-swift"),
+        .package(path: "Packages/Audio/ffmpeg-swift"),
         // QQMusicKit - qcm API 封装库（本地包）
-        .package(path: "QQMusicKit"),
+        .package(path: "Packages/MusicServices/QQMusicKit"),
         // HiconIcons - Hicon 图标库（本地包，从 Figma 导出）
-        .package(path: "HiconIcons"),
+        .package(path: "Packages/Icons/HiconIcons"),
         // ZappiconIcons - Zappicon (H173) 图标库（本地包，Light 风格）
-        .package(path: "ZappiconIcons"),
+        .package(path: "Packages/Icons/ZappiconIcons"),
         // LucideIcons - Lucide 图标库（本地包）
-        .package(path: "LucideIcons"),
+        .package(path: "Packages/Icons/LucideIcons"),
         // SolarIcons - Solar 图标库（本地包）
-        .package(path: "SolarIcons"),
+        .package(path: "Packages/Icons/SolarIcons"),
         // IconExportIcons - 新导入的 PNG 图标包
-        .package(path: "IconExportIcons"),
+        .package(path: "Packages/Icons/IconExportIcons"),
         // BlobIcons - Blob 风格 PNG 图标包
-        .package(path: "BlobIcons"),
+        .package(path: "Packages/Icons/BlobIcons"),
         // doodlePop - 配套 PNG 图标包
-        .package(path: "doodlePop"),
+        .package(path: "Packages/Icons/doodlePop"),
         // PawPrintIcons - 猫狗扁平 PNG 图标包
-        .package(path: "PawPrintIcons"),
+        .package(path: "Packages/Icons/PawPrintIcons"),
         // DotDogSnakeIcons - 点狗蛇 PNG 图标包
-        .package(path: "DotDogSnakeIcons"),
+        .package(path: "Packages/Icons/DotDogSnakeIcons"),
         // MinimalWhiteIcons - 纯白主题配套 PNG 图标包
-        .package(path: "MinimalWhiteIcons"),
+        .package(path: "Packages/Icons/MinimalWhiteIcons"),
         // ZIPFoundation - 用户字体 ZIP 压缩包导入
         .package(url: "https://github.com/weichsel/ZIPFoundation.git", from: "0.9.20"),
     ],

@@ -104,9 +104,6 @@ enum AppFrameRate {
         }
 
         DisplayLinkStore.removeStaleLinks(activeSceneIds: activeSceneIds)
-        if #available(iOS 18.0, *) {
-            UpdateLinkStore.removeStaleLinks(activeSceneIds: activeSceneIds)
-        }
     }
 
     @MainActor
@@ -114,14 +111,10 @@ enum AppFrameRate {
         installAdaptivePolicyIfNeeded()
         let sceneId = ObjectIdentifier(windowScene)
 
-        // In the normal thermal state, let iOS/ProMotion choose the refresh
-        // rate from actual interaction. Keeping a no-op CADisplayLink alive at
-        // 120 Hz forced wakeups while the UI was completely still.
+        // 常规界面始终交给 iOS / ProMotion 自适应。显示链接只用于沉浸模式
+        // 主动设置的帧率上限，避免静止页面也持续唤醒渲染线程。
         guard shouldForceFrameRate else {
             DisplayLinkStore.unlock(sceneId: sceneId)
-            if #available(iOS 18.0, *) {
-                UpdateLinkStore.unlock(sceneId: sceneId)
-            }
             AppLogger.debug("[FrameRate] system adaptive reason=\(reason)")
             return
         }
@@ -133,12 +126,7 @@ enum AppFrameRate {
             preferred: Float(targetFPS)
         )
 
-        if #available(iOS 18.0, *) {
-            DisplayLinkStore.unlock(sceneId: sceneId)
-            UpdateLinkStore.lock(sceneId: sceneId, windowScene: windowScene, frameRateRange: frameRateRange)
-        } else {
-            DisplayLinkStore.lock(sceneId: sceneId, frameRateRange: frameRateRange)
-        }
+        DisplayLinkStore.lock(sceneId: sceneId, frameRateRange: frameRateRange)
 
         AppLogger.info("[FrameRate] lock reason=\(reason) targetFPS=\(targetFPS) screenMaxFPS=\(windowScene.screen.maximumFramesPerSecond)")
     }
@@ -148,9 +136,6 @@ enum AppFrameRate {
         guard let windowScene = scene as? UIWindowScene else { return }
         let sceneId = ObjectIdentifier(windowScene)
         DisplayLinkStore.unlock(sceneId: sceneId)
-        if #available(iOS 18.0, *) {
-            UpdateLinkStore.unlock(sceneId: sceneId)
-        }
     }
 
     private static var mainScreenMaximumFramesPerSecond: Int {
@@ -176,8 +161,6 @@ enum AppFrameRate {
     @MainActor
     private static var shouldForceFrameRate: Bool {
         frameRateCeiling != nil
-            || ProcessInfo.processInfo.isLowPowerModeEnabled
-            || ProcessInfo.processInfo.thermalState != .nominal
     }
 
     /// Start reducing refresh work as soon as iOS reports heat pressure rather
@@ -185,11 +168,11 @@ enum AppFrameRate {
     /// cadence only; view content and animation equations stay unchanged.
     private static var systemPerformanceCeiling: Int {
         let processInfo = ProcessInfo.processInfo
-        if processInfo.isLowPowerModeEnabled { return 60 }
+        if processInfo.isLowPowerModeEnabled { return 45 }
         switch processInfo.thermalState {
         case .nominal: return preferredMaximumFramesPerSecond
-        case .fair: return 80
-        case .serious: return 60
+        case .fair: return 60
+        case .serious: return 45
         case .critical: return 30
         @unknown default: return 60
         }
@@ -253,34 +236,5 @@ enum AppFrameRate {
         }
     }
 
-    @available(iOS 18.0, *)
-    @MainActor
-    private enum UpdateLinkStore {
-        private static var activeUpdateLinks: [ObjectIdentifier: UIUpdateLink] = [:]
-
-        static func lock(
-            sceneId: ObjectIdentifier,
-            windowScene: UIWindowScene,
-            frameRateRange: CAFrameRateRange
-        ) {
-            let updateLink = activeUpdateLinks[sceneId] ?? UIUpdateLink(windowScene: windowScene)
-            updateLink.preferredFrameRateRange = frameRateRange
-            updateLink.isEnabled = true
-            activeUpdateLinks[sceneId] = updateLink
-        }
-
-        static func unlock(sceneId: ObjectIdentifier) {
-            guard let updateLink = activeUpdateLinks.removeValue(forKey: sceneId) else { return }
-            updateLink.isEnabled = false
-            updateLink.preferredFrameRateRange = .default
-        }
-
-        static func removeStaleLinks(activeSceneIds: Set<ObjectIdentifier>) {
-            let staleSceneIds = activeUpdateLinks.keys.filter { !activeSceneIds.contains($0) }
-            for sceneId in staleSceneIds {
-                unlock(sceneId: sceneId)
-            }
-        }
-    }
     #endif
 }

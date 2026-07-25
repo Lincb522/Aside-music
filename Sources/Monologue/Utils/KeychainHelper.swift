@@ -123,7 +123,7 @@ enum KeychainHelper {
         
         let available = (addStatus == errSecSuccess || addStatus == errSecDuplicateItem)
         #if DEBUG
-        print("[KeychainHelper] Keychain \(available ? String(localized: "✅ 可用（无 Group）") : String(localized: "❌ 不可用(status=\(addStatus))，降级到文件存储"))")
+        print("[KeychainHelper] Keychain \(available ? "✅ 可用（无 Group）" : "❌ 不可用(status=\(addStatus))，降级到文件存储")")
         #endif
         return available
     }()

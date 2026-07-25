@@ -1,11 +1,9 @@
-// PlaybackWave.swift
-// Monologue Widget Extension
-
 import WidgetKit
 import SwiftUI
 
-// MARK: - Playback Wave
+// MARK: - 播放波形
 
+/// 使用确定性相位生成的轻量播放波形，支持时间线外部驱动。
 struct PlaybackWave: View {
     let isActive: Bool
     let barCount: Int

@@ -258,7 +258,7 @@ extension PixelPlayerLayout {
         }
     }
     
-    // MARK: 主屏幕
+    // MARK: - 主屏幕
     private func mainScreen(width: CGFloat) -> some View {
         VStack(spacing: 0) {
             statusBar(width: width)

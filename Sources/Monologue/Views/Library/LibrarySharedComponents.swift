@@ -3,6 +3,14 @@ import QQMusicKit
 import SwiftUI
 import UniformTypeIdentifiers
 
+struct LocalPlaylistPlaceholderArtwork: View {
+    var body: some View {
+        Image("LocalPlaylistPlaceholder")
+            .resizable()
+            .aspectRatio(contentMode: .fill)
+    }
+}
+
 struct ThemedLibrarySectionHeader: View {
     let title: String
 
@@ -353,7 +361,7 @@ struct SequoiaLibraryPlaylistTile: View {
         if let trackCount = playlist.trackCount, trackCount > 0 {
             return String(format: String(localized: "songs_count_format"), trackCount)
         }
-        return playlist.source == .qqmusic ? "QCM" : "NCM"
+        return playlist.sourceShortName
     }
 }
 
@@ -423,7 +431,7 @@ struct NeumorphicPlaylistPoster: View {
         if let trackCount = playlist.trackCount, trackCount > 0 {
             return String(format: String(localized: "songs_count_format"), trackCount)
         }
-        return playlist.source == .qqmusic ? "QCM" : "NCM"
+        return playlist.sourceShortName
     }
 }
 
@@ -482,23 +490,7 @@ struct NeumorphicLocalShelfRow: View {
     }
 
     private var placeholder: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 17, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [tint.opacity(0.42), NeumorphicStyle.surfacePressed],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-
-            MonologueIcon(
-                icon: summary.isFavorite ? .liked : summary.isDownload ? .download : .musicNoteList,
-                size: 22,
-                color: Color(light: .white, dark: NeumorphicStyle.ink),
-                lineWidth: 1.8
-            )
-        }
+        LocalPlaylistPlaceholderArtwork()
     }
 
     private var platformDot: some View {
@@ -530,7 +522,7 @@ struct NeumorphicPlaylistShelfRow: View {
                     .lineLimit(1)
 
                 HStack(spacing: 7) {
-                    Text(playlist.source == .qqmusic ? "QCM" : "NCM")
+                    Text(playlist.sourceShortName)
                         .font(NeumorphicStyle.labelFont(10, weight: .semibold))
                         .foregroundStyle(tint)
 
@@ -630,7 +622,7 @@ struct NeumorphicPlaylistShelfCard: View {
                 .clipped()
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
 
-                Text(playlist.source == .qqmusic ? "QCM" : "NCM")
+                Text(playlist.sourceShortName)
                     .font(NeumorphicStyle.labelFont(9, weight: .semibold))
                     .foregroundStyle(Color(light: .white, dark: .black))
                     .padding(.horizontal, 8)
@@ -716,7 +708,7 @@ struct NeumorphicArtistShelfTile: View {
                     .fill(tint.opacity(0.82))
                     .frame(width: 18, height: 3)
 
-                Text(artist.source == .qqmusic ? "QCM" : "NCM")
+                Text(artist.source == .appleMusic ? "AM" : (artist.source == .qqmusic ? "QCM" : "NCM"))
                     .font(NeumorphicStyle.labelFont(10, weight: .semibold))
                     .foregroundStyle(tint)
                     .lineLimit(1)

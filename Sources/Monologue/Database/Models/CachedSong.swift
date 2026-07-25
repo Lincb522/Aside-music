@@ -22,6 +22,8 @@ final class CachedSong {
     var sourceRaw: String?
     var qqMid: String?
     var qishuiTrackId: Int?
+    var appleMusicID: String?
+    var appleMusicISRC: String?
     
     init(
         id: Int,
@@ -35,7 +37,9 @@ final class CachedSong {
         canPlay: Bool = true,
         sourceRaw: String? = nil,
         qqMid: String? = nil,
-        qishuiTrackId: Int? = nil
+        qishuiTrackId: Int? = nil,
+        appleMusicID: String? = nil,
+        appleMusicISRC: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -52,6 +56,8 @@ final class CachedSong {
         self.sourceRaw = sourceRaw
         self.qqMid = qqMid
         self.qishuiTrackId = qishuiTrackId
+        self.appleMusicID = appleMusicID
+        self.appleMusicISRC = appleMusicISRC
     }
     
     /// 从 Song 模型创建
@@ -68,7 +74,9 @@ final class CachedSong {
             canPlay: true,
             sourceRaw: song.source?.rawValue,
             qqMid: song.qqMid,
-            qishuiTrackId: song.qishuiTrackId
+            qishuiTrackId: song.qishuiTrackId,
+            appleMusicID: song.appleMusicID,
+            appleMusicISRC: song.appleMusicISRC
         )
     }
     
@@ -95,6 +103,8 @@ final class CachedSong {
         }
         song.qqMid = qqMid
         song.qishuiTrackId = qishuiTrackId
+        song.appleMusicID = appleMusicID
+        song.appleMusicISRC = appleMusicISRC
         return song
     }
     
@@ -114,7 +124,8 @@ extension CachedSong: MonoEntity {
         .init("albumName", .string), .init("coverUrl", .string), .init("duration", .int),
         .init("cachedAt", .date), .init("lastPlayedAt", .date), .init("playCount", .int),
         .init("maxBitrate", .int), .init("fee", .int), .init("canPlay", .bool),
-        .init("sourceRaw", .string), .init("qqMid", .string), .init("qishuiTrackId", .int)
+        .init("sourceRaw", .string), .init("qqMid", .string), .init("qishuiTrackId", .int),
+        .init("appleMusicID", .string), .init("appleMusicISRC", .string)
     ]
 
     var monoUniqueKey: String { String(id) }
@@ -125,7 +136,8 @@ extension CachedSong: MonoEntity {
             "coverUrl": coverUrl, "duration": duration, "cachedAt": cachedAt,
             "lastPlayedAt": lastPlayedAt, "playCount": playCount, "maxBitrate": maxBitrate,
             "fee": fee, "canPlay": canPlay, "sourceRaw": sourceRaw, "qqMid": qqMid,
-            "qishuiTrackId": qishuiTrackId
+            "qishuiTrackId": qishuiTrackId, "appleMusicID": appleMusicID,
+            "appleMusicISRC": appleMusicISRC
         ]
     }
 
@@ -142,7 +154,9 @@ extension CachedSong: MonoEntity {
             canPlay: MonoSnapshotValue.bool(s, "canPlay", default: true),
             sourceRaw: MonoSnapshotValue.stringOpt(s, "sourceRaw"),
             qqMid: MonoSnapshotValue.stringOpt(s, "qqMid"),
-            qishuiTrackId: MonoSnapshotValue.intOpt(s, "qishuiTrackId")
+            qishuiTrackId: MonoSnapshotValue.intOpt(s, "qishuiTrackId"),
+            appleMusicID: MonoSnapshotValue.stringOpt(s, "appleMusicID"),
+            appleMusicISRC: MonoSnapshotValue.stringOpt(s, "appleMusicISRC")
         )
         obj.cachedAt = MonoSnapshotValue.date(s, "cachedAt")
         obj.lastPlayedAt = MonoSnapshotValue.dateOpt(s, "lastPlayedAt")

@@ -1,12 +1,9 @@
-// WidgetAnimation.swift
-// Monologue Widget Extension
-
 import Foundation
 import SwiftUI
 
-// MARK: - Restored Themes
+// MARK: - 动画取样
 
-
+/// 由时间戳计算无状态动画值，保证 Widget 时间线切换前后视觉连续。
 struct WidgetAnimation {
     static func spectrumBar(index: Int, maxBars: Int, date: Date, speed: Double = 1.0, amplitude: Double = 1.0) -> CGFloat {
         let time = date.timeIntervalSinceReferenceDate * speed * 2.0

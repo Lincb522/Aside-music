@@ -1,6 +1,7 @@
 import Combine
 import SwiftUI
 
+/// 首页内容模块枚举，控制各区块的展示与顺序。
 private enum NeumorphicHomeModule: String, CaseIterable, Identifiable {
     case daily
     case newSongs
@@ -32,6 +33,7 @@ private enum NeumorphicHomeModule: String, CaseIterable, Identifiable {
     }
 }
 
+/// Neumorphic 主题首页：以拟物软塑风格展示精选旋钮、每日推荐、新歌、歌单等模块，数据来自 `HomeViewModel`。
 struct NeumorphicHomeView: View {
     @ObservedObject private var viewModel = HomeViewModel.shared
     @ObservedObject private var settings = SettingsManager.shared
@@ -123,7 +125,7 @@ struct NeumorphicHomeView: View {
         .scrollIndicators(.hidden)
         .themeRenderScrollLayer()
         .refreshable {
-            viewModel.fetchData()
+            viewModel.retryHomeDataLoad(reason: "neumorphic home pull refresh")
             if hitokotoEnabled {
                 viewModel.refreshHitokoto(force: true)
             }
@@ -450,8 +452,8 @@ struct NeumorphicHomeView: View {
     private var dailyRecommendationRail: some View {
         VStack(alignment: .leading, spacing: 12) {
             sectionHeader(
-                title: String(localized: "每日推荐"),
-                subtitle: "\(viewModel.dailySongs.count) \(String(localized: "首"))",
+                title: String(localized: "daily_recommend"),
+                subtitle: "\(viewModel.dailySongs.count) \(String(localized: "songs_unit"))",
                 icon: .sparkle
             )
 
@@ -467,7 +469,7 @@ struct NeumorphicHomeView: View {
                 Button {
                     navigationPath.append(HomeView.HomeDestination.dailyRecommend)
                 } label: {
-                    drawerFooter(title: String(localized: "查看全部"), icon: .chevronRight)
+                    drawerFooter(title: String(localized: "view_all"), icon: .chevronRight)
                 }
                 .buttonStyle(.plain)
             }
@@ -590,7 +592,7 @@ struct NeumorphicHomeView: View {
             Button {
                 navigationPath.append(HomeView.HomeDestination.dailyRecommend)
             } label: {
-                drawerFooter(title: String(localized: "查看全部"), icon: .chevronRight)
+                drawerFooter(title: String(localized: "view_all"), icon: .chevronRight)
             }
             .buttonStyle(.plain)
         }
@@ -617,7 +619,7 @@ struct NeumorphicHomeView: View {
             Button {
                 navigationPath.append(HomeView.HomeDestination.qcmNewSongs)
             } label: {
-                drawerFooter(title: String(localized: "查看全部"), icon: .chevronRight)
+                drawerFooter(title: String(localized: "view_all"), icon: .chevronRight)
             }
             .buttonStyle(.plain)
         }
@@ -639,7 +641,7 @@ struct NeumorphicHomeView: View {
             Button {
                 openLibrarySquare()
             } label: {
-                drawerFooter(title: String(localized: "查看更多"), icon: .chevronRight)
+                drawerFooter(title: String(localized: "common_view_more"), icon: .chevronRight)
             }
             .buttonStyle(.plain)
         }
@@ -665,7 +667,7 @@ struct NeumorphicHomeView: View {
                 )
 
                 NeumorphicHomeDiscoveryTile(
-                    title: String(localized: "推荐歌单"),
+                    title: String(localized: "recommended_playlists"),
                     subtitle: String(localized: "PLAYLIST"),
                     icon: .musicNoteList,
                     tint: NeumorphicStyle.red,
@@ -691,7 +693,7 @@ struct NeumorphicHomeView: View {
     private var moduleSubtitle: String {
         switch selectedModule {
         case .daily:
-            return "\(viewModel.dailySongs.count) \(String(localized: "首"))"
+            return "\(viewModel.dailySongs.count) \(String(localized: "songs_unit"))"
         case .newSongs:
             return "QCM · \(viewModel.qqNewSongs.count)"
         case .playlists:
@@ -815,6 +817,9 @@ struct NeumorphicHomeView: View {
     }
 }
 
+// MARK: - 首页子组件
+
+/// 精选入口：旋转封面拨盘。
 private struct NeumorphicFeaturedDial: View {
     let dailySongs: [Song]
 
@@ -965,7 +970,12 @@ private struct NeumorphicHomeSpinningCover: View {
     private let degreesPerSecond: Double = 10
 
     var body: some View {
-        TimelineView(AppFrameRate.animationTimeline(paused: !isPlaying)) { timeline in
+        TimelineView(
+            AppFrameRate.animationTimeline(
+                maximumFramesPerSecond: 30,
+                paused: !isPlaying
+            )
+        ) { timeline in
             let displayedAngle = currentAngle(at: timeline.date)
 
             CachedAsyncImage(url: coverUrl, width: 86, height: 86) {

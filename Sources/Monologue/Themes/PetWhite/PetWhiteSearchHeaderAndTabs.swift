@@ -3,7 +3,7 @@ import SwiftUI
 struct PetWhiteSearchHeader: View {
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
-            Text(String(localized: "搜索"))
+            Text(String(localized: "action_search"))
                 .font(PetWhiteStyle.titleFont(26, weight: .bold))
                 .foregroundStyle(PetWhiteStyle.ink)
                 .lineLimit(1)

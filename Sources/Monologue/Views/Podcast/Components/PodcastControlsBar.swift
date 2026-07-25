@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// 播客播放控制栏：上一集 / 回退15s / 播放暂停 / 快进15s / 下一集。
 struct PodcastControlsBar: View {
     let isPlaying: Bool
     let isLoading: Bool

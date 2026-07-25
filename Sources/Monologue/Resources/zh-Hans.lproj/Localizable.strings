@@ -1,21 +1,8 @@
-"loading_music" = "正在加载音乐...";
-"popular_week" = "本周流行";
 "daily_recommend" = "每日推荐";
 "recommended_playlists" = "推荐歌单";
-"my_playlists" = "我的歌单";
-"recently_played" = "最近播放";
-"search_placeholder" = "搜索歌曲、歌手...";
 "cancel" = "取消";
 "play_now" = "全部播放";
-"login_title" = "登录 Mono";
-"scan_qr" = "扫码登录";
-"phone_login" = "手机号登录";
 "scan_instruction" = "请使用NCM App 扫码";
-"phone_number" = "手机号";
-"captcha" = "验证码";
-"get_captcha" = "获取验证码";
-"login" = "登录";
-"sent" = "已发送";
 "songs_count_by" = "%d 首 • By %@";
 "qr_loading" = "正在加载二维码...";
 "qr_expired" = "二维码已过期";
@@ -23,11 +10,7 @@
 "qr_scanned" = "已扫描！请在手机上确认。";
 "login_success" = "登录成功！";
 "refreshing" = "刷新中...";
-"login_failed" = "登录失败: %d";
-"tab_home" = "首页";
-"tab_podcast" = "播客";
 "tab_library" = "音乐库";
-"tabbar_library" = "音乐库";
 "tab_search" = "搜索";
 "tab_profile" = "我的";
 
@@ -41,27 +24,14 @@
 "good_late_night" = "深夜好";
 "default_nickname" = "Mono";
 "search_bar_placeholder" = "搜索歌曲、歌手、歌单...";
-"new_releases" = "新歌首发";
-"quick_daily" = "每日推荐";
-"quick_fm" = "私人FM";
-"quick_karaoke" = "歌房";
 "quick_charts" = "排行榜";
 "made_for_you" = "为你量身打造";
 "fresh_tunes_daily" = "每日新鲜好歌";
 "view_all" = "查看全部";
 "playlists_love" = "你的专属歌单";
 "based_on_taste" = "基于你的口味推荐";
-"playlists_unit" = "个歌单";
 "songs_unit" = "首";
 "top_charts" = "巅峰榜";
-"trending_now" = "时下最火";
-"jump_back_in" = "继续播放";
-"recently_played_subtitle" = "最近播放的歌曲";
-"your_library" = "你的音乐库";
-"playlists_count" = "%d 个歌单";
-"tag_new_release" = "最新单曲";
-"search_in_playlist" = "搜索歌单内歌曲";
-"songs_count" = "%d 首歌曲";
 "count_hundred_million" = "%.1f亿";
 "count_ten_thousand" = "%.1f万";
 
@@ -80,9 +50,6 @@
 "filter_band" = "乐队";
 
 /* Artist Detail */
-"artist_popular_songs" = "热门歌曲";
-"artist_albums" = "专辑";
-"artist_eps" = "EP & 单曲";
 
 /* Search */
 "search_hot" = "热门搜索";
@@ -90,26 +57,16 @@
 "search_clear" = "清空";
 
 /* Login */
-"login_switch_phone" = "切换手机登录";
-"login_switch_qr" = "切换扫码登录";
 
 /* Playlist Detail */
-"playlist_created_by" = "%@ 创建";
-"playlist_updated" = "更新于 %@";
-"playlist_description" = "简介";
 
 /* Player Queue */
 "queue_tab_now_playing" = "播放队列";
 "queue_tab_history" = "历史记录";
-"queue_playing" = "正在播放";
-"queue_recently_played" = "刚刚播放";
-"queue_resume_next" = "继续播放";
 "queue_added_title" = "已加入队列";
 "queue_added_message" = "已将 %d 首歌曲加入播放队列";
 "queue_added_short" = "加入队列";
 "download_added_short" = "加入下载";
-"queue_user_next" = "手动队列 · %d";
-"queue_up_next" = "播放列表 · %d";
 "queue_clear" = "清空";
 "queue_locate_current" = "定位";
 "queue_upcoming_count" = "待播 %d";
@@ -141,18 +98,13 @@
 "empty_no_charts" = "暂无榜单";
 "charts_official" = "官方榜";
 "charts_more" = "更多榜单";
-"library_playlists_empty" = "暂无歌单，快去收藏一些吧！";
 "fm_offline" = "电台离线";
 "fm_offline_desc" = "请检查网络连接后重试。";
 
 /* Profile */
-"profile_liked_songs" = "我喜欢的音乐";
 "profile_recently_played" = "最近播放";
 "profile_downloads" = "已下载";
 "profile_settings" = "设置";
-"profile_dynamic" = "动态";
-"profile_following" = "关注";
-"profile_followers" = "粉丝";
 "profile_cloud_disk" = "我的云盘";
 
 /* Player */
@@ -161,12 +113,10 @@
 "player_queue" = "播放队列";
 "not_playing" = "未在播放";
 "not_playing_subtitle" = "点此探索音乐";
-"artist_details" = "歌手详情";
 "more_by_artist" = "%@ 的更多歌曲";
 
 /* Format Strings */
 "songs_count_format" = "%d 首歌曲";
-"user_id_format" = "ID: %d";
 "created_by_format" = "由 %@ 创建";
 "track_count_songs" = "%d 首歌曲";
 
@@ -181,7 +131,6 @@
 
 /* Settings */
 "settings_title" = "设置";
-"settings_appearance" = "外观与交互";
 "settings_appearance_global_theme_section" = "全局主题";
 "settings_appearance_theme_style" = "主题风格";
 "global_theme_classic_name" = "默认";
@@ -190,20 +139,14 @@
 "global_theme_minimal_white_name" = "纯白极简";
 "global_theme_pet_white_description" = "厚圆角黏土块与马卡龙糖果色，按下去软软的猫狗小窝";
 "immersive_bg_title" = "视频背景";
-"immersive_bg_import" = "导入视频…";
 "immersive_bg_import_failed" = "导入失败";
 "immersive_bg_bind_target" = "绑定到";
 "immersive_bg_target_song" = "当前歌曲";
-"immersive_bg_target_playlist" = "当前歌单";
-"immersive_bg_current_binding" = "已绑定：%@";
 "immersive_bg_unbind" = "解除绑定";
 "immersive_bg_no_binding" = "当前目标未绑定视频背景";
 "immersive_bg_empty" = "还没有导入视频\n从照片图库或文件导入 4K 视频作为背景";
-"immersive_bg_subtitle" = "为歌曲或歌单绑定专属视频背景";
 "immersive_bg_from_photos" = "照片图库";
-"immersive_bg_from_photos_hint" = "从相册选择视频";
 "immersive_bg_from_files" = "文件";
-"immersive_bg_from_files_hint" = "浏览本地文件";
 "immersive_bg_importing" = "正在导入…";
 "immersive_bg_in_use" = "使用中";
 "immersive_bg_library_section" = "视频库";
@@ -233,10 +176,6 @@
 "settings_appearance_dynamic_background_section" = "动态背景";
 "settings_theme_mode_section_title" = "深浅色模式";
 "settings_theme_mode" = "主题模式";
-"settings_liquid_glass" = "液态玻璃效果";
-"settings_liquid_glass_desc" = "iOS 26 风格的高级视觉效果";
-"settings_playback" = "播放与音效";
-"settings_playback_quality" = "默认播放音质";
 "settings_prefer_highest_playback_quality" = "优先请求最高音质";
 "settings_prefer_highest_playback_quality_desc" = "开启后自动匹配歌曲支持的最高音质；关闭后使用下方默认播放音质";
 "settings_insert_playback_context" = "全部播放插入模式";
@@ -248,20 +187,12 @@
 "settings_crossfade_playback_duration" = "2.5 秒";
 "settings_netease_playback_quality" = "NCM默认播放音质";
 "settings_qq_playback_quality" = "QCM默认播放音质";
-"settings_download_quality" = "默认下载音质";
-"settings_auto_play_next" = "自动播放下一首";
-"settings_unblock" = "解灰";
-"settings_unblock_desc" = "自动从第三方源获取灰色歌曲播放链接";
 "settings_qmc_decrypt" = "QMC 解密";
 "settings_qmc_decrypt_desc" = "因风控原因，无损及以上音质的播放暂不可用。如有高音质下载需求请开启此选项，下载将通过解密通道获取并本地解密保存";
-"settings_quality" = "音质";
-"settings_audio_effects" = "音效";
-"settings_equalizer" = "均衡器";
 "settings_global_equalizer" = "全局均衡器";
 "settings_global_equalizer_desc" = "开启后对全部播放生效";
 "settings_global_equalizer_enabled" = "已开启 · 当前预设：%@";
 "settings_audio_lab" = "音频实验室";
-"settings_smart" = "智能";
 "settings_off" = "关闭";
 "settings_storage" = "存储";
 "settings_storage_manage" = "存储管理";
@@ -271,11 +202,9 @@
 "settings_hitokoto_desc" = "首页展示随机一言";
 "settings_hitokoto_type" = "一言类型";
 "hitokoto_fallback_slogan" = "世界很吵，留一点声音给自己。";
-"settings_other" = "其他";
 "settings_haptic" = "触感反馈";
 "settings_haptic_desc" = "操作时的震动反馈";
 "settings_about" = "关于";
-"settings_version" = "版本";
 "settings_theme_auto" = "自动";
 "settings_theme_light" = "浅色";
 "settings_theme_dark" = "深色";
@@ -287,7 +216,6 @@
 "lib_no_podcasts" = "还没有订阅播客";
 "lib_discover_podcasts" = "去播客页面发现感兴趣的内容";
 "lib_unsubscribe" = "取消订阅";
-"lib_confirm_unsubscribe" = "确定取消订阅「%@」？";
 "lib_delete_playlist" = "删除歌单";
 "lib_confirm_delete" = "确定删除「%@」？此操作不可恢复。";
 "lib_confirm_uncollect" = "确定取消收藏「%@」？";
@@ -297,14 +225,10 @@
 "profile_login_hint" = "登录后享受完整功能";
 "profile_login_desc" = "登录 NCM 账号，同步你的歌单、收藏与云盘";
 "profile_login_button" = "登录账号";
-"profile_edit_signature" = "编辑个性签名";
-"profile_days_with_you" = "已陪伴你 %d 天";
 "profile_total_songs" = "累计听歌";
 "profile_week_listen" = "本周收听";
 "profile_local_playlists" = "本地歌单";
 "profile_cache_manage" = "缓存管理";
-"profile_cache_manage_desc" = "管理本地缓存";
-"profile_cloud_storage" = "云端存储";
 
 /* MV Player */
 "mv_title" = "MV";
@@ -315,13 +239,29 @@
 "mv_play_count" = "播放";
 "mv_similar" = "相似MV";
 "mv_related_videos" = "相关视频";
-"mv_count" = "%d个";
 
 /* Comments */
 "comment_title" = "评论";
 "comment_hot" = "热门评论";
 "common_ok" = "好的";
 "common_done" = "完成";
+"common_unknown_error" = "未知错误";
+"common_custom" = "自定义";
+"common_searching" = "搜索中";
+"common_view_more" = "查看更多";
+"download_batch_added_title" = "已加入下载";
+"download_failed_title" = "下载失败";
+"playlist_empty_or_load_failed" = "歌单为空或获取失败";
+"playlist_collect" = "收藏歌单";
+"playlist_collect_local" = "收藏到本地";
+"qcm_login_required" = "请先登录 QCM";
+"empty_no_songs" = "暂无歌曲";
+"loading" = "加载中…";
+"risk_control_blocked" = "当前环境由于风控限制，高保真音源暂不能使用";
+"select_song_to_play" = "选择歌曲开始播放";
+"settings_on" = "开启";
+"download_active_tasks_format" = "%d 个任务进行中";
+"search_result_count_format" = "%d 条结果";
 "immersive_gesture_guide_title" = "沉浸模式手势";
 "immersive_gesture_switch_track" = "左右滑动 · 切歌";
 "immersive_gesture_volume" = "右侧上下滑动 · 音量";
@@ -350,25 +290,17 @@
 "access_validation_success_message" = "高级功能已解锁。";
 "access_validation_success_message_name" = "高级功能已解锁，欢迎 %@。";
 "access_unlock_title" = "高级功能";
-"access_unlock_subtitle" = "输入有效 Token 解锁高级功能";
 "access_unlock_button" = "解锁高级功能";
-"local_action_scan_title" = "扫描媒体库";
-"local_action_scan_subtitle" = "扫描系统音乐资料库、App 文稿和 iTunes/Finder 共享音频";
 "local_action_import_title" = "导入音乐";
-"local_action_import_subtitle" = "支持单个文件和文件夹导入";
-"local_action_remove" = "移除";
 "local_action_delete_local_song" = "删除本地音乐";
 "local_scan_complete_title" = "扫描完成";
 "local_import_complete_title" = "导入完成";
 "local_import_failed_title" = "导入失败";
-"local_result_message" = "%1$@\n\n当前共有 %2$d 首本地音乐，%3$d 个本地歌单。";
 "local_empty_music_title" = "还没有本地音乐";
 "local_empty_search_title" = "没有匹配结果";
 "local_empty_music_subtitle" = "先从首页导入音乐，或在右上角继续添加。";
 "local_empty_search_subtitle" = "换个关键词试试。";
 "local_music_search_prompt" = "搜索本地音乐";
-"local_library_music_subtitle" = "已导入 %d 首，可直接离线播放";
-"local_library_downloads_subtitle" = "已下载 %d 首";
 "local_downloads_title" = "离线下载";
 "local_empty_playlist_title" = "还没有本地歌单";
 "local_empty_playlist_subtitle" = "导入音乐后，可以把歌曲整理到自己的歌单里。";
@@ -379,8 +311,6 @@
 "local_import_result_failed" = "失败 %d 项";
 "local_import_result_metadata_matched" = "已自动匹配 %d 首歌曲信息与封面";
 "local_import_result_lyrics_prefetched" = "已自动获取 %d 首歌词";
-"local_playlist_import_added" = "已添加 %d 首到「%@」。";
-"local_playlist_import_no_added" = "没有可添加到「%@」的新歌曲。";
 "local_scan_notice_media_denied" = "系统音乐资料库未授权，本次仅扫描了 App 文稿和 iTunes/Finder 共享音频。";
 "local_filter_all" = "全部";
 "local_filter_favorites" = "收藏";
@@ -389,57 +319,31 @@
 "local_sort_newest" = "按最近导入";
 "local_sort_title" = "按歌曲名";
 "local_sort_artist" = "按歌手";
-"local_toolbar_scan" = "扫描";
 "local_toolbar_import" = "导入";
-"local_home_status_title" = "本地资料已更新";
 "local_stat_duration" = "收藏时长";
 "local_home_hero_title" = "你的音乐都在这里";
 "local_home_hero_subtitle" = "已整理 %d 首可播放内容，导入后就能直接继续听。";
 "local_home_play_all" = "播放全部";
-"local_home_open_library" = "打开资料库";
 "local_home_quick_access_title" = "快捷入口";
-"local_home_quick_access_subtitle" = "把常用的离线内容和播放入口集中到一页。";
 "local_home_continue_title" = "继续收听";
-"local_home_continue_subtitle" = "最近播放了 %d 首";
 "local_home_recent_added_title" = "最近导入";
-"local_home_recent_added_subtitle" = "最新加入的 %d 首音乐";
 "local_home_playlists_title" = "本地歌单";
-"local_home_playlists_subtitle" = "已整理 %d 个自定义歌单";
 "local_home_playlist_empty_hint" = "你可以在资料库里新建歌单，把导入的音乐整理起来。";
 "local_home_manage_playlists" = "管理本地歌单";
-"local_home_manage_playlists_subtitle" = "新建、导入或继续编辑已有歌单";
-"local_home_empty_hint" = "先导入音乐，首页就会出现最近导入、继续收听和歌单入口。";
 "local_starter_title" = "开始建立你的曲库";
 "local_starter_subtitle" = "音乐导入后即可完全离线播放";
 "local_starter_step1" = "从「文件」中选择音频文件或整个文件夹";
 "local_starter_step2" = "标题、歌手与封面等标签会自动读取";
 "local_starter_step3" = "整理进歌单，离线也能随时畅听";
 "local_starter_formats_label" = "支持格式";
-"local_shortcut_tracks_subtitle" = "%d 首可播放";
 "local_empty_collection_title" = "这个分类还没有内容";
 "local_empty_collection_subtitle" = "先导入音乐，或从其他页面把歌曲整理到这里。";
-"local_music_summary_all" = "共 %d 首已导入音乐，可直接离线播放";
-"local_music_summary_favorites" = "收藏中共有 %d 首当前可播放内容";
-"local_music_summary_downloads" = "已下载 %d 首，随时可播放";
-"local_music_summary_recent" = "最近听过 %d 首";
-"local_library_overview_title" = "整理你的本地收藏";
-"local_library_overview_subtitle" = "系统集合和自定义歌单统一放在这里管理。";
-"local_library_manage_title" = "歌单操作";
-"local_library_manage_subtitle" = "新建或导入歌单，继续把音乐整理清楚。";
-"local_library_create_subtitle" = "从空白开始整理自己的播放清单";
-"local_library_import_subtitle" = "从导出的 JSON 文件恢复已有歌单";
 "local_library_system_title" = "系统集合";
-"local_library_system_subtitle" = "常用的离线内容和历史播放入口。";
 "local_library_custom_title" = "自定义歌单";
-"local_library_custom_subtitle" = "共 %d 个歌单，可继续编辑和播放";
 "local_library_import_no_local_match" = "歌单文件已解析，但其中的歌曲还没有导入到本地曲库。请先导入音乐后再试。";
 "local_library_import_success" = "已导入「%@」，并匹配到 %d 首本地音乐。";
 "local_profile_hero_title" = "Mono";
-"local_profile_hero_subtitle" = "当前已经整理 %d 首本地音乐，可继续管理资料库和下载。";
-"local_profile_shortcuts_title" = "常用入口";
-"local_profile_shortcuts_subtitle" = "快速回到收藏、最近播放和离线内容。";
 "local_profile_manage_title" = "管理";
-"local_profile_manage_subtitle" = "下载、存储、设置和资料库入口都集中在这里。";
 "settings_navigation_appearance_title" = "外观设置";
 "settings_navigation_appearance_subtitle" = "界面、背景、歌词";
 "settings_section_personalization" = "个性化";
@@ -476,9 +380,6 @@
 "game_mode_settings_subtitle_on" = "已开启 · 和游戏共存";
 "game_mode_settings_subtitle_off" = "一边打游戏一边听歌";
 "game_mode_settings_title" = "游戏模式";
-"game_mode_menu_on" = "关闭游戏模式";
-"game_mode_menu_off" = "开启游戏模式";
-"game_mode_badge_active" = "开启中";
 "game_mode_main_title" = "游戏模式";
 "game_mode_main_subtitle_on" = "已开启，音乐和游戏音效共存，点击关闭";
 "game_mode_main_subtitle_off" = "一键切到混音，适合边玩游戏边听歌";
@@ -497,8 +398,6 @@
 "game_mode_option_ducking_subtitle" = "系统语音 / 游戏语音通话响起时自动压低音乐";
 "game_mode_option_quality_title" = "省电降音质";
 "game_mode_option_quality_subtitle" = "自动切到标准音质，把性能让给游戏";
-"game_mode_option_live_activity_title" = "隐藏灵动岛歌词";
-"game_mode_option_live_activity_subtitle" = "游戏时不打扰，关闭 Live Activity";
 "game_mode_option_silent_np_title" = "隐藏锁屏 / 灵动岛信息";
 "game_mode_option_silent_np_subtitle" = "游戏时不在锁屏和灵动岛显示歌曲信息";
 "game_mode_option_minimal_np_title" = "保留最小歌名（实验性）";
@@ -523,8 +422,6 @@
 "game_mode_lamp_silent" = "隐藏锁屏";
 "game_mode_lamp_auto_exit" = "自动退出";
 "settings_app_brand_title" = "应用图标";
-"settings_app_brand_desc" = "主屏幕图标和应用内 Logo 会一起切换";
-"settings_app_brand_device_hint" = "桌面图标切换可能需要在真机上查看，应用内 Logo 会立即更新。";
 "settings_app_brand_monologue" = "Mono";
 "settings_app_brand_monologue_desc" = "经典幽灵标识";
 "settings_app_brand_aurora" = "Aside";
@@ -535,14 +432,11 @@
 "settings_app_brand_paw_desc" = "默认 Paw 猫狗图标";
 "settings_app_brand_paw_mono" = "Paw Mono";
 "settings_app_brand_paw_mono_desc" = "带 Mono 字标的 Paw 专属图标";
-"settings_app_brand_appearance_title" = "图标外观";
-"settings_app_brand_appearance_desc" = "手动切换浅色或深色，不跟随系统";
 "settings_app_brand_appearance_light" = "浅色";
 "settings_app_brand_appearance_light_desc" = "使用明亮底色版本";
 "settings_app_brand_appearance_dark" = "深色";
 "settings_app_brand_appearance_dark_desc" = "使用深色底色版本";
 "settings_interface_icon_set_title" = "界面图标";
-"settings_interface_icon_set_hicon_desc" = "保留原有图标风格";
 "settings_cover_bg_global" = "全局动态背景";
 "settings_cover_bg_global_desc" = "首页等页面跟随当前播放歌曲封面";
 "settings_cover_bg_playlist" = "歌单封面背景";
@@ -558,6 +452,7 @@
 "settings_lyric_color_end" = "结束颜色";
 "settings_lyric_preview" = "歌词预览";
 "lyric_source_default_title" = "默认歌词源";
+"apple_music_lyric_source_title" = "Apple Music 歌词源";
 "lyric_source_change" = "更换歌词";
 "lyric_source_selected" = "已选择";
 "common_close" = "关闭";
@@ -582,8 +477,6 @@
 "playlist_sync_idle" = "云端同步待命";
 "playlist_sync_upload_button" = "同步到云端";
 "playlist_sync_restore_button" = "从云端恢复";
-"playlist_sync_upload_title" = "歌单已同步";
-"playlist_sync_restore_title" = "云端歌单恢复";
 "playlist_sync_upload_success" = "云端数据同步完成";
 "playlist_sync_restore_success" = "云端数据恢复完成";
 "playlist_sync_cloud_empty" = "云端还没有保存的本地歌单";
@@ -594,7 +487,7 @@
 "settings_navigation_cloud_sync_title" = "云端配置";
 "settings_navigation_cloud_sync_disabled" = "需要先配置 Token";
 "playlist_sync_auto_toggle_title" = "自动同步";
-"playlist_sync_auto_toggle_desc" = "本地数据变更后自动同步到云端";
+"playlist_sync_auto_toggle_desc" = "每天分 3 个批次同步本地数据";
 "playlist_sync_delete_remote_toggle_title" = "删除时清空云端快照";
 "playlist_sync_delete_remote_toggle_desc" = "关闭后，本地同步内容清空时保留云端快照";
 "playlist_sync_status_title" = "同步状态";
@@ -606,8 +499,6 @@
 "settings_token_saved" = "已保存";
 "settings_token_authorized" = "已授权";
 "settings_token_unauthorized" = "未授权";
-"playback_resource_expired_title" = "资源失效";
-"playback_resource_expired_message" = "%1$@ - %2$@\n该歌曲暂时无法播放，所有音源均不可用";
 "playback_next_track" = "下一首";
 "playback_token_prompt_title" = "输入 Token";
 "playback_token_prompt_message" = "输入有效 Token 解锁高级功能。";
@@ -627,15 +518,52 @@
 "comment_placeholder" = "写评论...";
 "comment_reply_placeholder" = "回复 @%@...";
 
+// MARK: - 通用动态文案
+"download_batch_queue_added_format" = "已将 %d 首歌曲加入下载队列";
+"radio_episode_number_format" = "第 %d 期";
+"radio_episode_part_format" = "第 %d 集";
+"theme_custom_profile_name_format" = "方案 %d";
+"daily_recommendation_full_date_format" = "%1$@年%2$@月%3$@日 推荐";
+"appearance_saved_count_format" = "已保存 %d";
+"appearance_save_colors_icon_format" = "保存配色与图标包（%@）";
+"playlist_import_match_result_format" = "成功匹配 %d 首，%d 首未找到";
+"qcm_playlist_import_failed_format" = "QCM 歌单导入失败：%@";
+"kugou_playlist_import_failed_format" = "酷狗歌单导入失败：%@";
+"radio_load_failed_format" = "加载失败：%@";
+"radio_program_load_failed_format" = "节目加载失败：%@";
+"comments_load_failed_format" = "加载评论失败：%@";
+"comment_send_failed_format" = "发送失败：%@";
+"qq_qr_create_failed_format" = "获取二维码失败：%@";
+"qq_qr_poll_failed_format" = "轮询失败：%@";
+"search_failed_format" = "搜索失败：%@";
+"download_url_failed_format" = "获取下载链接失败：%@";
+"download_network_failed_format" = "网络下载失败：%@";
+"ncm_missing_field_format" = "响应中缺少字段：%@";
+"ncm_api_error_format" = "API 错误 [%d]：%@";
+"social_song_format" = "[歌曲] %@";
+"social_song_artist_format" = "[歌曲] %1$@ - %2$@";
+"social_album_format" = "[专辑] %@";
+"social_playlist_format" = "[歌单] %@";
+"download_saved_local_notification_format" = "%@ 已保存到本地";
+"download_failed_notification_format" = "%@ 下载出错，请稍后重试";
+"push_send_failed_format" = "推送失败：%@";
+"cache_storage_summary_format" = "数据库：%1$@，文件：%2$@";
+"refresh_summary_format" = "歌曲：%1$d，歌单：%2$d，大小：%3$@，上次刷新：%4$@";
+"audio_dynamic_range_critical_format" = "动态范围极窄（DR%d），严重过度压缩";
+"audio_dynamic_range_narrow_format" = "动态范围过窄（DR%d）";
+"audio_dynamic_range_low_format" = "动态范围偏窄（DR%d）";
+"audio_loudness_high_format" = "响度过高（%.1f LUFS），可能存在过度限制";
+"audio_loudness_low_format" = "响度偏低（%.1f LUFS）";
+"audio_effect_decibel_format" = "%1$@ %2$+.0f dB";
+"audio_effect_percent_format" = "%1$@ %2$d%%";
+"audio_effect_multiplier_format" = "%1$@ %2$.1fx";
+
 /* Profile - New */
-"profile_preferences_account" = "偏好与账号";
 "profile_recent_count" = "%d 首";
 
 /* Settings - New */
 "settings_calculating" = "计算中...";
 "settings_debug_log" = "调试日志";
-"settings_debug_log_desc" = "查看运行日志，便于排查问题";
-"settings_qq_music" = "QCM";
 "settings_qq_account" = "QCM账号";
 "settings_qq_logged_in" = "已登录";
 "settings_qq_not_logged_in" = "未登录，点击管理";
@@ -658,9 +586,6 @@
 "login_qr_only_hint" = "使用 NCM App 扫码登录账号";
 "login_loading" = "加载中...";
 "login_tap_refresh" = "点击刷新";
-"login_phone_placeholder" = "请输入手机号";
-"login_captcha_placeholder" = "请输入验证码";
-"login_resend" = "重新发送";
 "login_instruction_1" = "打开NCM App";
 "login_instruction_2" = "点击左上角扫一扫";
 "login_instruction_3" = "扫描上方二维码登录";
@@ -672,8 +597,6 @@
 /* Welcome - New */
 "welcome_slogan" = "世界很吵，留一点声音给自己。";
 "welcome_slogan_short" = "LOUD WORLD · QUIET SOUND";
-"welcome_back" = "欢迎回来, %@";
-"welcome_user" = "用户";
 
 /* Search - New */
 "search_platform_netease" = "NCM";
@@ -698,19 +621,12 @@
 /* Home - New */
 "home_playlist" = "歌单";
 "home_mv_zone" = "MV 专区";
-"home_mv_zone_desc" = "看最新最热的音乐视频";
 
 /* Library - New */
-"library_header_subtitle" = "把收藏、歌单和播客整理在一个更清爽的空间里";
-"library_my_netease_hint" = "你收藏与创建的NCM歌单都会集中展示在这里";
-"library_my_local_hint" = "本地整理与导入的歌单，适合快速管理和继续播放";
-"library_my_podcast_hint" = "订阅过的播客节目会按列表集中收纳，方便继续收听";
-"library_podcast_subscriptions_count" = "%d 个订阅";
 "lib_local_playlists" = "本地歌单";
 "lib_no_local_playlists" = "还没有本地歌单";
 "lib_create_playlist" = "新建歌单";
 "lib_import_playlist" = "导入歌单";
-"lib_import_from_json" = "从 JSON 文件导入";
 "lib_playlist_name" = "歌单名称";
 "lib_create" = "创建";
 "lib_delete" = "删除";
@@ -719,12 +635,9 @@
 "lib_confirm" = "确定";
 "lib_import_no_songs" = "歌单中没有有效的歌曲";
 "lib_import_fetch_failed" = "无法获取歌曲信息";
-"lib_unknown_error" = "未知错误";
 "lib_episode_count" = "%d期";
 
 /* Artist Detail - New */
-"artist_followed" = "已关注";
-"artist_follow" = "关注";
 "artist_fans_count" = "%@ 粉丝";
 "artist_album_count" = "%d 专辑";
 "artist_song_count" = "%d 歌曲";
@@ -743,7 +656,6 @@
 "album_no_desc" = "暂无专辑简介";
 
 /* Comment - New */
-"comment_count" = "%d条评论";
 "comment_hot_section" = "热门评论";
 "comment_all_section" = "全部评论";
 "comment_load_more_btn" = "加载更多评论";
@@ -755,29 +667,18 @@
 
 /* Debug Log - New */
 "debug_title" = "调试日志";
-"debug_log_count" = "%d 条日志";
-"debug_export" = "导出日志";
 "debug_clear" = "清空日志";
-"debug_auto_scroll" = "自动滚动";
 "debug_search_placeholder" = "搜索日志...";
 "debug_stat_total" = "总计";
 "debug_visible_count" = "当前";
-"debug_stat_error" = "错误";
-"debug_stat_warning" = "警告";
-"debug_stat_success" = "成功";
 "debug_level_info" = "信息";
 "debug_level_debug" = "调试";
 "debug_level_warning" = "警告";
 "debug_level_error" = "错误";
 "debug_level_network" = "网络";
 "debug_level_success" = "成功";
-"debug_export_title" = "Mono 调试日志";
-"debug_export_time" = "导出时间";
-"debug_export_count" = "日志数量";
 "debug_detail_title" = "日志详情";
-"debug_copy" = "复制";
 "debug_copied" = "已复制";
-"debug_parse" = "解析";
 "debug_empty" = "暂无日志";
 "debug_message_section" = "日志内容";
 "debug_analysis_section" = "解析结果";
@@ -786,15 +687,12 @@
 "debug_analysis_characters" = "字符";
 "debug_fields_section" = "字段";
 "debug_links_section" = "链接";
-"debug_dropped_count" = "已丢弃 %d 条";
 "debug_dropped_count_short" = "丢弃";
 "debug_collecting" = "收集中";
 "debug_collection_paused" = "已暂停";
 "debug_collection" = "收集日志";
-"debug_updated_at" = "更新 %@";
 "debug_records_section" = "日志记录";
 "debug_no_matches" = "没有匹配的日志";
-"debug_apns_token" = "APNs Token";
 "debug_export_filtered" = "导出筛选结果";
 "debug_export_all_json" = "导出全部 JSON";
 "debug_newest_first" = "最新日志在前";
@@ -804,7 +702,6 @@
 "debug_copy_message" = "复制内容";
 "debug_copy_log" = "复制日志";
 "debug_context_section" = "上下文";
-"debug_source" = "来源";
 "debug_function" = "方法";
 "debug_thread" = "线程";
 "debug_request_method" = "请求方法";
@@ -834,17 +731,11 @@
 "more_menu_cloud_section" = "云盘";
 
 /* EQ Settings - New */
-"eq_title" = "均衡器";
 "eq_reset" = "重置";
 "eq_toggle_title" = "音频均衡器";
 "eq_custom" = "自定义";
 "eq_original_output" = "使用原始音频输出";
-"eq_smart_analyze" = "智能分析";
-"eq_smart_desc" = "分析当前歌曲，自动优化音效";
-"eq_analyzing" = "正在分析...";
-"eq_applied" = "已应用智能音效";
 "eq_effects" = "音效";
-"eq_playback_processing" = "播放处理";
 "eq_bass" = "低音";
 "eq_treble" = "高音";
 "eq_surround" = "环绕";
@@ -872,10 +763,7 @@
 "ai_lab_result_notice" = "AI 调音结果仅供参考，不保证完全符合预期。分析速度和可用性受网络影响，偶发失败属于正常情况，重试即可。";
 
 /* QQ Login - New */
-"qq_login_title" = "QCM登录";
 "qq_login_subtitle" = "登录后可播放 QCM曲库";
-"qq_tab_qr" = "扫码登录";
-"qq_tab_phone" = "手机登录";
 "qq_qr_loading" = "加载中...";
 "qq_qr_expired" = "二维码已过期";
 "qq_qr_refresh" = "点击刷新";
@@ -887,13 +775,6 @@
 "qq_open_app" = "打开 %@ App";
 "qq_use_scan" = "使用扫一扫功能";
 "qq_scan_qr" = "扫描上方二维码登录";
-"qq_phone_number" = "手机号";
-"qq_phone_placeholder" = "请输入手机号";
-"qq_captcha" = "验证码";
-"qq_captcha_placeholder" = "请输入验证码";
-"qq_get_captcha" = "获取验证码";
-"qq_resend" = "重新发送";
-"qq_login_btn" = "登录";
 
 /* QQ Account - New */
 "qq_account_title" = "QCM";
@@ -903,11 +784,6 @@
 "qq_session_expired_message" = "你的 QCM 登录已失效，请重新扫码登录。";
 "qq_cookie_expired_body" = "Cookie 已失效，部分功能可能受影响，请重新登录";
 "qq_connected" = "已连接";
-"qq_login_method" = "登录方式";
-"qq_login_qq_scan" = "QCM 扫码";
-"qq_login_wx_scan" = "微信扫码";
-"qq_login_phone_code" = "手机验证码";
-"qq_login_unknown" = "未知";
 "qq_vip_status" = "会员状态";
 "qq_svip" = "超级会员";
 "qq_vip" = "绿钻会员";
@@ -933,7 +809,6 @@
 "daily_history_title" = "历史日推";
 "daily_history_subtitle" = "回顾往日推荐";
 "daily_select_date" = "选择日期查看历史推荐";
-"daily_date_recommend" = "%@年%@月%@日 推荐";
 "daily_song_count" = "%d 首歌曲";
 "daily_no_history" = "好的";
 
@@ -950,7 +825,6 @@
 "local_playlist_delete_confirm" = "确定删除「%@」？此操作不可恢复。";
 "local_playlist_export_failed" = "导出歌单失败";
 "local_playlist_no_songs" = "还没有歌曲";
-"local_playlist_play" = "播放";
 "local_playlist_remove" = "移除";
 
 /* Add To Playlist - New */
@@ -981,7 +855,6 @@
 /* Sound Quality - New */
 "quality_title" = "音质选择";
 "quality_current_prefix" = "当前";
-"quality_kugou_source" = "酷狗源";
 "quality_qq_source" = "QCM";
 "quality_premium" = "臻品音质";
 "quality_lossless" = "无损音质";
@@ -996,21 +869,15 @@
 "tabbar_profile" = "我的";
 
 /* Song List Row - New */
-"song_unblocked" = "已解灰";
 "song_no_copyright" = "无版权";
 "song_delete_download" = "删除下载";
 "song_download" = "下载";
 "song_add_to_playlist" = "添加到歌单";
 "song_view_album" = "查看专辑";
 "song_copy_link" = "复制播放链接";
-"song_no_copyright_title" = "无版权";
-"song_no_copyright_message" = "该歌曲暂无版权，开启「解灰」功能后可尝试从第三方源获取播放链接";
-"song_enable_unblock" = "去开启";
 
 /* Common */
 "confirm" = "确定";
-"ok" = "好的";
-"retry" = "重试";
 
 /* QCM Detail - New */
 "qq_fans_count" = "%@ 粉丝";
@@ -1026,9 +893,7 @@
 "qq_track_count" = "%d首";
 "qq_play" = "全部播放";
 "qq_album_desc" = "专辑简介";
-"qq_songs_count" = "%d首歌曲";
 "qq_loading_more" = "加载更多...";
-"qq_music_title" = "QCM";
 
 /* MV List - New */
 "mv_unknown_name" = "未知MV";
@@ -1051,7 +916,6 @@
 "mv_more_section" = "更多";
 
 /* Radio Player - New */
-"radio_playing" = "电台播放";
 "radio_retry" = "重试";
 "radio_unknown_program" = "未知节目";
 "radio_tuning" = "调频中...";
@@ -1074,14 +938,12 @@
 
 /* Podcast - New */
 "podcast_title" = "播客";
-"podcast_discover" = "发现好声音";
 "podcast_all" = "全部";
 "podcast_for_you" = "为你推荐";
 "podcast_featured" = "精选电台";
 "podcast_broadcast" = "广播电台";
 "podcast_episode_count" = "%d期";
 "podcast_today_pick" = "今日优选";
-"podcast_premium" = "付费精品";
 "podcast_newcomer" = "新人电台榜";
 "podcast_program_toplist" = "节目榜";
 
@@ -1092,8 +954,6 @@
 "podcast_episode_search_empty" = "未找到相关节目";
 "podcast_sort_latest" = "最新";
 "podcast_sort_oldest" = "最早";
-"podcast_sort_latest_first" = "最新在前";
-"podcast_sort_oldest_first" = "最早在前";
 "podcast_hot_radios" = "热门电台";
 "podcast_no_results" = "未找到相关电台";
 
@@ -1104,7 +964,6 @@
 "radio_category_browse" = "分类浏览";
 
 /* Style Selection - New */
-"style_select_title" = "推荐类型";
 "style_tab_genre" = "曲风";
 "style_tab_mood" = "情绪";
 "style_tab_scene" = "场景";
@@ -1163,11 +1022,8 @@
 
 /* Meditation Mode */
 "meditation_mode_title" = "冥想模式";
-"meditation_mode_subtitle" = "";
 "meditation_mode_eyebrow" = "CALM";
 "meditation_recommended_title" = "推荐内容";
-"meditation_recommended_subtitle" = "";
-"meditation_loading" = "加载中";
 "meditation_empty" = "暂无内容";
 "meditation_load_failed" = "加载失败";
 "meditation_sati_source" = "来自助眠解压";
@@ -1179,18 +1035,9 @@
 "meditation_topic_breathing" = "呼吸";
 "meditation_topic_relax" = "解压";
 "meditation_topic_ambient" = "白噪音";
-"meditation_topic_all_subtitle" = "";
-"meditation_topic_mindfulness_subtitle" = "";
-"meditation_topic_focus_subtitle" = "";
-"meditation_topic_light_music_subtitle" = "";
-"meditation_topic_sleep_subtitle" = "";
-"meditation_topic_breathing_subtitle" = "";
-"meditation_topic_relax_subtitle" = "";
-"meditation_topic_ambient_subtitle" = "";
 "meditation_player_exit" = "退出冥想模式";
 "meditation_player_timer" = "定时";
 "meditation_player_timer_title" = "定时设置";
-"meditation_player_loading" = "加载中";
 "meditation_player_empty" = "暂无内容";
 "meditation_player_load_failed" = "加载失败";
 "meditation_player_retry" = "重试";
@@ -1203,16 +1050,11 @@
 /* Playlist Create */
 "create_netease_playlist" = "创建NCM歌单";
 "create_netease_playlist_name" = "歌单名称";
-"create_netease_playlist_private" = "设为私密歌单";
-"create_netease_success" = "歌单创建成功";
-"create_netease_failed" = "创建失败";
-"add_to_netease_playlist" = "添加到NCM歌单";
 "netease_playlist_section" = "NCM歌单";
 "local_playlist_section" = "本地歌单";
 
 /* Audio Match - 听歌识曲 */
 "audio_match_title" = "听歌识曲";
-"audio_match_subtitle" = "识别周围正在播放的音乐";
 "audio_match_tap_to_start" = "点击开始识别";
 "audio_match_hint" = "将手机靠近音乐来源，点击按钮开始识别";
 "audio_match_listening" = "正在聆听...";
@@ -1244,34 +1086,13 @@
 "storage_title" = "存储管理";
 "storage_total" = "总占用";
 "storage_available" = "可用空间";
-"storage_total_format" = "共 %@";
-"storage_download" = "下载";
-"storage_cache" = "缓存";
-"storage_data" = "数据";
-"storage_image" = "图片";
-"storage_download_songs" = "下载歌曲";
-"storage_song_count" = "%d 首";
-"storage_song_cache" = "歌曲缓存";
-"storage_song_cache_desc" = "歌曲、歌单、歌词等";
 "storage_user_data" = "用户数据";
-"storage_user_data_desc" = "播放历史、搜索记录等";
 "storage_image_cache" = "图片缓存";
-"storage_image_cache_desc" = "封面、头像等图片";
 "storage_clear_btn" = "清除";
-"storage_clear_all_title" = "清除全部数据";
-"storage_clear_all_subtitle" = "释放所有存储空间";
-"storage_clear_cache" = "清除歌曲缓存";
-"storage_clear_cache_desc" = "将清除所有歌曲和歌单的缓存数据";
 "storage_clear_data" = "清除用户数据";
 "storage_clear_data_desc" = "将清除播放历史、搜索记录等用户数据";
-"storage_clear_download" = "清除下载";
-"storage_clear_download_desc" = "将删除所有已下载的歌曲文件";
-"storage_delete_all" = "删除全部";
 "storage_clear_image" = "清除图片缓存";
 "storage_clear_image_desc" = "将清除所有缓存的封面图片";
-"storage_clear_all" = "清除全部";
-"storage_clear_all_confirm" = "全部清除";
-"storage_clear_all_desc" = "将清除所有缓存、用户数据和下载文件，此操作不可撤销";
 "storage_clear" = "清除";
 "storage_analyzing" = "正在分析";
 "storage_scanning_format" = "正在扫描%@…";
@@ -1280,7 +1101,6 @@
 "storage_custom_fonts" = "导入字体";
 "storage_video_backgrounds" = "视频背景";
 "storage_temp_files" = "临时文件";
-"storage_local_music" = "本地音乐";
 "storage_local_songs" = "本地歌曲";
 "storage_manage_in_local" = "在本地音乐页管理";
 "storage_item_count" = "%d 项";
@@ -1307,7 +1127,6 @@
 "podcast_speed_title" = "播放速度";
 "podcast_speed_normal" = "正常 (1x)";
 "podcast_timer_title" = "定时关闭";
-"podcast_timer_off" = "关闭";
 "podcast_timer_inactive" = "定时关闭功能未开启";
 "podcast_timer_10" = "10 分钟";
 "podcast_timer_20" = "20 分钟";
@@ -1404,10 +1223,6 @@
 "dev_popup_changelog_notes" = "新增\n· 弹窗预览入口\n优化\n· 弹窗状态与交互\n修复\n· 弹窗关闭状态";
 
 /* Unblock Warning */
-"unblock_warning_title" = "解灰功能说明";
-"unblock_warning_confirm" = "我知道了";
-"unblock_warning_cancel" = "取消";
-"unblock_warning_message" = "解灰功能通过第三方音源匹配实现，可能存在以下情况：\n\n· 匹配结果不一定准确\n· 音质可能与原版有差异\n· 部分歌曲仍然无法播放\n· 该功能随时可能失效\n\n仅供学习交流使用，请支持正版音乐。";
 "settings_playback_quality_section" = "播放音质";
 "settings_playback_queue_section" = "播放队列";
 "settings_playback_effects_section" = "音效与模式";
@@ -1416,7 +1231,6 @@
 /* About */
 "基于 FFmpeg + AVAudioEngine 深度定制" = "基于 FFmpeg + AVAudioEngine 深度定制";
 "智能系统" = "智能系统";
-"首创自研智能调音Agent：Mono Audio Agent" = "首创自研智能调音Agent：Mono Audio Agent";
 "首创自研智能调音Agent" = "首创自研智能调音Agent";
 "AI 服务由 DengDeng 提供" = "AI 服务由 DengDeng 提供";
 "SwiftUI + Combine · 原生 MVVM 架构" = "SwiftUI + Combine · 原生 MVVM 架构";
@@ -1440,7 +1254,6 @@
 "manga_tile_new_song_sub" = "发现最新音乐";
 "manga_tile_mv_sub" = "精选高清 MV";
 "manga_tile_meditation_sub" = "沉浸式放松体验";
-"manga_issue_no" = "第 %d 期";
 
 /* Mono 专业校准 */
 "eq_mono_calibration" = "Mono 校准";
@@ -1498,34 +1311,16 @@
 "eq_mastering" = "母带与输出";
 "eq_loudness_normalization" = "响度标准化";
 "eq_target_lufs" = "目标响度";
-"eq_target_lra" = "目标动态";
-"eq_true_peak_ceiling" = "真峰值上限";
 "eq_compressor" = "压缩器";
-"eq_compressor_threshold" = "压缩阈值";
-"eq_compressor_ratio" = "压缩比";
-"eq_makeup_gain" = "补偿增益";
 "eq_final_limiter" = "最终限幅";
 "eq_output_ceiling" = "输出上限";
 "eq_headphone_spatial" = "耳机空间";
 "eq_bs2b" = "BS2B";
-"eq_bs2b_cutoff" = "交叉截止";
-"eq_bs2b_feed" = "馈送量";
 "eq_crossfeed" = "交叉馈送";
-"eq_crossfeed_strength" = "馈送强度";
 "eq_haas" = "Haas 延迟";
-"eq_haas_delay" = "延迟";
-"eq_tone_enhancement" = "音色增强";
 "eq_subboost" = "超低音";
-"eq_subboost_gain" = "超低音增益";
-"eq_subboost_cutoff" = "超低音截止";
 "eq_virtual_bass" = "虚拟低音";
-"eq_virtual_bass_cutoff" = "虚拟低音截止";
-"eq_virtual_bass_strength" = "虚拟低音强度";
 "eq_exciter" = "激励器";
-"eq_exciter_amount" = "激励量";
-"eq_exciter_frequency" = "激励起点";
-"eq_softclip" = "软削波";
-"eq_softclip_type" = "削波曲线";
 
 /* 听歌报告 */
 " 分钟" = " 分钟";
@@ -1537,9 +1332,7 @@
 "%d 次播放 · %@" = "%d 次播放 · %@";
 "%d 首歌曲" = "%d 首歌曲";
 "Monologue 听歌报告" = "Monologue 听歌报告";
-"TOP 2–5" = "TOP 2–5";
 "一天中的收听时段" = "一天中的收听时段";
-"一天的声音" = "一天的声音";
 "上周听歌报告" = "上周听歌报告";
 "上月听歌报告" = "上月听歌报告";
 "不再自动弹出" = "不再自动弹出";
@@ -1552,21 +1345,12 @@
 "峰值 %02d:00" = "峰值 %02d:00";
 "峰值 %@" = "峰值 %@";
 "年度听歌报告" = "年度听歌报告";
-"报告摘要" = "报告摘要";
 "播放次数" = "播放次数";
 "播放音乐后，报告会在这里生成" = "播放音乐后，报告会在这里生成";
 "数据仅保存在本机" = "数据仅保存在本机";
-"最长连续天数" = "最长连续天数";
 "查看完整报告" = "查看完整报告";
-"活跃日平均" = "活跃日平均";
 "稍后再看" = "稍后再看";
-"第一次听到" = "第一次听到";
-"继续播放的歌" = "继续播放的歌";
-"这一周的节奏" = "这一周的节奏";
-"这一年的轨迹" = "这一年的轨迹";
 "这个周期还没有听歌记录" = "这个周期还没有听歌记录";
-"这个月的轨迹" = "这个月的轨迹";
-"这段时间最常出现" = "这段时间最常出现";
 "听歌报告" = "听歌报告";
 "暂无记录" = "暂无记录";
 "上一期" = "上一期";
@@ -1868,43 +1652,14 @@
 "mono_audio_workspace_enhancement" = "声音增强";
 "mono_audio_tuning" = "正在调音";
 "mono_suite_title" = "声音增强";
-"mono_suite_entry_status" = "智能播放与声音处理";
-"mono_suite_header_label" = "声音增强";
-"mono_suite_short_status" = "增强";
-"mono_suite_current_track" = "当前歌曲";
 "mono_suite_no_track" = "暂未播放歌曲";
-"mono_suite_active_count" = "项已启用";
 "mono_suite_waiting_analysis" = "等待歌曲分析";
-"mono_suite_workspace_picker" = "声音增强分类";
-"mono_suite_workspace_playback" = "智能播放";
-"mono_suite_workspace_sound" = "声音处理";
-"mono_suite_workspace_intelligence" = "智能";
-"mono_suite_workspace_audio" = "声音";
-"mono_suite_workspace_session" = "一起听";
-"mono_suite_playback_section" = "播放与调音";
-"mono_suite_system_section" = "指纹与恢复";
-"mono_flow_title" = "智能衔接";
-"mono_flow_description" = "按节拍、能量与段落规划下一首衔接";
-"mono_flow_mode" = "衔接方式";
-"mono_flow_duration" = "预计衔接 %.1f 秒";
-"mono_flow_seamless" = "自然衔接";
-"mono_flow_rhythmic" = "节拍衔接";
-"mono_flow_energy" = "能量衔接";
-"mono_flow_faithful" = "原味衔接";
-"mono_sound_twin_evidence" = "已学习 %d 条偏好";
-"mono_sound_twin_reset" = "重置声音偏好";
-"mono_sound_twin_title" = "听感学习";
-"mono_sound_twin_description" = "根据历史调音选择调整后续听感";
-"mono_live_master_title" = "动态母带";
-"mono_live_master_description" = "随歌曲段落更新动态与声场处理";
 "mono_dna_title" = "歌曲声纹";
 "mono_dna_description" = "保存节奏、调性、频谱与动态特征";
 "mono_recovery_title" = "播放恢复";
 "mono_recovery_description" = "监测加载、音频输出与播放链路异常";
-"mono_spatial_live" = "空间舞台";
 "mono_spatial_title" = "空间舞台";
 "mono_spatial_description" = "控制舞台宽度、深度、中心与环境感";
-"mono_spatial_mode" = "空间模式";
 "mono_spatial_width" = "舞台宽度";
 "mono_spatial_depth" = "舞台深度";
 "mono_spatial_center" = "中心聚焦";
@@ -1912,20 +1667,6 @@
 "mono_spatial_off" = "关闭";
 "mono_spatial_fixed" = "固定舞台";
 "mono_spatial_head_tracked" = "头部跟踪";
-"mono_stems_preparing" = "正在准备";
-"mono_stems_section" = "音轨处理";
-"mono_stems_title" = "音轨分离";
-"mono_stems_description" = "生成人声、鼓组、低音与伴奏四条音轨";
-"mono_stems_processing" = "正在分离音轨";
-"mono_stems_export" = "导出";
-"mono_stems_ready" = "四轨已生成";
-"mono_stems_delete" = "删除分轨";
-"mono_stems_separate" = "生成分轨";
-"mono_stems_vocals" = "人声轨";
-"mono_stems_drums" = "鼓组轨";
-"mono_stems_bass" = "低音轨";
-"mono_stems_instruments" = "伴奏轨";
-"mono_stems_error" = "分轨生成失败，请重试";
 "mono_session_member_count" = "%d 人";
 "mono_session_title" = "一起听";
 "mono_session_lobby_description" = "创建房间或输入房间码加入";
@@ -1970,10 +1711,6 @@
 "mono_session_error_ended" = "一起听已经结束";
 "mono_session_error_generic" = "房间操作失败";
 "common_back" = "返回";
-"mono_master_opening" = "前奏";
-"mono_master_body" = "主段";
-"mono_master_peak" = "高潮";
-"mono_master_release" = "收束";
 "mono_recovery_clear" = "清除恢复记录";
 "mono_recovery_history" = "恢复记录";
 "mono_recovery_history_empty" = "暂无恢复记录";
@@ -2004,23 +1741,6 @@
 "mono_suite_module_disabled" = "当前能力已关闭";
 "mono_suite_status_active" = "运行中";
 "mono_suite_status_off" = "已关闭";
-"mono_flow_current_plan" = "当前衔接方案";
-"mono_flow_tempo_match" = "节拍匹配";
-"mono_flow_key_match" = "调性匹配";
-"mono_flow_energy_match" = "能量匹配";
-"mono_flow_vocal_protection" = "已避开主要人声段落";
-"mono_flow_standard_transition" = "按当前曲目结构衔接";
-"mono_master_current_section" = "当前处理段落";
-"mono_master_bass" = "低频";
-"mono_master_treble" = "高频";
-"mono_master_width" = "声场";
-"mono_master_loudness" = "响度";
-"mono_twin_learning" = "等待偏好";
-"mono_twin_bass" = "低频";
-"mono_twin_treble" = "高频";
-"mono_twin_vocal" = "人声";
-"mono_twin_dynamics" = "动态";
-"mono_twin_spatial" = "空间";
 "mono_dna_energy" = "能量";
 "mono_dna_brightness" = "明亮度";
 "mono_dna_rhythm" = "律动";
@@ -2030,7 +1750,6 @@
 "mono_dna_mid" = "中";
 "mono_dna_high" = "高";
 "mono_recovery_summary" = "%d 条记录 · %d 次连续异常";
-"mono_stems_waiting" = "尚未生成";
 "mono_hint_electronic" = "电子";
 "mono_hint_hiphop" = "嘻哈";
 "mono_hint_rock" = "摇滚";
@@ -2050,14 +1769,89 @@
 "server_line_auto" = "自动";
 "server_line_primary" = "主线路";
 "server_line_backup" = "备用线路";
+"server_line_backup_2" = "备用线路 2";
 "server_line_current_format" = "当前：%@";
 "server_line_unreachable" = "不可用";
 
 // MARK: - 沉浸实验室
+"沉浸实验室" = "沉浸实验室";
+"节拍触觉" = "节拍触觉";
+"鼓点命中同步触觉反馈，重拍更沉、军鼓更脆" = "鼓点命中同步触觉反馈，重拍更沉、军鼓更脆";
+"人声呼吸字重" = "人声呼吸字重";
+"经典字幕的当前字随人声力度改变粗细" = "经典字幕的当前字随人声力度改变粗细";
+"副歌预判张力" = "副歌预判张力";
+"副歌来临前光场蓄力升温，命中瞬间镜头释放" = "副歌来临前光场蓄力升温，命中瞬间镜头释放";
+"GPU 着色器舞台" = "GPU 着色器舞台";
 "aria_gpu_stage_caption" = "背景节拍折射、歌词棱镜与呼吸暗角";
-"aria_stage_director_caption" = "Mono Agent 按分幕编排光色、镜头与歌词";
-"aria_stage_director_status_idle" = "等待歌词";
-"aria_stage_director_status_generating" = "正在编排";
-"aria_stage_director_status_ready_format" = "已编排 %d 幕";
-"aria_stage_director_status_failed" = "编排失败";
-"aria_stage_director_status_unavailable" = "当前歌曲不适用";
+
+// MARK: - 在线字体
+"在线字体" = "在线字体";
+"字体天下" = "字体天下";
+"精选字体" = "精选字体";
+"字体分类" = "字体分类";
+"全部字体" = "全部字体";
+"英文字体" = "英文字体";
+"手写" = "手写";
+"标题" = "标题";
+"宋体" = "宋体";
+"黑体" = "黑体";
+"书法" = "书法";
+"像素" = "像素";
+"搜索字体" = "搜索字体";
+"搜索结果" = "搜索结果";
+"商用需授权" = "商用需授权";
+"个人使用下载" = "个人使用下载";
+"查看授权" = "查看授权";
+"该字体标记为商用需授权，商业用途前需要购买相应授权" = "该字体标记为商用需授权，商业用途前需要购买相应授权";
+"可下载" = "可下载";
+"前往获取" = "前往获取";
+"字体列表暂时无法加载" = "字体列表暂时无法加载";
+"没有找到相关字体" = "没有找到相关字体";
+"该字体暂时无法直接下载" = "该字体暂时无法直接下载";
+"该字体需要先完成购买或授权" = "该字体需要先完成购买或授权";
+"已导入字体" = "已导入字体";
+"正在下载 %d%%" = "正在下载 %d%%";
+"正在解压字体" = "正在解压字体";
+"正在校验字体" = "正在校验字体";
+"正在注册字体" = "正在注册字体";
+"正在加入字体列表" = "正在加入字体列表";
+"已导入" = "已导入";
+"apple_music_error_authorization" = "未获得 Apple Music 访问权限";
+"apple_music_error_request_unauthorized" = "Apple Music 授权无效，请重新登录或更新描述文件";
+"apple_music_error_subscription" = "需要有效的 Apple Music 订阅";
+"apple_music_error_invalid_id" = "Apple Music 歌曲标识无效";
+"apple_music_error_unavailable" = "这首歌当前无法在 Apple Music 播放";
+"apple_music_download_unavailable" = "Apple Music 歌曲仅支持在线播放";
+"ai_error_protected_audio_unsupported" = "Apple Music 受保护音频不支持 AI 调音";
+"apple_music_library" = "Apple Music 资料库";
+"apple_music_library_empty" = "Apple Music 资料库中暂无歌曲";
+"apple_music_library_unavailable" = "无法读取 Apple Music 资料库";
+"apple_music_protected_audio" = "Apple Music 受保护音频";
+"apple_music_sound_center_unavailable" = "播放 Apple Music 时无法使用 AI 调音与 Mono 音效处理";
+"apple_music_authorization" = "Apple Music 授权";
+"apple_music_authorized" = "已授权";
+"apple_music_not_authorized" = "去授权";
+"apple_music_authorizing" = "授权中";
+"apple_music_featured_playlists_query" = "华语 流行 精选";
+"apple_music_featured_artists_query" = "华语 歌手";
+
+// MARK: - 结构化调试日志
+"debug_coalesced_count_short" = "折叠";
+"debug_category_all" = "全部模块";
+"debug_category" = "模块";
+"debug_event" = "事件";
+"debug_session" = "启动会话";
+"debug_repeat_count" = "重复次数";
+"debug_category_app" = "应用";
+"debug_category_playback" = "播放";
+"debug_category_audio" = "音频";
+"debug_category_network" = "网络";
+"debug_category_appleMusic" = "Apple Music";
+"debug_category_lyrics" = "歌词";
+"debug_category_ai" = "智能调音";
+"debug_category_cloud" = "云端";
+"debug_category_database" = "数据";
+"debug_category_download" = "下载";
+"debug_category_session" = "一起听";
+"debug_category_interface" = "界面";
+"debug_category_other" = "其他";

@@ -1,6 +1,8 @@
 import Combine
 import Foundation
 
+/// 播客工具栏的共享状态：订阅播放器的倍速与睡眠定时器，格式化为展示文本。
+/// 独立成 Model 是为了避免工具栏直接观察 PlayerManager 导致的频繁重绘。
 @MainActor
 final class PodcastToolbarModel: ObservableObject {
     static let shared = PodcastToolbarModel()
@@ -50,6 +52,7 @@ final class PodcastToolbarModel: ObservableObject {
         return String(format: "%.1fx", speed)
     }
 
+    /// 定时器文本："播完本集停"优先，其次剩余分秒；未设置时返回 nil（仅显图标）。
     private static func formatTimer(
         pendingStopAfterCurrentTrack: Bool,
         remaining: TimeInterval?

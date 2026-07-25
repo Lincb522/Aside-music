@@ -41,7 +41,7 @@ struct MangaHomeView: View {
                     }
                     .scrollIndicators(.hidden)
                     .refreshable {
-                        viewModel.fetchData()
+                        viewModel.retryHomeDataLoad(reason: "manga home pull refresh")
                         if hitokotoEnabled {
                             viewModel.refreshHitokoto(force: true)
                         }
@@ -279,7 +279,7 @@ struct MangaHomeView: View {
 
             if !displayHomeData.recommendPlaylists.isEmpty {
                 mangaPlaylistSection(
-                    title: String(localized: "推荐歌单"),
+                    title: String(localized: "recommended_playlists"),
                     playlists: displayHomeData.recommendPlaylists,
                     action: openLibrarySquare
                 )
@@ -579,7 +579,7 @@ struct MangaHomeView: View {
     private var mangaRecommendationSection: some View {
         VStack(alignment: .leading, spacing: 13) {
             MangaComicSectionHeader(
-                title: String(localized: "每日推荐"),
+                title: String(localized: "daily_recommend"),
                 actionTitle: String(localized: "view_all")
             ) {
                 navigationPath.append(HomeView.HomeDestination.dailyRecommend)

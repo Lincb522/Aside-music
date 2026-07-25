@@ -1,5 +1,7 @@
 import SwiftUI
 
+/// 播客页底部工具栏：倍速、睡眠定时器、节目列表三个胶囊按钮；
+/// `isAside`（默认主题）与主题化页面使用不同的间距与描边样式。
 struct PodcastToolbar: View {
     @ObservedObject private var model = PodcastToolbarModel.shared
 

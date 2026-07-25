@@ -18,7 +18,8 @@ struct MyPlaylistsContainerView: View {
                         subTabButton(title: String(localized: "lib_local_playlists"), index: 0)
                         subTabButton(title: String(localized: "lib_netease_playlists"), index: 1)
                         subTabButton(title: String(localized: "QCM歌单"), index: 2)
-                        subTabButton(title: String(localized: "lib_my_podcasts"), index: 3)
+                        subTabButton(title: String(localized: "apple_music_library"), index: 3)
+                        subTabButton(title: String(localized: "lib_my_podcasts"), index: 4)
                     }
                     .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
                     .padding(.vertical, 2)
@@ -27,14 +28,18 @@ struct MyPlaylistsContainerView: View {
             .themeRenderScrollLayer()
                 .padding(.bottom, 12)
             } else {
-                HStack(spacing: 7) {
-                    subTabButton(title: String(localized: "lib_local_playlists"), index: 0)
-                    subTabButton(title: String(localized: "lib_netease_playlists"), index: 1)
-                    subTabButton(title: String(localized: "QCM歌单"), index: 2)
-                    subTabButton(title: String(localized: "lib_my_podcasts"), index: 3)
-                    Spacer()
+                ScrollView(.horizontal) {
+                    HStack(spacing: 7) {
+                        subTabButton(title: String(localized: "lib_local_playlists"), index: 0)
+                        subTabButton(title: String(localized: "lib_netease_playlists"), index: 1)
+                        subTabButton(title: String(localized: "QCM歌单"), index: 2)
+                        subTabButton(title: String(localized: "apple_music_library"), index: 3)
+                        subTabButton(title: String(localized: "lib_my_podcasts"), index: 4)
+                    }
+                    .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
                 }
-                .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+                .scrollIndicators(.hidden)
+                .themeRenderScrollLayer()
                 .padding(.bottom, 14)
             }
 
@@ -51,9 +56,13 @@ struct MyPlaylistsContainerView: View {
                     .opacity(selectedSubTab == 2 ? 1 : 0)
                     .allowsHitTesting(selectedSubTab == 2)
 
-                MyPodcastsView()
+                AppleMusicLibraryView()
                     .opacity(selectedSubTab == 3 ? 1 : 0)
                     .allowsHitTesting(selectedSubTab == 3)
+
+                MyPodcastsView()
+                    .opacity(selectedSubTab == 4 ? 1 : 0)
+                    .allowsHitTesting(selectedSubTab == 4)
             }
         }
         .background(Color.clear)
@@ -162,7 +171,8 @@ struct MyPlaylistsContainerView: View {
         switch index {
         case 0: return .musicNoteList
         case 1, 2: return .list
-        case 3: return .radio
+        case 3: return .musicNote
+        case 4: return .radio
         default: return .library
         }
     }
@@ -172,7 +182,8 @@ struct MyPlaylistsContainerView: View {
         case 0: return NeumorphicStyle.accent
         case 1: return MusicSource.netease.themedBadgeColor
         case 2: return MusicSource.qqmusic.themedBadgeColor
-        case 3: return NeumorphicStyle.sage
+        case 3: return MusicSource.appleMusic.themedBadgeColor
+        case 4: return NeumorphicStyle.sage
         default: return NeumorphicStyle.warm
         }
     }
@@ -498,8 +509,8 @@ struct LocalPlaylistsView: View {
             title: String(localized: "从链接导入歌单"),
             message: String(localized: "支持 QCM、NCM 的歌单分享链接"),
             placeholder: String(localized: "粘贴歌单链接"),
-            primaryButtonTitle: String(localized: "导入"),
-            secondaryButtonTitle: String(localized: "取消"),
+            primaryButtonTitle: String(localized: "local_toolbar_import"),
+            secondaryButtonTitle: String(localized: "cancel"),
             onConfirm: { url in
                 self.importPlaylistFromURL(url)
             }
@@ -721,7 +732,11 @@ struct LocalPlaylistsView: View {
                         if skipped > 0 {
                             AlertManager.shared.show(
                                 title: String(localized: "导入完成"),
-                                message: String(localized: "成功匹配 \(matchedSongs.count) 首，\(skipped) 首未找到"),
+                                message: L10n.format(
+                                    "playlist_import_match_result_format",
+                                    matchedSongs.count,
+                                    skipped
+                                ),
                                 primaryButtonTitle: String(localized: "lib_confirm"),
                                 primaryAction: {}
                             )
@@ -733,7 +748,10 @@ struct LocalPlaylistsView: View {
                 await MainActor.run {
                     AlertManager.shared.show(
                         title: String(localized: "lib_import_failed"),
-                        message: String(localized: "酷狗歌单导入失败: \(error.localizedDescription)"),
+                        message: L10n.format(
+                            "kugou_playlist_import_failed_format",
+                            error.localizedDescription
+                        ),
                         primaryButtonTitle: String(localized: "lib_confirm"),
                         primaryAction: {}
                     )
@@ -1008,7 +1026,7 @@ struct LocalPlaylistsView: View {
                     if allSongs.isEmpty {
                         AlertManager.shared.show(
                             title: String(localized: "lib_import_failed"),
-                            message: String(localized: "歌单为空或获取失败"),
+                            message: String(localized: "playlist_empty_or_load_failed"),
                             primaryButtonTitle: String(localized: "lib_confirm"),
                             primaryAction: {}
                         )
@@ -1021,7 +1039,10 @@ struct LocalPlaylistsView: View {
                 await MainActor.run {
                     AlertManager.shared.show(
                         title: String(localized: "lib_import_failed"),
-                        message: String(localized: "QCM歌单导入失败: \(error.localizedDescription)"),
+                        message: L10n.format(
+                            "qcm_playlist_import_failed_format",
+                            error.localizedDescription
+                        ),
                         primaryButtonTitle: String(localized: "lib_confirm"),
                         primaryAction: {}
                     )
@@ -1094,7 +1115,7 @@ struct LocalPlaylistsView: View {
                 if allSongs.isEmpty {
                     AlertManager.shared.show(
                         title: String(localized: "lib_import_failed"),
-                        message: String(localized: "歌单为空或获取失败"),
+                        message: String(localized: "playlist_empty_or_load_failed"),
                         primaryButtonTitle: String(localized: "lib_confirm"),
                         primaryAction: {}
                     )
@@ -1207,28 +1228,7 @@ struct LocalPlaylistRow: View {
     }
 
     private var systemPlaceholder: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 12)
-                .fill(
-                    summary.isFavorite
-                        ? LinearGradient(colors: [.pink.opacity(0.6), .red.opacity(0.4)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                        : summary.isDownload
-                        ? LinearGradient(colors: [.blue.opacity(0.5), .cyan.opacity(0.4)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                        : LinearGradient(
-                            colors: [
-                                PetWhiteStyle.isActive ? PetWhiteStyle.surfacePressed : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (SequoiaStyle.isActive ? SequoiaStyle.materialList : Color.monologueGlassTint)),
-                                PetWhiteStyle.isActive ? PetWhiteStyle.mint.opacity(0.52) : (NeumorphicStyle.isActive ? NeumorphicStyle.surface : (SequoiaStyle.isActive ? SequoiaStyle.materialRaised : Color.monologueGlassTint)),
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                )
-            MonologueIcon(
-                icon: summary.isFavorite ? .liked : summary.isDownload ? .download : .musicNoteList,
-                size: 24,
-                color: summary.isSystem ? .white : (PetWhiteStyle.isActive ? PetWhiteStyle.inkMuted : (NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : (SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monologueTextSecondary.opacity(0.3))))
-            )
-        }
+        LocalPlaylistPlaceholderArtwork()
     }
 
     private var localRowTitleFont: Font {
@@ -1698,7 +1698,7 @@ struct QQPlaylistsView: View {
                     if NeumorphicStyle.isActive {
                         NeumorphicLibraryEmptyState(
                             icon: .musicNoteList,
-                            title: qqSession.isLoggedIn ? String(localized: "暂无歌单，快去收藏一些吧！") : String(localized: "请先登录 QCM"),
+                            title: qqSession.isLoggedIn ? String(localized: "暂无歌单，快去收藏一些吧！") : String(localized: "qcm_login_required"),
                             tint: MusicSource.qqmusic.themedBadgeColor
                         )
                         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
@@ -1706,7 +1706,7 @@ struct QQPlaylistsView: View {
                     } else {
                         VStack(spacing: 16) {
                             MonologueIcon(icon: .musicNoteList, size: 40, color: .monologueTextSecondary.opacity(0.3))
-                            Text(qqSession.isLoggedIn ? String(localized: "暂无歌单，快去收藏一些吧！") : String(localized: "请先登录 QCM"))
+                            Text(qqSession.isLoggedIn ? String(localized: "暂无歌单，快去收藏一些吧！") : String(localized: "qcm_login_required"))
                                 .font(.rounded(size: 14, weight: .medium))
                                 .foregroundColor(.monologueTextSecondary)
                         }
@@ -1797,22 +1797,30 @@ struct QQPlaylistsView: View {
 
 struct MusicSourcePicker: View {
     @Binding var source: LibraryViewModel.MusicSource
+    var sources: [LibraryViewModel.MusicSource] = LibraryViewModel.MusicSource.allCases
     var usesPlatformTint = true
     @Namespace private var ns
     typealias Theme = PlaylistDetailView.Theme
 
     var body: some View {
         HStack(spacing: 4) {
-            ForEach(LibraryViewModel.MusicSource.allCases, id: \.self) { s in
+            ForEach(sources, id: \.self) { s in
                 Button {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                         source = s
                     }
                 } label: {
-                    let tint = s == .ncm ? MusicSource.netease.themedBadgeColor : MusicSource.qqmusic.themedBadgeColor
+                    let tint: Color = {
+                        switch s {
+                        case .ncm: return MusicSource.netease.themedBadgeColor
+                        case .qq: return MusicSource.qqmusic.themedBadgeColor
+                        case .kugou: return MusicSource.kugou.themedBadgeColor
+                        case .appleMusic: return MusicSource.appleMusic.themedBadgeColor
+                        }
+                    }()
                     let selected = source == s
 
-                    Text(s == .ncm ? "NCM" : "QCM")
+                    Text(s.shortName)
                         .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(12, weight: selected ? .semibold : .medium) : .system(size: 13, weight: selected ? .bold : .medium, design: .rounded))
                         .foregroundColor(sourceForeground(selected: selected, tint: tint))
                         .padding(.horizontal, NeumorphicStyle.isActive ? 13 : 14)
@@ -1886,15 +1894,15 @@ struct PlaylistSquareView: View {
             .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
             .padding(.top, 4)
             .onChange(of: viewModel.squareSource) { _, newSource in
-                if newSource == .qq {
-                    viewModel.fetchQQSquareData()
-                } else {
-                    viewModel.fetchSquareData()
-                }
+                viewModel.fetchSquareForSelectedSource()
             }
 
             if viewModel.squareSource == .ncm {
                 ncmContent
+            } else if viewModel.squareSource == .kugou {
+                kugouContent
+            } else if viewModel.squareSource == .appleMusic {
+                appleMusicContent
             } else {
                 qqContent
             }
@@ -1951,6 +1959,138 @@ struct PlaylistSquareView: View {
             .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
             .scrollContentBackground(.hidden)
+        }
+    }
+
+    // MARK: - Apple Music Content
+
+    private var kugouContent: some View {
+        VStack(spacing: 0) {
+            kugouCategoryBar
+
+            ScrollView {
+                if viewModel.isLoadingKugouSquare && viewModel.kugouSquarePlaylists.isEmpty {
+                    LibraryLoadingStateView()
+                } else if viewModel.kugouSquarePlaylists.isEmpty {
+                    VStack(spacing: 16) {
+                        MonologueIcon(icon: .musicNoteList, size: 50, color: Theme.secondaryText.opacity(0.5))
+                        Text("暂无KCM推荐歌单")
+                            .font(.system(size: 16, weight: .medium, design: .rounded))
+                            .foregroundColor(Theme.secondaryText)
+                    }
+                    .padding(.top, 50)
+                } else {
+                    LazyVStack(spacing: 14) {
+                        ForEach(buildRows(from: viewModel.kugouSquarePlaylists)) { row in
+                            if row.isWide, let playlist = row.playlists.first {
+                                NavigationLink(value: LibraryViewModel.NavigationDestination.playlist(playlist)) {
+                                    CinematicCard(playlist: playlist, height: 220)
+                                }
+                                .buttonStyle(CinematicPressStyle())
+                                .onAppear { loadMoreKugouIfLast(playlist) }
+                            } else {
+                                HStack(spacing: 12) {
+                                    ForEach(row.playlists) { playlist in
+                                        NavigationLink(value: LibraryViewModel.NavigationDestination.playlist(playlist)) {
+                                            CinematicCard(playlist: playlist, height: 175)
+                                        }
+                                        .buttonStyle(CinematicPressStyle())
+                                        .onAppear { loadMoreKugouIfLast(playlist) }
+                                    }
+                                }
+                            }
+                        }
+                        if viewModel.isLoadingMoreKugouSquare {
+                            LibraryInlineLoadingView()
+                        }
+                    }
+                    .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+                    .padding(.top, 8)
+                }
+                FloatingBarBottomSpacer()
+            }
+            .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
+            .scrollContentBackground(.hidden)
+        }
+        .task { viewModel.fetchKugouSquareData() }
+    }
+
+    private var kugouCategoryBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(viewModel.kugouPlaylistCategories) { category in
+                    let selected = viewModel.selectedKugouCategoryID == category.id
+                    Button {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.78)) {
+                            viewModel.selectKugouCategory(category)
+                        }
+                    } label: {
+                        Text(category.name)
+                            .font(categoryFont(selected: selected))
+                            .foregroundColor(categoryForeground(selected: selected, neumorphicTint: MusicSource.kugou.themedBadgeColor))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
+                            .background {
+                                if selected {
+                                    Capsule().fill(Color.monologueIconBackground)
+                                } else {
+                                    Capsule().fill(Color.monologueGlassTint)
+                                }
+                            }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+            .padding(.vertical, 14)
+        }
+        .themeRenderScrollLayer()
+    }
+
+    // MARK: - Apple Music Content
+
+    private var appleMusicContent: some View {
+        ScrollView {
+            if viewModel.isLoadingAppleMusicSquare && viewModel.appleMusicSquarePlaylists.isEmpty {
+                LibraryLoadingStateView()
+            } else {
+                LazyVStack(spacing: 14) {
+                    ForEach(buildRows(from: viewModel.appleMusicSquarePlaylists)) { row in
+                        if row.isWide, let playlist = row.playlists.first {
+                            NavigationLink(value: LibraryViewModel.NavigationDestination.playlist(playlist)) {
+                                CinematicCard(playlist: playlist, height: 220)
+                            }
+                            .buttonStyle(CinematicPressStyle())
+                            .onAppear { loadMoreAppleMusicIfLast(playlist) }
+                        } else {
+                            HStack(spacing: 14) {
+                                ForEach(row.playlists) { playlist in
+                                    NavigationLink(value: LibraryViewModel.NavigationDestination.playlist(playlist)) {
+                                        CinematicCard(playlist: playlist, height: 175)
+                                    }
+                                    .buttonStyle(CinematicPressStyle())
+                                    .onAppear { loadMoreAppleMusicIfLast(playlist) }
+                                }
+                            }
+                        }
+                    }
+
+                    if viewModel.isLoadingMoreAppleMusicSquare {
+                        LibraryInlineLoadingView()
+                    } else if viewModel.hasMoreAppleMusicSquare && !viewModel.appleMusicSquarePlaylists.isEmpty {
+                        loadMoreButton { viewModel.loadMoreAppleMusicSquarePlaylists() }
+                    }
+                }
+                .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+                .padding(.top, 12)
+                .padding(.bottom, 120)
+            }
+        }
+        .scrollIndicators(.hidden)
+        .themeRenderScrollLayer()
+        .task {
+            viewModel.fetchAppleMusicSquareData()
         }
     }
 
@@ -2030,7 +2170,7 @@ struct PlaylistSquareView: View {
 
     // MARK: - QQ Category Bar
 
-    private static let hiddenQQCategories: Set<String> = [String(localized: "全部"), String(localized: "ai歌单"), String(localized: "私藏"), String(localized: "音乐人在听"), "chill vibes", String(localized: "ai 歌单")]
+    private static let hiddenQQCategories: Set<String> = [String(localized: "filter_all"), String(localized: "ai歌单"), String(localized: "私藏"), String(localized: "音乐人在听"), "chill vibes", String(localized: "ai 歌单")]
 
     private var filteredQQCategories: [(id: Int, name: String)] {
         viewModel.qqPlaylistCategories.filter { !Self.hiddenQQCategories.contains($0.name.lowercased()) }
@@ -2190,13 +2330,52 @@ struct PlaylistSquareView: View {
     private func loadMoreIfLast(_ playlist: Playlist) {
         if playlist.id == viewModel.squarePlaylists.last?.id {
             viewModel.loadMoreSquarePlaylists()
+        }
     }
-}
 
     private func loadMoreQQIfLast(_ playlist: Playlist) {
         if playlist.id == viewModel.qqSquarePlaylists.last?.id {
             viewModel.loadMoreQQSquarePlaylists()
         }
+    }
+
+    private func loadMoreAppleMusicIfLast(_ playlist: Playlist) {
+        if playlist.id == viewModel.appleMusicSquarePlaylists.last?.id {
+            viewModel.loadMoreAppleMusicSquarePlaylists()
+        }
+    }
+
+    private func loadMoreKugouIfLast(_ playlist: Playlist) {
+        if playlist.id == viewModel.kugouSquarePlaylists.last?.id {
+            viewModel.loadMoreKugouSquarePlaylists()
+        }
+    }
+
+    private func loadMoreButton(action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(LocalizedStringKey("查看更多"))
+                .font(categoryFont(selected: true))
+                .foregroundColor(.monologueIconForeground)
+                .frame(maxWidth: .infinity)
+                .frame(height: 46)
+                .background {
+                    if NeumorphicStyle.isActive {
+                        NeumorphicSurfaceBackground(
+                            cornerRadius: 18,
+                            elevated: true,
+                            tint: MusicSource.appleMusic.themedBadgeColor.opacity(0.14),
+                            lightweight: true
+                        )
+                    } else if MujiStyle.isActive {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(MujiStyle.wash(MujiStyle.clay, strength: 0.82))
+                    } else {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(Color.monologueIconBackground)
+                    }
+                }
+        }
+        .buttonStyle(MonologueBouncingButtonStyle(scale: 0.96))
     }
 }
 
@@ -2220,14 +2399,21 @@ struct CinematicCard: View {
 
     private var cardCore: some View {
         ZStack(alignment: .bottomLeading) {
-            CachedAsyncImage(url: playlist.coverUrl?.sized(height > 200 ? 1200 : 800)) {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(Color.monologueSeparator)
+            GeometryReader { proxy in
+                CachedAsyncImage(
+                    url: playlist.coverUrl,
+                    width: proxy.size.width,
+                    height: height
+                ) {
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .fill(Color.monologueSeparator)
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: proxy.size.width, height: height)
+                .clipped()
             }
-            .aspectRatio(contentMode: .fill)
             .frame(maxWidth: .infinity)
             .frame(height: height)
-            .clipped()
 
             LinearGradient(
                 stops: [
@@ -2238,6 +2424,19 @@ struct CinematicCard: View {
                 startPoint: .top,
                 endPoint: .bottom
             )
+
+            VStack {
+                HStack {
+                    PlatformBadgeLabel(
+                        text: playlist.sourceShortName,
+                        source: playlist.source ?? .netease,
+                        fontSize: 10
+                    )
+                    Spacer()
+                }
+                Spacer()
+            }
+            .padding(12)
 
             HStack(alignment: .bottom) {
                 VStack(alignment: .leading, spacing: 5) {
@@ -2330,6 +2529,7 @@ struct ArtistLibraryView: View {
     private enum SearchField: Hashable {
         case ncm
         case qq
+        case appleMusic
     }
 
     private var hasActiveFilter: Bool {
@@ -2343,7 +2543,7 @@ struct ArtistLibraryView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                MusicSourcePicker(source: $viewModel.artistSource, usesPlatformTint: false)
+                MusicSourcePicker(source: $viewModel.artistSource, sources: [.ncm, .qq, .appleMusic], usesPlatformTint: false)
                 Spacer()
             }
             .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
@@ -2352,6 +2552,8 @@ struct ArtistLibraryView: View {
                 dismissArtistSearchKeyboard()
                 if newSource == .qq {
                     viewModel.fetchQQArtistData()
+                } else if newSource == .appleMusic {
+                    viewModel.fetchAppleMusicArtistData()
                 } else {
                     viewModel.fetchArtistData()
                 }
@@ -2359,6 +2561,8 @@ struct ArtistLibraryView: View {
 
             if viewModel.artistSource == .ncm {
                 ncmArtistContent
+            } else if viewModel.artistSource == .appleMusic {
+                appleMusicArtistContent
             } else {
                 qqArtistContent
             }
@@ -2599,6 +2803,64 @@ struct ArtistLibraryView: View {
                     viewModel.loadMoreQQArtists()
                 }
             }
+        }
+    }
+
+    // MARK: - Apple Music Artists
+
+    private var appleMusicArtistContent: some View {
+        VStack(spacing: 0) {
+            HStack {
+                MonologueIcon(icon: .magnifyingGlass, size: 18, color: NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : Theme.secondaryText)
+
+                TextField(String(localized: "搜索 Apple Music 歌手"), text: $viewModel.appleMusicArtistSearchText)
+                    .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(15, weight: .medium) : .system(size: 16, design: .rounded))
+                    .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : Theme.text)
+                    .monologueTextInputBehavior()
+                    .focused($focusedSearchField, equals: .appleMusic)
+                    .submitLabel(.search)
+                    .onSubmit {
+                        dismissArtistSearchKeyboard()
+                        if !viewModel.appleMusicArtistSearchText.isEmpty {
+                            viewModel.searchAppleMusicArtists(keyword: viewModel.appleMusicArtistSearchText)
+                        }
+                    }
+
+                if !viewModel.appleMusicArtistSearchText.isEmpty {
+                    Button(action: {
+                        viewModel.appleMusicArtistSearchText = ""
+                        viewModel.fetchAppleMusicArtistData(reset: true)
+                    }) {
+                        MonologueIcon(icon: .xmark, size: 18, color: NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : Theme.secondaryText)
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
+            .background {
+                if NeumorphicStyle.isActive {
+                    NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, lightweight: true)
+                } else {
+                    Color.clear.monologueGlass(cornerRadius: 20)
+                }
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.bottom, 12)
+            .padding(.top, 8)
+
+            artistGrid(
+                artists: viewModel.appleMusicArtists,
+                isLoading: viewModel.isLoadingAppleMusicArtists,
+                hasMore: viewModel.hasMoreAppleMusicArtists,
+                isSearching: viewModel.isSearchingAppleMusicArtists
+            ) { index in
+                if index == viewModel.appleMusicArtists.count - 1 {
+                    viewModel.loadMoreAppleMusicArtists()
+                }
+            }
+        }
+        .task {
+            viewModel.fetchAppleMusicArtistData()
         }
     }
 
@@ -2849,7 +3111,7 @@ struct ChartsLibraryView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                MusicSourcePicker(source: $viewModel.chartsSource, usesPlatformTint: false)
+                MusicSourcePicker(source: $viewModel.chartsSource, sources: [.ncm, .qq], usesPlatformTint: false)
                 Spacer()
             }
             .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
@@ -3298,7 +3560,7 @@ struct LibraryPlaylistRow: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
             if PetWhiteStyle.isActive {
-                PetWhiteSurfaceBackground(cornerRadius: 22, elevated: false, tint: PetWhiteStyle.surfaceRaised, accent: playlist.source == .qqmusic ? MusicSource.qqmusic.themedBadgeColor : PetWhiteStyle.mint)
+                PetWhiteSurfaceBackground(cornerRadius: 22, elevated: false, tint: PetWhiteStyle.surfaceRaised, accent: (playlist.source ?? .netease).themedBadgeColor)
             } else if NeumorphicStyle.isActive {
                 NeumorphicSurfaceBackground(cornerRadius: 20, elevated: true, lightweight: true)
             } else if CapsuleStyle.isActive {

@@ -1,5 +1,7 @@
 import SwiftUI
 
+/// Capsule（胶囊）主题的 `GlobalThemeProvider` 实现：
+/// 提供配色/字体/形状/动画定义，并为各主页面返回 Capsule 包装视图。
 struct CapsuleThemeProvider: GlobalThemeProvider {
     let id: GlobalThemeId = .capsule
 

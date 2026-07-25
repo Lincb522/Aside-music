@@ -11,11 +11,13 @@ final class PlayHistory {
     var playDuration: Int // 播放时长（秒）
     var completed: Bool // 是否播放完成
     
-    // 音乐来源信息（v2 新增）
+    // 协议 v2 起同步音乐来源。
     var sourceRaw: String? // MusicSource.rawValue
     var qqMid: String?
     var qqAlbumMid: String?
     var qishuiTrackId: Int?
+    var appleMusicID: String?
+    var appleMusicISRC: String?
     
     init(
         songId: Int,
@@ -27,7 +29,9 @@ final class PlayHistory {
         sourceRaw: String? = nil,
         qqMid: String? = nil,
         qqAlbumMid: String? = nil,
-        qishuiTrackId: Int? = nil
+        qishuiTrackId: Int? = nil,
+        appleMusicID: String? = nil,
+        appleMusicISRC: String? = nil
     ) {
         self.id = UUID()
         self.songId = songId
@@ -41,6 +45,8 @@ final class PlayHistory {
         self.qqMid = qqMid
         self.qqAlbumMid = qqAlbumMid
         self.qishuiTrackId = qishuiTrackId
+        self.appleMusicID = appleMusicID
+        self.appleMusicISRC = appleMusicISRC
     }
     
     /// 从 Song 创建
@@ -55,7 +61,9 @@ final class PlayHistory {
             sourceRaw: song.source?.rawValue,
             qqMid: song.qqMid,
             qqAlbumMid: song.qqAlbumMid,
-            qishuiTrackId: song.qishuiTrackId
+            qishuiTrackId: song.qishuiTrackId,
+            appleMusicID: song.appleMusicID,
+            appleMusicISRC: song.appleMusicISRC
         )
     }
     
@@ -85,6 +93,8 @@ final class PlayHistory {
         song.qqMid = qqMid
         song.qqAlbumMid = qqAlbumMid
         song.qishuiTrackId = qishuiTrackId
+        song.appleMusicID = appleMusicID
+        song.appleMusicISRC = appleMusicISRC
         return song
     }
 }
@@ -112,7 +122,8 @@ extension PlayHistory: MonoEntity {
         .init("id", .uuid), .init("songId", .int), .init("songName", .string),
         .init("artistName", .string), .init("coverUrl", .string), .init("playedAt", .date),
         .init("playDuration", .int), .init("completed", .bool), .init("sourceRaw", .string),
-        .init("qqMid", .string), .init("qqAlbumMid", .string), .init("qishuiTrackId", .int)
+        .init("qqMid", .string), .init("qqAlbumMid", .string), .init("qishuiTrackId", .int),
+        .init("appleMusicID", .string), .init("appleMusicISRC", .string)
     ]
 
     var monoUniqueKey: String { id.uuidString }
@@ -122,7 +133,8 @@ extension PlayHistory: MonoEntity {
             "id": id, "songId": songId, "songName": songName, "artistName": artistName,
             "coverUrl": coverUrl, "playedAt": playedAt, "playDuration": playDuration,
             "completed": completed, "sourceRaw": sourceRaw, "qqMid": qqMid,
-            "qqAlbumMid": qqAlbumMid, "qishuiTrackId": qishuiTrackId
+            "qqAlbumMid": qqAlbumMid, "qishuiTrackId": qishuiTrackId,
+            "appleMusicID": appleMusicID, "appleMusicISRC": appleMusicISRC
         ]
     }
 
@@ -137,7 +149,9 @@ extension PlayHistory: MonoEntity {
             sourceRaw: MonoSnapshotValue.stringOpt(s, "sourceRaw"),
             qqMid: MonoSnapshotValue.stringOpt(s, "qqMid"),
             qqAlbumMid: MonoSnapshotValue.stringOpt(s, "qqAlbumMid"),
-            qishuiTrackId: MonoSnapshotValue.intOpt(s, "qishuiTrackId")
+            qishuiTrackId: MonoSnapshotValue.intOpt(s, "qishuiTrackId"),
+            appleMusicID: MonoSnapshotValue.stringOpt(s, "appleMusicID"),
+            appleMusicISRC: MonoSnapshotValue.stringOpt(s, "appleMusicISRC")
         )
         obj.id = MonoSnapshotValue.uuid(s, "id")
         obj.playedAt = MonoSnapshotValue.date(s, "playedAt")

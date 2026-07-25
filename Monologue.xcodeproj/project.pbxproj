@@ -268,19 +268,19 @@
 			mainGroup = F4CCFD6F2F320B5900FC36CA;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				F48E9C432F3B4F060060F4D4 /* XCLocalSwiftPackageReference "NeteaseCloudMusicAPI-Swift" */,
-				F4DE904C2F42439900F27065 /* XCLocalSwiftPackageReference "QQMusicKit" */,
-				F4DE905D2F42E31F00F27065 /* XCLocalSwiftPackageReference "ffmpeg-swift" */,
-				F4087C1E2F543A24006005CB /* XCLocalSwiftPackageReference "HiconIcons" */,
-				1B8793A2EBAA41FFB9F5D519 /* XCLocalSwiftPackageReference "ZappiconIcons" */,
-				96FB55B756AB4F8CAB80801E /* XCLocalSwiftPackageReference "LucideIcons" */,
-				D4E5F6A7B8C9D0E1F2A3B4C5 /* XCLocalSwiftPackageReference "SolarIcons" */,
-				C0DE10000000000000000002 /* XCLocalSwiftPackageReference "IconExportIcons" */,
-				C0DE20000000000000000002 /* XCLocalSwiftPackageReference "BlobIcons" */,
-				C0DE30000000000000000002 /* XCLocalSwiftPackageReference "doodlePop" */,
-				C0DE40000000000000000002 /* XCLocalSwiftPackageReference "PawPrintIcons" */,
-				C0DE50000000000000000002 /* XCLocalSwiftPackageReference "DotDogSnakeIcons" */,
-				C0DE60000000000000000002 /* XCLocalSwiftPackageReference "MinimalWhiteIcons" */,
+				F48E9C432F3B4F060060F4D4 /* XCLocalSwiftPackageReference "Packages/MusicServices/NeteaseCloudMusicAPI-Swift" */,
+				F4DE904C2F42439900F27065 /* XCLocalSwiftPackageReference "Packages/MusicServices/QQMusicKit" */,
+				F4DE905D2F42E31F00F27065 /* XCLocalSwiftPackageReference "Packages/Audio/ffmpeg-swift" */,
+				F4087C1E2F543A24006005CB /* XCLocalSwiftPackageReference "Packages/Icons/HiconIcons" */,
+				1B8793A2EBAA41FFB9F5D519 /* XCLocalSwiftPackageReference "Packages/Icons/ZappiconIcons" */,
+				96FB55B756AB4F8CAB80801E /* XCLocalSwiftPackageReference "Packages/Icons/LucideIcons" */,
+				D4E5F6A7B8C9D0E1F2A3B4C5 /* XCLocalSwiftPackageReference "Packages/Icons/SolarIcons" */,
+				C0DE10000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/IconExportIcons" */,
+				C0DE20000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/BlobIcons" */,
+				C0DE30000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/doodlePop" */,
+				C0DE40000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/PawPrintIcons" */,
+				C0DE50000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/DotDogSnakeIcons" */,
+				C0DE60000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/MinimalWhiteIcons" */,
 				C0DE70000000000000000002 /* XCRemoteSwiftPackageReference "ZIPFoundation" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -345,7 +345,7 @@
 				CODE_SIGN_ENTITLEMENTS = musicExtensionDebug.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 64;
+				CURRENT_PROJECT_VERSION = 67;
 				DEVELOPMENT_TEAM = 7VJKFX4HF8;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = music/Info.plist;
@@ -381,7 +381,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 64;
+				CURRENT_PROJECT_VERSION = 67;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEPLOYMENT_POSTPROCESSING = YES;
@@ -559,7 +559,7 @@
 				CODE_SIGN_ENTITLEMENTS = MonologueDebug.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 64;
+				CURRENT_PROJECT_VERSION = 67;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = 7VJKFX4HF8;
 				ENABLE_PREVIEWS = YES;
@@ -610,7 +610,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 64;
+				CURRENT_PROJECT_VERSION = 67;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEPLOYMENT_POSTPROCESSING = YES;
@@ -686,57 +686,57 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		1B8793A2EBAA41FFB9F5D519 /* XCLocalSwiftPackageReference "ZappiconIcons" */ = {
+		1B8793A2EBAA41FFB9F5D519 /* XCLocalSwiftPackageReference "Packages/Icons/ZappiconIcons" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ZappiconIcons;
+			relativePath = Packages/Icons/ZappiconIcons;
 		};
-		96FB55B756AB4F8CAB80801E /* XCLocalSwiftPackageReference "LucideIcons" */ = {
+		96FB55B756AB4F8CAB80801E /* XCLocalSwiftPackageReference "Packages/Icons/LucideIcons" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = LucideIcons;
+			relativePath = Packages/Icons/LucideIcons;
 		};
-		C0DE10000000000000000002 /* XCLocalSwiftPackageReference "IconExportIcons" */ = {
+		C0DE10000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/IconExportIcons" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = IconExportIcons;
+			relativePath = Packages/Icons/IconExportIcons;
 		};
-		C0DE20000000000000000002 /* XCLocalSwiftPackageReference "BlobIcons" */ = {
+		C0DE20000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/BlobIcons" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = BlobIcons;
+			relativePath = Packages/Icons/BlobIcons;
 		};
-		C0DE30000000000000000002 /* XCLocalSwiftPackageReference "doodlePop" */ = {
+		C0DE30000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/doodlePop" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = doodlePop;
+			relativePath = Packages/Icons/doodlePop;
 		};
-		C0DE40000000000000000002 /* XCLocalSwiftPackageReference "PawPrintIcons" */ = {
+		C0DE40000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/PawPrintIcons" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = PawPrintIcons;
+			relativePath = Packages/Icons/PawPrintIcons;
 		};
-		C0DE50000000000000000002 /* XCLocalSwiftPackageReference "DotDogSnakeIcons" */ = {
+		C0DE50000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/DotDogSnakeIcons" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = DotDogSnakeIcons;
+			relativePath = Packages/Icons/DotDogSnakeIcons;
 		};
-		C0DE60000000000000000002 /* XCLocalSwiftPackageReference "MinimalWhiteIcons" */ = {
+		C0DE60000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/MinimalWhiteIcons" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = MinimalWhiteIcons;
+			relativePath = Packages/Icons/MinimalWhiteIcons;
 		};
-		D4E5F6A7B8C9D0E1F2A3B4C5 /* XCLocalSwiftPackageReference "SolarIcons" */ = {
+		D4E5F6A7B8C9D0E1F2A3B4C5 /* XCLocalSwiftPackageReference "Packages/Icons/SolarIcons" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = SolarIcons;
+			relativePath = Packages/Icons/SolarIcons;
 		};
-		F4087C1E2F543A24006005CB /* XCLocalSwiftPackageReference "HiconIcons" */ = {
+		F4087C1E2F543A24006005CB /* XCLocalSwiftPackageReference "Packages/Icons/HiconIcons" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = HiconIcons;
+			relativePath = Packages/Icons/HiconIcons;
 		};
-		F48E9C432F3B4F060060F4D4 /* XCLocalSwiftPackageReference "NeteaseCloudMusicAPI-Swift" */ = {
+		F48E9C432F3B4F060060F4D4 /* XCLocalSwiftPackageReference "Packages/MusicServices/NeteaseCloudMusicAPI-Swift" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = "NeteaseCloudMusicAPI-Swift";
+			relativePath = "Packages/MusicServices/NeteaseCloudMusicAPI-Swift";
 		};
-		F4DE904C2F42439900F27065 /* XCLocalSwiftPackageReference "QQMusicKit" */ = {
+		F4DE904C2F42439900F27065 /* XCLocalSwiftPackageReference "Packages/MusicServices/QQMusicKit" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = QQMusicKit;
+			relativePath = Packages/MusicServices/QQMusicKit;
 		};
-		F4DE905D2F42E31F00F27065 /* XCLocalSwiftPackageReference "ffmpeg-swift" */ = {
+		F4DE905D2F42E31F00F27065 /* XCLocalSwiftPackageReference "Packages/Audio/ffmpeg-swift" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = "ffmpeg-swift";
+			relativePath = "Packages/Audio/ffmpeg-swift";
 		};
 /* End XCLocalSwiftPackageReference section */
 
@@ -754,42 +754,42 @@
 /* Begin XCSwiftPackageProductDependency section */
 		138061FE3E0D4FB49D5E933B /* LucideIcons */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 96FB55B756AB4F8CAB80801E /* XCLocalSwiftPackageReference "LucideIcons" */;
+			package = 96FB55B756AB4F8CAB80801E /* XCLocalSwiftPackageReference "Packages/Icons/LucideIcons" */;
 			productName = LucideIcons;
 		};
 		B6C6DF8C628840ABA8D68950 /* ZappiconIcons */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 1B8793A2EBAA41FFB9F5D519 /* XCLocalSwiftPackageReference "ZappiconIcons" */;
+			package = 1B8793A2EBAA41FFB9F5D519 /* XCLocalSwiftPackageReference "Packages/Icons/ZappiconIcons" */;
 			productName = ZappiconIcons;
 		};
 		C0DE10000000000000000003 /* IconExportIcons */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = C0DE10000000000000000002 /* XCLocalSwiftPackageReference "IconExportIcons" */;
+			package = C0DE10000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/IconExportIcons" */;
 			productName = IconExportIcons;
 		};
 		C0DE20000000000000000003 /* BlobIcons */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = C0DE20000000000000000002 /* XCLocalSwiftPackageReference "BlobIcons" */;
+			package = C0DE20000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/BlobIcons" */;
 			productName = BlobIcons;
 		};
 		C0DE30000000000000000003 /* doodlePop */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = C0DE30000000000000000002 /* XCLocalSwiftPackageReference "doodlePop" */;
+			package = C0DE30000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/doodlePop" */;
 			productName = doodlePop;
 		};
 		C0DE40000000000000000003 /* PawPrintIcons */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = C0DE40000000000000000002 /* XCLocalSwiftPackageReference "PawPrintIcons" */;
+			package = C0DE40000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/PawPrintIcons" */;
 			productName = PawPrintIcons;
 		};
 		C0DE50000000000000000003 /* DotDogSnakeIcons */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = C0DE50000000000000000002 /* XCLocalSwiftPackageReference "DotDogSnakeIcons" */;
+			package = C0DE50000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/DotDogSnakeIcons" */;
 			productName = DotDogSnakeIcons;
 		};
 		C0DE60000000000000000003 /* MinimalWhiteIcons */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = C0DE60000000000000000002 /* XCLocalSwiftPackageReference "MinimalWhiteIcons" */;
+			package = C0DE60000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/MinimalWhiteIcons" */;
 			productName = MinimalWhiteIcons;
 		};
 		C0DE70000000000000000003 /* ZIPFoundation */ = {
@@ -803,7 +803,7 @@
 		};
 		F1E2D3C4B5A6978869504132 /* SolarIcons */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = D4E5F6A7B8C9D0E1F2A3B4C5 /* XCLocalSwiftPackageReference "SolarIcons" */;
+			package = D4E5F6A7B8C9D0E1F2A3B4C5 /* XCLocalSwiftPackageReference "Packages/Icons/SolarIcons" */;
 			productName = SolarIcons;
 		};
 		F4087C1F2F543A24006005CB /* HiconIcons */ = {
@@ -812,17 +812,17 @@
 		};
 		F48E9C442F3B4F060060F4D4 /* NeteaseCloudMusicAPI */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = F48E9C432F3B4F060060F4D4 /* XCLocalSwiftPackageReference "NeteaseCloudMusicAPI-Swift" */;
+			package = F48E9C432F3B4F060060F4D4 /* XCLocalSwiftPackageReference "Packages/MusicServices/NeteaseCloudMusicAPI-Swift" */;
 			productName = NeteaseCloudMusicAPI;
 		};
 		F4DE904D2F42439900F27065 /* QQMusicKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = F4DE904C2F42439900F27065 /* XCLocalSwiftPackageReference "QQMusicKit" */;
+			package = F4DE904C2F42439900F27065 /* XCLocalSwiftPackageReference "Packages/MusicServices/QQMusicKit" */;
 			productName = QQMusicKit;
 		};
 		F4DE905E2F42E31F00F27065 /* FFmpegSwiftSDK */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = F4DE905D2F42E31F00F27065 /* XCLocalSwiftPackageReference "ffmpeg-swift" */;
+			package = F4DE905D2F42E31F00F27065 /* XCLocalSwiftPackageReference "Packages/Audio/ffmpeg-swift" */;
 			productName = FFmpegSwiftSDK;
 		};
 /* End XCSwiftPackageProductDependency section */

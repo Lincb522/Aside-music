@@ -7,13 +7,14 @@ import UniformTypeIdentifiers
 
 struct ScrollableLibraryExperience: View {
     private enum MyLibraryColumn: CaseIterable, Hashable {
-        case localPlaylists, ncmPlaylists, qcmPlaylists, localPodcasts, ncmPodcasts
+        case localPlaylists, ncmPlaylists, qcmPlaylists, appleMusic, localPodcasts, ncmPodcasts
 
         var title: String {
             switch self {
             case .localPlaylists: return String(localized: "lib_local_playlists")
             case .ncmPlaylists: return String(localized: "lib_netease_playlists")
             case .qcmPlaylists: return String(localized: "QCM歌单")
+            case .appleMusic: return String(localized: "apple_music_library")
             case .localPodcasts: return String(localized: "本地播客")
             case .ncmPodcasts: return String(localized: "NCM 播客")
             }
@@ -23,6 +24,7 @@ struct ScrollableLibraryExperience: View {
             switch self {
             case .localPlaylists: return .musicNoteList
             case .ncmPlaylists, .qcmPlaylists: return .list
+            case .appleMusic: return .musicNote
             case .localPodcasts, .ncmPodcasts: return .radio
             }
         }
@@ -69,9 +71,9 @@ struct ScrollableLibraryExperience: View {
 
     private var activeTabShortLabel: String {
         switch selectedTab {
-        case .my: return String(localized: "我的")
+        case .my: return String(localized: "tab_profile")
         case .square: return String(localized: "广场")
-        case .artists: return String(localized: "歌手")
+        case .artists: return String(localized: "lib_tab_artists")
         case .charts: return String(localized: "榜单")
         }
     }
@@ -1065,6 +1067,9 @@ struct ScrollableLibraryExperience: View {
         case .localPlaylists: localPlaylistsSection
         case .ncmPlaylists: ncmPlaylistsSection
         case .qcmPlaylists: qcmPlaylistsSection
+        case .appleMusic:
+            AppleMusicLibraryView(embeddedInParentScroll: true)
+                .padding(.horizontal, contentHorizontalPadding)
         case .localPodcasts: localPodcastsSection
         case .ncmPodcasts: ncmPodcastsSection
         }
@@ -1141,7 +1146,7 @@ struct ScrollableLibraryExperience: View {
             if isLoadingQQUserPlaylists && qqUserPlaylists.isEmpty {
                 LibraryLoadingStateView()
             } else if !qqSession.isLoggedIn {
-                ThemedLibraryEmptyState(icon: .musicNoteList, title: String(localized: "请先登录 QCM"), tint: MusicSource.qqmusic.themedBadgeColor)
+                ThemedLibraryEmptyState(icon: .musicNoteList, title: String(localized: "qcm_login_required"), tint: MusicSource.qqmusic.themedBadgeColor)
                     .padding(.horizontal, contentHorizontalPadding)
             } else if qqUserPlaylists.isEmpty {
                 ThemedLibraryEmptyState(icon: .list, title: String(localized: "暂无 QCM 歌单"), tint: MusicSource.qqmusic.themedBadgeColor)
@@ -1208,7 +1213,7 @@ struct ScrollableLibraryExperience: View {
         VStack(alignment: .leading, spacing: 14) {
             sourceStrip(selected: viewModel.squareSource) { source in
                 viewModel.squareSource = source
-                source == .qq ? viewModel.fetchQQSquareData() : viewModel.fetchSquareData()
+                viewModel.fetchSquareForSelectedSource()
             }
             .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
 
@@ -1218,6 +1223,19 @@ struct ScrollableLibraryExperience: View {
 
                 if viewModel.hasMoreQQSquare && !viewModel.qqSquarePlaylists.isEmpty {
                     loadMoreButton { viewModel.loadMoreQQSquarePlaylists() }
+                }
+            } else if viewModel.squareSource == .kugou {
+                kugouCategoryBar
+                playlistGrid(playlists: viewModel.kugouSquarePlaylists, isLoading: viewModel.isLoadingKugouSquare, emptyTitle: "暂无KCM推荐歌单")
+
+                if viewModel.hasMoreKugouSquare && !viewModel.kugouSquarePlaylists.isEmpty {
+                    loadMoreButton { viewModel.loadMoreKugouSquarePlaylists() }
+                }
+            } else if viewModel.squareSource == .appleMusic {
+                playlistGrid(playlists: viewModel.appleMusicSquarePlaylists, isLoading: viewModel.isLoadingAppleMusicSquare, emptyTitle: String(localized: "empty_no_playlists"))
+
+                if viewModel.hasMoreAppleMusicSquare && !viewModel.appleMusicSquarePlaylists.isEmpty {
+                    loadMoreButton { viewModel.loadMoreAppleMusicSquarePlaylists() }
                 }
             } else {
                 ncmCategoryBar
@@ -1233,76 +1251,78 @@ struct ScrollableLibraryExperience: View {
     private var artistsPage: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 8) {
-                sourceStrip(selected: viewModel.artistSource) { source in
+                sourceStrip(selected: viewModel.artistSource, sources: [.ncm, .qq, .appleMusic]) { source in
                     viewModel.artistSource = source
-                    source == .qq ? viewModel.fetchQQArtistData(reset: true) : viewModel.fetchArtistData(reset: true)
+                    viewModel.fetchArtistsForSelectedSource(reset: true)
                 }
 
                 Spacer(minLength: 0)
 
-                Button {
-                    withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) {
-                        isArtistFiltersExpanded.toggle()
+                if viewModel.artistSource != .appleMusic {
+                    Button {
+                        withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) {
+                            isArtistFiltersExpanded.toggle()
+                        }
+                    } label: {
+                        if PetWhiteStyle.isActive {
+                            HStack(spacing: 6) {
+                                PetWhitePackIcon(
+                                    icon: isArtistFiltersExpanded ? .close : .filter,
+                                    size: 14,
+                                    visualScale: 1.05,
+                                    fallbackColor: PetWhiteStyle.ink,
+                                    lineWidth: 1.75
+                                )
+                                Text(isArtistFiltersExpanded ? String(localized: "收起") : String(localized: "筛选"))
+                                    .font(PetWhiteStyle.labelFont(11, weight: .black))
+                                    .foregroundStyle(PetWhiteStyle.ink)
+                            }
+                            .padding(.horizontal, 11)
+                            .frame(height: 34)
+                            .background(
+                                PetWhiteSurfaceBackground(
+                                    cornerRadius: 14,
+                                    elevated: isArtistFiltersExpanded,
+                                    tint: isArtistFiltersExpanded ? PetWhiteStyle.mint.opacity(0.22) : PetWhiteStyle.surfacePressed,
+                                    accent: PetWhiteStyle.mint
+                                )
+                            )
+                        } else if NeumorphicStyle.isActive {
+                            HStack(spacing: 6) {
+                                MonologueIcon(icon: isArtistFiltersExpanded ? .close : .filter, size: 14, color: isArtistFiltersExpanded ? defaultAccent : NeumorphicStyle.inkSoft, lineWidth: 1.7)
+                                Text(isArtistFiltersExpanded ? String(localized: "收起") : String(localized: "筛选"))
+                                    .font(NeumorphicStyle.labelFont(11, weight: .semibold))
+                                    .foregroundStyle(isArtistFiltersExpanded ? NeumorphicStyle.ink : NeumorphicStyle.inkSoft)
+                            }
+                            .padding(.horizontal, 12)
+                            .frame(height: 38)
+                            .background(
+                                NeumorphicSurfaceBackground(
+                                    cornerRadius: 15,
+                                    elevated: isArtistFiltersExpanded,
+                                    pressed: !isArtistFiltersExpanded,
+                                    tint: isArtistFiltersExpanded ? defaultAccent.opacity(0.15) : NeumorphicStyle.surface,
+                                    lightweight: true
+                                )
+                            )
+                        } else {
+                            HStack(spacing: 6) {
+                                MonologueIcon(icon: isArtistFiltersExpanded ? .close : .filter, size: 14, color: isArtistFiltersExpanded ? selectedChipText : secondaryText, lineWidth: 1.8)
+                                Text(isArtistFiltersExpanded ? String(localized: "收起") : String(localized: "筛选"))
+                                    .font(chipFont(selected: isArtistFiltersExpanded))
+                                    .foregroundColor(isArtistFiltersExpanded ? selectedChipText : secondaryText)
+                            }
+                            .padding(.horizontal, 12)
+                            .frame(height: 38)
+                            .background(panelBackground(cornerRadius: 14))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .fill(isArtistFiltersExpanded ? defaultAccent.opacity(0.14) : .clear)
+                            )
+                        }
                     }
-                } label: {
-                    if PetWhiteStyle.isActive {
-                        HStack(spacing: 6) {
-                            PetWhitePackIcon(
-                                icon: isArtistFiltersExpanded ? .close : .filter,
-                                size: 14,
-                                visualScale: 1.05,
-                                fallbackColor: PetWhiteStyle.ink,
-                                lineWidth: 1.75
-                            )
-                            Text(isArtistFiltersExpanded ? String(localized: "收起") : String(localized: "筛选"))
-                                .font(PetWhiteStyle.labelFont(11, weight: .black))
-                                .foregroundStyle(PetWhiteStyle.ink)
-                        }
-                        .padding(.horizontal, 11)
-                        .frame(height: 34)
-                        .background(
-                            PetWhiteSurfaceBackground(
-                                cornerRadius: 14,
-                                elevated: isArtistFiltersExpanded,
-                                tint: isArtistFiltersExpanded ? PetWhiteStyle.mint.opacity(0.22) : PetWhiteStyle.surfacePressed,
-                                accent: PetWhiteStyle.mint
-                            )
-                        )
-                    } else if NeumorphicStyle.isActive {
-                        HStack(spacing: 6) {
-                            MonologueIcon(icon: isArtistFiltersExpanded ? .close : .filter, size: 14, color: isArtistFiltersExpanded ? defaultAccent : NeumorphicStyle.inkSoft, lineWidth: 1.7)
-                            Text(isArtistFiltersExpanded ? String(localized: "收起") : String(localized: "筛选"))
-                                .font(NeumorphicStyle.labelFont(11, weight: .semibold))
-                                .foregroundStyle(isArtistFiltersExpanded ? NeumorphicStyle.ink : NeumorphicStyle.inkSoft)
-                        }
-                        .padding(.horizontal, 12)
-                        .frame(height: 38)
-                        .background(
-                            NeumorphicSurfaceBackground(
-                                cornerRadius: 15,
-                                elevated: isArtistFiltersExpanded,
-                                pressed: !isArtistFiltersExpanded,
-                                tint: isArtistFiltersExpanded ? defaultAccent.opacity(0.15) : NeumorphicStyle.surface,
-                                lightweight: true
-                            )
-                        )
-                    } else {
-                        HStack(spacing: 6) {
-                            MonologueIcon(icon: isArtistFiltersExpanded ? .close : .filter, size: 14, color: isArtistFiltersExpanded ? selectedChipText : secondaryText, lineWidth: 1.8)
-                            Text(isArtistFiltersExpanded ? String(localized: "收起") : String(localized: "筛选"))
-                                .font(chipFont(selected: isArtistFiltersExpanded))
-                                .foregroundColor(isArtistFiltersExpanded ? selectedChipText : secondaryText)
-                        }
-                        .padding(.horizontal, 12)
-                        .frame(height: 38)
-                        .background(panelBackground(cornerRadius: 14))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(isArtistFiltersExpanded ? defaultAccent.opacity(0.14) : .clear)
-                        )
-                    }
+                    .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
                 }
-                .buttonStyle(MonologueBouncingButtonStyle(scale: 0.94))
             }
             .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
 
@@ -1310,7 +1330,7 @@ struct ScrollableLibraryExperience: View {
                 VStack(spacing: 10) {
                     if viewModel.artistSource == .qq {
                         qqArtistFilterBars
-                    } else {
+                    } else if viewModel.artistSource == .ncm {
                         ncmArtistFilterBars
                     }
                 }
@@ -1322,6 +1342,11 @@ struct ScrollableLibraryExperience: View {
                 artistGrid(artists: viewModel.qqArtists, isLoading: viewModel.isLoadingQQArtists, tint: MusicSource.qqmusic.themedBadgeColor)
                 if viewModel.hasMoreQQArtists && !viewModel.qqArtists.isEmpty {
                     loadMoreButton { viewModel.loadMoreQQArtists() }
+                }
+            } else if viewModel.artistSource == .appleMusic {
+                artistGrid(artists: viewModel.appleMusicArtists, isLoading: viewModel.isLoadingAppleMusicArtists, tint: MusicSource.appleMusic.themedBadgeColor)
+                if viewModel.hasMoreAppleMusicArtists && !viewModel.appleMusicArtists.isEmpty {
+                    loadMoreButton { viewModel.loadMoreAppleMusicArtists() }
                 }
             } else {
                 artistGrid(artists: viewModel.topArtists, isLoading: viewModel.isLoadingArtists, tint: tertiaryAccent)
@@ -1335,9 +1360,9 @@ struct ScrollableLibraryExperience: View {
     private var chartsPage: some View {
         VStack(alignment: .leading, spacing: 16) {
             if NeumorphicStyle.isActive {
-                sourceStrip(selected: viewModel.chartsSource) { source in
+                sourceStrip(selected: viewModel.chartsSource, sources: [.ncm, .qq]) { source in
                     viewModel.chartsSource = source
-                    source == .qq ? viewModel.fetchQQTopLists() : viewModel.fetchTopLists()
+                    viewModel.fetchChartsForSelectedSource()
                 }
                 .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
             }
@@ -1451,8 +1476,18 @@ struct ScrollableLibraryExperience: View {
         }
     }
 
+    private var kugouCategoryBar: some View {
+        horizontalFilterBar {
+            ForEach(viewModel.kugouPlaylistCategories) { category in
+                filterChip(title: category.name, selected: viewModel.selectedKugouCategoryID == category.id, tint: MusicSource.kugou.themedBadgeColor) {
+                    viewModel.selectKugouCategory(category)
+                }
+            }
+        }
+    }
+
     private var filteredQQCategories: [(id: Int, name: String)] {
-        let hidden: Set<String> = [String(localized: "全部"), String(localized: "ai歌单"), String(localized: "私藏"), String(localized: "音乐人在听"), "chill vibes", String(localized: "ai 歌单")]
+        let hidden: Set<String> = [String(localized: "filter_all"), String(localized: "ai歌单"), String(localized: "私藏"), String(localized: "音乐人在听"), "chill vibes", String(localized: "ai 歌单")]
         return viewModel.qqPlaylistCategories.filter { !hidden.contains($0.name.lowercased()) }
     }
 
@@ -1528,17 +1563,17 @@ struct ScrollableLibraryExperience: View {
                             if NeumorphicStyle.isActive {
                                 NeumorphicPlaylistPoster(
                                     playlist: playlist,
-                                    tint: playlist.source == .qqmusic ? MusicSource.qqmusic.themedBadgeColor : MusicSource.netease.themedBadgeColor
+                                    tint: playlistSourceTint(playlist)
                                 )
                             } else if SequoiaStyle.isActive {
                                 SequoiaLibraryPlaylistTile(
                                     playlist: playlist,
-                                    tint: playlist.source == .qqmusic ? MusicSource.qqmusic.themedBadgeColor : MusicSource.netease.themedBadgeColor
+                                    tint: playlistSourceTint(playlist)
                                 )
                             } else if PetWhiteStyle.isActive {
                                 PetWhiteLibraryPlaylistCard(
                                     playlist: playlist,
-                                    tint: playlist.source == .qqmusic ? MusicSource.qqmusic.themedBadgeColor : PetWhiteStyle.mint
+                                    tint: playlistSourceTint(playlist)
                                 )
                             } else {
                                 CinematicCard(playlist: playlist, height: 168)
@@ -1549,6 +1584,19 @@ struct ScrollableLibraryExperience: View {
                 }
                 .padding(.horizontal, contentHorizontalPadding)
             }
+        }
+    }
+
+    private func playlistSourceTint(_ playlist: Playlist) -> Color {
+        switch playlist.source {
+        case .qqmusic:
+            return MusicSource.qqmusic.themedBadgeColor
+        case .kugou:
+            return MusicSource.kugou.themedBadgeColor
+        case .appleMusic:
+            return MusicSource.appleMusic.themedBadgeColor
+        default:
+            return MusicSource.netease.themedBadgeColor
         }
     }
 
@@ -1573,11 +1621,23 @@ struct ScrollableLibraryExperience: View {
         }
     }
 
-    private func sourceStrip(selected: LibraryViewModel.MusicSource, onSelect: @escaping (LibraryViewModel.MusicSource) -> Void) -> some View {
+    private func sourceStrip(
+        selected: LibraryViewModel.MusicSource,
+        sources: [LibraryViewModel.MusicSource] = LibraryViewModel.MusicSource.allCases,
+        onSelect: @escaping (LibraryViewModel.MusicSource) -> Void
+    ) -> some View {
         HStack(spacing: 6) {
-            ForEach(LibraryViewModel.MusicSource.allCases, id: \.self) { source in
+            ForEach(sources, id: \.self) { source in
                 let isSelected = selected == source
-                let tint = source == .ncm ? MusicSource.netease.themedBadgeColor : MusicSource.qqmusic.themedBadgeColor
+                let tint: Color = {
+                    switch source {
+                    case .ncm: return MusicSource.netease.themedBadgeColor
+                    case .qq: return MusicSource.qqmusic.themedBadgeColor
+                    case .kugou: return MusicSource.kugou.themedBadgeColor
+                    case .appleMusic: return MusicSource.appleMusic.themedBadgeColor
+                    }
+                }()
+                let title = source.shortName
                 Button {
                     guard !isSelected else { return }
                     withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) {
@@ -1586,8 +1646,8 @@ struct ScrollableLibraryExperience: View {
                 } label: {
                     if NeumorphicStyle.isActive {
                         HStack(spacing: 7) {
-                            MonologueIcon(icon: source == .ncm ? .musicNoteList : .library, size: 13, color: isSelected ? tint : secondaryText, lineWidth: 1.65)
-                            Text(source == .ncm ? "NCM" : "QCM")
+                            MonologueIcon(icon: source == .appleMusic ? .musicNote : (source == .ncm ? .musicNoteList : .library), size: 13, color: isSelected ? tint : secondaryText, lineWidth: 1.65)
+                            Text(title)
                                 .font(chipFont(selected: isSelected))
                                 .foregroundColor(isSelected ? primaryText : secondaryText)
                         }
@@ -1595,7 +1655,7 @@ struct ScrollableLibraryExperience: View {
                         .frame(height: 40)
                         .background(chipBackground(selected: isSelected, tint: tint, capsule: false))
                     } else {
-                        Text(source == .ncm ? "NCM" : "QCM")
+                        Text(title)
                             .font(chipFont(selected: isSelected))
                             .foregroundColor(isSelected ? selectedChipText : secondaryText)
                             .padding(.horizontal, 15)
@@ -1724,9 +1784,9 @@ struct ScrollableLibraryExperience: View {
                 subManager.fetchSubscribedRadios()
             }
         case .square:
-            viewModel.squareSource == .qq ? viewModel.fetchQQSquareData() : viewModel.fetchSquareData()
+            viewModel.fetchSquareForSelectedSource()
         case .artists:
-            viewModel.artistSource == .qq ? viewModel.fetchQQArtistData() : viewModel.fetchArtistData()
+            viewModel.fetchArtistsForSelectedSource()
         case .charts:
             if NeumorphicStyle.isActive && viewModel.chartsSource == .qq {
                 viewModel.fetchQQTopLists()
@@ -1812,8 +1872,8 @@ struct ScrollableLibraryExperience: View {
             title: String(localized: "从链接导入歌单"),
             message: "",
             placeholder: String(localized: "粘贴歌单链接"),
-            primaryButtonTitle: String(localized: "导入"),
-            secondaryButtonTitle: String(localized: "取消"),
+            primaryButtonTitle: String(localized: "local_toolbar_import"),
+            secondaryButtonTitle: String(localized: "cancel"),
             onConfirm: { url in
                 importPlaylistFromURL(url)
             }
@@ -1965,7 +2025,7 @@ struct ScrollableLibraryExperience: View {
                     if allSongs.isEmpty {
                         AlertManager.shared.show(
                             title: String(localized: "lib_import_failed"),
-                            message: String(localized: "歌单为空或获取失败"),
+                            message: String(localized: "playlist_empty_or_load_failed"),
                             primaryButtonTitle: String(localized: "lib_confirm"),
                             primaryAction: {}
                         )
@@ -1978,7 +2038,10 @@ struct ScrollableLibraryExperience: View {
                 await MainActor.run {
                     AlertManager.shared.show(
                         title: String(localized: "lib_import_failed"),
-                        message: String(localized: "QCM歌单导入失败: \(error.localizedDescription)"),
+                        message: L10n.format(
+                            "qcm_playlist_import_failed_format",
+                            error.localizedDescription
+                        ),
                         primaryButtonTitle: String(localized: "lib_confirm"),
                         primaryAction: {}
                     )
@@ -2026,7 +2089,7 @@ struct ScrollableLibraryExperience: View {
                 if allSongs.isEmpty {
                     AlertManager.shared.show(
                         title: String(localized: "lib_import_failed"),
-                        message: String(localized: "歌单为空或获取失败"),
+                        message: String(localized: "playlist_empty_or_load_failed"),
                         primaryButtonTitle: String(localized: "lib_confirm"),
                         primaryAction: {}
                     )
@@ -2098,6 +2161,7 @@ struct ScrollableLibraryExperience: View {
         case .localPlaylists: return defaultAccent
         case .ncmPlaylists: return MusicSource.netease.themedBadgeColor
         case .qcmPlaylists: return MusicSource.qqmusic.themedBadgeColor
+        case .appleMusic: return MusicSource.appleMusic.themedBadgeColor
         case .localPodcasts: return tertiaryAccent
         case .ncmPodcasts: return secondaryAccent
         }
@@ -2408,7 +2472,7 @@ private struct PetWhiteLibraryPlaylistCard: View {
         if let trackCount = playlist.trackCount, trackCount > 0 {
             return String(format: String(localized: "songs_count_format"), trackCount)
         }
-        return playlist.source == .qqmusic ? "QCM" : "NCM"
+        return playlist.sourceShortName
     }
 }
 

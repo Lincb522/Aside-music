@@ -1,22 +1,18 @@
-// SelectableThemeWidget.swift
-// Monologue Widget Extension
-//
-// 「自选主题」小组件：与 13 个固定主题小组件并存，
-// 用户长按 → 编辑小组件即可在下拉框里随时切换主题，无需删除重加。
+// 可配置主题组件与固定主题组件并存，配置由 AppIntent 持久化。
 
 import AppIntents
 import SwiftUI
 import WidgetKit
 
-// MARK: - Theme AppEnum
+// MARK: - 主题 AppEnum
 
 extension WidgetTheme: AppEnum {
     static var typeDisplayRepresentation: TypeDisplayRepresentation {
         TypeDisplayRepresentation(name: "主题")
     }
 
-    // appintentsmetadataprocessor 在编译期静态提取，此处必须是穷举的
-    // 字典字面量（不能由 allCases 动态构造），文案需与 displayName 保持一致。
+    /// App Intents 编译期只接受穷举字典字面量，不能由 `allCases` 动态构造；
+    /// 展示文案需与 `displayName` 保持一致。
     static let caseDisplayRepresentations: [WidgetTheme: DisplayRepresentation] = [
         .polaroid: "拍立得",
         .vinyl: "黑胶",
@@ -34,8 +30,9 @@ extension WidgetTheme: AppEnum {
     ]
 }
 
-// MARK: - Configuration Intent
+// MARK: - 配置 Intent
 
+/// 保存单个 Widget 实例选择的主题。
 struct NowPlayingThemeIntent: WidgetConfigurationIntent {
     static let title: LocalizedStringResource = "选择主题"
     static let description = IntentDescription("选择这个小组件使用的主题")
@@ -44,8 +41,9 @@ struct NowPlayingThemeIntent: WidgetConfigurationIntent {
     var theme: WidgetTheme
 }
 
-// MARK: - Provider
+// MARK: - 时间线提供器
 
+/// 将实例配置的主题转交给统一的当前播放时间线提供器。
 struct SelectableNowPlayingProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> NowPlayingEntry {
         NowPlayingEntry.preview(theme: .polaroid)
@@ -66,8 +64,9 @@ struct SelectableNowPlayingProvider: AppIntentTimelineProvider {
     }
 }
 
-// MARK: - Widget
+// MARK: - 可配置主题组件
 
+/// 允许每个 Widget 实例独立选择当前播放主题。
 struct SelectableNowPlayingWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(

@@ -167,7 +167,7 @@ struct MujiHomeView: View {
 
                 if !viewModel.recommendPlaylists.isEmpty {
                     mujiPlaylistSection(
-                        title: String(localized: "推荐歌单"),
+                        title: String(localized: "recommended_playlists"),
                         playlists: viewModel.recommendPlaylists,
                         action: openLibrarySquare
                     )
@@ -197,7 +197,7 @@ struct MujiHomeView: View {
         .scrollIndicators(.hidden)
         .themeRenderScrollLayer()
         .refreshable {
-            viewModel.fetchData()
+            viewModel.retryHomeDataLoad(reason: "muji home pull refresh")
             if hitokotoEnabled {
                 viewModel.refreshHitokoto(force: true)
             }
@@ -382,7 +382,7 @@ struct MujiHomeView: View {
     private var mujiDailySection: some View {
         VStack(alignment: .leading, spacing: 18) {
             MujiSectionTitle(
-                title: String(localized: "每日推荐"),
+                title: String(localized: "daily_recommend"),
                 actionTitle: String(localized: "view_all"),
                 action: { navigationPath.append(HomeView.HomeDestination.dailyRecommend) }
             )

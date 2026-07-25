@@ -1,5 +1,8 @@
 import SwiftUI
 
+// Capsule 主题的基础套件：配色/字体常量、背景、卡片与通用 UI 构建块。
+
+/// Capsule 主题的设计令牌：颜色、圆角、字体与激活状态判断。
 enum CapsuleStyle {
     static var isActive: Bool {
         GlobalThemeId.persistedOrDefault == .capsule
@@ -105,6 +108,7 @@ enum CapsuleStyle {
     }
 }
 
+/// 全局背景：底色 + 柔光渐变光斑。
 struct CapsuleRootBackdrop: View {
     @Environment(\.colorScheme) private var colorScheme
 
@@ -162,6 +166,7 @@ private struct CapsuleBackdropField: View {
     }
 }
 
+/// 卡片/控件的通用背景面（可选抬升阴影与描边）。
 struct CapsuleSurfaceBackground: View {
     var cornerRadius: CGFloat = CapsuleStyle.cardRadius
     var elevated = true
@@ -192,6 +197,7 @@ struct CapsuleFlatRowBackground: View {
     }
 }
 
+/// 页面头部：小标题 + 大标题 + 可选尾部配件。
 struct CapsulePageHeader<Accessory: View>: View {
     let eyebrow: String
     let title: String

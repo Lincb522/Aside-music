@@ -1,4 +1,3 @@
-// SecureConfig.swift
 // 安全配置管理 — 从 Info.plist 读取敏感配置，避免硬编码在源码中
 
 import Foundation
@@ -137,12 +136,29 @@ enum SecureConfig {
 
     /// 是否配置了备用线路
     static var hasBackupLine: Bool {
+        hasFirstBackupLine || hasSecondBackupLine
+    }
+
+    /// 是否配置了第一备用线路
+    static var hasFirstBackupLine: Bool {
         configValue("API_BASE_URL_BACKUP") != nil
+            && configValue("QQ_MUSIC_BASE_URL_BACKUP") != nil
+            && configValue("QISHUI_BASE_URL_BACKUP") != nil
+    }
+
+    /// 是否配置了第二备用线路
+    static var hasSecondBackupLine: Bool {
+        configValue("API_BASE_URL_BACKUP_2") != nil
+            && configValue("QQ_MUSIC_BASE_URL_BACKUP_2") != nil
+            && configValue("QISHUI_BASE_URL_BACKUP_2") != nil
     }
 
     /// ncm API 服务器地址（指定线路）
     static func apiBaseURL(for line: ServerLine) -> String {
         if line == .backup, let backup = configValue("API_BASE_URL_BACKUP") {
+            return backup
+        }
+        if line == .backup2, let backup = configValue("API_BASE_URL_BACKUP_2") {
             return backup
         }
         if let primary = configValue("API_BASE_URL") {
@@ -162,6 +178,9 @@ enum SecureConfig {
         if line == .backup, let backup = configValue("QQ_MUSIC_BASE_URL_BACKUP") {
             return backup
         }
+        if line == .backup2, let backup = configValue("QQ_MUSIC_BASE_URL_BACKUP_2") {
+            return backup
+        }
         if let primary = configValue("QQ_MUSIC_BASE_URL") {
             return primary
         }
@@ -177,6 +196,9 @@ enum SecureConfig {
     /// 汽水音乐 API 服务器地址（指定线路）
     static func qishuiBaseURL(for line: ServerLine) -> String {
         if line == .backup, let backup = configValue("QISHUI_BASE_URL_BACKUP") {
+            return backup
+        }
+        if line == .backup2, let backup = configValue("QISHUI_BASE_URL_BACKUP_2") {
             return backup
         }
         if line == .primary, let primary = configValue("QISHUI_BASE_URL") {

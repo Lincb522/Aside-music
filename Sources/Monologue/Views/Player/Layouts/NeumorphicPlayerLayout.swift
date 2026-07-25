@@ -1,10 +1,5 @@
-//
-//  NeumorphicPlayerLayout.swift
-//  Monologue
-//
 //  新拟物化播放器布局
 //  半透明新拟物控件
-//
 
 import SwiftUI
 import FFmpegSwiftSDK
@@ -177,7 +172,7 @@ struct NeumorphicPlayerLayout: View {
 // MARK: - 新拟物化组件（适配弥散背景）
 extension NeumorphicPlayerLayout {
     
-    // MARK: 顶部导航
+    // MARK: - 顶部导航
     private var headerBar: some View {
         HStack {
             neumorphicButton(size: 44) {
@@ -213,7 +208,7 @@ extension NeumorphicPlayerLayout {
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
     }
     
-    // MARK: 凸起封面 — 半透明材质容器
+    // MARK: - 凸起封面 — 半透明材质容器
     private func neumorphicCover(size: CGFloat) -> some View {
         ZStack {
             // 外层凸起容器
@@ -271,7 +266,7 @@ extension NeumorphicPlayerLayout {
         }
     }
     
-    // MARK: 歌曲信息
+    // MARK: - 歌曲信息
     private var songInfoSection: some View {
         VStack(spacing: 8) {
             Text(player.currentSong?.name ?? "")
@@ -311,7 +306,7 @@ extension NeumorphicPlayerLayout {
         .padding(.horizontal, DeviceLayout.playerHorizontalPadding)
     }
     
-    // MARK: 凹陷进度条
+    // MARK: - 凹陷进度条
     private var neumorphicProgressBar: some View {
         VStack(spacing: 8) {
             GeometryReader { geo in
@@ -393,7 +388,7 @@ extension NeumorphicPlayerLayout {
         }
     }
     
-    // MARK: 控制按钮
+    // MARK: - 控制按钮
     private var controlsSection: some View {
         HStack(spacing: 0) {
             neumorphicButton(size: 44) {
@@ -432,7 +427,7 @@ extension NeumorphicPlayerLayout {
         }
     }
     
-    // MARK: 播放按钮
+    // MARK: - 播放按钮
     private var neumorphicPlayButton: some View {
         Button(action: { player.togglePlayPause() }) {
             ZStack {
@@ -473,7 +468,7 @@ extension NeumorphicPlayerLayout {
         .buttonStyle(NeumorphicButtonStyle(bgColor: raisedColor, darkShadow: darkShadow, lightShadow: lightShadow))
     }
     
-    // MARK: 附加按钮 — 评论 + 下载
+    // MARK: - 附加按钮 — 评论 + 下载
     private var additionalButtons: some View {
         HStack(spacing: 0) {
             if let song = player.currentSong {
@@ -524,7 +519,7 @@ extension NeumorphicPlayerLayout {
         }
     }
     
-    // MARK: 通用凸起按钮 — 半透明材质
+    // MARK: - 通用凸起按钮 — 半透明材质
     private func neumorphicButton<Content: View>(
         size: CGFloat,
         action: @escaping () -> Void,

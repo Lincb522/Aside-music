@@ -1,6 +1,3 @@
-// VinylTheme.swift
-// Monologue Widget Extension
-
 import WidgetKit
 import SwiftUI
 import AppIntents

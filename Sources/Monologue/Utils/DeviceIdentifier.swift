@@ -1,6 +1,4 @@
-// DeviceIdentifier.swift
 // 设备唯一标识管理 — 用于一机一码绑定
-//
 // 设计策略（三层兜底）：
 //  Layer 1: Keychain 读取之前保存的 UUID（最稳定，跨卸载保留）
 //  Layer 2: IDFV (identifierForVendor) + bundleId 派生稳定 UUID
@@ -8,7 +6,6 @@
 //     - 对于单个 App 来说，卸载重装 IDFV 不变
 //     - 派生方式：SHA256(IDFV + bundleId + 固定盐) 前 16 字节 → UUID 格式
 //  Layer 3: 纯随机 UUID（最不稳定，仅兜底）
-//
 // 生成结果**写回 Keychain**，后续都优先从 Layer 1 读取。
 
 import Foundation

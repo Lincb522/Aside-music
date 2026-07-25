@@ -1,4 +1,3 @@
-// MonoEntity.swift
 // 双持久化（SwiftData iOS 17+ / Core Data iOS 16）的统一实体协议。
 // 模型类本身是普通 Swift 类，持久化通过快照（属性字典）与后端交换数据。
 

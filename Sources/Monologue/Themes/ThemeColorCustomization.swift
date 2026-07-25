@@ -124,6 +124,7 @@ enum ThemeCustomGradientStyle: String, CaseIterable, Identifiable, Codable {
     }
 }
 
+/// 一套可持久化的主题配色方案，包含通用渐变、主题专用颜色与可选图标包。
 struct ThemeColorPreset: Identifiable, Codable {
     let id: String
     let name: String
@@ -890,7 +891,7 @@ enum ThemeColorCustomization {
         if let preset = selectedPreset(for: theme) {
             return preset.name
         }
-        return hasStoredCustomization(for: theme) ? String(localized: "自定义") : String(localized: "默认配色")
+        return hasStoredCustomization(for: theme) ? String(localized: "common_custom") : String(localized: "默认配色")
     }
 
     static func savedPresets(for theme: GlobalThemeId) -> [ThemeColorPreset] {
@@ -934,7 +935,7 @@ enum ThemeColorCustomization {
             return preset.name
         }
         return hasStoredDarkCustomization(for: theme)
-            ? String(localized: "自定义")
+            ? String(localized: "common_custom")
             : String(localized: "默认配色")
     }
 
@@ -956,7 +957,7 @@ enum ThemeColorCustomization {
                 ? stableCloudPreset(
                     currentPresetSnapshot(
                         for: theme,
-                        name: String(localized: "自定义"),
+                        name: String(localized: "common_custom"),
                         includingIconSet: true
                     ),
                     id: "cloud-current-\(theme.rawValue)-light"
@@ -966,7 +967,7 @@ enum ThemeColorCustomization {
                 ? stableCloudPreset(
                     currentDarkPresetSnapshot(
                         for: theme,
-                        name: String(localized: "自定义"),
+                        name: String(localized: "common_custom"),
                         includingIconSet: true
                     ),
                     id: "cloud-current-\(theme.rawValue)-dark"
@@ -1550,13 +1551,13 @@ enum ThemeColorCustomization {
         var presets = savedDarkPresets(for: theme)
         let existingNames = Set(presets.map(\.name))
         var nextIndex = presets.count + 1
-        while existingNames.contains(String(localized: "方案 \(nextIndex)")) {
+        while existingNames.contains(L10n.format("theme_custom_profile_name_format", nextIndex)) {
             nextIndex += 1
         }
         presets.append(
             currentDarkPresetSnapshot(
                 for: theme,
-                name: String(localized: "方案 \(nextIndex)"),
+                name: L10n.format("theme_custom_profile_name_format", nextIndex),
                 includingIconSet: includingIconSet
             )
         )
@@ -1621,13 +1622,13 @@ enum ThemeColorCustomization {
         var presets = savedPresets(for: theme)
         let existingNames = Set(presets.map(\.name))
         var nextIndex = presets.count + 1
-        while existingNames.contains(String(localized: "方案 \(nextIndex)")) {
+        while existingNames.contains(L10n.format("theme_custom_profile_name_format", nextIndex)) {
             nextIndex += 1
         }
         presets.append(
             currentPresetSnapshot(
                 for: theme,
-                name: String(localized: "方案 \(nextIndex)"),
+                name: L10n.format("theme_custom_profile_name_format", nextIndex),
                 includingIconSet: includingIconSet
             )
         )

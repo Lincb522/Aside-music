@@ -1,4 +1,3 @@
-// GameModeControlWidget.swift
 // 游戏模式控制中心开关 —— Widget Extension 专用
 
 import WidgetKit
@@ -6,6 +5,7 @@ import SwiftUI
 
 // MARK: - 游戏模式状态 + 当前歌曲标题的复合值
 
+/// 控制中心游戏模式开关所需的只读快照。
 @available(iOS 18, *)
 struct GameModeControlValue {
     let isActive: Bool
@@ -14,8 +14,9 @@ struct GameModeControlValue {
     let currentSongTitle: String?
 }
 
-// MARK: - 游戏模式状态 Provider
+// MARK: - 游戏模式状态提供器
 
+/// 从 App Group 读取游戏模式与当前曲目，不在扩展进程发起网络请求。
 @available(iOS 18, *)
 struct GameModeValueProvider: ControlValueProvider {
     var previewValue: GameModeControlValue {
@@ -36,8 +37,9 @@ struct GameModeValueProvider: ControlValueProvider {
     }
 }
 
-// MARK: - 控制中心 ControlWidget
+// MARK: - 控制中心组件
 
+/// iOS 18 控制中心中的游戏模式开关。
 @available(iOS 18, *)
 struct GameModeControlWidget: ControlWidget {
     var body: some ControlWidgetConfiguration {
@@ -70,5 +72,4 @@ struct GameModeControlWidget: ControlWidget {
     }
 }
 
-// NOTE: iOS 18 ControlWidgetToggle 不支持自定义「长按」跳转。
-// 用户可通过主 App 的游戏模式设置页或 Home Screen Quick Action 进入详细配置。
+// ControlWidgetToggle 不提供自定义长按跳转，详细配置仍由主 App 承载。

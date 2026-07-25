@@ -393,7 +393,12 @@ struct MujiNowPlayingIndicator: View {
 
     var body: some View {
         // 不播放时或减少动画偏好时暂停 timeline 推进
-        TimelineView(AppFrameRate.animationTimeline(paused: !isAnimating || reduceMotion)) { timeline in
+        TimelineView(
+            AppFrameRate.animationTimeline(
+                maximumFramesPerSecond: 30,
+                paused: !isAnimating || reduceMotion
+            )
+        ) { timeline in
             HStack(alignment: .bottom, spacing: 3) {
                 ForEach(0 ..< 3, id: \.self) { index in
                     RoundedRectangle(cornerRadius: 1.4, style: .continuous)

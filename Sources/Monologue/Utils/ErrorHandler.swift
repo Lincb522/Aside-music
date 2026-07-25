@@ -16,25 +16,25 @@ enum AppError: LocalizedError {
             if let urlError = error as? URLError {
                 switch urlError.code {
                 case .notConnectedToInternet:
-                    return NSLocalizedString("error_no_internet", comment: String(localized: "无网络连接"))
+                    return NSLocalizedString("error_no_internet", comment: String(localized: "error_no_internet"))
                 case .timedOut:
                     return NSLocalizedString("error_timeout", comment: String(localized: "请求超时"))
                 case .cannotFindHost, .cannotConnectToHost:
-                    return NSLocalizedString("error_server_unreachable", comment: String(localized: "无法连接服务器"))
+                    return NSLocalizedString("error_server_unreachable", comment: String(localized: "error_server_unreachable"))
                 default:
-                    return NSLocalizedString("error_network_generic", comment: String(localized: "网络连接失败"))
+                    return NSLocalizedString("error_network_generic", comment: String(localized: "playback_error_network"))
                 }
             }
-            return NSLocalizedString("error_network_generic", comment: String(localized: "网络连接失败，请检查网络设置"))
+            return NSLocalizedString("error_network_generic", comment: String(localized: "error_network_generic"))
             
         case .api(let code, let message):
             if code == 301 || code == 302 {
-                return NSLocalizedString("error_need_login", comment: String(localized: "请先登录"))
+                return NSLocalizedString("error_need_login", comment: String(localized: "error_need_login"))
             }
-            return message.isEmpty ? NSLocalizedString("error_server_generic", comment: String(localized: "服务器错误")) : message
+            return message.isEmpty ? NSLocalizedString("error_server_generic", comment: String(localized: "error_server_generic")) : message
             
         case .playback(let reason):
-            return String(format: NSLocalizedString("error_playback", comment: String(localized: "播放失败")), reason)
+            return String(format: NSLocalizedString("error_playback", comment: String(localized: "playback_error_unknown")), reason)
             
         case .cache(let reason):
             return String(format: NSLocalizedString("error_cache", comment: String(localized: "缓存错误")), reason)
@@ -50,12 +50,12 @@ enum AppError: LocalizedError {
     /// 用户友好的简短描述
     var shortDescription: String {
         switch self {
-        case .network: return String(localized: "网络错误")
-        case .api: return String(localized: "服务器错误")
-        case .playback: return String(localized: "播放失败")
+        case .network: return String(localized: "access_network_error_title")
+        case .api: return String(localized: "error_server_generic")
+        case .playback: return String(localized: "playback_error_unknown")
         case .cache: return String(localized: "缓存错误")
         case .authentication: return String(localized: "登录过期")
-        case .unknown: return String(localized: "未知错误")
+        case .unknown: return String(localized: "common_unknown_error")
         }
     }
 }
@@ -92,15 +92,15 @@ class ErrorHandler: @unchecked Sendable {
                     AlertManager.shared.show(
                         title: appError.shortDescription,
                         message: appError.errorDescription ?? String(localized: "发生未知错误"),
-                        primaryButtonTitle: String(localized: "重试"),
-                        secondaryButtonTitle: String(localized: "取消"),
+                        primaryButtonTitle: String(localized: "action_retry"),
+                        secondaryButtonTitle: String(localized: "cancel"),
                         primaryAction: retry
                     )
                 } else {
                     AlertManager.shared.show(
                         title: appError.shortDescription,
                         message: appError.errorDescription ?? String(localized: "发生未知错误"),
-                        primaryButtonTitle: String(localized: "确定"),
+                        primaryButtonTitle: String(localized: "common_confirm"),
                         primaryAction: {}
                     )
                 }

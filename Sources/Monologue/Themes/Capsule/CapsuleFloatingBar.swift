@@ -1,5 +1,8 @@
 import SwiftUI
 
+// Capsule 主题的底部悬浮区域：迷你播放条 + Dock 式标签栏，共用玻璃胶囊质感。
+
+/// 统一悬浮栏：上方迷你播放条（有曲目时）+ 下方标签切换 Dock。
 struct CapsuleUnifiedFloatingBar: View {
     @Binding var currentTab: Tab
     @ObservedObject private var player = FloatingBarPlaybackModel.shared
@@ -66,6 +69,7 @@ struct CapsuleUnifiedFloatingBar: View {
     }
 }
 
+/// 迷你播放条：封面、滚动标题、播放/切歌控制，点击展开全屏播放器。
 private struct CapsuleMiniPlayerStrip: View {
     let song: Song
 
@@ -197,6 +201,7 @@ private struct CapsuleMiniPlayerStrip: View {
     }
 }
 
+/// Dock 式标签栏：选中项展开显示文字，其余仅显图标。
 private struct CapsuleDockTabBar: View {
     @Binding var currentTab: Tab
     @ObservedObject private var onlineAccess = OnlineAccessManager.shared
@@ -282,6 +287,7 @@ extension CapsuleStyle {
     }
 }
 
+/// 悬浮层玻璃背景（圆角矩形），以下为胶囊/圆形变体。
 struct CapsuleFloatingGlassSurface: View {
     var cornerRadius: CGFloat
     var tint: Color = CapsuleStyle.surface

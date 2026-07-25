@@ -72,6 +72,8 @@ final class HistoryRepository {
                 if local.qqMid == nil { local.qqMid = remote.qqMid }
                 if local.qqAlbumMid == nil { local.qqAlbumMid = remote.qqAlbumMid }
                 if local.qishuiTrackId == nil { local.qishuiTrackId = remote.qishuiTrackId }
+                if local.appleMusicID == nil { local.appleMusicID = remote.appleMusicID }
+                if local.appleMusicISRC == nil { local.appleMusicISRC = remote.appleMusicISRC }
             } else {
                 let record = remote.makeLocalRecord()
                 store.insert(record)

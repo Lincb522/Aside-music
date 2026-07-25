@@ -1,10 +1,5 @@
-//
-//  FolkPlayerLayout.swift
-//  Monologue
-//
 //  民谣主题 — 诗集与打字信件 (Typewriter Letter)
 //  非常规布局：歌词像打字机一样逐行在信纸上打印出来，历史记录保留，未唱到的不显示。
-//
 
 import SwiftUI
 
