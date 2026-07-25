@@ -1,12 +1,10 @@
-// NowPlayingEntry.swift
-// Monologue Widget Extension
-
 import Foundation
 import WidgetKit
 import SwiftUI
 
-// MARK: - Entry & Provider
+// MARK: - 时间线条目
 
+/// Widget 单个时间点的完整播放快照。
 struct NowPlayingEntry: TimelineEntry {
     var date: Date
     let songName: String

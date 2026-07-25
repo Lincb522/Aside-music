@@ -1,6 +1,7 @@
 import Combine
 import SwiftUI
 
+/// 首页内容模块枚举，控制各区块的展示与顺序。
 private enum CapsuleHomeModule: CaseIterable, Identifiable {
     case daily
     case qcmNew
@@ -12,7 +13,7 @@ private enum CapsuleHomeModule: CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .daily: return String(localized: "每日推荐")
+        case .daily: return String(localized: "daily_recommend")
         case .qcmNew: return String(localized: "QCM 新歌")
         case .ncmNew: return String(localized: "新歌速递")
         case .meditation: return String(localized: "meditation_mode_title")
@@ -41,6 +42,7 @@ private enum CapsuleHomeModule: CaseIterable, Identifiable {
     }
 }
 
+/// Capsule 主题首页：聚合横幅、每日推荐、新歌、歌单等模块，数据来自 `HomeViewModel`。
 struct CapsuleHomeView: View {
     @ObservedObject private var viewModel = HomeViewModel.shared
     @ObservedObject private var settings = SettingsManager.shared
@@ -141,7 +143,7 @@ struct CapsuleHomeView: View {
         .scrollIndicators(.hidden)
         .themeRenderScrollLayer()
         .refreshable {
-            viewModel.fetchData()
+            viewModel.retryHomeDataLoad(reason: "capsule home pull refresh")
             if hitokotoEnabled {
                 viewModel.refreshHitokoto(force: true)
             }
@@ -372,11 +374,11 @@ struct CapsuleHomeView: View {
 
     private var dailyCapsuleList: some View {
         VStack(spacing: 12) {
-            CapsuleSectionTitle(title: String(localized: "每日推荐"), tint: CapsuleStyle.accent) {
+            CapsuleSectionTitle(title: String(localized: "daily_recommend"), tint: CapsuleStyle.accent) {
                 Button {
                     navigationPath.append(HomeView.HomeDestination.dailyRecommend)
                 } label: {
-                    CapsulePillLabel(title: String(localized: "查看全部"), tint: CapsuleStyle.accent)
+                    CapsulePillLabel(title: String(localized: "view_all"), tint: CapsuleStyle.accent)
                 }
                 .buttonStyle(.plain)
             }
@@ -397,7 +399,7 @@ struct CapsuleHomeView: View {
                 Button {
                     navigationPath.append(HomeView.HomeDestination.qcmNewSongs)
                 } label: {
-                    CapsulePillLabel(title: String(localized: "查看全部"), tint: CapsuleStyle.mint)
+                    CapsulePillLabel(title: String(localized: "view_all"), tint: CapsuleStyle.mint)
                 }
                 .buttonStyle(.plain)
             }
@@ -417,11 +419,11 @@ struct CapsuleHomeView: View {
 
     private var playlistBoard: some View {
         VStack(spacing: 12) {
-            CapsuleSectionTitle(title: String(localized: "推荐歌单"), tint: CapsuleStyle.amber) {
+            CapsuleSectionTitle(title: String(localized: "recommended_playlists"), tint: CapsuleStyle.amber) {
                 Button {
                     openLibrarySquare()
                 } label: {
-                    CapsulePillLabel(title: String(localized: "查看更多"), tint: CapsuleStyle.amber)
+                    CapsulePillLabel(title: String(localized: "common_view_more"), tint: CapsuleStyle.amber)
                 }
                 .buttonStyle(.plain)
             }
@@ -551,6 +553,8 @@ struct CapsuleHomeView: View {
     }
 }
 
+// MARK: - 首页子组件
+
 private struct CapsuleBannerCard: View {
     let banner: Banner
     let action: () -> Void
@@ -623,7 +627,7 @@ private struct CapsuleSongRow: View {
                         .foregroundStyle(CapsuleStyle.ink)
                         .lineLimit(1)
 
-                    Text(song.artistName.isEmpty ? String(localized: "未知歌手") : song.artistName)
+                    Text(song.artistName.isEmpty ? String(localized: "search_unknown_artist") : song.artistName)
                         .font(CapsuleStyle.bodyFont(12, weight: .medium))
                         .foregroundStyle(CapsuleStyle.inkMuted)
                         .lineLimit(1)
@@ -660,7 +664,7 @@ private struct CapsuleSongChip: View {
                         .foregroundStyle(CapsuleStyle.ink)
                         .lineLimit(1)
 
-                    Text(song.artistName.isEmpty ? String(localized: "未知歌手") : song.artistName)
+                    Text(song.artistName.isEmpty ? String(localized: "search_unknown_artist") : song.artistName)
                         .font(CapsuleStyle.bodyFont(11, weight: .medium))
                         .foregroundStyle(CapsuleStyle.inkMuted)
                         .lineLimit(1)

@@ -1,12 +1,10 @@
-// PlaybackControlWidgets.swift
-// Monologue Widget Extension
-
 import WidgetKit
 import SwiftUI
 import AppIntents
 
-// MARK: - 控制中心 ControlWidget
+// MARK: - 控制中心组件
 
+/// iOS 18 控制中心中的播放/暂停按钮。
 @available(iOS 18, *)
 struct PlayPauseControlWidget: ControlWidget {
     var body: some ControlWidgetConfiguration {
@@ -19,6 +17,7 @@ struct PlayPauseControlWidget: ControlWidget {
     }
 }
 
+/// iOS 18 控制中心中的下一首按钮。
 @available(iOS 18, *)
 struct NextTrackControlWidget: ControlWidget {
     var body: some ControlWidgetConfiguration {

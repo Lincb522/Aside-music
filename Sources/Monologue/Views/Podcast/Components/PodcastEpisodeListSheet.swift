@@ -438,9 +438,9 @@ struct PodcastEpisodeListSheet: View {
 
     private func formatCount(_ count: Int) -> String {
         if count >= 100_000_000 {
-            return String(format: String(localized: "%.1f亿"), Double(count) / 100_000_000)
+            return String(format: String(localized: "count_hundred_million"), Double(count) / 100_000_000)
         } else if count >= 10_000 {
-            return String(format: String(localized: "%.1f万"), Double(count) / 10_000)
+            return String(format: String(localized: "count_ten_thousand"), Double(count) / 10_000)
         }
         return "\(count)"
     }
@@ -470,16 +470,16 @@ struct PodcastEpisodeListSheet: View {
             "\(episodeIndex)",
             "ep\(episodeIndex)",
             "episode \(episodeIndex)",
-            String(localized: "第\(episodeIndex)期"),
-            String(localized: "第\(episodeIndex)集")
+            L10n.format("radio_episode_number_format", episodeIndex),
+            L10n.format("radio_episode_part_format", episodeIndex)
         ]
 
         if let serialNumber = program.serialNum {
             candidates.append("\(serialNumber)")
             candidates.append("ep\(serialNumber)")
             candidates.append("episode \(serialNumber)")
-            candidates.append(String(localized: "第\(serialNumber)期"))
-            candidates.append(String(localized: "第\(serialNumber)集"))
+            candidates.append(L10n.format("radio_episode_number_format", serialNumber))
+            candidates.append(L10n.format("radio_episode_part_format", serialNumber))
         }
 
         return candidates.contains { !$0.isEmpty && $0.contains(query) }
@@ -505,13 +505,13 @@ struct PodcastEpisodeListSheet: View {
 
         let displayIndex = viewModel.displayEpisodeNumber(for: program, at: index)
         let candidates = [
-            (String(localized: "第\(displayIndex)期"), "\(displayIndex)"),
+            (L10n.format("radio_episode_number_format", displayIndex), "\(displayIndex)"),
             ("EP \(displayIndex)", "ep\(displayIndex)")
         ]
 
         if let serialNumber = program.serialNum {
             let serialCandidates = [
-                (String(localized: "第\(serialNumber)期"), "\(serialNumber)"),
+                (L10n.format("radio_episode_number_format", serialNumber), "\(serialNumber)"),
                 ("EP \(serialNumber)", "ep\(serialNumber)")
             ]
 

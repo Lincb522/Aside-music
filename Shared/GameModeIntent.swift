@@ -1,4 +1,3 @@
-// GameModeIntent.swift
 // 游戏模式切换 Intent —— 主 App 和 Widget Extension 均引用此文件
 
 import Foundation
@@ -12,6 +11,7 @@ let gameModeKey = "monologue_game_mode_enabled"
 
 // MARK: - 切换游戏模式 Intent
 
+/// 在主 App 与控制中心扩展之间同步游戏模式状态，并通知存活的主进程应用副作用。
 struct ToggleGameModeIntent: SetValueIntent {
     static let title: LocalizedStringResource = "游戏模式"
     static let description = IntentDescription(

@@ -1,6 +1,3 @@
-// NowPlayingProvider.swift
-// Monologue Widget Extension
-
 import Foundation
 import WidgetKit
 import SwiftUI
@@ -8,8 +5,9 @@ import UIKit
 
 private let appGroupID = "group.zijiu.Monologue.com"
 
-// MARK: - Synced Lyrics Payload (App Group)
+// MARK: - App Group 歌词载荷
 
+/// 主 App 写入 App Group 的单行同步歌词。
 struct WidgetLyricLine: Decodable {
     let t: TimeInterval
     let x: String
@@ -18,9 +16,11 @@ struct WidgetLyricLine: Decodable {
 
 private struct WidgetLyricsPayload: Decodable {
     let songId: Int
+    let songIdentity: String?
     let lines: [WidgetLyricLine]
 }
 
+/// 从 App Group 构建当前播放快照，并按主题动画与歌词时序生成 Widget 时间线。
 struct NowPlayingProvider: TimelineProvider {
     let theme: WidgetTheme
 
@@ -187,6 +187,13 @@ struct NowPlayingProvider: TimelineProvider {
         guard let data = try? Data(contentsOf: fileURL, options: [.mappedIfSafe]),
               let payload = try? JSONDecoder().decode(WidgetLyricsPayload.self, from: data) else { return [] }
         let expectedSongId = groupDefaults?.integer(forKey: "widget_song_id") ?? 0
+        let expectedIdentity = groupDefaults?.string(forKey: "widget_song_identity") ?? ""
+        if !expectedIdentity.isEmpty,
+           let payloadIdentity = payload.songIdentity,
+           !payloadIdentity.isEmpty,
+           payloadIdentity != expectedIdentity {
+            return []
+        }
         if expectedSongId != 0, payload.songId != expectedSongId { return [] }
         return payload.lines
     }
@@ -238,8 +245,11 @@ struct NowPlayingProvider: TimelineProvider {
         var coverData: Data?
         if let url = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) {
             let coverURL = url.appendingPathComponent("widget_cover.jpg")
+            let expectedIdentity = groupDefaults?.string(forKey: "widget_song_identity") ?? ""
+            let coverIdentity = groupDefaults?.string(forKey: "widget_cover_identity") ?? ""
             let attributes = try? FileManager.default.attributesOfItem(atPath: coverURL.path)
-            if let fileSize = attributes?[.size] as? NSNumber,
+            if (expectedIdentity.isEmpty || coverIdentity == expectedIdentity),
+               let fileSize = attributes?[.size] as? NSNumber,
                fileSize.intValue <= 500_000 {
                 coverData = try? Data(contentsOf: coverURL, options: [.mappedIfSafe])
             }

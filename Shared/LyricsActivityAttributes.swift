@@ -4,6 +4,7 @@ import Foundation
 import ActivityKit
 #endif
 
+/// 主 App、Widget 与实时活动共用的精简播放状态。
 enum PlaybackSurfaceState: String, Codable, Hashable {
     case idle
     case loading
@@ -20,7 +21,9 @@ enum PlaybackSurfaceState: String, Codable, Hashable {
 }
 
 #if canImport(ActivityKit)
+/// 歌词实时活动的固定歌曲身份与可更新展示状态。
 struct LyricsActivityAttributes: ActivityAttributes {
+    /// 实时活动每次更新携带的歌曲、歌词与播放进度。
     public struct ContentState: Codable, Hashable {
         var title: String
         var artist: String

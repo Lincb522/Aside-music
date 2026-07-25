@@ -1,6 +1,3 @@
-// PlatformCompat.swift
-// Monologue
-//
 // iOS 类型别名和界面辅助方法
 
 import SwiftUI

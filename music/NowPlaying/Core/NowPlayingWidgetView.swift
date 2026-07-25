@@ -1,12 +1,10 @@
-// NowPlayingWidgetView.swift
-// Monologue Widget Extension
-
 import WidgetKit
 import SwiftUI
 import AppIntents
 
-// MARK: - Widget Views
+// MARK: - Widget 视图
 
+/// 根据组件尺寸与主题渲染当前播放快照。
 struct NowPlayingWidgetView: View {
     let entry: NowPlayingEntry
     @Environment(\.widgetFamily) var family

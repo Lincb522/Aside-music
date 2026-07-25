@@ -1,6 +1,7 @@
 import SwiftUI
 
 extension View {
+    /// 带主题化外观的系统 sheet 封装（isPresented 版本）；内部注入统一的把手、圆角与 dismiss 环境值。
     func monologueSheet<SheetContent: View>(
         isPresented: Binding<Bool>,
         onDismiss: (() -> Void)? = nil,
@@ -19,6 +20,7 @@ extension View {
         }
     }
 
+    /// 同上，item 驱动版本。
     func monologueSheet<Item: Identifiable, SheetContent: View>(
         item: Binding<Item?>,
         onDismiss: (() -> Void)? = nil,
@@ -40,6 +42,8 @@ extension View {
     }
 }
 
+/// 组装 sheet 内容：把手 + 内容 + 主题自定义背景/描边；
+/// iOS 16.4+ 优先用 presentationBackground 承载主题背景，旧系统回退到 backgroundPreferenceValue 方案。
 @ViewBuilder
 private func monologueSystemSheetContent<SheetContent: View>(
     preset: MonologueSheetPreset,

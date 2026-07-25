@@ -1,10 +1,14 @@
 import SwiftUI
 
+// Capsule 主题下详情页（歌单/专辑/歌手等）的通用组件集。
+
+/// 详情页头部：大封面 + 标题/副标题/描述 + 可选操作区。
 struct CapsuleDetailHeader<Actions: View>: View {
     let eyebrow: String
     let title: String
     let subtitle: String
     let coverURL: URL?
+    let fallbackImageName: String?
     let fallbackIcon: MonologueIcon.IconType
     let tint: Color
     let chips: [String]
@@ -15,6 +19,7 @@ struct CapsuleDetailHeader<Actions: View>: View {
         title: String,
         subtitle: String = "",
         coverURL: URL?,
+        fallbackImageName: String? = nil,
         fallbackIcon: MonologueIcon.IconType,
         tint: Color = CapsuleStyle.accent,
         chips: [String] = [],
@@ -24,6 +29,7 @@ struct CapsuleDetailHeader<Actions: View>: View {
         self.title = title
         self.subtitle = subtitle
         self.coverURL = coverURL
+        self.fallbackImageName = fallbackImageName
         self.fallbackIcon = fallbackIcon
         self.tint = tint
         self.chips = chips
@@ -69,9 +75,15 @@ struct CapsuleDetailHeader<Actions: View>: View {
 
     private var artwork: some View {
         CachedAsyncImage(url: coverURL, width: artworkSize.width, height: artworkSize.height) {
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .fill(CapsuleStyle.surfaceTint)
-                .overlay(MonologueIcon(icon: fallbackIcon, size: 34, color: tint.opacity(0.74), lineWidth: 1.8))
+            if let fallbackImageName {
+                Image(fallbackImageName)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } else {
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .fill(CapsuleStyle.surfaceTint)
+                    .overlay(MonologueIcon(icon: fallbackIcon, size: 34, color: tint.opacity(0.74), lineWidth: 1.8))
+            }
         }
         .aspectRatio(contentMode: .fill)
         .frame(width: artworkSize.width, height: artworkSize.height)
@@ -123,6 +135,7 @@ extension CapsuleDetailHeader where Actions == EmptyView {
         title: String,
         subtitle: String = "",
         coverURL: URL?,
+        fallbackImageName: String? = nil,
         fallbackIcon: MonologueIcon.IconType,
         tint: Color = CapsuleStyle.accent,
         chips: [String] = []
@@ -132,6 +145,7 @@ extension CapsuleDetailHeader where Actions == EmptyView {
             title: title,
             subtitle: subtitle,
             coverURL: coverURL,
+            fallbackImageName: fallbackImageName,
             fallbackIcon: fallbackIcon,
             tint: tint,
             chips: chips
@@ -231,6 +245,7 @@ struct CapsuleDetailIconButton: View {
     }
 }
 
+/// 详情页分区容器：标题行 + 内容卡片。
 struct CapsuleDetailSection<Content: View>: View {
     let title: String
     var subtitle = ""

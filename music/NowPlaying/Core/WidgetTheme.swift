@@ -1,13 +1,11 @@
-// WidgetTheme.swift
-// Monologue Widget Extension
-
 import WidgetKit
 import SwiftUI
 
-// MARK: - Widget Theme
+// MARK: - Widget 主题
 
-// `Sendable` 必须与类型定义同文件声明：SelectableThemeWidget.swift 里的
-// AppEnum 一致性要求 Sendable，跨文件补会触发 retroactive conformance 报错。
+/// Widget 支持的主题集合及其稳定 kind、展示名称与尺寸能力。
+///
+/// `Sendable` 必须在定义处声明，以满足跨文件 `AppEnum` 的并发一致性要求。
 enum WidgetTheme: String, CaseIterable, Hashable, Sendable {
     case polaroid
     case vinyl
@@ -42,8 +40,7 @@ enum WidgetTheme: String, CaseIterable, Hashable, Sendable {
     }
 
     var widgetKind: String {
-        // Keep the original kind for Polaroid so existing installations retain
-        // one valid widget after migrating away from the shared theme intent.
+        // 拍立得保留原始 kind，避免迁移后已安装的组件失效。
         if self == .polaroid {
             return "zijiu.Monologue.com.widget.nowplaying"
         }

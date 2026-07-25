@@ -1,2 +1,5 @@
 "CFBundleDisplayName" = "Mono";
 "CFBundleName" = "Mono";
+"NSAppleMusicUsageDescription" = "用于连接 Apple Music、访问音乐资料库并播放歌曲";
+"NSMotionUsageDescription" = "用于让 Mono Spatial Live 的空间舞台跟随头部转动";
+"NSPhotoLibraryAddUsageDescription" = "保存二维码到相册以便扫码登录";

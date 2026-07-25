@@ -1,5 +1,7 @@
 import SwiftUI
 
+// MinimalWhite 主题的页面包装层：统一套上主题 tint、渲染场景层与白底背景后复用通用页面。
+
 private struct MinimalWhiteThemeRoot<Content: View>: View {
     let content: () -> Content
     @ObservedObject private var settings = SettingsManager.shared

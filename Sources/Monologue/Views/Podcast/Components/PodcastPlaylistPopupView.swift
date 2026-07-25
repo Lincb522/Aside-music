@@ -317,8 +317,8 @@ struct PodcastPlaylistPopupView: View {
             "\(displayEpisodeNumber)",
             "ep\(displayEpisodeNumber)",
             "episode \(displayEpisodeNumber)",
-            String(localized: "第\(displayEpisodeNumber)期"),
-            String(localized: "第\(displayEpisodeNumber)集")
+            L10n.format("radio_episode_number_format", displayEpisodeNumber),
+            L10n.format("radio_episode_part_format", displayEpisodeNumber)
         ]
 
         return candidates.contains { !$0.isEmpty && $0.contains(searchKeyword) }

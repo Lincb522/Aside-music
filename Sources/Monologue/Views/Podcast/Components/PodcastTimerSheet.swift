@@ -1,5 +1,7 @@
 import SwiftUI
 
+/// 睡眠定时器设置弹窗：预设时长网格、自定义分钟数输入、
+/// "播完本集再停"策略开关，以及实时倒计时状态卡片；直接读写 PlayerManager 的定时器状态。
 struct PodcastTimerSheet: View {
     @ObservedObject private var player = PlayerManager.shared
     @ObservedObject private var settings = SettingsManager.shared
@@ -28,6 +30,8 @@ struct PodcastTimerSheet: View {
     private var presetMinutes: Set<Int> {
         Set(presetOptions.map(\.minutes))
     }
+
+    // MARK: - 状态派生
 
     private var hasActivePlan: Bool {
         player.sleepTimerRemaining != nil || player.pendingSleepStopAfterCurrentTrack
@@ -98,6 +102,7 @@ struct PodcastTimerSheet: View {
             : String(localized: "podcast_timer_stop_after_track_desc_off")
     }
 
+    /// 弹出自定义分钟数输入框；非法输入（1~1440 之外）提示后重新弹出。
     private func presentCustomTimerInput() {
         AlertManager.shared.showInput(
             title: String(localized: "podcast_timer_custom"),
@@ -156,6 +161,8 @@ struct PodcastTimerSheet: View {
             }
         }
     }
+
+    // MARK: - 子视图
 
     private var header: some View {
         HStack(spacing: 12) {
@@ -482,6 +489,8 @@ struct PodcastTimerSheet: View {
         .padding(.horizontal, 4)
     }
 
+    // MARK: - 主题化字体与颜色
+
     private var activeTint: Color {
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
@@ -537,6 +546,7 @@ struct PodcastTimerSheet: View {
     }
 }
 
+/// 弹窗内的通用卡片容器（主题化背景/描边）。
 private struct TimerSheetCard<Content: View>: View {
     private let content: Content
 
@@ -567,6 +577,7 @@ private struct TimerSheetCard<Content: View>: View {
     }
 }
 
+/// 状态胶囊徽章（如"进行中"）。
 private struct TimerStatusBadge: View {
     let text: String
     let tint: Color

@@ -1605,7 +1605,7 @@ struct ClassicPlayerLayout: View {
 
     private var capsuleTopBarText: String {
         guard let song = player.currentSong else {
-            return String(localized: "未在播放")
+            return String(localized: "not_playing")
         }
         let artist = song.artistName.isEmpty ? "" : " · \(song.artistName)"
         return "\(song.name)\(artist)"

@@ -1,10 +1,5 @@
-//
-//  MangaChatPlayerLayout.swift
-//  Monologue
-//
 //  漫画聊天播放器 — 歌词以两人对话气泡形式展示
 //  灵感来自漫画小组件的视觉风格
-//
 
 import SwiftUI
 

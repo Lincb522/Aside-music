@@ -1,11 +1,8 @@
-// WidgetColor.swift
-// Monologue Widget Extension
-
 import Foundation
 import SwiftUI
 import UIKit
 
-// MARK: - Hex Color Helper
+// MARK: - 颜色辅助
 
 extension Color {
     init(hex: String) {

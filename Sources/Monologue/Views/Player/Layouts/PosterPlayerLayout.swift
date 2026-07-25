@@ -1,12 +1,7 @@
-//
-//  PosterPlayerLayout.swift
-//  Monologue
-//
 //  大字报风格播放器 — Brutalism + Exaggerated Minimalism
 //  核心：巨型文字铺满屏幕、粗野主义排版、控制融入文字间
 //  无封面、无圆角、无渐变、纯黑白+红色强调、极端留白
 //  设计系统：font-weight 900, letter-spacing 紧凑, 0px圆角, 粗边框
-//
 
 import SwiftUI
 import FFmpegSwiftSDK

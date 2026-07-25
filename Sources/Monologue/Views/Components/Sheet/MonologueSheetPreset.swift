@@ -1,10 +1,12 @@
 import SwiftUI
 
+/// 弹窗高度约束：固定高度或屏幕高度百分比上限。
 enum MonologueSheetHeightConstraint: Equatable {
     case fixed(CGFloat)
     case maximumRatio(CGFloat)
 }
 
+/// 全局弹窗的尺寸/交互预设，从 compact 到 detail 逐级增大；`custom` 可完全自定义各项参数。
 enum MonologueSheetPreset: Equatable {
     case compact
     case standard
@@ -85,6 +87,7 @@ enum MonologueSheetPreset: Equatable {
         }
     }
 
+    /// 按当前激活的主题对圆角做钳制，使弹窗与各主题的卡片圆角风格一致。
     var monologueResolvedCornerRadius: CGFloat {
         if MinimalWhiteStyle.isActive {
             return min(cornerRadius, MinimalWhiteStyle.chromeRadius)
@@ -183,6 +186,7 @@ enum MonologueSheetPreset: Equatable {
 
 @available(iOS 16.0, *)
 extension MonologueSheetPreset {
+    /// 转换为系统 sheet 的 detent（固定高度不低于 160，比例钳制到 0.25~0.98）。
     var systemDetents: Set<PresentationDetent> {
         switch heightConstraint {
         case .fixed(let value):

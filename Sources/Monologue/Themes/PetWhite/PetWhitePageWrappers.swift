@@ -521,7 +521,7 @@ struct PetWhiteHomeView: View {
 
                 if !homeData.recommendPlaylists.isEmpty {
                     PetWhitePlaylistShelf(
-                        title: String(localized: "推荐歌单"),
+                        title: String(localized: "recommended_playlists"),
                         detail: String(localized: "based_on_taste"),
                         playlists: homeData.recommendPlaylists,
                         tint: PetWhiteStyle.butter,
@@ -682,7 +682,7 @@ struct PetWhiteHomeView: View {
                 PetWhiteQuickAction(title: "FM", icon: .fm, tint: PetWhiteStyle.dogOrange) {
                     showPersonalFM = true
                 }
-                PetWhiteQuickAction(title: String(localized: "搜索"), icon: .magnifyingGlass, tint: PetWhiteStyle.sky) {
+                PetWhiteQuickAction(title: String(localized: "action_search"), icon: .magnifyingGlass, tint: PetWhiteStyle.sky) {
                     navigationPath.append(HomeView.HomeDestination.search)
                 }
                 PetWhiteQuickAction(title: String(localized: "new_song_express"), icon: .musicNote, tint: PetWhiteStyle.mint) {
@@ -700,7 +700,7 @@ struct PetWhiteHomeView: View {
 
         return VStack(alignment: .leading, spacing: 14) {
             PetWhiteSectionTitle(
-                title: String(localized: "每日推荐"),
+                title: String(localized: "daily_recommend"),
                 detail: String(localized: "今天的第一口音乐"),
                 icon: .musicNote,
                 tint: PetWhiteStyle.mint,
@@ -1261,7 +1261,7 @@ private struct PetWhiteHomeEmptyState: View {
             Button(action: onRetry) {
                 HStack(spacing: 7) {
                     PetWhitePackIcon(icon: .refresh, size: 16, visualScale: 1.08, fallbackColor: PetWhiteStyle.onAccent)
-                    Text(String(localized: "重新加载"))
+                    Text(String(localized: "reload"))
                         .font(PetWhiteStyle.labelFont(12, weight: .black))
                 }
                 .foregroundStyle(PetWhiteStyle.onAccent)

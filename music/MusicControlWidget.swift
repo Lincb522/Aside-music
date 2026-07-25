@@ -1,11 +1,9 @@
-// MusicControlWidget.swift
-// Monologue Widget Extension
-
 import WidgetKit
 import SwiftUI
 
-// MARK: - Widget Definition
+// MARK: - 固定主题组件
 
+/// 绑定单一主题的当前播放桌面组件。
 struct NowPlayingWidget: Widget {
     let theme: WidgetTheme
 

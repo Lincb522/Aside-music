@@ -1,21 +1,8 @@
-"loading_music" = "Loading your music...";
-"popular_week" = "Popular of this week";
 "daily_recommend" = "Daily Recommend";
 "recommended_playlists" = "Recommended Playlists";
-"my_playlists" = "My Playlists";
-"recently_played" = "Recently Played";
-"search_placeholder" = "Search songs, artists...";
 "cancel" = "Cancel";
 "play_now" = "Play All";
-"login_title" = "Login to Mono";
-"scan_qr" = "Scan QR Code";
-"phone_login" = "Phone Login";
 "scan_instruction" = "Please use NCM App to scan";
-"phone_number" = "Phone Number";
-"captcha" = "Captcha";
-"get_captcha" = "Get Captcha";
-"login" = "Login";
-"sent" = "Sent";
 "songs_count_by" = "%d songs • by %@";
 "qr_loading" = "Loading QR Code...";
 "qr_expired" = "QR Code Expired";
@@ -23,11 +10,7 @@
 "qr_scanned" = "Scanned! Please confirm on phone.";
 "login_success" = "Login Successful!";
 "refreshing" = "Refreshing...";
-"login_failed" = "Login Failed: %d";
-"tab_home" = "Home";
-"tab_podcast" = "Podcast";
 "tab_library" = "Library";
-"tabbar_library" = "Library";
 "tab_search" = "Search";
 "tab_profile" = "Profile";
 
@@ -41,27 +24,14 @@
 "good_late_night" = "Good Late Night";
 "default_nickname" = "Mono";
 "search_bar_placeholder" = "Search songs, artists, playlists...";
-"new_releases" = "New Releases";
-"quick_daily" = "Daily";
-"quick_fm" = "Private FM";
-"quick_karaoke" = "Karaoke";
 "quick_charts" = "Charts";
 "made_for_you" = "Made For You";
 "fresh_tunes_daily" = "Fresh tunes daily";
 "view_all" = "View All";
 "playlists_love" = "Playlists You'll Love";
 "based_on_taste" = "Based on your taste";
-"playlists_unit" = "playlists";
 "songs_unit" = "songs";
 "top_charts" = "Top Charts";
-"trending_now" = "Trending now";
-"jump_back_in" = "Jump Back In";
-"recently_played_subtitle" = "Recently played";
-"your_library" = "Your Library";
-"playlists_count" = "%d playlists";
-"tag_new_release" = "NEW RELEASE";
-"search_in_playlist" = "Search in playlist";
-"songs_count" = "%d songs";
 "count_hundred_million" = "%.1fB";
 "count_ten_thousand" = "%.1fK";
 
@@ -80,9 +50,6 @@
 "filter_band" = "Band";
 
 /* Artist Detail */
-"artist_popular_songs" = "Popular Songs";
-"artist_albums" = "Albums";
-"artist_eps" = "EPs & Singles";
 
 /* Search */
 "search_hot" = "Hot Search";
@@ -90,26 +57,16 @@
 "search_clear" = "Clear";
 
 /* Login */
-"login_switch_phone" = "Or login with phone";
-"login_switch_qr" = "Or scan QR code";
 
 /* Playlist Detail */
-"playlist_created_by" = "Created by %@";
-"playlist_updated" = "Updated %@";
-"playlist_description" = "Description";
 
 /* Player Queue */
 "queue_tab_now_playing" = "Now Playing";
 "queue_tab_history" = "History";
-"queue_playing" = "PLAYING";
-"queue_recently_played" = "RECENTLY PLAYED";
-"queue_resume_next" = "RESUME NEXT";
 "queue_added_title" = "Added to Queue";
 "queue_added_message" = "%d songs added to the playback queue";
 "queue_added_short" = "Queued";
 "download_added_short" = "Added to Downloads";
-"queue_user_next" = "QUEUED · %d";
-"queue_up_next" = "PLAYLIST · %d";
 "queue_clear" = "Clear";
 "queue_locate_current" = "Locate";
 "queue_upcoming_count" = "%d up next";
@@ -141,18 +98,13 @@
 "empty_no_charts" = "No charts found";
 "charts_official" = "Official Charts";
 "charts_more" = "More Charts";
-"library_playlists_empty" = "No playlists found. Create or like some!";
 "fm_offline" = "Station Offline";
 "fm_offline_desc" = "Please check your internet and try again.";
 
 /* Profile */
-"profile_liked_songs" = "Liked Songs";
 "profile_recently_played" = "Recently Played";
 "profile_downloads" = "Downloads";
 "profile_settings" = "Settings";
-"profile_dynamic" = "Dynamic";
-"profile_following" = "Following";
-"profile_followers" = "Followers";
 "profile_cloud_disk" = "Cloud Disk";
 
 /* Player */
@@ -161,12 +113,10 @@
 "player_queue" = "QUEUE";
 "not_playing" = "Not Playing";
 "not_playing_subtitle" = "Tap to explore music";
-"artist_details" = "Artist Details";
 "more_by_artist" = "More by %@";
 
 /* Format Strings */
 "songs_count_format" = "%d Songs";
-"user_id_format" = "ID: %d";
 "created_by_format" = "by %@";
 "track_count_songs" = "%d songs";
 
@@ -181,7 +131,6 @@
 
 /* Settings */
 "settings_title" = "Settings";
-"settings_appearance" = "Appearance & Interaction";
 "settings_appearance_global_theme_section" = "Global Theme";
 "settings_appearance_theme_style" = "Theme Style";
 "global_theme_classic_name" = "Default";
@@ -190,20 +139,14 @@
 "global_theme_minimal_white_name" = "Pure White";
 "global_theme_pet_white_description" = "Chunky clay blocks in macaron candy colors, with a squishy press feel.";
 "immersive_bg_title" = "Video Background";
-"immersive_bg_import" = "Import Video…";
 "immersive_bg_import_failed" = "Import failed";
 "immersive_bg_bind_target" = "Bind To";
 "immersive_bg_target_song" = "Current Song";
-"immersive_bg_target_playlist" = "Current Playlist";
-"immersive_bg_current_binding" = "Bound: %@";
 "immersive_bg_unbind" = "Unbind";
 "immersive_bg_no_binding" = "No video bound to this target";
 "immersive_bg_empty" = "No videos yet.\nImport a 4K video from Photos or Files.";
-"immersive_bg_subtitle" = "Bind a video backdrop to a song or playlist";
 "immersive_bg_from_photos" = "Photos";
-"immersive_bg_from_photos_hint" = "Pick from your library";
 "immersive_bg_from_files" = "Files";
-"immersive_bg_from_files_hint" = "Browse local files";
 "immersive_bg_importing" = "Importing…";
 "immersive_bg_in_use" = "In Use";
 "immersive_bg_library_section" = "Library";
@@ -233,10 +176,6 @@
 "settings_appearance_dynamic_background_section" = "Dynamic Background";
 "settings_theme_mode_section_title" = "Light & Dark Mode";
 "settings_theme_mode" = "Theme Mode";
-"settings_liquid_glass" = "Liquid Glass Effect";
-"settings_liquid_glass_desc" = "iOS 26 style advanced visual effects";
-"settings_playback" = "Playback & Audio";
-"settings_playback_quality" = "Default Playback Quality";
 "settings_prefer_highest_playback_quality" = "Prefer Highest Quality";
 "settings_prefer_highest_playback_quality_desc" = "When enabled, the player automatically requests the highest quality a track supports. When disabled, it uses the default qualities below.";
 "settings_insert_playback_context" = "Play All Insert Mode";
@@ -248,20 +187,12 @@
 "settings_crossfade_playback_duration" = "2.5 seconds";
 "settings_netease_playback_quality" = "NCM Default Playback Quality";
 "settings_qq_playback_quality" = "QCM Default Playback Quality";
-"settings_download_quality" = "Default Download Quality";
-"settings_auto_play_next" = "Auto Play Next";
-"settings_unblock" = "Unblock";
-"settings_unblock_desc" = "Auto-fetch playback links from third-party sources for greyed-out songs";
 "settings_qmc_decrypt" = "QMC Decryption";
 "settings_qmc_decrypt_desc" = "Due to risk control, lossless and above playback is currently unavailable. Enable this for high-quality downloads — files will be fetched via decryption channel and decrypted locally";
-"settings_quality" = "Sound Quality";
-"settings_audio_effects" = "Audio Effects";
-"settings_equalizer" = "Equalizer";
 "settings_global_equalizer" = "Global Equalizer";
 "settings_global_equalizer_desc" = "When enabled, EQ applies to all playback.";
 "settings_global_equalizer_enabled" = "Enabled · Current preset: %@";
 "settings_audio_lab" = "Audio Lab";
-"settings_smart" = "Smart";
 "settings_off" = "Off";
 "settings_storage" = "Storage";
 "settings_storage_manage" = "Storage Management";
@@ -270,12 +201,10 @@
 "settings_hitokoto" = "Daily Quote";
 "settings_hitokoto_desc" = "Show a random quote on home";
 "settings_hitokoto_type" = "Quote Type";
-"hitokoto_fallback_slogan" = "世界很吵，留一点声音给自己。";
-"settings_other" = "Other";
+"hitokoto_fallback_slogan" = "The world is loud. Keep a little sound for yourself.";
 "settings_haptic" = "Haptic Feedback";
 "settings_haptic_desc" = "Vibration feedback on interactions";
 "settings_about" = "About";
-"settings_version" = "Version";
 "settings_theme_auto" = "Auto";
 "settings_theme_light" = "Light";
 "settings_theme_dark" = "Dark";
@@ -287,7 +216,6 @@
 "lib_no_podcasts" = "No subscribed podcasts yet";
 "lib_discover_podcasts" = "Discover podcasts you'll love";
 "lib_unsubscribe" = "Unsubscribe";
-"lib_confirm_unsubscribe" = "Unsubscribe from \"%@\"?";
 "lib_delete_playlist" = "Delete Playlist";
 "lib_confirm_delete" = "Delete \"%@\"? This cannot be undone.";
 "lib_confirm_uncollect" = "Remove \"%@\" from collection?";
@@ -297,14 +225,10 @@
 "profile_login_hint" = "Log in to enjoy full features";
 "profile_login_desc" = "Sign in to NCM to sync your playlists, favorites and cloud disk";
 "profile_login_button" = "Log In";
-"profile_edit_signature" = "Edit signature";
-"profile_days_with_you" = "With you for %d days";
 "profile_total_songs" = "Total Songs Played";
 "profile_week_listen" = "This Week";
 "profile_local_playlists" = "Local Playlists";
 "profile_cache_manage" = "Cache Management";
-"profile_cache_manage_desc" = "Manage local cache";
-"profile_cloud_storage" = "Cloud Storage";
 
 /* MV Player */
 "mv_title" = "MV";
@@ -315,13 +239,29 @@
 "mv_play_count" = "plays";
 "mv_similar" = "Similar MVs";
 "mv_related_videos" = "Related Videos";
-"mv_count" = "%d items";
 
 /* Comments */
 "comment_title" = "Comments";
 "comment_hot" = "Hot Comments";
 "common_ok" = "OK";
 "common_done" = "Done";
+"common_unknown_error" = "Unknown Error";
+"common_custom" = "Custom";
+"common_searching" = "Searching";
+"common_view_more" = "View More";
+"download_batch_added_title" = "Added to Downloads";
+"download_failed_title" = "Download Failed";
+"playlist_empty_or_load_failed" = "The playlist is empty or could not be loaded";
+"playlist_collect" = "Save Playlist";
+"playlist_collect_local" = "Save Locally";
+"qcm_login_required" = "Sign in to QCM first";
+"empty_no_songs" = "No Songs";
+"loading" = "Loading…";
+"risk_control_blocked" = "Hi-Fi sources are unavailable in the current environment due to service restrictions";
+"select_song_to_play" = "Select a song to start playback";
+"settings_on" = "On";
+"download_active_tasks_format" = "%d active tasks";
+"search_result_count_format" = "%d results";
 "immersive_gesture_guide_title" = "Immersive Gestures";
 "immersive_gesture_switch_track" = "Swipe sideways · Tracks";
 "immersive_gesture_volume" = "Swipe right side · Volume";
@@ -350,25 +290,17 @@
 "access_validation_success_message" = "Advanced features are unlocked.";
 "access_validation_success_message_name" = "Advanced features are unlocked. Welcome, %@.";
 "access_unlock_title" = "Advanced Features";
-"access_unlock_subtitle" = "Enter a valid token to unlock advanced features";
 "access_unlock_button" = "Unlock Advanced Features";
-"local_action_scan_title" = "Scan Media Library";
-"local_action_scan_subtitle" = "Scan system media, app documents, and iTunes/Finder shared audio";
 "local_action_import_title" = "Import Music";
-"local_action_import_subtitle" = "Supports single files and folders";
-"local_action_remove" = "Remove";
 "local_action_delete_local_song" = "Delete Local Track";
 "local_scan_complete_title" = "Scan Complete";
 "local_import_complete_title" = "Import Complete";
 "local_import_failed_title" = "Import Failed";
-"local_result_message" = "%1$@\n\nYou now have %2$d local tracks and %3$d local playlists.";
 "local_empty_music_title" = "No Local Music Yet";
 "local_empty_search_title" = "No Matches Found";
 "local_empty_music_subtitle" = "Import music from Home first, or add more from the top-right button.";
 "local_empty_search_subtitle" = "Try a different keyword.";
 "local_music_search_prompt" = "Search Local Music";
-"local_library_music_subtitle" = "%d imported and ready for offline playback";
-"local_library_downloads_subtitle" = "%d downloaded";
 "local_downloads_title" = "Offline Downloads";
 "local_empty_playlist_title" = "No Local Playlists Yet";
 "local_empty_playlist_subtitle" = "After importing music, you can organize tracks into your own playlists.";
@@ -379,8 +311,6 @@
 "local_import_result_failed" = "Failed %d";
 "local_import_result_metadata_matched" = "Matched metadata and artwork for %d tracks";
 "local_import_result_lyrics_prefetched" = "Fetched lyrics for %d tracks";
-"local_playlist_import_added" = "Added %d tracks to \"%@\".";
-"local_playlist_import_no_added" = "No new tracks could be added to \"%@\".";
 "local_scan_notice_media_denied" = "System media library access was not granted, so only app documents and iTunes/Finder shared audio were scanned this time.";
 "local_filter_all" = "All";
 "local_filter_favorites" = "Favorites";
@@ -389,57 +319,31 @@
 "local_sort_newest" = "Newest Imports";
 "local_sort_title" = "Song Title";
 "local_sort_artist" = "Artist";
-"local_toolbar_scan" = "Scan";
 "local_toolbar_import" = "Import";
-"local_home_status_title" = "Library Updated";
 "local_stat_duration" = "Total Time";
 "local_home_hero_title" = "Your music, ready to play";
 "local_home_hero_subtitle" = "%d playable items are already organized and ready to continue.";
 "local_home_play_all" = "Play All";
-"local_home_open_library" = "Open Library";
 "local_home_quick_access_title" = "Quick Access";
-"local_home_quick_access_subtitle" = "Keep your most-used offline collections one tap away.";
 "local_home_continue_title" = "Continue Listening";
-"local_home_continue_subtitle" = "%d tracks from recent playback";
 "local_home_recent_added_title" = "Recently Imported";
-"local_home_recent_added_subtitle" = "%d latest tracks added to your library";
 "local_home_playlists_title" = "Local Playlists";
-"local_home_playlists_subtitle" = "%d custom playlists already organized";
 "local_home_playlist_empty_hint" = "Create a playlist from Library to start organizing imported music.";
 "local_home_manage_playlists" = "Manage Playlists";
-"local_home_manage_playlists_subtitle" = "Create, import, or continue editing your local playlists";
-"local_home_empty_hint" = "Import music first, then this page will fill with recents, quick access, and playlist shortcuts.";
 "local_starter_title" = "Build your library";
 "local_starter_subtitle" = "Imported music plays fully offline";
 "local_starter_step1" = "Pick audio files or a whole folder from Files";
 "local_starter_step2" = "Titles, artists and artwork are read automatically";
 "local_starter_step3" = "Organize into playlists and listen anytime";
 "local_starter_formats_label" = "SUPPORTED FORMATS";
-"local_shortcut_tracks_subtitle" = "%d playable tracks";
 "local_empty_collection_title" = "Nothing here yet";
 "local_empty_collection_subtitle" = "Import music first, or organize songs from the rest of the app.";
-"local_music_summary_all" = "%d imported tracks ready for offline playback";
-"local_music_summary_favorites" = "%d favorite tracks currently playable offline";
-"local_music_summary_downloads" = "%d downloaded tracks ready any time";
-"local_music_summary_recent" = "%d tracks from your recent listening";
-"local_library_overview_title" = "Organize your local collection";
-"local_library_overview_subtitle" = "System collections and custom playlists live here together.";
-"local_library_manage_title" = "Playlist Actions";
-"local_library_manage_subtitle" = "Create or import playlists and keep your library in order.";
-"local_library_create_subtitle" = "Start a playlist from scratch";
-"local_library_import_subtitle" = "Restore a playlist from an exported JSON file";
 "local_library_system_title" = "System Collections";
-"local_library_system_subtitle" = "Your core offline sets and recent playback live here.";
 "local_library_custom_title" = "Custom Playlists";
-"local_library_custom_subtitle" = "%d playlists ready to edit and play";
 "local_library_import_no_local_match" = "The playlist file was parsed, but none of its songs exist in the local library yet. Import the music first and try again.";
 "local_library_import_success" = "Imported \"%@\" and matched %d local tracks.";
 "local_profile_hero_title" = "Mono";
-"local_profile_hero_subtitle" = "%d local tracks are ready, along with your library, downloads, and device settings.";
-"local_profile_shortcuts_title" = "Shortcuts";
-"local_profile_shortcuts_subtitle" = "Jump back into favorites, recent playback, and offline collections.";
 "local_profile_manage_title" = "Manage";
-"local_profile_manage_subtitle" = "Library, downloads, storage, and settings are all here.";
 "settings_navigation_appearance_title" = "Appearance";
 "settings_navigation_appearance_subtitle" = "Interface, background, lyrics";
 "settings_section_personalization" = "Personalization";
@@ -476,9 +380,6 @@
 "game_mode_settings_subtitle_on" = "On · Coexist with your game";
 "game_mode_settings_subtitle_off" = "Listen while gaming";
 "game_mode_settings_title" = "Game Mode";
-"game_mode_menu_on" = "Turn Off Game Mode";
-"game_mode_menu_off" = "Turn On Game Mode";
-"game_mode_badge_active" = "On";
 "game_mode_main_title" = "Game Mode";
 "game_mode_main_subtitle_on" = "On — music mixes with game audio. Tap to turn off.";
 "game_mode_main_subtitle_off" = "One tap to mix audio with your current game";
@@ -497,8 +398,6 @@
 "game_mode_option_ducking_subtitle" = "Duck music when system voice / voice chat plays";
 "game_mode_option_quality_title" = "Save Battery — Lower Quality";
 "game_mode_option_quality_subtitle" = "Switch to standard quality to keep performance for the game";
-"game_mode_option_live_activity_title" = "Hide Dynamic Island Lyrics";
-"game_mode_option_live_activity_subtitle" = "Turn off Live Activity while gaming";
 "game_mode_option_silent_np_title" = "Hide Lock Screen / Dynamic Island";
 "game_mode_option_silent_np_subtitle" = "Don't show playback info on lock screen during gaming";
 "game_mode_option_minimal_np_title" = "Keep Minimal Title (Experimental)";
@@ -523,8 +422,6 @@
 "game_mode_lamp_silent" = "Hide Lock";
 "game_mode_lamp_auto_exit" = "Auto Exit";
 "settings_app_brand_title" = "App Icon";
-"settings_app_brand_desc" = "Switch the Home Screen icon and the in-app logo together";
-"settings_app_brand_device_hint" = "Home Screen icon switching may require a real device; the in-app logo updates immediately.";
 "settings_app_brand_monologue" = "Mono";
 "settings_app_brand_monologue_desc" = "Classic ghost mark";
 "settings_app_brand_aurora" = "Aside";
@@ -535,14 +432,11 @@
 "settings_app_brand_paw_desc" = "Default Paw cat and dog icon";
 "settings_app_brand_paw_mono" = "Paw Mono";
 "settings_app_brand_paw_mono_desc" = "Paw icon with Mono wordmark";
-"settings_app_brand_appearance_title" = "Icon Appearance";
-"settings_app_brand_appearance_desc" = "Choose light or dark manually instead of following the system";
 "settings_app_brand_appearance_light" = "Light";
 "settings_app_brand_appearance_light_desc" = "Use the bright background version";
 "settings_app_brand_appearance_dark" = "Dark";
 "settings_app_brand_appearance_dark_desc" = "Use the dark background version";
 "settings_interface_icon_set_title" = "Interface Icons";
-"settings_interface_icon_set_hicon_desc" = "Keep the original icon style";
 "settings_cover_bg_global" = "Global Dynamic Background";
 "settings_cover_bg_global_desc" = "Use the current cover art as a blurred background across the app";
 "settings_cover_bg_playlist" = "Playlist Cover Background";
@@ -558,6 +452,7 @@
 "settings_lyric_color_end" = "End Color";
 "settings_lyric_preview" = "Lyric Preview";
 "lyric_source_default_title" = "Default Lyric Source";
+"apple_music_lyric_source_title" = "Apple Music Lyric Source";
 "lyric_source_change" = "Change Lyrics";
 "lyric_source_selected" = "Selected";
 "common_close" = "Close";
@@ -582,8 +477,6 @@
 "playlist_sync_idle" = "Cloud sync is idle";
 "playlist_sync_upload_button" = "Upload to Cloud";
 "playlist_sync_restore_button" = "Restore from Cloud";
-"playlist_sync_upload_title" = "Playlists Uploaded";
-"playlist_sync_restore_title" = "Cloud Playlists Restored";
 "playlist_sync_upload_success" = "Cloud data synced";
 "playlist_sync_restore_success" = "Cloud data restored";
 "playlist_sync_cloud_empty" = "No local playlists have been saved to the cloud yet";
@@ -594,7 +487,7 @@
 "settings_navigation_cloud_sync_title" = "Cloud Sync";
 "settings_navigation_cloud_sync_disabled" = "Token required";
 "playlist_sync_auto_toggle_title" = "Automatic Sync";
-"playlist_sync_auto_toggle_desc" = "Sync local data changes to the cloud automatically";
+"playlist_sync_auto_toggle_desc" = "Sync local changes in 3 batches each day";
 "playlist_sync_delete_remote_toggle_title" = "Clear cloud snapshot on delete";
 "playlist_sync_delete_remote_toggle_desc" = "When off, clearing local synced content keeps the cloud snapshot";
 "playlist_sync_status_title" = "Sync Status";
@@ -606,8 +499,6 @@
 "settings_token_saved" = "Saved";
 "settings_token_authorized" = "Authorized";
 "settings_token_unauthorized" = "Not Authorized";
-"playback_resource_expired_title" = "Source Unavailable";
-"playback_resource_expired_message" = "%1$@ - %2$@\nThis track is temporarily unavailable from all sources.";
 "playback_next_track" = "Next";
 "playback_token_prompt_title" = "Enter Token";
 "playback_token_prompt_message" = "Enter a valid token to unlock advanced features.";
@@ -627,15 +518,52 @@
 "comment_placeholder" = "Write a comment...";
 "comment_reply_placeholder" = "Reply to @%@...";
 
+/* Common dynamic copy */
+"download_batch_queue_added_format" = "Added %d songs to the download queue";
+"radio_episode_number_format" = "Episode %d";
+"radio_episode_part_format" = "Episode %d";
+"theme_custom_profile_name_format" = "Profile %d";
+"daily_recommendation_full_date_format" = "Recommended · %2$@/%3$@/%1$@";
+"appearance_saved_count_format" = "%d saved";
+"appearance_save_colors_icon_format" = "Save Colors & Icon Pack (%@)";
+"playlist_import_match_result_format" = "Matched %d songs; %d were not found";
+"qcm_playlist_import_failed_format" = "QCM playlist import failed: %@";
+"kugou_playlist_import_failed_format" = "Kugou playlist import failed: %@";
+"radio_load_failed_format" = "Failed to load: %@";
+"radio_program_load_failed_format" = "Failed to load episodes: %@";
+"comments_load_failed_format" = "Failed to load comments: %@";
+"comment_send_failed_format" = "Failed to send: %@";
+"qq_qr_create_failed_format" = "Failed to get QR code: %@";
+"qq_qr_poll_failed_format" = "Status check failed: %@";
+"search_failed_format" = "Search failed: %@";
+"download_url_failed_format" = "Failed to get download URL: %@";
+"download_network_failed_format" = "Download failed: %@";
+"ncm_missing_field_format" = "Response is missing field: %@";
+"ncm_api_error_format" = "API error [%d]: %@";
+"social_song_format" = "[Song] %@";
+"social_song_artist_format" = "[Song] %1$@ - %2$@";
+"social_album_format" = "[Album] %@";
+"social_playlist_format" = "[Playlist] %@";
+"download_saved_local_notification_format" = "%@ was saved locally";
+"download_failed_notification_format" = "%@ could not be downloaded. Try again later.";
+"push_send_failed_format" = "Push failed: %@";
+"cache_storage_summary_format" = "Database: %1$@, Files: %2$@";
+"refresh_summary_format" = "Songs: %1$d, Playlists: %2$d, Size: %3$@, Last refresh: %4$@";
+"audio_dynamic_range_critical_format" = "Extremely narrow dynamic range (DR%d), indicating severe over-compression";
+"audio_dynamic_range_narrow_format" = "Narrow dynamic range (DR%d)";
+"audio_dynamic_range_low_format" = "Slightly narrow dynamic range (DR%d)";
+"audio_loudness_high_format" = "Very high loudness (%.1f LUFS), indicating possible over-limiting";
+"audio_loudness_low_format" = "Low loudness (%.1f LUFS)";
+"audio_effect_decibel_format" = "%1$@ %2$+.0f dB";
+"audio_effect_percent_format" = "%1$@ %2$d%%";
+"audio_effect_multiplier_format" = "%1$@ %2$.1fx";
+
 /* Profile - New */
-"profile_preferences_account" = "Preferences & Account";
 "profile_recent_count" = "%d songs";
 
 /* Settings - New */
 "settings_calculating" = "Calculating...";
 "settings_debug_log" = "Debug Log";
-"settings_debug_log_desc" = "View runtime logs for troubleshooting";
-"settings_qq_music" = "QCM";
 "settings_qq_account" = "QCM Account";
 "settings_qq_logged_in" = "Logged In";
 "settings_qq_not_logged_in" = "Not logged in, tap to manage";
@@ -658,9 +586,6 @@
 "login_qr_only_hint" = "Scan with the NCM app to sign in";
 "login_loading" = "Loading...";
 "login_tap_refresh" = "Tap to Refresh";
-"login_phone_placeholder" = "Enter phone number";
-"login_captcha_placeholder" = "Enter captcha";
-"login_resend" = "Resend";
 "login_instruction_1" = "Open NCM App";
 "login_instruction_2" = "Tap scan in the top left";
 "login_instruction_3" = "Scan the QR code above to log in";
@@ -672,8 +597,6 @@
 /* Welcome - New */
 "welcome_slogan" = "The world is loud. Keep a sound for yourself.";
 "welcome_slogan_short" = "LOUD WORLD · QUIET SOUND";
-"welcome_back" = "Welcome back, %@";
-"welcome_user" = "User";
 
 /* Search - New */
 "search_platform_netease" = "NCM";
@@ -698,19 +621,12 @@
 /* Home - New */
 "home_playlist" = "Playlist";
 "home_mv_zone" = "MV Zone";
-"home_mv_zone_desc" = "Watch the latest and hottest music videos";
 
 /* Library - New */
-"library_header_subtitle" = "A cleaner place for your collections, playlists, and podcasts";
-"library_my_netease_hint" = "Your saved and created NCM playlists are gathered here";
-"library_my_local_hint" = "Manage imported and local playlists in one streamlined space";
-"library_my_podcast_hint" = "All subscribed podcasts stay together for quicker return listening";
-"library_podcast_subscriptions_count" = "%d subscriptions";
 "lib_local_playlists" = "Local Playlists";
 "lib_no_local_playlists" = "No local playlists yet";
 "lib_create_playlist" = "Create Playlist";
 "lib_import_playlist" = "Import Playlist";
-"lib_import_from_json" = "Import from JSON file";
 "lib_playlist_name" = "Playlist Name";
 "lib_create" = "Create";
 "lib_delete" = "Delete";
@@ -719,12 +635,9 @@
 "lib_confirm" = "OK";
 "lib_import_no_songs" = "No valid songs in playlist";
 "lib_import_fetch_failed" = "Unable to fetch song info";
-"lib_unknown_error" = "Unknown error";
 "lib_episode_count" = "%d episodes";
 
 /* Artist Detail - New */
-"artist_followed" = "Following";
-"artist_follow" = "Follow";
 "artist_fans_count" = "%@ fans";
 "artist_album_count" = "%d albums";
 "artist_song_count" = "%d songs";
@@ -743,7 +656,6 @@
 "album_no_desc" = "No album description";
 
 /* Comment - New */
-"comment_count" = "%d comments";
 "comment_hot_section" = "Hot Comments";
 "comment_all_section" = "All Comments";
 "comment_load_more_btn" = "Load more comments";
@@ -755,29 +667,18 @@
 
 /* Debug Log - New */
 "debug_title" = "Debug Log";
-"debug_log_count" = "%d logs";
-"debug_export" = "Export Logs";
 "debug_clear" = "Clear Logs";
-"debug_auto_scroll" = "Auto Scroll";
 "debug_search_placeholder" = "Search logs...";
 "debug_stat_total" = "Total";
 "debug_visible_count" = "Visible";
-"debug_stat_error" = "Errors";
-"debug_stat_warning" = "Warnings";
-"debug_stat_success" = "Success";
 "debug_level_info" = "Info";
 "debug_level_debug" = "Debug";
 "debug_level_warning" = "Warning";
 "debug_level_error" = "Error";
 "debug_level_network" = "Network";
 "debug_level_success" = "Success";
-"debug_export_title" = "Mono Debug Log";
-"debug_export_time" = "Export Time";
-"debug_export_count" = "Log Count";
 "debug_detail_title" = "Log Details";
-"debug_copy" = "Copy";
 "debug_copied" = "Copied";
-"debug_parse" = "Parse";
 "debug_empty" = "No Logs";
 "debug_message_section" = "Message";
 "debug_analysis_section" = "Parsed Result";
@@ -786,15 +687,12 @@
 "debug_analysis_characters" = "Characters";
 "debug_fields_section" = "Fields";
 "debug_links_section" = "Links";
-"debug_dropped_count" = "%d dropped";
 "debug_dropped_count_short" = "Dropped";
 "debug_collecting" = "Collecting";
 "debug_collection_paused" = "Paused";
 "debug_collection" = "Collect Logs";
-"debug_updated_at" = "Updated %@";
 "debug_records_section" = "Log Entries";
 "debug_no_matches" = "No matching logs";
-"debug_apns_token" = "APNs Token";
 "debug_export_filtered" = "Export Filtered";
 "debug_export_all_json" = "Export All as JSON";
 "debug_newest_first" = "Newest First";
@@ -804,7 +702,6 @@
 "debug_copy_message" = "Copy Message";
 "debug_copy_log" = "Copy Log";
 "debug_context_section" = "Context";
-"debug_source" = "Source";
 "debug_function" = "Function";
 "debug_thread" = "Thread";
 "debug_request_method" = "Method";
@@ -834,17 +731,11 @@
 "more_menu_cloud_section" = "Cloud Music";
 
 /* EQ Settings - New */
-"eq_title" = "Equalizer";
 "eq_reset" = "Reset";
 "eq_toggle_title" = "Audio Equalizer";
 "eq_custom" = "Custom";
 "eq_original_output" = "Original audio output";
-"eq_smart_analyze" = "Smart Analyze";
-"eq_smart_desc" = "Analyze current song, auto-optimize effects";
-"eq_analyzing" = "Analyzing...";
-"eq_applied" = "Smart effects applied";
 "eq_effects" = "Effects";
-"eq_playback_processing" = "Playback Processing";
 "eq_bass" = "Bass";
 "eq_treble" = "Treble";
 "eq_surround" = "Surround";
@@ -872,10 +763,7 @@
 "ai_lab_result_notice" = "AI tuning results are approximate and may not meet every expectation. Speed and availability depend on the network; if analysis fails, try again.";
 
 /* QQ Login - New */
-"qq_login_title" = "QCM Login";
 "qq_login_subtitle" = "Log in to play QCM library";
-"qq_tab_qr" = "Scan QR";
-"qq_tab_phone" = "Phone Login";
 "qq_qr_loading" = "Loading...";
 "qq_qr_expired" = "QR Code Expired";
 "qq_qr_refresh" = "Tap to Refresh";
@@ -887,13 +775,6 @@
 "qq_open_app" = "Open %@ App";
 "qq_use_scan" = "Use scan feature";
 "qq_scan_qr" = "Scan the QR code above to log in";
-"qq_phone_number" = "Phone Number";
-"qq_phone_placeholder" = "Enter phone number";
-"qq_captcha" = "Captcha";
-"qq_captcha_placeholder" = "Enter captcha";
-"qq_get_captcha" = "Get Captcha";
-"qq_resend" = "Resend";
-"qq_login_btn" = "Login";
 
 /* QQ Account - New */
 "qq_account_title" = "QCM";
@@ -903,11 +784,6 @@
 "qq_session_expired_message" = "Your QCM login is no longer valid. Please scan to log in again.";
 "qq_cookie_expired_body" = "The cookie has expired. Some features may be affected until you sign in again.";
 "qq_connected" = "Connected";
-"qq_login_method" = "Login Method";
-"qq_login_qq_scan" = "QCM Scan";
-"qq_login_wx_scan" = "WeChat Scan";
-"qq_login_phone_code" = "Phone Code";
-"qq_login_unknown" = "Unknown";
 "qq_vip_status" = "VIP Status";
 "qq_svip" = "Super VIP";
 "qq_vip" = "Green Diamond VIP";
@@ -933,7 +809,6 @@
 "daily_history_title" = "Daily History";
 "daily_history_subtitle" = "Review past recommendations";
 "daily_select_date" = "Select a date to view history";
-"daily_date_recommend" = "%@/%@/%@ Recommendations";
 "daily_song_count" = "%d songs";
 "daily_no_history" = "OK";
 
@@ -950,7 +825,6 @@
 "local_playlist_delete_confirm" = "Delete \"%@\"? This cannot be undone.";
 "local_playlist_export_failed" = "Export Playlist Failed";
 "local_playlist_no_songs" = "No songs yet";
-"local_playlist_play" = "Play";
 "local_playlist_remove" = "Remove";
 
 /* Add To Playlist - New */
@@ -981,7 +855,6 @@
 /* Sound Quality - New */
 "quality_title" = "Sound Quality";
 "quality_current_prefix" = "Current";
-"quality_kugou_source" = "Kugou Source";
 "quality_qq_source" = "QCM";
 "quality_premium" = "Premium";
 "quality_lossless" = "Lossless";
@@ -996,21 +869,15 @@
 "tabbar_profile" = "Profile";
 
 /* Song List Row - New */
-"song_unblocked" = "Unblocked";
 "song_no_copyright" = "No License";
 "song_delete_download" = "Delete Download";
 "song_download" = "Download";
 "song_add_to_playlist" = "Add to Playlist";
 "song_view_album" = "View Album";
 "song_copy_link" = "Copy Play Link";
-"song_no_copyright_title" = "No License";
-"song_no_copyright_message" = "This song has no license. Enable \"Unblock\" to try fetching from third-party sources.";
-"song_enable_unblock" = "Enable";
 
 /* Common */
 "confirm" = "OK";
-"ok" = "OK";
-"retry" = "Retry";
 
 /* QCM Detail - New */
 "qq_fans_count" = "%@ fans";
@@ -1026,9 +893,7 @@
 "qq_track_count" = "%d songs";
 "qq_play" = "Play All";
 "qq_album_desc" = "Album Description";
-"qq_songs_count" = "%d songs";
 "qq_loading_more" = "Loading more...";
-"qq_music_title" = "QCM";
 
 /* MV List - New */
 "mv_unknown_name" = "Unknown MV";
@@ -1051,7 +916,6 @@
 "mv_more_section" = "More";
 
 /* Radio Player - New */
-"radio_playing" = "Radio";
 "radio_retry" = "Retry";
 "radio_unknown_program" = "Unknown Program";
 "radio_tuning" = "Tuning...";
@@ -1074,14 +938,12 @@
 
 /* Podcast - New */
 "podcast_title" = "Podcast";
-"podcast_discover" = "Discover great audio";
 "podcast_all" = "All";
 "podcast_for_you" = "For You";
 "podcast_featured" = "Featured";
 "podcast_broadcast" = "Radio Stations";
 "podcast_episode_count" = "%d eps";
 "podcast_today_pick" = "Today's Pick";
-"podcast_premium" = "Premium";
 "podcast_newcomer" = "Rising Stars";
 "podcast_program_toplist" = "Top Programs";
 
@@ -1092,8 +954,6 @@
 "podcast_episode_search_empty" = "No matching episodes found";
 "podcast_sort_latest" = "Latest";
 "podcast_sort_oldest" = "Oldest";
-"podcast_sort_latest_first" = "Latest First";
-"podcast_sort_oldest_first" = "Oldest First";
 "podcast_hot_radios" = "Popular Podcasts";
 "podcast_no_results" = "No podcasts found";
 
@@ -1104,7 +964,6 @@
 "radio_category_browse" = "Browse Categories";
 
 /* Style Selection - New */
-"style_select_title" = "Recommendation Type";
 "style_tab_genre" = "Genre";
 "style_tab_mood" = "Mood";
 "style_tab_scene" = "Scene";
@@ -1163,11 +1022,8 @@
 
 /* Meditation Mode */
 "meditation_mode_title" = "Meditation Mode";
-"meditation_mode_subtitle" = "";
 "meditation_mode_eyebrow" = "CALM";
 "meditation_recommended_title" = "Recommended";
-"meditation_recommended_subtitle" = "";
-"meditation_loading" = "Loading";
 "meditation_empty" = "Empty";
 "meditation_load_failed" = "Load Failed";
 "meditation_sati_source" = "Sleep & Relax";
@@ -1179,18 +1035,9 @@
 "meditation_topic_breathing" = "Breathing";
 "meditation_topic_relax" = "Relax";
 "meditation_topic_ambient" = "White Noise";
-"meditation_topic_all_subtitle" = "";
-"meditation_topic_mindfulness_subtitle" = "";
-"meditation_topic_focus_subtitle" = "";
-"meditation_topic_light_music_subtitle" = "";
-"meditation_topic_sleep_subtitle" = "";
-"meditation_topic_breathing_subtitle" = "";
-"meditation_topic_relax_subtitle" = "";
-"meditation_topic_ambient_subtitle" = "";
 "meditation_player_exit" = "Exit Meditation";
 "meditation_player_timer" = "Timer";
 "meditation_player_timer_title" = "Timer";
-"meditation_player_loading" = "Loading";
 "meditation_player_empty" = "Empty";
 "meditation_player_load_failed" = "Load Failed";
 "meditation_player_retry" = "Retry";
@@ -1203,16 +1050,11 @@
 /* Playlist Create */
 "create_netease_playlist" = "Create NCM Playlist";
 "create_netease_playlist_name" = "Playlist Name";
-"create_netease_playlist_private" = "Set as Private";
-"create_netease_success" = "Playlist Created";
-"create_netease_failed" = "Creation Failed";
-"add_to_netease_playlist" = "Add to NCM Playlist";
 "netease_playlist_section" = "NCM Playlists";
 "local_playlist_section" = "Local Playlists";
 
 /* Audio Match */
 "audio_match_title" = "Audio Match";
-"audio_match_subtitle" = "Identify music playing around you";
 "audio_match_tap_to_start" = "Tap to Start";
 "audio_match_hint" = "Hold your phone near the music source and tap the button";
 "audio_match_listening" = "Listening...";
@@ -1245,34 +1087,13 @@
 "storage_title" = "Storage";
 "storage_total" = "Total Used";
 "storage_available" = "Available";
-"storage_total_format" = "Total %@";
-"storage_download" = "Downloads";
-"storage_cache" = "Cache";
-"storage_data" = "Data";
-"storage_image" = "Images";
-"storage_download_songs" = "Downloaded Songs";
-"storage_song_count" = "%d songs";
-"storage_song_cache" = "Song Cache";
-"storage_song_cache_desc" = "Songs, playlists, lyrics, etc.";
 "storage_user_data" = "User Data";
-"storage_user_data_desc" = "Play history, search history, etc.";
 "storage_image_cache" = "Image Cache";
-"storage_image_cache_desc" = "Covers, avatars, etc.";
 "storage_clear_btn" = "Clear";
-"storage_clear_all_title" = "Clear All Data";
-"storage_clear_all_subtitle" = "Free up all storage space";
-"storage_clear_cache" = "Clear Song Cache";
-"storage_clear_cache_desc" = "This will clear all cached songs and playlists";
 "storage_clear_data" = "Clear User Data";
 "storage_clear_data_desc" = "This will clear play history, search history, etc.";
-"storage_clear_download" = "Clear Downloads";
-"storage_clear_download_desc" = "This will delete all downloaded song files";
-"storage_delete_all" = "Delete All";
 "storage_clear_image" = "Clear Image Cache";
 "storage_clear_image_desc" = "This will clear all cached cover images";
-"storage_clear_all" = "Clear All";
-"storage_clear_all_confirm" = "Clear All";
-"storage_clear_all_desc" = "This will clear all cache, user data and downloads. This action cannot be undone.";
 "storage_clear" = "Clear";
 "storage_analyzing" = "Analyzing";
 "storage_scanning_format" = "Scanning %@…";
@@ -1281,7 +1102,6 @@
 "storage_custom_fonts" = "Imported Fonts";
 "storage_video_backgrounds" = "Video Backgrounds";
 "storage_temp_files" = "Temporary Files";
-"storage_local_music" = "Local Music";
 "storage_local_songs" = "Local Songs";
 "storage_manage_in_local" = "Managed in Local Music";
 "storage_item_count" = "%d items";
@@ -1308,7 +1128,6 @@
 "podcast_speed_title" = "Playback Speed";
 "podcast_speed_normal" = "Normal (1x)";
 "podcast_timer_title" = "Sleep Timer";
-"podcast_timer_off" = "Off";
 "podcast_timer_inactive" = "Sleep timer is off";
 "podcast_timer_10" = "10 minutes";
 "podcast_timer_20" = "20 minutes";
@@ -1405,10 +1224,6 @@
 "dev_popup_changelog_notes" = "New\n· Popup preview entry\nImproved\n· Popup state and interactions\nFixed\n· Popup dismissal state";
 
 /* Unblock Warning */
-"unblock_warning_title" = "Song Unblocking";
-"unblock_warning_confirm" = "Got it";
-"unblock_warning_cancel" = "Cancel";
-"unblock_warning_message" = "Song unblocking uses third-party sources to match unavailable tracks. Please note:\n\n· Matches may not always be accurate\n· Audio quality may differ from the original\n· Some songs may still be unavailable\n· This feature may stop working at any time\n\nFor learning and personal use only. Please support official music.";
 "settings_playback_quality_section" = "Audio Quality";
 "settings_playback_queue_section" = "Playback Queue";
 "settings_playback_effects_section" = "Effects & Modes";
@@ -1417,7 +1232,6 @@
 /* About */
 "基于 FFmpeg + AVAudioEngine 深度定制" = "Deeply customized from FFmpeg + AVAudioEngine";
 "智能系统" = "AI System";
-"首创自研智能调音Agent：Mono Audio Agent" = "First-of-its-kind in-house intelligent tuning agent: Mono Audio Agent";
 "首创自研智能调音Agent" = "In-house intelligent tuning agent";
 "AI 服务由 DengDeng 提供" = "AI service provided by DengDeng";
 "SwiftUI + Combine · 原生 MVVM 架构" = "SwiftUI + Combine · Native MVVM architecture";
@@ -1441,7 +1255,6 @@
 "manga_tile_new_song_sub" = "Fresh releases";
 "manga_tile_mv_sub" = "Curated HD MVs";
 "manga_tile_meditation_sub" = "Immersive wind-down";
-"manga_issue_no" = "Issue %d";
 
 /* Mono professional calibration */
 "eq_mono_calibration" = "Mono Calibration";
@@ -1499,34 +1312,16 @@
 "eq_mastering" = "Mastering & Output";
 "eq_loudness_normalization" = "Loudness Normalization";
 "eq_target_lufs" = "Target Loudness";
-"eq_target_lra" = "Target Dynamics";
-"eq_true_peak_ceiling" = "True Peak Ceiling";
 "eq_compressor" = "Compressor";
-"eq_compressor_threshold" = "Compressor Threshold";
-"eq_compressor_ratio" = "Compressor Ratio";
-"eq_makeup_gain" = "Makeup Gain";
 "eq_final_limiter" = "Final Limiter";
 "eq_output_ceiling" = "Output Ceiling";
 "eq_headphone_spatial" = "Headphone Spatial";
 "eq_bs2b" = "BS2B";
-"eq_bs2b_cutoff" = "Crossfeed Cutoff";
-"eq_bs2b_feed" = "Feed Level";
 "eq_crossfeed" = "Crossfeed";
-"eq_crossfeed_strength" = "Crossfeed Strength";
 "eq_haas" = "Haas Delay";
-"eq_haas_delay" = "Delay";
-"eq_tone_enhancement" = "Tone Enhancement";
 "eq_subboost" = "Sub Bass";
-"eq_subboost_gain" = "Sub Bass Gain";
-"eq_subboost_cutoff" = "Sub Bass Cutoff";
 "eq_virtual_bass" = "Virtual Bass";
-"eq_virtual_bass_cutoff" = "Virtual Bass Cutoff";
-"eq_virtual_bass_strength" = "Virtual Bass Strength";
 "eq_exciter" = "Exciter";
-"eq_exciter_amount" = "Exciter Amount";
-"eq_exciter_frequency" = "Exciter Start";
-"eq_softclip" = "Soft Clip";
-"eq_softclip_type" = "Clip Curve";
 
 /* Listening reports */
 " 分钟" = " min";
@@ -1538,9 +1333,7 @@
 "%d 次播放 · %@" = "%d plays · %@";
 "%d 首歌曲" = "%d songs";
 "Monologue 听歌报告" = "Monologue Listening Report";
-"TOP 2–5" = "TOP 2–5";
 "一天中的收听时段" = "Listening Hours";
-"一天的声音" = "The Day in Sound";
 "上周听歌报告" = "Last Week in Music";
 "上月听歌报告" = "Last Month in Music";
 "不再自动弹出" = "Stop Showing Automatically";
@@ -1553,21 +1346,12 @@
 "峰值 %02d:00" = "Peak %02d:00";
 "峰值 %@" = "Peak %@";
 "年度听歌报告" = "Year in Music";
-"报告摘要" = "Report Summary";
 "播放次数" = "Plays";
 "播放音乐后，报告会在这里生成" = "Your report will appear after you play some music";
 "数据仅保存在本机" = "Data stays on this device";
-"最长连续天数" = "Longest Streak";
 "查看完整报告" = "View Full Report";
-"活跃日平均" = "Average per Active Day";
 "稍后再看" = "Later";
-"第一次听到" = "First Listens";
-"继续播放的歌" = "More of Your Top Songs";
-"这一周的节奏" = "The Week's Rhythm";
-"这一年的轨迹" = "The Year in Motion";
 "这个周期还没有听歌记录" = "No listening activity in this period";
-"这个月的轨迹" = "The Month in Motion";
-"这段时间最常出现" = "Most Heard Artist";
 "听歌报告" = "Listening Reports";
 "暂无记录" = "No activity";
 "上一期" = "Previous period";
@@ -1869,43 +1653,14 @@
 "mono_audio_workspace_enhancement" = "Enhance";
 "mono_audio_tuning" = "Tuning";
 "mono_suite_title" = "Sound Enhancement";
-"mono_suite_entry_status" = "Smart playback and sound processing";
-"mono_suite_header_label" = "Sound Enhancement";
-"mono_suite_short_status" = "Enhanced";
-"mono_suite_current_track" = "Current Track";
 "mono_suite_no_track" = "No track playing";
-"mono_suite_active_count" = "Enabled";
 "mono_suite_waiting_analysis" = "Waiting for analysis";
-"mono_suite_workspace_picker" = "Enhancement Category";
-"mono_suite_workspace_playback" = "Playback";
-"mono_suite_workspace_sound" = "Sound";
-"mono_suite_workspace_intelligence" = "Intelligence";
-"mono_suite_workspace_audio" = "Sound";
-"mono_suite_workspace_session" = "Session";
-"mono_suite_playback_section" = "Playback and Tuning";
-"mono_suite_system_section" = "Fingerprint and Recovery";
-"mono_flow_title" = "Smart Transitions";
-"mono_flow_description" = "Plan transitions using beat, energy, and song sections";
-"mono_flow_mode" = "Transition";
-"mono_flow_duration" = "About %.1f seconds";
-"mono_flow_seamless" = "Natural";
-"mono_flow_rhythmic" = "Beat Matched";
-"mono_flow_energy" = "Energy Matched";
-"mono_flow_faithful" = "Original";
-"mono_sound_twin_evidence" = "%d preferences learned";
-"mono_sound_twin_reset" = "Reset Sound Preferences";
-"mono_sound_twin_title" = "Listening Profile";
-"mono_sound_twin_description" = "Adapt future sound using saved tuning choices";
-"mono_live_master_title" = "Dynamic Master";
-"mono_live_master_description" = "Adjust dynamics and space as song sections change";
 "mono_dna_title" = "Track Profile";
 "mono_dna_description" = "Store tempo, key, spectrum, and dynamic measurements";
 "mono_recovery_title" = "Playback Recovery";
 "mono_recovery_description" = "Monitor loading, audio output, and playback pipeline failures";
-"mono_spatial_live" = "Spatial Stage";
 "mono_spatial_title" = "Spatial Stage";
 "mono_spatial_description" = "Control stage width, depth, center, and ambience";
-"mono_spatial_mode" = "Spatial Mode";
 "mono_spatial_width" = "Stage Width";
 "mono_spatial_depth" = "Stage Depth";
 "mono_spatial_center" = "Center Focus";
@@ -1913,20 +1668,6 @@
 "mono_spatial_off" = "Off";
 "mono_spatial_fixed" = "Fixed Stage";
 "mono_spatial_head_tracked" = "Head Tracked";
-"mono_stems_preparing" = "Preparing";
-"mono_stems_section" = "Track Processing";
-"mono_stems_title" = "Stem Separation";
-"mono_stems_description" = "Create vocal, drum, bass, and instrumental stems";
-"mono_stems_processing" = "Separating stems";
-"mono_stems_export" = "Export";
-"mono_stems_ready" = "Four stems ready";
-"mono_stems_delete" = "Delete Stems";
-"mono_stems_separate" = "Create Stems";
-"mono_stems_vocals" = "Vocals";
-"mono_stems_drums" = "Drums";
-"mono_stems_bass" = "Bass";
-"mono_stems_instruments" = "Instrumental";
-"mono_stems_error" = "Could not create stems. Try again.";
 "mono_session_member_count" = "%d people";
 "mono_session_title" = "Listen Together";
 "mono_session_lobby_description" = "Create a room or enter a room code";
@@ -1971,10 +1712,6 @@
 "mono_session_error_ended" = "The session has ended";
 "mono_session_error_generic" = "Room operation failed";
 "common_back" = "Back";
-"mono_master_opening" = "Opening";
-"mono_master_body" = "Main";
-"mono_master_peak" = "Peak";
-"mono_master_release" = "Release";
 "mono_recovery_clear" = "Clear Recovery History";
 "mono_recovery_history" = "Recovery History";
 "mono_recovery_history_empty" = "No recovery records";
@@ -2005,23 +1742,6 @@
 "mono_suite_module_disabled" = "This module is off";
 "mono_suite_status_active" = "Active";
 "mono_suite_status_off" = "Off";
-"mono_flow_current_plan" = "Current transition";
-"mono_flow_tempo_match" = "Tempo";
-"mono_flow_key_match" = "Key";
-"mono_flow_energy_match" = "Energy";
-"mono_flow_vocal_protection" = "Main vocal section protected";
-"mono_flow_standard_transition" = "Following the current track structure";
-"mono_master_current_section" = "Current section";
-"mono_master_bass" = "Bass";
-"mono_master_treble" = "Treble";
-"mono_master_width" = "Stage";
-"mono_master_loudness" = "Level";
-"mono_twin_learning" = "Awaiting preferences";
-"mono_twin_bass" = "Bass";
-"mono_twin_treble" = "Treble";
-"mono_twin_vocal" = "Vocals";
-"mono_twin_dynamics" = "Dynamics";
-"mono_twin_spatial" = "Space";
 "mono_dna_energy" = "Energy";
 "mono_dna_brightness" = "Brightness";
 "mono_dna_rhythm" = "Rhythm";
@@ -2031,7 +1751,6 @@
 "mono_dna_mid" = "Mid";
 "mono_dna_high" = "High";
 "mono_recovery_summary" = "%d records · %d consecutive failures";
-"mono_stems_waiting" = "Not generated";
 "mono_hint_electronic" = "Electronic";
 "mono_hint_hiphop" = "Hip-Hop";
 "mono_hint_rock" = "Rock";
@@ -2051,6 +1770,7 @@
 "server_line_auto" = "Auto";
 "server_line_primary" = "Primary";
 "server_line_backup" = "Backup";
+"server_line_backup_2" = "Backup 2";
 "server_line_current_format" = "Current: %@";
 "server_line_unreachable" = "Unreachable";
 
@@ -2059,23 +1779,80 @@
 "节拍触觉" = "Haptic Beat";
 "鼓点命中同步触觉反馈，重拍更沉、军鼓更脆" = "Haptic feedback on beat hits: heavier kicks, crisper snares";
 "人声呼吸字重" = "Vocal Breathing Weight";
-"经典字幕的当前字随人声力度改变粗细（系统字体最明显）" = "Active lyric glyphs thicken with vocal intensity (best with system fonts)";
 "经典字幕的当前字随人声力度改变粗细" = "Active lyric glyphs thicken with vocal intensity";
 "副歌预判张力" = "Chorus Tension";
 "副歌来临前光场蓄力升温，命中瞬间镜头释放" = "Light field charges up before the chorus, camera releases on the drop";
 "GPU 着色器舞台" = "GPU Shader Stage";
-"节拍涟漪折射 + 镜头级色散辉光 + 呼吸暗角（过热时自动停用）" = "Beat refraction ripples, lens-grade chromatic bloom and a breathing vignette (auto-off when hot)";
-"AI 舞台导演" = "AI Stage Director";
-"Mono Agent 为整首歌编排分幕光色，每首歌仅生成一次" = "Mono Agent scripts scene-by-scene stage colors for the whole song, generated once per track";
-"等待歌词就绪后开始编排" = "Waiting for lyrics before scripting";
-"Mono Agent 正在编排本曲分幕…" = "Mono Agent is scripting this song's scenes…";
-"本曲已编排 %d 幕，光色与镜头随段落基调变化" = "%d scenes scripted — stage color and camera follow each section's mood";
-"本曲编排失败，重开开关或切歌后重试" = "Scripting failed — toggle again or skip track to retry";
-"本曲歌词太少，不参与编排" = "Not enough lyrics to script this track";
 "aria_gpu_stage_caption" = "Beat refraction, lyric prism edges and a breathing vignette";
-"aria_stage_director_caption" = "Mono Agent scripts stage color, camera and lyrics by section";
-"aria_stage_director_status_idle" = "Waiting for lyrics";
-"aria_stage_director_status_generating" = "Scripting scenes";
-"aria_stage_director_status_ready_format" = "%d scenes scripted";
-"aria_stage_director_status_failed" = "Scripting failed";
-"aria_stage_director_status_unavailable" = "Not available for this song";
+
+/* Online fonts */
+"在线字体" = "Online Fonts";
+"字体天下" = "Fonts.net.cn";
+"精选字体" = "Featured Fonts";
+"字体分类" = "Categories";
+"全部字体" = "All Fonts";
+"英文字体" = "Latin Fonts";
+"手写" = "Handwriting";
+"标题" = "Display";
+"宋体" = "Serif";
+"黑体" = "Sans Serif";
+"书法" = "Calligraphy";
+"像素" = "Pixel";
+"搜索字体" = "Search Fonts";
+"搜索结果" = "Search Results";
+"商用需授权" = "Commercial License Required";
+"个人使用下载" = "Download for Personal Use";
+"查看授权" = "View License";
+"该字体标记为商用需授权，商业用途前需要购买相应授权" = "This font requires a separate license for commercial use.";
+"可下载" = "Available";
+"前往获取" = "View Source";
+"字体列表暂时无法加载" = "Fonts are temporarily unavailable";
+"没有找到相关字体" = "No matching fonts";
+"该字体暂时无法直接下载" = "This font is not available for direct download";
+"该字体需要先完成购买或授权" = "Purchase or authorization is required first";
+"已导入字体" = "Imported Fonts";
+"正在下载 %d%%" = "Downloading %d%%";
+"正在解压字体" = "Extracting Font";
+"正在校验字体" = "Validating Font";
+"正在注册字体" = "Registering Font";
+"正在加入字体列表" = "Adding to Font List";
+"已导入" = "Imported";
+"apple_music_error_authorization" = "Apple Music access was not granted";
+"apple_music_error_request_unauthorized" = "Apple Music authorization is invalid. Sign in again or refresh the provisioning profile";
+"apple_music_error_subscription" = "An active Apple Music subscription is required";
+"apple_music_error_invalid_id" = "The Apple Music song identifier is invalid";
+"apple_music_error_unavailable" = "This song is unavailable on Apple Music";
+"apple_music_download_unavailable" = "Apple Music songs are available for streaming only";
+"ai_error_protected_audio_unsupported" = "AI tuning is unavailable for protected Apple Music audio";
+"apple_music_library" = "Apple Music Library";
+"apple_music_library_empty" = "No songs in your Apple Music library";
+"apple_music_library_unavailable" = "Unable to load your Apple Music library";
+"apple_music_protected_audio" = "Protected Apple Music audio";
+"apple_music_sound_center_unavailable" = "AI tuning and Mono audio processing are unavailable during Apple Music playback";
+"apple_music_authorization" = "Apple Music Authorization";
+"apple_music_authorized" = "Authorized";
+"apple_music_not_authorized" = "Authorize";
+"apple_music_authorizing" = "Authorizing";
+"apple_music_featured_playlists_query" = "pop essentials playlist";
+"apple_music_featured_artists_query" = "pop artists";
+
+/* Structured debug logs */
+"debug_coalesced_count_short" = "Merged";
+"debug_category_all" = "All Modules";
+"debug_category" = "Module";
+"debug_event" = "Event";
+"debug_session" = "Launch Session";
+"debug_repeat_count" = "Repeat Count";
+"debug_category_app" = "App";
+"debug_category_playback" = "Playback";
+"debug_category_audio" = "Audio";
+"debug_category_network" = "Network";
+"debug_category_appleMusic" = "Apple Music";
+"debug_category_lyrics" = "Lyrics";
+"debug_category_ai" = "AI Tuning";
+"debug_category_cloud" = "Cloud";
+"debug_category_database" = "Data";
+"debug_category_download" = "Downloads";
+"debug_category_session" = "Listen Together";
+"debug_category_interface" = "Interface";
+"debug_category_other" = "Other";

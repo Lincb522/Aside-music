@@ -1,4 +1,3 @@
-// SwiftDataBackend.swift
 // iOS 17+ 持久化后端：使用与旧版 @Model 完全一致的镜像实体，
 // 嵌套在 SDStore 命名空间内（实体名仍为无限定类名），保证老用户数据无缝复用。
 
@@ -24,6 +23,8 @@ enum SDStore {
         var sourceRaw: String?
         var qqMid: String?
         var qishuiTrackId: Int?
+        var appleMusicID: String?
+        var appleMusicISRC: String?
 
         init(id: Int) {
             self.id = id
@@ -88,6 +89,8 @@ enum SDStore {
         var qqMid: String?
         var qqAlbumMid: String?
         var qishuiTrackId: Int?
+        var appleMusicID: String?
+        var appleMusicISRC: String?
 
         init(id: UUID) {
             self.id = id
@@ -213,6 +216,8 @@ extension SDStore.CachedSong: SDMirrorModel {
         maxBitrate = V.intOpt(s, "maxBitrate"); fee = V.intOpt(s, "fee")
         canPlay = V.bool(s, "canPlay", default: true); sourceRaw = V.stringOpt(s, "sourceRaw")
         qqMid = V.stringOpt(s, "qqMid"); qishuiTrackId = V.intOpt(s, "qishuiTrackId")
+        appleMusicID = V.stringOpt(s, "appleMusicID")
+        appleMusicISRC = V.stringOpt(s, "appleMusicISRC")
     }
 
     func makeSnapshot() -> [String: Any?] {
@@ -221,7 +226,8 @@ extension SDStore.CachedSong: SDMirrorModel {
             "coverUrl": coverUrl, "duration": duration, "cachedAt": cachedAt,
             "lastPlayedAt": lastPlayedAt, "playCount": playCount, "maxBitrate": maxBitrate,
             "fee": fee, "canPlay": canPlay, "sourceRaw": sourceRaw, "qqMid": qqMid,
-            "qishuiTrackId": qishuiTrackId
+            "qishuiTrackId": qishuiTrackId, "appleMusicID": appleMusicID,
+            "appleMusicISRC": appleMusicISRC
         ]
     }
 }
@@ -285,6 +291,8 @@ extension SDStore.PlayHistory: SDMirrorModel {
         completed = V.bool(s, "completed"); sourceRaw = V.stringOpt(s, "sourceRaw")
         qqMid = V.stringOpt(s, "qqMid"); qqAlbumMid = V.stringOpt(s, "qqAlbumMid")
         qishuiTrackId = V.intOpt(s, "qishuiTrackId")
+        appleMusicID = V.stringOpt(s, "appleMusicID")
+        appleMusicISRC = V.stringOpt(s, "appleMusicISRC")
     }
 
     func makeSnapshot() -> [String: Any?] {
@@ -292,7 +300,8 @@ extension SDStore.PlayHistory: SDMirrorModel {
             "id": id, "songId": songId, "songName": songName, "artistName": artistName,
             "coverUrl": coverUrl, "playedAt": playedAt, "playDuration": playDuration,
             "completed": completed, "sourceRaw": sourceRaw, "qqMid": qqMid,
-            "qqAlbumMid": qqAlbumMid, "qishuiTrackId": qishuiTrackId
+            "qqAlbumMid": qqAlbumMid, "qishuiTrackId": qishuiTrackId,
+            "appleMusicID": appleMusicID, "appleMusicISRC": appleMusicISRC
         ]
     }
 }
@@ -439,7 +448,7 @@ final class SwiftDataBackend: MonoStoreBackend {
         context.autosaveEnabled = false
     }
 
-    // MARK: MonoStoreBackend
+    // MARK: - MonoStoreBackend
 
     func loadAll(entityName: String) -> [[String: Any?]] {
         switch entityName {

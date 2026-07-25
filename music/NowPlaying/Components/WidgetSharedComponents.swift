@@ -1,11 +1,9 @@
-// WidgetSharedComponents.swift
-// Monologue Widget Extension
-
 import WidgetKit
 import SwiftUI
 
-// MARK: - Shared Components
+// MARK: - 共享组件
 
+/// 从时间线内嵌图片数据渲染封面，缺失时显示音乐占位图。
 struct CoverImage: View {
     let data: Data?
     let radius: CGFloat
@@ -25,6 +23,7 @@ struct CoverImage: View {
     }
 }
 
+/// Widget 主题共用的四段波浪装饰形状。
 struct GreenSquiggle: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()

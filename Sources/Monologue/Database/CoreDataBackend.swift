@@ -1,4 +1,3 @@
-// CoreDataBackend.swift
 // iOS 16 持久化后端：编程式 NSManagedObjectModel + 独立 SQLite 文件。
 // 每个实体额外带一个 monoKey 字符串主键，读写全部通过 KVC 快照完成。
 

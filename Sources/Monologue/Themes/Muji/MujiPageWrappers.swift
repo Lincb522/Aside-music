@@ -1,5 +1,7 @@
 import SwiftUI
 
+// Muji 主题的页面包装层：统一套上主题 tint 与渲染场景层后复用通用页面。
+
 private struct MujiThemeRoot<Content: View>: View {
     let content: () -> Content
     @ObservedObject private var settings = SettingsManager.shared

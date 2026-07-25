@@ -1,5 +1,7 @@
 import SwiftUI
 
+/// MinimalWhite（极简白）主题的 `GlobalThemeProvider` 实现：
+/// 提供配色/字体/形状/动画定义，并为各主页面返回 MinimalWhite 包装视图。
 struct MinimalWhiteThemeProvider: GlobalThemeProvider {
     let id: GlobalThemeId = .minimalWhite
 

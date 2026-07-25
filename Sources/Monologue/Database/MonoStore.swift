@@ -1,4 +1,3 @@
-// MonoStore.swift
 // 统一持久化门面：内存中维护每个实体的规范对象表，
 // save() 时通过快照 diff 找出变更并写入后端（SwiftData 或 Core Data）。
 

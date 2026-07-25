@@ -32,6 +32,8 @@ enum AppConfig {
     
     // MARK: - API 配置
     enum API {
+        static let kugouBaseURL = "https://kcm.zijiu522.cn"
+        static let kugouPublicSearchURL = "https://songsearch.kugou.com/song_search_v2"
         /// 默认分页大小
         static let defaultPageSize = 30
         /// 最大重试次数
@@ -96,6 +98,8 @@ enum AppConfig {
         static let playlistSyncLastMessage = "monologue_playlist_sync_last_message"
         static let playlistSyncLastRemoteRevision = "monologue_playlist_sync_last_remote_revision"
         static let playlistSyncLastTokenFingerprint = "monologue_playlist_sync_last_token_fingerprint"
+        static let playlistSyncLastAutomaticUploadSlot = "monologue_playlist_sync_last_automatic_upload_slot"
+        static let playlistSyncLastAutomaticRefreshSlot = "monologue_playlist_sync_last_automatic_refresh_slot"
         static let playlistSyncAutoEnabled = "monologue_playlist_sync_auto_enabled"
         static let playlistSyncDeleteCloudSnapshot = "monologue_playlist_sync_delete_cloud_snapshot"
         static let defaultPlaybackQuality = "defaultPlaybackQuality"

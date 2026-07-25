@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// 播放倍速选择弹窗（0.5x~2.0x），选中即应用并关闭；外观随主题切换。
 struct PodcastSpeedSheet: View {
     @ObservedObject private var player = PlayerManager.shared
     @ObservedObject private var settings = SettingsManager.shared

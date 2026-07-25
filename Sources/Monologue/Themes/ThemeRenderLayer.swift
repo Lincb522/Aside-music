@@ -1,5 +1,9 @@
 import SwiftUI
 
+// 主题渲染层基础设施：为不同主题按需开启渲染隔离（compositingGroup）
+// 与动画抑制，缓解高成本主题背景在滚动/频繁重绘场景下的性能问题。
+
+/// 当前主题渲染环境的快照，各 `isolates*/stabilizes*` 开关按主题特性决定哪些角色需要优化。
 struct ThemeRenderContext: Equatable {
     let theme: GlobalThemeId
     let revision: Int
@@ -13,7 +17,6 @@ struct ThemeRenderContext: Equatable {
     var backdropIdentity: String {
         [
             theme.rawValue,
-            "\(revision)",
             isDark ? "dark" : "light",
         ].joined(separator: "-")
     }
@@ -51,6 +54,7 @@ struct ThemeRenderContext: Equatable {
     }
 }
 
+/// 视图在渲染优化中扮演的角色，决定应用哪种优化策略。
 enum ThemeRenderLayerRole {
     case scene
     case scroll
@@ -85,6 +89,8 @@ extension EnvironmentValues {
     }
 }
 
+/// 渲染宿主：在内容下方铺主题底色，并向子树注入 `themeRenderContext` 环境值。
+/// 应用根视图与独立展示层（如全屏播放器）各自包一层。
 struct ThemeRenderHost<Content: View>: View {
     @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.colorScheme) private var colorScheme
@@ -131,6 +137,7 @@ struct ThemeRenderHost<Content: View>: View {
     }
 }
 
+/// 各主题的纯色底色层，防止内容间隙露出系统背景。
 struct ThemeRenderUnderlay: View {
     let theme: GlobalThemeId
     var revision: Int = 0
@@ -159,6 +166,7 @@ struct ThemeRenderUnderlay: View {
     }
 }
 
+/// 各主题的完整背景层（含纹理/渐变），目前仅在 `providesGlobalBackdrop` 开启时使用。
 struct ThemeRenderBackdrop: View {
     let theme: GlobalThemeId
     var revision: Int = 0
@@ -198,6 +206,8 @@ struct NeumorphicRenderBackdrop: View {
     }
 }
 
+/// 按角色应用渲染优化：scroll/row 禁用隐式动画，surface/sheet 合成分组隔离，
+/// scene/interactive 对 Neumorphic 保留原动画；未在宿主内时直接透传。
 private struct ThemeRenderLayerModifier: ViewModifier {
     let role: ThemeRenderLayerRole
     let isEnabled: Bool
@@ -283,6 +293,7 @@ private struct ThemeRenderLayerModifier: ViewModifier {
 }
 
 extension View {
+    /// 标记视图的渲染角色；以下为各角色的便捷入口。
     func themeRenderLayer(_ role: ThemeRenderLayerRole, isEnabled: Bool = true) -> some View {
         modifier(ThemeRenderLayerModifier(role: role, isEnabled: isEnabled))
     }

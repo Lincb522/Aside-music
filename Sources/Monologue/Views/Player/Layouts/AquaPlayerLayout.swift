@@ -176,7 +176,12 @@ extension AquaPlayerLayout {
 
     /// 纯正卡通水体：三层波浪，纯色填充，无渐变，带高光轮廓描边
     private func cartoonWater(waterRatio: CGFloat) -> some View {
-        TimelineView(AppFrameRate.animationTimeline(paused: !player.isPlaying)) { timeline in
+        TimelineView(
+            AppFrameRate.animationTimeline(
+                maximumFramesPerSecond: 30,
+                paused: !player.isPlaying
+            )
+        ) { timeline in
             let t = CGFloat(timeline.date.timeIntervalSinceReferenceDate)
             Canvas { ctx, cs in
                 let waterY = cs.height * waterRatio
@@ -248,7 +253,12 @@ extension AquaPlayerLayout {
 
     /// 卡通气泡 — 实体描边，侧边月牙高光，破裂特效
     private func cartoonBubbles(waterRatio: CGFloat) -> some View {
-        TimelineView(AppFrameRate.animationTimeline(paused: !player.isPlaying)) { timeline in
+        TimelineView(
+            AppFrameRate.animationTimeline(
+                maximumFramesPerSecond: 30,
+                paused: !player.isPlaying
+            )
+        ) { timeline in
             let t = timeline.date.timeIntervalSinceReferenceDate
             Canvas { ctx, cs in
                 let waterY = cs.height * waterRatio

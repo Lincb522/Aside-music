@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// Capsule 主题的播客页完整体验：分类浏览、订阅、推荐电台等区块的单文件实现。
 struct CapsulePodcastExperience: View {
     @ObservedObject private var viewModel = PodcastViewModel.shared
     @State private var showRadioPlayer = false

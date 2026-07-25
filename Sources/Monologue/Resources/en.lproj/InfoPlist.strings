@@ -1,2 +1,5 @@
 "CFBundleDisplayName" = "Mono";
 "CFBundleName" = "Mono";
+"NSAppleMusicUsageDescription" = "Connect to Apple Music, access your music library, and play songs.";
+"NSMotionUsageDescription" = "Let the Mono Spatial Live stage respond to head movement.";
+"NSPhotoLibraryAddUsageDescription" = "Save the sign-in QR code to your photo library.";

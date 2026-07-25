@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// 自绘弹窗栈中的单个条目；`isVisible` 驱动出现/退场动画。
 struct MonologueSheetEntry: Identifiable {
     let id: UUID
     var preset: MonologueSheetPreset
@@ -15,6 +16,8 @@ enum MonologueSheetAnimation {
     static let dismiss = Animation.spring(response: 0.3, dampingFraction: 0.9)
 }
 
+/// 自绘（非系统 sheet）弹窗的全局栈管理器：负责条目的插入/更新、
+/// 出现与退场动画编排，以及动画结束后的延迟移除（320ms）。
 @MainActor
 final class MonologueSheetManager: ObservableObject {
     static let shared = MonologueSheetManager()
@@ -28,6 +31,7 @@ final class MonologueSheetManager: ObservableObject {
         !entries.isEmpty
     }
 
+    /// 插入或更新弹窗；已存在时仅在 `refreshContent` 为 true 时替换内容并递增版本号触发重建。
     func upsert(
         id: UUID,
         preset: MonologueSheetPreset,
@@ -82,6 +86,7 @@ final class MonologueSheetManager: ObservableObject {
         entry.requestDismiss()
     }
 
+    /// 启动退场动画，并在动画时长后真正移除条目。
     func beginDismiss(id: UUID, invokeOnDismiss: Bool) {
         guard let index = entries.firstIndex(where: { $0.id == id }) else { return }
 

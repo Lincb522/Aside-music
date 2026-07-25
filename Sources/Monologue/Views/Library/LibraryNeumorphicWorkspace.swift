@@ -37,6 +37,7 @@ struct NeumorphicLibraryWorkspace: View {
         case localPlaylists
         case ncmPlaylists
         case qcmPlaylists
+        case appleMusic
         case localPodcasts
         case ncmPodcasts
 
@@ -45,6 +46,7 @@ struct NeumorphicLibraryWorkspace: View {
             case .localPlaylists: return String(localized: "lib_local_playlists")
             case .ncmPlaylists: return String(localized: "lib_netease_playlists")
             case .qcmPlaylists: return String(localized: "QCM歌单")
+            case .appleMusic: return String(localized: "apple_music_library")
             case .localPodcasts: return String(localized: "本地播客")
             case .ncmPodcasts: return String(localized: "NCM 播客")
             }
@@ -54,6 +56,7 @@ struct NeumorphicLibraryWorkspace: View {
             switch self {
             case .localPlaylists: return .musicNoteList
             case .ncmPlaylists, .qcmPlaylists: return .list
+            case .appleMusic: return .musicNote
             case .localPodcasts, .ncmPodcasts: return .radio
             }
         }
@@ -361,6 +364,8 @@ struct NeumorphicLibraryWorkspace: View {
             remotePlaylistsContent(playlists: viewModel.userPlaylists, emptyTitle: String(localized: "empty_no_playlists"), tint: MusicSource.netease.themedBadgeColor)
         case .qcmPlaylists:
             qcmPlaylistsContent
+        case .appleMusic:
+            AppleMusicLibraryView(embeddedInParentScroll: true)
         case .localPodcasts:
             localPodcastsContent
         case .ncmPodcasts:
@@ -411,7 +416,7 @@ struct NeumorphicLibraryWorkspace: View {
             if isLoadingQQUserPlaylists && qqUserPlaylists.isEmpty {
                 LibraryLoadingStateView(horizontalPadding: 0, minHeight: 240)
             } else if !qqSession.isLoggedIn {
-                emptyCard(icon: .musicNoteList, title: String(localized: "请先登录 QCM"), tint: MusicSource.qqmusic.themedBadgeColor)
+                emptyCard(icon: .musicNoteList, title: String(localized: "qcm_login_required"), tint: MusicSource.qqmusic.themedBadgeColor)
             } else {
                 remotePlaylistsContent(playlists: qqUserPlaylists, emptyTitle: String(localized: "暂无 QCM 歌单"), tint: MusicSource.qqmusic.themedBadgeColor)
             }
@@ -458,11 +463,11 @@ struct NeumorphicLibraryWorkspace: View {
         libraryDeck(
             title: String(localized: "歌单广场"),
             icon: .musicNoteList,
-            tint: viewModel.squareSource == .qq ? MusicSource.qqmusic.themedBadgeColor : MusicSource.netease.themedBadgeColor
+            tint: sourceTint(viewModel.squareSource)
         ) {
             sourceSwitch(selected: viewModel.squareSource) { source in
                 viewModel.squareSource = source
-                source == .qq ? viewModel.fetchQQSquareData() : viewModel.fetchSquareData()
+                viewModel.fetchSquareForSelectedSource()
             }
 
             if viewModel.squareSource == .qq {
@@ -476,6 +481,23 @@ struct NeumorphicLibraryWorkspace: View {
                 playlistGrid(playlists: viewModel.qqSquarePlaylists, isLoading: viewModel.isLoadingQQSquare, emptyTitle: String(localized: "暂无QCM推荐歌单"))
                 if viewModel.hasMoreQQSquare && !viewModel.qqSquarePlaylists.isEmpty {
                     loadMoreButton { viewModel.loadMoreQQSquarePlaylists() }
+                }
+            } else if viewModel.squareSource == .kugou {
+                filterBar {
+                    ForEach(viewModel.kugouPlaylistCategories) { category in
+                        filterChip(title: category.name, selected: viewModel.selectedKugouCategoryID == category.id, tint: MusicSource.kugou.themedBadgeColor) {
+                            viewModel.selectKugouCategory(category)
+                        }
+                    }
+                }
+                playlistGrid(playlists: viewModel.kugouSquarePlaylists, isLoading: viewModel.isLoadingKugouSquare, emptyTitle: "暂无KCM推荐歌单")
+                if viewModel.hasMoreKugouSquare && !viewModel.kugouSquarePlaylists.isEmpty {
+                    loadMoreButton { viewModel.loadMoreKugouSquarePlaylists() }
+                }
+            } else if viewModel.squareSource == .appleMusic {
+                playlistGrid(playlists: viewModel.appleMusicSquarePlaylists, isLoading: viewModel.isLoadingAppleMusicSquare, emptyTitle: String(localized: "empty_no_playlists"))
+                if viewModel.hasMoreAppleMusicSquare && !viewModel.appleMusicSquarePlaylists.isEmpty {
+                    loadMoreButton { viewModel.loadMoreAppleMusicSquarePlaylists() }
                 }
             } else {
                 filterBar {
@@ -496,16 +518,16 @@ struct NeumorphicLibraryWorkspace: View {
 
     private var artistIndexPage: some View {
         libraryDeck(
-            title: String(localized: "歌手"),
+            title: String(localized: "lib_tab_artists"),
             icon: .personCircle,
-            tint: viewModel.artistSource == .qq ? MusicSource.qqmusic.themedBadgeColor : NeumorphicStyle.warm
+            tint: viewModel.artistSource == .appleMusic ? MusicSource.appleMusic.themedBadgeColor : (viewModel.artistSource == .qq ? MusicSource.qqmusic.themedBadgeColor : NeumorphicStyle.warm)
         ) {
-            sourceSwitch(selected: viewModel.artistSource) { source in
+            sourceSwitch(selected: viewModel.artistSource, sources: [.ncm, .qq, .appleMusic]) { source in
                 dismissArtistSearchKeyboard()
                 showArtistFilters = false
                 showQQArtistFilters = false
                 viewModel.artistSource = source
-                source == .qq ? viewModel.fetchQQArtistData(reset: true) : viewModel.fetchArtistData(reset: true)
+                viewModel.fetchArtistsForSelectedSource(reset: true)
             }
 
             if viewModel.artistSource == .qq {
@@ -513,6 +535,11 @@ struct NeumorphicLibraryWorkspace: View {
                 artistGrid(artists: viewModel.qqArtists, isLoading: viewModel.isLoadingQQArtists, tint: MusicSource.qqmusic.themedBadgeColor)
                 if viewModel.hasMoreQQArtists && !viewModel.qqArtists.isEmpty {
                     loadMoreButton { viewModel.loadMoreQQArtists() }
+                }
+            } else if viewModel.artistSource == .appleMusic {
+                artistGrid(artists: viewModel.appleMusicArtists, isLoading: viewModel.isLoadingAppleMusicArtists, tint: MusicSource.appleMusic.themedBadgeColor)
+                if viewModel.hasMoreAppleMusicArtists && !viewModel.appleMusicArtists.isEmpty {
+                    loadMoreButton { viewModel.loadMoreAppleMusicArtists() }
                 }
             } else {
                 ncmArtistSearchAndFilters
@@ -716,9 +743,9 @@ struct NeumorphicLibraryWorkspace: View {
             icon: .chart,
             tint: viewModel.chartsSource == .qq ? MusicSource.qqmusic.themedBadgeColor : NeumorphicStyle.red
         ) {
-            sourceSwitch(selected: viewModel.chartsSource) { source in
+            sourceSwitch(selected: viewModel.chartsSource, sources: [.ncm, .qq]) { source in
                 viewModel.chartsSource = source
-                source == .qq ? viewModel.fetchQQTopLists() : viewModel.fetchTopLists()
+                viewModel.fetchChartsForSelectedSource()
             }
 
             if viewModel.chartsSource == .qq {
@@ -883,11 +910,15 @@ struct NeumorphicLibraryWorkspace: View {
             )
     }
 
-    private func sourceSwitch(selected: LibraryViewModel.MusicSource, onSelect: @escaping (LibraryViewModel.MusicSource) -> Void) -> some View {
+    private func sourceSwitch(
+        selected: LibraryViewModel.MusicSource,
+        sources: [LibraryViewModel.MusicSource] = LibraryViewModel.MusicSource.allCases,
+        onSelect: @escaping (LibraryViewModel.MusicSource) -> Void
+    ) -> some View {
         HStack(spacing: 8) {
-            ForEach(LibraryViewModel.MusicSource.allCases, id: \.self) { source in
+            ForEach(sources, id: \.self) { source in
                 let isSelected = selected == source
-                let tint = source == .ncm ? MusicSource.netease.themedBadgeColor : MusicSource.qqmusic.themedBadgeColor
+                let tint = sourceTint(source)
                 Button {
                     guard !isSelected else { return }
                     withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
@@ -898,7 +929,7 @@ struct NeumorphicLibraryWorkspace: View {
                         Circle()
                             .fill(tint)
                             .frame(width: 7, height: 7)
-                        Text(source == .ncm ? "NCM" : "QCM")
+                        Text(source.shortName)
                             .font(NeumorphicStyle.labelFont(12, weight: .semibold))
                             .foregroundStyle(isSelected ? NeumorphicStyle.ink : NeumorphicStyle.inkSoft)
                     }
@@ -919,6 +950,15 @@ struct NeumorphicLibraryWorkspace: View {
         }
         .padding(6)
         .background(NeumorphicSurfaceBackground(cornerRadius: 23, elevated: true, lightweight: true))
+    }
+
+    private func sourceTint(_ source: LibraryViewModel.MusicSource) -> Color {
+        switch source {
+        case .ncm: return MusicSource.netease.themedBadgeColor
+        case .qq: return MusicSource.qqmusic.themedBadgeColor
+        case .kugou: return MusicSource.kugou.themedBadgeColor
+        case .appleMusic: return MusicSource.appleMusic.themedBadgeColor
+        }
     }
 
     private func filterBar<Content: View>(@ViewBuilder content: () -> Content) -> some View {
@@ -995,7 +1035,7 @@ struct NeumorphicLibraryWorkspace: View {
                         NavigationLink(value: LibraryViewModel.NavigationDestination.playlist(playlist)) {
                             NeumorphicPlaylistShelfCard(
                                 playlist: playlist,
-                                tint: playlist.source == .qqmusic ? MusicSource.qqmusic.themedBadgeColor : MusicSource.netease.themedBadgeColor
+                                tint: (playlist.source ?? .netease).themedBadgeColor
                             )
                         }
                         .buttonStyle(.plain)
@@ -1065,7 +1105,7 @@ struct NeumorphicLibraryWorkspace: View {
     }
 
     private var filteredQQCategories: [(id: Int, name: String)] {
-        let hidden: Set<String> = [String(localized: "全部"), String(localized: "ai歌单"), String(localized: "私藏"), String(localized: "音乐人在听"), "chill vibes", String(localized: "ai 歌单")]
+        let hidden: Set<String> = [String(localized: "filter_all"), String(localized: "ai歌单"), String(localized: "私藏"), String(localized: "音乐人在听"), "chill vibes", String(localized: "ai 歌单")]
         return viewModel.qqPlaylistCategories.filter { !hidden.contains($0.name.lowercased()) }
     }
 
@@ -1108,6 +1148,7 @@ struct NeumorphicLibraryWorkspace: View {
         case .localPlaylists: return NeumorphicStyle.accent
         case .ncmPlaylists: return MusicSource.netease.themedBadgeColor
         case .qcmPlaylists: return MusicSource.qqmusic.themedBadgeColor
+        case .appleMusic: return MusicSource.appleMusic.themedBadgeColor
         case .localPodcasts: return NeumorphicStyle.sage
         case .ncmPodcasts: return NeumorphicStyle.warm
         }
@@ -1142,9 +1183,9 @@ struct NeumorphicLibraryWorkspace: View {
                 subManager.fetchSubscribedRadios()
             }
         case .square:
-            viewModel.squareSource == .qq ? viewModel.fetchQQSquareData() : viewModel.fetchSquareData()
+            viewModel.fetchSquareForSelectedSource()
         case .artists:
-            viewModel.artistSource == .qq ? viewModel.fetchQQArtistData() : viewModel.fetchArtistData()
+            viewModel.fetchArtistsForSelectedSource()
         case .charts:
             viewModel.chartsSource == .qq ? viewModel.fetchQQTopLists() : viewModel.fetchTopLists()
         }
@@ -1226,8 +1267,8 @@ struct NeumorphicLibraryWorkspace: View {
             title: String(localized: "从链接导入歌单"),
             message: "",
             placeholder: String(localized: "粘贴歌单链接"),
-            primaryButtonTitle: String(localized: "导入"),
-            secondaryButtonTitle: String(localized: "取消"),
+            primaryButtonTitle: String(localized: "local_toolbar_import"),
+            secondaryButtonTitle: String(localized: "cancel"),
             onConfirm: { url in
                 importPlaylistFromURL(url)
             }
@@ -1357,7 +1398,7 @@ struct NeumorphicLibraryWorkspace: View {
 
                 await MainActor.run {
                     if allSongs.isEmpty {
-                        AlertManager.shared.show(title: String(localized: "lib_import_failed"), message: String(localized: "歌单为空或获取失败"), primaryButtonTitle: String(localized: "lib_confirm"), primaryAction: {})
+                        AlertManager.shared.show(title: String(localized: "lib_import_failed"), message: String(localized: "playlist_empty_or_load_failed"), primaryButtonTitle: String(localized: "lib_confirm"), primaryAction: {})
                     } else {
                         localManager.importPlaylist(name: name, songs: allSongs)
                     }
@@ -1365,7 +1406,7 @@ struct NeumorphicLibraryWorkspace: View {
                 }
             } catch {
                 await MainActor.run {
-                    AlertManager.shared.show(title: String(localized: "lib_import_failed"), message: String(localized: "QCM歌单导入失败: \(error.localizedDescription)"), primaryButtonTitle: String(localized: "lib_confirm"), primaryAction: {})
+                    AlertManager.shared.show(title: String(localized: "lib_import_failed"), message: L10n.format("qcm_playlist_import_failed_format", error.localizedDescription), primaryButtonTitle: String(localized: "lib_confirm"), primaryAction: {})
                     isImporting = false
                 }
             }
@@ -1408,7 +1449,7 @@ struct NeumorphicLibraryWorkspace: View {
 
             await MainActor.run {
                 if allSongs.isEmpty {
-                    AlertManager.shared.show(title: String(localized: "lib_import_failed"), message: String(localized: "歌单为空或获取失败"), primaryButtonTitle: String(localized: "lib_confirm"), primaryAction: {})
+                    AlertManager.shared.show(title: String(localized: "lib_import_failed"), message: String(localized: "playlist_empty_or_load_failed"), primaryButtonTitle: String(localized: "lib_confirm"), primaryAction: {})
                 } else {
                     localManager.importPlaylist(name: String(localized: "NCM歌单"), songs: allSongs)
                 }

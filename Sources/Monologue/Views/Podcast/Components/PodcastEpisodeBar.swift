@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// 刻度尺样式的集数指示条：40 根刻度线上的圆点按当前集索引定位，下方显示"第 x/n 集"。
 struct PodcastEpisodeBar: View {
     let currentIndex: Int
     let currentEpisodeNumber: Int

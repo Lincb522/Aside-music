@@ -239,7 +239,8 @@ struct RadioPlayerLayout: View {
             onColor: ledDotOn,
             offColor: ledDotOff,
             bgColor: ledBg,
-            speed: 35
+            speed: 35,
+            isActive: player.isPlaying && scenePhase == .active
         )
         .frame(height: 72)
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -686,7 +687,12 @@ private struct BouncingSpheres: View {
     ]
 
     var body: some View {
-        TimelineView(AppFrameRate.animationTimeline(paused: !isPlaying)) { timeline in
+        TimelineView(
+            AppFrameRate.animationTimeline(
+                maximumFramesPerSecond: 30,
+                paused: !isPlaying
+            )
+        ) { timeline in
             let t = isPlaying ? timeline.date.timeIntervalSinceReferenceDate : 0
 
             GeometryReader { geo in
@@ -772,6 +778,7 @@ private struct LEDDotMatrixBanner: View {
     let offColor: Color
     let bgColor: Color
     let speed: Double
+    let isActive: Bool
 
     /// 纵向格数略提高可让点阵更细；每帧仍只 draw 两张 CGImage，成本不变。
     private static let res = 40
@@ -779,7 +786,12 @@ private struct LEDDotMatrixBanner: View {
     private static let imageCache = LEDImageCache()
 
     var body: some View {
-        TimelineView(AppFrameRate.animationTimeline()) { timeline in
+        TimelineView(
+            AppFrameRate.animationTimeline(
+                maximumFramesPerSecond: 30,
+                paused: !isActive
+            )
+        ) { timeline in
             Canvas { ctx, size in
                 let rows = Self.res
                 let cell = size.height / CGFloat(rows)
