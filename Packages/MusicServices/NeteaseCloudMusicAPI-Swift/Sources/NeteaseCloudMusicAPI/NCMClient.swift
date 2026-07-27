@@ -22,29 +22,6 @@ public class NCMClient {
     /// API 访问令牌，自动追加到后端代理请求的 URL 参数中
     public var apiToken: String?
 
-    /// 解灰管理器（可选）
-    /// 设置后可通过 `autoUnblock` 开关自动解灰
-    public var unblockManager: UnblockManager?
-
-    /// 是否启用自动解灰
-    /// 开启后，songUrl / songUrlV1 获取到不可用链接时自动尝试第三方音源匹配
-    /// 需要先设置 `unblockManager` 并注册音源
-    public var autoUnblock: Bool = false
-
-    /// 自动解灰缓存：记录已解灰过的歌曲 ID 及其结果 URL
-    /// 避免同一首歌反复解灰导致无限重试（如第三方源返回的 URL 播放失败时）
-    /// key = 歌曲 ID，value = (解灰 URL, 缓存时间)
-    internal var unblockCache: [Int: (url: String, cachedAt: Date)] = [:]
-
-    /// 解灰缓存有效期（秒），默认 5 分钟
-    /// 同一首歌在缓存期内不会重复解灰
-    public var unblockCacheTTL: TimeInterval = 300
-
-    /// 清除解灰缓存
-    public func clearUnblockCache() {
-        unblockCache.removeAll()
-    }
-
     /// ncm主域名（WeAPI / LinuxAPI 使用）
     public var domain: String {
         get { requestClient.domain }

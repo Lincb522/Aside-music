@@ -29,6 +29,8 @@ struct NowPlayingWidgetView: View {
             PolaroidTheme(entry: entry, family: family)
         case .vinyl:
             VinylTheme(entry: entry, family: family)
+        case .vinylDark:
+            VinylTheme(entry: entry, family: family, isDark: true)
         case .poster:
             PosterWidgetTheme(entry: entry, family: family)
         case .manga:
@@ -61,29 +63,11 @@ struct NowPlayingWidgetView: View {
             Color(hex: "F7F6F3")
                 .ignoresSafeArea()
         case .vinyl:
-            ZStack {
-                LinearGradient(
-                    colors: [
-                        Color(hex: "030407"),
-                        Color(hex: "0B0F15"),
-                        Color(hex: "05070B")
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-
-                RadialGradient(
-                    colors: [
-                        Color.white.opacity(0.035),
-                        .clear
-                    ],
-                    center: .topLeading,
-                    startRadius: 0,
-                    endRadius: 220
-                )
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .ignoresSafeArea()
+            Color(hex: "F7F7F5")
+                .ignoresSafeArea()
+        case .vinylDark:
+            Color(hex: "0C0D0C")
+                .ignoresSafeArea()
         case .poster:
             Color(hex: "0A0A0C").ignoresSafeArea()
         case .manga:
@@ -116,7 +100,7 @@ struct NowPlayingWidgetView: View {
                 .font(.system(size: 18))
                 .foregroundStyle(.primary)
         }
-        .widgetURL(URL(string: "monologue://player"))
+        .widgetURL(URL(string: "mono://player"))
     }
 
     private var rectangularWidget: some View {
@@ -142,6 +126,6 @@ struct NowPlayingWidgetView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .widgetURL(URL(string: "monologue://player"))
+        .widgetURL(URL(string: "mono://player"))
     }
 }

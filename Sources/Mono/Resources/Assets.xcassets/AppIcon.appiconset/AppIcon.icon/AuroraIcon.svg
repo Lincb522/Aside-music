@@ -1,0 +1,12 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <path
+    d="M 512 224 C 418 224 350 292 350 398 L 350 688 C 350 728 378 758 414 758 C 444 758 468 742 484 716 C 498 742 520 758 548 758 C 576 758 600 742 616 716 C 632 742 656 758 686 758 C 722 758 750 728 750 688 L 750 398 C 750 292 682 224 588 224 Z"
+    fill="#FFFFFF"
+    stroke="#111111"
+    stroke-width="42"
+    stroke-linejoin="round"
+    transform="translate(-18 18)"
+  />
+  <ellipse cx="444" cy="456" rx="28" ry="38" fill="#111111" />
+  <ellipse cx="544" cy="456" rx="28" ry="38" fill="#111111" />
+</svg>

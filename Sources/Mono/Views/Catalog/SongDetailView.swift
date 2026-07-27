@@ -1,0 +1,772 @@
+import SwiftUI
+
+struct SongDetailView: View {
+    let song: Song
+
+    @StateObject private var viewModel = SongDetailViewModel()
+    @ObservedObject private var settings = SettingsManager.shared
+
+    @State private var selectedArtistId: Int?
+    @State private var showArtistDetail = false
+    @State private var selectedSongForDetail: Song?
+    @State private var showSongDetail = false
+    @State private var selectedAlbumId: Int?
+    @State private var showAlbumDetail = false
+    @State private var showsSources = false
+
+    struct Theme {
+        static var text: Color {
+            if SequoiaStyle.isActive { return SequoiaStyle.ink }
+            if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
+            return Color.monoTextPrimary
+        }
+
+        static var secondaryText: Color {
+            if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
+            if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+            return Color.monoTextSecondary
+        }
+
+        static var accent: Color {
+            if SequoiaStyle.isActive { return SequoiaStyle.accent }
+            if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+            return Color.monoIconBackground
+        }
+
+        static var accentForeground: Color {
+            if SequoiaStyle.isActive { return SequoiaStyle.onAccent }
+            if NeumorphicStyle.isActive { return Color(light: .white, dark: .black) }
+            return Color.monoIconForeground
+        }
+
+        static var coverFill: Color {
+            if SequoiaStyle.isActive { return SequoiaStyle.materialPressed.opacity(0.74) }
+            if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
+            return Color.gray.opacity(0.3)
+        }
+    }
+
+    var body: some View {
+        let _ = settings.globalThemeRevision
+
+        GeometryReader { viewport in
+            let contentWidth = min(max(viewport.size.width, 1), 680)
+            let heroHeight = resolvedHeroHeight(
+                contentWidth: contentWidth,
+                viewportHeight: max(viewport.size.height, 1)
+            )
+
+            ZStack {
+                PlaylistColorBackground(coverUrl: song.coverUrl?.sized(720))
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        heroSection(height: heroHeight)
+                            .monoPageHeaderCollapse()
+                        storyContent
+                        contentProvenanceSection
+                        similarSongsSection
+                        artistSongsSection
+                    }
+                    .frame(width: contentWidth, alignment: .leading)
+                    .padding(.bottom, 120)
+                }
+                .frame(maxWidth: .infinity)
+                .scrollIndicators(.hidden)
+                .themeRenderScrollLayer()
+                .ignoresSafeArea(edges: .top)
+            }
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .monoNavigationBackButton()
+        .navigationDestination(isPresented: $showArtistDetail) {
+            if let artistId = selectedArtistId {
+                ArtistDetailView(artistId: artistId)
+            }
+        }
+        .navigationDestination(isPresented: $showSongDetail) {
+            if let selectedSongForDetail {
+                SongDetailView(song: selectedSongForDetail)
+            }
+        }
+        .navigationDestination(isPresented: $showAlbumDetail) {
+            if let albumId = selectedAlbumId {
+                AlbumDetailView(
+                    albumId: albumId,
+                    albumName: song.al?.name,
+                    albumCoverUrl: song.coverUrl
+                )
+            }
+        }
+        .task(id: song.contentRequestIdentity.cacheKey) {
+            viewModel.load(song: song)
+        }
+        .onDisappear {
+            viewModel.cancelLoading()
+        }
+    }
+
+    // MARK: - Hero
+
+    private func heroSection(height: CGFloat) -> some View {
+        GeometryReader { hero in
+            ZStack(alignment: .bottomLeading) {
+                CachedAsyncImage(url: song.coverUrl?.sized(1_000)) {
+                    Theme.coverFill
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: hero.size.width, height: hero.size.height)
+                .clipped()
+                .blur(radius: 24)
+                .scaleEffect(1.12)
+
+                CachedAsyncImage(url: song.coverUrl?.sized(1_000)) {
+                    Theme.coverFill
+                }
+                .aspectRatio(contentMode: .fit)
+                .padding(.vertical, min(30, hero.size.height * 0.07))
+                .frame(width: hero.size.width, height: hero.size.height)
+
+                LinearGradient(
+                    stops: [
+                        .init(color: .black.opacity(0.04), location: 0),
+                        .init(color: .clear, location: 0.28),
+                        .init(color: .black.opacity(0.24), location: 0.52),
+                        .init(color: .black.opacity(0.95), location: 1),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+
+                VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 7) {
+                        if let alias = song.alia?.first, !alias.isEmpty {
+                            Text(alias)
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(.white.opacity(0.7))
+                                .lineLimit(1)
+                        }
+
+                        Text(song.name)
+                            .font(.title2.weight(.bold))
+                            .foregroundStyle(.white)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        Button {
+                            guard let artistID = song.artists.first?.id, artistID > 0 else { return }
+                            selectedArtistId = artistID
+                            showArtistDetail = true
+                        } label: {
+                            Text(song.artistName)
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(.white.opacity(0.78))
+                                .lineLimit(1)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled((song.artists.first?.id ?? 0) <= 0)
+                    }
+
+                    heroActions
+                    heroMetadata
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 22)
+            }
+        }
+        .frame(height: height)
+        .clipped()
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+    }
+
+    private func resolvedHeroHeight(contentWidth: CGFloat, viewportHeight: CGFloat) -> CGFloat {
+        let aspectHeight = contentWidth / (DeviceLayout.isPad ? 1.08 : 0.86)
+        let viewportLimit = viewportHeight * (DeviceLayout.isPad ? 0.58 : 0.56)
+        let absoluteLimit: CGFloat = DeviceLayout.isPad ? 520 : 480
+        return max(280, min(aspectHeight, viewportLimit, absoluteLimit))
+    }
+
+    private var heroActions: some View {
+        SongDetailHeroActions(
+            song: song,
+            playbackContext: viewModel.relatedSongs.isEmpty
+                ? [song]
+                : [song] + viewModel.relatedSongs
+        )
+    }
+
+    @ViewBuilder
+    private var heroMetadata: some View {
+        let items = metadataItems
+        if !items.isEmpty {
+            HStack(alignment: .top, spacing: 0) {
+                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(item.label)
+                            .font(.caption2)
+                            .foregroundStyle(.white.opacity(0.56))
+                        Text(item.value)
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(.white.opacity(0.9))
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.75)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    if index < items.count - 1 {
+                        Rectangle()
+                            .fill(Color.white.opacity(0.14))
+                            .frame(width: 0.8, height: 34)
+                            .padding(.horizontal, 12)
+                    }
+                }
+            }
+            .padding(.top, 15)
+            .overlay(alignment: .top) {
+                Rectangle().fill(Color.white.opacity(0.13)).frame(height: 0.8)
+            }
+        }
+    }
+
+    // MARK: - Metadata
+
+    @ViewBuilder
+    private var metadataSection: some View {
+        let items = metadataItems
+        if !items.isEmpty {
+            HStack(alignment: .top, spacing: 0) {
+                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(item.label)
+                            .font(.caption)
+                            .foregroundStyle(Theme.secondaryText)
+                        Text(item.value)
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(Theme.text)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.78)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    if index < items.count - 1 {
+                        Divider()
+                            .overlay(Theme.text.opacity(0.12))
+                            .padding(.horizontal, 14)
+                    }
+                }
+            }
+            .padding(.vertical, 20)
+            .padding(.horizontal, 18)
+            .overlay(alignment: .top) {
+                Divider().overlay(Theme.text.opacity(0.12))
+            }
+            .overlay(alignment: .bottom) {
+                Divider().overlay(Theme.text.opacity(0.12))
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 18)
+        }
+    }
+
+    // MARK: - Story content
+
+    @ViewBuilder
+    private var storyContent: some View {
+        if let content = viewModel.publishedContent {
+            let creationStory = normalizedContent(content.creationStory)
+            let background = normalizedContent(content.background)
+            let albumSummary = normalizedContent(content.albumSummary)
+            let distinctCreationStory = creationStory != albumSummary ? creationStory : nil
+            VStack(alignment: .leading, spacing: 26) {
+                contentArticle(titleKey: "song_detail_summary", text: content.songSummary)
+                contentArticle(titleKey: "song_detail_background", text: background)
+                contentArticle(titleKey: "song_detail_creation_story", text: distinctCreationStory)
+                contentArticle(titleKey: "song_detail_album_summary", text: albumSummary)
+
+                if !viewModel.wikiBlocks.isEmpty {
+                    wikiArticleContent
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 28)
+        } else if !viewModel.wikiBlocks.isEmpty {
+            wikiFallbackContent
+        } else if viewModel.isContentLoading {
+            contentSkeleton
+        } else if viewModel.isContentGenerating {
+            HStack(spacing: 10) {
+                MonoIcon(icon: .clock, size: 15, color: Theme.secondaryText)
+                Text(String(localized: "song_detail_content_generating"))
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(Theme.secondaryText)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 28)
+        }
+    }
+
+    @ViewBuilder
+    private func contentArticle(titleKey: String, text: String?) -> some View {
+        if let text = normalizedContent(text) {
+            VStack(alignment: .leading, spacing: 11) {
+                Text(String(localized: String.LocalizationValue(titleKey)))
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(Theme.text)
+                Text(text)
+                    .font(.body)
+                    .foregroundStyle(Theme.text.opacity(0.88))
+                    .lineSpacing(6)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var wikiFallbackContent: some View {
+        wikiArticleContent
+            .padding(.horizontal, 20)
+            .padding(.top, 28)
+    }
+
+    private var wikiArticleContent: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text(String(localized: "song_wiki_title"))
+                .font(.title3.weight(.bold))
+                .foregroundStyle(Theme.text)
+
+            ForEach(viewModel.wikiBlocks) { block in
+                VStack(alignment: .leading, spacing: 8) {
+                    if !block.title.isEmpty {
+                        Text(block.title)
+                            .font(.headline)
+                            .foregroundStyle(Theme.text)
+                    }
+                    if !block.description.isEmpty {
+                        Text(block.description)
+                            .font(.body)
+                            .foregroundStyle(Theme.text.opacity(0.86))
+                            .lineSpacing(6)
+                            .textSelection(.enabled)
+                    }
+                }
+            }
+        }
+    }
+
+    private var contentSkeleton: some View {
+        VStack(alignment: .leading, spacing: 13) {
+            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                .fill(Theme.text.opacity(0.12))
+                .frame(width: 112, height: 22)
+            ForEach([1.0, 0.96, 0.88, 0.72], id: \.self) { width in
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(Theme.text.opacity(0.08))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 15)
+                    .scaleEffect(x: width, anchor: .leading)
+            }
+        }
+        .accessibilityLabel(String(localized: "song_detail_content_loading"))
+        .padding(.horizontal, 20)
+        .padding(.top, 28)
+    }
+
+    // MARK: - Sources
+
+    @ViewBuilder
+    private var contentProvenanceSection: some View {
+        if viewModel.contentConfiguration.modules.sources,
+           viewModel.publishedContent != nil,
+           let content = viewModel.contentDetail?.content {
+            let sources = viewModel.contentDetail?.sources ?? []
+            let sourceCount = content.sourceSummary?.count ?? sources.count
+
+            if sourceCount > 0 || content.updatedAt != nil {
+                VStack(alignment: .leading, spacing: 12) {
+                    if !sources.isEmpty {
+                        DisclosureGroup(isExpanded: $showsSources) {
+                            VStack(alignment: .leading, spacing: 12) {
+                                ForEach(sources) { source in
+                                    sourceRow(source)
+                                }
+                            }
+                            .padding(.top, 12)
+                        } label: {
+                            provenanceLabel(content: content, sourceCount: sourceCount)
+                        }
+                        .tint(Theme.secondaryText)
+                    } else {
+                        provenanceLabel(content: content, sourceCount: sourceCount)
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 24)
+            }
+        }
+    }
+
+    private func provenanceLabel(content: SongContentBody, sourceCount: Int) -> some View {
+        HStack(spacing: 8) {
+            MonoIcon(icon: .infoCircle, size: 15, color: Theme.secondaryText)
+            Text(sourceSummaryText(content: content, sourceCount: sourceCount))
+                .font(.caption.weight(.medium))
+                .foregroundStyle(Theme.secondaryText)
+            Spacer(minLength: 8)
+        }
+        .contentShape(Rectangle())
+    }
+
+    @ViewBuilder
+    private func sourceRow(_ source: SongContentSource) -> some View {
+        if let destination = source.destinationURL {
+            Link(destination: destination) {
+                sourceLabel(source)
+            }
+            .buttonStyle(.plain)
+        } else {
+            sourceLabel(source)
+        }
+    }
+
+    private func sourceLabel(_ source: SongContentSource) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(source.title)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(Theme.text)
+                    .multilineTextAlignment(.leading)
+                if let publisher = normalizedContent(source.publisher) {
+                    Text(publisher)
+                        .font(.caption)
+                        .foregroundStyle(Theme.secondaryText)
+                }
+            }
+            Spacer(minLength: 8)
+            if let grade = normalizedContent(source.grade) {
+                Text(grade)
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(Theme.secondaryText)
+            }
+            MonoIcon(icon: .chevronRight, size: 11, color: Theme.secondaryText)
+        }
+    }
+
+    // MARK: - Recommendations
+
+    @ViewBuilder
+    private var similarSongsSection: some View {
+        if viewModel.contentConfiguration.modules.similarSongs != false,
+           !viewModel.simiSongs.isEmpty {
+            VStack(alignment: .leading, spacing: 14) {
+                sectionTitle(String(localized: "simi_songs_title"))
+
+                ScrollView(.horizontal) {
+                    HStack(spacing: 14) {
+                        ForEach(viewModel.simiSongs.prefix(10)) { simiSong in
+                            Button {
+                                PlayerManager.shared.play(song: simiSong, in: viewModel.simiSongs)
+                                selectedSongForDetail = simiSong
+                                showSongDetail = true
+                            } label: {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    CachedAsyncImage(url: simiSong.coverUrl?.sized(300)) {
+                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                            .fill(Theme.text.opacity(0.08))
+                                    }
+                                    .frame(width: 124, height: 124)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                                    Text(simiSong.name)
+                                        .font(.subheadline.weight(.medium))
+                                        .foregroundStyle(Theme.text)
+                                        .lineLimit(1)
+                                        .frame(width: 124, alignment: .leading)
+
+                                    Text(simiSong.artistName)
+                                        .font(.caption)
+                                        .foregroundStyle(Theme.secondaryText)
+                                        .lineLimit(1)
+                                        .frame(width: 124, alignment: .leading)
+                                }
+                            }
+                            .buttonStyle(MonoBouncingButtonStyle(scale: 0.97))
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                }
+                .scrollIndicators(.hidden)
+                .themeRenderScrollLayer()
+            }
+            .padding(.top, 34)
+        }
+    }
+
+    @ViewBuilder
+    private var artistSongsSection: some View {
+        if viewModel.contentConfiguration.modules.artistSongs != false,
+           !viewModel.relatedSongs.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                sectionTitle(
+                    String(format: NSLocalizedString("more_by_artist", comment: ""), song.artistName)
+                )
+
+                LazyVStack(spacing: 0) {
+                    ForEach(Array(viewModel.relatedSongs.enumerated()), id: \.element.id) { index, relatedSong in
+                        SongListRow(
+                            song: relatedSong,
+                            index: index,
+                            onArtistTap: { artistId in
+                                selectedArtistId = artistId
+                                showArtistDetail = true
+                            },
+                            onDetailTap: { detailSong in
+                                selectedSongForDetail = detailSong
+                                showSongDetail = true
+                            },
+                            onAlbumTap: { albumId in
+                                selectedAlbumId = albumId
+                                showAlbumDetail = true
+                            },
+                            onTap: {
+                                PlayerManager.shared.play(song: relatedSong, in: viewModel.relatedSongs)
+                            }
+                        )
+                    }
+                }
+            }
+            .padding(.top, 30)
+        } else if viewModel.contentConfiguration.modules.artistSongs != false,
+                  viewModel.isRelatedLoading {
+            VStack(alignment: .leading, spacing: 12) {
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .fill(Theme.text.opacity(0.1))
+                    .frame(width: 150, height: 20)
+                ForEach(0..<3, id: \.self) { _ in
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Theme.text.opacity(0.06))
+                        .frame(height: 58)
+                }
+            }
+            .accessibilityLabel(String(localized: "song_detail_related_loading"))
+            .padding(.horizontal, 20)
+            .padding(.top, 30)
+        }
+    }
+
+    private func sectionTitle(_ title: String) -> some View {
+        Text(title)
+            .font(.title3.weight(.bold))
+            .foregroundStyle(Theme.text)
+            .padding(.horizontal, 20)
+    }
+
+    // MARK: - Values and actions
+
+    private var metadataItems: [SongDetailMetadataItem] {
+        var items: [SongDetailMetadataItem] = []
+
+        if let duration = formattedDuration(milliseconds: viewModel.contentDetail?.song?.durationMs ?? song.dt) {
+            items.append(
+                SongDetailMetadataItem(
+                    label: String(localized: "song_detail_duration"),
+                    value: duration
+                )
+            )
+        }
+
+        if let releaseDate = normalizedContent(viewModel.contentDetail?.song?.releaseDate?.value) {
+            items.append(
+                SongDetailMetadataItem(
+                    label: String(localized: "song_detail_release_date"),
+                    value: releaseDate
+                )
+            )
+        }
+
+        if let album = normalizedContent(viewModel.contentDetail?.song?.album?.name ?? song.album?.name) {
+            items.append(
+                SongDetailMetadataItem(
+                    label: String(localized: "song_detail_album"),
+                    value: album
+                )
+            )
+        }
+
+        return items
+    }
+
+    private func formattedDuration(milliseconds: Int?) -> String? {
+        guard let milliseconds, milliseconds > 0 else { return nil }
+        let seconds = milliseconds / 1_000
+        return String(format: "%02d:%02d", seconds / 60, seconds % 60)
+    }
+
+    private func normalizedContent(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private func sourceSummaryText(content: SongContentBody, sourceCount: Int) -> String {
+        var parts: [String] = []
+        if sourceCount > 0 {
+            parts.append(
+                String(
+                    format: NSLocalizedString("song_detail_source_count", comment: ""),
+                    sourceCount
+                )
+            )
+        }
+        if let updatedAt = formattedUpdatedAt(content.updatedAt) {
+            parts.append(
+                String(
+                    format: NSLocalizedString("song_detail_updated_at", comment: ""),
+                    updatedAt
+                )
+            )
+        }
+        if viewModel.isShowingCachedContent {
+            parts.append(String(localized: "song_detail_cached_content"))
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    private func formattedUpdatedAt(_ rawValue: String?) -> String? {
+        guard let rawValue = normalizedContent(rawValue) else { return nil }
+
+        let formatter = ISO8601DateFormatter()
+        if let date = formatter.date(from: rawValue) {
+            return date.formatted(date: .abbreviated, time: .omitted)
+        }
+
+        formatter.formatOptions.insert(.withFractionalSeconds)
+        if let date = formatter.date(from: rawValue) {
+            return date.formatted(date: .abbreviated, time: .omitted)
+        }
+        return rawValue
+    }
+}
+
+private struct SongDetailMetadataItem: Identifiable {
+    let label: String
+    let value: String
+
+    var id: String { label }
+}
+
+/// Keeps playback and collection updates inside the three hero controls so
+/// their state changes do not invalidate the image-heavy detail page.
+private struct SongDetailHeroActions: View {
+    let song: Song
+    let playbackContext: [Song]
+
+    @ObservedObject private var playerManager = PlayerManager.shared
+    @ObservedObject private var likeManager = LikeManager.shared
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Button(action: togglePlayback) {
+                actionLabel(
+                    icon: isCurrentSongPlaying ? .pause : .play,
+                    title: isCurrentSongPlaying
+                        ? String(localized: "action_pause")
+                        : String(localized: "action_play")
+                )
+            }
+            .buttonStyle(SongDetailHeroButtonStyle())
+
+            Button {
+                likeManager.toggleLike(
+                    songId: song.id,
+                    isQQMusic: song.isQQMusic,
+                    song: song
+                )
+            } label: {
+                actionLabel(
+                    icon: isLiked ? .liked : .like,
+                    title: isLiked
+                        ? String(localized: "song_detail_collected")
+                        : String(localized: "action_favorite")
+                )
+            }
+            .buttonStyle(SongDetailHeroButtonStyle())
+
+            if let shareURL {
+                ShareLink(item: shareURL, subject: Text(song.name), message: Text(song.artistName)) {
+                    actionLabel(icon: .share, title: String(localized: "action_share"))
+                }
+                .buttonStyle(SongDetailHeroButtonStyle())
+            }
+        }
+    }
+
+    private func actionLabel(icon: MonoIcon.IconType, title: String) -> some View {
+        HStack(spacing: 7) {
+            MonoIcon(icon: icon, size: 15, color: .white)
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+        }
+        .foregroundStyle(.white)
+        .frame(maxWidth: .infinity)
+        .frame(height: 48)
+        .background(Color.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.1), lineWidth: 0.8)
+        }
+        .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private var isLiked: Bool {
+        likeManager.isLiked(id: song.id, isQQMusic: song.isQQMusic)
+    }
+
+    private var isCurrentSongPlaying: Bool {
+        PlayerManager.matchesPlaybackTarget(playerManager.currentSong, expected: song)
+            && playerManager.isPlaying
+    }
+
+    private func togglePlayback() {
+        if PlayerManager.matchesPlaybackTarget(playerManager.currentSong, expected: song) {
+            playerManager.togglePlayPause()
+        } else {
+            playerManager.play(song: song, in: playbackContext)
+        }
+    }
+
+    private var shareURL: URL? {
+        guard var components = URLComponents(string: SecureConfig.officialWebsiteBaseURL) else {
+            return nil
+        }
+        let route = "/song"
+        components.path = components.path.hasSuffix("/")
+            ? "\(components.path)\(route.dropFirst())"
+            : "\(components.path)\(route)"
+        components.queryItems = [
+            URLQueryItem(name: "platform", value: song.contentRequestIdentity.platform),
+            URLQueryItem(name: "song_id", value: song.contentRequestIdentity.platformSongID),
+        ]
+        return components.url
+    }
+}
+
+/// Opacity-only press feedback stays on the compositor and avoids rerasterizing
+/// the cover and blur layers behind the controls.
+private struct SongDetailHeroButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        let isPressed = configuration.isPressed && !EdgeSwipeGuard.shared.isSwiping
+
+        configuration.label
+            .opacity(isPressed ? 0.76 : 1)
+            .animation(.linear(duration: 0.06), value: isPressed)
+            .onChange(of: configuration.isPressed) { _, pressed in
+                if pressed && !EdgeSwipeGuard.shared.isSwiping {
+                    HapticManager.shared.light()
+                }
+            }
+    }
+}

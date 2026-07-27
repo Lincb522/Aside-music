@@ -60,7 +60,7 @@ struct ApertureWidgetTheme: View {
             .frame(width: w, height: h)
             .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
             .overlay(cardStroke(radius: radius))
-            .widgetURL(URL(string: "monologue://player"))
+            .widgetURL(URL(string: "mono://player"))
         }
     }
 
@@ -86,7 +86,7 @@ struct ApertureWidgetTheme: View {
             .frame(width: w, height: h)
             .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
             .overlay(cardStroke(radius: radius))
-            .widgetURL(URL(string: "monologue://player"))
+            .widgetURL(URL(string: "mono://player"))
         }
     }
 
@@ -164,7 +164,7 @@ struct ApertureWidgetTheme: View {
                 ContainerRelativeShape()
                     .stroke(Color.black.opacity(0.08), lineWidth: 1)
             )
-            .widgetURL(URL(string: "monologue://player"))
+            .widgetURL(URL(string: "mono://player"))
         }
     }
 

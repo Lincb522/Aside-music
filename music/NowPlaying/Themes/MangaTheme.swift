@@ -1,314 +1,222 @@
-import WidgetKit
-import SwiftUI
 import AppIntents
-
-// MARK: - Manga Theme (日漫風)
-
-private struct MangaStarShape: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        let center = CGPoint(x: rect.width / 2, y: rect.height / 2)
-        let r = rect.width / 2
-        let sides = 5
-        let angle = -CGFloat.pi / 2
-        for i in 0..<sides * 2 {
-            let radius = i.isMultiple(of: 2) ? r : r * 0.45
-            let theta = angle + CGFloat(i) * .pi / CGFloat(sides)
-            let pt = CGPoint(x: center.x + radius * cos(theta), y: center.y + radius * sin(theta))
-            if i == 0 { path.move(to: pt) } else { path.addLine(to: pt) }
-        }
-        path.closeSubpath()
-        return path
-    }
-}
-
-private struct MangaSparkleShape: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        let w = rect.width
-        let h = rect.height
-        path.move(to: CGPoint(x: w/2, y: 0))
-        path.addQuadCurve(to: CGPoint(x: w, y: h/2), control: CGPoint(x: w/2, y: h/2))
-        path.addQuadCurve(to: CGPoint(x: w/2, y: h), control: CGPoint(x: w/2, y: h/2))
-        path.addQuadCurve(to: CGPoint(x: 0, y: h/2), control: CGPoint(x: w/2, y: h/2))
-        path.addQuadCurve(to: CGPoint(x: w/2, y: 0), control: CGPoint(x: w/2, y: h/2))
-        return path
-    }
-}
-
-private struct MangaHeartShape: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        let w = rect.width
-        let h = rect.height
-        path.move(to: CGPoint(x: w/2, y: h * 0.25))
-        path.addCurve(to: CGPoint(x: 0, y: h * 0.3), control1: CGPoint(x: w * 0.25, y: -0.15 * h), control2: CGPoint(x: 0, y: 0))
-        path.addCurve(to: CGPoint(x: w/2, y: h * 0.95), control1: CGPoint(x: 0, y: h * 0.7), control2: CGPoint(x: w * 0.25, y: h * 0.85))
-        path.addCurve(to: CGPoint(x: w, y: h * 0.3), control1: CGPoint(x: w * 0.75, y: h * 0.85), control2: CGPoint(x: w, y: h * 0.7))
-        path.addCurve(to: CGPoint(x: w/2, y: h * 0.25), control1: CGPoint(x: w, y: 0), control2: CGPoint(x: w * 0.75, y: -0.15 * h))
-        return path
-    }
-}
-
-private struct MangaChatBubbleShape: Shape {
-    var cornerRadius: CGFloat = 16
-    var tailSize: CGFloat = 8
-    var tailOffset: CGFloat = 34
-
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-
-        let tr = CGPoint(x: rect.maxX, y: rect.minY)
-        let br = CGPoint(x: rect.maxX, y: rect.maxY)
-        let bl = CGPoint(x: rect.minX + tailSize, y: rect.maxY)
-        let tl = CGPoint(x: rect.minX + tailSize, y: rect.minY)
-
-        path.move(to: CGPoint(x: tl.x + cornerRadius, y: tl.y))
-        path.addLine(to: CGPoint(x: tr.x - cornerRadius, y: tr.y))
-        path.addArc(center: CGPoint(x: tr.x - cornerRadius, y: tr.y + cornerRadius), radius: cornerRadius, startAngle: .degrees(-90), endAngle: .zero, clockwise: false)
-        path.addLine(to: CGPoint(x: br.x, y: br.y - cornerRadius))
-        path.addArc(center: CGPoint(x: br.x - cornerRadius, y: br.y - cornerRadius), radius: cornerRadius, startAngle: .zero, endAngle: .degrees(90), clockwise: false)
-        path.addLine(to: CGPoint(x: bl.x + cornerRadius, y: bl.y))
-        path.addArc(center: CGPoint(x: bl.x + cornerRadius, y: bl.y - cornerRadius), radius: cornerRadius, startAngle: .degrees(90), endAngle: .degrees(180), clockwise: false)
-
-        path.addLine(to: CGPoint(x: tl.x, y: tl.y + tailOffset + tailSize))
-        path.addLine(to: CGPoint(x: rect.minX, y: tl.y + tailOffset + tailSize / 2))
-        path.addLine(to: CGPoint(x: tl.x, y: tl.y + tailOffset))
-
-        path.addLine(to: CGPoint(x: tl.x, y: tl.y + cornerRadius))
-        path.addArc(center: CGPoint(x: tl.x + cornerRadius, y: tl.y + cornerRadius), radius: cornerRadius, startAngle: .degrees(180), endAngle: .degrees(270), clockwise: false)
-
-        return path
-    }
-}
-
-private struct MangaMicroAnimator: ViewModifier {
-    var type: AnimationType
-
-    enum AnimationType {
-        case pulse
-        case twinkle
-        case wobble
-        case float
-    }
-
-    private var period: TimeInterval {
-        switch type {
-        case .pulse:
-            return 1.6
-        case .twinkle:
-            return 2.4
-        case .wobble:
-            return 4.0
-        case .float:
-            return 3.0
-        }
-    }
-
-    func body(content: Content) -> some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
-            let phase = phaseValue(for: timeline.date)
-            animated(content: content, phase: phase)
-        }
-    }
-
-    @ViewBuilder
-    private func animated(content: Content, phase: CGFloat) -> some View {
-        switch type {
-        case .pulse:
-            content.scaleEffect(1.0 + 0.15 * phase)
-        case .twinkle:
-            content
-                .scaleEffect(0.85 + 0.25 * phase)
-                .opacity(0.6 + 0.4 * phase)
-        case .wobble:
-            content.rotationEffect(.degrees(-6 + 12 * Double(phase)))
-        case .float:
-            content.offset(y: 3 - 6 * phase)
-        }
-    }
-
-    private func phaseValue(for date: Date) -> CGFloat {
-        let raw = date.timeIntervalSinceReferenceDate / period
-        let wave = (sin(raw * .pi * 2.0) + 1.0) * 0.5
-        return CGFloat(wave)
-    }
-}
+import SwiftUI
+import WidgetKit
 
 struct MangaTheme: View {
     let entry: NowPlayingEntry
     let family: WidgetFamily
 
-    private let ink = Color(hex: "2D2D3A")
-    private let inkSub = Color(hex: "8888A0")
-    private let accentPink = Color(hex: "FF8FAB")
-    private let labelYellow = Color(hex: "FFE4B5")
-    private let decoBlue = Color(hex: "B8D4F0")
+    private let ink = Color(hex: "141416")
+    private let paper = Color(hex: "F3F0E9")
+    private let paperLight = Color(hex: "FCFBF7")
+    private let gray = Color(hex: "757278")
+    private let paleGray = Color(hex: "D9D6CF")
 
-    init(entry: NowPlayingEntry, family: WidgetFamily) {
-        self.entry = entry
-        self.family = family
+    private var song: String {
+        entry.isEmpty ? "未在播放" : entry.songName
     }
 
-    private var song: String { entry.isEmpty ? "未在播放" : entry.songName }
-    private var artist: String { entry.isEmpty ? "暂无歌曲信息" : entry.artistName }
-    private var lyric: String { entry.lyricText }
-
-    private var bgColors: [Color] {
-        [Color(hex: "E8F4FD"), Color(hex: "FDE8F0"), Color(hex: "FFF8EC")]
+    private var artist: String {
+        entry.isEmpty ? "暂无歌曲信息" : entry.artistName
     }
 
-    private var extractedPlayBtn: Color {
-        guard entry.dominantRGB.count == 3, !entry.isEmpty else { return Color(hex: "5E5A53") }
-        return Color(red: Double(entry.dominantRGB[0]), green: Double(entry.dominantRGB[1]), blue: Double(entry.dominantRGB[2]))
+    private var lyric: String {
+        entry.lyricText
     }
 
-    private func mangaCanvasBackdrop(size: CGSize) -> some View {
+    private func paperBackground(size: CGSize) -> some View {
         ZStack {
-            LinearGradient(colors: bgColors, startPoint: .topLeading, endPoint: .bottomTrailing)
-            Canvas { context, sz in
-                let gap: CGFloat = 16
-                let dotR: CGFloat = 1.0
-                var y: CGFloat = gap/2
-                var isEven = true
-                while y < sz.height + gap {
-                    var x: CGFloat = isEven ? gap/2 : gap
-                    while x < sz.width + gap {
-                        let rect = CGRect(x: x - dotR, y: y - dotR, width: dotR * 2, height: dotR * 2)
-                        context.fill(Path(ellipseIn: rect), with: .color(ink.opacity(0.12)))
+            paper
+
+            Canvas { context, canvasSize in
+                let gap: CGFloat = 10
+                let radius: CGFloat = 0.7
+                var row = 0
+                var y: CGFloat = 5
+
+                while y < canvasSize.height {
+                    var x: CGFloat = row.isMultiple(of: 2) ? 5 : 10
+                    while x < canvasSize.width {
+                        context.fill(
+                            Path(
+                                ellipseIn: CGRect(
+                                    x: x - radius,
+                                    y: y - radius,
+                                    width: radius * 2,
+                                    height: radius * 2
+                                )
+                            ),
+                            with: .color(ink.opacity(0.095))
+                        )
+                        x += gap
+                    }
+                    row += 1
+                    y += gap
+                }
+            }
+
+            LinearGradient(
+                colors: [Color.white.opacity(0.34), .clear, ink.opacity(0.025)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+        .frame(width: size.width, height: size.height)
+    }
+
+    private func albumImage() -> some View {
+        Group {
+            if let data = entry.coverImageData, let image = UIImage(data: data) {
+                Image(uiImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .saturation(0)
+                    .contrast(1.12)
+            } else {
+                ZStack {
+                    paleGray
+                    Image(systemName: "music.note")
+                        .font(.system(size: 30, weight: .black))
+                        .foregroundStyle(gray)
+                }
+            }
+        }
+    }
+
+    private var artwork: some View {
+        GeometryReader { proxy in
+            albumImage()
+                .frame(width: proxy.size.width, height: proxy.size.height)
+                .clipped()
+        }
+        .overlay(
+            Canvas { context, size in
+                let gap: CGFloat = 7
+                var y: CGFloat = 3
+                while y < size.height {
+                    var x: CGFloat = 3
+                    while x < size.width {
+                        context.fill(
+                            Path(ellipseIn: CGRect(x: x, y: y, width: 1, height: 1)),
+                            with: .color(ink.opacity(0.08))
+                        )
                         x += gap
                     }
                     y += gap
-                    isEven.toggle()
                 }
             }
-        }
+        )
     }
 
-    private func coverView(side: CGFloat) -> some View {
-        ZStack(alignment: .topTrailing) {
-            Group {
-                if let d = entry.coverImageData, let img = UIImage(data: d) {
-                    Image(uiImage: img).resizable().aspectRatio(contentMode: .fill)
-                } else {
-                    ZStack {
-                        labelYellow.opacity(0.4)
-                        Image(systemName: "music.note")
-                            .font(.system(size: side * 0.28, weight: .medium))
-                            .foregroundStyle(inkSub.opacity(0.45))
-                    }
-                }
-            }
-            .frame(width: side, height: side)
-            .clipShape(RoundedRectangle(cornerRadius: side * 0.24, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: side * 0.24, style: .continuous)
-                    .stroke(ink, lineWidth: 3)
-            )
-            .background(
-                RoundedRectangle(cornerRadius: side * 0.24, style: .continuous)
-                    .fill(ink)
-                    .offset(x: 4, y: 4)
-            )
+    private func statusLabel(compact: Bool = false) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: "music.note")
+                .font(.system(size: compact ? 7 : 8, weight: .black))
 
+            Text("NOW PLAYING")
+                .font(.system(size: compact ? 7 : 8, weight: .black, design: .rounded))
+                .tracking(compact ? 0.2 : 0.6)
+                .lineLimit(1)
+        }
+        .foregroundStyle(paperLight)
+        .padding(.horizontal, compact ? 8 : 10)
+        .padding(.vertical, compact ? 4 : 5)
+        .background(Rectangle().fill(ink))
+    }
+
+    @ViewBuilder
+    private func metadata(compact: Bool = false, reversed: Bool = false) -> some View {
+        HStack(spacing: compact ? 5 : 8) {
+            if !entry.sourceName.isEmpty {
+                Text(entry.sourceName.uppercased())
+                    .font(.system(size: compact ? 7 : 8, weight: .black, design: .monospaced))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.65)
+            }
+
+            if let bpm = entry.tempoBPM, bpm > 0 {
+                Text("\(bpm) BPM")
+                    .font(.system(size: compact ? 7 : 8, weight: .black, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.65)
+            }
+        }
+        .foregroundStyle(reversed ? paperLight.opacity(0.72) : gray)
+    }
+
+    private func qualityLabel(compact: Bool = false) -> some View {
+        Group {
             if !entry.qualityText.isEmpty {
                 Text(entry.qualityText)
-                    .font(.system(size: 10, weight: .black, design: .rounded))
+                    .font(.system(size: compact ? 7 : 8, weight: .black, design: .rounded))
                     .foregroundStyle(ink)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Capsule().fill(labelYellow))
-                    .overlay(Capsule().stroke(ink, lineWidth: 2.5))
-                    .background(Capsule().fill(ink).offset(x: 2.5, y: 2.5))
-                    .rotationEffect(.degrees(-12))
-                    .offset(x: 12, y: -4)
+                    .minimumScaleFactor(0.65)
+                    .padding(.horizontal, compact ? 6 : 8)
+                    .padding(.vertical, compact ? 3 : 4)
+                    .background(Rectangle().fill(paperLight))
+                    .overlay(Rectangle().stroke(ink, lineWidth: 1.8))
             }
         }
     }
 
-    private var nowPlayingHeader: some View {
-        HStack(spacing: 3) {
-            Image(systemName: "music.note")
-                .font(.system(size: 8, weight: .black))
-            Text("NOW PLAYING")
-                .font(.system(size: 8, weight: .black, design: .rounded))
-                .tracking(0.5)
-        }
-        .foregroundStyle(ink)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
-        .background(Capsule().fill(labelYellow))
-        .overlay(Capsule().stroke(ink, lineWidth: 2.5))
-        .background(Capsule().fill(ink).offset(x: 2.5, y: 2.5))
-    }
-
-    private func mangaBubble<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        content()
-            .padding(.leading, 20)
-            .padding(.trailing, 14)
-            .padding(.vertical, 10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(MangaChatBubbleShape().fill(Color.white))
-            .overlay(MangaChatBubbleShape().stroke(ink, lineWidth: 3.5))
-            .background(MangaChatBubbleShape().fill(ink).offset(x: 4.5, y: 4.5))
-    }
-
-    private enum MediaBtnStyle {
-        case normal
-        case play
-    }
-
-    private func mediaButton(intent: some AppIntent, icon: String, w: CGFloat, h: CGFloat, style: MediaBtnStyle) -> some View {
+    private func controlButton(
+        intent: some AppIntent,
+        icon: String,
+        side: CGFloat,
+        primary: Bool
+    ) -> some View {
         Button(intent: intent) {
             Image(systemName: icon)
-                .font(.system(size: min(w, h) * 0.45, weight: .black))
-                .foregroundStyle(style == .play ? Color.white : ink)
-                .frame(width: w, height: h)
-                .background(
-                    RoundedRectangle(cornerRadius: min(w, h) * 0.35, style: .continuous)
-                        .fill(style == .play ? extractedPlayBtn : Color.white)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: min(w, h) * 0.35, style: .continuous)
-                        .stroke(ink, lineWidth: 3)
-                )
-                .background(
-                    RoundedRectangle(cornerRadius: min(w, h) * 0.35, style: .continuous)
-                        .fill(ink)
-                        .offset(x: 3, y: 3)
-                )
+                .font(.system(size: side * 0.4, weight: .black))
+                .foregroundStyle(primary ? paperLight : ink)
+                .frame(width: side, height: side)
+                .background(Circle().fill(primary ? ink : paperLight))
+                .overlay(Circle().stroke(ink, lineWidth: primary ? 2.8 : 2.2))
         }
         .buttonStyle(.plain)
     }
 
-    private var bpmFooter: some View {
-        Group {
-            if let b = entry.tempoBPM, b > 0 {
-                HStack(spacing: 2) {
-                    Text("\(b)")
-                        .font(.system(size: 10, weight: .heavy, design: .rounded))
-                        .foregroundStyle(inkSub.opacity(0.8))
+    private func controls(compact: Bool) -> some View {
+        let secondarySide: CGFloat = compact ? 23 : 33
+        let primarySide: CGFloat = compact ? 31 : 44
 
-                    ZStack {
-                        MangaHeartShape().fill(accentPink)
-                        MangaHeartShape().stroke(ink, lineWidth: 1.5)
-                    }
-                    .frame(width: 9, height: 8)
-                    .offset(y: -1)
-                    .modifier(MangaMicroAnimator(type: .pulse))
+        return HStack(spacing: compact ? 6 : 10) {
+            controlButton(
+                intent: PreviousTrackIntent(),
+                icon: "backward.fill",
+                side: secondarySide,
+                primary: false
+            )
+            controlButton(
+                intent: TogglePlaybackIntent(),
+                icon: entry.controlSymbolName,
+                side: primarySide,
+                primary: true
+            )
+            controlButton(
+                intent: NextTrackIntent(),
+                icon: "forward.fill",
+                side: secondarySide,
+                primary: false
+            )
+        }
+    }
 
-                    Text("bpm")
-                        .font(.system(size: 9, weight: .bold, design: .rounded))
-                        .foregroundStyle(inkSub.opacity(0.8))
-                }
+    private func playbackRow(compact: Bool, showsMetadata: Bool) -> some View {
+        HStack(spacing: compact ? 7 : 12) {
+            if entry.isEmpty {
+                Image(systemName: "music.note")
+                    .font(.system(size: compact ? 16 : 20, weight: .black))
+                    .foregroundStyle(gray)
+                    .frame(height: compact ? 31 : 44)
             } else {
-                ZStack {
-                    MangaHeartShape().fill(accentPink)
-                    MangaHeartShape().stroke(ink, lineWidth: 1.5)
-                }
-                .frame(width: 12, height: 10)
+                controls(compact: compact)
+            }
+
+            if showsMetadata {
+                Spacer(minLength: 0)
+                metadata(compact: compact)
             }
         }
     }
@@ -316,303 +224,241 @@ struct MangaTheme: View {
     // MARK: - Small
 
     private var smallWidget: some View {
-        GeometryReader { g in
-            let coverSide = max(g.size.width * 0.46, 60)
+        GeometryReader { geometry in
+            let width = geometry.size.width
+            let height = geometry.size.height
+            let artworkHeight = height * 0.46
 
             ZStack {
-                mangaCanvasBackdrop(size: g.size)
-
-                // 漫画风背景点缀装饰
-                ZStack {
-                    ZStack {
-                        MangaSparkleShape().fill(accentPink)
-                        MangaSparkleShape().stroke(ink, lineWidth: 2)
-                    }
-                    .frame(width: 14, height: 14)
-                    .rotationEffect(.degrees(10))
-                    .modifier(MangaMicroAnimator(type: .twinkle))
-                    .position(x: 20, y: 26) // Hugging top-left of cover
-
-                    ZStack {
-                        MangaStarShape().fill(labelYellow)
-                        MangaStarShape().stroke(ink, lineWidth: 2)
-                    }
-                    .frame(width: 16, height: 16)
-                    .rotationEffect(.degrees(20))
-                    .modifier(MangaMicroAnimator(type: .wobble))
-                    .position(x: g.size.width - 24, y: 20)
-
-                    ZStack {
-                        Circle().fill(Color(hex: "CEF09D")) // Lime green dot
-                        Circle().stroke(ink, lineWidth: 2)
-                    }
-                    .frame(width: 8, height: 8)
-                    .modifier(MangaMicroAnimator(type: .float))
-                    .position(x: 26, y: g.size.height - 24)
-
-                    ZStack {
-                        MangaHeartShape().fill(accentPink)
-                        MangaHeartShape().stroke(ink, lineWidth: 1.5)
-                    }
-                    .frame(width: 14, height: 12)
-                    .rotationEffect(.degrees(-15))
-                    .modifier(MangaMicroAnimator(type: .pulse))
-                    .position(x: g.size.width - 20, y: g.size.height - 24)
-                }
-                .allowsHitTesting(false)
+                paperBackground(size: geometry.size)
 
                 VStack(spacing: 0) {
-                    Spacer(minLength: 16)
+                    ZStack(alignment: .topLeading) {
+                        artwork
+                            .frame(width: width, height: artworkHeight)
 
-                    HStack(alignment: .center, spacing: 10) {
-                        coverView(side: coverSide)
-
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(song)
-                                .font(.system(size: 14, weight: .heavy, design: .rounded))
-                                .foregroundStyle(ink)
-                                .lineLimit(3)
-                                .minimumScaleFactor(0.4)
-
-                            Text(artist)
-                                .font(.system(size: 12, weight: .bold, design: .rounded))
-                                .foregroundStyle(inkSub)
-                                .lineLimit(2)
-                                .minimumScaleFactor(0.4)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        statusLabel(compact: true)
+                            .padding(8)
                     }
-                    .padding(.horizontal, 14)
+                    .frame(height: artworkHeight)
+                    .clipped()
 
-                    Spacer(minLength: 14)
+                    Rectangle()
+                        .fill(ink)
+                        .frame(height: 3)
 
-                    if !entry.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(song)
+                            .font(.system(size: 13, weight: .heavy, design: .rounded))
+                            .foregroundStyle(ink)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.48)
+
                         HStack(spacing: 6) {
-                            mediaButton(intent: PreviousTrackIntent(), icon: "backward.fill", w: 26, h: 22, style: .normal)
-                            mediaButton(intent: TogglePlaybackIntent(), icon: entry.controlSymbolName, w: 32, h: 36, style: .play)
-                            mediaButton(intent: NextTrackIntent(), icon: "forward.fill", w: 26, h: 22, style: .normal)
+                            Text(artist)
+                                .font(.system(size: 9, weight: .bold, design: .rounded))
+                                .foregroundStyle(gray)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.55)
+
+                            Spacer(minLength: 0)
+                            qualityLabel(compact: true)
                         }
-                        .padding(.bottom, 16)
-                    } else {
-                        Spacer().frame(height: 16)
+
+                        Rectangle()
+                            .fill(ink.opacity(0.2))
+                            .frame(height: 1)
+
+                        playbackRow(compact: true, showsMetadata: false)
+                            .frame(maxWidth: .infinity, alignment: .center)
                     }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .frame(maxHeight: .infinity, alignment: .top)
+                    .background(paperLight.opacity(0.88))
                 }
+
+                ContainerRelativeShape()
+                    .stroke(ink, lineWidth: 2)
             }
         }
-        .widgetURL(URL(string: "monologue://player"))
+        .widgetURL(URL(string: "mono://player"))
     }
 
     // MARK: - Medium
 
     private var mediumWidget: some View {
-        GeometryReader { g in
-            ZStack {
-                mangaCanvasBackdrop(size: g.size)
+        GeometryReader { geometry in
+            let width = geometry.size.width
+            let artworkWidth = width * 0.42
 
-                // Widget outer comic border
+            ZStack {
+                paperBackground(size: geometry.size)
+
+                HStack(spacing: 0) {
+                    ZStack(alignment: .topLeading) {
+                        artwork
+                            .frame(width: artworkWidth)
+
+                        statusLabel(compact: true)
+                            .padding(9)
+                    }
+                    .frame(width: artworkWidth)
+                    .clipped()
+
+                    Rectangle()
+                        .fill(ink)
+                        .frame(width: 3)
+
+                    VStack(alignment: .leading, spacing: 5) {
+                        HStack {
+                            metadata(compact: true)
+                            Spacer(minLength: 0)
+                            qualityLabel(compact: true)
+                        }
+
+                        Text(song)
+                            .font(.system(size: 18, weight: .heavy, design: .rounded))
+                            .foregroundStyle(ink)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.48)
+
+                        Text(artist)
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .foregroundStyle(gray)
+                            .lineLimit(1)
+
+                        Rectangle()
+                            .fill(ink)
+                            .frame(height: 2)
+
+                        if !lyric.isEmpty {
+                            Text(lyric)
+                                .font(.system(size: 10, weight: .bold, design: .rounded))
+                                .foregroundStyle(ink.opacity(0.78))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.55)
+                        }
+
+                        Spacer(minLength: 0)
+
+                        playbackRow(compact: true, showsMetadata: false)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                    }
+                    .padding(.horizontal, 11)
+                    .padding(.vertical, 8)
+                    .background(paperLight.opacity(0.88))
+                }
+
                 ContainerRelativeShape()
                     .stroke(ink, lineWidth: 2)
-
-                // Background decorations
-                ZStack {
-                    ZStack {
-                        MangaSparkleShape().fill(accentPink)
-                        MangaSparkleShape().stroke(ink, lineWidth: 2)
-                    }
-                    .frame(width: 14, height: 14)
-                    .rotationEffect(.degrees(10))
-                    .modifier(MangaMicroAnimator(type: .twinkle))
-                    .position(x: 14, y: 14)
-
-                    ZStack {
-                        MangaStarShape().fill(labelYellow)
-                        MangaStarShape().stroke(ink, lineWidth: 2)
-                    }
-                    .frame(width: 14, height: 14)
-                    .rotationEffect(.degrees(20))
-                    .modifier(MangaMicroAnimator(type: .wobble))
-                    .position(x: g.size.width - 20, y: 16)
-
-                    ZStack {
-                        Circle().fill(Color(hex: "CEF09D"))
-                        Circle().stroke(ink, lineWidth: 2)
-                    }
-                    .frame(width: 6, height: 6)
-                    .modifier(MangaMicroAnimator(type: .float))
-                    .position(x: 24, y: g.size.height - 18)
-                }
-                .allowsHitTesting(false)
-
-                ZStack(alignment: .top) {
-                    HStack(alignment: .center, spacing: 14) { // Reverted back to .center for layout symmetry
-                        coverView(side: 104) // Much larger cover taking full height
-
-                        // Right column layout
-                        VStack(alignment: .leading, spacing: 10) { // Increased spacing to detach play controls from bubble
-                            mangaBubble {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Spacer().frame(height: 10) // Internal top buffer for the overlay header
-
-                                    Text(song)
-                                        .font(.system(size: 13, weight: .heavy, design: .rounded))
-                                        .foregroundStyle(ink)
-                                        .lineLimit(2)
-                                        .minimumScaleFactor(0.4)
-
-                                    Text(artist)
-                                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                                        .foregroundStyle(inkSub)
-                                        .lineLimit(1)
-                                        .minimumScaleFactor(0.4)
-
-                                    if !lyric.isEmpty {
-                                        Rectangle()
-                                            .fill(ink.opacity(0.12))
-                                            .frame(height: 1)
-                                            .padding(.vertical, 2)
-
-                                        Text(lyric)
-                                            .font(.system(size: 11, weight: .bold, design: .rounded))
-                                            .foregroundStyle(ink.opacity(0.8))
-                                            .lineLimit(4) // Cap at 4 lines so the engine can bound and scale the text instead of discarding it out of bounds
-                                            .minimumScaleFactor(0.5) // Gracefully scale down text size if it fills up the entire layout height
-                                    }
-                                }
-                            }
-                            .overlay(alignment: .topLeading) {
-                                nowPlayingHeader
-                                    .alignmentGuide(.top) { d in d[VerticalAlignment.center] }
-                                    .offset(x: 24, y: 0)
-                            }
-                            // Extra space below the bubble to accommodate play controls tightly
-
-                            if !entry.isEmpty {
-                                HStack(spacing: 6) {
-                                    mediaButton(intent: PreviousTrackIntent(), icon: "backward.fill", w: 26, h: 22, style: .normal)
-                                    mediaButton(intent: TogglePlaybackIntent(), icon: entry.controlSymbolName, w: 32, h: 32, style: .play)
-                                    mediaButton(intent: NextTrackIntent(), icon: "forward.fill", w: 26, h: 22, style: .normal)
-                                }
-                                .padding(.leading, 8) // Align perfectly flush with the bubble's square edge (bypassing the tail width)
-                                .padding(.bottom, 8) // Minimized padding to push bubble downward
-                            } else {
-                                Spacer().frame(height: 32)
-                            }
-                        }
-                        .padding(.top, 24) // Give room for header popping out of top bounds
-                    }
-                    .frame(maxHeight: .infinity) // Force HStack to capture total fixed widget height, preventing cover from moving when content grows
-                    .padding(.horizontal, 16)
-
-                    // BPM Footer overlaid globally bottom right
-                    VStack {
-                        Spacer()
-                        HStack {
-                            Spacer()
-                            bpmFooter
-                        }
-                    }
-                    .padding(.trailing, 16)
-                    .padding(.bottom, 12)
-                }
             }
         }
-        .widgetURL(URL(string: "monologue://player"))
+        .widgetURL(URL(string: "mono://player"))
     }
 
     // MARK: - Large
 
     private var largeWidget: some View {
-        GeometryReader { g in
-            let coverSide = min(min(g.size.width, g.size.height) * 0.48, 148)
+        GeometryReader { geometry in
+            let width = geometry.size.width
+            let height = geometry.size.height
+            let heroHeight = height * 0.58
+            let artworkWidth = width * 0.54
 
             ZStack {
-                mangaCanvasBackdrop(size: g.size)
-
-                VStack {
-                    HStack {
-                        Image(systemName: "music.note")
-                            .font(.system(size: 14))
-                            .foregroundStyle(decoBlue.opacity(0.45))
-                        Spacer()
-                    }
-                    .padding(14)
-                    Spacer()
-                }
-                .allowsHitTesting(false)
+                paperBackground(size: geometry.size)
 
                 VStack(spacing: 0) {
-                    HStack {
-                        Spacer(minLength: 0)
-                        nowPlayingHeader
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.top, 12)
+                    HStack(spacing: 0) {
+                        ZStack(alignment: .topLeading) {
+                            artwork
+                                .frame(width: artworkWidth, height: heroHeight)
 
-                    Spacer(minLength: 8)
-
-                    coverView(side: coverSide)
-
-                    Text(song)
-                        .font(.system(size: 18, weight: .heavy, design: .rounded))
-                        .foregroundStyle(ink)
-                        .multilineTextAlignment(.center)
-                        .lineLimit(3)
-                        .minimumScaleFactor(0.4)
-                        .padding(.horizontal, 20)
-                        .padding(.top, 12)
-
-                    Text(artist)
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        .foregroundStyle(inkSub)
-                        .multilineTextAlignment(.center)
-                        .lineLimit(2)
-                        .padding(.horizontal, 20)
-                        .padding(.top, 4)
-
-                    if !lyric.isEmpty {
-                        Text(lyric)
-                            .font(.system(size: 11, weight: .medium, design: .rounded))
-                            .foregroundStyle(ink.opacity(0.75))
-                            .multilineTextAlignment(.center)
-                            .lineLimit(5)
-                            .minimumScaleFactor(0.4)
-                            .padding(.horizontal, 22)
-                            .padding(.top, 10)
-                    }
-
-                    Spacer(minLength: 8)
-
-                    if !entry.isEmpty {
-                        HStack(spacing: 10) {
-                            mediaButton(intent: PreviousTrackIntent(), icon: "backward.fill", w: 42, h: 34, style: .normal)
-                            mediaButton(intent: TogglePlaybackIntent(), icon: entry.controlSymbolName, w: 50, h: 50, style: .play)
-                            mediaButton(intent: NextTrackIntent(), icon: "forward.fill", w: 42, h: 34, style: .normal)
+                            statusLabel()
+                                .padding(11)
                         }
-                        .padding(.bottom, 8)
-                    }
+                        .frame(width: artworkWidth, height: heroHeight)
+                        .clipped()
 
-                    HStack {
-                        if !entry.sourceName.isEmpty {
-                            Text(entry.sourceName.uppercased())
-                                .font(.system(size: 8, weight: .bold, design: .monospaced))
-                                .foregroundStyle(inkSub.opacity(0.65))
+                        Rectangle()
+                            .fill(ink)
+                            .frame(width: 3)
+
+                        VStack(alignment: .leading, spacing: 7) {
+                            HStack {
+                                metadata()
+                                Spacer(minLength: 0)
+                            }
+
+                            Text(song)
+                                .font(.system(size: 22, weight: .heavy, design: .rounded))
+                                .foregroundStyle(ink)
+                                .lineLimit(3)
+                                .minimumScaleFactor(0.42)
+
+                            Rectangle()
+                                .fill(ink)
+                                .frame(height: 3)
+
+                            Text(artist)
+                                .font(.system(size: 13, weight: .bold, design: .rounded))
+                                .foregroundStyle(gray)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.55)
+
+                            Spacer(minLength: 0)
+                            qualityLabel()
                         }
-                        Spacer()
-                        bpmFooter
+                        .padding(11)
+                        .frame(maxWidth: .infinity, maxHeight: heroHeight, alignment: .topLeading)
+                        .background(paperLight.opacity(0.9))
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 12)
+                    .frame(height: heroHeight)
+
+                    Rectangle()
+                        .fill(ink)
+                        .frame(height: 3)
+
+                    VStack(spacing: 8) {
+                        if !lyric.isEmpty {
+                            Text(lyric)
+                                .font(.system(size: 12, weight: .bold, design: .rounded))
+                                .foregroundStyle(ink.opacity(0.78))
+                                .multilineTextAlignment(.center)
+                                .lineLimit(3)
+                                .minimumScaleFactor(0.55)
+                                .frame(maxWidth: .infinity)
+                        }
+
+                        Rectangle()
+                            .fill(ink.opacity(0.18))
+                            .frame(height: 1)
+
+                        playbackRow(compact: false, showsMetadata: false)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .frame(maxHeight: .infinity)
+                    .background(paperLight.opacity(0.88))
                 }
+
+                ContainerRelativeShape()
+                    .stroke(ink, lineWidth: 2)
             }
         }
-        .widgetURL(URL(string: "monologue://player"))
+        .widgetURL(URL(string: "mono://player"))
     }
 
     var body: some View {
         switch family {
-        case .systemSmall:  smallWidget
-        case .systemMedium: mediumWidget
-        default:            largeWidget
+        case .systemSmall:
+            smallWidget
+        case .systemMedium:
+            mediumWidget
+        default:
+            largeWidget
         }
     }
 }

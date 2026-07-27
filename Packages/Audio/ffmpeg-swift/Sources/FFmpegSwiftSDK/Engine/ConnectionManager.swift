@@ -161,7 +161,9 @@ final class ConnectionManager {
             av_dict_set(&opts, "user_agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148", 0)
             // 根据域名设置对应的 Referer（不同 CDN 会校验来源）
             let loweredURL = url.lowercased()
-            if loweredURL.contains("qqmusic") || loweredURL.contains("gtimg.cn") || loweredURL.contains("qq.com") {
+            if loweredURL.contains("kugou") || loweredURL.contains("kgimg") {
+                av_dict_set(&opts, "referer", "https://www.kugou.com/", 0)
+            } else if loweredURL.contains("qqmusic") || loweredURL.contains("gtimg.cn") || loweredURL.contains("qq.com") {
                 av_dict_set(&opts, "referer", "https://y.qq.com/", 0)
             } else {
                 av_dict_set(&opts, "referer", "https://music.163.com/", 0)

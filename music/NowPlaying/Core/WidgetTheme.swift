@@ -9,6 +9,7 @@ import SwiftUI
 enum WidgetTheme: String, CaseIterable, Hashable, Sendable {
     case polaroid
     case vinyl
+    case vinylDark
     case poster
     case manga
     case magazine
@@ -25,6 +26,7 @@ enum WidgetTheme: String, CaseIterable, Hashable, Sendable {
         switch self {
         case .polaroid: return "拍立得"
         case .vinyl: return "黑胶"
+        case .vinylDark: return "黑胶（深色）"
         case .poster: return "海报"
         case .manga: return "漫画"
         case .magazine: return "杂志"
@@ -42,9 +44,9 @@ enum WidgetTheme: String, CaseIterable, Hashable, Sendable {
     var widgetKind: String {
         // 拍立得保留原始 kind，避免迁移后已安装的组件失效。
         if self == .polaroid {
-            return "zijiu.Monologue.com.widget.nowplaying"
+            return "zijiu.Mono.com.widget.nowplaying"
         }
-        return "zijiu.Monologue.com.widget.nowplaying.\(rawValue)"
+        return "zijiu.Mono.com.widget.nowplaying.\(rawValue)"
     }
 
     var configurationDisplayName: String {

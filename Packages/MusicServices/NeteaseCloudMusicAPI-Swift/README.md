@@ -19,11 +19,10 @@
 
 ## 特性
 
-- 🎵 **396+ 个后端路由 / API** — 对齐 NeteaseCloudMusicApiEnhanced 4.33.0，并接入 Monologue 本地增强接口
+- 🎵 **396+ 个后端路由 / API** — 对齐 NeteaseCloudMusicApiEnhanced 4.33.0，并接入 Mono 本地增强接口
 - 🔐 **四种加密模式** — WeAPI / EAPI / LinuxAPI / 明文
 - 🍎 **Apple 全系平台** — iOS 15+ / macOS 12+ / tvOS 15+ / watchOS 8+
 - 📦 **零外部依赖** — 仅 Foundation + CommonCrypto
-- 🔓 **多音源解灰** — 协议化架构，支持导入第三方 JS 音源和自定义地址，可自定义扩展
 - 🎯 **Swift 原生** — async/await、强类型枚举、完整中文注释
 
 ---
@@ -43,7 +42,7 @@ dependencies: [
 
 ## 文档
 
-接口用法、参数说明、解灰配置、架构设计等详见在线文档：
+接口用法、参数说明、架构设计等详见在线文档：
 
 **👉 [https://lincb522.github.io/NeteaseCloudMusicAPI-Swift/](https://lincb522.github.io/NeteaseCloudMusicAPI-Swift/)**
 
@@ -62,9 +61,7 @@ cd Example && open NCMDemo.xcodeproj
 ## 致谢
 
 - [Binaryify/NeteaseCloudMusicApi](https://github.com/Binaryify/NeteaseCloudMusicApi) — 核心参考
-- [NeteaseCloudMusicApiEnhanced/api-enhanced](https://github.com/neteasecloudmusicapienhanced/api-enhanced) — 增强版社区维护
-- [UnblockNeteaseMusic](https://github.com/UnblockNeteaseMusic/server) — 解灰功能参考
-- [darknessomi/musicbox](https://github.com/darknessomi/musicbox) — 加密算法参考
+- [NeteaseCloudMusicApiEnhanced/api-enhanced](https://github.com/neteasecloudmusicapienhanced/api-enhanced) — 增强版社区维护- [darknessomi/musicbox](https://github.com/darknessomi/musicbox) — 加密算法参考
 
 ## 许可证
 

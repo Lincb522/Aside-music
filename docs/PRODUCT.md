@@ -10,7 +10,7 @@ People who use an iPhone or iPad to search, organize, and play music and podcast
 
 ## Product Purpose
 
-Monologue is a SwiftUI music and podcast player. It should make discovery, search, library management, playback, and settings feel direct and dependable without distracting from the media.
+Mono is a SwiftUI music and podcast player. It should make discovery, search, library management, playback, and settings feel direct and dependable without distracting from the media.
 
 ## Brand Personality
 

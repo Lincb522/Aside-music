@@ -83,7 +83,7 @@ struct LyricsWidgetTheme: View {
             default: smallLayout
             }
         }
-        .widgetURL(URL(string: "monologue://player"))
+        .widgetURL(URL(string: "mono://player"))
     }
 
     // MARK: - Small

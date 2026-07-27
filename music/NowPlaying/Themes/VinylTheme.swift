@@ -2,1184 +2,408 @@ import WidgetKit
 import SwiftUI
 import AppIntents
 
-// MARK: - 2. Vinyl Theme (黑胶)
-
-private struct VinylWidgetAnimationFrame {
-    let date: Date
-    let isActive: Bool
-
-    var time: TimeInterval {
-        date.timeIntervalSinceReferenceDate
-    }
-
-    func recordRotationDegrees(base: Double) -> Double {
-        guard isActive else { return base }
-        return time * 42.0 + base
-    }
-}
-
-private struct VinylWidgetAnimationTimeline<Content: View>: View {
-    let isActive: Bool
-    let fallbackDate: Date
-    @ViewBuilder var content: (VinylWidgetAnimationFrame) -> Content
-
-    var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !isActive)) { context in
-            let date = isActive ? context.date : fallbackDate
-            content(VinylWidgetAnimationFrame(date: date, isActive: isActive))
-        }
-    }
-}
+// MARK: - Vinyl turntable
 
 struct VinylTheme: View {
     let entry: NowPlayingEntry
     let family: WidgetFamily
-    @Environment(\.widgetContentMargins) private var widgetContentMargins
+    let isDark: Bool
 
-    private let shellColor = Color(hex: "0F1218")
-    private let panelColor = Color(hex: "171B24")
-    private let lineColor = Color.white.opacity(0.09)
-    private let metalColor = Color(hex: "D9DDE4")
-    private let dimTextColor = Color.white.opacity(0.66)
-
-    init(entry: NowPlayingEntry, family: WidgetFamily) {
+    init(entry: NowPlayingEntry, family: WidgetFamily, isDark: Bool = false) {
         self.entry = entry
         self.family = family
+        self.isDark = isDark
     }
 
     private var accentColor: Color {
-        entry.isEmpty ? Color(hex: "C89B5B") : entry.dominantColor
+        entry.isEmpty ? Color(hex: "F5C62D") : entry.dominantColor
     }
 
-    private var accentSecondaryColor: Color {
-        entry.isEmpty ? Color(hex: "745738") : entry.secondaryColor
-    }
-
-    private var isActivePlayback: Bool {
-        entry.isPlaying || entry.isLoading
-    }
-
-    private var glossAngle: Double {
-        let signature = [
-            entry.songName,
-            entry.artistName,
-            entry.albumName,
-            entry.sourceName
-        ].joined(separator: "|")
-        let hash = signature.unicodeScalars.reduce(0) { partial, scalar in
-            (partial * 33 + Int(scalar.value)) % 360
-        }
-        return Double((hash + 28) % 360)
-    }
-
-    private struct BackgroundCoverageProfile {
-        let heroGlowScale: CGFloat
-        let heroGlowOffsetX: CGFloat
-        let heroGlowOffsetY: CGFloat
-        let ringScale: CGFloat
-        let ringOffsetX: CGFloat
-        let ringOffsetY: CGFloat
-        let innerRingScale: CGFloat
-        let accentCloudScale: CGFloat
-        let accentCloudOffsetX: CGFloat
-        let accentCloudOffsetY: CGFloat
-        let guideWidthRatio: CGFloat
-        let guideOffsetX: CGFloat
-        let guideOffsetY: CGFloat
-        let sheenWidthRatio: CGFloat
-        let sheenHeightRatio: CGFloat
-        let sheenOffsetX: CGFloat
-        let sheenOffsetY: CGFloat
-    }
-
-    private var backgroundCoverageProfile: BackgroundCoverageProfile {
-        switch family {
-        case .systemSmall:
-            return BackgroundCoverageProfile(
-                heroGlowScale: 1.12,
-                heroGlowOffsetX: 0.20,
-                heroGlowOffsetY: -0.22,
-                ringScale: 1.00,
-                ringOffsetX: 0.18,
-                ringOffsetY: -0.12,
-                innerRingScale: 0.74,
-                accentCloudScale: 0.52,
-                accentCloudOffsetX: -0.18,
-                accentCloudOffsetY: 0.16,
-                guideWidthRatio: 0.24,
-                guideOffsetX: -0.18,
-                guideOffsetY: 0.24,
-                sheenWidthRatio: 0.72,
-                sheenHeightRatio: 0.20,
-                sheenOffsetX: -0.08,
-                sheenOffsetY: -0.28
-            )
-        case .systemMedium:
-            return BackgroundCoverageProfile(
-                heroGlowScale: 1.34,
-                heroGlowOffsetX: 0.26,
-                heroGlowOffsetY: -0.18,
-                ringScale: 1.28,
-                ringOffsetX: 0.24,
-                ringOffsetY: -0.08,
-                innerRingScale: 0.94,
-                accentCloudScale: 0.62,
-                accentCloudOffsetX: -0.24,
-                accentCloudOffsetY: 0.18,
-                guideWidthRatio: 0.30,
-                guideOffsetX: -0.20,
-                guideOffsetY: 0.22,
-                sheenWidthRatio: 0.78,
-                sheenHeightRatio: 0.18,
-                sheenOffsetX: -0.05,
-                sheenOffsetY: -0.26
-            )
-        case .systemLarge:
-            return BackgroundCoverageProfile(
-                heroGlowScale: 1.58,
-                heroGlowOffsetX: 0.30,
-                heroGlowOffsetY: -0.14,
-                ringScale: 1.52,
-                ringOffsetX: 0.28,
-                ringOffsetY: -0.04,
-                innerRingScale: 1.10,
-                accentCloudScale: 0.72,
-                accentCloudOffsetX: -0.28,
-                accentCloudOffsetY: 0.20,
-                guideWidthRatio: 0.36,
-                guideOffsetX: -0.22,
-                guideOffsetY: 0.20,
-                sheenWidthRatio: 0.84,
-                sheenHeightRatio: 0.16,
-                sheenOffsetX: -0.02,
-                sheenOffsetY: -0.24
-            )
-        default:
-            return BackgroundCoverageProfile(
-                heroGlowScale: 1.12,
-                heroGlowOffsetX: 0.20,
-                heroGlowOffsetY: -0.22,
-                ringScale: 1.00,
-                ringOffsetX: 0.18,
-                ringOffsetY: -0.12,
-                innerRingScale: 0.74,
-                accentCloudScale: 0.52,
-                accentCloudOffsetX: -0.18,
-                accentCloudOffsetY: 0.16,
-                guideWidthRatio: 0.24,
-                guideOffsetX: -0.18,
-                guideOffsetY: 0.24,
-                sheenWidthRatio: 0.72,
-                sheenHeightRatio: 0.20,
-                sheenOffsetX: -0.08,
-                sheenOffsetY: -0.28
-            )
-        }
-    }
-
-    private var statusTitle: String {
-        switch entry.playbackState {
-        case .loading:
-            return "缓冲中"
-        case .playing:
-            return "播放中"
-        case .paused:
-            return "已暂停"
-        case .idle:
-            return "未播放"
-        }
-    }
-
-    private var tempoText: String {
-        if let tempoBPM = entry.tempoBPM, tempoBPM > 0 {
-            return "\(tempoBPM) BPM"
-        }
-
-        if entry.tempoIsAnalyzing {
-            return "BPM ..."
-        }
-
-        return entry.isEmpty ? "BPM --" : "BPM --"
-    }
-
-    private var sourceText: String {
-        if entry.isEmpty {
-            return "未播放"
-        }
-
-        return entry.sourceName.isEmpty ? "未知来源" : entry.sourceName
-    }
-
-    private var smallSourceText: String {
-        guard !entry.isEmpty else { return "-" }
-
-        let normalizedSource = entry.sourceName.uppercased()
-        if normalizedSource.contains("QQ") {
-            return "Q"
-        }
-        if normalizedSource.contains("NETEASE") {
-            return "N"
-        }
-
-        return String(entry.sourceName.prefix(1)).uppercased()
-    }
-
-    private var qualityDisplayText: String {
-        entry.qualityText.isEmpty ? "--" : entry.qualityText
-    }
-
-    private var queueText: String {
-        guard entry.queueIndex > 0, entry.queueCount > 0 else { return "--/--" }
-        return "\(entry.queueIndex)/\(entry.queueCount)"
-    }
-
-    private var displayAlbumName: String {
-        if entry.isEmpty {
-            return "暂无专辑"
-        }
-
-        return entry.albumName.isEmpty ? "专辑信息缺失" : entry.albumName
-    }
-
-    private var playModeDisplayText: String {
-        entry.playModeText.isEmpty ? "--" : entry.playModeText
-    }
-
-    private var displaySongName: String {
-        entry.isEmpty ? "未在播放" : entry.songName
-    }
-
-    private var displayArtistName: String {
-        entry.isEmpty ? "暂无歌曲信息" : entry.artistName
-    }
-
-    private var contentInsets: EdgeInsets {
-        let extraHorizontal: CGFloat
-        let extraTop: CGFloat
-        let extraBottom: CGFloat
-
-        switch family {
-        case .systemSmall:
-            extraHorizontal = 8
-            extraTop = 8
-            extraBottom = 8
-        case .systemMedium:
-            extraHorizontal = 11
-            extraTop = 14
-            extraBottom = 15
-        case .systemLarge:
-            extraHorizontal = 12
-            extraTop = 12
-            extraBottom = 15
-        default:
-            extraHorizontal = 8
-            extraTop = 8
-            extraBottom = 8
-        }
-
-        return EdgeInsets(
-            top: widgetContentMargins.top + extraTop,
-            leading: widgetContentMargins.leading + extraHorizontal,
-            bottom: widgetContentMargins.bottom + extraBottom,
-            trailing: widgetContentMargins.trailing + extraHorizontal
-        )
+    private var secondaryAccentColor: Color {
+        entry.isEmpty ? Color(hex: "B47718") : entry.secondaryColor
     }
 
     var body: some View {
-        VinylWidgetAnimationTimeline(isActive: entry.isPlaying, fallbackDate: entry.date) { animationFrame in
-            switch family {
-            case .systemMedium:
-                mediumLayout(animationFrame: animationFrame)
-            case .systemLarge:
-                largeLayout(animationFrame: animationFrame)
-            default:
-                smallLayout(animationFrame: animationFrame)
-            }
+        switch family {
+        case .systemMedium:
+            mediumLayout
+        case .systemLarge:
+            largeLayout
+        default:
+            smallLayout
         }
     }
 
-    private func smallLayout(animationFrame: VinylWidgetAnimationFrame) -> some View {
-        GeometryReader { geo in
-            let contentWidth = geo.size.width - contentInsets.leading - contentInsets.trailing
-            let contentHeight = geo.size.height - contentInsets.top - contentInsets.bottom
-            let recordSize = min(contentHeight * 0.64, contentWidth * 0.42)
+    private var smallLayout: some View {
+        GeometryReader { proxy in
+            let side = min(proxy.size.width, proxy.size.height)
+            let recordDiameter = side * 0.80
+            let tonearmScale = recordDiameter * 0.53
+            let pivot = CGPoint(x: proxy.size.width * 0.91, y: proxy.size.height * 0.085)
 
             ZStack {
-                basePanel(cornerRadius: 24)
-                    .frame(width: geo.size.width, height: geo.size.height)
+                VinylTurntableShell(cornerRadius: side * 0.18, isDark: isDark)
 
-                HStack(spacing: 8) {
-                    ZStack(alignment: .topTrailing) {
-                        VinylRecordView(
-                            entry: entry,
-                            size: recordSize,
-                            accentColor: accentColor,
-                            accentSecondaryColor: accentSecondaryColor,
-                            glossAngle: glossAngle,
-                            animationFrame: animationFrame
-                        )
-
-                        VinylTonearmView(
-                            size: recordSize,
-                            isActive: isActivePlayback,
-                            metalColor: metalColor,
-                            accentColor: accentColor
-                        )
-                        .frame(width: recordSize, height: recordSize)
-                        .offset(x: recordSize * 0.01, y: recordSize * 0.015)
-                    }
-                    .frame(width: recordSize + 2, height: contentHeight)
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack(spacing: 6) {
-                            smallSourceBadge(title: smallSourceText)
-                            Spacer(minLength: 2)
-                            Text(qualityDisplayText)
-                                .font(.system(size: 9, weight: .semibold, design: .rounded))
-                                .foregroundStyle(dimTextColor)
-                        }
-
-                        Spacer(minLength: 0)
-
-                        Text(displaySongName)
-                            .font(.system(size: 13, weight: .bold, design: .rounded))
-                            .foregroundStyle(.white)
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.78)
-                            .contentTransition(.interpolate)
-
-                        HStack(spacing: 4) {
-                            playbackIndicator(height: 10, compact: true, animationFrame: animationFrame)
-                            Text(displayArtistName)
-                                .font(.system(size: 10, weight: .medium, design: .rounded))
-                                .foregroundStyle(dimTextColor)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.6)
-                        }
-
-                        if !entry.isEmpty {
-                            HStack(spacing: 5) {
-                                transportButton(PreviousTrackIntent(), systemName: "backward.fill", diameter: 18, filled: false)
-                                transportButton(TogglePlaybackIntent(), systemName: entry.controlSymbolName, diameter: 26, filled: true)
-                                transportButton(NextTrackIntent(), systemName: "forward.fill", diameter: 18, filled: false)
-                            }
-                        } else {
-                            Text(statusTitle)
-                                .font(.system(size: 10, weight: .semibold, design: .rounded))
-                                .foregroundStyle(accentColor.opacity(0.92))
-                        }
-                    }
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 10)
-                    .background(recessedInfoPanel(cornerRadius: 18))
-                }
-                .padding(.top, contentInsets.top)
-                .padding(.leading, contentInsets.leading)
-                .padding(.bottom, contentInsets.bottom)
-                .padding(.trailing, contentInsets.trailing)
-            }
-            .frame(width: geo.size.width, height: geo.size.height)
-        }
-        .widgetURL(URL(string: "monologue://player"))
-    }
-
-    private func mediumLayout(animationFrame: VinylWidgetAnimationFrame) -> some View {
-        GeometryReader { geo in
-            let contentWidth = geo.size.width - contentInsets.leading - contentInsets.trailing
-            let contentHeight = geo.size.height - contentInsets.top - contentInsets.bottom
-            let recordSize = min(contentHeight * 0.71, contentWidth * 0.34)
-            let recordStageWidth = recordSize + 20
-
-            ZStack {
-                basePanel(cornerRadius: 28)
-                    .frame(width: geo.size.width, height: geo.size.height)
-
-                VStack(alignment: .leading, spacing: 8) {
-                    headerBadge(title: sourceText, compact: true)
-                    .padding(.top, 3)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    HStack(alignment: .center, spacing: 12) {
-                        mediumRecordStage(recordSize: recordSize, animationFrame: animationFrame)
-                            .frame(width: recordStageWidth, height: recordSize + 18, alignment: .leading)
-
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(displaySongName)
-                                .font(.system(size: 18, weight: .black, design: .rounded))
-                                .foregroundStyle(.white)
-                                .lineLimit(2)
-                                .minimumScaleFactor(0.8)
-                                .contentTransition(.interpolate)
-
-                            HStack(alignment: .top, spacing: 8) {
-                                Text(displayArtistName)
-                                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                                    .foregroundStyle(dimTextColor)
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.6)
-
-                                Spacer(minLength: 8)
-
-                                VStack(alignment: .trailing, spacing: 1) {
-                                    Text("队列")
-                                        .font(.system(size: 9, weight: .black, design: .rounded))
-                                        .foregroundStyle(accentColor.opacity(0.95))
-                                    Text(queueText)
-                                        .font(.system(size: 9, weight: .medium, design: .rounded))
-                                        .foregroundStyle(dimTextColor)
-                                }
-                            }
-
-                            HStack(spacing: 8) {
-                                playbackIndicator(height: 12, compact: false, animationFrame: animationFrame)
-
-                                Text(statusTitle)
-                                    .font(.system(size: 10, weight: .semibold, design: .rounded))
-                                    .foregroundStyle(Color.white.opacity(0.84))
-
-                                Spacer(minLength: 6)
-
-                                Text(tempoText)
-                                    .font(.system(size: 9, weight: .medium, design: .rounded))
-                                    .foregroundStyle(dimTextColor)
-                            }
-                            .padding(.horizontal, 9)
-                            .padding(.vertical, 7)
-                            .background(infoPanel(cornerRadius: 16))
-
-                            Spacer(minLength: 0)
-
-                            if !entry.isEmpty {
-                                HStack(spacing: 0) {
-                                    transportButton(PreviousTrackIntent(), systemName: "backward.fill", diameter: 21, filled: false)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                                    transportButton(TogglePlaybackIntent(), systemName: entry.controlSymbolName, diameter: 30, filled: true)
-                                        .frame(maxWidth: .infinity, alignment: .center)
-
-                                    transportButton(NextTrackIntent(), systemName: "forward.fill", diameter: 21, filled: false)
-                                        .frame(maxWidth: .infinity, alignment: .trailing)
-                                }
-                                .padding(.horizontal, 2)
-                                .padding(.top, 2)
-                                .padding(.bottom, 3)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-                        .offset(y: -4)
-                    }
-                }
-                .padding(.top, contentInsets.top + 10)
-                .padding(.leading, max(contentInsets.leading - 4, 0))
-                .padding(.bottom, contentInsets.bottom + 10)
-                .padding(.trailing, contentInsets.trailing)
-            }
-            .frame(width: geo.size.width, height: geo.size.height)
-        }
-        .widgetURL(URL(string: "monologue://player"))
-    }
-
-    private func mediumRecordStage(recordSize: CGFloat, animationFrame: VinylWidgetAnimationFrame) -> some View {
-        return ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.045),
-                            Color.white.opacity(0.018),
-                            accentColor.opacity(0.035)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
+                VinylRecordView(
+                    entry: entry,
+                    diameter: recordDiameter,
+                    accentColor: accentColor,
+                    secondaryAccentColor: secondaryAccentColor,
+                    referenceStyle: true
                 )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .stroke(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(0.12),
-                                    Color.white.opacity(0.03),
-                                    accentColor.opacity(0.14)
+                .position(x: proxy.size.width * 0.50, y: proxy.size.height * 0.465)
+
+                VinylTonearmView(
+                    scale: tonearmScale,
+                    isActive: entry.isPlaying || entry.isLoading,
+                    accentColor: accentColor
+                )
+                .frame(width: tonearmScale, height: tonearmScale)
+                .position(
+                    x: pivot.x - tonearmScale * 0.5,
+                    y: pivot.y + tonearmScale * 0.5
+                )
+
+                Capsule(style: .continuous)
+                    .fill(
+                        isDark
+                            ? Color.white.opacity(0.18)
+                            : Color(hex: "D7D9D7").opacity(0.68)
+                    )
+                    .frame(width: side * 0.105, height: max(1, side * 0.012))
+                    .position(x: proxy.size.width * 0.13, y: proxy.size.height * 0.77)
+
+                TurntableKnob(entry: entry, diameter: side * 0.16, isDark: isDark)
+                    .position(x: proxy.size.width * 0.25, y: proxy.size.height * 0.85)
+
+                SpeakerGrille(spacing: side * 0.035, isDark: isDark)
+                    .frame(width: side * 0.27, height: side * 0.13)
+                    .position(x: proxy.size.width * 0.83, y: proxy.size.height * 0.85)
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+        }
+        .widgetURL(URL(string: "mono://player"))
+    }
+
+    private var mediumLayout: some View {
+        GeometryReader { proxy in
+            let height = proxy.size.height
+            let recordDiameter = min(height * 0.91, proxy.size.width * 0.43)
+            let tonearmScale = recordDiameter * 0.55
+            let pivot = CGPoint(x: proxy.size.width * 0.48, y: height * 0.075)
+
+            ZStack {
+                VinylTurntableShell(cornerRadius: height * 0.18, isDark: isDark)
+
+                VinylRecordView(
+                    entry: entry,
+                    diameter: recordDiameter,
+                    accentColor: accentColor,
+                    secondaryAccentColor: secondaryAccentColor,
+                    referenceStyle: false
+                )
+                .position(x: proxy.size.width * 0.245, y: height * 0.50)
+
+                VinylTonearmView(
+                    scale: tonearmScale,
+                    isActive: entry.isPlaying || entry.isLoading,
+                    accentColor: accentColor
+                )
+                .frame(width: tonearmScale, height: tonearmScale)
+                .position(
+                    x: pivot.x - tonearmScale * 0.5,
+                    y: pivot.y + tonearmScale * 0.5
+                )
+
+                VinylMediumConsole(entry: entry, accentColor: accentColor, isDark: isDark)
+                    .frame(width: proxy.size.width * 0.43, height: height * 0.76)
+                    .position(x: proxy.size.width * 0.755, y: height * 0.52)
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+        }
+        .widgetURL(URL(string: "mono://player"))
+    }
+
+    private var largeLayout: some View {
+        GeometryReader { proxy in
+            let side = min(proxy.size.width, proxy.size.height)
+            let recordDiameter = min(proxy.size.width * 0.68, proxy.size.height * 0.64)
+            let tonearmScale = recordDiameter * 0.62
+            let pivot = CGPoint(x: proxy.size.width * 0.86, y: proxy.size.height * 0.075)
+
+            ZStack {
+                VinylTurntableShell(cornerRadius: side * 0.105, isDark: isDark)
+
+                VinylRecordView(
+                    entry: entry,
+                    diameter: recordDiameter,
+                    accentColor: accentColor,
+                    secondaryAccentColor: secondaryAccentColor,
+                    referenceStyle: false
+                )
+                .position(x: proxy.size.width * 0.43, y: proxy.size.height * 0.38)
+
+                VinylTonearmView(
+                    scale: tonearmScale,
+                    isActive: entry.isPlaying || entry.isLoading,
+                    accentColor: accentColor
+                )
+                .frame(width: tonearmScale, height: tonearmScale)
+                .position(
+                    x: pivot.x - tonearmScale * 0.5,
+                    y: pivot.y + tonearmScale * 0.5
+                )
+
+                SpeakerGrille(spacing: side * 0.025, isDark: isDark)
+                    .frame(width: side * 0.17, height: side * 0.08)
+                    .position(x: proxy.size.width * 0.87, y: proxy.size.height * 0.58)
+
+                VinylLargeConsole(entry: entry, accentColor: accentColor, isDark: isDark)
+                    .frame(width: proxy.size.width * 0.86, height: proxy.size.height * 0.23)
+                    .position(x: proxy.size.width * 0.50, y: proxy.size.height * 0.855)
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+        }
+        .widgetURL(URL(string: "mono://player"))
+    }
+}
+
+private struct VinylTurntableShell: View {
+    let cornerRadius: CGFloat
+    let isDark: Bool
+
+    var body: some View {
+        GeometryReader { proxy in
+            let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+
+            ZStack {
+                shape
+                    .fill(
+                        LinearGradient(
+                            colors: isDark
+                                ? [
+                                    Color(hex: "292A28"),
+                                    Color(hex: "171816"),
+                                    Color(hex: "0D0E0D")
+                                ]
+                                : [
+                                    Color(hex: "FFFFFF"),
+                                    Color(hex: "F8F8F6"),
+                                    Color(hex: "F1F2F0")
                                 ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+
+                Canvas { context, size in
+                    var x: CGFloat = 8
+                    while x < size.width {
+                        var path = Path()
+                        path.move(to: CGPoint(x: x, y: 0))
+                        path.addLine(to: CGPoint(x: x, y: size.height))
+                        context.stroke(
+                            path,
+                            with: .linearGradient(
+                                Gradient(colors: [
+                                    Color.white.opacity(isDark ? 0.07 : 0.42),
+                                    isDark
+                                        ? Color.black.opacity(0.20)
+                                        : Color(hex: "DDE0DD").opacity(0.18),
+                                    Color.white.opacity(isDark ? 0.025 : 0.08)
+                                ]),
+                                startPoint: CGPoint(x: x, y: 0),
+                                endPoint: CGPoint(x: x, y: size.height)
                             ),
-                            lineWidth: 1
+                            lineWidth: 2
                         )
-                )
-
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.white.opacity(0.05), lineWidth: 1)
-                .padding(8)
-
-            Capsule(style: .continuous)
-                .fill(Color.white.opacity(0.05))
-                .frame(width: 4, height: recordSize * 0.72)
-                .blur(radius: 3)
-                .offset(x: 10, y: recordSize * 0.14)
-
-            Circle()
-                .fill(accentColor.opacity(0.10))
-                .frame(width: recordSize * 0.82, height: recordSize * 0.82)
-                .blur(radius: recordSize * 0.08)
-                .offset(x: recordSize * 0.06, y: recordSize * 0.08)
-
-            VinylRecordView(
-                entry: entry,
-                size: recordSize * 0.96,
-                accentColor: accentColor,
-                accentSecondaryColor: accentSecondaryColor,
-                glossAngle: glossAngle,
-                animationFrame: animationFrame
-            )
-            .offset(x: 6, y: 8)
-
-            VinylTonearmView(
-                size: recordSize * 0.96,
-                isActive: isActivePlayback,
-                metalColor: metalColor,
-                accentColor: accentColor
-            )
-            .frame(width: recordSize * 0.96, height: recordSize * 0.96)
-            .offset(x: 6, y: 8)
-        }
-    }
-
-    private func largeLayout(animationFrame: VinylWidgetAnimationFrame) -> some View {
-        GeometryReader { geo in
-            let pad = contentInsets
-            let w = geo.size.width - pad.leading - pad.trailing
-            let h = geo.size.height - pad.top - pad.bottom
-            let turntableWidth = w * 0.52
-            let recordSize = min(turntableWidth - 16, h * 0.65)
-            let coverSize: CGFloat = 72
-
-            ZStack {
-                basePanel(cornerRadius: 30)
-                    .frame(width: geo.size.width, height: geo.size.height)
-
-                HStack(alignment: .top, spacing: 0) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 24, style: .continuous)
-                            .fill(Color.white.opacity(0.03))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                                    .stroke(lineColor, lineWidth: 1)
-                            )
-
-                        Circle()
-                            .stroke(Color.white.opacity(0.04), lineWidth: 1)
-                            .frame(width: recordSize * 1.12, height: recordSize * 1.12)
-
-                        ZStack(alignment: .topTrailing) {
-                            VinylRecordView(
-                                entry: entry,
-                                size: recordSize,
-                                accentColor: accentColor,
-                                accentSecondaryColor: accentSecondaryColor,
-                                glossAngle: glossAngle,
-                                animationFrame: animationFrame
-                            )
-
-                            VinylTonearmView(
-                                size: recordSize,
-                                isActive: isActivePlayback,
-                                metalColor: metalColor,
-                                accentColor: accentColor
-                            )
-                            .frame(width: recordSize, height: recordSize)
-                            .offset(x: recordSize * 0.01, y: recordSize * 0.015)
-                        }
+                        x += 11
                     }
-                    .frame(width: turntableWidth)
-
-                    VStack(alignment: .leading, spacing: 0) {
-                        HStack(spacing: 10) {
-                            if let data = entry.coverImageData, let img = UIImage(data: data) {
-                                Image(uiImage: img)
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                                    .frame(width: coverSize, height: coverSize)
-                                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                            .stroke(Color.white.opacity(0.12), lineWidth: 1)
-                                    )
-                            } else {
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .fill(accentColor.opacity(0.2))
-                                    .frame(width: coverSize, height: coverSize)
-                            }
-
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(displayAlbumName)
-                                    .font(.system(size: 10, weight: .medium, design: .rounded))
-                                    .foregroundStyle(dimTextColor)
-                                    .lineLimit(2)
-
-                                HStack(spacing: 4) {
-                                    headerBadge(title: sourceText, compact: true)
-                                    Text(qualityDisplayText)
-                                        .font(.system(size: 9, weight: .bold, design: .rounded))
-                                        .foregroundStyle(accentColor.opacity(0.9))
-                                }
-                            }
-                        }
-
-                        Spacer().frame(height: 14)
-
-                        Text(displaySongName)
-                            .font(.system(size: 22, weight: .black, design: .rounded))
-                            .foregroundStyle(.white)
-                            .lineLimit(3)
-                            .minimumScaleFactor(0.75)
-                            .contentTransition(.interpolate)
-
-                        Text(displayArtistName)
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
-                            .foregroundStyle(dimTextColor)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.6)
-                            .padding(.top, 2)
-
-                        if !entry.lyricText.isEmpty {
-                            Text(entry.lyricText)
-                                .font(.system(size: 11, weight: .regular, design: .rounded))
-                                .foregroundStyle(accentColor.opacity(0.75))
-                                .italic()
-                                .minimumScaleFactor(0.7)
-                                .padding(.top, 8)
-                        }
-
-                        Spacer()
-
-                        HStack(spacing: 5) {
-                            statBlock(title: "BPM", value: tempoText, compact: true)
-                            statBlock(title: "模式", value: playModeDisplayText, compact: true)
-                            statBlock(title: "队列", value: queueText, compact: true)
-                        }
-                        .padding(.bottom, 8)
-
-                        HStack {
-                            playbackIndicator(height: 12, compact: false, animationFrame: animationFrame)
-                            Text(statusTitle)
-                                .font(.system(size: 10, weight: .semibold, design: .rounded))
-                                .foregroundStyle(.white.opacity(0.86))
-
-                            Spacer(minLength: 4)
-
-                            if !entry.isEmpty {
-                                HStack(spacing: 8) {
-                                    transportButton(PreviousTrackIntent(), systemName: "backward.fill", diameter: 22, filled: false)
-                                    transportButton(TogglePlaybackIntent(), systemName: entry.controlSymbolName, diameter: 32, filled: true)
-                                    transportButton(NextTrackIntent(), systemName: "forward.fill", diameter: 22, filled: false)
-                                }
-                            }
-                        }
-                    }
-                    .padding(.leading, 6)
-                    .padding(.trailing, 2)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .padding(.top, pad.top + 8)
-                .padding(.bottom, pad.bottom + 6)
-                .padding(.leading, pad.leading + 4)
-                .padding(.trailing, pad.trailing + 4)
-            }
-            .frame(width: geo.size.width, height: geo.size.height)
-        }
-        .widgetURL(URL(string: "monologue://player"))
-    }
+                .opacity(0.45)
+                .clipShape(shape)
 
-    private func transportButton<I: AppIntent>(
-        _ intent: I,
-        systemName: String,
-        diameter: CGFloat,
-        filled: Bool
-    ) -> some View {
-        Button(intent: intent) {
-            ZStack {
-                Circle()
-                    .fill(
-                        filled
-                        ? AnyShapeStyle(
-                            LinearGradient(
-                                colors: [
-                                    accentColor.opacity(0.98),
-                                    accentSecondaryColor.opacity(0.82)
+                shape
+                    .stroke(
+                        LinearGradient(
+                            colors: isDark
+                                ? [
+                                    Color.white.opacity(0.24),
+                                    Color(hex: "464844"),
+                                    Color.black.opacity(0.72)
+                                ]
+                                : [
+                                    Color.white,
+                                    Color(hex: "D8DAD8"),
+                                    Color(hex: "F5F5F3")
                                 ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        : AnyShapeStyle(Color.white.opacity(0.05))
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: max(1, proxy.size.width * 0.006)
                     )
 
-                Circle()
-                    .stroke(Color.white.opacity(filled ? 0.10 : 0.12), lineWidth: 1)
-
-                Image(systemName: systemName)
-                    .font(.system(size: diameter * (filled ? 0.34 : 0.31), weight: .bold))
-                    .foregroundStyle(filled ? shellColor : .white.opacity(0.88))
-                    .contentTransition(.symbolEffect(.replace))
+                shape
+                    .inset(by: max(2, proxy.size.width * 0.010))
+                    .stroke(Color.white.opacity(isDark ? 0.08 : 0.92), lineWidth: 1)
             }
-            .frame(width: diameter, height: diameter)
             .shadow(
-                color: filled ? accentColor.opacity(0.32) : .black.opacity(0.16),
-                radius: filled ? 12 : 6,
+                color: Color.black.opacity(isDark ? 0.44 : 0.16),
+                radius: max(5, proxy.size.width * 0.025),
                 x: 0,
-                y: filled ? 6 : 3
+                y: max(2, proxy.size.height * 0.018)
             )
         }
-        .buttonStyle(.plain)
-    }
-
-    private func playbackIndicator(height: CGFloat, compact: Bool, animationFrame: VinylWidgetAnimationFrame) -> some View {
-        Group {
-            if entry.isPlaying {
-                PlaybackWave(
-                    isActive: true,
-                    barCount: compact ? 3 : 4,
-                    color: accentColor.opacity(0.95),
-                    height: height,
-                    externalTime: animationFrame.time
-                )
-                    .frame(width: compact ? 12 : 18)
-            } else {
-                Image(systemName: entry.statusSymbolName)
-                    .font(.system(size: compact ? 9 : 11, weight: .semibold))
-                    .foregroundStyle(accentColor.opacity(0.95))
-                    .contentTransition(.symbolEffect(.replace))
-            }
-        }
-    }
-
-    private func headerBadge(title: String, compact: Bool = false) -> some View {
-        let dotSize: CGFloat = compact ? 5 : 6
-        let horizontalPadding: CGFloat = compact ? 8 : 9
-        let verticalPadding: CGFloat = compact ? 5 : 6
-
-        return HStack(spacing: compact ? 5 : 6) {
-            Circle()
-                .fill(accentColor.opacity(0.95))
-                .frame(width: dotSize, height: dotSize)
-            Text(title)
-                .font(.system(size: compact ? 9 : 10, weight: .black, design: .rounded))
-                .foregroundStyle(.white.opacity(0.92))
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-        }
-        .padding(.horizontal, horizontalPadding)
-        .padding(.vertical, verticalPadding)
-        .background(
-            Capsule(style: .continuous)
-                .fill(Color.white.opacity(0.06))
-                .overlay(
-                    Capsule(style: .continuous)
-                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
-                )
-        )
-    }
-
-    private func smallSourceBadge(title: String) -> some View {
-        Text(title)
-            .font(.system(size: 10, weight: .black, design: .rounded))
-            .foregroundStyle(.white.opacity(0.94))
-            .lineLimit(1)
-            .minimumScaleFactor(0.6)
-            .frame(width: 24, height: 24)
-            .background(
-                Circle()
-                    .fill(Color.white.opacity(0.07))
-                    .overlay(
-                        Circle()
-                            .stroke(
-                                LinearGradient(
-                                    colors: [
-                                        Color.white.opacity(0.10),
-                                        accentColor.opacity(0.18)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1
-                            )
-                    )
-            )
-    }
-
-    private func statBlock(title: String, value: String, compact: Bool = false) -> some View {
-        VStack(alignment: .leading, spacing: compact ? 3 : 4) {
-            Text(title)
-                .font(.system(size: compact ? 8 : 9, weight: .bold, design: .rounded))
-                .foregroundStyle(dimTextColor)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-            Text(value)
-                .font(.system(size: compact ? 12 : 13, weight: .black, design: .rounded))
-                .foregroundStyle(.white)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func basePanel(cornerRadius: CGFloat) -> some View {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(
-                LinearGradient(
-                    colors: [
-                        shellColor.opacity(0.96),
-                        panelColor.opacity(0.98),
-                        shellColor.opacity(0.98)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .overlay {
-                panelDecoration(cornerRadius: cornerRadius)
-            }
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.12),
-                                Color.white.opacity(0.03),
-                                Color.black.opacity(0.24)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
-            )
-    }
-
-    private func panelDecoration(cornerRadius: CGFloat) -> some View {
-        let profile = backgroundCoverageProfile
-
-        return GeometryReader { geo in
-            let width = geo.size.width
-            let height = geo.size.height
-            let minSide = min(width, height)
-            let arcLineWidth = max(minSide * 0.010, 1)
-            let ringDiameter = minSide * profile.ringScale
-            let innerRingDiameter = minSide * profile.innerRingScale
-            let guideWidth = width * profile.guideWidthRatio
-            let heroGlowOpacity = entry.isEmpty ? 0.10 : 0.18
-
-            ZStack {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.032),
-                                .clear,
-                                Color.black.opacity(0.16)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-
-                RoundedRectangle(cornerRadius: minSide * 0.22, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.05),
-                                Color.white.opacity(0.012),
-                                .clear
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(
-                        width: width * profile.sheenWidthRatio,
-                        height: height * profile.sheenHeightRatio
-                    )
-                    .rotationEffect(.degrees(-14))
-                    .blur(radius: minSide * 0.05)
-                    .offset(x: width * profile.sheenOffsetX, y: height * profile.sheenOffsetY)
-
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                accentColor.opacity(heroGlowOpacity),
-                                accentSecondaryColor.opacity(entry.isEmpty ? 0.05 : 0.10),
-                                .clear
-                            ],
-                            center: .center,
-                            startRadius: minSide * 0.06,
-                            endRadius: minSide * 0.50
-                        )
-                    )
-                    .frame(width: minSide * profile.heroGlowScale, height: minSide * profile.heroGlowScale)
-                    .blur(radius: minSide * 0.08)
-                    .offset(x: width * profile.heroGlowOffsetX, y: height * profile.heroGlowOffsetY)
-
-                Circle()
-                    .fill(accentSecondaryColor.opacity(0.05))
-                    .frame(width: minSide * profile.accentCloudScale, height: minSide * profile.accentCloudScale)
-                    .blur(radius: minSide * 0.11)
-                    .offset(x: width * profile.accentCloudOffsetX, y: height * profile.accentCloudOffsetY)
-
-                Circle()
-                    .stroke(Color.white.opacity(0.032), lineWidth: 1)
-                    .frame(width: ringDiameter, height: ringDiameter)
-                    .offset(x: width * profile.ringOffsetX, y: height * profile.ringOffsetY)
-
-                Circle()
-                    .stroke(Color.white.opacity(0.018), lineWidth: 1)
-                    .frame(width: innerRingDiameter, height: innerRingDiameter)
-                    .offset(
-                        x: width * (profile.ringOffsetX + 0.02),
-                        y: height * (profile.ringOffsetY + 0.01)
-                    )
-
-                Circle()
-                    .trim(from: 0.09, to: 0.37)
-                    .stroke(
-                        AngularGradient(
-                            colors: [
-                                accentColor.opacity(0.20),
-                                accentSecondaryColor.opacity(0.10),
-                                .clear,
-                                .clear
-                            ],
-                            center: .center
-                        ),
-                        style: StrokeStyle(lineWidth: arcLineWidth, lineCap: .round)
-                    )
-                    .frame(width: ringDiameter * 0.84, height: ringDiameter * 0.84)
-                    .rotationEffect(.degrees(-22))
-                    .offset(
-                        x: width * (profile.ringOffsetX + 0.02),
-                        y: height * (profile.ringOffsetY - 0.01)
-                    )
-
-                VStack(alignment: .leading, spacing: 5) {
-                    Capsule(style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(0.06),
-                                    .clear
-                                ],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .frame(width: guideWidth, height: 1.2)
-
-                    Capsule(style: .continuous)
-                        .fill(accentSecondaryColor.opacity(0.13))
-                        .frame(width: max(guideWidth * 0.58, 18), height: 1.6)
-                }
-                .offset(x: width * profile.guideOffsetX, y: height * profile.guideOffsetY)
-            }
-            .compositingGroup()
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-        }
-    }
-
-    private func infoPanel(cornerRadius: CGFloat) -> some View {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(Color.white.opacity(0.05))
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(lineColor, lineWidth: 1)
-            )
-    }
-
-    private func recessedInfoPanel(cornerRadius: CGFloat) -> some View {
-        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-
-        return shape
-            .fill(
-                LinearGradient(
-                    colors: [
-                        shellColor.opacity(0.76),
-                        panelColor.opacity(0.90),
-                        shellColor.opacity(0.82)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .overlay(
-                // Simulating top-left dark inner shadow (bevel)
-                shape.stroke(
-                    LinearGradient(
-                        colors: [Color.black.opacity(0.45), .clear],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 3
-                )
-            )
-            .overlay(
-                // Simulating bottom-right bright rim
-                shape.stroke(
-                    LinearGradient(
-                        colors: [.clear, Color.white.opacity(0.1)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1.5
-                )
-            )
-    }
-
-    private var dateString: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "M/d"
-        return formatter.string(from: entry.date)
     }
 }
 
 private struct VinylRecordView: View {
     let entry: NowPlayingEntry
-    let size: CGFloat
+    let diameter: CGFloat
     let accentColor: Color
-    let accentSecondaryColor: Color
-    let glossAngle: Double
-    let animationFrame: VinylWidgetAnimationFrame
+    let secondaryAccentColor: Color
+    let referenceStyle: Bool
 
-    /// 由整首歌播放进度派生的转角（18°/秒）：目标取本条 entry 展示结束时刻，
-    /// 动画铺满 entry 间隔（时间线按 ≤2 秒网格生成），整曲匀速慢转不间断。
-    private var rotationDegrees: Double {
-        guard !entry.isEmpty else { return glossAngle }
-        let targetTime = max(0, entry.playbackCurrentTime) + (entry.isPlaying ? max(0, entry.entryDisplayDuration) : 0)
-        return targetTime * 18 + glossAngle
+    private var discAnimationDuration: TimeInterval {
+        min(2.0, max(0.1, entry.entryDisplayDuration) + 0.5)
     }
 
-    private var rotationAnimation: Animation {
+    private var discRotationAngle: Angle {
+        guard !entry.isEmpty else { return .zero }
+        let targetTime = max(0, entry.playbackCurrentTime)
+            + (entry.isPlaying ? discAnimationDuration : 0)
+        return .degrees(targetTime * 9)
+    }
+
+    private var discRotationAnimation: Animation {
         entry.isPlaying
-            ? .linear(duration: min(2.0, max(0.1, entry.entryDisplayDuration)))
+            ? .linear(duration: discAnimationDuration)
             : .snappy(duration: 0.4)
     }
 
-    private var discPlate: some View {
-        ZStack {
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [Color(hex: "3A3E47"), Color(hex: "1A1C22")],
-                        center: .center, startRadius: size * 0.38, endRadius: size * 0.52
-                    )
-                )
-                .frame(width: size, height: size)
-
-            Circle()
-                .stroke(Color.white.opacity(0.05), lineWidth: size * 0.008)
-                .frame(width: size * 0.985, height: size * 0.985)
-
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [Color(hex: "2A2E35"), Color(hex: "17191F"), Color(hex: "0E1014")],
-                        center: .center, startRadius: size * 0.08, endRadius: size * 0.48
-                    )
-                )
-                .frame(width: size * 0.94, height: size * 0.94)
-
-            VinylGrooveView()
-                .padding(size * 0.11)
-                .frame(width: size * 0.94, height: size * 0.94)
-
-            Circle()
-                .trim(from: 0.08, to: 0.31)
-                .stroke(accentColor.opacity(0.46),
-                        style: StrokeStyle(lineWidth: size * 0.014, lineCap: .round))
-                .frame(width: size * 0.76, height: size * 0.76)
-                .rotationEffect(.degrees(glossAngle * 0.68 + 18))
-                .blur(radius: 0.2)
-
-            VinylLabelView(
-                entry: entry, size: size * 0.42,
-                accentColor: accentColor, accentSecondaryColor: accentSecondaryColor
-            )
-
-            Circle().fill(Color(hex: "F3E3D2").opacity(0.94))
-                .frame(width: size * 0.050, height: size * 0.050)
-            Circle().fill(Color.black.opacity(0.86))
-                .frame(width: size * 0.020, height: size * 0.020)
-        }
-    }
-
-    private func glossRing(angle: Angle) -> some View {
-        ZStack {
-            Circle()
-                .stroke(
-                    AngularGradient(
-                        colors: [.white.opacity(0.28), .clear, .white.opacity(0.12),
-                                 .clear, .white.opacity(0.20), .clear],
-                        center: .center
-                    ),
-                    lineWidth: size * 0.022
-                )
-                .frame(width: size * 0.92, height: size * 0.92)
-                .rotationEffect(angle)
-
-            Capsule()
-                .fill(
-                    LinearGradient(
-                        colors: [.white.opacity(0.16), .clear],
-                        startPoint: .top, endPoint: .bottom
-                    )
-                )
-                .frame(width: size * 0.014, height: size * 0.26)
-                .offset(y: -size * 0.30)
-                .rotationEffect(angle + .degrees(90))
-        }
-    }
-
     var body: some View {
         ZStack {
             Ellipse()
-                .fill(
-                    RadialGradient(
-                        colors: [Color.black.opacity(0.5), .clear],
-                        center: .center, startRadius: size * 0.1, endRadius: size * 0.44
-                    )
-                )
-                .frame(width: size * 1.05, height: size * 0.34)
-                .offset(y: size * 0.40)
-
-            Ellipse()
-                .fill(
-                    RadialGradient(
-                        colors: [Color.black.opacity(0.6), .clear],
-                        center: .center, startRadius: size * 0.05, endRadius: size * 0.31
-                    )
-                )
-                .frame(width: size * 0.72, height: size * 0.18)
-                .offset(y: size * 0.43)
+                .fill(Color.black.opacity(0.23))
+                .frame(width: diameter * 0.94, height: diameter * 0.18)
+                .blur(radius: diameter * 0.045)
+                .offset(y: diameter * 0.43)
 
             ZStack {
-                discPlate
-                glossRing(angle: .degrees(rotationDegrees))
+                ZStack {
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    Color(hex: "252525"),
+                                    Color(hex: "101010"),
+                                    Color(hex: "050505"),
+                                    Color(hex: "171717")
+                                ],
+                                center: .center,
+                                startRadius: diameter * 0.10,
+                                endRadius: diameter * 0.52
+                            )
+                        )
+
+                    Circle()
+                        .fill(
+                            AngularGradient(
+                                gradient: Gradient(colors: [
+                                    Color.clear,
+                                    accentColor.opacity(0.08),
+                                    Color(hex: "E8B35C").opacity(0.24),
+                                    Color.white.opacity(0.08),
+                                    Color.clear,
+                                    Color.black.opacity(0.22),
+                                    Color.clear
+                                ]),
+                                center: .center,
+                                angle: .degrees(-32)
+                            )
+                        )
+                        .blendMode(.screen)
+
+                    VinylGrooves()
+                        .padding(diameter * 0.035)
+
+                    VinylCenterLabel(
+                        entry: entry,
+                        diameter: diameter * 0.40,
+                        accentColor: accentColor,
+                        secondaryAccentColor: secondaryAccentColor
+                    )
+                }
+                .rotationEffect(discRotationAngle)
+                .animation(discRotationAnimation, value: discRotationAngle)
+
+                if referenceStyle {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color(hex: "D7A63F").opacity(0.42),
+                                    Color(hex: "A77931").opacity(0.22),
+                                    Color.clear,
+                                    Color.white.opacity(0.10)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .blendMode(.screen)
+                }
+
+                Circle()
+                    .trim(from: 0.02, to: 0.41)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color(hex: "F3C56D").opacity(0.88),
+                                Color.white.opacity(0.22),
+                                Color.clear
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        style: StrokeStyle(lineWidth: max(1, diameter * 0.006), lineCap: .round)
+                    )
+                    .padding(diameter * 0.052)
+                    .rotationEffect(.degrees(-35))
+
+                Circle()
+                    .stroke(
+                        Color.black.opacity(0.82),
+                        lineWidth: max(1, diameter * (referenceStyle ? 0.038 : 0.025))
+                    )
+
+                Circle()
+                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                    .padding(diameter * 0.018)
+
+                Circle()
+                    .fill(Color(hex: "EFE8D8"))
+                    .frame(width: diameter * 0.052, height: diameter * 0.052)
+                    .shadow(color: .black.opacity(0.24), radius: 1, y: 1)
+
+                Circle()
+                    .fill(Color(hex: "121212"))
+                    .frame(width: diameter * 0.020, height: diameter * 0.020)
             }
-            .rotationEffect(.degrees(rotationDegrees))
-            .animation(rotationAnimation, value: rotationDegrees)
+            .frame(width: diameter, height: diameter)
         }
-        .frame(width: size, height: size)
+        .frame(width: diameter, height: diameter)
     }
 }
 
-private struct VinylGrooveView: View {
+private struct VinylGrooves: View {
     var body: some View {
-        Canvas { context, canvasSize in
-            let minSide = min(canvasSize.width, canvasSize.height)
-            let center = CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2)
-            let innerRadius = minSide * 0.18
-            let outerRadius = minSide * 0.49
-            let ringCount = 26
+        Canvas { context, size in
+            let side = min(size.width, size.height)
+            let center = CGPoint(x: size.width * 0.5, y: size.height * 0.5)
+            let innerRadius = side * 0.22
+            let outerRadius = side * 0.49
+            let ringCount = 34
 
             for index in 0..<ringCount {
                 let progress = CGFloat(index) / CGFloat(ringCount - 1)
@@ -1190,53 +414,27 @@ private struct VinylGrooveView: View {
                     width: radius * 2,
                     height: radius * 2
                 )
-
                 var path = Path()
                 path.addEllipse(in: rect)
-
                 context.stroke(
                     path,
-                    with: .color(.white.opacity(0.15 - Double(progress) * 0.09)),
-                    lineWidth: progress < 0.48 ? 0.55 : 0.8
+                    with: .color(
+                        index.isMultiple(of: 5)
+                            ? Color(hex: "D39B47").opacity(0.16)
+                            : Color.white.opacity(0.055)
+                    ),
+                    lineWidth: index.isMultiple(of: 5) ? 0.8 : 0.5
                 )
             }
         }
     }
 }
 
-private struct VinylLabelView: View {
+private struct VinylCenterLabel: View {
     let entry: NowPlayingEntry
-    let size: CGFloat
+    let diameter: CGFloat
     let accentColor: Color
-    let accentSecondaryColor: Color
-
-    private var labelTitle: String {
-        if entry.isEmpty {
-            return "未播放"
-        }
-
-        return entry.sourceName.isEmpty ? "未知来源" : entry.sourceName
-    }
-
-    private var labelSubtitle: String {
-        entry.isEmpty ? "暂无歌曲信息" : entry.artistName
-    }
-
-    private var labelFooter: String {
-        if let tempoBPM = entry.tempoBPM, tempoBPM > 0 {
-            return "\(tempoBPM) BPM"
-        }
-
-        if entry.tempoIsAnalyzing {
-            return "BPM ..."
-        }
-
-        if !entry.qualityText.isEmpty {
-            return entry.qualityText
-        }
-
-        return "BPM --"
-    }
+    let secondaryAccentColor: Color
 
     var body: some View {
         ZStack {
@@ -1244,197 +442,467 @@ private struct VinylLabelView: View {
                 Image(uiImage: image)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    .frame(width: size * 0.92, height: size * 0.92)
+                    .frame(width: diameter, height: diameter)
                     .clipShape(Circle())
-                    .overlay(
-                        Circle()
-                            .fill(
-                                RadialGradient(
-                                    colors: [
-                                        Color.white.opacity(0.06),
-                                        Color.clear,
-                                        Color.black.opacity(0.12),
-                                        Color.black.opacity(0.30)
-                                    ],
-                                    center: .center,
-                                    startRadius: size * 0.02,
-                                    endRadius: size * 0.48
-                                )
-                            )
-                    )
-                    .overlay(
-                        Circle()
-                            .stroke(Color.white.opacity(0.16), lineWidth: 1)
-                    )
             } else {
                 Circle()
                     .fill(
                         LinearGradient(
                             colors: [
-                                accentColor.opacity(0.96),
-                                accentSecondaryColor.opacity(0.84),
-                                accentColor.opacity(0.72)
+                                accentColor.opacity(0.98),
+                                Color(hex: "F4C928"),
+                                secondaryAccentColor.opacity(0.94)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
+
+                Image(systemName: "music.note")
+                    .font(.system(size: diameter * 0.28, weight: .black))
+                    .foregroundStyle(Color.black.opacity(0.54))
             }
 
             Circle()
-                .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            Color.clear,
+                            Color.clear,
+                            Color.black.opacity(0.20)
+                        ],
+                        center: .center,
+                        startRadius: diameter * 0.08,
+                        endRadius: diameter * 0.52
+                    )
+                )
 
             Circle()
-                .stroke(Color.black.opacity(0.20), lineWidth: 4)
-                .padding(4)
+                .stroke(Color.black.opacity(0.42), lineWidth: max(2, diameter * 0.055))
 
             Circle()
-                .stroke(accentColor.opacity(0.24), lineWidth: 1.2)
-                .padding(size * 0.08)
-
-            VStack(spacing: size * 0.035) {
-                Text(labelTitle)
-                    .font(.system(size: size * 0.12, weight: .black, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.92))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-
-                Capsule(style: .continuous)
-                    .fill(.white.opacity(0.42))
-                    .frame(width: size * 0.40, height: 1.5)
-
-                Text(labelSubtitle)
-                    .font(.system(size: size * 0.085, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.88))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-                    .padding(.horizontal, size * 0.10)
-
-                Text(labelFooter)
-                    .font(.system(size: size * 0.078, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.76))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-            }
-            .shadow(color: .black.opacity(0.26), radius: 5, x: 0, y: 1)
-
-            Circle()
-                .fill(Color(hex: "F5E6D8").opacity(0.95))
-                .frame(width: size * 0.16, height: size * 0.16)
-
-            Circle()
-                .fill(Color.black.opacity(0.82))
-                .frame(width: size * 0.06, height: size * 0.06)
+                .stroke(Color.white.opacity(0.20), lineWidth: 1)
+                .padding(max(2, diameter * 0.035))
         }
-        .frame(width: size, height: size)
+        .frame(width: diameter, height: diameter)
     }
 }
 
 private struct VinylTonearmView: View {
-    let size: CGFloat
+    let scale: CGFloat
     let isActive: Bool
-    let metalColor: Color
     let accentColor: Color
 
-    private var pivotDiameter: CGFloat {
-        size * 0.115
-    }
-
-    private var armLength: CGFloat {
-        size * 0.485
-    }
-
-    private var armThickness: CGFloat {
-        size * 0.041
-    }
-
-    private var restingAngle: Double {
-        18.0
-    }
-
-    private var activeAngle: Double {
-        -7.5
-    }
-
-    private var angle: Double {
-        isActive ? activeAngle : restingAngle
-    }
+    private var pivotDiameter: CGFloat { scale * 0.24 }
+    private var armLength: CGFloat { scale * 0.78 }
+    private var armThickness: CGFloat { scale * 0.105 }
+    private var angle: Double { isActive ? -45 : -36 }
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            Circle()
+            arm
+                .rotationEffect(.degrees(angle), anchor: .trailing)
+                .offset(x: -scale * 0.075, y: scale * 0.12)
+
+            ZStack {
+                Circle()
+                    .fill(Color.black.opacity(0.10))
+                    .frame(width: pivotDiameter * 1.12, height: pivotDiameter * 1.12)
+                    .blur(radius: scale * 0.025)
+                    .offset(y: scale * 0.018)
+
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white,
+                                Color(hex: "E7E8E6"),
+                                Color(hex: "C9CBC9")
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: pivotDiameter, height: pivotDiameter)
+                    .overlay(
+                        Circle()
+                            .stroke(Color.white.opacity(0.95), lineWidth: max(1, scale * 0.014))
+                    )
+                    .overlay(
+                        Circle()
+                            .fill(Color.white.opacity(0.70))
+                            .frame(width: pivotDiameter * 0.52, height: pivotDiameter * 0.52)
+                            .offset(x: -pivotDiameter * 0.12, y: -pivotDiameter * 0.12)
+                    )
+            }
+        }
+        .frame(width: scale, height: scale, alignment: .topTrailing)
+    }
+
+    private var arm: some View {
+        ZStack(alignment: .leading) {
+            Capsule(style: .continuous)
+                .fill(Color.black.opacity(0.14))
+                .frame(width: armLength, height: armThickness * 0.72)
+                .blur(radius: scale * 0.018)
+                .offset(y: scale * 0.025)
+
+            Capsule(style: .continuous)
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color(hex: "6E7582"),
-                            Color(hex: "3A3F48")
+                            Color.white,
+                            Color(hex: "F2F2F0"),
+                            Color(hex: "D5D6D4")
                         ],
                         startPoint: .top,
                         endPoint: .bottom
                     )
                 )
-                .frame(width: pivotDiameter, height: pivotDiameter)
+                .frame(width: armLength, height: armThickness)
+                .overlay(
+                    Capsule(style: .continuous)
+                        .stroke(Color.white.opacity(0.90), lineWidth: max(1, scale * 0.010))
+                )
+
+            RoundedRectangle(cornerRadius: armThickness * 0.44, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [Color.white, Color(hex: "D5D6D3")],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: scale * 0.22, height: armThickness * 1.42)
                 .overlay(
                     Circle()
-                        .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                        .fill(Color(hex: "FFD440"))
+                        .frame(width: armThickness * 0.56, height: armThickness * 0.56)
+                        .overlay(Circle().stroke(accentColor.opacity(0.38), lineWidth: 1))
+                        .offset(x: -scale * 0.047)
+                )
+                .offset(x: -scale * 0.025)
+        }
+        .frame(width: armLength, height: armThickness * 1.55)
+    }
+}
+
+private struct VinylMediumConsole: View {
+    let entry: NowPlayingEntry
+    let accentColor: Color
+    let isDark: Bool
+
+    private var songName: String {
+        entry.isEmpty ? "未在播放" : entry.songName
+    }
+
+    private var artistName: String {
+        entry.isEmpty ? "暂无歌曲信息" : entry.artistName
+    }
+
+    private var sourceName: String {
+        entry.sourceName.isEmpty ? entry.qualityText : entry.sourceName.uppercased()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 7) {
+                Circle()
+                    .fill(accentColor)
+                    .frame(width: 6, height: 6)
+
+                Text(sourceName)
+                    .font(.system(size: 9, weight: .bold, design: .rounded))
+                    .foregroundStyle(isDark ? Color.white.opacity(0.56) : Color(hex: "4A4B4A"))
+                    .lineLimit(1)
+
+                Spacer(minLength: 4)
+
+                if !entry.qualityText.isEmpty, sourceName != entry.qualityText {
+                    Text(entry.qualityText)
+                        .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(isDark ? Color.white.opacity(0.32) : Color(hex: "8C8E8B"))
+                }
+            }
+
+            Spacer(minLength: 6)
+
+            Text(songName)
+                .font(.system(size: 17, weight: .black, design: .rounded))
+                .foregroundStyle(isDark ? Color.white.opacity(0.94) : Color(hex: "151615"))
+                .lineLimit(2)
+                .minimumScaleFactor(0.72)
+
+            Text(artistName)
+                .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                .foregroundStyle(isDark ? Color.white.opacity(0.46) : Color(hex: "747673"))
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+                .padding(.top, 3)
+
+            Spacer(minLength: 6)
+
+            if !entry.isEmpty {
+                VinylTransportControls(
+                    entry: entry,
+                    diameter: 28,
+                    foregroundColor: isDark ? Color.white.opacity(0.72) : Color(hex: "222322"),
+                    prominentFill: accentColor
+                )
+            }
+        }
+        .padding(.horizontal, 13)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: isDark
+                            ? [Color(hex: "2A2B29"), Color(hex: "151614")]
+                            : [Color.white.opacity(0.82), Color(hex: "ECEDEB").opacity(0.78)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
                 )
                 .overlay(
-                    Circle()
-                        .fill(Color.black.opacity(0.26))
-                        .frame(width: pivotDiameter * 0.28, height: pivotDiameter * 0.28)
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .stroke(Color.white.opacity(isDark ? 0.10 : 0.96), lineWidth: 1)
                 )
-                .shadow(color: .black.opacity(0.18), radius: size * 0.018, x: 0, y: size * 0.012)
+                .shadow(color: Color.black.opacity(isDark ? 0.28 : 0.08), radius: 7, y: 3)
+        )
+    }
+}
 
-            ZStack(alignment: .trailing) {
-                Capsule(style: .continuous)
-                    .fill(Color.black.opacity(0.20))
-                    .frame(width: armLength * 0.96, height: armThickness * 0.62)
-                    .blur(radius: size * 0.008)
-                    .offset(x: -size * 0.032, y: size * 0.012)
+private struct VinylLargeConsole: View {
+    let entry: NowPlayingEntry
+    let accentColor: Color
+    let isDark: Bool
 
-                Capsule(style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                metalColor.opacity(0.96),
-                                Color(hex: "7A808B"),
-                                Color(hex: "C1C6D0")
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+    private var progress: CGFloat {
+        guard entry.playbackDuration > 0 else { return 0 }
+        return CGFloat(min(1, max(0, entry.playbackCurrentTime / entry.playbackDuration)))
+    }
+
+    var body: some View {
+        HStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                if !entry.sourceName.isEmpty {
+                    Text(entry.sourceName.uppercased())
+                        .font(.system(size: 9, weight: .black, design: .rounded))
+                        .foregroundStyle(accentColor)
+                        .lineLimit(1)
+                }
+
+                Text(entry.isEmpty ? "未在播放" : entry.songName)
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.white.opacity(0.96))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+
+                Text(entry.isEmpty ? "暂无歌曲信息" : entry.artistName)
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(Color.white.opacity(0.50))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            if !entry.isEmpty {
+                VinylTransportControls(
+                    entry: entry,
+                    diameter: 36,
+                    foregroundColor: Color.white.opacity(0.78),
+                    prominentFill: accentColor
+                )
+            }
+        }
+        .padding(.horizontal, 19)
+        .padding(.vertical, 14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: isDark
+                            ? [Color(hex: "1C1D1B"), Color(hex: "070807")]
+                            : [Color(hex: "242523"), Color(hex: "111211")],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                        .stroke(Color.white.opacity(0.09), lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(0.20), radius: 10, y: 5)
+        )
+        .overlay(alignment: .bottomLeading) {
+            GeometryReader { proxy in
+                ZStack(alignment: .leading) {
+                    Capsule(style: .continuous)
+                        .fill(Color.white.opacity(0.10))
+                    Capsule(style: .continuous)
+                        .fill(accentColor.opacity(0.90))
+                        .frame(width: proxy.size.width * progress)
+                }
+            }
+            .frame(height: 3)
+            .padding(.horizontal, 25)
+            .padding(.bottom, 8)
+        }
+    }
+}
+
+private struct VinylTransportControls: View {
+    let entry: NowPlayingEntry
+    let diameter: CGFloat
+    let foregroundColor: Color
+    let prominentFill: Color
+
+    var body: some View {
+        HStack(spacing: diameter * 0.34) {
+            Button(intent: PreviousTrackIntent()) {
+                Image(systemName: "backward.fill")
+                    .font(.system(size: diameter * 0.31, weight: .semibold))
+                    .foregroundStyle(foregroundColor)
+                    .frame(width: diameter * 0.76, height: diameter)
+            }
+            .buttonStyle(.plain)
+
+            Button(intent: TogglePlaybackIntent()) {
+                ZStack {
+                    Circle()
+                        .fill(prominentFill)
+                    Image(systemName: entry.controlSymbolName)
+                        .font(.system(size: diameter * 0.36, weight: .black))
+                        .foregroundStyle(entry.coverIsDark ? Color.white : Color(hex: "141514"))
+                        .contentTransition(.symbolEffect(.replace))
+                }
+                .frame(width: diameter, height: diameter)
+                .shadow(color: prominentFill.opacity(0.24), radius: 5, y: 2)
+            }
+            .buttonStyle(.plain)
+
+            Button(intent: NextTrackIntent()) {
+                Image(systemName: "forward.fill")
+                    .font(.system(size: diameter * 0.31, weight: .semibold))
+                    .foregroundStyle(foregroundColor)
+                    .frame(width: diameter * 0.76, height: diameter)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+}
+
+private struct TurntableKnob: View {
+    let entry: NowPlayingEntry
+    let diameter: CGFloat
+    let isDark: Bool
+
+    var body: some View {
+        HStack(spacing: diameter * 0.34) {
+            if entry.isEmpty {
+                knob
+            } else {
+                Button(intent: TogglePlaybackIntent()) {
+                    knob
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(entry.isPlaying ? "暂停" : "播放")
+            }
+
+            plusMark
+        }
+        .frame(width: diameter * 2.0, height: diameter * 1.45, alignment: .leading)
+    }
+
+    private var knob: some View {
+        ZStack {
+            Circle()
+                .fill(Color.black.opacity(isDark ? 0.34 : 0.10))
+                .frame(width: diameter * 1.08, height: diameter * 1.08)
+                .blur(radius: diameter * 0.11)
+                .offset(y: diameter * 0.10)
+
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: isDark
+                            ? [Color(hex: "4A4C48"), Color(hex: "292A28"), Color(hex: "111210")]
+                            : [Color.white, Color(hex: "F1F1EF"), Color(hex: "DCDDDC")],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: diameter, height: diameter)
+                .overlay(
+                    Circle()
+                        .stroke(
+                            isDark ? Color.white.opacity(0.14) : Color(hex: "D7D9D7"),
+                            lineWidth: 1
+                        )
+                )
+
+            Capsule(style: .continuous)
+                .fill(isDark ? Color.white.opacity(0.32) : Color(hex: "C9CBC9"))
+                .frame(width: max(1.5, diameter * 0.055), height: diameter * 0.25)
+                .offset(y: -diameter * 0.27)
+        }
+        .frame(width: diameter, height: diameter)
+    }
+
+    private var plusMark: some View {
+        ZStack {
+            Capsule(style: .continuous)
+                .fill(isDark ? Color.white.opacity(0.18) : Color(hex: "D4D6D4"))
+                .frame(width: diameter * 0.52, height: max(1.5, diameter * 0.07))
+            Capsule(style: .continuous)
+                .fill(isDark ? Color.white.opacity(0.18) : Color(hex: "D4D6D4"))
+                .frame(width: max(1.5, diameter * 0.07), height: diameter * 0.52)
+        }
+        .frame(width: diameter * 0.52, height: diameter * 0.52)
+    }
+}
+
+private struct SpeakerGrille: View {
+    let spacing: CGFloat
+    let isDark: Bool
+
+    var body: some View {
+        Canvas { context, size in
+            let columns = 4
+            let rows = 3
+            let dotDiameter = max(2, spacing * 0.36)
+            let totalWidth = CGFloat(columns - 1) * spacing
+            let totalHeight = CGFloat(rows - 1) * spacing
+            let origin = CGPoint(
+                x: (size.width - totalWidth) * 0.5,
+                y: (size.height - totalHeight) * 0.5
+            )
+
+            for row in 0..<rows {
+                for column in 0..<columns {
+                    let center = CGPoint(
+                        x: origin.x + CGFloat(column) * spacing,
+                        y: origin.y + CGFloat(row) * spacing
+                    )
+                    let rect = CGRect(
+                        x: center.x - dotDiameter * 0.5,
+                        y: center.y - dotDiameter * 0.5,
+                        width: dotDiameter,
+                        height: dotDiameter
+                    )
+                    context.fill(
+                        Path(ellipseIn: rect),
+                        with: .color(
+                            isDark
+                                ? Color.white.opacity(0.22)
+                                : Color(hex: "BFC1BF").opacity(0.78)
                         )
                     )
-                    .frame(width: armLength, height: armThickness)
-                    .overlay(
-                        Capsule(style: .continuous)
-                            .fill(Color.white.opacity(0.08))
-                            .padding(size * 0.005)
-                            .mask(
-                                LinearGradient(
-                                    colors: [.white, .clear],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                    )
-
-                Capsule(style: .continuous)
-                    .fill(Color.black.opacity(0.18))
-                    .frame(width: size * 0.26, height: size * 0.012)
-                    .offset(x: -size * 0.08)
-
-                RoundedRectangle(cornerRadius: size * 0.018, style: .continuous)
-                    .fill(accentColor.opacity(0.96))
-                    .frame(width: size * 0.046, height: size * 0.031)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: size * 0.018, style: .continuous)
-                            .stroke(Color.white.opacity(0.16), lineWidth: 1)
-                    )
-                    .offset(x: size * 0.008)
+                }
             }
-            .rotationEffect(.degrees(angle), anchor: .topTrailing)
-            .offset(x: -size * 0.030, y: size * 0.058)
         }
-        .frame(width: size, height: size, alignment: .topTrailing)
     }
 }

@@ -7,7 +7,7 @@ import WidgetKit
 /// 从 Widget 或系统播放控件切换主播放器的播放状态。
 struct TogglePlaybackIntent: AudioPlaybackIntent {
     static let title: LocalizedStringResource = "播放/暂停"
-    static let description = IntentDescription("切换 Monologue 播放状态")
+    static let description = IntentDescription("切换 Mono 播放状态")
 
     @MainActor
     func perform() async throws -> some IntentResult {
@@ -24,7 +24,7 @@ struct TogglePlaybackIntent: AudioPlaybackIntent {
 /// 从 Widget 或系统播放控件切换到下一首。
 struct NextTrackIntent: AudioPlaybackIntent {
     static let title: LocalizedStringResource = "下一首"
-    static let description = IntentDescription("播放 Monologue 下一首")
+    static let description = IntentDescription("播放 Mono 下一首")
 
     @MainActor
     func perform() async throws -> some IntentResult {
@@ -41,7 +41,7 @@ struct NextTrackIntent: AudioPlaybackIntent {
 /// 从 Widget 或系统播放控件切换到上一首。
 struct PreviousTrackIntent: AudioPlaybackIntent {
     static let title: LocalizedStringResource = "上一首"
-    static let description = IntentDescription("播放 Monologue 上一首")
+    static let description = IntentDescription("播放 Mono 上一首")
 
     @MainActor
     func perform() async throws -> some IntentResult {

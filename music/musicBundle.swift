@@ -10,6 +10,7 @@ struct musicBundle: WidgetBundle {
         SelectableNowPlayingWidget()
         NowPlayingWidget(theme: .polaroid)
         NowPlayingWidget(theme: .vinyl)
+        NowPlayingWidget(theme: .vinylDark)
         NowPlayingWidget(theme: .poster)
         NowPlayingWidget(theme: .manga)
         NowPlayingWidget(theme: .magazine)

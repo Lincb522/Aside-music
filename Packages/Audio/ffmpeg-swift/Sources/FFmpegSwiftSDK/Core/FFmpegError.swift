@@ -18,6 +18,7 @@ internal enum FFmpegErrorCode {
     static let AVERROR_ECONNRESET: Int32   = -104    // AVERROR(ECONNRESET)
     static let AVERROR_EPIPE: Int32        = -32     // AVERROR(EPIPE)
     static let AVERROR_ENOENT: Int32       = -2      // AVERROR(ENOENT)
+    static let AVERROR_EINTR: Int32        = -4      // AVERROR(EINTR)
 
     // FFmpeg-specific AVERROR tag codes (computed as FFERRTAG)
     // AVERROR_INVALIDDATA = FFERRTAG('I','N','D','A')
@@ -171,6 +172,10 @@ public enum FFmpegError: Error, CustomStringConvertible, Equatable {
         // No such file or directory (often invalid URL)
         case FFmpegErrorCode.AVERROR_ENOENT:
             return .connectionFailed(code: code, message: "No such file or URL")
+
+        // Blocking operation interrupted by the transport or cancellation signal
+        case FFmpegErrorCode.AVERROR_EINTR:
+            return .operationInterrupted
 
         // Connection timeout
         case FFmpegErrorCode.AVERROR_ETIMEDOUT:

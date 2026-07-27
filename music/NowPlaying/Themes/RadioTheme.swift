@@ -67,7 +67,7 @@ struct RadioTheme: View {
                 .padding(pad)
             }
         }
-        .widgetURL(URL(string: "monologue://player"))
+        .widgetURL(URL(string: "mono://player"))
     }
 
     private var mediumLayout: some View {
@@ -99,7 +99,7 @@ struct RadioTheme: View {
                 .padding(pad)
             }
         }
-        .widgetURL(URL(string: "monologue://player"))
+        .widgetURL(URL(string: "mono://player"))
     }
 
     private var largeLayout: some View {
@@ -126,7 +126,7 @@ struct RadioTheme: View {
                 .padding(pad)
             }
         }
-        .widgetURL(URL(string: "monologue://player"))
+        .widgetURL(URL(string: "mono://player"))
     }
 
     private func radioBody(cornerRadius: CGFloat) -> some View {
@@ -518,7 +518,7 @@ private struct LegacyRadioTheme: View {
                 }
             }
         }
-        .widgetURL(URL(string: "monologue://player"))
+        .widgetURL(URL(string: "mono://player"))
     }
 
     // MARK: - Medium
@@ -629,7 +629,7 @@ private struct LegacyRadioTheme: View {
                 .padding(.trailing, 14)
             }
         }
-        .widgetURL(URL(string: "monologue://player"))
+        .widgetURL(URL(string: "mono://player"))
     }
 
     // MARK: - Large
@@ -750,7 +750,7 @@ private struct LegacyRadioTheme: View {
                 }
             }
         }
-        .widgetURL(URL(string: "monologue://player"))
+        .widgetURL(URL(string: "mono://player"))
     }
 
     // MARK: - 凹陷频率刻度盘

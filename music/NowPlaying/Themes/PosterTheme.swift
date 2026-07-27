@@ -112,7 +112,7 @@ struct PosterWidgetTheme: View {
             }
         }
         }
-        .widgetURL(URL(string: "monologue://player"))
+        .widgetURL(URL(string: "mono://player"))
     }
 
     // MARK: - Medium
@@ -190,7 +190,7 @@ struct PosterWidgetTheme: View {
                 .frame(width: geo.size.width, height: geo.size.height)
             }
         }
-        .widgetURL(URL(string: "monologue://player"))
+        .widgetURL(URL(string: "mono://player"))
     }
 
     // MARK: - Large
@@ -283,6 +283,6 @@ struct PosterWidgetTheme: View {
             }
         }
         }
-        .widgetURL(URL(string: "monologue://player"))
+        .widgetURL(URL(string: "mono://player"))
     }
 }

@@ -1,0 +1,45 @@
+# 生产部署记录
+
+- 服务：现有 PM2 `token-admin`
+- 运行文件：`/www/wwwroot/token-admin/server.js`
+- 本地监听：`127.0.0.1:3388`
+- 外部入口：`https://ncm.zijiu522.cn/_admin/agents`
+- 公共 API：`https://ncm.zijiu522.cn/api/public/song-content*`
+- 数据库：`/www/wwwroot/token-admin/song-content/song-content.sqlite`
+- 反向代理：Nginx 仅将歌曲内容公共路径和后台路径转发至现有 token-admin
+- 部署前备份：`/www/backup/token-admin-before-song-content-20260726T064914Z`
+- App Agent 配置部署前备份：`/www/backup/token-admin-before-app-agent-prompts-20260726T080718Z`
+- App Agent 配置部署后数据库备份：`/www/backup/token-admin-after-app-agent-prompts-20260726T080718Z`
+- 最终歌曲 Agent 部署前备份：`/www/backup/token-admin-before-final-song-agent-20260726T091913Z`
+- 叙事内容 v2 代码部署前备份：`/www/backup/token-admin-before-song-content-narrative-20260726T120744Z`
+- 叙事内容 v2 配置发布前数据库备份：`/www/backup/token-admin-song-content-config-v2-20260726T121313Z`
+- 跨平台“音乐幕后”部署前备份：`/www/backup/token-admin-before-cross-platform-content-20260726T130614070Z`
+- 回滚：恢复备份中的 `server.js`、公共资源和 Nginx 配置，重启现有 PM2 进程
+
+部署原则：不创建新 PM2 服务，不新增公网端口，不覆盖原有混淆 AI 配置运行文件。
+
+2026-07-26 已发布公开配置 schema 2 / 版本 4，包含五类 App Agent 的独立启停、App 内置系统提示词、提示词版本、用户模板、温度、输出 Token 和最低超时。歌曲内容通过真实性与来源覆盖检查后自动发布。原 `ai-remote-config.js` 部署后 SHA-256 保持为 `f7bbcf29c06920a5843464221bd9785759716116d1639509c9c2c4f18c86cf6c`。
+
+2026-07-26 已发布公开配置版本 6：歌曲内容提示词升级为 `song-editor-v2`，默认输出上限 4000 tokens，单任务上限 12000 tokens。生产冒烟 QCM `000NQDjk4BA0W3` 四模块全部生成并自动发布，校验通过，重复请求未新建生成任务。
+
+生产冒烟歌曲：QCM `000NQDjk4BA0W3`（《暗号》/ 周杰伦 / 《八度空间》），统一歌曲 ID `3e91d466-c27e-4fc2-b12e-30bec256f901`，已发布内容版本 `94b4a82c-b008-451f-b138-f80b5712cb1d`。四个正文模块均有来源，自动校验通过；第二次 ensure 返回同一版本且生成任务数不增加。
+
+2026-07-26 已将歌曲内容资料采集扩展到 KCM、QSM 和 AM：非 NCM/QCM 歌曲按标题、歌手、专辑与时长严格映射到可验证的 QCM/NCM 官方资料；仅在专辑完全一致且时长误差不超过 5 秒时，允许去除 Live 等版本后缀后匹配。公开内容对缺少独立歌曲简介的歌曲使用已有“音乐幕后/专辑介绍”回退，并继承原来源引用，不新增无来源文案。
+
+生产冒烟歌曲：KCM `0011705422C00D4FEFA7E22F343F886A`（《你的 (Live)》/ 汪苏泷 / 《有歌2024 第7期》），统一歌曲 ID `6adf1f6a-fc42-4195-9a29-f9dcc9404622`，已发布 `zh-Hans` 内容版本 `cf87a235-e9b6-4e00-9356-7aaaa6fd5a9a`。连续两次公共 API 请求均返回 200、四个正文模块、QQ 音乐来源，且 `generation` 均为 null。QSM 与 AM 使用《暗号》元数据的跨平台采集冒烟均取得 2 个官方来源。
+
+2026-07-27 已部署联网检索版“音乐幕后”。部署前文件与数据库备份位于 `/www/backup/token-admin-before-web-retrieval-20260727T020410584Z`。服务端先按歌曲、歌手和专辑严格检索网页，再提取可访问页面正文；来源按 `songSummary`、`creationStory`、`background`（乐评）、`albumSummary` 标记内容角色。Agent 只能引用允许对应字段的 B 级及以上来源，多余的跨字段引用会被剔除，没有评论类来源时不生成乐评。
+
+已发布 Agent 配置版本 15，提示词 `song-editor-web-v4`、内容 schema 3。生产冒烟 QCM `000NQDjk4BA0W3`（《暗号》）检索到 QQ 音乐与搜狐共 3 个来源，发布内容版本 `0bb3ced5-dfe7-4577-9a3e-305ba41ef47b`：歌曲介绍 207 字、乐评 469 字、创作故事 319 字、专辑介绍 319 字。连续两次公共 API 请求均返回 200、同一持久化版本且 `generation` 为 null。
+
+2026-07-27 已将联网检索策略接入 Agent 管理前端和生成管线。管理页可设置联网检索开关与单任务网页来源上限，并在来源列表区分“平台资料 / 联网检索”、显示中文内容字段。配置草稿保存后，生成任务会读取已发布策略执行；默认开启，网页来源上限为 6，服务端限制范围为 1–10。部署前文件与数据库备份位于 `/www/backup/token-admin-before-web-retrieval-admin-ui-20260727T022700Z`，继续复用原 PM2 `token-admin` 与本地端口 3388。
+
+2026-07-27 联网检索由单一 360 扩展为 360、Bing、搜狗三路并行，任一路失败不阻断其余来源；管理页可逐项启停，来源记录保存实际命中的检索服务。生产网络以《暗号》冒烟，360 命中搜狐、Bing 命中网易云音乐，搜狗候选未通过正文与可信度筛选而被正常丢弃。部署前文件与数据库备份位于 `/www/backup/token-admin-before-multi-search-20260727T023948Z`。
+
+2026-07-27 新增豆瓣与小红书重点来源。两者通过已启用搜索服务做站内定向检索，只用于乐评和专辑相关证据；目标网页正文自身必须同时匹配歌曲与歌手，登录墙、空壳页和仅搜索摘要匹配的结果不入库。生产冒烟中豆瓣《暗号》页面通过校验，小红书返回的无关公开笔记被正确过滤。部署前文件与数据库备份位于 `/www/backup/token-admin-before-douban-xhs-20260727T024935Z`。
+
+2026-07-27 修复 Agent 管理的字段差异、角色权限和内容空状态溢出：长文双列按容器换行，权限逐项折行，权限面板增加内边距并调整列宽。已发布配置版本 16，提示词 `song-editor-web-v5`；正文禁止“现有评论认为”“报道提到”“资料显示”以及平台名称转述，歌曲介绍和专辑介绍不得用平台标签定义作品。服务端校验发现来源转述腔会拒绝结果并自动重试。部署前文件与数据库备份位于 `/www/backup/token-admin-before-layout-prompt-v5-20260727T025858Z`。
+
+多来源证据使《凄美地》首次 v5 重写超过原 12,000 Token 单任务上限，配置版本 17 将单任务总上限调整为 20,000，最大输出仍为 4,000。重试后已发布内容版本 `c70edead-5bb7-445e-b507-9f9542dffae0`，提示词 `song-editor-web-v5`，四个字段来源覆盖率 100%，校验无错误和警告，正文不含平台名或来源转述句式。配置调整前备份位于 `/www/backup/token-admin-before-config-v17-20260727T030336Z`。
+
+2026-07-27 启用全自动内容审核并发布配置版本 18：生成结果有校验错误或警告时自动重试，不再创建待审核内容；高风险事实只有通过多来源覆盖校验才自动发布，证据不足时自动重试，耗尽次数后标记失败。人工发布或驳回会同步关联生成任务状态。历史 3 个 `review` 任务已按最终内容状态清理为 2 个完成、1 个失败。部署前备份位于 `/www/backup/token-admin-before-auto-review-20260727T040124Z`。

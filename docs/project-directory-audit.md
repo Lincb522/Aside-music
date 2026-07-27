@@ -6,7 +6,7 @@
 
 工程同时包含 iOS App、小组件与扩展、共享代码、本地 Swift Package、服务端、官网、图标源文件、构建产物和历史备份。前三阶段已经把 App 源码、播放器内部结构以及根目录外部产品分区完成，产品代码、运行时依赖、设计源文件、服务端与官网之间已有明确边界。
 
-工程使用 Xcode 文件系统同步分组，SwiftPM target 会递归包含 `Sources/Monologue` 中的源码。本轮目录整理只调整文件位置和路径配置，不修改功能实现。
+工程使用 Xcode 文件系统同步分组，SwiftPM target 会递归包含 `Sources/Mono` 中的源码。本轮目录整理只调整文件位置和路径配置，不修改功能实现。
 
 ## 本轮已完成
 
@@ -49,7 +49,7 @@
 
 迁移前根目录同时存在：
 
-- App：`Sources/Monologue`
+- App：`Sources/Mono`
 - 扩展：`music`
 - 共享代码：`Shared`
 - 音频与平台 SDK：现位于 `Packages/Audio`、`Packages/MusicServices`
@@ -79,7 +79,7 @@
 
 ### 6. 根目录存在历史文件
 
-- 根目录 `Info.plist` 没有被当前 Xcode target 使用；实际使用的是 `Sources/Monologue/Info.plist`。
+- 根目录 `Info.plist` 没有被当前 Xcode target 使用；实际使用的是 `Sources/Mono/Info.plist`。
 - `tmp_insert_stats.py` 没有发现工程引用，属于一次性历史脚本。
 - `.local-backups` 已加入忽略规则，但仍有早期备份文件被 Git 跟踪。
 - `build`、`tmp` 和多个压缩包虽多数已忽略，仍会显著增加本地工作区体积和搜索噪声。
@@ -89,7 +89,7 @@
 ```text
 asidemusic-main/
 ├── Sources/
-│   └── Monologue/
+│   └── Mono/
 ├── music/
 ├── Shared/
 ├── Packages/
@@ -119,9 +119,9 @@ asidemusic-main/
 ## App 内建议结构
 
 ```text
-Sources/Monologue/
+Sources/Mono/
 ├── App/
-│   ├── MonologueApp.swift
+│   ├── MonoApp.swift
 │   ├── ContentView.swift
 │   └── QuickActions/
 ├── Core/
@@ -172,7 +172,7 @@ Sources/Monologue/
 ### 第二批：只移动、不改实现
 
 1. 已将 `MonoPlaybackEngine*` 从 `ViewModels` 移至 `Playback/Engine`。
-2. 已将 `CachedAsyncImage`、`UnifiedFloatingBar`、`MonologueIcons` 等公共视图归入 `Components` 或 `DesignSystem`。
+2. 已将 `CachedAsyncImage`、`UnifiedFloatingBar`、`MonoIcons` 等公共视图归入 `Components` 或 `DesignSystem`。
 3. 已将设置和开发者工具页面分别归入对应领域目录。
 4. 已将 Library、Podcast、Player 等留在根目录的页面归位。
 
@@ -199,7 +199,7 @@ Sources/Monologue/
 已移动 SDK、图标 Package、服务端和官网，并统一更新：
 
 - `Package.swift`
-- `Monologue.xcodeproj/project.pbxproj`
+- `Mono.xcodeproj/project.pbxproj`
 - `Secrets.xcconfig` 相关路径
 - 构建与部署脚本
 - CI 或远程部署配置
@@ -209,7 +209,7 @@ Sources/Monologue/
 1. 一次只迁移一个领域，不同时修改功能逻辑。
 2. Swift 文件移动后保持类型名和访问级别不变。
 3. 字体、JSON、Asset Catalog 和本地化资源暂不移动，避免破坏 SwiftPM 资源路径。
-4. `Sources/Monologue/Info.plist`、entitlements 和扩展资源保持原位，直到 Xcode 配置一并迁移。
+4. `Sources/Mono/Info.plist`、entitlements 和扩展资源保持原位，直到 Xcode 配置一并迁移。
 5. 每批迁移单独提交，确保可以按目录批次回退。
 
 ## 第四阶段根目录整理
@@ -236,7 +236,7 @@ Sources/Monologue/
 | `studio` | `Tools/AgentStudio` | 独立的 2D Agent 开发工作室，不属于 iOS target |
 | `architecture` | `docs/architecture` | Agent 生成的架构图与 HTML |
 | `exports` | `DesignAssets/Exports` | 已导出的图标切图和压缩包 |
-| `monologueIcon.svg` | `DesignAssets/Branding` | 品牌源文件 |
+| `monoIcon.svg` | `DesignAssets/Branding` | 品牌源文件 |
 | `build_ipa.sh` | `Scripts/Release` | 发布工具，不再散落在根目录 |
 | `PRODUCT.md` | `docs/PRODUCT.md` | 产品定位与设计原则 |
 | `LOCALIZATION.md` | `docs/LOCALIZATION.md` | 本地化维护说明 |
@@ -266,7 +266,7 @@ Sources/Monologue/
 | `ExternalSources` | 约 31 MB | `references` |
 | Skill 中的历史 `.mp4`、`*.ips` | 约 1.3 MB | `skill-attachments` |
 | `.claude`、`.cursor`、`.vscode`、剩余 `.kiro` | 少量 | `configs` |
-| `monologue-main.code-workspace` | 少量 | `configs` |
+| `mono-main.code-workspace` | 少量 | `configs` |
 | 损坏的 `Scripts/restore-backup.sh` | 少量 | `generated/broken-scripts` |
 
 `ExternalSources/folia-major` 已移入仓库外归档。App 仅在注释中提到 Folia 设计，不依赖其本地文件。

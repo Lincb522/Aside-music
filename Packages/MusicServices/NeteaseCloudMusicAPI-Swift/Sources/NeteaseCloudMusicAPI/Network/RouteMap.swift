@@ -1055,7 +1055,6 @@ enum RouteMap {
             if result["offset"] == nil { result["offset"] = 0 }
 
         // song_url_v1: level 已在 SDK data 中，无需转换
-        // source/unblock 为后端解灰参数，SDK 自动解灰不需要
         // （ids→id 转换已在上方 case 处理）
 
         // personal_fm: mode 默认值已在上方 case 处理

@@ -6,8 +6,8 @@ import WidgetKit
 
 // MARK: - App Group 常量
 
-let gameModeGroupID = "group.zijiu.Monologue.com"
-let gameModeKey = "monologue_game_mode_enabled"
+let gameModeGroupID = "group.zijiu.Mono.com"
+let gameModeKey = "mono_game_mode_enabled"
 
 // MARK: - 切换游戏模式 Intent
 
@@ -15,8 +15,8 @@ let gameModeKey = "monologue_game_mode_enabled"
 struct ToggleGameModeIntent: SetValueIntent {
     static let title: LocalizedStringResource = "游戏模式"
     static let description = IntentDescription(
-        "切换 Monologue 游戏模式（边玩游戏边听歌）",
-        categoryName: "Monologue"
+        "切换 Mono 游戏模式（边玩游戏边听歌）",
+        categoryName: "Mono"
     )
 
     @Parameter(title: "游戏模式")
@@ -46,14 +46,14 @@ struct ToggleGameModeIntent: SetValueIntent {
         // 1) 立刻让控制中心胶囊刷新 isOn 视觉
         if #available(iOS 18, *) {
             ControlCenter.shared.reloadControls(
-                ofKind: "zijiu.Monologue.com.control.gamemode"
+                ofKind: "zijiu.Mono.com.control.gamemode"
             )
         }
         // 2) 通过 Darwin Notification 广播给主 App，让它即时响应（前台/后台均可）
         let center = CFNotificationCenterGetDarwinNotifyCenter()
         CFNotificationCenterPostNotification(
             center,
-            CFNotificationName("com.zijiu.Monologue.gamemode.changed" as CFString),
+            CFNotificationName("com.zijiu.Mono.gamemode.changed" as CFString),
             nil,
             nil,
             true

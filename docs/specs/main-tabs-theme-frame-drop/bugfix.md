@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Monologue（SwiftUI + FFmpeg，iOS 17+）在 4 个主 tab 主页面（Home / Podcast / Library / Profile）× 5 个主题（default / muji / manga / neumorphic / capsule）= **20 种组合** 下，出现普遍可观测的掉帧、首屏卡顿、滚动抖动与主题/外观切换时的全屏一卡等性能缺陷。
+Mono（SwiftUI + FFmpeg，iOS 17+）在 4 个主 tab 主页面（Home / Podcast / Library / Profile）× 5 个主题（default / muji / manga / neumorphic / capsule）= **20 种组合** 下，出现普遍可观测的掉帧、首屏卡顿、滚动抖动与主题/外观切换时的全屏一卡等性能缺陷。
 
 本文档仅定位"什么条件下会掉帧、表现成什么样、哪些行为必须保留"，不约束任何修复方案。具体修复路径（例如是否引入全局 backdrop、是否拆 `globalThemeRevision`、是否替换 `AnyView` 工厂、是否将 Canvas 缓存为静态纹理等）全部留到 design 阶段讨论。
 
@@ -69,7 +69,7 @@ Monologue（SwiftUI + FFmpeg，iOS 17+）在 4 个主 tab 主页面（Home / Pod
 
 #### 7. Default 主题特定缺陷
 
-7.1 WHEN `(default, *)` 打开 THEN `MonologueBackground.defaultSystemBackground` 内含 `Canvas + blur(60) + drawingGroup()`，`blur(60)` 大半径模糊本身成本高，加 `drawingGroup()` 会强制光栅化整层。
+7.1 WHEN `(default, *)` 打开 THEN `MonoBackground.defaultSystemBackground` 内含 `Canvas + blur(60) + drawingGroup()`，`blur(60)` 大半径模糊本身成本高，加 `drawingGroup()` 会强制光栅化整层。
 
 7.2 WHEN `(default, home)` 打开 THEN 顶部叠一个 **300pt 高** 的 `ParallaxMountainHeader`，首屏 layout 参与滚动视差计算。
 
@@ -321,13 +321,13 @@ Monologue（SwiftUI + FFmpeg，iOS 17+）在 4 个主 tab 主页面（Home / Pod
 
 5.2 WHEN 备份被执行 THEN 备份产物 SHALL 同时满足以下条件：
   - 备份路径位于仓库根目录下 `.local-backups/main-tabs-theme-frame-drop-<UTC 时间戳>/`；
-  - 备份 **SHALL** 包含：当前工作树中除 `.gitignore` 已忽略条目与第三方本地依赖目录（`NeteaseCloudMusicAPI-Swift/`、`ffmpeg-swift/`、`QQMusicKit/`、`HiconIcons/`、`.build/`、`DerivedData/`、`.kiro/`、`.codex-backups/` 等）之外的全部项目源码、资源、Xcode 工程、`Package.swift`、`Info.plist`、`Monologue.entitlements`、`Secrets.xcconfig.example` 等工程描述文件；
+  - 备份 **SHALL** 包含：当前工作树中除 `.gitignore` 已忽略条目与第三方本地依赖目录（`NeteaseCloudMusicAPI-Swift/`、`ffmpeg-swift/`、`QQMusicKit/`、`HiconIcons/`、`.build/`、`DerivedData/`、`.kiro/`、`.codex-backups/` 等）之外的全部项目源码、资源、Xcode 工程、`Package.swift`、`Info.plist`、`Mono.entitlements`、`Secrets.xcconfig.example` 等工程描述文件；
   - 备份 **SHALL** 记录以下元数据（`manifest.txt` 或 `manifest.json`）：当前 `git rev-parse HEAD`、`git status --short` 快照、`git diff` 快照、备份开始/结束 UTC 时间、备份执行者（`whoami`）、macOS 版本与 Xcode 版本；
   - 备份 **SHALL NOT** 包含 `.env`、`Secrets.xcconfig`、任何密钥文件、任何 `.ipa / .app / .dSYM / .xcarchive`、任何用户数据。
 
 5.3 WHEN 备份完成 THEN 系统 SHALL 通过以下两条独立校验确认备份可还原：
   - 对备份目录计算 `find … -type f | sort | xargs shasum -a 256` 并写入 `manifest.sha256`；
-  - 在独立临时目录中随机抽取 ≥ 5 个关键文件（至少覆盖 `Package.swift`、`Sources/Monologue/MonologueApp.swift`、`Sources/Monologue/Views/ContentView.swift`、`.kiro/specs/main-tabs-theme-frame-drop/bugfix.md`）做逐字节 `diff` 比对与当前工作树一致。
+  - 在独立临时目录中随机抽取 ≥ 5 个关键文件（至少覆盖 `Package.swift`、`Sources/Mono/MonoApp.swift`、`Sources/Mono/Views/ContentView.swift`、`.kiro/specs/main-tabs-theme-frame-drop/bugfix.md`）做逐字节 `diff` 比对与当前工作树一致。
 
 5.4 WHEN 当前工作树存在未提交变更（`git status --short` 非空）THEN 备份 **SHALL** 在备份前额外执行 `git stash create` 并把返回的 commit hash 一并写入 `manifest.txt`（不改变工作树），以保证未提交内容也有可追溯的 git 对象作为保底。
 

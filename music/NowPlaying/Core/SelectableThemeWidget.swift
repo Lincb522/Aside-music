@@ -16,6 +16,7 @@ extension WidgetTheme: AppEnum {
     static let caseDisplayRepresentations: [WidgetTheme: DisplayRepresentation] = [
         .polaroid: "拍立得",
         .vinyl: "黑胶",
+        .vinylDark: "黑胶（深色）",
         .poster: "海报",
         .manga: "漫画",
         .magazine: "杂志",
@@ -70,7 +71,7 @@ struct SelectableNowPlayingProvider: AppIntentTimelineProvider {
 struct SelectableNowPlayingWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(
-            kind: "zijiu.Monologue.com.widget.nowplaying.selectable",
+            kind: "zijiu.Mono.com.widget.nowplaying.selectable",
             intent: NowPlayingThemeIntent.self,
             provider: SelectableNowPlayingProvider()
         ) { entry in

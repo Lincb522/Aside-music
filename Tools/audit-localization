@@ -91,7 +91,7 @@ def owned_source_literals(project_root: Path) -> tuple[set[str], set[str]]:
     literals: set[str] = set()
     dynamic_prefixes = set(KNOWN_DYNAMIC_PREFIXES)
     source_roots = [
-        project_root / "Sources" / "Monologue",
+        project_root / "Sources" / "Mono",
         project_root / "music",
         project_root / "Shared",
     ]
@@ -183,7 +183,7 @@ def main() -> int:
     args = parser.parse_args()
 
     project_root = args.project_root.resolve()
-    source_root = project_root / "Sources" / "Monologue"
+    source_root = project_root / "Sources" / "Mono"
     resources_root = source_root / "Resources"
     locale_paths = {
         path.parent.name.removesuffix(".lproj"): path

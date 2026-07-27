@@ -156,7 +156,7 @@ struct NowPlayingEntry: TimelineEntry {
                 tempoIsAnalyzing: false,
                 lyricText: ""
             )
-        case .vinyl:
+        case .vinyl, .vinylDark:
             return NowPlayingEntry(
                 date: .now,
                 songName: "Midnight Drive",

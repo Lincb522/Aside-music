@@ -4,8 +4,8 @@
 
 ### 新功能
 - 对齐 NeteaseCloudMusicApiEnhanced 4.33.0，新增 28 个后端模块的 Swift 调用入口
-- 新增 `backendRoute(_:data:)`，支持直接调用 Monologue 本地增强后端模块
-- 接入 Monologue 本地增强接口：`bannerBackup`、`podcastHomeTab`、`songQualities`、`songUrlNcmget`、`playShorten`
+- 新增 `backendRoute(_:data:)`，支持直接调用 Mono 本地增强后端模块
+- 接入 Mono 本地增强接口：`bannerBackup`、`podcastHomeTab`、`songQualities`、`songUrlNcmget`、`playShorten`
 
 ### 改进
 - `RouteMap` 补齐 4.33.0 新增模块和本地增强模块映射，避免代理模式回退路由不透明
@@ -17,10 +17,6 @@
 ## 1.3.6 (2026-02-09)
 
 ### 修复
-- **解灰无限重试 bug**：`autoUnblockResponse` 新增解灰缓存机制，同一首歌在缓存有效期内（默认 5 分钟）不会重复解灰，避免第三方源 URL 播放失败后调用方反复请求 `songUrl`/`songUrlV1` 导致无限循环
-- 解灰成功和失败的结果均写入缓存，失败的歌曲也不会反复尝试
-- 缓存命中时直接使用上次解灰的 URL，无需再次请求第三方音源
-- 新增 `unblockCacheTTL` 属性（可调整缓存有效期）和 `clearUnblockCache()` 方法
 
 ---
 
@@ -72,11 +68,6 @@
 ## 1.3.0 (2026-02-08)
 
 ### 新功能
-- 自动解灰：`songUrl` / `songUrlV1` 获取到不可用链接时自动尝试第三方音源匹配
-- NCMClient 新增 `unblockManager` 和 `autoUnblock` 属性，三行代码即可开启
-- 自动获取歌曲详情（歌名+歌手）提高音源匹配率
-- 解灰成功后在响应中标记 `_unblocked` 和 `_unblockedFrom`，方便调用方判断
-- 检测条件：无 URL、试听限制（freeTrialInfo）、VIP/付费歌曲（fee=1/4）
 
 ### 修复
 - 动态路由路径参数丢失：user/detail、album、artists 等接口经过动态路由匹配后 ID/UID 从路径中被丢弃，后端返回 400 参数错误
@@ -99,8 +90,6 @@
 ### 新功能
 - 后端代理路由映射表：323 条静态路由 + 43 条动态前缀，100% 覆盖 SDK 全部 349 个 API 路径
 - 代理模式参数适配层：自动转换 song_url_v1、song_detail、cloudsearch 等接口的参数格式
-- 后端解灰音源 `ServerUnblockSource`：支持 match（unblockmusic-utils）、ncmget（GD 音乐台后端）、gdDirect（直连 GD 音乐台）三种模式
-- GD 音乐台默认地址硬编码，`ServerUnblockSource.gd()` 一行即用
 
 ### 修复
 - 后端代理模式 404：旧版 NeteaseCloudMusicApi 路由格式与ncm原始 API 路径不匹配，新增 RouteMap 完整映射
@@ -111,7 +100,6 @@
 ## 1.1.0 (2026-02-08)
 
 ### 新功能
-- 解灰模块重写：支持导入第三方 JS 音源脚本文件和自定义 HTTP 地址两种方式
 - JS 音源自动检测脚本格式，兼容洛雪插件格式（自动模拟 `globalThis.lx` 事件环境）
 - 自定义地址音源支持 URL 模板（`{id}`、`{quality}`、`{baseURL}` 占位符）
 
@@ -120,13 +108,10 @@
 - VIP 成长值：从 `data.userLevel.growthPoint` 正确读取
 
 ### 示例应用
-- 解灰页面重写：JS 文件导入、文本粘贴、自定义地址添加、拖拽排序、启用/禁用开关
 - VIP 任务显示增加完成状态标签
 - Info.plist 改为 `NSAllowsArbitraryLoads`（第三方音源域名不可预知）
 
 ### 文档
-- 解灰模块文档更新为新架构（JSScriptSource + CustomURLSource）
-- ATS 注意事项补充解灰模块说明
 
 ---
 
@@ -143,7 +128,6 @@
 - 零外部依赖（仅 Foundation + CommonCrypto）
 
 ### 示例应用
-- 12 个测试模块：搜索、歌单、排行榜、电台、专辑、歌手、MV/视频、评论、用户、推荐、VIP/云贝、解灰
 - 二维码登录、Cookie 管理、播放测试
 - Xcode 16 文件系统同步组
 

@@ -1,0 +1,134 @@
+const fs = require('node:fs')
+const path = require('node:path')
+const songContentRoot = fs.existsSync(path.join(__dirname, 'song-content'))
+  ? './song-content'
+  : '../song-content'
+const {
+  createSongContentService,
+  installSongContentRoutes
+} = require(`${songContentRoot}/song-content-service`)
+const { installSongContentAdminRoutes } = require(`${songContentRoot}/song-content-admin`)
+const { installSongContentOperationsRoutes } = require(`${songContentRoot}/song-content-operations`)
+const {
+  createConfiguredContentGenerator,
+  createSongContentConfigStore,
+  installSongContentConfigRoutes
+} = require(`${songContentRoot}/song-content-config`)
+
+/**
+ * Mounts the song-content API on the existing token Express application.
+ * Platform lookup, evidence collection and model invocation stay injectable so
+ * the token service can reuse its existing provider clients and credentials.
+ */
+function installTokenSongContent({
+  app,
+  dataDirectory,
+  resolvePublicToken,
+  publicRateLimit,
+  authMiddleware,
+  authorize,
+  bootstrapAdminActorId = 'token-admin',
+  adminUIRoot,
+  platformResolver,
+  sourceCollector,
+  contentGenerator,
+  appAIConfigProvider,
+  schemaVersion = '3',
+  promptVersion = 'song-editor-web-v5',
+  autoPublish = true,
+  startWorker = true,
+  encryptionKey = process.env.SONG_CONTENT_MASTER_KEY,
+  logger = console
+}) {
+  if (!dataDirectory) throw new TypeError('token server dataDirectory is required')
+
+  let configStore = null
+  const resolvedContentGenerator = typeof contentGenerator === 'function'
+    ? contentGenerator
+    : async (context) => {
+        if (!configStore) throw new Error('song-content configuration is not ready')
+        return createConfiguredContentGenerator({ configStore, appAIConfigProvider })(context)
+      }
+
+  const service = createSongContentService({
+    directory: path.join(dataDirectory, 'song-content'),
+    platformResolver,
+    sourceCollector,
+    contentGenerator: resolvedContentGenerator,
+    schemaVersion,
+    promptVersion,
+    autoPublish: () => configStore ? configStore.current().ai?.autoPublish === true : autoPublish,
+    policyProvider: () => configStore ? configStore.current().ai : {},
+    startWorker,
+    logger
+  })
+
+  if (typeof authorize !== 'function') {
+    service.store.assignRole(bootstrapAdminActorId, 'content-admin', 'system-bootstrap')
+  }
+  const resolvedAuthorize = typeof authorize === 'function'
+    ? authorize
+    : (permission) => (req, res, next) => {
+        const actorId = String(req.admin?.id || req.user?.id || req.auth?.id || bootstrapAdminActorId)
+        if (!service.store.actorPermissions(actorId).includes(permission)) {
+          return res.status(403).json({ error: '权限不足', code: 'FORBIDDEN' })
+        }
+        next()
+      }
+
+  const publicAccessMiddleware = typeof resolvePublicToken === 'function'
+    ? (req, res, next) => {
+        const credential = resolvePublicToken(req, res)
+        if (!credential) return
+        req.songContentCredential = credential
+        next()
+      }
+    : null
+
+  installSongContentRoutes({
+    app,
+    service,
+    publicAccessMiddleware,
+    publicRateLimit,
+    logger
+  })
+
+  configStore = createSongContentConfigStore({
+    databasePath: service.store.databasePath,
+    encryptionKey,
+    logger
+  })
+  installSongContentConfigRoutes({
+    app,
+    configStore,
+    authMiddleware,
+    authorize: resolvedAuthorize,
+    publicAccessMiddleware,
+    publicRateLimit,
+    appAIConfigProvider,
+    audit: (entry) => service.store.appendAudit(entry),
+    logger
+  })
+
+  if (typeof authMiddleware === 'function') {
+    installSongContentAdminRoutes({ app, service, authMiddleware, authorize: resolvedAuthorize, logger })
+    installSongContentOperationsRoutes({ app, service, authMiddleware, authorize: resolvedAuthorize })
+  }
+
+  if (adminUIRoot) {
+    app.get(['/agents', '/agent-management'], (_req, res) => {
+      res.sendFile(path.resolve(adminUIRoot, 'song-content.html'))
+    })
+  }
+
+  const closeService = service.close.bind(service)
+  service.configStore = configStore
+  service.close = () => {
+    configStore.close()
+    closeService()
+  }
+
+  return service
+}
+
+module.exports = { installTokenSongContent }

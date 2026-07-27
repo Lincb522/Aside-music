@@ -6,7 +6,7 @@ build/
 build-macos/
 DerivedData/
 .build/
-*.moved-monologue
+*.moved-mono
 *.pbxuser
 !default.pbxuser
 *.mode1v3
@@ -88,7 +88,7 @@ image.png
 123-iOS-Default-1024x1024@1x.png
 qq_qr.png
 AuroraIcon*.svg
-/monologueIcon.svg
+/monoIcon.svg
 /CHANGELOG.txt
 UPDATE_LOG.md
 docs/
@@ -101,8 +101,8 @@ scratch_nginx.conf
 /design-explorations
 temp_podcast.txt
 temp_podcast_decrypted.json
-TestFlight – Monologue 1.0 (18).crash
-TestFlight – Monologue 1.0 (21).crash
+TestFlight – Mono 1.0 (18).crash
+TestFlight – Mono 1.0 (21).crash
 scratch_server.js
 test_animator.swift
 test_layout.swift
@@ -122,6 +122,17 @@ test_layout.swift
 /Services/Server/*
 !/Services/Server/token-admin/
 !/Services/Server/token-admin/ai-remote-config.js
+!/Services/Server/song-content/
+!/Services/Server/song-content/**
+!/Services/Server/token-admin/song-content-integration.js
+!/Services/Server/token-admin/song-content-adapters.js
+!/Services/Server/token-admin-ui/
+/Services/Server/token-admin-ui/*
+!/Services/Server/token-admin-ui/original/
+/Services/Server/token-admin-ui/original/*
+!/Services/Server/token-admin-ui/original/song-content.html
+!/Services/Server/token-admin-ui/original/song-content-page.js
+!/Services/Server/token-admin-ui/original/song-content.css
 *.py
 *.txt
 /ExternalSources
@@ -130,82 +141,85 @@ test_layout.swift
 # Folia lyric renderers are app sources, not generated Swift files.
 !Packages/MusicServices/QQMusicKit/Sources/Enhanced069API.swift
 !Packages/MusicServices/NeteaseCloudMusicAPI-Swift/Sources/NeteaseCloudMusicAPI/API/NCMClient+Enhanced436.swift
-!Sources/Monologue/Views/Player/AriaStage/Lyrics/AriaLyricFX.swift
-!Sources/Monologue/Views/Player/AriaStage/Settings/AriaSettingsPage.swift
-!Sources/Monologue/Views/Player/AriaStage/Visuals/AriaAudioPulse.swift
-!Sources/Monologue/Views/Player/AriaStage/Core/AriaPerformanceGovernor.swift
-!Sources/Monologue/Views/Player/AriaStage/Core/ImmersiveModeController.swift
-!Sources/Monologue/Views/Player/AriaStage/Lyrics/AriaFoliaCadenzaView.swift
-!Sources/Monologue/Views/Player/AriaStage/Lyrics/AriaFoliaPartitaView.swift
-!Sources/Monologue/Views/Player/AriaStage/Lyrics/AriaFoliaTiltView.swift
-!Sources/Monologue/Views/Player/AriaStage/Lyrics/AriaFoliaFumeView.swift
-!Sources/Monologue/Views/Player/AriaStage/Lyrics/AriaFoliaCappellaView.swift
-!Sources/Monologue/Views/Player/AriaStage/Lyrics/AriaFoliaCanopyView.swift
-!Sources/Monologue/Views/Player/AriaStage/Lyrics/AriaForeignLyricStages.swift
-!Sources/Monologue/Views/Player/AriaStage/Settings/AriaLandscapeSettingsView.swift
-!Sources/Monologue/Views/Player/AriaStage/Lyrics/AriaLyricTypography.swift
-!Sources/Monologue/Views/Player/AriaStage/Lyrics/AriaLyricDepth.swift
-!Sources/Monologue/Views/Player/Components/Fonts/MonologueFontPicker.swift
-!Sources/Monologue/Views/Player/Components/Menus/MonologueMoreMenu.swift
-!Sources/Monologue/ViewModels/Developer/DebugLogViewModel.swift
-!Sources/Monologue/Views/Developer/DeveloperToolsView.swift
-!Sources/Monologue/Views/Components/Lyrics/KaraokeWordStyle.swift
-!Sources/Monologue/Managers/Appearance/CustomFontManager.swift
-!Sources/Monologue/Managers/Settings/ChangelogManager.swift
-!Sources/Monologue/Views/Components/Feedback/ChangelogPopupView.swift
-!Sources/Monologue/Views/Settings/ChangelogHistoryView.swift
-!Sources/Monologue/Views/Components/Page/AsideDetailHeroHeader.swift
-!Sources/Monologue/Managers/Listening/ListeningStatsRecorder.swift
-!Sources/Monologue/Managers/Listening/ListeningReportService.swift
-!Sources/Monologue/Views/Listening/ListeningReportView.swift
-!Sources/Monologue/Views/Components/Feedback/ListeningReportPopupView.swift
-!Sources/Monologue/Themes/Manga/MangaComicSystem.swift
-!Sources/Monologue/Themes/RemovedThemeCompatibility/RemovedPureWhiteCompatibility.swift
-!Sources/Monologue/Models/AI/AIEqualizerModels.swift
-!Sources/Monologue/Managers/AI/AIProviderConfigurationStore.swift
-!Sources/Monologue/Managers/AI/AIEqualizerPrompt.swift
-!Sources/Monologue/Managers/AI/AIEqualizerFeatureSampler.swift
-!Sources/Monologue/Managers/AI/AIEqualizerAgent.swift
-!Sources/Monologue/Playback/Engine/MonoPlaybackEngine.swift
-!Sources/Monologue/Playback/Engine/MonoPlaybackEngine+Controls.swift
-!Sources/Monologue/Playback/Engine/MonoPlaybackEngine+Internal.swift
-!Sources/Monologue/Playback/Engine/MonoPlaybackEngine+PlaybackAPI.swift
-!Sources/Monologue/Playback/Engine/MonoPlaybackEngine+Seek.swift
-!Sources/Monologue/Playback/Engine/MonoPlaybackEngine+Setup.swift
+!Sources/Mono/Views/Player/AriaStage/Lyrics/AriaLyricFX.swift
+!Sources/Mono/Views/Player/AriaStage/Settings/AriaSettingsPage.swift
+!Sources/Mono/Views/Player/AriaStage/Visuals/AriaAudioPulse.swift
+!Sources/Mono/Views/Player/AriaStage/Core/AriaPerformanceGovernor.swift
+!Sources/Mono/Views/Player/AriaStage/Core/ImmersiveModeController.swift
+!Sources/Mono/Views/Player/AriaStage/Lyrics/AriaFoliaCadenzaView.swift
+!Sources/Mono/Views/Player/AriaStage/Lyrics/AriaFoliaPartitaView.swift
+!Sources/Mono/Views/Player/AriaStage/Lyrics/AriaFoliaTiltView.swift
+!Sources/Mono/Views/Player/AriaStage/Lyrics/AriaFoliaFumeView.swift
+!Sources/Mono/Views/Player/AriaStage/Lyrics/AriaFoliaCappellaView.swift
+!Sources/Mono/Views/Player/AriaStage/Lyrics/AriaFoliaCanopyView.swift
+!Sources/Mono/Views/Player/AriaStage/Lyrics/AriaForeignLyricStages.swift
+!Sources/Mono/Views/Player/AriaStage/Settings/AriaLandscapeSettingsView.swift
+!Sources/Mono/Views/Player/AriaStage/Lyrics/AriaLyricTypography.swift
+!Sources/Mono/Views/Player/AriaStage/Lyrics/AriaLyricDepth.swift
+!Sources/Mono/Views/Player/Components/Fonts/MonoFontPicker.swift
+!Sources/Mono/Views/Player/Components/Menus/MonoMoreMenu.swift
+!Sources/Mono/ViewModels/Developer/DebugLogViewModel.swift
+!Sources/Mono/Views/Developer/DeveloperToolsView.swift
+!Sources/Mono/Views/Components/Lyrics/KaraokeWordStyle.swift
+!Sources/Mono/Managers/Appearance/CustomFontManager.swift
+!Sources/Mono/Managers/Settings/ChangelogManager.swift
+!Sources/Mono/Views/Components/Feedback/ChangelogPopupView.swift
+!Sources/Mono/Views/Settings/ChangelogHistoryView.swift
+!Sources/Mono/Views/Components/Page/AsideDetailHeroHeader.swift
+!Sources/Mono/Managers/Listening/ListeningStatsRecorder.swift
+!Sources/Mono/Managers/Listening/ListeningReportService.swift
+!Sources/Mono/Views/Listening/ListeningReportView.swift
+!Sources/Mono/Views/Components/Feedback/ListeningReportPopupView.swift
+!Sources/Mono/Themes/Manga/MangaComicSystem.swift
+!Sources/Mono/Themes/RemovedThemeCompatibility/RemovedPureWhiteCompatibility.swift
+!Sources/Mono/Models/AI/AIEqualizerModels.swift
+!Sources/Mono/Managers/AI/AIProviderConfigurationStore.swift
+!Sources/Mono/Managers/AI/AIEqualizerPrompt.swift
+!Sources/Mono/Managers/AI/AIEqualizerFeatureSampler.swift
+!Sources/Mono/Managers/AI/AIEqualizerAgent.swift
+!Sources/Mono/Playback/Engine/MonoPlaybackEngine.swift
+!Sources/Mono/Playback/Engine/MonoPlaybackEngine+Controls.swift
+!Sources/Mono/Playback/Engine/MonoPlaybackEngine+Internal.swift
+!Sources/Mono/Playback/Engine/MonoPlaybackEngine+PlaybackAPI.swift
+!Sources/Mono/Playback/Engine/MonoPlaybackEngine+Seek.swift
+!Sources/Mono/Playback/Engine/MonoPlaybackEngine+Setup.swift
 
 # Playback engine subsystems (PlayerManager facade collaborators).
-!Sources/Monologue/Playback/
-!Sources/Monologue/Playback/State/PlaybackModels.swift
-!Sources/Monologue/Playback/Session/AudioSessionCoordinator.swift
-!Sources/Monologue/Playback/State/PlaybackHeartbeat.swift
-!Sources/Monologue/Playback/Engine/GaplessEngine.swift
-!Sources/Monologue/Playback/Resolution/MediaSourceResolver.swift
-!Sources/Monologue/Playback/NowPlaying/NowPlayingController.swift
-!Sources/Monologue/Playback/NowPlaying/WidgetPlaybackSync.swift
-!Sources/Monologue/Playback/State/PlaybackPersistence.swift
-!Sources/Monologue/Playback/Cache/DecryptedAudioCacheGovernor.swift
-!Sources/Monologue/Playback/Session/SleepAndFadeController.swift
-!Sources/Monologue/Managers/AI/AIUsageLimiter.swift
-!Sources/Monologue/Network/AI/AIProviderClient.swift
-!Sources/Monologue/Network/AI/AppleIntelligenceEqualizerProvider.swift
-!Sources/Monologue/Network/Media/MoeWallsService.swift
-!Sources/Monologue/Views/Developer/AIProviderDeveloperSettingsView.swift
-!Sources/Monologue/Views/AudioCenter/AIEqualizerLabView.swift
+!Sources/Mono/Playback/
+!Sources/Mono/Playback/State/PlaybackModels.swift
+!Sources/Mono/Playback/Session/AudioSessionCoordinator.swift
+!Sources/Mono/Playback/State/PlaybackHeartbeat.swift
+!Sources/Mono/Playback/Engine/GaplessEngine.swift
+!Sources/Mono/Playback/Resolution/MediaSourceResolver.swift
+!Sources/Mono/Playback/NowPlaying/NowPlayingController.swift
+!Sources/Mono/Playback/NowPlaying/WidgetPlaybackSync.swift
+!Sources/Mono/Playback/State/PlaybackPersistence.swift
+!Sources/Mono/Playback/Cache/DecryptedAudioCacheGovernor.swift
+!Sources/Mono/Playback/Session/SleepAndFadeController.swift
+!Sources/Mono/Managers/AI/AIUsageLimiter.swift
+!Sources/Mono/Network/AI/AIProviderClient.swift
+!Sources/Mono/Network/AI/AppleIntelligenceEqualizerProvider.swift
+!Sources/Mono/Network/Media/MoeWallsService.swift
+!Sources/Mono/Views/Developer/AIProviderDeveloperSettingsView.swift
+!Sources/Mono/Views/AudioCenter/AIEqualizerLabView.swift
 
 # Mono next-generation playback suite sources.
-!Sources/Monologue/Models/Session/MonoNextSuiteModels.swift
-!Sources/Monologue/Managers/Session/MonoNextSuiteManager.swift
-!Sources/Monologue/Managers/Session/MonoSessionManager.swift
-!Sources/Monologue/Views/AudioCenter/MonoSuiteSettingsView.swift
-!Sources/Monologue/Views/Session/MonoSessionPlayerView.swift
+!Sources/Mono/Models/Session/MonoNextSuiteModels.swift
+!Sources/Mono/Managers/Session/MonoNextSuiteManager.swift
+!Sources/Mono/Managers/Session/MonoSessionManager.swift
+!Sources/Mono/Views/AudioCenter/MonoSuiteSettingsView.swift
+!Sources/Mono/Views/Session/MonoSessionPlayerView.swift
 !Packages/Audio/ffmpeg-swift/Sources/FFmpegSwiftSDK/Engine/MonoStemSeparator.swift
 !/Services/Server/mono-session/
 !/Services/Server/mono-session/**
-!Sources/Monologue/Views/Player/Components/Backgrounds/ImmersiveBackgroundLandscapeView.swift
-!Sources/Monologue/Views/Player/Components/Backgrounds/MoeWallsBrowserView.swift
+!Sources/Mono/Views/Player/Components/Backgrounds/ImmersiveBackgroundLandscapeView.swift
+!Sources/Mono/Views/Player/Components/Backgrounds/MoeWallsBrowserView.swift
 /Tools/AgentStudio/
 /mineradio-ref
 *.png
+
+# Main app assets remain versioned after the Sources/Mono directory rename.
+!Sources/Mono/**/*.png
 
 # Maintained project documentation.
 !docs/
@@ -217,6 +231,8 @@ test_layout.swift
 !docs/specs/main-tabs-theme-frame-drop/
 !docs/specs/main-tabs-theme-frame-drop/**
 /docs/architecture/
+/docs/.artifacts/
+/output/
 
 # Relocated local packages, design sources and website assets.
 # These exceptions keep already-versioned source assets visible after the move
@@ -231,3 +247,4 @@ test_layout.swift
 !DesignAssets/**/*.zip
 !Web/website/**/*.md
 !Web/website/**/*.png
+*.pdf

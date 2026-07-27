@@ -1,5 +1,5 @@
 // NCMClient+Enhanced433.swift
-// NeteaseCloudMusicApiEnhanced 4.33.0 新增接口与 Monologue 本地增强接口
+// NeteaseCloudMusicApiEnhanced 4.33.0 新增接口与 Mono 本地增强接口
 
 import Foundation
 
@@ -245,26 +245,26 @@ extension NCMClient {
     }
 }
 
-// MARK: - Monologue Backend Extensions
+// MARK: - Mono Backend Extensions
 
 extension NCMClient {
 
-    /// Monologue 本地增强：旧版 banner 兜底。
+    /// Mono 本地增强：旧版 banner 兜底。
     public func bannerBackup(type: BannerType = .iphone) async throws -> APIResponse {
         return try await backendRoute("/banner/backup", data: ["type": type.rawValue])
     }
 
-    /// Monologue 本地增强：播客首页组合 Tab。
+    /// Mono 本地增强：播客首页组合 Tab。
     public func podcastHomeTab() async throws -> APIResponse {
         return try await backendRoute("/podcast/home/tab")
     }
 
-    /// Monologue 本地增强：查询歌曲可用音质。
+    /// Mono 本地增强：查询歌曲可用音质。
     public func songQualities(id: Int) async throws -> APIResponse {
         return try await backendRoute("/song/qualities", data: ["id": id])
     }
 
-    /// Monologue 本地增强：GD 音源兜底链接。
+    /// Mono 本地增强：GD 音源兜底链接。
     public func songUrlNcmget(id: Int, br: Int = 320) async throws -> APIResponse {
         return try await backendRoute("/song/url/ncmget", data: [
             "id": id,
@@ -272,7 +272,7 @@ extension NCMClient {
         ])
     }
 
-    /// Monologue 本地增强：生成播放短链。
+    /// Mono 本地增强：生成播放短链。
     public func playShorten(url: String) async throws -> APIResponse {
         return try await backendRoute("/play/shorten", data: ["url": url])
     }

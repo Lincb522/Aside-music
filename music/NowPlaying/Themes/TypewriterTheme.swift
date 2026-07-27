@@ -186,7 +186,7 @@ struct TypewriterWidgetTheme: View {
                 .padding(14)
             }
         }
-        .widgetURL(URL(string: "monologue://player"))
+        .widgetURL(URL(string: "mono://player"))
     }
 
     // MARK: - Medium Layout (Deck + Paper)
@@ -299,7 +299,7 @@ struct TypewriterWidgetTheme: View {
                 .frame(height: deckHeight)
             }
         }
-        .widgetURL(URL(string: "monologue://player"))
+        .widgetURL(URL(string: "mono://player"))
     }
 
     // Helper explicitly wrapping button creation
@@ -429,6 +429,6 @@ struct TypewriterWidgetTheme: View {
                 }
             }
         }
-        .widgetURL(URL(string: "monologue://player"))
+        .widgetURL(URL(string: "mono://player"))
     }
 }

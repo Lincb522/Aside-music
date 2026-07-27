@@ -102,7 +102,7 @@ struct PagerWidgetTheme: View {
             }
             .background(deviceBody(cornerRadius: 22))
         }
-        .widgetURL(URL(string: "monologue://player"))
+        .widgetURL(URL(string: "mono://player"))
     }
 
     // MARK: - Medium
@@ -211,7 +211,7 @@ struct PagerWidgetTheme: View {
             }
             .background(deviceBody(cornerRadius: 22))
         }
-        .widgetURL(URL(string: "monologue://player"))
+        .widgetURL(URL(string: "mono://player"))
     }
 
     // MARK: - Large
@@ -339,7 +339,7 @@ struct PagerWidgetTheme: View {
             }
             .background(deviceBody(cornerRadius: 26))
         }
-        .widgetURL(URL(string: "monologue://player"))
+        .widgetURL(URL(string: "mono://player"))
     }
 
     // MARK: - 共享组件

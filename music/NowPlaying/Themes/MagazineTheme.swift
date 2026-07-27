@@ -112,7 +112,7 @@ struct MagazineTheme: View {
                 .padding(.bottom, 8)
             }
         }
-        .widgetURL(URL(string: "monologue://player"))
+        .widgetURL(URL(string: "mono://player"))
     }
 
     // MARK: - Medium
@@ -219,7 +219,7 @@ struct MagazineTheme: View {
                 .padding(.vertical, 10)
             }
         }
-        .widgetURL(URL(string: "monologue://player"))
+        .widgetURL(URL(string: "mono://player"))
     }
 
     // MARK: - Large — 杂志内页风格
@@ -376,6 +376,6 @@ struct MagazineTheme: View {
                 .padding(.bottom, 10)
             }
         }
-        .widgetURL(URL(string: "monologue://player"))
+        .widgetURL(URL(string: "mono://player"))
     }
 }

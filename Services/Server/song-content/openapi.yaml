@@ -1,0 +1,172 @@
+openapi: 3.1.0
+info:
+  title: AsideMusic Song Content API
+  version: 1.0.0
+servers:
+  - url: https://ncm.zijiu522.cn
+security:
+  - appToken: []
+paths:
+  /api/public/song-content:
+    get:
+      summary: 获取统一歌曲、已发布内容、来源和生成状态
+      parameters:
+        - $ref: '#/components/parameters/Platform'
+        - $ref: '#/components/parameters/SongID'
+        - $ref: '#/components/parameters/Locale'
+      responses:
+        '200': { description: 歌曲详情 }
+        '304': { description: 内容版本未变化 }
+        '409': { description: 歌曲身份待确认 }
+        '429': { description: 请求过于频繁 }
+  /api/public/song-content/ensure:
+    post:
+      summary: 幂等创建首次内容生成任务
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [platform, song_id, locale, song]
+              properties:
+                platform: { type: string, enum: [NCM, QCM, QSM, KCM, AM] }
+                song_id: { type: string }
+                locale: { type: string }
+                song:
+                  type: object
+                  required: [title, artists]
+                  properties:
+                    title: { type: string }
+                    artists:
+                      type: array
+                      items:
+                        type: object
+                        required: [id, name]
+                        properties:
+                          id: { type: string }
+                          name: { type: string }
+                    album:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        name: { type: string }
+                    duration_ms: { type: integer }
+                    cover_url: { type: string, format: uri }
+                    isrc: { type: string }
+                    platform_artist_id: { type: string }
+                    platform_album_id: { type: string }
+      responses:
+        '200': { description: 已存在已发布内容 }
+        '202': { description: 已创建或复用生成任务 }
+  /api/public/song-content/jobs/{jobId}:
+    get:
+      summary: 获取安全的生成任务状态
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: 任务状态 }
+        '404': { description: 任务不存在 }
+  /api/public/song-content-config:
+    get:
+      summary: 获取设备适用的歌曲内容与 App Agent 公开配置
+      parameters:
+        - { name: app_version, in: query, schema: { type: string } }
+        - { name: client_platform, in: query, schema: { type: string } }
+        - { name: region, in: query, schema: { type: string } }
+        - { name: device_uuid, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: 版本化公开配置，含客户端模块、缓存策略和五类 App Agent 运行配置
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicAppConfiguration' }
+        '304': { description: 配置版本未变化 }
+  /api/song-content/content/{versionId}:
+    get:
+      summary: 获取审核上下文、字段差异、来源和生成成本
+      security: [{ adminToken: [] }]
+      parameters:
+        - { name: versionId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: 内容审核数据 }
+  /api/song-content/content/{versionId}/publish:
+    post:
+      summary: 原子发布内容版本
+      security: [{ adminToken: [] }]
+      responses:
+        '200': { description: 已发布 }
+  /api/song-content/config/{versionId}/validate:
+    post:
+      summary: 执行预发布配置验证
+      security: [{ adminToken: [] }]
+      responses:
+        '200': { description: 验证通过 }
+        '422': { description: 验证未通过 }
+  /api/song-content/app-ai/test:
+    post:
+      summary: 使用 App AI 配置测试模型接口
+      security: [{ adminToken: [] }]
+      responses:
+        '200': { description: 连接正常 }
+components:
+  securitySchemes:
+    appToken:
+      type: apiKey
+      in: query
+      name: token
+    adminToken:
+      type: apiKey
+      in: header
+      name: x-admin-token
+  parameters:
+    Platform:
+      name: platform
+      in: query
+      required: true
+      schema: { type: string, enum: [NCM, QCM, KCM, AM] }
+    SongID:
+      name: song_id
+      in: query
+      required: true
+      schema: { type: string }
+    Locale:
+      name: locale
+      in: query
+      schema: { type: string, default: zh-CN }
+  schemas:
+    PublicAppConfiguration:
+      type: object
+      required: [schema_version, release, version, enabled, modules, agent_management_enabled, agents, polling_interval_seconds, cache_max_age_seconds]
+      properties:
+        schema_version: { type: integer, enum: [2] }
+        release: { type: string }
+        version: { type: integer }
+        enabled: { type: boolean }
+        modules: { type: object, additionalProperties: { type: boolean } }
+        agent_management_enabled: { type: boolean }
+        agents:
+          type: object
+          properties:
+            equalizer: { $ref: '#/components/schemas/AppAgentConfiguration' }
+            listeningInsight: { $ref: '#/components/schemas/AppAgentConfiguration' }
+            specialGreeting: { $ref: '#/components/schemas/AppAgentConfiguration' }
+            stageDirector: { $ref: '#/components/schemas/AppAgentConfiguration' }
+            wallpaperTranslator: { $ref: '#/components/schemas/AppAgentConfiguration' }
+        polling_interval_seconds: { type: integer }
+        cache_max_age_seconds: { type: integer }
+    AppAgentConfiguration:
+      type: object
+      required: [enabled, promptVersion, systemPrompt, secondarySystemPrompt, userPromptTemplate, temperature, maxOutputTokens, minimumTimeoutSeconds]
+      properties:
+        enabled: { type: boolean }
+        promptVersion: { type: string }
+        systemPrompt: { type: string }
+        secondarySystemPrompt: { type: string }
+        userPromptTemplate: { type: string }
+        temperature: { type: number, minimum: 0, maximum: 2 }
+        maxOutputTokens: { type: integer, minimum: 128, maximum: 32000 }
+        minimumTimeoutSeconds: { type: number, minimum: 0, maximum: 180 }

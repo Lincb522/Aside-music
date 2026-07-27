@@ -65,11 +65,6 @@ struct MoreView: View {
 
             Section("工具") {
                 NavigationLink {
-                    UnblockView(vm: vm)
-                } label: {
-                    Label("解灰测试", systemImage: "wand.and.stars")
-                }
-                NavigationLink {
                     MiscView(vm: vm)
                 } label: {
                     Label("更多功能", systemImage: "ellipsis.circle")

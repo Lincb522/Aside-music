@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Agent 管理 - 两条鱼</title>
+  <link rel="icon" href="./brand-mark.svg">
+  <link rel="stylesheet" href="./assets/admin.css">
+  <link rel="stylesheet" href="./assets/admin-terminal.css?v=202607231520">
+  <link rel="stylesheet" href="./assets/song-content.css?v=2026072704">
+</head>
+<body>
+  <div id="authGate" class="auth-gate hidden">
+    <div class="auth-panel">
+      <div class="brand-lockup">
+        <img src="./brand-mark.svg" alt="两条鱼" loading="eager" decoding="async">
+        <div class="brand-copy">
+          <small>NCM.ZIJIU522.CN</small>
+          <h1>管理入口</h1>
+          <p>输入管理密码以继续</p>
+        </div>
+      </div>
+      <div class="form-stack">
+        <div class="field">
+          <label for="loginPassword">管理密码</label>
+          <input id="loginPassword" type="password" autocomplete="current-password">
+        </div>
+        <div id="loginError" class="error-text" role="alert"></div>
+        <button id="loginButton" class="btn btn-primary btn-large">进入控制台</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="appShell" class="shell hidden">
+    <header class="masthead">
+      <div class="brand-lockup brand-lockup--compact">
+        <img src="./brand-mark.svg" alt="两条鱼" loading="eager" decoding="async">
+        <div class="brand-copy">
+          <small>NCM.ZIJIU522.CN</small>
+          <h1>Agent 管理</h1>
+        </div>
+      </div>
+      <nav class="main-nav" aria-label="主导航">
+        <a href="./">首页</a>
+        <a href="./tokens">Token 管理</a>
+        <a class="is-active" href="./agents">Agent 管理</a>
+        <a href="./ipa">IPA 管理</a>
+        <a href="./changelogs">更新日志</a>
+      </nav>
+      <div class="masthead-actions">
+        <button id="refreshButton" class="btn btn-secondary">刷新</button>
+        <button id="logoutButton" class="btn btn-ghost">退出</button>
+      </div>
+    </header>
+
+    <main class="page content-console">
+      <section class="page-hero content-console-hero">
+        <div class="page-hero-copy">
+          <h2>Agent 管理</h2>
+        </div>
+        <div class="content-console-health" id="serviceHealth" aria-live="polite">正在读取</div>
+      </section>
+
+      <section id="contentSummary" class="summary-strip hidden" aria-label="内容统计">
+        <article class="summary-tile"><span>歌曲</span><strong id="statSongs">…</strong></article>
+        <article class="summary-tile"><span>已发布</span><strong id="statPublished">…</strong></article>
+        <article class="summary-tile"><span>待审核</span><strong id="statReview">…</strong></article>
+        <article class="summary-tile"><span>生成中</span><strong id="statActiveJobs">…</strong></article>
+        <article class="summary-tile"><span>失败任务</span><strong id="statFailedJobs">…</strong></article>
+        <article class="summary-tile"><span>来源</span><strong id="statSources">…</strong></article>
+        <article class="summary-tile"><span>AI 费用</span><strong id="statCost">…</strong></article>
+      </section>
+
+      <div class="content-console-tabs" role="tablist" aria-label="内容管理模块">
+        <button class="content-console-tab is-active" data-view="config" role="tab" aria-selected="true">Agent 配置</button>
+        <button class="content-console-tab" data-view="content" role="tab" aria-selected="false">内容审核</button>
+        <button class="content-console-tab" data-view="songs" role="tab" aria-selected="false">歌曲</button>
+        <button class="content-console-tab" data-view="jobs" role="tab" aria-selected="false">生成任务</button>
+        <button class="content-console-tab" data-view="sources" role="tab" aria-selected="false">来源</button>
+        <button class="content-console-tab" data-view="access" role="tab" aria-selected="false">权限</button>
+        <button class="content-console-tab" data-view="audit" role="tab" aria-selected="false">审计日志</button>
+      </div>
+
+      <section id="contentView" class="content-console-view hidden">
+        <div class="content-review-layout">
+          <article class="panel content-list-panel">
+            <div class="panel-head content-filter-head">
+              <div>
+                <h3>内容版本</h3>
+              </div>
+              <label class="field content-filter">
+                <span class="sr-only">内容状态</span>
+                <select id="contentStatusFilter">
+                  <option value="pending_review">待审核</option>
+                  <option value="draft">草稿</option>
+                  <option value="published">已发布</option>
+                  <option value="offline">已下线</option>
+                  <option value="rejected">已驳回</option>
+                  <option value="">全部</option>
+                </select>
+              </label>
+            </div>
+            <div id="contentList" class="review-list" aria-live="polite"></div>
+          </article>
+
+          <article id="reviewPanel" class="panel review-panel">
+            <div id="reviewEmpty" class="empty-state">
+              <h3 class="empty-state-title">选择内容版本</h3>
+            </div>
+            <div id="reviewDetail" class="hidden">
+              <div class="panel-head review-heading">
+                <div>
+                  <p id="reviewArtist" class="text-muted"></p>
+                  <h3 id="reviewTitle"></h3>
+                  <div id="reviewMeta" class="review-meta"></div>
+                </div>
+                <span id="reviewStatus" class="badge badge-neutral"></span>
+              </div>
+
+              <div id="reviewComparison" class="review-comparison hidden">
+                <div><strong>当前版本</strong><span id="publishedVersion"></span></div>
+                <div><strong>候选版本</strong><span id="candidateVersion"></span></div>
+              </div>
+
+              <section class="review-context-grid">
+                <div><h4>歌曲身份</h4><div id="reviewIdentity" class="key-value-list"></div></div>
+                <div><h4>生成记录</h4><div id="reviewGeneration" class="key-value-list"></div></div>
+              </section>
+
+              <section id="reviewDiffSection" class="review-evidence hidden">
+                <div class="review-section-head"><h4>字段差异</h4></div>
+                <div id="reviewDiff" class="diff-list"></div>
+              </section>
+
+              <div class="review-fields">
+                <label class="field"><span>歌曲介绍</span><textarea id="songSummary"></textarea></label>
+                <label class="field"><span>创作故事</span><textarea id="creationStory"></textarea></label>
+                <label class="field"><span>乐评</span><textarea id="background"></textarea></label>
+                <label class="field"><span>专辑介绍</span><textarea id="albumSummary"></textarea></label>
+              </div>
+
+              <section class="review-evidence">
+                <div class="review-section-head"><h4>来源</h4><span id="sourceCount" class="text-muted"></span></div>
+                <div id="reviewSources" class="source-list"></div>
+              </section>
+
+              <section class="review-evidence">
+                <div class="review-section-head"><h4>自动检查</h4></div>
+                <div id="reviewValidation" class="validation-list"></div>
+              </section>
+
+              <div class="review-actions">
+                <button id="saveDraftButton" class="btn btn-secondary">保存为新草稿</button>
+                <button id="submitButton" class="btn btn-secondary">提交审核</button>
+                <button id="rejectButton" class="btn btn-secondary">驳回</button>
+                <button id="publishButton" class="btn btn-primary">发布</button>
+                <button id="rollbackButton" class="btn btn-secondary">回滚到此版本</button>
+                <button id="offlineButton" class="btn btn-danger">下线</button>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="songsView" class="content-console-view hidden">
+        <article class="panel">
+          <div class="panel-head content-filter-head">
+            <div><h3>歌曲</h3></div>
+            <div class="field content-search"><label for="songSearch">搜索</label><input id="songSearch" type="text"></div>
+          </div>
+          <div class="table-scroll"><table class="content-table"><thead><tr><th>歌曲</th><th>身份</th><th>平台映射</th><th>白名单</th><th>内容</th><th>操作</th></tr></thead><tbody id="songsTable"></tbody></table></div>
+        </article>
+      </section>
+
+      <section id="jobsView" class="content-console-view hidden">
+        <article class="panel"><div class="panel-head"><div><h3>生成任务</h3></div></div><div class="table-scroll"><table class="content-table"><thead><tr><th>任务</th><th>状态</th><th>尝试</th><th>Token / 费用</th><th>耗时</th><th>错误</th><th></th></tr></thead><tbody id="jobsTable"></tbody></table></div></article>
+      </section>
+
+      <section id="sourcesView" class="content-console-view hidden">
+        <article class="panel"><div class="panel-head"><div><h3>来源</h3></div></div><div class="table-scroll"><table class="content-table"><thead><tr><th>来源</th><th>等级</th><th>发布方</th><th>类型</th><th>关联字段</th><th>抓取时间</th><th>状态</th><th></th></tr></thead><tbody id="sourcesTable"></tbody></table></div></article>
+      </section>
+
+      <section id="configView" class="content-console-view">
+        <div class="workspace-grid workspace-grid--two">
+          <article class="panel">
+            <div class="panel-head"><div><h3>App AI 配置</h3><p id="appAIRevision" class="text-muted"></p></div><span id="appAIKeyStatus" class="badge badge-neutral"></span></div>
+            <div class="config-grid">
+              <label class="field"><span>状态</span><select id="appAIEnabled"><option value="true">开启</option><option value="false">关闭</option></select></label>
+              <label class="field"><span>协议</span><select id="appAIProtocol"><option value="appleIntelligence">Apple Intelligence</option><option value="openAIResponses">OpenAI Responses</option><option value="openAIChat">OpenAI Chat Completions</option><option value="anthropicMessages">Anthropic Messages</option><option value="googleGemini">Google Gemini</option><option value="azureOpenAI">Azure OpenAI</option><option value="ollama">Ollama</option><option value="openAICompatible">OpenAI Compatible</option></select></label>
+              <label class="field config-wide"><span>API 地址</span><input id="appAIBaseURL" type="url"></label>
+              <label class="field"><span>模型</span><input id="appAIModel" type="text"></label>
+              <label class="field"><span>模型列表接口</span><input id="appAIModelDiscoveryURL" type="url"></label>
+              <label class="field"><span>超时（秒）</span><input id="appAITimeout" type="number" min="10" max="180"></label>
+              <label class="field"><span>API Key</span><input id="appAIAPIKey" type="password" autocomplete="new-password"></label>
+              <label class="field config-wide"><span>自定义请求头 JSON</span><textarea id="appAIHeaders"></textarea></label>
+              <label class="field"><span>每日请求上限</span><input id="appAIDailyLimit" type="number" min="0" max="10000"></label>
+              <label class="field"><span>每小时请求上限</span><input id="appAIHourlyLimit" type="number" min="0" max="1000"></label>
+              <label class="field"><span>最短请求间隔（秒）</span><input id="appAIMinInterval" type="number" min="0" max="3600"></label>
+            </div>
+            <div class="review-actions"><button id="testAppAIButton" class="btn btn-secondary">测试连接</button><button id="saveAppAIButton" class="btn btn-primary">保存 App AI 配置</button></div>
+          </article>
+
+          <article class="panel agent-config-panel">
+            <div class="panel-head">
+              <div><h3>App Agent 下发</h3></div>
+              <label class="field agent-master-switch"><span>远程配置</span><select id="configAgentManagementEnabled"><option value="true">开启</option><option value="false">关闭</option></select></label>
+            </div>
+            <div class="agent-config-list">
+              <details class="agent-config-card" data-agent-key="equalizer" open>
+                <summary><strong>音效调音 Agent</strong><span data-agent-version></span></summary>
+                <div class="config-grid agent-config-fields">
+                  <label class="field"><span>状态</span><select data-agent-field="enabled"><option value="true">开启</option><option value="false">关闭</option></select></label>
+                  <label class="field"><span>提示词版本</span><input data-agent-field="promptVersion" type="text"></label>
+                  <label class="field"><span>温度</span><input data-agent-field="temperature" type="number" min="0" max="2" step="0.1"></label>
+                  <label class="field"><span>最大输出 Token</span><input data-agent-field="maxOutputTokens" type="number" min="128" max="32000"></label>
+                  <label class="field"><span>最低超时（秒）</span><input data-agent-field="minimumTimeoutSeconds" type="number" min="0" max="180"></label>
+                  <label class="field config-wide"><span>10 段系统提示词（空则使用 App 内置）</span><textarea data-agent-field="systemPrompt"></textarea></label>
+                  <label class="field config-wide"><span>32 段系统提示词（空则使用上项或 App 内置）</span><textarea data-agent-field="secondarySystemPrompt"></textarea></label>
+                  <label class="field config-wide"><span>用户提示词模板（{{input}} 为 App 输入）</span><textarea data-agent-field="userPromptTemplate"></textarea></label>
+                </div>
+              </details>
+              <details class="agent-config-card" data-agent-key="listeningInsight">
+                <summary><strong>听歌洞察 Agent</strong><span data-agent-version></span></summary>
+                <div class="config-grid agent-config-fields"></div>
+              </details>
+              <details class="agent-config-card" data-agent-key="specialGreeting">
+                <summary><strong>每日问候 Agent</strong><span data-agent-version></span></summary>
+                <div class="config-grid agent-config-fields"></div>
+              </details>
+              <details class="agent-config-card" data-agent-key="stageDirector">
+                <summary><strong>歌词舞台 Agent</strong><span data-agent-version></span></summary>
+                <div class="config-grid agent-config-fields"></div>
+              </details>
+              <details class="agent-config-card" data-agent-key="wallpaperTranslator">
+                <summary><strong>壁纸搜索翻译 Agent</strong><span data-agent-version></span></summary>
+                <div class="config-grid agent-config-fields"></div>
+              </details>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head"><div><h3>内容生成与检索</h3></div><span id="configRetrievalStatus" class="badge badge-neutral"></span></div>
+            <div class="config-grid">
+              <fieldset class="config-wide retrieval-config">
+                <legend>联网检索</legend>
+                <div class="config-grid">
+                  <label class="field"><span>状态</span><select id="configWebRetrieval"><option value="true">开启</option><option value="false">关闭</option></select></label>
+                  <label class="field"><span>网页来源上限</span><input id="configWebMaximumSources" type="number" min="1" max="10"></label>
+                  <div class="retrieval-provider-group config-wide">
+                    <span>检索服务</span>
+                    <div class="retrieval-provider-list">
+                      <label><input id="configProvider360" type="checkbox">360 搜索</label>
+                      <label><input id="configProviderBing" type="checkbox">Bing</label>
+                      <label><input id="configProviderSogou" type="checkbox">搜狗</label>
+                    </div>
+                  </div>
+                  <div class="retrieval-provider-group config-wide">
+                    <span>重点来源</span>
+                    <div class="retrieval-provider-list">
+                      <label><input id="configSourceDouban" type="checkbox">豆瓣</label>
+                      <label><input id="configSourceXiaohongshu" type="checkbox">小红书</label>
+                    </div>
+                  </div>
+                  <div class="retrieval-policy"><span>正文要求</span><strong>必须可访问</strong></div>
+                </div>
+              </fieldset>
+              <label class="field"><span>备用模型</span><input id="configFallbackModel" type="text"></label>
+              <label class="field"><span>提示词版本</span><input id="configPromptVersion" type="text"></label>
+              <label class="field"><span>内容结构版本</span><input id="configSchemaVersion" type="text"></label>
+              <label class="field"><span>温度</span><input id="configTemperature" type="number" min="0" max="2" step="0.1"></label>
+              <label class="field"><span>最大输出 Token</span><input id="configMaxOutput" type="number" min="256" max="32000"></label>
+              <label class="field"><span>单任务 Token 上限</span><input id="configTaskTokenLimit" type="number" min="256" max="100000"></label>
+              <label class="field"><span>最大重试</span><input id="configMaxAttempts" type="number" min="1" max="10"></label>
+              <label class="field"><span>并发</span><input id="configConcurrency" type="number" min="1" max="64"></label>
+              <label class="field"><span>每分钟请求</span><input id="configRequestsPerMinute" type="number" min="1" max="10000"></label>
+              <label class="field"><span>熔断失败阈值</span><input id="configCircuitBreaker" type="number" min="1" max="100"></label>
+              <label class="field"><span>每日预算</span><input id="configDailyBudget" type="number" min="0" step="0.01"></label>
+              <label class="field"><span>自动发布</span><select id="configAutoPublish"><option value="false">关闭</option><option value="true">开启</option></select></label>
+              <label class="field"><span>最低来源等级</span><select id="configMinimumGrade"><option value="A">A</option><option value="B">B</option><option value="C">C</option></select></label>
+              <label class="field"><span>高风险人工审核</span><select id="configHighRiskReview"><option value="true">开启</option><option value="false">关闭</option></select></label>
+              <label class="field"><span>来源冲突人工审核</span><select id="configConflictReview"><option value="true">开启</option><option value="false">关闭</option></select></label>
+              <label class="field config-wide"><span>系统提示词</span><textarea id="configSystemPrompt"></textarea></label>
+              <label class="field config-wide"><span>内容提示词</span><textarea id="configContentPrompt"></textarea></label>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head"><div><h3>客户端配置</h3></div></div>
+            <div class="config-grid">
+              <label class="field"><span>歌曲内容</span><select id="configEnabled"><option value="true">开启</option><option value="false">关闭</option></select></label>
+              <label class="field"><span>灰度比例</span><input id="configRollout" type="number" min="0" max="100"></label>
+              <label class="field"><span>轮询间隔（秒）</span><input id="configPolling" type="number" min="2" max="30"></label>
+              <label class="field"><span>缓存时间（秒）</span><input id="configCache" type="number" min="30" max="86400"></label>
+              <label class="field"><span>最低 App 版本</span><input id="configMinVersion" type="text"></label>
+              <label class="field"><span>最高 App 版本</span><input id="configMaxVersion" type="text"></label>
+              <label class="field"><span>平台</span><input id="configPlatforms" type="text"></label>
+              <label class="field"><span>地区</span><input id="configRegions" type="text"></label>
+              <label class="field"><span>生效时间</span><input id="configEffectiveAt" type="datetime-local"></label>
+              <label class="field config-wide"><span>设备白名单</span><textarea id="configDeviceWhitelist"></textarea></label>
+            </div>
+            <fieldset class="module-switches"><legend>界面模块</legend><label><input id="moduleSongSummary" type="checkbox">歌曲介绍</label><label><input id="moduleCreationStory" type="checkbox">创作故事</label><label><input id="moduleBackground" type="checkbox">乐评</label><label><input id="moduleAlbumSummary" type="checkbox">专辑介绍</label><label><input id="moduleSources" type="checkbox">来源</label><label><input id="moduleSimilarSongs" type="checkbox">相似歌曲</label><label><input id="moduleArtistSongs" type="checkbox">歌手其他歌曲</label></fieldset>
+            <div class="review-actions"><button id="saveConfigButton" class="btn btn-secondary">保存草稿</button></div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head"><div><h3>配置版本</h3></div></div>
+            <div id="configVersions" class="review-list config-version-list"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="accessView" class="content-console-view hidden">
+        <div class="workspace-grid workspace-grid--two">
+          <article class="panel"><div class="panel-head"><div><h3>角色</h3></div></div><div id="rolesList" class="key-value-list"></div></article>
+          <article class="panel"><div class="panel-head"><div><h3>权限分配</h3></div></div><div class="config-grid"><label class="field"><span>操作者</span><input id="accessActor" type="text"></label><label class="field"><span>角色</span><select id="accessRole"></select></label></div><div class="review-actions"><button id="assignRoleButton" class="btn btn-primary">分配角色</button></div><div id="assignmentsList" class="review-list config-version-list"></div></article>
+        </div>
+      </section>
+
+      <section id="auditView" class="content-console-view hidden">
+        <article class="panel"><div class="panel-head"><div><h3>审计日志</h3></div></div><div class="table-scroll"><table class="content-table"><thead><tr><th>时间</th><th>操作者</th><th>操作</th><th>对象</th><th>请求</th></tr></thead><tbody id="auditTable"></tbody></table></div></article>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast" role="status"></div>
+  <script src="./assets/admin-core.js"></script>
+  <script src="./assets/song-content-page.js?v=2026072706"></script>
+</body>
+</html>

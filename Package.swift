@@ -2,15 +2,15 @@
 import PackageDescription
 
 let package = Package(
-    name: "Monologue",
+    name: "Mono",
     defaultLocalization: "zh-Hans",
     platforms: [
         .iOS(.v16)
     ],
     products: [
         .library(
-            name: "Monologue",
-            targets: ["Monologue"]),
+            name: "Mono",
+            targets: ["Mono"]),
     ],
     dependencies: [
         // NeteaseCloudMusicAPI - ncm API 封装库（对齐后端 4.36.2）
@@ -44,7 +44,7 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "Monologue",
+            name: "Mono",
             dependencies: [
                 .product(name: "NeteaseCloudMusicAPI", package: "NeteaseCloudMusicAPI-Swift"),
                 .product(name: "FFmpegSwiftSDK", package: "ffmpeg-swift"),
@@ -77,15 +77,15 @@ let package = Package(
         // MARK: - 测试 Target(material3-expressive-theme Task 15)
         // 单元测试 + Property-Based Testing(PBT)Target
         .testTarget(
-            name: "MonologueTests",
-            dependencies: ["Monologue"],
-            path: "Tests/MonologueTests"
+            name: "MonoTests",
+            dependencies: ["Mono"],
+            path: "Tests/MonoTests"
         ),
         // UI / Snapshot 集成测试 Target
         .testTarget(
-            name: "MonologueUITests",
-            dependencies: ["Monologue"],
-            path: "Tests/MonologueUITests"
+            name: "MonoUITests",
+            dependencies: ["Mono"],
+            path: "Tests/MonoUITests"
         ),
     ]
 )

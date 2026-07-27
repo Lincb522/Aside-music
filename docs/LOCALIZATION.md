@@ -2,8 +2,8 @@
 
 Mono 的界面本地化统一放在：
 
-- `Sources/Monologue/Resources/zh-Hans.lproj/Localizable.strings`
-- `Sources/Monologue/Resources/en.lproj/Localizable.strings`
+- `Sources/Mono/Resources/zh-Hans.lproj/Localizable.strings`
+- `Sources/Mono/Resources/en.lproj/Localizable.strings`
 
 ## 代码规则
 

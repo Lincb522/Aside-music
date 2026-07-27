@@ -38,7 +38,7 @@
     - 运行 `(cd "${BACKUP_DIR}" && shasum -a 256 -c manifest.sha256)` 全部 OK
     - 若工作树有未提交改动：确认 `GIT_STASH_REF` 记录了 `git stash create` 返回的 commit hash（§5.4 bugfix）
   - [x] 1.5 执行 sample diff 校验（5 个关键文件，bugfix §5.3 + design §5.5）
-    - 对 `Package.swift` / `Sources/Monologue/MonologueApp.swift` / `Sources/Monologue/Views/ContentView.swift` / `Sources/Monologue/Themes/ThemeRenderLayer.swift` / `.kiro/specs/main-tabs-theme-frame-drop/bugfix.md` 分别执行 `diff -q "${BACKUP_DIR}/source/<file>" "./<file>"`
+    - 对 `Package.swift` / `Sources/Mono/MonoApp.swift` / `Sources/Mono/Views/ContentView.swift` / `Sources/Mono/Themes/ThemeRenderLayer.swift` / `.kiro/specs/main-tabs-theme-frame-drop/bugfix.md` 分别执行 `diff -q "${BACKUP_DIR}/source/<file>" "./<file>"`
     - 任一不一致 → 按 §5.7 `rm -rf "${BACKUP_DIR}"` 并回 Task 1 修 backup 脚本
     - 全部一致才把 Task 1 标记 complete
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.7_
@@ -214,7 +214,7 @@
 > 统一子任务范式：实现缓存 + 并行保留原路径（feature flag）+ Snapshot 矩阵子集回归（§4.1）+ 过渡曲线 diff（若涉及，§4.2）+ Instruments hitch 对比（与 baseline 对比）+ feature flag 默认值 + 开启条件。
 > 顺序按 design §M2 建议：Default → Manga → Muji → Capsule → 统一 `ThemeCustomDiffuseBackground`。
 
-- [ ] 14. Default 主题缓存化 · `MonologueBackground.defaultSystemBackground` + `ParallaxMountainHeader` + hitokoto 订阅下沉
+- [ ] 14. Default 主题缓存化 · `MonoBackground.defaultSystemBackground` + `ParallaxMountainHeader` + hitokoto 订阅下沉
   - [ ] 14.1 实现缓存：`defaultSystemBackground` 的 `Canvas + blur(60) + drawingGroup()` 通过 `ImageRenderer`（iOS 17+）按 `Key(themeId, colorScheme, paletteRevision, sizeRounded, displayScale)` 缓存为 `UIImage`，视图层改为 `Image(uiImage: cached)`；`rendererRevision` 变化时 evict
   - [ ] 14.2 实现缓存：`ParallaxMountainHeader` 的静态「山脊 / 天空渐变」预渲染为 `UIImage`；视差位移由外层 `ScrollView` 偏移驱动 `.offset(y:)`（保留原位移曲线）
   - [ ] 14.3 实现订阅下沉：hitokoto 组件的 `Canvas` 抽出独立子视图，仅在 hitokoto 文本 / 颜色变化时重绘

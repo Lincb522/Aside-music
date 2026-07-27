@@ -9,7 +9,7 @@
 
 ## Overview
 
-Monologue 在 20 种 `(主题 T, 主 tab P)` 组合下出现 hitch、首屏卡顿、滚动抖动、主题 / 外观切换闪滞等性能缺陷。bugfix.md 已定位 14 大类缺陷条款（§1~§14）与 6 条性能不变量（§15.1~§15.6）。
+Mono 在 20 种 `(主题 T, 主 tab P)` 组合下出现 hitch、首屏卡顿、滚动抖动、主题 / 外观切换闪滞等性能缺陷。bugfix.md 已定位 14 大类缺陷条款（§1~§14）与 6 条性能不变量（§15.1~§15.6）。
 
 本设计遵循"分层根因、分层修复、分层验证"的思路：
 - **根因层**：把 14 类缺陷按"订阅粒度 / 视图身份 / 绘制成本 / 布局构建 / 时间推进"五层归类，每层独立定位。
@@ -88,7 +88,7 @@ END FUNCTION
 | E6 | any | profile | lyricTick 且 isPlaying | RecentRadioStrip 订阅 $currentSong/$isPlaying，整条 strip 每句重绘 | 重绘范围限定到真正消费该状态的子组件 |
 | E7 | any | any | themeRevisionBump | globalThemeRevision &+= 1 → floating bar `.id("\(themeId)-\(revision)")` 整条换 identity + 4 tab 根 body 同时失效 | floating bar identity 稳定；重算 body 数 ≤ 该字段真正被消费节点数 |
 | E8 | any | any | colorSchemeFlip | 见 E7 同路径 | 同 E7 |
-| E9 | default | home | enterTab | MonologueBackground.defaultSystemBackground 的 Canvas+blur(60)+drawingGroup 每次入场重走 | 使用预渲染 Image 缓存，首帧无重复栅格化 |
+| E9 | default | home | enterTab | MonoBackground.defaultSystemBackground 的 Canvas+blur(60)+drawingGroup 每次入场重走 | 使用预渲染 Image 缓存，首帧无重复栅格化 |
 | E10 | muji | * | scroll 且卡多 | 每卡 MujiPaperTexture Canvas 重绘 + shadow(radius:14) 叠加 | 纹理共享 cached Image；阴影视情况预渲染或保留原路径 |
 
 边界样例（验证 preservation）：
@@ -173,7 +173,7 @@ END FUNCTION
   - `CapsuleRootBackdrop` = `ThemeCustomDiffuseBackground` + `Canvas(5 个旋转胶囊)`，每帧重算 5 条胶囊 transform。对应 §6.1。
   - `CapsuleSurfaceBackground` 双层 shadow。对应 §6.2。
 - **Default 大半径模糊**：
-  - `MonologueBackground.defaultSystemBackground` 含 `Canvas + blur(60) + drawingGroup()`。对应 §7.1。
+  - `MonoBackground.defaultSystemBackground` 含 `Canvas + blur(60) + drawingGroup()`。对应 §7.1。
   - `hitokoto` 组件含 `Canvas` 绘制，随无关 body 失效重绘。对应 §7.3。
 
 **共性**：所有"Canvas + blur / 软 shadow / 多层渐变"组合在当前实现下都是"每帧现算"路径。GPU 上 blur 半径越大 / shadow 半径越大 / overlay 层数越多，消耗越大。治理方向是"把 frame 独立的绘制结果预渲染为 `UIImage` / `CGImage` 缓存，帧间直接贴图"；对仍需动态推进的部分（例如 Capsule 的胶囊旋转）改为 SwiftUI 原生 transform 动画（GPU-side 而非 CPU-side 重绘）。
@@ -270,7 +270,7 @@ END FUNCTION
 *For any* `X`，在 F' 首次部署前，`.local-backups/main-tabs-theme-frame-drop-<UTC>/` SHALL 存在且满足：
 - `manifest.txt` 记录 `git rev-parse HEAD` / `git status --short` / `git diff` / 备份 UTC 时间 / 操作者 / macOS / Xcode 版本；
 - `manifest.sha256` 与备份目录实际 `shasum -a 256` 校验一致；
-- 随机抽样 ≥ 5 个关键文件（`Package.swift` / `Sources/Monologue/MonologueApp.swift` / `Sources/Monologue/Views/ContentView.swift` / `Sources/Monologue/Themes/ThemeRenderLayer.swift` / `.kiro/specs/main-tabs-theme-frame-drop/bugfix.md`）与工作树逐字节 `diff -q` 一致；
+- 随机抽样 ≥ 5 个关键文件（`Package.swift` / `Sources/Mono/MonoApp.swift` / `Sources/Mono/Views/ContentView.swift` / `Sources/Mono/Themes/ThemeRenderLayer.swift` / `.kiro/specs/main-tabs-theme-frame-drop/bugfix.md`）与工作树逐字节 `diff -q` 一致；
 - `.local-backups/` 已被 `.gitignore` 覆盖。
 
 **Validates: Requirements 5.1, 5.2, 5.3, 5.4, 5.5, 5.7**（Unchanged Behavior §5）
@@ -300,7 +300,7 @@ END FUNCTION
 
 ## Component Design（按影响域分组）
 
-> 每条按照"F 当前实现 / F' 修改点 / 视觉等价性论据 / 回归检测手段 / 对应缺陷条款"五栏展开。文件路径以 `Sources/Monologue/...` 为根；若 tasks 阶段发现实际路径不同，按实际路径落地。
+> 每条按照"F 当前实现 / F' 修改点 / 视觉等价性论据 / 回归检测手段 / 对应缺陷条款"五栏展开。文件路径以 `Sources/Mono/...` 为根；若 tasks 阶段发现实际路径不同，按实际路径落地。
 
 ### 3.1 拆分 `SettingsManager.globalThemeRevision`
 
@@ -421,7 +421,7 @@ END FUNCTION
 ### 3.8 Default 背景 + ParallaxMountainHeader
 
 - **F 当前实现**：
-  - `MonologueBackground.defaultSystemBackground`：`Canvas + blur(60) + drawingGroup()`。
+  - `MonoBackground.defaultSystemBackground`：`Canvas + blur(60) + drawingGroup()`。
   - `ParallaxMountainHeader`：300pt 高，首屏 layout 参与视差计算。
   - `hitokoto` 组件含 Canvas 绘制。
 - **F' 修改点**：
@@ -710,9 +710,9 @@ tmp/
 
 ```
 Package.swift
-Sources/Monologue/MonologueApp.swift
-Sources/Monologue/Views/ContentView.swift
-Sources/Monologue/Themes/ThemeRenderLayer.swift
+Sources/Mono/MonoApp.swift
+Sources/Mono/Views/ContentView.swift
+Sources/Mono/Themes/ThemeRenderLayer.swift
 .kiro/specs/main-tabs-theme-frame-drop/bugfix.md
 ```
 

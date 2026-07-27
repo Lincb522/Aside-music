@@ -108,7 +108,7 @@ struct PolaroidTheme: View {
             }
             .frame(width: geo.size.width, height: geo.size.height)
         }
-        .widgetURL(URL(string: "monologue://player"))
+        .widgetURL(URL(string: "mono://player"))
     }
 
     // MARK: - Large 大尺寸拍立得（独立设计）
@@ -214,7 +214,7 @@ struct PolaroidTheme: View {
             }
             .frame(width: geo.size.width, height: geo.size.height)
         }
-        .widgetURL(URL(string: "monologue://player"))
+        .widgetURL(URL(string: "mono://player"))
     }
 
     // MARK: - Medium 横版拍立得
@@ -322,7 +322,7 @@ struct PolaroidTheme: View {
             }
             .frame(width: geo.size.width, height: geo.size.height)
         }
-        .widgetURL(URL(string: "monologue://player"))
+        .widgetURL(URL(string: "mono://player"))
     }
 
     private var dateString: String {

@@ -205,7 +205,7 @@ struct SoundwaveTheme: View {
                 }
             }
         }
-        .widgetURL(URL(string: "monologue://player"))
+        .widgetURL(URL(string: "mono://player"))
     }
 
     // MARK: - Medium Layout
@@ -346,7 +346,7 @@ struct SoundwaveTheme: View {
                 .padding(.vertical, 14)
             }
         }
-        .widgetURL(URL(string: "monologue://player"))
+        .widgetURL(URL(string: "mono://player"))
     }
 
     // MARK: - Large Layout
@@ -495,7 +495,7 @@ struct SoundwaveTheme: View {
                 }
             }
         }
-        .widgetURL(URL(string: "monologue://player"))
+        .widgetURL(URL(string: "mono://player"))
     }
 
     // 角落的仿真螺丝

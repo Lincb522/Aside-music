@@ -137,7 +137,7 @@ struct DashboardTheme: View {
                 }
             }
         }
-        .widgetURL(URL(string: "monologue://player"))
+        .widgetURL(URL(string: "mono://player"))
     }
 
     // MARK: - Medium
@@ -249,7 +249,7 @@ struct DashboardTheme: View {
                 .padding(.horizontal, 12)
             }
         }
-        .widgetURL(URL(string: "monologue://player"))
+        .widgetURL(URL(string: "mono://player"))
     }
 
     private var largeLayout: some View {
@@ -381,7 +381,7 @@ struct DashboardTheme: View {
                 }
             }
         }
-        .widgetURL(URL(string: "monologue://player"))
+        .widgetURL(URL(string: "mono://player"))
     }
 
     // MARK: - 胶囊标签
