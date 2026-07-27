@@ -108,7 +108,7 @@ final class AudioSessionCoordinator {
         // 又会反向访问 `PlayerManager.shared`（applyEnter 内的 handleBackgroundAudio...）,
         // 造成冷启动单例循环 → EXC_BREAKPOINT。
         // 改成从 App Group UserDefaults 直读，零单例依赖。
-        let gameModeActive = UserDefaults(suiteName: "group.zijiu.Mono.com")?
+        let gameModeActive = UserDefaults(suiteName: "group.zijiu.Monologue.com")?
             .bool(forKey: "mono_game_mode_enabled") ?? false
         if gameModeActive && SettingsManager.shared.gameModeAutoDucking {
             base.insert(.interruptSpokenAudioAndMixWithOthers)

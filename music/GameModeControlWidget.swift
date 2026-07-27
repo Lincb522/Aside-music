@@ -44,7 +44,7 @@ struct GameModeValueProvider: ControlValueProvider {
 struct GameModeControlWidget: ControlWidget {
     var body: some ControlWidgetConfiguration {
         StaticControlConfiguration(
-            kind: "zijiu.Mono.com.control.gamemode",
+            kind: "zijiu.Monologue.com.control.gamemode",
             provider: GameModeValueProvider()
         ) { value in
             ControlWidgetToggle(

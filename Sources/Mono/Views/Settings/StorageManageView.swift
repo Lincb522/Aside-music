@@ -883,7 +883,7 @@ private enum StoragePaths {
 
     static var imageCacheDirs: [URL] {
         guard let cacheDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else { return [] }
-        return ["ImageCache", "zijiu.Mono.com.images", "com.mono.images", "fsCachedData"]
+        return ["ImageCache", "zijiu.Monologue.com.images", "com.monologue.images", "fsCachedData"]
             .map { cacheDir.appendingPathComponent($0) }
     }
 

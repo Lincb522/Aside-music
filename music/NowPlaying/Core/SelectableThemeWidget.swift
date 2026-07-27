@@ -71,7 +71,7 @@ struct SelectableNowPlayingProvider: AppIntentTimelineProvider {
 struct SelectableNowPlayingWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(
-            kind: "zijiu.Mono.com.widget.nowplaying.selectable",
+            kind: "zijiu.Monologue.com.widget.nowplaying.selectable",
             intent: NowPlayingThemeIntent.self,
             provider: SelectableNowPlayingProvider()
         ) { entry in

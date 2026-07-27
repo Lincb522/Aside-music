@@ -37,7 +37,7 @@ final class GameModeManager: ObservableObject {
     private init() {
         // 启动时恢复持久化状态
         // 数据源以 AppGroup 为准（控制中心 Widget 可能在 App 退出时改过)
-        let appGroupValue = UserDefaults(suiteName: "group.zijiu.Mono.com")?
+        let appGroupValue = UserDefaults(suiteName: "group.zijiu.Monologue.com")?
             .bool(forKey: "mono_game_mode_enabled") ?? false
         let legacyValue = settings.gameModeEnabled
         let wasActive = appGroupValue || legacyValue
@@ -153,7 +153,7 @@ final class GameModeManager: ObservableObject {
 
     /// 从 App Group 读取控制中心的改动，必要时 enter/exit
     private func syncFromAppGroup() {
-        let appGroupValue = UserDefaults(suiteName: "group.zijiu.Mono.com")?
+        let appGroupValue = UserDefaults(suiteName: "group.zijiu.Monologue.com")?
             .bool(forKey: "mono_game_mode_enabled") ?? false
 
         if appGroupValue && !isActive {
@@ -205,11 +205,11 @@ final class GameModeManager: ObservableObject {
     // MARK: - App Group 同步（控制中心 Widget 读取用）
 
     private func syncToAppGroup(active: Bool) {
-        UserDefaults(suiteName: "group.zijiu.Mono.com")?
+        UserDefaults(suiteName: "group.zijiu.Monologue.com")?
             .set(active, forKey: "mono_game_mode_enabled")
         if #available(iOS 18, *) {
             ControlCenter.shared.reloadControls(
-                ofKind: "zijiu.Mono.com.control.gamemode"
+                ofKind: "zijiu.Monologue.com.control.gamemode"
             )
         }
         // 广播给其他进程（主要让 Widget 可以刷新 UI,未来多进程扩展预留）

@@ -6,7 +6,7 @@ import WidgetKit
 
 // MARK: - App Group 常量
 
-let gameModeGroupID = "group.zijiu.Mono.com"
+let gameModeGroupID = "group.zijiu.Monologue.com"
 let gameModeKey = "mono_game_mode_enabled"
 
 // MARK: - 切换游戏模式 Intent
@@ -46,7 +46,7 @@ struct ToggleGameModeIntent: SetValueIntent {
         // 1) 立刻让控制中心胶囊刷新 isOn 视觉
         if #available(iOS 18, *) {
             ControlCenter.shared.reloadControls(
-                ofKind: "zijiu.Mono.com.control.gamemode"
+                ofKind: "zijiu.Monologue.com.control.gamemode"
             )
         }
         // 2) 通过 Darwin Notification 广播给主 App，让它即时响应（前台/后台均可）

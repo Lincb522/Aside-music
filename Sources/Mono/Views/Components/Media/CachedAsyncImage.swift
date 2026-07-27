@@ -44,7 +44,7 @@ private let imageSession: URLSession = {
     config.urlCache = URLCache(
         memoryCapacity: 10 * 1024 * 1024,   // 10MB 内存（降低以减少内存压力）
         diskCapacity: 100 * 1024 * 1024,     // 100MB 磁盘
-        diskPath: "zijiu.Mono.com.url_image_cache"
+        diskPath: "zijiu.Monologue.com.url_image_cache"
     )
     return URLSession(configuration: config)
 }()

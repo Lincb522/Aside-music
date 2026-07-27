@@ -49,7 +49,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     func applicationWillTerminate(_ application: UIApplication) {
         // 终止回调只有很短的执行窗口。播放与数据库状态已在进入后台时保存，
         // 这里仅落一个轻量标记，避免同步刷新小组件或等待异步任务触发 0x8BADF00D。
-        UserDefaults(suiteName: "group.zijiu.Mono.com")?
+        UserDefaults(suiteName: "group.zijiu.Monologue.com")?
             .set("paused", forKey: "widget_playbackState")
     }
 }

@@ -6,7 +6,7 @@ import Security
 /// 支持 Keychain Access Group，主 App 与 Extension 共享数据
 enum KeychainHelper {
     
-    private static let service = "zijiu.Mono.com"
+    private static let service = "zijiu.Monologue.com"
     
     /// Keychain Access Group — 主 App 和 Extension 共享
     /// 运行时自动探测：带 group 可用就用 group，否则回退到不带 group 的普通 Keychain
@@ -50,7 +50,7 @@ enum KeychainHelper {
                    let defaultGroup = attrs[kSecAttrAccessGroup as String] as? String {
                     // defaultGroup 就是 "TEAMID.com.xxx" 格式
                     // 尝试用它的 Team ID 前缀 + 我们想要的 group 后缀
-                    let suffix = "zijiu.Mono.com"
+                    let suffix = "zijiu.Monologue.com"
                     if defaultGroup.hasSuffix(suffix) {
                         return [defaultGroup]
                     }

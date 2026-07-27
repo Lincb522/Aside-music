@@ -8,7 +8,7 @@ import AppIntents
 @available(iOS 18, *)
 struct PlayPauseControlWidget: ControlWidget {
     var body: some ControlWidgetConfiguration {
-        StaticControlConfiguration(kind: "zijiu.Mono.com.control.playpause") {
+        StaticControlConfiguration(kind: "zijiu.Monologue.com.control.playpause") {
             ControlWidgetButton(action: TogglePlaybackIntent()) {
                 Label("播放/暂停", systemImage: "play.pause.fill")
             }
@@ -21,7 +21,7 @@ struct PlayPauseControlWidget: ControlWidget {
 @available(iOS 18, *)
 struct NextTrackControlWidget: ControlWidget {
     var body: some ControlWidgetConfiguration {
-        StaticControlConfiguration(kind: "zijiu.Mono.com.control.next") {
+        StaticControlConfiguration(kind: "zijiu.Monologue.com.control.next") {
             ControlWidgetButton(action: NextTrackIntent()) {
                 Label("下一首", systemImage: "forward.fill")
             }

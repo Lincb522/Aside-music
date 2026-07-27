@@ -44,9 +44,9 @@ enum WidgetTheme: String, CaseIterable, Hashable, Sendable {
     var widgetKind: String {
         // 拍立得保留原始 kind，避免迁移后已安装的组件失效。
         if self == .polaroid {
-            return "zijiu.Mono.com.widget.nowplaying"
+            return "zijiu.Monologue.com.widget.nowplaying"
         }
-        return "zijiu.Mono.com.widget.nowplaying.\(rawValue)"
+        return "zijiu.Monologue.com.widget.nowplaying.\(rawValue)"
     }
 
     var configurationDisplayName: String {

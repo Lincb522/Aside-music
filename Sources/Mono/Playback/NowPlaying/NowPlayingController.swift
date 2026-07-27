@@ -33,7 +33,7 @@ final class NowPlayingController {
     /// 上次应用的锁屏命令布局（true = 播客 ±15s/倍速，false = 音乐 上/下一首）
     private var lastRemoteCommandProfileIsPodcast: Bool?
 
-    private static let widgetGroupID = "group.zijiu.Mono.com"
+    private static let widgetGroupID = "group.zijiu.Monologue.com"
 
     private var reportedPlaybackRate: Double {
         player.currentSong?.isAppleMusic == true

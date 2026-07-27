@@ -3,7 +3,7 @@ import WidgetKit
 import SwiftUI
 import UIKit
 
-private let appGroupID = "group.zijiu.Mono.com"
+private let appGroupID = "group.zijiu.Monologue.com"
 
 // MARK: - App Group 歌词载荷
 

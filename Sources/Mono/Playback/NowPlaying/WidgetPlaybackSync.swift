@@ -16,7 +16,7 @@ final class WidgetPlaybackSync {
 
     // MARK: - App Group 键
 
-    private static let widgetGroupID = "group.zijiu.Mono.com"
+    private static let widgetGroupID = "group.zijiu.Monologue.com"
     private static let widgetTempoBPMKey = "widget_tempo_bpm"
     private static let widgetTempoAnalyzingKey = "widget_tempo_analyzing"
     private static let widgetAlbumNameKey = "widget_album_name"

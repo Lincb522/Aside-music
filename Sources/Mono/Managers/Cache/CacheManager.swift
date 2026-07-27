@@ -7,7 +7,7 @@ class CacheManager: @unchecked Sendable {
     private let memoryCache = NSCache<NSString, AnyObject>()
     
     /// 串行队列保护磁盘 I/O，避免并发写入冲突
-    private let diskQueue = DispatchQueue(label: "zijiu.Mono.com.cache.disk", qos: .utility)
+    private let diskQueue = DispatchQueue(label: "zijiu.Monologue.com.cache.disk", qos: .utility)
     private let diskQueueKey = DispatchSpecificKey<UInt8>()
 
     /// TTL 与数据保存在同一个文件中，避免将高频缓存元数据写入 UserDefaults。
