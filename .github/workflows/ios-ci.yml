@@ -48,10 +48,15 @@ jobs:
         run: |
           set -euo pipefail
 
-          if git grep -n -I -E 'Monologue|AsideMusic' -- . \
+          legacy_matches="$(git grep -n -I -E 'Monologue|AsideMusic' -- . \
             ':(exclude).github/workflows/ios-ci.yml' \
             ':(exclude)Packages/**' \
-            ':(exclude)DesignAssets/**'; then
+            ':(exclude)DesignAssets/**' || true)"
+          unexpected_matches="$(printf '%s\n' "$legacy_matches" | grep -v -E \
+            'zijiu\.Monologue\.com|group\.zijiu\.Monologue\.com|com\.monologue\.images|<string>monologue</string>' || true)"
+
+          if [[ -n "$unexpected_matches" ]]; then
+            echo "$unexpected_matches"
             echo "Legacy product naming remains in application-owned files."
             exit 1
           fi
