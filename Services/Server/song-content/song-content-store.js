@@ -255,6 +255,9 @@ function createSongContentStore({ directory, databasePath, logger = console }) {
     const terminal = TERMINAL_JOB_STATES.has(state)
     const leaseOwner = state === 'queued' || terminal || state === 'review' ? null : (patch.leaseOwner || current.lease_owner)
     const leaseExpiresAt = state === 'queued' || terminal || state === 'review' ? null : (patch.leaseExpiresAt || current.lease_expires_at)
+    const startedAt = state === 'queued'
+      ? null
+      : (Object.prototype.hasOwnProperty.call(patch, 'startedAt') ? patch.startedAt : current.started_at)
     statements.updateJob.run(
       state,
       patch.availableAt || current.available_at,
@@ -268,7 +271,7 @@ function createSongContentStore({ directory, databasePath, logger = console }) {
       cleanOptional(patch.providerRequestId ?? current.provider_request_id),
       cleanOptional(patch.resultContentVersionId ?? current.result_content_version_id),
       now,
-      patch.startedAt || current.started_at,
+      startedAt,
       terminal || state === 'review' ? now : null,
       jobId
     )
@@ -815,7 +818,7 @@ function prepareStatements(database) {
       ORDER BY created_at LIMIT 1`),
     claimJob: database.prepare(`UPDATE generation_jobs SET state = 'collecting',
       lease_owner = ?, lease_expires_at = ?, attempt_count = attempt_count + 1,
-      started_at = COALESCE(started_at, ?), updated_at = ?, error_code = NULL, error_message = NULL
+      started_at = ?, updated_at = ?, error_code = NULL, error_message = NULL
       WHERE id = ? AND ((state = 'queued' AND available_at <= ?)
         OR (state IN ('collecting', 'generating', 'validating') AND lease_expires_at < ?))`),
     updateJob: database.prepare(`UPDATE generation_jobs SET state = ?, available_at = ?,
@@ -924,10 +927,10 @@ function prepareStatements(database) {
     jobStateCounts: database.prepare('SELECT state, COUNT(*) AS count FROM generation_jobs GROUP BY state'),
     retryJob: database.prepare(`UPDATE generation_jobs SET state = 'queued', attempt_count = 0, available_at = ?,
       lease_owner = NULL, lease_expires_at = NULL, error_code = NULL, error_message = NULL,
-      finished_at = NULL, updated_at = ? WHERE id = ?`),
+      started_at = NULL, finished_at = NULL, updated_at = ? WHERE id = ?`),
     deferJob: database.prepare(`UPDATE generation_jobs SET state = 'queued',
       attempt_count = MAX(0, attempt_count - 1), available_at = ?, lease_owner = NULL,
-      lease_expires_at = NULL, error_code = ?, error_message = ?, finished_at = NULL,
+      lease_expires_at = NULL, error_code = ?, error_message = ?, started_at = NULL, finished_at = NULL,
       updated_at = ? WHERE id = ?`),
     listSources: database.prepare(`SELECT * FROM content_sources WHERE (? = '' OR grade = ?)
       ORDER BY fetched_at DESC LIMIT ? OFFSET ?`),

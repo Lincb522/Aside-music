@@ -815,6 +815,9 @@
 "qq_qr_refresh" = "点击刷新";
 "qq_qr_qq" = "QCM 扫码";
 "qq_qr_wx" = "微信扫码";
+"qcm_login_mode" = "QCM 登录方式";
+"qcm_login_mode_qq" = "QQ 登录";
+"qcm_login_mode_wechat" = "微信登录";
 "qq_login_aside_title" = "登录 QCM";
 "qq_qr_save" = "保存二维码";
 "qq_qr_saved" = "已保存";

@@ -815,6 +815,9 @@
 "qq_qr_refresh" = "Tap to Refresh";
 "qq_qr_qq" = "QCM Scan";
 "qq_qr_wx" = "WeChat Scan";
+"qcm_login_mode" = "QCM sign-in method";
+"qcm_login_mode_qq" = "QQ Login";
+"qcm_login_mode_wechat" = "WeChat Login";
 "qq_login_aside_title" = "Sign in to QCM";
 "qq_qr_save" = "Save QR";
 "qq_qr_saved" = "Saved";

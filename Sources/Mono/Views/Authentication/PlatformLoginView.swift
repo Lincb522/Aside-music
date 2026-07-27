@@ -1,4 +1,5 @@
 import SwiftUI
+import QQMusicKit
 
 enum PlatformLoginSource: String, CaseIterable, Identifiable {
     case ncm
@@ -42,6 +43,9 @@ struct PlatformLoginView: View {
             ScrollView {
                 VStack(spacing: 28) {
                     platformPicker
+                    if selectedPlatform == .qcm {
+                        qcmLoginModePicker
+                    }
                     qrCodePanel
                     statusRow
                 }
@@ -116,6 +120,50 @@ struct PlatformLoginView: View {
         .themedPageSurface(cornerRadius: 16, elevated: false, mangaTint: MangaStyle.bubbleWhite)
     }
 
+    private var qcmLoginModePicker: some View {
+        HStack(spacing: 8) {
+            qcmLoginModeButton(
+                title: String(localized: "qcm_login_mode_qq"),
+                type: .qq
+            )
+            qcmLoginModeButton(
+                title: String(localized: "qcm_login_mode_wechat"),
+                type: .wx
+            )
+        }
+        .padding(4)
+        .themedPageSurface(cornerRadius: 14, elevated: false, mangaTint: MangaStyle.bubbleWhite)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(String(localized: "qcm_login_mode"))
+    }
+
+    private func qcmLoginModeButton(title: String, type: QRLoginType) -> some View {
+        let selected = qcmViewModel.qrLoginType == type
+        return Button {
+            guard !selected else { return }
+            withAnimation(.easeOut(duration: 0.2)) {
+                qcmViewModel.switchQRType(type)
+            }
+        } label: {
+            Text(title)
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(selected ? Color.monoTextPrimary : Color.monoTextSecondary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(
+                            selected
+                                ? MusicSource.qqmusic.themedBadgeColor.opacity(0.14)
+                                : Color.clear
+                        )
+                }
+                .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .buttonStyle(MonoBouncingButtonStyle(scale: 0.97))
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
     private var qrCodePanel: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
@@ -155,7 +203,7 @@ struct PlatformLoginView: View {
                 .stroke(Color.monoSeparator.opacity(0.75), lineWidth: 0.8)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(selectedPlatform.title) 登录二维码")
+        .accessibilityLabel(qrCodeAccessibilityLabel)
     }
 
     private var statusRow: some View {
@@ -194,6 +242,16 @@ struct PlatformLoginView: View {
         case .qcm: return qcmViewModel.isQRExpired
         case .kcm: return kcmViewModel.isQRExpired
         }
+    }
+
+    private var qrCodeAccessibilityLabel: String {
+        if selectedPlatform == .qcm {
+            let mode = qcmViewModel.qrLoginType == .qq
+                ? String(localized: "qcm_login_mode_qq")
+                : String(localized: "qcm_login_mode_wechat")
+            return "\(mode)二维码"
+        }
+        return "\(selectedPlatform.title) 登录二维码"
     }
 
     private func startSelectedLogin() {

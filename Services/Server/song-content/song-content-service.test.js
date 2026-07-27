@@ -122,3 +122,48 @@ test('服务器已有持久化内容时播放请求不会再次创建生成任�
     fs.rmSync(directory, { recursive: true, force: true })
   }
 })
+
+test('任务重新排队后只计算新一次实际处理时间', async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'song-content-job-timing-'))
+  const service = createSongContentService({
+    directory,
+    startWorker: false,
+    platformResolver: async () => metadata(),
+    sourceCollector: async () => ({ sources: [] }),
+    contentGenerator: async () => {
+      throw new Error('本测试不会进入内容生成')
+    }
+  })
+
+  try {
+    await service.ensureContent({ platform: 'QCM', platformSongId: 'timing-test' }, 'zh-Hans')
+    const queued = service.store.listJobs({ state: 'queued' })[0]
+    const firstAttempt = service.store.leaseNextJob('timing-worker')
+    assert.equal(firstAttempt.id, queued.id)
+    assert.ok(firstAttempt.startedAt)
+
+    const deferred = service.store.deferJob(firstAttempt.id, {
+      errorCode: 'AI_RATE_LIMITED',
+      errorMessage: '稍后继续',
+      delaySeconds: 1
+    })
+    assert.equal(deferred.state, 'queued')
+    assert.equal(deferred.startedAt, null)
+
+    service.store.transitionJob(firstAttempt.id, 'queued', {
+      availableAt: new Date(0).toISOString()
+    })
+    await new Promise((resolve) => setTimeout(resolve, 5))
+
+    const secondAttempt = service.store.leaseNextJob('timing-worker')
+    assert.ok(secondAttempt.startedAt)
+    assert.ok(Date.parse(secondAttempt.startedAt) >= Date.parse(firstAttempt.startedAt))
+
+    const completed = service.store.transitionJob(secondAttempt.id, 'completed')
+    assert.ok(completed.durationMs >= 0)
+    assert.ok(completed.durationMs < 1_000)
+  } finally {
+    service.close()
+    fs.rmSync(directory, { recursive: true, force: true })
+  }
+})
