@@ -274,6 +274,7 @@ function normalizeAIConfig(raw = {}) {
     contentPrompt: clean(raw.contentPrompt, 20_000),
     temperature: clamp(raw.temperature, 0, 2, 0.2),
     maxOutputTokens: Math.round(clamp(raw.maxOutputTokens, 256, 32_000, 4_000)),
+    maxInputTokens: Math.round(clamp(raw.maxInputTokens, 2_048, 100_000, 12_000)),
     timeoutSeconds: clamp(raw.timeoutSeconds, 10, 180, 60),
     maxAttempts: Math.round(clamp(raw.maxAttempts, 1, 10, 3)),
     concurrency: Math.round(clamp(raw.concurrency, 1, 64, 2)),

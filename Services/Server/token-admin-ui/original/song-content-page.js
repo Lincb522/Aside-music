@@ -34,6 +34,7 @@
   const jobErrorLabels = {
     AI_AUTOMATIC_REVIEW_REJECTED: ['自动审核未通过', '生成内容未通过自动审核'],
     AI_CIRCUIT_OPEN: ['AI 服务暂时不可用', '服务保护已启动，请稍后重试'],
+    AI_CONTEXT_LIMIT_EXCEEDED: ['AI 上下文超出限制', '输入资料超过当前模型容量，请降低单次输入上限'],
     AI_MISSING_EVIDENCE_BACKED_SECTION: ['内容生成不完整', '生成内容缺少可信资料依据'],
     AI_PROTOCOL_SERVER_UNSUPPORTED: ['AI 服务协议不受支持', '当前服务端不支持所选请求协议'],
     AI_PROTOCOL_UNSUPPORTED: ['AI 请求协议不受支持', '请检查 AI 服务协议配置'],
@@ -79,7 +80,7 @@
   function cacheElements() {
     for (const id of [
       'refreshButton', 'logoutButton', 'serviceHealth', 'contentSummary', 'statSongs', 'statPublished', 'statReview',
-      'statActiveJobs', 'statFailedJobs', 'statSources', 'statCost', 'contentStatusFilter',
+      'statQueuedJobs', 'statProcessingJobs', 'statFailedJobs', 'statSources', 'statCost', 'contentStatusFilter',
       'contentList', 'reviewEmpty', 'reviewDetail', 'reviewArtist', 'reviewTitle',
       'reviewMeta', 'reviewStatus', 'reviewComparison', 'publishedVersion', 'reviewIdentity',
       'reviewGeneration', 'reviewDiffSection', 'reviewDiff', 'candidateVersion', 'songSummary', 'creationStory', 'background',
@@ -96,7 +97,7 @@
       'configMaxVersion', 'configPlatforms', 'configRegions', 'configEffectiveAt', 'configDeviceWhitelist',
       'moduleSongSummary', 'moduleCreationStory', 'moduleBackground', 'moduleAlbumSummary', 'moduleSources',
       'moduleSimilarSongs', 'moduleArtistSongs', 'configFallbackModel', 'configPromptVersion',
-      'configSchemaVersion', 'configTemperature', 'configMaxOutput', 'configTaskTokenLimit',
+      'configSchemaVersion', 'configTemperature', 'configMaxOutput', 'configMaxInput', 'configTaskTokenLimit',
       'configMaxAttempts', 'configConcurrency', 'configRequestsPerMinute', 'configCircuitBreaker', 'configCircuitRecovery',
       'configDailyBudget', 'configAutoPublish', 'configMinimumGrade', 'configHighRiskReview',
       'configConflictReview', 'configSystemPrompt', 'configContentPrompt', 'saveConfigButton', 'configVersions',
@@ -159,7 +160,8 @@
       els.statSongs.textContent = Admin.fmtNum(data.stats.songs)
       els.statPublished.textContent = Admin.fmtNum(data.stats.published)
       els.statReview.textContent = Admin.fmtNum(data.stats.pendingReview)
-      els.statActiveJobs.textContent = Admin.fmtNum(data.stats.activeJobs)
+      els.statQueuedJobs.textContent = Admin.fmtNum(data.stats.queuedJobs ?? 0)
+      els.statProcessingJobs.textContent = Admin.fmtNum(data.stats.processingJobs ?? data.stats.activeJobs ?? 0)
       els.statFailedJobs.textContent = Admin.fmtNum(data.stats.failedJobs)
       els.statSources.textContent = Admin.fmtNum(data.stats.sources)
       els.statCost.textContent = Number(data.stats.cost || 0).toFixed(4)
@@ -559,6 +561,7 @@
     els.configSchemaVersion.value = ai.schemaVersion || '1'
     els.configTemperature.value = ai.temperature ?? 0.2
     els.configMaxOutput.value = ai.maxOutputTokens ?? 2000
+    els.configMaxInput.value = ai.maxInputTokens ?? 12000
     els.configTaskTokenLimit.value = ai.perTaskTokenLimit ?? 20000
     els.configMaxAttempts.value = ai.maxAttempts ?? 3
     els.configConcurrency.value = ai.concurrency ?? 2
@@ -688,6 +691,7 @@
             schemaVersion: els.configSchemaVersion.value,
             temperature: Number(els.configTemperature.value),
             maxOutputTokens: Number(els.configMaxOutput.value),
+            maxInputTokens: Number(els.configMaxInput.value),
             perTaskTokenLimit: Number(els.configTaskTokenLimit.value),
             maxAttempts: Number(els.configMaxAttempts.value),
             concurrency: Number(els.configConcurrency.value),

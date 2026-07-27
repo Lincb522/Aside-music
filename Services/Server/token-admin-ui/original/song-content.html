@@ -63,10 +63,11 @@
       </section>
 
       <section id="contentSummary" class="summary-strip hidden" aria-label="内容统计">
-        <article class="summary-tile"><span>歌曲</span><strong id="statSongs">…</strong></article>
+        <article class="summary-tile"><span>已收录歌曲</span><strong id="statSongs">…</strong></article>
         <article class="summary-tile"><span>已发布</span><strong id="statPublished">…</strong></article>
         <article class="summary-tile"><span>待审核</span><strong id="statReview">…</strong></article>
-        <article class="summary-tile"><span>生成中</span><strong id="statActiveJobs">…</strong></article>
+        <article class="summary-tile"><span>排队中</span><strong id="statQueuedJobs">…</strong></article>
+        <article class="summary-tile"><span>处理中</span><strong id="statProcessingJobs">…</strong></article>
         <article class="summary-tile"><span>失败任务</span><strong id="statFailedJobs">…</strong></article>
         <article class="summary-tile"><span>来源</span><strong id="statSources">…</strong></article>
         <article class="summary-tile"><span>AI 费用</span><strong id="statCost">…</strong></article>
@@ -271,7 +272,8 @@
               <label class="field"><span>内容结构版本</span><input id="configSchemaVersion" type="text"></label>
               <label class="field"><span>温度</span><input id="configTemperature" type="number" min="0" max="2" step="0.1"></label>
               <label class="field"><span>最大输出 Token</span><input id="configMaxOutput" type="number" min="256" max="32000"></label>
-              <label class="field"><span>单任务 Token 上限</span><input id="configTaskTokenLimit" type="number" min="256" max="100000"></label>
+              <label class="field"><span>单次输入 Token 上限</span><input id="configMaxInput" type="number" min="2048" max="100000"></label>
+              <label class="field"><span>单任务总 Token 预算</span><input id="configTaskTokenLimit" type="number" min="256" max="100000"></label>
               <label class="field"><span>最大重试</span><input id="configMaxAttempts" type="number" min="1" max="10"></label>
               <label class="field"><span>并发</span><input id="configConcurrency" type="number" min="1" max="64"></label>
               <label class="field"><span>每分钟请求</span><input id="configRequestsPerMinute" type="number" min="1" max="10000"></label>
@@ -327,6 +329,6 @@
 
   <div id="toast" class="toast" role="status"></div>
   <script src="./assets/admin-core.js"></script>
-  <script src="./assets/song-content-page.js?v=2026072708"></script>
+  <script src="./assets/song-content-page.js?v=2026072709"></script>
 </body>
 </html>

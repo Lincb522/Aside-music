@@ -37,6 +37,7 @@ const HIGH_RISK_FLAGS = new Set([
 const PIPELINE_ERROR_LABELS = {
   AI_AUTOMATIC_REVIEW_REJECTED: ['自动审核未通过', '生成内容未通过自动审核，任务会按策略重试'],
   AI_CIRCUIT_OPEN: ['AI 服务暂时不可用', '服务保护已启动，恢复后会自动继续任务'],
+  AI_CONTEXT_LIMIT_EXCEEDED: ['AI 上下文超出限制', '输入资料已超过当前模型的上下文容量，请降低单次输入上限'],
   AI_MISSING_EVIDENCE_BACKED_SECTION: ['内容生成不完整', '生成内容缺少可信资料依据'],
   AI_PROVIDER_ERROR: ['AI 服务请求失败', '上游 AI 服务返回错误，任务会按策略重试'],
   AI_RATE_LIMITED: ['AI 请求过于频繁', '上游服务已限流，任务会稍后继续'],
@@ -167,6 +168,13 @@ function createSongContentPipeline({
       albumSummary: collected?.albumSummary,
       exclusions: collected?.exclusions
     })
+    const maxInputTokens = Number(policy.maxInputTokens) || 12_000
+    const promptContext = {
+      maxInputTokens,
+      systemPromptText: policy.systemPrompt || systemPrompt(promptVersion),
+      contentPromptText: policy.contentPrompt || ''
+    }
+    const generationEvidencePackage = compactEvidencePackage(evidencePackage, promptContext)
 
     store.transitionJob(job.id, 'generating', { leaseOwner: workerId })
     const requestId = job.idempotencyKey
@@ -188,27 +196,32 @@ function createSongContentPipeline({
       }
     }
 
-    let generated = await requestGeneration(evidencePackage, requestId)
+    let generated = await requestGeneration(generationEvidencePackage, requestId)
     let content = normalizeGeneratedContent(generated?.content ?? generated)
-    pruneUnsupportedSourceRefs(content, evidencePackage)
+    pruneUnsupportedSourceRefs(content, generationEvidencePackage)
     const initialUsedTokens = Number(generated?.usage?.input || 0) + Number(generated?.usage?.output || 0)
     const taskTokenLimit = Number(policy.perTaskTokenLimit) || 0
     if (taskTokenLimit > 0 && initialUsedTokens > taskTokenLimit) {
-      throw codedError('AI_TOKEN_LIMIT_EXCEEDED', 'AI response exceeded the task token limit')
+      logger.warn?.(`[song-content] initial generation used more than the task token budget for job ${job.id}: ${initialUsedTokens} / ${taskTokenLimit}; preserving the valid result`)
     }
 
-    const initiallyMissing = missingEvidenceBackedSections(content, evidencePackage)
-    const hasCompletionBudget = taskTokenLimit === 0 || initialUsedTokens * 2 <= taskTokenLimit
+    const initiallyMissing = missingEvidenceBackedSections(content, generationEvidencePackage)
+    const completionPackage = initiallyMissing.length > 0
+      ? compactEvidencePackage(
+          buildCompletionEvidencePackage(generationEvidencePackage, initiallyMissing, content),
+          promptContext
+        )
+      : null
+    const completionInputTokens = completionPackage
+      ? estimateGenerationInputTokens(completionPackage, promptContext)
+      : 0
+    const hasCompletionBudget = shouldAttemptCompletion({
+      taskTokenLimit,
+      usedTokens: initialUsedTokens,
+      estimatedInputTokens: completionInputTokens,
+      maxOutputTokens: Number(policy.maxOutputTokens) || 4_000
+    })
     if (initiallyMissing.length > 0 && hasCompletionBudget) {
-      const completionPackage = {
-        ...evidencePackage,
-        generationRequirements: {
-          mode: 'complete_missing_evidence_backed_sections',
-          missingFields: initiallyMissing,
-          preserveExistingContent: true,
-          previousContent: content
-        }
-      }
       try {
         const completion = await requestGeneration(
           completionPackage,
@@ -216,7 +229,7 @@ function createSongContentPipeline({
         )
         const completedContent = normalizeGeneratedContent(completion?.content ?? completion)
         content = mergeGeneratedContent(content, completedContent)
-        pruneUnsupportedSourceRefs(content, evidencePackage)
+        pruneUnsupportedSourceRefs(content, generationEvidencePackage)
         generated = combineGenerationResults(generated, completion)
       } catch (error) {
         logger.warn?.(`[song-content] missing-section completion failed for job ${job.id}`, error)
@@ -360,6 +373,206 @@ function buildEvidencePackage({ song, locale, schemaVersion, sources, platformSu
       preserveOfficialNames: true
     }
   }
+}
+
+function compactEvidencePackage(evidencePackage, {
+  maxInputTokens = 12_000,
+  systemPromptText = '',
+  contentPromptText = ''
+} = {}) {
+  const normalizedLimit = Math.max(2_048, Number(maxInputTokens) || 12_000)
+  const promptOverhead = estimateTokenCount(systemPromptText)
+    + estimateTokenCount(contentPromptText)
+    + 256
+  const evidenceBudget = Math.max(1_024, normalizedLimit - promptOverhead)
+  const summaryTokenLimit = Math.max(80, Math.min(800, Math.floor(evidenceBudget * 0.12)))
+  const base = {
+    ...evidencePackage,
+    platformMappings: compactPlatformMappings(evidencePackage.platformMappings),
+    platformSummary: truncateToEstimatedTokens(evidencePackage.platformSummary, summaryTokenLimit),
+    albumSummary: truncateToEstimatedTokens(evidencePackage.albumSummary, summaryTokenLimit),
+    exclusions: (evidencePackage.exclusions || []).slice(0, 16),
+    sources: []
+  }
+  const candidates = prioritizePromptSources(evidencePackage.sources || []).slice(0, 12)
+  if (candidates.length === 0) return base
+
+  const fixedTokens = estimateTokenCount(JSON.stringify(base))
+  const availableSourceTokens = Math.max(640, evidenceBudget - fixedTokens)
+  const perSourceTokens = Math.max(160, Math.min(1_400, Math.floor(availableSourceTokens / candidates.length)))
+  let compacted = {
+    ...base,
+    sources: candidates.map((source) => compactPromptSource(source, perSourceTokens))
+  }
+
+  while (estimateTokenCount(JSON.stringify(compacted)) > evidenceBudget) {
+    const reducible = compacted.sources
+      .map((source, index) => ({ index, tokens: estimateTokenCount(source.excerpt) }))
+      .filter((item) => item.tokens > 120)
+      .sort((left, right) => right.tokens - left.tokens)[0]
+    if (!reducible) break
+    const source = compacted.sources[reducible.index]
+    compacted.sources[reducible.index] = {
+      ...source,
+      excerpt: truncateToEstimatedTokens(source.excerpt, Math.max(120, Math.floor(reducible.tokens * 0.75)))
+    }
+  }
+  return compacted
+}
+
+function buildCompletionEvidencePackage(evidencePackage, missingFields, previousContent) {
+  const required = new Set(missingFields)
+  const sources = (evidencePackage.sources || []).filter((source) => {
+    const roles = Array.isArray(source.metadata?.contentRoles) ? source.metadata.contentRoles : []
+    return roles.some((role) => required.has(role))
+  })
+  const preservedContent = Object.fromEntries(CONTENT_FIELDS.map((field) => [
+    field,
+    previousContent[field] ? cleanText(previousContent[field], 4_000) : null
+  ]))
+  preservedContent.sourceRefs = previousContent.sourceRefs
+  preservedContent.confidence = previousContent.confidence
+  preservedContent.riskFlags = previousContent.riskFlags
+  return {
+    ...evidencePackage,
+    platformSummary: null,
+    albumSummary: null,
+    exclusions: [],
+    sources,
+    generationRequirements: {
+      mode: 'complete_missing_evidence_backed_sections',
+      missingFields,
+      preserveExistingContent: true,
+      previousContent: preservedContent
+    }
+  }
+}
+
+function estimateGenerationInputTokens(evidencePackage, {
+  systemPromptText = '',
+  contentPromptText = ''
+} = {}) {
+  return estimateTokenCount(systemPromptText)
+    + estimateTokenCount(userPrompt(contentPromptText, evidencePackage))
+}
+
+function shouldAttemptCompletion({
+  taskTokenLimit,
+  usedTokens,
+  estimatedInputTokens,
+  maxOutputTokens
+}) {
+  const normalizedLimit = Number(taskTokenLimit) || 0
+  if (normalizedLimit === 0) return true
+  const required = Math.max(0, Number(estimatedInputTokens) || 0)
+    + Math.max(0, Number(maxOutputTokens) || 0)
+  return Math.max(0, Number(usedTokens) || 0) + required <= normalizedLimit
+}
+
+function prioritizePromptSources(sources) {
+  const gradeWeight = { A: 3, B: 2, C: 1 }
+  const coveredRoles = new Set()
+  const selected = []
+  const ranked = [...sources].sort((left, right) => {
+    const leftRoles = Array.isArray(left.metadata?.contentRoles) ? left.metadata.contentRoles.length : 0
+    const rightRoles = Array.isArray(right.metadata?.contentRoles) ? right.metadata.contentRoles.length : 0
+    return rightRoles - leftRoles
+      || (gradeWeight[right.grade] || 0) - (gradeWeight[left.grade] || 0)
+      || String(left.id).localeCompare(String(right.id))
+  })
+  for (const source of ranked) {
+    const roles = Array.isArray(source.metadata?.contentRoles) ? source.metadata.contentRoles : []
+    if (!roles.some((role) => !coveredRoles.has(role))) continue
+    selected.push(source)
+    roles.forEach((role) => coveredRoles.add(role))
+  }
+  for (const source of ranked) {
+    if (!selected.includes(source)) selected.push(source)
+  }
+  return selected
+}
+
+function compactPromptSource(source, excerptTokenLimit) {
+  const metadata = source.metadata || {}
+  const contentRoles = Array.isArray(metadata.contentRoles)
+    ? metadata.contentRoles.filter((role) => CONTENT_FIELDS.includes(role))
+    : []
+  return {
+    id: source.id,
+    title: cleanText(source.title, 160),
+    publisher: cleanText(source.publisher, 160),
+    url: cleanText(source.url, 500),
+    publishedAt: source.publishedAt,
+    fetchedAt: source.fetchedAt,
+    grade: source.grade,
+    excerpt: truncateToEstimatedTokens(source.excerpt, excerptTokenLimit),
+    metadata: {
+      platform: cleanText(metadata.platform, 40),
+      sourceType: cleanText(metadata.sourceType, 80),
+      contentRoles,
+      contentRoleConfidence: compactRoleMap(metadata.contentRoleConfidence, contentRoles, false),
+      contentRoleEvidence: compactRoleMap(metadata.contentRoleEvidence, contentRoles, true),
+      matchMethod: cleanText(metadata.matchMethod, 80)
+    }
+  }
+}
+
+function compactRoleMap(value, roles, textValues) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  return Object.fromEntries(roles.flatMap((role) => {
+    const candidate = value[role]
+    if (textValues) {
+      const entries = Array.isArray(candidate)
+        ? candidate.map((item) => cleanText(item, 80)).filter(Boolean).slice(0, 3)
+        : []
+      return entries.length > 0 ? [[role, entries]] : []
+    }
+    const number = Number(candidate)
+    return Number.isFinite(number) ? [[role, number]] : []
+  }))
+}
+
+function compactPlatformMappings(value) {
+  if (Array.isArray(value)) {
+    return value.map((mapping) => ({
+      platform: mapping?.platform,
+      songId: mapping?.songId,
+      albumId: mapping?.albumId,
+      matchMethod: mapping?.matchMethod,
+      matchConfidence: mapping?.matchConfidence
+    }))
+  }
+  if (!value || typeof value !== 'object') return value
+  return Object.fromEntries(Object.entries(value).map(([platform, mapping]) => [
+    platform,
+    {
+      platformSongId: mapping?.platformSongId,
+      platformAlbumId: mapping?.platformAlbumId
+    }
+  ]))
+}
+
+function estimateTokenCount(value) {
+  const text = String(value || '')
+  if (!text) return 0
+  const cjk = (text.match(/[\u3400-\u9fff\uf900-\ufaff]/gu) || []).length
+  const other = Math.max(0, [...text].length - cjk)
+  return Math.ceil(cjk * 1.1 + other / 3.5)
+}
+
+function truncateToEstimatedTokens(value, maximumTokens) {
+  const normalized = cleanText(value, 100_000)
+  if (!normalized) return null
+  const limit = Math.max(1, Number(maximumTokens) || 1)
+  if (estimateTokenCount(normalized) <= limit) return normalized
+  let low = 1
+  let high = normalized.length
+  while (low < high) {
+    const middle = Math.ceil((low + high) / 2)
+    if (estimateTokenCount(normalized.slice(0, middle)) <= limit) low = middle
+    else high = middle - 1
+  }
+  return normalized.slice(0, low).trim()
 }
 
 function normalizeGeneratedContent(raw) {
@@ -933,19 +1146,29 @@ function providerResponseText(protocol, payload) {
 
 function providerHTTPError(response, payload = {}) {
   const status = Number(response?.status) || 0
+  const providerMessage = cleanText(
+    payload?.error?.message || payload?.message || payload?.error_description,
+    2_000
+  ) || ''
+  const providerCode = cleanText(
+    payload?.error?.code || payload?.code || payload?.error?.type,
+    160
+  )
+  const contextLimited = /context(?:_| )length|maximum context|context window|too many (?:input )?tokens|上下文|令牌数.*超/u.test(
+    `${providerCode || ''} ${providerMessage}`.toLowerCase()
+  )
   const rateLimited = status === 429
   const error = codedError(
-    rateLimited ? 'AI_RATE_LIMITED' : 'AI_PROVIDER_ERROR',
-    `AI provider returned ${status || 'an error'}`,
-    rateLimited || status >= 500
+    contextLimited ? 'AI_CONTEXT_LIMIT_EXCEEDED' : (rateLimited ? 'AI_RATE_LIMITED' : 'AI_PROVIDER_ERROR'),
+    contextLimited
+      ? 'AI provider rejected the request because its context limit was exceeded'
+      : `AI provider returned ${status || 'an error'}`,
+    !contextLimited && (rateLimited || status >= 500)
   )
   error.status = status
   error.retryAfterSeconds = parseRetryAfterSeconds(response?.headers?.get?.('retry-after'))
     || (rateLimited ? 300 : 0)
-  error.providerCode = cleanText(
-    payload?.error?.code || payload?.code || payload?.error?.type,
-    160
-  )
+  error.providerCode = providerCode
   return error
 }
 
@@ -1150,6 +1373,7 @@ module.exports = {
   acquireProviderCircuitPermit,
   applyOfficialEvidenceFallbacks,
   buildEvidencePackage,
+  compactEvidencePackage,
   createProviderCircuit,
   createAIProviderContentGenerator,
   createOpenAICompatibleContentGenerator,
@@ -1158,12 +1382,15 @@ module.exports = {
   mergeGeneratedContent,
   missingEvidenceBackedSections,
   normalizeGeneratedContent,
+  estimateGenerationInputTokens,
+  estimateTokenCount,
   parseRetryAfterSeconds,
   providerCapacityRetryAfterSeconds,
   publicProviderCircuitState,
   recordProviderFailure,
   recordProviderSuccess,
   releaseProviderCircuitPermit,
+  shouldAttemptCompletion,
   systemPrompt,
   validateGeneratedContent
 }

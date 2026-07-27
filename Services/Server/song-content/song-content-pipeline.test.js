@@ -4,7 +4,9 @@ const assert = require('node:assert/strict')
 const {
   acquireProviderCircuitPermit,
   applyOfficialEvidenceFallbacks,
+  compactEvidencePackage,
   createProviderCircuit,
+  estimateGenerationInputTokens,
   localizePipelineError,
   mergeGeneratedContent,
   missingEvidenceBackedSections,
@@ -12,7 +14,8 @@ const {
   providerCapacityRetryAfterSeconds,
   publicProviderCircuitState,
   recordProviderFailure,
-  recordProviderSuccess
+  recordProviderSuccess,
+  shouldAttemptCompletion
 } = require('./song-content-pipeline')
 
 function content(overrides = {}) {
@@ -186,4 +189,75 @@ test('AI 留空时使用平台正式歌曲和专辑介绍兜底', () => {
   assert.deepEqual(fallback.sourceRefs.albumSummary, ['album-source'])
   assert.deepEqual(fallback.sourceRefs.creationStory, ['album-source'])
   assert.equal(fallback.confidence, 'medium')
+})
+
+test('生成前压缩证据正文并保留各内容角色的来源', () => {
+  const roles = ['songSummary', 'creationStory', 'background', 'albumSummary']
+  const evidencePackage = {
+    canonicalSongId: 'song-1',
+    platformMappings: { NCM: { platformSongId: '1', rawPayload: '不应进入提示词'.repeat(2_000) } },
+    identity: {
+      title: '测试歌曲',
+      artists: [{ name: '测试歌手' }],
+      album: { name: '测试专辑' }
+    },
+    locale: 'zh-Hans',
+    schemaVersion: '3',
+    platformSummary: '平台介绍'.repeat(2_000),
+    albumSummary: '专辑介绍'.repeat(2_000),
+    sources: roles.map((role, index) => ({
+      id: `source-${index}`,
+      title: `${role} 来源`,
+      publisher: '测试来源',
+      url: `https://example.com/${index}`,
+      grade: 'B',
+      excerpt: `${role} 正文`.repeat(4_000),
+      metadata: {
+        contentRoles: [role],
+        contentRoleConfidence: { [role]: 0.9 },
+        contentRoleEvidence: { [role]: ['命中依据'.repeat(100)] },
+        rawHTML: '不应进入提示词'.repeat(2_000)
+      }
+    })),
+    exclusions: [],
+    rules: {}
+  }
+
+  const compacted = compactEvidencePackage(evidencePackage, {
+    maxInputTokens: 2_048,
+    systemPromptText: '系统要求',
+    contentPromptText: '内容要求'
+  })
+
+  assert.deepEqual(
+    new Set(compacted.sources.flatMap((source) => source.metadata.contentRoles)),
+    new Set(roles)
+  )
+  assert.equal(compacted.platformMappings.NCM.rawPayload, undefined)
+  assert.equal(compacted.sources[0].metadata.rawHTML, undefined)
+  assert.ok(estimateGenerationInputTokens(compacted, {
+    systemPromptText: '系统要求',
+    contentPromptText: '内容要求'
+  }) <= 2_048)
+})
+
+test('首轮已超总预算时保留结果但不再发起补全请求', () => {
+  assert.equal(shouldAttemptCompletion({
+    taskTokenLimit: 20_000,
+    usedTokens: 21_000,
+    estimatedInputTokens: 2_000,
+    maxOutputTokens: 4_000
+  }), false)
+  assert.equal(shouldAttemptCompletion({
+    taskTokenLimit: 20_000,
+    usedTokens: 8_000,
+    estimatedInputTokens: 3_000,
+    maxOutputTokens: 4_000
+  }), true)
+  assert.equal(shouldAttemptCompletion({
+    taskTokenLimit: 0,
+    usedTokens: 100_000,
+    estimatedInputTokens: 20_000,
+    maxOutputTokens: 10_000
+  }), true)
 })
