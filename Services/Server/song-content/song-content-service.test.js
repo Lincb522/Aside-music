@@ -76,6 +76,9 @@ test('服务器已有持久化内容时播放请求不会再次创建生成任�
     assert.equal(queuedJobs[0].albumName, '测试专辑')
     assert.equal(queuedJobs[0].platform, 'NCM')
     assert.equal(queuedJobs[0].queuePosition, 1)
+    assert.equal(service.store.countSongs(), 1)
+    assert.equal(service.store.countSongs({ query: '测试歌手' }), 1)
+    assert.equal(service.store.countSongs({ query: '不存在' }), 0)
     assert.equal(service.store.countJobs({ state: 'queued' }), 1)
     assert.equal(service.store.jobStateCounts().active, 1)
 

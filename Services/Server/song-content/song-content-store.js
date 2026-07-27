@@ -430,6 +430,11 @@ function createSongContentStore({ directory, databasePath, logger = console }) {
     }))
   }
 
+  function countSongs({ query = '' } = {}) {
+    const needle = `%${String(query).trim().slice(0, 200)}%`
+    return Number(statements.countSongs.get(needle, needle, needle)?.count || 0)
+  }
+
   function listContentVersions({ status = '', limit = 50, offset = 0 } = {}) {
     return statements.listContentVersions
       .all(cleanOptional(status) || '', cleanOptional(status) || '', boundedLimit(limit), boundedOffset(offset))
@@ -734,6 +739,7 @@ function createSongContentStore({ directory, databasePath, logger = console }) {
     appendAudit,
     dashboardStats,
     listSongs,
+    countSongs,
     listContentVersions,
     getContentReview,
     setSongIdentityStatus,
@@ -871,6 +877,8 @@ function prepareStatements(database) {
       LEFT JOIN song_content_versions v ON v.id = p.current_content_version_id
       WHERE (? = '%%' OR s.title LIKE ? OR s.primary_artist_name LIKE ?)
       GROUP BY s.id ORDER BY s.updated_at DESC LIMIT ? OFFSET ?`),
+    countSongs: database.prepare(`SELECT COUNT(*) AS count FROM songs
+      WHERE (? = '%%' OR title LIKE ? OR primary_artist_name LIKE ?)`),
     listContentVersions: database.prepare(`SELECT v.*, s.title AS song_title, s.primary_artist_name
       FROM song_content_versions v JOIN songs s ON s.id = v.song_id
       WHERE (? = '' OR v.status = ?) ORDER BY v.updated_at DESC LIMIT ? OFFSET ?`),

@@ -4,6 +4,10 @@
     activeView: 'config',
     selectedVersionId: null,
     review: null,
+    songsPage: 0,
+    songsPageSize: 50,
+    songsTotal: 0,
+    songsLoading: false,
     jobsPage: 0,
     jobsPageSize: 50,
     jobsTotal: 0,
@@ -93,7 +97,8 @@
       'reviewGeneration', 'reviewDiffSection', 'reviewDiff', 'candidateVersion', 'songSummary', 'creationStory', 'background',
       'albumSummary', 'sourceCount', 'reviewSources', 'reviewValidation',
       'saveDraftButton', 'submitButton', 'rejectButton', 'publishButton', 'rollbackButton', 'offlineButton',
-      'songSearch', 'songsTable', 'jobsTable', 'jobsQueueMeta', 'jobsQueueOverview', 'jobsStateFilter',
+      'songSearch', 'songsTable', 'songsMeta', 'songsPageSize', 'songsPreviousPage', 'songsNextPage',
+      'songsPageLabel', 'jobsTable', 'jobsQueueMeta', 'jobsQueueOverview', 'jobsStateFilter',
       'jobsPageSize', 'jobsPreviousPage', 'jobsNextPage', 'jobsPageLabel', 'sourcesTable', 'auditTable',
       'appAIRevision', 'appAIKeyStatus', 'appAIEnabled', 'appAIProtocol', 'appAIBaseURL',
       'appAIModel', 'appAIModelDiscoveryURL', 'appAITimeout', 'appAIAPIKey', 'appAIHeaders',
@@ -130,7 +135,25 @@
     els.logoutButton?.addEventListener('click', Admin.logout)
     els.refreshButton?.addEventListener('click', refreshActiveView)
     els.contentStatusFilter?.addEventListener('change', loadContent)
-    els.songSearch?.addEventListener('input', debounce(loadSongs, 250))
+    els.songSearch?.addEventListener('input', debounce(() => {
+      state.songsPage = 0
+      loadSongs()
+    }, 250))
+    els.songsPageSize?.addEventListener('change', () => {
+      state.songsPageSize = Number(els.songsPageSize.value) || 50
+      state.songsPage = 0
+      loadSongs()
+    })
+    els.songsPreviousPage?.addEventListener('click', () => {
+      if (state.songsPage <= 0) return
+      state.songsPage -= 1
+      loadSongs()
+    })
+    els.songsNextPage?.addEventListener('click', () => {
+      if ((state.songsPage + 1) * state.songsPageSize >= state.songsTotal) return
+      state.songsPage += 1
+      loadSongs()
+    })
     els.jobsStateFilter?.addEventListener('change', () => {
       state.jobsPage = 0
       loadJobs()
@@ -390,10 +413,19 @@
   }
 
   async function loadSongs() {
+    if (state.songsLoading) return
+    state.songsLoading = true
     els.songsTable.innerHTML = tableLoadingRow(6)
     try {
-      const data = await Admin.request(`/api/song-content/songs?q=${encodeURIComponent(els.songSearch.value)}`)
+      const query = new URLSearchParams({
+        q: els.songSearch.value,
+        limit: String(state.songsPageSize),
+        offset: String(state.songsPage * state.songsPageSize)
+      })
+      const data = await Admin.request(`/api/song-content/songs?${query}`)
       const songs = data.songs || []
+      state.songsTotal = Number(data.total || 0)
+      renderSongsPagination(songs.length)
       els.songsTable.innerHTML = songs.length ? songs.map((song) => `
         <tr>
           <td><strong>${Admin.esc(song.title)}</strong><span>${Admin.esc(song.artists.map((artist) => artist.name).join(' / '))}</span><span><code>${Admin.esc(shortId(song.id))}</code></span></td>
@@ -407,7 +439,19 @@
       bindSongActions()
     } catch (error) {
       els.songsTable.innerHTML = tableEmptyRow(6, error.message)
+    } finally {
+      state.songsLoading = false
     }
+  }
+
+  function renderSongsPagination(visibleCount) {
+    const first = state.songsTotal === 0 ? 0 : state.songsPage * state.songsPageSize + 1
+    const last = Math.min(state.songsTotal, state.songsPage * state.songsPageSize + visibleCount)
+    const totalPages = Math.max(1, Math.ceil(state.songsTotal / state.songsPageSize))
+    els.songsMeta.textContent = `显示 ${first}–${last}，共 ${Admin.fmtNum(state.songsTotal)} 首歌曲`
+    els.songsPageLabel.textContent = `第 ${state.songsPage + 1} / ${totalPages} 页`
+    els.songsPreviousPage.disabled = state.songsPage <= 0
+    els.songsNextPage.disabled = (state.songsPage + 1) * state.songsPageSize >= state.songsTotal
   }
 
   function bindSongActions() {
@@ -507,7 +551,8 @@
             <td>
               <div class="job-progress">
                 ${processing ? `<span class="job-processing-label"><i aria-hidden="true"></i>正在处理 · ${Admin.esc(statusLabels[job.state])}</span>` : badge(job.state)}
-                <span>${Admin.esc(jobReason(job.reason))}</span>
+                <span>${Admin.esc(job.state === 'queued' && job.errorTitle ? job.errorTitle : jobReason(job.reason))}</span>
+                ${job.state === 'queued' && job.errorDetail ? `<small title="${Admin.esc(job.errorDetail)}">${Admin.esc(job.errorDetail)}</small>` : ''}
                 <small>任务 ${Admin.esc(shortId(job.id))}</small>
               </div>
             </td>

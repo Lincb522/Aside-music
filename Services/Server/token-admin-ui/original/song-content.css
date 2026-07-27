@@ -57,3 +57,9 @@
 @media(max-width:860px){.jobs-panel-head{align-items:stretch;flex-direction:column}.jobs-toolbar{width:100%}.jobs-filter{flex:1;width:auto}.jobs-queue-overview{grid-template-columns:repeat(5,minmax(116px,1fr));overflow-x:auto}.jobs-pagination{justify-content:space-between}.jobs-pagination .btn{flex:0 0 auto}}
 @media(max-width:520px){.jobs-toolbar{align-items:stretch;flex-direction:column}.jobs-filter,.jobs-page-size{width:100%}}
 @media(prefers-reduced-motion:reduce){.job-processing-label i{animation:none}}
+
+.songs-panel{padding-bottom:0}
+.songs-toolbar{display:flex;align-items:flex-end;gap:var(--space-3)}
+.songs-page-size{width:92px}
+.songs-pagination{padding-inline:0}
+@media(max-width:720px){.songs-toolbar{width:100%;align-items:stretch;flex-direction:column}.songs-page-size{width:100%}}

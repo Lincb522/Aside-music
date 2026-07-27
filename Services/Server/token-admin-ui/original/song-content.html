@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="./assets/admin.css?v=2026072802">
   <link rel="stylesheet" href="./assets/admin-terminal.css?v=2026072802">
   <link rel="stylesheet" href="./assets/admin-theme.css?v=2026072802">
-  <link rel="stylesheet" href="./assets/song-content.css?v=2026072802">
+  <link rel="stylesheet" href="./assets/song-content.css?v=2026072803">
 </head>
 <body>
   <div id="authGate" class="auth-gate hidden">
@@ -166,12 +166,27 @@
       </section>
 
       <section id="songsView" class="content-console-view hidden">
-        <article class="panel">
+        <article class="panel songs-panel">
           <div class="panel-head content-filter-head">
-            <div><h3>歌曲</h3></div>
-            <div class="field content-search"><label for="songSearch">搜索</label><input id="songSearch" type="text"></div>
+            <div><h3>歌曲</h3><p id="songsMeta" class="text-muted">正在读取</p></div>
+            <div class="songs-toolbar">
+              <div class="field content-search"><label for="songSearch">搜索</label><input id="songSearch" type="text"></div>
+              <label class="field songs-page-size">
+                <span>每页</span>
+                <select id="songsPageSize">
+                  <option value="25">25</option>
+                  <option value="50" selected>50</option>
+                  <option value="100">100</option>
+                </select>
+              </label>
+            </div>
           </div>
           <div class="table-scroll"><table class="content-table"><thead><tr><th>歌曲</th><th>身份</th><th>平台映射</th><th>白名单</th><th>内容</th><th>操作</th></tr></thead><tbody id="songsTable"></tbody></table></div>
+          <div class="jobs-pagination songs-pagination">
+            <button id="songsPreviousPage" class="btn btn-secondary btn-small" type="button">上一页</button>
+            <span id="songsPageLabel">第 1 页</span>
+            <button id="songsNextPage" class="btn btn-secondary btn-small" type="button">下一页</button>
+          </div>
         </article>
       </section>
 
@@ -371,6 +386,6 @@
 
   <div id="toast" class="toast" role="status"></div>
   <script src="./assets/admin-core.js?v=2026072802"></script>
-  <script src="./assets/song-content-page.js?v=2026072802"></script>
+  <script src="./assets/song-content-page.js?v=2026072803"></script>
 </body>
 </html>

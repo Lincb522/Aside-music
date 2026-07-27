@@ -27,9 +27,11 @@ function installSongContentAdminRoutes({ app, service, authMiddleware, authorize
   }))
 
   app.get('/api/song-content/songs', ...route('content.read', async (req, res) => {
+    const query = { query: req.query?.q, limit: req.query?.limit, offset: req.query?.offset }
     res.json({
       ok: true,
-      songs: store.listSongs({ query: req.query?.q, limit: req.query?.limit, offset: req.query?.offset })
+      songs: store.listSongs(query),
+      total: store.countSongs(query)
     })
   }))
 

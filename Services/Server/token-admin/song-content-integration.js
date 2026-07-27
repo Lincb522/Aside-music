@@ -58,7 +58,7 @@ function installTokenSongContent({
       : {}
     return {
       ...contentPolicy,
-      providerUsageLimits: appAI.usageLimits || {}
+      providerUsageLimits: serverProviderUsageLimits(appAI.usageLimits)
     }
   }
 
@@ -159,4 +159,12 @@ function installTokenSongContent({
   return service
 }
 
-module.exports = { installTokenSongContent }
+function serverProviderUsageLimits(clientUsageLimits = {}) {
+  return {
+    minimumRequestInterval: Math.max(0, Number(clientUsageLimits.minimumRequestInterval) || 0),
+    hourlyRequestLimit: 0,
+    dailyRequestLimit: 0
+  }
+}
+
+module.exports = { installTokenSongContent, serverProviderUsageLimits }
