@@ -23,7 +23,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Reject local-only content
         shell: bash
@@ -49,6 +49,7 @@ jobs:
           set -euo pipefail
 
           if git grep -n -I -E 'Monologue|AsideMusic' -- . \
+            ':(exclude).github/workflows/ios-ci.yml' \
             ':(exclude)Packages/**' \
             ':(exclude)DesignAssets/**'; then
             echo "Legacy product naming remains in application-owned files."
@@ -61,12 +62,43 @@ jobs:
     timeout-minutes: 60
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
+      FFMPEG_BINARY_VERSION: "0.5.0"
+      FFMPEG_BINARY_URL: https://github.com/Lincb522/FFmpegSwiftSDK/releases/download/0.5.0/FFmpegLibs.xcframework.zip
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+
+      - name: Restore FFmpeg binary cache
+        id: ffmpeg-cache
+        uses: actions/cache@v6
+        with:
+          path: Packages/Audio/ffmpeg-swift/Frameworks/FFmpegLibs.xcframework
+          key: mono-ffmpeg-ios-${{ env.FFMPEG_BINARY_VERSION }}
+
+      - name: Download FFmpeg binary
+        if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="${RUNNER_TEMP}/FFmpegLibs.xcframework.zip"
+          destination="Packages/Audio/ffmpeg-swift/Frameworks"
+          mkdir -p "$destination"
+          curl --fail --location --retry 3 --retry-all-errors \
+            "$FFMPEG_BINARY_URL" \
+            --output "$archive"
+          ditto -x -k "$archive" "$destination"
+
+      - name: Validate FFmpeg binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          framework="Packages/Audio/ffmpeg-swift/Frameworks/FFmpegLibs.xcframework"
+          plutil -lint "$framework/Info.plist"
+          binary_count="$(find "$framework" -type f -name '*.a' -size +1M | wc -l | tr -d ' ')"
+          test "$binary_count" -ge 2
 
       - name: Restore Swift package cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}/MonoSourcePackages
           key: mono-spm-${{ runner.os }}-xcode-26.4.1-${{ hashFiles('Package.swift', 'Mono.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved', 'Packages/**/Package.swift') }}
@@ -121,7 +153,7 @@ jobs:
 
       - name: Upload build log on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mono-xcodebuild-log
           path: ${{ runner.temp }}/mono-xcodebuild.log
