@@ -5,9 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Agent 管理 - 两条鱼</title>
   <link rel="icon" href="./brand-mark.svg">
-  <link rel="stylesheet" href="./assets/admin.css">
-  <link rel="stylesheet" href="./assets/admin-terminal.css?v=202607231520">
-  <link rel="stylesheet" href="./assets/song-content.css?v=2026072704">
+  <link rel="stylesheet" href="./assets/admin.css?v=2026072802">
+  <link rel="stylesheet" href="./assets/admin-terminal.css?v=2026072802">
+  <link rel="stylesheet" href="./assets/admin-theme.css?v=2026072802">
+  <link rel="stylesheet" href="./assets/song-content.css?v=2026072802">
 </head>
 <body>
   <div id="authGate" class="auth-gate hidden">
@@ -175,7 +176,48 @@
       </section>
 
       <section id="jobsView" class="content-console-view hidden">
-        <article class="panel"><div class="panel-head"><div><h3>生成任务</h3></div></div><div class="table-scroll"><table class="content-table"><thead><tr><th>任务</th><th>状态</th><th>尝试</th><th>Token / 费用</th><th>耗时</th><th>错误</th><th></th></tr></thead><tbody id="jobsTable"></tbody></table></div></article>
+        <article class="panel jobs-panel">
+          <div class="panel-head jobs-panel-head">
+            <div>
+              <h3>任务队列</h3>
+              <p id="jobsQueueMeta" class="text-muted">正在读取</p>
+            </div>
+            <div class="jobs-toolbar">
+              <label class="field jobs-filter">
+                <span>状态</span>
+                <select id="jobsStateFilter">
+                  <option value="">全部任务</option>
+                  <option value="active">活动任务</option>
+                  <option value="processing">正在处理</option>
+                  <option value="queued">排队中</option>
+                  <option value="review">待审核</option>
+                  <option value="completed">已完成</option>
+                  <option value="failed">失败</option>
+                </select>
+              </label>
+              <label class="field jobs-page-size">
+                <span>每页</span>
+                <select id="jobsPageSize">
+                  <option value="25">25</option>
+                  <option value="50" selected>50</option>
+                  <option value="100">100</option>
+                </select>
+              </label>
+            </div>
+          </div>
+          <div id="jobsQueueOverview" class="jobs-queue-overview" aria-label="任务队列统计"></div>
+          <div class="table-scroll jobs-table-scroll">
+            <table class="content-table jobs-table">
+              <thead><tr><th>歌曲</th><th>进度</th><th>队列与时间</th><th>尝试</th><th>Token / 费用</th><th>结果</th><th><span class="sr-only">操作</span></th></tr></thead>
+              <tbody id="jobsTable"></tbody>
+            </table>
+          </div>
+          <div class="jobs-pagination">
+            <button id="jobsPreviousPage" class="btn btn-secondary btn-small" type="button">上一页</button>
+            <span id="jobsPageLabel">第 1 页</span>
+            <button id="jobsNextPage" class="btn btn-secondary btn-small" type="button">下一页</button>
+          </div>
+        </article>
       </section>
 
       <section id="sourcesView" class="content-console-view hidden">
@@ -328,7 +370,7 @@
   </div>
 
   <div id="toast" class="toast" role="status"></div>
-  <script src="./assets/admin-core.js"></script>
-  <script src="./assets/song-content-page.js?v=2026072709"></script>
+  <script src="./assets/admin-core.js?v=2026072802"></script>
+  <script src="./assets/song-content-page.js?v=2026072802"></script>
 </body>
 </html>

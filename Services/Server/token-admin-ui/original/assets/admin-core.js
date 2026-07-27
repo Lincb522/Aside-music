@@ -1,4 +1,45 @@
 (function () {
+  const themeStorageKey = 'token_admin_theme'
+  let activeTheme = localStorage.getItem(themeStorageKey) === 'light' ? 'light' : 'dark'
+  document.documentElement.dataset.theme = activeTheme
+
+  function applyTheme(theme) {
+    activeTheme = theme === 'light' ? 'light' : 'dark'
+    document.documentElement.dataset.theme = activeTheme
+    localStorage.setItem(themeStorageKey, activeTheme)
+    document.querySelectorAll('[data-theme-toggle]').forEach((button) => {
+      const nextThemeLabel = activeTheme === 'light' ? '深色模式' : '浅色模式'
+      button.textContent = nextThemeLabel
+      button.setAttribute('aria-label', `切换到${nextThemeLabel}`)
+      button.setAttribute('aria-pressed', String(activeTheme === 'light'))
+    })
+  }
+
+  function mountThemeToggle() {
+    const targets = [
+      [document.querySelector('.masthead-actions'), ''],
+      [document.querySelector('.auth-gate'), 'public-theme-toggle'],
+      [document.querySelector('.public-masthead'), ''],
+      [document.querySelector('.register-shell, .profile-shell'), 'public-theme-toggle']
+    ]
+    for (const [target, modifier] of targets) {
+      if (!target || target.querySelector('[data-theme-toggle]')) continue
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.className = `btn btn-ghost theme-toggle ${modifier}`.trim()
+      button.dataset.themeToggle = ''
+      button.addEventListener('click', () => applyTheme(activeTheme === 'light' ? 'dark' : 'light'))
+      target.appendChild(button)
+    }
+    applyTheme(activeTheme)
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', mountThemeToggle, { once: true })
+  } else {
+    mountThemeToggle()
+  }
+
   const suffixes = [
     '/tokens',
     '/song-content',
@@ -216,6 +257,7 @@
     fmtDate,
     fmtNum,
     fmtBytes,
-    nl2br
+    nl2br,
+    applyTheme
   }
 })()

@@ -131,9 +131,15 @@ function installSongContentAdminRoutes({ app, service, authMiddleware, authorize
   }))
 
   app.get('/api/song-content/jobs', ...route('content.read', async (req, res) => {
-    const jobs = store.listJobs({ state: req.query?.state, limit: req.query?.limit, offset: req.query?.offset })
+    const query = { state: req.query?.state, limit: req.query?.limit, offset: req.query?.offset }
+    const jobs = store.listJobs(query)
       .map(adminJob)
-    res.json({ ok: true, jobs })
+    res.json({
+      ok: true,
+      jobs,
+      total: store.countJobs(query),
+      counts: store.jobStateCounts()
+    })
   }))
 
   app.post('/api/song-content/jobs/:jobId/retry', ...route('jobs.manage', async (req, res) => {

@@ -606,8 +606,36 @@ function createSongContentStore({ directory, databasePath, logger = console }) {
   }
 
   function listJobs({ state = '', limit = 50, offset = 0 } = {}) {
-    const normalizedState = cleanOptional(state) || ''
-    return statements.listJobs.all(normalizedState, normalizedState, boundedLimit(limit), boundedOffset(offset)).map(hydrateJob)
+    const normalizedState = normalizeJobFilter(state)
+    return statements.listJobs
+      .all(normalizedState, normalizedState, normalizedState, normalizedState, boundedLimit(limit), boundedOffset(offset))
+      .map(hydrateJob)
+  }
+
+  function countJobs({ state = '' } = {}) {
+    const normalizedState = normalizeJobFilter(state)
+    return Number(statements.countJobs.get(normalizedState, normalizedState, normalizedState, normalizedState)?.count || 0)
+  }
+
+  function jobStateCounts() {
+    const counts = {
+      all: 0,
+      active: 0,
+      processing: 0,
+      queued: 0,
+      completed: 0,
+      failed: 0,
+      review: 0
+    }
+    for (const row of statements.jobStateCounts.all()) {
+      const state = String(row.state || '')
+      const count = Number(row.count || 0)
+      counts.all += count
+      counts[state] = count
+      if (ACTIVE_JOB_STATES.has(state)) counts.active += count
+      if (['collecting', 'generating', 'validating'].includes(state)) counts.processing += count
+    }
+    return counts
   }
 
   function retryJob(jobId, actorId) {
@@ -716,6 +744,8 @@ function createSongContentStore({ directory, databasePath, logger = console }) {
     setContentStatus,
     rollbackContentVersion,
     listJobs,
+    countJobs,
+    jobStateCounts,
     retryJob,
     listSources,
     updateSource,
@@ -847,8 +877,43 @@ function prepareStatements(database) {
     selectPublicationForSong: database.prepare('SELECT * FROM song_content_publications WHERE song_id = ? AND locale = ?'),
     setContentStatus: database.prepare('UPDATE song_content_versions SET status = ?, updated_at = ? WHERE id = ?'),
     deletePublicationByVersion: database.prepare('DELETE FROM song_content_publications WHERE current_content_version_id = ?'),
-    listJobs: database.prepare(`SELECT * FROM generation_jobs WHERE (? = '' OR state = ?)
-      ORDER BY updated_at DESC LIMIT ? OFFSET ?`),
+    listJobs: database.prepare(`SELECT j.*,
+      s.title AS song_title,
+      s.primary_artist_name AS artist_name,
+      s.album_name AS album_name,
+      s.cover_url AS cover_url,
+      (SELECT m.platform FROM platform_song_mappings m
+        WHERE m.song_id = j.song_id ORDER BY m.created_at LIMIT 1) AS platform,
+      CASE WHEN j.state = 'queued' THEN (
+        SELECT COUNT(*) FROM generation_jobs q
+        WHERE q.state = 'queued' AND (
+          q.available_at < j.available_at
+          OR (q.available_at = j.available_at AND q.created_at <= j.created_at)
+        )
+      ) ELSE NULL END AS queue_position
+      FROM generation_jobs j
+      JOIN songs s ON s.id = j.song_id
+      WHERE (? = ''
+        OR (? = 'active' AND j.state IN ('queued', 'collecting', 'generating', 'validating', 'review'))
+        OR (? = 'processing' AND j.state IN ('collecting', 'generating', 'validating'))
+        OR j.state = ?)
+      ORDER BY
+        CASE
+          WHEN j.state IN ('collecting', 'generating', 'validating') THEN 0
+          WHEN j.state = 'queued' THEN 1
+          WHEN j.state = 'review' THEN 2
+          WHEN j.state = 'failed' THEN 3
+          ELSE 4
+        END,
+        CASE WHEN j.state = 'queued' THEN j.available_at END,
+        j.updated_at DESC
+      LIMIT ? OFFSET ?`),
+    countJobs: database.prepare(`SELECT COUNT(*) AS count FROM generation_jobs
+      WHERE (? = ''
+        OR (? = 'active' AND state IN ('queued', 'collecting', 'generating', 'validating', 'review'))
+        OR (? = 'processing' AND state IN ('collecting', 'generating', 'validating'))
+        OR state = ?)`),
+    jobStateCounts: database.prepare('SELECT state, COUNT(*) AS count FROM generation_jobs GROUP BY state'),
     retryJob: database.prepare(`UPDATE generation_jobs SET state = 'queued', attempt_count = 0, available_at = ?,
       lease_owner = NULL, lease_expires_at = NULL, error_code = NULL, error_message = NULL,
       finished_at = NULL, updated_at = ? WHERE id = ?`),
@@ -898,8 +963,16 @@ function hydrateJob(row) {
     resultContentVersionId: row.result_content_version_id || null,
     startedAt: row.started_at || null,
     finishedAt: row.finished_at || null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
     isActive: ACTIVE_JOB_STATES.has(row.state),
-    durationMs: row.started_at && row.finished_at ? Math.max(0, Date.parse(row.finished_at) - Date.parse(row.started_at)) : null
+    durationMs: row.started_at && row.finished_at ? Math.max(0, Date.parse(row.finished_at) - Date.parse(row.started_at)) : null,
+    queuePosition: nullableNumber(row.queue_position),
+    songTitle: row.song_title || null,
+    artistName: row.artist_name || null,
+    albumName: row.album_name || null,
+    coverURL: row.cover_url || null,
+    platform: row.platform || null
   }
 }
 
@@ -1009,11 +1082,18 @@ function cleanOptional(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : null
 }
 
+function normalizeJobFilter(value) {
+  const normalized = cleanOptional(value) || ''
+  return ['', 'active', 'processing', 'queued', 'collecting', 'generating', 'validating', 'review', 'completed', 'failed']
+    .includes(normalized) ? normalized : ''
+}
+
 function cleanContent(value) {
   return cleanOptional(value)?.slice(0, 20_000) || null
 }
 
 function nullableNumber(value) {
+  if (value === null || value === undefined || value === '') return null
   const number = Number(value)
   return Number.isFinite(number) ? number : null
 }

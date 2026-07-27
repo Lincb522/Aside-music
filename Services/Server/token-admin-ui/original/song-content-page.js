@@ -3,7 +3,11 @@
   const state = {
     activeView: 'config',
     selectedVersionId: null,
-    review: null
+    review: null,
+    jobsPage: 0,
+    jobsPageSize: 50,
+    jobsTotal: 0,
+    jobsLoading: false
   }
 
   const els = {}
@@ -75,6 +79,9 @@
     cacheElements()
     bindEvents()
     Admin.setupAuth(loadInitial)
+    window.setInterval(() => {
+      if (state.activeView === 'jobs' && !document.hidden) loadJobs({ silent: true })
+    }, 8_000)
   })
 
   function cacheElements() {
@@ -86,7 +93,8 @@
       'reviewGeneration', 'reviewDiffSection', 'reviewDiff', 'candidateVersion', 'songSummary', 'creationStory', 'background',
       'albumSummary', 'sourceCount', 'reviewSources', 'reviewValidation',
       'saveDraftButton', 'submitButton', 'rejectButton', 'publishButton', 'rollbackButton', 'offlineButton',
-      'songSearch', 'songsTable', 'jobsTable', 'sourcesTable', 'auditTable',
+      'songSearch', 'songsTable', 'jobsTable', 'jobsQueueMeta', 'jobsQueueOverview', 'jobsStateFilter',
+      'jobsPageSize', 'jobsPreviousPage', 'jobsNextPage', 'jobsPageLabel', 'sourcesTable', 'auditTable',
       'appAIRevision', 'appAIKeyStatus', 'appAIEnabled', 'appAIProtocol', 'appAIBaseURL',
       'appAIModel', 'appAIModelDiscoveryURL', 'appAITimeout', 'appAIAPIKey', 'appAIHeaders',
       'appAIDailyLimit', 'appAIHourlyLimit', 'appAIMinInterval', 'testAppAIButton', 'saveAppAIButton',
@@ -123,6 +131,25 @@
     els.refreshButton?.addEventListener('click', refreshActiveView)
     els.contentStatusFilter?.addEventListener('change', loadContent)
     els.songSearch?.addEventListener('input', debounce(loadSongs, 250))
+    els.jobsStateFilter?.addEventListener('change', () => {
+      state.jobsPage = 0
+      loadJobs()
+    })
+    els.jobsPageSize?.addEventListener('change', () => {
+      state.jobsPageSize = Number(els.jobsPageSize.value) || 50
+      state.jobsPage = 0
+      loadJobs()
+    })
+    els.jobsPreviousPage?.addEventListener('click', () => {
+      if (state.jobsPage <= 0) return
+      state.jobsPage -= 1
+      loadJobs()
+    })
+    els.jobsNextPage?.addEventListener('click', () => {
+      if ((state.jobsPage + 1) * state.jobsPageSize >= state.jobsTotal) return
+      state.jobsPage += 1
+      loadJobs()
+    })
     els.saveDraftButton?.addEventListener('click', saveDraft)
     els.submitButton?.addEventListener('click', () => updateContentStatus('submit'))
     els.rejectButton?.addEventListener('click', () => updateContentStatus('reject'))
@@ -441,19 +468,124 @@
     } catch (error) { Admin.notify(error.message || '操作失败', 'error') }
   }
 
-  async function loadJobs() {
-    els.jobsTable.innerHTML = tableLoadingRow(7)
+  async function loadJobs({ silent = false } = {}) {
+    if (state.jobsLoading) return
+    state.jobsLoading = true
+    if (!silent) els.jobsTable.innerHTML = tableLoadingRow(7)
     try {
-      const data = await Admin.request('/api/song-content/jobs')
+      const query = new URLSearchParams({
+        state: els.jobsStateFilter?.value || '',
+        limit: String(state.jobsPageSize),
+        offset: String(state.jobsPage * state.jobsPageSize)
+      })
+      const data = await Admin.request(`/api/song-content/jobs?${query}`)
       const jobs = data.jobs || []
+      state.jobsTotal = Number(data.total || 0)
+      renderJobOverview(data.counts || {})
+      renderJobPagination(jobs.length)
       els.jobsTable.innerHTML = jobs.length ? jobs.map((job) => {
         const errorText = localizeJobError(job)
+        const processing = ['collecting', 'generating', 'validating'].includes(job.state)
+        const resultTitle = job.state === 'failed'
+          ? errorText.title
+          : (job.state === 'completed' ? '生成完成' : '—')
+        const resultDetail = job.state === 'failed'
+          ? errorText.detail
+          : (job.resultContentVersionId ? `内容 ${shortId(job.resultContentVersionId)}` : '')
         return `
-          <tr><td><code>${Admin.esc(shortId(job.id))}</code><span>${Admin.esc(job.reason)}</span></td><td>${badge(job.state)}</td><td>${job.attemptCount} / ${job.maxAttempts}</td><td>${Admin.esc(`${job.tokenInput ?? 0} / ${job.tokenOutput ?? 0}`)}<span>${job.cost == null ? '—' : Number(job.cost).toFixed(6)}</span></td><td>${formatDuration(job.durationMs)}</td><td>${Admin.esc(errorText.title)}<span>${Admin.esc(errorText.detail)}</span></td><td>${job.state === 'failed' ? `<button class="btn btn-secondary btn-small" data-retry-job="${Admin.esc(job.id)}">重试</button>` : ''}</td></tr>
+          <tr class="${processing ? 'job-row is-processing' : 'job-row'}">
+            <td class="job-song-cell">
+              <div class="job-song">
+                ${job.coverURL ? `<img src="${Admin.esc(job.coverURL)}" alt="" loading="lazy" decoding="async">` : '<span class="job-cover-placeholder" aria-hidden="true">♪</span>'}
+                <span class="job-song-copy">
+                  <strong title="${Admin.esc(job.songTitle || '')}">${Admin.esc(job.songTitle || '未知歌曲')}</strong>
+                  <span>${Admin.esc([job.artistName, job.albumName].filter(Boolean).join(' · ') || '歌曲资料待补充')}</span>
+                  <small>${Admin.esc([job.platform, job.locale].filter(Boolean).join(' · '))} · ${Admin.esc(shortId(job.songId))}</small>
+                </span>
+              </div>
+            </td>
+            <td>
+              <div class="job-progress">
+                ${processing ? `<span class="job-processing-label"><i aria-hidden="true"></i>正在处理 · ${Admin.esc(statusLabels[job.state])}</span>` : badge(job.state)}
+                <span>${Admin.esc(jobReason(job.reason))}</span>
+                <small>任务 ${Admin.esc(shortId(job.id))}</small>
+              </div>
+            </td>
+            <td>${jobTimelineMarkup(job)}</td>
+            <td><strong>${Admin.esc(`${job.attemptCount} / ${job.maxAttempts}`)}</strong></td>
+            <td><strong>${Admin.esc(`${job.tokenInput ?? '—'} / ${job.tokenOutput ?? '—'}`)}</strong><span>${job.cost == null ? '—' : `¥ ${Number(job.cost).toFixed(6)}`}</span></td>
+            <td><strong>${Admin.esc(resultTitle)}</strong>${resultDetail ? `<span title="${Admin.esc(resultDetail)}">${Admin.esc(resultDetail)}</span>` : ''}</td>
+            <td class="job-action-cell">${job.state === 'failed' ? `<button class="btn btn-secondary btn-small" data-retry-job="${Admin.esc(job.id)}">重试</button>` : ''}</td>
+          </tr>
         `
-      }).join('') : tableEmptyRow(7, '没有生成任务')
+      }).join('') : tableEmptyRow(7, '没有符合条件的任务')
       els.jobsTable.querySelectorAll('[data-retry-job]').forEach((button) => button.addEventListener('click', () => retryJob(button)))
-    } catch (error) { els.jobsTable.innerHTML = tableEmptyRow(7, error.message) }
+    } catch (error) {
+      if (!silent) els.jobsTable.innerHTML = tableEmptyRow(7, error.message)
+    } finally {
+      state.jobsLoading = false
+    }
+  }
+
+  function renderJobOverview(counts) {
+    const items = [
+      ['active', '活动任务', counts.active],
+      ['processing', '正在处理', counts.processing],
+      ['queued', '排队中', counts.queued],
+      ['completed', '已完成', counts.completed],
+      ['failed', '失败', counts.failed]
+    ]
+    els.jobsQueueOverview.innerHTML = items.map(([filter, label, value]) => `
+      <button class="job-queue-stat ${els.jobsStateFilter.value === filter ? 'is-active' : ''}" type="button" data-job-filter="${filter}">
+        <span>${label}</span><strong>${Admin.fmtNum(value || 0)}</strong>
+      </button>
+    `).join('')
+    els.jobsQueueOverview.querySelectorAll('[data-job-filter]').forEach((button) => {
+      button.addEventListener('click', () => {
+        els.jobsStateFilter.value = els.jobsStateFilter.value === button.dataset.jobFilter ? '' : button.dataset.jobFilter
+        state.jobsPage = 0
+        loadJobs()
+      })
+    })
+  }
+
+  function renderJobPagination(visibleCount) {
+    const first = state.jobsTotal === 0 ? 0 : state.jobsPage * state.jobsPageSize + 1
+    const last = Math.min(state.jobsTotal, state.jobsPage * state.jobsPageSize + visibleCount)
+    const totalPages = Math.max(1, Math.ceil(state.jobsTotal / state.jobsPageSize))
+    els.jobsQueueMeta.textContent = `显示 ${first}–${last}，共 ${Admin.fmtNum(state.jobsTotal)} 个任务`
+    els.jobsPageLabel.textContent = `第 ${state.jobsPage + 1} / ${totalPages} 页`
+    els.jobsPreviousPage.disabled = state.jobsPage <= 0
+    els.jobsNextPage.disabled = (state.jobsPage + 1) * state.jobsPageSize >= state.jobsTotal
+  }
+
+  function jobTimelineMarkup(job) {
+    if (job.state === 'queued') {
+      const availableAt = job.availableAt ? new Date(job.availableAt) : null
+      const delayed = availableAt && availableAt.getTime() > Date.now()
+      return `<strong>${job.queuePosition ? `队列第 ${Admin.fmtNum(job.queuePosition)} 位` : '等待调度'}</strong><span>${delayed ? `预计 ${Admin.fmtDate(job.availableAt)} 后继续` : `加入于 ${Admin.fmtDate(job.createdAt)}`}</span>`
+    }
+    if (['collecting', 'generating', 'validating'].includes(job.state)) {
+      return `<strong>已处理 ${Admin.esc(formatElapsed(job.startedAt))}</strong><span>开始于 ${Admin.esc(Admin.fmtDate(job.startedAt))}</span>`
+    }
+    const timestamp = job.finishedAt || job.updatedAt
+    return `<strong>${Admin.esc(formatDuration(job.durationMs))}</strong><span>${Admin.esc(Admin.fmtDate(timestamp))}</span>`
+  }
+
+  function jobReason(reason) {
+    const value = String(reason || '')
+    if (value === 'first_access') return '首次播放获取'
+    if (value.startsWith('admin:')) return '管理端重新生成'
+    if (value === 'retry') return '失败后重试'
+    return value || '内容生成'
+  }
+
+  function formatElapsed(startedAt) {
+    if (!startedAt) return '—'
+    const elapsed = Math.max(0, Date.now() - Date.parse(startedAt))
+    if (elapsed < 60_000) return `${Math.floor(elapsed / 1_000)} 秒`
+    if (elapsed < 3_600_000) return `${Math.floor(elapsed / 60_000)} 分钟`
+    return `${Math.floor(elapsed / 3_600_000)} 小时 ${Math.floor((elapsed % 3_600_000) / 60_000)} 分钟`
   }
 
   async function retryJob(button) {

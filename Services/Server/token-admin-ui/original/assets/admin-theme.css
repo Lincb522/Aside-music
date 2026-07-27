@@ -1,0 +1,127 @@
+:root[data-theme="light"] {
+  color-scheme: light;
+  --canvas: #f3f6f4;
+  --surface: #ffffff;
+  --surface-subtle: #edf2ef;
+  --surface-strong: #e2eae5;
+  --sidebar: #f7f9f8;
+  --sidebar-hover: #e8f0eb;
+  --ink: #17231c;
+  --ink-soft: #46584e;
+  --ink-faint: #5c6e64;
+  --line: rgba(21, 69, 39, .14);
+  --line-strong: rgba(21, 69, 39, .26);
+  --accent: #16763a;
+  --accent-strong: #126832;
+  --accent-soft: rgba(22, 118, 58, .09);
+  --success: #16763a;
+  --success-soft: rgba(22, 118, 58, .09);
+  --warning: #855800;
+  --warning-soft: rgba(133, 88, 0, .10);
+  --danger: #b42318;
+  --danger-soft: rgba(180, 35, 24, .09);
+  --info: #185fa5;
+  --info-soft: rgba(24, 95, 165, .09);
+  --focus: rgba(24, 95, 165, .22);
+}
+
+:root[data-theme="light"] body {
+  background:
+    linear-gradient(rgba(22, 118, 58, .035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(22, 118, 58, .035) 1px, transparent 1px),
+    var(--canvas);
+  background-size: 44px 44px;
+}
+
+:root[data-theme="light"] body::before {
+  background: none;
+}
+
+:root[data-theme="light"] body::after {
+  opacity: .025;
+  background: linear-gradient(to bottom, transparent 0 50%, rgba(21, 69, 39, .16) 50% 100%);
+  mix-blend-mode: normal;
+}
+
+:root[data-theme="light"] .masthead {
+  background: rgba(243, 246, 244, .94);
+}
+
+:root[data-theme="light"] .panel,
+:root[data-theme="light"] .dashboard-status-panel,
+:root[data-theme="light"] .dashboard-recents > .panel,
+:root[data-theme="light"] .detail-banner {
+  background: rgba(255, 255, 255, .94);
+}
+
+:root[data-theme="light"] input[type="text"],
+:root[data-theme="light"] input[type="password"],
+:root[data-theme="light"] input[type="email"],
+:root[data-theme="light"] input[type="number"],
+:root[data-theme="light"] input[type="search"],
+:root[data-theme="light"] input:not([type]),
+:root[data-theme="light"] select,
+:root[data-theme="light"] textarea,
+:root[data-theme="light"] .notes-box,
+:root[data-theme="light"] .report-box,
+:root[data-theme="light"] .token-bulk-bar,
+:root[data-theme="light"] .rule-card,
+:root[data-theme="light"] .release-index-panel,
+:root[data-theme="light"] .release-row,
+:root[data-theme="light"] .editor-actions,
+:root[data-theme="light"] .key-slab,
+:root[data-theme="light"] .playlist-item,
+:root[data-theme="light"] .song-row,
+:root[data-theme="light"] .device-row,
+:root[data-theme="light"] .toast {
+  background: #ffffff;
+}
+
+:root[data-theme="light"] .release-editor-panel {
+  background: rgba(255, 255, 255, .98);
+}
+
+:root[data-theme="light"] .auth-gate {
+  background:
+    linear-gradient(rgba(22, 118, 58, .035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(22, 118, 58, .035) 1px, transparent 1px),
+    var(--canvas);
+  background-size: 44px 44px;
+}
+
+:root[data-theme="light"] .auth-panel {
+  background: rgba(255, 255, 255, .98);
+  box-shadow: 0 12px 28px rgba(16, 38, 24, .14);
+}
+
+:root[data-theme="light"] .dashboard-signal-window {
+  background: #f9fbfa;
+  box-shadow: 0 8px 18px rgba(16, 38, 24, .12);
+}
+
+:root[data-theme="light"] .dashboard-overview-grid {
+  background: rgba(255, 255, 255, .92);
+}
+
+:root[data-theme="light"] .toast.success {
+  color: var(--success);
+  background: #ffffff;
+}
+
+:root[data-theme="light"] .toast.error {
+  color: var(--danger);
+  background: #ffffff;
+}
+
+.theme-toggle {
+  min-width: 82px;
+}
+
+.public-theme-toggle {
+  position: fixed;
+  top: max(16px, env(safe-area-inset-top));
+  right: max(16px, env(safe-area-inset-right));
+  z-index: 60;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
