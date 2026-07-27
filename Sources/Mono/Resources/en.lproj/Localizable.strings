@@ -620,6 +620,24 @@
 "login_and" = "and";
 "login_privacy_policy" = "Privacy Policy";
 
+/* Legal */
+"legal_center_title" = "Agreements & Licenses";
+"legal_center_row_detail" = "Terms, privacy, and open source";
+"legal_center_date" = "Updated 2026.07.27";
+"legal_center_footer" = "These documents apply to the Mono app and its related online services.";
+"legal_user_agreement" = "User Agreement";
+"legal_user_agreement_summary" = "Service scope, account authorization, and acceptable use";
+"legal_privacy_policy" = "Privacy Policy";
+"legal_privacy_policy_summary" = "Data handling, third-party services, and deletion";
+"legal_disclaimer" = "Disclaimer";
+"legal_disclaimer_summary" = "Content rights, external services, and use at your own risk";
+"legal_open_source" = "Open-Source Licenses";
+"legal_open_source_summary" = "Third-party components and their original licenses";
+"legal_effective_date" = "Effective 2026.07.27";
+"legal_updated_date" = "Updated 2026.07.27";
+"legal_original_licenses" = "Original licenses";
+"legal_contact_website" = "Contact & Feedback · mono.zijiu522.cn";
+
 /* Welcome - New */
 "welcome_slogan" = "The world is loud. Keep a sound for yourself.";
 "welcome_slogan_short" = "LOUD WORLD · QUIET SOUND";

@@ -90,6 +90,8 @@ struct AboutView: View {
                             rowDivider
                             websiteRow
                             rowDivider
+                            legalDocumentsRow
+                            rowDivider
                             updateReminderRow
 
                             sectionHeader(String(localized: "制作信息"))
@@ -282,6 +284,29 @@ struct AboutView: View {
                 .toggleStyle(SettingsSwitchToggleStyle())
         }
         .padding(.vertical, 12)
+    }
+
+    private var legalDocumentsRow: some View {
+        NavigationLink {
+            LegalDocumentsView()
+        } label: {
+            HStack(spacing: 10) {
+                Text(String(localized: "legal_center_title"))
+                    .font(.system(size: 15, weight: .medium, design: .rounded))
+                    .foregroundColor(ink)
+
+                Spacer(minLength: 8)
+
+                Text(String(localized: "legal_center_row_detail"))
+                    .font(.system(size: 12.5, weight: .regular, design: .rounded))
+                    .foregroundColor(inkMuted)
+
+                MonoIcon(icon: .chevronRight, size: 12, color: inkMuted, lineWidth: 1.6)
+            }
+            .padding(.vertical, 16)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(MonoBouncingButtonStyle(scale: 0.99, opacity: 0.72))
     }
 
     // MARK: - 制作信息区

@@ -115,6 +115,11 @@ test_layout.swift
 /Tests
 /.prompto
 *.md
+!README.md
+!USER_AGREEMENT.md
+!PRIVACY_POLICY.md
+!DISCLAIMER.md
+!OPEN_SOURCE_LICENSES.md
 /Web/website/node_modules/
 /Web/website/dist/
 /Backups

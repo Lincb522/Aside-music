@@ -620,6 +620,24 @@
 "login_and" = "和";
 "login_privacy_policy" = "《隐私政策》";
 
+/* Legal */
+"legal_center_title" = "协议与许可";
+"legal_center_row_detail" = "用户、隐私与开源";
+"legal_center_date" = "更新于 2026.07.27";
+"legal_center_footer" = "协议内容同时适用于 Mono App 与相关在线服务。";
+"legal_user_agreement" = "用户协议";
+"legal_user_agreement_summary" = "服务范围、账号授权与使用规则";
+"legal_privacy_policy" = "隐私政策";
+"legal_privacy_policy_summary" = "数据处理、第三方服务与删除方式";
+"legal_disclaimer" = "免责声明";
+"legal_disclaimer_summary" = "内容版权、外部服务与使用风险";
+"legal_open_source" = "开源软件许可";
+"legal_open_source_summary" = "第三方组件与原始许可证";
+"legal_effective_date" = "生效日期 2026.07.27";
+"legal_updated_date" = "更新日期 2026.07.27";
+"legal_original_licenses" = "许可证原文";
+"legal_contact_website" = "联系与反馈 · mono.zijiu522.cn";
+
 /* Welcome - New */
 "welcome_slogan" = "世界很吵，留一点声音给自己。";
 "welcome_slogan_short" = "LOUD WORLD · QUIET SOUND";
