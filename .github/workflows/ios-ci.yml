@@ -61,8 +61,6 @@ jobs:
     timeout-minutes: 60
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
-      DERIVED_DATA_PATH: ${{ runner.temp }}/MonoDerivedData
-      SOURCE_PACKAGES_PATH: ${{ runner.temp }}/MonoSourcePackages
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -70,7 +68,7 @@ jobs:
       - name: Restore Swift package cache
         uses: actions/cache@v4
         with:
-          path: ${{ env.SOURCE_PACKAGES_PATH }}
+          path: ${{ runner.temp }}/MonoSourcePackages
           key: mono-spm-${{ runner.os }}-xcode-26.4.1-${{ hashFiles('Package.swift', 'Mono.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved', 'Packages/**/Package.swift') }}
           restore-keys: |
             mono-spm-${{ runner.os }}-xcode-26.4.1-
@@ -103,7 +101,7 @@ jobs:
             -resolvePackageDependencies \
             -project Mono.xcodeproj \
             -scheme Mono \
-            -clonedSourcePackagesDirPath "$SOURCE_PACKAGES_PATH"
+            -clonedSourcePackagesDirPath "${RUNNER_TEMP}/MonoSourcePackages"
 
       - name: Build without code signing
         shell: bash
@@ -114,8 +112,8 @@ jobs:
             -scheme Mono \
             -configuration Debug \
             -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath "$DERIVED_DATA_PATH" \
-            -clonedSourcePackagesDirPath "$SOURCE_PACKAGES_PATH" \
+            -derivedDataPath "${RUNNER_TEMP}/MonoDerivedData" \
+            -clonedSourcePackagesDirPath "${RUNNER_TEMP}/MonoSourcePackages" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             COMPILER_INDEX_STORE_ENABLE=NO \
