@@ -673,7 +673,13 @@
       const data = await Admin.request('/api/song-content/audit')
       const logs = data.logs || []
       els.auditTable.innerHTML = logs.length ? logs.map((log) => `
-        <tr><td>${Admin.esc(Admin.fmtDate(log.createdAt))}</td><td>${Admin.esc(log.actorId || '系统')}</td><td><code>${Admin.esc(log.action)}</code></td><td>${Admin.esc(log.resourceType)} · ${Admin.esc(shortId(log.resourceId))}</td><td>${Admin.esc(shortId(log.requestId || '—'))}</td></tr>
+        <tr class="audit-row audit-row--${Admin.esc(log.outcome || 'neutral')}">
+          <td>${Admin.esc(Admin.fmtDate(log.createdAt))}</td>
+          <td><strong class="audit-title">${Admin.esc(log.title || auditActionLabel(log.action))}</strong><span class="audit-summary">${Admin.esc(log.summary || '')}</span></td>
+          <td>${Admin.esc(log.resourceLabel || `${log.resourceType} · ${shortId(log.resourceId)}`)}</td>
+          <td>${Admin.esc(log.actorLabel || log.actorId || '系统')}</td>
+          <td>${auditDetailsMarkup(log)}</td>
+        </tr>
       `).join('') : tableEmptyRow(5, '没有审计记录')
     } catch (error) { els.auditTable.innerHTML = tableEmptyRow(5, error.message) }
   }
@@ -975,9 +981,16 @@
     els.assignmentsList.innerHTML = skeletonRows(3)
     try {
       const data = await Admin.request('/api/song-content/access')
-      els.rolesList.innerHTML = (data.roles || []).map((role) => `<div class="key-value-row"><span>${Admin.esc(role.name)}</span><span class="permission-list">${(role.permissions || []).map((permission) => `<code>${Admin.esc(permission)}</code>`).join('')}</span></div>`).join('') || emptyMarkup('没有角色')
+      els.rolesList.innerHTML = (data.roles || []).map((role) => `
+        <article class="role-card">
+          <div class="role-card-head"><strong>${Admin.esc(role.name)}</strong><span>${Admin.esc(role.description || '')}</span></div>
+          <div class="permission-list">${permissionDetails(role).map((permission) => `
+            <div class="permission-item"><strong>${Admin.esc(permission.label)}</strong><span>${Admin.esc(permission.description)}</span></div>
+          `).join('')}</div>
+        </article>
+      `).join('') || emptyMarkup('没有角色')
       els.accessRole.innerHTML = (data.roles || []).map((role) => `<option value="${Admin.esc(role.id)}">${Admin.esc(role.name)}</option>`).join('')
-      els.assignmentsList.innerHTML = (data.assignments || []).map((item) => `<div class="review-list-item config-version-row"><span class="review-list-copy"><strong>${Admin.esc(item.actorId)}</strong><span>${Admin.esc(Admin.fmtDate(item.createdAt))}</span></span>${badge(item.roleId)}</div>`).join('') || emptyMarkup('没有权限分配')
+      els.assignmentsList.innerHTML = (data.assignments || []).map((item) => `<div class="review-list-item config-version-row"><span class="review-list-copy"><strong>${Admin.esc(item.actorId)}</strong><span>分配于 ${Admin.esc(Admin.fmtDate(item.createdAt))}</span></span><span class="role-name">${Admin.esc(item.roleName || roleLabel(item.roleId))}</span></div>`).join('') || emptyMarkup('没有权限分配')
     } catch (error) { renderInlineError(els.rolesList, error.message) }
   }
 
@@ -1078,10 +1091,85 @@
     const risks = Array.isArray(riskFlags) ? riskFlags : []
     if (!errors.length && !warnings.length && !risks.length) return '<div class="validation-item is-success">自动检查通过</div>'
     return [
-      ...errors.map((value) => `<div class="validation-item is-error">${Admin.esc(value)}</div>`),
-      ...warnings.map((value) => `<div class="validation-item is-warning">${Admin.esc(value)}</div>`),
-      ...risks.map((value) => `<div class="validation-item is-warning">${Admin.esc(value)}</div>`)
+      ...errors.map((value) => `<div class="validation-item is-error">${Admin.esc(validationIssueLabel(value))}</div>`),
+      ...warnings.map((value) => `<div class="validation-item is-warning">${Admin.esc(validationIssueLabel(value))}</div>`),
+      ...risks.map((value) => `<div class="validation-item is-warning">${Admin.esc(riskFlagLabel(value))}</div>`)
     ].join('')
+  }
+
+  function permissionDetails(role) {
+    if (Array.isArray(role.permissionDetails) && role.permissionDetails.length) return role.permissionDetails
+    const labels = {
+      'content.read': ['查看内容', '查看歌曲、内容版本和资料来源'],
+      'content.edit': ['编辑内容', '修改文案并创建新的内容草稿'],
+      'content.publish': ['审核与发布', '发布或驳回待审核内容'],
+      'content.rollback': ['回滚内容', '恢复并重新发布历史内容版本'],
+      'content.offline': ['下线内容', '将已发布内容从客户端下线'],
+      'jobs.manage': ['管理生成任务', '重试或重新发起内容生成任务'],
+      'sources.manage': ['管理资料来源', '调整来源等级和可访问状态'],
+      'songs.manage': ['管理歌曲身份', '确认歌曲、平台映射和生成名单'],
+      'audit.read': ['查看审计日志', '查看管理操作及自动审核记录'],
+      'config.manage': ['编辑 Agent 配置', '修改内容 Agent 和客户端配置草稿'],
+      'config.publish': ['发布 Agent 配置', '验证、发布或回滚 Agent 配置'],
+      'credentials.write': ['更新 AI 凭据', '维护模型服务的访问凭据'],
+      'roles.manage': ['管理权限', '为后台操作者分配管理角色']
+    }
+    return (role.permissions || []).map((id) => ({ id, label: labels[id]?.[0] || id, description: labels[id]?.[1] || '后台管理权限' }))
+  }
+
+  function auditDetailsMarkup(log) {
+    const details = Array.isArray(log.details) ? log.details : []
+    if (!details.length) return '<span class="audit-empty">没有附加说明</span>'
+    return `<div class="audit-detail-list">${details.map((item) => `<div class="audit-detail audit-detail--${Admin.esc(item.tone || 'neutral')}"><strong>${Admin.esc(item.label)}</strong><span>${Admin.esc(item.value)}</span></div>`).join('')}</div>`
+  }
+
+  function auditActionLabel(action) {
+    const labels = {
+      'content.review.passed': '自动审核通过',
+      'content.review.rejected': '自动审核未通过',
+      'content.publish': '发布内容',
+      'content.reject': '驳回内容',
+      'content.edit': '编辑内容',
+      'job.retry': '重试生成任务',
+      'job.regenerate': '重新生成内容',
+      'role.assign': '分配角色'
+    }
+    return labels[action] || '管理操作'
+  }
+
+  function roleLabel(role) {
+    return { 'content-editor': '内容编辑', 'content-reviewer': '内容审核', 'content-admin': '内容管理员' }[role] || role
+  }
+
+  function validationIssueLabel(issue) {
+    const value = String(issue || '')
+    const parts = value.split(':')
+    const field = ({ songSummary: '歌曲介绍', creationStory: '创作故事', background: '乐评', albumSummary: '专辑介绍' })[parts[1]] || parts[1] || '内容'
+    const labels = {
+      empty_content: '生成内容为空',
+      creation_story_without_reliable_source: '创作故事缺少 A/B 级可靠资料依据',
+      high_risk_fact_without_required_sources: '高风险事实缺少多个可靠来源交叉验证',
+      incomplete_song_identity: '歌曲身份信息不完整，无法确认具体录音版本',
+      cross_song_duplicate_content: '生成内容与其他歌曲内容完全重复'
+    }
+    if (labels[parts[0]]) return labels[parts[0]]
+    if (parts[0] === 'missing_source_refs') return `${field}没有关联任何资料来源`
+    if (parts[0] === 'unknown_source_ref') return `${field}引用了不存在的来源`
+    if (parts[0] === 'source_role_mismatch') return `引用的来源不支持${field}`
+    if (parts[0] === 'template_phrase') return `${field}包含模板化表达“${parts.slice(2).join(':')}”`
+    if (parts[0] === 'source_attribution') return `${field}正文出现平台或来源转述，不符合成稿要求`
+    if (parts[0] === 'unverified_date') return `${field}出现未被资料验证的日期：${parts.slice(2).join(':')}`
+    if (parts[0] === 'excluded_identity_mentioned') return `正文混入了被排除的其他歌曲或版本：${parts.slice(1).join(':')}`
+    return value || '未提供审核原因'
+  }
+
+  function riskFlagLabel(flag) {
+    return {
+      creation_motive: '包含创作动机，需要可靠资料支持',
+      exact_date: '包含精确日期，需要资料交叉验证',
+      disputed_fact: '包含可能存在争议的事实',
+      source_conflict: '不同资料来源之间存在冲突'
+    }[flag] || `风险标记：${flag}`
   }
 
   function badge(status) {

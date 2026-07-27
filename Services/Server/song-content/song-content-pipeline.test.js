@@ -13,10 +13,31 @@ const {
   parseRetryAfterSeconds,
   providerCapacityRetryAfterSeconds,
   publicProviderCircuitState,
+  recordAutomaticReview,
   recordProviderFailure,
   recordProviderSuccess,
   shouldAttemptCompletion
 } = require('./song-content-pipeline')
+
+test('自动审核结果写入包含具体校验原因的审计记录', () => {
+  const records = []
+  recordAutomaticReview({ appendAudit: (record) => records.push(record) }, {
+    job: { id: 'job-1', attemptCount: 2 },
+    song: { id: 'song-1', title: '测试歌曲' },
+    validation: {
+      errors: ['missing_source_refs:songSummary'],
+      warnings: ['creation_story_without_reliable_source'],
+      sourceCoverage: 0.5
+    },
+    passed: false
+  })
+
+  assert.equal(records.length, 1)
+  assert.equal(records[0].action, 'content.review.rejected')
+  assert.equal(records[0].resourceId, 'job-1')
+  assert.deepEqual(records[0].metadata.validation.errors, ['missing_source_refs:songSummary'])
+  assert.equal(records[0].metadata.attemptCount, 2)
+})
 
 function content(overrides = {}) {
   return {

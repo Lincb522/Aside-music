@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="./assets/admin.css?v=2026072802">
   <link rel="stylesheet" href="./assets/admin-terminal.css?v=2026072802">
   <link rel="stylesheet" href="./assets/admin-theme.css?v=2026072802">
-  <link rel="stylesheet" href="./assets/song-content.css?v=2026072803">
+  <link rel="stylesheet" href="./assets/song-content.css?v=2026072804">
 </head>
 <body>
   <div id="authGate" class="auth-gate hidden">
@@ -373,19 +373,19 @@
 
       <section id="accessView" class="content-console-view hidden">
         <div class="workspace-grid workspace-grid--two">
-          <article class="panel"><div class="panel-head"><div><h3>角色</h3></div></div><div id="rolesList" class="key-value-list"></div></article>
-          <article class="panel"><div class="panel-head"><div><h3>权限分配</h3></div></div><div class="config-grid"><label class="field"><span>操作者</span><input id="accessActor" type="text"></label><label class="field"><span>角色</span><select id="accessRole"></select></label></div><div class="review-actions"><button id="assignRoleButton" class="btn btn-primary">分配角色</button></div><div id="assignmentsList" class="review-list config-version-list"></div></article>
+          <article class="panel"><div class="panel-head"><div><h3>管理角色</h3></div></div><div id="rolesList" class="role-list"></div></article>
+          <article class="panel"><div class="panel-head"><div><h3>权限分配</h3></div></div><div class="config-grid"><label class="field"><span>后台操作者</span><input id="accessActor" type="text" placeholder="输入操作者 ID"></label><label class="field"><span>管理角色</span><select id="accessRole"></select></label></div><div class="review-actions"><button id="assignRoleButton" class="btn btn-primary">确认分配</button></div><div id="assignmentsList" class="review-list config-version-list"></div></article>
         </div>
       </section>
 
       <section id="auditView" class="content-console-view hidden">
-        <article class="panel"><div class="panel-head"><div><h3>审计日志</h3></div></div><div class="table-scroll"><table class="content-table"><thead><tr><th>时间</th><th>操作者</th><th>操作</th><th>对象</th><th>请求</th></tr></thead><tbody id="auditTable"></tbody></table></div></article>
+        <article class="panel"><div class="panel-head"><div><h3>审计日志</h3></div></div><div class="table-scroll"><table class="content-table audit-table"><thead><tr><th>时间</th><th>事件</th><th>对象</th><th>操作者</th><th>详细记录</th></tr></thead><tbody id="auditTable"></tbody></table></div></article>
       </section>
     </main>
   </div>
 
   <div id="toast" class="toast" role="status"></div>
   <script src="./assets/admin-core.js?v=2026072802"></script>
-  <script src="./assets/song-content-page.js?v=2026072803"></script>
+  <script src="./assets/song-content-page.js?v=2026072804"></script>
 </body>
 </html>

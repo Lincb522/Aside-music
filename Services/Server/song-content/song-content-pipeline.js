@@ -262,16 +262,19 @@ function createSongContentPipeline({
     const validation = validateGeneratedContent({ content, evidencePackage, store, songId: song.id })
     const sourceFramingErrors = validation.errors.filter((error) => error.startsWith('source_attribution:'))
     if (sourceFramingErrors.length > 0) {
+      recordAutomaticReview(store, { job, song, validation, passed: false })
       throw codedError('AI_SOURCE_ATTRIBUTION', `AI used source-attribution framing: ${sourceFramingErrors.join(',')}`, true)
     }
     const automaticReviewIssues = [...validation.errors, ...validation.warnings]
     if (automaticReviewIssues.length > 0) {
+      recordAutomaticReview(store, { job, song, validation, passed: false })
       throw codedError(
         'AI_AUTOMATIC_REVIEW_REJECTED',
         `automatic review rejected the generated content: ${automaticReviewIssues.join(',')}`,
         true
       )
     }
+    recordAutomaticReview(store, { job, song, validation, passed: true })
     const status = selectContentStatus({
       content,
       validation,
@@ -332,6 +335,29 @@ function createSongContentPipeline({
     start,
     circuitState: () => publicProviderCircuitState(providerCircuit)
   }
+}
+
+function recordAutomaticReview(store, { job, song, validation, passed }) {
+  if (typeof store?.appendAudit !== 'function') return
+  store.appendAudit({
+    actorId: 'automatic-review',
+    action: passed ? 'content.review.passed' : 'content.review.rejected',
+    resourceType: 'generation_job',
+    resourceId: job.id,
+    after: { passed },
+    metadata: {
+      songId: song.id,
+      songTitle: song.title,
+      attemptCount: job.attemptCount,
+      validation: {
+        passed,
+        errors: Array.isArray(validation?.errors) ? validation.errors : [],
+        warnings: Array.isArray(validation?.warnings) ? validation.warnings : [],
+        checkedAt: validation?.checkedAt || new Date().toISOString(),
+        sourceCoverage: Number.isFinite(Number(validation?.sourceCoverage)) ? Number(validation.sourceCoverage) : null
+      }
+    }
+  })
 }
 
 function buildEvidencePackage({ song, locale, schemaVersion, sources, platformSummary, albumSummary, exclusions }) {
@@ -1387,6 +1413,7 @@ module.exports = {
   parseRetryAfterSeconds,
   providerCapacityRetryAfterSeconds,
   publicProviderCircuitState,
+  recordAutomaticReview,
   recordProviderFailure,
   recordProviderSuccess,
   releaseProviderCircuitPermit,
