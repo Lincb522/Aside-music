@@ -13,6 +13,7 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/Lincb522/Mono/actions/workflows/ios-ci.yml"><img alt="Mono iOS CI" src="https://github.com/Lincb522/Mono/actions/workflows/ios-ci.yml/badge.svg" /></a>
   <img alt="iOS 16+" src="https://img.shields.io/badge/iOS-16%2B-111111?style=flat-square&logo=apple&logoColor=white" />
   <img alt="Swift 6.2" src="https://img.shields.io/badge/Swift-6.2-F05138?style=flat-square&logo=swift&logoColor=white" />
   <img alt="SwiftUI" src="https://img.shields.io/badge/UI-SwiftUI-0A84FF?style=flat-square" />

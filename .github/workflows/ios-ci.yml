@@ -1,0 +1,131 @@
+name: Mono iOS CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: mono-ios-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  repository-hygiene:
+    name: Repository hygiene
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Reject local-only content
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          tracked_local_content="$({
+            git ls-files '.codex/**'
+            git ls-files 'docs/**'
+            git ls-files 'Secrets.xcconfig'
+            git ls-files | grep -E '(^|/)(\.DS_Store|xcuserdata)(/|$)' || true
+          } | sed '/^$/d')"
+
+          if [[ -n "$tracked_local_content" ]]; then
+            echo "The following local-only files must not be committed:"
+            echo "$tracked_local_content"
+            exit 1
+          fi
+
+      - name: Reject legacy product name
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if git grep -n -I -E 'Monologue|AsideMusic' -- . \
+            ':(exclude)Packages/**' \
+            ':(exclude)DesignAssets/**'; then
+            echo "Legacy product naming remains in application-owned files."
+            exit 1
+          fi
+
+  ios-build:
+    name: iOS simulator build
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
+      DERIVED_DATA_PATH: ${{ runner.temp }}/MonoDerivedData
+      SOURCE_PACKAGES_PATH: ${{ runner.temp }}/MonoSourcePackages
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restore Swift package cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.SOURCE_PACKAGES_PATH }}
+          key: mono-spm-${{ runner.os }}-xcode-26.4.1-${{ hashFiles('Package.swift', 'Mono.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved', 'Packages/**/Package.swift') }}
+          restore-keys: |
+            mono-spm-${{ runner.os }}-xcode-26.4.1-
+
+      - name: Prepare CI configuration
+        shell: bash
+        run: cp Secrets.xcconfig.example Secrets.xcconfig
+
+      - name: Validate project metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          swift --version
+          swift package dump-package > "${RUNNER_TEMP}/mono-package.json"
+          plutil -lint Mono.xcodeproj/project.pbxproj
+          plutil -lint Sources/Mono/Info.plist
+          plutil -lint music/Info.plist
+          plutil -lint Sources/Mono/Mono.entitlements
+          plutil -lint MonoDebug.entitlements
+          plutil -lint musicExtensionDebug.entitlements
+          xmllint --noout Mono.xcodeproj/xcshareddata/xcschemes/Mono.xcscheme
+          python3 -m json.tool Mono.xctestplan > /dev/null
+
+      - name: Resolve package dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -resolvePackageDependencies \
+            -project Mono.xcodeproj \
+            -scheme Mono \
+            -clonedSourcePackagesDirPath "$SOURCE_PACKAGES_PATH"
+
+      - name: Build without code signing
+        shell: bash
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project Mono.xcodeproj \
+            -scheme Mono \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$DERIVED_DATA_PATH" \
+            -clonedSourcePackagesDirPath "$SOURCE_PACKAGES_PATH" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            build 2>&1 | tee "${RUNNER_TEMP}/mono-xcodebuild.log"
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mono-xcodebuild-log
+          path: ${{ runner.temp }}/mono-xcodebuild.log
+          if-no-files-found: ignore
+          retention-days: 7

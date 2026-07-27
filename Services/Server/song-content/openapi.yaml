@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: AsideMusic Song Content API
+  title: Mono Song Content API
   version: 1.0.0
 servers:
   - url: https://ncm.zijiu522.cn

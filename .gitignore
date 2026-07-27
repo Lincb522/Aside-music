@@ -21,6 +21,7 @@ DerivedData/
 .DS_Store
 
 # IDE & AI Agents
+.codex/
 .trae/
 .vscode/
 .idea/
@@ -56,6 +57,7 @@ Payload/
 .env.local
 Secrets.xcconfig
 Secrets_*.xcconfig
+!Secrets.xcconfig.example
 
 # Archives & Compressed
 *.tar.gz
@@ -221,15 +223,6 @@ test_layout.swift
 # Main app assets remain versioned after the Sources/Mono directory rename.
 !Sources/Mono/**/*.png
 
-# Maintained project documentation.
-!docs/
-!docs/project-directory-audit.md
-!docs/LOCALIZATION.md
-!docs/PRODUCT.md
-!docs/CHANGELOG.txt
-!docs/specs/
-!docs/specs/main-tabs-theme-frame-drop/
-!docs/specs/main-tabs-theme-frame-drop/**
 /docs/architecture/
 /docs/.artifacts/
 /output/
