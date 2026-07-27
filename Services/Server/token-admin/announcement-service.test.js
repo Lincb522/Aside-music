@@ -66,8 +66,10 @@ test('再次发布提升展示版本，旧版本详情立即失效', t => {
 test('版本、平台、地区与生效时间共同限制公告清单', t => {
   const service = makeService(t)
   const draft = service.create(announcementInput({
-    minAppVersion: '2.0.0',
-    maxAppVersion: '2.9.9',
+    minAppVersion: '2.4.0',
+    maxAppVersion: '2.4.0',
+    minAppBuild: '42',
+    maxAppBuild: '54',
     platforms: ['ios'],
     locales: ['zh-CN'],
     startsAt: '2026-07-27T00:00:00.000Z',
@@ -75,13 +77,27 @@ test('版本、平台、地区与生效时间共同限制公告清单', t => {
   }))
   service.publishAnnouncement(draft.id)
 
-  const base = { appVersion: '2.4.0', platform: 'ios', locale: 'zh-CN', now: new Date('2026-07-28T00:00:00.000Z') }
+  const base = { appVersion: '2.4.0', appBuild: '54', platform: 'ios', locale: 'zh-CN', now: new Date('2026-07-28T00:00:00.000Z') }
   assert.equal(service.publicManifest(base).items.length, 1)
   assert.equal(service.publicManifest({ ...base, locale: 'zh-Hans-CN' }).items.length, 1)
   assert.equal(service.publicManifest({ ...base, appVersion: '1.9.9' }).items.length, 0)
+  assert.equal(service.publicManifest({ ...base, appBuild: '41' }).items.length, 0)
+  assert.equal(service.publicManifest({ ...base, appBuild: '55' }).items.length, 0)
+  assert.equal(service.publicManifest({ ...base, appBuild: '' }).items.length, 1)
   assert.equal(service.publicManifest({ ...base, platform: 'android' }).items.length, 0)
   assert.equal(service.publicManifest({ ...base, locale: 'en-US' }).items.length, 0)
   assert.equal(service.publicManifest({ ...base, now: new Date('2026-07-30T00:00:00.000Z') }).items.length, 0)
+})
+
+test('最低发布版本不能高于最高发布版本', t => {
+  const service = makeService(t)
+  const draft = service.create(announcementInput({
+    minAppVersion: '1.0',
+    minAppBuild: '54',
+    maxAppVersion: '1.0',
+    maxAppBuild: '42'
+  }))
+  assert.throws(() => service.publishAnnouncement(draft.id), /最低发布版本不能高于最高发布版本/)
 })
 
 test('发布后必须先下线才能编辑或删除', t => {

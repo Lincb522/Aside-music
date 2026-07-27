@@ -71,6 +71,10 @@ extension APIService {
                 name: "app_version",
                 value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
             ))
+            items.append(URLQueryItem(
+                name: "app_build",
+                value: Bundle.main.infoDictionary?["CFBundleVersion"] as? String
+            ))
         }
         items.append(URLQueryItem(name: "platform", value: "ios"))
         items.append(URLQueryItem(name: "locale", value: Locale.preferredLanguages.first ?? "zh-CN"))

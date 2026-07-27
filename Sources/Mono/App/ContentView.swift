@@ -101,7 +101,7 @@ public struct ContentView: View {
                 ChangelogManager.shared.presentLatestAfterUpdateIfNeeded()
                 SpecialGreetingManager.shared.presentOnLaunchIfEligible()
                 ListeningReportCenter.shared.presentOnLaunchIfEligible()
-                announcementCenter.checkIfNeeded()
+                announcementCenter.checkIfNeeded(force: true)
             }
         }
         .onOpenURL { url in

@@ -23,6 +23,8 @@ function createAnnouncementService({ databasePath, logger = console }) {
       action_url TEXT,
       min_app_version TEXT,
       max_app_version TEXT,
+      min_app_build TEXT,
+      max_app_build TEXT,
       platforms_json TEXT NOT NULL DEFAULT '["ios"]',
       locales_json TEXT NOT NULL DEFAULT '[]',
       starts_at TEXT,
@@ -35,6 +37,8 @@ function createAnnouncementService({ databasePath, logger = console }) {
     CREATE INDEX IF NOT EXISTS idx_announcements_status_window
     ON announcements(status, starts_at, ends_at, published_at);
   `)
+  ensureColumn(database, 'announcements', 'min_app_build', 'TEXT')
+  ensureColumn(database, 'announcements', 'max_app_build', 'TEXT')
 
   const selectAll = database.prepare('SELECT * FROM announcements ORDER BY COALESCE(published_at, updated_at) DESC, created_at DESC')
   const selectById = database.prepare('SELECT * FROM announcements WHERE id = ?')
@@ -43,16 +47,16 @@ function createAnnouncementService({ databasePath, logger = console }) {
     INSERT INTO announcements (
       id, display_revision, status, category, priority, title, summary, body,
       image_url, action_title, action_url, min_app_version, max_app_version,
-      platforms_json, locales_json, starts_at, ends_at, requires_acknowledgement,
-      created_at, updated_at, published_at
-    ) VALUES (?, 0, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+      min_app_build, max_app_build, platforms_json, locales_json, starts_at,
+      ends_at, requires_acknowledgement, created_at, updated_at, published_at
+    ) VALUES (?, 0, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
   `)
   const update = database.prepare(`
     UPDATE announcements SET
       category = ?, priority = ?, title = ?, summary = ?, body = ?, image_url = ?,
       action_title = ?, action_url = ?, min_app_version = ?, max_app_version = ?,
-      platforms_json = ?, locales_json = ?, starts_at = ?, ends_at = ?,
-      requires_acknowledgement = ?, updated_at = ?
+      min_app_build = ?, max_app_build = ?, platforms_json = ?, locales_json = ?,
+      starts_at = ?, ends_at = ?, requires_acknowledgement = ?, updated_at = ?
     WHERE id = ? AND status != 'published'
   `)
   const publish = database.prepare(`
@@ -81,7 +85,8 @@ function createAnnouncementService({ databasePath, logger = console }) {
     insert.run(
       id, normalized.category, normalized.priority, normalized.title, normalized.summary,
       normalized.body, normalized.imageURL, normalized.actionTitle, normalized.actionURL,
-      normalized.minAppVersion, normalized.maxAppVersion, JSON.stringify(normalized.platforms),
+      normalized.minAppVersion, normalized.maxAppVersion, normalized.minAppBuild,
+      normalized.maxAppBuild, JSON.stringify(normalized.platforms),
       JSON.stringify(normalized.locales), normalized.startsAt, normalized.endsAt,
       normalized.requiresAcknowledgement ? 1 : 0, now, now
     )
@@ -99,7 +104,8 @@ function createAnnouncementService({ databasePath, logger = console }) {
     update.run(
       normalized.category, normalized.priority, normalized.title, normalized.summary,
       normalized.body, normalized.imageURL, normalized.actionTitle, normalized.actionURL,
-      normalized.minAppVersion, normalized.maxAppVersion, JSON.stringify(normalized.platforms),
+      normalized.minAppVersion, normalized.maxAppVersion, normalized.minAppBuild,
+      normalized.maxAppBuild, JSON.stringify(normalized.platforms),
       JSON.stringify(normalized.locales), normalized.startsAt, normalized.endsAt,
       normalized.requiresAcknowledgement ? 1 : 0, now, current.id
     )
@@ -133,11 +139,11 @@ function createAnnouncementService({ databasePath, logger = console }) {
     return remove.run(current.id).changes > 0
   }
 
-  function publicManifest({ appVersion, platform, locale, now = new Date() }) {
+  function publicManifest({ appVersion, appBuild, platform, locale, now = new Date() }) {
     const currentDate = now instanceof Date ? now : new Date(now)
     const publishedAnnouncements = selectPublished.all().map(hydrateAnnouncement)
     const eligible = publishedAnnouncements
-      .filter((announcement) => isEligible(announcement, { appVersion, platform, locale, now: currentDate }))
+      .filter((announcement) => isEligible(announcement, { appVersion, appBuild, platform, locale, now: currentDate }))
       .slice(0, 40)
     const items = eligible.map((announcement) => ({
       id: announcement.id,
@@ -298,6 +304,8 @@ function normalizeAnnouncement(input = {}, fallback = {}) {
     actionURL,
     minAppVersion: clean(input.minAppVersion ?? fallback.minAppVersion, 40) || null,
     maxAppVersion: clean(input.maxAppVersion ?? fallback.maxAppVersion, 40) || null,
+    minAppBuild: normalizeBuild(input.minAppBuild ?? fallback.minAppBuild),
+    maxAppBuild: normalizeBuild(input.maxAppBuild ?? fallback.maxAppBuild),
     platforms: normalizeList(input.platforms ?? fallback.platforms, 10, 40, ['ios']),
     locales: normalizeList(input.locales ?? fallback.locales, 20, 40, []),
     startsAt,
@@ -309,23 +317,41 @@ function normalizeAnnouncement(input = {}, fallback = {}) {
 function validatePublishable(announcement) {
   if (!announcement.title || !announcement.body) throw announcementError('ANNOUNCEMENT_INCOMPLETE', '公告标题和正文不能为空', 400)
   if (announcement.actionTitle && !announcement.actionURL) throw announcementError('ANNOUNCEMENT_ACTION_INVALID', '填写按钮文字时必须同时填写跳转链接', 400)
+  if (compareReleaseTargets(
+    announcement.minAppVersion,
+    announcement.minAppBuild,
+    announcement.maxAppVersion,
+    announcement.maxAppBuild
+  ) > 0) {
+    throw announcementError('ANNOUNCEMENT_VERSION_RANGE_INVALID', '最低发布版本不能高于最高发布版本', 400)
+  }
 }
 
-function isEligible(announcement, { appVersion, platform = 'ios', locale = 'zh-CN', now = new Date() }) {
+function isEligible(announcement, { appVersion, appBuild, platform = 'ios', locale = 'zh-CN', now = new Date() }) {
   const timestamp = (now instanceof Date ? now : new Date(now)).getTime()
+  const normalizedAppBuild = normalizeBuild(appBuild)
   if (announcement.startsAt && Date.parse(announcement.startsAt) > timestamp) return false
   if (announcement.endsAt && Date.parse(announcement.endsAt) <= timestamp) return false
   if (announcement.platforms.length > 0 && !announcement.platforms.includes(String(platform).toLowerCase())) return false
   const normalizedLocale = String(locale || '').toLowerCase()
   if (announcement.locales.length > 0 && !announcement.locales.some((value) => localeMatches(normalizedLocale, value))) return false
-  if (announcement.minAppVersion && compareVersions(appVersion, announcement.minAppVersion) < 0) return false
-  if (announcement.maxAppVersion && compareVersions(appVersion, announcement.maxAppVersion) > 0) return false
+  if (announcement.minAppVersion) {
+    const comparison = compareVersions(appVersion, announcement.minAppVersion)
+    if (comparison < 0) return false
+    if (comparison === 0 && normalizedAppBuild && announcement.minAppBuild && compareBuilds(normalizedAppBuild, announcement.minAppBuild) < 0) return false
+  }
+  if (announcement.maxAppVersion) {
+    const comparison = compareVersions(appVersion, announcement.maxAppVersion)
+    if (comparison > 0) return false
+    if (comparison === 0 && normalizedAppBuild && announcement.maxAppBuild && compareBuilds(normalizedAppBuild, announcement.maxAppBuild) > 0) return false
+  }
   return true
 }
 
 function requestContext(req) {
   return {
     appVersion: clean(req.query?.app_version, 40),
+    appBuild: clean(req.query?.app_build, 40),
     platform: clean(req.query?.platform, 40).toLowerCase() || 'ios',
     locale: clean(req.query?.locale, 40) || 'zh-CN',
     now: new Date()
@@ -339,6 +365,23 @@ function compareVersions(left, right) {
     if ((a[index] || 0) !== (b[index] || 0)) return (a[index] || 0) < (b[index] || 0) ? -1 : 1
   }
   return 0
+}
+
+function compareBuilds(left, right) {
+  const a = Number.parseInt(String(left || ''), 10)
+  const b = Number.parseInt(String(right || ''), 10)
+  if (!Number.isFinite(a) && !Number.isFinite(b)) return 0
+  if (!Number.isFinite(a)) return -1
+  if (!Number.isFinite(b)) return 1
+  return a === b ? 0 : (a < b ? -1 : 1)
+}
+
+function compareReleaseTargets(leftVersion, leftBuild, rightVersion, rightBuild) {
+  if (!leftVersion || !rightVersion) return 0
+  const versionComparison = compareVersions(leftVersion, rightVersion)
+  if (versionComparison !== 0) return versionComparison
+  if (!leftBuild || !rightBuild) return 0
+  return compareBuilds(leftBuild, rightBuild)
 }
 
 function localeMatches(clientLocale, configuredLocale) {
@@ -369,6 +412,8 @@ function hydrateAnnouncement(row) {
     actionURL: row.action_url || null,
     minAppVersion: row.min_app_version || null,
     maxAppVersion: row.max_app_version || null,
+    minAppBuild: row.min_app_build || null,
+    maxAppBuild: row.max_app_build || null,
     platforms: parseList(row.platforms_json, ['ios']),
     locales: parseList(row.locales_json, []),
     startsAt: row.starts_at || null,
@@ -381,9 +426,16 @@ function hydrateAnnouncement(row) {
 }
 
 function hydrateNullable(row) { return row ? hydrateAnnouncement(row) : null }
+function ensureColumn(database, table, column, definition) {
+  const columns = database.prepare(`PRAGMA table_info(${table})`).all()
+  if (!columns.some((item) => item.name === column)) {
+    database.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`)
+  }
+}
 function parseList(value, fallback) { try { const parsed = JSON.parse(value); return Array.isArray(parsed) ? parsed : fallback } catch (_) { return fallback } }
 function normalizeList(value, maximumItems, maximumLength, fallback) { const source = Array.isArray(value) ? value : fallback; return [...new Set(source.map((item) => clean(item, maximumLength).toLowerCase()).filter(Boolean))].slice(0, maximumItems) }
 function clean(value, maximum) { return typeof value === 'string' ? value.trim().slice(0, maximum) : '' }
+function normalizeBuild(value) { const normalized = clean(String(value ?? ''), 40); return /^\d+$/u.test(normalized) ? normalized : null }
 function optionalISODate(value) { const normalized = clean(value, 80); if (!normalized) return null; if (Number.isNaN(Date.parse(normalized))) throw announcementError('ANNOUNCEMENT_DATE_INVALID', '公告时间格式无效', 400); return new Date(normalized).toISOString() }
 function optionalHTTPURL(value) { const normalized = clean(value, 2_048); if (!normalized) return null; try { const url = new URL(normalized); if (!['http:', 'https:'].includes(url.protocol)) throw new Error(); return url.toString() } catch (_) { throw announcementError('ANNOUNCEMENT_URL_INVALID', '公告链接必须是有效的 HTTP 或 HTTPS 地址', 400) } }
 function actor(req) { return String(req.admin?.id || req.user?.id || req.auth?.id || 'token-admin') }

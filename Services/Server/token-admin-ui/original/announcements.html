@@ -6,7 +6,7 @@
   <title>公告管理 - Mono Console</title>
   <link rel="icon" href="./brand-mark.png">
   <link rel="stylesheet" href="./assets/admin.css">
-  <link rel="stylesheet" href="./announcements.css?v=2026072701">
+  <link rel="stylesheet" href="./announcements.css?v=2026072801">
 </head>
 <body>
   <div id="authGate" class="auth-gate hidden">
@@ -136,8 +136,8 @@
               <details class="announcement-settings">
                 <summary>范围与时间</summary>
                 <div class="announcement-grid">
-                  <label class="field"><span>最低版本</span><input id="announcementMinVersion" inputmode="numeric"></label>
-                  <label class="field"><span>最高版本</span><input id="announcementMaxVersion" inputmode="numeric"></label>
+                  <label class="field"><span>最低发布版本</span><select id="announcementMinVersion"><option value="">不限</option></select></label>
+                  <label class="field"><span>最高发布版本</span><select id="announcementMaxVersion"><option value="">不限</option></select></label>
                   <label class="field"><span>平台</span><input id="announcementPlatforms" value="ios"></label>
                   <label class="field"><span>语言地区</span><input id="announcementLocales"></label>
                   <label class="field"><span>开始时间</span><input id="announcementStartsAt" type="datetime-local"></label>
@@ -164,6 +164,6 @@
 
   <div id="toast" class="toast"></div>
   <script src="./assets/admin-core.js"></script>
-  <script src="./announcements-page.js?v=2026072701"></script>
+  <script src="./announcements-page.js?v=2026072801"></script>
 </body>
 </html>

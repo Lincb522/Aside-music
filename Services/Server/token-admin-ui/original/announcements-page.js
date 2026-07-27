@@ -30,6 +30,7 @@
   }
 
   let announcements = []
+  let releaseTargets = []
   let selectedId = null
 
   function field(id) { return document.getElementById(id) }
@@ -45,6 +46,8 @@
   }
 
   function input() {
+    const minimumTarget = selectedReleaseTarget('announcementMinVersion')
+    const maximumTarget = selectedReleaseTarget('announcementMaxVersion')
     return {
       title: field('announcementTitle').value.trim(),
       category: field('announcementCategory').value,
@@ -54,8 +57,10 @@
       imageURL: field('announcementImageURL').value.trim() || null,
       actionTitle: field('announcementActionTitle').value.trim() || null,
       actionURL: field('announcementActionURL').value.trim() || null,
-      minAppVersion: field('announcementMinVersion').value.trim() || null,
-      maxAppVersion: field('announcementMaxVersion').value.trim() || null,
+      minAppVersion: minimumTarget?.appVersion || null,
+      maxAppVersion: maximumTarget?.appVersion || null,
+      minAppBuild: minimumTarget?.appBuild || null,
+      maxAppBuild: maximumTarget?.appBuild || null,
       platforms: splitList(field('announcementPlatforms').value),
       locales: splitList(field('announcementLocales').value),
       startsAt: toISO(field('announcementStartsAt').value),
@@ -70,6 +75,112 @@
     if (payload.actionTitle && !payload.actionURL) throw new Error('填写按钮文字时必须填写跳转链接')
     if (payload.startsAt && payload.endsAt && new Date(payload.startsAt) >= new Date(payload.endsAt)) {
       throw new Error('结束时间必须晚于开始时间')
+    }
+    if (compareReleaseTargets(
+      payload.minAppVersion,
+      payload.minAppBuild,
+      payload.maxAppVersion,
+      payload.maxAppBuild
+    ) > 0) {
+      throw new Error('最低发布版本不能高于最高发布版本')
+    }
+  }
+
+  function selectedReleaseTarget(id) {
+    const select = field(id)
+    const option = select?.selectedOptions?.[0]
+    if (!option?.value) return null
+    return {
+      appVersion: option.dataset.appVersion || null,
+      appBuild: option.dataset.appBuild || null
+    }
+  }
+
+  function numericParts(value) {
+    return String(value || '').split('.').map(part => Number.parseInt(part, 10) || 0)
+  }
+
+  function compareVersions(left, right) {
+    const a = numericParts(left)
+    const b = numericParts(right)
+    const length = Math.max(a.length, b.length)
+    for (let index = 0; index < length; index += 1) {
+      const difference = (a[index] || 0) - (b[index] || 0)
+      if (difference !== 0) return difference < 0 ? -1 : 1
+    }
+    return 0
+  }
+
+  function compareReleaseTargets(leftVersion, leftBuild, rightVersion, rightBuild) {
+    if (!leftVersion || !rightVersion) return 0
+    const versionComparison = compareVersions(leftVersion, rightVersion)
+    if (versionComparison !== 0) return versionComparison
+    if (!leftBuild || !rightBuild) return 0
+    return Number(leftBuild) - Number(rightBuild)
+  }
+
+  function parseReleaseTarget(release) {
+    if (!release?.published) return null
+    const candidates = [release.version, release.title].filter(Boolean).map(String)
+    const version = candidates.map(value => value.match(/\d+(?:\.\d+)+/u)?.[0]).find(Boolean)
+    if (!version) return null
+
+    const explicitBuild = String(release.buildNumber || '').trim()
+    const parenthesizedBuild = candidates
+      .map(value => value.match(/[（(]\s*(\d+)\s*[）)]/u)?.[1])
+      .find(Boolean)
+    const appBuild = /^\d+$/u.test(explicitBuild) ? explicitBuild : (parenthesizedBuild || null)
+    return {
+      key: `${version}:${appBuild || ''}`,
+      appVersion: version,
+      appBuild,
+      label: appBuild ? `${version}（${appBuild}）` : version
+    }
+  }
+
+  function collectReleaseTargets(status) {
+    const targets = []
+    const seen = new Set()
+    for (const release of status?.ipaReleases || []) {
+      const target = parseReleaseTarget(release)
+      if (!target || seen.has(target.key)) continue
+      seen.add(target.key)
+      targets.push(target)
+    }
+    return targets.sort((left, right) => -compareReleaseTargets(
+      left.appVersion,
+      left.appBuild,
+      right.appVersion,
+      right.appBuild
+    ))
+  }
+
+  function targetKey(appVersion, appBuild) {
+    return appVersion ? `${appVersion}:${appBuild || ''}` : ''
+  }
+
+  function renderReleaseOptions(currentTargets = []) {
+    for (const id of ['announcementMinVersion', 'announcementMaxVersion']) {
+      const select = field(id)
+      if (!select) continue
+      const current = currentTargets.find(item => item.id === id)
+      const options = [...releaseTargets]
+      if (current?.appVersion) {
+        const key = targetKey(current.appVersion, current.appBuild)
+        if (!options.some(item => item.key === key)) {
+          options.push({
+            key,
+            appVersion: current.appVersion,
+            appBuild: current.appBuild || null,
+            label: `${current.appVersion}${current.appBuild ? `（${current.appBuild}）` : ''}`
+          })
+        }
+      }
+      select.innerHTML = [
+        '<option value="">不限</option>',
+        ...options.map(item => `<option value="${esc(item.key)}" data-app-version="${esc(item.appVersion)}" data-app-build="${esc(item.appBuild || '')}">${esc(item.label)}</option>`)
+      ].join('')
+      select.value = current?.appVersion ? targetKey(current.appVersion, current.appBuild) : ''
     }
   }
 
@@ -131,8 +242,10 @@
     setValue('announcementImageURL', item?.imageURL)
     setValue('announcementActionTitle', item?.actionTitle)
     setValue('announcementActionURL', item?.actionURL)
-    setValue('announcementMinVersion', item?.minAppVersion)
-    setValue('announcementMaxVersion', item?.maxAppVersion)
+    renderReleaseOptions([
+      { id: 'announcementMinVersion', appVersion: item?.minAppVersion, appBuild: item?.minAppBuild },
+      { id: 'announcementMaxVersion', appVersion: item?.maxAppVersion, appBuild: item?.maxAppBuild }
+    ])
     setValue('announcementPlatforms', (item?.platforms || ['ios']).join(', '))
     setValue('announcementLocales', (item?.locales || []).join(', '))
     setValue('announcementStartsAt', toLocalDateTime(item?.startsAt))
@@ -161,12 +274,17 @@
 
   async function loadPage({ preserveSelection = true } = {}) {
     const previous = preserveSelection ? selectedId : null
-    const payload = await request('/api/announcements')
+    const [payload, status] = await Promise.all([
+      request('/api/announcements'),
+      request('/api/status').catch(() => ({ ipaReleases: [] }))
+    ])
     announcements = payload.announcements || []
+    releaseTargets = collectReleaseTargets(status)
     selectedId = previous && announcements.some(item => item.id === previous) ? previous : null
     renderSummary()
     renderList()
     if (selectedId) fillEditor(selected())
+    else renderReleaseOptions()
   }
 
   async function saveDraft() {

@@ -226,7 +226,11 @@ final class AnnouncementCenter: ObservableObject {
         let validKeys = Set(manifestItems.map { cacheKey($0.id, $0.displayRevision) })
         details = details.filter { validKeys.contains($0.key) }
         if details.count > 30 {
-            details = Dictionary(uniqueKeysWithValues: details.sorted { $0.key > $1.key }.prefix(30))
+            let retainedDetails = details
+                .sorted { $0.key > $1.key }
+                .prefix(30)
+                .map { ($0.key, $0.value) }
+            details = Dictionary(uniqueKeysWithValues: retainedDetails)
         }
         persist(details, forKey: Keys.cachedDetails)
     }
