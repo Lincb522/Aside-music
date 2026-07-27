@@ -85,6 +85,28 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/PublicAppConfiguration' }
         '304': { description: 配置版本未变化 }
+  /api/public/announcements/manifest:
+    get:
+      summary: 获取当前客户端适用的公告轻量清单
+      parameters:
+        - { name: app_version, in: query, schema: { type: string } }
+        - { name: platform, in: query, schema: { type: string, default: ios } }
+        - { name: locale, in: query, schema: { type: string } }
+      responses:
+        '200': { description: 仅含公告标识、展示版本、类型、优先级、标题、摘要和时间窗口 }
+        '304': { description: 清单展示版本未变化 }
+  /api/public/announcements/{announcementId}:
+    get:
+      summary: 按指定展示版本获取公告详情
+      parameters:
+        - { name: announcementId, in: path, required: true, schema: { type: string } }
+        - { name: revision, in: query, required: true, schema: { type: integer } }
+        - { name: app_version, in: query, schema: { type: string } }
+        - { name: platform, in: query, schema: { type: string, default: ios } }
+        - { name: locale, in: query, schema: { type: string } }
+      responses:
+        '200': { description: 公告正文、头图和跳转信息 }
+        '404': { description: 公告不存在、展示版本已失效或不适用于当前客户端 }
   /api/song-content/content/{versionId}:
     get:
       summary: 获取审核上下文、字段差异、来源和生成成本

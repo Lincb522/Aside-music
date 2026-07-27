@@ -268,7 +268,7 @@ function createConfiguredContentGenerator({ configStore, appAIConfigProvider, fe
 function normalizeAIConfig(raw = {}) {
   return {
     fallbackModel: clean(raw.fallbackModel, 240),
-    promptVersion: clean(raw.promptVersion, 160) || 'song-editor-web-v5',
+    promptVersion: clean(raw.promptVersion, 160) || 'song-editor-web-v6',
     schemaVersion: clean(raw.schemaVersion, 80) || '3',
     systemPrompt: clean(raw.systemPrompt, 20_000),
     contentPrompt: clean(raw.contentPrompt, 20_000),
@@ -279,6 +279,7 @@ function normalizeAIConfig(raw = {}) {
     concurrency: Math.round(clamp(raw.concurrency, 1, 64, 2)),
     requestsPerMinute: Math.round(clamp(raw.requestsPerMinute, 1, 10_000, 60)),
     circuitBreakerFailures: Math.round(clamp(raw.circuitBreakerFailures, 1, 100, 5)),
+    circuitBreakerRecoverySeconds: Math.round(clamp(raw.circuitBreakerRecoverySeconds, 15, 900, 60)),
     dailyBudget: clamp(raw.dailyBudget, 0, 1_000_000, 0),
     perTaskTokenLimit: Math.round(clamp(raw.perTaskTokenLimit, 256, 100_000, 20_000)),
     autoPublish: raw.autoPublish !== false,
@@ -286,14 +287,14 @@ function normalizeAIConfig(raw = {}) {
     highRiskRequiresReview: raw.highRiskRequiresReview === true,
     sourceConflictRequiresReview: raw.sourceConflictRequiresReview === true,
     webRetrievalEnabled: raw.webRetrievalEnabled !== false,
-    webMaximumSources: Math.round(clamp(raw.webMaximumSources, 1, 10, 6)),
+    webMaximumSources: Math.round(clamp(raw.webMaximumSources, 1, 16, 10)),
     webSearchProviders: normalizeSearchProviders(raw.webSearchProviders),
     webPreferredSources: normalizePreferredSources(raw.webPreferredSources)
   }
 }
 
 function normalizeSearchProviders(value) {
-  const supported = new Set(['360', 'bing', 'sogou'])
+  const supported = new Set(['360', 'baidu', 'bing', 'sogou'])
   const providers = Array.isArray(value) ? value.filter((provider) => supported.has(provider)) : [...supported]
   return [...new Set(providers)]
 }

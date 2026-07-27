@@ -21,29 +21,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     }
     
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
-            if granted {
-                DispatchQueue.main.async {
-                    application.registerForRemoteNotifications()
-                }
-            }
-            if let error = error {
-                AppLogger.error("推送授权失败: \(error.localizedDescription)")
-            }
-        }
-        
         return true
-    }
-    
-    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-        let token = deviceToken.map { String(format: "%02x", $0) }.joined()
-        AppLogger.info("APNs 推送凭据已更新")
-        UserDefaults.standard.set(token, forKey: "apns_device_token")
-        PushService.shared.registerToken(token)
-    }
-    
-    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
-        AppLogger.error("APNs 注册失败: \(error.localizedDescription)")
     }
     
     func applicationWillTerminate(_ application: UIApplication) {
@@ -173,6 +151,7 @@ struct MonoApp: App {
                     let hasStoredToken = OnlineAccessManager.shared.hasStoredToken
 
                     AlertWindow.shared.setup()
+                    LocalNotificationService.shared.setup()
 
                     // 多线路：应用上次线路并启动健康探测/繁忙分流
                     ServerLineManager.shared.start()
@@ -183,7 +162,6 @@ struct MonoApp: App {
                     if hasStoredToken {
                         OnlineAccessManager.shared.refreshOnLaunch(showInvalidAlert: false)
                         GlobalRefreshManager.shared.triggerAuthenticatedAppLaunchRefresh()
-                        PushService.shared.setup()
                         Task { @MainActor in
                             await AIProviderConfigurationStore.shared.refreshRemoteConfigurationIfNeeded(force: true)
                         }
@@ -215,7 +193,7 @@ struct MonoApp: App {
                                 UserDefaults.standard.set(status.loggedIn, forKey: AppConfig.StorageKeys.qqMusicLoggedIn)
                                 if !status.loggedIn {
                                     AppLogger.warning("[QQMusic] 管理员登录已过期")
-                                    PushService.shared.sendCookieExpiredNotification()
+                                    LocalNotificationService.shared.sendCookieExpiredNotification()
                                 }
                             }
                         } catch {

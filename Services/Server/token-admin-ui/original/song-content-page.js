@@ -31,6 +31,43 @@
     completed: '完成',
     failed: '失败'
   }
+  const jobErrorLabels = {
+    AI_AUTOMATIC_REVIEW_REJECTED: ['自动审核未通过', '生成内容未通过自动审核'],
+    AI_CIRCUIT_OPEN: ['AI 服务暂时不可用', '服务保护已启动，请稍后重试'],
+    AI_MISSING_EVIDENCE_BACKED_SECTION: ['内容生成不完整', '生成内容缺少可信资料依据'],
+    AI_PROTOCOL_SERVER_UNSUPPORTED: ['AI 服务协议不受支持', '当前服务端不支持所选请求协议'],
+    AI_PROTOCOL_UNSUPPORTED: ['AI 请求协议不受支持', '请检查 AI 服务协议配置'],
+    AI_PROVIDER_ERROR: ['AI 服务请求失败', '上游 AI 服务返回错误'],
+    AI_RATE_LIMITED: ['AI 请求过于频繁', '请求已受限，将稍后重试'],
+    AI_SOURCE_ATTRIBUTION: ['内容表达不符合要求', '生成内容包含来源归因式表述'],
+    AI_TIMEOUT: ['AI 生成超时', '内容生成未在限定时间内完成'],
+    AI_TOKEN_LIMIT_EXCEEDED: ['内容长度超出限制', '生成内容使用的 Token 超出上限'],
+    CONTENT_VERSION_NOT_FOUND: ['内容版本不存在', '找不到对应的内容版本'],
+    GENERATION_TEMPORARY_FAILURE: ['生成任务暂时失败', '任务稍后会再次尝试'],
+    INSUFFICIENT_SOURCES: ['可信资料不足', '没有足够的资料支持内容生成'],
+    INVALID_AI_OUTPUT: ['AI 返回内容无效', '生成结果的格式或字段不符合要求'],
+    INVALID_CONTENT_STATUS: ['内容状态无效', '当前内容状态不允许执行此操作'],
+    INVALID_IDENTITY_STATUS: ['歌曲身份状态无效', '当前歌曲身份状态不允许生成内容'],
+    INVALID_JOB_STATE: ['任务状态无效', '当前任务状态不允许执行此操作'],
+    INVALID_ROLE_ASSIGNMENT: ['角色分配无效', '无法完成当前角色分配'],
+    INVALID_SONG_IDENTITY: ['歌曲身份信息无效', '歌曲身份信息不完整或不一致'],
+    INVALID_SONG_MERGE: ['歌曲合并无效', '所选歌曲记录无法合并'],
+    INVALID_SOURCE: ['资料来源无效', '资料来源信息不完整或不可用'],
+    INVALID_WORKER: ['任务执行器无效', '任务执行器身份不匹配'],
+    JOB_NOT_FOUND: ['生成任务不存在', '找不到对应的生成任务'],
+    JOB_NOT_RETRYABLE: ['任务无法重试', '当前任务状态不支持重新执行'],
+    MAPPING_NOT_FOUND: ['平台映射不存在', '找不到对应的平台歌曲映射'],
+    SONG_IDENTITY_PENDING: ['歌曲身份待确认', '确认歌曲身份后才能生成内容'],
+    SONG_NOT_FOUND: ['歌曲不存在', '找不到对应的歌曲记录'],
+    SONG_NOT_WHITELISTED: ['歌曲未加入生成名单', '当前歌曲暂不允许生成内容'],
+    SOURCE_NOT_FOUND: ['资料来源不存在', '找不到对应的资料来源']
+  }
+  const contentFieldLabels = {
+    songSummary: '歌曲介绍',
+    creationStory: '创作故事',
+    background: '乐评',
+    albumSummary: '专辑介绍'
+  }
 
   document.addEventListener('DOMContentLoaded', () => {
     buildAgentFields()
@@ -54,13 +91,13 @@
       'appAIDailyLimit', 'appAIHourlyLimit', 'appAIMinInterval', 'testAppAIButton', 'saveAppAIButton',
       'configEnabled', 'configRollout', 'configPolling', 'configCache', 'configMinVersion',
       'configAgentManagementEnabled', 'configRetrievalStatus', 'configWebRetrieval', 'configWebMaximumSources',
-      'configProvider360', 'configProviderBing', 'configProviderSogou',
+      'configProvider360', 'configProviderBaidu', 'configProviderBing', 'configProviderSogou',
       'configSourceDouban', 'configSourceXiaohongshu',
       'configMaxVersion', 'configPlatforms', 'configRegions', 'configEffectiveAt', 'configDeviceWhitelist',
       'moduleSongSummary', 'moduleCreationStory', 'moduleBackground', 'moduleAlbumSummary', 'moduleSources',
       'moduleSimilarSongs', 'moduleArtistSongs', 'configFallbackModel', 'configPromptVersion',
       'configSchemaVersion', 'configTemperature', 'configMaxOutput', 'configTaskTokenLimit',
-      'configMaxAttempts', 'configConcurrency', 'configRequestsPerMinute', 'configCircuitBreaker',
+      'configMaxAttempts', 'configConcurrency', 'configRequestsPerMinute', 'configCircuitBreaker', 'configCircuitRecovery',
       'configDailyBudget', 'configAutoPublish', 'configMinimumGrade', 'configHighRiskReview',
       'configConflictReview', 'configSystemPrompt', 'configContentPrompt', 'saveConfigButton', 'configVersions',
       'rolesList', 'accessActor', 'accessRole', 'assignRoleButton', 'assignmentsList'
@@ -95,6 +132,7 @@
     els.configWebRetrieval?.addEventListener('change', syncRetrievalStatus)
     for (const input of [
       els.configProvider360,
+      els.configProviderBaidu,
       els.configProviderBing,
       els.configProviderSogou,
       els.configSourceDouban,
@@ -125,7 +163,14 @@
       els.statFailedJobs.textContent = Admin.fmtNum(data.stats.failedJobs)
       els.statSources.textContent = Admin.fmtNum(data.stats.sources)
       els.statCost.textContent = Number(data.stats.cost || 0).toFixed(4)
-      setHealth('服务正常', 'success')
+      const circuit = data.stats.providerCircuit
+      if (circuit?.state === 'open') {
+        setHealth(`AI 服务保护中 · ${circuit.retryAfterSeconds} 秒后自动探测`, 'warning')
+      } else if (circuit?.state === 'half_open') {
+        setHealth('AI 服务恢复探测中', 'warning')
+      } else {
+        setHealth('服务正常', 'success')
+      }
     } catch (error) {
       setHealth('读取失败', 'error')
       throw error
@@ -399,9 +444,12 @@
     try {
       const data = await Admin.request('/api/song-content/jobs')
       const jobs = data.jobs || []
-      els.jobsTable.innerHTML = jobs.length ? jobs.map((job) => `
-        <tr><td><code>${Admin.esc(shortId(job.id))}</code><span>${Admin.esc(job.reason)}</span></td><td>${badge(job.state)}</td><td>${job.attemptCount} / ${job.maxAttempts}</td><td>${Admin.esc(`${job.tokenInput ?? 0} / ${job.tokenOutput ?? 0}`)}<span>${job.cost == null ? '—' : Number(job.cost).toFixed(6)}</span></td><td>${formatDuration(job.durationMs)}</td><td>${Admin.esc(job.errorCode || '—')}<span>${Admin.esc(job.errorMessage || '')}</span></td><td>${job.state === 'failed' ? `<button class="btn btn-secondary btn-small" data-retry-job="${Admin.esc(job.id)}">重试</button>` : ''}</td></tr>
-      `).join('') : tableEmptyRow(7, '没有生成任务')
+      els.jobsTable.innerHTML = jobs.length ? jobs.map((job) => {
+        const errorText = localizeJobError(job)
+        return `
+          <tr><td><code>${Admin.esc(shortId(job.id))}</code><span>${Admin.esc(job.reason)}</span></td><td>${badge(job.state)}</td><td>${job.attemptCount} / ${job.maxAttempts}</td><td>${Admin.esc(`${job.tokenInput ?? 0} / ${job.tokenOutput ?? 0}`)}<span>${job.cost == null ? '—' : Number(job.cost).toFixed(6)}</span></td><td>${formatDuration(job.durationMs)}</td><td>${Admin.esc(errorText.title)}<span>${Admin.esc(errorText.detail)}</span></td><td>${job.state === 'failed' ? `<button class="btn btn-secondary btn-small" data-retry-job="${Admin.esc(job.id)}">重试</button>` : ''}</td></tr>
+        `
+      }).join('') : tableEmptyRow(7, '没有生成任务')
       els.jobsTable.querySelectorAll('[data-retry-job]').forEach((button) => button.addEventListener('click', () => retryJob(button)))
     } catch (error) { els.jobsTable.innerHTML = tableEmptyRow(7, error.message) }
   }
@@ -421,7 +469,7 @@
       const data = await Admin.request('/api/song-content/sources')
       const sources = data.sources || []
       els.sourcesTable.innerHTML = sources.length ? sources.map((source) => `
-        <tr><td><a href="${Admin.esc(source.url)}" target="_blank" rel="noreferrer">${Admin.esc(source.title)}</a></td><td><select class="source-grade-select" data-source-grade="${Admin.esc(source.id)}"><option ${source.grade === 'A' ? 'selected' : ''}>A</option><option ${source.grade === 'B' ? 'selected' : ''}>B</option><option ${source.grade === 'C' ? 'selected' : ''}>C</option><option ${source.grade === 'D' ? 'selected' : ''}>D</option></select></td><td>${Admin.esc(source.publisher)}</td><td>${Admin.esc(sourceKind(source))}</td><td>${Admin.esc(formatSourceFields(source.supportedFields) || '—')}</td><td>${Admin.esc(Admin.fmtDate(source.fetchedAt))}</td><td>${source.accessible ? badge('accessible') : badge('unavailable')}</td><td><button class="btn btn-secondary btn-small" data-source-access="${Admin.esc(source.id)}" data-accessible="${source.accessible}">${source.accessible ? '标记失效' : '恢复'}</button></td></tr>
+        <tr><td class="source-name-cell"><a href="${Admin.esc(source.url)}" target="_blank" rel="noreferrer" title="${Admin.esc(source.title)}">${Admin.esc(source.title)}</a></td><td><select class="source-grade-select" data-source-grade="${Admin.esc(source.id)}"><option ${source.grade === 'A' ? 'selected' : ''}>A</option><option ${source.grade === 'B' ? 'selected' : ''}>B</option><option ${source.grade === 'C' ? 'selected' : ''}>C</option><option ${source.grade === 'D' ? 'selected' : ''}>D</option></select></td><td>${Admin.esc(source.publisher)}</td><td>${Admin.esc(sourceKind(source))}</td><td>${Admin.esc(formatSourceFields(source.supportedFields) || '—')}</td><td>${Admin.esc(Admin.fmtDate(source.fetchedAt))}</td><td>${source.accessible ? badge('accessible') : badge('unavailable')}</td><td class="source-action-cell"><button class="btn btn-secondary btn-small" data-source-access="${Admin.esc(source.id)}" data-accessible="${source.accessible}">${source.accessible ? '标记失效' : '恢复'}</button></td></tr>
       `).join('') : tableEmptyRow(8, '没有来源记录')
       bindSourceActions()
     } catch (error) { els.sourcesTable.innerHTML = tableEmptyRow(8, error.message) }
@@ -507,7 +555,7 @@
     els.moduleSimilarSongs.checked = modules.similarSongs !== false
     els.moduleArtistSongs.checked = modules.artistSongs !== false
     els.configFallbackModel.value = ai.fallbackModel || ''
-    els.configPromptVersion.value = ai.promptVersion || 'song-editor-web-v5'
+    els.configPromptVersion.value = ai.promptVersion || 'song-editor-web-v6'
     els.configSchemaVersion.value = ai.schemaVersion || '1'
     els.configTemperature.value = ai.temperature ?? 0.2
     els.configMaxOutput.value = ai.maxOutputTokens ?? 2000
@@ -516,17 +564,19 @@
     els.configConcurrency.value = ai.concurrency ?? 2
     els.configRequestsPerMinute.value = ai.requestsPerMinute ?? 60
     els.configCircuitBreaker.value = ai.circuitBreakerFailures ?? 5
+    els.configCircuitRecovery.value = ai.circuitBreakerRecoverySeconds ?? 60
     els.configDailyBudget.value = ai.dailyBudget ?? 0
     els.configAutoPublish.value = String(ai.autoPublish === true)
     els.configMinimumGrade.value = ai.minimumSourceGrade || 'B'
     els.configHighRiskReview.value = String(ai.highRiskRequiresReview === true)
     els.configConflictReview.value = String(ai.sourceConflictRequiresReview === true)
     const retrievalEnabled = ai.webRetrievalEnabled !== false
-    const configuredProviders = Array.isArray(ai.webSearchProviders) ? ai.webSearchProviders : ['360', 'bing', 'sogou']
+    const configuredProviders = Array.isArray(ai.webSearchProviders) ? ai.webSearchProviders : ['360', 'baidu', 'bing', 'sogou']
     const configuredSources = Array.isArray(ai.webPreferredSources) ? ai.webPreferredSources : ['douban', 'xiaohongshu']
     els.configWebRetrieval.value = String(retrievalEnabled)
-    els.configWebMaximumSources.value = ai.webMaximumSources ?? 6
+    els.configWebMaximumSources.value = ai.webMaximumSources ?? 10
     els.configProvider360.checked = configuredProviders.includes('360')
+    els.configProviderBaidu.checked = configuredProviders.includes('baidu')
     els.configProviderBing.checked = configuredProviders.includes('bing')
     els.configProviderSogou.checked = configuredProviders.includes('sogou')
     els.configSourceDouban.checked = configuredSources.includes('douban')
@@ -558,7 +608,7 @@
   function syncRetrievalStatus() {
     const enabled = els.configWebRetrieval?.value !== 'false'
     if (!els.configRetrievalStatus) return
-    const providerCount = [els.configProvider360, els.configProviderBing, els.configProviderSogou].filter((input) => input?.checked).length
+    const providerCount = [els.configProvider360, els.configProviderBaidu, els.configProviderBing, els.configProviderSogou].filter((input) => input?.checked).length
     const sourceCount = [els.configSourceDouban, els.configSourceXiaohongshu].filter((input) => input?.checked).length
     els.configRetrievalStatus.className = `badge ${enabled ? 'badge-success' : 'badge-neutral'}`
     els.configRetrievalStatus.textContent = enabled ? `联网检索已开启 · ${providerCount} 路 · ${sourceCount} 个重点来源` : '联网检索已关闭'
@@ -643,6 +693,7 @@
             concurrency: Number(els.configConcurrency.value),
             requestsPerMinute: Number(els.configRequestsPerMinute.value),
             circuitBreakerFailures: Number(els.configCircuitBreaker.value),
+            circuitBreakerRecoverySeconds: Number(els.configCircuitRecovery.value),
             dailyBudget: Number(els.configDailyBudget.value),
             autoPublish: els.configAutoPublish.value === 'true',
             minimumSourceGrade: els.configMinimumGrade.value,
@@ -652,6 +703,7 @@
             webMaximumSources: Number(els.configWebMaximumSources.value),
             webSearchProviders: [
               els.configProvider360.checked ? '360' : null,
+              els.configProviderBaidu.checked ? 'baidu' : null,
               els.configProviderBing.checked ? 'bing' : null,
               els.configProviderSogou.checked ? 'sogou' : null
             ].filter(Boolean),
@@ -768,7 +820,7 @@
 
   function sourceKind(source) {
     if (source?.metadata?.platform !== 'WEB') return '平台资料'
-    const labels = { '360': '360', '360-search': '360', bing: 'Bing', sogou: '搜狗' }
+    const labels = { '360': '360', '360-search': '360', baidu: '百度', bing: 'Bing', sogou: '搜狗' }
     const providers = Array.isArray(source.metadata.searchProviders)
       ? source.metadata.searchProviders
       : [source.metadata.searchProvider].filter(Boolean)
@@ -787,6 +839,34 @@
       albumSummary: '专辑介绍'
     }
     return (Array.isArray(fields) ? fields : []).map((field) => labels[field] || field).join(' / ')
+  }
+
+  function localizeJobError(job) {
+    if (job.errorTitle || job.errorDetail) {
+      return {
+        title: job.errorTitle || '任务执行失败',
+        detail: job.errorDetail || '请查看服务端日志'
+      }
+    }
+    const code = String(job?.errorCode || job?.internalErrorCode || '')
+    if (!code) return { title: '—', detail: '' }
+
+    if (code === 'AI_MISSING_EVIDENCE_BACKED_SECTION') {
+      const rawMessage = String(job?.errorMessage || '')
+      const missingLabels = Object.entries(contentFieldLabels)
+        .filter(([field, label]) => rawMessage.includes(field) || rawMessage.includes(label))
+        .map(([, label]) => label)
+      return {
+        title: '内容生成不完整',
+        detail: missingLabels.length > 0
+          ? `${missingLabels.join('、')}缺少可信资料依据`
+          : jobErrorLabels[code][1]
+      }
+    }
+
+    const labels = jobErrorLabels[code]
+    if (labels) return { title: labels[0], detail: labels[1] }
+    return { title: '任务执行失败', detail: '请查看服务端日志' }
   }
 
   function keyValueMarkup(items) {

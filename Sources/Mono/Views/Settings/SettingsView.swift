@@ -181,6 +181,7 @@ struct SettingsView: View {
     @State private var apiTokenInput: String = SecureConfig.apiToken ?? ""
     @State private var tokenSaved = false
     @State private var isHeaderCardExpanded = false
+    @State private var isShowingTokenAgreement = false
 
     var body: some View {
         settingsRoot
@@ -211,6 +212,14 @@ struct SettingsView: View {
             .toolbarBackground(.hidden, for: .navigationBar)
             .navigationDestination(for: SettingsNavigationDestination.self) { destination in
                 AnyView(destination.view)
+            }
+            .sheet(isPresented: $isShowingTokenAgreement, onDismiss: {
+                onlineAccess.declinePendingTokenAuthorization()
+            }) {
+                TokenAgreementAuthorizationSheet(
+                    onAgree: acceptPendingTokenAuthorization,
+                    onDecline: declinePendingTokenAuthorization
+                )
             }
             .onAppear {
                 updateCacheSize()
@@ -1949,53 +1958,73 @@ struct SettingsView: View {
         apiTokenInput = trimmed
 
         Task {
-            let status = await onlineAccess.submitToken(trimmed)
+            let outcome = await onlineAccess.submitToken(trimmed)
 
             await MainActor.run {
-                switch status {
-                case .valid, .validationDisabled:
-                    HapticManager.shared.success()
-                    tokenSaved = !trimmed.isEmpty
-                    isHeaderCardExpanded = trimmed.isEmpty
-
-                    if tokenSaved {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                            withAnimation { tokenSaved = false }
-                        }
-                    }
-                case .missing:
-                    tokenSaved = false
-                    isHeaderCardExpanded = true
-                case .invalid:
-                    AlertManager.shared.show(
-                        title: settingsText("access_invalid_title"),
-                        message: settingsText("access_invalid_message"),
-                        primaryButtonTitle: settingsText("common_ok"),
-                        primaryAction: {}
-                    )
-                case .expired:
-                    AlertManager.shared.show(
-                        title: String(localized: "Token 已过期"),
-                        message: String(localized: "您输入的 Token 已经过期，请获取新的 Token 或者重新授权。"),
-                        primaryButtonTitle: settingsText("common_ok"),
-                        primaryAction: {}
-                    )
-                case .deviceMismatch:
-                    AlertManager.shared.show(
-                        title: String(localized: "设备不匹配"),
-                        message: String(localized: "此 Token 已绑定到其他设备，无法在当前设备使用。"),
-                        primaryButtonTitle: settingsText("common_ok"),
-                        primaryAction: {}
-                    )
-                case .networkError:
-                    AlertManager.shared.show(
-                        title: settingsText("access_network_error_title"),
-                        message: settingsText("access_network_error_message"),
-                        primaryButtonTitle: settingsText("common_ok"),
-                        primaryAction: {}
-                    )
+                switch outcome {
+                case .agreementRequired:
+                    isShowingTokenAgreement = true
+                case .status(let status):
+                    handleTokenSubmissionStatus(status, submittedToken: trimmed)
                 }
             }
+        }
+    }
+
+    private func acceptPendingTokenAuthorization() {
+        guard let status = onlineAccess.acceptPendingTokenAuthorization() else { return }
+        isShowingTokenAgreement = false
+        handleTokenSubmissionStatus(status, submittedToken: apiTokenInput)
+    }
+
+    private func declinePendingTokenAuthorization() {
+        onlineAccess.declinePendingTokenAuthorization()
+        isShowingTokenAgreement = false
+    }
+
+    private func handleTokenSubmissionStatus(_ status: APIService.TokenStatus, submittedToken: String) {
+        switch status {
+        case .valid, .validationDisabled:
+            HapticManager.shared.success()
+            tokenSaved = !submittedToken.isEmpty
+            isHeaderCardExpanded = submittedToken.isEmpty
+
+            if tokenSaved {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                    withAnimation { tokenSaved = false }
+                }
+            }
+        case .missing:
+            tokenSaved = false
+            isHeaderCardExpanded = true
+        case .invalid:
+            AlertManager.shared.show(
+                title: settingsText("access_invalid_title"),
+                message: settingsText("access_invalid_message"),
+                primaryButtonTitle: settingsText("common_ok"),
+                primaryAction: {}
+            )
+        case .expired:
+            AlertManager.shared.show(
+                title: String(localized: "Token 已过期"),
+                message: String(localized: "您输入的 Token 已经过期，请获取新的 Token 或者重新授权。"),
+                primaryButtonTitle: settingsText("common_ok"),
+                primaryAction: {}
+            )
+        case .deviceMismatch:
+            AlertManager.shared.show(
+                title: String(localized: "设备不匹配"),
+                message: String(localized: "此 Token 已绑定到其他设备，无法在当前设备使用。"),
+                primaryButtonTitle: settingsText("common_ok"),
+                primaryAction: {}
+            )
+        case .networkError:
+            AlertManager.shared.show(
+                title: settingsText("access_network_error_title"),
+                message: settingsText("access_network_error_message"),
+                primaryButtonTitle: settingsText("common_ok"),
+                primaryAction: {}
+            )
         }
     }
 

@@ -1087,6 +1087,7 @@ struct LocalModeProfileView: View {
 
     @State private var tokenInput = SecureConfig.apiToken ?? ""
     @State private var isSubmitting = false
+    @State private var isShowingTokenAgreement = false
     @State private var recentSongs: [Song] = []
     @State private var navigationPath = NavigationPath()
 
@@ -1162,6 +1163,14 @@ struct LocalModeProfileView: View {
         }
         .onReceive(playerManager.$currentSong.dropFirst()) { _ in
             refreshRecentSongs()
+        }
+        .sheet(isPresented: $isShowingTokenAgreement, onDismiss: {
+            onlineAccess.declinePendingTokenAuthorization()
+        }) {
+            TokenAgreementAuthorizationSheet(
+                onAgree: acceptPendingTokenAuthorization,
+                onDecline: declinePendingTokenAuthorization
+            )
         }
     }
 
@@ -1310,54 +1319,74 @@ struct LocalModeProfileView: View {
 
         isSubmitting = true
         Task {
-            let status = await onlineAccess.submitToken(value)
+            let outcome = await onlineAccess.submitToken(value)
             await MainActor.run {
                 isSubmitting = false
-                switch status {
-                case .valid(let name):
-                    AlertManager.shared.show(
-                        title: localModeText("access_enabled_title"),
-                        message: name.isEmpty ? localModeText("access_enabled_message") : localModeFormat("access_enabled_message_name", name),
-                        primaryButtonTitle: localModeText("common_ok"),
-                        primaryAction: {}
-                    )
-                case .validationDisabled:
-                    AlertManager.shared.show(
-                        title: localModeText("access_validation_bypassed_title"),
-                        message: localModeText("access_validation_bypassed_message"),
-                        primaryButtonTitle: localModeText("common_ok"),
-                        primaryAction: {}
-                    )
-                case .invalid, .missing:
-                    AlertManager.shared.show(
-                        title: localModeText("access_invalid_title"),
-                        message: localModeText("access_invalid_message"),
-                        primaryButtonTitle: localModeText("common_ok"),
-                        primaryAction: {}
-                    )
-                case .expired:
-                    AlertManager.shared.show(
-                        title: String(localized: "Token 已过期"),
-                        message: String(localized: "您输入的 Token 已经过期，请获取新的 Token 或者重新授权。"),
-                        primaryButtonTitle: localModeText("common_ok"),
-                        primaryAction: {}
-                    )
-                case .deviceMismatch:
-                    AlertManager.shared.show(
-                        title: String(localized: "设备不匹配"),
-                        message: String(localized: "此 Token 已绑定到其他设备，无法在当前设备使用。"),
-                        primaryButtonTitle: localModeText("common_ok"),
-                        primaryAction: {}
-                    )
-                case .networkError:
-                    AlertManager.shared.show(
-                        title: localModeText("access_network_error_title"),
-                        message: localModeText("access_network_error_message"),
-                        primaryButtonTitle: localModeText("common_ok"),
-                        primaryAction: {}
-                    )
+                switch outcome {
+                case .agreementRequired:
+                    isShowingTokenAgreement = true
+                case .status(let status):
+                    handleTokenSubmissionStatus(status)
                 }
             }
+        }
+    }
+
+    private func acceptPendingTokenAuthorization() {
+        guard let status = onlineAccess.acceptPendingTokenAuthorization() else { return }
+        isShowingTokenAgreement = false
+        handleTokenSubmissionStatus(status)
+    }
+
+    private func declinePendingTokenAuthorization() {
+        onlineAccess.declinePendingTokenAuthorization()
+        isShowingTokenAgreement = false
+    }
+
+    private func handleTokenSubmissionStatus(_ status: APIService.TokenStatus) {
+        switch status {
+        case .valid(let name):
+            AlertManager.shared.show(
+                title: localModeText("access_enabled_title"),
+                message: name.isEmpty ? localModeText("access_enabled_message") : localModeFormat("access_enabled_message_name", name),
+                primaryButtonTitle: localModeText("common_ok"),
+                primaryAction: {}
+            )
+        case .validationDisabled:
+            AlertManager.shared.show(
+                title: localModeText("access_validation_bypassed_title"),
+                message: localModeText("access_validation_bypassed_message"),
+                primaryButtonTitle: localModeText("common_ok"),
+                primaryAction: {}
+            )
+        case .invalid, .missing:
+            AlertManager.shared.show(
+                title: localModeText("access_invalid_title"),
+                message: localModeText("access_invalid_message"),
+                primaryButtonTitle: localModeText("common_ok"),
+                primaryAction: {}
+            )
+        case .expired:
+            AlertManager.shared.show(
+                title: String(localized: "Token 已过期"),
+                message: String(localized: "您输入的 Token 已经过期，请获取新的 Token 或者重新授权。"),
+                primaryButtonTitle: localModeText("common_ok"),
+                primaryAction: {}
+            )
+        case .deviceMismatch:
+            AlertManager.shared.show(
+                title: String(localized: "设备不匹配"),
+                message: String(localized: "此 Token 已绑定到其他设备，无法在当前设备使用。"),
+                primaryButtonTitle: localModeText("common_ok"),
+                primaryAction: {}
+            )
+        case .networkError:
+            AlertManager.shared.show(
+                title: localModeText("access_network_error_title"),
+                message: localModeText("access_network_error_message"),
+                primaryButtonTitle: localModeText("common_ok"),
+                primaryAction: {}
+            )
         }
     }
 

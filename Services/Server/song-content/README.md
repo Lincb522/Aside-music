@@ -85,9 +85,13 @@ Return `identityStatus: "provisional"` when a recording cannot be confirmed. Pro
 - `POST /api/public/song-content/ensure`
 - `GET /api/public/song-content/jobs/:jobId`
 - `GET /api/public/song-content-config`（歌曲内容模块、灰度策略及 App Agent 提示词与生成参数）
+- `GET /api/public/announcements/manifest`（仅返回当前客户端适用的公告轻量清单，支持 ETag / 304）
+- `GET /api/public/announcements/:id?revision=`（仅在发现未读展示版本后读取公告正文与展示资源）
 - `/api/song-content/*` authenticated administration routes
+- `/api/announcements/*` 公告草稿、发布、再次发布、下线与删除管理接口
 - `POST /api/song-content/maintenance`（受 `jobs.manage` 权限保护的数据库检查、WAL checkpoint 与 optimize；`vacuum` 必须显式开启）
 - `GET /agents` token Agent management page
+- `GET /announcements` 通知、活动、维护、重要提醒、协议政策与版本更新发布页
 
 The App first posts `platform`, `song_id`, `locale`, and a concrete song snapshot to the idempotent ensure route. The authenticated snapshot is stored only as the exact platform mapping fallback; NCM and QCM still resolve against their server-side official metadata adapters. Published responses use ETag and cache headers. Generating responses are short-lived and contain no draft text.
 

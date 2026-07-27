@@ -456,7 +456,10 @@ final class MonoNextSuiteManager: ObservableObject {
             player.refreshPlaybackSurfaceState()
             action = .clearLoadingState
         } else if !player.streamPlayer.isAudioOutputRunning,
-                  player.recoverUnavailableAudioOutput(reason: "Mono Recovery: \(reason)") {
+                  player.currentSong != nil {
+            Task { @MainActor in
+                _ = await player.recoverUnavailableAudioOutput(reason: "Mono Recovery: \(reason)")
+            }
             action = .reactivateAudioSession
         } else if let target = player.pendingPlaybackPresentationSong {
             player.loadAndPlay(

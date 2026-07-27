@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>公告管理 - Mono Console</title>
+  <link rel="icon" href="./brand-mark.png">
+  <link rel="stylesheet" href="./assets/admin.css">
+  <link rel="stylesheet" href="./announcements.css?v=2026072701">
+</head>
+<body>
+  <div id="authGate" class="auth-gate hidden">
+    <div class="auth-panel">
+      <div class="brand-lockup">
+        <img src="./brand-mark.png" alt="Mono" loading="eager" decoding="async">
+        <div class="brand-copy">
+          <small>Mono Console</small>
+          <h1>公告管理</h1>
+          <p>输入管理密码以继续</p>
+        </div>
+      </div>
+      <div class="form-stack">
+        <div class="field">
+          <label for="loginPassword">管理密码</label>
+          <input id="loginPassword" type="password" autocomplete="current-password">
+        </div>
+        <div id="loginError" class="error-text" role="alert"></div>
+        <button id="loginButton" class="btn btn-primary btn-large">进入控制台</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="appShell" class="shell hidden">
+    <header class="masthead">
+      <div class="brand-lockup brand-lockup--compact">
+        <img src="./brand-mark.png" alt="Mono" loading="eager" decoding="async">
+        <div class="brand-copy"><small>Mono Console</small><h1>公告管理</h1></div>
+      </div>
+      <nav class="main-nav" aria-label="主导航">
+        <a href="./">首页</a>
+        <a href="./tokens">Token 管理</a>
+        <a href="./agents">Agent 管理</a>
+        <a href="./ipa">IPA 管理</a>
+        <a href="./changelogs">更新日志</a>
+        <a class="is-active" href="./announcements">公告管理</a>
+      </nav>
+      <div class="masthead-actions">
+        <button id="refreshButton" class="btn btn-secondary">刷新</button>
+        <button id="logoutButton" class="btn btn-ghost">退出</button>
+      </div>
+    </header>
+
+    <main class="page announcement-console">
+      <section class="page-hero page-hero--single announcement-hero">
+        <div class="page-hero-copy">
+          <small class="eyebrow">Announcement Delivery</small>
+          <h2>公告管理</h2>
+          <p>发布通知、活动、维护、重要提醒、协议政策与版本更新。</p>
+        </div>
+      </section>
+
+      <section id="announcementSummary" class="summary-strip" aria-label="公告统计"></section>
+
+      <section class="announcement-workspace">
+        <aside class="panel announcement-list-panel">
+          <div class="panel-head announcement-list-head">
+            <div><h3>公告</h3><p class="text-muted">按发布时间与优先级排列</p></div>
+            <button class="btn btn-primary btn-small" data-action="new">新建</button>
+          </div>
+          <div class="announcement-filters">
+            <label class="field">
+              <span>状态</span>
+              <select id="statusFilter">
+                <option value="">全部</option>
+                <option value="draft">草稿</option>
+                <option value="published">已发布</option>
+                <option value="offline">已下线</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>类型</span>
+              <select id="categoryFilter">
+                <option value="">全部</option>
+                <option value="general">通知</option>
+                <option value="activity">活动</option>
+                <option value="maintenance">维护</option>
+                <option value="important">重要提醒</option>
+                <option value="policy">协议政策</option>
+                <option value="update">版本更新</option>
+              </select>
+            </label>
+          </div>
+          <div id="announcementList" class="announcement-list" aria-live="polite"></div>
+        </aside>
+
+        <article class="panel announcement-editor-panel">
+          <div id="editorEmpty" class="announcement-empty">
+            <h3>选择一条公告</h3>
+            <button class="btn btn-primary" data-action="new">新建公告</button>
+          </div>
+
+          <form id="announcementForm" class="hidden" novalidate>
+            <div class="panel-head announcement-editor-head">
+              <div>
+                <small id="editorEyebrow" class="eyebrow">New Announcement</small>
+                <h3 id="editorHeading">新建公告</h3>
+                <p id="editorMeta" class="text-muted"></p>
+              </div>
+              <span id="editorStatus" class="status-pill soft">草稿</span>
+            </div>
+
+            <fieldset id="editorFields" class="announcement-fieldset">
+              <div class="announcement-grid announcement-grid--primary">
+                <label class="field announcement-title-field"><span>标题</span><input id="announcementTitle" maxlength="240" required></label>
+                <label class="field"><span>类型</span><select id="announcementCategory">
+                  <option value="general">通知</option><option value="activity">活动</option><option value="maintenance">维护</option>
+                  <option value="important">重要提醒</option><option value="policy">协议政策</option><option value="update">版本更新</option>
+                </select></label>
+                <label class="field"><span>优先级</span><select id="announcementPriority">
+                  <option value="normal">普通</option><option value="high">高</option><option value="critical">紧急</option>
+                </select></label>
+              </div>
+
+              <label class="field"><span>摘要</span><textarea id="announcementSummaryInput" class="announcement-summary-input" maxlength="500"></textarea></label>
+              <label class="field"><span>正文</span><textarea id="announcementBody" class="announcement-body-input" maxlength="30000" required></textarea></label>
+
+              <details class="announcement-settings" open>
+                <summary>展示与跳转</summary>
+                <div class="announcement-grid">
+                  <label class="field announcement-wide"><span>头图 URL</span><input id="announcementImageURL" type="url" inputmode="url"></label>
+                  <label class="field"><span>按钮文字</span><input id="announcementActionTitle" maxlength="80"></label>
+                  <label class="field"><span>跳转 URL</span><input id="announcementActionURL" type="url" inputmode="url"></label>
+                </div>
+              </details>
+
+              <details class="announcement-settings">
+                <summary>范围与时间</summary>
+                <div class="announcement-grid">
+                  <label class="field"><span>最低版本</span><input id="announcementMinVersion" inputmode="numeric"></label>
+                  <label class="field"><span>最高版本</span><input id="announcementMaxVersion" inputmode="numeric"></label>
+                  <label class="field"><span>平台</span><input id="announcementPlatforms" value="ios"></label>
+                  <label class="field"><span>语言地区</span><input id="announcementLocales"></label>
+                  <label class="field"><span>开始时间</span><input id="announcementStartsAt" type="datetime-local"></label>
+                  <label class="field"><span>结束时间</span><input id="announcementEndsAt" type="datetime-local"></label>
+                </div>
+                <label class="announcement-check"><input id="announcementRequiresAcknowledgement" type="checkbox"><span>必须确认后才能关闭</span></label>
+              </details>
+            </fieldset>
+
+            <div class="announcement-actions">
+              <div id="publishedHint" class="announcement-published-hint hidden">已发布公告需先下线才能编辑；再次发布会让客户端重新展示。</div>
+              <div class="announcement-action-buttons">
+                <button id="deleteButton" class="btn btn-danger" type="button" data-action="delete">删除</button>
+                <button id="offlineButton" class="btn btn-secondary hidden" type="button" data-action="offline">下线</button>
+                <button id="saveButton" class="btn btn-secondary" type="submit">保存草稿</button>
+                <button id="publishButton" class="btn btn-primary" type="button" data-action="publish">发布</button>
+              </div>
+            </div>
+          </form>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script src="./assets/admin-core.js"></script>
+  <script src="./announcements-page.js?v=2026072701"></script>
+</body>
+</html>

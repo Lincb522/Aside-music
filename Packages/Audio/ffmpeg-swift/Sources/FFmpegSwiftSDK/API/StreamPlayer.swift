@@ -28,6 +28,17 @@ public enum PlaybackState: Equatable {
     case error(FFmpegError)
 }
 
+/// Identifies why the most recent `.stopped` state was emitted.
+///
+/// A stopped player no longer has a live renderer clock, so the app layer must
+/// not infer natural EOF from `currentTime` after receiving the callback.
+public enum PlaybackStopReason: Equatable, Sendable {
+    /// Playback was stopped explicitly by a caller.
+    case explicit
+    /// The decoder reached EOF and the renderer drained its audible tail.
+    case endOfStream
+}
+
 // MARK: - StreamPlayerDelegate
 
 /// Delegate protocol for receiving playback state changes, errors, and duration updates.
@@ -99,6 +110,22 @@ public final class StreamPlayer {
     }
 
     private var storedState: PlaybackState = .idle
+
+    /// Why the latest `.stopped` state was emitted.
+    public var lastStopReason: PlaybackStopReason {
+        stateQueue.sync { storedLastStopReason }
+    }
+    private var storedLastStopReason: PlaybackStopReason = .explicit
+
+    /// Final audible position captured before the renderer clock is cleared.
+    ///
+    /// `currentTime` normally becomes zero as part of renderer teardown. This
+    /// snapshot remains available to delegate callbacks for progress and
+    /// diagnostics after either EOF or an error.
+    public var lastTerminalPlaybackTime: TimeInterval {
+        stateQueue.sync { storedLastTerminalPlaybackTime }
+    }
+    private var storedLastTerminalPlaybackTime: TimeInterval = 0
 
     /// The current playback time in seconds.
     /// 实际播放位置 = 解码位置 - 缓冲队列中尚未播放的时长
@@ -431,6 +458,8 @@ public final class StreamPlayer {
             self.isPlaybackActive = true
             self.currentURL = url
             self.decodedTime = 0
+            self.storedLastTerminalPlaybackTime = 0
+            self.storedLastStopReason = .explicit
             self.storedStreamInfo = nil
             self.endOfStreamDrainActive = false
             self.requiredInitialSeekPosition = startTime > 0 ? startTime : nil
@@ -486,7 +515,7 @@ public final class StreamPlayer {
     /// After calling `stop()`, the player returns to a state where `play(url:)`
     /// can be called again to start a new session.
     public func stop() {
-        stopInternal()
+        stopInternal(stopReason: .explicit)
         transitionState(to: .stopped)
     }
 
@@ -1390,7 +1419,10 @@ public final class StreamPlayer {
                     maxWait: max(3.0, min(queuedTailAtEOF + 3.0, 15.0)),
                     generation: generation
                 )
-                if stopInternal(expectedGeneration: generation) {
+                if stopInternal(
+                    expectedGeneration: generation,
+                    stopReason: .endOfStream
+                ) {
                     transitionState(to: .stopped)
                 }
                 return
@@ -2461,12 +2493,24 @@ public final class StreamPlayer {
     @discardableResult
     private func stopInternal(
         rendererStopStrategy: RendererStopStrategy = .immediate,
-        expectedGeneration: UInt64? = nil
+        expectedGeneration: UInt64? = nil,
+        stopReason: PlaybackStopReason? = nil
     ) -> Bool {
+        // Renderer teardown clears both its presentation clock and decodedTime.
+        // Capture the last audible position before changing either one.
+        let terminalPlaybackTime = currentTime
         let shouldStop = stateQueue.sync { () -> Bool in
             if let expectedGeneration,
                playbackGeneration != expectedGeneration {
                 return false
+            }
+            if isPlaybackActive,
+               terminalPlaybackTime.isFinite,
+               !terminalPlaybackTime.isNaN {
+                storedLastTerminalPlaybackTime = max(0, terminalPlaybackTime)
+            }
+            if let stopReason {
+                storedLastStopReason = stopReason
             }
             playbackGeneration &+= 1
             isPlaybackActive = false

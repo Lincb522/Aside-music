@@ -20,6 +20,7 @@ Production and test environments must use separate databases, credentials, and A
 7. Confirm the default-on first-access policy is acceptable. Add a disabled `song_content_whitelist` row only for songs that must be blocked from generation.
 8. Verify no response from `/api/public/*` contains provider credentials, prompts, internal errors, or unreviewed content.
 9. Verify HTTPS, rate limits, request IDs, ETag behavior, and client cache fallback.
+10. Verify the announcement manifest contains no body, image URL or action URL, and detail requests require the exact display revision.
 
 Do not overwrite existing token routes, DNS, certificates, or reverse-proxy configuration.
 

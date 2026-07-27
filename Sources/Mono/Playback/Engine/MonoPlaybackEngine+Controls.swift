@@ -23,6 +23,11 @@ extension PlayerManager {
 
     @discardableResult
     func playPlayback() -> Bool {
+        // Any explicit play command ends the manual-pause protection. If the
+        // paused transport died in the background, the state is `.error` and
+        // the normal reload branch below will obtain a fresh URL.
+        userPausedPlaybackSessionId = nil
+
         if isLoading {
             if let song = pendingPlaybackPresentationSong ?? currentSong {
                 mediaResolver.ensureLoadWatchdog(
@@ -69,7 +74,11 @@ extension PlayerManager {
             if streamPlayer.isAudioOutputRunning {
                 return currentSong != nil
             }
-            return recoverUnavailableAudioOutput(reason: "explicit play command")
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                _ = await self.recoverUnavailableAudioOutput(reason: "explicit play command")
+            }
+            return currentSong != nil
         }
 
         // 接管任何进行中的淡出包络：它挂起引擎的收尾回调不能在新播放后触发
@@ -103,8 +112,11 @@ extension PlayerManager {
             cancelInterruptionWatchdog()
             isUnderInterruption = false
             // 立即尝试一次；若失败则启动阶梯重试，确保用户连点不会卡死
-            if !resumeAfterInterruption(reason: "manual playback command") {
-                scheduleInterruptionResumeRetry(reason: "manual playback command")
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if !(await self.resumeAfterInterruption(reason: "manual playback command")) {
+                    self.scheduleInterruptionResumeRetry(reason: "manual playback command")
+                }
             }
             return true
         }
@@ -114,25 +126,34 @@ extension PlayerManager {
             // 两种可能：① 软暂停淡出尚未完成，用户又点了播放（引擎其实还在跑）；
             // ② 某些 VoIP/电话中断后底层状态停在 `.playing` 但 AudioEngine 已被系统暂停。
             // 统一处理：重新激活 session 并强制走一次 pause→resume，再淡入回满音量。
-            guard activateAudioSessionForPlaybackChecked(
-                reason: "playPlayback recover active stream"
-            ) else {
-                isPlaying = false
-                isLoading = false
-                refreshPlaybackSurfaceState()
-                return false
-            }
-            streamPlayer.pause()
-            streamPlayer.outputVolume = 0.0
-            guard streamPlayer.resume() else {
-                return recoverUnavailableAudioOutput(reason: "active stream resume failed")
-            }
-            isPlaying = true
-            isLoading = false
-            lastPausedAt = nil
+            isLoading = true
             refreshPlaybackSurfaceState()
-            saveState()
-            beginPlaybackFade(to: 1.0, duration: 0.7)
+            let expectedSessionId = playbackSessionId
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                guard await self.activateAudioSessionForPlaybackChecked(
+                    reason: "playPlayback recover active stream"
+                ) else {
+                    self.isPlaying = false
+                    self.isLoading = false
+                    self.refreshPlaybackSurfaceState()
+                    return
+                }
+                guard self.playbackSessionId == expectedSessionId,
+                      self.isLoading else { return }
+                self.streamPlayer.pause()
+                self.streamPlayer.outputVolume = 0.0
+                guard self.streamPlayer.resume() else {
+                    _ = await self.recoverUnavailableAudioOutput(reason: "active stream resume failed")
+                    return
+                }
+                self.isPlaying = true
+                self.isLoading = false
+                self.lastPausedAt = nil
+                self.refreshPlaybackSurfaceState()
+                self.saveState()
+                self.beginPlaybackFade(to: 1.0, duration: 0.7)
+            }
             return currentSong != nil
         case .connecting:
             isLoading = true
@@ -162,21 +183,31 @@ extension PlayerManager {
             // 懒激活：确保 session 处于激活态。
             // 冷启动恢复路径下，setupAudioSession 只预声明了 category，尚未 setActive；
             // 这里是用户显式点播放，必须在 streamPlayer.resume 前激活音频路由。
-            guard activateAudioSessionForPlaybackChecked(reason: "playPlayback resume") else {
-                isPlaying = false
-                isLoading = false
-                refreshPlaybackSurfaceState()
-                return false
-            }
-            streamPlayer.outputVolume = 0.0
-            guard streamPlayer.resume() else {
-                return recoverUnavailableAudioOutput(reason: "paused stream resume failed")
-            }
-            isPlaying = true
-            lastPausedAt = nil
+            isLoading = true
             refreshPlaybackSurfaceState()
-            saveState()
-            beginPlaybackFade(to: 1.0, duration: 0.7)
+            let expectedSessionId = playbackSessionId
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                guard await self.activateAudioSessionForPlaybackChecked(reason: "playPlayback resume") else {
+                    self.isPlaying = false
+                    self.isLoading = false
+                    self.refreshPlaybackSurfaceState()
+                    return
+                }
+                guard self.playbackSessionId == expectedSessionId,
+                      self.isLoading else { return }
+                self.streamPlayer.outputVolume = 0.0
+                guard self.streamPlayer.resume() else {
+                    _ = await self.recoverUnavailableAudioOutput(reason: "paused stream resume failed")
+                    return
+                }
+                self.isPlaying = true
+                self.isLoading = false
+                self.lastPausedAt = nil
+                self.refreshPlaybackSurfaceState()
+                self.saveState()
+                self.beginPlaybackFade(to: 1.0, duration: 0.7)
+            }
             return true
         case .idle, .stopped, .error:
             guard let song = currentSong else { return false }
@@ -246,6 +277,7 @@ extension PlayerManager {
         audioSessionCoordinator.cancelScheduledAutoResumeWork()
 
         guard currentSong != nil else { return false }
+        userPausedPlaybackSessionId = playbackSessionId
         if appleMusicPlayback.isActive {
             return appleMusicPlayback.pause()
         }
@@ -408,13 +440,9 @@ extension PlayerManager {
         streamPlayer.cancelNextPreparation()
         streamPlayer.stop()
         appleMusicPlayback.stopAndReset()
-        // 释放音频会话并通知其他 App 恢复播放（如 Apple Music、播客等）
-        do {
-            try AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
-            lastAppliedAudioSessionOptions = nil
-        } catch {
-            AppLogger.warning("释放音频会话失败: \(error)")
-        }
+        // 释放音频会话并通知其他 App 恢复播放（如 Apple Music、播客等）。
+        // 系统调用可能阻塞，统一交给音频会话串行执行器。
+        deactivateAudioSession(reason: "stop and clear")
         isPlaying = false
         currentSong = nil
         streamInfo = nil
@@ -475,12 +503,7 @@ extension PlayerManager {
         audioSessionCoordinator.cancelScheduledAutoResumeWork()
         streamPlayer.cancelNextPreparation()
         streamPlayer.stop()
-        do {
-            try AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
-            lastAppliedAudioSessionOptions = nil
-        } catch {
-            AppLogger.warning("释放音频会话失败: \(error)")
-        }
+        deactivateAudioSession(reason: "dismiss mini player")
         isPlaying = false
         currentSong = nil
         streamInfo = nil

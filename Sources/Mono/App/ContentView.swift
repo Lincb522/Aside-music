@@ -11,8 +11,10 @@ public struct ContentView: View {
     @State private var didSynchronizeLaunchTheme = false
     @ObservedObject private var settings = SettingsManager.shared
     @ObservedObject private var onlineAccess = OnlineAccessManager.shared
+    @ObservedObject private var announcementCenter = AnnouncementCenter.shared
     @ObservedObject private var themeManager = GlobalThemeManager.shared
     @Environment(\.colorScheme) private var systemColorScheme
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var showPersonalFM = false
     @State private var showNormalPlayer = false
@@ -42,6 +44,10 @@ public struct ContentView: View {
                 // 浆糊专属问候弹窗（特定 Token 生效，与更新日志错峰弹出）
                 SpecialGreetingOverlay()
                     .zIndex(70)
+
+                // 通用公告采用轻量清单懒检查，命中未读版本后才加载详情。
+                AnnouncementPopupOverlay()
+                    .zIndex(75)
 
                 if showWelcome {
                     WelcomeView(isPresented: $showWelcome)
@@ -83,6 +89,11 @@ public struct ContentView: View {
         .onChange(of: settings.globalThemeRevision) { _, _ in
             refreshHomeStateForThemeChange()
         }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active, !showWelcome {
+                announcementCenter.checkIfNeeded()
+            }
+        }
         .onChange(of: showWelcome) { _, isShowing in
             if !isShowing {
                 mountMainContentWithoutAnimation()
@@ -90,6 +101,7 @@ public struct ContentView: View {
                 ChangelogManager.shared.presentLatestAfterUpdateIfNeeded()
                 SpecialGreetingManager.shared.presentOnLaunchIfEligible()
                 ListeningReportCenter.shared.presentOnLaunchIfEligible()
+                announcementCenter.checkIfNeeded()
             }
         }
         .onOpenURL { url in

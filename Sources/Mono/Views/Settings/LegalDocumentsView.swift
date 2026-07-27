@@ -1,13 +1,13 @@
 import SwiftUI
 
-private struct MonoLegalSection: Identifiable {
+struct MonoLegalSection: Identifiable {
     let title: String
     let paragraphs: [String]
 
     var id: String { title }
 }
 
-private struct MonoLegalLink: Identifiable {
+struct MonoLegalLink: Identifiable {
     let title: String
     let urlString: String
 
@@ -15,7 +15,7 @@ private struct MonoLegalLink: Identifiable {
     var url: URL? { URL(string: urlString) }
 }
 
-private enum MonoLegalDocument: String, CaseIterable, Identifiable {
+enum MonoLegalDocument: String, CaseIterable, Identifiable {
     case userAgreement
     case privacyPolicy
     case disclaimer
@@ -404,7 +404,7 @@ struct LegalDocumentsView: View {
     }
 }
 
-private struct LegalDocumentDetailView: View {
+struct LegalDocumentDetailView: View {
     let document: MonoLegalDocument
     @ObservedObject private var settings = SettingsManager.shared
 
@@ -535,5 +535,122 @@ private struct LegalDocumentDetailView: View {
             }
         }
         .ignoresSafeArea()
+    }
+}
+
+struct TokenAgreementAuthorizationSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let onAgree: () -> Void
+    let onDecline: () -> Void
+
+    private var ink: Color { .monoTextPrimary }
+    private var inkMuted: Color { .monoTextSecondary.opacity(0.72) }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(String(localized: "服务授权"))
+                        .font(.system(size: 30, weight: .bold, design: .rounded))
+                        .foregroundColor(ink)
+
+                    Text(String(localized: "Token 验证成功。启用在线服务前，请阅读并同意以下协议与说明。"))
+                        .font(.system(size: 14, weight: .regular, design: .rounded))
+                        .foregroundColor(inkMuted)
+                        .lineSpacing(4)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, 10)
+
+                    VStack(spacing: 0) {
+                        ForEach(Array(MonoLegalDocument.allCases.enumerated()), id: \.element.id) { index, document in
+                            NavigationLink {
+                                LegalDocumentDetailView(document: document)
+                            } label: {
+                                HStack(spacing: 14) {
+                                    MonoIcon(icon: document.icon, size: 19, color: ink, lineWidth: 1.55)
+                                        .frame(width: 26, height: 26)
+
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(document.title)
+                                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                            .foregroundColor(ink)
+
+                                        Text(document.summary)
+                                            .font(.system(size: 12, weight: .regular, design: .rounded))
+                                            .foregroundColor(inkMuted)
+                                            .lineLimit(2)
+                                    }
+
+                                    Spacer(minLength: 12)
+
+                                    MonoIcon(icon: .chevronRight, size: 11, color: inkMuted, lineWidth: 1.5)
+                                }
+                                .padding(.vertical, 16)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+
+                            if index < MonoLegalDocument.allCases.count - 1 {
+                                Rectangle()
+                                    .fill(Color.monoSeparator.opacity(0.62))
+                                    .frame(height: 0.5)
+                            }
+                        }
+                    }
+                    .padding(.top, 24)
+
+                    Text(String(localized: "点击任一文件即可直接查看全文。同意后，Token 才会保存并启用在线功能。"))
+                        .font(.system(size: 12, weight: .regular, design: .rounded))
+                        .foregroundColor(inkMuted)
+                        .lineSpacing(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, 22)
+                        .padding(.bottom, 120)
+                }
+                .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding + 4)
+                .padding(.top, 30)
+                .iPadContentWidth(660)
+            }
+            .scrollIndicators(.hidden)
+            .background(ThemedSettingsBackground().ignoresSafeArea())
+            .safeAreaInset(edge: .bottom) {
+                HStack(spacing: 12) {
+                    Button {
+                        onDecline()
+                        dismiss()
+                    } label: {
+                        Text(String(localized: "不同意"))
+                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                            .foregroundColor(ink)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 48)
+                            .background(Color.monoCardBackground.opacity(0.88), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .stroke(Color.monoSeparator.opacity(0.8), lineWidth: 0.8)
+                            )
+                    }
+                    .buttonStyle(MonoBouncingButtonStyle(scale: 0.97))
+
+                    Button {
+                        onAgree()
+                        dismiss()
+                    } label: {
+                        Text(String(localized: "同意并继续"))
+                            .font(.system(size: 15, weight: .bold, design: .rounded))
+                            .foregroundColor(Color.monoAccentForeground)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 48)
+                            .background(Color.monoAccent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    }
+                    .buttonStyle(MonoBouncingButtonStyle(scale: 0.97))
+                }
+                .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
+                .padding(.top, 12)
+                .padding(.bottom, 8)
+                .background(.ultraThinMaterial)
+            }
+        }
+        .interactiveDismissDisabled()
     }
 }

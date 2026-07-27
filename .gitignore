@@ -140,6 +140,12 @@ test_layout.swift
 !/Services/Server/token-admin-ui/original/song-content.html
 !/Services/Server/token-admin-ui/original/song-content-page.js
 !/Services/Server/token-admin-ui/original/song-content.css
+!/Services/Server/token-admin-ui/original/announcements.html
+!/Services/Server/token-admin-ui/original/announcements-page.js
+!/Services/Server/token-admin-ui/original/announcements.css
+!/Services/Server/token-admin-ui/original/assets/
+/Services/Server/token-admin-ui/original/assets/*
+!/Services/Server/token-admin-ui/original/assets/admin-core.js
 *.py
 *.txt
 /ExternalSources

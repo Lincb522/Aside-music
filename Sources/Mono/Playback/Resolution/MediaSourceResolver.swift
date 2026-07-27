@@ -329,10 +329,9 @@ final class MediaSourceResolver {
             player.streamInfo = nil
         }
         // 重试预算属于一次播放事务。只有新的用户请求才重置，内部断流、
-        // 异常 EOF、音质降级重连必须沿用原预算，保证最终一定收敛。
+        // 音质降级重连必须沿用原预算，保证最终一定收敛。
         if !preserveRetryBudget {
             player.qualitySwitchRecoveryAttempts = 0
-            player.abnormalStopRetryCount = 0
             player.networkDisconnectRetryCount = 0
         }
         armLoadWatchdog(
@@ -741,32 +740,38 @@ final class MediaSourceResolver {
         // 冷启动 setupAudioSession 只预声明 category、未 setActive。
         // 这里是真正需要把 session 接入系统音频路由的第一时间点。
         // `.automatic` 策略也会在此处按最新的 isOtherAudioPlaying 重新决议 options。
-        guard player.activateAudioSessionForPlaybackChecked(reason: "loadAndPlay start") else {
-            let sessionId = player.playbackSessionId
-            let song = player.pendingPlaybackPresentationSong ?? player.currentSong
-            let error = NSError(
-                domain: "AudioSession",
-                code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "音频输出暂时不可用"]
-            )
-            if let song {
-                settlePlaybackLoadFailure(
-                    song: song,
-                    sessionId: sessionId,
-                    autoPlay: false,
-                    error: error
+        let activationSessionId = player.playbackSessionId
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            guard await player.activateAudioSessionForPlaybackChecked(reason: "loadAndPlay start") else {
+                let song = player.pendingPlaybackPresentationSong ?? player.currentSong
+                let error = NSError(
+                    domain: "AudioSession",
+                    code: -1,
+                    userInfo: [NSLocalizedDescriptionKey: "音频输出暂时不可用"]
                 )
-            } else {
-                player.isLoading = false
-                player.endTransitionKeepAlive()
-                player.refreshPlaybackSurfaceState()
+                if let song {
+                    settlePlaybackLoadFailure(
+                        song: song,
+                        sessionId: activationSessionId,
+                        autoPlay: false,
+                        error: error
+                    )
+                } else {
+                    player.isLoading = false
+                    player.endTransitionKeepAlive()
+                    player.refreshPlaybackSurfaceState()
+                }
+                return
             }
-            return
-        }
 
-        // 从 MusicKit 切回 Mono 时，等新管线已经完成取址并即将启动才交出
-        // Apple Music 输出，避免在网络解析阶段提前停掉仍在播放的歌曲。
-        player.appleMusicPlayback.stopForMonoHandoff()
+            // URL resolution can be superseded while session activation is in
+            // flight. Never attach a stale source to the newer playback session.
+            guard player.playbackSessionId == activationSessionId else { return }
+
+            // 从 MusicKit 切回 Mono 时，等新管线已经完成取址并即将启动才交出
+            // Apple Music 输出，避免在网络解析阶段提前停掉仍在播放的歌曲。
+            player.appleMusicPlayback.stopForMonoHandoff()
 
         // 未命中开播后的预热结果时，不立即 stop 旧管线。先把目标歌曲装进
         // Mono next 通道并完成 preroll，真正 ready 后再丢弃旧尾音热切。
@@ -885,9 +890,10 @@ final class MediaSourceResolver {
             autoPlay: autoPlay
         )
 
-        if !defersPresentation {
-            player.updateNowPlayingInfo()
-            player.updateNowPlayingArtwork(for: player.currentSong)
+            if !defersPresentation {
+                player.updateNowPlayingInfo()
+                player.updateNowPlayingArtwork(for: player.currentSong)
+            }
         }
     }
 

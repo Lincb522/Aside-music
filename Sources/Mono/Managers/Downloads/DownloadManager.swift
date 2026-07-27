@@ -663,7 +663,7 @@ final class DownloadManager: NSObject, ObservableObject {
             record.status = .failed
             DatabaseManager.shared.save()
         }
-        PushService.shared.sendDownloadFailedNotification(songName: songName)
+        LocalNotificationService.shared.sendDownloadFailedNotification(songName: songName)
         let msg = reason ?? String(localized: "下载出错，可能是该音质无版权或需要会员")
         lastError = DownloadError(songName: songName, message: msg)
         AlertManager.shared.show(
@@ -828,7 +828,7 @@ final class DownloadManager: NSObject, ObservableObject {
                         DatabaseManager.shared.save()
                         
                         let songName = record.name
-                        PushService.shared.sendDownloadCompleteNotification(songName: songName)
+                        LocalNotificationService.shared.sendDownloadCompleteNotification(songName: songName)
                     }
                     
                     self.downloadedSongIds.insert(key)

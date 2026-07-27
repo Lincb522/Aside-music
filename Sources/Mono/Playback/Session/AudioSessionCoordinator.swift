@@ -7,6 +7,71 @@ import Foundation
 import AVFoundation
 import UIKit
 
+/// `AVAudioSession.setActive` is a synchronous and potentially slow system call.
+/// Keep every session mutation on one private serial queue so the main actor never
+/// blocks and playback/recording category changes cannot overtake each other.
+private final class AudioSessionMutationExecutor: @unchecked Sendable {
+    static let shared = AudioSessionMutationExecutor()
+
+    private let queue = DispatchQueue(
+        label: "com.zijiu.monologue.audio-session",
+        qos: .userInitiated
+    )
+
+    private init() {}
+
+    func configurePlayback(optionsRawValue: UInt, activate: Bool) async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            queue.async {
+                do {
+                    let session = AVAudioSession.sharedInstance()
+                    let options = AVAudioSession.CategoryOptions(rawValue: optionsRawValue)
+                    if session.category != .playback
+                        || session.mode != .default
+                        || session.categoryOptions != options {
+                        try session.setCategory(.playback, mode: .default, options: options)
+                    }
+                    if activate {
+                        try session.setActive(true)
+                    }
+                    continuation.resume()
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+
+    func configureRecordingAndActivate() async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            queue.async {
+                do {
+                    let session = AVAudioSession.sharedInstance()
+                    try session.setCategory(.record, mode: .default)
+                    try session.setActive(true)
+                    continuation.resume()
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+
+    func deactivate(optionsRawValue: UInt) async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            queue.async {
+                do {
+                    let options = AVAudioSession.SetActiveOptions(rawValue: optionsRawValue)
+                    try AVAudioSession.sharedInstance().setActive(false, options: options)
+                    continuation.resume()
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+}
+
 @MainActor
 final class AudioSessionCoordinator {
 
@@ -212,23 +277,27 @@ final class AudioSessionCoordinator {
         let session = AVAudioSession.sharedInstance()
         let desired = audioSessionOptions(otherAudioPlaying: session.isOtherAudioPlaying)
         guard desired != lastAppliedAudioSessionOptions else { return }
-
-        do {
-            markSelfManagedSessionMutation()
-            try session.setCategory(.playback, mode: .default, options: desired)
-            if player.currentSong != nil {
-                try session.setActive(true)
-                AppLogger.info("音频会话已激活 options=\(desired)  原因: \(reason)")
-            } else {
-                AppLogger.info("音频会话仅更新 category options=\(desired)（无当前歌曲，延迟激活） 原因: \(reason)")
+        let shouldActivate = player.currentSong != nil
+        markSelfManagedSessionMutation()
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                try await AudioSessionMutationExecutor.shared.configurePlayback(
+                    optionsRawValue: desired.rawValue,
+                    activate: shouldActivate
+                )
+                self.lastAppliedAudioSessionOptions = desired
+                if shouldActivate {
+                    AppLogger.info("音频会话已激活 options=\(desired)  原因: \(reason)")
+                    self.player.updateNowPlayingInfo()
+                    self.player.updateNowPlayingArtwork(for: self.player.currentSong)
+                } else {
+                    AppLogger.info("音频会话仅更新 category options=\(desired)（无当前歌曲，延迟激活） 原因: \(reason)")
+                }
+            } catch {
+                self.lastAppliedAudioSessionOptions = nil
+                AppLogger.error("应用后台音频策略失败: \(error)")
             }
-            lastAppliedAudioSessionOptions = desired
-            if player.currentSong != nil {
-                player.updateNowPlayingInfo()
-                player.updateNowPlayingArtwork(for: player.currentSong)
-            }
-        } catch {
-            AppLogger.error("应用后台音频策略失败: \(error)")
         }
     }
 
@@ -241,45 +310,24 @@ final class AudioSessionCoordinator {
     ///
     /// 无论 options 是否变化都执行一次 `setActive(true)`，因为即便 options 相同
     /// 也可能是首次从"空闲未激活"切到"真正播放"的那一刻。
-    func activateAudioSessionForPlayback(reason: String) {
-        let session = AVAudioSession.sharedInstance()
-        let desired = audioSessionOptions(otherAudioPlaying: session.isOtherAudioPlaying)
-
-        do {
-            if desired != lastAppliedAudioSessionOptions
-                || session.category != .playback
-                || session.mode != .default
-                || session.categoryOptions != desired {
-                markSelfManagedSessionMutation()
-                try session.setCategory(.playback, mode: .default, options: desired)
-                lastAppliedAudioSessionOptions = desired
-            }
-            markSelfManagedSessionMutation()
-            try session.setActive(true)
-            AppLogger.info("音频会话已激活（开播前） options=\(desired)  原因: \(reason)")
-        } catch {
-            AppLogger.error("开播前激活音频会话失败: \(error)")
-        }
+    func activateAudioSessionForPlayback(reason: String) async {
+        _ = await activateAudioSessionForPlaybackChecked(reason: reason)
     }
 
     /// 安全版的 `activateAudioSessionForPlayback`：返回 `Bool` 而非吞掉错误。
     /// 用于中断恢复路径，让上层根据结果决定是否重试。
     @discardableResult
-    func activateAudioSessionForPlaybackChecked(reason: String) -> Bool {
+    func activateAudioSessionForPlaybackChecked(reason: String) async -> Bool {
         let session = AVAudioSession.sharedInstance()
         let desired = audioSessionOptions(otherAudioPlaying: session.isOtherAudioPlaying)
 
         do {
-            if desired != lastAppliedAudioSessionOptions
-                || session.category != .playback
-                || session.mode != .default
-                || session.categoryOptions != desired {
-                markSelfManagedSessionMutation()
-                try session.setCategory(.playback, mode: .default, options: desired)
-                lastAppliedAudioSessionOptions = desired
-            }
             markSelfManagedSessionMutation()
-            try session.setActive(true)
+            try await AudioSessionMutationExecutor.shared.configurePlayback(
+                optionsRawValue: desired.rawValue,
+                activate: true
+            )
+            lastAppliedAudioSessionOptions = desired
             AppLogger.info("音频会话已激活（开播前） options=\(desired)  原因: \(reason)")
             return true
         } catch {
@@ -287,6 +335,50 @@ final class AudioSessionCoordinator {
             // 激活失败时清缓存，下次重试一定会重写 category
             lastAppliedAudioSessionOptions = nil
             return false
+        }
+    }
+
+    /// Listening recognition temporarily borrows the shared session for input.
+    /// It uses the same serial executor as playback so record/playback mutations
+    /// cannot race each other.
+    func activateAudioSessionForRecording(reason: String) async -> Bool {
+        do {
+            markSelfManagedSessionMutation()
+            try await AudioSessionMutationExecutor.shared.configureRecordingAndActivate()
+            lastAppliedAudioSessionOptions = nil
+            AppLogger.info("音频会话已切换到录音模式 原因: \(reason)")
+            return true
+        } catch {
+            AppLogger.error("录音音频会话激活失败 reason=\(reason): \(error)")
+            return false
+        }
+    }
+
+    /// Stops owning the system audio route after all playback I/O has stopped.
+    /// Deactivation is intentionally fire-and-forget for UI commands, but its
+    /// blocking system work stays off the main actor.
+    func deactivateAudioSession(reason: String) {
+        lastAppliedAudioSessionOptions = nil
+        markSelfManagedSessionMutation()
+        Task { @MainActor [weak self] in
+            do {
+                try await AudioSessionMutationExecutor.shared.deactivate(
+                    optionsRawValue: AVAudioSession.SetActiveOptions.notifyOthersOnDeactivation.rawValue
+                )
+                AppLogger.info("音频会话已释放 原因: \(reason)")
+                guard let self else { return }
+                // A new play command may arrive while deactivation is in flight.
+                // Repair that rare ordering rather than leaving the new pipeline
+                // attached to an inactive session.
+                if self.player.currentSong != nil,
+                   self.player.isPlaying || self.player.isLoading {
+                    _ = await self.activateAudioSessionForPlaybackChecked(
+                        reason: "repair after overlapping deactivation"
+                    )
+                }
+            } catch {
+                AppLogger.warning("释放音频会话失败 reason=\(reason): \(error)")
+            }
         }
     }
 
@@ -303,20 +395,28 @@ final class AudioSessionCoordinator {
         //   - 这里只预声明 category，让系统知道我们属于 playback；
         //   - 真正的 `setActive(true)` 推迟到 `loadAndPlay(song:)` 第一次
         //     开播、或 `reapplyAudioSessionOptions` 被策略变更触发时。
-        do {
-            let session = AVAudioSession.sharedInstance()
-            let otherPlaying = session.isOtherAudioPlaying
-            let opts = audioSessionOptions(otherAudioPlaying: otherPlaying)
-            try session.setCategory(.playback, mode: .default, options: opts)
-            lastAppliedAudioSessionOptions = opts
-            lastKnownAudioOutputPortTypes = Set(
-                session.currentRoute.outputs.map { $0.portType.rawValue }
-            )
-            if otherPlaying && opts == Self.mixingAudioSessionOptions {
-                AppLogger.info("启动时检测到其他音频，以共存模式接入（未激活）")
+        let session = AVAudioSession.sharedInstance()
+        let otherPlaying = session.isOtherAudioPlaying
+        let opts = audioSessionOptions(otherAudioPlaying: otherPlaying)
+        lastKnownAudioOutputPortTypes = Set(
+            session.currentRoute.outputs.map { $0.portType.rawValue }
+        )
+        markSelfManagedSessionMutation()
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                try await AudioSessionMutationExecutor.shared.configurePlayback(
+                    optionsRawValue: opts.rawValue,
+                    activate: false
+                )
+                self.lastAppliedAudioSessionOptions = opts
+                if otherPlaying && opts == Self.mixingAudioSessionOptions {
+                    AppLogger.info("启动时检测到其他音频，以共存模式接入（未激活）")
+                }
+            } catch {
+                self.lastAppliedAudioSessionOptions = nil
+                AppLogger.error("AVAudioSession 配置失败: \(error)")
             }
-        } catch {
-            AppLogger.error("AVAudioSession 配置失败: \(error)")
         }
 
         setupSilenceHintObserver()
@@ -358,7 +458,7 @@ final class AudioSessionCoordinator {
                             guard let self, self.wasPlayingBeforeInterruption, !self.player.isPlaying else { return }
                             guard self.isAutoResumePermittedNow() else { return }
                             AppLogger.info("secondary hint end: 确认可恢复，恢复播放")
-                            let _ = self.resumeAfterInterruption(reason: "secondary hint end")
+                            let _ = await self.resumeAfterInterruption(reason: "secondary hint end")
                         }
                     }
                 @unknown default:
@@ -447,7 +547,7 @@ final class AudioSessionCoordinator {
                         Task { @MainActor [weak self] in
                             try? await Task.sleep(nanoseconds: 300_000_000)
                             guard let self, self.wasPlayingBeforeInterruption, !self.player.isPlaying else { return }
-                            if !self.resumeAfterInterruption(reason: "interruption ended (shouldResume)") {
+                            if !(await self.resumeAfterInterruption(reason: "interruption ended (shouldResume)")) {
                                 // 极少数情况下 setActive 失败，启动兜底重试
                                 self.scheduleInterruptionResumeRetry(reason: "interruption ended fallback")
                             }
@@ -486,7 +586,7 @@ final class AudioSessionCoordinator {
                     return
                 }
                 AppLogger.info("App 激活且满足恢复条件，恢复播放")
-                let _ = self.resumeAfterInterruption(reason: "didBecomeActive")
+                let _ = await self.resumeAfterInterruption(reason: "didBecomeActive")
             }
         }
     }
@@ -552,7 +652,7 @@ final class AudioSessionCoordinator {
                     let expectedToPlay = self.player.isPlaying || self.player.streamPlayer.state == .playing
                     self.lastAppliedAudioSessionOptions = nil
                     if expectedToPlay {
-                        _ = self.activateAudioSessionForPlaybackChecked(reason: "new audio device")
+                        _ = await self.activateAudioSessionForPlaybackChecked(reason: "new audio device")
                     }
                     _ = self.player.streamPlayer.handleAudioRouteChange()
                     if expectedToPlay {
@@ -566,7 +666,7 @@ final class AudioSessionCoordinator {
                     let session = AVAudioSession.sharedInstance()
                     if expectedToPlay,
                        (!outputIsRunning || session.category != .playback) {
-                        _ = self.activateAudioSessionForPlaybackChecked(reason: "audio category change")
+                        _ = await self.activateAudioSessionForPlaybackChecked(reason: "audio category change")
                     }
                     if !outputIsRunning {
                         _ = self.player.streamPlayer.handleAudioRouteChange()
@@ -579,7 +679,7 @@ final class AudioSessionCoordinator {
                     let expectedToPlay = self.player.isPlaying || self.player.streamPlayer.state == .playing
                     if expectedToPlay && !self.player.streamPlayer.isAudioOutputRunning {
                         self.lastAppliedAudioSessionOptions = nil
-                        _ = self.activateAudioSessionForPlaybackChecked(reason: "audio route configuration change")
+                        _ = await self.activateAudioSessionForPlaybackChecked(reason: "audio route configuration change")
                     }
                     _ = self.player.streamPlayer.handleAudioRouteChange()
                     if expectedToPlay && !self.player.streamPlayer.isAudioOutputRunning {
@@ -681,14 +781,16 @@ final class AudioSessionCoordinator {
         // 延迟 1s 检查，避免路由切换瞬间的误判
         routeChangeResumeWorkItem?.cancel()
         let work = DispatchWorkItem { [weak self] in
-            guard let self else { return }
-            guard self.wasPlayingBeforeInterruption, !self.player.isPlaying, self.player.currentSong != nil else { return }
-            guard self.isAutoResumePermittedNow() else {
-                AppLogger.debug("路由变化后仍有其他音频，不恢复")
-                return
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                guard self.wasPlayingBeforeInterruption, !self.player.isPlaying, self.player.currentSong != nil else { return }
+                guard self.isAutoResumePermittedNow() else {
+                    AppLogger.debug("路由变化后仍有其他音频，不恢复")
+                    return
+                }
+                AppLogger.info("路由变化后确认可恢复，恢复播放")
+                let _ = await self.resumeAfterInterruption(reason: "route change")
             }
-            AppLogger.info("路由变化后确认可恢复，恢复播放")
-            let _ = self.resumeAfterInterruption(reason: "route change")
         }
         routeChangeResumeWorkItem = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: work)
@@ -735,15 +837,16 @@ final class AudioSessionCoordinator {
             guard !Task.isCancelled else { return }
             guard self.player.playbackSessionId == expectedSessionId,
                   !self.player.streamPlayer.isAudioOutputRunning else { return }
-            _ = self.recoverUnavailableAudioOutput(reason: reason)
+            _ = await self.recoverUnavailableAudioOutput(reason: reason)
         }
     }
 
     /// Rebuilds an invalidated output in place when possible. If iOS refuses the
     /// existing renderer, fall back to a fresh pipeline at the audible position.
     @discardableResult
-    func recoverUnavailableAudioOutput(reason: String) -> Bool {
+    func recoverUnavailableAudioOutput(reason: String) async -> Bool {
         guard let song = player.currentSong else { return false }
+        let expectedSessionId = player.playbackSessionId
         if song.isAppleMusic {
             return player.appleMusicPlayback.isActive
         }
@@ -756,12 +859,16 @@ final class AudioSessionCoordinator {
         AppLogger.warning("检测到假播放状态，重建音频输出 reason=\(reason)")
         player.cancelPlaybackFade(restoreVolume: false)
         lastAppliedAudioSessionOptions = nil
-        guard activateAudioSessionForPlaybackChecked(reason: "recover dead output: \(reason)") else {
+        guard await activateAudioSessionForPlaybackChecked(reason: "recover dead output: \(reason)") else {
             player.isPlaying = false
             player.isLoading = false
             wasPlayingBeforeInterruption = true
             player.refreshPlaybackSurfaceState()
             scheduleInterruptionResumeRetry(reason: "recover dead output: \(reason)")
+            return false
+        }
+        guard player.playbackSessionId == expectedSessionId,
+              player.matchesPlaybackTarget(player.currentSong, expected: song) else {
             return false
         }
 
@@ -807,8 +914,9 @@ final class AudioSessionCoordinator {
     /// - 直接调本方法的场景仅限「确定 session 可激活、要立刻恢复」时（如用户主动点播放）。
     /// - **失败时不会清空 `wasPlayingBeforeInterruption`**，方便上层重试。
     @discardableResult
-    func resumeAfterInterruption(reason: String = "interruption resume") -> Bool {
+    func resumeAfterInterruption(reason: String = "interruption resume") async -> Bool {
         guard let song = player.currentSong else { return false }
+        let expectedSessionId = player.playbackSessionId
         if song.isAppleMusic {
             routeChangeResumeWorkItem?.cancel()
             routeChangeResumeWorkItem = nil
@@ -839,9 +947,14 @@ final class AudioSessionCoordinator {
         // 这里使用 activateAudioSessionForPlayback，而不是只依赖 reapply，
         // 避免 options 未变化但 session 已被系统打断的场景。
         lastAppliedAudioSessionOptions = nil
-        let activated = activateAudioSessionForPlaybackChecked(reason: reason)
+        let activated = await activateAudioSessionForPlaybackChecked(reason: reason)
         guard activated else {
             AppLogger.warning("中断恢复时音频会话激活失败 reason=\(reason)，保留中断标志等待重试")
+            return false
+        }
+        guard player.playbackSessionId == expectedSessionId,
+              player.matchesPlaybackTarget(player.currentSong, expected: song),
+              wasPlayingBeforeInterruption else {
             return false
         }
 
@@ -926,10 +1039,13 @@ final class AudioSessionCoordinator {
         guard player.currentSong != nil else { return }
         guard wasPlayingBeforeInterruption else { return }
         guard !player.isPlaying else { return }
-        if resumeAfterInterruption(reason: reason) {
-            return
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            if await self.resumeAfterInterruption(reason: reason) {
+                return
+            }
+            self.scheduleInterruptionResumeRetry(reason: reason)
         }
-        scheduleInterruptionResumeRetry(reason: reason)
     }
 
     /// 启动（或重启）阶梯重试任务。每一档都会尝试一次 `resumeAfterInterruption`，
@@ -960,7 +1076,7 @@ final class AudioSessionCoordinator {
                 let attempt = index + 1
                 let total = schedule.count
                 AppLogger.info("中断恢复阶梯重试 [\(attempt)/\(total)] (delay=\(delay)s, reason=\(reason))")
-                if self.resumeAfterInterruption(reason: "\(reason) retry#\(attempt)") {
+                if await self.resumeAfterInterruption(reason: "\(reason) retry#\(attempt)") {
                     return
                 }
             }
@@ -1031,13 +1147,22 @@ extension PlayerManager {
         audioSessionCoordinator.reapplyAudioSessionOptions(reason: reason)
     }
 
-    func activateAudioSessionForPlayback(reason: String) {
-        audioSessionCoordinator.activateAudioSessionForPlayback(reason: reason)
+    func activateAudioSessionForPlayback(reason: String) async {
+        await audioSessionCoordinator.activateAudioSessionForPlayback(reason: reason)
     }
 
     @discardableResult
-    func activateAudioSessionForPlaybackChecked(reason: String) -> Bool {
-        audioSessionCoordinator.activateAudioSessionForPlaybackChecked(reason: reason)
+    func activateAudioSessionForPlaybackChecked(reason: String) async -> Bool {
+        await audioSessionCoordinator.activateAudioSessionForPlaybackChecked(reason: reason)
+    }
+
+    @discardableResult
+    func activateAudioSessionForRecording(reason: String) async -> Bool {
+        await audioSessionCoordinator.activateAudioSessionForRecording(reason: reason)
+    }
+
+    func deactivateAudioSession(reason: String) {
+        audioSessionCoordinator.deactivateAudioSession(reason: reason)
     }
 
     func handleBackgroundAudioPolicySettingChanged() {
@@ -1049,8 +1174,8 @@ extension PlayerManager {
     }
 
     @discardableResult
-    func resumeAfterInterruption(reason: String = "interruption resume") -> Bool {
-        audioSessionCoordinator.resumeAfterInterruption(reason: reason)
+    func resumeAfterInterruption(reason: String = "interruption resume") async -> Bool {
+        await audioSessionCoordinator.resumeAfterInterruption(reason: reason)
     }
 
     func scheduleInterruptionResumeRetry(reason: String) {
@@ -1066,7 +1191,7 @@ extension PlayerManager {
     }
 
     @discardableResult
-    func recoverUnavailableAudioOutput(reason: String) -> Bool {
-        audioSessionCoordinator.recoverUnavailableAudioOutput(reason: reason)
+    func recoverUnavailableAudioOutput(reason: String) async -> Bool {
+        await audioSessionCoordinator.recoverUnavailableAudioOutput(reason: reason)
     }
 }

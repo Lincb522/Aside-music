@@ -46,6 +46,7 @@
         <a class="is-active" href="./agents">Agent 管理</a>
         <a href="./ipa">IPA 管理</a>
         <a href="./changelogs">更新日志</a>
+        <a href="./announcements">公告管理</a>
       </nav>
       <div class="masthead-actions">
         <button id="refreshButton" class="btn btn-secondary">刷新</button>
@@ -177,7 +178,7 @@
       </section>
 
       <section id="sourcesView" class="content-console-view hidden">
-        <article class="panel"><div class="panel-head"><div><h3>来源</h3></div></div><div class="table-scroll"><table class="content-table"><thead><tr><th>来源</th><th>等级</th><th>发布方</th><th>类型</th><th>关联字段</th><th>抓取时间</th><th>状态</th><th></th></tr></thead><tbody id="sourcesTable"></tbody></table></div></article>
+        <article class="panel"><div class="panel-head"><div><h3>来源</h3></div></div><div class="table-scroll"><table class="content-table source-table"><thead><tr><th>来源</th><th>等级</th><th>发布方</th><th>类型</th><th>关联字段</th><th>抓取时间</th><th>状态</th><th><span class="sr-only">操作</span></th></tr></thead><tbody id="sourcesTable"></tbody></table></div></article>
       </section>
 
       <section id="configView" class="content-console-view">
@@ -245,11 +246,12 @@
                 <legend>联网检索</legend>
                 <div class="config-grid">
                   <label class="field"><span>状态</span><select id="configWebRetrieval"><option value="true">开启</option><option value="false">关闭</option></select></label>
-                  <label class="field"><span>网页来源上限</span><input id="configWebMaximumSources" type="number" min="1" max="10"></label>
+                  <label class="field"><span>网页来源上限</span><input id="configWebMaximumSources" type="number" min="1" max="16"></label>
                   <div class="retrieval-provider-group config-wide">
                     <span>检索服务</span>
                     <div class="retrieval-provider-list">
                       <label><input id="configProvider360" type="checkbox">360 搜索</label>
+                      <label><input id="configProviderBaidu" type="checkbox">百度</label>
                       <label><input id="configProviderBing" type="checkbox">Bing</label>
                       <label><input id="configProviderSogou" type="checkbox">搜狗</label>
                     </div>
@@ -274,6 +276,7 @@
               <label class="field"><span>并发</span><input id="configConcurrency" type="number" min="1" max="64"></label>
               <label class="field"><span>每分钟请求</span><input id="configRequestsPerMinute" type="number" min="1" max="10000"></label>
               <label class="field"><span>熔断失败阈值</span><input id="configCircuitBreaker" type="number" min="1" max="100"></label>
+              <label class="field"><span>熔断恢复（秒）</span><input id="configCircuitRecovery" type="number" min="15" max="900"></label>
               <label class="field"><span>每日预算</span><input id="configDailyBudget" type="number" min="0" step="0.01"></label>
               <label class="field"><span>自动发布</span><select id="configAutoPublish"><option value="false">关闭</option><option value="true">开启</option></select></label>
               <label class="field"><span>最低来源等级</span><select id="configMinimumGrade"><option value="A">A</option><option value="B">B</option><option value="C">C</option></select></label>
@@ -324,6 +327,6 @@
 
   <div id="toast" class="toast" role="status"></div>
   <script src="./assets/admin-core.js"></script>
-  <script src="./assets/song-content-page.js?v=2026072706"></script>
+  <script src="./assets/song-content-page.js?v=2026072708"></script>
 </body>
 </html>

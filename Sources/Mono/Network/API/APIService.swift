@@ -300,9 +300,10 @@ class APIService: @unchecked Sendable {
 
     }
 
-    /// 启动时验证 API Token（带设备绑定）
-    func verifyToken(isRefresh: Bool = false) async -> TokenStatus {
-        guard let token = SecureConfig.apiToken?.trimmingCharacters(in: .whitespacesAndNewlines),
+    /// 验证 API Token（带设备绑定）。候选 Token 仅用于验证，不会在此处持久化。
+    func verifyToken(isRefresh: Bool = false, candidateToken: String? = nil) async -> TokenStatus {
+        let tokenToVerify = candidateToken ?? SecureConfig.apiToken
+        guard let token = tokenToVerify?.trimmingCharacters(in: .whitespacesAndNewlines),
               !token.isEmpty else {
             return .missing
         }

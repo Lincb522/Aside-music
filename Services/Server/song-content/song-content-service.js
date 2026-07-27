@@ -9,7 +9,7 @@ function createSongContentService({
   sourceCollector,
   contentGenerator,
   schemaVersion = '3',
-  promptVersion = 'song-editor-web-v5',
+  promptVersion = 'song-editor-web-v6',
   autoPublish = true,
   policyProvider,
   startWorker = true,
@@ -45,15 +45,7 @@ function createSongContentService({
     const normalizedLocale = normalizeLocale(locale)
     const published = store.getPublishedDetail(song.id, normalizedLocale)
     if (published) {
-      const upgradeJob = needsNarrativeUpgrade(published.content, promptVersion)
-        ? store.ensureGenerationJob({
-            songId: song.id,
-            locale: normalizedLocale,
-            schemaVersion,
-            reason: 'content_upgrade'
-          })
-        : null
-      return publicPublishedPayload(published, upgradeJob)
+      return publicPublishedPayload(published, null)
     }
 
     let job = null
@@ -81,7 +73,7 @@ function createSongContentService({
     if (song.identityStatus !== 'confirmed') throw codedError('SONG_IDENTITY_PENDING', 'song identity is not confirmed')
     if (!store.isWhitelisted(song.id)) throw codedError('SONG_NOT_WHITELISTED', 'song is outside the internal whitelist')
     const published = store.getPublishedDetail(song.id, normalizeLocale(locale))
-    if (published && !needsNarrativeUpgrade(published.content, promptVersion)) {
+    if (published) {
       return { song: publicSong(song), content: publicContent(published.content), generation: null }
     }
     const policy = typeof policyProvider === 'function' ? await policyProvider() : {}
@@ -89,12 +81,12 @@ function createSongContentService({
       songId: song.id,
       locale,
       schemaVersion,
-      reason: published ? 'content_upgrade' : 'first_access',
+      reason: 'first_access',
       maxAttempts: policy?.maxAttempts
     })
     return {
       song: publicSong(song),
-      content: published ? publicContent(published.content) : null,
+      content: null,
       generation: job?.isActive ? publicGeneration(job) : null
     }
   }
@@ -289,11 +281,6 @@ function publicPublishedPayload(detail, generation = null) {
       max_age: generation?.isActive ? 2 : 3_600
     }
   }
-}
-
-function needsNarrativeUpgrade(content, promptVersion) {
-  if (!content) return true
-  return content.promptVersion !== promptVersion
 }
 
 function publicSong(song) {

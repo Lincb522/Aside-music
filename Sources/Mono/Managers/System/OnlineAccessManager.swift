@@ -4,6 +4,16 @@ import Foundation
 final class OnlineAccessManager: ObservableObject {
     static let shared = OnlineAccessManager()
 
+    enum TokenSubmissionOutcome: Equatable {
+        case agreementRequired
+        case status(APIService.TokenStatus)
+    }
+
+    private struct PendingTokenAuthorization {
+        let token: String
+        let status: APIService.TokenStatus
+    }
+
     enum Mode: Equatable {
         case localOnly
         case online
@@ -37,6 +47,7 @@ final class OnlineAccessManager: ObservableObject {
     @Published private(set) var isVerifying = false
     @Published private(set) var lastTokenStatus: APIService.TokenStatus?
     private var gatePhase: GatePhase
+    private var pendingTokenAuthorization: PendingTokenAuthorization?
 
     private init() {
         let phase = GatePhase(hasToken: Self.hasStoredToken)
@@ -73,25 +84,44 @@ final class OnlineAccessManager: ObservableObject {
     }
 
     @discardableResult
-    func submitToken(_ token: String) async -> APIService.TokenStatus {
+    func submitToken(_ token: String) async -> TokenSubmissionOutcome {
         let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !trimmed.isEmpty else {
             clearToken()
-            return .missing
+            return .status(.missing)
         }
 
-        APIService.shared.applyToken(trimmed)
-        let status = await verifyCurrentToken()
+        pendingTokenAuthorization = nil
+        isVerifying = true
+        let status = await APIService.shared.verifyToken(candidateToken: trimmed)
+        isVerifying = false
 
-        await MainActor.run {
-            self.handle(status: status, showInvalidAlert: false)
+        switch status {
+        case .valid, .validationDisabled:
+            pendingTokenAuthorization = PendingTokenAuthorization(token: trimmed, status: status)
+            return .agreementRequired
+        case .missing, .invalid, .expired, .deviceMismatch, .networkError:
+            return .status(status)
         }
+    }
 
-        return status
+    @discardableResult
+    func acceptPendingTokenAuthorization() -> APIService.TokenStatus? {
+        guard let pendingTokenAuthorization else { return nil }
+        self.pendingTokenAuthorization = nil
+        APIService.shared.applyToken(pendingTokenAuthorization.token)
+        handle(status: pendingTokenAuthorization.status, showInvalidAlert: false)
+        AnnouncementCenter.shared.checkIfNeeded(force: true)
+        return pendingTokenAuthorization.status
+    }
+
+    func declinePendingTokenAuthorization() {
+        pendingTokenAuthorization = nil
     }
 
     func clearToken() {
+        pendingTokenAuthorization = nil
         purgeCredential(with: .missing)
     }
 

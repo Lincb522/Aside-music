@@ -38,6 +38,7 @@ final class AudioMatchViewModel: ObservableObject {
 
     private var session: SHSession?
     private var audioEngine: AVAudioEngine?
+    private var audioSessionActivationTask: Task<Void, Never>?
     private var listenTimer: Timer?
     private var listenDuration: TimeInterval = 0
     private let maxListenDuration: TimeInterval = 15
@@ -92,42 +93,58 @@ final class AudioMatchViewModel: ObservableObject {
         shazamDelegate = ShazamDelegate(viewModel: self)
         session?.delegate = shazamDelegate
 
-        do {
-            let audioSession = AVAudioSession.sharedInstance()
-            try audioSession.setCategory(.record, mode: .default)
-            try audioSession.setActive(true)
-
-            let audioEngine = AVAudioEngine()
-            self.audioEngine = audioEngine
-
-            let inputNode = audioEngine.inputNode
-            inputNode.installTap(onBus: 0, bufferSize: 2048, format: nil) { [weak self] buffer, _ in
-                self?.session?.matchStreamingBuffer(buffer, at: nil)
+        audioSessionActivationTask?.cancel()
+        audioSessionActivationTask = Task { @MainActor [weak self] in
+            guard let self, !Task.isCancelled else { return }
+            let activated = await PlayerManager.shared.activateAudioSessionForRecording(
+                reason: "Shazam listening"
+            )
+            guard !Task.isCancelled, self.state == .listening else {
+                PlayerManager.shared.reapplyAudioSessionOptions(reason: "Shazam activation cancelled")
+                return
+            }
+            guard activated else {
+                self.state = .error(NSLocalizedString("audio_match_error", comment: ""))
+                return
             }
 
-            try audioEngine.start()
+            do {
+                let audioEngine = AVAudioEngine()
+                self.audioEngine = audioEngine
 
-            listenTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-                Task { @MainActor [weak self] in
-                    guard let self, self.state == .listening else { return }
-                    self.listenDuration += 0.1
-                    self.listenProgress = min(CGFloat(self.listenDuration / self.maxListenDuration), 1.0)
+                let inputNode = audioEngine.inputNode
+                inputNode.installTap(onBus: 0, bufferSize: 2048, format: nil) { [weak self] buffer, _ in
+                    self?.session?.matchStreamingBuffer(buffer, at: nil)
+                }
 
-                    if self.listenDuration >= self.maxListenDuration {
-                        self.stopListening()
-                        if self.state == .listening {
-                            self.state = .notFound
+                try audioEngine.start()
+
+                self.listenTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+                    Task { @MainActor [weak self] in
+                        guard let self, self.state == .listening else { return }
+                        self.listenDuration += 0.1
+                        self.listenProgress = min(CGFloat(self.listenDuration / self.maxListenDuration), 1.0)
+
+                        if self.listenDuration >= self.maxListenDuration {
+                            self.stopListening()
+                            if self.state == .listening {
+                                self.state = .notFound
+                            }
                         }
                     }
                 }
+            } catch {
+                AppLogger.error("AudioMatch: 启动录音失败 - \(error)")
+                self.state = .error(NSLocalizedString("audio_match_error", comment: ""))
+                self.stopAudioEngine()
             }
-        } catch {
-            AppLogger.error("AudioMatch: 启动录音失败 - \(error)")
-            state = .error(NSLocalizedString("audio_match_error", comment: ""))
+            self.audioSessionActivationTask = nil
         }
     }
 
     private func stopAudioEngine() {
+        audioSessionActivationTask?.cancel()
+        audioSessionActivationTask = nil
         audioEngine?.inputNode.removeTap(onBus: 0)
         audioEngine?.stop()
         audioEngine = nil

@@ -14,6 +14,7 @@ const {
   createSongContentConfigStore,
   installSongContentConfigRoutes
 } = require(`${songContentRoot}/song-content-config`)
+const { createAnnouncementService, installAnnouncementRoutes } = require('./announcement-service')
 
 /**
  * Mounts the song-content API on the existing token Express application.
@@ -34,7 +35,7 @@ function installTokenSongContent({
   contentGenerator,
   appAIConfigProvider,
   schemaVersion = '3',
-  promptVersion = 'song-editor-web-v5',
+  promptVersion = 'song-editor-web-v6',
   autoPublish = true,
   startWorker = true,
   encryptionKey = process.env.SONG_CONTENT_MASTER_KEY,
@@ -50,6 +51,17 @@ function installTokenSongContent({
         return createConfiguredContentGenerator({ configStore, appAIConfigProvider })(context)
       }
 
+  const effectivePolicyProvider = async () => {
+    const contentPolicy = configStore ? configStore.current().ai : {}
+    const appAI = typeof appAIConfigProvider === 'function'
+      ? (await appAIConfigProvider() || {})
+      : {}
+    return {
+      ...contentPolicy,
+      providerUsageLimits: appAI.usageLimits || {}
+    }
+  }
+
   const service = createSongContentService({
     directory: path.join(dataDirectory, 'song-content'),
     platformResolver,
@@ -58,7 +70,7 @@ function installTokenSongContent({
     schemaVersion,
     promptVersion,
     autoPublish: () => configStore ? configStore.current().ai?.autoPublish === true : autoPublish,
-    policyProvider: () => configStore ? configStore.current().ai : {},
+    policyProvider: effectivePolicyProvider,
     startWorker,
     logger
   })
@@ -115,15 +127,31 @@ function installTokenSongContent({
     installSongContentOperationsRoutes({ app, service, authMiddleware, authorize: resolvedAuthorize })
   }
 
+  const announcementService = createAnnouncementService({ databasePath: service.store.databasePath, logger })
+  installAnnouncementRoutes({
+    app,
+    service: announcementService,
+    authMiddleware,
+    authorize: resolvedAuthorize,
+    resolvePublicToken,
+    audit: (entry) => service.store.appendAudit(entry),
+    logger
+  })
+
   if (adminUIRoot) {
     app.get(['/agents', '/agent-management'], (_req, res) => {
       res.sendFile(path.resolve(adminUIRoot, 'song-content.html'))
+    })
+    app.get('/announcements', (_req, res) => {
+      res.sendFile(path.resolve(adminUIRoot, 'announcements.html'))
     })
   }
 
   const closeService = service.close.bind(service)
   service.configStore = configStore
+  service.announcementService = announcementService
   service.close = () => {
+    announcementService.close()
     configStore.close()
     closeService()
   }

@@ -99,11 +99,13 @@ class PlayerManager: ObservableObject {
         return min(rawTime, expectedDuration)
     }
 
-    func isCurrentPlaybackNearNaturalEnd() -> Bool {
+    func isCurrentPlaybackNearNaturalEnd(
+        terminalPlaybackTime: Double = 0
+    ) -> Bool {
         let expectedDuration = effectivePlaybackDuration
         guard expectedDuration > 1 else { return false }
         let position = min(
-            max(currentTime, streamPlayer.currentTime),
+            max(currentTime, streamPlayer.currentTime, terminalPlaybackTime),
             expectedDuration
         )
         let endGuard = max(3, min(10, expectedDuration * 0.03))
@@ -327,10 +329,6 @@ class PlayerManager: ObservableObject {
     var manualPreparedSwitchSessionId: Int?
     var manualSwitchPreparationTask: Task<Void, Never>?
     
-    /// 异常停止重试计数器（防止损坏音源无限重试）
-    var abnormalStopRetryCount: Int = 0
-    let maxAbnormalStopRetries: Int = 3
-
     /// 网络断流 URL 刷新重试计数（StreamPlayer 层重连失败后，应用层重新获取 URL 续播）
     var networkDisconnectRetryCount: Int = 0
     let maxNetworkDisconnectRetries: Int = 2
@@ -386,7 +384,7 @@ class PlayerManager: ObservableObject {
     /// 音质切换恢复次数，防止弱网下无限重试
     var qualitySwitchRecoveryAttempts = 0
     let maxQualitySwitchRecoveryAttempts = 2
-    /// 重置播放内核时，短时间忽略 stop 回调，避免误判为 EOF/异常结束
+    /// 重置播放内核时，短时间忽略主动 stop 回调，避免干扰切歌事务
     var suppressStopHandlingUntil: Date?
     
     /// 保持 delegate adapter 的强引用
@@ -405,6 +403,9 @@ class PlayerManager: ObservableObject {
     /// 最近一次进入暂停的时刻。网络流暂停超过 `networkResumeRefreshThreshold`
     /// 后再恢复时，CDN URL 大概率已过期，直接重新取址从断点续播。
     var lastPausedAt: Date?
+    /// 用户明确暂停的应用层播放会话。暂停淡出期间底层仍可能短暂处于
+    /// `.playing`，该标记用于阻止迟到的断流回调触发自动重连或错误提示。
+    var userPausedPlaybackSessionId: Int?
     /// 网络流暂停多久后恢复要走「重新取址续播」而非直接 resume（秒）
     nonisolated static let networkResumeRefreshThreshold: TimeInterval = 20 * 60
 
@@ -657,6 +658,8 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
         // 在进入 @MainActor Task 前提取需要的值，避免非 Sendable 类型跨隔离域
         let streamInfo = player.streamInfo
         let playbackInput = player.currentPlaybackInput
+        let stopReason = player.lastStopReason
+        let terminalPlaybackTime = player.lastTerminalPlaybackTime
         let errorDesc: String? = {
             if case .error(let e) = state { return e.description }
             return nil
@@ -812,6 +815,27 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
                     return
                 }
                 pm.suppressStopHandlingUntil = nil
+                if pm.userPausedPlaybackSessionId == sessionAtCallback {
+                    if let terminalTime = pm.boundedEnginePlaybackTime(
+                        terminalPlaybackTime
+                    ), terminalTime > pm.currentTime {
+                        pm.currentTime = terminalTime
+                    }
+                    pm.lastPausedAt = pm.lastPausedAt ?? Date()
+                    pm.saveState()
+                    AppLogger.debug(
+                        "[PlaybackPause] 用户暂停优先于结束回调，保持暂停 position=\(String(format: "%.1f", pm.currentTime))s",
+                        step: "playback.pause.suppress-completion"
+                    )
+                    return
+                }
+                guard stopReason == .endOfStream else {
+                    AppLogger.debug(
+                        "[PlaybackCompletion] 忽略主动停止回调 position=\(String(format: "%.1f", terminalPlaybackTime))s",
+                        step: "playback.completion.explicit-stop"
+                    )
+                    return
+                }
                 // Input gating above has already filtered stops from the old
                 // audible pipeline. A matching stop here belongs to the target
                 // pipeline itself and must recover immediately instead of
@@ -878,88 +902,61 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
                     engineInput: playbackInput
                 )
                 if !pm.isUserStopping && pm.currentSong != nil {
-                    // Decoder-measured duration is authoritative. Alternate CDN
-                    // Alternate assets can be shorter than API metadata; using
-                    // metadata here misclassifies their natural EOF as truncation.
                     let expectedDuration = pm.effectivePlaybackDuration
-                    let observedPosition = max(
-                        pm.currentTime,
-                        pm.streamPlayer.currentTime
-                    )
-                    let remainingTime = expectedDuration - observedPosition
-                    let naturalEndGuard = max(
-                        2,
-                        min(8, expectedDuration * 0.03)
-                    )
-                    let reachedMeasuredEnd = expectedDuration > 0
-                        && observedPosition >= expectedDuration - naturalEndGuard
-
-                    // 歌曲正常播完：将 currentTime 拉满到 duration，让进度条显示 100%
-                    if reachedMeasuredEnd {
+                    let observedPosition = max(pm.currentTime, terminalPlaybackTime)
+                    if expectedDuration > 0 {
                         pm.currentTime = expectedDuration
+                    } else if observedPosition > 0 {
+                        pm.currentTime = observedPosition
                     }
-                    
-                    let isAbnormal: Bool
-                    if expectedDuration <= 0 {
-                        isAbnormal = observedPosition < 30
-                    } else if reachedMeasuredEnd {
-                        isAbnormal = false
-                    } else {
-                        let playedRatio = observedPosition / expectedDuration
-                        // 异常条件（满足其一即重试）：
-                        // 1. 播放不到一半且不到 30 秒（原有：URL 失效、解码失败等）
-                        // 2. 距离预期结束还有超过 15 秒（CDN 截断 / 文件不完整）
-                        isAbnormal = (playedRatio < 0.5 && observedPosition < 30)
-                            || (remainingTime > 15)
-                    }
-                    
-                    if isAbnormal {
-                        pm.abnormalStopRetryCount += 1
-                        if pm.abnormalStopRetryCount >= pm.maxAbnormalStopRetries {
-                            AppLogger.warning("异常结束重试已达上限(\(pm.maxAbnormalStopRetries)次)，跳到下一首")
-                            pm.abnormalStopRetryCount = 0
-                            pm.autoNext()
-                        } else {
-                            // Re-open slightly before the last decoded frame.
-                            // Resuming exactly at a truncated EOF can immediately
-                            // fail again without giving the refreshed URL a chance.
-                            let resumeTime = max(0, observedPosition - 1.5)
-                            AppLogger.warning(
-                                "异常结束: 只播放了 \(String(format: "%.1f", observedPosition))s / " +
-                                "期望 \(String(format: "%.1f", expectedDuration))s (剩余 \(String(format: "%.1f", remainingTime))s)，" +
-                                "重试第\(pm.abnormalStopRetryCount)次，从 \(String(format: "%.1f", resumeTime))s 续播"
+
+                    AppLogger.info(
+                        "播放结束 (EOF)，自动下一首 position=\(String(format: "%.1f", observedPosition))s duration=\(String(format: "%.1f", expectedDuration))s"
+                    )
+                    let finishingSessionId = sessionAtCallback
+                    DispatchQueue.main.async {
+                        guard pm.playbackSessionId == finishingSessionId else {
+                            AppLogger.debug(
+                                "[MonoContinuity] 忽略迟到的 EOF 任务 session=\(finishingSessionId)/\(pm.playbackSessionId)"
                             )
-                            if let song = pm.currentSong {
-                                // 异常结束多半是地址失效/截断：重试必须拿新鲜地址
-                                PlaybackURLCache.shared.invalidate(song: song)
-                                pm.loadAndPlay(
-                                    song: song,
-                                    startTime: resumeTime,
-                                    fadeInDuration: 0.8,
-                                    fadeInReason: "abnormal stream retry",
-                                    preserveRetryBudget: true
-                                )
-                            }
+                            return
                         }
-                    } else {
-                        pm.abnormalStopRetryCount = 0
-                        AppLogger.info("播放结束 (EOF)，自动下一首")
-                        let finishingSessionId = sessionAtCallback
-                        DispatchQueue.main.async {
-                            guard pm.playbackSessionId == finishingSessionId else {
-                                AppLogger.debug(
-                                    "[MonoContinuity] 忽略迟到的 EOF 任务 session=\(finishingSessionId)/\(pm.playbackSessionId)"
-                                )
-                                return
-                            }
-                            pm.playerDidFinishPlaying()
-                        }
+                        pm.playerDidFinishPlaying()
                     }
                 }
             case .error:
                 pm.mediaResolver.cancelLoadWatchdog()
                 pm.qualitySwitchTimeoutTask?.cancel()
                 pm.qualitySwitchTimeoutTask = nil
+
+                // A manual pause is an explicit user state, not a playback
+                // failure. The fade-to-pause window can overlap a delayed
+                // transport callback; keep the UI paused and defer rebuilding
+                // the dead stream until the next explicit play command.
+                if pm.userPausedPlaybackSessionId == sessionAtCallback {
+                    pm.networkDisconnectRetryCount = 0
+                    pm.isPlaying = false
+                    pm.isLoading = false
+                    if let terminalTime = pm.boundedEnginePlaybackTime(
+                        terminalPlaybackTime
+                    ), terminalTime > pm.currentTime {
+                        pm.currentTime = terminalTime
+                    }
+                    pm.clearPlaybackStartFade(restoreVolume: true)
+                    pm.cancelPlaybackFade(restoreVolume: true)
+                    pm.endTransitionKeepAlive()
+                    if isRetryableStreamError,
+                       let song = pm.pendingPlaybackPresentationSong ?? pm.currentSong {
+                        PlaybackURLCache.shared.invalidate(song: song)
+                    }
+                    pm.refreshPlaybackSurfaceState()
+                    pm.saveState()
+                    AppLogger.debug(
+                        "[PlaybackPause] 用户暂停期间忽略底层错误，等待主动恢复 position=\(String(format: "%.1f", pm.currentTime))s",
+                        step: "playback.pause.suppress-error"
+                    )
+                    return
+                }
 
                 if let continuityTarget = pm.continuity.activeTransitionRecoveryTarget(
                     engineInput: playbackInput
@@ -993,9 +990,10 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
                 // not a reason to reload the same song from a failed seek.
                 if isRetryableStreamError,
                    pm.pendingPlaybackPresentationSong == nil,
-                   pm.isCurrentPlaybackNearNaturalEnd() {
+                   pm.isCurrentPlaybackNearNaturalEnd(
+                       terminalPlaybackTime: terminalPlaybackTime
+                   ) {
                     pm.networkDisconnectRetryCount = 0
-                    pm.abnormalStopRetryCount = 0
                     pm.isPlaying = false
                     pm.isLoading = false
                     pm.clearPlaybackStartFade(restoreVolume: true)
@@ -1028,7 +1026,7 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
                     )
                     let resumeTime = isPendingSong
                         ? pm.pendingPlaybackPresentationStartTime
-                        : pm.currentTime
+                        : max(pm.currentTime, terminalPlaybackTime)
                     AppLogger.warning(
                         "播放流中断，刷新 URL 续播 (第\(pm.networkDisconnectRetryCount)次): " +
                         "\(song.name), 从 \(String(format: "%.1f", resumeTime))s 恢复"
@@ -1066,8 +1064,16 @@ class StreamPlayerDelegateAdapter: StreamPlayerDelegate, @unchecked Sendable {
     
     func player(_ player: StreamPlayer, didEncounterError error: FFmpegError) {
         let desc = error.description
+        let sessionAtCallback = self.currentSessionId
         Task { @MainActor [weak self] in
-            guard self?.playerManager != nil else { return }
+            guard let pm = self?.playerManager else { return }
+            guard pm.userPausedPlaybackSessionId != sessionAtCallback else {
+                AppLogger.debug(
+                    "[PlaybackPause] 用户暂停期间忽略底层错误通知",
+                    step: "playback.pause.suppress-error-notification"
+                )
+                return
+            }
             // 播放状态与自动恢复只由 didChangeState(.error) 统一处理。
             // 这里保留诊断日志，避免第二条错误回调把正在进行的刷新 URL
             // 续播重新改成非 loading 状态。

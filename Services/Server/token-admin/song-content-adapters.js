@@ -2,6 +2,7 @@ function createTokenSongContentAdapters({
   ncmBaseURL = process.env.NCM_INTERNAL_BASE_URL || 'http://127.0.0.1:4006',
   qcmBaseURL = process.env.QCM_INTERNAL_BASE_URL || 'http://127.0.0.1:3301',
   webSearchBaseURL = process.env.SONG_CONTENT_WEB_SEARCH_URL || 'https://www.so.com/s',
+  baiduWebSearchBaseURL = process.env.SONG_CONTENT_BAIDU_SEARCH_URL || 'https://www.baidu.com/s',
   bingWebSearchBaseURL = process.env.SONG_CONTENT_BING_SEARCH_URL || 'https://cn.bing.com/search',
   sogouWebSearchBaseURL = process.env.SONG_CONTENT_SOGOU_SEARCH_URL || 'https://www.sogou.com/web',
   webSearchEnabled = process.env.SONG_CONTENT_WEB_SEARCH_ENABLED !== 'false',
@@ -11,6 +12,7 @@ function createTokenSongContentAdapters({
   if (typeof fetchImpl !== 'function') throw new TypeError('fetch implementation is required')
   const searchProviders = [
     { key: '360', label: '360 搜索', baseURL: webSearchBaseURL, queryParameter: 'q', parser: parse360SearchResults },
+    { key: 'baidu', label: '百度', baseURL: baiduWebSearchBaseURL, queryParameter: 'wd', parser: parseBaiduSearchResults },
     { key: 'bing', label: 'Bing', baseURL: bingWebSearchBaseURL, queryParameter: 'q', parser: parseBingSearchResults },
     { key: 'sogou', label: '搜狗', baseURL: sogouWebSearchBaseURL, queryParameter: 'query', parser: parseSogouSearchResults }
   ]
@@ -106,21 +108,26 @@ function createTokenSongContentAdapters({
     const sources = []
 
     if (wikiText) {
-      sources.push({
-        url: `https://music.163.com/song?id=${encodeURIComponent(songId)}`,
-        title: `${song.title} - 音乐百科`,
-        publisher: '网易云音乐',
-        fetchedAt: now,
-        grade: 'B',
-        excerpt: wikiText,
-        metadata: {
-          platform: 'NCM',
-          platformSongId: songId,
-          sourceType: 'song_wiki',
-          contentRoles: ['songSummary', 'creationStory'],
-          matchMethod: reference.matchMethod
-        }
-      })
+      const roleAnalysis = analyzeContentRoles(['songSummary', 'creationStory'], wikiText, song, { platformSource: true })
+      if (roleAnalysis.roles.length > 0) {
+        sources.push({
+          url: `https://music.163.com/song?id=${encodeURIComponent(songId)}`,
+          title: `${song.title} - 音乐百科`,
+          publisher: '网易云音乐',
+          fetchedAt: now,
+          grade: 'B',
+          excerpt: wikiText,
+          metadata: {
+            platform: 'NCM',
+            platformSongId: songId,
+            sourceType: 'song_wiki',
+            contentRoles: roleAnalysis.roles,
+            contentRoleConfidence: roleAnalysis.confidence,
+            contentRoleEvidence: roleAnalysis.evidence,
+            matchMethod: reference.matchMethod
+          }
+        })
+      }
     }
     if (albumText && albumId) {
       sources.push({
@@ -135,13 +142,15 @@ function createTokenSongContentAdapters({
           platformAlbumId: albumId,
           sourceType: 'album_description',
           contentRoles: ['albumSummary'],
+          contentRoleConfidence: { albumSummary: 1 },
+          contentRoleEvidence: { albumSummary: ['平台正式专辑介绍'] },
           matchMethod: reference.matchMethod
         }
       })
     }
 
     return {
-      platformSummary: wikiText || null,
+      platformSummary: sources.some((source) => source.metadata.sourceType === 'song_wiki') ? wikiText : null,
       albumSummary: albumText || null,
       exclusions: buildExclusions(song),
       sources
@@ -276,21 +285,26 @@ function createTokenSongContentAdapters({
     const sources = []
 
     if (intro) {
-      sources.push({
-        url: `https://y.qq.com/n/ryqq/songDetail/${encodeURIComponent(mapping.songId)}`,
-        title: `${song.title} - 歌曲资料`,
-        publisher: 'QQ音乐',
-        fetchedAt: now,
-        grade: 'B',
-        excerpt: intro,
-        metadata: {
-          platform: 'QCM',
-          platformSongId: mapping.songId,
-          sourceType: 'song_description',
-          contentRoles: ['songSummary', 'creationStory'],
-          matchMethod: mapping.matchMethod || 'official_mapping'
-        }
-      })
+      const roleAnalysis = analyzeContentRoles(['songSummary', 'creationStory'], intro, song, { platformSource: true })
+      if (roleAnalysis.roles.length > 0) {
+        sources.push({
+          url: `https://y.qq.com/n/ryqq/songDetail/${encodeURIComponent(mapping.songId)}`,
+          title: `${song.title} - 歌曲资料`,
+          publisher: 'QQ音乐',
+          fetchedAt: now,
+          grade: 'B',
+          excerpt: intro,
+          metadata: {
+            platform: 'QCM',
+            platformSongId: mapping.songId,
+            sourceType: 'song_description',
+            contentRoles: roleAnalysis.roles,
+            contentRoleConfidence: roleAnalysis.confidence,
+            contentRoleEvidence: roleAnalysis.evidence,
+            matchMethod: mapping.matchMethod || 'official_mapping'
+          }
+        })
+      }
     }
     if (albumDescription && albumMid) {
       sources.push({
@@ -305,13 +319,15 @@ function createTokenSongContentAdapters({
           platformAlbumId: albumMid,
           sourceType: 'album_description',
           contentRoles: ['albumSummary'],
+          contentRoleConfidence: { albumSummary: 1 },
+          contentRoleEvidence: { albumSummary: ['平台正式专辑介绍'] },
           matchMethod: mapping.matchMethod || 'official_mapping'
         }
       })
     }
 
     return {
-      platformSummary: intro || null,
+      platformSummary: sources.some((source) => source.metadata.sourceType === 'song_description') ? intro : null,
       albumSummary: albumDescription || null,
       exclusions: buildExclusions(song),
       sources
@@ -324,67 +340,51 @@ function createTokenSongContentAdapters({
 
     const albumName = clean(song.album?.name, 500)
     const preferredSources = selectPreferredSources(retrievalPolicy.preferredSources)
-    const searches = [
-      {
-        query: `"${song.title}" "${primaryArtist}" ${albumName ? `"${albumName}" ` : ''}歌曲介绍 创作背景 采访`,
-        roles: ['songSummary', 'creationStory']
-      },
-      {
-        query: `"${song.title}" "${primaryArtist}" ${albumName ? `"${albumName}" ` : ''}乐评 赏析 编曲`,
-        roles: ['background']
-      },
-      ...(albumName ? [{
-        query: `"${albumName}" "${primaryArtist}" 专辑介绍 制作 乐评`,
-        roles: ['albumSummary', 'background']
-      }] : []),
-      ...(preferredSources.has('douban') ? [{
-        query: `site:music.douban.com/review "${song.title}" "${primaryArtist}" 乐评`,
-        roles: ['background']
-      }, ...(albumName ? [{
-        query: `site:music.douban.com/subject "${albumName}" "${primaryArtist}" 专辑 乐评`,
-        roles: ['albumSummary', 'background']
-      }] : [])] : []),
-      ...(preferredSources.has('xiaohongshu') ? [{
-        query: `site:xiaohongshu.com/explore "${song.title}" "${primaryArtist}" 音乐 乐评`,
-        roles: ['background']
-      }] : [])
+    const songIdentity = `"${song.title}" "${primaryArtist}"${albumName ? ` "${albumName}"` : ''}`
+    const primarySearches = [
+      { query: `${songIdentity} 歌曲介绍 发行 收录 主题`, roles: ['songSummary'] },
+      { query: `${songIdentity} 创作故事 作词 作曲 制作人 采访`, roles: ['creationStory'] },
+      { query: `${songIdentity} 乐评 赏析 音乐分析 编曲`, roles: ['background'] },
+      ...(albumName ? [{ query: `"${albumName}" "${primaryArtist}" 专辑介绍 发行 制作 曲目`, roles: ['albumSummary'] }] : [])
+    ]
+    const supplementalSearches = [
+      { query: `${songIdentity} 作品介绍 歌词 主题 单曲`, roles: ['songSummary'] },
+      { query: `${songIdentity} 创作背景 录音 制作 幕后`, roles: ['creationStory'] },
+      { query: `${songIdentity} 评论 旋律 节奏 和声 制作`, roles: ['background'] },
+      ...(albumName ? [{ query: `"${albumName}" "${primaryArtist}" 专访 制作手记 专辑乐评`, roles: ['albumSummary', 'background'] }] : []),
+      ...(preferredSources.has('douban') ? [
+        { query: `site:music.douban.com/review "${song.title}" "${primaryArtist}" 乐评`, roles: ['background'] },
+        ...(albumName ? [{ query: `site:music.douban.com/subject "${albumName}" "${primaryArtist}" 专辑 乐评`, roles: ['albumSummary', 'background'] }] : [])
+      ] : []),
+      ...(preferredSources.has('xiaohongshu')
+        ? [{ query: `site:xiaohongshu.com/explore "${song.title}" "${primaryArtist}" 音乐 乐评`, roles: ['background'] }]
+        : [])
     ]
 
     const enabledProviders = selectSearchProviders(searchProviders, retrievalPolicy.providers)
-    const batches = await Promise.all(searches.flatMap((search) => enabledProviders.map(async (provider) => {
-      const url = new URL(provider.baseURL)
-      url.searchParams.set(provider.queryParameter, search.query)
-      if (provider.key === 'bing') url.searchParams.set('setlang', 'zh-hans')
-      if (provider.key === 'sogou') url.searchParams.set('ie', 'utf8')
-      try {
-        const html = await fetchText(url, { maximumBytes: 1_200_000, timeoutMs: 10_000 })
-        return provider.parser(html, search.roles, provider.key)
-      } catch (error) {
-        logger.warn?.(`[song-content-adapter] ${provider.label} failed for ${search.roles.join(',')}`, error.message)
-        return []
-      }
-    })))
-    const candidates = batches.flat()
+    async function searchCandidates(searches) {
+      const batches = await Promise.all(searches.flatMap((search) => enabledProviders.map(async (provider) => {
+        const url = new URL(provider.baseURL)
+        url.searchParams.set(provider.queryParameter, search.query)
+        if (provider.key === 'bing') url.searchParams.set('setlang', 'zh-hans')
+        if (provider.key === 'sogou') url.searchParams.set('ie', 'utf8')
+        try {
+          const html = await fetchText(url, { maximumBytes: 1_200_000, timeoutMs: 10_000 })
+          return provider.parser(html, search.roles, provider.key)
+        } catch (error) {
+          logger.warn?.(`[song-content-adapter] ${provider.label} failed for ${search.roles.join(',')}`, error.message)
+          return []
+        }
+      })))
+      return rankWebCandidates(batches.flat(), song)
+    }
 
-    const ranked = deduplicateWebCandidates(candidates)
-      .filter((candidate) => webCandidateMatchesSong(candidate, song))
-      .map((candidate) => ({
-        ...candidate,
-        trust: webSourceTrust(candidate.url),
-        contentPlatform: webContentPlatform(candidate.url)
-      }))
-      .filter((candidate) => candidate.trust.grade === 'B')
-      .sort((left, right) => {
-        const preferredDifference = Number(Boolean(right.contentPlatform)) - Number(Boolean(left.contentPlatform))
-        if (preferredDifference) return preferredDifference
-        const roleDifference = right.roles.length - left.roles.length
-        if (roleDifference) return roleDifference
-        return right.snippet.length - left.snippet.length
-      })
-    const maximumSources = Math.max(1, Math.min(10, Number(retrievalPolicy.maximumSources) || 6))
-    const selected = selectBalancedWebCandidates(ranked, maximumSources)
+    const ranked = await searchCandidates(primarySearches)
+    const maximumSources = Math.max(1, Math.min(16, Number(retrievalPolicy.maximumSources) || 10))
+    const initialMaximum = maximumSources <= 4 ? maximumSources : maximumSources - 3
+    const selected = selectBalancedWebCandidates(ranked, initialMaximum)
 
-    const sources = await Promise.all(selected.map(async (candidate) => {
+    async function materializeWebCandidate(candidate) {
       let pageText = ''
       let pageIdentityText = ''
       try {
@@ -397,7 +397,8 @@ function createTokenSongContentAdapters({
       if (!pageText || !webTextMatchesSong(`${pageIdentityText}\n${pageText}`, song, candidate.roles)) return null
       const combined = cleanWebExcerpt([candidate.snippet, pageText].filter(Boolean).join('\n'))
       if (!combined) return null
-      const contentRoles = inferWebContentRoles(candidate.roles, combined, song)
+      const roleAnalysis = analyzeContentRoles(candidate.roles, combined, song)
+      if (roleAnalysis.roles.length === 0) return null
       return {
         url: candidate.url,
         title: clean(candidate.title, 500) || `${song.title} - 网页资料`,
@@ -409,8 +410,10 @@ function createTokenSongContentAdapters({
         accessible: Boolean(pageText),
         metadata: {
           platform: 'WEB',
-          sourceType: webSourceType(contentRoles),
-          contentRoles,
+          sourceType: webSourceType(roleAnalysis.roles),
+          contentRoles: roleAnalysis.roles,
+          contentRoleConfidence: roleAnalysis.confidence,
+          contentRoleEvidence: roleAnalysis.evidence,
           searchProvider: candidate.searchProviders?.[0] || candidate.searchProvider,
           searchProviders: candidate.searchProviders || [candidate.searchProvider].filter(Boolean),
           contentPlatform: candidate.contentPlatform,
@@ -418,9 +421,29 @@ function createTokenSongContentAdapters({
           untrustedWebContent: true
         }
       }
-    }))
+    }
 
-    return sources.filter(Boolean)
+    const initialSources = (await Promise.all(selected.map(materializeWebCandidate))).filter(Boolean)
+    const coveredRoles = new Set(initialSources.flatMap((source) => source.metadata.contentRoles))
+    const missingRoles = ['songSummary', 'creationStory', 'background', 'albumSummary']
+      .filter((role) => !coveredRoles.has(role) && (role !== 'albumSummary' || albumName))
+    const selectedURLs = new Set(selected.map((candidate) => candidate.url))
+    const searchesForMissingRoles = supplementalSearches
+      .filter((search) => search.roles.some((role) => missingRoles.includes(role)))
+    const searchedSupplements = missingRoles.length > 0
+      ? await searchCandidates(searchesForMissingRoles)
+      : []
+    const supplementalCandidates = rankWebCandidates([
+      ...ranked.filter((candidate) => !selectedURLs.has(candidate.url)),
+      ...searchedSupplements
+    ], song)
+      .filter((candidate) => !selectedURLs.has(candidate.url) && candidate.roles.some((role) => missingRoles.includes(role)))
+      .slice(0, Math.min(8, Math.max(2, missingRoles.length * 2)))
+    const supplementalSources = missingRoles.length > 0
+      ? (await Promise.all(supplementalCandidates.map(materializeWebCandidate))).filter(Boolean)
+      : []
+
+    return selectBalancedWebCandidates([...initialSources, ...supplementalSources], maximumSources)
   }
 
   async function fetchText(url, { maximumBytes, timeoutMs }) {
@@ -586,6 +609,37 @@ function parse360SearchResults(html, roles, searchProvider = '360') {
   return results
 }
 
+function parseBaiduSearchResults(html, roles, searchProvider = 'baidu') {
+  const value = String(html || '')
+  const starts = [...value.matchAll(/<div\b[^>]*(?:class=["'][^"']*\bresult(?:-op)?\b[^"']*["']|tpl=["']se_com_default["'])[^>]*>/giu)]
+    .map((match) => match.index)
+  const results = []
+  for (let index = 0; index < Math.min(starts.length, 16); index += 1) {
+    const block = value.slice(starts[index], starts[index + 1] || value.length)
+    const heading = block.match(/<h3\b[^>]*>[\s\S]*?<\/h3>/iu)?.[0] || ''
+    const directURL = htmlAttribute(block, 'mu')
+      || htmlAttribute(block, 'data-landurl')
+      || htmlAttribute(heading, 'href')
+    const url = safeExternalURL(decodeHTMLEntities(directURL))
+    if (!url || /(^|\.)baidu\.com$/iu.test(url.hostname)) continue
+    const title = stripHTML(heading)
+    const summaryHTML = block.match(/<div\b[^>]*class=["'][^"']*(?:c-abstract|content-right_8Zs40)[^"']*["'][^>]*>([\s\S]*?)<\/div>/iu)?.[1]
+      || block.match(/<span\b[^>]*class=["'][^"']*content-right_8Zs40[^"']*["'][^>]*>([\s\S]*?)<\/span>/iu)?.[1]
+      || ''
+    const snippet = cleanWebExcerpt(stripHTML(summaryHTML))
+    if (!title || !snippet) continue
+    results.push({
+      title,
+      url: url.toString(),
+      snippet,
+      roles: [...new Set(roles)],
+      searchProvider,
+      publishedAt: webPublishedDate(block)
+    })
+  }
+  return results
+}
+
 function parseBingSearchResults(html, roles, searchProvider = 'bing') {
   const results = []
   const blocks = String(html || '').match(/<li\b[^>]*class=["'][^"']*\bb_algo\b[^"']*["'][^>]*>[\s\S]*?<\/li>/giu) || []
@@ -703,6 +757,25 @@ function deduplicateWebCandidates(candidates) {
   return [...byURL.values()]
 }
 
+function rankWebCandidates(candidates, song) {
+  return deduplicateWebCandidates(candidates)
+    .filter((candidate) => webCandidateMatchesSong(candidate, song))
+    .map((candidate) => ({
+      ...candidate,
+      trust: candidate.trust || webSourceTrust(candidate.url),
+      contentPlatform: candidate.contentPlatform || webContentPlatform(candidate.url)
+    }))
+    .sort((left, right) => {
+      const gradeDifference = sourceGradeWeight(right.trust.grade) - sourceGradeWeight(left.trust.grade)
+      if (gradeDifference) return gradeDifference
+      const preferredDifference = Number(Boolean(right.contentPlatform)) - Number(Boolean(left.contentPlatform))
+      if (preferredDifference) return preferredDifference
+      const roleDifference = right.roles.length - left.roles.length
+      if (roleDifference) return roleDifference
+      return right.snippet.length - left.snippet.length
+    })
+}
+
 function webCandidateMatchesSong(candidate, song) {
   return webTextMatchesSong(`${candidate.title}\n${candidate.snippet}`, song, candidate.roles)
 }
@@ -733,6 +806,12 @@ function webSourceTrust(value) {
     ['baike.baidu.com', '百度百科'],
     ['wikipedia.org', '维基百科'],
     ['musicbrainz.org', 'MusicBrainz'],
+    ['billboard.com', 'Billboard'],
+    ['rollingstone.com', 'Rolling Stone'],
+    ['pitchfork.com', 'Pitchfork'],
+    ['grammy.com', 'GRAMMY'],
+    ['npr.org', 'NPR'],
+    ['allmusic.com', 'AllMusic'],
     ['douban.com', '豆瓣'],
     ['xiaohongshu.com', '小红书'],
     ['people.com.cn', '人民网'],
@@ -753,6 +832,10 @@ function webSourceTrust(value) {
   return match ? { grade: 'B', publisher: match[1] } : { grade: 'C', publisher: hostname }
 }
 
+function sourceGradeWeight(grade) {
+  return ({ A: 4, B: 3, C: 2, D: 1 }[grade] || 0)
+}
+
 function webContentPlatform(value) {
   const url = safeExternalURL(value)
   if (!url) return null
@@ -766,7 +849,7 @@ function selectBalancedWebCandidates(candidates, maximum) {
   const selected = []
   const seen = new Set()
   for (const role of ['songSummary', 'creationStory', 'background', 'albumSummary']) {
-    const candidate = candidates.find((item) => item.roles.includes(role) && !seen.has(item.url))
+    const candidate = candidates.find((item) => candidateRoles(item).includes(role) && !seen.has(item.url))
     if (!candidate) continue
     selected.push(candidate)
     seen.add(candidate.url)
@@ -778,6 +861,11 @@ function selectBalancedWebCandidates(candidates, maximum) {
     seen.add(candidate.url)
   }
   return selected
+}
+
+function candidateRoles(candidate) {
+  if (Array.isArray(candidate?.metadata?.contentRoles)) return candidate.metadata.contentRoles
+  return Array.isArray(candidate?.roles) ? candidate.roles : []
 }
 
 function extractArticleText(html) {
@@ -841,15 +929,80 @@ function webSourceType(roles) {
   return 'web_song_profile'
 }
 
-function inferWebContentRoles(seedRoles, value, song) {
-  const roles = new Set(seedRoles)
+function analyzeContentRoles(seedRoles, value, song, { platformSource = false } = {}) {
+  const seeds = new Set(Array.isArray(seedRoles) ? seedRoles : [])
   const text = String(value || '')
   const normalized = comparable(text)
-  if (comparableBaseTitle(song.title) && normalized.includes(comparableBaseTitle(song.title))) roles.add('songSummary')
-  if (comparable(song.album?.name) && normalized.includes(comparable(song.album?.name))) roles.add('albumSummary')
-  if (/乐评|赏析|解析|评论|编曲|旋律|节奏|和声|音色|唱腔|制作水准|音乐风格/iu.test(text)) roles.add('background')
-  if (/创作|作词|作曲|制作人|录制|采访|灵感|幕后|编曲者|词曲/iu.test(text)) roles.add('creationStory')
-  return [...roles]
+  const title = comparableBaseTitle(song.title)
+  const artist = comparable(song.artists?.[0]?.name)
+  const album = comparable(song.album?.name)
+  const titleMatched = Boolean(title && normalized.includes(title))
+  const artistMatched = Boolean(artist && normalized.includes(artist))
+  const albumMatched = Boolean(album && normalized.includes(album))
+  const explicitReviewEvidence = /乐评|赏析|解析|评论|评价|听感|音乐分析|声音设计|配器|和声|音色|唱腔|制作水准/iu.test(text)
+  const musicalObservationCount = new Set(
+    text.match(/氛围|情绪|叙事|主题|表达|旋律|节奏|编曲|演唱|风格|制作/giu) || []
+  ).size
+  const confidence = {}
+  const evidence = {}
+
+  function score(role, checks) {
+    let value = platformSource && seeds.has(role) ? 0.24 : 0
+    const reasons = []
+    if (platformSource && seeds.has(role)) reasons.push('平台歌曲资料')
+    if (!platformSource && seeds.has(role)) {
+      value += 0.08
+      reasons.push('定向检索命中')
+    }
+    for (const [passed, weight, reason] of checks) {
+      if (!passed) continue
+      value += weight
+      reasons.push(reason)
+    }
+    confidence[role] = Math.min(1, Number(value.toFixed(2)))
+    evidence[role] = reasons
+  }
+
+  score('songSummary', [
+    [titleMatched, 0.2, '正文匹配歌曲名'],
+    [artistMatched, 0.12, '正文匹配歌手'],
+    [/歌曲|单曲|作品|演唱|发行|发布|收录|主题曲|片尾曲|主打|歌词|曲目/iu.test(text), 0.28, '包含歌曲介绍信息'],
+    [/作词|作曲|编曲|制作人|唱片公司|发行时间|所属专辑/iu.test(text), 0.16, '包含作品资料'],
+    [text.length >= 240, 0.08, '正文信息量充足']
+  ])
+  score('creationStory', [
+    [titleMatched, 0.12, '正文匹配歌曲名'],
+    [artistMatched, 0.08, '正文匹配歌手'],
+    [/创作|灵感|构思|写下|写作|诞生|由来|幕后|采访|自述|回忆|制作过程|录制过程/iu.test(text), 0.38, '包含创作过程'],
+    [/作词|作曲|制作人|编曲者|录音|填词|谱曲|词曲/iu.test(text), 0.2, '包含创作人员或制作资料'],
+    [text.length >= 320, 0.08, '正文信息量充足']
+  ])
+  score('background', [
+    [titleMatched || albumMatched, 0.12, '正文匹配作品'],
+    [artistMatched, 0.08, '正文匹配歌手'],
+    [explicitReviewEvidence, 0.38, '包含明确评论或音乐分析'],
+    [musicalObservationCount >= 3, 0.28, '包含多项音乐观察'],
+    [text.length >= 400, 0.1, '评论正文信息量充足']
+  ])
+  score('albumSummary', [
+    [albumMatched, 0.25, '正文匹配专辑名'],
+    [artistMatched, 0.08, '正文匹配歌手'],
+    [/专辑|唱片|曲目|发行|收录|概念专辑|录音室专辑|EP|音乐企划/iu.test(text), 0.32, '包含专辑资料'],
+    [/制作|主题|概念|风格|时期|发行时间|唱片公司/iu.test(text), 0.16, '包含专辑背景'],
+    [text.length >= 320, 0.08, '正文信息量充足']
+  ])
+
+  const thresholds = { songSummary: 0.58, creationStory: 0.58, background: 0.6, albumSummary: 0.6 }
+  const roles = Object.keys(thresholds).filter((role) => {
+    if (confidence[role] < thresholds[role]) return false
+    if (role === 'background' && !explicitReviewEvidence && musicalObservationCount < 3) return false
+    return true
+  })
+  return {
+    roles,
+    confidence: Object.fromEntries(roles.map((role) => [role, confidence[role]])),
+    evidence: Object.fromEntries(roles.map((role) => [role, evidence[role]]))
+  }
 }
 
 function safeExternalURL(value) {
@@ -910,4 +1063,8 @@ function httpURL(value) {
   }
 }
 
-module.exports = { createTokenSongContentAdapters }
+module.exports = {
+  analyzeContentRoles,
+  createTokenSongContentAdapters,
+  parseBaiduSearchResults
+}

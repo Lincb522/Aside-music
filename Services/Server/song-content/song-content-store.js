@@ -285,6 +285,25 @@ function createSongContentStore({ directory, databasePath, logger = console }) {
     return transitionJob(jobId, 'queued', { availableAt, errorCode, errorMessage })
   }
 
+  // Provider quota exhaustion is a scheduling delay, not a failed generation
+  // attempt. Return the job to the queue without consuming its retry budget.
+  function deferJob(jobId, { errorCode, errorMessage, delaySeconds }) {
+    const job = getJob(jobId)
+    if (!job) throw codedError('JOB_NOT_FOUND', 'generation job not found')
+    const now = new Date().toISOString()
+    const availableAt = new Date(
+      Date.now() + clamp(delaySeconds, 1, 86_400, 300) * 1_000
+    ).toISOString()
+    statements.deferJob.run(
+      availableAt,
+      cleanOptional(errorCode),
+      cleanOptional(errorMessage)?.slice(0, 2_000) || null,
+      now,
+      jobId
+    )
+    return getJob(jobId)
+  }
+
   function saveEvidence(jobId, sources) {
     return transaction(() => sources.map((source) => {
       const normalized = normalizeSource(source)
@@ -296,14 +315,31 @@ function createSongContentStore({ directory, databasePath, logger = console }) {
           normalized.publishedAt, normalized.fetchedAt, normalized.grade, normalized.excerpt,
           normalized.contentHash, normalized.accessible ? 1 : 0, JSON.stringify(normalized.metadata)
         )
+      } else {
+        statements.refreshSourceEvidence.run(
+          normalized.title,
+          normalized.publisher,
+          normalized.publishedAt,
+          normalized.fetchedAt,
+          normalized.excerpt,
+          JSON.stringify(normalized.metadata),
+          id
+        )
       }
       statements.linkJobSource.run(jobId, id)
-      return { ...normalized, id }
+      return hydrateSourceRow(statements.selectSourceById.get(id))
     }))
   }
 
   function getJobSources(jobId) {
     return statements.selectJobSources.all(jobId).map(hydrateSourceRow)
+  }
+
+  function recentProviderRequestTimes(since = new Date(Date.now() - 86_400_000).toISOString()) {
+    return statements.selectRecentProviderRequests.all(since)
+      .map((row) => Date.parse(row.requested_at))
+      .filter(Number.isFinite)
+      .sort((left, right) => left - right)
   }
 
   function insertContentVersion({ jobId, songId, locale, schemaVersion, content, validation, generation }) {
@@ -659,8 +695,10 @@ function createSongContentStore({ directory, databasePath, logger = console }) {
     leaseNextJob,
     transitionJob,
     requeueJob,
+    deferJob,
     saveEvidence,
     getJobSources,
+    recentProviderRequestTimes,
     insertContentVersion,
     publishContentVersion,
     appendAudit,
@@ -747,6 +785,8 @@ function prepareStatements(database) {
       token_output = ?, cost = ?, provider_request_id = ?, result_content_version_id = ?,
       updated_at = ?, started_at = ?, finished_at = ? WHERE id = ?`),
     selectSourceByFingerprint: database.prepare('SELECT id FROM content_sources WHERE canonical_url = ? AND content_hash = ?'),
+    refreshSourceEvidence: database.prepare(`UPDATE content_sources SET title = ?, publisher = ?,
+      published_at = ?, fetched_at = ?, excerpt = ?, metadata_json = ? WHERE id = ?`),
     insertSource: database.prepare(`INSERT INTO content_sources (
       id, url, canonical_url, title, publisher, published_at, fetched_at, grade,
       excerpt, content_hash, accessible, metadata_json
@@ -754,6 +794,13 @@ function prepareStatements(database) {
     linkJobSource: database.prepare('INSERT OR IGNORE INTO generation_job_sources (job_id, source_id) VALUES (?, ?)'),
     selectJobSources: database.prepare(`SELECT s.* FROM generation_job_sources js
       JOIN content_sources s ON s.id = js.source_id WHERE js.job_id = ? ORDER BY s.grade, s.publisher`),
+    selectRecentProviderRequests: database.prepare(`SELECT updated_at AS requested_at
+      FROM generation_jobs
+      WHERE updated_at >= ? AND (
+        provider_request_id IS NOT NULL
+        OR error_code IN ('AI_RATE_LIMITED', 'AI_TIMEOUT', 'AI_PROVIDER_ERROR')
+      )
+      ORDER BY updated_at`),
     insertContentVersion: database.prepare(`INSERT INTO song_content_versions (
       id, song_id, locale, schema_version, song_summary, creation_story, background,
       album_summary, source_refs_json, confidence, risk_flags_json, validation_json,
@@ -801,6 +848,10 @@ function prepareStatements(database) {
     retryJob: database.prepare(`UPDATE generation_jobs SET state = 'queued', attempt_count = 0, available_at = ?,
       lease_owner = NULL, lease_expires_at = NULL, error_code = NULL, error_message = NULL,
       finished_at = NULL, updated_at = ? WHERE id = ?`),
+    deferJob: database.prepare(`UPDATE generation_jobs SET state = 'queued',
+      attempt_count = MAX(0, attempt_count - 1), available_at = ?, lease_owner = NULL,
+      lease_expires_at = NULL, error_code = ?, error_message = ?, finished_at = NULL,
+      updated_at = ? WHERE id = ?`),
     listSources: database.prepare(`SELECT * FROM content_sources WHERE (? = '' OR grade = ?)
       ORDER BY fetched_at DESC LIMIT ? OFFSET ?`),
     selectSourceById: database.prepare('SELECT * FROM content_sources WHERE id = ?'),

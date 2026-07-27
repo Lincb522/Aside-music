@@ -1,4 +1,5 @@
 const crypto = require('node:crypto')
+const { localizePipelineError } = require('./song-content-pipeline')
 
 function installSongContentAdminRoutes({ app, service, authMiddleware, authorize, logger = console }) {
   if (!app || typeof app.get !== 'function') throw new TypeError('Express-compatible app is required')
@@ -16,7 +17,13 @@ function installSongContentAdminRoutes({ app, service, authMiddleware, authorize
   ]
 
   app.get('/api/song-content/dashboard', ...route('content.read', async (_req, res) => {
-    res.json({ ok: true, stats: store.dashboardStats() })
+    res.json({
+      ok: true,
+      stats: {
+        ...store.dashboardStats(),
+        providerCircuit: service.pipeline?.circuitState?.() || null
+      }
+    })
   }))
 
   app.get('/api/song-content/songs', ...route('content.read', async (req, res) => {
@@ -124,7 +131,9 @@ function installSongContentAdminRoutes({ app, service, authMiddleware, authorize
   }))
 
   app.get('/api/song-content/jobs', ...route('content.read', async (req, res) => {
-    res.json({ ok: true, jobs: store.listJobs({ state: req.query?.state, limit: req.query?.limit, offset: req.query?.offset }) })
+    const jobs = store.listJobs({ state: req.query?.state, limit: req.query?.limit, offset: req.query?.offset })
+      .map(adminJob)
+    res.json({ ok: true, jobs })
   }))
 
   app.post('/api/song-content/jobs/:jobId/retry', ...route('jobs.manage', async (req, res) => {
@@ -154,6 +163,19 @@ function installSongContentAdminRoutes({ app, service, authMiddleware, authorize
   app.get('/api/song-content/audit', ...route('audit.read', async (req, res) => {
     res.json({ ok: true, logs: store.listAuditLogs({ limit: req.query?.limit, offset: req.query?.offset }) })
   }))
+}
+
+function adminJob(job) {
+  if (!job?.errorCode) return { ...job, errorTitle: null, errorDetail: null }
+  const localized = localizePipelineError(job.errorCode, job.errorMessage)
+  return {
+    ...job,
+    internalErrorCode: job.errorCode,
+    errorCode: null,
+    errorMessage: localized.detail,
+    errorTitle: localized.title,
+    errorDetail: localized.detail
+  }
 }
 
 function adminHandler(handler, logger) {
