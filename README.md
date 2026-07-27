@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  一款面向 iPhone 的多平台原生音乐播放器，由自研播放、连续播放、智能调音、舞台编排与数据引擎共同驱动。
+  一款面向 iPhone 的多平台原生音乐播放器，由自研播放、连续播放、智能调音、声音处理与数据引擎共同驱动。
 </p>
 
 <p align="center">
@@ -59,21 +59,16 @@ Mono 是一套围绕真实音乐播放场景构建的 iOS 音频应用。它统�
       <p>从音效处理前的原始音频采样，分析频谱、响度、动态、节奏、BPM、调性、旋律、人声与乐器线索，再结合输出设备生成 10 段或 32 段均衡、音色、空间、动态与校准方案。结果可按歌曲和设备保存、复用、重做与对比。</p>
     </td>
     <td width="50%" valign="top">
-      <h3>Mono Stage Director</h3>
-      <p><strong>沉浸式歌词舞台编排引擎</strong></p>
-      <p>按歌曲段落生成可复用的舞台脚本，把主歌、副歌、间奏与能量变化映射为歌词层级、镜头、光影、景深和节奏提示；脚本按歌曲缓存，播放过程中只执行轻量时间线。</p>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <h3>MonoVault Engine</h3>
-      <p><strong>统一数据与缓存治理引擎</strong></p>
-      <p>在 SwiftData 与 Core Data 之上统一歌曲、歌单、歌词、播放历史、下载与本地歌单的数据入口，合并高频写入并执行容量维护。可再生缓存可以清理，用户下载和本地歌单不会被自动裁剪。</p>
-    </td>
-    <td width="50%" valign="top">
       <h3>Mono Sound Pipeline</h3>
       <p><strong>实时声音处理链</strong></p>
       <p>提供 10/32 段图示均衡、参数均衡、动态 EQ、多段动态、低高音、混响、环绕、Haas 空间处理、输出校准、耳机校正、前级余量和最终限幅。参数集中提交，减少播放中反复重建处理链造成的卡音。</p>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" valign="top">
+      <h3>MonoVault Engine</h3>
+      <p><strong>统一数据与缓存治理引擎</strong></p>
+      <p>在 SwiftData 与 Core Data 之上统一歌曲、歌单、歌词、播放历史、下载与本地歌单的数据入口，合并高频写入并执行容量维护。可再生缓存可以清理，用户下载和本地歌单不会被自动裁剪。</p>
     </td>
   </tr>
 </table>
@@ -126,7 +121,6 @@ flowchart LR
     E --> F["AVAudioEngine 输出"]
     C --> G["控制中心 · 灵动岛 · 小组件"]
     H["Mono Audio Agent"] --> E
-    I["Mono Stage Director"] --> J["沉浸式歌词舞台"]
     K["音乐幕后 Agent"] --> L["歌曲内容与来源"]
     M["MonoVault Engine"] --> B
     M --> G
