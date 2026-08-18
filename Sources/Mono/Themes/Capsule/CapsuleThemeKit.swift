@@ -123,6 +123,8 @@ struct CapsuleRootBackdrop: View {
                 opacity: colorScheme == .dark ? 0.8 : 0.72
             )
 
+            UnifiedColorAmbientLayer(strength: 0.58)
+
             CapsuleBackdropField()
                 .opacity(colorScheme == .dark ? 0.35 : 0.5)
         }

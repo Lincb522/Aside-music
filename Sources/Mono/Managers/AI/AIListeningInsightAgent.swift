@@ -22,6 +22,26 @@ final class AIListeningInsightAgent: ObservableObject {
     private var cache: [String: AIListeningInsightResult] = [:]
     private let cacheStore = AIListeningInsightCacheStore()
 
+    private init() {
+        MonoMemoryEngine.shared.registerResource(
+            id: "cache.ai-listening-insight",
+            priority: .retained,
+            budgetWeight: 0.01,
+            minimumBudgetBytes: 256 * 1_024,
+            applyBudget: { _ in },
+            trim: { [weak self] context in
+                self?.trimMemory(context) ?? .none
+            },
+            measureUsage: { [weak self] in
+                guard let self else { return .unknown }
+                return .init(
+                    itemCount: self.cache.count,
+                    estimatedBytes: self.cache.count * 4 * 1_024
+                )
+            }
+        )
+    }
+
     deinit { analysisTask?.cancel() }
 
     // MARK: - 对外接口
@@ -33,7 +53,7 @@ final class AIListeningInsightAgent: ObservableObject {
         analysisTask?.cancel()
         currentInputKey = key
         result = cache[key] ?? cacheStore.value(for: key)
-        if let result { cache[key] = result }
+        if let result { storeInMemory(result, for: key) }
         phase = result == nil ? .idle : .ready
     }
 
@@ -96,37 +116,94 @@ final class AIListeningInsightAgent: ObservableObject {
         }
         let key = versionedCacheKey(for: input, managedAgent: managedAgent)
         if !force, let cached = cache[key] ?? cacheStore.value(for: key) {
-            cache[key] = cached
+            storeInMemory(cached, for: key)
             return cached
         }
 
         let configuration = try await resolvedProviderConfiguration()
         try Task.checkCancellation()
-        let reservation = try usageLimiter.reserveRequest(limits: providerStore.usageLimits)
-        let response: String
-        do {
-            let bundledUserPrompt = try AIListeningInsightPrompt.userPrompt(input: input)
-            response = try await client.generate(
-                systemPrompt: managedAgent?.systemPrompt(fallback: AIListeningInsightPrompt.system)
-                    ?? AIListeningInsightPrompt.system,
-                userPrompt: managedAgent?.userPrompt(fallback: bundledUserPrompt) ?? bundledUserPrompt,
-                configuration: configuration,
-                apiKey: providerStore.requestAPIKey,
-                minimumTimeout: managedAgent?.minimumTimeoutSeconds ?? 0,
-                options: managedAgent?.generationOptions ?? .standard
-            )
-        } catch {
-            if AIUsageLimiter.shouldRefundReservation(for: error) {
-                usageLimiter.releaseReservation(reservation)
-            }
-            throw error
-        }
-        try Task.checkCancellation()
-        let output = try decodeOutput(from: response)
-        let insight = makeResult(output: output, input: input)
-        cache[key] = insight
+        let insight = try await generateInsight(
+            for: input,
+            configuration: configuration,
+            managedAgent: managedAgent
+        )
+        storeInMemory(insight, for: key)
         cacheStore.set(insight, for: key)
         return insight
+    }
+
+    private func storeInMemory(_ value: AIListeningInsightResult, for key: String) {
+        cache[key] = value
+        if cache.count > 8 {
+            let retained = cache
+                .sorted { $0.value.createdAt > $1.value.createdAt }
+                .prefix(8)
+                .map { ($0.key, $0.value) }
+            cache = Dictionary(uniqueKeysWithValues: retained)
+        }
+    }
+
+    private func trimMemory(_ context: MonoMemoryEngine.TrimContext) -> MonoMemoryEngine.TrimResult {
+        let before = cache.count
+        if context.level >= .background {
+            cache.removeAll(keepingCapacity: false)
+        }
+        return .init(
+            releasedItemCount: max(0, before - cache.count),
+            estimatedReleasedBytes: max(0, before - cache.count) * 4 * 1_024,
+            preservedItemCount: cache.count
+        )
+    }
+
+    private func generateInsight(
+        for input: AIListeningInsightInput,
+        configuration: AIProviderConfiguration,
+        managedAgent: AppAgentConfiguration?
+    ) async throws -> AIListeningInsightResult {
+        let bundledUserPrompt = try AIListeningInsightPrompt.userPrompt(input: input)
+        let maximumAttempts = managedAgent?.resolvedMaxAttempts(fallback: 2) ?? 2
+
+        for attempt in 1...maximumAttempts {
+            try Task.checkCancellation()
+            let reservation = try usageLimiter.reserveRequest(limits: providerStore.usageLimits)
+            do {
+                let response = try await client.generate(
+                    systemPrompt: managedAgent?.systemPrompt(fallback: AIListeningInsightPrompt.system)
+                        ?? AIListeningInsightPrompt.system,
+                    userPrompt: managedAgent?.userPrompt(fallback: bundledUserPrompt) ?? bundledUserPrompt,
+                    configuration: configuration,
+                    apiKey: providerStore.requestAPIKey,
+                    minimumTimeout: managedAgent?.resolvedMinimumTimeoutSeconds ?? 0,
+                    options: managedAgent?.generationOptions ?? .standard
+                )
+                try Task.checkCancellation()
+                let output = try decodeOutput(from: response)
+                if let result = validatedResult(output: output, input: input) {
+                    return result
+                }
+                throw AIEqualizerError.invalidResponse
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                if AIUsageLimiter.shouldRefundReservation(for: error) {
+                    usageLimiter.releaseReservation(reservation)
+                }
+                guard attempt < maximumAttempts,
+                      AIAgentRuntimePolicy.shouldRetry(error) else {
+                    if let aiError = error as? AIEqualizerError,
+                       case .invalidResponse = aiError {
+                        return fallbackResult(for: input)
+                    }
+                    throw error
+                }
+                let delay = AIAgentRuntimePolicy.retryDelay(
+                    after: attempt,
+                    minimumRequestInterval: providerStore.usageLimits.minimumRequestInterval
+                )
+                try await Task.sleep(for: .seconds(delay))
+            }
+        }
+        return fallbackResult(for: input)
     }
 
     /// 后台自动分析入口：频率受限时等待后重试一次，仍失败则静默降级到本地文案，不抛错。
@@ -204,10 +281,10 @@ final class AIListeningInsightAgent: ObservableObject {
     }
 
     /// 校验并裁剪模型输出：标题/摘要/观察逐项限长，要求至少 2 条观察且全部中文主导，否则回退本地文案。
-    private func makeResult(
+    private func validatedResult(
         output: AIListeningInsightModelOutput,
         input: AIListeningInsightInput
-    ) -> AIListeningInsightResult {
+    ) -> AIListeningInsightResult? {
         let headline = clean(output.headline, limit: 28)
         let summary = clean(output.summary, limit: 120)
         let observations = Array(
@@ -218,10 +295,18 @@ final class AIListeningInsightAgent: ObservableObject {
         )
 
         let allText = [headline, summary] + observations
+        let normalizedObservations = Set(observations.map {
+            $0.replacingOccurrences(of: " ", with: "")
+        })
+        let bannedPhrases = ["根据数据", "数据显示", "可以看出", "说明你", "作为AI", "AI分析"]
         if !headline.isEmpty,
            !summary.isEmpty,
            observations.count >= 2,
-           allText.allSatisfy(isPrimarilyChinese) {
+           normalizedObservations.count == observations.count,
+           allText.allSatisfy(isPrimarilyChinese),
+           !allText.contains(where: { text in
+               bannedPhrases.contains { text.contains($0) }
+           }) {
             return AIListeningInsightResult(
                 id: UUID(),
                 inputKey: input.cacheKey,
@@ -231,7 +316,7 @@ final class AIListeningInsightAgent: ObservableObject {
                 createdAt: Date()
             )
         }
-        return fallbackResult(for: input)
+        return nil
     }
 
     // MARK: - 本地回退文案

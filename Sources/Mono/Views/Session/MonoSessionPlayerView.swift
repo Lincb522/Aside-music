@@ -194,10 +194,14 @@ struct MonoSessionPlayerView: View {
                                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                                     .fill(Color.monoTextPrimary.opacity(0.06))
                             )
-                            .onSubmit(joinRoom)
+                            .monoOnSubmit(text: $inviteCode) { _ in
+                                joinRoom()
+                            }
 
                         Button {
-                            joinRoom()
+                            MonoTextInputCommitter.commit(text: $inviteCode) { _ in
+                                joinRoom()
+                            }
                         } label: {
                             Text(String(localized: "mono_session_join"))
                                 .font(.system(size: 14, weight: .bold, design: .rounded))
@@ -639,7 +643,9 @@ struct MonoSessionPlayerView: View {
                     .submitLabel(.search)
                     .font(.system(size: 13.5, weight: .medium, design: .rounded))
                     .foregroundStyle(.white)
-                    .onSubmit(performRoomSearch)
+                    .monoOnSubmit(text: $roomSearchQuery) { _ in
+                        performRoomSearch()
+                    }
 
                 if isQueueSearching {
                     ProgressView()
@@ -952,9 +958,16 @@ struct MonoSessionPlayerView: View {
                     RoundedRectangle(cornerRadius: 13, style: .continuous)
                         .fill(Color.monoTextPrimary.opacity(0.06))
                 )
-                .onSubmit(sendChat)
+                .submitLabel(.send)
+                .monoOnSubmit(text: $chatText) { _ in
+                    sendChat()
+                }
 
-            Button(action: sendChat) {
+            Button {
+                MonoTextInputCommitter.commit(text: $chatText) { _ in
+                    sendChat()
+                }
+            } label: {
                 MonoIcon(icon: .send, size: 16, color: accentControlForeground)
                     .frame(width: 40, height: 40)
                     .background(Circle().fill(accentControlFill))
@@ -1025,13 +1038,11 @@ struct MonoSessionPlayerView: View {
     }
 
     private func performRoomSearch() {
+        let keyword = roomSearchQuery
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !keyword.isEmpty else { return }
         searchFocused = false
-        DispatchQueue.main.async {
-            let keyword = roomSearchQuery
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !keyword.isEmpty else { return }
-            search.performSearch(keyword: keyword)
-        }
+        search.performSearch(keyword: keyword)
     }
 
     private func joinRoom() {

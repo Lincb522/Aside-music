@@ -1,6 +1,9 @@
 import Foundation
 
-/// 与其他 App 音频的混音策略：独占（打断他方）、自动（按场景判断）、总是混音。
+/// 与其他 App 音频的共存策略。
+///
+/// category/options 在每次播放或恢复前确定；播放过程中保持稳定，
+/// 避免活动音频会话热切换造成路由抖动和瞬断。
 enum BackgroundAudioPolicy: String, CaseIterable, Identifiable {
     case exclusive
     case automatic

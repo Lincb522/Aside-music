@@ -676,6 +676,23 @@ private final class VideoDurationCache {
     static let shared = VideoDurationCache()
     private var cache: [String: String] = [:]
 
+    private init() {
+        MonoMemoryEngine.shared.registerResource(
+            id: "cache.video-duration",
+            priority: .recreatable,
+            budgetWeight: 0.01,
+            minimumBudgetBytes: 256 * 1_024,
+            applyBudget: { _ in },
+            trim: { [weak self] context in
+                self?.trimMemory(context) ?? .none
+            },
+            measureUsage: { [weak self] in
+                guard let self else { return .unknown }
+                return .init(itemCount: self.cache.count, estimatedBytes: self.cache.count * 128)
+            }
+        )
+    }
+
     func durationText(for url: URL, id: String) async -> String? {
         if let cached = cache[id] { return cached }
         let asset = AVURLAsset(url: url)
@@ -689,7 +706,25 @@ private final class VideoDurationCache {
             text = String(format: "%d:%02d", total / 60, total % 60)
         }
         cache[id] = text
+        if cache.count > 256 {
+            cache = Dictionary(uniqueKeysWithValues: cache.suffix(192).map { ($0.key, $0.value) })
+        }
         return text
+    }
+
+    private func trimMemory(_ context: MonoMemoryEngine.TrimContext) -> MonoMemoryEngine.TrimResult {
+        let before = cache.count
+        if context.level >= .background {
+            cache.removeAll(keepingCapacity: false)
+        } else if cache.count > 192 {
+            cache = Dictionary(uniqueKeysWithValues: cache.suffix(192).map { ($0.key, $0.value) })
+        }
+        let released = max(0, before - cache.count)
+        return .init(
+            releasedItemCount: released,
+            estimatedReleasedBytes: released * 128,
+            preservedItemCount: cache.count
+        )
     }
 }
 
@@ -723,6 +758,22 @@ final class VideoThumbnailCache {
     static let shared = VideoThumbnailCache()
     private var cache: [String: UIImage] = [:]
 
+    private init() {
+        MonoMemoryEngine.shared.registerResource(
+            id: "cache.video-thumbnails",
+            priority: .recreatable,
+            budgetWeight: 0.04,
+            minimumBudgetBytes: 3 * 1_024 * 1_024,
+            applyBudget: { _ in },
+            trim: { [weak self] context in
+                self?.trimMemory(context) ?? .none
+            },
+            measureUsage: { [weak self] in
+                self?.memoryUsage() ?? .unknown
+            }
+        )
+    }
+
     func thumbnail(for url: URL, id: String) async -> UIImage? {
         if let cached = cache[id] { return cached }
         let asset = AVURLAsset(url: url)
@@ -733,9 +784,41 @@ final class VideoThumbnailCache {
             let cgImage = try await generator.image(at: CMTime(seconds: 1, preferredTimescale: 600)).image
             let image = UIImage(cgImage: cgImage)
             cache[id] = image
+            if cache.count > 64 {
+                cache = Dictionary(uniqueKeysWithValues: cache.suffix(48).map { ($0.key, $0.value) })
+            }
             return image
         } catch {
             return nil
         }
+    }
+
+    private func trimMemory(_ context: MonoMemoryEngine.TrimContext) -> MonoMemoryEngine.TrimResult {
+        let beforeCount = cache.count
+        let beforeBytes = cache.values.reduce(0) { partial, image in
+            partial + (image.cgImage.map { $0.bytesPerRow * $0.height } ?? 0)
+        }
+        if context.level >= .background {
+            cache.removeAll(keepingCapacity: false)
+        } else if cache.count > 48 {
+            cache = Dictionary(uniqueKeysWithValues: cache.suffix(48).map { ($0.key, $0.value) })
+        }
+        let afterBytes = cache.values.reduce(0) { partial, image in
+            partial + (image.cgImage.map { $0.bytesPerRow * $0.height } ?? 0)
+        }
+        return .init(
+            releasedItemCount: max(0, beforeCount - cache.count),
+            estimatedReleasedBytes: max(0, beforeBytes - afterBytes),
+            preservedItemCount: cache.count
+        )
+    }
+
+    private func memoryUsage() -> MonoMemoryEngine.ResourceUsage {
+        .init(
+            itemCount: cache.count,
+            estimatedBytes: cache.values.reduce(0) { partial, image in
+                partial + (image.cgImage.map { $0.bytesPerRow * $0.height } ?? 0)
+            }
+        )
     }
 }

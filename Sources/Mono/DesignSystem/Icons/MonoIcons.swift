@@ -12,6 +12,25 @@ import MinimalWhiteIcons
 
 // MARK: - 统一图标系统
 
+private struct MonoIconDarkArtworkSurfaceKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    fileprivate var monoIconDarkArtworkSurface: Bool {
+        get { self[MonoIconDarkArtworkSurfaceKey.self] }
+        set { self[MonoIconDarkArtworkSurfaceKey.self] = newValue }
+    }
+}
+
+extension View {
+    /// 为玻璃菜单、封面舞台等“界面仍是浅色模式、局部表面却是深色”的区域
+    /// 显式选择支持深色外观图标包的白边资源。系统深色模式不需要调用此修饰器。
+    func monoIconDarkArtworkSurface(_ enabled: Bool = true) -> some View {
+        environment(\.monoIconDarkArtworkSurface, enabled)
+    }
+}
+
 /// 根据用户选择的图标包，将统一语义图标映射为对应的矢量或位图资源。
 struct MonoIcon: View {
     enum IconType {
@@ -167,6 +186,11 @@ struct MonoIcon: View {
     var color: Color = .primary
     var lineWidth: CGFloat? = nil
     var normalizesBitmapScale: Bool = false
+    /// 需要参与渐变遮罩或动态前景色计算时，强制把彩色图标包按模板渲染。
+    /// 默认关闭，避免改变其他页面原有的彩色图标外观。
+    var forceTemplateRendering: Bool = false
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.monoIconDarkArtworkSurface) private var isDarkArtworkSurface
     @AppStorage(AppConfig.StorageKeys.interfaceIconSet) private var iconSetRaw: String = AppInterfaceIconSet.hicon.rawValue
     @AppStorage(AppInterfaceIconSet.zappiconStyleKey) private var zappiconStyleRaw: String = ZappiconIconStyle.light.rawValue
     @AppStorage(AppInterfaceIconSet.solarStyleKey) private var solarStyleRaw: String = SolarIconStyle.line.rawValue
@@ -208,18 +232,22 @@ struct MonoIcon: View {
         case .blobIcons:
             return icon.blobIconImage
         case .doodlePop:
-            return icon.doodlePopImage
+            return icon.doodlePopImage(prefersLightOutline: usesLightAdaptiveOutline)
         case .pawPrint:
-            return icon.pawPrintImage
+            return icon.pawPrintImage(prefersLightOutline: usesLightAdaptiveOutline)
         case .dotDogSnake:
-            return icon.dotDogSnakeImage
+            return icon.dotDogSnakeImage(prefersLightOutline: usesLightAdaptiveOutline)
         case .minimalWhiteIcons:
-            return icon.minimalWhiteIconImage
+            return icon.minimalWhiteIconImage(prefersLightOutline: usesLightAdaptiveOutline)
         }
     }
 
     private var usesOriginalArtwork: Bool {
         iconSet.usesOriginalArtwork
+    }
+
+    private var rendersOriginalArtwork: Bool {
+        usesOriginalArtwork && !forceTemplateRendering
     }
 
     private var usesBitmapVisualScale: Bool {
@@ -253,6 +281,10 @@ struct MonoIcon: View {
         return bitmapIconVisualScale
     }
 
+    private var usesLightAdaptiveOutline: Bool {
+        colorScheme == .dark || isDarkArtworkSurface
+    }
+
     private var iconImage: some View {
         rawIconImage(currentImage)
     }
@@ -261,7 +293,7 @@ struct MonoIcon: View {
         Image(uiImage: image)
             .interpolation(.high)
             .antialiased(true)
-            .renderingMode(usesOriginalArtwork ? .original : .template)
+            .renderingMode(rendersOriginalArtwork ? .original : .template)
             .resizable()
             .aspectRatio(contentMode: .fit)
             .scaleEffect(effectiveBitmapVisualScale)
@@ -269,8 +301,8 @@ struct MonoIcon: View {
     
     @ViewBuilder
     private var likedIcon: some View {
-        if usesOriginalArtwork {
-            rawIconImage(iconSet.image(for: .liked))
+        if rendersOriginalArtwork {
+            rawIconImage(currentImage)
         } else {
             ZStack {
                 Image(uiImage: iconSet.image(for: .like))
@@ -348,6 +380,8 @@ private struct MonoPawPrintChevronIcon: View {
     let direction: Direction
     var size: CGFloat
     var fallbackColor: Color
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.monoIconDarkArtworkSurface) private var isDarkArtworkSurface
 
     var body: some View {
         platformImage
@@ -357,7 +391,7 @@ private struct MonoPawPrintChevronIcon: View {
 
     @ViewBuilder
     private var platformImage: some View {
-        if let image = UIImage(pawPrintIconId: direction.assetName) {
+        if let image = resolvedImage {
             Image(uiImage: image)
                 .renderingMode(.original)
                 .interpolation(.high)
@@ -367,6 +401,13 @@ private struct MonoPawPrintChevronIcon: View {
         } else {
             fallbackIcon
         }
+    }
+
+    private var resolvedImage: UIImage? {
+        if colorScheme == .dark || isDarkArtworkSurface {
+            return UIImage(pawPrintIconId: direction.assetName, userInterfaceStyle: .dark)
+        }
+        return UIImage(pawPrintIconId: direction.assetName)
     }
 
     private var fallbackIcon: some View {
@@ -853,16 +894,40 @@ extension MonoIcon.IconType {
         UIImage(doodlePopIconId: bitmapIconId) ?? hiconImage
     }
 
+    func doodlePopImage(prefersLightOutline: Bool) -> UIImage {
+        let image = doodlePopImage
+        guard prefersLightOutline else { return image }
+        return UIImage(doodlePopIconId: bitmapIconId, userInterfaceStyle: .dark) ?? image
+    }
+
     var pawPrintImage: UIImage {
         UIImage(pawPrintIconId: bitmapIconId) ?? hiconImage
+    }
+
+    func pawPrintImage(prefersLightOutline: Bool) -> UIImage {
+        let image = pawPrintImage
+        guard prefersLightOutline else { return image }
+        return UIImage(pawPrintIconId: bitmapIconId, userInterfaceStyle: .dark) ?? image
     }
 
     var dotDogSnakeImage: UIImage {
         UIImage(dotDogSnakeIconId: bitmapIconId) ?? hiconImage
     }
 
+    func dotDogSnakeImage(prefersLightOutline: Bool) -> UIImage {
+        let image = dotDogSnakeImage
+        guard prefersLightOutline else { return image }
+        return UIImage(dotDogSnakeIconId: bitmapIconId, userInterfaceStyle: .dark) ?? image
+    }
+
     var minimalWhiteIconImage: UIImage {
         UIImage(minimalWhiteIconId: bitmapIconId) ?? hiconImage
+    }
+
+    func minimalWhiteIconImage(prefersLightOutline: Bool) -> UIImage {
+        let image = minimalWhiteIconImage
+        guard prefersLightOutline else { return image }
+        return UIImage(minimalWhiteIconId: bitmapIconId, userInterfaceStyle: .dark) ?? image
     }
 }
 

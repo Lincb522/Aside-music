@@ -14,6 +14,39 @@
       "idiom": "universal",
       "scale": "3x",
       "filename": "heartSlash@3x.png"
+    },
+    {
+      "appearances": [
+        {
+          "appearance": "luminosity",
+          "value": "dark"
+        }
+      ],
+      "idiom": "universal",
+      "scale": "1x",
+      "filename": "heartSlash_dark@1x.png"
+    },
+    {
+      "appearances": [
+        {
+          "appearance": "luminosity",
+          "value": "dark"
+        }
+      ],
+      "idiom": "universal",
+      "scale": "2x",
+      "filename": "heartSlash_dark@2x.png"
+    },
+    {
+      "appearances": [
+        {
+          "appearance": "luminosity",
+          "value": "dark"
+        }
+      ],
+      "idiom": "universal",
+      "scale": "3x",
+      "filename": "heartSlash_dark@3x.png"
     }
   ],
   "info": {

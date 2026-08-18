@@ -26,6 +26,7 @@ struct NCMAccountView: View {
             }
         }
         .scrollContentBackground(.hidden)
+        .claritySettingsListStyle()
         .background(ThemedPageBackground())
         .navigationTitle("NCM 账号")
         .navigationBarTitleDisplayMode(.inline)

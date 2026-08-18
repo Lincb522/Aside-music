@@ -1,92 +1,6 @@
 import SwiftUI
 
 @MainActor
-private final class MoeWallsQueryTranslator {
-    static let shared = MoeWallsQueryTranslator()
-
-    private struct Output: Decodable {
-        let query: String
-    }
-
-    private let client = AIProviderClient()
-    private let providerStore = AIProviderConfigurationStore.shared
-    private var cache: [String: String] = [:]
-
-    func englishQuery(for query: String) async -> String? {
-        let normalized = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard containsChinese(normalized) else { return nil }
-
-        let managedAgent = await SongContentConfigurationStore.shared.agentConfiguration(.wallpaperTranslator)
-        guard managedAgent?.enabled != false else { return nil }
-        let cacheKey = "\(managedAgent?.promptVersion ?? "wallpaper-translator-v1")|\(normalized.lowercased())"
-        if let cached = cache[cacheKey] { return cached }
-
-        if let local = MoeWallsService.localEnglishTranslation(for: normalized),
-           !containsChinese(local) {
-            cache[cacheKey] = local
-            return local
-        }
-
-        await providerStore.refreshRemoteConfigurationIfNeeded()
-        let configuration = providerStore.requestConfiguration
-        let apiKey = providerStore.requestAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !configuration.wireProtocol.requiresAPIKey || !apiKey.isEmpty else { return nil }
-
-        do {
-            let bundledSystemPrompt = """
-            You translate Chinese wallpaper search queries into concise English search keywords.
-            Preserve character, game, anime, movie, place, and artist names using their official English names.
-            Return JSON only: {"query":"english keywords"}. Do not explain.
-            """
-            let response = try await client.generate(
-                systemPrompt: managedAgent?.systemPrompt(fallback: bundledSystemPrompt) ?? bundledSystemPrompt,
-                userPrompt: managedAgent?.userPrompt(fallback: normalized) ?? normalized,
-                configuration: configuration,
-                apiKey: apiKey,
-                minimumTimeout: managedAgent?.minimumTimeoutSeconds ?? 0,
-                options: managedAgent?.generationOptions ?? .standard
-            )
-            try Task.checkCancellation()
-            guard let translated = decode(response), !containsChinese(translated) else { return nil }
-            cache[cacheKey] = translated
-            if cache.count > 128, let oldest = cache.keys.first { cache.removeValue(forKey: oldest) }
-            return translated
-        } catch is CancellationError {
-            return nil
-        } catch {
-            AppLogger.warning("[MoeWalls] 中文搜索转译失败：\(error.localizedDescription)")
-            return nil
-        }
-    }
-
-    private func decode(_ rawValue: String) -> String? {
-        var value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        value = value.replacingOccurrences(of: "```json", with: "")
-            .replacingOccurrences(of: "```JSON", with: "")
-            .replacingOccurrences(of: "```", with: "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        if let start = value.firstIndex(of: "{"),
-           let end = value.lastIndex(of: "}"),
-           start <= end,
-           let data = String(value[start...end]).data(using: .utf8),
-           let output = try? JSONDecoder().decode(Output.self, from: data) {
-            value = output.query
-        }
-
-        value = value.trimmingCharacters(
-            in: CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: "\"'"))
-        )
-        guard !value.isEmpty, value.count <= 100 else { return nil }
-        return value
-    }
-
-    private func containsChinese(_ value: String) -> Bool {
-        value.range(of: #"\p{Han}"#, options: .regularExpression) != nil
-    }
-}
-
-@MainActor
 final class MoeWallsBrowserViewModel: ObservableObject {
     enum ContentMode: Equatable {
         case daily
@@ -109,7 +23,6 @@ final class MoeWallsBrowserViewModel: ObservableObject {
 
     private let service: MoeWallsService
     private let backgrounds: ImmersiveBackgroundManager
-    private let queryTranslator = MoeWallsQueryTranslator.shared
     private var listTask: Task<Void, Never>?
     private var detailTask: Task<Void, Never>?
     private var listRequestID: UUID?
@@ -186,8 +99,7 @@ final class MoeWallsBrowserViewModel: ObservableObject {
                 if listRequestID == requestID { isLoadingList = false }
             }
             do {
-                let translated = await queryTranslator.englishQuery(for: term)
-                try Task.checkCancellation()
+                let translated = MoeWallsService.localEnglishTranslation(for: term)
                 let results = try await service.search(
                     query: term,
                     translatedQuery: translated
@@ -430,7 +342,9 @@ struct MoeWallsBrowserView: View {
                 .autocorrectionDisabled()
                 .submitLabel(.search)
                 .focused($searchFocused)
-                .onSubmit { commitSearch() }
+                .monoOnSubmit(text: $model.query) { _ in
+                    commitSearch()
+                }
 
             Button {
                 searchFocused = false
@@ -482,10 +396,7 @@ struct MoeWallsBrowserView: View {
 
     private func commitSearch() {
         searchFocused = false
-        // 下一轮主线程事件再读取绑定值，让中文输入法先完成候选词提交。
-        DispatchQueue.main.async {
-            model.submitSearch()
-        }
+        model.submitSearch()
     }
 
     private func previewSection(_ wallpaper: MoeWallsWallpaper) -> some View {

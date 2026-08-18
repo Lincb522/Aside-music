@@ -75,6 +75,8 @@ struct ThemedPageBackground: View {
                     NeumorphicRenderBackdrop()
                 } else if CapsuleStyle.isActive {
                     CapsuleRootBackdrop()
+                } else if ClarityStyle.isActive {
+                    ClarityBackdrop()
                 } else if SequoiaStyle.isActive {
                     SequoiaRootBackdrop()
                 } else if LiquidGlassStyle.isActive {
@@ -206,6 +208,14 @@ struct ThemedPageHeader<Accessory: View>: View {
                     CapsuleIconBadge(icon: icon, tint: CapsuleStyle.accent, size: 46)
                 }
             }
+        } else if ClarityStyle.isActive {
+            ClarityPageHeader(
+                eyebrow: eyebrow,
+                title: title,
+                subtitle: subtitle
+            ) {
+                accessory
+            }
         } else if SequoiaStyle.isActive {
             SequoiaPageHeader(
                 eyebrow: eyebrow,
@@ -310,6 +320,7 @@ private struct ThemedInlineNavigationTitleModifier: ViewModifier {
         if NeumorphicStyle.isActive { return NeumorphicStyle.titleFont(17, weight: .semibold) }
         if SignalStyle.isActive { return SignalStyle.titleFont(17, weight: .bold) }
         if CapsuleStyle.isActive { return CapsuleStyle.bodyFont(17, weight: .bold) }
+        if ClarityStyle.isActive { return ClarityStyle.titleFont(17, weight: .semibold) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(17, weight: .semibold) }
         if PetWhiteStyle.isActive { return PetWhiteStyle.bodyFont(17, weight: .black) }
         return .system(size: 17, weight: .semibold, design: .rounded)
@@ -322,6 +333,7 @@ private struct ThemedInlineNavigationTitleModifier: ViewModifier {
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if SignalStyle.isActive { return SignalStyle.ink }
         if CapsuleStyle.isActive { return CapsuleStyle.ink }
+        if ClarityStyle.isActive { return ClarityStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.ink }
         if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
         return .monoTextPrimary
@@ -354,7 +366,53 @@ struct SettingsScrollablePageHeader: View {
     }
 
     var body: some View {
-        if ThemedPageStyle.isActive {
+        if ClarityStyle.isActive {
+            ZStack(alignment: .trailing) {
+                HStack(alignment: .center, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Capsule(style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [ClarityStyle.accent, ClarityStyle.cyan.opacity(0.74), .clear],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(width: 74, height: 3)
+
+                        Text(title)
+                            .font(ClarityStyle.title(24, weight: .semibold))
+                            .foregroundStyle(ClarityStyle.ink)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                        if !subtitle.isEmpty {
+                            Text(subtitle)
+                                .font(ClarityStyle.body(11.5))
+                                .foregroundStyle(ClarityStyle.inkSoft)
+                                .lineLimit(2)
+                        }
+                    }
+
+                    Spacer(minLength: 58)
+                }
+
+                ZStack {
+                    Circle()
+                        .fill(ClarityStyle.cyan.opacity(0.10))
+                        .frame(width: 64, height: 64)
+                        .blur(radius: 10)
+                    MonoIcon(icon: icon, size: 24, color: ClarityStyle.inkSoft, lineWidth: 1.35)
+                        .frame(width: 52, height: 52)
+                        .background(ClarityMembrane(shape: Circle(), strength: .quiet))
+                }
+                .accessibilityHidden(true)
+            }
+            .padding(.horizontal, DeviceLayout.settingsHeaderHorizontalPadding)
+            .padding(.top, 8)
+            .padding(.bottom, 5)
+            .iPadContentWidth(700)
+            .monoPageHeaderCollapse()
+        } else if ThemedPageStyle.isActive {
             ThemedPageHeader(
                 eyebrow: eyebrow,
                 title: title,
@@ -412,7 +470,7 @@ private struct ThemedNavigationChromeModifier: ViewModifier {
     @Environment(\.monoSheetContext) private var monoSheetContext
 
     private var isThemed: Bool {
-        MinimalWhiteStyle.isActive || MangaStyle.isActive || PetWhiteStyle.isActive || PureWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || SequoiaStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
+        MinimalWhiteStyle.isActive || MangaStyle.isActive || PetWhiteStyle.isActive || PureWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || ClarityStyle.isActive || SequoiaStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
     }
 
     @ViewBuilder
@@ -493,6 +551,16 @@ private struct ThemedPageSurfaceModifier: ViewModifier {
                     )
                 )
                 .themeRenderSurfaceLayer(isEnabled: elevated)
+        } else if ClarityStyle.isActive {
+            content
+                .background(
+                    ClaritySurfaceBackground(
+                        cornerRadius: min(max(cornerRadius, 18), 34),
+                        elevated: elevated,
+                        selected: false
+                    )
+                )
+                .themeRenderSurfaceLayer(isEnabled: elevated)
         } else if SequoiaStyle.isActive {
             content
                 .background(
@@ -558,7 +626,7 @@ private struct ThemedPageSurfaceModifier: ViewModifier {
 
 enum ThemedPageStyle {
     static var isActive: Bool {
-        MinimalWhiteStyle.isActive || MangaStyle.isActive || PetWhiteStyle.isActive || PureWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || SequoiaStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
+        MinimalWhiteStyle.isActive || MangaStyle.isActive || PetWhiteStyle.isActive || PureWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || ClarityStyle.isActive || SequoiaStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
     }
 
     static var listSpacing: CGFloat {
@@ -569,6 +637,7 @@ enum ThemedPageStyle {
         if MujiStyle.isActive { return 8 }
         if NeumorphicStyle.isActive { return 10 }
         if CapsuleStyle.isActive { return 9 }
+        if ClarityStyle.isActive { return 10 }
         if SequoiaStyle.isActive { return 6 }
         if LiquidGlassStyle.isActive { return 8 }
         if ClayStyle.isActive { return 10 }
@@ -585,6 +654,7 @@ enum ThemedPageStyle {
         if MujiStyle.isActive { return 12 }
         if NeumorphicStyle.isActive { return 14 }
         if CapsuleStyle.isActive { return 13 }
+        if ClarityStyle.isActive { return 14 }
         if SequoiaStyle.isActive { return 10 }
         if LiquidGlassStyle.isActive { return 12 }
         if ClayStyle.isActive { return 14 }
@@ -594,7 +664,7 @@ enum ThemedPageStyle {
     }
 
     static var horizontalInset: CGFloat {
-        isActive ? 24 : 0
+        return isActive ? 24 : 0
     }
 
     static var sectionInset: CGFloat {
@@ -609,6 +679,7 @@ enum ThemedPageStyle {
         if MujiStyle.isActive { return 14 }
         if NeumorphicStyle.isActive { return 22 }
         if CapsuleStyle.isActive { return 24 }
+        if ClarityStyle.isActive { return 30 }
         if SequoiaStyle.isActive { return 20 }
         if LiquidGlassStyle.isActive { return 22 }
         if ClayStyle.isActive { return 24 }
@@ -625,6 +696,7 @@ enum ThemedPageStyle {
         if MujiStyle.isActive { return 12 }
         if NeumorphicStyle.isActive { return 18 }
         if CapsuleStyle.isActive { return 18 }
+        if ClarityStyle.isActive { return 20 }
         if SequoiaStyle.isActive { return 11 }
         if LiquidGlassStyle.isActive { return 16 }
         if ClayStyle.isActive { return 18 }

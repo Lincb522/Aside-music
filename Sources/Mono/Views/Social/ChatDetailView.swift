@@ -63,8 +63,16 @@ struct ChatDetailView: View {
                         .themedOnlyPageSurface(cornerRadius: 20, elevated: false)
                         .clipShape(Capsule())
                         .focused($isInputFocused)
+                        .submitLabel(.send)
+                        .monoOnSubmit(text: $inputText) { _ in
+                            sendMessage()
+                        }
                     
-                    Button(action: sendMessage) {
+                    Button {
+                        MonoTextInputCommitter.commit(text: $inputText) { _ in
+                            sendMessage()
+                        }
+                    } label: {
                         MonoIcon(icon: .send, size: 20, color: inputText.isEmpty ? chatMutedText.opacity(0.58) : chatAccent)
                             .frame(width: 40, height: 40)
                             .background(chatButtonFill)

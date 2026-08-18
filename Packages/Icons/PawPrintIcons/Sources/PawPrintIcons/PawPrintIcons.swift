@@ -7,4 +7,12 @@ public extension UIImage {
     convenience init?(pawPrintIconId: String) {
         self.init(named: pawPrintIconId, in: Bundle.module, compatibleWith: nil)
     }
+
+    convenience init?(pawPrintIconId: String, userInterfaceStyle: UIUserInterfaceStyle) {
+        self.init(
+            named: pawPrintIconId,
+            in: Bundle.module,
+            compatibleWith: UITraitCollection(userInterfaceStyle: userInterfaceStyle)
+        )
+    }
 }

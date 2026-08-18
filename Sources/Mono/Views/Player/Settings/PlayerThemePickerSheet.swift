@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftPixelGrid
 
 /// 播放器主题选择面板 — 毛玻璃背景 + 精致卡片预览
 struct PlayerThemePickerSheet: View {
@@ -144,6 +145,7 @@ struct PlayerThemePickerSheet: View {
 private struct PlayerThemeStaticPreview: View {
     let theme: PlayerTheme
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var isDark: Bool { colorScheme == .dark }
     private var ink: Color { isDark ? Color.white.opacity(0.92) : Color(hex: "141414") }
@@ -185,7 +187,7 @@ private struct PlayerThemeStaticPreview: View {
         switch theme {
         case .typewriter, .folk:
             return .system(size: 11.5, weight: .semibold, design: .serif)
-        case .pixel, .motoPager:
+        case .pixel, .motoPager, .dotMatrix, .riveMotion:
             return .system(size: 11, weight: .bold, design: .monospaced)
         case .mangaChat:
             return .system(size: 11.5, weight: .black, design: .rounded)
@@ -214,6 +216,12 @@ private struct PlayerThemeStaticPreview: View {
         case .mangaChat:      return isDark ? Color.white : Color.black
         case .folk:           return Color(hex: "B44A3B")
         case .game2048:       return Color(hex: "EDC22E")
+        case .ipod:           return Color(hex: "6F8B68")
+        case .liquidGlass:    return Color(hex: "86E7FF")
+        case .tornPaper:      return Color(hex: "D96850")
+        case .clarity:        return Color(hex: "2478D8")
+        case .dotMatrix:      return Color(hex: "68F8CF")
+        case .riveMotion:     return Color(hex: "A88BFF")
         }
     }
 
@@ -230,6 +238,14 @@ private struct PlayerThemeStaticPreview: View {
             return Color(hex: "F9F6F2")
         case .aqua:
             return isDark ? .white.opacity(0.92) : Color(hex: "175D86")
+        case .tornPaper:
+            return isDark ? Color(hex: "F1EEE6") : Color(hex: "181716")
+        case .clarity:
+            return isDark ? Color.white.opacity(0.94) : Color(hex: "11151A")
+        case .dotMatrix:
+            return Color(hex: "D9FFF5")
+        case .riveMotion:
+            return Color.white.opacity(0.94)
         default:
             return ink
         }
@@ -257,6 +273,133 @@ private struct PlayerThemeStaticPreview: View {
         case .mangaChat: mangaChatMotif
         case .folk: folkMotif
         case .game2048: game2048Motif
+        case .ipod: ipodMotif
+        case .liquidGlass: liquidGlassMotif
+        case .tornPaper: tornPaperMotif
+        case .clarity: clarityMotif
+        case .dotMatrix: dotMatrixMotif
+        case .riveMotion: riveMotionMotif
+        }
+    }
+
+    private var riveMotionMotif: some View {
+        ZStack {
+            ForEach(0..<4, id: \.self) { index in
+                Circle()
+                    .stroke(
+                        LinearGradient(
+                            colors: [Color(hex: "7CEBFF"), Color(hex: "A88BFF"), Color(hex: "FF80BC")],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 2.4
+                    )
+                    .frame(width: CGFloat(38 + index * 17), height: CGFloat(38 + index * 17))
+                    .opacity(0.9 - Double(index) * 0.15)
+            }
+
+            Circle()
+                .fill(Color.white.opacity(0.94))
+                .frame(width: 28, height: 28)
+                .overlay(MonoIcon(icon: .play, size: 10, color: Color(hex: "151322")))
+        }
+    }
+
+    private var dotMatrixMotif: some View {
+        ZStack {
+            Canvas { context, size in
+                let spacing: CGFloat = 10
+                for y in stride(from: 5, through: size.height, by: spacing) {
+                    for x in stride(from: 5, through: size.width, by: spacing) {
+                        let distance = hypot(x - size.width * 0.5, y - size.height * 0.48)
+                        let opacity = max(0.05, 0.18 - distance / 650)
+                        let rect = CGRect(x: x, y: y, width: 1.8, height: 1.8)
+                        context.fill(Path(ellipseIn: rect), with: .color(Color.white.opacity(opacity)))
+                    }
+                }
+            }
+
+            PixelGrid(
+                preset: .aurora,
+                bloom: PixelGridBloom(amount: 4, intensity: 0.38),
+                cornerRadius: 1,
+                isAnimating: !reduceMotion,
+                scale: 4.2,
+                accessibilityLabel: String(localized: "点阵")
+            )
+        }
+    }
+
+    private var clarityMotif: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 19, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 19, style: .continuous)
+                        .fill(Color.white.opacity(isDark ? 0.08 : 0.46))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 19, style: .continuous)
+                        .stroke(Color.white.opacity(isDark ? 0.18 : 0.82), lineWidth: 0.9)
+                )
+                .frame(width: 105, height: 76)
+                .shadow(color: Color.black.opacity(isDark ? 0.28 : 0.09), radius: 10, y: 6)
+
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [Color(hex: "C5B8E8"), Color(hex: "70D8E8")],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 58, height: 58)
+
+            Circle()
+                .fill(Color(hex: "11151A"))
+                .frame(width: 25, height: 25)
+                .overlay(MonoIcon(icon: .play, size: 9, color: .white, lineWidth: 1.7).offset(x: 0.5))
+                .offset(x: 41, y: 24)
+        }
+    }
+
+    /// 撕页：封面被纸口切开，前景主体越过边缘。
+    private var tornPaperMotif: some View {
+        ZStack {
+            PickerTornPaperShape(variant: 1)
+                .fill(isDark ? Color(hex: "302D28") : Color(hex: "FFFDF7"))
+                .frame(width: 108, height: 82)
+                .rotationEffect(.degrees(-3))
+                .shadow(color: .black.opacity(0.18), radius: 5, y: 3)
+
+            PickerTornPaperShape(variant: 2)
+                .fill(
+                    LinearGradient(
+                        colors: [Color(hex: "375B68"), Color(hex: "D96850")],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 79, height: 61)
+                .rotationEffect(.degrees(2))
+                .offset(x: -7, y: -5)
+
+            VStack(spacing: 0) {
+                Circle()
+                    .fill(Color(hex: "F4F0E7"))
+                    .frame(width: 25, height: 25)
+                PickerTornPaperShape(variant: 3)
+                    .fill(Color(hex: "F4F0E7"))
+                    .frame(width: 47, height: 35)
+            }
+            .shadow(color: .black.opacity(0.2), radius: 3, y: 2)
+            .offset(x: 17, y: 8)
+
+            Rectangle()
+                .fill(Color(hex: "D96850"))
+                .frame(width: 4, height: 25)
+                .rotationEffect(.degrees(-7))
+                .offset(x: -46, y: 28)
         }
     }
 
@@ -774,6 +917,90 @@ private struct PlayerThemeStaticPreview: View {
         )
     }
 
+    /// iPod：单色屏幕、转盘与实体按键
+    private var ipodMotif: some View {
+        HStack(spacing: 8) {
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(isDark ? Color(hex: "20242A") : Color(hex: "E9EDF1"))
+                .frame(width: 60, height: 88)
+                .overlay(alignment: .top) {
+                    RoundedRectangle(cornerRadius: 3, style: .continuous)
+                        .fill(isDark ? Color(hex: "1C302A") : Color(hex: "DCE8D3"))
+                        .frame(width: 43, height: 30)
+                        .overlay(
+                            VStack(spacing: 2) {
+                                Text("♪ NOW")
+                                Text("PLAYING")
+                            }
+                            .font(.system(size: 5.5, weight: .bold, design: .monospaced))
+                            .foregroundColor(isDark ? Color(hex: "C7E6B9") : Color(hex: "2E492E"))
+                        )
+                        .padding(.top, 7)
+                }
+                .overlay(alignment: .bottom) {
+                    Circle()
+                        .fill(isDark ? Color(hex: "343940") : Color(hex: "F7F8F9"))
+                        .frame(width: 33, height: 33)
+                        .overlay(Circle().stroke(ink.opacity(0.14), lineWidth: 0.7))
+                        .overlay(
+                            Image(systemName: "play.fill")
+                                .font(.system(size: 8, weight: .semibold))
+                                .foregroundColor(ink.opacity(0.65))
+                                .symbolRenderingMode(.monochrome)
+                        )
+                        .padding(.bottom, 7)
+                }
+                .shadow(color: Color.black.opacity(isDark ? 0.28 : 0.12), radius: 4, y: 3)
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text("iPod")
+                    .font(.system(size: 18, weight: .black, design: .rounded))
+                    .foregroundColor(ink)
+                Text("♪  MUSIC")
+                    .font(.system(size: 8, weight: .bold, design: .monospaced))
+                    .foregroundColor(Color(hex: "6F8B68"))
+            }
+        }
+    }
+
+    /// 液态玻璃：多层折射透镜与漂浮液滴
+    private var liquidGlassMotif: some View {
+        ZStack {
+            Circle()
+                .fill(Color(hex: "63D8FF").opacity(0.34))
+                .frame(width: 78, height: 78)
+                .blur(radius: 10)
+
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .frame(width: 96, height: 66)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(
+                            LinearGradient(
+                                colors: [.white.opacity(0.85), .white.opacity(0.12), Color(hex: "9B8CFF").opacity(0.5)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                }
+                .shadow(color: Color(hex: "65DFFF").opacity(0.25), radius: 10, y: 5)
+
+            Circle()
+                .fill(.ultraThinMaterial)
+                .frame(width: 35, height: 35)
+                .overlay(Circle().stroke(Color.white.opacity(0.72), lineWidth: 0.8))
+                .overlay(MonoIcon(icon: .play, size: 12, color: .white, lineWidth: 1.8))
+
+            Circle()
+                .fill(Color.white.opacity(0.3))
+                .frame(width: 13, height: 13)
+                .overlay(Circle().stroke(Color.white.opacity(0.76), lineWidth: 0.7))
+                .offset(x: 45, y: -31)
+        }
+    }
+
     // MARK: - 小件
 
     private func aquaBubble(size: CGFloat, icon: MonoIcon.IconType? = nil) -> some View {
@@ -871,6 +1098,51 @@ private struct PlayerThemeStaticPreview: View {
             LinearGradient(colors: isDark ? [Color(hex: "2C2118"), Color(hex: "15100C")] : [Color(hex: "F5E9D8"), Color(hex: "E4D1B8")], startPoint: .top, endPoint: .bottom)
         case .game2048:
             Color(hex: "BBADA0")
+        case .ipod:
+            LinearGradient(
+                colors: isDark
+                    ? [Color(hex: "171B1F"), Color(hex: "293238")]
+                    : [Color(hex: "E5E9ED"), Color(hex: "C6D0D6")],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        case .liquidGlass:
+            LinearGradient(
+                colors: isDark
+                    ? [Color(hex: "07131F"), Color(hex: "123751"), Color(hex: "251B4E")]
+                    : [Color(hex: "DDF8FF"), Color(hex: "AFCFF5"), Color(hex: "C8BCFF")],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        case .clarity:
+            LinearGradient(
+                colors: isDark
+                    ? [Color(hex: "131C25"), Color(hex: "0D1218")]
+                    : [Color(hex: "F7F8F8"), Color(hex: "E7F1F3"), Color(hex: "F1EAF7")],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        case .tornPaper:
+            LinearGradient(
+                colors: isDark
+                    ? [Color(hex: "171615"), Color(hex: "38342F")]
+                    : [Color(hex: "CBC6BC"), Color(hex: "EEE9DF")],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        case .dotMatrix:
+            LinearGradient(
+                colors: [Color(hex: "07110F"), Color(hex: "0B1F20"), Color(hex: "10162B")],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        case .riveMotion:
+            RadialGradient(
+                colors: [Color(hex: "302A64"), Color(hex: "15152A"), Color(hex: "080812")],
+                center: .center,
+                startRadius: 8,
+                endRadius: 140
+            )
         }
     }
 
@@ -902,6 +1174,39 @@ private struct TrapezoidShape: Shape {
             path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
             path.closeSubpath()
         }
+    }
+}
+
+private struct PickerTornPaperShape: Shape {
+    let variant: Int
+
+    func path(in rect: CGRect) -> Path {
+        let steps = 9
+        let amplitude = min(rect.width, rect.height) * 0.045
+        return Path { path in
+            path.move(to: CGPoint(x: rect.minX, y: rect.minY + offset(0, amplitude)))
+            for index in 1...steps {
+                let p = CGFloat(index) / CGFloat(steps)
+                path.addLine(to: CGPoint(x: rect.minX + rect.width * p, y: rect.minY + offset(index, amplitude)))
+            }
+            for index in 1...steps {
+                let p = CGFloat(index) / CGFloat(steps)
+                path.addLine(to: CGPoint(x: rect.maxX + offset(index + 17, amplitude), y: rect.minY + rect.height * p))
+            }
+            for index in 1...steps {
+                let p = CGFloat(index) / CGFloat(steps)
+                path.addLine(to: CGPoint(x: rect.maxX - rect.width * p, y: rect.maxY + offset(index + 31, amplitude)))
+            }
+            for index in 1...steps {
+                let p = CGFloat(index) / CGFloat(steps)
+                path.addLine(to: CGPoint(x: rect.minX + offset(index + 47, amplitude), y: rect.maxY - rect.height * p))
+            }
+            path.closeSubpath()
+        }
+    }
+
+    private func offset(_ index: Int, _ amplitude: CGFloat) -> CGFloat {
+        CGFloat(sin(Double(index * 41 + variant * 67))) * amplitude
     }
 }
 

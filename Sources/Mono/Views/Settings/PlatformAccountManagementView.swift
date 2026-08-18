@@ -18,12 +18,12 @@ struct PlatformAccountManagementView: View {
             ScrollView {
                 VStack(spacing: SettingsPageLayout.sectionSpacing) {
                     SettingsScrollablePageHeader(
-                        title: "平台账号管理",
-                        eyebrow: "ACCOUNTS",
+                        title: String(localized: "platform_account_management"),
+                        eyebrow: String(localized: "settings_eyebrow_accounts"),
                         icon: .personCircle
                     )
 
-                    SettingsSection(title: "音乐平台") {
+                    SettingsSection(title: String(localized: "platform_account_music_services")) {
                         NavigationLink {
                             NCMAccountView()
                         } label: {
@@ -82,8 +82,8 @@ struct PlatformAccountManagementView: View {
                                 detail: nil,
                                 isConnected: appleMusicService.isAuthorized,
                                 avatarURL: nil,
-                                connectedText: "已授权",
-                                disconnectedText: "未授权"
+                                connectedText: String(localized: "platform_account_authorized"),
+                                disconnectedText: String(localized: "platform_account_unauthorized")
                             )
                         }
                         .buttonStyle(.plain)
@@ -98,7 +98,7 @@ struct PlatformAccountManagementView: View {
             .scrollIndicators(.hidden)
             .refreshable { await refreshAccounts() }
         }
-        .asideSettingsDetailChrome("平台账号管理")
+        .asideSettingsDetailChrome(String(localized: "platform_account_management"))
         .task { await refreshAccounts() }
     }
 
@@ -138,8 +138,8 @@ struct PlatformAccountManagementView: View {
         detail: String?,
         isConnected: Bool,
         avatarURL: URL?,
-        connectedText: String = "已登录",
-        disconnectedText: String = "未登录"
+        connectedText: String = String(localized: "platform_account_connected"),
+        disconnectedText: String = String(localized: "platform_account_disconnected")
     ) -> some View {
         HStack(spacing: 13) {
             platformAvatar(source: source, avatarURL: avatarURL)
@@ -210,6 +210,7 @@ struct PlatformAccountManagementView: View {
         guard !isRefreshing else { return }
         isRefreshing = true
         defer { isRefreshing = false }
+        appleMusicService.refreshAuthorizationStatus()
 
         async let ncmRefresh = fetchNCMProfile()
         async let qcmRefresh: Void = qcmSession.refresh()

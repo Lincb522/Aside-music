@@ -23,6 +23,8 @@ struct PlayerMoreMenu: View {
     var isDarkBackground: Bool = false
     /// 是否显示"沉浸模式"入口（沉浸模式内部的菜单不显示）
     var showImmersiveEntry: Bool = true
+    /// 横屏播放器可直接在三点菜单内选择主题，避免再弹出受方向锁影响的 Sheet。
+    var presentsThemeInline: Bool = false
     var onQuality: (() -> Void)? = nil
     var onEQ: () -> Void
     var onTheme: (() -> Void)? = nil
@@ -37,6 +39,7 @@ struct PlayerMoreMenu: View {
     @ObservedObject private var monoSession = MonoSessionManager.shared
     @ObservedObject private var downloadManager = DownloadManager.shared
     @ObservedObject private var lyricDownloadManager = LyricDownloadManager.shared
+    @ObservedObject private var themeManager = PlayerThemeManager.shared
     @AppStorage("enableKaraoke") private var enableKaraoke = false
     @AppStorage("showTranslation") private var showTranslation = true
     @State private var showTimerSheet = false
@@ -46,11 +49,28 @@ struct PlayerMoreMenu: View {
     @State private var showMonoSession = false
     @State private var showCurrentSongDownload = false
     @State private var showDownloadManager = false
+    @State private var showsInlineThemeChoices = false
     @State private var selectedSongForStory: Song?
     /// 子级页面关闭时，Sheet 的绑定会先复位；单独保留转场状态，避免菜单短暂重绘。
     @State private var isPresentingChild = false
 
     private let textColor: Color = .monoTextPrimary
+
+    /// 自定义开关不能再借用正文色透明度：部分主题会覆盖正文色，导致
+    /// 深色菜单里的关闭轨道和滑块一起发白。这里使用明确的深浅色语义色。
+    private var toggleOffTrackColor: Color {
+        Color(
+            light: Color.black.opacity(0.13),
+            dark: Color.white.opacity(0.18)
+        )
+    }
+
+    private var toggleOffThumbColor: Color {
+        Color(
+            light: Color.white,
+            dark: Color.white.opacity(0.76)
+        )
+    }
 
     private var currentLyricSource: LyricSource? {
         guard let song = player.currentSong else { return nil }
@@ -135,21 +155,30 @@ struct PlayerMoreMenu: View {
                 Color.black.opacity(isDarkBackground ? 0.07 : 0.035)
                     .ignoresSafeArea()
                     .contentShape(Rectangle())
+                    .zIndex(0)
                     .onTapGesture {
                         closeMenu()
                     }
 
                 if !isPresentingChild {
-                    menuPanel
-                        .frame(width: panelWidth)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxHeight: panelMaxHeight, alignment: .top)
-                        .padding(.top, resolvedTopPadding)
-                        .padding(.trailing, resolvedTrailingPadding(containerWidth: proxy.size.width))
-                        .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .topTrailing)))
+                    Group {
+                        if presentsThemeInline {
+                            landscapeMenuPanel
+                        } else {
+                            menuPanel
+                        }
+                    }
+                    .frame(width: panelWidth)
+                    .fixedSize(horizontal: false, vertical: !presentsThemeInline)
+                    .frame(maxHeight: panelMaxHeight, alignment: .top)
+                    .padding(.top, resolvedTopPadding)
+                    .padding(.trailing, resolvedTrailingPadding(containerWidth: proxy.size.width))
+                    .zIndex(1)
+                    .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .topTrailing)))
                 }
             }
         }
+        .monoIconDarkArtworkSurface(isDarkBackground)
         .monoSheet(isPresented: $showTimerSheet, onDismiss: {
             closeMenu()
         }, preset: .standard){
@@ -218,11 +247,30 @@ struct PlayerMoreMenu: View {
         }
     }
 
-    private var menuPanelContent: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            menuSection(title: String(localized: "player_more_playback_section")) {
-                playbackQuickActions
+    /// 收音机使用独立的横屏菜单布局：工具卡片、主题入口和功能分组
+    /// 都在同一块面板内完成，避免竖屏菜单的长列表在横屏下被截断。
+    private var landscapeMenuPanel: some View {
+        MonoMoreMenuPanel(
+            title: String(localized: "player_more_title"),
+            isDarkBackground: isDarkBackground,
+            closeAction: closeMenu
+        ) {
+            ScrollView {
+                if showsInlineThemeChoices {
+                    inlineThemeChooserPage
+                } else {
+                    landscapeMenuContent
+                }
             }
+            .scrollIndicators(.hidden)
+        }
+    }
+
+    private var landscapeMenuContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            landscapeQuickActionGrid
+
+            landscapeThemeCard
 
             menuSection(title: String(localized: "player_more_lyrics_section")) {
                 lyricActionList
@@ -230,6 +278,162 @@ struct PlayerMoreMenu: View {
 
             menuSection(title: String(localized: "player_more_player_section")) {
                 playerActionList
+            }
+        }
+    }
+
+    private var landscapeQuickActionGrid: some View {
+        LazyVGrid(
+            columns: [
+                GridItem(.flexible(minimum: 0), spacing: 8),
+                GridItem(.flexible(minimum: 0), spacing: 8),
+                GridItem(.flexible(minimum: 0), spacing: 8),
+            ],
+            spacing: 8
+        ) {
+            if let onQuality {
+                landscapeQuickAction(
+                    icon: .soundQuality,
+                    title: String(localized: "quality_title"),
+                    status: player.qualityButtonText,
+                    isEnabled: player.currentSong != nil && player.isCurrentPlaybackQualitySelectable
+                ) {
+                    closeMenu()
+                    onQuality()
+                }
+            }
+
+            landscapeQuickAction(
+                icon: .clock,
+                title: String(localized: "podcast_timer_title"),
+                status: timerStatusText
+            ) {
+                isPresentingChild = true
+                showTimerSheet = true
+            }
+
+            landscapeQuickAction(
+                icon: .audioWave,
+                title: String(localized: "mono_audio_center_title"),
+                status: soundCenterStatusText
+            ) {
+                closeMenu()
+                onEQ()
+            }
+        }
+    }
+
+    private var landscapeThemeCard: some View {
+        Button {
+            withAnimation(.easeOut(duration: 0.18)) {
+                showsInlineThemeChoices = true
+            }
+        } label: {
+            HStack(spacing: 11) {
+                menuRowIcon(.playerTheme, isActive: true, isEnabled: true)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(localized: "theme_title"))
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundColor(textColor.opacity(0.94))
+
+                    Text(themeManager.currentTheme.displayName)
+                        .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                        .foregroundColor(.monoTextSecondary)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 8)
+
+                MonoIcon(icon: .chevronRight, size: 11, color: textColor.opacity(0.62))
+            }
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity, minHeight: 54)
+            .background(
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                    .fill(Color.monoAccent.opacity(0.10))
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                    .stroke(Color.monoAccent.opacity(0.32), lineWidth: 0.7)
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func landscapeQuickAction(
+        icon: MonoIcon.IconType,
+        title: String,
+        status: String?,
+        isEnabled: Bool = true,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            VStack(spacing: 5) {
+                MonoIcon(icon: icon, size: 16, color: isEnabled ? .monoAccent : textColor.opacity(0.34))
+                Text(title)
+                    .font(.system(size: 10.5, weight: .semibold, design: .rounded))
+                    .foregroundColor(textColor.opacity(isEnabled ? 0.92 : 0.34))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+                if let status, !status.isEmpty {
+                    Text(status)
+                        .font(.system(size: 9.5, weight: .medium, design: .rounded))
+                        .foregroundColor(.monoTextSecondary.opacity(isEnabled ? 1 : 0.38))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 66)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(textColor.opacity(isEnabled ? 0.055 : 0.025))
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(Color.monoSeparator.opacity(0.5), lineWidth: 0.5)
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+    }
+
+    private var menuPanelContent: some View {
+        Group {
+            if presentsThemeInline && showsInlineThemeChoices {
+                inlineThemeChooserPage
+            } else {
+                VStack(alignment: .leading, spacing: 10) {
+                    // 横屏收音机的主题入口固定在三点菜单首屏，
+                    // 不依赖菜单滚动到播放器分组后才能触发。
+                    if presentsThemeInline {
+                        menuGroup {
+                            menuActionRow(
+                                icon: .playerTheme,
+                                title: String(localized: "theme_title"),
+                                status: themeManager.currentTheme.displayName
+                            ) {
+                                withAnimation(.easeOut(duration: 0.18)) {
+                                    showsInlineThemeChoices = true
+                                }
+                            }
+                        }
+                    }
+
+                    menuSection(title: String(localized: "player_more_playback_section")) {
+                        playbackQuickActions
+                    }
+
+                    menuSection(title: String(localized: "player_more_lyrics_section")) {
+                        lyricActionList
+                    }
+
+                    menuSection(title: String(localized: "player_more_player_section")) {
+                        playerActionList
+                    }
+                }
             }
         }
     }
@@ -298,7 +502,7 @@ struct PlayerMoreMenu: View {
                 showMonoSession = true
             }
 
-            if let onTheme {
+            if !presentsThemeInline, let onTheme {
                 menuDivider
 
                 menuActionRow(
@@ -356,6 +560,112 @@ struct PlayerMoreMenu: View {
                 }
             }
         }
+    }
+
+    private var inlineThemeChooser: some View {
+        // The menu already owns a vertical ScrollView. A nested horizontal
+        // ScrollView/LazyHGrid was unreliable in the forced-landscape radio
+        // layout: the cards rendered, but their hit regions could be consumed
+        // by the parent gesture area. Keep a single scroll container and let
+        // the parent menu scroll through a regular two-column grid.
+        LazyVGrid(
+            columns: [
+                GridItem(.flexible(minimum: 0), spacing: 7),
+                GridItem(.flexible(minimum: 0), spacing: 7),
+            ],
+            spacing: 7
+        ) {
+            ForEach(PlayerTheme.allCases) { theme in
+                inlineThemeButton(theme)
+            }
+        }
+        .padding(.horizontal, 9)
+        .padding(.vertical, 8)
+    }
+
+    private var inlineThemeChooserPage: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Button {
+                withAnimation(.easeOut(duration: 0.18)) {
+                    showsInlineThemeChoices = false
+                }
+            } label: {
+                HStack(spacing: 9) {
+                    MonoIcon(icon: .chevronLeft, size: 13, color: textColor.opacity(0.78))
+                        .frame(width: 26, height: 26)
+                        .background(
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .fill(textColor.opacity(0.045))
+                        )
+
+                    Text(String(localized: "theme_title"))
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundColor(textColor.opacity(0.92))
+
+                    Spacer(minLength: 0)
+
+                    Text(themeManager.currentTheme.displayName)
+                        .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                        .foregroundColor(.monoTextSecondary)
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, 4)
+                .frame(maxWidth: .infinity, minHeight: 34)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            inlineThemeChooser
+        }
+        .contentShape(Rectangle())
+    }
+
+    private func inlineThemeButton(_ theme: PlayerTheme) -> some View {
+        let isSelected = themeManager.currentTheme == theme
+
+        return Button {
+            guard !isSelected else {
+                closeMenu()
+                return
+            }
+            HapticManager.shared.light()
+            themeManager.setTheme(theme)
+            closeMenu()
+        } label: {
+            HStack(spacing: 6) {
+                Text(theme.displayName)
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .foregroundColor(isSelected ? .monoAccent : textColor.opacity(0.86))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.74)
+
+                if isSelected {
+                    MonoIcon(icon: .checkmark, size: 9, color: .monoAccent, lineWidth: 2)
+                }
+            }
+            .padding(.horizontal, 10)
+            .frame(width: 112, height: 34)
+            .background(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(
+                        isSelected
+                            ? Color.monoAccent.opacity(0.13)
+                            : textColor.opacity(0.045)
+                    )
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .stroke(
+                        isSelected
+                            ? Color.monoAccent.opacity(0.5)
+                            : Color.monoSeparator.opacity(0.45),
+                        lineWidth: 0.5
+                    )
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     private var playbackQuickActions: some View {
@@ -468,13 +778,22 @@ struct PlayerMoreMenu: View {
                 Spacer(minLength: 0)
 
                 Capsule(style: .continuous)
-                    .fill(isOn.wrappedValue ? Color.monoAccent : textColor.opacity(0.11))
+                    .fill(isOn.wrappedValue ? Color.monoAccent : toggleOffTrackColor)
                     .frame(width: 30, height: 18)
                     .overlay(alignment: isOn.wrappedValue ? .trailing : .leading) {
                         Circle()
-                            .fill(isOn.wrappedValue ? Color.white : textColor.opacity(0.58))
+                            .fill(
+                                isOn.wrappedValue
+                                    ? Color.monoAccentForeground
+                                    : toggleOffThumbColor
+                            )
                             .frame(width: 14, height: 14)
                             .padding(2)
+                            .shadow(
+                                color: Color.black.opacity(isOn.wrappedValue ? 0.12 : 0.18),
+                                radius: 1.5,
+                                y: 0.5
+                            )
                     }
             }
             .padding(.horizontal, 11)
@@ -646,6 +965,7 @@ struct PlayerMoreMenu: View {
     private func closeMenu() {
         withAnimation(.easeOut(duration: 0.18)) {
             isPresented = false
+            showsInlineThemeChoices = false
         }
     }
 }

@@ -19,6 +19,12 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
     case mangaChat         // 漫画聊天 - 歌词以对话气泡形式展示
     case folk              // 民谣 - 旅行手记笔记本风格
     case game2048          // 2048 - 数字方块游戏风格
+    case ipod              // iPod - 单色屏幕与实体转盘
+    case liquidGlass       // 液态玻璃 - 全玻璃材质与封面动态取色
+    case tornPaper         // 撕页 - 系统主体抠图与撕纸拼贴
+    case clarity           // 通透 - 空气光层、漂浮封面与独立控制界面
+    case dotMatrix         // 点阵 - 动态九点信号与分段式播放控制
+    case riveMotion        // 矢量律动 - Rive 可触摸状态机与播放器联动
     var id: String { rawValue }
     
     var displayName: String {
@@ -40,6 +46,12 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
         case .mangaChat:  return String(localized: "漫画")
         case .folk:       return String(localized: "信笺")
         case .game2048:   return String(localized: "2048")
+        case .ipod:       return "iPod"
+        case .liquidGlass: return String(localized: "液态玻璃")
+        case .tornPaper: return String(localized: "撕页")
+        case .clarity: return String(localized: "通透")
+        case .dotMatrix: return String(localized: "点阵")
+        case .riveMotion: return String(localized: "矢量律动")
         }
     }
     
@@ -62,6 +74,12 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
         case .mangaChat:  return "bubble.left.and.bubble.right.fill"
         case .folk:       return "envelope.fill"
         case .game2048:   return "square.grid.2x2.fill"
+        case .ipod:       return "ipod"
+        case .liquidGlass: return "drop.circle.fill"
+        case .tornPaper: return "doc.richtext.fill"
+        case .clarity: return "circle.hexagongrid.fill"
+        case .dotMatrix: return "circle.grid.3x3.fill"
+        case .riveMotion: return "waveform.path.ecg.rectangle"
         }
     }
     
@@ -84,6 +102,12 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
         case .mangaChat:  return String(localized: "漫画风聊天，歌词以对话气泡形式展示")
         case .folk:       return String(localized: "诗集信笺，非常规打字机逐行出现的打字信件")
         case .game2048:   return String(localized: "2048 方块游戏，滑动切歌点击方块控制")
+        case .ipod:       return "单色屏幕、实体转盘与硬件播放器布局"
+        case .liquidGlass: return String(localized: "全液态玻璃界面，随歌曲封面动态折射取色")
+        case .tornPaper: return String(localized: "从封面提取主体，以撕纸拼贴重新组织歌曲与歌词")
+        case .clarity: return String(localized: "空气光层、漂浮封面与独立控制界面")
+        case .dotMatrix: return String(localized: "动态点阵信号、分段进度与独立控制界面")
+        case .riveMotion: return String(localized: "可触摸的矢量声环与状态动画控制")
         }
     }
     
@@ -92,7 +116,7 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .classic, .vinyl, .lyricFocus, .poster, .breathing, .immersiveLyric:
             return false // 依赖全局模糊封面背景
-        case .card, .neumorphic, .motoPager, .typewriter, .pixel, .aqua, .cassette, .radio, .mangaChat, .folk, .game2048:
+        case .card, .neumorphic, .motoPager, .typewriter, .pixel, .aqua, .cassette, .radio, .mangaChat, .folk, .game2048, .ipod, .liquidGlass, .tornPaper, .clarity, .dotMatrix, .riveMotion:
             return true  // 自带不透明的自定义背景
         }
     }

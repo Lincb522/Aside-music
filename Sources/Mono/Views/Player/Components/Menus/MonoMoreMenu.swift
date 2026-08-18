@@ -32,6 +32,7 @@ struct MonoMoreMenuOverlay<Content: View>: View {
                 .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .topTrailing)))
             }
         }
+        .monoIconDarkArtworkSurface(isDarkBackground)
         .accessibilityAction(.escape, close)
     }
 
@@ -70,9 +71,7 @@ struct MonoMoreMenuPanel<Content: View>: View {
             .padding(.trailing, 4)
             .padding(.vertical, 4)
 
-            Rectangle()
-                .fill(Color.monoSeparator)
-                .frame(height: 0.5)
+            Rectangle().fill(Color.monoSeparator).frame(height: 0.5)
 
             content()
                 .padding(12)
@@ -83,7 +82,7 @@ struct MonoMoreMenuPanel<Content: View>: View {
                 .monoGlass(cornerRadius: 16)
         }
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .shadow(color: .black.opacity(isDarkBackground ? 0.3 : 0.2), radius: 12, x: 0, y: 6)
+        .shadow(color: .black.opacity(isDarkBackground ? 0.3 : 0.2), radius: 12, x: 0, y: 7)
     }
 }
 
@@ -172,6 +171,12 @@ struct MonoMoreMenuToggleRow: View {
     let title: String
     @Binding var isOn: Bool
 
+    private var toggleTint: Color {
+        isOn
+            ? Color.monoAccent
+            : Color(light: Color.black.opacity(0.13), dark: Color.white.opacity(0.18))
+    }
+
     var body: some View {
         Toggle(isOn: $isOn.animation(.easeOut(duration: 0.18))) {
             HStack(spacing: 11) {
@@ -196,7 +201,7 @@ struct MonoMoreMenuToggleRow: View {
                     .lineLimit(1)
             }
         }
-        .tint(.monoAccent)
+        .tint(toggleTint)
         .padding(.horizontal, 12)
         .frame(minHeight: 46)
     }

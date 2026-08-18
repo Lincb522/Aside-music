@@ -20,13 +20,19 @@ public extension QQMusicClient {
     /// - Parameter type: 登录类型（.qq 或 .wx）
     /// - Returns: 二维码信息，包含图片数据和轮询 ID
     func createQRCode(type: QRLoginType = .qq) async throws -> QRCode {
-        try await request("/login/qrcode/create", params: ["type": type.rawValue])
+        try await request("/login/qrcode/create", params: [
+            "type": type.rawValue,
+            "timestamp": String(Int(Date().timeIntervalSince1970 * 1_000)),
+        ])
     }
 
     /// 检查二维码扫码状态
     /// - Parameter qrId: 二维码 ID（从 createQRCode 获取）
     func checkQRCode(qrId: String) async throws -> QRCodeStatus {
-        try await request("/login/qrcode/check", params: ["qr_id": qrId])
+        try await request("/login/qrcode/check", params: [
+            "qr_id": qrId,
+            "timestamp": String(Int(Date().timeIntervalSince1970 * 1_000)),
+        ])
     }
 
     /// 轮询二维码状态直到终态

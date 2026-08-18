@@ -35,7 +35,7 @@ function installTokenSongContent({
   contentGenerator,
   appAIConfigProvider,
   schemaVersion = '3',
-  promptVersion = 'song-editor-web-v6',
+  promptVersion = 'song-editor-web-v7',
   autoPublish = true,
   startWorker = true,
   encryptionKey = process.env.SONG_CONTENT_MASTER_KEY,

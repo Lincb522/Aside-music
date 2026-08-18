@@ -1,5 +1,6 @@
 const crypto = require('node:crypto')
 const { codedError, normalizeComparable } = require('./song-content-store')
+const { containsInternalPayload, sanitizePublishedText } = require('./song-content-sanitizer')
 
 const CONTENT_FIELDS = ['songSummary', 'creationStory', 'background', 'albumSummary']
 const CONTENT_FIELD_LABELS_FOR_PROMPT = {
@@ -7,6 +8,12 @@ const CONTENT_FIELD_LABELS_FOR_PROMPT = {
   creationStory: '创作故事',
   background: '乐评',
   albumSummary: '专辑介绍'
+}
+const CONTENT_MINIMUM_CHARACTERS = {
+  songSummary: 160,
+  creationStory: 160,
+  background: 320,
+  albumSummary: 160
 }
 const BANNED_PHRASES = [
   '作为 AI',
@@ -57,7 +64,7 @@ function createSongContentPipeline({
   sourceCollector,
   contentGenerator,
   schemaVersion = '1',
-  promptVersion = 'song-editor-web-v6',
+  promptVersion = 'song-editor-web-v7',
   autoPublish = true,
   policyProvider,
   logger = console
@@ -205,10 +212,10 @@ function createSongContentPipeline({
       logger.warn?.(`[song-content] initial generation used more than the task token budget for job ${job.id}: ${initialUsedTokens} / ${taskTokenLimit}; preserving the valid result`)
     }
 
-    const initiallyMissing = missingEvidenceBackedSections(content, generationEvidencePackage)
-    const completionPackage = initiallyMissing.length > 0
+    const sectionsToImprove = evidenceBackedSectionsNeedingCompletion(content, generationEvidencePackage)
+    const completionPackage = sectionsToImprove.length > 0
       ? compactEvidencePackage(
-          buildCompletionEvidencePackage(generationEvidencePackage, initiallyMissing, content),
+          buildCompletionEvidencePackage(generationEvidencePackage, sectionsToImprove, content),
           promptContext
         )
       : null
@@ -221,22 +228,22 @@ function createSongContentPipeline({
       estimatedInputTokens: completionInputTokens,
       maxOutputTokens: Number(policy.maxOutputTokens) || 4_000
     })
-    if (initiallyMissing.length > 0 && hasCompletionBudget) {
+    if (sectionsToImprove.length > 0 && hasCompletionBudget) {
       try {
         const completion = await requestGeneration(
           completionPackage,
-          `${requestId}:complete:${initiallyMissing.join('-')}`
+          `${requestId}:complete:${sectionsToImprove.join('-')}`
         )
         const completedContent = normalizeGeneratedContent(completion?.content ?? completion)
-        content = mergeGeneratedContent(content, completedContent)
+        content = mergeGeneratedContent(content, completedContent, sectionsToImprove)
         pruneUnsupportedSourceRefs(content, generationEvidencePackage)
         generated = combineGenerationResults(generated, completion)
       } catch (error) {
         logger.warn?.(`[song-content] missing-section completion failed for job ${job.id}`, error)
       }
     }
-    if (initiallyMissing.length > 0 && !hasCompletionBudget) {
-      logger.warn?.(`[song-content] skipped missing-section completion for job ${job.id}: token budget is insufficient`)
+    if (sectionsToImprove.length > 0 && !hasCompletionBudget) {
+      logger.warn?.(`[song-content] skipped section completion for job ${job.id}: token budget is insufficient`)
     }
 
     content = applyOfficialEvidenceFallbacks(content, evidencePackage)
@@ -446,8 +453,8 @@ function compactEvidencePackage(evidencePackage, {
   return compacted
 }
 
-function buildCompletionEvidencePackage(evidencePackage, missingFields, previousContent) {
-  const required = new Set(missingFields)
+function buildCompletionEvidencePackage(evidencePackage, fieldsToImprove, previousContent) {
+  const required = new Set(fieldsToImprove)
   const sources = (evidencePackage.sources || []).filter((source) => {
     const roles = Array.isArray(source.metadata?.contentRoles) ? source.metadata.contentRoles : []
     return roles.some((role) => required.has(role))
@@ -466,8 +473,8 @@ function buildCompletionEvidencePackage(evidencePackage, missingFields, previous
     exclusions: [],
     sources,
     generationRequirements: {
-      mode: 'complete_missing_evidence_backed_sections',
-      missingFields,
+      mode: 'complete_or_expand_evidence_backed_sections',
+      missingFields: fieldsToImprove,
       preserveExistingContent: true,
       previousContent: preservedContent
     }
@@ -671,6 +678,9 @@ function validateGeneratedContent({ content, evidencePackage, store, songId }) {
     if (SOURCE_ATTRIBUTION_PATTERNS.some((pattern) => pattern.test(content[field]))) {
       errors.push(`source_attribution:${field}`)
     }
+    if (containsInternalPayload(content[field])) {
+      errors.push(`internal_payload:${field}`)
+    }
   }
 
   if (content.creationStory) {
@@ -729,11 +739,28 @@ function missingEvidenceBackedSections(content, evidencePackage) {
   return requiredFields.filter((field) => supportedRoles.has(field) && !content[field])
 }
 
-function mergeGeneratedContent(primary, completion) {
+function evidenceBackedSectionsNeedingCompletion(content, evidencePackage) {
+  const supportedRoles = new Set(
+    evidencePackage.sources.flatMap((source) => Array.isArray(source.metadata?.contentRoles)
+      ? source.metadata.contentRoles
+      : [])
+  )
+  return CONTENT_FIELDS.filter((field) => {
+    if (!supportedRoles.has(field)) return false
+    const text = cleanText(content[field], 20_000)
+    return !text || [...text].length < CONTENT_MINIMUM_CHARACTERS[field]
+  })
+}
+
+function mergeGeneratedContent(primary, completion, fieldsToImprove = []) {
+  const replaceable = new Set(fieldsToImprove)
   const content = {}
   const sourceRefs = {}
   for (const field of CONTENT_FIELDS) {
-    const useCompletion = !primary[field] && Boolean(completion[field])
+    const completionIsStronger = replaceable.has(field)
+      && Boolean(completion[field])
+      && [...completion[field]].length > [...(primary[field] || '')].length
+    const useCompletion = (!primary[field] && Boolean(completion[field])) || completionIsStronger
     content[field] = useCompletion ? completion[field] : primary[field]
     sourceRefs[field] = useCompletion
       ? (completion.sourceRefs[field] || [])
@@ -782,14 +809,15 @@ function applyOfficialEvidenceFallbacks(content, evidencePackage) {
     if (result[candidate.field] && result.sourceRefs[candidate.field].length > 0) continue
     const source = evidencePackage.sources.find((item) => {
       const roles = Array.isArray(item.metadata?.contentRoles) ? item.metadata.contentRoles : []
+      const excerpt = sanitizePublishedText(item.excerpt, 4_000)
       return ['A', 'B'].includes(item.grade)
         && item.metadata?.platform !== 'WEB'
         && candidate.sourceTypes.has(item.metadata?.sourceType)
         && roles.includes(candidate.field)
-        && cleanText(item.excerpt, 4_000)
+        && excerpt
     })
     if (!source) continue
-    result[candidate.field] = cleanText(source.excerpt, 4_000)
+    result[candidate.field] = sanitizePublishedText(source.excerpt, 4_000)
     result.sourceRefs[candidate.field] = [source.id]
   }
 
@@ -1295,7 +1323,7 @@ function userPrompt(prefix, evidencePackage) {
     ? evidencePackage.generationRequirements.missingFields
     : []
   const completionInstruction = missingFields.length > 0
-    ? `补全要求：上一轮遗漏了 ${missingFields.map((field) => CONTENT_FIELD_LABELS_FOR_PROMPT[field] || field).join('、')}。请保留 previousContent 中已有且有来源支持的内容，优先补全这些遗漏字段，并再次返回完整 JSON。若证据确实不足，仍须留空，不得推测或编造。`
+    ? `增强要求：上一轮的 ${missingFields.map((field) => CONTENT_FIELD_LABELS_FOR_PROMPT[field] || field).join('、')} 为空或内容明显不足。请保留 previousContent 中其他已有且有来源支持的内容，针对这些栏目补全或扩写可被证据直接支持的具体信息，并再次返回完整 JSON。若证据确实不足，仍须留空或保留原文，不得推测或编造。`
     : null
   return [normalized, completionInstruction, JSON.stringify(evidencePackage)].filter(Boolean).join('\n\n')
 }
@@ -1307,6 +1335,7 @@ function systemPrompt(promptVersion) {
     '返回 JSON：song_summary、creation_story、background、album_summary、source_refs、confidence、risk_flags。',
     '四个字段含义固定：song_summary 是歌曲介绍；creation_story 是创作故事；background 是高质量乐评；album_summary 是专辑介绍。不得改变字段用途。',
     '文字要自然、有情绪和节奏，但不要夸张煽情，不要使用 AI 腔、套话、总结腔或说明自己如何写作。歌曲介绍、专辑介绍和创作故事在证据充分时写 3 至 5 段、约 300 至 800 个中文字符；乐评写 4 至 6 段、约 500 至 1,200 个中文字符。资料有限时宁可缩短，也不得用空话扩写。',
+    '每个栏目首段直接给出对这首歌或这张专辑最有辨识度的事实与观察，后续段落各自承担不同信息；不得在四个栏目之间重复同一段发行资料、主题概括或形容词。证据足够而正文明显过短时，应优先增加具体事实、声音细节和上下文，而不是增加抒情套话。',
     '歌曲介绍优先交代作品定位、发行与收录关系、明确可证的主题和声音特点；创作故事按时间或因果组织已核实的采访与制作事实；乐评应结合有来源支持的旋律、节奏、编曲、演唱、声音与叙事观察展开；专辑介绍要说明专辑时期、概念、制作脉络以及歌曲在专辑中的位置。没有对应证据的角度直接省略。',
     '正文必须直接进入歌曲、声音、创作或专辑本身，以成稿口吻陈述。来源只出现在 source_refs；正文不得提及检索过程、资料来源、平台名称、评论者或编辑过程，不得写“现有评论认为”“报道提到”“资料显示”“某平台将其标为”等来源转述句式。',
     'song_summary 和 album_summary 不得用任何平台的分类、标签、推荐语或页面描述来定义作品；background 要把有证据支撑的音乐观察消化成自然的编辑表达，不得以“评论认为/乐评指出/文章提到”开头或归因。',
@@ -1317,7 +1346,8 @@ function systemPrompt(promptVersion) {
     'confidence 表示已输出字段的来源覆盖：全部由证据直接支撑时为 high，仅由单一 B 级平台正式资料支撑时为 medium；只有没有任何可用正文时才为 insufficient。',
     '每个非空内容字段必须在 source_refs 中列出支撑它的来源 ID，逐字复制证据包 sources[].id，不得用标题、网址或序号代替。',
     'sources[].metadata.contentRoles 表示根据网页正文实际内容确认可支撑的字段；contentRoleConfidence 和 contentRoleEvidence 分别给出判定强度与命中依据。source_refs 只能引用包含对应 contentRole 的来源；专辑简介回退创作故事由服务端处理。',
-    'source_refs 必须是对象，键固定为 song_summary、creation_story、background、album_summary，值为来源 ID 字符串数组。返回前检查：每个非 null 字段的数组都至少有一个有效 ID。'
+    'source_refs 必须是对象，键固定为 song_summary、creation_story、background、album_summary，值为来源 ID 字符串数组。返回前检查：每个非 null 字段的数组都至少有一个有效 ID。',
+    '不得把接口字段名、标签列表、内部协议链接或页面路由写入正文，包括 songTag、songBizTag、melody_style、orpheus://、component、route、tagId。'
   ].join('\n')
 }
 
@@ -1404,6 +1434,7 @@ module.exports = {
   createAIProviderContentGenerator,
   createOpenAICompatibleContentGenerator,
   createSongContentPipeline,
+  evidenceBackedSectionsNeedingCompletion,
   localizePipelineError,
   mergeGeneratedContent,
   missingEvidenceBackedSections,

@@ -673,7 +673,9 @@ struct MoeWallsLandscapeBrowserView: View {
                     .autocorrectionDisabled()
                     .submitLabel(.search)
                     .focused($searchFocused)
-                    .onSubmit { submitSearch() }
+                    .monoOnSubmit(text: $model.query) { _ in
+                        submitSearch()
+                    }
 
                 Button {
                     searchFocused = false
@@ -1019,10 +1021,7 @@ struct MoeWallsLandscapeBrowserView: View {
 
     private func submitSearch() {
         searchFocused = false
-        // 等待中文输入法提交组合文本，避免读到空值后误清空搜索框。
-        DispatchQueue.main.async {
-            model.submitSearch()
-        }
+        model.submitSearch()
     }
 
     private func primaryActionTitle(inUse: Bool, hasExistingVideo: Bool) -> String {

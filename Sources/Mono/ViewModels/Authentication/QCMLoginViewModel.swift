@@ -5,6 +5,20 @@ import SwiftUI
 import Combine
 import QQMusicKit
 
+private enum QCMQRLoginError: LocalizedError {
+    case invalidImage
+    case missingCredentials
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidImage:
+            return "QCM 登录二维码生成失败，请重试"
+        case .missingCredentials:
+            return "QCM 登录成功但未取得有效凭证，请刷新二维码重试"
+        }
+    }
+}
+
 @MainActor
 class QQLoginViewModel: ObservableObject {
 
@@ -20,7 +34,8 @@ class QQLoginViewModel: ObservableObject {
     @Published var loginStatusText: String?
     @Published var qqMusicId: Int?
 
-    private var pollTask: Task<Void, Never>?
+    private var loginTask: Task<Void, Never>?
+    private var loginSessionID: UUID?
     private var currentQRId: String?
     private var qrLoginStarted = false
 
@@ -68,85 +83,126 @@ class QQLoginViewModel: ObservableObject {
         isQRExpired = false
         qrStatusMessage = String(localized: "加载二维码中...")
 
-        Task {
+        let sessionID = UUID()
+        let requestedType = qrLoginType
+        loginSessionID = sessionID
+        loginTask = Task { [weak self] in
+            guard let self else { return }
             do {
                 let qrCode = try await userSession.withUserSession { client in
-                    try await client.createQRCode(type: qrLoginType)
+                    try await client.createQRCode(type: requestedType)
                 }
+                try Task.checkCancellation()
+                guard isCurrentSession(sessionID) else { return }
                 currentQRId = qrCode.qrId
 
+                let image: UIImage?
                 if let imageData = qrCode.imageData,
-                   let image = UIImage(data: imageData) {
-                    qrCodeImage = image
+                   let decodedImage = UIImage(data: imageData) {
+                    image = decodedImage
                 } else {
                     let cleanBase64 = qrCode.image.components(separatedBy: ",").last ?? qrCode.image
                     if let data = Data(base64Encoded: cleanBase64),
-                       let image = UIImage(data: data) {
-                        qrCodeImage = image
+                       let decodedImage = UIImage(data: data) {
+                        image = decodedImage
+                    } else {
+                        image = nil
                     }
                 }
+                guard let image else { throw QCMQRLoginError.invalidImage }
+                qrCodeImage = image
 
-                qrStatusMessage = qrLoginType == .qq ? String(localized: "请使用 QQ 扫描二维码") : String(localized: "请使用微信扫描二维码")
-                startPolling(qrId: qrCode.qrId)
+                qrStatusMessage = requestedType == .qq
+                    ? String(localized: "请使用 QQ 扫描二维码")
+                    : String(localized: "请使用微信扫描二维码")
+                await poll(qrId: qrCode.qrId, sessionID: sessionID)
+            } catch is CancellationError {
+                return
             } catch {
+                guard isCurrentSession(sessionID) else { return }
                 qrStatusMessage = L10n.format(
                     "qq_qr_create_failed_format",
                     error.localizedDescription
                 )
+                finishSession(sessionID)
             }
         }
     }
 
-    private func startPolling(qrId: String) {
+    private func poll(qrId: String, sessionID: UUID) async {
         AppLogger.info("[QQLogin] startPolling: qrId=\(qrId)")
-        pollTask = Task {
-            do {
-                AppLogger.info("[QQLogin] pollTask started, calling pollQRCode...")
-                let finalStatus = try await userSession.withUserSession { client in
-                    try await client.pollQRCode(
-                        qrId: qrId,
-                        interval: 3,
-                        timeout: 300
-                    ) { [weak self] status in
-                        Task { @MainActor [weak self] in
-                            guard let self else { return }
-                            if status.isScan {
-                                qrStatusMessage = String(localized: "等待扫码...")
-                            } else if status.isConfirm {
-                                qrStatusMessage = String(localized: "已扫码，请在手机上确认")
-                            }
+        do {
+            AppLogger.info("[QQLogin] pollTask started, calling pollQRCode...")
+            let finalStatus = try await userSession.withUserSession { client in
+                try await client.pollQRCode(
+                    qrId: qrId,
+                    interval: 3,
+                    timeout: 300
+                ) { [weak self] status in
+                    Task { @MainActor [weak self] in
+                        guard let self,
+                              isCurrentSession(sessionID),
+                              currentQRId == qrId else { return }
+                        if status.isScan {
+                            qrStatusMessage = String(localized: "等待扫码...")
+                        } else if status.isConfirm {
+                            qrStatusMessage = String(localized: "已扫码，请在手机上确认")
                         }
                     }
                 }
-
-                if finalStatus.isDone {
-                    AppLogger.info("[QQLogin] DONE! musicid=\(finalStatus.musicid ?? 0)")
-                    stopPolling()
-                    qrStatusMessage = String(localized: "登录成功")
-                    userSession.onLoginSuccess(
-                        musicId: finalStatus.musicid,
-                        musicKey: finalStatus.musickey,
-                        encryptUin: finalStatus.euin,
-                        loginType: finalStatus.loginType
-                    )
-                    syncFromUserSession()
-                } else if finalStatus.isTimeout {
-                    qrStatusMessage = String(localized: "二维码已过期")
-                    isQRExpired = true
-                } else if finalStatus.isRefused {
-                    qrStatusMessage = String(localized: "登录被拒绝")
-                    isQRExpired = true
-                }
-            } catch {
-                AppLogger.error("[QQLogin] pollTask error: \(error)")
-                if !Task.isCancelled {
-                    qrStatusMessage = L10n.format(
-                        "qq_qr_poll_failed_format",
-                        error.localizedDescription
-                    )
-                }
             }
+
+            try Task.checkCancellation()
+            guard isCurrentSession(sessionID), currentQRId == qrId else { return }
+
+            if finalStatus.isDone {
+                AppLogger.info("[QQLogin] DONE! musicid=\(finalStatus.musicid ?? 0)")
+                guard let musicID = finalStatus.musicid,
+                      musicID > 0,
+                      let musicKey = finalStatus.musickey,
+                      !musicKey.isEmpty else {
+                    throw QCMQRLoginError.missingCredentials
+                }
+                userSession.onLoginSuccess(
+                    musicId: musicID,
+                    musicKey: musicKey,
+                    encryptUin: finalStatus.euin,
+                    loginType: finalStatus.loginType
+                )
+                syncFromUserSession()
+                qrStatusMessage = String(localized: "登录成功")
+                finishSession(sessionID)
+            } else if finalStatus.isTimeout {
+                qrStatusMessage = String(localized: "二维码已过期")
+                isQRExpired = true
+                finishSession(sessionID)
+            } else if finalStatus.isRefused {
+                qrStatusMessage = String(localized: "登录被拒绝")
+                isQRExpired = true
+                finishSession(sessionID)
+            }
+        } catch is CancellationError {
+            return
+        } catch {
+            AppLogger.error("[QQLogin] pollTask error: \(error)")
+            guard isCurrentSession(sessionID) else { return }
+            qrStatusMessage = L10n.format(
+                "qq_qr_poll_failed_format",
+                error.localizedDescription
+            )
+            finishSession(sessionID)
         }
+    }
+
+    private func isCurrentSession(_ sessionID: UUID) -> Bool {
+        loginSessionID == sessionID && !Task.isCancelled
+    }
+
+    private func finishSession(_ sessionID: UUID) {
+        guard loginSessionID == sessionID else { return }
+        loginTask = nil
+        loginSessionID = nil
+        currentQRId = nil
     }
 
     func refreshQR() {
@@ -173,11 +229,13 @@ class QQLoginViewModel: ObservableObject {
     // MARK: - 清理
 
     func stopPolling() {
-        pollTask?.cancel()
-        pollTask = nil
+        loginTask?.cancel()
+        loginTask = nil
+        loginSessionID = nil
+        currentQRId = nil
     }
 
     deinit {
-        pollTask?.cancel()
+        loginTask?.cancel()
     }
 }

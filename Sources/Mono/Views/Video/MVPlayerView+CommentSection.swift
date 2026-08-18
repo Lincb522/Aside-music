@@ -262,6 +262,11 @@ struct MVCommentInputBar: View {
                     .font(.rounded(size: 15))
                     .monoTextInputBehavior()
                     .focused(isInputFocused)
+                    .submitLabel(.send)
+                    .monoOnSubmit(text: $commentVM.commentText) { _ in
+                        commentVM.sendComment()
+                        isInputFocused.wrappedValue = false
+                    }
 
                     if !commentVM.commentText.isEmpty {
                         Button {
@@ -282,8 +287,10 @@ struct MVCommentInputBar: View {
 
                 let canSend = !commentVM.commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !commentVM.isSending
                 Button {
-                    commentVM.sendComment()
-                    isInputFocused.wrappedValue = false
+                    MonoTextInputCommitter.commit(text: $commentVM.commentText) { _ in
+                        commentVM.sendComment()
+                        isInputFocused.wrappedValue = false
+                    }
                 } label: {
                     ZStack {
                         Circle()

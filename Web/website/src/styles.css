@@ -2954,6 +2954,13 @@ h1 {
   text-transform: uppercase;
 }
 
+.mono-form .protect-code-hint {
+  color: #746c61;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.55;
+}
+
 .mono-form button,
 .mono-secondary-button {
   display: inline-flex;

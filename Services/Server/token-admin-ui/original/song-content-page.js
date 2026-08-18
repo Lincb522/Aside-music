@@ -15,13 +15,11 @@
   }
 
   const els = {}
-  const agentKeys = ['equalizer', 'listeningInsight', 'specialGreeting', 'stageDirector', 'wallpaperTranslator']
+  const agentKeys = ['equalizer', 'listeningInsight', 'specialGreeting']
   const agentDefaults = {
-    equalizer: { promptVersion: 'mono-audio-agent-v27', temperature: 0.1, maxOutputTokens: 4096, minimumTimeoutSeconds: 120 },
-    listeningInsight: { promptVersion: 'mono-listening-insight-v2', temperature: 0.1, maxOutputTokens: 4096, minimumTimeoutSeconds: 30 },
-    specialGreeting: { promptVersion: 'special-greeting-v1', temperature: 0.7, maxOutputTokens: 1024, minimumTimeoutSeconds: 20 },
-    stageDirector: { promptVersion: 'mono-stage-v3', temperature: 0.2, maxOutputTokens: 4096, minimumTimeoutSeconds: 60 },
-    wallpaperTranslator: { promptVersion: 'wallpaper-translator-v1', temperature: 0.1, maxOutputTokens: 512, minimumTimeoutSeconds: 15 }
+    equalizer: { promptVersion: 'mono-audio-agent-v28', temperature: 0.1, maxOutputTokens: 4096, minimumTimeoutSeconds: 120, maxAttempts: 3 },
+    listeningInsight: { promptVersion: 'mono-listening-insight-v3', temperature: 0.1, maxOutputTokens: 4096, minimumTimeoutSeconds: 30, maxAttempts: 2 },
+    specialGreeting: { promptVersion: 'special-greeting-v2', temperature: 0.7, maxOutputTokens: 1024, minimumTimeoutSeconds: 20, maxAttempts: 2 }
   }
   const statusLabels = {
     draft: '草稿',
@@ -125,6 +123,7 @@
       <label class="field"><span>温度</span><input data-agent-field="temperature" type="number" min="0" max="2" step="0.1"></label>
       <label class="field"><span>最大输出 Token</span><input data-agent-field="maxOutputTokens" type="number" min="128" max="32000"></label>
       <label class="field"><span>最低超时（秒）</span><input data-agent-field="minimumTimeoutSeconds" type="number" min="0" max="180"></label>
+      <label class="field"><span>单次任务最大尝试</span><input data-agent-field="maxAttempts" type="number" min="1" max="4"></label>
       <label class="field config-wide"><span>系统提示词（空则使用 App 内置）</span><textarea data-agent-field="systemPrompt"></textarea></label>
       <label class="field config-wide"><span>用户提示词模板（{{input}} 为 App 输入）</span><textarea data-agent-field="userPromptTemplate"></textarea></label>`
     document.querySelectorAll('.agent-config-card:not([data-agent-key="equalizer"]) .agent-config-fields')
@@ -740,7 +739,7 @@
     els.moduleSimilarSongs.checked = modules.similarSongs !== false
     els.moduleArtistSongs.checked = modules.artistSongs !== false
     els.configFallbackModel.value = ai.fallbackModel || ''
-    els.configPromptVersion.value = ai.promptVersion || 'song-editor-web-v6'
+    els.configPromptVersion.value = ai.promptVersion || 'song-editor-web-v7'
     els.configSchemaVersion.value = ai.schemaVersion || '1'
     els.configTemperature.value = ai.temperature ?? 0.2
     els.configMaxOutput.value = ai.maxOutputTokens ?? 2000
@@ -783,6 +782,7 @@
       setAgentField(root, 'temperature', agent.temperature ?? fallback.temperature)
       setAgentField(root, 'maxOutputTokens', agent.maxOutputTokens ?? fallback.maxOutputTokens)
       setAgentField(root, 'minimumTimeoutSeconds', agent.minimumTimeoutSeconds ?? fallback.minimumTimeoutSeconds)
+      setAgentField(root, 'maxAttempts', agent.maxAttempts ?? fallback.maxAttempts)
       setAgentField(root, 'systemPrompt', agent.systemPrompt || '')
       setAgentField(root, 'secondarySystemPrompt', agent.secondarySystemPrompt || '')
       setAgentField(root, 'userPromptTemplate', agent.userPromptTemplate || '')
@@ -817,7 +817,8 @@
         userPromptTemplate: read('userPromptTemplate'),
         temperature: Number(read('temperature')),
         maxOutputTokens: Number(read('maxOutputTokens')),
-        minimumTimeoutSeconds: Number(read('minimumTimeoutSeconds'))
+        minimumTimeoutSeconds: Number(read('minimumTimeoutSeconds')),
+        maxAttempts: Number(read('maxAttempts'))
       }]
     }))
   }

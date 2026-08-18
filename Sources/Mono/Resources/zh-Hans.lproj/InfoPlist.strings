@@ -1,5 +1,7 @@
 "CFBundleDisplayName" = "Mono";
 "CFBundleName" = "Mono";
 "NSAppleMusicUsageDescription" = "用于连接 Apple Music、访问音乐资料库并播放歌曲";
-"NSMotionUsageDescription" = "用于让 Mono Spatial Live 的空间舞台跟随头部转动";
+"NSHealthShareUsageDescription" = "用于读取听力图与耳机声暴露数据，在本地生成左右耳听力校准并显示聆听安全信息";
+"NSHealthUpdateUsageDescription" = "HealthKit 仅用于读取听力图与耳机声暴露数据；Mono 不会写入或修改健康数据";
+"NSMotionUsageDescription" = "用于让 AirPods 空间聆听跟随头部转动，并根据活动状态稳定声音";
 "NSPhotoLibraryAddUsageDescription" = "保存二维码到相册以便扫码登录";

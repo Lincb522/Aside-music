@@ -9,7 +9,7 @@ struct ListeningReportView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var settings = SettingsManager.shared
-    @StateObject private var aiInsightAgent = AIListeningInsightAgent()
+    @StateObject private var aiInsightAgent = AIListeningInsightAgent.shared
 
     @State private var interval: DateInterval?
     @State private var report: ListeningReport?

@@ -14,6 +14,39 @@
       "idiom": "universal",
       "filename": "catDefault@3x.png",
       "scale": "3x"
+    },
+    {
+      "appearances": [
+        {
+          "appearance": "luminosity",
+          "value": "dark"
+        }
+      ],
+      "idiom": "universal",
+      "scale": "1x",
+      "filename": "catDefault_dark.png"
+    },
+    {
+      "appearances": [
+        {
+          "appearance": "luminosity",
+          "value": "dark"
+        }
+      ],
+      "idiom": "universal",
+      "scale": "2x",
+      "filename": "catDefault_dark@2x.png"
+    },
+    {
+      "appearances": [
+        {
+          "appearance": "luminosity",
+          "value": "dark"
+        }
+      ],
+      "idiom": "universal",
+      "scale": "3x",
+      "filename": "catDefault_dark@3x.png"
     }
   ],
   "info": {

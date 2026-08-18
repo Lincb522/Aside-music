@@ -20,7 +20,7 @@ final class PlaybackPersistence {
     private var saveStateWorkItem: DispatchWorkItem?
     private let saveStateDebounceInterval: TimeInterval = AppConfig.Player.saveStateDebounceInterval
     private let playbackProgressPersistenceInterval: TimeInterval = AppConfig.Player.playbackProgressPersistenceInterval
-    private var lastPersistedProgressSongID: Int?
+    private var lastPersistedProgressIdentity: String?
     private var lastPersistedProgressTime: Double = 0
 
     // MARK: - 快照构建
@@ -28,54 +28,65 @@ final class PlaybackPersistence {
     private func persistedQueueWindow(
         _ songs: [Song],
         currentSong: Song?,
-        fallbackIndex: Int
+        fallbackIndex: Int,
+        maximumCount: Int?
     ) -> (songs: [Song], currentIndex: Int) {
         guard !songs.isEmpty else { return ([], 0) }
         let anchor = currentSong.flatMap { current in
             songs.firstIndex(where: { PlayerManager.matchesPlaybackTarget($0, expected: current) })
         } ?? max(0, min(fallbackIndex, songs.count - 1))
-        guard songs.count > player.maxPersistContextSize else {
+        guard let maximumCount, songs.count > maximumCount else {
             return (songs, anchor)
         }
 
-        let halfWindow = player.maxPersistContextSize / 2
-        let maximumStart = songs.count - player.maxPersistContextSize
+        let halfWindow = maximumCount / 2
+        let maximumStart = songs.count - maximumCount
         let start = max(0, min(anchor - halfWindow, maximumStart))
-        let end = start + player.maxPersistContextSize
+        let end = start + maximumCount
         return (Array(songs[start..<end]), anchor - start)
     }
 
-    private func buildPlayerState() -> PlayerManager.PlayerState {
+    private func buildPlayerState(preserveFullQueues: Bool = false) -> PlayerManager.PlayerState {
         let player = self.player
+        let maximumQueueCount = preserveFullQueues ? nil : player.maxPersistContextSize
         let orderedWindow = persistedQueueWindow(
             player.context,
             currentSong: player.currentSong,
-            fallbackIndex: player.contextIndex
+            fallbackIndex: player.contextIndex,
+            maximumCount: maximumQueueCount
         )
         let shuffledWindow = persistedQueueWindow(
             player.shuffledContext,
             currentSong: player.currentSong,
-            fallbackIndex: player.contextIndex
+            fallbackIndex: player.contextIndex,
+            maximumCount: maximumQueueCount
         )
         let trimmedContext = orderedWindow.songs
         let trimmedShuffled = shuffledWindow.songs
         let savedMusicWindow = persistedQueueWindow(
             player.savedMusicContext,
             currentSong: player.savedMusicSong,
-            fallbackIndex: player.savedMusicContextIndex
+            fallbackIndex: player.savedMusicContextIndex,
+            maximumCount: maximumQueueCount
         )
         let savedMusicShuffleWindow = persistedQueueWindow(
             player.savedMusicShuffledContext,
             currentSong: player.savedMusicSong,
-            fallbackIndex: player.savedMusicContextIndex
+            fallbackIndex: player.savedMusicContextIndex,
+            maximumCount: maximumQueueCount
         )
         let savedPodcastWindow = persistedQueueWindow(
             player.savedPodcastContext,
             currentSong: player.savedPodcastSong,
-            fallbackIndex: player.savedPodcastContextIndex
+            fallbackIndex: player.savedPodcastContextIndex,
+            maximumCount: maximumQueueCount
         )
-        let trimmedBackStack = Array(player.playbackBackStack.suffix(player.maxBackStackSize))
-        let trimmedForwardStack = Array(player.playbackForwardStack.suffix(player.maxBackStackSize))
+        let trimmedBackStack = preserveFullQueues
+            ? player.playbackBackStack
+            : Array(player.playbackBackStack.suffix(player.maxBackStackSize))
+        let trimmedForwardStack = preserveFullQueues
+            ? player.playbackForwardStack
+            : Array(player.playbackForwardStack.suffix(player.maxBackStackSize))
         let safeIndex = player.mode == .shuffle
             ? shuffledWindow.currentIndex
             : orderedWindow.currentIndex
@@ -124,20 +135,93 @@ final class PlaybackPersistence {
         )
     }
 
-    private func saveStateSnapshotToUserDefaults(_ state: PlayerManager.PlayerState) {
-        guard let data = try? JSONEncoder().encode(state) else { return }
+    private func encodedState(_ state: PlayerManager.PlayerState) -> Data? {
+        try? JSONEncoder().encode(state)
+    }
+
+    private func saveStateSnapshotToUserDefaults(_ data: Data) {
         UserDefaults.standard.set(data, forKey: AppConfig.StorageKeys.playerStateSnapshot)
     }
 
     private func markPersistedPlaybackProgress(from state: PlayerManager.PlayerState) {
-        lastPersistedProgressSongID = state.currentSong?.id
+        lastPersistedProgressIdentity = state.currentSong.map {
+            PlayerManager.playbackIdentityKey(for: $0)
+        }
         lastPersistedProgressTime = max(state.currentTime ?? 0, 0)
     }
 
-    private func persistState(_ state: PlayerManager.PlayerState) {
-        saveStateSnapshotToUserDefaults(state)
-        OptimizedCacheManager.shared.setObject(state, forKey: AppConfig.StorageKeys.playerState)
-        markPersistedPlaybackProgress(from: state)
+    private func progressJournal(
+        from state: PlayerManager.PlayerState
+    ) -> PlaybackSessionArchive.ProgressJournal? {
+        guard let song = state.currentSong else { return nil }
+        let currentTime = max(state.currentTime ?? 0, 0)
+        let duration = max(state.duration ?? 0, 0)
+        guard currentTime.isFinite, duration.isFinite else { return nil }
+        return PlaybackSessionArchive.ProgressJournal(
+            identity: PlayerManager.playbackIdentityKey(for: song),
+            currentTime: currentTime,
+            duration: duration,
+            wasPlaying: state.wasPlaying ?? false,
+            updatedAt: Date()
+        )
+    }
+
+    /// 播放心跳只需要持久化当前位置。此前每 5 秒都会先编码包含最多
+    /// 200 首歌曲的完整 PlayerState，再同时写入 UserDefaults 与磁盘缓存；
+    /// 长时间播放时会产生数百 MB 甚至 GB 级写放大。
+    private func persistCurrentProgressJournal() {
+        guard let song = player.currentSong else { return }
+        let currentTime = max(player.currentTime, 0)
+        let duration = max(player.effectivePlaybackDuration, 0)
+        guard currentTime.isFinite,
+              !currentTime.isNaN,
+              duration.isFinite,
+              !duration.isNaN else { return }
+
+        PlaybackSessionArchive.shared.saveProgress(
+            PlaybackSessionArchive.ProgressJournal(
+                identity: PlayerManager.playbackIdentityKey(for: song),
+                currentTime: currentTime,
+                duration: duration,
+                wasPlaying: player.isPlaying,
+                updatedAt: Date()
+            )
+        )
+        lastPersistedProgressIdentity = PlayerManager.playbackIdentityKey(for: song)
+        lastPersistedProgressTime = currentTime
+    }
+
+    private func persistState(
+        _ compactState: PlayerManager.PlayerState,
+        archiveState: PlayerManager.PlayerState?,
+        reason: String,
+        synchronously: Bool = false
+    ) {
+        guard let compactData = encodedState(compactState) else { return }
+        saveStateSnapshotToUserDefaults(compactData)
+        OptimizedCacheManager.shared.setObject(
+            compactState,
+            forKey: AppConfig.StorageKeys.playerState
+        )
+
+        if let progress = progressJournal(from: compactState) {
+            PlaybackSessionArchive.shared.saveProgress(progress)
+        }
+
+        if let archiveState,
+           let archiveData = encodedState(archiveState)
+        {
+            PlaybackSessionArchive.shared.saveSnapshot(
+                archiveData,
+                reason: reason,
+                identity: archiveState.currentSong.map {
+                    PlayerManager.playbackIdentityKey(for: $0)
+                },
+                queueCount: archiveState.context?.count ?? 0,
+                synchronously: synchronously
+            )
+        }
+        markPersistedPlaybackProgress(from: compactState)
     }
 
     private func restoreStateSnapshotFromUserDefaults() -> PlayerManager.PlayerState? {
@@ -145,6 +229,21 @@ final class PlaybackPersistence {
             return nil
         }
         return try? JSONDecoder().decode(PlayerManager.PlayerState.self, from: data)
+    }
+
+    private func restoreStateSnapshotFromArchive() -> (
+        state: PlayerManager.PlayerState,
+        candidate: PlaybackSessionArchive.SnapshotCandidate
+    )? {
+        for candidate in PlaybackSessionArchive.shared.snapshotCandidates() {
+            if let state = try? JSONDecoder().decode(
+                PlayerManager.PlayerState.self,
+                from: candidate.data
+            ) {
+                return (state, candidate)
+            }
+        }
+        return nil
     }
 
     // MARK: - 恢复
@@ -254,6 +353,28 @@ final class PlaybackPersistence {
         markPersistedPlaybackProgress(from: state)
     }
 
+    private func applyArchivedProgressIfPossible() {
+        guard let song = player.currentSong,
+              let progress = PlaybackSessionArchive.shared.latestProgress(),
+              progress.identity == PlayerManager.playbackIdentityKey(for: song)
+        else { return }
+
+        let restoredDuration = progress.duration > 0
+            ? progress.duration
+            : player.duration
+        let restoredTime = min(
+            max(progress.currentTime, 0),
+            max(restoredDuration - 0.5, 0)
+        )
+        player.duration = restoredDuration
+        player.currentTime = restoredTime
+        player.pendingRestoreTime = restoredTime
+        player.shouldAutoResumeAfterRestore = progress.wasPlaying
+        player.needsPlaybackRestoration = true
+        lastPersistedProgressIdentity = PlayerManager.playbackIdentityKey(for: song)
+        lastPersistedProgressTime = restoredTime
+    }
+
     // MARK: - 存取入口
 
     func saveState() {
@@ -261,18 +382,31 @@ final class PlaybackPersistence {
 
         let workItem = DispatchWorkItem { [weak self] in
             guard let self else { return }
-            let state = self.buildPlayerState()
-            self.persistState(state)
+            let compactState = self.buildPlayerState()
+            let archiveState = self.buildPlayerState(preserveFullQueues: true)
+            self.persistState(
+                compactState,
+                archiveState: archiveState,
+                reason: "debounced-state"
+            )
         }
 
         saveStateWorkItem = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + saveStateDebounceInterval, execute: workItem)
     }
 
-    func saveStateImmediately() {
+    func saveStateImmediately(synchronously: Bool = false) {
         saveStateWorkItem?.cancel()
-        let state = buildPlayerState()
-        persistState(state)
+        let compactState = buildPlayerState()
+        let archiveState = buildPlayerState(preserveFullQueues: true)
+        // 普通调用只跳过防抖；进入后台时使用同步模式，确保完整双快照
+        // 在系统允许挂起前已经释放文件锁。
+        persistState(
+            compactState,
+            archiveState: archiveState,
+            reason: "immediate-state",
+            synchronously: synchronously
+        )
     }
 
     func savePlaybackProgressIfNeeded(force: Bool = false) {
@@ -288,14 +422,34 @@ final class PlaybackPersistence {
 
         guard player.isPlaying, safeTime >= 1 else { return }
 
-        let songChanged = lastPersistedProgressSongID != song.id
+        let songChanged = lastPersistedProgressIdentity
+            != PlayerManager.playbackIdentityKey(for: song)
         let advancedEnough = abs(safeTime - lastPersistedProgressTime) >= playbackProgressPersistenceInterval
         guard songChanged || advancedEnough else { return }
 
-        saveStateImmediately()
+        // 心跳只写百字节级位置日志。完整队列和 UserDefaults 快照只在
+        // 队列/播放状态真正改变或进入后台时保存。
+        persistCurrentProgressJournal()
     }
 
     func restoreState() {
+        let health = PlaybackSessionArchive.shared.healthStatus()
+        AppLogger.info(
+            "[Cassette] 快照健康检查 valid=\(health.validSnapshots) current=\(health.hasCurrentSnapshot) previous=\(health.hasPreviousSnapshot) sequence=\(health.latestSequence) queue=\(health.latestQueueCount)"
+        )
+
+        if let archived = restoreStateSnapshotFromArchive() {
+            applyRestoredState(archived.state)
+            applyArchivedProgressIfPossible()
+            let message = "[Cassette] 已恢复\(archived.candidate.source.rawValue)快照 sequence=\(archived.candidate.sequence) queue=\(archived.candidate.queueCount)"
+            if archived.candidate.source == .previous {
+                AppLogger.warning(message)
+            } else {
+                AppLogger.info(message)
+            }
+            return
+        }
+
         if let snapshot = restoreStateSnapshotFromUserDefaults() {
             applyRestoredState(snapshot)
             return
@@ -350,6 +504,21 @@ final class PlaybackPersistence {
             return
         }
 
+        // 音乐开播时只创建计时会话。最近播放、播放次数和服务端听歌记录
+        // 必须等真实可听时长达到统一有效播放阈值后才提交。
+        guard !ListeningStatsRecorder.shared.isTracking(
+            playbackSessionID: player.playbackSessionId
+        ) else {
+            return
+        }
+        let record = HistoryRepository().addPlayHistory(song: song)
+        ListeningStatsRecorder.shared.beginSession(record: record, song: song)
+    }
+
+    func commitEffectivePlayback(song: Song) {
+        let player = self.player
+        guard !player.playSource.isPodcast else { return }
+
         player.history.removeAll { PlayerManager.matchesPlaybackTarget($0, expected: song) }
         player.history.insert(song, at: 0)
         if player.history.count > AppConfig.Player.maxHistoryCount {
@@ -360,10 +529,11 @@ final class PlaybackPersistence {
         let songRepository = SongRepository()
         songRepository.save(song: song)
         songRepository.recordPlay(songId: song.id)
+        saveState()
 
-        // 写入播放日志（听歌统计数据源），并让统计记录器跟踪真实播放时长
-        let record = HistoryRepository().addPlayHistory(song: song)
-        ListeningStatsRecorder.shared.beginSession(record: record, song: song)
+        if !song.isQQMusic && !song.isQishui && !song.isKugou && !song.isAppleMusic {
+            scrobbleToCloud(song: song)
+        }
         LocalPlaylistCloudSyncManager.shared.scheduleSyncForLocalMutation()
     }
 
@@ -516,8 +686,8 @@ extension PlayerManager {
         persistence.saveState()
     }
 
-    func saveStateImmediately() {
-        persistence.saveStateImmediately()
+    func saveStateImmediately(synchronously: Bool = false) {
+        persistence.saveStateImmediately(synchronously: synchronously)
     }
 
     func savePlaybackProgressIfNeeded(force: Bool = false) {
@@ -530,6 +700,10 @@ extension PlayerManager {
 
     func addToHistory(song: Song) {
         persistence.addToHistory(song: song)
+    }
+
+    func commitEffectivePlayback(song: Song) {
+        persistence.commitEffectivePlayback(song: song)
     }
 
     func clearRecentPlaybackStack() {

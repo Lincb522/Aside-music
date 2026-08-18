@@ -28,14 +28,6 @@ private struct ImageCacheConfig {
     }
 }
 
-// MARK: - 图片内存缓存
-private nonisolated(unsafe) let imageCache: NSCache<NSString, UIImage> = {
-    let cache = NSCache<NSString, UIImage>()
-    cache.totalCostLimit = ImageCacheConfig.maxMemoryCost
-    cache.countLimit = ImageCacheConfig.maxCount
-    return cache
-}()
-
 // MARK: - 共享 URLSession（带并发限制）
 private let imageSession: URLSession = {
     let config = URLSessionConfiguration.default
@@ -49,11 +41,144 @@ private let imageSession: URLSession = {
     return URLSession(configuration: config)
 }()
 
+// MARK: - MonoMemory Engine 托管的解码图片缓存
+@MainActor
+private final class ArtworkMemoryCache {
+    static let shared = ArtworkMemoryCache()
+
+    private struct Metadata {
+        let cost: Int
+        var lastAccess: UInt64
+    }
+
+    private let cache = NSCache<NSString, UIImage>()
+    private var metadata: [String: Metadata] = [:]
+    private var accessSequence: UInt64 = 0
+    private var budgetBytes = ImageCacheConfig.maxMemoryCost
+    private var countLimit = ImageCacheConfig.maxCount
+
+    private init() {
+        cache.totalCostLimit = budgetBytes
+        cache.countLimit = ImageCacheConfig.maxCount
+        MonoMemoryEngine.shared.registerResource(
+            id: "cache.artwork",
+            priority: .recreatable,
+            budgetWeight: 0.38,
+            minimumBudgetBytes: 24 * 1_024 * 1_024,
+            applyBudget: { [weak self] bytes in
+                self?.applyBudget(bytes)
+            },
+            trim: { [weak self] context in
+                guard let self else { return .none }
+                return await self.trim(context)
+            },
+            measureUsage: { [weak self] in
+                self?.memoryUsage() ?? .unknown
+            }
+        )
+    }
+
+    func image(forKey key: NSString) -> UIImage? {
+        guard let image = cache.object(forKey: key) else {
+            metadata.removeValue(forKey: key as String)
+            return nil
+        }
+        accessSequence &+= 1
+        if var entry = metadata[key as String] {
+            entry.lastAccess = accessSequence
+            metadata[key as String] = entry
+        }
+        return image
+    }
+
+    func insert(_ image: UIImage, forKey key: NSString, cost: Int) {
+        let normalizedCost = max(1, cost)
+        accessSequence &+= 1
+        metadata[key as String] = Metadata(cost: normalizedCost, lastAccess: accessSequence)
+        cache.setObject(image, forKey: key, cost: normalizedCost)
+        evictMetadataOverflowIfNeeded()
+    }
+
+    @discardableResult
+    func removeAll() -> MonoMemoryEngine.TrimResult {
+        let releasedBytes = metadata.values.reduce(0) { $0 + $1.cost }
+        let releasedItems = metadata.count
+        cache.removeAllObjects()
+        metadata.removeAll(keepingCapacity: false)
+        return .init(
+            releasedItemCount: releasedItems,
+            estimatedReleasedBytes: releasedBytes,
+            preservedItemCount: 0
+        )
+    }
+
+    private func applyBudget(_ bytes: Int) {
+        budgetBytes = max(12 * 1_024 * 1_024, bytes)
+        countLimit = max(96, min(900, budgetBytes / (96 * 1_024)))
+        cache.totalCostLimit = budgetBytes
+        cache.countLimit = countLimit
+        evictMetadataOverflowIfNeeded()
+        imageSession.configuration.urlCache?.memoryCapacity = min(12 * 1_024 * 1_024, budgetBytes / 8)
+    }
+
+    private func evictMetadataOverflowIfNeeded() {
+        let overflow = metadata.count - countLimit
+        guard overflow > 0 else { return }
+        for key in metadata
+            .sorted(by: { $0.value.lastAccess < $1.value.lastAccess })
+            .prefix(overflow)
+            .map(\.key) {
+            cache.removeObject(forKey: key as NSString)
+            metadata.removeValue(forKey: key)
+        }
+    }
+
+    private func memoryUsage() -> MonoMemoryEngine.ResourceUsage {
+        .init(
+            itemCount: metadata.count,
+            estimatedBytes: metadata.values.reduce(0) { $0 + $1.cost }
+        )
+    }
+
+    private func trim(_ context: MonoMemoryEngine.TrimContext) async -> MonoMemoryEngine.TrimResult {
+        if context.level >= .background {
+            await ImageLoadCoordinator.shared.cancelAll()
+        }
+        if context.level >= .warning {
+            imageSession.configuration.urlCache?.memoryCapacity = 0
+            return removeAll()
+        }
+
+        let target = context.level == .background ? budgetBytes / 4 : budgetBytes
+        var currentBytes = metadata.values.reduce(0) { $0 + $1.cost }
+        var releasedBytes = 0
+        var releasedItems = 0
+        for (key, entry) in metadata.sorted(by: { $0.value.lastAccess < $1.value.lastAccess })
+            where currentBytes > target {
+            cache.removeObject(forKey: key as NSString)
+            metadata.removeValue(forKey: key)
+            currentBytes = max(0, currentBytes - entry.cost)
+            releasedBytes += entry.cost
+            releasedItems += 1
+        }
+        return .init(
+            releasedItemCount: releasedItems,
+            estimatedReleasedBytes: releasedBytes,
+            preservedItemCount: 0
+        )
+    }
+}
+
 // MARK: - 图片加载去重管理器
 actor ImageLoadCoordinator {
     static let shared = ImageLoadCoordinator()
     
     private var inFlightTasks: [String: Task<UIImage?, Never>] = [:]
+
+    func cancelAll() {
+        inFlightTasks.values.forEach { $0.cancel() }
+        inFlightTasks.removeAll(keepingCapacity: false)
+    }
     
     func loadImage(url: URL, maxSize: CGFloat = ImageCacheConfig.defaultMaxPointSize) async -> UIImage? {
         let normalizedMaxSize = ImageCacheConfig.normalizedMaxPointSize(maxSize)
@@ -202,26 +327,32 @@ actor ImageLoadCoordinator {
     }
     
     private func downsampleImage(data: Data, maxSize: CGFloat) -> UIImage? {
-        let imageSourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
-        guard let imageSource = CGImageSourceCreateWithData(data as CFData, imageSourceOptions),
-              CGImageSourceGetType(imageSource) != nil,
-              CGImageSourceGetCount(imageSource) > 0 else {
-            return UIImage(data: data)
+        autoreleasepool {
+            let imageSourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+            guard let imageSource = CGImageSourceCreateWithData(data as CFData, imageSourceOptions),
+                  CGImageSourceGetType(imageSource) != nil,
+                  CGImageSourceGetCount(imageSource) > 0 else {
+                return UIImage(data: data)
+            }
+
+            let maxPixelSize = maxSize * ImageCacheConfig.screenScale
+            let downsampleOptions: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceShouldCacheImmediately: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: maxPixelSize
+            ]
+
+            guard let downsampledImage = CGImageSourceCreateThumbnailAtIndex(
+                imageSource,
+                0,
+                downsampleOptions as CFDictionary
+            ) else {
+                return UIImage(data: data)
+            }
+
+            return UIImage(cgImage: downsampledImage)
         }
-        
-        let maxPixelSize = maxSize * ImageCacheConfig.screenScale
-        let downsampleOptions: [CFString: Any] = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceShouldCacheImmediately: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize
-        ]
-        
-        guard let downsampledImage = CGImageSourceCreateThumbnailAtIndex(imageSource, 0, downsampleOptions as CFDictionary) else {
-            return UIImage(data: data)
-        }
-        
-        return UIImage(cgImage: downsampledImage)
     }
 }
 
@@ -245,7 +376,7 @@ class ImageLoader: ObservableObject {
         let cacheKey = cacheKeyStr as NSString
         
         // 1. 内存缓存命中 → 立即返回
-        if let cachedImage = imageCache.object(forKey: cacheKey) {
+        if let cachedImage = ArtworkMemoryCache.shared.image(forKey: cacheKey) {
             self.image = cachedImage
             self.isLoading = false
             self.currentUrl = url
@@ -276,7 +407,7 @@ class ImageLoader: ObservableObject {
             
             if let diskImage {
                 let cost = diskImage.cgImage.map { $0.bytesPerRow * $0.height } ?? 0
-                imageCache.setObject(diskImage, forKey: key as NSString, cost: cost)
+                ArtworkMemoryCache.shared.insert(diskImage, forKey: key as NSString, cost: cost)
                 
                 guard self.currentRequestKey == key else { return }
                 self.image = diskImage
@@ -298,7 +429,7 @@ class ImageLoader: ObservableObject {
                 self.image = image
                 
                 let cost = image.cgImage.map { $0.bytesPerRow * $0.height } ?? 0
-                imageCache.setObject(image, forKey: key as NSString, cost: cost)
+                ArtworkMemoryCache.shared.insert(image, forKey: key as NSString, cost: cost)
                 
                 let jpegData = image.jpegData(compressionQuality: 0.92)
                 if let jpegData {
@@ -311,26 +442,32 @@ class ImageLoader: ObservableObject {
     }
     
     nonisolated static func downsampleImageStatic(data: Data, maxSize: CGFloat) -> UIImage? {
-        let imageSourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
-        guard let imageSource = CGImageSourceCreateWithData(data as CFData, imageSourceOptions),
-              CGImageSourceGetType(imageSource) != nil,
-              CGImageSourceGetCount(imageSource) > 0 else {
-            return UIImage(data: data)
+        autoreleasepool {
+            let imageSourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+            guard let imageSource = CGImageSourceCreateWithData(data as CFData, imageSourceOptions),
+                  CGImageSourceGetType(imageSource) != nil,
+                  CGImageSourceGetCount(imageSource) > 0 else {
+                return UIImage(data: data)
+            }
+
+            let maxPixelSize = maxSize * ImageCacheConfig.screenScale
+            let downsampleOptions: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceShouldCacheImmediately: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: maxPixelSize
+            ]
+
+            guard let downsampledImage = CGImageSourceCreateThumbnailAtIndex(
+                imageSource,
+                0,
+                downsampleOptions as CFDictionary
+            ) else {
+                return UIImage(data: data)
+            }
+
+            return UIImage(cgImage: downsampledImage)
         }
-        
-        let maxPixelSize = maxSize * ImageCacheConfig.screenScale
-        let downsampleOptions: [CFString: Any] = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceShouldCacheImmediately: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize
-        ]
-        
-        guard let downsampledImage = CGImageSourceCreateThumbnailAtIndex(imageSource, 0, downsampleOptions as CFDictionary) else {
-            return UIImage(data: data)
-        }
-        
-        return UIImage(cgImage: downsampledImage)
     }
     
     func cancel() {
@@ -405,7 +542,6 @@ struct CachedAsyncImage<Placeholder: View>: View {
     var body: some View {
         content
             .onAppear {
-                ImageMemoryWarningObserver.shared.registerIfNeeded()
                 if let url = url {
                     loader.load(url: url, maxSize: maxDecodeSize)
                 }
@@ -427,7 +563,11 @@ struct CachedAsyncImage<Placeholder: View>: View {
         // 则直接内联查询内存缓存，避免首帧显示 placeholder 导致封面"闪白"。
         // 两个来源合并到同一个 if 分支，防止 loader 加载后分支切换触发 transition 动画。
         let resolvedImage: UIImage? = loader.image
-            ?? (url.flatMap { imageCache.object(forKey: ImageCacheConfig.cacheKey(for: $0, maxSize: maxDecodeSize) as NSString) })
+            ?? (url.flatMap {
+                ArtworkMemoryCache.shared.image(
+                    forKey: ImageCacheConfig.cacheKey(for: $0, maxSize: maxDecodeSize) as NSString
+                )
+            })
 
         if let resolvedImage {
             Image(uiImage: resolvedImage)
@@ -443,25 +583,8 @@ struct CachedAsyncImage<Placeholder: View>: View {
 // MARK: - 全局图片缓存清理
 extension CachedAsyncImage {
     /// 清理图片内存缓存
+    @MainActor
     static func clearMemoryCache() {
-        imageCache.removeAllObjects()
-    }
-}
-
-// MARK: - 内存警告监听器（App 级别注册一次）
-final class ImageMemoryWarningObserver: @unchecked Sendable {
-    static let shared = ImageMemoryWarningObserver()
-    private var registered = false
-    
-    func registerIfNeeded() {
-        guard !registered else { return }
-        registered = true
-        NotificationCenter.default.addObserver(
-            forName: UIApplication.didReceiveMemoryWarningNotification,
-            object: nil, queue: .main
-        ) { _ in
-            imageCache.removeAllObjects()
-            imageSession.configuration.urlCache?.removeAllCachedResponses()
-        }
+        ArtworkMemoryCache.shared.removeAll()
     }
 }

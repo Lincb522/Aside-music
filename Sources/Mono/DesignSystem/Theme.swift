@@ -35,12 +35,20 @@ enum MonoTimeGreeting {
 
 extension Color {
     static var monoBackground: Color {
+        if let colors = UnifiedColorRuntime.colors { return colors.background }
+        return monoStructuralBackground
+    }
+
+    /// 主题自身的背景色，不接受封面取色覆盖。用于首页内容面等需要保持原色的结构层。
+    static var monoStructuralBackground: Color {
+        if let colors = UnifiedColorRuntime.structuralColors { return colors.background }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.paper }
         if MangaStyle.isActive { return MangaStyle.paper }
         if PetWhiteStyle.isActive { return PetWhiteStyle.paper }
         if PureWhiteStyle.isActive { return PureWhiteStyle.paper }
         if MujiStyle.isActive { return MujiStyle.paper }
         if CapsuleStyle.isActive { return CapsuleStyle.base }
+        if ClarityStyle.isActive { return ClarityStyle.base }
         if SequoiaStyle.isActive { return SequoiaStyle.base }
         if ClayStyle.isActive { return ClayStyle.base }
         if SignalStyle.isActive { return SignalStyle.base }
@@ -49,12 +57,14 @@ extension Color {
     }
         
     static var monoTextPrimary: Color {
+        if let colors = UnifiedColorRuntime.colors { return colors.primary }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         if MangaStyle.isActive { return MangaStyle.ink }
         if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
         if PureWhiteStyle.isActive { return PureWhiteStyle.ink }
         if MujiStyle.isActive { return MujiStyle.ink }
         if CapsuleStyle.isActive { return CapsuleStyle.ink }
+        if ClarityStyle.isActive { return ClarityStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.ink }
         if ClayStyle.isActive { return ClayStyle.ink }
         if SignalStyle.isActive { return SignalStyle.ink }
@@ -63,12 +73,14 @@ extension Color {
     }
 
     static var monoTextSecondary: Color {
+        if let colors = UnifiedColorRuntime.colors { return colors.secondary }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkSoft }
         if MangaStyle.isActive { return MangaStyle.inkSub }
         if PetWhiteStyle.isActive { return PetWhiteStyle.inkSoft }
         if PureWhiteStyle.isActive { return PureWhiteStyle.inkSoft }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
         if CapsuleStyle.isActive { return CapsuleStyle.inkSoft }
+        if ClarityStyle.isActive { return ClarityStyle.inkSoft }
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
         if ClayStyle.isActive { return ClayStyle.inkSoft }
         if SignalStyle.isActive { return SignalStyle.inkSoft }
@@ -111,46 +123,56 @@ extension Color {
     
     /// 主强调色（与 monoIconBackground 一致，用于 EQ 等交互组件）
     static var monoAccent: Color {
+        if let colors = UnifiedColorRuntime.colors { return colors.accent }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.accent }
         if MangaStyle.isActive { return MangaStyle.accentPink }
         if PetWhiteStyle.isActive { return PetWhiteStyle.accent }
         if MujiStyle.isActive { return MujiStyle.clay }
         if CapsuleStyle.isActive { return CapsuleStyle.accent }
+        if ClarityStyle.isActive { return ClarityStyle.accent }
         return monoDefaultAccent
     }
 
     /// 强调色上的可读前景色，用于勾选标记、强调按钮和浅色自定义强调色的图标。
     static var monoAccentForeground: Color {
+        if let onAccent = UnifiedColorRuntime.onAccent { return onAccent }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.onAccent }
         if MangaStyle.isActive { return ThemeColorCustomization.readableForegroundColor(on: MangaStyle.accentPink, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk) }
         if PetWhiteStyle.isActive { return PetWhiteStyle.onAccent }
         if MujiStyle.isActive { return MujiStyle.onTint }
         if CapsuleStyle.isActive { return CapsuleStyle.onAccent }
+        if ClarityStyle.isActive { return ClarityStyle.onAccent }
         return ThemeColorCustomization.readableForegroundColor(on: monoDefaultAccent, light: Color(hex: "111821"), dark: .white)
     }
     
     /// 设置页系统 Toggle 激活色
     static var monoToggleTint: Color {
+        if let colors = UnifiedColorRuntime.colors { return colors.accent.opacity(0.9) }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.accent }
         if MangaStyle.isActive { return MangaStyle.accentPink }
         if PetWhiteStyle.isActive { return PetWhiteStyle.accent }
         if MujiStyle.isActive { return MujiStyle.clay }
         if CapsuleStyle.isActive { return CapsuleStyle.accent }
+        if ClarityStyle.isActive { return ClarityStyle.accent }
         return monoDefaultAccent.opacity(0.9)
     }
     
     static let monoAccentYellow = Color(hex: "FFCC00")
     static let monoAccentBlue = Color(hex: "007AFF")
     static let monoAccentGreen = Color(hex: "34C759")
-    static let monoAccentRed = Color(hex: "FF3B30")
+    static var monoAccentRed: Color {
+        UnifiedColorRuntime.colors?.destructive ?? Color(hex: "FF3B30")
+    }
     
     static var monoMilk: Color {
+        if let colors = UnifiedColorRuntime.structuralColors { return colors.surface.opacity(0.84) }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.glassFill }
         if MangaStyle.isActive { return MangaStyle.surface.opacity(0.88) }
         if PetWhiteStyle.isActive { return PetWhiteStyle.surface.opacity(0.9) }
         if PureWhiteStyle.isActive { return PureWhiteStyle.surface.opacity(0.9) }
         if MujiStyle.isActive { return MujiStyle.surface.opacity(0.82) }
         if CapsuleStyle.isActive { return CapsuleStyle.surface.opacity(0.84) }
+        if ClarityStyle.isActive { return ClarityStyle.surface }
         if SequoiaStyle.isActive { return SequoiaStyle.glass.opacity(0.82) }
         if ClayStyle.isActive { return ClayStyle.cream.opacity(0.86) }
         if SignalStyle.isActive { return SignalStyle.device.opacity(0.86) }
@@ -160,12 +182,14 @@ extension Color {
 
     /// Liquid Glass 专用染色 — 兼顾玻璃效果与无 glassEffect 时的可见兜底
     static var monoGlassTint: Color {
+        if let colors = UnifiedColorRuntime.structuralColors { return colors.cardBackground }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.glassFill }
         if MangaStyle.isActive { return MangaStyle.bubbleWhite.opacity(0.95) }
         if PetWhiteStyle.isActive { return PetWhiteStyle.surfaceRaised.opacity(0.95) }
         if PureWhiteStyle.isActive { return PureWhiteStyle.surfaceRaised.opacity(0.95) }
         if MujiStyle.isActive { return MujiStyle.surfaceRaised.opacity(0.92) }
         if CapsuleStyle.isActive { return CapsuleStyle.surfaceRaised.opacity(0.92) }
+        if ClarityStyle.isActive { return ClarityStyle.surfaceRaised }
         if SequoiaStyle.isActive { return SequoiaStyle.glass.opacity(0.92) }
         if ClayStyle.isActive { return ClayStyle.creamRaised.opacity(0.94) }
         if SignalStyle.isActive { return SignalStyle.deviceRaised.opacity(0.94) }
@@ -175,12 +199,14 @@ extension Color {
     
     /// 悬浮栏专用填充色 — 更通透的玻璃质感
     static var monoFloatingBarFill: Color {
+        if let colors = UnifiedColorRuntime.structuralColors { return colors.floatingBarFill }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.glassStrongFill }
         if MangaStyle.isActive { return MangaStyle.bubbleWhite.opacity(0.96) }
         if PetWhiteStyle.isActive { return PetWhiteStyle.surfaceRaised.opacity(0.96) }
         if PureWhiteStyle.isActive { return PureWhiteStyle.surface.opacity(0.96) }
         if MujiStyle.isActive { return MujiStyle.surface.opacity(0.94) }
         if CapsuleStyle.isActive { return CapsuleStyle.surface.opacity(0.64) }
+        if ClarityStyle.isActive { return ClarityStyle.surfaceRaised.opacity(0.72) }
         if SequoiaStyle.isActive { return SequoiaStyle.glassRaised.opacity(0.88) }
         if ClayStyle.isActive { return ClayStyle.cream.opacity(0.96) }
         if SignalStyle.isActive { return SignalStyle.device.opacity(0.95) }
@@ -190,11 +216,13 @@ extension Color {
     
     @available(*, deprecated, message: "使用 .glassEffect() 替代")
     static var monoCardBackground: Color {
+        if let colors = UnifiedColorRuntime.structuralColors { return colors.cardBackground }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.glassFill }
         if MangaStyle.isActive { return MangaStyle.bubbleWhite }
         if PureWhiteStyle.isActive { return PureWhiteStyle.surfaceRaised }
         if MujiStyle.isActive { return MujiStyle.surfaceRaised.opacity(0.96) }
         if CapsuleStyle.isActive { return CapsuleStyle.surfaceRaised }
+        if ClarityStyle.isActive { return ClarityStyle.surfaceRaised }
         if SequoiaStyle.isActive { return SequoiaStyle.glassRaised }
         if ClayStyle.isActive { return ClayStyle.creamRaised }
         if SignalStyle.isActive { return SignalStyle.deviceRaised }
@@ -210,6 +238,7 @@ extension Color {
         if PureWhiteStyle.isActive { return PureWhiteStyle.surface.opacity(0.82) }
         if MujiStyle.isActive { return MujiStyle.surface.opacity(0.72) }
         if CapsuleStyle.isActive { return CapsuleStyle.surface.opacity(0.74) }
+        if ClarityStyle.isActive { return ClarityStyle.surface }
         if SequoiaStyle.isActive { return SequoiaStyle.glass.opacity(0.72) }
         if ClayStyle.isActive { return ClayStyle.cream.opacity(0.78) }
         if SignalStyle.isActive { return SignalStyle.device.opacity(0.78) }
@@ -225,6 +254,7 @@ extension Color {
         if PureWhiteStyle.isActive { return PureWhiteStyle.surface.opacity(0.96) }
         if MujiStyle.isActive { return MujiStyle.surface.opacity(0.94) }
         if CapsuleStyle.isActive { return CapsuleStyle.surface.opacity(0.96) }
+        if ClarityStyle.isActive { return ClarityStyle.surfaceRaised.opacity(0.9) }
         if SequoiaStyle.isActive { return SequoiaStyle.glassRaised.opacity(0.96) }
         if ClayStyle.isActive { return ClayStyle.cream.opacity(0.96) }
         if SignalStyle.isActive { return SignalStyle.device.opacity(0.96) }
@@ -234,11 +264,13 @@ extension Color {
 
     /// 新通用 Sheet 面板主表面（顶部）
     static var monoSheetSurfaceTop: Color {
+        if let colors = UnifiedColorRuntime.structuralColors { return colors.cardBackground }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.glassStrongFill }
         if MangaStyle.isActive { return MangaStyle.bubbleWhite }
         if PureWhiteStyle.isActive { return PureWhiteStyle.surfaceRaised }
         if MujiStyle.isActive { return MujiStyle.surface }
         if CapsuleStyle.isActive { return CapsuleStyle.surfaceRaised }
+        if ClarityStyle.isActive { return ClarityStyle.surfaceRaised }
         if SequoiaStyle.isActive { return SequoiaStyle.glassRaised }
         if ClayStyle.isActive { return ClayStyle.creamRaised }
         if SignalStyle.isActive { return SignalStyle.device }
@@ -248,11 +280,13 @@ extension Color {
 
     /// 新通用 Sheet 面板主表面（底部）
     static var monoSheetSurfaceBottom: Color {
+        if let colors = UnifiedColorRuntime.structuralColors { return colors.surface }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.glassFill }
         if MangaStyle.isActive { return MangaStyle.paperWarm }
         if PureWhiteStyle.isActive { return PureWhiteStyle.surfaceTint }
         if MujiStyle.isActive { return MujiStyle.surfaceRaised }
         if CapsuleStyle.isActive { return CapsuleStyle.surfaceTint }
+        if ClarityStyle.isActive { return ClarityStyle.surfaceQuiet }
         if SequoiaStyle.isActive { return SequoiaStyle.glassPressed }
         if ClayStyle.isActive { return ClayStyle.creamPressed }
         if SignalStyle.isActive { return SignalStyle.control }
@@ -267,6 +301,7 @@ extension Color {
         if PureWhiteStyle.isActive { return PureWhiteStyle.paperBlue.opacity(0.34) }
         if MujiStyle.isActive { return MujiStyle.straw.opacity(0.18) }
         if CapsuleStyle.isActive { return Color.white.opacity(0.36) }
+        if ClarityStyle.isActive { return Color.white.opacity(0.72) }
         if SequoiaStyle.isActive { return Color.white.opacity(0.42) }
         if ClayStyle.isActive { return ClayStyle.butter.opacity(0.2) }
         if SignalStyle.isActive { return SignalStyle.accent.opacity(0.13) }
@@ -276,11 +311,13 @@ extension Color {
 
     /// 新通用 Sheet 面板内侧柔光
     static var monoSheetInnerGlow: Color {
+        if let colors = UnifiedColorRuntime.structuralColors { return colors.accent.opacity(0.10) }
         if MinimalWhiteStyle.isActive { return .clear }
         if MangaStyle.isActive { return MangaStyle.accentPink.opacity(0.08) }
         if PureWhiteStyle.isActive { return PureWhiteStyle.accent.opacity(0.08) }
         if MujiStyle.isActive { return MujiStyle.tea.opacity(0.12) }
         if CapsuleStyle.isActive { return CapsuleStyle.accent.opacity(0.1) }
+        if ClarityStyle.isActive { return ClarityStyle.cyan.opacity(0.12) }
         if SequoiaStyle.isActive { return SequoiaStyle.accent.opacity(0.12) }
         if ClayStyle.isActive { return ClayStyle.accent.opacity(0.1) }
         if SignalStyle.isActive { return SignalStyle.accent.opacity(0.1) }
@@ -290,11 +327,13 @@ extension Color {
 
     /// 新通用 Sheet 面板描边
     static var monoSheetStroke: Color {
+        if let colors = UnifiedColorRuntime.structuralColors { return colors.separator.opacity(0.76) }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.separator }
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(0.74) }
         if PureWhiteStyle.isActive { return PureWhiteStyle.strokeInk.opacity(0.72) }
         if MujiStyle.isActive { return MujiStyle.separator.opacity(0.4) }
         if CapsuleStyle.isActive { return CapsuleStyle.separator.opacity(0.76) }
+        if ClarityStyle.isActive { return ClarityStyle.edge.opacity(0.72) }
         if SequoiaStyle.isActive { return SequoiaStyle.separator.opacity(0.9) }
         if ClayStyle.isActive { return ClayStyle.separator.opacity(0.72) }
         if SignalStyle.isActive { return SignalStyle.separator.opacity(0.78) }
@@ -309,6 +348,7 @@ extension Color {
         if PureWhiteStyle.isActive { return PureWhiteStyle.strokeInk.opacity(0.16) }
         if MujiStyle.isActive { return Color.black.opacity(0.08) }
         if CapsuleStyle.isActive { return CapsuleStyle.accent.opacity(0.16) }
+        if ClarityStyle.isActive { return Color.black.opacity(0.10) }
         if SequoiaStyle.isActive { return Color.black.opacity(0.16) }
         if ClayStyle.isActive { return Color.black.opacity(0.12) }
         if SignalStyle.isActive { return Color.black.opacity(0.2) }
@@ -323,6 +363,7 @@ extension Color {
         if PureWhiteStyle.isActive { return PureWhiteStyle.strokeInk.opacity(0.44) }
         if MujiStyle.isActive { return MujiStyle.inkMuted.opacity(0.45) }
         if CapsuleStyle.isActive { return CapsuleStyle.inkMuted.opacity(0.48) }
+        if ClarityStyle.isActive { return ClarityStyle.inkMuted.opacity(0.45) }
         if SequoiaStyle.isActive { return SequoiaStyle.inkMuted.opacity(0.5) }
         if ClayStyle.isActive { return ClayStyle.inkMuted.opacity(0.5) }
         if SignalStyle.isActive { return SignalStyle.inkMuted.opacity(0.55) }
@@ -331,11 +372,13 @@ extension Color {
     }
     
     static var monoSeparator: Color {
+        if let colors = UnifiedColorRuntime.structuralColors { return colors.separator }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.separator }
         if MangaStyle.isActive { return MangaStyle.separator }
         if PureWhiteStyle.isActive { return PureWhiteStyle.separator }
         if MujiStyle.isActive { return MujiStyle.separator }
         if CapsuleStyle.isActive { return CapsuleStyle.separator }
+        if ClarityStyle.isActive { return ClarityStyle.separator }
         if SequoiaStyle.isActive { return SequoiaStyle.separator }
         if ClayStyle.isActive { return ClayStyle.separator }
         if SignalStyle.isActive { return SignalStyle.separator }
@@ -344,12 +387,14 @@ extension Color {
     }
     
     static var monoIconBackground: Color {
+        if let colors = UnifiedColorRuntime.structuralColors { return colors.iconBackground }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.controlFill }
         if MangaStyle.isActive { return MangaStyle.strokeInk }
         if PetWhiteStyle.isActive { return PetWhiteStyle.mint }
         if PureWhiteStyle.isActive { return PureWhiteStyle.accent }
         if MujiStyle.isActive { return MujiStyle.clay }
         if CapsuleStyle.isActive { return CapsuleStyle.surfaceTint }
+        if ClarityStyle.isActive { return ClarityStyle.surfaceRaised }
         if SequoiaStyle.isActive { return SequoiaStyle.accent.opacity(0.16) }
         if ClayStyle.isActive { return ClayStyle.accent.opacity(0.18) }
         if SignalStyle.isActive { return SignalStyle.control }
@@ -358,12 +403,14 @@ extension Color {
     }
     
     static var monoIconForeground: Color {
+        if let colors = UnifiedColorRuntime.structuralColors { return colors.iconForeground }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         if MangaStyle.isActive { return MangaStyle.onStrokeInk }
         if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
         if PureWhiteStyle.isActive { return PureWhiteStyle.onAccent }
         if MujiStyle.isActive { return MujiStyle.onTint }
         if CapsuleStyle.isActive { return CapsuleStyle.accent }
+        if ClarityStyle.isActive { return ClarityStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
         if ClayStyle.isActive { return ClayStyle.accent }
         if SignalStyle.isActive { return SignalStyle.accent }
@@ -453,6 +500,11 @@ struct MonoGlassCardBackground: View {
             MujiPaperCardBackground(cornerRadius: min(cornerRadius, 14), elevated: true)
         } else if CapsuleStyle.isActive {
             CapsuleSurfaceBackground(cornerRadius: min(max(cornerRadius, 18), 30), elevated: true, tint: CapsuleStyle.surfaceRaised.opacity(0.92))
+        } else if ClarityStyle.isActive {
+            ClaritySurfaceBackground(
+                cornerRadius: min(max(cornerRadius, 18), 34),
+                elevated: true
+            )
         } else if SequoiaStyle.isActive {
             SequoiaSurfaceBackground(cornerRadius: min(max(cornerRadius, 18), 28), elevated: true)
         } else if ClayStyle.isActive {
@@ -480,7 +532,7 @@ extension View {
         self.background(
             MonoGlassCardBackground(cornerRadius: cornerRadius)
                 .shadow(
-                    color: MinimalWhiteStyle.isActive || MangaStyle.isActive || PureWhiteStyle.isActive ? .clear : (MujiStyle.isActive ? Color.black.opacity(0.06) : (CapsuleStyle.isActive ? CapsuleStyle.accent.opacity(0.12) : (SequoiaStyle.isActive ? Color.black.opacity(0.12) : (ClayStyle.isActive ? Color.black.opacity(0.08) : .black.opacity(0.04))))),
+                    color: MinimalWhiteStyle.isActive || MangaStyle.isActive || PureWhiteStyle.isActive || ClarityStyle.isActive ? .clear : (MujiStyle.isActive ? Color.black.opacity(0.06) : (CapsuleStyle.isActive ? CapsuleStyle.accent.opacity(0.12) : (SequoiaStyle.isActive ? Color.black.opacity(0.12) : (ClayStyle.isActive ? Color.black.opacity(0.08) : .black.opacity(0.04))))),
                     radius: MinimalWhiteStyle.isActive || MangaStyle.isActive || PureWhiteStyle.isActive ? 0 : (MujiStyle.isActive ? 10 : 8),
                     x: 0,
                     y: MinimalWhiteStyle.isActive || MangaStyle.isActive || PureWhiteStyle.isActive ? 0 : (MujiStyle.isActive ? 4 : 2)

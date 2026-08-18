@@ -1149,7 +1149,7 @@ struct OnlineFontLibraryView: View {
                 .font(.system(size: 14, weight: .medium, design: .rounded))
                 .foregroundStyle(.white)
                 .submitLabel(.search)
-                .onSubmit {
+                .monoOnSubmit(text: $viewModel.query) { _ in
                     Task { await viewModel.performSearch() }
                 }
 

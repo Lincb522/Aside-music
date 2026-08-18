@@ -1,5 +1,5 @@
-//  后台播放模式选择：独占 / 自动 / 始终混音。
-//  每个模式给出行为细则（锁屏控制、混音、打断行为），替代原来的系统 confirmationDialog。
+//  与其他 App 音频的共存方式：标准 / 智能 / 始终共存。
+//  每个模式说明系统音频焦点、混音与中断恢复行为。
 
 import SwiftUI
 
@@ -111,6 +111,7 @@ struct BackgroundAudioPolicySheet: View {
         return Button {
             guard settings.backgroundAudioPolicy != policy else { return }
             settings.backgroundAudioPolicy = policy
+            PlayerManager.shared.handleBackgroundAudioPolicySettingChanged()
         } label: {
             VStack(alignment: .leading, spacing: 11) {
                 HStack(spacing: 12) {

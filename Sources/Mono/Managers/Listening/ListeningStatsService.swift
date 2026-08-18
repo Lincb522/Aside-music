@@ -59,7 +59,7 @@ final class ListeningStatsService {
         let totalDuration: Int
         /// 上一等长周期总时长（环比基准；无环比为 0）
         let previousDuration: Int
-        /// 完整听完（≥95%）的次数
+        /// 完整听完（真实可听时长 ≥ 90%）的次数
         let completedPlays: Int
         /// 不同歌曲数
         let uniqueSongs: Int
@@ -82,6 +82,10 @@ final class ListeningStatsService {
 
         var formattedDuration: String { Self.format(seconds: totalDuration) }
         var formattedDailyAvg: String { Self.format(seconds: dailyAvgDuration) }
+        var completionRate: Int {
+            guard totalPlays > 0 else { return 0 }
+            return Int((Double(completedPlays) / Double(totalPlays) * 100).rounded())
+        }
 
         /// 分布峰值小时（无数据返回 nil）
         var peakHour: Int? {
@@ -132,7 +136,8 @@ final class ListeningStatsService {
     }
 
     struct SongStat: Identifiable {
-        let id: Int
+        let id: String
+        let songId: Int
         let name: String
         let artistName: String
         let coverUrl: String?
@@ -160,7 +165,7 @@ final class ListeningStatsService {
             PlayHistory.self,
             where: { record in
                 guard record.playedAt <= now else { return false }
-                guard record.playDuration > 0 else { return false }
+                guard ListeningPlaybackPolicy.isEffective(record) else { return false }
                 if let startDate {
                     return record.playedAt >= startDate
                 }
@@ -175,7 +180,7 @@ final class ListeningStatsService {
         let totalPlays = records.count
         let totalDuration = records.reduce(0) { $0 + $1.playDuration }
         let completedPlays = records.filter(\.completed).count
-        let uniqueSongs = Set(records.map(\.songId)).count
+        let uniqueSongs = Set(records.map { ListeningPlaybackPolicy.identityKey(for: $0) }).count
         let uniqueArtists = Set(
             records.map { $0.artistName.isEmpty ? String(localized: "search_unknown_artist") : $0.artistName }
         ).count
@@ -223,12 +228,21 @@ final class ListeningStatsService {
 
     // MARK: - 共享聚合（统计页与周月年报共用）
 
-    /// 按播放次数（次数相同看时长）聚合 TOP 歌曲
+    /// 按有效播放时长（时长相同看次数）聚合 TOP 歌曲
     static func topSongs(from records: [PlayHistory], limit: Int) -> [SongStat] {
-        var songMap: [Int: (name: String, artist: String, cover: String?, count: Int, duration: Int)] = [:]
-        for record in records where record.playDuration > 0 {
-            let existing = songMap[record.songId]
-            songMap[record.songId] = (
+        var songMap: [String: (
+            songId: Int,
+            name: String,
+            artist: String,
+            cover: String?,
+            count: Int,
+            duration: Int
+        )] = [:]
+        for record in records where ListeningPlaybackPolicy.isEffective(record) {
+            let key = ListeningPlaybackPolicy.identityKey(for: record)
+            let existing = songMap[key]
+            songMap[key] = (
+                songId: record.songId,
                 name: record.songName,
                 artist: record.artistName,
                 cover: record.coverUrl ?? existing?.cover,
@@ -238,14 +252,15 @@ final class ListeningStatsService {
         }
         return songMap
             .sorted {
-                $0.value.count != $1.value.count
-                    ? $0.value.count > $1.value.count
-                    : $0.value.duration > $1.value.duration
+                $0.value.duration != $1.value.duration
+                    ? $0.value.duration > $1.value.duration
+                    : $0.value.count > $1.value.count
             }
             .prefix(limit)
             .map {
                 SongStat(
                     id: $0.key,
+                    songId: $0.value.songId,
                     name: $0.value.name,
                     artistName: $0.value.artist,
                     coverUrl: $0.value.cover,
@@ -255,10 +270,10 @@ final class ListeningStatsService {
             }
     }
 
-    /// 按播放次数（次数相同看时长）聚合 TOP 歌手
+    /// 按有效播放时长（时长相同看次数）聚合 TOP 歌手
     static func topArtists(from records: [PlayHistory], limit: Int) -> [ArtistStat] {
         var artistMap: [String: (count: Int, duration: Int, cover: String?)] = [:]
-        for record in records where record.playDuration > 0 {
+        for record in records where ListeningPlaybackPolicy.isEffective(record) {
             let name = record.artistName.isEmpty ? String(localized: "search_unknown_artist") : record.artistName
             let existing = artistMap[name]
             artistMap[name] = (
@@ -269,9 +284,9 @@ final class ListeningStatsService {
         }
         return artistMap
             .sorted {
-                $0.value.count != $1.value.count
-                    ? $0.value.count > $1.value.count
-                    : $0.value.duration > $1.value.duration
+                $0.value.duration != $1.value.duration
+                    ? $0.value.duration > $1.value.duration
+                    : $0.value.count > $1.value.count
             }
             .prefix(limit)
             .map {
@@ -327,7 +342,7 @@ final class ListeningStatsService {
             where: {
                 $0.playedAt >= previousStart
                     && $0.playedAt < currentStart
-                    && $0.playDuration > 0
+                    && ListeningPlaybackPolicy.isEffective($0)
             }
         )
         return records.reduce(0) { $0 + $1.playDuration }
@@ -392,7 +407,7 @@ final class ListeningStatsService {
                 where: {
                     $0.playedAt >= trendStart
                         && $0.playedAt <= now
-                        && $0.playDuration > 0
+                        && ListeningPlaybackPolicy.isEffective($0)
                 }
             )
 

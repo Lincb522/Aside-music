@@ -8,6 +8,7 @@ struct FullScreenPlayerView: View {
     @ObservedObject private var settings = SettingsManager.shared
     @ObservedObject private var immersiveController = ImmersiveModeController.shared
     @Environment(\.colorScheme) private var envColorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
@@ -62,12 +63,34 @@ struct FullScreenPlayerView: View {
                     FolkPlayerLayout()
                 case .game2048:
                     Game2048PlayerLayout()
+                case .ipod:
+                    IPodPlayerLayout()
+                case .liquidGlass:
+                    LiquidGlassPlayerLayout()
+                case .tornPaper:
+                    TornPaperPlayerLayout()
+                case .clarity:
+                    ClarityPlayerLayout()
+                case .dotMatrix:
+                    DotMatrixPlayerLayout()
+                case .riveMotion:
+                    RiveMotionPlayerLayout()
                 }
             }
+            .id(themeManager.currentTheme)
+            .transition(
+                reduceMotion
+                    ? .opacity
+                    : .opacity.combined(with: .scale(scale: 0.985))
+            )
             .environment(\.colorScheme, MinimalWhiteStyle.isActive ? settings.nativeColorScheme : (themeManager.currentTheme.hasCustomBackground ? settings.nativeColorScheme : envColorScheme))
 
         }
         .compatFontDesign(nil)
+        .animation(
+            reduceMotion ? nil : .spring(response: 0.36, dampingFraction: 0.94, blendDuration: 0.06),
+            value: themeManager.currentTheme
+        )
         .monoEdgeSwipeToDismiss()
         .fullScreenCover(isPresented: $immersiveController.isPresented) {
             AriaStageView()
@@ -106,6 +129,7 @@ struct FullScreenPlayerView: View {
             if MujiStyle.isActive { return [MujiStyle.clay, MujiStyle.indigo.opacity(0.86)] }
             if NeumorphicStyle.isActive { return [NeumorphicStyle.accent, NeumorphicStyle.sage] }
             if CapsuleStyle.isActive { return CapsuleStyle.accentGradient }
+            if ClarityStyle.isActive { return ClarityStyle.accentGradient }
             if SequoiaStyle.isActive { return [SequoiaStyle.accent, SequoiaStyle.aqua] }
             if LiquidGlassStyle.isActive { return [LiquidGlassStyle.accent, LiquidGlassStyle.cyan, LiquidGlassStyle.violet] }
             if ClayStyle.isActive { return [ClayStyle.sky, ClayStyle.peach] }
@@ -216,6 +240,10 @@ struct AIEqualizerArtworkStatusView: View {
                             isEnabled: agent.automaticConfigurationEnabled,
                             reduceMotion: reduceMotion,
                             foregroundColor: foregroundColor
+                        )
+                        .monoCompletionMotion(
+                            trigger: agent.appliedProposalID,
+                            reduceMotion: reduceMotion
                         )
                     }
                     .padding(.leading, tuningProgress == nil && !isExpanded ? 3 : 8)

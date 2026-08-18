@@ -1,0 +1,294 @@
+--- /tmp/mono-protect-split-20260818/token-admin/server.js	2026-08-18 18:07:39
++++ artifacts/backend/protect-code-purpose-split-20260818/token-admin/server.js	2026-08-18 18:13:25
+@@ -209,11 +209,14 @@
+       defaultDownloadLimit: 0,
+       deviceBindEnabled: false,
+       maxDevicesPerToken: 3,
++      selfRegisterRequireProtectCode: true,
+       qqRiskControlEnabled: true,
+       kcmPoolEnabled: false,
+       activeKcmPoolAccountId: null,
+       ipaReleases: [],
+       appChangelogs: [],
++      protectCodes: [],
++      bindings: [],
+       tokens: []
+     }
+     fs.writeFileSync(DATA_FILE, JSON.stringify(initial, null, 2))
+@@ -234,6 +237,7 @@
+   if (data.selfRegisterDownloadLimit === undefined) data.selfRegisterDownloadLimit = 0
+   if (data.selfRegisterMaxDevices === undefined) data.selfRegisterMaxDevices = 3
+   if (data.selfRegisterDailyLimit === undefined) data.selfRegisterDailyLimit = 50
++  if (data.selfRegisterRequireProtectCode === undefined) data.selfRegisterRequireProtectCode = true
+   if (data.qqRiskControlEnabled === undefined) data.qqRiskControlEnabled = true
+   if (data.kcmPoolEnabled === undefined) data.kcmPoolEnabled = false
+   if (data.activeKcmPoolAccountId === undefined) data.activeKcmPoolAccountId = null
+@@ -241,12 +245,65 @@
+   if (!Array.isArray(data.appChangelogs)) data.appChangelogs = []
+   if (!Array.isArray(data.protectCodes)) data.protectCodes = []
+   if (!Array.isArray(data.bindings)) data.bindings = []
++  normalizeProtectCodeData(data)
+   const cloudPreparation = cloudSnapshotStore.prepareData(data)
+   pendingCloudCompactionCount += cloudPreparation.migrated
+   cachedData = data
+   return data
+ }
+ 
++const PROTECT_CODE_PURPOSES = new Set(['ipa', 'tf'])
++
++function normalizeProtectCodePurpose(value, fallback = 'tf') {
++  const normalized = String(value || '').trim().toLowerCase()
++  return PROTECT_CODE_PURPOSES.has(normalized) ? normalized : fallback
++}
++
++function inferLegacyProtectCodePurpose(bindings, code) {
++  const observed = new Set()
++  for (const binding of (bindings || [])) {
++    if (String(binding.code || '').trim().toUpperCase() !== code) continue
++    if (binding.source === 'self-register') observed.add('ipa')
++    if (String(binding.source || '').startsWith('tf-') || binding.source === 'tf-auto') observed.add('tf')
++  }
++  return observed.size === 1 ? [...observed][0] : 'tf'
++}
++
++function normalizeProtectCodeData(data) {
++  if (!Array.isArray(data.protectCodes)) data.protectCodes = []
++  if (!Array.isArray(data.bindings)) data.bindings = []
++  const purposeByCode = new Map()
++  for (const item of data.protectCodes) {
++    if (!item || typeof item !== 'object') continue
++    item.code = String(item.code || '').trim().toUpperCase()
++    item.purpose = PROTECT_CODE_PURPOSES.has(String(item.purpose || '').trim().toLowerCase())
++      ? String(item.purpose).trim().toLowerCase()
++      : inferLegacyProtectCodePurpose(data.bindings, item.code)
++    item.currentUses = Math.max(0, parseInt(item.currentUses, 10) || 0)
++    item.maxUses = Math.max(item.currentUses, parseInt(item.maxUses, 10) || 0)
++    if (item.code) purposeByCode.set(item.code, item.purpose)
++  }
++  for (const binding of data.bindings) {
++    if (!binding || typeof binding !== 'object' || !binding.code) continue
++    const code = String(binding.code).trim().toUpperCase()
++    binding.codePurpose = normalizeProtectCodePurpose(
++      binding.codePurpose,
++      purposeByCode.get(code) || (binding.source === 'self-register' ? 'ipa' : 'tf')
++    )
++  }
++}
++
++function protectCodesForPurpose(data, purpose) {
++  normalizeProtectCodeData(data)
++  const normalizedPurpose = normalizeProtectCodePurpose(purpose)
++  return data.protectCodes.filter(item => item.purpose === normalizedPurpose)
++}
++
++function findProtectCode(data, code, purpose) {
++  const normalizedCode = String(code || '').trim().toUpperCase()
++  return protectCodesForPurpose(data, purpose).find(item => item.code === normalizedCode) || null
++}
++
+ function generateProtectCode() {
+   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+   let result = ''
+@@ -280,12 +337,13 @@
+ })
+ 
+ // --------------- 绑定记录 (保护码 -> 邮箱/用户名/Token) ---------------
+-function recordBinding(data, { code = null, email, name, tokenKey = null, tokenId = null, testerId = null, groupId = null, accountId = null, source = null }) {
++function recordBinding(data, { code = null, codePurpose = null, email, name, tokenKey = null, tokenId = null, testerId = null, groupId = null, accountId = null, source = null }) {
+   if (!Array.isArray(data.bindings)) data.bindings = []
+   const emailLc = (email || '').toLowerCase()
+   let b = data.bindings.find(x => (tokenId && x.tokenId === tokenId) || (tokenKey && x.tokenKey === tokenKey) || (emailLc && x.email === emailLc))
+   if (b) {
+     if (code) b.code = code
++    if (codePurpose) b.codePurpose = normalizeProtectCodePurpose(codePurpose)
+     if (name) b.name = name
+     if (tokenKey) b.tokenKey = tokenKey
+     if (tokenId) b.tokenId = tokenId
+@@ -299,6 +357,7 @@
+   b = {
+     id: crypto.randomUUID(),
+     code: code || null,
++    codePurpose: code ? normalizeProtectCodePurpose(codePurpose, source === 'self-register' ? 'ipa' : 'tf') : null,
+     email: emailLc,
+     name: name || '',
+     tokenKey: tokenKey || null,
+@@ -3894,11 +3953,12 @@
+ // --------------- Public self-register APIs (no auth) ---------------
+ app.get('/api/public/register/status', (req, res) => {
+   const data = loadData()
+-  if (!Array.isArray(data.protectCodes)) data.protectCodes = []
++  normalizeProtectCodeData(data)
+   res.json({
+     enabled: Boolean(data.selfRegisterEnabled),
+     expiresIn: data.selfRegisterExpiresIn || 30,
+-    requireProtectCode: data.protectCodes.length > 0
++    requireProtectCode: Boolean(data.selfRegisterRequireProtectCode),
++    protectCodePurpose: 'ipa'
+   })
+ })
+ 
+@@ -3919,21 +3979,21 @@
+     return res.status(400).json({ error: '请填写用户名' })
+   }
+ 
+-  // Verify protect code if any exist in the system
+-  if (!Array.isArray(data.protectCodes)) data.protectCodes = []
+-  const requireProtectCode = data.protectCodes.length > 0
++  // 自签 IPA 与 TestFlight 使用独立保护码池；本路由只接受 IPA 自签保护码。
++  normalizeProtectCodeData(data)
++  const requireProtectCode = Boolean(data.selfRegisterRequireProtectCode)
+   let matchedCode = null
+ 
+   if (requireProtectCode) {
+     if (!protectCode || !protectCode.trim()) {
+-      return res.status(400).json({ error: '请输入保护码' })
++      return res.status(400).json({ error: '请输入 IPA 自签保护码' })
+     }
+-    matchedCode = data.protectCodes.find(c => c.code === protectCode.trim().toUpperCase())
++    matchedCode = findProtectCode(data, protectCode, 'ipa')
+     if (!matchedCode) {
+-      return res.status(403).json({ error: '保护码无效' })
++      return res.status(403).json({ error: 'IPA 自签保护码无效' })
+     }
+     if (matchedCode.currentUses >= matchedCode.maxUses) {
+-      return res.status(403).json({ error: '该保护码已达使用上限' })
++      return res.status(403).json({ error: '该 IPA 自签保护码已达使用上限' })
+     }
+   }
+ 
+@@ -3952,7 +4012,7 @@
+       if (matchedCode) {
+         matchedCode.currentUses += 1
+       }
+-      recordBinding(data, { code: matchedCode ? matchedCode.code : null, email: existing.email, name: existing.name, tokenKey: existing.key, tokenId: existing.id, source: 'self-register' })
++      recordBinding(data, { code: matchedCode ? matchedCode.code : null, codePurpose: matchedCode?.purpose || null, email: existing.email, name: existing.name, tokenKey: existing.key, tokenId: existing.id, source: 'self-register' })
+       saveData(data)
+       console.log('[升级正式] Token转为永久:', existing.name, existing.email, existing.key, matchedCode ? `(消耗保护码: ${matchedCode.code})` : '')
+     }
+@@ -4003,7 +4063,7 @@
+   }
+ 
+   data.tokens.push(token)
+-  recordBinding(data, { code: matchedCode ? matchedCode.code : null, email: token.email, name: token.name, tokenKey: token.key, tokenId: token.id, source: 'self-register' })
++  recordBinding(data, { code: matchedCode ? matchedCode.code : null, codePurpose: matchedCode?.purpose || null, email: token.email, name: token.name, tokenKey: token.key, tokenId: token.id, source: 'self-register' })
+   saveData(data)
+   console.log('[自助注册] 新 Token:', trimName, email, key, matchedCode ? `(保护码: ${matchedCode.code})` : '')
+ 
+@@ -4185,13 +4245,15 @@
+     selfRegisterRateLimit: req.appData.selfRegisterRateLimit || 60,
+     selfRegisterDownloadLimit: req.appData.selfRegisterDownloadLimit || 0,
+     selfRegisterMaxDevices: req.appData.selfRegisterMaxDevices || 3,
+-    selfRegisterDailyLimit: req.appData.selfRegisterDailyLimit || 50
++    selfRegisterDailyLimit: req.appData.selfRegisterDailyLimit || 50,
++    selfRegisterRequireProtectCode: Boolean(req.appData.selfRegisterRequireProtectCode)
+   })
+ })
+ 
+ app.put('/api/self-register/config', authMiddleware, (req, res) => {
+   const fields = ['selfRegisterEnabled', 'selfRegisterExpiresIn', 'selfRegisterRateLimit',
+-                  'selfRegisterDownloadLimit', 'selfRegisterMaxDevices', 'selfRegisterDailyLimit']
++                  'selfRegisterDownloadLimit', 'selfRegisterMaxDevices', 'selfRegisterDailyLimit',
++                  'selfRegisterRequireProtectCode']
+   fields.forEach(f => {
+     if (req.body[f] !== undefined) req.appData[f] = req.body[f]
+   })
+@@ -4203,25 +4265,34 @@
+ app.get('/api/protect-codes', authMiddleware, (req, res) => {
+   res.set('Cache-Control', 'no-store, no-cache, must-revalidate')
+   res.set('Pragma', 'no-cache')
++  normalizeProtectCodeData(req.appData)
++  const protectCodes = req.appData.protectCodes || []
+   res.json({
+     ok: true,
+-    protectCodes: req.appData.protectCodes || []
++    protectCodes,
++    counts: {
++      ipa: protectCodes.filter(item => item.purpose === 'ipa').length,
++      tf: protectCodes.filter(item => item.purpose === 'tf').length
++    }
+   })
+ })
+ 
+ app.post('/api/protect-codes/generate', authMiddleware, (req, res) => {
+-  const count = parseInt(req.body.count, 10) || 100
+-  const maxUses = parseInt(req.body.maxUses, 10) || 3
+-  
+-  if (!Array.isArray(req.appData.protectCodes)) {
+-    req.appData.protectCodes = []
++  const count = Math.min(1000, Math.max(1, parseInt(req.body.count, 10) || 100))
++  const maxUses = Math.min(100000, Math.max(1, parseInt(req.body.maxUses, 10) || 3))
++  const requestedPurpose = String(req.body.purpose || 'tf').trim().toLowerCase()
++  if (!PROTECT_CODE_PURPOSES.has(requestedPurpose)) {
++    return res.status(400).json({ error: 'purpose 必须是 ipa 或 tf' })
+   }
++  normalizeProtectCodeData(req.appData)
+ 
+   const newCodes = []
+   for (let i = 0; i < count; i++) {
+-    const code = generateProtectCode()
++    let code = generateProtectCode()
++    while (req.appData.protectCodes.some(item => item.code === code)) code = generateProtectCode()
+     const item = {
+       code,
++      purpose: requestedPurpose,
+       maxUses,
+       currentUses: 0,
+       createdAt: new Date().toISOString()
+@@ -4231,7 +4302,7 @@
+   }
+ 
+   saveData(req.appData)
+-  res.json({ ok: true, generated: newCodes.length, protectCodes: req.appData.protectCodes })
++  res.json({ ok: true, purpose: requestedPurpose, generated: newCodes.length, protectCodes: req.appData.protectCodes })
+ })
+ 
+ app.put('/api/protect-codes/:code', authMiddleware, (req, res) => {
+@@ -4278,13 +4349,14 @@
+   if (!code) {
+     return res.status(400).json({ error: '缺少 code' })
+   }
++  const requestedPurpose = String(req.body.purpose || 'tf').trim().toLowerCase()
++  if (!PROTECT_CODE_PURPOSES.has(requestedPurpose)) {
++    return res.status(400).json({ error: 'purpose 必须是 ipa 或 tf' })
++  }
+ 
+-  if (!Array.isArray(data.protectCodes)) data.protectCodes = []
+-  
+-  const normalizedCode = String(code).trim().toUpperCase()
+-  const target = data.protectCodes.find(c => c.code === normalizedCode)
++  const target = findProtectCode(data, code, requestedPurpose)
+   if (!target) {
+-    return res.status(404).json({ error: '保护码不存在' })
++    return res.status(404).json({ error: requestedPurpose === 'ipa' ? 'IPA 自签保护码不存在' : 'TestFlight 保护码不存在' })
+   }
+ 
+   if (target.currentUses >= target.maxUses) {
+@@ -4293,16 +4365,16 @@
+ 
+   // consume === false 时仅校验、不消耗次数（供加入成功前预检使用）
+   if (consume === false) {
+-    return res.json({ ok: true, checked: true, currentUses: target.currentUses, maxUses: target.maxUses })
++    return res.json({ ok: true, checked: true, purpose: target.purpose, currentUses: target.currentUses, maxUses: target.maxUses })
+   }
+ 
+   target.currentUses += 1
+   if (email || tokenKey) {
+-    recordBinding(data, { code: target.code, email, name, tokenKey, tokenId, testerId, groupId, accountId, source: source || 'tf-public-join' })
++    recordBinding(data, { code: target.code, codePurpose: target.purpose, email, name, tokenKey, tokenId, testerId, groupId, accountId, source: source || 'tf-public-join' })
+   }
+   saveData(data)
+ 
+-  res.json({ ok: true, currentUses: target.currentUses, maxUses: target.maxUses })
++  res.json({ ok: true, purpose: target.purpose, currentUses: target.currentUses, maxUses: target.maxUses })
+ })
+ 
+ // --------------- Bindings management API ---------------
+@@ -4315,7 +4387,7 @@
+   const list = data.bindings.map(b => {
+     const t = (b.tokenId && byId[b.tokenId]) || (b.tokenKey && byKey[b.tokenKey]) || null
+     return {
+-      id: b.id, code: b.code, email: b.email, name: b.name,
++      id: b.id, code: b.code, codePurpose: b.codePurpose, email: b.email, name: b.name,
+       tokenKey: b.tokenKey, tokenId: b.tokenId, testerId: b.testerId, groupId: b.groupId,
+       source: b.source, accountId: b.accountId, createdAt: b.createdAt, updatedAt: b.updatedAt, backfilled: Boolean(b.backfilled),
+       tokenExists: Boolean(t),

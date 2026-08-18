@@ -85,6 +85,9 @@ enum SDStore {
         var playedAt: Date
         var playDuration: Int
         var completed: Bool
+        var trackDuration: Int = 0
+        var effectivePlay: Bool = false
+        var qualificationVersion: Int = 0
         var sourceRaw: String?
         var qqMid: String?
         var qqAlbumMid: String?
@@ -100,6 +103,9 @@ enum SDStore {
             self.playedAt = Date()
             self.playDuration = 0
             self.completed = false
+            self.trackDuration = 0
+            self.effectivePlay = false
+            self.qualificationVersion = 0
         }
     }
 
@@ -288,7 +294,10 @@ extension SDStore.PlayHistory: SDMirrorModel {
         id = V.uuid(s, "id"); songId = V.int(s, "songId"); songName = V.string(s, "songName")
         artistName = V.string(s, "artistName"); coverUrl = V.stringOpt(s, "coverUrl")
         playedAt = V.date(s, "playedAt"); playDuration = V.int(s, "playDuration")
-        completed = V.bool(s, "completed"); sourceRaw = V.stringOpt(s, "sourceRaw")
+        completed = V.bool(s, "completed"); trackDuration = V.int(s, "trackDuration")
+        effectivePlay = V.bool(s, "effectivePlay")
+        qualificationVersion = V.int(s, "qualificationVersion")
+        sourceRaw = V.stringOpt(s, "sourceRaw")
         qqMid = V.stringOpt(s, "qqMid"); qqAlbumMid = V.stringOpt(s, "qqAlbumMid")
         qishuiTrackId = V.intOpt(s, "qishuiTrackId")
         appleMusicID = V.stringOpt(s, "appleMusicID")
@@ -299,7 +308,9 @@ extension SDStore.PlayHistory: SDMirrorModel {
         [
             "id": id, "songId": songId, "songName": songName, "artistName": artistName,
             "coverUrl": coverUrl, "playedAt": playedAt, "playDuration": playDuration,
-            "completed": completed, "sourceRaw": sourceRaw, "qqMid": qqMid,
+            "completed": completed, "trackDuration": trackDuration,
+            "effectivePlay": effectivePlay, "qualificationVersion": qualificationVersion,
+            "sourceRaw": sourceRaw, "qqMid": qqMid,
             "qqAlbumMid": qqAlbumMid, "qishuiTrackId": qishuiTrackId,
             "appleMusicID": appleMusicID, "appleMusicISRC": appleMusicISRC
         ]

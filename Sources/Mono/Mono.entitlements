@@ -6,5 +6,7 @@
 	<array>
 		<string>group.zijiu.Monologue.com</string>
 	</array>
+	<key>com.apple.developer.healthkit</key>
+	<true/>
 </dict>
 </plist>

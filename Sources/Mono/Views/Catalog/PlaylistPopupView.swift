@@ -743,18 +743,20 @@ private struct QueueLinearRow: View {
     var body: some View {
         let _ = settings.globalThemeRevision
 
-        if CapsuleStyle.isActive {
-            capsuleQueueRow
-        } else if PetWhiteStyle.isActive {
-            petWhiteQueueRow
-        } else if PureWhiteStyle.isActive {
-            pureWhiteQueueRow
-        } else if MinimalWhiteStyle.isActive {
-            minimalWhiteQueueRow
-        } else if QueuePopupPalette.isAside {
-            asideQueueRow
-        } else {
-            defaultQueueRow
+        Group {
+            if CapsuleStyle.isActive {
+                capsuleQueueRow
+            } else if PetWhiteStyle.isActive {
+                petWhiteQueueRow
+            } else if PureWhiteStyle.isActive {
+                pureWhiteQueueRow
+            } else if MinimalWhiteStyle.isActive {
+                minimalWhiteQueueRow
+            } else if QueuePopupPalette.isAside {
+                asideQueueRow
+            } else {
+                defaultQueueRow
+            }
         }
     }
 

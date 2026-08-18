@@ -35,34 +35,29 @@ class SwipeBackController: NSObject, UIGestureRecognizerDelegate {
     
     private func attach(to navigationController: UINavigationController) {
         guard !attachedNavControllers.contains(navigationController) else { return }
+        guard navigationController.transitionCoordinator == nil else { return }
         
         guard let interactivePopGestureRecognizer = navigationController.interactivePopGestureRecognizer,
               let gestureView = interactivePopGestureRecognizer.view else {
             return
         }
         
-        let panGesture = UIPanGestureRecognizer()
+        let panGesture = UIPanGestureRecognizer(target: self, action: #selector(handleFullScreenPan(_:)))
         panGesture.delegate = self
         panGesture.maximumNumberOfTouches = 1
-        
-        if let internalTargets = interactivePopGestureRecognizer.value(forKey: "targets") as? [NSObject],
-           let internalTarget = internalTargets.first,
-           let target = internalTarget.value(forKey: "target") {
-            let action = Selector(("handleNavigationTransition:"))
-            panGesture.addTarget(target, action: action)
-            
-            // 防误触：监听手势状态变化，通知 EdgeSwipeGuard
-            panGesture.addTarget(swipeGuardTarget, action: #selector(SwipeGuardTarget.handleGestureState(_:)))
-            
-            gestureView.addGestureRecognizer(panGesture)
-            attachedNavControllers.add(navigationController)
-            gestureMap.setObject(panGesture, forKey: navigationController)
-            
-            AppLogger.debug("SwipeBackController: Attached to NavigationController (\(attachedNavControllers.count) total)")
-        }
-        
-        // 同时监听系统原生的边缘返回手势
-        interactivePopGestureRecognizer.addTarget(swipeGuardTarget, action: #selector(SwipeGuardTarget.handleGestureState(_:)))
+        panGesture.cancelsTouchesInView = false
+
+        // 不再依赖 interactivePopGestureRecognizer 的私有 targets/KVC。
+        // 系统版本变化时该私有目标可能为空，之前会导致整套全局侧滑完全没有安装。
+        gestureView.addGestureRecognizer(panGesture)
+        // 保留系统边缘返回。布局期关闭该手势会迫使 UINavigationController
+        // 重新计算 bar 状态，和 SwiftUI 的 tab 切换重叠时可能触发 iOS 26
+        // UINavigationBar.layoutSubviews 内部断言。全屏手势只负责边缘以外区域。
+        interactivePopGestureRecognizer.isEnabled = true
+        attachedNavControllers.add(navigationController)
+        gestureMap.setObject(panGesture, forKey: navigationController)
+
+        AppLogger.debug("SwipeBackController: Attached stable full-screen gesture (\(attachedNavControllers.count) total)")
     }
     
     /// 手势状态接收者 — 桥接到 EdgeSwipeGuard
@@ -75,6 +70,25 @@ class SwipeBackController: NSObject, UIGestureRecognizerDelegate {
             }
         }
         return nil
+    }
+
+    @objc private func handleFullScreenPan(_ pan: UIPanGestureRecognizer) {
+        swipeGuardTarget.handleGestureState(pan)
+        guard pan.state == .ended,
+              let nav = findNavigationController(for: pan),
+              nav.viewControllers.count > 1,
+              nav.transitionCoordinator == nil else {
+            return
+        }
+
+        let isRTL = nav.view.effectiveUserInterfaceLayoutDirection == .rightToLeft
+        let direction: CGFloat = isRTL ? -1 : 1
+        let translation = pan.translation(in: pan.view).x * direction
+        let velocity = pan.velocity(in: pan.view).x * direction
+        let projected = translation + velocity * 0.16
+        guard max(translation, projected) >= 86 else { return }
+
+        nav.popViewController(animated: true)
     }
     
     // MARK: - UIGestureRecognizerDelegate
@@ -94,13 +108,21 @@ class SwipeBackController: NSObject, UIGestureRecognizerDelegate {
         }
         
         let velocity = pan.velocity(in: pan.view)
-        guard velocity.x > 0 else { return false }
-        
-        let ratio = abs(velocity.y) / abs(velocity.x)
-        guard ratio < 1.5 else { return false }
+        let isRTL = nav.view.effectiveUserInterfaceLayoutDirection == .rightToLeft
+        let directionalVelocity = isRTL ? -velocity.x : velocity.x
+        guard directionalVelocity > 0 else { return false }
+
+        let ratio = abs(velocity.y) / max(abs(velocity.x), 1)
+        guard ratio < 0.82 else { return false }
         
         let location = pan.location(in: pan.view)
-        let isInEdgeZone = location.x < 50
+        let isInEdgeZone = isRTL
+            ? location.x > (pan.view?.bounds.width ?? 0) - 50
+            : location.x < 50
+
+        // 边缘区域交还给系统的 interactivePopGestureRecognizer，避免同一次返回
+        // 同时驱动系统交互转场和自定义 pop。
+        guard !isInEdgeZone else { return false }
         
         if let hitView = pan.view?.hitTest(location, with: nil) {
             if hitView is UISlider { return false }
@@ -131,9 +153,7 @@ class SwipeBackController: NSObject, UIGestureRecognizerDelegate {
         return false
     }
     
-    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldBeRequiredToFailBy otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-        return otherGestureRecognizer.view is UIScrollView
-    }
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldBeRequiredToFailBy otherGestureRecognizer: UIGestureRecognizer) -> Bool { false }
 }
 
 // MARK: - SwiftUI Integration
@@ -149,7 +169,7 @@ struct SwipeBackInjector: UIViewControllerRepresentable {
 }
 
 class SwipeBackViewController: UIViewController {
-    private var hasAttached = false
+    private var pendingAttach: DispatchWorkItem?
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
@@ -157,12 +177,24 @@ class SwipeBackViewController: UIViewController {
     }
     
     func attachIfNeeded() {
-        guard !hasAttached, let window = view.window else { return }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+        guard let window = view.window else { return }
+        // viewDidLayoutSubviews 在导航栏布局和 tab 转场中会连续触发。只保留一个
+        // 延迟扫描，不能在每次布局时取消并重建任务，更不能同步修改导航手势。
+        guard pendingAttach == nil else { return }
+        let work = DispatchWorkItem { [weak self, weak window] in
+            defer { self?.pendingAttach = nil }
+            guard let window else { return }
             SwipeBackController.shared.enable(for: window)
-            self?.hasAttached = true
         }
+        pendingAttach = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12, execute: work)
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        // NavigationStack 和模态页面会延迟创建 UINavigationController；每次布局
+        // 只做一次去重扫描，保证后创建的二、三级页面也能获得同一返回手势。
+        attachIfNeeded()
     }
 }
 

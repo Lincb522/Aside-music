@@ -23,10 +23,11 @@ enum AppFrameRate {
 
     static var preferredFramesPerSecond: Int {
         #if os(iOS)
-        min(
+        let computeBudget = MonoComputeBudgetStore.shared.current
+        return min(
             screenMaximumFramesPerSecond,
             preferredMaximumFramesPerSecond,
-            systemPerformanceCeiling
+            computeBudget.interactiveFramesPerSecond
         )
         #else
         min(screenMaximumFramesPerSecond, preferredMaximumFramesPerSecond)
@@ -42,7 +43,12 @@ enum AppFrameRate {
     }
 
     static func animationTimeline(paused: Bool = false) -> AnimationTimelineSchedule {
-        let fps = min(preferredFramesPerSecond, continuousAnimationFramesPerSecond)
+        let computeBudget = MonoComputeBudgetStore.shared.current
+        let fps = min(
+            preferredFramesPerSecond,
+            continuousAnimationFramesPerSecond,
+            computeBudget.continuousFramesPerSecond
+        )
         return .animation(minimumInterval: 1.0 / Double(fps), paused: paused)
     }
 
@@ -50,14 +56,28 @@ enum AppFrameRate {
         // `fpsCap` is a real cap. The previous 60 fps floor made every 20/24/30
         // fps visualizer render at 60 fps, doubling or tripling its intended
         // work without changing the animation itself.
-        let fps = max(1, min(fpsCap, preferredFramesPerSecond))
+        let fps = max(
+            1,
+            min(
+                fpsCap,
+                preferredFramesPerSecond,
+                MonoComputeBudgetStore.shared.current.continuousFramesPerSecond
+            )
+        )
         return .animation(minimumInterval: 1.0 / Double(fps), paused: paused)
     }
 
     /// 低功耗 timeline：不受 60fps 下限保护，fpsCap 是真实上限。
     /// 供重负载全屏场景（沉浸模式的背景 Canvas / 歌词时间轴）使用，避免长时间高频重绘发热。
     static func throttledTimeline(maximumFramesPerSecond fpsCap: Int, paused: Bool = false) -> AnimationTimelineSchedule {
-        let fps = max(1, min(fpsCap, preferredFramesPerSecond))
+        let fps = max(
+            1,
+            min(
+                fpsCap,
+                preferredFramesPerSecond,
+                MonoComputeBudgetStore.shared.current.heavyVisualFramesPerSecond
+            )
+        )
         return .animation(minimumInterval: 1.0 / Double(fps), paused: paused)
     }
 
@@ -66,6 +86,9 @@ enum AppFrameRate {
     /// 整机渲染开销直接减半，是发热/耗电的第一杠杆。
     @MainActor
     private static var frameRateCeiling: Int?
+
+    @MainActor
+    private static var heavyWorkloadToken: UUID?
 
     @MainActor
     private static var adaptivePolicyCancellables: Set<AnyCancellable> = []
@@ -77,6 +100,9 @@ enum AppFrameRate {
     @MainActor
     static func pushFrameRateCeiling(_ ceiling: Int, reason: String) {
         frameRateCeiling = ceiling
+        if heavyWorkloadToken == nil {
+            heavyWorkloadToken = MonoComputeEngine.shared.beginWorkload(.immersiveStage)
+        }
         lockConnectedScenesToPreferredFrameRate(reason: "ceiling on: \(reason)")
     }
 
@@ -84,6 +110,10 @@ enum AppFrameRate {
     @MainActor
     static func popFrameRateCeiling(reason: String) {
         frameRateCeiling = nil
+        if let heavyWorkloadToken {
+            MonoComputeEngine.shared.endWorkload(heavyWorkloadToken)
+            self.heavyWorkloadToken = nil
+        }
         lockConnectedScenesToPreferredFrameRate(reason: "ceiling off: \(reason)")
     }
 
@@ -167,15 +197,7 @@ enum AppFrameRate {
     /// than waiting for the app to enter the immersive player. This affects
     /// cadence only; view content and animation equations stay unchanged.
     private static var systemPerformanceCeiling: Int {
-        let processInfo = ProcessInfo.processInfo
-        if processInfo.isLowPowerModeEnabled { return 45 }
-        switch processInfo.thermalState {
-        case .nominal: return preferredMaximumFramesPerSecond
-        case .fair: return 60
-        case .serious: return 45
-        case .critical: return 30
-        @unknown default: return 60
-        }
+        MonoComputeBudgetStore.shared.current.interactiveFramesPerSecond
     }
 
     @MainActor
@@ -183,20 +205,11 @@ enum AppFrameRate {
         guard !adaptivePolicyInstalled else { return }
         adaptivePolicyInstalled = true
 
-        NotificationCenter.default.publisher(for: ProcessInfo.thermalStateDidChangeNotification)
+        NotificationCenter.default.publisher(for: .monoComputeBudgetDidChange)
             .receive(on: DispatchQueue.main)
             .sink { _ in
                 Task { @MainActor in
-                    lockConnectedScenesToPreferredFrameRate(reason: "thermal state changed")
-                }
-            }
-            .store(in: &adaptivePolicyCancellables)
-
-        NotificationCenter.default.publisher(for: Notification.Name.NSProcessInfoPowerStateDidChange)
-            .receive(on: DispatchQueue.main)
-            .sink { _ in
-                Task { @MainActor in
-                    lockConnectedScenesToPreferredFrameRate(reason: "power state changed")
+                    lockConnectedScenesToPreferredFrameRate(reason: "compute budget changed")
                 }
             }
             .store(in: &adaptivePolicyCancellables)

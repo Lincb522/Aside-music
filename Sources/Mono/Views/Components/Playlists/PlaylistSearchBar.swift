@@ -47,6 +47,9 @@ struct PlaylistSearchBar: View {
                     .foregroundColor(MangaStyle.isActive ? MangaStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : (CapsuleStyle.isActive ? CapsuleStyle.ink : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monoTextPrimary))))
                     .focused($isFocused)
                     .submitLabel(.search)
+                    .monoOnSubmit(text: $searchText) { _ in
+                        isFocused = false
+                    }
                 
                 Button {
                     if searchText.isEmpty {

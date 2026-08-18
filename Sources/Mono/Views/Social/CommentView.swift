@@ -474,6 +474,11 @@ struct CommentView: View {
                     .font(.rounded(size: 15))
                     .monoTextInputBehavior()
                     .focused($isInputFocused)
+                    .submitLabel(.send)
+                    .monoOnSubmit(text: $vm.commentText) { _ in
+                        vm.sendComment()
+                        isInputFocused = false
+                    }
                     
                     if !vm.commentText.isEmpty {
                         Button {
@@ -496,8 +501,10 @@ struct CommentView: View {
                 let canSend = !vm.commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !vm.isSending
                 
                 Button {
-                    vm.sendComment()
-                    isInputFocused = false
+                    MonoTextInputCommitter.commit(text: $vm.commentText) { _ in
+                        vm.sendComment()
+                        isInputFocused = false
+                    }
                 } label: {
                     ZStack {
                         Circle()

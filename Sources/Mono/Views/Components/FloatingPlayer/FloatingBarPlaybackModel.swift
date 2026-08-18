@@ -121,6 +121,10 @@ final class FloatingBarPlaybackModel: ObservableObject {
         PlayerManager.shared.next()
     }
 
+    func seek(to time: Double) {
+        PlayerManager.shared.seek(to: time)
+    }
+
     func dismissMiniPlayerPreservingQueue() {
         PlayerManager.shared.dismissMiniPlayerPreservingQueue()
     }

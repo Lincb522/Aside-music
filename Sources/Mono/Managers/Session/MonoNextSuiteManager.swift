@@ -32,8 +32,20 @@ final class MonoNextSuiteManager: ObservableObject {
     private let maximumRecoveryAttemptsPerIncident = 2
     private var pendingRecoveryVerification: PendingRecoveryVerification?
     private var routeObserver: NSObjectProtocol?
+    private var spatialCapabilityObserver: NSObjectProtocol?
     private var interruptionObserver: NSObjectProtocol?
     private let headphoneMotionManager = CMHeadphoneMotionManager()
+    private let headphoneMotionQueue: OperationQueue = {
+        let queue = OperationQueue()
+        queue.name = "MonoSpatial.headphone-motion"
+        queue.qualityOfService = .userInteractive
+        queue.maxConcurrentOperationCount = 1
+        return queue
+    }()
+    private var headTrackingSessionID = 0
+    private var headTrackingSessionStarted = false
+    private var headTrackingRuntimeReady = false
+    private var lastHeadTrackingRestartAt = Date.distantPast
     private var currentHeadTrackedPan: Float = 0
     private var spatialBase: SpatialBase?
 
@@ -50,7 +62,29 @@ final class MonoNextSuiteManager: ObservableObject {
         installObservers()
         startRecoveryHeartbeat()
         applySpatialConfigurationIfNeeded()
+    }
+
+    /// 耳机运动服务不能在 `App.init` 阶段启动。等待 App 进入 active 后，
+    /// 再使用各系统均稳定支持的设备运动接口。
+    func activateHeadTrackingRuntimeIfNeeded() {
+        headTrackingRuntimeReady = true
         configureHeadTracking()
+    }
+
+    var isHeadTrackingAvailable: Bool {
+        let authorization = CMHeadphoneMotionManager.authorizationStatus()
+        return authorization != .denied
+            && authorization != .restricted
+            && headphoneMotionManager.isDeviceMotionAvailable
+    }
+
+    var isHeadTrackingActive: Bool {
+        headTrackingSessionStarted && headphoneMotionManager.isDeviceMotionActive
+    }
+
+    func recenterHeadTracking() {
+        guard isHeadTrackingAvailable else { return }
+        configureHeadTracking(resetCalibration: true)
     }
 
     func isEnabled(_ feature: MonoNextFeature) -> Bool {
@@ -215,7 +249,17 @@ final class MonoNextSuiteManager: ObservableObject {
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.applySpatialConfigurationIfNeeded()
-                self?.configureHeadTracking()
+                self?.configureHeadTracking(resetCalibration: true)
+            }
+        }
+
+        spatialCapabilityObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.spatialPlaybackCapabilitiesChangedNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.configureHeadTracking(resetCalibration: true)
             }
         }
 
@@ -306,37 +350,105 @@ final class MonoNextSuiteManager: ObservableObject {
         self.spatialBase = nil
     }
 
-    private func configureHeadTracking() {
-        let shouldTrack = isEnabled(.spatialLive)
+    private func configureHeadTracking(resetCalibration: Bool = false) {
+        guard headTrackingRuntimeReady else { return }
+
+        let wantsHeadTracking = isEnabled(.spatialLive)
             && spatialConfiguration.mode == .headTracked
+        let authorization = CMHeadphoneMotionManager.authorizationStatus()
+        let authorizationAllowsTracking = authorization != .denied
+            && authorization != .restricted
+
+        let shouldTrack = wantsHeadTracking
+            && authorizationAllowsTracking
             && headphoneMotionManager.isDeviceMotionAvailable
         guard shouldTrack else {
-            if headphoneMotionManager.isDeviceMotionActive {
-                headphoneMotionManager.stopDeviceMotionUpdates()
-            }
-            currentHeadTrackedPan = 0
-            PlayerManager.shared.streamPlayer.outputPan = 0
+            stopHeadTrackingMotion()
             return
         }
-        guard !headphoneMotionManager.isDeviceMotionActive else { return }
 
-        headphoneMotionManager.startDeviceMotionUpdates(to: .main) { [weak self] motion, _ in
-            guard let attitude = motion?.attitude else { return }
-            let yaw = attitude.yaw
-            let roll = attitude.roll
-            Task { @MainActor [weak self] in
-                self?.applyHeadMotion(yaw: yaw, roll: roll)
+        if resetCalibration,
+           headTrackingSessionStarted || headphoneMotionManager.isDeviceMotionActive {
+            let now = Date()
+            guard now.timeIntervalSince(lastHeadTrackingRestartAt) >= 0.25 else {
+                return
+            }
+            lastHeadTrackingRestartAt = now
+            stopHeadTrackingMotion()
+        }
+        guard !headTrackingSessionStarted,
+              !headphoneMotionManager.isDeviceMotionActive else {
+            return
+        }
+
+        headTrackingSessionID &+= 1
+        let sessionID = headTrackingSessionID
+        headTrackingSessionStarted = true
+        let route = AVAudioSession.sharedInstance().currentRoute
+        let systemSpatialEnabled = route.outputs.contains { $0.isSpatialAudioEnabled }
+        let outputNames = route.outputs.map(\.portName).joined(separator: ",")
+        AppLogger.info(
+            "[MonoSpatial] Head tracking started output=\(outputNames) systemSpatial=\(systemSpatialEnabled)",
+            step: "mono-spatial.tracking-start"
+        )
+
+        let handler = Self.makeHeadTrackingHandler(owner: self, sessionID: sessionID)
+        headphoneMotionManager.startDeviceMotionUpdates(
+            to: headphoneMotionQueue,
+            withHandler: handler
+        )
+    }
+
+    /// Core Motion 在自定义 OperationQueue 回调时不位于 MainActor。
+    /// 回调必须由 nonisolated 工厂创建，否则 Swift 6 会继承调用点的
+    /// MainActor 隔离并在第一帧运动数据到达时触发 dispatch_assert_queue。
+    nonisolated private static func makeHeadTrackingHandler(
+        owner: MonoNextSuiteManager,
+        sessionID: Int
+    ) -> @Sendable (CMDeviceMotion?, Error?) -> Void {
+        let processor = MonoHeadTrackingMotionProcessor()
+        return { [weak owner] motion, error in
+            if let error {
+                let detail = error.localizedDescription
+                Task { @MainActor [weak owner] in
+                    guard let owner, owner.headTrackingSessionID == sessionID else { return }
+                    AppLogger.warning(
+                        "[MonoSpatial] Headphone motion update failed error=\(detail)",
+                        step: "mono-spatial.motion-error"
+                    )
+                    owner.stopHeadTrackingMotion()
+                }
+                return
+            }
+            guard let motion, let normalizedMotion = processor.process(motion) else { return }
+            Task { @MainActor [weak owner] in
+                owner?.applyHeadMotion(normalizedMotion, sessionID: sessionID)
             }
         }
     }
 
-    private func applyHeadMotion(yaw: Double, roll: Double) {
-        guard isEnabled(.spatialLive), spatialConfiguration.mode == .headTracked else { return }
-        let motion = sin(yaw) * 0.82 + sin(roll) * 0.18
+    private func stopHeadTrackingMotion() {
+        headTrackingSessionID &+= 1
+        headTrackingSessionStarted = false
+        if headphoneMotionManager.isDeviceMotionActive {
+            headphoneMotionManager.stopDeviceMotionUpdates()
+        }
+        currentHeadTrackedPan = 0
+        PlayerManager.shared.streamPlayer.outputPan = 0
+    }
+
+    private func applyHeadMotion(_ normalizedMotion: Double, sessionID: Int) {
+        guard sessionID == headTrackingSessionID,
+              isEnabled(.spatialLive),
+              spatialConfiguration.mode == .headTracked else {
+            return
+        }
         let depth = max(0.12, spatialConfiguration.stageDepth)
         let focus = 1 - spatialConfiguration.centerFocus * 0.62
-        let target = Float(min(0.42, max(-0.42, -motion * Double(depth * focus * 0.42))))
-        currentHeadTrackedPan = currentHeadTrackedPan * 0.72 + target * 0.28
+        let target = Float(
+            min(0.42, max(-0.42, -normalizedMotion * Double(depth * focus * 0.42)))
+        )
+        currentHeadTrackedPan = currentHeadTrackedPan * 0.78 + target * 0.22
         PlayerManager.shared.streamPlayer.outputPan = currentHeadTrackedPan
     }
 
@@ -586,6 +698,137 @@ private struct SpatialBase {
     let surroundLevel: Float
     let reverbLevel: Float
     let stereoWidth: Float
+}
+
+/// Converts absolute headphone attitude into a stable, centered motion signal.
+///
+/// The processor is confined to `headphoneMotionQueue`; keeping calibration
+/// and filtering off the main actor prevents sensor delivery from competing
+/// with SwiftUI animation work.
+private final class MonoHeadTrackingMotionProcessor: @unchecked Sendable {
+    private static let calibrationSampleCount = 12
+    private static let deadZoneRadians = 2.2 * Double.pi / 180
+    private static let recenterRangeRadians = 17 * Double.pi / 180
+    private static let maximumSampleJumpRadians = 65 * Double.pi / 180
+    private static let minimumEmissionInterval = 1.0 / 45.0
+
+    private var calibrationYaw: [Double] = []
+    private var calibrationRoll: [Double] = []
+    private var neutralYaw: Double?
+    private var neutralRoll: Double?
+    private var filteredYaw = 0.0
+    private var filteredRoll = 0.0
+    private var previousYaw: Double?
+    private var previousRoll: Double?
+    private var previousTimestamp: TimeInterval?
+    private var stationarySince: TimeInterval?
+    private var lastEmissionTimestamp: TimeInterval?
+
+    func process(_ motion: CMDeviceMotion) -> Double? {
+        let yaw = motion.attitude.yaw
+        let roll = motion.attitude.roll
+        let timestamp = motion.timestamp
+        guard yaw.isFinite, roll.isFinite, timestamp.isFinite else { return nil }
+
+        if let previousYaw,
+           let previousRoll,
+           let previousTimestamp {
+            let elapsed = timestamp - previousTimestamp
+            let yawJump = abs(Self.angleDifference(yaw, previousYaw))
+            let rollJump = abs(Self.angleDifference(roll, previousRoll))
+            let rotationSpeed = Self.rotationMagnitude(motion.rotationRate)
+            if elapsed > 0,
+               elapsed < 0.08,
+               rotationSpeed < 2,
+               (yawJump > Self.maximumSampleJumpRadians
+                    || rollJump > Self.maximumSampleJumpRadians) {
+                return nil
+            }
+        }
+
+        previousYaw = yaw
+        previousRoll = roll
+
+        guard let neutralYaw, let neutralRoll else {
+            calibrationYaw.append(yaw)
+            calibrationRoll.append(roll)
+            previousTimestamp = timestamp
+            guard calibrationYaw.count >= Self.calibrationSampleCount else { return nil }
+            self.neutralYaw = Self.circularMean(calibrationYaw)
+            self.neutralRoll = Self.circularMean(calibrationRoll)
+            calibrationYaw.removeAll(keepingCapacity: false)
+            calibrationRoll.removeAll(keepingCapacity: false)
+            filteredYaw = 0
+            filteredRoll = 0
+            lastEmissionTimestamp = timestamp
+            return 0
+        }
+
+        let elapsed = min(0.12, max(1.0 / 120.0, timestamp - (previousTimestamp ?? timestamp)))
+        previousTimestamp = timestamp
+        var relativeYaw = Self.angleDifference(yaw, neutralYaw)
+        var relativeRoll = Self.angleDifference(roll, neutralRoll)
+
+        let rotationSpeed = Self.rotationMagnitude(motion.rotationRate)
+        let distanceFromCenter = hypot(relativeYaw, relativeRoll)
+        if rotationSpeed < 0.075, distanceFromCenter < Self.recenterRangeRadians {
+            if stationarySince == nil {
+                stationarySince = timestamp
+            } else if timestamp - (stationarySince ?? timestamp) >= 2.6 {
+                self.neutralYaw = Self.interpolateAngle(neutralYaw, toward: yaw, fraction: 0.006)
+                self.neutralRoll = Self.interpolateAngle(neutralRoll, toward: roll, fraction: 0.006)
+                relativeYaw = Self.angleDifference(yaw, self.neutralYaw ?? neutralYaw)
+                relativeRoll = Self.angleDifference(roll, self.neutralRoll ?? neutralRoll)
+            }
+        } else {
+            stationarySince = nil
+        }
+
+        let smoothing = 1 - exp(-elapsed / 0.085)
+        filteredYaw += (relativeYaw - filteredYaw) * smoothing
+        filteredRoll += (relativeRoll - filteredRoll) * smoothing
+
+        guard lastEmissionTimestamp.map({ timestamp - $0 >= Self.minimumEmissionInterval }) ?? true else {
+            return nil
+        }
+        lastEmissionTimestamp = timestamp
+
+        let yawSignal = Self.applyingDeadZone(filteredYaw)
+        let rollSignal = Self.applyingDeadZone(filteredRoll)
+        let combined = sin(yawSignal) * 0.84 + sin(rollSignal) * 0.16
+        return min(1, max(-1, combined))
+    }
+
+    private static func applyingDeadZone(_ value: Double) -> Double {
+        let magnitude = abs(value)
+        guard magnitude > deadZoneRadians else { return 0 }
+        return value.sign == .minus
+            ? -(magnitude - deadZoneRadians)
+            : magnitude - deadZoneRadians
+    }
+
+    private static func angleDifference(_ lhs: Double, _ rhs: Double) -> Double {
+        atan2(sin(lhs - rhs), cos(lhs - rhs))
+    }
+
+    private static func interpolateAngle(
+        _ current: Double,
+        toward target: Double,
+        fraction: Double
+    ) -> Double {
+        current + angleDifference(target, current) * fraction
+    }
+
+    private static func circularMean(_ values: [Double]) -> Double {
+        guard !values.isEmpty else { return 0 }
+        let sine = values.reduce(0) { $0 + sin($1) }
+        let cosine = values.reduce(0) { $0 + cos($1) }
+        return atan2(sine / Double(values.count), cosine / Double(values.count))
+    }
+
+    private static func rotationMagnitude(_ rate: CMRotationRate) -> Double {
+        sqrt(rate.x * rate.x + rate.y * rate.y + rate.z * rate.z)
+    }
 }
 
 @MainActor

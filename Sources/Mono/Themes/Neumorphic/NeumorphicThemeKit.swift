@@ -69,6 +69,8 @@ struct NeumorphicRootBackdrop: View {
 
             NeumorphicDiffuseGradient()
 
+            UnifiedColorAmbientLayer(strength: 0.38)
+
             NeumorphicReliefTexture(opacity: colorScheme == .dark ? 0.035 : 0.055)
         }
         .transaction { transaction in

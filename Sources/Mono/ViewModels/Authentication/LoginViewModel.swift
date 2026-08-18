@@ -2,6 +2,26 @@ import SwiftUI
 import Combine
 import CoreImage.CIFilterBuiltins
 
+private enum NCMQRLoginError: LocalizedError {
+    case invalidKey
+    case invalidQRCode
+    case loginValidationFailed
+    case timedOut
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidKey:
+            return "未能获取有效的登录二维码，请重试"
+        case .invalidQRCode:
+            return "登录二维码生成失败，请重试"
+        case .loginValidationFailed:
+            return "登录凭证验证失败，请刷新二维码重试"
+        case .timedOut:
+            return "二维码已过期，请刷新后重试"
+        }
+    }
+}
+
 @MainActor
 class LoginViewModel: ObservableObject {
     @Published var qrCodeImage: UIImage?
@@ -11,128 +31,178 @@ class LoginViewModel: ObservableObject {
     @Published var isLoggedIn = false
     
     private var qrKey: String?
-    private var timer: AnyCancellable?
-    private var cancellables = Set<AnyCancellable>()
+    private var loginTask: Task<Void, Never>?
+    private var loginSessionID: UUID?
     private let apiService = APIService.shared
     
     // MARK: - QR Login Flow
     
     func startQRLogin() {
         stopQRPolling()
-        apiService.fetchQRKey()
-            .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] response in
-                self?.qrKey = response.data.unikey
-                self?.generateQR()
-            })
-            .store(in: &cancellables)
-    }
-    
-    private func generateQR() {
-        guard let key = qrKey else { return }
-        apiService.fetchQRCreate(key: key)
-            .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] response in
-                let qrimg = response.data.qrimg
-                let qrurl = response.data.qrurl
-                if !qrimg.isEmpty {
-                    // 后端返回了 base64 图片（兼容旧模式）
-                    self?.decodeBase64Image(qrimg)
-                } else if !qrurl.isEmpty {
-                    // NCMClient 模式：用 URL 在客户端生成二维码
-                    self?.generateQRImage(from: qrurl)
+        qrCodeImage = nil
+        isQRExpired = false
+        isLoggedIn = false
+        qrStatusMessage = NSLocalizedString("qr_loading", comment: "Loading QR Code")
+
+        let sessionID = UUID()
+        loginSessionID = sessionID
+        loginTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                let keyResponse = try await apiService.fetchQRKey().async()
+                try Task.checkCancellation()
+                guard isCurrentSession(sessionID) else { return }
+
+                let key = keyResponse.data.unikey.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !key.isEmpty else { throw NCMQRLoginError.invalidKey }
+                qrKey = key
+
+                let createResponse = try await apiService.fetchQRCreate(key: key).async()
+                try Task.checkCancellation()
+                guard isCurrentSession(sessionID), qrKey == key else { return }
+
+                guard let image = qrImage(from: createResponse.data) else {
+                    throw NCMQRLoginError.invalidQRCode
                 }
-                self?.startQRPolling()
-            })
-            .store(in: &cancellables)
-    }
-    
-    /// 从 base64 字符串解码二维码图片（兼容旧模式）
-    private func decodeBase64Image(_ base64String: String) {
-        let cleanBase64 = base64String.components(separatedBy: ",").last ?? base64String
-        if let data = Data(base64Encoded: cleanBase64), let image = UIImage(data: data) {
-            self.qrCodeImage = image
-            self.qrStatusMessage = NSLocalizedString("scan_instruction", comment: "Scan instruction")
+                qrCodeImage = image
+                qrStatusMessage = NSLocalizedString("scan_instruction", comment: "Scan instruction")
+
+                try await pollQRStatus(key: key, sessionID: sessionID)
+            } catch is CancellationError {
+                return
+            } catch {
+                guard isCurrentSession(sessionID) else { return }
+                qrStatusMessage = error.localizedDescription
+                finishSession(sessionID)
+            }
         }
     }
     
+    /// 从 base64 字符串解码二维码图片（兼容旧模式）
+    private func decodeBase64Image(_ base64String: String) -> UIImage? {
+        let cleanBase64 = base64String.components(separatedBy: ",").last ?? base64String
+        guard let data = Data(base64Encoded: cleanBase64) else { return nil }
+        return UIImage(data: data)
+    }
+    
     /// 使用 CoreImage 从 URL 字符串生成二维码图片
-    private func generateQRImage(from urlString: String) {
+    private func generateQRImage(from urlString: String) -> UIImage? {
         guard let data = urlString.data(using: .utf8),
-              let filter = CIFilter(name: "CIQRCodeGenerator") else { return }
+              let filter = CIFilter(name: "CIQRCodeGenerator") else { return nil }
         filter.setValue(data, forKey: "inputMessage")
         filter.setValue("M", forKey: "inputCorrectionLevel")
         
-        guard let ciImage = filter.outputImage else { return }
+        guard let ciImage = filter.outputImage else { return nil }
         // 放大二维码（原始尺寸很小）
         let scale = CGAffineTransform(scaleX: 10, y: 10)
         let scaledImage = ciImage.transformed(by: scale)
         
         let context = CIContext()
-        guard let cgImage = context.createCGImage(scaledImage, from: scaledImage.extent) else { return }
-        self.qrCodeImage = UIImage(cgImage: cgImage)
-        self.qrStatusMessage = NSLocalizedString("scan_instruction", comment: "Scan instruction")
+        guard let cgImage = context.createCGImage(scaledImage, from: scaledImage.extent) else { return nil }
+        return UIImage(cgImage: cgImage)
     }
-    
-    private func startQRPolling() {
-        timer = Timer.publish(every: 3.0, on: .main, in: .common)
-            .autoconnect()
-            .sink { [weak self] _ in
-                guard let self = self else { return }
-                Task { @MainActor in
-                    await self.checkStatus()
-                }
-            }
+
+    private func qrImage(from data: QRCreateData) -> UIImage? {
+        if !data.qrimg.isEmpty, let image = decodeBase64Image(data.qrimg) {
+            return image
+        }
+        if !data.qrurl.isEmpty {
+            return generateQRImage(from: data.qrurl)
+        }
+        return nil
     }
     
     func stopQRPolling() {
-        timer?.cancel()
-        timer = nil
+        loginTask?.cancel()
+        loginTask = nil
+        loginSessionID = nil
+        qrKey = nil
     }
     
-    private func checkStatus() async {
-        guard let key = qrKey else { return }
-        do {
-            let response = try await apiService.checkQRStatus(key: key).async()
+    private func pollQRStatus(key: String, sessionID: UUID) async throws {
+        let deadline = Date().addingTimeInterval(180)
+        var consecutiveFailures = 0
+
+        while Date() < deadline {
+            try Task.checkCancellation()
+            guard isCurrentSession(sessionID), qrKey == key else { return }
+
+            do {
+                let response = try await apiService.checkQRStatus(key: key).async()
+                try Task.checkCancellation()
+                guard isCurrentSession(sessionID), qrKey == key else { return }
+                consecutiveFailures = 0
+
             #if DEBUG
             print("[Login] QR 状态: code=\(response.code), message=\(response.message ?? "")")
             #endif
-            switch response.code {
-            case 800:
-                self.qrStatusMessage = NSLocalizedString("qr_expired", comment: "QR Code Expired")
-                self.isQRExpired = true
-                self.stopQRPolling()
-            case 801:
-                self.qrStatusMessage = NSLocalizedString("qr_waiting", comment: "Waiting for scan...")
-            case 802:
-                self.qrStatusMessage = NSLocalizedString("qr_scanned", comment: "Scanned! Please confirm on phone.")
-            case 803:
-                self.qrStatusMessage = NSLocalizedString("login_success", comment: "Login Successful!")
-                self.stopQRPolling()
-                #if DEBUG
-                print("[Login] 收到 803，cookie 长度: \(response.cookie?.count ?? 0)")
-                #endif
-                await self.handleQRLoginSuccess(cookie: response.cookie)
-            default:
-                break
+                switch response.code {
+                case 800:
+                    qrStatusMessage = NSLocalizedString("qr_expired", comment: "QR Code Expired")
+                    isQRExpired = true
+                    finishSession(sessionID)
+                    return
+                case 801:
+                    qrStatusMessage = NSLocalizedString("qr_waiting", comment: "Waiting for scan...")
+                case 802:
+                    qrStatusMessage = NSLocalizedString("qr_scanned", comment: "Scanned! Please confirm on phone.")
+                case 803:
+                    #if DEBUG
+                    print("[Login] 收到 803，cookie 长度: \(response.cookie?.count ?? 0)")
+                    #endif
+                    guard await handleQRLoginSuccess(cookie: response.cookie) else {
+                        throw NCMQRLoginError.loginValidationFailed
+                    }
+                    guard isCurrentSession(sessionID) else { return }
+                    qrStatusMessage = NSLocalizedString("login_success", comment: "Login Successful!")
+                    finishSession(sessionID)
+                    return
+                default:
+                    if let message = response.message, !message.isEmpty {
+                        qrStatusMessage = message
+                    } else {
+                        qrStatusMessage = "登录状态异常，请刷新二维码重试"
+                    }
+                }
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                consecutiveFailures += 1
+                guard consecutiveFailures < 3 else { throw error }
+                qrStatusMessage = "网络连接不稳定，正在重试"
             }
-        } catch {
-            #if DEBUG
-            print("[Login] checkQRStatus 请求失败: \(error)")
-            #endif
+
+            try await Task.sleep(nanoseconds: 2_000_000_000)
         }
+
+        throw NCMQRLoginError.timedOut
+    }
+
+    private func isCurrentSession(_ sessionID: UUID) -> Bool {
+        loginSessionID == sessionID && !Task.isCancelled
+    }
+
+    private func finishSession(_ sessionID: UUID) {
+        guard loginSessionID == sessionID else { return }
+        loginTask = nil
+        loginSessionID = nil
+        qrKey = nil
     }
     
     /// 处理二维码登录成功
-    private func handleQRLoginSuccess(cookie: String?) async {
-        if let cookie = cookie {
-            APIService.shared.currentCookie = cookie
+    private func handleQRLoginSuccess(cookie: String?) async -> Bool {
+        guard let cookie = cookie?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !cookie.isEmpty else {
             #if DEBUG
-            print("[Login] cookie 已保存，开始获取登录状态...")
+            print("[Login] 803 但 cookie 为空，拒绝写入无效登录态")
             #endif
-        } else {
-            #if DEBUG
-            print("[Login] 803 但 cookie 为空，尝试用 SessionManager 已有 session")
-            #endif
+            return false
         }
+
+        APIService.shared.currentCookie = cookie
+        #if DEBUG
+        print("[Login] cookie 已保存，开始获取登录状态...")
+        #endif
         
         // 获取登录状态
         do {
@@ -140,18 +210,23 @@ class LoginViewModel: ObservableObject {
             #if DEBUG
             print("[Login] fetchLoginStatus 成功，profile: \(status.data.profile?.nickname ?? "nil")")
             #endif
-            if let profile = status.data.profile {
-                APIService.shared.currentUserId = profile.userId
-                // currentUserId 的 didSet 已经发送了 .didLogin 通知，无需重复发送
-                LikeManager.shared.refreshLikes()
+            guard let profile = status.data.profile else {
+                APIService.shared.currentCookie = nil
+                APIService.shared.currentUserId = nil
+                return false
             }
+            APIService.shared.currentUserId = profile.userId
+            // currentUserId 的 didSet 已经发送了 .didLogin 通知，无需重复发送
+            LikeManager.shared.refreshLikes()
         } catch {
             #if DEBUG
-            print("[Login] fetchLoginStatus 失败: \(error)，但 cookie 已保存，继续登录")
+            print("[Login] fetchLoginStatus 失败: \(error)")
             #endif
+            APIService.shared.currentCookie = nil
+            APIService.shared.currentUserId = nil
+            return false
         }
         
-        // 无论 fetchLoginStatus 是否成功，只要 803 就标记登录成功
         self.isLoggedIn = true
         UserDefaults.standard.set(true, forKey: AppConfig.StorageKeys.isLoggedIn)
         // 不再重复发送 .didLogin 通知（currentUserId didSet 已发送）
@@ -159,6 +234,7 @@ class LoginViewModel: ObservableObject {
         
         // 检测 VIP 状态，决定内容请求使用哪个 Cookie
         APIService.shared.checkUserVIPStatus()
+        return true
     }
     
     func refreshQR() {
@@ -169,8 +245,8 @@ class LoginViewModel: ObservableObject {
     
     deinit {
         MainActor.assumeIsolated {
-            timer?.cancel()
-            timer = nil
+            loginTask?.cancel()
+            loginTask = nil
         }
     }
 }

@@ -21,7 +21,7 @@ struct PlaybackSettingsView: View {
                 VStack(spacing: SettingsPageLayout.sectionSpacing) {
                     SettingsScrollablePageHeader(
                         title: String(localized: "settings_navigation_playback_title"),
-                        eyebrow: "PLAYBACK",
+                        eyebrow: String(localized: "settings_eyebrow_playback"),
                         icon: .playCircle
                     )
 
@@ -250,6 +250,7 @@ struct PlaybackSettingsView: View {
                     subtitle: globalEqualizerSubtitle,
                     isOn: $eqManager.isEnabled
                 )
+
             }
         }
     }

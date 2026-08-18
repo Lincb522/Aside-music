@@ -411,6 +411,9 @@ struct DebugLogView: View {
                     .autocorrectionDisabled()
                     .submitLabel(.search)
                     .monoTextInputBehavior()
+                    .monoOnSubmit(text: $model.searchText) { _ in
+                        searchFocused = false
+                    }
 
                 if !model.searchText.isEmpty {
                     Button {

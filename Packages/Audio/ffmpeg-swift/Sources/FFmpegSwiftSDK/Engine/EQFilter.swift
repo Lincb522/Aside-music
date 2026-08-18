@@ -235,6 +235,14 @@ public final class EQFilter {
     private var userGains = Array(repeating: Float(0), count: GraphicEQMode.tenBand.bandCount)
     private var calibrationGains = Array(repeating: Float(0), count: GraphicEQMode.tenBand.bandCount)
     private var adaptiveGains = Array(repeating: Float(0), count: GraphicEQMode.tenBand.bandCount)
+    private var hearingLeftGains = Array(repeating: Float(0), count: GraphicEQMode.tenBand.bandCount)
+    private var hearingRightGains = Array(repeating: Float(0), count: GraphicEQMode.tenBand.bandCount)
+    private var hearingSmoothedLeft = Array(repeating: Float(0), count: GraphicEQMode.tenBand.bandCount)
+    private var hearingSmoothedRight = Array(repeating: Float(0), count: GraphicEQMode.tenBand.bandCount)
+    private var hearingLeftCoefficients = Array(repeating: BiquadCoefficients.unity, count: GraphicEQMode.tenBand.bandCount)
+    private var hearingRightCoefficients = Array(repeating: BiquadCoefficients.unity, count: GraphicEQMode.tenBand.bandCount)
+    private var hearingLeftStates = Array(repeating: BiquadState(), count: GraphicEQMode.tenBand.bandCount)
+    private var hearingRightStates = Array(repeating: BiquadState(), count: GraphicEQMode.tenBand.bandCount)
     private var smoothedGains = Array(repeating: Float(0), count: GraphicEQMode.tenBand.bandCount)
     private var graphicCoefficients = Array(repeating: BiquadCoefficients.unity, count: GraphicEQMode.tenBand.bandCount)
     private var graphicTargetCoefficients = Array(repeating: BiquadCoefficients.unity, count: GraphicEQMode.tenBand.bandCount)
@@ -324,6 +332,8 @@ public final class EQFilter {
         let previousUserGains = userGains
         let previousCalibrationGains = calibrationGains
         let previousAdaptiveGains = adaptiveGains
+        let previousHearingLeft = hearingLeftGains
+        let previousHearingRight = hearingRightGains
         graphicMode = mode
         if let gains {
             let sourceMode: GraphicEQMode = gains.count == GraphicEQMode.thirtyTwoBand.bandCount
@@ -337,7 +347,12 @@ public final class EQFilter {
             .map { min(max($0, -6), 6) }
         adaptiveGains = mode.resampledGains(previousAdaptiveGains, from: previousMode)
             .map { min(max($0, -1.5), 1.5) }
+        hearingLeftGains = mode.resampledGains(previousHearingLeft, from: previousMode)
+            .map { min(max($0, -6), 6) }
+        hearingRightGains = mode.resampledGains(previousHearingRight, from: previousMode)
+            .map { min(max($0, -6), 6) }
         resetGraphicRuntime(count: mode.bandCount)
+        resetHearingRuntime(count: mode.bandCount)
         lock.unlock()
     }
 
@@ -402,6 +417,25 @@ public final class EQFilter {
     public func setAdaptiveGains(_ gains: [Float]) {
         commitNormalizedGains(gains, limit: 1.5) { filter, normalized in
             filter.adaptiveGains = normalized
+        }
+    }
+
+    public func setHearingCorrection(left: [Float], right: [Float]) {
+        while true {
+            lock.lock()
+            let mode = graphicMode
+            lock.unlock()
+            let normalizedLeft = normalizedGains(left, for: mode, limit: 6)
+            let normalizedRight = normalizedGains(right, for: mode, limit: 6)
+            lock.lock()
+            guard graphicMode == mode else {
+                lock.unlock()
+                continue
+            }
+            hearingLeftGains = normalizedLeft
+            hearingRightGains = normalizedRight
+            lock.unlock()
+            return
         }
     }
 
@@ -537,7 +571,10 @@ public final class EQFilter {
         userGains = Array(repeating: 0, count: graphicMode.bandCount)
         calibrationGains = Array(repeating: 0, count: graphicMode.bandCount)
         adaptiveGains = Array(repeating: 0, count: graphicMode.bandCount)
+        hearingLeftGains = Array(repeating: 0, count: graphicMode.bandCount)
+        hearingRightGains = Array(repeating: 0, count: graphicMode.bandCount)
         resetGraphicRuntime(count: graphicMode.bandCount)
+        resetHearingRuntime(count: graphicMode.bandCount)
         targetPreampDB = 0
         currentPreampDB = 0
         preampRampStartDB = 0
@@ -571,6 +608,7 @@ public final class EQFilter {
         }
 
         processGraphicEQ(data, frames: frameCount, channels: channelCount, sampleRate: sampleRate)
+        processHearingCorrection(data, frames: frameCount, channels: channelCount, sampleRate: sampleRate)
         processParametricEQ(data, frames: frameCount, channels: channelCount, sampleRate: sampleRate)
         processDynamicEQ(data, frames: frameCount, channels: channelCount, sampleRate: sampleRate)
         processMultibandDynamics(data, frames: frameCount, channels: channelCount, sampleRate: sampleRate)
@@ -683,6 +721,95 @@ public final class EQFilter {
                 states: &parametricBands[index].states
             )
         }
+    }
+
+    private func processHearingCorrection(
+        _ data: UnsafeMutablePointer<Float>, frames: Int, channels: Int, sampleRate: Float
+    ) {
+        guard channels >= 2 else { return }
+        guard hearingLeftGains.contains(where: { abs($0) >= 0.005 })
+                || hearingRightGains.contains(where: { abs($0) >= 0.005 })
+                || hearingSmoothedLeft.contains(where: { abs($0) >= 0.005 })
+                || hearingSmoothedRight.contains(where: { abs($0) >= 0.005 }) else {
+            return
+        }
+        let frequencies = graphicMode.centerFrequencies
+        let qValues = graphicMode.qValues
+        guard hearingLeftGains.count == frequencies.count,
+              hearingRightGains.count == frequencies.count else { return }
+
+        for index in frequencies.indices {
+            let leftTarget = hearingLeftGains[index]
+            let rightTarget = hearingRightGains[index]
+            hearingSmoothedLeft[index] += (leftTarget - hearingSmoothedLeft[index]) * 0.06
+            hearingSmoothedRight[index] += (rightTarget - hearingSmoothedRight[index]) * 0.06
+            hearingLeftCoefficients[index] = .interpolate(
+                hearingLeftCoefficients[index],
+                hearingCoefficient(
+                    gainDB: hearingSmoothedLeft[index],
+                    index: index,
+                    frequencies: frequencies,
+                    qValues: qValues,
+                    sampleRate: sampleRate
+                ),
+                t: 0.28
+            )
+            hearingRightCoefficients[index] = .interpolate(
+                hearingRightCoefficients[index],
+                hearingCoefficient(
+                    gainDB: hearingSmoothedRight[index],
+                    index: index,
+                    frequencies: frequencies,
+                    qValues: qValues,
+                    sampleRate: sampleRate
+                ),
+                t: 0.28
+            )
+
+            var leftState = hearingLeftStates[index]
+            var rightState = hearingRightStates[index]
+            let leftCoefficients = hearingLeftCoefficients[index]
+            let rightCoefficients = hearingRightCoefficients[index]
+            for frame in 0..<frames {
+                let leftIndex = frame * channels
+                let leftInput = data[leftIndex]
+                let leftOutput = leftCoefficients.b0 * leftInput + leftState.z1
+                leftState.z1 = leftCoefficients.b1 * leftInput - leftCoefficients.a1 * leftOutput + leftState.z2
+                leftState.z2 = leftCoefficients.b2 * leftInput - leftCoefficients.a2 * leftOutput
+                data[leftIndex] = leftOutput
+
+                let rightIndex = leftIndex + 1
+                let rightInput = data[rightIndex]
+                let rightOutput = rightCoefficients.b0 * rightInput + rightState.z1
+                rightState.z1 = rightCoefficients.b1 * rightInput - rightCoefficients.a1 * rightOutput + rightState.z2
+                rightState.z2 = rightCoefficients.b2 * rightInput - rightCoefficients.a2 * rightOutput
+                data[rightIndex] = rightOutput
+            }
+            hearingLeftStates[index] = leftState
+            hearingRightStates[index] = rightState
+        }
+    }
+
+    private func hearingCoefficient(
+        gainDB: Float,
+        index: Int,
+        frequencies: [Float],
+        qValues: [Float],
+        sampleRate: Float
+    ) -> BiquadCoefficients {
+        guard abs(gainDB) >= 0.005 else { return .unity }
+        if graphicMode == .tenBand, index == frequencies.startIndex {
+            return .lowShelf(gainDB: gainDB, frequency: frequencies[index], sampleRate: sampleRate)
+        }
+        if graphicMode == .tenBand, index == frequencies.index(before: frequencies.endIndex) {
+            return .highShelf(gainDB: gainDB, frequency: frequencies[index], sampleRate: sampleRate)
+        }
+        return .peakingEQ(
+            gainDB: gainDB,
+            centerFrequency: frequencies[index],
+            sampleRate: sampleRate,
+            q: qValues[index]
+        )
     }
 
     private func processDynamicEQ(
@@ -1320,6 +1447,7 @@ public final class EQFilter {
 
     private func resetRuntimeStates() {
         resetGraphicRuntime(count: graphicMode.bandCount)
+        resetHearingRuntime(count: graphicMode.bandCount)
         for index in parametricBands.indices {
             parametricBands[index].states = Array(repeating: BiquadState(), count: 2)
             parametricBands[index].coefficients = .unity
@@ -1365,6 +1493,15 @@ public final class EQFilter {
         graphicStates = (0..<count).map { _ in
             Array(repeating: BiquadState(), count: 2)
         }
+    }
+
+    private func resetHearingRuntime(count: Int) {
+        hearingSmoothedLeft = Array(repeating: 0, count: count)
+        hearingSmoothedRight = Array(repeating: 0, count: count)
+        hearingLeftCoefficients = Array(repeating: .unity, count: count)
+        hearingRightCoefficients = Array(repeating: .unity, count: count)
+        hearingLeftStates = Array(repeating: BiquadState(), count: count)
+        hearingRightStates = Array(repeating: BiquadState(), count: count)
     }
 
     private func nearestGraphicIndex(to frequency: Float) -> Int {

@@ -218,7 +218,7 @@ final class ListeningReportService {
     func earliestPlayDate() -> Date? {
         DatabaseManager.shared.store
             .fetchAll(PlayHistory.self)
-            .filter { $0.playDuration > 0 }
+            .filter { ListeningPlaybackPolicy.isEffective($0) }
             .map(\.playedAt)
             .min()
     }
@@ -233,7 +233,7 @@ final class ListeningReportService {
         let totalSeconds = records.reduce(0) { $0 + $1.playDuration }
         let totalPlays = records.count
         let completedPlays = records.filter(\.completed).count
-        let uniqueSongs = Set(records.map(\.songId)).count
+        let uniqueSongs = Set(records.map { ListeningPlaybackPolicy.identityKey(for: $0) }).count
         let uniqueArtists = Set(
             records.map { $0.artistName.isEmpty ? String(localized: "search_unknown_artist") : $0.artistName }
         ).count
@@ -301,7 +301,7 @@ final class ListeningReportService {
                 record.playedAt >= interval.start
                     && record.playedAt < interval.end
                     && record.playedAt <= now
-                    && record.playDuration > 0
+                    && ListeningPlaybackPolicy.isEffective(record)
             }
         )
     }
@@ -389,14 +389,16 @@ final class ListeningReportService {
     }
 
     private func firstListenCount(in interval: DateInterval) -> Int {
-        var firstPlayBySong: [Int: Date] = [:]
-        for record in DatabaseManager.shared.store.fetchAll(PlayHistory.self) where record.playDuration > 0 {
-            if let existing = firstPlayBySong[record.songId] {
+        var firstPlayBySong: [String: Date] = [:]
+        for record in DatabaseManager.shared.store.fetchAll(PlayHistory.self)
+        where ListeningPlaybackPolicy.isEffective(record) {
+            let key = ListeningPlaybackPolicy.identityKey(for: record)
+            if let existing = firstPlayBySong[key] {
                 if record.playedAt < existing {
-                    firstPlayBySong[record.songId] = record.playedAt
+                    firstPlayBySong[key] = record.playedAt
                 }
             } else {
-                firstPlayBySong[record.songId] = record.playedAt
+                firstPlayBySong[key] = record.playedAt
             }
         }
         return firstPlayBySong.values.filter {

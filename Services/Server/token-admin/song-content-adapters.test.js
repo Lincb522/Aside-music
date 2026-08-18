@@ -1,7 +1,12 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 
-const { analyzeContentRoles, parseBaiduSearchResults } = require('./song-content-adapters')
+const {
+  analyzeContentRoles,
+  extractWikiText,
+  parseBaiduSearchResults,
+  webSourceTrust
+} = require('./song-content-adapters')
 
 const song = {
   title: '晴天',
@@ -54,4 +59,63 @@ test('百度检索结果提取真实来源地址', () => {
   assert.equal(results.length, 1)
   assert.equal(results[0].url, 'https://example.com/music-review')
   assert.deepEqual(results[0].roles, ['background'])
+})
+
+test('网易云百科不会把标签字段和内部跳转地址当成正文', () => {
+  const blocks = [{
+    creatives: [{
+      title: 'songTag',
+      description: '曲风'
+    }, {
+      title: 'melody_style',
+      description: '另类/独立-独立流行'
+    }, {
+      title: 'songBizTag',
+      description: 'orpheus://rnpage?component=rn-tag-detail&tagId=196123'
+    }]
+  }]
+
+  assert.equal(extractWikiText(blocks), '')
+})
+
+test('网易云百科只保留可阅读的介绍正文', () => {
+  const prose = '这首作品以克制的旋律推进情绪，在主歌与副歌之间保留了清晰的呼吸感，也让叙事始终围绕人物的思念展开。'
+  const blocks = [{
+    creatives: [{
+      description: prose,
+      action: { targetUrl: 'orpheus://rnpage?component=rn-tag-detail&tagId=1' }
+    }]
+  }]
+
+  assert.equal(extractWikiText(blocks), prose)
+})
+
+test('英文艺人原始说明可以识别为创作与录制证据', () => {
+  const englishSong = {
+    title: 'time machine (feat. aren park)',
+    artists: [{ name: 'mj apanay' }],
+    album: { name: 'seen 11:23 pm' }
+  }
+  const analysis = analyzeContentRoles(
+    ['songSummary', 'creationStory'],
+    'time machine (feat. aren park) by mj apanay. Special thanks to aren park for sitting through two hours of traffic to sing with me. Produced and written by mj apanay.',
+    englishSong
+  )
+
+  assert.equal(analysis.roles.includes('songSummary'), true)
+  assert.equal(analysis.roles.includes('creationStory'), true)
+})
+
+test('SoundCloud 只有匹配艺人主页时才作为可靠来源', () => {
+  assert.deepEqual(
+    webSourceTrust('https://soundcloud.com/mjapanay/timemachine', song),
+    { grade: 'C', publisher: 'SoundCloud' }
+  )
+  assert.deepEqual(
+    webSourceTrust(
+      'https://soundcloud.com/mjapanay/timemachine',
+      { ...song, artists: [{ name: 'mj apanay' }] }
+    ),
+    { grade: 'B', publisher: 'SoundCloud 艺人主页' }
+  )
 })

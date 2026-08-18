@@ -85,6 +85,9 @@ struct CloudPlayHistoryRecord: Codable, Equatable {
     var playedAt: Date
     var playDuration: Int
     var completed: Bool
+    var trackDuration: Int?
+    var effectivePlay: Bool?
+    var qualificationVersion: Int?
     var sourceRaw: String?
     var qqMid: String?
     var qqAlbumMid: String?
@@ -101,6 +104,9 @@ struct CloudPlayHistoryRecord: Codable, Equatable {
         playedAt = record.playedAt
         playDuration = record.playDuration
         completed = record.completed
+        trackDuration = record.trackDuration
+        effectivePlay = record.effectivePlay
+        qualificationVersion = record.qualificationVersion
         sourceRaw = record.sourceRaw
         qqMid = record.qqMid
         qqAlbumMid = record.qqAlbumMid
@@ -117,6 +123,9 @@ struct CloudPlayHistoryRecord: Codable, Equatable {
             coverUrl: coverUrl,
             playDuration: max(0, playDuration),
             completed: completed,
+            trackDuration: max(0, trackDuration ?? 0),
+            effectivePlay: effectivePlay ?? false,
+            qualificationVersion: qualificationVersion ?? 0,
             sourceRaw: sourceRaw,
             qqMid: qqMid,
             qqAlbumMid: qqAlbumMid,

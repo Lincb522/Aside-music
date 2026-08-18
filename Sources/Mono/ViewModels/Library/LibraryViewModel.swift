@@ -31,6 +31,7 @@ class LibraryViewModel: ObservableObject {
         case qqArtist(mid: String, name: String, coverUrl: String?)
         case radioDetail(Int)
         case localPlaylist(String)
+        case externalPlaylistImport
 
         func hash(into hasher: inout Hasher) {
             switch self {
@@ -40,6 +41,7 @@ class LibraryViewModel: ObservableObject {
             case .qqArtist(let mid, _, _): hasher.combine("qa_\(mid)")
             case .radioDetail(let id): hasher.combine("r_\(id)")
             case .localPlaylist(let id): hasher.combine("lp_\(id)")
+            case .externalPlaylistImport: hasher.combine("external_playlist_import")
             }
         }
 
@@ -51,6 +53,7 @@ class LibraryViewModel: ObservableObject {
             case (.qqArtist(let lm, _, _), .qqArtist(let rm, _, _)): return lm == rm
             case (.radioDetail(let l), .radioDetail(let r)): return l == r
             case (.localPlaylist(let l), .localPlaylist(let r)): return l == r
+            case (.externalPlaylistImport, .externalPlaylistImport): return true
             default: return false
             }
         }

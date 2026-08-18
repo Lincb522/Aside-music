@@ -45,6 +45,7 @@ extension View {
 /// 组装 sheet 内容：把手 + 内容 + 主题自定义背景/描边；
 /// iOS 16.4+ 优先用 presentationBackground 承载主题背景，旧系统回退到 backgroundPreferenceValue 方案。
 @ViewBuilder
+@MainActor
 private func monoSystemSheetContent<SheetContent: View>(
     preset: MonoSheetPreset,
     dismissAction: MonoSheetDismissAction,
@@ -63,6 +64,7 @@ private func monoSystemSheetContent<SheetContent: View>(
         content()
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
+    .monoSheetGlobalContentStyle()
     .environment(\.monoSheetContext, MonoSheetContext(preset: preset))
     .environment(\.monoSheetDismiss, dismissAction)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)

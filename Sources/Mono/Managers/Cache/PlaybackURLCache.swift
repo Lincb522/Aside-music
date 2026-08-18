@@ -34,7 +34,23 @@ final class PlaybackURLCache {
     private var store: [String: Entry] = [:]
     private var kugouStore: [String: KugouEntry] = [:]
 
-    private init() {}
+    private init() {
+        MonoMemoryEngine.shared.registerResource(
+            id: "cache.playback-url",
+            priority: .essential,
+            budgetWeight: 0.03,
+            minimumBudgetBytes: 1 * 1_024 * 1_024,
+            applyBudget: { _ in },
+            trim: { [weak self] context in
+                self?.trimMemory(context) ?? .none
+            },
+            measureUsage: { [weak self] in
+                guard let self else { return .unknown }
+                let count = self.store.count + self.kugouStore.count
+                return .init(itemCount: count, estimatedBytes: count * 2_048)
+            }
+        )
+    }
 
     // MARK: - Key
 
@@ -53,7 +69,9 @@ final class PlaybackURLCache {
     // MARK: - 读写
 
     func store(_ result: APIService.SongUrlResult, forKey key: String) {
-        guard !result.url.isEmpty else { return }
+        // 试听地址只是最后兜底，不能按完整音源缓存 8 分钟；否则会员 Cookie
+        // 恢复后仍可能继续命中旧试听片段。
+        guard !result.url.isEmpty, !result.isPreview else { return }
         store[key] = Entry(result: result, fetchedAt: Date())
         purgeIfNeeded()
     }
@@ -109,14 +127,38 @@ final class PlaybackURLCache {
         kugouStore.removeAll()
     }
 
-    private func purgeIfNeeded() {
-        if store.count > Self.maxEntries {
-            let sorted = store.sorted { $0.value.fetchedAt > $1.value.fetchedAt }
-            store = Dictionary(uniqueKeysWithValues: Array(sorted.prefix(Self.maxEntries)))
+    private func trimMemory(_ context: MonoMemoryEngine.TrimContext) -> MonoMemoryEngine.TrimResult {
+        let before = store.count + kugouStore.count
+        switch context.level {
+        case .routine:
+            purgeIfNeeded()
+        case .background:
+            purgeIfNeeded(maxEntries: 16)
+        case .warning, .critical:
+            invalidateAll()
         }
-        if kugouStore.count > Self.maxEntries {
+        let after = store.count + kugouStore.count
+        let released = max(0, before - after)
+        return .init(
+            releasedItemCount: released,
+            estimatedReleasedBytes: released * 2_048,
+            preservedItemCount: after
+        )
+    }
+
+    private func purgeIfNeeded(maxEntries: Int = PlaybackURLCache.maxEntries) {
+        let limit = max(1, maxEntries)
+        if store.count > limit {
+            let sorted = store.sorted { $0.value.fetchedAt > $1.value.fetchedAt }
+            store = Dictionary(
+                uniqueKeysWithValues: sorted.prefix(limit).map { ($0.key, $0.value) }
+            )
+        }
+        if kugouStore.count > limit {
             let sorted = kugouStore.sorted { $0.value.fetchedAt > $1.value.fetchedAt }
-            kugouStore = Dictionary(uniqueKeysWithValues: Array(sorted.prefix(Self.maxEntries)))
+            kugouStore = Dictionary(
+                uniqueKeysWithValues: sorted.prefix(limit).map { ($0.key, $0.value) }
+            )
         }
         let cutoff = Date().addingTimeInterval(-Self.purgeTTL)
         store = store.filter { $0.value.fetchedAt > cutoff }

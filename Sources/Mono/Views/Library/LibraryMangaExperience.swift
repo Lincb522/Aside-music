@@ -1072,15 +1072,8 @@ struct MangaLibraryExperience: View {
     }
 
     private func showImportLinkPrompt() {
-        AlertManager.shared.showInput(
-            title: String(localized: "从链接导入歌单"),
-            message: "",
-            placeholder: String(localized: "粘贴歌单链接"),
-            primaryButtonTitle: String(localized: "local_toolbar_import"),
-            secondaryButtonTitle: String(localized: "cancel"),
-            onConfirm: { url in
-                importPlaylistFromURL(url)
-            }
+        viewModel.navigationPath.append(
+            LibraryViewModel.NavigationDestination.externalPlaylistImport
         )
     }
 

@@ -191,6 +191,29 @@ struct AriaCanopyLyricLineView: View {
 
     /// 碎幕律动：整句拆成小段接力显示 + 逐段随机进退场（默认关，保留经典排版）
     @AppStorage("ariaCanopyFragmentStage") private var fragmentStage = false
+    /// 天幕本身会随歌词时间轴逐帧刷新。性能档位变化时只降低昂贵的拖影、
+    /// 墨雨条带和阴影，不改变排版或歌词内容。
+    @ObservedObject private var performance = AriaPerformanceGovernor.shared
+
+    private var rendersGlyphTrails: Bool {
+        performance.tier == .high
+    }
+
+    private var inkStripeCount: Int {
+        switch performance.tier {
+        case .high: return 6
+        case .medium: return 4
+        case .low: return 3
+        }
+    }
+
+    private var glyphBlurMultiplier: CGFloat {
+        switch performance.tier {
+        case .high: return 1
+        case .medium: return 0.65
+        case .low: return 0.35
+        }
+    }
 
     private var lineProgress: Double {
         AriaFoliaRuntime.clamp(
@@ -668,6 +691,9 @@ struct AriaCanopyLyricLineView: View {
         }
         .scaleEffect(1 + CGFloat(progress) * 0.025)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // 将大量 Text、mask 与 blur 合并为单个 Metal 绘制组，避免每个字符
+        // 都参与一次 SwiftUI 合成。时间轴仍然只更新这一层的纹理。
+        .drawingGroup(opaque: false)
     }
 
     // MARK: - 构图渲染
@@ -743,7 +769,8 @@ struct AriaCanopyLyricLineView: View {
             ) * CGFloat(fontScale)
 
         return ZStack {
-            ForEach(Array(phrases.enumerated()), id: \.element.id) { index, phrase in
+            ForEach(phrases.indices, id: \.self) { index in
+                let phrase = phrases[index]
                 let nextStart = index + 1 < phrases.count
                     ? phrases[index + 1].start
                     : line.endTime + 0.4
@@ -797,11 +824,13 @@ struct AriaCanopyLyricLineView: View {
         let shown = phrases.filter { time >= $0.start - 0.05 }
 
         return HStack(alignment: .top, spacing: size * 0.55) {
-            ForEach(Array(shown.enumerated().reversed()), id: \.element.id) { index, phrase in
+            ForEach(shown.indices.reversed(), id: \.self) { index in
+                let phrase = shown[index]
                 glyphColumn(phrase.glyphs, fontSize: size, phraseIndex: index)
             }
         }
-        .animation(.spring(response: 0.42, dampingFraction: 0.85), value: shown.count)
+        // shown 由歌词时间驱动，字符自身已经有确定性的进场包络；
+        // 这里再挂一层弹簧会让每次计数变化都触发额外布局和动画事务。
     }
 
     private func heroLayout(
@@ -844,7 +873,8 @@ struct AriaCanopyLyricLineView: View {
             heroGlyph(leading, fontSize: heroSize)
 
             VStack(spacing: middleSize * 0.30) {
-                ForEach(Array(middleRows.enumerated()), id: \.offset) { _, row in
+                ForEach(middleRows.indices, id: \.self) { index in
+                    let row = middleRows[index]
                     glyphRow(
                         row,
                         fontSize: middleSize,
@@ -884,10 +914,6 @@ struct AriaCanopyLyricLineView: View {
                 )
             }
         }
-        .animation(
-            visibleOnly ? .spring(response: 0.34, dampingFraction: 0.86) : nil,
-            value: shown.count
-        )
     }
 
     private enum SlideAxis {
@@ -915,10 +941,6 @@ struct AriaCanopyLyricLineView: View {
         }
         .lineLimit(1)
         .minimumScaleFactor(0.5)
-        .animation(
-            visibleOnly ? .spring(response: 0.34, dampingFraction: 0.86) : nil,
-            value: shown.count
-        )
     }
 
     /// 外语词长短不一，按视觉宽度（半角字符 ≈ 0.55 字宽）估行宽。
@@ -981,16 +1003,16 @@ struct AriaCanopyLyricLineView: View {
             .offset(x: motion.x, y: motion.y)
             // 运动拖影：进场瞬间沿来向拉开的模糊残像（绽放式为原位光晕）
             .background {
-                if appear > 0.01, appear < 0.99 {
+                if rendersGlyphTrails, appear > 0.03, appear < 0.86 {
                     Text(glyph.text)
                         .font(fontChoice.font(size: fontSize, weight: .heavy))
                         .foregroundStyle(color.opacity(0.5 * Double(remain)))
-                        .blur(radius: 5 + remain * 7)
+                        .blur(radius: 3 + remain * 4)
                         .scaleEffect(motion.scale == 1 ? 1 : motion.scale * 1.2)
                         .offset(x: motion.x * 2.2, y: motion.y * 1.9)
                 }
             }
-            .blur(radius: remain * 2.5)
+            .blur(radius: remain * 2.5 * glyphBlurMultiplier)
             // 唱到时所有字亮强调色光影；尾词唱过后光影常驻（字体保持主色）
             .shadow(
                 color: palette.accent.opacity(
@@ -998,7 +1020,7 @@ struct AriaCanopyLyricLineView: View {
                         ? 0.55
                         : (glyph.isTailGlow && time > glyph.end ? 0.4 : 0)
                 ),
-                radius: fontSize * 0.10
+                radius: fontSize * (performance.tier == .high ? 0.08 : 0.05)
             )
     }
 
@@ -1016,11 +1038,13 @@ struct AriaCanopyLyricLineView: View {
             color: color,
             fontSize: fontSize,
             progress: progress,
-            seed: Double(line.id % 977)
+            seed: Double(line.id % 977),
+            stripeCount: inkStripeCount,
+            showsTrail: rendersGlyphTrails
         )
         .shadow(
             color: color.opacity(isActive ? 0.42 : 0.16),
-            radius: fontSize * 0.09
+            radius: fontSize * (performance.tier == .high ? 0.07 : 0.04)
         )
     }
 
@@ -1081,11 +1105,11 @@ struct AriaCanopyLyricLineView: View {
             // 扫亮前缘的流光
             .overlay {
                 GeometryReader { proxy in
-                    if sweep > 0.01, sweep < 0.99 {
+                    if performance.tier == .high, sweep > 0.04, sweep < 0.96 {
                         Capsule()
                             .fill(sweepColor.opacity(0.85))
                             .frame(width: size * 2.4, height: size * 1.05)
-                            .blur(radius: size * 0.55)
+                            .blur(radius: size * 0.35)
                             .position(
                                 x: proxy.size.width * CGFloat(sweep),
                                 y: proxy.size.height / 2
@@ -1151,8 +1175,8 @@ private struct CanopyInkRainGlyph: View {
     let fontSize: CGFloat
     let progress: Double
     let seed: Double
-
-    private let stripeCount = 6
+    let stripeCount: Int
+    let showsTrail: Bool
 
     var body: some View {
         ZStack {
@@ -1182,10 +1206,10 @@ private struct CanopyInkRainGlyph: View {
             }
             .offset(y: -fallDistance * remain)
             .opacity(min(1, Double(local) * 1.7))
-            .blur(radius: remain * 6)
+            .blur(radius: remain * (showsTrail ? 6 : 3))
             // 坠落拖尾：条带上方的发光残影
             .background {
-                if local > 0.01, local < 0.96 {
+                if showsTrail, local > 0.03, local < 0.86 {
                     glyphText
                         .foregroundStyle(color.opacity(0.4 * Double(remain)))
                         .mask {
@@ -1197,7 +1221,7 @@ private struct CanopyInkRainGlyph: View {
                             }
                         }
                         .offset(y: -fallDistance * remain - fontSize * 0.16)
-                        .blur(radius: 9)
+                        .blur(radius: 5)
                 }
             }
     }

@@ -98,9 +98,7 @@ struct AIListeningInsightInput: Codable, Equatable, Sendable {
             previousSeconds: stats.previousDuration,
             totalPlays: stats.totalPlays,
             completedPlays: stats.completedPlays,
-            completionRate: stats.totalPlays > 0
-                ? Int((Double(stats.completedPlays) / Double(stats.totalPlays) * 100).rounded())
-                : 0,
+            completionRate: stats.completionRate,
             uniqueSongs: stats.uniqueSongs,
             uniqueArtists: stats.uniqueArtists,
             activeDays: stats.activeDays,
@@ -171,7 +169,7 @@ struct AIListeningInsightInput: Codable, Equatable, Sendable {
                 artist: $0.artistName,
                 playCount: $0.playCount,
                 seconds: $0.totalDuration,
-                lyricExcerpt: lyricExcerpt(songID: $0.id)
+                lyricExcerpt: lyricExcerpt(songID: $0.songId)
             )
         }
     }

@@ -12,7 +12,7 @@ struct ClassicAsideEmbeddedSurface: View {
 
     var body: some View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(Color.monoBackground.opacity(colorScheme == .dark ? 0.68 : 0.78))
+            .fill(Color.monoStructuralBackground)
             .overlay {
                 if cornerRadius > 0 {
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)

@@ -73,6 +73,7 @@ struct MonoSheetContainer<Content: View>: View {
                     }
 
                     content
+                        .monoSheetGlobalContentStyle()
                         .frame(maxWidth: .infinity, alignment: .top)
                 }
                 .frame(width: panelWidth)
@@ -150,6 +151,12 @@ struct MonoSheetContainer<Content: View>: View {
     }
 }
 
+extension View {
+    func monoSheetGlobalContentStyle() -> some View {
+        self
+    }
+}
+
 // MARK: - 内容自带整面背景
 
 /// Sheet 内容上抛的整面背景：由容器铺满整个面板（含把手区域）。
@@ -210,14 +217,14 @@ private struct MonoSheetLiquidSurfaceModifier: ViewModifier {
 
 enum MonoSheetThemeStyle {
     /// 把手直接绘制在同一张 Sheet 表面上，不再创建独立的玻璃胶囊底座。
-    static let usesIntegratedHandle = true
+    static var usesIntegratedHandle: Bool { true }
 
     static var usesCustomThemeSurface: Bool {
-        MinimalWhiteStyle.isActive || MangaStyle.isActive || PetWhiteStyle.isActive || PureWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || SequoiaStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
+        MinimalWhiteStyle.isActive || MangaStyle.isActive || PetWhiteStyle.isActive || PureWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || ClarityStyle.isActive || SequoiaStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
     }
 
     static var attachesSurfaceToBottom: Bool {
-        MinimalWhiteStyle.isActive || MangaStyle.isActive || PetWhiteStyle.isActive || PureWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
+        MinimalWhiteStyle.isActive || MangaStyle.isActive || PetWhiteStyle.isActive || PureWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || ClarityStyle.isActive || LiquidGlassStyle.isActive || ClayStyle.isActive || SignalStyle.isActive || BentoStyle.isActive
     }
 
     static var shadowColor: Color {
@@ -228,6 +235,7 @@ enum MonoSheetThemeStyle {
         if MujiStyle.isActive { return Color.black.opacity(0.07) }
         if NeumorphicStyle.isActive { return Color.black.opacity(0.16) }
         if CapsuleStyle.isActive { return CapsuleStyle.accent.opacity(0.16) }
+        if ClarityStyle.isActive { return Color.black.opacity(0.10) }
         if SequoiaStyle.isActive { return Color(light: Color(hex: "304760").opacity(0.11), dark: Color.black.opacity(0.34)) }
         if LiquidGlassStyle.isActive { return Color(light: Color(hex: "2D6B8A").opacity(0.14), dark: Color.black.opacity(0.38)) }
         if ClayStyle.isActive { return Color.black.opacity(0.14) }
@@ -245,6 +253,7 @@ enum MonoSheetThemeStyle {
         if MujiStyle.isActive { return 18 }
         if NeumorphicStyle.isActive { return colorScheme == .dark ? 24 : 22 }
         if CapsuleStyle.isActive { return colorScheme == .dark ? 24 : 20 }
+        if ClarityStyle.isActive { return colorScheme == .dark ? 30 : 24 }
         if SequoiaStyle.isActive { return colorScheme == .dark ? 24 : 20 }
         if LiquidGlassStyle.isActive { return colorScheme == .dark ? 30 : 24 }
         if ClayStyle.isActive { return colorScheme == .dark ? 24 : 20 }
@@ -262,6 +271,7 @@ enum MonoSheetThemeStyle {
         if MujiStyle.isActive { return 9 }
         if NeumorphicStyle.isActive { return 10 }
         if CapsuleStyle.isActive { return 9 }
+        if ClarityStyle.isActive { return 11 }
         if SequoiaStyle.isActive { return 9 }
         if LiquidGlassStyle.isActive { return 11 }
         if ClayStyle.isActive { return 9 }
@@ -397,6 +407,13 @@ struct MonoSheetHandleView: View {
                     .fill(CapsuleStyle.surfaceTint.opacity(colorScheme == .dark ? 0.64 : 0.72))
                     .overlay(Capsule().stroke(CapsuleStyle.hairline.opacity(0.72), lineWidth: 0.75))
             )
+        } else if ClarityStyle.isActive {
+            Capsule()
+                .fill(ClarityStyle.inkMuted.opacity(0.34))
+                .frame(width: 38, height: 4)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .background(ClarityControlBackground())
         } else if ClayStyle.isActive {
             ZStack {
                 Capsule()
@@ -628,6 +645,23 @@ struct MonoSheetSurfaceBackground: View {
                         CapsuleStyle.accent.opacity(colorScheme == .dark ? 0.14 : 0.1),
                         .clear,
                         CapsuleStyle.cyan.opacity(colorScheme == .dark ? 0.1 : 0.08)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .clipShape(shape)
+            } else if ClarityStyle.isActive {
+                shape
+                    .fill(.ultraThinMaterial)
+
+                shape
+                    .fill(ClarityStyle.surfaceRaised.opacity(colorScheme == .dark ? 0.74 : 0.68))
+
+                LinearGradient(
+                    colors: [
+                        Color.white.opacity(colorScheme == .dark ? 0.06 : 0.34),
+                        .clear,
+                        ClarityStyle.cyan.opacity(colorScheme == .dark ? 0.08 : 0.11)
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
@@ -930,6 +964,30 @@ struct MonoSheetSurfaceOverlay: View {
                         CapsuleStyle.mint.frame(width: 58, height: 5)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .clipShape(shape)
+                }
+            } else if ClarityStyle.isActive {
+                shape
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [
+                                ClarityStyle.edge,
+                                ClarityStyle.edge.opacity(0.28),
+                                ClarityStyle.cyan.opacity(0.18)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 0.95
+                    )
+
+                if showsHighlight {
+                    LinearGradient(
+                        colors: [Color.white.opacity(colorScheme == .dark ? 0.06 : 0.36), .clear],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 110)
                     .clipShape(shape)
                 }
             } else if ClayStyle.isActive {

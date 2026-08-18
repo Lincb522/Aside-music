@@ -1,9 +1,9 @@
 import SwiftUI
 import UIKit
 
-/// 为 SwiftUI `TabView` 使用的原生 TabBar 提供统一外观。
-/// iOS 26 保留系统 Liquid Glass，只调整项目的图标与文字状态；
-/// iOS 16–25 使用系统材质、轻量选中底和更清晰的层级。
+/// 为 SwiftUI `TabView` 提供接近 Apple Music 的原生底部导航：
+/// 选中状态只通过填充图标、强调色和字重表达，不再叠加胶囊选中底；
+/// iOS 26 保留系统 Liquid Glass，iOS 16–25 使用贴近系统背景的音乐应用栏材质。
 @MainActor
 struct SystemTabBarAppearanceBridge: UIViewControllerRepresentable {
     let accent: Color
@@ -96,21 +96,19 @@ final class SystemTabBarAppearanceController: UIViewController {
         let appearance: UITabBarAppearance
         if #available(iOS 26.0, *) {
             appearance = tabBar.standardAppearance
-            tabBar.selectionIndicatorImage = nil
         } else {
             appearance = UITabBarAppearance()
-            appearance.configureWithTransparentBackground()
-            appearance.backgroundEffect = UIBlurEffect(style: .systemChromeMaterial)
+            appearance.configureWithDefaultBackground()
+            appearance.backgroundEffect = UIBlurEffect(style: .systemMaterial)
             appearance.backgroundColor = UIColor.systemBackground.withAlphaComponent(
-                colorScheme == .dark ? 0.34 : 0.52
+                colorScheme == .dark ? 0.86 : 0.92
             )
-            appearance.shadowColor = UIColor.separator.withAlphaComponent(0.22)
-            tabBar.selectionIndicatorImage = selectionIndicatorImage(
-                tabBarWidth: tabBar.bounds.width,
-                itemCount: itemCount,
-                accent: resolvedAccent
+            appearance.shadowColor = UIColor.separator.withAlphaComponent(
+                colorScheme == .dark ? 0.34 : 0.24
             )
         }
+
+        tabBar.selectionIndicatorImage = nil
 
         configureItemAppearance(appearance.stackedLayoutAppearance, accent: resolvedAccent)
         configureItemAppearance(appearance.inlineLayoutAppearance, accent: resolvedAccent)
@@ -125,16 +123,16 @@ final class SystemTabBarAppearanceController: UIViewController {
         if #unavailable(iOS 26.0) {
             if UIDevice.current.userInterfaceIdiom == .pad {
                 tabBar.itemPositioning = .centered
-                tabBar.itemWidth = 72
-                tabBar.itemSpacing = 14
+                tabBar.itemWidth = 76
+                tabBar.itemSpacing = 18
             } else {
                 tabBar.itemPositioning = .fill
             }
         }
 
         tabBar.items?.forEach { item in
-            item.imageInsets = UIEdgeInsets(top: -1, left: 0, bottom: 1, right: 0)
-            item.titlePositionAdjustment = UIOffset(horizontal: 0, vertical: 1)
+            item.imageInsets = .zero
+            item.titlePositionAdjustment = .zero
         }
     }
 
@@ -145,24 +143,24 @@ final class SystemTabBarAppearanceController: UIViewController {
         appearance.normal.iconColor = normalItemColor
         appearance.normal.titleTextAttributes = [
             .foregroundColor: normalItemColor,
-            .font: UIFont.systemFont(ofSize: 10.5, weight: .medium),
+            .font: UIFont.systemFont(ofSize: 10, weight: .regular),
         ]
 
         appearance.selected.iconColor = accent
         appearance.selected.titleTextAttributes = [
             .foregroundColor: accent,
-            .font: UIFont.systemFont(ofSize: 10.5, weight: .semibold),
+            .font: UIFont.systemFont(ofSize: 10, weight: .semibold),
         ]
 
         appearance.disabled.iconColor = UIColor.tertiaryLabel
         appearance.disabled.titleTextAttributes = [
             .foregroundColor: UIColor.tertiaryLabel,
-            .font: UIFont.systemFont(ofSize: 10.5, weight: .medium),
+            .font: UIFont.systemFont(ofSize: 10, weight: .regular),
         ]
     }
 
     private var normalItemColor: UIColor {
-        UIColor.secondaryLabel.withAlphaComponent(colorScheme == .dark ? 0.78 : 0.72)
+        UIColor.secondaryLabel.withAlphaComponent(colorScheme == .dark ? 0.74 : 0.68)
     }
 
     private func readableAccent(_ color: UIColor) -> UIColor {
@@ -215,24 +213,6 @@ final class SystemTabBarAppearanceController: UIViewController {
             blue: sourceBlue + (targetBlue - sourceBlue) * clampedAmount,
             alpha: sourceAlpha
         )
-    }
-
-    private func selectionIndicatorImage(
-        tabBarWidth: CGFloat,
-        itemCount: Int,
-        accent: UIColor
-    ) -> UIImage {
-        let availableItemWidth = tabBarWidth / CGFloat(max(itemCount, 1))
-        let width = min(max(availableItemWidth - 22, 54), 84)
-        let size = CGSize(width: width, height: 44)
-        let renderer = UIGraphicsImageRenderer(size: size)
-
-        return renderer.image { _ in
-            let rect = CGRect(origin: .zero, size: size).insetBy(dx: 0.5, dy: 1.5)
-            accent.withAlphaComponent(colorScheme == .dark ? 0.15 : 0.09).setFill()
-            UIBezierPath(roundedRect: rect, cornerRadius: 14).fill()
-        }
-        .withRenderingMode(.alwaysOriginal)
     }
 
     private func resolvedTabBar() -> UITabBar? {

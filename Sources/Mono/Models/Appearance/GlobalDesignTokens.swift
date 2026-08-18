@@ -33,20 +33,33 @@ struct GlobalColorPalette {
 
     /// Mono 默认配色（当前 App 行为不变）
     static var `default`: GlobalColorPalette {
-        GlobalColorPalette(
-            background: .monoBackground,
+        let fallbackAccent = Color(light: .black, dark: .white)
+        let accent = ThemeColorCustomization.accentColor(
+            for: .default,
+            fallback: fallbackAccent,
+            fallbackHex: ThemeColorCustomization.defaultAccentHex(for: .default)
+        )
+
+        return GlobalColorPalette(
+            // 这里必须是原始 token，不能回读 Color.mono* 。
+            // 统一颜色引擎会以此为主题基准，回读会形成循环解析。
+            background: Color(light: Color(hex: "F5F5F7"), dark: Color(hex: "0A0A0A")),
             surface: Color(light: .white, dark: Color(hex: "1C1C1E")),
-            primary: .monoTextPrimary,
-            secondary: .monoTextSecondary,
-            accent: .monoAccent,
-            accentGradient: [.monoTextPrimary, .monoTextPrimary.opacity(0.7)],
-            separator: .monoSeparator,
-            navBarTint: .monoAccent,
-            iconBackground: .monoIconBackground,
-            iconForeground: .monoIconForeground,
+            primary: .primary,
+            secondary: .secondary,
+            accent: accent,
+            accentGradient: [accent, accent.opacity(0.68)],
+            separator: Color(light: Color.black.opacity(0.1), dark: Color.white.opacity(0.1)),
+            navBarTint: accent,
+            iconBackground: accent,
+            iconForeground: ThemeColorCustomization.readableForegroundColor(
+                on: accent,
+                light: Color(hex: "111821"),
+                dark: .white
+            ),
             cardBackground: Color(light: Color.white.opacity(0.7), dark: Color(hex: "3A3A3C").opacity(0.5)),
-            floatingBarFill: .monoFloatingBarFill,
-            destructive: .monoAccentRed
+            floatingBarFill: Color(light: Color.white.opacity(0.28), dark: Color(hex: "1C1C1E").opacity(0.42)),
+            destructive: Color(hex: "FF3B30")
         )
     }
 }

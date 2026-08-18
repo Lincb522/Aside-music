@@ -6,6 +6,7 @@ const {
   applyOfficialEvidenceFallbacks,
   compactEvidencePackage,
   createProviderCircuit,
+  evidenceBackedSectionsNeedingCompletion,
   estimateGenerationInputTokens,
   localizePipelineError,
   mergeGeneratedContent,
@@ -76,6 +77,21 @@ test('没有正文角色证据时不强制补写栏目', () => {
   assert.deepEqual(missingEvidenceBackedSections(content(), evidencePackage), [])
 })
 
+test('有角色证据时会二次增强明显过短的栏目', () => {
+  const evidencePackage = {
+    sources: [{ metadata: { contentRoles: ['songSummary', 'background'] } }]
+  }
+  const value = content({
+    songSummary: '过短的歌曲介绍。',
+    background: '过短的乐评。'
+  })
+
+  assert.deepEqual(
+    evidenceBackedSectionsNeedingCompletion(value, evidencePackage),
+    ['songSummary', 'background']
+  )
+})
+
 test('二次补全只覆盖新生成的栏目并保留首轮有效内容', () => {
   const primary = content({
     creationStory: '首轮创作故事',
@@ -105,6 +121,21 @@ test('二次补全只覆盖新生成的栏目并保留首轮有效内容', () =>
   assert.deepEqual(merged.sourceRefs.songSummary, ['source-2'])
   assert.deepEqual(merged.sourceRefs.creationStory, ['source-1'])
   assert.equal(merged.confidence, 'high')
+})
+
+test('二次增强只在新内容更完整时替换指定栏目', () => {
+  const primary = content({
+    songSummary: '首轮较短介绍',
+    sourceRefs: { songSummary: ['source-1'], creationStory: [], background: [], albumSummary: [] }
+  })
+  const completion = content({
+    songSummary: '补充了发行关系、作品定位和声音线索的更完整歌曲介绍。',
+    sourceRefs: { songSummary: ['source-2'], creationStory: [], background: [], albumSummary: [] }
+  })
+
+  const merged = mergeGeneratedContent(primary, completion, ['songSummary'])
+  assert.equal(merged.songSummary, completion.songSummary)
+  assert.deepEqual(merged.sourceRefs.songSummary, ['source-2'])
 })
 
 test('AI 熔断到期后只允许一个半开探测并在成功后恢复', () => {

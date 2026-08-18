@@ -44,7 +44,9 @@ final class SettingsManager: ObservableObject {
         applyGlobalThemeSelection(
             resolvedId,
             bumpRevision: true,
-            bumpApplicationRevision: true,
+            // 启动同步只校正持久化主题与颜色 token，不是一次用户主动切换。
+            // 这里递增 application revision 会让已挂载的导航根误判为需要整树重建。
+            bumpApplicationRevision: false,
             applyPreferredIconSet: false
         )
     }
@@ -58,12 +60,21 @@ final class SettingsManager: ObservableObject {
 
     /// 悬浮栏样式（类型安全访问）
     var floatingBarStyle: FloatingBarStyle {
-        get { FloatingBarStyle(rawValue: floatingBarStyleRaw) ?? .unified }
+        // 已下线的样式会自然回落到现有云雾样式，避免升级后突然切回默认悬浮栏。
+        get { FloatingBarStyle(rawValue: floatingBarStyleRaw) ?? .flux }
         set { floatingBarStyleRaw = newValue.rawValue }
     }
 
     /// 默认主题下自定义 TabBar 是否使用液态玻璃；关闭时使用更稳定的毛玻璃底。
     @AppStorage("defaultThemeUsesLiquidGlassTabBar") var defaultThemeUsesLiquidGlassTabBar: Bool = false
+
+    /// AsideMusic 默认主题的全屏封面取色流体背景。
+    @AppStorage("asideMusicFluidBackgroundEnabled") var asideMusicFluidBackgroundEnabled: Bool = false {
+        didSet {
+            guard asideMusicFluidBackgroundEnabled != oldValue else { return }
+            globalThemeRevision &+= 1
+        }
+    }
 
     @AppStorage("petWhiteUsesIllustratedBackground") var petWhiteUsesIllustratedBackground: Bool = false {
         didSet {
@@ -375,7 +386,7 @@ final class SettingsManager: ObservableObject {
     @Published var globalCoverIsDark: Bool = false
 
     var locksCoverBackgroundSettings: Bool {
-        globalThemeId != .default
+        globalThemeId != .default && globalThemeId != .clarity
     }
 
     // MARK: - 歌词设置

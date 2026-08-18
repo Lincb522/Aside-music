@@ -207,6 +207,13 @@ public final class QQMusicClient: @unchecked Sendable {
             throw QQMusicError.invalidURL(path)
         }
 
+        var urlRequest = URLRequest(url: url)
+        if path.hasPrefix("/login/qrcode/") {
+            urlRequest.cachePolicy = .reloadIgnoringLocalCacheData
+            urlRequest.setValue("no-store, no-cache, max-age=0", forHTTPHeaderField: "Cache-Control")
+            urlRequest.setValue("no-cache", forHTTPHeaderField: "Pragma")
+        }
+
         var lastError: Error?
 
         for attempt in 0...maxRetries {
@@ -217,7 +224,7 @@ public final class QQMusicClient: @unchecked Sendable {
                 }
                 #endif
 
-                let (data, response) = try await session.data(from: url)
+                let (data, response) = try await session.data(for: urlRequest)
 
                 guard let httpResponse = response as? HTTPURLResponse else {
                     throw QQMusicError.invalidResponse

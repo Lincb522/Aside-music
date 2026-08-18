@@ -73,23 +73,31 @@ private struct AriaLyricTypographyModifier: ViewModifier {
     let palette: AriaPalette
     let time: Double
 
+    @ViewBuilder
     func body(content: Content) -> some View {
         let glow = min(max(configuration.glowStrength, 0), 1)
-
-        styledContent(content)
+        let base = styledContent(content)
             .opacity(min(max(configuration.opacity, 0.12), 1))
-            .shadow(
-                color: palette.accent.opacity(glow * 0.88),
-                radius: 1 + CGFloat(glow) * 6
-            )
-            .shadow(
-                color: palette.accent.opacity(glow * 0.46),
-                radius: 5 + CGFloat(glow) * 20
-            )
-            .shadow(
-                color: palette.primary.opacity(glow * 0.22),
-                radius: 14 + CGFloat(glow) * 34
-            )
+
+        // Zero-opacity shadows still create compositing work. The default
+        // solid material has no glow, so bypass all three passes completely.
+        if glow <= 0.001 {
+            base
+        } else {
+            base
+                .shadow(
+                    color: palette.accent.opacity(glow * 0.88),
+                    radius: 1 + CGFloat(glow) * 6
+                )
+                .shadow(
+                    color: palette.accent.opacity(glow * 0.46),
+                    radius: 5 + CGFloat(glow) * 20
+                )
+                .shadow(
+                    color: palette.primary.opacity(glow * 0.22),
+                    radius: 14 + CGFloat(glow) * 34
+                )
+        }
     }
 
     @ViewBuilder
@@ -133,7 +141,7 @@ private struct AriaLyricTypographyModifier: ViewModifier {
                         )
                     }
             }
-            .compositingGroup()
+            .drawingGroup(opaque: false, colorMode: .nonLinear)
 
         case .glass:
             let intensity = min(max(configuration.glassIntensity, 0), 1)
@@ -168,7 +176,7 @@ private struct AriaLyricTypographyModifier: ViewModifier {
                     .opacity(0.08 + intensity * 0.12)
                     .offset(y: -0.6)
             }
-            .compositingGroup()
+            .drawingGroup(opaque: false, colorMode: .nonLinear)
             .shadow(
                 color: .white.opacity(0.12 + intensity * 0.16),
                 radius: 2 + CGFloat(intensity) * 5,
@@ -197,7 +205,7 @@ private struct AriaLyricTypographyModifier: ViewModifier {
                 content
                     .opacity(0.82)
             }
-            .compositingGroup()
+            .drawingGroup(opaque: false, colorMode: .nonLinear)
         }
     }
 }

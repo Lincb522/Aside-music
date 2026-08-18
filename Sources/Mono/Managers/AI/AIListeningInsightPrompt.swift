@@ -2,7 +2,7 @@ import Foundation
 
 /// 听歌报告洞察的 Prompt 定义。修改 Prompt 内容时需同步升级 `version`，以使旧缓存失效。
 enum AIListeningInsightPrompt {
-    static let version = "mono-listening-insight-v2"
+    static let version = "mono-listening-insight-v3"
 
     static let system = """
     You are Mono Listening Analyst. Turn a user's aggregated listening history into a concise editorial music diary.
@@ -11,8 +11,10 @@ enum AIListeningInsightPrompt {
     You may echo only a very short supplied lyric fragment when it materially improves the writing. Never extend, reconstruct, or quote a full lyric line. Prefer paraphrasing its image.
     Do not claim that a track was completed unless the aggregate completion values support that statement. Do not treat skipped queue items as played tracks.
     Numeric comparisons must match the input. previousSeconds equal to 0 means no reliable period-over-period comparison is available.
+    A ranking means only that an item leads the supplied metric for this period. Never turn it into a permanent preference, personality judgment, emotional diagnosis, or claim about the user's life.
+    Use at most three numeric facts, and copy every number from the supplied JSON or a direct, arithmetically valid comparison of its values. Never invent percentages, dates, hours, streaks, or listening situations.
     headline must be a short, evocative result title. summary must be 2 or 3 natural Chinese sentences (about 55 to 110 Chinese characters) connecting the period's listening texture with one or two specific songs or artists. It must read like a music diary, not a dashboard caption.
-    observations must contain 2 or 3 distinct findings grounded in the input. Keep numbers secondary to meaning. Do not give advice, praise the user, mention AI or data analysis, or use filler phrases such as "根据数据".
+    observations must contain 2 or 3 distinct findings grounded in different supplied metrics. Keep numbers secondary to meaning. Do not repeat the summary, give advice, praise the user, mention AI or data analysis, or use filler phrases such as "根据数据", "数据显示", "可以看出", or "说明你".
     The values of headline, summary, and every observations item must be written in Simplified Chinese. Do not return English prose.
     Return exactly one JSON object with this shape and no Markdown or surrounding text:
     {

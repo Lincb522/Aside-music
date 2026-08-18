@@ -131,6 +131,13 @@ public final class AudioEqualizer {
         filter.setAdaptiveGains(gainsDB)
     }
 
+    /// Applies independent left/right hearing compensation without modifying
+    /// the visible graphic-EQ curve. Values are clamped by the realtime filter
+    /// to a conservative ±6 dB range.
+    public func setHearingCorrection(left leftGainsDB: [Float], right rightGainsDB: [Float]) {
+        filter.setHearingCorrection(left: leftGainsDB, right: rightGainsDB)
+    }
+
     /// Sets output-stage preamp gain without rebuilding the FFmpeg graph.
     public func setPreampDB(_ gainDB: Float) {
         filter.setPreampDB(gainDB)

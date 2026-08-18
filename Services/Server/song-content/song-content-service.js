@@ -1,6 +1,7 @@
 const crypto = require('node:crypto')
 const { createSongContentStore, codedError } = require('./song-content-store')
 const { createSongContentPipeline } = require('./song-content-pipeline')
+const { sanitizePublishedText } = require('./song-content-sanitizer')
 
 function createSongContentService({
   directory,
@@ -9,7 +10,7 @@ function createSongContentService({
   sourceCollector,
   contentGenerator,
   schemaVersion = '3',
-  promptVersion = 'song-editor-web-v6',
+  promptVersion = 'song-editor-web-v7',
   autoPublish = true,
   policyProvider,
   startWorker = true,
@@ -43,7 +44,18 @@ function createSongContentService({
   async function getPublicDetail(identity, locale, requestContext = {}) {
     const song = await resolveSong(identity, requestContext)
     const normalizedLocale = normalizeLocale(locale)
-    const published = store.getPublishedDetail(song.id, normalizedLocale)
+    let published = store.getPublishedDetail(song.id, normalizedLocale)
+    let requiresContentUpgrade = false
+    if (published && !publishedDetailIsSafe(published)) {
+      store.setContentStatus(
+        published.content.id,
+        'offline',
+        'automatic-content-sanitizer',
+        'content.auto_offline'
+      )
+      published = null
+      requiresContentUpgrade = true
+    }
     if (published) {
       return publicPublishedPayload(published, null)
     }
@@ -55,7 +67,7 @@ function createSongContentService({
         songId: song.id,
         locale: normalizedLocale,
         schemaVersion,
-        reason: 'first_access',
+        reason: requiresContentUpgrade ? 'content_upgrade' : 'first_access',
         maxAttempts: policy?.maxAttempts
       })
     }
@@ -72,16 +84,28 @@ function createSongContentService({
     const song = await resolveSong(identity, requestContext)
     if (song.identityStatus !== 'confirmed') throw codedError('SONG_IDENTITY_PENDING', 'song identity is not confirmed')
     if (!store.isWhitelisted(song.id)) throw codedError('SONG_NOT_WHITELISTED', 'song is outside the internal whitelist')
-    const published = store.getPublishedDetail(song.id, normalizeLocale(locale))
+    const normalizedLocale = normalizeLocale(locale)
+    let published = store.getPublishedDetail(song.id, normalizedLocale)
+    let requiresContentUpgrade = false
+    if (published && !publishedDetailIsSafe(published)) {
+      store.setContentStatus(
+        published.content.id,
+        'offline',
+        'automatic-content-sanitizer',
+        'content.auto_offline'
+      )
+      published = null
+      requiresContentUpgrade = true
+    }
     if (published) {
       return { song: publicSong(song), content: publicContent(published.content), generation: null }
     }
     const policy = typeof policyProvider === 'function' ? await policyProvider() : {}
     const job = store.ensureGenerationJob({
       songId: song.id,
-      locale,
+      locale: normalizedLocale,
       schemaVersion,
-      reason: 'first_access',
+      reason: requiresContentUpgrade ? 'content_upgrade' : 'first_access',
       maxAttempts: policy?.maxAttempts
     })
     return {
@@ -301,18 +325,20 @@ function publicSong(song) {
 
 function publicContent(content) {
   const grades = content.sources.map((source) => source.grade).filter(Boolean)
-  const albumFallback = content.albumSummary || null
-  const creationStory = content.creationStory || albumFallback
-  const background = content.background || null
-  const songSummary = content.songSummary || creationStory || albumFallback
+  const directSongSummary = sanitizePublishedText(content.songSummary)
+  const albumFallback = sanitizePublishedText(content.albumSummary)
+  const directCreationStory = sanitizePublishedText(content.creationStory)
+  const creationStory = directCreationStory || albumFallback
+  const background = sanitizePublishedText(content.background)
+  const songSummary = directSongSummary || creationStory || albumFallback
   const sourceRefs = {
     ...(content.sourceRefs || {}),
-    songSummary: content.songSummary
+    songSummary: directSongSummary
       ? (content.sourceRefs?.songSummary || [])
-      : (content.creationStory
+      : (directCreationStory
           ? (content.sourceRefs?.creationStory || [])
           : (content.sourceRefs?.albumSummary || [])),
-    creationStory: content.creationStory
+    creationStory: directCreationStory
       ? (content.sourceRefs?.creationStory || [])
       : (content.sourceRefs?.albumSummary || []),
     background: content.background
@@ -325,7 +351,7 @@ function publicContent(content) {
     song_summary: songSummary,
     creation_story: creationStory,
     background,
-    album_summary: content.albumSummary,
+    album_summary: albumFallback,
     updated_at: content.updatedAt,
     source_summary: {
       count: content.sources.length,
@@ -335,6 +361,18 @@ function publicContent(content) {
     confidence: content.confidence,
     risk_flags: content.riskFlags
   }
+}
+
+function publishedDetailIsSafe(detail) {
+  const content = detail?.content
+  if (!content) return false
+  const values = [
+    content.songSummary,
+    content.creationStory,
+    content.background,
+    content.albumSummary
+  ].filter((value) => typeof value === 'string' && value.trim())
+  return values.length > 0 && values.every((value) => sanitizePublishedText(value) !== null)
 }
 
 function publicSource(source) {

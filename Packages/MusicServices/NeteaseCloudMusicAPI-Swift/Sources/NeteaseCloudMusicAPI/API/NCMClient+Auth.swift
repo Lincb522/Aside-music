@@ -121,6 +121,7 @@ extension NCMClient {
     public func loginQrKey() async throws -> APIResponse {
         let data: [String: Any] = [
             "type": 3,
+            "timestamp": Int(Date().timeIntervalSince1970 * 1_000),
         ]
         return try await request(
             "/api/login/qrcode/unikey",
@@ -155,6 +156,7 @@ extension NCMClient {
         let data: [String: Any] = [
             "key": key,
             "type": 3,
+            "timestamp": Int(Date().timeIntervalSince1970 * 1_000),
         ]
         return try await request(
             "/api/login/qrcode/client/login",

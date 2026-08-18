@@ -76,6 +76,8 @@ struct GlobalThemeOptionCard: View {
             neumorphicPoster
         case .capsule:
             capsulePoster
+        case .clarity:
+            clarityPoster
         }
     }
 
@@ -88,6 +90,82 @@ struct GlobalThemeOptionCard: View {
         case .capsule:      return Color(hex: "3867FF")
         case .petWhite:     return Color(hex: "F6A93B")
         case .minimalWhite: return MinimalWhiteStyle.accent
+        case .clarity:      return Color(hex: "2478D8")
+        }
+    }
+
+    // MARK: - 通透感
+
+    private var clarityPoster: some View {
+        ZStack {
+            LinearGradient(
+                colors: isDark
+                    ? [Color(hex: "131C25"), Color(hex: "0D1218")]
+                    : [Color(hex: "F7F8F8"), Color(hex: "E8EFF1")],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            Circle()
+                .fill(Color(hex: "C5B8E8").opacity(0.34))
+                .frame(width: 108, height: 108)
+                .blur(radius: 26)
+                .offset(x: 62, y: -50)
+
+            Circle()
+                .fill(Color(hex: "70D8E8").opacity(0.28))
+                .frame(width: 118, height: 118)
+                .blur(radius: 28)
+                .offset(x: -70, y: 66)
+
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    Capsule()
+                        .fill(Color.white.opacity(isDark ? 0.28 : 0.9))
+                        .frame(width: 22, height: 3)
+
+                    Spacer(minLength: 0)
+
+                    paletteDots([
+                        Color(hex: "2879E8"),
+                        Color(hex: "70D8E8"),
+                        Color(hex: "C5B8E8")
+                    ], ring: Color.white.opacity(0.7))
+                }
+
+                Text(themeId.displayName)
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundStyle(isDark ? Color.white : Color(hex: "11151A"))
+                    .padding(.top, 8)
+
+                Spacer(minLength: 6)
+
+                miniPlayerChip(
+                    cover: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color(hex: "C5B8E8"), Color(hex: "70D8E8")],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        ),
+                    coverRadius: 8,
+                    titleFont: .system(size: 9.5, weight: .bold, design: .rounded),
+                    artistFont: .system(size: 7.5, weight: .medium, design: .rounded),
+                    titleColor: isDark ? .white : Color(hex: "11151A"),
+                    artistColor: isDark ? Color.white.opacity(0.5) : Color.black.opacity(0.42),
+                    accent: Color(hex: "2879E8"),
+                    playForeground: .white,
+                    background: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(isDark ? Color.white.opacity(0.10) : Color.white.opacity(0.56))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(Color.white.opacity(isDark ? 0.18 : 0.82), lineWidth: 0.9)
+                        )
+                        .shadow(color: Color.black.opacity(isDark ? 0.26 : 0.08), radius: 8, y: 4)
+                )
+            }
+            .padding(12)
         }
     }
 
@@ -627,4 +705,5 @@ struct GlobalThemeOptionCard: View {
             .padding(12)
         }
     }
+
 }

@@ -768,6 +768,13 @@ public final class StreamPlayer {
         set { audioRenderer.outputVolume = newValue }
     }
 
+    /// Temporary volume multiplier used for system/game voice ducking.
+    /// This is composed with `outputVolume`, so other fades remain intact.
+    public var duckingVolume: Float {
+        get { audioRenderer.duckingVolume }
+        set { audioRenderer.duckingVolume = newValue }
+    }
+
     /// Real-time output pan used by head-tracked spatial playback. This is
     /// handled by AVAudioEngine and never rebuilds the FFmpeg processing graph.
     public var outputPan: Float {

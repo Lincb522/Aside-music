@@ -24,8 +24,9 @@ struct MonoAnimation {
     static let panelToggle = Animation.spring(response: 0.32, dampingFraction: 0.85)
     /// 浮动栏变形成迷你播放器、出入场
     static let floatingBar = Animation.spring(response: 0.26, dampingFraction: 0.92)
-    /// 全屏播放器打开/关闭
-    static let playerTransition = Animation.spring(response: 0.32, dampingFraction: 0.86)
+    /// 全屏播放器打开/关闭。使用接近临界阻尼的长一点曲线，避免浮栏、遮罩和
+    /// 播放器容器分别到位时产生两段式跳变。
+    static let playerTransition = Animation.spring(response: 0.40, dampingFraction: 0.92, blendDuration: 0.08)
     /// 微交互 — 图标高亮、颜色变化
     static let micro = Animation.easeOut(duration: 0.12)
     /// 内容淡入 — 列表项、卡片出现

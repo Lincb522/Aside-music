@@ -258,6 +258,9 @@ struct AriaShelfWall: View {
                 .autocorrectionDisabled()
                 .submitLabel(.search)
                 .focused($searchFieldFocused)
+                .monoOnSubmit(text: $searchQuery) { _ in
+                    searchFieldFocused = false
+                }
 
             if isSearching {
                 ProgressView()

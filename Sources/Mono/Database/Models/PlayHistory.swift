@@ -10,6 +10,9 @@ final class PlayHistory {
     var playedAt: Date
     var playDuration: Int // 播放时长（秒）
     var completed: Bool // 是否播放完成
+    var trackDuration: Int
+    var effectivePlay: Bool
+    var qualificationVersion: Int
     
     // 协议 v2 起同步音乐来源。
     var sourceRaw: String? // MusicSource.rawValue
@@ -26,6 +29,9 @@ final class PlayHistory {
         coverUrl: String? = nil,
         playDuration: Int = 0,
         completed: Bool = false,
+        trackDuration: Int = 0,
+        effectivePlay: Bool = false,
+        qualificationVersion: Int = 0,
         sourceRaw: String? = nil,
         qqMid: String? = nil,
         qqAlbumMid: String? = nil,
@@ -41,6 +47,9 @@ final class PlayHistory {
         self.playedAt = Date()
         self.playDuration = playDuration
         self.completed = completed
+        self.trackDuration = trackDuration
+        self.effectivePlay = effectivePlay
+        self.qualificationVersion = qualificationVersion
         self.sourceRaw = sourceRaw
         self.qqMid = qqMid
         self.qqAlbumMid = qqAlbumMid
@@ -58,6 +67,7 @@ final class PlayHistory {
             coverUrl: song.coverUrl?.absoluteString,
             playDuration: duration,
             completed: completed,
+            trackDuration: max(0, (song.dt ?? 0) / 1_000),
             sourceRaw: song.source?.rawValue,
             qqMid: song.qqMid,
             qqAlbumMid: song.qqAlbumMid,
@@ -79,7 +89,7 @@ final class PlayHistory {
             name: songName,
             ar: [Artist(id: 0, name: artistName)],
             al: coverAlbum,
-            dt: nil,
+            dt: trackDuration > 0 ? trackDuration * 1_000 : nil,
             fee: nil,
             mv: nil,
             h: nil, m: nil, l: nil, sq: nil, hr: nil,
@@ -121,7 +131,9 @@ extension PlayHistory: MonoEntity {
     static let monoAttributes: [MonoAttribute] = [
         .init("id", .uuid), .init("songId", .int), .init("songName", .string),
         .init("artistName", .string), .init("coverUrl", .string), .init("playedAt", .date),
-        .init("playDuration", .int), .init("completed", .bool), .init("sourceRaw", .string),
+        .init("playDuration", .int), .init("completed", .bool),
+        .init("trackDuration", .int), .init("effectivePlay", .bool),
+        .init("qualificationVersion", .int), .init("sourceRaw", .string),
         .init("qqMid", .string), .init("qqAlbumMid", .string), .init("qishuiTrackId", .int),
         .init("appleMusicID", .string), .init("appleMusicISRC", .string)
     ]
@@ -132,7 +144,9 @@ extension PlayHistory: MonoEntity {
         [
             "id": id, "songId": songId, "songName": songName, "artistName": artistName,
             "coverUrl": coverUrl, "playedAt": playedAt, "playDuration": playDuration,
-            "completed": completed, "sourceRaw": sourceRaw, "qqMid": qqMid,
+            "completed": completed, "trackDuration": trackDuration,
+            "effectivePlay": effectivePlay, "qualificationVersion": qualificationVersion,
+            "sourceRaw": sourceRaw, "qqMid": qqMid,
             "qqAlbumMid": qqAlbumMid, "qishuiTrackId": qishuiTrackId,
             "appleMusicID": appleMusicID, "appleMusicISRC": appleMusicISRC
         ]
@@ -146,6 +160,9 @@ extension PlayHistory: MonoEntity {
             coverUrl: MonoSnapshotValue.stringOpt(s, "coverUrl"),
             playDuration: MonoSnapshotValue.int(s, "playDuration"),
             completed: MonoSnapshotValue.bool(s, "completed"),
+            trackDuration: MonoSnapshotValue.int(s, "trackDuration"),
+            effectivePlay: MonoSnapshotValue.bool(s, "effectivePlay"),
+            qualificationVersion: MonoSnapshotValue.int(s, "qualificationVersion"),
             sourceRaw: MonoSnapshotValue.stringOpt(s, "sourceRaw"),
             qqMid: MonoSnapshotValue.stringOpt(s, "qqMid"),
             qqAlbumMid: MonoSnapshotValue.stringOpt(s, "qqAlbumMid"),

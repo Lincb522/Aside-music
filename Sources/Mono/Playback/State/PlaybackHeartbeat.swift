@@ -38,6 +38,11 @@ final class PlaybackHeartbeat {
     private func tick() {
         let player = self.player
 
+        // 点击小组件会通过 mono://player 创建或恢复 Scene。scene-create
+        // 看门狗窗口内不执行播放状态采样；本地单调时钟会在恢复后自动补齐
+        // 经过时间，不会造成播放进度或听歌统计丢失。
+        guard !MonoSceneLifecycleGate.defersPlaybackHeartbeat else { return }
+
         // ── 睡眠定时器始终 tick（不受 isPlaying guard 影响） ──
         player.sleepAndFade.tickSleepTimer()
 
@@ -55,6 +60,12 @@ final class PlaybackHeartbeat {
         // 页面、队列、歌词和系统媒体信息，但不能读取 FFmpeg 的旧时钟，
         // 也不能触发 FFmpeg 输出恢复或无缝预装。
         if player.appleMusicPlayback.tick() {
+            ListeningStatsRecorder.shared.samplePlayback(
+                currentTime: player.appleMusicPlayback.renderingPlaybackTime ?? player.currentTime,
+                isPlaying: player.isPlaying,
+                isSeeking: player.isSeeking,
+                usesAppleMusic: true
+            )
             LyricViewModel.shared.updateCurrentTime(player.currentTime)
             player.savePlaybackProgressIfNeeded()
             player.repairSystemPlaybackSurfacesIfNeeded(
@@ -170,6 +181,12 @@ final class PlaybackHeartbeat {
         if timeValid && !player.isSeeking {
             player.currentTime = time
         }
+        ListeningStatsRecorder.shared.samplePlayback(
+            currentTime: player.currentTime,
+            isPlaying: playing,
+            isSeeking: player.isSeeking,
+            usesAppleMusic: false
+        )
         LyricViewModel.shared.updateCurrentTime(player.currentTime)
         player.savePlaybackProgressIfNeeded()
 

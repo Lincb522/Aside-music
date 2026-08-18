@@ -369,7 +369,7 @@ private struct GreetingParticleField: View {
     }
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+        TimelineView(AppFrameRate.animationTimeline(maximumFramesPerSecond: 30)) { timeline in
             Canvas { context, size in
                 let time = timeline.date.timeIntervalSinceReferenceDate
 

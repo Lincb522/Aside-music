@@ -15,6 +15,9 @@ enum AriaLyricEffect: String, CaseIterable {
     case tilt
     case cappella
     case canopy
+    case tide
+    case echo
+    case refraction
 
     var label: String {
         switch self {
@@ -25,6 +28,9 @@ enum AriaLyricEffect: String, CaseIterable {
         case .tilt: return String(localized: "独白")
         case .cappella: return String(localized: "对白")
         case .canopy: return String(localized: "巨幕")
+        case .tide: return String(localized: "潮汐")
+        case .echo: return String(localized: "回响")
+        case .refraction: return String(localized: "折光")
         }
     }
 
@@ -37,6 +43,9 @@ enum AriaLyricEffect: String, CaseIterable {
         case .tilt: return String(localized: "分句大字与斜体强调")
         case .cappella: return String(localized: "双人头像与对话气泡")
         case .canopy: return String(localized: "巨幅淡字与注音细线")
+        case .tide: return String(localized: "随演唱起伏的流动字浪")
+        case .echo: return String(localized: "清晰主句与层叠余韵")
+        case .refraction: return String(localized: "横向切片与折射聚合")
         }
     }
 
@@ -543,6 +552,75 @@ enum AriaFoliaColor {
     private static let lock = NSLock()
     nonisolated(unsafe) private static var cache: [Color: Components] = [:]
 
+    /// Resolves both palette colors once for a render pass. Per-glyph animation
+    /// then only performs scalar interpolation and never takes the color cache
+    /// lock again.
+    struct Mixer {
+        private let fromColor: Color
+        private let toColor: Color
+        private let fromRed: Double
+        private let fromGreen: Double
+        private let fromBlue: Double
+        private let fromAlpha: Double
+        private let toRed: Double
+        private let toGreen: Double
+        private let toBlue: Double
+        private let toAlpha: Double
+
+        fileprivate init(
+            fromColor: Color,
+            toColor: Color,
+            fromRed: Double,
+            fromGreen: Double,
+            fromBlue: Double,
+            fromAlpha: Double,
+            toRed: Double,
+            toGreen: Double,
+            toBlue: Double,
+            toAlpha: Double
+        ) {
+            self.fromColor = fromColor
+            self.toColor = toColor
+            self.fromRed = fromRed
+            self.fromGreen = fromGreen
+            self.fromBlue = fromBlue
+            self.fromAlpha = fromAlpha
+            self.toRed = toRed
+            self.toGreen = toGreen
+            self.toBlue = toBlue
+            self.toAlpha = toAlpha
+        }
+
+        func color(amount: Double) -> Color {
+            let amount = AriaFoliaRuntime.clamp(amount)
+            if amount <= 0.001 { return fromColor }
+            if amount >= 0.999 { return toColor }
+            return Color(
+                red: fromRed + (toRed - fromRed) * amount,
+                green: fromGreen + (toGreen - fromGreen) * amount,
+                blue: fromBlue + (toBlue - fromBlue) * amount,
+                opacity: fromAlpha + (toAlpha - fromAlpha) * amount
+            )
+        }
+    }
+
+    static func mixer(_ from: Color, _ to: Color) -> Mixer {
+        let fromComponents = components(for: from)
+        let toComponents = components(for: to)
+        return Mixer(
+            fromColor: from,
+            toColor: to,
+            fromRed: fromComponents.red,
+            fromGreen: fromComponents.green,
+            fromBlue: fromComponents.blue,
+            fromAlpha: fromComponents.alpha,
+            toRed: toComponents.red,
+            toGreen: toComponents.green,
+            toBlue: toComponents.blue,
+            toAlpha: toComponents.alpha
+        )
+    }
+
     static func mix(_ from: Color, _ to: Color, amount: Double) -> Color {
         let amount = AriaFoliaRuntime.clamp(amount)
         guard amount > 0.001 else { return from }
@@ -743,6 +821,75 @@ struct AriaFoliaLyricStage: View {
                         time: time,
                         stageSize: stageSize,
                         previousLine: lines.first { $0.id == line.id - 1 }
+                    )
+                }
+            }
+        case .tide:
+            AriaFoliaLineHost(lines: lines, activeIndex: activeIndex) { line in
+                if line.isInterlude {
+                    AriaFoliaInterlude(line: line, palette: palette, time: time)
+                } else if line.isCredit {
+                    AriaFoliaCreditLine(
+                        line: line,
+                        palette: palette,
+                        fontChoice: fontChoice,
+                        fontScale: fontScale,
+                        time: time
+                    )
+                } else {
+                    AriaTideLyricLineView(
+                        line: line,
+                        palette: palette.lineVariant(line.id),
+                        fontChoice: fontChoice,
+                        fontScale: fontScale,
+                        time: time,
+                        stageSize: stageSize
+                    )
+                }
+            }
+        case .echo:
+            AriaFoliaLineHost(lines: lines, activeIndex: activeIndex) { line in
+                if line.isInterlude {
+                    AriaFoliaInterlude(line: line, palette: palette, time: time)
+                } else if line.isCredit {
+                    AriaFoliaCreditLine(
+                        line: line,
+                        palette: palette,
+                        fontChoice: fontChoice,
+                        fontScale: fontScale,
+                        time: time
+                    )
+                } else {
+                    AriaEchoLyricLineView(
+                        line: line,
+                        palette: palette.lineVariant(line.id),
+                        fontChoice: fontChoice,
+                        fontScale: fontScale,
+                        time: time,
+                        stageSize: stageSize
+                    )
+                }
+            }
+        case .refraction:
+            AriaFoliaLineHost(lines: lines, activeIndex: activeIndex) { line in
+                if line.isInterlude {
+                    AriaFoliaInterlude(line: line, palette: palette, time: time)
+                } else if line.isCredit {
+                    AriaFoliaCreditLine(
+                        line: line,
+                        palette: palette,
+                        fontChoice: fontChoice,
+                        fontScale: fontScale,
+                        time: time
+                    )
+                } else {
+                    AriaRefractionLyricLineView(
+                        line: line,
+                        palette: palette.lineVariant(line.id),
+                        fontChoice: fontChoice,
+                        fontScale: fontScale,
+                        time: time,
+                        stageSize: stageSize
                     )
                 }
             }

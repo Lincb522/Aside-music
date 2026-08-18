@@ -36,7 +36,8 @@ struct AriaCappellaLyricStage: View {
                     Color.clear
                         .frame(height: stageSize.height * 0.32)
 
-                    ForEach(Array(lines.enumerated()), id: \.element.id) { index, line in
+                    ForEach(lines.indices, id: \.self) { index in
+                        let line = lines[index]
                         let isActive = index == activeIndex
                         CappellaBubbleRow(
                             line: line,
@@ -251,6 +252,7 @@ private struct CappellaBubbleRow: View, @MainActor Equatable {
             maxWidth: bubbleContentWidth,
             alignment: isLeft ? .leading : .trailing
         )
+        .ariaLyricActiveRowSurface()
     }
 
     private var inactiveBubble: some View {

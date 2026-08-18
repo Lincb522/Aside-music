@@ -1,3 +1,11 @@
+const fs = require('node:fs')
+const path = require('node:path')
+
+const sanitizerPath = fs.existsSync(path.join(__dirname, 'song-content', 'song-content-sanitizer.js'))
+  ? './song-content/song-content-sanitizer'
+  : '../song-content/song-content-sanitizer'
+const { sanitizeWikiProse } = require(sanitizerPath)
+
 function createTokenSongContentAdapters({
   ncmBaseURL = process.env.NCM_INTERNAL_BASE_URL || 'http://127.0.0.1:4006',
   qcmBaseURL = process.env.QCM_INTERNAL_BASE_URL || 'http://127.0.0.1:3301',
@@ -352,6 +360,12 @@ function createTokenSongContentAdapters({
       { query: `${songIdentity} 创作背景 录音 制作 幕后`, roles: ['creationStory'] },
       { query: `${songIdentity} 评论 旋律 节奏 和声 制作`, roles: ['background'] },
       ...(albumName ? [{ query: `"${albumName}" "${primaryArtist}" 专访 制作手记 专辑乐评`, roles: ['albumSummary', 'background'] }] : []),
+      { query: `site:music.apple.com "${song.title}" "${primaryArtist}"`, roles: ['songSummary'] },
+      { query: `site:soundcloud.com "${song.title}" "${primaryArtist}"`, roles: ['songSummary', 'creationStory'] },
+      { query: `site:open.spotify.com "${song.title}" "${primaryArtist}"`, roles: ['songSummary'] },
+      ...(albumName
+        ? [{ query: `site:qobuz.com "${albumName}" "${primaryArtist}"`, roles: ['songSummary', 'albumSummary'] }]
+        : []),
       ...(preferredSources.has('douban') ? [
         { query: `site:music.douban.com/review "${song.title}" "${primaryArtist}" 乐评`, roles: ['background'] },
         ...(albumName ? [{ query: `site:music.douban.com/subject "${albumName}" "${primaryArtist}" 专辑 乐评`, roles: ['albumSummary', 'background'] }] : [])
@@ -533,22 +547,20 @@ function extractWikiText(blocks) {
     collectText(block?.uiElement?.descriptions, values)
     collectText(block?.creatives, values)
   }
-  return [...new Set(values.map((value) => clean(value, 1_500)).filter(Boolean))].join('\n').slice(0, 4_000)
+  return [...new Set(values.map((value) => sanitizeWikiProse(value, 1_500)).filter(Boolean))]
+    .join('\n')
+    .slice(0, 4_000)
 }
 
 function collectText(value, output) {
   if (!value) return
-  if (typeof value === 'string') {
-    output.push(value)
-    return
-  }
   if (Array.isArray(value)) {
     for (const item of value) collectText(item, output)
     return
   }
   if (typeof value === 'object') {
     for (const [key, item] of Object.entries(value)) {
-      if (['description', 'text', 'title', 'content'].includes(key) && typeof item === 'string') output.push(item)
+      if (['description', 'text', 'content'].includes(key) && typeof item === 'string') output.push(item)
       else collectText(item, output)
     }
   }
@@ -762,7 +774,7 @@ function rankWebCandidates(candidates, song) {
     .filter((candidate) => webCandidateMatchesSong(candidate, song))
     .map((candidate) => ({
       ...candidate,
-      trust: candidate.trust || webSourceTrust(candidate.url),
+      trust: candidate.trust || webSourceTrust(candidate.url, song),
       contentPlatform: candidate.contentPlatform || webContentPlatform(candidate.url)
     }))
     .sort((left, right) => {
@@ -794,15 +806,24 @@ function webTextMatchesSong(value, song, roles) {
   return true
 }
 
-function webSourceTrust(value) {
+function webSourceTrust(value, song = null) {
   const url = safeExternalURL(value)
   if (!url) return { grade: 'D', publisher: '网页来源' }
   const hostname = url.hostname.toLowerCase().replace(/^www\./u, '')
+  if (hostname === 'soundcloud.com' || hostname.endsWith('.soundcloud.com')) {
+    const profile = url.pathname.split('/').filter(Boolean)[0] || ''
+    const artist = comparable(song?.artists?.[0]?.name)
+    return artist && comparable(profile) === artist
+      ? { grade: 'B', publisher: 'SoundCloud 艺人主页' }
+      : { grade: 'C', publisher: 'SoundCloud' }
+  }
   const publishers = [
     ['music.163.com', '网易云音乐'],
     ['y.qq.com', 'QQ音乐'],
     ['kugou.com', '酷狗音乐'],
     ['music.apple.com', 'Apple Music'],
+    ['open.spotify.com', 'Spotify'],
+    ['qobuz.com', 'Qobuz'],
     ['baike.baidu.com', '百度百科'],
     ['wikipedia.org', '维基百科'],
     ['musicbrainz.org', 'MusicBrainz'],
@@ -939,7 +960,7 @@ function analyzeContentRoles(seedRoles, value, song, { platformSource = false } 
   const titleMatched = Boolean(title && normalized.includes(title))
   const artistMatched = Boolean(artist && normalized.includes(artist))
   const albumMatched = Boolean(album && normalized.includes(album))
-  const explicitReviewEvidence = /乐评|赏析|解析|评论|评价|听感|音乐分析|声音设计|配器|和声|音色|唱腔|制作水准/iu.test(text)
+  const explicitReviewEvidence = /乐评|赏析|解析|评论|评价|听感|音乐分析|声音设计|配器|和声|音色|唱腔|制作水准|\b(?:review|analysis|melody|rhythm|arrangement|harmony|vocal|production|sound design)\b/iu.test(text)
   const musicalObservationCount = new Set(
     text.match(/氛围|情绪|叙事|主题|表达|旋律|节奏|编曲|演唱|风格|制作/giu) || []
   ).size
@@ -968,6 +989,7 @@ function analyzeContentRoles(seedRoles, value, song, { platformSource = false } 
     [artistMatched, 0.12, '正文匹配歌手'],
     [/歌曲|单曲|作品|演唱|发行|发布|收录|主题曲|片尾曲|主打|歌词|曲目/iu.test(text), 0.28, '包含歌曲介绍信息'],
     [/作词|作曲|编曲|制作人|唱片公司|发行时间|所属专辑/iu.test(text), 0.16, '包含作品资料'],
+    [/\b(?:song|track|single|released?|release date|featured artist|featuring|feat\.?|vocals?|composer|lyricist|producer|produced)\b/iu.test(text), 0.28, '包含英文作品资料'],
     [text.length >= 240, 0.08, '正文信息量充足']
   ])
   score('creationStory', [
@@ -975,12 +997,14 @@ function analyzeContentRoles(seedRoles, value, song, { platformSource = false } 
     [artistMatched, 0.08, '正文匹配歌手'],
     [/创作|灵感|构思|写下|写作|诞生|由来|幕后|采访|自述|回忆|制作过程|录制过程/iu.test(text), 0.38, '包含创作过程'],
     [/作词|作曲|制作人|编曲者|录音|填词|谱曲|词曲/iu.test(text), 0.2, '包含创作人员或制作资料'],
+    [/\b(?:wrote|written|writing|recorded|recording|produced|producer|studio|behind the song|special thanks|sing with me|inspired)\b/iu.test(text), 0.38, '包含英文创作或录制信息'],
     [text.length >= 320, 0.08, '正文信息量充足']
   ])
   score('background', [
     [titleMatched || albumMatched, 0.12, '正文匹配作品'],
     [artistMatched, 0.08, '正文匹配歌手'],
     [explicitReviewEvidence, 0.38, '包含明确评论或音乐分析'],
+    [/\b(?:review|analysis|melody|rhythm|arrangement|harmony|vocal|production|sound design)\b/iu.test(text), 0.32, '包含英文评论或音乐分析'],
     [musicalObservationCount >= 3, 0.28, '包含多项音乐观察'],
     [text.length >= 400, 0.1, '评论正文信息量充足']
   ])
@@ -989,6 +1013,7 @@ function analyzeContentRoles(seedRoles, value, song, { platformSource = false } 
     [artistMatched, 0.08, '正文匹配歌手'],
     [/专辑|唱片|曲目|发行|收录|概念专辑|录音室专辑|EP|音乐企划/iu.test(text), 0.32, '包含专辑资料'],
     [/制作|主题|概念|风格|时期|发行时间|唱片公司/iu.test(text), 0.16, '包含专辑背景'],
+    [/\b(?:album|EP|track list|tracklist|released?|main artist|label|disc)\b/iu.test(text), 0.32, '包含英文专辑资料'],
     [text.length >= 320, 0.08, '正文信息量充足']
   ])
 
@@ -1066,5 +1091,7 @@ function httpURL(value) {
 module.exports = {
   analyzeContentRoles,
   createTokenSongContentAdapters,
-  parseBaiduSearchResults
+  extractWikiText,
+  parseBaiduSearchResults,
+  webSourceTrust
 }

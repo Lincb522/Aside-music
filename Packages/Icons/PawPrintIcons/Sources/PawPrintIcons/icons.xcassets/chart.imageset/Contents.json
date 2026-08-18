@@ -1,26 +1,59 @@
 {
-  "images" : [
+  "images": [
     {
-      "filename" : "chart@1x.png",
-      "idiom" : "universal",
-      "scale" : "1x"
+      "filename": "chart@1x.png",
+      "idiom": "universal",
+      "scale": "1x"
     },
     {
-      "filename" : "chart@2x.png",
-      "idiom" : "universal",
-      "scale" : "2x"
+      "filename": "chart@2x.png",
+      "idiom": "universal",
+      "scale": "2x"
     },
     {
-      "filename" : "chart@3x.png",
-      "idiom" : "universal",
-      "scale" : "3x"
+      "filename": "chart@3x.png",
+      "idiom": "universal",
+      "scale": "3x"
+    },
+    {
+      "appearances": [
+        {
+          "appearance": "luminosity",
+          "value": "dark"
+        }
+      ],
+      "idiom": "universal",
+      "scale": "1x",
+      "filename": "chart_dark@1x.png"
+    },
+    {
+      "appearances": [
+        {
+          "appearance": "luminosity",
+          "value": "dark"
+        }
+      ],
+      "idiom": "universal",
+      "scale": "2x",
+      "filename": "chart_dark@2x.png"
+    },
+    {
+      "appearances": [
+        {
+          "appearance": "luminosity",
+          "value": "dark"
+        }
+      ],
+      "idiom": "universal",
+      "scale": "3x",
+      "filename": "chart_dark@3x.png"
     }
   ],
-  "info" : {
-    "author" : "xcode",
-    "version" : 1
+  "info": {
+    "author": "xcode",
+    "version": 1
   },
-  "properties" : {
-    "template-rendering-intent" : "original"
+  "properties": {
+    "template-rendering-intent": "original"
   }
 }

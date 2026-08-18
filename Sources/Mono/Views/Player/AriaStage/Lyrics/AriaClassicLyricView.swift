@@ -211,11 +211,17 @@ struct AriaClassicLyricStage: View {
             fontChoice: fontChoice,
             fontScale: fontScale
         )
+        let baseFont = fontChoice.font(size: plan.fontSize, weight: .heavy)
+        let breathingFont = breathing > 0.001
+            ? fontChoice.breathingFont(size: plan.fontSize, amount: breathing)
+            : nil
+        let colorMixer = AriaFoliaColor.mixer(palette.primary, palette.accent)
 
         return VStack(alignment: .center, spacing: max(8, plan.fontSize * 0.16)) {
             ForEach(plan.rows) { row in
                 HStack(alignment: .firstTextBaseline, spacing: 0) {
-                    ForEach(Array(row.tokens.enumerated()), id: \.element.id) { index, token in
+                    ForEach(row.tokens.indices, id: \.self) { index in
+                        let token = row.tokens[index]
                         if index > 0 {
                             Color.clear
                                 .frame(
@@ -228,7 +234,9 @@ struct AriaClassicLyricStage: View {
                             hints: line.hints,
                             palette: palette,
                             fontChoice: fontChoice,
-                            fontSize: plan.fontSize,
+                            baseFont: baseFont,
+                            breathingFont: breathingFont,
+                            colorMixer: colorMixer,
                             time: time,
                             breathing: breathing
                         )
@@ -239,6 +247,9 @@ struct AriaClassicLyricStage: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 24)
+        // 追光包含上移、放大、呼吸增厚和外发光。为字体的 ascender、
+        // descender 与阴影预留真实绘制空间，避免 GPU/系统合成时裁掉上下缘。
+        .padding(.vertical, max(18, plan.fontSize * 0.38))
     }
 
     private var classicInterlude: some View {
@@ -273,13 +284,16 @@ private struct AriaClassicTokenView: View {
     let hints: AriaRenderHints
     let palette: AriaPalette
     let fontChoice: AriaLyricFontChoice
-    let fontSize: CGFloat
+    let baseFont: Font
+    let breathingFont: Font?
+    let colorMixer: AriaFoliaColor.Mixer
     let time: Double
     var breathing: Double = 0
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 0) {
-            ForEach(Array(token.graphemes.enumerated()), id: \.offset) { index, grapheme in
+            ForEach(token.graphemes.indices, id: \.self) { index in
+                let grapheme = token.graphemes[index]
                 AriaClassicGraphemeView(
                     text: grapheme.char,
                     start: grapheme.startTime,
@@ -289,7 +303,9 @@ private struct AriaClassicTokenView: View {
                     hints: hints,
                     palette: palette,
                     fontChoice: fontChoice,
-                    fontSize: fontSize,
+                    baseFont: baseFont,
+                    breathingFont: breathingFont,
+                    colorMixer: colorMixer,
                     time: time,
                     breathing: breathing
                 )
@@ -307,7 +323,9 @@ private struct AriaClassicGraphemeView: View {
     let hints: AriaRenderHints
     let palette: AriaPalette
     let fontChoice: AriaLyricFontChoice
-    let fontSize: CGFloat
+    let baseFont: Font
+    let breathingFont: Font?
+    let colorMixer: AriaFoliaColor.Mixer
     let time: Double
     var breathing: Double = 0
 
@@ -350,18 +368,10 @@ private struct AriaClassicGraphemeView: View {
         let activePulse: CGFloat = status == .active
             ? CGFloat(sin(max(0, time - start) * 6) * 0.006)
             : 0
-        let color = AriaFoliaColor.mix(
-            palette.primary,
-            palette.accent,
-            amount: bodyMix
-        )
+        let color = colorMixer.color(amount: bodyMix)
 
         Text(text)
-            .font(
-                breathing > 0.001 && status == .active
-                    ? fontChoice.breathingFont(size: fontSize, amount: breathing)
-                    : fontChoice.font(size: fontSize, weight: .heavy)
-            )
+            .font(status == .active ? (breathingFont ?? baseFont) : baseFont)
             .foregroundStyle(color)
             .ariaSyntheticBreathingWeight(
                 fontChoice: fontChoice,
@@ -372,9 +382,11 @@ private struct AriaClassicGraphemeView: View {
             .scaleEffect(scale + activePulse)
             .rotationEffect(.degrees(status == .waiting ? deterministicTilt : 0))
             .offset(y: yOffset - drift * 8)
-            .shadow(
-                color: palette.accent.opacity(glow * 0.34),
-                radius: 4 + CGFloat(glow) * 12
+            .modifier(
+                AriaClassicGlowModifier(
+                    color: palette.accent,
+                    glow: glow
+                )
             )
             .animation(.smooth(duration: 0.34), value: status)
     }
@@ -400,6 +412,23 @@ private struct AriaClassicGraphemeView: View {
         case .waiting: return 8
         case .active: return -1
         case .passed: return -2
+        }
+    }
+}
+
+private struct AriaClassicGlowModifier: ViewModifier {
+    let color: Color
+    let glow: Double
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if glow > 0.001 {
+            content.shadow(
+                color: color.opacity(glow * 0.34),
+                radius: 4 + CGFloat(glow) * 12
+            )
+        } else {
+            content
         }
     }
 }

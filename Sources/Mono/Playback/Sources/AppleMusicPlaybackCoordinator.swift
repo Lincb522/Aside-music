@@ -4,24 +4,52 @@
 import Foundation
 @preconcurrency import MusicKit
 
+/// MusicKit 的播放状态与播放时间 getter 底层都会请求 media server 快照。
+/// 即使从 detached task 发起，MusicKit 仍可能把同步 XPC 工作落回主线程，
+/// 在 Scene 创建或恢复期间触发 0x8BADF00D。Mono 因此完全不轮询这些 getter，
+/// 只根据已经确认成功的播放命令维护本地单调时钟。
+private struct AppleMusicPlaybackSnapshot: Sendable {
+    let playbackTime: TimeInterval
+    let isPlaying: Bool
+    let isStopped: Bool
+    let isPaused: Bool
+}
+
 @MainActor
 final class AppleMusicPlaybackCoordinator {
 
     unowned let player: PlayerManager
 
-    private let musicPlayer = ApplicationMusicPlayer.shared
+    private let musicPlayer: ApplicationMusicPlayer
     private var activeCatalogID: String?
     private var activeRequestedIdentity: String?
     private var lastPlaybackTime: TimeInterval = 0
+    private var playbackAnchorPosition: TimeInterval = 0
+    private var playbackAnchorUptime: TimeInterval?
     private var wasAudiblyPlaying = false
     private var didReportNaturalEnd = false
     private var artworkResolutionTask: Task<Void, Never>?
+    private var latestSnapshot = AppleMusicPlaybackSnapshot(
+        playbackTime: 0,
+        isPlaying: false,
+        isStopped: true,
+        isPaused: false
+    )
 
     private(set) var isActive = false
     private(set) var activeArtworkURL: URL?
 
+    /// 提供给逐字歌词等高频渲染面的 MusicKit 实时时钟。
+    /// `player.currentTime` 仍由心跳统一提交，避免高频发布污染全局状态。
+    var renderingPlaybackTime: TimeInterval? {
+        guard isActive else { return nil }
+        let time = lastPlaybackTime
+        return time.isFinite && !time.isNaN && time >= 0 ? time : nil
+    }
+
     init(player: PlayerManager) {
         self.player = player
+        self.musicPlayer = ApplicationMusicPlayer.shared
     }
 
     func start(
@@ -30,25 +58,36 @@ final class AppleMusicPlaybackCoordinator {
         startTime: TimeInterval,
         sessionID: Int
     ) async throws {
+        AppLogger.info(
+            "[AppleMusic] 开始解析可播放歌曲 target=\(song.name)",
+            step: "apple-music.resolve"
+        )
         let catalogSong = try await AppleMusicService.shared.playableSong(for: song)
         try Task.checkCancellation()
         guard player.playbackSessionId == sessionID else {
             throw CancellationError()
         }
 
-        // Mono 自己维护播放模式与队列。清掉 MusicKit 可能继承的单曲循环/
-        // 随机状态，避免单项 MusicKit 队列在结尾自行重播而不回调下一曲。
-        musicPlayer.state.repeatMode = MusicPlayer.RepeatMode.none
-        musicPlayer.state.shuffleMode = .off
+        // 不在主线程读取或修改 MusicKit `state`。该对象会隐式请求
+        // playbackState 快照，在 Scene 创建阶段可能同步阻塞 MediaPlayer。
+        // Mono 使用单项 MusicKit 队列并在本地时钟到达结尾时主动切歌。
         musicPlayer.queue = ApplicationMusicPlayer.Queue(
             for: [catalogSong],
             startingAt: catalogSong
+        )
+        AppLogger.info(
+            "[AppleMusic] MusicKit 队列已设置，开始缓冲 target=\(song.name)",
+            step: "apple-music.prepare"
         )
         try await musicPlayer.prepareToPlay()
         try Task.checkCancellation()
         guard player.playbackSessionId == sessionID else {
             throw CancellationError()
         }
+        AppLogger.info(
+            "[AppleMusic] MusicKit 缓冲完成 target=\(song.name)",
+            step: "apple-music.prepare"
+        )
 
         let boundedStart = min(
             max(startTime, 0),
@@ -65,6 +104,10 @@ final class AppleMusicPlaybackCoordinator {
         player.streamPlayer.stop()
 
         if autoPlay {
+            AppLogger.info(
+                "[AppleMusic] 提交播放命令 target=\(song.name)",
+                step: "apple-music.play"
+            )
             try await musicPlayer.play()
         }
         try Task.checkCancellation()
@@ -83,6 +126,16 @@ final class AppleMusicPlaybackCoordinator {
         lastPlaybackTime = boundedStart
         wasAudiblyPlaying = autoPlay
         didReportNaturalEnd = false
+        resetLocalPlaybackClock(
+            playbackTime: boundedStart,
+            isPlaying: autoPlay,
+            isStopped: !autoPlay,
+            isPaused: !autoPlay
+        )
+        AppLogger.success(
+            "[AppleMusic] 播放事务已提交 target=\(song.name) autoPlay=\(autoPlay)",
+            step: "apple-music.play"
+        )
         resolveMissingArtwork(
             for: song,
             preferred: catalogSong,
@@ -94,6 +147,14 @@ final class AppleMusicPlaybackCoordinator {
     func resume() async throws -> Bool {
         guard isActive else { return false }
         try await musicPlayer.play()
+        let playbackTime = resolvedLocalPlaybackTime()
+        updateLocalPlaybackClock(position: playbackTime, isPlaying: true)
+        latestSnapshot = AppleMusicPlaybackSnapshot(
+            playbackTime: playbackTime,
+            isPlaying: true,
+            isStopped: false,
+            isPaused: false
+        )
         wasAudiblyPlaying = true
         didReportNaturalEnd = false
         player.isPlaying = true
@@ -107,7 +168,16 @@ final class AppleMusicPlaybackCoordinator {
     @discardableResult
     func pause() -> Bool {
         guard isActive else { return false }
+        let playbackTime = resolvedLocalPlaybackTime()
         musicPlayer.pause()
+        lastPlaybackTime = playbackTime
+        updateLocalPlaybackClock(position: playbackTime, isPlaying: false)
+        latestSnapshot = AppleMusicPlaybackSnapshot(
+            playbackTime: playbackTime,
+            isPlaying: false,
+            isStopped: false,
+            isPaused: true
+        )
         wasAudiblyPlaying = false
         player.isPlaying = false
         player.isLoading = false
@@ -126,6 +196,13 @@ final class AppleMusicPlaybackCoordinator {
             : max(time, 0)
         musicPlayer.playbackTime = target
         lastPlaybackTime = target
+        updateLocalPlaybackClock(position: target, isPlaying: latestSnapshot.isPlaying)
+        latestSnapshot = AppleMusicPlaybackSnapshot(
+            playbackTime: target,
+            isPlaying: latestSnapshot.isPlaying,
+            isStopped: false,
+            isPaused: latestSnapshot.isPaused
+        )
         player.currentTime = target
         player.pendingRestoreTime = nil
         player.isSeeking = false
@@ -143,7 +220,14 @@ final class AppleMusicPlaybackCoordinator {
         guard isActive else { return false }
 
         let previousPlaybackTime = lastPlaybackTime
-        let playbackTime = musicPlayer.playbackTime
+        let playbackTime = resolvedLocalPlaybackTime()
+        latestSnapshot = AppleMusicPlaybackSnapshot(
+            playbackTime: playbackTime,
+            isPlaying: latestSnapshot.isPlaying,
+            isStopped: latestSnapshot.isStopped,
+            isPaused: latestSnapshot.isPaused
+        )
+        let snapshot = latestSnapshot
         if playbackTime.isFinite, playbackTime >= 0 {
             lastPlaybackTime = playbackTime
             player.currentTime = min(
@@ -152,10 +236,7 @@ final class AppleMusicPlaybackCoordinator {
             )
         }
 
-        let status = musicPlayer.state.playbackStatus
-        let isPlayingNow = status == .playing
-            || status == .seekingForward
-            || status == .seekingBackward
+        let isPlayingNow = snapshot.isPlaying
 
         if player.isPlaying != isPlayingNow {
             player.isPlaying = isPlayingNow
@@ -166,10 +247,23 @@ final class AppleMusicPlaybackCoordinator {
         if isPlayingNow {
             wasAudiblyPlaying = true
             didReportNaturalEnd = false
+            if hasReachedNaturalEnd(currentTime: playbackTime) {
+                didReportNaturalEnd = true
+                wasAudiblyPlaying = false
+                updateLocalPlaybackClock(position: playbackTime, isPlaying: false)
+                latestSnapshot = AppleMusicPlaybackSnapshot(
+                    playbackTime: playbackTime,
+                    isPlaying: false,
+                    isStopped: true,
+                    isPaused: false
+                )
+                player.isPlaying = false
+                player.playerDidFinishPlaying()
+            }
         } else if wasAudiblyPlaying,
                   !didReportNaturalEnd,
-                  status == .stopped
-                    || (status == .paused
+                  snapshot.isStopped
+                    || (snapshot.isPaused
                         && isNearNaturalEnd(
                             currentTime: playbackTime,
                             previousTime: previousPlaybackTime
@@ -183,6 +277,7 @@ final class AppleMusicPlaybackCoordinator {
 
     func stopForMonoHandoff() {
         guard isActive else { return }
+        stopLocalPlaybackClock()
         artworkResolutionTask?.cancel()
         artworkResolutionTask = nil
         isActive = false
@@ -195,6 +290,7 @@ final class AppleMusicPlaybackCoordinator {
     }
 
     func stopAndReset() {
+        stopLocalPlaybackClock()
         artworkResolutionTask?.cancel()
         artworkResolutionTask = nil
         isActive = false
@@ -205,6 +301,47 @@ final class AppleMusicPlaybackCoordinator {
         activeArtworkURL = nil
         lastPlaybackTime = 0
         musicPlayer.stop()
+    }
+
+    private func resetLocalPlaybackClock(
+        playbackTime: TimeInterval,
+        isPlaying: Bool,
+        isStopped: Bool,
+        isPaused: Bool
+    ) {
+        updateLocalPlaybackClock(position: playbackTime, isPlaying: isPlaying)
+        latestSnapshot = AppleMusicPlaybackSnapshot(
+            playbackTime: playbackTime,
+            isPlaying: isPlaying,
+            isStopped: isStopped,
+            isPaused: isPaused
+        )
+    }
+
+    private func updateLocalPlaybackClock(position: TimeInterval, isPlaying: Bool) {
+        let boundedPosition = max(0, position.isFinite ? position : 0)
+        playbackAnchorPosition = boundedPosition
+        playbackAnchorUptime = isPlaying ? ProcessInfo.processInfo.systemUptime : nil
+    }
+
+    private func resolvedLocalPlaybackTime() -> TimeInterval {
+        guard let playbackAnchorUptime else { return playbackAnchorPosition }
+        let elapsed = max(0, ProcessInfo.processInfo.systemUptime - playbackAnchorUptime)
+        let resolved = playbackAnchorPosition + elapsed
+        guard resolved.isFinite, !resolved.isNaN else { return playbackAnchorPosition }
+        let duration = player.effectivePlaybackDuration
+        return duration > 0 ? min(resolved, duration) : resolved
+    }
+
+    private func stopLocalPlaybackClock() {
+        playbackAnchorPosition = 0
+        playbackAnchorUptime = nil
+        latestSnapshot = AppleMusicPlaybackSnapshot(
+            playbackTime: 0,
+            isPlaying: false,
+            isStopped: true,
+            isPaused: false
+        )
     }
 
     func matches(_ song: Song) -> Bool {
@@ -222,6 +359,12 @@ final class AppleMusicPlaybackCoordinator {
         let tolerance = max(2.5, min(duration * 0.015, 6))
         return max(max(currentTime, previousTime), lastPlaybackTime)
             >= max(duration - tolerance, 0)
+    }
+
+    private func hasReachedNaturalEnd(currentTime: TimeInterval) -> Bool {
+        let duration = player.effectivePlaybackDuration
+        guard duration > 0 else { return false }
+        return currentTime >= max(duration - 0.08, 0)
     }
 
     private func resolveMissingArtwork(

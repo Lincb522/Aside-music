@@ -24,7 +24,8 @@ struct AriaFumeLyricStage: View {
                     Color.clear
                         .frame(height: stageSize.height * 0.34)
 
-                    ForEach(Array(lines.enumerated()), id: \.element.id) { index, line in
+                    ForEach(lines.indices, id: \.self) { index in
+                        let line = lines[index]
                         let isActive = index == activeIndex
                         FumeLineView(
                             line: line,
@@ -198,6 +199,7 @@ private struct FumeLineView: View, @MainActor Equatable {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .ariaLyricActiveRowSurface()
     }
 
     private var interlude: some View {

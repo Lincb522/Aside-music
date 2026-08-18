@@ -142,8 +142,14 @@
 	</dict>
 	<key>NSAppleMusicUsageDescription</key>
 	<string>用于连接 Apple Music、访问音乐资料库并播放歌曲</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>用于读取听力图与耳机声暴露数据，在本地生成左右耳听力校准并显示聆听安全信息</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>HealthKit 仅用于读取听力图与耳机声暴露数据；Mono 不会写入或修改健康数据</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>用于听歌识曲和测量当前听音环境的噪声分布</string>
 	<key>NSMotionUsageDescription</key>
-	<string>用于让 Mono Spatial Live 的空间舞台跟随头部转动</string>
+	<string>用于让 AirPods 空间聆听跟随头部转动，并根据活动状态稳定声音</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>保存二维码到相册以便扫码登录</string>
 	<key>NSSupportsLiveActivities</key>

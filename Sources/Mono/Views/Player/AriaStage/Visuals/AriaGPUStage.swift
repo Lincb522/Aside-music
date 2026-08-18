@@ -32,15 +32,11 @@ private struct AriaGPUStageModifier: ViewModifier {
     @ObservedObject private var performance = AriaPerformanceGovernor.shared
 
     private var frameRate: Int {
-        switch performance.tier {
-        case .high: return stackedWithSonicStage ? 24 : 30
-        case .medium: return stackedWithSonicStage ? 20 : 24
-        case .low: return stackedWithSonicStage ? 16 : 20
-        }
+        60
     }
 
     func body(content: Content) -> some View {
-        let shadersEnabled = isActive && performance.tier != .low
+        let shadersEnabled = isActive
 
         GeometryReader { proxy in
             TimelineView(

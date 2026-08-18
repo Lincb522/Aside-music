@@ -11,9 +11,22 @@ import WidgetKit
 final class NowPlayingController {
 
     unowned let player: PlayerManager
+    private var colorConfigurationObserver: NSObjectProtocol?
 
     init(player: PlayerManager) {
         self.player = player
+        colorConfigurationObserver = NotificationCenter.default.addObserver(
+            forName: .monoColorConfigurationDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.cachedArtworkPaletteSignature = ""
+                self.artworkFetchInFlightSongId = nil
+                self.updateNowPlayingArtwork(for: self.player.currentSong)
+            }
+        }
     }
 
     let commandCenter = MPRemoteCommandCenter.shared()
@@ -201,6 +214,7 @@ final class NowPlayingController {
         let paletteMode = palettePreferences.mode
         let paletteRandomSeed = palettePreferences.randomSeed
         let paletteSignature = "\(paletteColorCount)|\(paletteMode.rawValue)|\(paletteRandomSeed)"
+        let requestIdentity = "\(identityKey)|\(paletteSignature)"
 
         // 命中缓存：同一首歌 + 同一取色配置的封面已处理过（下载/缩略图/
         // 取色/小组件都已就绪），只需把缓存的 artwork 回填锁屏即可。
@@ -214,8 +228,8 @@ final class NowPlayingController {
             return
         }
         // 同曲下载仍在进行中，避免并发重复下载
-        if artworkFetchInFlightSongId == identityKey { return }
-        artworkFetchInFlightSongId = identityKey
+        if artworkFetchInFlightSongId == requestIdentity { return }
+        artworkFetchInFlightSongId = requestIdentity
 
         let groupID = Self.widgetGroupID
 
@@ -224,7 +238,7 @@ final class NowPlayingController {
                 let (data, _) = try await URLSession.shared.data(from: coverUrl)
                 guard let image = UIImage(data: data) else {
                     await MainActor.run { [weak self] in
-                        guard let self, self.artworkFetchInFlightSongId == identityKey else { return }
+                        guard let self, self.artworkFetchInFlightSongId == requestIdentity else { return }
                         self.artworkFetchInFlightSongId = nil
                     }
                     return
@@ -238,7 +252,8 @@ final class NowPlayingController {
                     image.draw(in: CGRect(origin: .zero, size: thumbSize))
                 }
 
-                let colors = image.extractColors(
+                let colors = UnifiedColorEngine.analyzeArtwork(
+                    image: image,
                     count: paletteColorCount,
                     mode: paletteMode,
                     randomSeed: paletteRandomSeed,
@@ -275,10 +290,9 @@ final class NowPlayingController {
                 }
 
                 await MainActor.run { [weak self] in
-                    guard let self else { return }
-                    if self.artworkFetchInFlightSongId == identityKey {
-                        self.artworkFetchInFlightSongId = nil
-                    }
+                    guard let self,
+                          self.artworkFetchInFlightSongId == requestIdentity else { return }
+                    self.artworkFetchInFlightSongId = nil
                     guard let current = self.player.currentSong,
                           PlayerManager.playbackIdentityKey(for: current) == identityKey else { return }
                     // 记入缓存：后续同曲重进（策略切换/中断恢复/二次调用）零开销回填
@@ -292,7 +306,7 @@ final class NowPlayingController {
             } catch {
                 AppLogger.warning("封面图下载失败: \(error)")
                 await MainActor.run { [weak self] in
-                    guard let self, self.artworkFetchInFlightSongId == identityKey else { return }
+                    guard let self, self.artworkFetchInFlightSongId == requestIdentity else { return }
                     self.artworkFetchInFlightSongId = nil
                 }
             }
@@ -362,6 +376,9 @@ final class NowPlayingController {
         // 有线/蓝牙耳机的单击「播放暂停切换」走的是 toggle 命令，
         // 不注册的话部分耳机按键会没有反应。
         commandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
+            // 部分硬件键盘会在文本输入期间把空格额外投递成媒体切换命令。
+            // 输入框拥有焦点时交还给文本系统，避免打字导致音乐暂停或恢复。
+            guard !MonoTextInputActivity.shared.isEditing else { return .commandFailed }
             guard let player = self?.player else { return .commandFailed }
             let handled = player.isPlaying ? player.pausePlayback() : player.playPlayback()
             return handled ? .success : .commandFailed

@@ -72,12 +72,55 @@ class LocalPlaylistManager: ObservableObject {
     
     private init() {
         self.store = DatabaseManager.shared.store
+        MonoMemoryEngine.shared.registerResource(
+            id: "cache.local-playlists",
+            priority: .retained,
+            budgetWeight: 0.05,
+            minimumBudgetBytes: 3 * 1_024 * 1_024,
+            applyBudget: { _ in },
+            trim: { [weak self] context in
+                self?.trimMemory(context) ?? .none
+            },
+            measureUsage: { [weak self] in
+                guard let self else { return .unknown }
+                let entries = self.summaryCache.count + self.songCache.count
+                let songs = self.songCache.values.reduce(0) { $0 + $1.songs.count }
+                return .init(itemCount: entries, estimatedBytes: songs * 1_024)
+            }
+        )
         ensureSystemPlaylists()
         reload()
         observeDownloads()
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
             self?.syncLocalMusicPlaylist()
         }
+    }
+
+    private func trimMemory(_ context: MonoMemoryEngine.TrimContext) -> MonoMemoryEngine.TrimResult {
+        let beforeEntries = summaryCache.count + songCache.count
+        let beforeSongs = songCache.values.reduce(0) { $0 + $1.songs.count }
+
+        switch context.level {
+        case .routine:
+            let validIDs = Set(playlists.map(\.id))
+            trimCaches(validIds: validIDs)
+            if songCache.count > 64 {
+                let retained = Set(songCache.keys.suffix(64))
+                songCache = songCache.filter { retained.contains($0.key) }
+                summaryCache = summaryCache.filter { retained.contains($0.key) }
+            }
+        case .background, .warning, .critical:
+            summaryCache.removeAll(keepingCapacity: false)
+            songCache.removeAll(keepingCapacity: false)
+        }
+
+        let afterEntries = summaryCache.count + songCache.count
+        let afterSongs = songCache.values.reduce(0) { $0 + $1.songs.count }
+        return .init(
+            releasedItemCount: max(0, beforeEntries - afterEntries),
+            estimatedReleasedBytes: max(0, beforeSongs - afterSongs) * 1_024,
+            preservedItemCount: afterEntries
+        )
     }
     
     // MARK: - 系统预置歌单
@@ -685,8 +728,31 @@ class LocalPlaylistManager: ObservableObject {
     
     @discardableResult
     func importPlaylist(name: String, songs: [Song]) -> LocalPlaylist {
-        let playlist = LocalPlaylist(name: name)
-        playlist.songs = songs
+        importPlaylist(
+            name: name,
+            description: nil,
+            coverURL: nil,
+            songs: songs
+        )
+    }
+
+    @discardableResult
+    func importPlaylist(
+        name: String,
+        description: String?,
+        coverURL: URL?,
+        songs: [Song]
+    ) -> LocalPlaylist {
+        let normalizedSongs = songs.map { song in
+            var normalizedSong = song
+            if normalizedSong.source == nil {
+                normalizedSong.source = normalizedSong.musicSource
+            }
+            return normalizedSong
+        }
+        let playlist = LocalPlaylist(name: name, desc: description)
+        playlist.coverUrl = coverURL?.absoluteString
+        playlist.songs = normalizedSongs
         store.insert(playlist)
         store.save()
         reload()

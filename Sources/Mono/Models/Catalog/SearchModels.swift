@@ -148,6 +148,54 @@ struct SongWikiBlock: Identifiable {
     let type: String
     let title: String
     let description: String
+
+    var hasReadableProse: Bool {
+        Self.sanitizedProse(description) != nil
+    }
+
+    var readableTitle: String? {
+        let value = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty,
+              !Self.containsInternalMetadata(value),
+              value.range(of: #"^[A-Za-z][A-Za-z0-9_]*$"#, options: .regularExpression) == nil else {
+            return nil
+        }
+        return value
+    }
+
+    var readableDescription: String? {
+        Self.sanitizedProse(description)
+    }
+
+    private static func sanitizedProse(_ value: String) -> String? {
+        let lines = value
+            .precomposedStringWithCanonicalMapping
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty && !containsInternalMetadata($0) }
+        let prose = lines.joined(separator: "\n")
+        let meaningfulCount = prose.unicodeScalars.filter {
+            CharacterSet.alphanumerics.contains($0)
+        }.count
+        guard meaningfulCount >= 24 else { return nil }
+        return prose
+    }
+
+    private static func containsInternalMetadata(_ value: String) -> Bool {
+        let normalized = value.lowercased()
+        let markers = [
+            "orpheus://",
+            "songtag",
+            "songbiztag",
+            "melody_style",
+            "component=",
+            "route=",
+            "tagid=",
+            "resid=",
+            "mainprocesscompat="
+        ]
+        return markers.contains { normalized.contains($0) }
+    }
 }
 
 // MARK: - Related Playlist

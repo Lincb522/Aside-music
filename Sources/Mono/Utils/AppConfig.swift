@@ -127,8 +127,6 @@ enum AppConfig {
         /// 【实验性】游戏模式下隐藏锁屏信息时，是否保留最小锁屏信息（仅歌名）
         static let gameModeMinimalNowPlaying = "mono_game_mode_minimal_now_playing"
         // [DEPRECATED] 智能分析功能已废弃
-        static let audioLabSmartEffects = "audio_lab_smart_effects_enabled"
-        static let audioLabAnalysisMode = "audio_lab_analysis_mode"
         
         // 缓存同步相关
         static let dailyCacheTimestamp = "daily_cache_timestamp"

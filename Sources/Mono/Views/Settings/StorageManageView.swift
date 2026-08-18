@@ -91,7 +91,7 @@ struct StorageManageView: View {
                 VStack(spacing: SettingsPageLayout.sectionSpacing) {
                     SettingsScrollablePageHeader(
                         title: String(localized: "storage_title"),
-                        eyebrow: "STORAGE",
+                        eyebrow: String(localized: "settings_eyebrow_storage"),
                         icon: .storage
                     )
 
@@ -672,6 +672,7 @@ struct StorageManageView: View {
     private func cleanAllCaches() {
         HapticManager.shared.success()
 
+        MonoMemoryEngine.shared.trim(level: .critical, reason: .manual)
         CacheManager.shared.clearAll()
         OptimizedCacheManager.shared.clearAll()
         CachedAsyncImage<EmptyView>.clearMemoryCache()

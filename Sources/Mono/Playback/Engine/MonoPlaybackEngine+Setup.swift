@@ -34,9 +34,9 @@ extension PlayerManager {
                 if self.currentSong != nil {
                     self.updateNowPlayingTime()
                     self.syncWidgetState()
-                    // 立即落盘一次进度快照：后台被系统回收时，
-                    // 下次冷启动仍能从最后一秒精确续播
-                    self.savePlaybackProgressIfNeeded(force: true)
+                    // 最终播放快照由 MonoApp 的统一后台持久化入口完成。
+                    // 这里不能再异步排一次写盘，否则中央入口排空队列后，
+                    // 此任务可能重新取得文件锁并触发 0xdead10cc。
                 }
             }
         }

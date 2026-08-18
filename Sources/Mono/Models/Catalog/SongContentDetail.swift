@@ -145,9 +145,26 @@ struct SongContentBody: Codable, Sendable {
     var hasPublishedCopy: Bool {
         status == "published" && [songSummary, creationStory, background, albumSummary]
             .contains { value in
-                guard let value else { return false }
-                return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                Self.isReadableContent(value)
             }
+    }
+
+    static func isReadableContent(_ value: String?) -> Bool {
+        guard let value else { return false }
+        let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !normalized.isEmpty else { return false }
+        let internalMarkers = [
+            "orpheus://",
+            "songtag",
+            "songbiztag",
+            "melody_style",
+            "component=",
+            "route=",
+            "tagid=",
+            "resid=",
+            "mainprocesscompat="
+        ]
+        return !internalMarkers.contains { normalized.contains($0) }
     }
 }
 
@@ -213,8 +230,6 @@ enum AppAgentIdentifier: String, Sendable {
     case equalizer
     case listeningInsight
     case specialGreeting
-    case stageDirector
-    case wallpaperTranslator
 }
 
 struct AppAgentConfiguration: Codable, Sendable {
@@ -226,6 +241,7 @@ struct AppAgentConfiguration: Codable, Sendable {
     let temperature: Double
     let maxOutputTokens: Int
     let minimumTimeoutSeconds: Double
+    let maxAttempts: Int?
 
     func systemPrompt(fallback: String, secondaryFallback: String? = nil) -> String {
         let primary = systemPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -249,22 +265,26 @@ struct AppAgentConfiguration: Codable, Sendable {
             maxOutputTokens: maxOutputTokens
         )
     }
+
+    var resolvedMinimumTimeoutSeconds: TimeInterval {
+        min(180, max(0, minimumTimeoutSeconds))
+    }
+
+    func resolvedMaxAttempts(fallback: Int) -> Int {
+        min(4, max(1, maxAttempts ?? fallback))
+    }
 }
 
 struct AppAgentConfigurationSet: Codable, Sendable {
     let equalizer: AppAgentConfiguration?
     let listeningInsight: AppAgentConfiguration?
     let specialGreeting: AppAgentConfiguration?
-    let stageDirector: AppAgentConfiguration?
-    let wallpaperTranslator: AppAgentConfiguration?
 
     subscript(identifier: AppAgentIdentifier) -> AppAgentConfiguration? {
         switch identifier {
         case .equalizer: return equalizer
         case .listeningInsight: return listeningInsight
         case .specialGreeting: return specialGreeting
-        case .stageDirector: return stageDirector
-        case .wallpaperTranslator: return wallpaperTranslator
         }
     }
 }

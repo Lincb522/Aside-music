@@ -39,6 +39,8 @@ struct ClassicFloatingBar: View {
             return 28
         case .capsule:
             return 30
+        case .clarity:
+            return 34
         case .default:
             return 28
         }
@@ -70,6 +72,8 @@ struct ClassicFloatingBar: View {
             return NeumorphicStyle.darkShadow(colorScheme, intensity: 0.55)
         case .capsule:
             return CapsuleStyle.accent.opacity(colorScheme == .dark ? 0.18 : 0.13)
+        case .clarity:
+            return Color.black.opacity(colorScheme == .dark ? 0.28 : 0.10)
         case .default:
             return Color.black.opacity(colorScheme == .dark ? 0.28 : 0.12)
         }
@@ -89,6 +93,8 @@ struct ClassicFloatingBar: View {
             return NeumorphicStyle.separator.opacity(colorScheme == .dark ? 0.46 : 0.34)
         case .capsule:
             return CapsuleStyle.separator.opacity(colorScheme == .dark ? 0.40 : 0.30)
+        case .clarity:
+            return ClarityStyle.separator
         case .default:
             return Color.monoSeparator.opacity(colorScheme == .dark ? 0.32 : 0.22)
         }
@@ -223,6 +229,11 @@ struct ClassicFloatingBar: View {
                         )
                     )
                 )
+        case .clarity:
+            shape
+                .fill(.ultraThinMaterial)
+                .overlay(shape.fill(ClarityStyle.surfaceRaised.opacity(0.74)))
+                .overlay(shape.stroke(ClarityStyle.edge.opacity(0.76), lineWidth: 0.9))
         case .default:
             shape
                 .fill(settings.defaultThemeUsesLiquidGlassTabBar ? AnyShapeStyle(.ultraThinMaterial) : AnyShapeStyle(.regularMaterial))
@@ -286,6 +297,8 @@ struct ClassicFloatingBar: View {
             return NeumorphicStyle.separator.opacity(colorScheme == .dark ? 0.40 : 0.34)
         case .capsule:
             return CapsuleStyle.hairline.opacity(colorScheme == .dark ? 0.52 : 0.66)
+        case .clarity:
+            return ClarityStyle.edge.opacity(0.72)
         case .default:
             return Color.white.opacity(colorScheme == .dark ? 0.12 : 0.52)
         }
@@ -323,6 +336,8 @@ struct ClassicFloatingBar: View {
             .frame(width: 72, height: 5)
             .padding(.leading, 22)
             .padding(.top, 7)
+        case .clarity:
+            EmptyView()
         case .muji:
             Capsule()
                 .fill(MujiStyle.clay.opacity(0.38))
@@ -341,8 +356,6 @@ struct ClassicFloatingBar: View {
                 .frame(width: 58, height: 3)
                 .padding(.leading, 22)
                 .padding(.top, 8)
-        default:
-            EmptyView()
         }
     }
 
@@ -354,7 +367,7 @@ struct ClassicFloatingBar: View {
             return 0.8
         case .petWhite:
             return 0.76
-        case .capsule, .neumorphic:
+        case .capsule, .neumorphic, .clarity:
             return 0.72
         default:
             return 0.64
@@ -373,6 +386,8 @@ struct ClassicFloatingBar: View {
             return 14
         case .capsule:
             return 13
+        case .clarity:
+            return 18
         default:
             return 11
         }

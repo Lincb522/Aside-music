@@ -97,6 +97,7 @@ struct SongDetailView: View {
                     albumName: song.al?.name,
                     albumCoverUrl: song.coverUrl
                 )
+
             }
         }
         .task(id: song.contentRequestIdentity.cacheKey) {
@@ -338,13 +339,13 @@ struct SongDetailView: View {
 
             ForEach(viewModel.wikiBlocks) { block in
                 VStack(alignment: .leading, spacing: 8) {
-                    if !block.title.isEmpty {
-                        Text(block.title)
+                    if let title = block.readableTitle {
+                        Text(title)
                             .font(.headline)
                             .foregroundStyle(Theme.text)
                     }
-                    if !block.description.isEmpty {
-                        Text(block.description)
+                    if let description = block.readableDescription {
+                        Text(description)
                             .font(.body)
                             .foregroundStyle(Theme.text.opacity(0.86))
                             .lineSpacing(6)
@@ -400,6 +401,13 @@ struct SongDetailView: View {
                     } else {
                         provenanceLabel(content: content, sourceCount: sourceCount)
                     }
+
+                    Text(String(localized: "song_detail_source_reliability_notice"))
+                        .font(.caption2)
+                        .foregroundStyle(Theme.secondaryText.opacity(0.86))
+                        .lineSpacing(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.leading, 23)
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 24)
@@ -604,7 +612,7 @@ struct SongDetailView: View {
     }
 
     private func normalizedContent(_ value: String?) -> String? {
-        guard let value else { return nil }
+        guard SongContentBody.isReadableContent(value), let value else { return nil }
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }

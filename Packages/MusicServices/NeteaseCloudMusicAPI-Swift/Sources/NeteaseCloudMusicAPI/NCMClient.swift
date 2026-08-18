@@ -170,12 +170,21 @@ public class NCMClient {
 
         // 使用路由映射表转换路径
         let route = RouteMap.resolve(uri)
+        let isQRCodeLoginRoute = route == "/login/qr/key"
+            || route == "/login/qr/create"
+            || route == "/login/qr/check"
         // 适配后端模块期望的参数格式
         let adaptedData = RouteMap.adaptParams(uri, data)
         let base = serverUrl.hasSuffix("/") ? String(serverUrl.dropLast()) : serverUrl
         var urlString = base + route
         if let token = apiToken, !token.isEmpty {
             urlString += (urlString.contains("?") ? "&" : "?") + "token=\(token)"
+        }
+        if isQRCodeLoginRoute {
+            let timestamp = String(Int(Date().timeIntervalSince1970 * 1_000))
+            let nonce = UUID().uuidString
+            urlString += (urlString.contains("?") ? "&" : "?")
+                + "timestamp=\(timestamp)&device_uuid=\(nonce)"
         }
 
         #if DEBUG
@@ -197,6 +206,11 @@ public class NCMClient {
         urlRequest.httpMethod = "POST"
         // 使用 URL-encoded 格式，兼容性更好（旧版后端 express.urlencoded 解析）
         urlRequest.setValue("application/x-www-form-urlencoded; charset=utf-8", forHTTPHeaderField: "Content-Type")
+        if isQRCodeLoginRoute {
+            urlRequest.cachePolicy = .reloadIgnoringLocalCacheData
+            urlRequest.setValue("no-store, no-cache, max-age=0", forHTTPHeaderField: "Cache-Control")
+            urlRequest.setValue("no-cache", forHTTPHeaderField: "Pragma")
+        }
 
         // 附带 Cookie
         let cookieHeader = requestClient.sessionManager.buildCookieHeader(for: uri, crypto: .eapi)

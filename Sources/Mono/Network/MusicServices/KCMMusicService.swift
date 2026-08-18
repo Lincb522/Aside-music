@@ -887,8 +887,11 @@ final class KCMMusicService: @unchecked Sendable {
         guard let url = components.url else { throw KCMMusicError.invalidResponse }
 
         var request = URLRequest(url: url)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
         request.timeoutInterval = 20
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("no-store, no-cache, max-age=0", forHTTPHeaderField: "Cache-Control")
+        request.setValue("no-cache", forHTTPHeaderField: "Pragma")
         applyApplicationAuthorization(to: &request)
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse,

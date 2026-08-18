@@ -205,7 +205,7 @@ enum ThemeColorCustomization {
     }
 
     static func supports(_ theme: GlobalThemeId) -> Bool {
-        theme == .default || theme == .muji || theme == .manga || theme == .neumorphic || theme == .capsule || theme == .petWhite
+        theme == .default || theme == .muji || theme == .manga || theme == .neumorphic || theme == .capsule || theme == .petWhite || theme == .clarity
     }
 
     static func key(_ theme: GlobalThemeId, _ role: ThemeCustomColorRole, _ suffix: String) -> String {
@@ -331,6 +331,42 @@ enum ThemeColorCustomization {
 
     @MainActor
     private static var backgroundImageCache: [String: UIImage] = [:]
+    @MainActor
+    private static var didRegisterMemoryResource = false
+
+    @MainActor
+    static func installMemoryManagement() {
+        guard !didRegisterMemoryResource else { return }
+        didRegisterMemoryResource = true
+        MonoMemoryEngine.shared.registerResource(
+            id: "cache.theme-background",
+            priority: .recreatable,
+            budgetWeight: 0.05,
+            minimumBudgetBytes: 4 * 1024 * 1024,
+            applyBudget: { _ in },
+            trim: { context in
+                guard context.level >= .background else { return .none }
+                let bytes = backgroundImageCache.values.reduce(0) { partial, image in
+                    partial + (image.cgImage.map { $0.bytesPerRow * $0.height } ?? 0)
+                }
+                let count = backgroundImageCache.count
+                backgroundImageCache.removeAll(keepingCapacity: false)
+                return .init(
+                    releasedItemCount: count,
+                    estimatedReleasedBytes: bytes,
+                    preservedItemCount: 0
+                )
+            },
+            measureUsage: {
+                .init(
+                    itemCount: backgroundImageCache.count,
+                    estimatedBytes: backgroundImageCache.values.reduce(0) { partial, image in
+                        partial + (image.cgImage.map { $0.bytesPerRow * $0.height } ?? 0)
+                    }
+                )
+            }
+        )
+    }
 
     private static func backgroundImageDirectory() -> URL {
         let base = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -368,6 +404,7 @@ enum ThemeColorCustomization {
     /// 加载壁纸背景图；参考系统壁纸，整张图缩放填满屏幕显示。
     @MainActor
     static func backgroundImage(for theme: GlobalThemeId, dark: Bool = false) -> UIImage? {
+        installMemoryManagement()
         guard let url = backgroundImageURL(for: theme, dark: dark) else { return nil }
 
         let cacheKey = url.lastPathComponent
@@ -383,6 +420,7 @@ enum ThemeColorCustomization {
     @MainActor
     @discardableResult
     static func setBackgroundImageData(_ data: Data, for theme: GlobalThemeId, dark: Bool = false) -> Bool {
+        installMemoryManagement()
         guard supportsImageBackground(theme), let raw = UIImage(data: data) else { return false }
 
         // 压缩上限取设备屏幕像素长边（不低于 2048px），保证壁纸清晰的同时避免超大图占用过多磁盘与内存
@@ -704,6 +742,7 @@ enum ThemeColorCustomization {
         case .neumorphic: return "4F8E86"
         case .capsule: return "3867FF"
         case .petWhite: return "F6A93B"
+        case .clarity: return "2478D8"
         case .manga: return "FF4F84"
         case .default: return "4D6F95"
         }
@@ -716,6 +755,7 @@ enum ThemeColorCustomization {
         case .neumorphic: return "E9EDF0"
         case .capsule: return "F6F8FF"
         case .petWhite: return "FFFFFF"
+        case .clarity: return "EEF2F3"
         case .manga: return "FFF3D7"
         case .default: return "F8FAFC"
         }
@@ -728,6 +768,7 @@ enum ThemeColorCustomization {
         case .neumorphic: return "F2EEE8"
         case .capsule: return "EAF1FF"
         case .petWhite: return "FFFFFF"
+        case .clarity: return "EAF0F2"
         case .manga: return "E8F1FF"
         case .default: return "E6EDF6"
         }
@@ -746,6 +787,7 @@ enum ThemeColorCustomization {
             case .neumorphic: return "E4ECE7"
             case .capsule: return "F8F2FF"
             case .petWhite: return "FFF7DE"
+            case .clarity: return "F1EAF7"
             case .manga: return "FFEAF4"
             case .default: return "EEF4EE"
             }
@@ -756,6 +798,7 @@ enum ThemeColorCustomization {
             case .neumorphic: return "EEF0F5"
             case .capsule: return "EDF9FF"
             case .petWhite: return "EFFAF5"
+            case .clarity: return "E7F5F5"
             case .manga: return "F8F6DE"
             case .default: return "F6F1EA"
             }
@@ -805,6 +848,8 @@ enum ThemeColorCustomization {
             return readableForegroundColor(on: accent, light: Color(hex: "101A2A"), dark: .white)
         case .petWhite:
             return readableForegroundColor(on: accent, light: Color(hex: "111111"), dark: .white)
+        case .clarity:
+            return readableForegroundColor(on: accent, light: Color(hex: "0D1722"), dark: .white)
         case .default:
             return readableForegroundColor(on: accent, light: Color(hex: "111821"), dark: .white)
         }
@@ -880,7 +925,8 @@ enum ThemeColorCustomization {
         let allPresets = presets(for: theme)
         if let selectedPresetId = UserDefaults.standard.string(forKey: selectedPresetKey(theme)),
            let selectedPreset = allPresets.first(where: { $0.id == selectedPresetId }),
-           isPresetColorMatched(selectedPreset, for: theme) {
+           isPresetColorMatched(selectedPreset, for: theme)
+        {
             return selectedPreset
         }
 
@@ -923,7 +969,8 @@ enum ThemeColorCustomization {
         let allPresets = darkPresets(for: theme)
         if let selectedPresetId = UserDefaults.standard.string(forKey: selectedDarkPresetKey(theme)),
            let selectedPreset = allPresets.first(where: { $0.id == selectedPresetId }),
-           isDarkPresetColorMatched(selectedPreset, for: theme) {
+           isDarkPresetColorMatched(selectedPreset, for: theme)
+        {
             return selectedPreset
         }
 
@@ -1168,6 +1215,21 @@ enum ThemeColorCustomization {
         switch theme {
         case .minimalWhite:
             return []
+        case .clarity:
+            return [
+                ThemeColorPreset(id: "clarity-air", name: "Air", accentStartHex: "2478D8", accentEndHex: "2478D8", backgroundStartHex: "F8F8F7", backgroundEndHex: "EDF1F2", backgroundHexes: ["F8F8F7", "EDF1F2", "F1EAF7", "E7F5F5"], gradientStyle: .diffuse),
+                ThemeColorPreset(id: "clarity-pearl", name: "Pearl", accentStartHex: "57636D", accentEndHex: "57636D", backgroundStartHex: "FBFBF9", backgroundEndHex: "EFF1F1", backgroundHexes: ["FBFBF9", "EFF1F1", "F4F0EC", "EDF3F4"], gradientStyle: .linear),
+                ThemeColorPreset(id: "clarity-aurora", name: "Aurora", accentStartHex: "238F91", accentEndHex: "238F91", backgroundStartHex: "F4FBFA", backgroundEndHex: "EAF3F7", backgroundHexes: ["F4FBFA", "EAF3F7", "EAEAF8", "E5F6F0"], gradientStyle: .mesh),
+                ThemeColorPreset(id: "clarity-lavender", name: "Lavender", accentStartHex: "7066A6", accentEndHex: "7066A6", backgroundStartHex: "F8F6FC", backgroundEndHex: "ECEFF7", backgroundHexes: ["F8F6FC", "ECEFF7", "F2EAF8", "E8F4F5"], gradientStyle: .radial),
+                ThemeColorPreset(id: "clarity-peach-ice", name: "Peach Ice", accentStartHex: "B76E61", accentEndHex: "B76E61", backgroundStartHex: "FFF8F5", backgroundEndHex: "EDF3F5", backgroundHexes: ["FFF8F5", "EDF3F5", "FBE9E5", "EAF5F2"], gradientStyle: .diffuse),
+                ThemeColorPreset(id: "clarity-sage", name: "Sage Mist", accentStartHex: "5D8274", accentEndHex: "5D8274", backgroundStartHex: "F5F9F6", backgroundEndHex: "EBF1EF", backgroundHexes: ["F5F9F6", "EBF1EF", "EEF2E8", "E7F4F3"], gradientStyle: .mesh),
+                ThemeColorPreset(id: "clarity-sky", name: "Clear Sky", accentStartHex: "347CAD", accentEndHex: "347CAD", backgroundStartHex: "F5FAFD", backgroundEndHex: "E8F1F7", backgroundHexes: ["F5FAFD", "E8F1F7", "EDF4FB", "E7F8F7"], gradientStyle: .linear),
+                ThemeColorPreset(id: "clarity-rose", name: "Rose Quartz", accentStartHex: "A96378", accentEndHex: "A96378", backgroundStartHex: "FFF7FA", backgroundEndHex: "EEF1F6", backgroundHexes: ["FFF7FA", "EEF1F6", "F8E9EF", "ECF5F3"], gradientStyle: .radial),
+                ThemeColorPreset(id: "clarity-champagne", name: "Champagne", accentStartHex: "9A763F", accentEndHex: "9A763F", backgroundStartHex: "FCF9F2", backgroundEndHex: "EEF1F2", backgroundHexes: ["FCF9F2", "EEF1F2", "F7EEDC", "ECF4F0"], gradientStyle: .conic),
+                ThemeColorPreset(id: "clarity-glacier", name: "Glacier", accentStartHex: "397F8E", accentEndHex: "397F8E", backgroundStartHex: "F4FBFC", backgroundEndHex: "E8F0F4", backgroundHexes: ["F4FBFC", "E8F0F4", "E7F5F7", "EDF0FA"], gradientStyle: .mesh),
+                ThemeColorPreset(id: "clarity-silver", name: "Silver", accentStartHex: "606B76", accentEndHex: "606B76", backgroundStartHex: "F7F8F9", backgroundEndHex: "E9EDF0", backgroundHexes: ["F7F8F9", "E9EDF0", "F0F1F5", "EAF1F1"], gradientStyle: .linear),
+                ThemeColorPreset(id: "clarity-moon-milk", name: "Moon Milk", accentStartHex: "826C8D", accentEndHex: "826C8D", backgroundStartHex: "FAF8FA", backgroundEndHex: "EEF0F2", backgroundHexes: ["FAF8FA", "EEF0F2", "F3EBF1", "EDF5F2"], gradientStyle: .diffuse),
+            ]
         case .muji:
             return [
                 ThemeColorPreset(id: "muji-linen", name: "Linen", accentStartHex: "B56B4B", accentEndHex: "B56B4B", backgroundStartHex: "F7F1E8", backgroundEndHex: "F7F1E8"),
@@ -1419,7 +1481,8 @@ enum ThemeColorCustomization {
         defaults.set(preset.id, forKey: selectedDarkPresetKey(theme))
 
         if let iconSetRaw = preset.iconSetRaw,
-           let iconSet = AppInterfaceIconSet(rawValue: iconSetRaw) {
+           let iconSet = AppInterfaceIconSet(rawValue: iconSetRaw)
+        {
             SettingsManager.shared.interfaceIconSet = iconSet
         }
 
@@ -1484,7 +1547,7 @@ enum ThemeColorCustomization {
         let defaults = UserDefaults.standard
         removeBackgroundImageFile(for: theme)
         removeBackgroundImageFile(for: theme, dark: true)
-        ThemeCustomColorRole.allCases.forEach { role in
+        for role in ThemeCustomColorRole.allCases {
             (["mode", "gradientStyle", "solid", "imageFile", "darkKind", "darkSolid", "darkGradientStyle", "darkImageFile"]
                 + backgroundGradientSuffixes
                 + darkBackgroundGradientSuffixes).forEach { suffix in
@@ -1495,7 +1558,7 @@ enum ThemeColorCustomization {
         defaults.removeObject(forKey: selectedDarkPresetKey(theme))
 
         if theme == .manga {
-            ["blockA", "blockB", "blockC", "stroke", "settingsIcon"].forEach { suffix in
+            for suffix in ["blockA", "blockB", "blockC", "stroke", "settingsIcon"] {
                 defaults.removeObject(forKey: mangaKey(suffix))
             }
         }
@@ -1509,16 +1572,15 @@ enum ThemeColorCustomization {
 
         let defaults = UserDefaults.standard
         removeBackgroundImageFile(for: theme)
-        ThemeCustomColorRole.allCases.forEach { role in
-            (["mode", "gradientStyle", "solid", "imageFile"] + backgroundGradientSuffixes)
-                .forEach { suffix in
-                    defaults.removeObject(forKey: key(theme, role, suffix))
-                }
+        for role in ThemeCustomColorRole.allCases {
+            for suffix in ["mode", "gradientStyle", "solid", "imageFile"] + backgroundGradientSuffixes {
+                defaults.removeObject(forKey: key(theme, role, suffix))
+            }
         }
         defaults.removeObject(forKey: selectedPresetKey(theme))
 
         if theme == .manga {
-            ["blockA", "blockB", "blockC", "stroke", "settingsIcon"].forEach { suffix in
+            for suffix in ["blockA", "blockB", "blockC", "stroke", "settingsIcon"] {
                 defaults.removeObject(forKey: mangaKey(suffix))
             }
         }
@@ -1535,8 +1597,8 @@ enum ThemeColorCustomization {
         defaults.removeObject(forKey: key(theme, .accent, "darkSolid"))
         (["darkKind", "darkSolid", "darkGradientStyle", "darkImageFile"]
             + darkBackgroundGradientSuffixes).forEach { suffix in
-                defaults.removeObject(forKey: key(theme, .background, suffix))
-            }
+            defaults.removeObject(forKey: key(theme, .background, suffix))
+        }
         defaults.removeObject(forKey: selectedDarkPresetKey(theme))
         SettingsManager.shared.notifyThemeCustomizationChanged()
     }

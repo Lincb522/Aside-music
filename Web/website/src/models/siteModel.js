@@ -71,7 +71,7 @@ export const siteContent = {
     slug: '53453df19adbba61bdf2d399',
     namePlaceholder: '你的姓名',
     emailPlaceholder: '用于接收 TestFlight 邀请的邮箱',
-    protectCodePlaceholder: '保护码',
+    protectCodePlaceholder: '仅支持 TestFlight 保护码',
     submitLabel: '提交邀请',
     trialLabel: '免保护码体验 1 小时',
     loadingLabel: '处理中...',

@@ -266,12 +266,18 @@ function createConfiguredContentGenerator({ configStore, appAIConfigProvider, fe
 }
 
 function normalizeAIConfig(raw = {}) {
+  const systemPrompt = clean(raw.systemPrompt, 20_000)
+  const contentPrompt = clean(raw.contentPrompt, 20_000)
+  let promptVersion = clean(raw.promptVersion, 160) || 'song-editor-web-v7'
+  if (!systemPrompt && !contentPrompt && promptVersion === 'song-editor-web-v6') {
+    promptVersion = 'song-editor-web-v7'
+  }
   return {
     fallbackModel: clean(raw.fallbackModel, 240),
-    promptVersion: clean(raw.promptVersion, 160) || 'song-editor-web-v6',
+    promptVersion,
     schemaVersion: clean(raw.schemaVersion, 80) || '3',
-    systemPrompt: clean(raw.systemPrompt, 20_000),
-    contentPrompt: clean(raw.contentPrompt, 20_000),
+    systemPrompt,
+    contentPrompt,
     temperature: clamp(raw.temperature, 0, 2, 0.2),
     maxOutputTokens: Math.round(clamp(raw.maxOutputTokens, 256, 32_000, 4_000)),
     maxInputTokens: Math.round(clamp(raw.maxInputTokens, 2_048, 100_000, 12_000)),
@@ -334,23 +340,35 @@ function normalizeClientConfig(raw = {}) {
 
 function normalizeAppAgents(raw = {}) {
   const defaults = {
-    equalizer: ['mono-audio-agent-v27', 0.1, 4096, 120],
-    listeningInsight: ['mono-listening-insight-v2', 0.1, 4096, 30],
-    specialGreeting: ['special-greeting-v1', 0.7, 1024, 20],
-    stageDirector: ['mono-stage-v3', 0.2, 4096, 60],
-    wallpaperTranslator: ['wallpaper-translator-v1', 0.1, 512, 15]
+    equalizer: ['mono-audio-agent-v28', 0.1, 4096, 120, 3],
+    listeningInsight: ['mono-listening-insight-v3', 0.1, 4096, 30, 2],
+    specialGreeting: ['special-greeting-v2', 0.7, 1024, 20, 2]
+  }
+  const legacyBundledVersions = {
+    equalizer: 'mono-audio-agent-v27',
+    listeningInsight: 'mono-listening-insight-v2',
+    specialGreeting: 'special-greeting-v1'
   }
   return Object.fromEntries(Object.entries(defaults).map(([key, fallback]) => {
     const value = raw?.[key] || {}
+    const systemPrompt = clean(value.systemPrompt, 40_000)
+    const secondarySystemPrompt = clean(value.secondarySystemPrompt, 40_000)
+    const userPromptTemplate = clean(value.userPromptTemplate, 20_000)
+    let promptVersion = clean(value.promptVersion, 160) || fallback[0]
+    if (!systemPrompt && !secondarySystemPrompt && !userPromptTemplate
+        && promptVersion === legacyBundledVersions[key]) {
+      promptVersion = fallback[0]
+    }
     return [key, {
       enabled: value.enabled !== false,
-      promptVersion: clean(value.promptVersion, 160) || fallback[0],
-      systemPrompt: clean(value.systemPrompt, 40_000),
-      secondarySystemPrompt: clean(value.secondarySystemPrompt, 40_000),
-      userPromptTemplate: clean(value.userPromptTemplate, 20_000),
+      promptVersion,
+      systemPrompt,
+      secondarySystemPrompt,
+      userPromptTemplate,
       temperature: clamp(value.temperature, 0, 2, fallback[1]),
       maxOutputTokens: Math.round(clamp(value.maxOutputTokens, 128, 32_000, fallback[2])),
-      minimumTimeoutSeconds: clamp(value.minimumTimeoutSeconds, 0, 180, fallback[3])
+      minimumTimeoutSeconds: clamp(value.minimumTimeoutSeconds, 0, 180, fallback[3]),
+      maxAttempts: Math.round(clamp(value.maxAttempts, 1, 4, fallback[4]))
     }]
   }))
 }

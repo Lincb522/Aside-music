@@ -100,6 +100,8 @@ struct MujiRootBackdrop: View {
 
             MujiFreshAirBackdrop()
 
+            UnifiedColorAmbientLayer(strength: 0.36)
+
             MujiPaperTexture(opacity: colorScheme == .dark ? 0.1 : 0.2)
         }
         .ignoresSafeArea()

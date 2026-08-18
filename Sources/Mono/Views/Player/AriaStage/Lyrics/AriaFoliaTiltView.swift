@@ -332,7 +332,8 @@ private struct TiltLineView: View {
         let yOffset = fontSize / 6
 
         HStack(spacing: tracking) {
-            ForEach(Array(segment.glyphs.enumerated()), id: \.element.id) { index, glyph in
+            ForEach(segment.glyphs.indices, id: \.self) { index in
+                let glyph = segment.glyphs[index]
                 TiltGlyphView(
                     glyph: glyph,
                     glyphIndex: index,

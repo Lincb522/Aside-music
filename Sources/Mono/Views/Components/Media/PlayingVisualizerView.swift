@@ -4,6 +4,8 @@ import SwiftUI
 struct PlayingVisualizerView: View {
     let isAnimating: Bool
     let color: Color
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     private let barCount = 5
     private let barSpacing: CGFloat = 1.5
@@ -12,6 +14,8 @@ struct PlayingVisualizerView: View {
     private let minHeight: CGFloat = 3
     
     @State private var phases: [Double] = []
+    @State private var entranceScale: CGFloat = 0.76
+    @State private var entranceOpacity: Double = 0
     
     var body: some View {
         TimelineView(AppFrameRate.animationTimeline(maximumFramesPerSecond: 30, paused: !isAnimating)) { timeline in
@@ -23,7 +27,22 @@ struct PlayingVisualizerView: View {
                 standardVisualizer(time: time)
             }
         }
-        .onAppear { generatePhases() }
+        // 当前歌曲切换只动画这个十几像素的播放标记，不再让整行参与
+        // Keyframe/离屏合成；所有复用 PlayingVisualizerView 的歌曲列表都会生效。
+        .scaleEffect(entranceScale)
+        .opacity(entranceOpacity)
+        .onAppear {
+            generatePhases()
+            if reduceMotion {
+                entranceScale = 1
+                entranceOpacity = 1
+            } else {
+                withAnimation(.spring(response: 0.24, dampingFraction: 0.78)) {
+                    entranceScale = 1
+                    entranceOpacity = 1
+                }
+            }
+        }
     }
 
     private func standardVisualizer(time: Double) -> some View {

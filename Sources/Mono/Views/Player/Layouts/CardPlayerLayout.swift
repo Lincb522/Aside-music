@@ -1,5 +1,4 @@
 import SwiftUI
-import ImageIO
 
 /// "The Stack" - 纯粹的卡片堆叠式播放器
 /// 强调物理质感、层级关系与卡片交互
@@ -12,9 +11,11 @@ struct CardPlayerLayout: View {
     @ObservedObject var downloadManager = DownloadManager.shared
     
     // MARK: - State
-    @State private var dominantColor: Color = .blue
-    @State private var secondaryColor: Color = .purple
+    @StateObject private var coverColors = CoverColorExtractor()
     @State private var isAppeared = false
+
+    private var dominantColor: Color { coverColors.dominantColor }
+    private var secondaryColor: Color { coverColors.secondaryColor }
     
     // 交互状态
     @State private var showLyrics = false
@@ -533,22 +534,7 @@ extension CardPlayerLayout {
 // MARK: - Helpers
 extension CardPlayerLayout {
     func extractColors() {
-        guard let url = player.currentSong?.coverUrl else { return }
-        Task {
-            do {
-                let (data, _) = try await URLSession.shared.data(from: url)
-                guard let image = UIImage(data: data) else { return }
-                let colors = image.extractColors()
-                await MainActor.run {
-                    withAnimation(.easeOut(duration: 0.5)) {
-                        dominantColor = colors.dominant
-                        secondaryColor = colors.secondary
-                    }
-                }
-            } catch {
-                AppLogger.error("CardPlayer 封面取色失败: \(error)")
-            }
-        }
+        coverColors.extract(from: player.currentSong?.coverUrl?.sized(320).absoluteString)
     }
     
     func formatTime(_ seconds: Double) -> String {

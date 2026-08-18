@@ -1109,7 +1109,8 @@ final class AIEqualizerFeatureSampler {
         thermalState: ProcessInfo.ThermalState,
         lowPowerMode: Bool,
         screenCaptured: Bool,
-        immersiveMode: Bool
+        immersiveMode: Bool,
+        computeTier: MonoComputeBudget.Tier
     ) -> SamplingCadence {
         let cadence: SamplingCadence
         switch thermalState {
@@ -1147,6 +1148,25 @@ final class AIEqualizerFeatureSampler {
                 pcmInterval: max(protectedCadence.pcmInterval, 1.00)
             )
         }
+        switch computeTier {
+        case .maximum:
+            break
+        case .balanced:
+            protectedCadence = SamplingCadence(
+                spectrumInterval: max(protectedCadence.spectrumInterval, 0.22),
+                pcmInterval: max(protectedCadence.pcmInterval, 0.70)
+            )
+        case .reduced:
+            protectedCadence = SamplingCadence(
+                spectrumInterval: max(protectedCadence.spectrumInterval, 0.35),
+                pcmInterval: max(protectedCadence.pcmInterval, 1.10)
+            )
+        case .minimum:
+            protectedCadence = SamplingCadence(
+                spectrumInterval: max(protectedCadence.spectrumInterval, 0.50),
+                pcmInterval: max(protectedCadence.pcmInterval, 1.60)
+            )
+        }
         return protectedCadence
     }
 
@@ -1181,11 +1201,13 @@ final class AIEqualizerFeatureSampler {
         let processInfo = ProcessInfo.processInfo
         var thermalState = processInfo.thermalState
         var lowPowerMode = processInfo.isLowPowerModeEnabled
+        var computeTier = MonoComputeBudgetStore.shared.current.tier
         var cadence = Self.samplingCadence(
             thermalState: thermalState,
             lowPowerMode: lowPowerMode,
             screenCaptured: isScreenCaptured,
-            immersiveMode: isImmersivePresented
+            immersiveMode: isImmersivePresented,
+            computeTier: computeTier
         )
         let expectedFrames = Int(samplingDuration / max(cadence.spectrumInterval, 0.16))
         let minimumValidFrames = max(16, min(48, Int(Double(expectedFrames) * 0.55)))
@@ -1292,6 +1314,7 @@ final class AIEqualizerFeatureSampler {
             let currentLowPowerMode = processInfo.isLowPowerModeEnabled
             let currentScreenCaptured = UIScreen.main.isCaptured
             let currentImmersivePresented = ImmersiveModeController.shared.isPresented
+            let currentComputeTier = MonoComputeBudgetStore.shared.current.tier
             let didEnterImmersive = currentImmersivePresented && !isImmersivePresented
             if didEnterImmersive {
                 // Orientation, video background and Aria's visual FFT all start
@@ -1308,17 +1331,20 @@ final class AIEqualizerFeatureSampler {
                 || currentLowPowerMode != lowPowerMode
                 || currentScreenCaptured != isScreenCaptured
                 || currentImmersivePresented != isImmersivePresented
+                || currentComputeTier != computeTier
             if environmentChanged {
                 thermalState = currentThermalState
                 lowPowerMode = currentLowPowerMode
                 isScreenCaptured = currentScreenCaptured
                 isImmersivePresented = currentImmersivePresented
+                computeTier = currentComputeTier
             }
             var nextCadence = Self.samplingCadence(
                 thermalState: thermalState,
                 lowPowerMode: lowPowerMode,
                 screenCaptured: isScreenCaptured,
-                immersiveMode: isImmersivePresented
+                immersiveMode: isImmersivePresented,
+                computeTier: computeTier
             )
             if let protectionUntil = immersiveTransitionProtectionUntil {
                 if Date() < protectionUntil {
@@ -1450,30 +1476,32 @@ final class AIEqualizerFeatureSampler {
         let title = song.name
         let artist = song.artistName
         let source = song.musicSource.rawValue
-        let features = try await Task.detached(priority: .utility) {
-            try await accumulator.makeFeatures(
-                songID: songID,
-                title: title,
-                artist: artist,
-                source: source,
-                outputDevice: outputName,
-                outputKind: outputKind,
-                currentBassGain: currentBassGain,
-                currentTrebleGain: currentTrebleGain,
-                currentSurroundLevel: currentSurroundLevel,
-                currentReverbLevel: currentReverbLevel,
-                currentStereoWidth: currentStereoWidth,
-                professionalProcessingIntensity: processingIntensity,
-                outputCalibrationEnabled: outputCalibrationEnabled,
-                loudnessMatchingEnabled: loudnessMatchingEnabled,
-                smartSongCompensationEnabled: smartSongCompensationEnabled,
-                dynamicEQEnabled: dynamicEQEnabled,
-                multibandDynamicsEnabled: multibandDynamicsEnabled,
-                parametricEQEnabled: parametricEQEnabled,
-                duration: measuredDuration,
-                minimumFrames: minimumValidFrames
-            )
-        }.value
+        let features = try await MonoComputeScheduler.shared.withPermit(.analysis) {
+            try await Task.detached(priority: .utility) {
+                try await accumulator.makeFeatures(
+                    songID: songID,
+                    title: title,
+                    artist: artist,
+                    source: source,
+                    outputDevice: outputName,
+                    outputKind: outputKind,
+                    currentBassGain: currentBassGain,
+                    currentTrebleGain: currentTrebleGain,
+                    currentSurroundLevel: currentSurroundLevel,
+                    currentReverbLevel: currentReverbLevel,
+                    currentStereoWidth: currentStereoWidth,
+                    professionalProcessingIntensity: processingIntensity,
+                    outputCalibrationEnabled: outputCalibrationEnabled,
+                    loudnessMatchingEnabled: loudnessMatchingEnabled,
+                    smartSongCompensationEnabled: smartSongCompensationEnabled,
+                    dynamicEQEnabled: dynamicEQEnabled,
+                    multibandDynamicsEnabled: multibandDynamicsEnabled,
+                    parametricEQEnabled: parametricEQEnabled,
+                    duration: measuredDuration,
+                    minimumFrames: minimumValidFrames
+                )
+            }.value
+        }
         let measuredDurationText = String(format: "%.1f", features.sampleDuration)
         let measuredRateText = String(format: "%.0f", features.sampleRate)
         let measuredRMSText = String(format: "%.2f", features.rmsDBFS)

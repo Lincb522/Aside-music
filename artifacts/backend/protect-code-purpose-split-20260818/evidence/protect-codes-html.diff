@@ -1,0 +1,33 @@
+--- /tmp/mono-protect-split-20260818/token-admin/public/protect-codes.html	2026-08-18 18:07:45
++++ artifacts/backend/protect-code-purpose-split-20260818/token-admin/public/protect-codes.html	2026-08-18 18:18:37
+@@ -75,6 +75,10 @@
+             <h3>批量生成邀请码</h3>
+           </div>
+           <div style="align-self: center; display: flex; gap: 8px;">
++            <select id="generatePurpose" aria-label="新邀请码用途">
++              <option value="tf">TestFlight</option>
++              <option value="ipa">IPA 自签</option>
++            </select>
+             <button id="exportBtn" class="btn btn-secondary">一键导出 (.txt)</button>
+             <button id="generateBtn" class="btn btn-primary">生成 100 个验证码</button>
+           </div>
+@@ -90,6 +94,11 @@
+             <h3>所有邀请码</h3>
+           </div>
+           <div class="protect-controls">
++            <select id="purposeFilter" aria-label="邀请码用途">
++              <option value="all">全部用途</option>
++              <option value="tf">TestFlight</option>
++              <option value="ipa">IPA 自签</option>
++            </select>
+             <button class="chip active" type="button" data-sort="desc">倒序</button>
+             <button class="chip" type="button" data-sort="asc">正序</button>
+             <select id="codeFilter" aria-label="邀请码状态">
+@@ -111,6 +120,6 @@
+ 
+   <!-- Scripts -->
+   <script src="./assets/admin-core.js?v=2026072802"></script>
+-  <script src="./assets/protect-codes-page.js"></script>
++  <script src="./assets/protect-codes-page.js?v=20260818-purpose"></script>
+ </body>
+ </html>

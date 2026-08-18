@@ -168,6 +168,21 @@ struct AIEqualizerVocalReferenceFeatures: Codable, Equatable, Sendable {
     let register: String
 }
 
+/// A bounded output-device correction applied locally after the Agent result
+/// has passed validation. The Agent receives the same target as context and is
+/// explicitly told not to duplicate this curve.
+struct AIEqualizerDeviceTuningTarget: Codable, Equatable, Sendable {
+    let identifier: String
+    let displayName: String
+    let fitDescription: String
+    let referenceGainsDB: [Float]
+    let spatialGuidance: String
+
+    func gains(for mode: GraphicEQMode) -> [Float] {
+        mode.resampledGains(referenceGainsDB, from: .tenBand)
+    }
+}
+
 /// 一次 AI 调音请求的音频测量、输出设备与当前处理状态快照。
 struct AIEqualizerAudioFeatures: Codable, Equatable, Sendable {
     let songID: Int
@@ -688,7 +703,8 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
         tuningIntensity: AIEqualizerTuningIntensity = .smart,
         tuningProfile: AIEqualizerTuningProfile = .standard,
         avoidingProfileNames: Set<String> = [],
-        learningContext: AIEqualizerLearningContext? = nil
+        learningContext: AIEqualizerLearningContext? = nil,
+        deviceTuningTarget: AIEqualizerDeviceTuningTarget? = nil
     ) {
         let baseGains = Self.validatedGains(
             output.gains,
@@ -701,8 +717,12 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
                 limit: 1.25
             )
             : Array(repeating: 0, count: features.graphicEQMode.bandCount)
+        let deviceBandAdjustments = deviceTuningTarget?.gains(for: features.graphicEQMode)
+            ?? Array(repeating: 0, count: features.graphicEQMode.bandCount)
         let normalized = Self.validatedGains(
-            zip(baseGains, learnedBandAdjustments).map { pair in pair.0 + pair.1 },
+            zip(zip(baseGains, learnedBandAdjustments), deviceBandAdjustments).map { pair in
+                pair.0.0 + pair.0.1 + pair.1
+            },
             mode: features.graphicEQMode,
             intensity: tuningIntensity
         )

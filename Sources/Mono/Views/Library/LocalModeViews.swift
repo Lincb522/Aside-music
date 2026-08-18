@@ -1164,9 +1164,9 @@ struct LocalModeProfileView: View {
         .onReceive(playerManager.$currentSong.dropFirst()) { _ in
             refreshRecentSongs()
         }
-        .sheet(isPresented: $isShowingTokenAgreement, onDismiss: {
+        .monoSheet(isPresented: $isShowingTokenAgreement, onDismiss: {
             onlineAccess.declinePendingTokenAuthorization()
-        }) {
+        }, preset: .standard) {
             TokenAgreementAuthorizationSheet(
                 onAgree: acceptPendingTokenAuthorization,
                 onDecline: declinePendingTokenAuthorization
@@ -1281,9 +1281,15 @@ struct LocalModeProfileView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .monoTextInputBehavior()
+                    .submitLabel(.done)
+                    .monoOnSubmit(text: $tokenInput) { _ in
+                        submitToken()
+                    }
 
                 Button {
-                    submitToken()
+                    MonoTextInputCommitter.commit(text: $tokenInput) { _ in
+                        submitToken()
+                    }
                 } label: {
                     HStack(spacing: 6) {
                         if isSubmitting || onlineAccess.isVerifying {

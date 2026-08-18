@@ -145,6 +145,8 @@ struct PetWhiteRootBackdrop: View {
         ZStack {
             PetWhiteStyle.paper
 
+            UnifiedColorAmbientLayer(strength: 0.34)
+
             if settings.petWhiteUsesIllustratedBackground {
                 PetWhiteIllustratedBackdrop()
 

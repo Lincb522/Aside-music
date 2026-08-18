@@ -5,6 +5,14 @@ class CacheManager: @unchecked Sendable {
     static let shared = CacheManager()
     
     private let memoryCache = NSCache<NSString, AnyObject>()
+    private let memoryMetadataLock = NSLock()
+    private struct MemoryEntryMetadata {
+        let cost: Int
+        var lastAccess: UInt64
+    }
+    private var memoryEntries: [String: MemoryEntryMetadata] = [:]
+    private var memoryAccessSequence: UInt64 = 0
+    private var memoryCountLimit = 200
     
     /// 串行队列保护磁盘 I/O，避免并发写入冲突
     private let diskQueue = DispatchQueue(label: "zijiu.Monologue.com.cache.disk", qos: .utility)
@@ -43,13 +51,132 @@ class CacheManager: @unchecked Sendable {
         diskQueue.async {
             self.cleanExpiredDiskCache()
         }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            MonoMemoryEngine.shared.registerResource(
+                id: "cache.encoded-data",
+                priority: .recreatable,
+                budgetWeight: 0.18,
+                minimumBudgetBytes: 12 * 1_024 * 1_024,
+                applyBudget: { [weak self] bytes in
+                    self?.applyMemoryBudget(bytes)
+                },
+                trim: { [weak self] context in
+                    self?.trimMemory(context) ?? .none
+                },
+                measureUsage: { [weak self] in
+                    self?.memoryUsage() ?? .unknown
+                }
+            )
+        }
+    }
+
+    private func setMemoryData(_ data: Data, forKey key: String) {
+        memoryCache.setObject(data as NSData, forKey: key as NSString, cost: data.count)
+        memoryMetadataLock.lock()
+        memoryAccessSequence &+= 1
+        memoryEntries[key] = MemoryEntryMetadata(
+            cost: data.count,
+            lastAccess: memoryAccessSequence
+        )
+        let evictedKeys = overflowKeysLocked(protecting: key)
+        for evictedKey in evictedKeys {
+            memoryEntries.removeValue(forKey: evictedKey)
+        }
+        memoryMetadataLock.unlock()
+        for evictedKey in evictedKeys {
+            memoryCache.removeObject(forKey: evictedKey as NSString)
+        }
+    }
+
+    private func memoryData(forKey key: String) -> Data? {
+        guard let object = memoryCache.object(forKey: key as NSString) as? NSData else {
+            memoryMetadataLock.lock()
+            memoryEntries.removeValue(forKey: key)
+            memoryMetadataLock.unlock()
+            return nil
+        }
+        memoryMetadataLock.lock()
+        memoryAccessSequence &+= 1
+        if var metadata = memoryEntries[key] {
+            metadata.lastAccess = memoryAccessSequence
+            memoryEntries[key] = metadata
+        }
+        memoryMetadataLock.unlock()
+        return object as Data
+    }
+
+    private func overflowKeysLocked(protecting protectedKey: String? = nil) -> [String] {
+        let overflow = memoryEntries.count - memoryCountLimit
+        guard overflow > 0 else { return [] }
+        return memoryEntries
+            .filter { $0.key != protectedKey }
+            .sorted { $0.value.lastAccess < $1.value.lastAccess }
+            .prefix(overflow)
+            .map(\.key)
+    }
+
+    private func removeMemoryObject(forKey key: String) {
+        memoryCache.removeObject(forKey: key as NSString)
+        memoryMetadataLock.lock()
+        memoryEntries.removeValue(forKey: key)
+        memoryMetadataLock.unlock()
+    }
+
+    private func clearMemoryCache() -> (count: Int, bytes: Int) {
+        memoryCache.removeAllObjects()
+        memoryMetadataLock.lock()
+        let count = memoryEntries.count
+        let bytes = memoryEntries.values.reduce(0) { $0 + $1.cost }
+        memoryEntries.removeAll(keepingCapacity: false)
+        memoryMetadataLock.unlock()
+        return (count, bytes)
+    }
+
+    private func applyMemoryBudget(_ bytes: Int) {
+        let budget = max(8 * 1_024 * 1_024, bytes)
+        let countLimit = max(48, min(320, budget / (192 * 1_024)))
+        memoryMetadataLock.lock()
+        memoryCountLimit = countLimit
+        let evictedKeys = overflowKeysLocked()
+        for key in evictedKeys { memoryEntries.removeValue(forKey: key) }
+        memoryMetadataLock.unlock()
+        memoryCache.totalCostLimit = budget
+        memoryCache.countLimit = countLimit
+        for key in evictedKeys { memoryCache.removeObject(forKey: key as NSString) }
+    }
+
+    private func trimMemory(_ context: MonoMemoryEngine.TrimContext) -> MonoMemoryEngine.TrimResult {
+        guard context.level >= .background else { return .none }
+        let released = clearMemoryCache()
+        return .init(
+            releasedItemCount: released.count,
+            estimatedReleasedBytes: released.bytes,
+            preservedItemCount: 0
+        )
+    }
+
+    private func memoryUsage() -> MonoMemoryEngine.ResourceUsage {
+        memoryMetadataLock.lock()
+        let result = MonoMemoryEngine.ResourceUsage(
+            itemCount: memoryEntries.count,
+            estimatedBytes: memoryEntries.values.reduce(0) { $0 + $1.cost }
+        )
+        memoryMetadataLock.unlock()
+        return result
     }
     
+    /// 阻塞等待磁盘写入队列排空。进入后台前调用，确保挂起时不再持有文件句柄。
+    func waitForPendingDiskWrites() {
+        guard DispatchQueue.getSpecific(key: diskQueueKey) == nil else { return }
+        diskQueue.sync {}
+    }
+
     // MARK: - 通用数据缓存
     
     func setObject<T: Codable>(_ object: T, forKey key: String, ttl: TimeInterval? = nil) {
         if let encoded = try? JSONEncoder().encode(object) {
-            memoryCache.setObject(encoded as NSData, forKey: key as NSString, cost: encoded.count)
+            setMemoryData(encoded, forKey: key)
             
             diskQueue.async {
                 self.saveToDisk(data: encoded, key: key, ttl: ttl)
@@ -58,7 +185,7 @@ class CacheManager: @unchecked Sendable {
     }
     
     func getObject<T: Codable>(forKey key: String, type: T.Type) -> T? {
-        if let data = memoryCache.object(forKey: key as NSString) as? Data {
+        if let data = memoryData(forKey: key) {
             if let object = try? JSONDecoder().decode(T.self, from: data) {
                 return object
             }
@@ -66,7 +193,7 @@ class CacheManager: @unchecked Sendable {
         
         if let data = loadFromDisk(key: key) {
             statsLock.lock(); _diskHitCount += 1; statsLock.unlock()
-            memoryCache.setObject(data as NSData, forKey: key as NSString, cost: data.count)
+            setMemoryData(data, forKey: key)
             
             if let object = try? JSONDecoder().decode(T.self, from: data) {
                 return object
@@ -80,40 +207,66 @@ class CacheManager: @unchecked Sendable {
     
     /// 获取原始数据（用于预热缓存）
     func getData(forKey key: String) -> Data? {
-        if let data = memoryCache.object(forKey: key as NSString) as? Data {
+        if let data = memoryData(forKey: key) {
             return data
         }
         
         if let data = loadFromDisk(key: key) {
-            memoryCache.setObject(data as NSData, forKey: key as NSString, cost: data.count)
+            setMemoryData(data, forKey: key)
             return data
         }
         
         return nil
     }
+
+    /// Reads encoded cache data without making the caller wait on the serial
+    /// disk queue. UI entry points use this path so an existing write or cache
+    /// cleanup cannot stall the first rendered frame.
+    func getDataAsync(forKey key: String) async -> Data? {
+        if let data = memoryData(forKey: key) {
+            return data
+        }
+
+        return await withCheckedContinuation { continuation in
+            diskQueue.async {
+                let data = self.loadFromDiskOnDiskQueue(key: key)
+                if let data {
+                    self.statsLock.lock()
+                    self._diskHitCount += 1
+                    self.statsLock.unlock()
+                    self.setMemoryData(data, forKey: key)
+                } else {
+                    self.statsLock.lock()
+                    self._diskMissCount += 1
+                    self.statsLock.unlock()
+                }
+                continuation.resume(returning: data)
+            }
+        }
+    }
     
     // MARK: - 图片缓存
     
     func setImageData(_ data: Data, forKey key: String) {
-        memoryCache.setObject(data as NSData, forKey: key as NSString, cost: data.count)
+        setMemoryData(data, forKey: key)
         diskQueue.async {
             self.saveToDisk(data: data, key: key, ttl: nil)
         }
     }
     
     func getImageData(forKey key: String) -> Data? {
-        if let data = memoryCache.object(forKey: key as NSString) as? Data {
+        if let data = memoryData(forKey: key) {
             return data
         }
         if let data = loadFromDisk(key: key) {
-            memoryCache.setObject(data as NSData, forKey: key as NSString, cost: data.count)
+            setMemoryData(data, forKey: key)
             return data
         }
         return nil
     }
     
     func getImageDataAsync(forKey key: String, completion: @escaping @Sendable (Data?) -> Void) {
-        if let data = memoryCache.object(forKey: key as NSString) as? Data {
+        if let data = memoryData(forKey: key) {
             completion(data)
             return
         }
@@ -125,7 +278,7 @@ class CacheManager: @unchecked Sendable {
             }
             let data = self.loadFromDiskOnDiskQueue(key: key)
             if let data = data {
-                self.memoryCache.setObject(data as NSData, forKey: key as NSString, cost: data.count)
+                self.setMemoryData(data, forKey: key)
             }
             DispatchQueue.main.async {
                 completion(data)
@@ -134,14 +287,14 @@ class CacheManager: @unchecked Sendable {
     }
     
     func removeObject(forKey key: String) {
-        memoryCache.removeObject(forKey: key as NSString)
+        removeMemoryObject(forKey: key)
         performDiskSync {
             removeFromDiskOnDiskQueue(key: key)
         }
     }
     
     func clearAll() {
-        memoryCache.removeAllObjects()
+        _ = clearMemoryCache()
         performDiskSync {
             let url = diskCacheURL
             try? FileManager.default.removeItem(at: url)

@@ -33,6 +33,8 @@ Mono 是一款面向 iPhone 与 iPad 的原生音乐播放器。它接入多个�
 
 ## 核心系统
 
+完整的当前实现、职责边界、接入状态与源码入口见 [Mono 引擎总览](docs/architecture/mono-engine-catalog.md)。
+
 ### Mono播放引擎
 
 基于 FFmpeg 8 与 AVAudioEngine，负责网络媒体取址、格式探测、解封装、解码、缓冲、Seek、输出、音频会话和后台恢复。Apple Music 受保护内容使用 MusicKit 播放通道。

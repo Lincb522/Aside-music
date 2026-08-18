@@ -5,16 +5,20 @@ import SwiftUI
 @MainActor
 public struct ContentView: View {
     @AppStorage("isLoggedIn") private var isLoggedIn: Bool = false
-    @State private var showWelcome = true
+    @State private var showWelcome: Bool
     @State private var canMountMainContent = false
     @State private var currentTab: Tab = .home
     @State private var didSynchronizeLaunchTheme = false
+    @State private var pendingDeepLink: URL?
+    @State private var isDeliveringDeepLink = false
     @ObservedObject private var settings = SettingsManager.shared
     @ObservedObject private var onlineAccess = OnlineAccessManager.shared
     @ObservedObject private var announcementCenter = AnnouncementCenter.shared
     @ObservedObject private var themeManager = GlobalThemeManager.shared
+    @ObservedObject private var textInputActivity = MonoTextInputActivity.shared
     @Environment(\.colorScheme) private var systemColorScheme
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var showPersonalFM = false
     @State private var showNormalPlayer = false
@@ -23,7 +27,11 @@ public struct ContentView: View {
     @State private var radioPlayerRadioId: Int? = nil
     @AppStorage("immersivePersistent") private var immersivePersistent = false
 
-    public init() {}
+    public init() {
+        _showWelcome = State(
+            initialValue: !ProcessInfo.processInfo.arguments.contains("-SkipWelcome")
+        )
+    }
 
     public var body: some View {
         ThemeRenderHost {
@@ -85,6 +93,7 @@ public struct ContentView: View {
         .onAppear {
             synchronizeLaunchThemeIfNeeded()
             scheduleMainContentMountAfterWelcomeFirstFrame()
+            deliverPendingDeepLinkIfReady()
         }
         .onChange(of: settings.globalThemeRevision) { _, _ in
             refreshHomeStateForThemeChange()
@@ -92,6 +101,9 @@ public struct ContentView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active, !showWelcome {
                 announcementCenter.checkIfNeeded()
+            }
+            if phase == .active {
+                deliverPendingDeepLinkIfReady()
             }
         }
         .onChange(of: showWelcome) { _, isShowing in
@@ -105,7 +117,7 @@ public struct ContentView: View {
             }
         }
         .onOpenURL { url in
-            handleDeepLink(url)
+            queueDeepLink(url)
         }
     }
 
@@ -113,11 +125,9 @@ public struct ContentView: View {
         ZStack {
             tabViewContent
                 .themeRenderSceneLayer()
-                .ignoresSafeArea(.keyboard)
                 .environment(\.themeCustomizationRevision, settings.globalThemeRevision)
-                .gesture(
-                    (settings.floatingBarStyle == .minimal || settings.floatingBarStyle == .floatingBall)
-                        ? swipeGesture : nil
+                .simultaneousGesture(
+                    !textInputActivity.isEditing ? swipeGesture : nil
                 )
                 .onReceive(NotificationCenter.default.publisher(for: .init("OpenFMPlayer"))) { _ in
                     showPersonalFM = true
@@ -205,8 +215,6 @@ public struct ContentView: View {
 
     private var tabViewCore: some View {
         let _ = settings.globalThemeRevision
-        let _ = settings.globalThemeApplicationRevision
-        let accessMode = onlineAccess.canUseOnlineFeatures ? "online" : "local"
         let tabTint = themeManager.provider(for: settings.globalThemeId).colorPalette.accent
 
         return TabView(selection: tabSelectionBinding) {
@@ -255,7 +263,6 @@ public struct ContentView: View {
                 }
                 .tag(Tab.profile)
         }
-        .id("tab-view-\(settings.globalThemeId.rawValue)-\(settings.globalThemeApplicationRevision)-\(accessMode)")
         .tint(tabTint)
         .background {
             if settings.useSystemTabBar && settings.globalThemeId != .manga {
@@ -307,7 +314,12 @@ public struct ContentView: View {
 
     private func tabRootIdentity(for tab: Tab) -> String {
         let accessMode = onlineAccess.canUseOnlineFeatures ? "online" : "local"
-        return "\(settings.globalThemeId.rawValue)-\(settings.globalThemeApplicationRevision)-\(accessMode)-tab-\(tab.rawValue)"
+        // TabView 本身必须保持稳定。启动主题同步会刷新 revision；若把 revision
+        // 放进 identity，SwiftUI 会在 UITabBarController 切换/导航栏布局期间同时
+        // 销毁四个 NavigationStack，iOS 26 会在 UINavigationBar.layoutSubviews
+        // 内触发一致性断言。真正改变根结构的只有主题或在线能力，因此只用二者
+        // 重建对应 tab 的内容，不再重建整个 TabView 容器。
+        return "\(settings.globalThemeId.rawValue)-\(accessMode)-tab-\(tab.rawValue)"
     }
 
     private func refreshHomeStateForThemeChange() {
@@ -497,9 +509,55 @@ public struct ContentView: View {
         }
     }
 
-    private func handleDeepLink(_ url: URL) {
+    private func queueDeepLink(_ url: URL) {
         guard url.scheme == "mono" else { return }
-        showWelcome = false
+        pendingDeepLink = url
+        deliverPendingDeepLinkIfReady()
+    }
+
+    /// 小组件冷启动时 `.onOpenURL` 可能发生在 Scene 尚未创建完成的阶段。
+    /// 此时装配播放器会提前初始化播放恢复链路，并把 MusicKit/MediaPlayer
+    /// 工作塞进 scene-create 的看门狗窗口。先缓存路由，等 Scene active 后
+    /// 完成主界面首帧，再打开目标播放页。
+    private func deliverPendingDeepLinkIfReady() {
+        guard scenePhase == .active,
+              !isDeliveringDeepLink,
+              let url = pendingDeepLink else {
+            return
+        }
+
+        isDeliveringDeepLink = true
+
+        Task { @MainActor in
+            // 先让 Scene 激活提交完成，再装配主界面，避免播放器恢复
+            // 与 scene-create 共用同一个主线程时限。
+            try? await Task.sleep(nanoseconds: 180_000_000)
+            guard scenePhase == .active else {
+                isDeliveringDeepLink = false
+                return
+            }
+            guard pendingDeepLink == url else {
+                isDeliveringDeepLink = false
+                deliverPendingDeepLinkIfReady()
+                return
+            }
+
+            mountMainContentWithoutAnimation()
+            showWelcome = false
+            // 给根视图一次提交机会，再读取 PlayerManager 的恢复状态。
+            try? await Task.sleep(nanoseconds: 80_000_000)
+            guard scenePhase == .active, pendingDeepLink == url else {
+                isDeliveringDeepLink = false
+                return
+            }
+
+            pendingDeepLink = nil
+            performDeepLink(url)
+            isDeliveringDeepLink = false
+        }
+    }
+
+    private func performDeepLink(_ url: URL) {
 
         let route = (url.host?.isEmpty == false ? url.host : nil) ?? url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
 
@@ -548,28 +606,54 @@ public struct ContentView: View {
     // MARK: - 滑动手势（极简/悬浮球模式）
 
     private var swipeGesture: some Gesture {
-        DragGesture(minimumDistance: 20, coordinateSpace: .local)
+        DragGesture(minimumDistance: 16, coordinateSpace: .global)
             .onEnded { value in
                 guard !isFloatingBarGestureArea(value.startLocation) else { return }
-                guard abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
+                // 首页歌单、榜单等横向 ScrollView 必须优先消费手势。全局 Tab
+                // 切换只在非横向滚动区域生效，避免滑歌单时整页被切走。
+                guard !startsInsideHorizontalScrollRegion(value.startLocation) else { return }
+                let translation = value.translation
+                let projected = value.predictedEndTranslation
+                let horizontalIntent = abs(projected.width) > abs(projected.height) * 1.45
+                    || abs(translation.width) > abs(translation.height) * 1.65
+                guard horizontalIntent else { return }
+
+                let travel = abs(translation.width)
+                let projectedTravel = abs(projected.width)
+                guard travel >= 54 || projectedTravel >= 108 else { return }
 
                 let allTabs = Tab.allCases
                 guard let currentIndex = allTabs.firstIndex(of: currentTab) else { return }
+                let direction = projectedTravel > travel ? projected.width : translation.width
 
-                if value.translation.width < -20 {
+                // 左侧返回边缘的右滑交给导航返回手势，避免全局 Tab 切换抢占。
+                if direction > 0, value.startLocation.x <= 44 {
+                    return
+                }
+
+                if direction < 0 {
                     let nextIndex = currentIndex + 1
                     if nextIndex < allTabs.count {
                         HapticManager.shared.light()
-                        selectTabImmediately(allTabs[nextIndex])
+                        selectTabFromSwipe(allTabs[nextIndex])
                     }
-                } else if value.translation.width > 20 {
+                } else if direction > 0 {
                     let prevIndex = currentIndex - 1
                     if prevIndex >= 0 {
                         HapticManager.shared.light()
-                        selectTabImmediately(allTabs[prevIndex])
+                        selectTabFromSwipe(allTabs[prevIndex])
                     }
                 }
             }
+    }
+
+    private func selectTabFromSwipe(_ tab: Tab) {
+        guard currentTab != tab else { return }
+        var transaction = Transaction(animation: reduceMotion ? nil : MonoAnimation.tabSwitch)
+        transaction.disablesAnimations = reduceMotion
+        withTransaction(transaction) {
+            currentTab = tab
+        }
     }
 
     private var floatingBarGestureExclusionHeight: CGFloat {
@@ -578,8 +662,14 @@ public struct ContentView: View {
             return playerAwareBottomGestureHeight(hasMiniPlayer: PlayerManager.shared.currentSong != nil)
         case .floatingBall:
             return 112
-        case .unified, .classic:
-            return 0
+        case .unified, .classic, .flux, .liquid, .rivePulse:
+            return 96
+        case .cassette:
+            return 132
+        case .orbit:
+            return 142
+        case .vinylNeedle, .waveform, .filmstrip, .studioMeter:
+            return 176
         }
     }
 
@@ -592,6 +682,40 @@ public struct ContentView: View {
         guard exclusionHeight > 0 else { return false }
         return location.y >= UIScreen.main.bounds.height - exclusionHeight
     }
+
+    private func startsInsideHorizontalScrollRegion(_ location: CGPoint) -> Bool {
+        let window = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .first(where: \.isKeyWindow)
+            ?? UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .flatMap(\.windows)
+                .first
+
+        guard let window, var view = window.hitTest(location, with: nil) else {
+            return false
+        }
+
+        while true {
+            if let scrollView = view as? UIScrollView,
+               scrollView.isScrollEnabled {
+                let visibleWidth = max(
+                    scrollView.bounds.width
+                        - scrollView.adjustedContentInset.left
+                        - scrollView.adjustedContentInset.right,
+                    0
+                )
+                if scrollView.contentSize.width > visibleWidth + 8 {
+                    return true
+                }
+            }
+
+            guard let parent = view.superview else { break }
+            view = parent
+        }
+        return false
+    }
 }
 
 // MARK: - 悬浮栏容器（隔离 PlayerManager 订阅）
@@ -601,13 +725,16 @@ private struct ContentViewFloatingBarContainer: View {
     @Binding var currentTab: Tab
     @ObservedObject var settings: SettingsManager
     @ObservedObject private var player = FloatingBarPlaybackModel.shared
+    @ObservedObject private var textInputActivity = MonoTextInputActivity.shared
 
     var body: some View {
-        if (!settings.useSystemTabBar || settings.globalThemeId == .manga) && !player.isTabBarHidden {
+        if (!settings.useSystemTabBar || settings.globalThemeId == .manga),
+           !player.isTabBarHidden,
+           !textInputActivity.isEditing
+        {
             floatingBarView
                 .id("\(settings.globalThemeId.rawValue)-\(settings.globalThemeRevision)")
                 .themeRenderInteractiveLayer()
-                .ignoresSafeArea(.keyboard)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .zIndex(10)
                 .animation(.spring(response: 0.35, dampingFraction: 0.82), value: player.isTabBarHidden)
@@ -617,7 +744,9 @@ private struct ContentViewFloatingBarContainer: View {
 
     @ViewBuilder
     private var floatingBarView: some View {
-        if settings.globalThemeId == .manga {
+        if settings.globalThemeId == .clarity {
+            ClarityFloatingBarFamily(currentTab: $currentTab)
+        } else if settings.globalThemeId == .manga {
             VStack {
                 Spacer()
                 UnifiedFloatingBar(currentTab: $currentTab)
@@ -650,6 +779,46 @@ private struct ContentViewFloatingBarContainer: View {
 
             case .floatingBall:
                 FloatingBallView(currentTab: $currentTab)
+
+            case .flux:
+                VStack {
+                    Spacer()
+                    FluxFloatingBar(currentTab: $currentTab)
+                        .iPadContentWidth(600)
+                        .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
+                        .padding(.bottom, 6)
+                }
+
+            case .liquid:
+                VStack {
+                    Spacer()
+                    LiquidFloatingBar(currentTab: $currentTab)
+                        .iPadContentWidth(600)
+                        .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
+                        .padding(.bottom, 6)
+                }
+
+            case .rivePulse:
+                VStack {
+                    Spacer()
+                    RivePulseFloatingBar(currentTab: $currentTab)
+                        .iPadContentWidth(600)
+                        .padding(.horizontal, DeviceLayout.isPad ? 40 : 18)
+                        .padding(.bottom, 6)
+                }
+
+            case .vinylNeedle, .cassette, .orbit, .waveform, .filmstrip, .studioMeter:
+                VStack {
+                    Spacer()
+                    SignatureFloatingBar(
+                        currentTab: $currentTab,
+                        kind: SignatureFloatingBarKind(style: settings.floatingBarStyle)
+                    )
+                    .iPadContentWidth(600)
+                    .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
+                    .padding(.bottom, 6)
+                }
+
             }
         }
     }
@@ -662,6 +831,7 @@ private struct ContentViewFloatingBarContainer: View {
 private struct ContentViewCompactPlayerContainer: View {
     @ObservedObject var settings: SettingsManager
     @ObservedObject private var player = FloatingBarPlaybackModel.shared
+    @ObservedObject private var textInputActivity = MonoTextInputActivity.shared
 
     /// iOS 26+ 时改用 `.tabViewBottomAccessory` 原生嵌入，这里跳过避免重复显示
     private var shouldUseNativeBottomAccessory: Bool {
@@ -674,19 +844,18 @@ private struct ContentViewCompactPlayerContainer: View {
     var body: some View {
         if !shouldUseNativeBottomAccessory,
            settings.useSystemTabBar && settings.globalThemeId != .manga && !player.isTabBarHidden,
+           !textInputActivity.isEditing,
            let song = player.currentSong
         {
             VStack {
                 Spacer()
                 CompactMiniPlayerView(song: song)
-                    .monoGlassCapsule()
                     .themeRenderInteractiveLayer()
                     .id("compact-mini-\(settings.globalThemeId.rawValue)-\(settings.globalThemeRevision)")
                     .iPadContentWidth(600)
                     .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
                     .padding(.bottom, DeviceLayout.isPad ? 72 : 62)
             }
-            .ignoresSafeArea(.keyboard)
             .transition(.move(edge: .bottom).combined(with: .opacity))
             .zIndex(9)
             .animation(.spring(response: 0.35, dampingFraction: 0.82), value: player.isTabBarHidden)
@@ -709,12 +878,15 @@ private struct ContentViewCompactPlayerContainer: View {
 private struct SystemTabBarWithAccessory<Content: View>: View {
     let content: () -> Content
     @State private var playlistPresented = false
+    @ObservedObject private var textInputActivity = MonoTextInputActivity.shared
 
     var body: some View {
         content()
             .tabBarMinimizeBehavior(.onScrollDown)
             .tabViewBottomAccessory {
-                TabViewBottomMiniPlayer(playlistPresented: $playlistPresented)
+                if !textInputActivity.isEditing {
+                    TabViewBottomMiniPlayer(playlistPresented: $playlistPresented)
+                }
             }
             // sheet 挂在 TabView 层而不是 accessory 内部，避免按钮一点就被关
             .monoSheet(isPresented: $playlistPresented, preset: .standard) {
@@ -740,9 +912,14 @@ private struct TabViewBottomMiniPlayer: View {
     @Binding var playlistPresented: Bool
     @ObservedObject private var player = FloatingBarPlaybackModel.shared
     @ObservedObject private var settings = SettingsManager.shared
+    @ObservedObject private var themeManager = GlobalThemeManager.shared
 
     private var hasActiveSong: Bool {
         player.currentSong != nil && !player.isTabBarHidden
+    }
+
+    private var accent: Color {
+        themeManager.provider(for: settings.globalThemeId).colorPalette.accent
     }
 
     var body: some View {
@@ -750,12 +927,16 @@ private struct TabViewBottomMiniPlayer: View {
         // 两种内容交叉淡出即可，避免整条胶囊被系统 TabBar 判定为「换人」重新布局/重绘，
         // 造成用户看到的「关闭时整个页面重新加载」的观感。
         ZStack {
-            TabBottomAccessoryPlaceholder(isActive: !hasActiveSong)
+            TabBottomAccessoryPlaceholder()
                 .opacity(hasActiveSong ? 0 : 1)
                 .allowsHitTesting(!hasActiveSong)
 
             if let song = player.currentSong {
-                TabBottomAccessoryContent(song: song, playlistPresented: $playlistPresented)
+                TabBottomAccessoryContent(
+                    song: song,
+                    accent: accent,
+                    playlistPresented: $playlistPresented
+                )
                     .opacity(hasActiveSong ? 1 : 0)
                     .allowsHitTesting(hasActiveSong)
             }
@@ -772,18 +953,11 @@ private struct TabViewBottomMiniPlayer: View {
 /// bottomAccessory 在无歌时的占位内容。
 ///
 /// 设计目标：
-/// - 不抢戏：颜色、字重、动效都克制，和系统 Liquid Glass TabBar 和谐共存
-/// - 有生命感：音符圆点带轻微"呼吸"缩放，提示 app 处于待机而非崩溃
-/// - 有召唤感：主标题「未在播放」+ 副标题「挑一首歌开始吧」，右侧轻点提示
+/// - 不抢戏：使用 Apple Music 式静态唱片占位，不制造持续动画
+/// - 有召唤感：主标题与探索提示保持两级信息层次
 /// - 可操作：整条胶囊可点击，发送 `SwitchToHome` 通知跳回首页发现音乐
 @available(iOS 26.0, *)
 private struct TabBottomAccessoryPlaceholder: View {
-    let isActive: Bool
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.colorScheme) private var colorScheme
-
     private var primaryTextColor: Color {
         Color(uiColor: .label)
     }
@@ -796,40 +970,22 @@ private struct TabBottomAccessoryPlaceholder: View {
         Color(uiColor: .tertiaryLabel)
     }
 
-    private var iconGradient: LinearGradient {
-        LinearGradient(
-            colors: colorScheme == .dark
-                ? [
-                    Color.white.opacity(0.18),
-                    Color.white.opacity(0.06),
-                ]
-                : [
-                    Color.black.opacity(0.10),
-                    Color.black.opacity(0.04),
-                ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-    }
-
     var body: some View {
         Button {
             NotificationCenter.default.post(name: .init("SwitchToHome"), object: nil)
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 idleIcon
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(NSLocalizedString("not_playing", comment: "未在播放"))
-                        .font(.system(size: 14.5, weight: .semibold))
-                        .tracking(0.2)
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(primaryTextColor)
                         .lineLimit(1)
 
                     Text(NSLocalizedString("not_playing_subtitle", comment: "点此探索音乐"))
                         .font(.system(size: 11.5, weight: .regular))
-                        .tracking(0.1)
-                        .foregroundColor(secondaryTextColor.opacity(0.82))
+                        .foregroundColor(secondaryTextColor)
                         .lineLimit(1)
                 }
 
@@ -844,38 +1000,14 @@ private struct TabBottomAccessoryPlaceholder: View {
         .buttonStyle(.plain)
     }
 
-    @ViewBuilder
     private var idleIcon: some View {
-        if reduceMotion || !isActive {
-            idleIconContent
-        } else {
-            // 只在占位内容实际可见且 App 位于前台时推进。ZStack 会保留透明
-            // 占位视图的身份，因此仅依赖 opacity 会让隐藏动画继续逐帧刷新。
-            TimelineView(
-                AppFrameRate.animationTimeline(
-                    maximumFramesPerSecond: 24,
-                    paused: scenePhase != .active
-                )
-            ) { context in
-                idleIconContent
-                    .scaleEffect(breathingScale(at: context.date.timeIntervalSinceReferenceDate))
-            }
-        }
-    }
-
-    private var idleIconContent: some View {
         ZStack {
-            Circle()
-                .fill(iconGradient)
-                .frame(width: 34, height: 34)
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(Color(uiColor: .quaternarySystemFill))
+                .frame(width: 36, height: 36)
 
-            MonoIcon(icon: .musicNote, size: 15, color: secondaryTextColor)
+            MonoIcon(icon: .musicNote, size: 15, color: tertiaryTextColor)
         }
-    }
-
-    private func breathingScale(at time: TimeInterval) -> CGFloat {
-        let phase = (time.truncatingRemainder(dividingBy: 1.8) / 1.8) * .pi * 2
-        return 1.005 + CGFloat(sin(phase)) * 0.035
     }
 }
 
@@ -883,13 +1015,13 @@ private struct TabBottomAccessoryPlaceholder: View {
 /// - 颜色使用 UIKit 动态语义色（`UIColor.label` / `UIColor.secondaryLabel`），
 ///   跟随系统 TabBar 所在窗口的 trait 反色，避免浅色 TabBar 背景下出现"白字"。
 /// - 图标全部走自定义 `MonoIcon`，和 `CompactMiniPlayerView` 视觉一致。
-/// - 暂停时显示 close 按钮以手动关闭迷你播放器。
 /// - 支持左右滑动切歌（`swipeToSkip()`：右滑下一首、左滑上一首）。
 /// - 歌名/歌词使用 `MarqueeText` 跑马灯滚动，不再缩略。
 @available(iOS 26.0, *)
 @MainActor
 private struct TabBottomAccessoryContent: View {
     let song: Song
+    let accent: Color
     @Binding var playlistPresented: Bool
     @ObservedObject private var player = FloatingBarPlaybackModel.shared
 
@@ -916,37 +1048,36 @@ private struct TabBottomAccessoryContent: View {
     }
 
     private var progressFillColors: [Color] {
-        [Color(uiColor: .label).opacity(0.45),
-         Color(uiColor: .label).opacity(0.75)]
+        [accent.opacity(0.64), accent]
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 CachedAsyncImage(url: song.coverUrl) {
                     RoundedRectangle(cornerRadius: 7, style: .continuous)
                         .fill(Color.gray.opacity(0.15))
                 }
                 .aspectRatio(contentMode: .fill)
-                .frame(width: 34, height: 34)
+                .frame(width: 38, height: 38)
                 .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 2) {
                     MarqueeText(
                         text: song.name,
-                        font: .system(size: 13, weight: .semibold, design: .rounded),
+                        font: .system(size: 14, weight: .semibold),
                         color: primaryTextColor,
                         speed: 25
                     )
-                    .frame(height: 16)
+                    .frame(height: 17)
 
                     MarqueeText(
                         text: subtitleText,
-                        font: .system(size: 11, weight: .medium, design: .rounded),
+                        font: .system(size: 11.5, weight: .regular),
                         color: secondaryTextColor,
                         speed: 25
                     )
-                    .frame(height: 14)
+                    .frame(height: 15)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .swipeSkipTextMotion()
@@ -954,56 +1085,50 @@ private struct TabBottomAccessoryContent: View {
                 Button(action: { player.togglePlayPause() }) {
                     MonoIcon(
                         icon: player.isPlaying ? .pause : .play,
-                        size: 15,
+                        size: 17,
                         color: primaryTextColor
                     )
-                    .frame(width: 30, height: 30)
+                    .frame(width: 36, height: 44)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(
+                    player.isPlaying ? String(localized: "暂停") : String(localized: "action_play")
+                )
+
+                Button(action: { player.next() }) {
+                    MonoIcon(icon: .next, size: 16, color: primaryTextColor)
+                        .frame(width: 36, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: "playback_next_track"))
 
                 Button(action: { playlistPresented = true }) {
                     MonoIcon(
                         icon: .list,
                         size: 14,
-                        color: primaryTextColor.opacity(0.6)
+                        color: secondaryTextColor
                     )
-                    .frame(width: 30, height: 30)
+                    .frame(width: 32, height: 44)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-
-                if !player.isPlaying {
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.22)) {
-                            player.dismissMiniPlayerPreservingQueue()
-                        }
-                    } label: {
-                        MonoIcon(icon: .close, size: 9, color: secondaryTextColor)
-                            .frame(width: 24, height: 24)
-                            .background(primaryTextColor.opacity(0.08))
-                            .clipShape(Circle())
-                            .contentShape(Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .transition(.scale.combined(with: .opacity))
-                }
+                .accessibilityLabel(String(localized: "player_queue"))
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 10)
 
-            // 进度条
             MiniPlayerProgressStrip(
-                height: 2.5,
+                height: 2,
                 minFillWidth: 4,
                 trackColor: progressTrackColor,
                 strokeColor: .clear,
                 fillColors: progressFillColors
             )
-                .padding(.horizontal, 20)
-                .padding(.top, 4)
-                .padding(.bottom, 2)
+                .padding(.horizontal, 10)
+                .padding(.top, 3)
+                .padding(.bottom, 1)
         }
-        .animation(.spring(response: 0.35, dampingFraction: 0.82), value: player.isPlaying)
         .contentShape(Rectangle())
         .swipeToSkip()
         .onTapGesture {
@@ -1039,103 +1164,116 @@ private struct CompactMiniPlayerView: View {
 
     private var compactProgressTrackColor: Color {
         systemColorScheme == .dark
-            ? Color.white.opacity(0.10)
-            : Color.monoTextPrimary.opacity(0.07)
-    }
-
-    private var compactProgressStrokeColor: Color {
-        systemColorScheme == .dark
-            ? Color.white.opacity(0.08)
-            : Color.black.opacity(0.04)
+            ? Color.white.opacity(0.12)
+            : Color.black.opacity(0.07)
     }
 
     private var compactProgressFillColors: [Color] {
-        systemColorScheme == .dark
-            ? [Color.white.opacity(0.68), Color.white.opacity(0.94)]
-            : [Color.monoTextPrimary.opacity(0.46), Color.monoTextPrimary.opacity(0.78)]
+        [Color.monoAccent.opacity(0.64), Color.monoAccent]
+    }
+
+    private var primaryTextColor: Color {
+        Color(uiColor: .label)
+    }
+
+    private var secondaryTextColor: Color {
+        Color(uiColor: .secondaryLabel)
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 CachedAsyncImage(url: song.coverUrl) {
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .fill(Color.gray.opacity(0.15))
                 }
                 .aspectRatio(contentMode: .fill)
-                .frame(width: 34, height: 34)
-                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .frame(width: 44, height: 44)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 2) {
                     MarqueeText(
                         text: song.name,
-                        font: .system(size: 13, weight: .semibold, design: .rounded),
-                        color: .monoTextPrimary,
+                        font: .system(size: 14, weight: .semibold),
+                        color: primaryTextColor,
                         speed: 25
                     )
-                    .frame(height: 16)
+                    .frame(height: 17)
 
                     MarqueeText(
                         text: subtitleText,
-                        font: .rounded(size: 11, weight: .medium),
-                        color: .monoTextSecondary,
+                        font: .system(size: 11.5, weight: .regular),
+                        color: secondaryTextColor,
                         speed: 22
                     )
-                    .frame(height: 14)
-                        .animation(.easeInOut(duration: 0.25), value: player.lyricLineText)
+                    .frame(height: 15)
+                    .animation(.easeInOut(duration: 0.25), value: player.lyricLineText)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .swipeSkipTextMotion()
 
-                HStack(spacing: 8) {
+                HStack(spacing: 2) {
                     Button(action: { player.togglePlayPause() }) {
                         MonoIcon(
                             icon: player.isPlaying ? .pause : .play,
-                            size: 15,
-                            color: .monoTextPrimary
+                            size: 18,
+                            color: primaryTextColor
                         )
-                        .frame(width: 30, height: 30)
+                        .frame(width: 40, height: 44)
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(
+                        player.isPlaying ? String(localized: "暂停") : String(localized: "action_play")
+                    )
 
-                    Button(action: { showCompactPlaylist = true }) {
-                        MonoIcon(icon: .list, size: 14, color: .monoTextPrimary.opacity(0.6))
-                            .frame(width: 30, height: 30)
+                    Button(action: { player.next() }) {
+                        MonoIcon(icon: .next, size: 17, color: primaryTextColor)
+                            .frame(width: 40, height: 44)
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(String(localized: "playback_next_track"))
 
-                    if !player.isPlaying {
-                        Button(action: {
-                            withAnimation(MonoAnimation.floatingBar) {
-                                player.dismissMiniPlayerPreservingQueue()
-                            }
-                        }) {
-                            MonoIcon(icon: .close, size: 9, color: .monoTextSecondary)
-                                .frame(width: 24, height: 24)
-                                .background(Color.monoTextPrimary.opacity(0.08))
-                                .clipShape(Circle())
-                                .contentShape(Circle())
-                        }
-                        .buttonStyle(.plain)
-                        .transition(.scale.combined(with: .opacity))
+                    Button(action: { showCompactPlaylist = true }) {
+                        MonoIcon(icon: .list, size: 14, color: secondaryTextColor)
+                            .frame(width: 36, height: 44)
+                            .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(String(localized: "player_queue"))
                 }
             }
             .padding(.horizontal, 12)
-            .padding(.top, 6)
-            .padding(.bottom, 4)
+            .padding(.top, 8)
+            .padding(.bottom, 6)
 
             MiniPlayerProgressStrip(
-                height: 3,
-                minFillWidth: 6,
+                height: 2,
+                minFillWidth: 4,
                 trackColor: compactProgressTrackColor,
-                strokeColor: compactProgressStrokeColor,
+                strokeColor: .clear,
                 fillColors: compactProgressFillColors
             )
-                .padding(.horizontal, 26)
-                .padding(.bottom, 6)
+                .padding(.horizontal, 12)
+                .padding(.bottom, 5)
+        }
+        .background {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(
+                            Color(uiColor: .systemBackground)
+                                .opacity(systemColorScheme == .dark ? 0.30 : 0.52)
+                        )
+                }
+                .shadow(
+                    color: Color.black.opacity(systemColorScheme == .dark ? 0.24 : 0.10),
+                    radius: 12,
+                    x: 0,
+                    y: 5
+                )
         }
         .contentShape(Rectangle())
         .swipeToSkip()

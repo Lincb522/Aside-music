@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>邀请码管理 - 两条鱼</title>
+  <link rel="icon" href="./brand-mark.svg">
+  <link rel="stylesheet" href="./assets/admin.css">
+  <link rel="stylesheet" href="./assets/admin-terminal.css?v=202607231413">
+  <link rel="stylesheet" href="./assets/admin-theme.css?v=2026072802">
+</head>
+<body>
+  <!-- Auth Gate -->
+  <div id="authGate" class="auth-gate hidden">
+    <div class="auth-panel">
+      <div class="brand-lockup">
+        <img src="./brand-mark.svg" alt="两条鱼" loading="eager" decoding="async" fetchpriority="high">
+        <div class="brand-copy">
+          <small>NCM.ZIJIU522.CN</small>
+          <h1>邀请码管理</h1>
+          <p>输入管理密码以继续</p>
+        </div>
+      </div>
+      <div class="form-stack">
+        <div class="field">
+          <label for="loginPassword">管理密码</label>
+          <input id="loginPassword" type="password" placeholder="输入密码" autocomplete="current-password">
+        </div>
+        <div id="loginError" class="error-text"></div>
+        <button id="loginButton" class="btn btn-primary btn-large">进入控制台</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- App Shell -->
+  <div id="appShell" class="shell hidden">
+    <!-- Header -->
+    <header class="masthead">
+      <div class="brand-lockup brand-lockup--compact">
+        <img src="./brand-mark.svg" alt="两条鱼" loading="eager" decoding="async" fetchpriority="high">
+        <div class="brand-copy">
+          <small>NCM.ZIJIU522.CN</small>
+          <h1>邀请码管理</h1>
+        </div>
+      </div>
+      <nav class="main-nav">
+        <a href="./">首页</a>
+        <a href="./tokens">Token 管理</a>
+        <a href="./ipa">版本管理</a>
+        <a href="./changelogs">更新日志</a>
+        <a class="is-active" href="./protect-codes">邀请码</a>
+        <a href="./bindings">绑定管理</a>
+      </nav>
+      <div class="masthead-actions">
+        <a class="btn btn-secondary" href="./register" target="_blank">自助申请页</a>
+        <a class="btn btn-secondary" href="./ipa">版本管理</a>
+        <button id="logoutButton" class="btn btn-ghost">退出</button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="page">
+      <!-- Hero Section -->
+      <section class="page-hero page-hero--single">
+        <div class="page-hero-copy">
+          <small class="eyebrow">Protect Codes Workspace</small>
+          <h2>邀请码管理</h2>
+        </div>
+      </section>
+
+      <!-- Actions Section -->
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <h3>批量生成邀请码</h3>
+          </div>
+          <div style="align-self: center; display: flex; gap: 8px;">
+            <select id="generatePurpose" aria-label="新邀请码用途">
+              <option value="tf">TestFlight</option>
+              <option value="ipa">IPA 自签</option>
+            </select>
+            <button id="exportBtn" class="btn btn-secondary">一键导出 (.txt)</button>
+            <button id="generateBtn" class="btn btn-primary">生成 100 个验证码</button>
+          </div>
+        </div>
+        <div id="protectSummary" class="protect-summary"></div>
+      </section>
+
+      <!-- Code List -->
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <small class="eyebrow">Codes Library</small>
+            <h3>所有邀请码</h3>
+          </div>
+          <div class="protect-controls">
+            <select id="purposeFilter" aria-label="邀请码用途">
+              <option value="all">全部用途</option>
+              <option value="tf">TestFlight</option>
+              <option value="ipa">IPA 自签</option>
+            </select>
+            <button class="chip active" type="button" data-sort="desc">倒序</button>
+            <button class="chip" type="button" data-sort="asc">正序</button>
+            <select id="codeFilter" aria-label="邀请码状态">
+              <option value="all">全部</option>
+              <option value="available">可用</option>
+              <option value="exhausted">已用尽</option>
+            </select>
+          </div>
+        </div>
+        <div id="codeGrid" class="list-stack">
+          <!-- Code items will be populated by JS -->
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast"></div>
+
+  <!-- Scripts -->
+  <script src="./assets/admin-core.js?v=2026072802"></script>
+  <script src="./assets/protect-codes-page.js?v=20260818-purpose"></script>
+</body>
+</html>

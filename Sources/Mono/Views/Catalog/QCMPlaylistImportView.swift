@@ -103,7 +103,7 @@ struct QQPlaylistImportView: View {
                             .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(16, weight: .medium) : .system(size: 16, weight: .medium, design: .rounded))
                             .monoTextInputBehavior()
                             .submitLabel(.search)
-                            .onSubmit {
+                            .monoOnSubmit(text: $uin) { _ in
                                 Task { await smartSearch() }
                             }
                     }
@@ -112,7 +112,9 @@ struct QQPlaylistImportView: View {
                     .themedPageSurface(cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius + 2 : 14, elevated: false)
                     
                     Button {
-                        Task { await smartSearch() }
+                        MonoTextInputCommitter.commit(text: $uin) { _ in
+                            Task { await smartSearch() }
+                        }
                     } label: {
                         MonoIcon(icon: .search, size: 18, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monoTextPrimary)
                             .frame(width: 48, height: 48)

@@ -42,15 +42,15 @@ struct ThemeRenderContext: Equatable {
     }
 
     var stabilizesLightweightSurfaces: Bool {
-        isHosted && (theme == .neumorphic || theme == .capsule || theme == .minimalWhite || theme == .petWhite)
+        isHosted && (theme == .neumorphic || theme == .capsule || theme == .clarity || theme == .minimalWhite || theme == .petWhite)
     }
 
     var isolatesFrequentRows: Bool {
-        isHosted && (theme == .neumorphic || theme == .capsule || theme == .minimalWhite || theme == .petWhite)
+        isHosted && (theme == .neumorphic || theme == .capsule || theme == .clarity || theme == .minimalWhite || theme == .petWhite)
     }
 
     var isolatesInteractiveSurfaces: Bool {
-        isHosted && (theme == .neumorphic || theme == .manga || theme == .capsule || theme == .minimalWhite || theme == .petWhite)
+        isHosted && (theme == .neumorphic || theme == .manga || theme == .capsule || theme == .clarity || theme == .minimalWhite || theme == .petWhite)
     }
 }
 
@@ -93,6 +93,7 @@ extension EnvironmentValues {
 /// 应用根视图与独立展示层（如全屏播放器）各自包一层。
 struct ThemeRenderHost<Content: View>: View {
     @ObservedObject private var settings = SettingsManager.shared
+    @ObservedObject private var colorEngine = UnifiedColorEngine.shared
     @Environment(\.colorScheme) private var colorScheme
 
     private let content: () -> Content
@@ -125,12 +126,15 @@ struct ThemeRenderHost<Content: View>: View {
                 .environment(\.themeRenderHostActive, true)
                 .environment(\.themeCustomizationRevision, renderContext.revision)
         }
+        .onAppear {
+            colorEngine.start()
+        }
     }
 
     private var renderContext: ThemeRenderContext {
         ThemeRenderContext(
             theme: settings.globalThemeId,
-            revision: settings.globalThemeRevision,
+            revision: settings.globalThemeRevision &* 31 &+ colorEngine.revision,
             colorScheme: colorScheme,
             isHosted: true
         )
@@ -142,26 +146,59 @@ struct ThemeRenderUnderlay: View {
     let theme: GlobalThemeId
     var revision: Int = 0
     @ObservedObject private var settings = SettingsManager.shared
+    @ObservedObject private var colorEngine = UnifiedColorEngine.shared
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         let _ = revision
         let _ = settings.globalThemeRevision
 
+        ZStack {
+            baseColor
+
+            DynamicCoverPaletteLayer(
+                colors: colorEngine.ambientColors,
+                opacity: ambientOpacity
+            )
+            .blur(radius: colorEngine.hasArtworkPalette ? 34 : 52)
+            .saturation(colorEngine.mode == .artwork ? 1.04 : 0.88)
+
+            LinearGradient(
+                colors: [
+                    Color.white.opacity(colorEngine.hasArtworkPalette ? 0.10 : 0.18),
+                    Color.clear,
+                    colorEngine.colors.background.opacity(0.18),
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+        .animation(.easeOut(duration: 0.5), value: colorEngine.revision)
+    }
+
+    private var baseColor: Color {
+        if colorEngine.isStarted {
+            return colorEngine.colors.background
+        }
         switch theme {
-        case .manga:
-            MangaStyle.paper
-        case .minimalWhite:
-            MinimalWhiteStyle.paper
-        case .petWhite:
-            PetWhiteStyle.paper
-        case .muji:
-            MujiStyle.paper
-        case .neumorphic:
-            NeumorphicStyle.base
-        case .capsule:
-            CapsuleStyle.base
-        case .default:
-            Color.monoBackground
+        case .manga: return MangaStyle.paper
+        case .minimalWhite: return MinimalWhiteStyle.paper
+        case .petWhite: return PetWhiteStyle.paper
+        case .muji: return MujiStyle.paper
+        case .neumorphic: return NeumorphicStyle.base
+        case .capsule: return CapsuleStyle.base
+        case .clarity: return ClarityStyle.base
+        case .default: return Color.monoBackground
+        }
+    }
+
+    private var ambientOpacity: Double {
+        guard !reduceTransparency, colorScheme != .dark else { return 0 }
+        switch colorEngine.mode {
+        case .theme: return 0
+        case .fusion: return colorEngine.hasArtworkPalette ? 0.70 : 0.30
+        case .artwork: return colorEngine.hasArtworkPalette ? 0.92 : 0.38
         }
     }
 }
@@ -189,6 +226,8 @@ struct ThemeRenderBackdrop: View {
             NeumorphicRenderBackdrop()
         case .capsule:
             CapsuleRootBackdrop()
+        case .clarity:
+            ClarityBackdrop()
         case .default:
             MonoBackground()
                 .ignoresSafeArea()

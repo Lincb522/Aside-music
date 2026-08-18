@@ -35,7 +35,9 @@ final class GlobalThemeManager: ObservableObject {
     // MARK: - Token 快捷访问
 
     var colors: GlobalColorPalette {
-        current.colorPalette
+        UnifiedColorEngine.shared.isStarted
+            ? UnifiedColorEngine.shared.colors
+            : current.colorPalette
     }
 
     var typography: GlobalTypography {
@@ -83,6 +85,7 @@ final class GlobalThemeManager: ObservableObject {
         case .capsule: return CapsuleThemeProvider()
         case .petWhite: return PetWhiteThemeProvider()
         case .minimalWhite: return MinimalWhiteThemeProvider()
+        case .clarity: return ClarityThemeProvider()
         }
     }
 

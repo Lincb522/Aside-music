@@ -41,7 +41,7 @@ struct AIEqualizerLabView: View {
 
     var body: some View {
         presentationRoot
-        .sheet(item: $comparisonProposal) { historical in
+        .monoSheet(item: $comparisonProposal, preset: .detail) { historical in
             NavigationStack {
                 AIEqualizerProposalComparisonRedesignView(
                     current: agent.proposal,

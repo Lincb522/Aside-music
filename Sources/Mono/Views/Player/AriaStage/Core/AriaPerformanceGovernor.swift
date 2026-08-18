@@ -1,6 +1,5 @@
 import Foundation
 import Combine
-import UIKit
 
 /// Aria 沉浸模式的性能调节器 — 按设备热度、省电模式与屏幕捕获自动降档。
 /// 封面粒子 Canvas 是 CPU 渲染（每帧数千次 fill），机身发热或低电量时
@@ -22,78 +21,45 @@ final class AriaPerformanceGovernor: ObservableObject {
 
     /// 封面粒子网格边长（粒子数 = grid²：4096 / 2916 / 1936）
     var coverGrid: Int {
-        switch tier {
-        case .high: return 64
-        case .medium: return 54
-        case .low: return 44
-        }
+        let density = MonoComputeBudgetStore.shared.current.particleDensityScale
+        return max(36, min(64, Int((64 * density.squareRoot()).rounded())))
     }
 
     /// 封面粒子 Canvas 帧率上限
     var coverFPS: Int {
-        switch tier {
-        case .high: return 60
-        case .medium: return 45
-        case .low: return 30
-        }
+        min(60, MonoComputeBudgetStore.shared.current.heavyVisualFramesPerSecond)
     }
 
     /// 舞台镜头（漂移/视差/节拍冲击）帧率上限
     var stageFPS: Int {
-        switch tier {
-        case .high: return 60
-        case .medium: return 45
-        case .low: return 30
-        }
+        min(60, MonoComputeBudgetStore.shared.current.heavyVisualFramesPerSecond)
     }
 
     private var cancellables: Set<AnyCancellable> = []
 
     private init() {
-        refresh()
-        NotificationCenter.default.publisher(for: ProcessInfo.thermalStateDidChangeNotification)
+        refresh(
+            budget: MonoComputeEngine.shared.budget,
+            captured: MonoComputeEngine.shared.screenCaptured
+        )
+        MonoComputeEngine.shared.$budget
+            .combineLatest(MonoComputeEngine.shared.$screenCaptured)
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.refresh() }
-            .store(in: &cancellables)
-        NotificationCenter.default.publisher(for: Notification.Name.NSProcessInfoPowerStateDidChange)
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.refresh() }
-            .store(in: &cancellables)
-        NotificationCenter.default.publisher(for: UIScreen.capturedDidChangeNotification)
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.refresh() }
-            .store(in: &cancellables)
-        NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.refresh() }
-            .store(in: &cancellables)
-    }
-
-    private var anyScreenCaptured: Bool {
-        UIApplication.shared.connectedScenes
-            .compactMap { ($0 as? UIWindowScene)?.screen }
-            .contains(where: \.isCaptured)
-    }
-
-    private func refresh() {
-        let info = ProcessInfo.processInfo
-        let captured = anyScreenCaptured
-        let next: Tier
-        // 录屏时系统对每帧额外抓取+编码，与舞台渲染叠加是掉帧/发热主源，
-        // 不等 thermalState 升级，直接压到最低档。
-        if captured || info.isLowPowerModeEnabled {
-            next = .low
-        } else {
-            switch info.thermalState {
-            case .nominal:
-                next = .high
-            case .fair, .serious:
-                next = .medium
-            case .critical:
-                next = .low
-            @unknown default:
-                next = .medium
+            .sink { [weak self] budget, captured in
+                self?.refresh(budget: budget, captured: captured)
             }
+            .store(in: &cancellables)
+    }
+
+    private func refresh(budget: MonoComputeBudget, captured: Bool) {
+        let next: Tier
+        switch budget.tier {
+        case .maximum:
+            next = .high
+        case .balanced, .reduced:
+            next = .medium
+        case .minimum:
+            next = .low
         }
         if captured != isScreenCaptured {
             isScreenCaptured = captured

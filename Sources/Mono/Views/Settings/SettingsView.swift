@@ -11,6 +11,9 @@ private func settingsFormat(_ key: String, _ arguments: CVarArg...) -> String {
 }
 
 private func themedSettingsFont(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+    if ClarityStyle.isActive {
+        return ClarityStyle.body(size, weight: weight)
+    }
     if MinimalWhiteStyle.isActive {
         return MinimalWhiteStyle.bodyFont(size, weight: weight)
     }
@@ -43,6 +46,7 @@ private func themedSettingsFont(_ size: CGFloat, weight: Font.Weight = .medium) 
 }
 
 private func themedSettingsPrimaryColor() -> Color {
+    if ClarityStyle.isActive { return ClarityStyle.ink }
     if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
     if MangaStyle.isActive { return MangaStyle.ink }
     if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
@@ -56,6 +60,7 @@ private func themedSettingsPrimaryColor() -> Color {
 }
 
 private func themedSettingsSecondaryColor() -> Color {
+    if ClarityStyle.isActive { return ClarityStyle.inkSoft }
     if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
     if MangaStyle.isActive { return MangaStyle.inkSub }
     if PetWhiteStyle.isActive { return PetWhiteStyle.inkSoft }
@@ -156,6 +161,7 @@ private struct AsideSettingsDetailChromeModifier: ViewModifier {
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarBackButtonHidden(true)
+            .toolbar(.visible, for: .navigationBar)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -207,15 +213,19 @@ struct SettingsView: View {
             }
             // aside / muji：标题落在页面内容里（刊头版式），导航栏只留返回；其余主题维持内联标题
             .themedInlineNavigationTitle(
-                (settings.globalThemeId == .default || settings.globalThemeId == .muji) ? "" : String(localized: "settings_title")
+                (settings.globalThemeId == .default || settings.globalThemeId == .muji || settings.globalThemeId == .clarity) ? "" : String(localized: "settings_title")
             )
             .toolbarBackground(.hidden, for: .navigationBar)
             .navigationDestination(for: SettingsNavigationDestination.self) { destination in
-                AnyView(destination.view)
+                if ClarityStyle.isActive {
+                    destination.view.clarityDetailChrome()
+                } else {
+                    destination.view
+                }
             }
-            .sheet(isPresented: $isShowingTokenAgreement, onDismiss: {
+            .monoSheet(isPresented: $isShowingTokenAgreement, onDismiss: {
                 onlineAccess.declinePendingTokenAuthorization()
-            }) {
+            }, preset: .standard) {
                 TokenAgreementAuthorizationSheet(
                     onAgree: acceptPendingTokenAuthorization,
                     onDecline: declinePendingTokenAuthorization
@@ -248,7 +258,9 @@ struct SettingsView: View {
     /// 类型替换崩溃；每个分支仍用相同间距的 `VStack` 保持布局一致。
     private var settingsContent: AnyView {
         let spacing = themedSettingsSpacing
-        if MangaStyle.isActive {
+        if ClarityStyle.isActive {
+            return AnyView(VStack(spacing: spacing) { claritySettingsContent })
+        } else if MangaStyle.isActive {
             return AnyView(VStack(spacing: spacing) { mangaSettingsContent })
         } else if PetWhiteStyle.isActive {
             return AnyView(VStack(spacing: spacing) { petWhiteSettingsContent })
@@ -280,6 +292,369 @@ struct SettingsView: View {
         asideDataSection
         if qqDevMode {
             otherSection
+        }
+    }
+
+    // MARK: - 通透设置主页
+
+    @ViewBuilder
+    private var claritySettingsContent: some View {
+        claritySettingsHeader
+        ClarityShell(cornerRadius: 32) {
+            VStack(spacing: 0) {
+                clarityThemeModeSelector
+                claritySettingsDivider
+                claritySettingsRoute(
+                    icon: .playerTheme,
+                    title: settingsText("settings_navigation_appearance_title"),
+                    subtitle: settingsText("settings_navigation_appearance_subtitle"),
+                    destination: .appearance
+                )
+                claritySettingsDivider
+                claritySettingsRoute(
+                    icon: .soundQuality,
+                    title: settingsText("settings_navigation_playback_title"),
+                    subtitle: settingsText("settings_navigation_playback_subtitle"),
+                    destination: .playback
+                )
+                claritySettingsDivider
+                claritySettingsRoute(
+                    icon: .cloud,
+                    title: settingsText("settings_navigation_cloud_sync_title"),
+                    subtitle: hasToken ? playlistSyncStatusText : settingsText("settings_navigation_cloud_sync_disabled"),
+                    destination: .cloudSync
+                )
+                claritySettingsDivider
+                claritySettingsRoute(
+                    icon: .storage,
+                    title: String(localized: "settings_storage_manage"),
+                    subtitle: String(localized: "settings_storage_manage_desc"),
+                    value: cacheSize,
+                    destination: .storage
+                )
+                if AppConfig.Features.downloadEnabled {
+                    claritySettingsDivider
+                    claritySettingsRoute(
+                        icon: .download,
+                        title: String(localized: "settings_download_manage"),
+                        subtitle: nil,
+                        destination: .download
+                    )
+                }
+                claritySettingsDivider
+                claritySettingsRoute(
+                    icon: .infoCircle,
+                    title: String(localized: "settings_about"),
+                    subtitle: nil,
+                    value: appVersion,
+                    destination: .about
+                )
+            }
+            .padding(.horizontal, 12)
+        }
+
+        clarityAccessPanel
+
+        if qqDevMode {
+            otherSection
+        }
+    }
+
+    private var claritySettingsHeader: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(String(localized: "settings_title"))
+                    .font(ClarityStyle.title(24, weight: .semibold))
+                    .foregroundStyle(ClarityStyle.ink)
+                Text(settingsText("settings_navigation_appearance_subtitle"))
+                    .font(ClarityStyle.body(11.5))
+                    .foregroundStyle(ClarityStyle.inkSoft)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            NavigationLink {
+                AboutView()
+            } label: {
+                MonoIcon(icon: .infoCircle, size: 17, color: ClarityStyle.ink, lineWidth: 1.5)
+                    .frame(width: 42, height: 42)
+                    .background(ClarityMembrane(shape: Circle(), strength: .regular))
+            }
+            .buttonStyle(ClarityPressStyle())
+        }
+        .padding(.top, 4)
+        .padding(.horizontal, 4)
+        .monoPageHeaderCollapse()
+    }
+
+    private var clarityThemeModeSelector: some View {
+        VStack(alignment: .leading, spacing: 11) {
+            Text(String(localized: "settings_theme_mode"))
+                .font(ClarityStyle.body(13, weight: .semibold))
+                .foregroundStyle(ClarityStyle.ink)
+
+            HStack(spacing: 6) {
+                clarityThemeModeButton("system", title: String(localized: "settings_theme_auto"), icon: .sparkle)
+                clarityThemeModeButton("light", title: String(localized: "settings_theme_light"), icon: .sun)
+                clarityThemeModeButton("dark", title: String(localized: "settings_theme_dark"), icon: .moon)
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 16)
+    }
+
+    private func clarityThemeModeButton(_ value: String, title: String, icon: MonoIcon.IconType) -> some View {
+        Button {
+            guard settings.themeMode != value else { return }
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.9)) {
+                settings.themeMode = value
+            }
+        } label: {
+            HStack(spacing: 6) {
+                MonoIcon(
+                    icon: icon,
+                    size: 13,
+                    color: settings.themeMode == value ? ClarityStyle.onSelection : ClarityStyle.inkSoft,
+                    lineWidth: 1.45
+                )
+                Text(title)
+                    .font(ClarityStyle.body(10.5, weight: settings.themeMode == value ? .semibold : .regular))
+                    .foregroundStyle(settings.themeMode == value ? ClarityStyle.onSelection : ClarityStyle.inkSoft)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 38)
+            .background {
+                if settings.themeMode == value {
+                    ClaritySelectionLens(shape: Capsule())
+                } else {
+                    ClarityMembrane(shape: Capsule(), strength: .quiet)
+                }
+            }
+        }
+        .buttonStyle(ClarityPressStyle())
+    }
+
+    private var claritySettingsDivider: some View {
+        Rectangle()
+            .fill(ClarityStyle.line)
+            .frame(height: 1)
+            .padding(.leading, 52)
+    }
+
+    private func claritySettingsRoute(
+        icon: MonoIcon.IconType,
+        title: String,
+        subtitle: String?,
+        value: String? = nil,
+        destination: SettingsNavigationDestination
+    ) -> some View {
+        NavigationLink {
+            claritySettingsDestination(destination)
+        } label: {
+            HStack(spacing: 12) {
+                MonoIcon(icon: icon, size: 17, color: ClarityStyle.ink, lineWidth: 1.5)
+                    .frame(width: 38, height: 48)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(ClarityStyle.body(13.5, weight: .semibold))
+                        .foregroundStyle(ClarityStyle.ink)
+                        .lineLimit(1)
+                    if let subtitle, !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(ClarityStyle.body(10.5))
+                            .foregroundStyle(ClarityStyle.inkSoft)
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer(minLength: 8)
+                if let value {
+                    Text(value)
+                        .font(ClarityStyle.body(10.5, weight: .medium))
+                        .foregroundStyle(ClarityStyle.inkFaint)
+                        .lineLimit(1)
+                }
+                MonoIcon(icon: .chevronRight, size: 12, color: ClarityStyle.inkFaint, lineWidth: 1.4)
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 7)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(ClarityPressStyle())
+    }
+
+    /// 通透主题自己的访问与服务面板。它保留 Token、线路和开发者联系能力，
+    /// 但不再把其他主题的开发者卡片直接嵌进设置主页。
+    private var clarityAccessPanel: some View {
+        ClarityShell(cornerRadius: 32) {
+            VStack(spacing: 0) {
+                HStack(spacing: 13) {
+                    Image("WeChatAvatar")
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 48, height: 48)
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(Color.white.opacity(0.88), lineWidth: 1))
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("ZIJIU522")
+                            .font(ClarityStyle.body(15, weight: .semibold))
+                            .foregroundStyle(ClarityStyle.ink)
+                        Text(settingsText("settings_developer_status"))
+                            .font(ClarityStyle.body(10.5))
+                            .foregroundStyle(ClarityStyle.inkSoft)
+                            .lineLimit(1)
+                    }
+
+                    Spacer(minLength: 8)
+
+                    Button {
+                        apiTokenInput = SecureConfig.apiToken ?? apiTokenInput
+                        isHeaderCardExpanded.toggle()
+                    } label: {
+                        HStack(spacing: 7) {
+                            Circle()
+                                .fill(tokenStatusColor)
+                                .frame(width: 7, height: 7)
+                            Text(tokenStatusText)
+                                .font(ClarityStyle.body(10.5, weight: .semibold))
+                                .foregroundStyle(ClarityStyle.ink)
+                                .lineLimit(1)
+                            MonoIcon(
+                                icon: .chevronDown,
+                                size: 10,
+                                color: ClarityStyle.inkFaint,
+                                lineWidth: 1.4
+                            )
+                            .rotationEffect(.degrees(isHeaderCardExpanded ? 180 : 0))
+                            .animation(.easeInOut(duration: 0.18), value: isHeaderCardExpanded)
+                        }
+                        .padding(.horizontal, 11)
+                        .frame(height: 34)
+                        .background(ClarityMembrane(shape: Capsule(), strength: .quiet))
+                    }
+                    .buttonStyle(ClarityPressStyle())
+                }
+                .padding(.horizontal, 17)
+                .padding(.vertical, 16)
+
+                SettingsHeaderReveal(isExpanded: isHeaderCardExpanded) {
+                    VStack(spacing: 0) {
+                        Rectangle()
+                            .fill(ClarityStyle.line)
+                            .frame(height: 1)
+                            .padding(.horizontal, 16)
+
+                        VStack(spacing: 12) {
+                            HStack(spacing: 9) {
+                                MonoIcon(icon: .unlock, size: 14, color: tokenStatusColor, lineWidth: 1.45)
+                                TextField(settingsText("access_token_input_placeholder"), text: $apiTokenInput)
+                                    .font(.system(size: 13, weight: .medium, design: .monospaced))
+                                    .foregroundStyle(ClarityStyle.ink)
+                                    .monoTextInputBehavior()
+                                    .submitLabel(.done)
+                                    .monoOnSubmit(text: $apiTokenInput) { _ in submitAPIToken() }
+
+                                Button {
+                                    MonoTextInputCommitter.commit(text: $apiTokenInput) { _ in submitAPIToken() }
+                                } label: {
+                                    Text(settingsText("common_save"))
+                                        .font(ClarityStyle.body(11, weight: .semibold))
+                                        .foregroundStyle(ClarityStyle.onAccent)
+                                        .padding(.horizontal, 13)
+                                        .frame(height: 32)
+                                        .background(Capsule().fill(ClarityStyle.accent))
+                                }
+                                .buttonStyle(ClarityPressStyle())
+                            }
+                            .padding(.horizontal, 12)
+                            .frame(minHeight: 48)
+                            .background(ClarityMembrane(shape: RoundedRectangle(cornerRadius: 18, style: .continuous), strength: .quiet))
+
+                            HStack(spacing: 10) {
+                                Button {
+                                    PlatformPasteboard.copy("Fallin-Out0122")
+                                    HapticManager.shared.success()
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { wechatCopied = true }
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                        withAnimation { wechatCopied = false }
+                                    }
+                                } label: {
+                                    Label(
+                                        wechatCopied ? settingsText("settings_contact_copied") : "Fallin-Out0122",
+                                        systemImage: wechatCopied ? "checkmark" : "doc.on.doc"
+                                    )
+                                    .font(ClarityStyle.body(11, weight: .semibold))
+                                    .foregroundStyle(wechatCopied ? Color.green : ClarityStyle.ink)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 40)
+                                    .background(ClarityMembrane(shape: Capsule(), strength: .quiet))
+                                }
+                                .buttonStyle(ClarityPressStyle())
+
+                                Button {
+                                    PlatformPasteboard.copy("Fallin-Out0122")
+                                    HapticManager.shared.success()
+                                    if let url = URL(string: "weixin://dl/contacts") {
+                                        UIApplication.shared.open(url)
+                                    }
+                                } label: {
+                                    Text(settingsText("settings_open_wechat"))
+                                        .font(ClarityStyle.body(11, weight: .semibold))
+                                        .foregroundStyle(ClarityStyle.ink)
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 40)
+                                        .background(ClarityMembrane(shape: Capsule(), strength: .quiet))
+                                }
+                                .buttonStyle(ClarityPressStyle())
+                            }
+
+                            if ServerLineManager.isBackupConfigured {
+                                ServerLineSelectorView()
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 12)
+                        .padding(.bottom, 16)
+                    }
+                }
+            }
+        }
+    }
+
+    /// 通透主题的设置页本身已经作为父级 `NavigationStack` 的目标出现。
+    /// 这里使用直接目标导航，避免在已入栈页面中再次依赖值路由解析，
+    /// 否则路径会增长但可见内容仍停留在设置首页。
+    @MainActor
+    @ViewBuilder
+    private func claritySettingsDestination(_ destination: SettingsNavigationDestination) -> some View {
+        switch destination {
+        case .appearance:
+            AppearanceSettingsView()
+        case .playback:
+            PlaybackSettingsView()
+        case .cloudSync:
+            CloudSyncSettingsView()
+        case .storage:
+            StorageManageView()
+        case .download:
+            DownloadManageView()
+        case .about:
+            AboutView()
+        case .developerTools:
+            DeveloperToolsView()
+        case .developerPopupCatalog:
+            DeveloperPopupCatalogView()
+        case .debugLog:
+            DebugLogView()
+        case .aiProviderSettings:
+            AIProviderDeveloperSettingsView()
+        case .ffmpegCapabilityTest:
+            FFmpegCapabilityTestView()
+        case .platformAccountSwitching:
+            PlatformAccountSwitchingView()
         }
     }
 
@@ -935,7 +1310,6 @@ struct SettingsView: View {
             .buttonStyle(.plain)
         }
     }
-
 
     // MARK: - 日夜模式
 
@@ -1608,6 +1982,10 @@ struct SettingsView: View {
                     TextField(settingsText("access_token_input_placeholder"), text: $apiTokenInput)
                         .font(.system(size: 14, weight: .medium, design: .monospaced))
                         .monoTextInputBehavior()
+                        .submitLabel(.done)
+                        .monoOnSubmit(text: $apiTokenInput) { _ in
+                            submitAPIToken()
+                        }
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
@@ -1617,7 +1995,9 @@ struct SettingsView: View {
                 )
 
                 Button {
-                    submitAPIToken()
+                    MonoTextInputCommitter.commit(text: $apiTokenInput) { _ in
+                        submitAPIToken()
+                    }
                 } label: {
                     Text(settingsText("common_save"))
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
@@ -1841,6 +2221,10 @@ struct SettingsView: View {
                                 TextField(settingsText("access_token_input_placeholder"), text: $apiTokenInput)
                                     .font(.system(size: 14, weight: .medium, design: .monospaced))
                                     .monoTextInputBehavior()
+                                    .submitLabel(.done)
+                                    .monoOnSubmit(text: $apiTokenInput) { _ in
+                                        submitAPIToken()
+                                    }
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 10)
@@ -1854,7 +2238,9 @@ struct SettingsView: View {
                             )
 
                             Button {
-                                submitAPIToken()
+                                MonoTextInputCommitter.commit(text: $apiTokenInput) { _ in
+                                    submitAPIToken()
+                                }
                             } label: {
                                 Text(settingsText("common_save"))
                                     .font(themedSettingsFont(13, weight: .semibold))
@@ -1964,7 +2350,7 @@ struct SettingsView: View {
                 switch outcome {
                 case .agreementRequired:
                     isShowingTokenAgreement = true
-                case .status(let status):
+                case let .status(status):
                     handleTokenSubmissionStatus(status, submittedToken: trimmed)
                 }
             }
@@ -2065,6 +2451,7 @@ struct SettingsView: View {
     }
 
     private func clearCache() {
+        MonoMemoryEngine.shared.trim(level: .critical, reason: .manual)
         OptimizedCacheManager.shared.clearAll()
         CacheManager.shared.clearAll()
         CachedAsyncImage<EmptyView>.clearMemoryCache()
@@ -2292,6 +2679,15 @@ struct SettingsIconBadge: View {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .stroke(Color.white.opacity(0.06), lineWidth: 0.7)
             }
+        } else if ClarityStyle.isActive {
+            MonoIcon(
+                icon: icon,
+                size: 15,
+                color: ClarityStyle.ink,
+                lineWidth: 1.5
+            )
+            .frame(width: 34, height: 34)
+            .background(ClarityMembrane(shape: Circle(), strength: .quiet))
         } else if MinimalWhiteStyle.isActive {
             MonoIcon(
                 icon: icon,
@@ -2419,19 +2815,19 @@ struct SettingsSection<Content: View>: View {
                 }
 
                 Text(developerDiagnosticStyle
-                     ? title
-                     : ((MinimalWhiteStyle.isActive || isAsideTheme) ? title : title.uppercased()))
+                    ? title
+                    : ((ClarityStyle.isActive || MinimalWhiteStyle.isActive || isAsideTheme) ? title : title.uppercased()))
                     .font(developerDiagnosticStyle
-                          ? .system(size: 11.5, weight: .bold, design: .rounded)
-                          : sectionTitleFont)
+                        ? .system(size: 11.5, weight: .bold, design: .rounded)
+                        : sectionTitleFont)
                     .foregroundColor(developerDiagnosticStyle
-                                     ? .white.opacity(0.48)
-                                     : sectionTitleColor)
+                        ? .white.opacity(0.48)
+                        : sectionTitleColor)
                     .tracking(developerDiagnosticStyle
-                              ? 0
-                              : ((MinimalWhiteStyle.isActive || isAsideTheme) ? 0 : (MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive || BentoStyle.isActive ? 1.0 : 0.4)))
+                        ? 0
+                        : ((MinimalWhiteStyle.isActive || isAsideTheme) ? 0 : (MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive || BentoStyle.isActive ? 1.0 : 0.4)))
             }
-            .padding(.leading, developerDiagnosticStyle || isAsideTheme ? 0 : 16)
+            .padding(.leading, developerDiagnosticStyle || isAsideTheme || ClarityStyle.isActive ? 0 : 16)
 
             VStack(spacing: 0) {
                 content
@@ -2444,6 +2840,8 @@ struct SettingsSection<Content: View>: View {
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
                                 .stroke(Color.white.opacity(0.07), lineWidth: 0.65)
                         }
+                } else if ClarityStyle.isActive {
+                    ClaritySettingsSectionPlane()
                 } else if MangaStyle.isActive {
                     // 去卡片化：设置分组用上下规则线围合，内容直接排在纸上
                     VStack(spacing: 0) {
@@ -2492,9 +2890,12 @@ struct SettingsSection<Content: View>: View {
                 cornerRadius: developerDiagnosticStyle ? 16 : (isAsideTheme ? 14 : 22),
                 disabled: developerDiagnosticStyle
             )
+            .claritySettingsSectionClip(cornerRadius: ClarityStyle.settingsSectionRadius)
             .contentShape(
                 RoundedRectangle(
-                    cornerRadius: developerDiagnosticStyle ? 16 : (isAsideTheme ? 14 : 22),
+                    cornerRadius: ClarityStyle.isActive
+                        ? ClarityStyle.settingsSectionRadius
+                        : (developerDiagnosticStyle ? 16 : (isAsideTheme ? 14 : 22)),
                     style: .continuous
                 )
             )
@@ -2502,6 +2903,7 @@ struct SettingsSection<Content: View>: View {
     }
 
     private var sectionTitleFont: Font {
+        if ClarityStyle.isActive { return ClarityStyle.body(12, weight: .semibold) }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.labelFont(12, weight: .semibold) }
         if MangaStyle.isActive { return MangaStyle.labelFont(12, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.labelFont(11, weight: .semibold) }
@@ -2515,6 +2917,7 @@ struct SettingsSection<Content: View>: View {
     }
 
     private var sectionTitleColor: Color {
+        if ClarityStyle.isActive { return ClarityStyle.inkSoft }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if MangaStyle.isActive { return MangaStyle.ink }
         if MujiStyle.isActive { return MujiStyle.inkSoft }
@@ -2530,8 +2933,17 @@ struct SettingsSection<Content: View>: View {
 
 private extension View {
     @ViewBuilder
+    func claritySettingsSectionClip(cornerRadius: CGFloat) -> some View {
+        if ClarityStyle.isActive {
+            clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        } else {
+            self
+        }
+    }
+
+    @ViewBuilder
     func monoGlassConditionalForSettings(cornerRadius: CGFloat, disabled: Bool = false) -> some View {
-        if disabled || MangaStyle.isActive || PetWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || SequoiaStyle.isActive || SignalStyle.isActive || BentoStyle.isActive {
+        if disabled || ClarityStyle.isActive || MangaStyle.isActive || PetWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || CapsuleStyle.isActive || SequoiaStyle.isActive || SignalStyle.isActive || BentoStyle.isActive {
             self
         } else {
             monoGlass(cornerRadius: cornerRadius)
@@ -2541,7 +2953,16 @@ private extension View {
 
     @ViewBuilder
     func themedSettingsStandaloneCard(cornerRadius: CGFloat, tint: Color = MangaStyle.bubbleWhite) -> some View {
-        if MinimalWhiteStyle.isActive {
+        if ClarityStyle.isActive {
+            let clarityRadius = min(max(cornerRadius, 20), 30)
+            background(
+                ClarityMembrane(
+                    shape: RoundedRectangle(cornerRadius: clarityRadius, style: .continuous),
+                    strength: .strong
+                )
+            )
+            .clipShape(RoundedRectangle(cornerRadius: clarityRadius, style: .continuous))
+        } else if MinimalWhiteStyle.isActive {
             background(
                 MinimalWhiteSurfaceBackground(
                     cornerRadius: min(max(cornerRadius, MinimalWhiteStyle.compactRadius), MinimalWhiteStyle.chromeRadius),
@@ -2716,18 +3137,18 @@ struct SettingsToggleRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(developerDiagnosticStyle
-                          ? .system(size: 15, weight: .semibold, design: .rounded)
-                          : themedSettingsFont(15, weight: .medium))
+                        ? .system(size: 15, weight: .semibold, design: .rounded)
+                        : themedSettingsFont(15, weight: .medium))
                     .foregroundColor(developerDiagnosticStyle ? .white : themedSettingsPrimaryColor())
 
                 if let subtitle = subtitle {
                     Text(subtitle)
                         .font(developerDiagnosticStyle
-                              ? .system(size: 11, weight: .medium, design: .rounded)
-                              : themedSettingsFont(11, weight: .regular))
+                            ? .system(size: 11, weight: .medium, design: .rounded)
+                            : themedSettingsFont(11, weight: .regular))
                         .foregroundColor(developerDiagnosticStyle
-                                         ? .white.opacity(0.45)
-                                         : themedSettingsSecondaryColor())
+                            ? .white.opacity(0.45)
+                            : themedSettingsSecondaryColor())
                 }
             }
 
@@ -2783,8 +3204,8 @@ struct SettingsNavigationRow: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
                         .font(developerDiagnosticStyle
-                              ? .system(size: 15, weight: .semibold, design: .rounded)
-                              : themedSettingsFont(15, weight: .medium))
+                            ? .system(size: 15, weight: .semibold, design: .rounded)
+                            : themedSettingsFont(15, weight: .medium))
                         .foregroundColor(developerDiagnosticStyle ? .white : themedSettingsPrimaryColor())
 
                     if let subtitle {
@@ -2796,8 +3217,8 @@ struct SettingsNavigationRow: View {
                             Text(subtitle)
                                 .font(themedSettingsFont(11, weight: .regular))
                                 .foregroundColor(developerDiagnosticStyle
-                                                 ? .white.opacity(0.45)
-                                                 : themedSettingsSecondaryColor())
+                                    ? .white.opacity(0.45)
+                                    : themedSettingsSecondaryColor())
                         }
                     }
                 }
@@ -2808,8 +3229,8 @@ struct SettingsNavigationRow: View {
                     Text(value)
                         .font(themedSettingsFont(14, weight: .regular))
                         .foregroundColor(developerDiagnosticStyle
-                                         ? .white.opacity(0.45)
-                                         : themedSettingsSecondaryColor())
+                            ? .white.opacity(0.45)
+                            : themedSettingsSecondaryColor())
                 }
 
                 MonoIcon(
@@ -2843,16 +3264,16 @@ struct SettingsRouteLinkRow: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
                         .font(developerDiagnosticStyle
-                              ? .system(size: 15, weight: .semibold, design: .rounded)
-                              : themedSettingsFont(15, weight: .medium))
+                            ? .system(size: 15, weight: .semibold, design: .rounded)
+                            : themedSettingsFont(15, weight: .medium))
                         .foregroundColor(developerDiagnosticStyle ? .white : themedSettingsPrimaryColor())
 
                     if let subtitle {
                         Text(subtitle)
                             .font(themedSettingsFont(11, weight: .regular))
                             .foregroundColor(developerDiagnosticStyle
-                                             ? .white.opacity(0.45)
-                                             : themedSettingsSecondaryColor())
+                                ? .white.opacity(0.45)
+                                : themedSettingsSecondaryColor())
                     }
                 }
 
@@ -2862,8 +3283,8 @@ struct SettingsRouteLinkRow: View {
                     Text(value)
                         .font(themedSettingsFont(13, weight: .medium))
                         .foregroundColor(developerDiagnosticStyle
-                                         ? .white.opacity(0.45)
-                                         : themedSettingsSecondaryColor())
+                            ? .white.opacity(0.45)
+                            : themedSettingsSecondaryColor())
                 }
 
                 MonoIcon(
@@ -2936,8 +3357,8 @@ struct SettingsInfoRow: View {
 
             Text(title)
                 .font(developerDiagnosticStyle
-                      ? .system(size: 15, weight: .semibold, design: .rounded)
-                      : themedSettingsFont(15, weight: .medium))
+                    ? .system(size: 15, weight: .semibold, design: .rounded)
+                    : themedSettingsFont(15, weight: .medium))
                 .foregroundColor(developerDiagnosticStyle ? .white : themedSettingsPrimaryColor())
 
             Spacer()
@@ -2945,8 +3366,8 @@ struct SettingsInfoRow: View {
             Text(value)
                 .font(themedSettingsFont(14, weight: .regular))
                 .foregroundColor(developerDiagnosticStyle
-                                 ? .white.opacity(0.45)
-                                 : themedSettingsSecondaryColor())
+                    ? .white.opacity(0.45)
+                    : themedSettingsSecondaryColor())
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 13)
@@ -2967,10 +3388,10 @@ struct SettingsButtonRow: View {
 
                 Text(title)
                     .font(developerDiagnosticStyle
-                          ? .system(size: 15, weight: .semibold, design: .rounded)
-                          : themedSettingsFont(15, weight: .medium))
+                        ? .system(size: 15, weight: .semibold, design: .rounded)
+                        : themedSettingsFont(15, weight: .medium))
                     .foregroundColor(titleColor
-                                     ?? (developerDiagnosticStyle ? .white : themedSettingsPrimaryColor()))
+                        ?? (developerDiagnosticStyle ? .white : themedSettingsPrimaryColor()))
 
                 Spacer()
             }
@@ -3122,13 +3543,9 @@ private struct SettingsHeaderReveal<Content: View>: View {
 
     private var revealAnimation: Animation {
         if reduceMotion {
-            return .easeOut(duration: 0.12)
+            return .linear(duration: 0.01)
         }
-        return .interactiveSpring(response: 0.32, dampingFraction: 0.93, blendDuration: 0.04)
-    }
-
-    private var revealOffset: CGFloat {
-        isExpanded || reduceMotion ? 0 : -10
+        return .easeInOut(duration: 0.22)
     }
 
     init(isExpanded: Bool, @ViewBuilder content: () -> Content) {
@@ -3141,7 +3558,6 @@ private struct SettingsHeaderReveal<Content: View>: View {
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .topLeading)
             .opacity(isExpanded ? 1 : 0)
-            .offset(y: revealOffset)
             .background {
                 GeometryReader { proxy in
                     Color.clear
@@ -3303,8 +3719,14 @@ private struct SettingsFloatingBarOptionCard: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.82)
                 .foregroundColor(titleColor)
+
+            Text(style.description)
+                .font(themedSettingsFont(10.5, weight: .medium))
+                .foregroundColor(descriptionColor)
+                .lineLimit(3)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: 108, alignment: .topLeading)
         .padding(.horizontal, 12)
         .padding(.vertical, 11)
         .background(cardBackground)
@@ -3346,6 +3768,17 @@ private struct SettingsFloatingBarOptionCard: View {
         if SequoiaStyle.isActive { return isSelected ? SequoiaStyle.ink : SequoiaStyle.inkSoft }
         if SignalStyle.isActive { return isSelected ? SignalStyle.onAccent : SignalStyle.ink }
         return isSelected ? .monoIconForeground : .monoTextPrimary
+    }
+
+    private var descriptionColor: Color {
+        if MangaStyle.isActive { return isSelected ? MangaStyle.inkSub : MangaStyle.inkSub.opacity(0.82) }
+        if MujiStyle.isActive { return isSelected ? MujiStyle.onTint.opacity(0.78) : MujiStyle.inkSoft }
+        if BentoStyle.isActive { return isSelected ? BentoStyle.onAccent.opacity(0.76) : BentoStyle.inkMuted }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
+        if CapsuleStyle.isActive { return isSelected ? CapsuleStyle.onAccent.opacity(0.76) : CapsuleStyle.inkMuted }
+        if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
+        if SignalStyle.isActive { return isSelected ? SignalStyle.onAccent.opacity(0.76) : SignalStyle.inkSoft }
+        return isSelected ? Color.monoIconForeground.opacity(0.74) : .monoTextSecondary
     }
 
     private var iconColor: Color {

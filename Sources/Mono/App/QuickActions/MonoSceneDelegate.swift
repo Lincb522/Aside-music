@@ -14,6 +14,43 @@ enum MonoQuickActionType {
     static let openPlayer = "com.zijiu.Mono.quickaction.openPlayer"
 }
 
+/// Scene 创建/恢复期间系统给主线程的时间窗口很短。小组件深链会在该窗口内
+/// 唤醒 App；播放器心跳必须等 Scene 提交完成后再继续，避免任何系统媒体服务
+/// 调用与 UIKit 的 scene-create 流程竞争主线程。
+@MainActor
+enum MonoSceneLifecycleGate {
+    private static var connectingSceneIDs = Set<String>()
+    private static var generations: [String: UInt] = [:]
+
+    static var defersPlaybackHeartbeat: Bool {
+        !connectingSceneIDs.isEmpty
+    }
+
+    static func beginConnecting(_ session: UISceneSession) {
+        let id = session.persistentIdentifier
+        generations[id, default: 0] &+= 1
+        connectingSceneIDs.insert(id)
+    }
+
+    static func finishConnecting(_ session: UISceneSession) {
+        let id = session.persistentIdentifier
+        let generation = generations[id, default: 0]
+        Task { @MainActor in
+            // sceneDidBecomeActive 之后再留出两次常见刷新周期，让 SwiftUI
+            // 根视图和小组件深链路由先完成首帧提交。
+            try? await Task.sleep(nanoseconds: 320_000_000)
+            guard generations[id] == generation else { return }
+            connectingSceneIDs.remove(id)
+        }
+    }
+
+    static func disconnect(_ session: UISceneSession) {
+        let id = session.persistentIdentifier
+        generations[id, default: 0] &+= 1
+        connectingSceneIDs.remove(id)
+    }
+}
+
 final class MonoSceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
 
@@ -22,6 +59,7 @@ final class MonoSceneDelegate: UIResponder, UIWindowSceneDelegate {
         willConnectTo session: UISceneSession,
         options connectionOptions: UIScene.ConnectionOptions
     ) {
+        MonoSceneLifecycleGate.beginConnecting(session)
         if let windowScene = scene as? UIWindowScene {
             AppFrameRate.lock(windowScene, reason: "scene will connect")
         }
@@ -44,6 +82,7 @@ final class MonoSceneDelegate: UIResponder, UIWindowSceneDelegate {
         if let windowScene = scene as? UIWindowScene {
             AppFrameRate.lock(windowScene, reason: "scene did become active")
         }
+        MonoSceneLifecycleGate.finishConnecting(scene.session)
     }
 
     func sceneDidEnterBackground(_ scene: UIScene) {
@@ -53,6 +92,7 @@ final class MonoSceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     func sceneDidDisconnect(_ scene: UIScene) {
+        MonoSceneLifecycleGate.disconnect(scene.session)
         AppFrameRate.unlock(scene)
     }
 

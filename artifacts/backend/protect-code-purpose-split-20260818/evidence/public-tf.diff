@@ -1,0 +1,19 @@
+--- /tmp/mono-protect-split-20260818/cert-manager/public-tf.js	2026-08-18 18:07:48
++++ artifacts/backend/protect-code-purpose-split-20260818/cert-manager/public-tf.js	2026-08-18 18:13:25
+@@ -243,7 +243,7 @@
+     }
+ 
+     // 预校验保护码（不消耗）
+-    const precheck = await tokenAdminRequest('/api/internal/verify-protect-code', { code: protectCode, consume: false });
++    const precheck = await tokenAdminRequest('/api/internal/verify-protect-code', { code: protectCode, purpose: 'tf', consume: false });
+     if (precheck.status !== 200) {
+       return res.status(403).json({ success: false, message: '保护码错误或可使用次数已达上限' });
+     }
+@@ -293,6 +293,7 @@
+       // 授予成功后才消耗保护码，并记录绑定（含 testerId/groupId/accountId 便于后续踢出）
+       await tokenAdminRequest('/api/internal/verify-protect-code', {
+         code: protectCode,
++        purpose: 'tf',
+         consume: true,
+         email,
+         name: testerName,

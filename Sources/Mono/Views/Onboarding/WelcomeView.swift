@@ -8,18 +8,22 @@ struct WelcomeView: View {
     @Binding var isPresented: Bool
     @AppStorage("isLoggedIn") private var isAppLoggedIn = false
 
+    // 背景必须从首个 SwiftUI frame 就存在。若等待 onAppear 后再淡入，
+    // App 启动页撤下与欢迎动画首帧之间会短暂露出纯白底。
     @State private var backgroundOpacity = 1.0
     @State private var backgroundScale: CGFloat = 1.018
+    // 品牌标志与背景同样首帧可见，入场感由缩放和位移承担；避免浅色
+    // 主题的背景资源尚在解码时，看起来像停留在纯白启动页。
     @State private var plateOpacity = 1.0
     @State private var plateScale: CGFloat = 0.82
     @State private var plateOffset: CGFloat = 28
-    @State private var titleOpacity = 1.0
-    @State private var titleOffset: CGFloat = 0
-    @State private var subtitleOpacity = 1.0
-    @State private var subtitleOffset: CGFloat = 0
-    @State private var accentOpacity = 1.0
-    @State private var accentScaleX: CGFloat = 1
-    @State private var footerOpacity = 1.0
+    @State private var titleOpacity = 0.0
+    @State private var titleOffset: CGFloat = 12
+    @State private var subtitleOpacity = 0.0
+    @State private var subtitleOffset: CGFloat = 10
+    @State private var accentOpacity = 0.0
+    @State private var accentScaleX: CGFloat = 0.18
+    @State private var footerOpacity = 0.0
     @State private var sceneOffset: CGFloat = 0
     @State private var sceneScale: CGFloat = 1
     @State private var isDismissing = false
@@ -101,6 +105,7 @@ struct WelcomeView: View {
     }
 
     private var welcomeBaseColor: Color {
+        if ClarityStyle.isActive { return ClarityStyle.base }
         if MangaStyle.isActive { return MangaStyle.paper }
         if PetWhiteStyle.isActive { return PetWhiteStyle.paper }
         if PureWhiteStyle.isActive { return PureWhiteStyle.paper }
@@ -112,7 +117,9 @@ struct WelcomeView: View {
 
     @ViewBuilder
     private var welcomeBackdrop: some View {
-        if MangaStyle.isActive {
+        if ClarityStyle.isActive {
+            ClarityWelcomeBackdrop()
+        } else if MangaStyle.isActive {
             MangaWelcomeBackdrop()
         } else if PetWhiteStyle.isActive {
             PetWhiteRootBackdrop()
@@ -131,7 +138,7 @@ struct WelcomeView: View {
 
     @ViewBuilder
     private var welcomeDecor: some View {
-        if MangaStyle.isActive || PetWhiteStyle.isActive || PureWhiteStyle.isActive {
+        if ClarityStyle.isActive || MangaStyle.isActive || PetWhiteStyle.isActive || PureWhiteStyle.isActive {
             EmptyView()
         } else if NeumorphicStyle.isActive {
             NeumorphicWelcomeDecor()
@@ -151,7 +158,9 @@ struct WelcomeView: View {
 
     @ViewBuilder
     private var heroSection: some View {
-        if MangaStyle.isActive {
+        if ClarityStyle.isActive {
+            clarityHeroSection
+        } else if MangaStyle.isActive {
             mangaHeroSection
         } else if PetWhiteStyle.isActive {
             petWhiteHeroSection
@@ -216,6 +225,58 @@ struct WelcomeView: View {
                 .opacity(accentOpacity)
                 .padding(.top, 2)
             }
+        }
+    }
+
+    private var clarityHeroSection: some View {
+        VStack(spacing: DeviceLayout.isPad ? 34 : 28) {
+            ZStack {
+                ClarityWelcomeRefractionStage(
+                    accentOpacity: accentOpacity,
+                    isAnimating: !isDismissing && !reduceMotion
+                )
+                .frame(width: plateSize * 1.86, height: plateSize * 1.28)
+
+                RoundedRectangle(cornerRadius: plateSize * 0.24, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: plateSize * 0.24, style: .continuous)
+                            .fill(ClarityStyle.membraneStrong.opacity(0.72))
+                    }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: plateSize * 0.24, style: .continuous)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [Color.white.opacity(0.92), Color.white.opacity(0.22), ClarityStyle.line],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1
+                            )
+                    }
+                    .frame(width: plateSize * 0.94, height: plateSize * 0.94)
+                    .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.24 : 0.08), radius: 24, y: 16)
+
+                welcomeLogoImage(size: logoSize * 0.84)
+
+                HStack(spacing: 8) {
+                    Capsule().fill(ClarityStyle.accent).frame(width: 38, height: 5)
+                    Circle().fill(ClarityStyle.cyan).frame(width: 7, height: 7)
+                    Circle().fill(ClarityStyle.lilac).frame(width: 7, height: 7)
+                }
+                .padding(.horizontal, 11)
+                .padding(.vertical, 8)
+                .background(ClarityMembrane(shape: Capsule(), strength: .quiet))
+                .offset(y: plateSize * 0.54)
+                .scaleEffect(x: accentScaleX, y: 1)
+                .opacity(accentOpacity)
+            }
+            .frame(width: plateSize * 1.9, height: plateSize * 1.38)
+            .scaleEffect(plateScale)
+            .opacity(plateOpacity)
+            .offset(y: plateOffset)
+
+            clarityTitleBlock
         }
     }
 
@@ -508,6 +569,32 @@ struct WelcomeView: View {
         }
     }
 
+    private var clarityTitleBlock: some View {
+        VStack(spacing: 12) {
+            MonoWordmarkImage(height: titleWordmarkHeight)
+                .opacity(titleOpacity)
+                .offset(y: titleOffset)
+
+            welcomeSloganBlock(
+                font: ClarityStyle.body(DeviceLayout.isPad ? 14 : 13, weight: .medium),
+                color: ClarityStyle.inkSoft,
+                tracking: DeviceLayout.isPad ? 1.35 : 0.95,
+                shortColor: ClarityStyle.accent.opacity(0.82)
+            )
+            .opacity(subtitleOpacity)
+            .offset(y: subtitleOffset)
+
+            LinearGradient(
+                colors: [.clear, ClarityStyle.accent.opacity(0.74), ClarityStyle.cyan.opacity(0.52), .clear],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+            .frame(width: DeviceLayout.isPad ? 148 : 124, height: 1)
+            .scaleEffect(x: accentScaleX, y: 1)
+            .opacity(accentOpacity)
+        }
+    }
+
     private var mujiTitleBlock: some View {
         VStack(spacing: 11) {
             MonoWordmarkImage(height: titleWordmarkHeight)
@@ -730,6 +817,7 @@ struct WelcomeView: View {
     }
 
     private var logoShadowColor: Color {
+        if ClarityStyle.isActive { return ClarityStyle.accent.opacity(colorScheme == .dark ? 0.28 : 0.16) }
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(colorScheme == .dark ? 0.42 : 0.22) }
         if PureWhiteStyle.isActive { return PureWhiteStyle.strokeInk.opacity(colorScheme == .dark ? 0.34 : 0.18) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.darkShadow(colorScheme, intensity: colorScheme == .dark ? 0.64 : 0.4) }
@@ -739,6 +827,7 @@ struct WelcomeView: View {
     }
 
     private var footerFont: Font {
+        if ClarityStyle.isActive { return ClarityStyle.body(10, weight: .medium) }
         if MangaStyle.isActive { return MangaStyle.labelFont(10, weight: .black) }
         if PetWhiteStyle.isActive { return PetWhiteStyle.labelFont(10, weight: .black) }
         if PureWhiteStyle.isActive { return PureWhiteStyle.labelFont(10, weight: .bold) }
@@ -749,6 +838,7 @@ struct WelcomeView: View {
     }
 
     private var footerColor: Color {
+        if ClarityStyle.isActive { return ClarityStyle.inkFaint.opacity(0.72) }
         if MangaStyle.isActive { return MangaStyle.inkMuted.opacity(0.78) }
         if PetWhiteStyle.isActive { return PetWhiteStyle.inkMuted.opacity(0.74) }
         if PureWhiteStyle.isActive { return PureWhiteStyle.inkMuted.opacity(0.78) }
@@ -767,26 +857,15 @@ struct WelcomeView: View {
         plateOpacity = 1
         plateScale = MangaStyle.isActive ? 0.78 : (PureWhiteStyle.isActive ? 0.8 : (NeumorphicStyle.isActive ? 0.84 : (CapsuleStyle.isActive ? 0.8 : 0.82)))
         plateOffset = MujiStyle.isActive ? 18 : (PureWhiteStyle.isActive ? 24 : (NeumorphicStyle.isActive ? 22 : (CapsuleStyle.isActive ? 24 : 28)))
-        titleOpacity = 1
-        titleOffset = 0
-        subtitleOpacity = 1
-        subtitleOffset = 0
-        accentOpacity = 1
-        accentScaleX = 1
-        footerOpacity = 1
+        titleOpacity = reduceMotion ? 1 : 0
+        titleOffset = reduceMotion ? 0 : 12
+        subtitleOpacity = reduceMotion ? 1 : 0
+        subtitleOffset = reduceMotion ? 0 : 10
+        accentOpacity = reduceMotion ? 1 : 0
+        accentScaleX = reduceMotion ? 1 : 0.18
+        footerOpacity = reduceMotion ? 1 : 0
         sceneOffset = 0
         sceneScale = 1
-
-        withAnimation(fadeAnimation) {
-            backgroundOpacity = 1
-            backgroundScale = 1
-        }
-
-        withAnimation(heroSpring) {
-            plateOpacity = 1
-            plateScale = 1
-            plateOffset = 0
-        }
 
         let isLoggedIn = isAppLoggedIn
         preloadTask = Task(priority: .utility) {
@@ -794,13 +873,48 @@ struct WelcomeView: View {
             await loadDataInBackground(isLoggedIn: isLoggedIn)
         }
 
-        animationTask = Task {
+        animationTask = Task { @MainActor in
             do {
-                try await sleep(seconds: Timing.dismissDelay)
-                await waitForInitialHomeContentIfNeeded()
-                await MainActor.run {
-                    dismissWelcome()
+                if !reduceMotion {
+                    // 参考 open-swiftui-animations 的 Phase/Keyframe 编排：背景、标志、
+                    // 字标与副标题按单向阶段进入，避免所有元素同时弹出的机械感。
+                    await Task.yield()
+                    withAnimation(fadeAnimation) {
+                        backgroundScale = 1
+                    }
+
+                    try await sleep(seconds: 0.02)
+                    withAnimation(heroSpring) {
+                        plateOpacity = 1
+                        plateScale = 1
+                        plateOffset = 0
+                    }
+
+                    try await sleep(seconds: 0.13)
+                    withAnimation(.spring(response: 0.46, dampingFraction: 0.84)) {
+                        titleOpacity = 1
+                        titleOffset = 0
+                    }
+
+                    try await sleep(seconds: 0.1)
+                    withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
+                        subtitleOpacity = 1
+                        subtitleOffset = 0
+                        accentOpacity = 1
+                        accentScaleX = 1
+                    }
+
+                    try await sleep(seconds: 0.1)
+                    withAnimation(.easeOut(duration: 0.28)) {
+                        footerOpacity = 1
+                    }
+
+                    try await sleep(seconds: max(0, Timing.dismissDelay - 0.39))
+                } else {
+                    try await sleep(seconds: Timing.dismissDelay)
                 }
+                await waitForInitialHomeContentIfNeeded()
+                dismissWelcome()
             } catch {
                 return
             }
@@ -916,11 +1030,110 @@ struct WelcomeView: View {
     }
 }
 
+private struct ClarityWelcomeBackdrop: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        ZStack {
+            ClarityBackdrop()
+
+            GeometryReader { proxy in
+                LinearGradient(
+                    colors: [
+                        .clear,
+                        Color.white.opacity(colorScheme == .dark ? 0.035 : 0.30),
+                        ClarityStyle.cyan.opacity(colorScheme == .dark ? 0.028 : 0.08),
+                        .clear
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(width: proxy.size.width * 0.58, height: proxy.size.height * 1.2)
+                .rotationEffect(.degrees(17))
+                .offset(x: proxy.size.width * 0.48, y: -proxy.size.height * 0.10)
+                .blur(radius: 28)
+            }
+        }
+        .ignoresSafeArea()
+    }
+}
+
+private struct ClarityWelcomeRefractionStage: View {
+    let accentOpacity: Double
+    let isAnimating: Bool
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var startDate = Date()
+
+    var body: some View {
+        TimelineView(AppFrameRate.animationTimeline(maximumFramesPerSecond: 30, paused: !isAnimating)) { timeline in
+            let elapsed = isAnimating ? timeline.date.timeIntervalSince(startDate) : 0
+            Canvas { context, size in
+                let center = CGPoint(x: size.width * 0.5, y: size.height * 0.5)
+                let base = min(size.width, size.height)
+
+                let haloRect = CGRect(
+                    x: center.x - base * 0.64,
+                    y: center.y - base * 0.42,
+                    width: base * 1.28,
+                    height: base * 0.84
+                )
+                context.fill(
+                    Path(ellipseIn: haloRect),
+                    with: .radialGradient(
+                        Gradient(colors: [
+                            Color.white.opacity(colorScheme == .dark ? 0.10 : 0.54),
+                            ClarityStyle.cyan.opacity(0.12 * accentOpacity),
+                            Color.clear
+                        ]),
+                        center: center,
+                        startRadius: 4,
+                        endRadius: base * 0.66
+                    )
+                )
+
+                for index in 0..<3 {
+                    let phase = elapsed * (0.18 + Double(index) * 0.025) + Double(index) * 1.7
+                    let driftX = CGFloat(sin(phase)) * base * 0.055
+                    let driftY = CGFloat(cos(phase * 0.82)) * base * 0.035
+                    let width = base * (0.74 + CGFloat(index) * 0.15)
+                    let height = base * (0.44 + CGFloat(index) * 0.08)
+                    let rect = CGRect(
+                        x: center.x - width / 2 + driftX,
+                        y: center.y - height / 2 + driftY,
+                        width: width,
+                        height: height
+                    )
+                    let tint = index == 0 ? ClarityStyle.accent : (index == 1 ? ClarityStyle.cyan : ClarityStyle.lilac)
+                    context.stroke(
+                        Path(roundedRect: rect, cornerRadius: height * 0.46),
+                        with: .color(tint.opacity((0.10 - Double(index) * 0.018) * accentOpacity)),
+                        style: StrokeStyle(lineWidth: index == 0 ? 1.4 : 1, lineCap: .round)
+                    )
+                }
+            }
+        }
+        .onAppear { startDate = Date() }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
 private struct DefaultWelcomeBackdrop: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         ZStack {
+            // 首帧兜底层只使用系统可立即绘制的渐变，不能依赖图片解码或
+            // Material 建立。这样启动页撤下时先看到的是欢迎页底色，而不是白屏。
+            LinearGradient(
+                colors: colorScheme == .dark
+                    ? [Color(hex: "03050D"), Color(hex: "111A27"), Color(hex: "070B13")]
+                    : [Color(hex: "DCE9EC"), Color(hex: "F4F8F8"), Color(hex: "E6EEF3")],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+
             // 底层:背景图
             GeometryReader { proxy in
                 Image("default_theme_bg")
@@ -956,10 +1169,11 @@ private struct DefaultWelcomeLogoStage: View {
     var accentOpacity: Double
     var isAnimating: Bool
     @Environment(\.colorScheme) private var colorScheme
+    @State private var animationStart = Date()
 
     var body: some View {
         TimelineView(AppFrameRate.animationTimeline(paused: !isAnimating)) { timeline in
-            let time = isAnimating ? timeline.date.timeIntervalSinceReferenceDate : 0
+            let time = isAnimating ? timeline.date.timeIntervalSince(animationStart) : 0
             Canvas { context, size in
                 let center = CGPoint(x: size.width * 0.5, y: size.height * 0.44)
                 let glowRadius = min(size.width, size.height) * 0.42
@@ -980,6 +1194,26 @@ private struct DefaultWelcomeLogoStage: View {
                     )
                 )
 
+                // SwiftUI-Animations 的 ripple 思路改造成低密度音乐脉冲：三道波纹
+                // 只绘制 stroke，不创建独立 View，也不参与布局和点击命中。
+                for index in 0..<3 {
+                    let phase = (time * 0.44 + Double(index) / 3)
+                        .truncatingRemainder(dividingBy: 1)
+                    let radius = glowRadius * (0.28 + CGFloat(phase) * 0.66)
+                    let alpha = (1 - phase) * (colorScheme == .dark ? 0.13 : 0.1) * accentOpacity
+                    let ringRect = CGRect(
+                        x: center.x - radius,
+                        y: center.y - radius,
+                        width: radius * 2,
+                        height: radius * 2
+                    )
+                    context.stroke(
+                        Path(ellipseIn: ringRect),
+                        with: .color(accent.opacity(alpha)),
+                        style: StrokeStyle(lineWidth: 1, lineCap: .round)
+                    )
+                }
+
                 let breath = CGFloat((sin(time * 0.22) + 1) / 2)
                 let groundWidth = size.width * (0.28 + breath * 0.025)
                 let groundHeight = size.height * 0.035
@@ -989,6 +1223,7 @@ private struct DefaultWelcomeLogoStage: View {
                 )
             }
         }
+        .onAppear { animationStart = Date() }
     }
 }
 

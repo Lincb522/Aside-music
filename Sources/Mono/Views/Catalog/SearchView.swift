@@ -377,7 +377,9 @@ struct SearchView: View {
                             .monoTextInputBehavior()
                             .focused($isFocused)
                             .submitLabel(.search)
-                            .onSubmit { submitSearchInput() }
+                            .monoOnSubmit(text: $viewModel.query) { keyword in
+                                submitSearchInput(committedText: keyword)
+                            }
                     }
 
                     if showFullSearch {
@@ -455,25 +457,20 @@ struct SearchView: View {
         }
     }
 
-    private func submitSearchInput() {
-        // Resigning first responder commits any Chinese/Japanese marked text.
-        // Read the binding on the next main-loop turn so the final character is
-        // included before the field collapses and the request is created.
+    private func submitSearchInput(committedText: String) {
+        let keyword = committedText
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         isFocused = false
-        DispatchQueue.main.async {
-            let keyword = viewModel.query
-                .trimmingCharacters(in: .whitespacesAndNewlines)
 
-            if !keyword.isEmpty {
-                viewModel.performSearch(keyword: keyword)
-            } else if !viewModel.hasSearched,
-                      let defaultKeyword = viewModel.defaultKeyword {
-                viewModel.performSearch(keyword: defaultKeyword.realkeyword)
-            }
+        if !keyword.isEmpty {
+            viewModel.performSearch(keyword: keyword)
+        } else if !viewModel.hasSearched,
+                  let defaultKeyword = viewModel.defaultKeyword {
+            viewModel.performSearch(keyword: defaultKeyword.realkeyword)
+        }
 
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                isSearchBarExpanded = false
-            }
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+            isSearchBarExpanded = false
         }
     }
 

@@ -102,9 +102,10 @@ The App first posts `platform`, `song_id`, `locale`, and a concrete song snapsho
 - Every non-empty paragraph must reference stored sources.
 - High-risk facts require one A-grade source or two independent B-grade publishers.
 - Low-confidence, risky, conflicting, or template-like content enters review instead of automatic publication.
+- 有对应资料但首轮正文明显过短时，内容 Agent 会在任务 Token 预算允许的范围内再做一次定向增强；只有新正文更完整时才替换首轮栏目。
 - Editing creates a new version; publication atomically changes the locale publication pointer.
 - Provider credentials are AES-256-GCM encrypted and never returned by public routes.
-- App Agent 配置覆盖音效调音、听歌洞察、每日问候、歌词舞台和壁纸搜索翻译；空提示词由 App 使用同版本内置值回退。
+- App Agent 配置覆盖音效调音、听歌洞察和每日问候；可分别下发提示词、生成参数、最低超时和单次任务最大尝试次数，空提示词由 App 使用同版本内置值回退。
 - 服务端内容生成提示词、凭据、预算、并发、限流和熔断策略不进入公开配置。
 
 See [OPERATIONS.md](./OPERATIONS.md) before enabling a production rollout.

@@ -20,16 +20,10 @@ extension LibraryViewModel {
     }
 
     func fetchPlaylists(force: Bool = false) {
-        // 使用优化的缓存管理器加载缓存
-        if userPlaylists.isEmpty {
-            if let cachedUser = OptimizedCacheManager.shared.getObject(forKey: "user_playlists", type: [Playlist].self) {
-                self.userPlaylists = cachedUser.filter { !$0.isKugou }
-            }
-        }
-        if kugouUserPlaylists.isEmpty,
-           let cachedKugou = OptimizedCacheManager.shared.getObject(forKey: "kcm_user_playlists", type: [Playlist].self) {
-            kugouUserPlaylists = cachedKugou
-        }
+        // Disk cache restoration must not block the first library frame. Network
+        // results always win because cached values are only applied while the
+        // corresponding collection is still empty.
+        restoreCachedPlaylistsIfNeeded()
 
         if KCMMusicService.shared.isAuthenticated {
             loadKugouUserPlaylists()
@@ -86,6 +80,32 @@ extension LibraryViewModel {
                 }
             })
             .store(in: &cancellables)
+    }
+
+    private func restoreCachedPlaylistsIfNeeded() {
+        guard userPlaylists.isEmpty || kugouUserPlaylists.isEmpty else { return }
+
+        Task { [weak self] in
+            async let cachedUser = OptimizedCacheManager.shared.getObjectAsync(
+                forKey: "user_playlists",
+                type: [Playlist].self
+            )
+            async let cachedKugou = OptimizedCacheManager.shared.getObjectAsync(
+                forKey: "kcm_user_playlists",
+                type: [Playlist].self
+            )
+            let (user, kugou) = await (cachedUser, cachedKugou)
+            guard let self else { return }
+
+            if self.userPlaylists.isEmpty, let user {
+                self.userPlaylists = user.filter { !$0.isKugou }
+            }
+            if self.kugouUserPlaylists.isEmpty,
+               KCMMusicService.shared.isAuthenticated,
+               let kugou {
+                self.kugouUserPlaylists = kugou
+            }
+        }
     }
 
     func loadUserPlaylists(uid: Int) {

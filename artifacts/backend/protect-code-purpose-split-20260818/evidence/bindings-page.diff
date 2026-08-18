@@ -1,0 +1,29 @@
+--- /tmp/mono-protect-split-20260818/token-admin/public/assets/bindings-page.js	2026-08-18 18:07:47
++++ artifacts/backend/protect-code-purpose-split-20260818/token-admin/public/assets/bindings-page.js	2026-08-18 18:12:25
+@@ -33,7 +33,7 @@
+ 
+   function matchesFilter(b, q) {
+     if (!q) return true
+-    const hay = [b.email, b.name, b.tokenKey, b.code, b.source].map(x => String(x || '').toLowerCase()).join(' ')
++    const hay = [b.email, b.name, b.tokenKey, b.code, b.codePurpose, b.source].map(x => String(x || '').toLowerCase()).join(' ')
+     return hay.includes(q)
+   }
+ 
+@@ -58,6 +58,9 @@
+         : ''
+       const backfilled = b.backfilled ? '<span class="status-pill soft">历史补录</span>' : ''
+       const codeText = b.code ? esc(b.code) : '—'
++      const codePurpose = b.code
++        ? (b.codePurpose === 'ipa' ? 'IPA 自签' : 'TestFlight')
++        : '—'
+       const toggleLabel = b.tokenEnabled ? '禁用 Token' : '启用 Token'
+       const kickBtn = b.canKick
+         ? `<button class="btn btn-ghost btn-small" type="button" data-action="kick" data-id="${escapeAttr(b.id)}">踢出测试组</button>`
+@@ -80,6 +83,7 @@
+               </div>
+               <div class="token-meta-line">
+                 <span>保护码: <code>${codeText}</code></span>
++                <span>用途: ${codePurpose}</span>
+                 <span>绑定于 ${fmtDate(b.createdAt)}</span>
+               </div>
+             </div>

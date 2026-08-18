@@ -70,7 +70,7 @@ struct ChangelogHistoryView: View {
             VStack(alignment: .leading, spacing: 0) {
                 SettingsScrollablePageHeader(
                     title: String(localized: "更新日志"),
-                    eyebrow: "CHANGELOG",
+                    eyebrow: String(localized: "settings_eyebrow_changelog"),
                     icon: .history
                 )
 

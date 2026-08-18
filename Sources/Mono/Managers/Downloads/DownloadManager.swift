@@ -19,7 +19,9 @@ final class DownloadManager: NSObject, ObservableObject {
     }
     
     /// 最大并发下载数
-    private let maxConcurrent = 3
+    private var maxConcurrent: Int {
+        min(3, MonoComputeBudgetStore.shared.current.backgroundComputeConcurrency)
+    }
     /// 等待队列
     private var waitingQueue: [String] = []  // uniqueKey 队列
     /// 活跃下载数
@@ -64,6 +66,10 @@ final class DownloadManager: NSObject, ObservableObject {
     
     private override init() {
         super.init()
+        MonoComputeEngine.shared.$budget
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.processQueue() }
+            .store(in: &cancellables)
         // 启动时加载已下载歌曲 ID
         Task { loadDownloadedIds() }
     }

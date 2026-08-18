@@ -27,6 +27,7 @@ struct QCMAccountView: View {
             }
         }
         .scrollContentBackground(.hidden)
+        .claritySettingsListStyle()
         .background(ThemedPageBackground())
         .navigationTitle("QCM 账号")
         .navigationBarTitleDisplayMode(.inline)

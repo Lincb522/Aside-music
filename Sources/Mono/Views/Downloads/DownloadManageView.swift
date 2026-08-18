@@ -26,12 +26,12 @@ private enum DownloadClearTarget {
 }
 
 private enum DownloadCenterPalette {
-    static var primary: Color { .white }
-    static var secondary: Color { .white.opacity(0.58) }
-    static var accent: Color { Color(red: 0.55, green: 0.84, blue: 0.98) }
-    static var separator: Color { .white.opacity(0.08) }
-    static var card: Color { .white.opacity(0.055) }
-    static var backdrop: Color { Color(red: 0.028, green: 0.031, blue: 0.04) }
+    static let primary: Color = .white
+    static let secondary: Color = .white.opacity(0.58)
+    static let accent = Color(red: 0.55, green: 0.84, blue: 0.98)
+    static let separator: Color = .white.opacity(0.08)
+    static let card: Color = .white.opacity(0.055)
+    static let backdrop = Color(red: 0.028, green: 0.031, blue: 0.04)
 }
 
 @MainActor
@@ -787,15 +787,13 @@ struct DownloadManageView: View {
                     .foregroundStyle(DownloadCenterPalette.primary)
                     .lineLimit(1)
 
-                GeometryReader { proxy in
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(DownloadCenterPalette.primary.opacity(0.08))
-                        Capsule()
-                            .fill(record.status == .failed ? Color.monoAccentRed : DownloadCenterPalette.accent)
-                            .frame(width: proxy.size.width * max(0, min(progress, 1)))
-                    }
-                }
-                .frame(height: 4)
+                MonoLiquidProgressBar(
+                    progress: progress,
+                    tint: record.status == .failed ? .monoAccentRed : DownloadCenterPalette.accent,
+                    secondaryTint: record.status == .failed ? .monoAccentRed : Color.white.opacity(0.82),
+                    isActive: record.status == .downloading,
+                    height: 5
+                )
 
                 Text(taskStatus(record, progress: progress))
                     .font(.system(size: 11, weight: .semibold, design: .rounded))

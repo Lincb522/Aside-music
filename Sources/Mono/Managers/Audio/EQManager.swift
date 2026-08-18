@@ -50,14 +50,43 @@ struct MonoHeadphoneCorrectionProfile: Identifiable, Codable, Equatable {
     var matchedDeviceUID: String
     var gains: [Float]
     var isCustom: Bool
+    var sourceName: String?
+    var sourceURL: String?
+    var author: String?
+    var details: String?
+    var preampDB: Float?
+    var acousticFilters: [MonoAcousticFilter]?
 
-    init(id: String, name: String, matchedDeviceName: String = "", matchedDeviceUID: String = "", gains: [Float], isCustom: Bool = false) {
+    init(
+        id: String,
+        name: String,
+        matchedDeviceName: String = "",
+        matchedDeviceUID: String = "",
+        gains: [Float],
+        isCustom: Bool = false,
+        sourceName: String? = nil,
+        sourceURL: String? = nil,
+        author: String? = nil,
+        details: String? = nil,
+        preampDB: Float? = nil,
+        acousticFilters: [MonoAcousticFilter]? = nil
+    ) {
         self.id = id
         self.name = name
         self.matchedDeviceName = matchedDeviceName
         self.matchedDeviceUID = matchedDeviceUID
-        self.gains = Array(gains.prefix(10)) + Array(repeating: 0, count: max(0, 10 - gains.count))
+        let targetCount = gains.count >= GraphicEQMode.thirtyTwoBand.bandCount
+            ? GraphicEQMode.thirtyTwoBand.bandCount
+            : GraphicEQMode.tenBand.bandCount
+        self.gains = Array(gains.prefix(targetCount))
+            + Array(repeating: 0, count: max(0, targetCount - gains.count))
         self.isCustom = isCustom
+        self.sourceName = sourceName
+        self.sourceURL = sourceURL
+        self.author = author
+        self.details = details
+        self.preampDB = preampDB.map { min(0, max(-18, $0)) }
+        self.acousticFilters = acousticFilters
     }
 }
 
@@ -74,6 +103,12 @@ class EQManager: ObservableObject {
     @Published private(set) var currentOutputName: String = ""
     @Published private(set) var adaptiveGains: [Float] = Array(repeating: 0, count: 10)
     @Published private(set) var isAuditioningReference = false
+    @Published private(set) var trackLoudnessGainDB: Float = 0
+    @Published private(set) var isHearingCorrectionEnabled = false
+    @Published private(set) var hearingLeftGains: [Float] = Array(repeating: 0, count: 10)
+    @Published private(set) var hearingRightGains: [Float] = Array(repeating: 0, count: 10)
+    @Published private(set) var isEnvironmentCompensationEnabled = false
+    @Published private(set) var environmentCompensationGains: [Float] = Array(repeating: 0, count: 10)
 
     /// 专业处理总强度。1.0 保留原始参数，默认略加强以便在移动设备上保持可感知。
     @Published var professionalProcessingIntensity: Float = 1.3 {
@@ -948,6 +983,49 @@ class EQManager: ObservableObject {
         headphoneProfiles[profileIndex].gains[index] = min(max(gain, -6), 6)
     }
 
+    func installAcousticProfile(_ profile: MonoAcousticProfile) {
+        let preservesAutomaticSelection = selectedHeadphoneProfileID == "auto"
+        let id = "opra:\(profile.id)"
+        let installed = MonoHeadphoneCorrectionProfile(
+            id: id,
+            name: profile.displayName,
+            matchedDeviceName: currentOutputName,
+            matchedDeviceUID: currentOutputUID,
+            gains: profile.graphicGains(mode: .thirtyTwoBand),
+            isCustom: false,
+            sourceName: "OPRA",
+            sourceURL: profile.attributionURL?.absoluteString,
+            author: profile.author,
+            details: profile.details,
+            preampDB: profile.preampDB,
+            acousticFilters: profile.filters
+        )
+        if let index = headphoneProfiles.firstIndex(where: { $0.id == id }) {
+            headphoneProfiles[index] = installed
+        } else {
+            headphoneProfiles.append(installed)
+        }
+        selectedHeadphoneProfileID = preservesAutomaticSelection ? "auto" : id
+        if !isEnabled { isEnabled = true }
+        applyProfessionalConfiguration()
+        updateSafetyLimiter()
+    }
+
+    var isAutomaticOutputProfileSelectionEnabled: Bool {
+        selectedHeadphoneProfileID == "auto"
+    }
+
+    var activeOutputProfileName: String? {
+        resolvedHeadphoneProfile?.name
+    }
+
+    func setAutomaticOutputProfileSelectionEnabled(_ enabled: Bool) {
+        selectedHeadphoneProfileID = enabled ? "auto" : "off"
+        if enabled, !isEnabled { isEnabled = true }
+        applyProfessionalConfiguration()
+        updateSafetyLimiter()
+    }
+
     var currentPresetPreampDB: Float {
         if let id = currentPreset?.id, let override = presetPreampOverrides[id] {
             return override
@@ -965,6 +1043,69 @@ class EQManager: ObservableObject {
         } else {
             customPresetPreampDB = clamped
         }
+    }
+
+    func setTrackLoudnessGainDB(_ gainDB: Float) {
+        let clamped = min(6, max(-12, gainDB.isFinite ? gainDB : 0))
+        guard abs(clamped - trackLoudnessGainDB) > 0.02 else { return }
+        trackLoudnessGainDB = clamped
+        updateSafetyLimiter()
+    }
+
+    func installHearingCorrection(left: [Float], right: [Float], enabled: Bool = true) {
+        hearingLeftGains = GraphicEQMode.tenBand.normalizedGains(left).map { min(6, max(-6, $0)) }
+        hearingRightGains = GraphicEQMode.tenBand.normalizedGains(right).map { min(6, max(-6, $0)) }
+        isHearingCorrectionEnabled = enabled
+        if enabled, !isEnabled { isEnabled = true }
+        applyHearingCorrection()
+        updateSafetyLimiter()
+        saveProfessionalState()
+    }
+
+    func setHearingCorrectionEnabled(_ enabled: Bool) {
+        guard enabled != isHearingCorrectionEnabled else { return }
+        isHearingCorrectionEnabled = enabled
+        if enabled, !isEnabled { isEnabled = true }
+        applyHearingCorrection()
+        updateSafetyLimiter()
+        saveProfessionalState()
+    }
+
+    func clearHearingCorrection() {
+        isHearingCorrectionEnabled = false
+        hearingLeftGains = Array(repeating: 0, count: 10)
+        hearingRightGains = Array(repeating: 0, count: 10)
+        applyHearingCorrection()
+        updateSafetyLimiter()
+        saveProfessionalState()
+    }
+
+    func installEnvironmentCompensation(_ gains: [Float], enabled: Bool = true) {
+        environmentCompensationGains = GraphicEQMode.tenBand.normalizedGains(gains).map {
+            min(0, max(-3, $0))
+        }
+        isEnvironmentCompensationEnabled = enabled
+        if enabled, !isEnabled { isEnabled = true }
+        applyCombinedAdaptiveGains()
+        updateSafetyLimiter()
+        saveProfessionalState()
+    }
+
+    func setEnvironmentCompensationEnabled(_ enabled: Bool) {
+        guard enabled != isEnvironmentCompensationEnabled else { return }
+        isEnvironmentCompensationEnabled = enabled
+        if enabled, !isEnabled { isEnabled = true }
+        applyCombinedAdaptiveGains()
+        updateSafetyLimiter()
+        saveProfessionalState()
+    }
+
+    func clearEnvironmentCompensation() {
+        isEnvironmentCompensationEnabled = false
+        environmentCompensationGains = Array(repeating: 0, count: 10)
+        applyCombinedAdaptiveGains()
+        updateSafetyLimiter()
+        saveProfessionalState()
     }
 
     func beginSongAnalysis(identifier: String?) {
@@ -1077,8 +1218,8 @@ class EQManager: ObservableObject {
             && (!aiManaged || !dynamicEnabled)
 
         equalizer.setCalibrationGains(bypassProfessionalChain ? zeroGains : effectiveCalibrationGains)
-        let smartLayer = isSmartSongCompensationEnabled ? adaptiveGains : zeroGains
-        equalizer.setAdaptiveGains(bypassProfessionalChain ? zeroGains : smartLayer)
+        applyHearingCorrection(bypass: bypassProfessionalChain)
+        equalizer.setAdaptiveGains(bypassProfessionalChain ? zeroGains : effectiveAdaptiveGains)
         equalizer.setParametricBands(
             !bypassProfessionalChain && isParametricEQEnabled
                 ? Array(parametricBands.prefix(aiManaged ? parametricLimit : parametricBands.count))
@@ -1093,6 +1234,15 @@ class EQManager: ObservableObject {
         equalizer.setMultibandDynamics(dynamics)
         equalizer.setMonoEnhance(
             bypassProfessionalChain ? .neutral : monoEnhanceConfiguration
+        )
+    }
+
+    private func applyHearingCorrection(bypass: Bool = false) {
+        let zero = Array(repeating: Float(0), count: GraphicEQMode.tenBand.bandCount)
+        let shouldApply = isHearingCorrectionEnabled && !bypass
+        PlayerManager.shared.equalizer.setHearingCorrection(
+            left: shouldApply ? hearingLeftGains : zero,
+            right: shouldApply ? hearingRightGains : zero
         )
     }
 
@@ -1123,10 +1273,14 @@ class EQManager: ObservableObject {
     }
 
     private var effectiveCalibrationGains: [Float] {
+        let profile = resolvedHeadphoneProfile
+        let targetMode: GraphicEQMode = profile?.gains.count == GraphicEQMode.thirtyTwoBand.bandCount
+            ? .thirtyTwoBand
+            : .tenBand
         var gains = isOutputCalibrationEnabled
-            ? currentOutputKind.defaultCalibration
-            : Array(repeating: 0, count: 10)
-        guard let profile = resolvedHeadphoneProfile else { return gains }
+            ? targetMode.resampledGains(currentOutputKind.defaultCalibration, from: .tenBand)
+            : Array(repeating: 0, count: targetMode.bandCount)
+        guard let profile else { return gains }
         for index in 0..<min(gains.count, profile.gains.count) {
             gains[index] = min(max(gains[index] + profile.gains[index], -6), 6)
         }
@@ -1253,8 +1407,19 @@ class EQManager: ObservableObject {
 
     private func applyCombinedAdaptiveGains() {
         let zeroGains = Array(repeating: Float(0), count: 10)
-        let smartLayer = isSmartSongCompensationEnabled ? adaptiveGains : zeroGains
-        PlayerManager.shared.equalizer.setAdaptiveGains(isAuditioningReference ? zeroGains : smartLayer)
+        PlayerManager.shared.equalizer.setAdaptiveGains(
+            isAuditioningReference ? zeroGains : effectiveAdaptiveGains
+        )
+    }
+
+    var effectiveAdaptiveGains: [Float] {
+        let smart = isSmartSongCompensationEnabled
+            ? GraphicEQMode.tenBand.normalizedGains(adaptiveGains)
+            : Array(repeating: 0, count: 10)
+        let environment = isEnvironmentCompensationEnabled
+            ? GraphicEQMode.tenBand.normalizedGains(environmentCompensationGains)
+            : Array(repeating: 0, count: 10)
+        return zip(smart, environment).map { min(2, max(-4.5, $0 + $1)) }
     }
 
     private static func outputKind(for port: AVAudioSession.Port?) -> MonoAudioOutputKind {
@@ -1303,13 +1468,26 @@ class EQManager: ObservableObject {
             userGains = customGains
         }
         var gains = Array(repeating: Float(0), count: graphicEQMode.bandCount)
-        let calibration = graphicEQMode.resampledGains(effectiveCalibrationGains, from: .tenBand)
-        let activeAdaptive = graphicEQMode.resampledGains(adaptiveGains, from: .tenBand)
+        let calibrationSourceMode: GraphicEQMode = effectiveCalibrationGains.count == GraphicEQMode.thirtyTwoBand.bandCount
+            ? .thirtyTwoBand
+            : .tenBand
+        let calibration = graphicEQMode.resampledGains(effectiveCalibrationGains, from: calibrationSourceMode)
+        let activeAdaptive = graphicEQMode.resampledGains(effectiveAdaptiveGains, from: .tenBand)
+        let activeHearingLeft = isHearingCorrectionEnabled
+            ? graphicEQMode.resampledGains(hearingLeftGains, from: .tenBand)
+            : Array(repeating: 0, count: graphicEQMode.bandCount)
+        let activeHearingRight = isHearingCorrectionEnabled
+            ? graphicEQMode.resampledGains(hearingRightGains, from: .tenBand)
+            : Array(repeating: 0, count: graphicEQMode.bandCount)
         for index in gains.indices {
             let user = index < userGains.count ? userGains[index] : 0
             let device = index < calibration.count ? calibration[index] : 0
-            let adaptive = isSmartSongCompensationEnabled && index < activeAdaptive.count ? activeAdaptive[index] : 0
-            gains[index] = user + device + adaptive
+            let adaptive = index < activeAdaptive.count ? activeAdaptive[index] : 0
+            let hearing = max(
+                activeHearingLeft.indices.contains(index) ? activeHearingLeft[index] : 0,
+                activeHearingRight.indices.contains(index) ? activeHearingRight[index] : 0
+            )
+            gains[index] = user + device + adaptive + hearing
         }
         
         let bassKnob = max(effects.bassGain, 0)
@@ -1357,7 +1535,9 @@ class EQManager: ObservableObject {
         let loudnessTrim = isLoudnessMatchingEnabled
             ? (currentPreset?.loudnessCompensationDB ?? automaticLoudnessTrim)
             : 0
-        let newPreamp = max(-18, min(safetyTrim, presetTrim, loudnessTrim))
+        let deviceTrim = resolvedHeadphoneProfile?.preampDB ?? 0
+        let trackTrim = min(0, trackLoudnessGainDB)
+        let newPreamp = max(-18, min(safetyTrim, presetTrim, loudnessTrim, deviceTrim, trackTrim))
         
         if abs(newPreamp - preampDB) > 0.05 {
             preampDB = newPreamp
@@ -1365,7 +1545,9 @@ class EQManager: ObservableObject {
         }
         
         // 限幅器只处理瞬态余量，不再替代前级补偿持续压扁动态。
-        let shouldLimit = effectiveTuning.finalLimiterEnabled || peakGain > 0.1
+        let shouldLimit = effectiveTuning.finalLimiterEnabled
+            || peakGain > 0.1
+            || abs(trackLoudnessGainDB) > 0.05
 
         // AI 安全前级负责给完整处理链留余量，最终输出先补回这部分固定损失。
         // 蓝牙路线的有损编码会产生 inter-sample peak，补偿上限压到 +6 dB，
@@ -1374,6 +1556,11 @@ class EQManager: ObservableObject {
         let aiOutputGainCompensation: Float = isAIManagedPresetActive
             ? min(makeupCeiling, max(0, -newPreamp))
             : 0
+        let loudnessOutputGain = max(0, trackLoudnessGainDB)
+        let combinedOutputGain = min(
+            makeupCeiling,
+            aiOutputGainCompensation + loudnessOutputGain
+        )
         // 宽频削减和动态处理仍可能让主观响度略低。额外补偿保持在约 1 dB，
         // 与固定前级补偿合计不超过 makeupCeiling，并在 AudioRepairEngine 内平滑推入。
         let perceivedCurveLoss = max(0, -perceivedBoost)
@@ -1392,7 +1579,7 @@ class EQManager: ObservableObject {
             : 0
         let aiPerceptualMakeup = min(
             requestedPerceptualMakeup,
-            max(0, makeupCeiling - aiOutputGainCompensation)
+            max(0, makeupCeiling - combinedOutputGain)
         )
         let routeSafeCeiling: Float = currentOutputKind == .bluetooth ? -1.5 : -1
         repair.configureOutputSafety(
@@ -1401,7 +1588,7 @@ class EQManager: ObservableObject {
                 ? min(effectiveTuning.finalLimiterCeilingDB, routeSafeCeiling)
                 : routeSafeCeiling,
             transitionProtectionEnabled: false,
-            outputGainDB: aiOutputGainCompensation,
+            outputGainDB: combinedOutputGain,
             perceptualMakeupDB: aiPerceptualMakeup
         )
         isSafetyLimiterActive = shouldLimit
@@ -1670,6 +1857,11 @@ class EQManager: ObservableObject {
         let selectedHeadphoneProfileID: String
         let headphoneProfiles: [MonoHeadphoneCorrectionProfile]
         let presetPreampOverrides: [String: Float]
+        let isHearingCorrectionEnabled: Bool?
+        let hearingLeftGains: [Float]?
+        let hearingRightGains: [Float]?
+        let isEnvironmentCompensationEnabled: Bool?
+        let environmentCompensationGains: [Float]?
     }
 
     private struct AIProcessingSnapshot: Codable {
@@ -1812,7 +2004,12 @@ class EQManager: ObservableObject {
             customPresetPreampDB: customPresetPreampDB,
             selectedHeadphoneProfileID: selectedHeadphoneProfileID,
             headphoneProfiles: headphoneProfiles,
-            presetPreampOverrides: presetPreampOverrides
+            presetPreampOverrides: presetPreampOverrides,
+            isHearingCorrectionEnabled: isHearingCorrectionEnabled,
+            hearingLeftGains: hearingLeftGains,
+            hearingRightGains: hearingRightGains,
+            isEnvironmentCompensationEnabled: isEnvironmentCompensationEnabled,
+            environmentCompensationGains: environmentCompensationGains
         )
         if let data = try? JSONEncoder().encode(state) {
             UserDefaults.standard.set(data, forKey: Self.professionalStateKey)
@@ -1841,6 +2038,17 @@ class EQManager: ObservableObject {
         selectedHeadphoneProfileID = state.selectedHeadphoneProfileID
         headphoneProfiles = state.headphoneProfiles
         presetPreampOverrides = state.presetPreampOverrides
+        isHearingCorrectionEnabled = state.isHearingCorrectionEnabled ?? false
+        hearingLeftGains = GraphicEQMode.tenBand.normalizedGains(
+            state.hearingLeftGains ?? Array(repeating: 0, count: 10)
+        )
+        hearingRightGains = GraphicEQMode.tenBand.normalizedGains(
+            state.hearingRightGains ?? Array(repeating: 0, count: 10)
+        )
+        isEnvironmentCompensationEnabled = state.isEnvironmentCompensationEnabled ?? false
+        environmentCompensationGains = GraphicEQMode.tenBand.normalizedGains(
+            state.environmentCompensationGains ?? Array(repeating: 0, count: 10)
+        ).map { min(0, max(-3, $0)) }
     }
     
     /// 保存音效旋钮状态（低音/高音/环绕/混响，独立于 EQ）

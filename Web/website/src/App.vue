@@ -300,8 +300,9 @@ const {
               <input v-model="testFlightEmail" :placeholder="content.testflight.emailPlaceholder" autocomplete="email" type="email" />
             </label>
             <label>
-              <span>保护码</span>
+              <span>TestFlight 保护码</span>
               <input v-model="testFlightProtectCode" class="code-input" :placeholder="content.testflight.protectCodePlaceholder" autocomplete="off" />
+              <small class="protect-code-hint">仅支持 TestFlight 保护码，IPA 自签保护码不能用于此处。</small>
             </label>
             <button type="submit" :disabled="testFlightSubmitting || testFlightTrialSubmitting || testFlightCheckingEmail">
               {{ (testFlightSubmitting || testFlightCheckingEmail) ? content.testflight.loadingLabel : content.testflight.submitLabel }}
@@ -470,7 +471,7 @@ const {
           <article v-if="downloadTab === 'token'" key="token" class="mono-feature-card ipa-register-card download-focus-card">
             <span class="release-kicker">Self Service</span>
             <h2>领取 Token</h2>
-            <p class="feature-desc">填写邮箱、用户名和保护码，系统会自动创建或找回 Token。</p>
+            <p class="feature-desc">这是 IPA 自签申请入口；可使用 IPA 自签保护码，也兼容 TestFlight 保护码。</p>
 
             <form class="mono-form" @submit.prevent="submitIpaRegister">
               <label>
@@ -482,8 +483,9 @@ const {
                 <input v-model="ipaRegisterName" placeholder="你的用户名" autocomplete="name" />
               </label>
               <label>
-                <span>保护码</span>
-                <input v-model="ipaRegisterProtectCode" class="code-input" placeholder="请输入保护码" autocomplete="off" />
+                <span>IPA 保护码</span>
+                <input v-model="ipaRegisterProtectCode" class="code-input" placeholder="IPA 自签码或 TestFlight 码" autocomplete="off" />
+                <small class="protect-code-hint">用于 IPA 自签申请；TestFlight 保护码也可以在这里使用。</small>
               </label>
               <button type="submit" :disabled="ipaRegisterSubmitting">
                 {{ ipaRegisterSubmitting ? '处理中...' : '获取 Token' }}
@@ -565,7 +567,7 @@ const {
       <section class="download-guide" aria-label="使用指南">
         <h3>使用指南</h3>
         <ol>
-          <li><span>1</span>输入保护码领取专属 Token。</li>
+          <li><span>1</span>输入 IPA 自签保护码；TestFlight 保护码也可使用。</li>
           <li><span>2</span>下载最新 IPA 文件并完成自签安装。</li>
           <li><span>3</span>打开 App，在设置中粘贴 Token。</li>
           <li><span>4</span>后续更新回到本页下载新版 IPA。</li>

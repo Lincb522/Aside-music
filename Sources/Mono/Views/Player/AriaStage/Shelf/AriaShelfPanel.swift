@@ -280,7 +280,9 @@ struct AriaUnifiedPanel: View {
             .autocorrectionDisabled()
             .submitLabel(.search)
             .focused($searchFocused)
-            .onSubmit { searchFocused = false }
+            .monoOnSubmit(text: $searchQuery) { _ in
+                searchFocused = false
+            }
 
             if isSearching {
                 ProgressView()

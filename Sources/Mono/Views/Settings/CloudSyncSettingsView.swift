@@ -25,7 +25,7 @@ struct CloudSyncSettingsView: View {
                 VStack(alignment: .leading, spacing: SettingsPageLayout.sectionSpacing) {
                     SettingsScrollablePageHeader(
                         title: String(localized: "settings_navigation_cloud_sync_title"),
-                        eyebrow: "CLOUD",
+                        eyebrow: String(localized: "settings_eyebrow_cloud"),
                         icon: .cloud
                     )
 
@@ -65,7 +65,8 @@ struct CloudSyncSettingsView: View {
 
     // MARK: - 分区视图
 
-    /// 顶部状态卡：同步中时图标旋转，否则用红绿点表示在线可用性。
+    /// 顶部状态卡：服务端未提供字节级上传进度，因此同步中明确使用不定进度，
+    /// 不伪造百分比；空闲时显示真实在线状态。
     private var statusPanel: some View {
         HStack(spacing: 13) {
             ZStack {
@@ -76,17 +77,11 @@ struct CloudSyncSettingsView: View {
                     size: 19,
                     color: accent
                 )
-                .rotationEffect(.degrees(playlistCloudSync.isSyncing ? 360 : 0))
-                .animation(
-                    playlistCloudSync.isSyncing
-                        ? .linear(duration: 1).repeatForever(autoreverses: false)
-                        : .easeOut(duration: 0.2),
-                    value: playlistCloudSync.isSyncing
-                )
+                .monoCompletionMotion(trigger: playlistCloudSync.isSyncing)
             }
             .frame(width: 46, height: 46)
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(statusTitle)
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(Color.monoTextPrimary)
@@ -96,18 +91,29 @@ struct CloudSyncSettingsView: View {
                     .font(.system(size: 11.5, weight: .medium))
                     .foregroundStyle(Color.monoTextSecondary)
                     .lineLimit(2)
+
+                if playlistCloudSync.isSyncing {
+                    MonoLiquidProgressBar(
+                        progress: nil,
+                        tint: accent,
+                        secondaryTint: accent.opacity(0.58),
+                        isActive: true,
+                        height: 4
+                    )
+                    .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .leading)))
+                }
             }
 
             Spacer(minLength: 8)
 
             if playlistCloudSync.isSyncing {
-                ProgressView()
-                    .tint(accent)
-                    .controlSize(.small)
+                MonoStatusBeacon(kind: .active, tint: accent, size: 9)
             } else {
-                Circle()
-                    .fill(onlineAccess.canUseOnlineFeatures ? Color.green : Color.orange)
-                    .frame(width: 8, height: 8)
+                MonoStatusBeacon(
+                    kind: onlineAccess.canUseOnlineFeatures ? .success : .failed,
+                    tint: accent,
+                    size: 9
+                )
                     .accessibilityLabel(statusTitle)
             }
         }

@@ -876,7 +876,9 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
             downloads: snapshot.downloads?.count ?? 0,
             podcastSubscriptions: snapshot.localRadioSubscriptions?.count ?? 0,
             colorConfigurations: themeCount,
-            listeningRecords: playbackRecords.filter { $0.playDuration > 0 }.count,
+            listeningRecords: playbackRecords.filter {
+                ListeningPlaybackPolicy.isEffective($0)
+            }.count,
             playbackRecords: playbackRecords.count,
             aiTuningPlans: aiPlans,
             customEQPresets: snapshot.customEQPresets?.count ?? 0

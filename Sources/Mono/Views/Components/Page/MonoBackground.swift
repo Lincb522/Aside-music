@@ -81,6 +81,7 @@ private struct MonoNavigationBackButtonModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .navigationBarBackButtonHidden(true)
+            .toolbar(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     MonoToolbarBackButton(iconColor: iconColor)
@@ -106,7 +107,16 @@ struct MonoBackground: View {
     @State private var coverURL = PlayerManager.shared.currentSong?.coverUrl?.sized(200)
 
     private var useCoverBg: Bool {
-        !MinimalWhiteStyle.isActive && settings.coverBgGlobal && coverURL != nil
+        !useAsideFluidBackground
+            && !MinimalWhiteStyle.isActive
+            && settings.coverBgGlobal
+            && coverURL != nil
+    }
+
+    private var useAsideFluidBackground: Bool {
+        themeId == .default
+            && settings.asideMusicFluidBackgroundEnabled
+            && coverURL != nil
     }
 
     /// 当前全局主题 ID
@@ -118,10 +128,11 @@ struct MonoBackground: View {
         ZStack {
             // 根据全局主题决定底层背景
             themeAwareBackground
-                .opacity(useCoverBg ? 0 : 1)
+                .opacity(useCoverBg || useAsideFluidBackground ? 0 : 1)
 
             if let coverUrl = coverURL,
-               settings.coverBgGlobal {
+               settings.coverBgGlobal,
+               !useAsideFluidBackground {
                 PlaylistColorBackground(
                     coverUrl: coverUrl,
                     onBrightnessChanged: { isDark in
@@ -133,10 +144,26 @@ struct MonoBackground: View {
                 .opacity(useCoverBg ? 1 : 0)
                 .transition(.opacity)
             }
+
+            if let coverUrl = coverURL,
+               settings.asideMusicFluidBackgroundEnabled,
+               themeId == .default {
+                AsideMusicFluidBackground(
+                    artworkURL: coverUrl.absoluteString,
+                    onBrightnessChanged: { isDark in
+                        if settings.globalCoverIsDark != isDark {
+                            settings.globalCoverIsDark = isDark
+                        }
+                    }
+                )
+                .opacity(useAsideFluidBackground ? 1 : 0)
+                .transition(.opacity)
+            }
         }
         .ignoresSafeArea()
         .animation(.easeInOut(duration: 0.45), value: useCoverBg)
-        .onChange(of: useCoverBg) { _, active in
+        .animation(.easeInOut(duration: 0.6), value: useAsideFluidBackground)
+        .onChange(of: useCoverBg || useAsideFluidBackground) { _, active in
             if !active && settings.globalCoverIsDark {
                 settings.globalCoverIsDark = false
             }
@@ -167,6 +194,8 @@ struct MonoBackground: View {
             neumorphicBackground
         case .capsule:
             CapsuleRootBackdrop()
+        case .clarity:
+            ClarityBackdrop()
         case .default:
             defaultBackground
         }

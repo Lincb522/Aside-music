@@ -176,13 +176,11 @@ components:
             equalizer: { $ref: '#/components/schemas/AppAgentConfiguration' }
             listeningInsight: { $ref: '#/components/schemas/AppAgentConfiguration' }
             specialGreeting: { $ref: '#/components/schemas/AppAgentConfiguration' }
-            stageDirector: { $ref: '#/components/schemas/AppAgentConfiguration' }
-            wallpaperTranslator: { $ref: '#/components/schemas/AppAgentConfiguration' }
         polling_interval_seconds: { type: integer }
         cache_max_age_seconds: { type: integer }
     AppAgentConfiguration:
       type: object
-      required: [enabled, promptVersion, systemPrompt, secondarySystemPrompt, userPromptTemplate, temperature, maxOutputTokens, minimumTimeoutSeconds]
+      required: [enabled, promptVersion, systemPrompt, secondarySystemPrompt, userPromptTemplate, temperature, maxOutputTokens, minimumTimeoutSeconds, maxAttempts]
       properties:
         enabled: { type: boolean }
         promptVersion: { type: string }
@@ -192,3 +190,4 @@ components:
         temperature: { type: number, minimum: 0, maximum: 2 }
         maxOutputTokens: { type: integer, minimum: 128, maximum: 32000 }
         minimumTimeoutSeconds: { type: number, minimum: 0, maximum: 180 }
+        maxAttempts: { type: integer, minimum: 1, maximum: 4 }

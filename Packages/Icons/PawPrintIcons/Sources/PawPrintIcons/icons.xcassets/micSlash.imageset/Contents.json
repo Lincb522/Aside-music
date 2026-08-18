@@ -1,26 +1,59 @@
 {
-  "images" : [
+  "images": [
     {
-      "filename" : "micSlash@1x.png",
-      "idiom" : "universal",
-      "scale" : "1x"
+      "filename": "micSlash@1x.png",
+      "idiom": "universal",
+      "scale": "1x"
     },
     {
-      "filename" : "micSlash@2x.png",
-      "idiom" : "universal",
-      "scale" : "2x"
+      "filename": "micSlash@2x.png",
+      "idiom": "universal",
+      "scale": "2x"
     },
     {
-      "filename" : "micSlash@3x.png",
-      "idiom" : "universal",
-      "scale" : "3x"
+      "filename": "micSlash@3x.png",
+      "idiom": "universal",
+      "scale": "3x"
+    },
+    {
+      "appearances": [
+        {
+          "appearance": "luminosity",
+          "value": "dark"
+        }
+      ],
+      "idiom": "universal",
+      "scale": "1x",
+      "filename": "micSlash_dark@1x.png"
+    },
+    {
+      "appearances": [
+        {
+          "appearance": "luminosity",
+          "value": "dark"
+        }
+      ],
+      "idiom": "universal",
+      "scale": "2x",
+      "filename": "micSlash_dark@2x.png"
+    },
+    {
+      "appearances": [
+        {
+          "appearance": "luminosity",
+          "value": "dark"
+        }
+      ],
+      "idiom": "universal",
+      "scale": "3x",
+      "filename": "micSlash_dark@3x.png"
     }
   ],
-  "info" : {
-    "author" : "xcode",
-    "version" : 1
+  "info": {
+    "author": "xcode",
+    "version": 1
   },
-  "properties" : {
-    "template-rendering-intent" : "original"
+  "properties": {
+    "template-rendering-intent": "original"
   }
 }

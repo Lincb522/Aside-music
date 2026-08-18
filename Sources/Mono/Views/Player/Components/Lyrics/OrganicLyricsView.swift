@@ -165,8 +165,13 @@ struct OrganicLyricLineViewWrapper: View {
             maximumFramesPerSecond: 60,
             paused: !(isCurrent && PlayerManager.shared.isPlaying)
         )) { _ in
-            let rawTime = PlayerManager.shared.streamPlayer.currentTime
-            let realTime = (rawTime.isFinite && !rawTime.isNaN && rawTime >= 0) ? rawTime : PlaybackTimePublisher.shared.currentTime
+            let player = PlayerManager.shared
+            let realTime = LyricKaraokeTimeline.playbackTime(
+                streamPlayerTime: player.streamPlayer.currentTime,
+                publishedTime: PlaybackTimePublisher.shared.currentTime,
+                isAppleMusic: player.currentSong?.isAppleMusic == true,
+                appleMusicPlayerTime: player.appleMusicPlayback.renderingPlaybackTime
+            )
             
             OrganicLyricLineView(
                 line: line,

@@ -236,6 +236,15 @@ struct AriaForeignClassicLyricStage: View {
             let fontSize = min(max(stageSize.width * 0.052, 38), 66)
                 * CGFloat(fontScale)
             let tokens = AriaFoliaTokenCache.tokens(for: line)
+            let baseFont = fontChoice.font(size: fontSize, weight: .bold)
+            let breathingFont = breathing > 0.001
+                ? fontChoice.breathingFont(
+                    size: fontSize,
+                    amount: breathing,
+                    baseWeight: .bold
+                )
+                : nil
+            let colorMixer = AriaFoliaColor.mixer(palette.primary, palette.accent)
 
             AriaForeignCenteredFlowLayout(
                 horizontalSpacing: max(12, fontSize * 0.22),
@@ -247,13 +256,16 @@ struct AriaForeignClassicLyricStage: View {
                         hints: line.hints,
                         palette: palette,
                         fontChoice: fontChoice,
-                        fontSize: fontSize,
+                        baseFont: baseFont,
+                        breathingFont: breathingFont,
+                        colorMixer: colorMixer,
                         time: time,
                         breathing: breathing
                     )
                 }
             }
             .frame(width: max(260, stageSize.width * 0.82))
+            .padding(.vertical, max(18, fontSize * 0.34))
         }
     }
 }
@@ -263,7 +275,9 @@ private struct AriaForeignClassicWord: View {
     let hints: AriaRenderHints
     let palette: AriaPalette
     let fontChoice: AriaLyricFontChoice
-    let fontSize: CGFloat
+    let baseFont: Font
+    let breathingFont: Font?
+    let colorMixer: AriaFoliaColor.Mixer
     let time: Double
     var breathing: Double = 0
 
@@ -276,14 +290,10 @@ private struct AriaForeignClassicWord: View {
         let glow = AriaFoliaRuntime.glowEnvelope(for: token, hints: hints, time: time)
         let color = status == .waiting
             ? palette.primary.opacity(0.17)
-            : AriaFoliaColor.mix(palette.primary, palette.accent, amount: mix)
+            : colorMixer.color(amount: mix)
 
         Text(token.text)
-            .font(
-                breathing > 0.001 && status == .active
-                    ? fontChoice.breathingFont(size: fontSize, amount: breathing, baseWeight: .bold)
-                    : fontChoice.font(size: fontSize, weight: .bold)
-            )
+            .font(status == .active ? (breathingFont ?? baseFont) : baseFont)
             .italic(status == .active)
             .foregroundStyle(color)
             .ariaSyntheticBreathingWeight(
@@ -302,8 +312,27 @@ private struct AriaForeignClassicWord: View {
                     .frame(height: 2)
                     .offset(y: 7)
             }
-            .shadow(color: palette.accent.opacity(glow * 0.38), radius: 14)
+            .modifier(
+                AriaForeignClassicGlowModifier(
+                    color: palette.accent,
+                    glow: glow
+                )
+            )
             .animation(.smooth(duration: 0.26), value: status)
+    }
+}
+
+private struct AriaForeignClassicGlowModifier: ViewModifier {
+    let color: Color
+    let glow: Double
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if glow > 0.001 {
+            content.shadow(color: color.opacity(glow * 0.38), radius: 14)
+        } else {
+            content
+        }
     }
 }
 
@@ -338,7 +367,8 @@ struct AriaForeignCadenzaLineView: View {
                     )
                     .frame(width: proxy.size.width * 0.76, height: 1)
 
-                ForEach(Array(tokens.enumerated()), id: \.element.id) { index, token in
+                ForEach(tokens.indices, id: \.self) { index in
+                    let token = tokens[index]
                     let relativeIndex = index - activeIndex
                     if abs(relativeIndex) <= 3 {
                         AriaForeignCadenzaWord(
@@ -594,7 +624,8 @@ struct AriaForeignFumeStage: View {
                 LazyVStack(spacing: 20) {
                     Color.clear.frame(height: stageSize.height * 0.35)
 
-                    ForEach(Array(lines.enumerated()), id: \.element.id) { index, line in
+                    ForEach(lines.indices, id: \.self) { index in
+                        let line = lines[index]
                         let isActive = index == activeIndex
                         AriaForeignFumeLine(
                             line: line,
@@ -721,6 +752,7 @@ private struct AriaForeignFumeLine: View, @MainActor Equatable {
                     }
                 }
                 .frame(width: stageWidth * 0.72)
+                .ariaLyricActiveRowSurface()
             } else {
                 Text(line.fullText)
                     .font(fontChoice.font(size: fontSize, weight: .medium))
@@ -779,7 +811,8 @@ struct AriaForeignCappellaStage: View {
                 LazyVStack(spacing: 16) {
                     Color.clear.frame(height: stageSize.height * 0.32)
 
-                    ForEach(Array(lines.enumerated()), id: \.element.id) { index, line in
+                    ForEach(lines.indices, id: \.self) { index in
+                        let line = lines[index]
                         let isActive = index == activeIndex
                         AriaForeignCappellaRow(
                             line: line,
@@ -978,6 +1011,7 @@ private struct AriaForeignCappellaRow: View, @MainActor Equatable {
                     .frame(width: cardContentWidth)
             }
         }
+        .ariaLyricActiveRowSurface(enabled: isActive && !line.isInterlude)
         .padding(.horizontal, 18)
         .padding(.vertical, 12)
         .background {

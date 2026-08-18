@@ -252,3 +252,7 @@ test_layout.swift
 !Web/website/**/*.md
 !Web/website/**/*.png
 *.pdf
+*.json
+/artifacts/web-reverse
+__pycache__/
+*.pyc

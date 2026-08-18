@@ -100,7 +100,10 @@ struct MonoAlertView: View {
                             .stroke(Color.monoAccent.opacity(isInputFocused ? 0.5 : 0.15), lineWidth: 1)
                     )
                     .focused($isInputFocused)
-                    .onSubmit { handlePrimary() }
+                    .submitLabel(.done)
+                    .monoOnSubmit(text: $inputText) { _ in
+                        handlePrimary()
+                    }
                     
                     if let link = purchaseLink, let url = URL(string: link) {
                         Link(destination: url) {
@@ -128,7 +131,7 @@ struct MonoAlertView: View {
                         .buttonStyle(MonoBouncingButtonStyle())
                     }
                     
-                    Button(action: handlePrimary) {
+                    Button(action: commitPrimaryAction) {
                         Text(inputMode && !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? NSLocalizedString("common_submit", comment: "") : primaryButtonTitle)
                             .font(.system(size: 15, weight: .bold, design: .rounded))
                             .foregroundColor(.monoIconForeground)
@@ -165,6 +168,16 @@ struct MonoAlertView: View {
     }
     
     /// 先收起键盘再延迟关闭与回调，避免键盘退场与弹窗动画冲突。
+    private func commitPrimaryAction() {
+        guard inputMode else {
+            handlePrimary()
+            return
+        }
+        MonoTextInputCommitter.commit(text: $inputText) { _ in
+            handlePrimary()
+        }
+    }
+
     private func handlePrimary() {
         let submittedText = inputText
         releaseTextInputSession()
@@ -196,7 +209,7 @@ struct MonoAlertView: View {
     private func releaseTextInputSession() {
         isInputFocused = false
 #if os(iOS)
-        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        MonoTextInputCommitter.resignActiveTextInputIfPresent()
 #endif
     }
 }

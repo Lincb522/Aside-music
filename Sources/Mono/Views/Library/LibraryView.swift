@@ -71,6 +71,9 @@ struct LibraryView: View {
 
                 case let .localPlaylist(id):
                     LocalPlaylistDetailView(playlistId: id)
+
+                case .externalPlaylistImport:
+                    ExternalPlaylistImportView()
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToLibrarySquare"))) { notification in

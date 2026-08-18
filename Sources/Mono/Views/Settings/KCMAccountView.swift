@@ -59,6 +59,7 @@ struct KCMAccountView: View {
             }
         }
         .scrollContentBackground(.hidden)
+        .claritySettingsListStyle()
         .background(ThemedPageBackground())
         .navigationTitle("KCM 账号")
         .navigationBarTitleDisplayMode(.inline)
@@ -109,7 +110,7 @@ struct KCMAccountView: View {
                 Text(membershipDisplayName)
                     .font(.system(size: 11, weight: .bold, design: .rounded))
                     .foregroundStyle(
-                        profile?.membershipLevel == .none
+                        profile?.membershipLevel == KCMMembershipLevel.none
                             ? Color.monoTextSecondary
                             : MusicSource.kugou.themedBadgeColor
                     )

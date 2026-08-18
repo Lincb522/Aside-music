@@ -12,6 +12,7 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable, Sendable {
     case capsule       // Capsule OS — 胶囊模块化系统界面
     case petWhite      // Paw · 黏土玩具 — 厚圆角黏土块、马卡龙糖果色、squishy 按压（可选主题）
     case minimalWhite  // 纯白极简 — 纯白表面、轻分隔、克制层级
+    case clarity       // 通透 — 独立空气光层与浮游界面
 
     var id: String { rawValue }
 
@@ -54,6 +55,8 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable, Sendable {
             return String(localized: "global_theme_pet_white_name")
         case .minimalWhite:
             return String(localized: "global_theme_minimal_white_name")
+        case .clarity:
+            return String(localized: "通透")
         }
     }
 
@@ -73,6 +76,8 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable, Sendable {
             return String(localized: "global_theme_pet_white_description")
         case .minimalWhite:
             return ""
+        case .clarity:
+            return String(localized: "空气光层与浮游界面")
         }
     }
 
@@ -92,6 +97,8 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable, Sendable {
             return .catLife
         case .minimalWhite:
             return .sparkle
+        case .clarity:
+            return .layers
         }
     }
 }

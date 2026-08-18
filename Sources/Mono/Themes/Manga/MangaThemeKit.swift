@@ -70,6 +70,8 @@ struct MangaRootBackdrop: View {
                 opacity: colorScheme == .dark ? 0.76 : 0.95
             )
 
+            UnifiedColorAmbientLayer(strength: 0.42)
+
             MangaPaperGrainTexture(opacity: colorScheme == .dark ? 0.05 : 0.07)
             MangaDotsTexture(opacity: colorScheme == .dark ? 0.025 : 0.035, gap: 18)
         }

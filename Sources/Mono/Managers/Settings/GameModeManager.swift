@@ -250,11 +250,9 @@ final class GameModeManager: ObservableObject {
         settings.backgroundAudioPolicy = .alwaysMix
         PlayerManager.shared.handleBackgroundAudioPolicySettingChanged()
 
-        // 2.1 Ducking：若用户开启，给 session options 叠加 .interruptSpokenAudioAndMixWithOthers
-        // PlayerManager.audioSessionOptions() 会读 GameModeManager.isActive
-        // 但 isActive 的 set 在调用方之后才 true；这里主动触发一次 re-apply
-        // （实际 applyEnter 先跑，isActive 随后置 true → 下次 re-apply 时才生效，
-        // 所以由 enter() / toggle() 外壳在 isActive 置位之后再调一次）
+        // 2.1 语音优先由 AudioSessionCoordinator 响应系统主音频提示，
+        // 调低 Mono 自己的独立渲染乘数，不使用会反向暂停其他语音的
+        // interruptSpokenAudioAndMixWithOthers。
 
         // 3. 可选：切到首选音质（用户指定 > 降音质默认 > 不变）
         // 标记：此段时间内的 switchQuality 属于"游戏模式内部切换"，不应覆盖备份
@@ -334,8 +332,7 @@ final class GameModeManager: ObservableObject {
             }
             PlayerManager.shared.handleBackgroundAudioPolicySettingChanged()
         } else {
-            // 用户本来就是 alwaysMix，保持现状但仍重新应用一次 options
-            // （避免遗留 Ducking option 未被清除）
+            // 用户本来就是 alwaysMix，保持现状但仍刷新语音优先状态。
             PlayerManager.shared.handleBackgroundAudioPolicySettingChanged()
         }
 

@@ -641,8 +641,9 @@ extension APIService {
                     for creative in creatives {
                         let title = creative["title"] as? String ?? ""
                         let desc = creative["description"] as? String ?? ""
-                        if !title.isEmpty || !desc.isEmpty {
-                            result.append(SongWikiBlock(type: blockType, title: title, description: desc))
+                        let block = SongWikiBlock(type: blockType, title: title, description: desc)
+                        if block.hasReadableProse {
+                            result.append(block)
                         }
                     }
                 }

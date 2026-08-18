@@ -208,9 +208,11 @@ struct PlatformLoginView: View {
 
     private var statusRow: some View {
         HStack(spacing: 8) {
-            Circle()
-                .fill(selectedPlatform.musicSource.themedBadgeColor)
-                .frame(width: 7, height: 7)
+            MonoStatusBeacon(
+                kind: qrStatusKind,
+                tint: selectedPlatform.musicSource.themedBadgeColor,
+                size: 7
+            )
 
             Text(qrStatusMessage)
                 .font(.system(size: 14, weight: .medium, design: .rounded))
@@ -242,6 +244,25 @@ struct PlatformLoginView: View {
         case .qcm: return qcmViewModel.isQRExpired
         case .kcm: return kcmViewModel.isQRExpired
         }
+    }
+
+    private var qrStatusKind: MonoStatusKind {
+        if isQRExpired { return .failed }
+
+        let status = qrStatusMessage.lowercased()
+        if status.contains("成功") || status.contains("success") {
+            return .success
+        }
+        if status.contains("已扫码") || status.contains("scanned") || status.contains("确认") {
+            return .scanned
+        }
+        if status.contains("拒绝") || status.contains("失败") || status.contains("异常") || status.contains("error") {
+            return .failed
+        }
+        if qrCodeImage != nil || status.contains("加载") || status.contains("等待") || status.contains("重试") {
+            return .active
+        }
+        return .idle
     }
 
     private var qrCodeAccessibilityLabel: String {

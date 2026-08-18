@@ -53,6 +53,8 @@ struct MinimalWhiteRootBackdrop: View {
         ZStack {
             MinimalWhiteStyle.paper
 
+            UnifiedColorAmbientLayer(strength: 0.24)
+
             VStack(spacing: 0) {
                 Rectangle()
                     .fill(MinimalWhiteStyle.surfaceTint)

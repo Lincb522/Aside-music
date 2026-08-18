@@ -1,9 +1,4 @@
 import SwiftUI
-import CoreImage
-
-private let playlistBrightnessContext = CIContext(
-    options: [.workingColorSpace: kCFNull as Any]
-)
 
 /// 封面模糊背景 — 封面图放大铺满 + 高斯模糊 + 蒙层
 struct PlaylistColorBackground: View {
@@ -62,10 +57,6 @@ struct PlaylistColorBackground: View {
                 url: url,
                 maxSize: 320
             )
-            if let loaded {
-                let isDark = loaded.averageBrightness < 0.45
-                onBrightnessChanged?(isDark)
-            }
             withAnimation(.easeOut(duration: 0.6)) {
                 coverImage = loaded
             }
@@ -99,34 +90,5 @@ struct PlaylistColorBackground: View {
             endPoint: .bottom
         )
         .ignoresSafeArea()
-    }
-}
-
-// MARK: - UIImage 亮度检测
-
-extension UIImage {
-    /// 使用 CIAreaAverage 计算图片平均感知亮度 (0 = 纯黑, 1 = 纯白)
-    var averageBrightness: CGFloat {
-        guard let ciImage = CIImage(image: self) else { return 0.5 }
-        let filter = CIFilter(name: "CIAreaAverage", parameters: [
-            kCIInputImageKey: ciImage,
-            kCIInputExtentKey: CIVector(cgRect: ciImage.extent)
-        ])
-        guard let outputImage = filter?.outputImage else { return 0.5 }
-
-        var bitmap = [UInt8](repeating: 0, count: 4)
-        playlistBrightnessContext.render(
-            outputImage,
-            toBitmap: &bitmap,
-            rowBytes: 4,
-            bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
-            format: .RGBA8,
-            colorSpace: CGColorSpaceCreateDeviceRGB()
-        )
-
-        let r = CGFloat(bitmap[0]) / 255
-        let g = CGFloat(bitmap[1]) / 255
-        let b = CGFloat(bitmap[2]) / 255
-        return 0.2126 * r + 0.7152 * g + 0.0722 * b
     }
 }

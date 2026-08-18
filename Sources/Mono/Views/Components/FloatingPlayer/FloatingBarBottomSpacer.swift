@@ -28,8 +28,23 @@ struct FloatingBarBottomSpacer: View {
     private var baseHeight: CGFloat {
         guard !isTabBarHidden else { return 24 }
 
-        if useSystemTabBar {
+        if useSystemTabBar && globalThemeId != .manga {
             return hasCurrentSong ? 72 : 20
+        }
+
+        if globalThemeId == .clarity {
+            switch floatingBarStyle {
+            case .unified:
+                return hasCurrentSong ? 150 : 136
+            case .classic:
+                return hasCurrentSong ? 148 : 82
+            case .minimal:
+                return hasCurrentSong ? 124 : 70
+            case .floatingBall:
+                return 140
+            default:
+                return hasCurrentSong ? 176 : 108
+            }
         }
 
         if globalThemeId == .manga {
@@ -54,11 +69,26 @@ struct FloatingBarBottomSpacer: View {
 
         case .floatingBall:
             return 88
+
+        case .flux, .liquid:
+            return hasCurrentSong ? 112 : 94
+
+        case .rivePulse:
+            return hasCurrentSong ? 144 : 96
+
+        case .cassette:
+            return hasCurrentSong ? 136 : 78
+
+        case .orbit:
+            return hasCurrentSong ? 146 : 78
+
+        case .vinylNeedle, .waveform, .filmstrip, .studioMeter:
+            return hasCurrentSong ? 180 : 88
         }
     }
 
     private var floatingBarStyle: FloatingBarStyle {
-        FloatingBarStyle(rawValue: floatingBarStyleRaw) ?? .unified
+        FloatingBarStyle(rawValue: floatingBarStyleRaw) ?? .flux
     }
 
     private var globalThemeId: GlobalThemeId {

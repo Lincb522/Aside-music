@@ -23,6 +23,34 @@ struct LyricLine: Identifiable, Equatable {
 /// 普通歌词页与歌词播放器共用的逐字时间轴。
 /// 平台逐字数据可用时保留原时间；缺失、相对时间或明显异常时统一补齐。
 enum LyricKaraokeTimeline {
+    /// 歌词渲染使用的统一播放时钟。
+    ///
+    /// 普通平台由 FFmpeg 流播放器提供更细粒度的时间；Apple Music 由
+    /// MusicKit 播放，旧流播放器通常停在 0，必须使用统一进度发布器。
+    static func playbackTime(
+        streamPlayerTime: TimeInterval,
+        publishedTime: TimeInterval,
+        isAppleMusic: Bool,
+        appleMusicPlayerTime: TimeInterval? = nil
+    ) -> TimeInterval {
+        if isAppleMusic {
+            if let appleMusicPlayerTime,
+               appleMusicPlayerTime.isFinite,
+               !appleMusicPlayerTime.isNaN,
+               appleMusicPlayerTime >= 0 {
+                return appleMusicPlayerTime
+            }
+            return publishedTime.isFinite && !publishedTime.isNaN
+                ? max(publishedTime, 0)
+                : 0
+        }
+        return streamPlayerTime.isFinite
+            && !streamPlayerTime.isNaN
+            && streamPlayerTime >= 0
+            ? streamPlayerTime
+            : max(publishedTime, 0)
+    }
+
     static func resolvedWords(for line: LyricLine, displayText: String? = nil) -> [LyricWord] {
         let text = displayText ?? line.text.monoLyricDisplayText
         guard !text.isEmpty else { return [] }
@@ -106,6 +134,20 @@ enum LyricKaraokeTimeline {
 @MainActor
 class LyricViewModel: ObservableObject {
     static let shared = LyricViewModel()
+
+    private struct ParsedLyricCandidate {
+        let source: LyricSource
+        let lines: [LyricLine]
+        let hasPlatformWordTiming: Bool
+        let hasTranslation: Bool
+
+        var qualityScore: Int {
+            guard !lines.isEmpty else { return 0 }
+            return 1
+                + (hasPlatformWordTiming ? 4 : 0)
+                + (hasTranslation ? 2 : 0)
+        }
+    }
     
     @Published var lyrics: [LyricLine] = []
     @Published var isLoading = false
@@ -688,8 +730,46 @@ class LyricViewModel: ObservableObject {
 
                     self.applyNeteaseLyrics(response)
                     if self.hasLyrics {
+                        let neteaseCandidate = self.captureLyricCandidate(
+                            source: .netease,
+                            hasPlatformWordTiming: self.hasNonEmptyText(response.yrc?.lyric),
+                            hasTranslation: self.hasNonEmptyText(response.tlyric?.lyric)
+                        )
+
+                        // Apple Music 的公开 API 只暴露 hasLyrics，未开放歌词正文、
+                        // 翻译或逐字时间轴。跨平台匹配时不能在首份普通 LRC
+                        // 命中后就停止；继续比较 QCM 官方歌词，优先保留翻译和
+                        // 平台逐字时间更完整的候选。
+                        if song.isAppleMusic,
+                           let neteaseCandidate,
+                           neteaseCandidate.qualityScore < 7 {
+                            let qqCandidate = await self.qqLyricCandidateByMetadata(
+                                for: song,
+                                sessionId: sessionId
+                            )
+                            guard self.lyricSessionId == sessionId else { return }
+
+                            if let qqCandidate,
+                               qqCandidate.qualityScore > neteaseCandidate.qualityScore {
+                                self.applyLyricCandidate(qqCandidate)
+                                AppLogger.info(
+                                    "[Lyrics] AM 匹配到更完整的 QCM 官方歌词（翻译/逐字）: \(song.name) - \(song.artistName)"
+                                )
+                            } else {
+                                self.applyLyricCandidate(neteaseCandidate)
+                            }
+                        }
+
                         self.isLoading = false
-                        AppLogger.info("[Lyrics] 已从 NCM 搜索结果补全歌词: \(song.name) - \(song.artistName)")
+                        if song.isAppleMusic {
+                            AppLogger.info(
+                                "[Lyrics] 已为 AM 补全歌词，采用 \(self.activeSource?.shortName ?? "NCM"): \(song.name) - \(song.artistName)"
+                            )
+                        } else {
+                            AppLogger.info(
+                                "[Lyrics] 已从 NCM 搜索结果补全歌词: \(song.name) - \(song.artistName)"
+                            )
+                        }
                         return
                     }
                 }
@@ -704,6 +784,88 @@ class LyricViewModel: ObservableObject {
                 sessionId: sessionId
             )
         }
+    }
+
+    private func qqLyricCandidateByMetadata(
+        for song: Song,
+        sessionId: Int
+    ) async -> ParsedLyricCandidate? {
+        let query = "\(song.artistName) \(song.name)"
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        do {
+            let candidates = try await APIService.shared.searchQQSongs(
+                keyword: query,
+                page: 1,
+                num: 10
+            ).async()
+            guard lyricSessionId == sessionId,
+                  let matchedSong = bestMetadataMatch(
+                      from: candidates,
+                      title: song.name,
+                      artist: song.artistName,
+                      durationMs: song.dt
+                  ),
+                  let qqMid = matchedSong.qqMid,
+                  !qqMid.isEmpty else {
+                return nil
+            }
+
+            let response = try await APIService.shared.fetchQQLyric(mid: qqMid).async()
+            guard lyricSessionId == sessionId else { return nil }
+
+            applyQQLyrics(response)
+            return captureLyricCandidate(
+                source: .qqmusic,
+                hasPlatformWordTiming: hasNonEmptyText(response.qrc)
+                    || isQRCFormatted(response.lyric),
+                hasTranslation: hasNonEmptyText(response.trans)
+            )
+        } catch {
+            AppLogger.warning(
+                "[Lyrics] AM 的 QCM 完整歌词比较失败: \(query) - \(error.localizedDescription)"
+            )
+            return nil
+        }
+    }
+
+    private func captureLyricCandidate(
+        source: LyricSource,
+        hasPlatformWordTiming: Bool,
+        hasTranslation: Bool
+    ) -> ParsedLyricCandidate? {
+        guard hasLyrics, !lyrics.isEmpty else { return nil }
+        return ParsedLyricCandidate(
+            source: source,
+            lines: lyrics,
+            hasPlatformWordTiming: hasPlatformWordTiming,
+            hasTranslation: hasTranslation && lyrics.contains {
+                !($0.translation ?? "")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .isEmpty
+            }
+        )
+    }
+
+    private func applyLyricCandidate(_ candidate: ParsedLyricCandidate) {
+        translations = [:]
+        lyrics = candidate.lines
+        hasLyrics = !candidate.lines.isEmpty
+        activeSource = candidate.source
+        currentLineIndex = 0
+        currentLineProgress = 0
+    }
+
+    private func hasNonEmptyText(_ value: String?) -> Bool {
+        guard let value else { return false }
+        return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func isQRCFormatted(_ value: String?) -> Bool {
+        guard let value, hasNonEmptyText(value) else { return false }
+        return value.contains("<QrcInfos>")
+            || value.hasPrefix("<?xml")
+            || (value.first == "[" && value.contains("(") && value.contains(")"))
     }
 
     private func finishNeteaseFallback(
@@ -1397,6 +1559,9 @@ struct KaraokeLineView: View {
     var playerCustomFontID = ""
     var playerFontScale = 1.0
     var karaokeStyle: KaraokeWordStyle = .flow
+    var adaptivePrimaryColor: Color? = nil
+    var adaptiveSecondaryColor: Color? = nil
+    var enforcesAdaptiveContrast = false
     
     @Environment(\.colorScheme) private var colorScheme
     
@@ -1515,8 +1680,11 @@ struct KaraokeLineView: View {
     // MARK: - 自定义歌词颜色（仅默认主题）
     
     private var customActiveColor: Color {
+        if enforcesAdaptiveContrast, let adaptivePrimaryColor {
+            return adaptivePrimaryColor
+        }
         guard lyricColorMode != "default" else {
-            return .monoTextPrimary
+            return adaptivePrimaryColor ?? .monoTextPrimary
         }
         if lyricColorMode == "auto" {
             return lyricAutoPalette.first ?? .monoTextPrimary
@@ -1528,6 +1696,7 @@ struct KaraokeLineView: View {
     }
     
     private var customActiveGradient: LinearGradient? {
+        if enforcesAdaptiveContrast { return nil }
         if lyricColorMode == "auto", lyricAutoPalette.count > 1 {
             return LinearGradient(
                 colors: Array(lyricAutoPalette.prefix(6)),
@@ -1569,7 +1738,11 @@ struct KaraokeLineView: View {
                 } else {
                     Text(trans)
                         .font(translationFont(isCurrent: isCurrent))
-                        .foregroundColor(isCurrent ? .monoTextPrimary.opacity(0.8) : .gray.opacity(0.5))
+                        .foregroundColor(
+                            isCurrent
+                                ? (adaptivePrimaryColor ?? .monoTextPrimary).opacity(0.82)
+                                : (adaptiveSecondaryColor ?? .gray.opacity(0.5))
+                        )
                         .multilineTextAlignment(.center)
                         .blur(radius: isCurrent ? 0 : 0.3)
                         .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isCurrent)
@@ -1639,6 +1812,7 @@ struct KaraokeLineView: View {
                                 currentTime: currentTime,
                                 font: currentLineFont,
                                 activeColor: customActiveColor,
+                                inactiveColor: adaptiveSecondaryColor ?? .gray.opacity(0.3),
                                 activeGradient: customActiveGradient,
                                 style: karaokeStyle
                             )
@@ -1672,7 +1846,7 @@ struct KaraokeLineView: View {
         } else {
             Text(displayText)
                 .font(normalLineFont)
-                .foregroundColor(.gray.opacity(0.6))
+                .foregroundColor(adaptiveSecondaryColor ?? .gray.opacity(0.6))
                 .multilineTextAlignment(.center)
                 .blur(radius: 0.5)
                 .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isCurrent)
@@ -1690,7 +1864,9 @@ struct KaraokeLineView: View {
         var combined = Text("")
         for (index, char) in chars.enumerated() {
             let isActive = index <= threshold && progress > 0
-            let color: Color = isActive ? .monoTextPrimary : .gray.opacity(0.3)
+            let color: Color = isActive
+                ? (adaptivePrimaryColor ?? .monoTextPrimary)
+                : (adaptiveSecondaryColor ?? .gray.opacity(0.3))
             combined = combined + Text(String(char))
                 .font(currentLineFont)
                 .foregroundColor(color)
@@ -1737,6 +1913,9 @@ extension ScrollViewProxy {
 struct LyricsView: View {
     let song: Song
     var onBackgroundTap: (() -> Void)?
+    var adaptivePrimaryColor: Color? = nil
+    var adaptiveSecondaryColor: Color? = nil
+    var enforcesAdaptiveContrast = false
     @ObservedObject var player = PlayerManager.shared
     @ObservedObject private var viewModel = LyricViewModel.shared
     @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
@@ -1761,11 +1940,17 @@ struct LyricsView: View {
         VStack {
                 if viewModel.isLoading {
                     ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .monoTextPrimary))
+                        .progressViewStyle(
+                            CircularProgressViewStyle(
+                                tint: adaptivePrimaryColor ?? .monoTextPrimary
+                            )
+                        )
                 } else if !viewModel.hasLyrics {
                     Text("No Lyrics Available")
                         .font(.rounded(size: 18, weight: .medium))
-                        .foregroundColor(.monoTextPrimary.opacity(0.6))
+                        .foregroundColor(
+                            (adaptivePrimaryColor ?? .monoTextPrimary).opacity(0.6)
+                        )
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .contentShape(Rectangle())
                         .onTapGesture {
@@ -1881,15 +2066,20 @@ struct LyricsView: View {
             playerFontSelectionRaw: playerFontSelectionRaw,
             playerCustomFontID: playerCustomFontID,
             playerFontScale: playerFontScale,
-            karaokeStyle: KaraokeWordStyle.resolve(karaokeStyleRaw)
+            karaokeStyle: KaraokeWordStyle.resolve(karaokeStyleRaw),
+            adaptivePrimaryColor: adaptivePrimaryColor,
+            adaptiveSecondaryColor: adaptiveSecondaryColor,
+            enforcesAdaptiveContrast: enforcesAdaptiveContrast
         )
     }
 
     private var livePlaybackTime: TimeInterval {
-        let rawTime = player.streamPlayer.currentTime
-        return rawTime.isFinite && !rawTime.isNaN && rawTime >= 0
-            ? rawTime
-            : timePublisher.currentTime
+        LyricKaraokeTimeline.playbackTime(
+            streamPlayerTime: player.streamPlayer.currentTime,
+            publishedTime: timePublisher.currentTime,
+            isAppleMusic: player.currentSong?.isAppleMusic == true,
+            appleMusicPlayerTime: player.appleMusicPlayback.renderingPlaybackTime
+        )
     }
     
     private func resetScrollTimer() {

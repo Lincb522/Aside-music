@@ -8,6 +8,7 @@
 import Foundation
 import AudioToolbox
 import AVFoundation
+import CoreAudio
 
 /// Renders PCM audio data to the system audio output device.
 ///
@@ -54,6 +55,9 @@ final class AudioRenderer {
     /// Desired mixer volume survives AVAudioEngine disposal/recreation so a
     /// startup fade can begin muted before the first hardware render callback.
     private var outputVolumeStorage: Float = 1.0
+    /// Independent multiplier for temporary system/game voice ducking. Keeping
+    /// it separate prevents a voice hint from overwriting pause or sleep fades.
+    private var duckingVolumeStorage: Float = 1.0
     /// Real-time spatial pan is applied by AVAudioMixerNode and therefore does
     /// not rebuild FFmpeg filters or disturb the decoder queue.
     private var outputPanStorage: Float = 0
@@ -484,7 +488,23 @@ final class AudioRenderer {
             defer { lifecycleLock.unlock() }
             let clamped = max(0.0, min(newValue, 1.0))
             outputVolumeStorage = clamped
-            engine?.mainMixerNode.outputVolume = clamped
+            engine?.mainMixerNode.outputVolume = clamped * duckingVolumeStorage
+        }
+    }
+
+    /// Temporary output multiplier (0.0~1.0) composed with `outputVolume`.
+    var duckingVolume: Float {
+        get {
+            lifecycleLock.lock()
+            defer { lifecycleLock.unlock() }
+            return duckingVolumeStorage
+        }
+        set {
+            lifecycleLock.lock()
+            defer { lifecycleLock.unlock() }
+            let clamped = max(0.0, min(newValue, 1.0))
+            duckingVolumeStorage = clamped
+            engine?.mainMixerNode.outputVolume = outputVolumeStorage * clamped
         }
     }
 
@@ -673,7 +693,7 @@ final class AudioRenderer {
         audioEngine.attach(node)
         audioEngine.connect(node, to: audioEngine.mainMixerNode, format: avFormat)
         audioEngine.connect(audioEngine.mainMixerNode, to: audioEngine.outputNode, format: nil)
-        audioEngine.mainMixerNode.outputVolume = outputVolumeStorage
+        audioEngine.mainMixerNode.outputVolume = outputVolumeStorage * duckingVolumeStorage
         audioEngine.mainMixerNode.pan = outputPanStorage
 
         audioEngine.prepare()
@@ -831,7 +851,7 @@ final class AudioRenderer {
         audioEngine.attach(node)
         audioEngine.connect(node, to: audioEngine.mainMixerNode, format: avFormat)
         audioEngine.connect(audioEngine.mainMixerNode, to: audioEngine.outputNode, format: nil)
-        audioEngine.mainMixerNode.outputVolume = outputVolumeStorage
+        audioEngine.mainMixerNode.outputVolume = outputVolumeStorage * duckingVolumeStorage
         audioEngine.mainMixerNode.pan = outputPanStorage
 
         audioEngine.prepare()

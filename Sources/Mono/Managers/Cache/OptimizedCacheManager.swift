@@ -11,6 +11,14 @@ final class OptimizedCacheManager: ObservableObject {
     
     // MARK: - 内存缓存（L1）
     private let memoryCache = NSCache<NSString, AnyObject>()
+    private struct MemoryEntryMetadata {
+        let cost: Int
+        var lastAccess: UInt64
+    }
+    private var memoryEntries: [String: MemoryEntryMetadata] = [:]
+    private var memoryAccessSequence: UInt64 = 0
+    private var memoryBudgetBytes = AppConfig.Cache.memoryLimit
+    private var memoryCountLimit = 200
     
     // MARK: - 数据库仓库（L2）
     private lazy var songRepo = SongRepository()
@@ -31,7 +39,6 @@ final class OptimizedCacheManager: ObservableObject {
     @Published var isUserDataReady = false
     
     // MARK: - 缓存配置
-    private let memoryCacheLimit = AppConfig.Cache.memoryLimit
     private let cacheValidityDuration: TimeInterval = AppConfig.Cache.defaultTTL
     
     private var cancellables = Set<AnyCancellable>()
@@ -57,19 +64,137 @@ final class OptimizedCacheManager: ObservableObject {
     }
     
     private init() {
-        memoryCache.totalCostLimit = memoryCacheLimit
+        memoryCache.totalCostLimit = memoryBudgetBytes
         memoryCache.countLimit = 200
-        
-        // 监听内存警告
-        NotificationCenter.default.addObserver(
-            forName: UIApplication.didReceiveMemoryWarningNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in
-                self?.handleMemoryWarning()
+
+        MonoMemoryEngine.shared.registerResource(
+            id: "cache.models",
+            priority: .essential,
+            budgetWeight: 0.24,
+            minimumBudgetBytes: 20 * 1_024 * 1_024,
+            applyBudget: { [weak self] bytes in
+                self?.applyMemoryBudget(bytes)
+            },
+            trim: { [weak self] context in
+                self?.trimMemory(context) ?? .none
+            },
+            measureUsage: { [weak self] in
+                self?.memoryUsage() ?? .unknown
             }
+        )
+    }
+
+    private func storeInMemory(
+        _ object: AnyObject,
+        forKey key: NSString,
+        cost explicitCost: Int? = nil
+    ) {
+        let cost = max(1, explicitCost ?? estimatedMemoryCost(of: object))
+        memoryAccessSequence &+= 1
+        memoryEntries[key as String] = MemoryEntryMetadata(
+            cost: cost,
+            lastAccess: memoryAccessSequence
+        )
+        memoryCache.setObject(object, forKey: key, cost: cost)
+        evictMemoryMetadataOverflowIfNeeded()
+    }
+
+    private func memoryObject(forKey key: NSString) -> AnyObject? {
+        guard let object = memoryCache.object(forKey: key) else {
+            memoryEntries.removeValue(forKey: key as String)
+            return nil
         }
+        memoryAccessSequence &+= 1
+        if var metadata = memoryEntries[key as String] {
+            metadata.lastAccess = memoryAccessSequence
+            memoryEntries[key as String] = metadata
+        }
+        return object
+    }
+
+    private func clearMemoryObjects() {
+        memoryCache.removeAllObjects()
+        memoryEntries.removeAll(keepingCapacity: false)
+    }
+
+    private func estimatedMemoryCost(of object: AnyObject) -> Int {
+        if let data = object as? NSData { return max(1, data.length) }
+        if let string = object as? NSString { return max(64, string.length * 2) }
+        if let array = object as? NSArray { return max(1_024, array.count * 1_024) }
+        if let dictionary = object as? NSDictionary { return max(1_024, dictionary.count * 768) }
+        return 4 * 1_024
+    }
+
+    private func applyMemoryBudget(_ bytes: Int) {
+        memoryBudgetBytes = max(8 * 1_024 * 1_024, bytes)
+        memoryCountLimit = max(64, min(400, memoryBudgetBytes / (256 * 1_024)))
+        memoryCache.totalCostLimit = memoryBudgetBytes
+        memoryCache.countLimit = memoryCountLimit
+        evictMemoryMetadataOverflowIfNeeded()
+    }
+
+    private func evictMemoryMetadataOverflowIfNeeded() {
+        let overflow = memoryEntries.count - memoryCountLimit
+        guard overflow > 0 else { return }
+        for key in memoryEntries
+            .sorted(by: { $0.value.lastAccess < $1.value.lastAccess })
+            .prefix(overflow)
+            .map(\.key) {
+            memoryCache.removeObject(forKey: key as NSString)
+            memoryEntries.removeValue(forKey: key)
+        }
+    }
+
+    private func memoryUsage() -> MonoMemoryEngine.ResourceUsage {
+        .init(
+            itemCount: memoryEntries.count,
+            estimatedBytes: memoryEntries.values.reduce(0) { $0 + $1.cost }
+        )
+    }
+
+    private func trimMemory(_ context: MonoMemoryEngine.TrimContext) -> MonoMemoryEngine.TrimResult {
+        let currentSongID = PlayerManager.shared.currentSong?.id
+        let preservedKeys = Set([currentSongID.map { "song_\($0)" }].compactMap { $0 })
+        let targetBytes: Int
+        switch context.level {
+        case .routine:
+            targetBytes = memoryBudgetBytes
+        case .background:
+            targetBytes = max(8 * 1_024 * 1_024, memoryBudgetBytes / 3)
+        case .warning:
+            targetBytes = max(4 * 1_024 * 1_024, memoryBudgetBytes / 5)
+        case .critical:
+            targetBytes = 0
+        }
+
+        var currentBytes = memoryEntries.values.reduce(0) { $0 + $1.cost }
+        var releasedBytes = 0
+        var releasedItems = 0
+        let candidates = memoryEntries
+            .filter { !preservedKeys.contains($0.key) }
+            .sorted { $0.value.lastAccess < $1.value.lastAccess }
+
+        for (key, metadata) in candidates where currentBytes > targetBytes {
+            memoryCache.removeObject(forKey: key as NSString)
+            memoryEntries.removeValue(forKey: key)
+            currentBytes = max(0, currentBytes - metadata.cost)
+            releasedBytes += metadata.cost
+            releasedItems += 1
+        }
+
+        // 当前播放歌曲即使被 NSCache 自行淘汰，也从数据库轻量回填，确保回收
+        // 不改变播放控制和 Now Playing 所依赖的歌曲模型。
+        if let currentSongID,
+           memoryObject(forKey: "song_\(currentSongID)" as NSString) == nil,
+           let dbSong = songRepo.getSong(id: currentSongID) {
+            storeInMemory(dbSong.toSong() as AnyObject, forKey: "song_\(currentSongID)" as NSString)
+        }
+
+        return .init(
+            releasedItemCount: releasedItems,
+            estimatedReleasedBytes: releasedBytes,
+            preservedItemCount: preservedKeys.count
+        )
     }
     
     // MARK: - 数据就绪检查
@@ -191,13 +316,13 @@ final class OptimizedCacheManager: ObservableObject {
             switch entry.key {
             case "daily_songs", "popular_songs", "recent_songs", "qq_new_songs":
                 if let songs = try? decoder.decode([Song].self, from: entry.data) {
-                    memoryCache.setObject(songs as AnyObject, forKey: cacheKey)
+                    storeInMemory(songs as AnyObject, forKey: cacheKey)
                     warmSongsInMemory(songs)
                 }
             case "recommend_playlists", "user_playlists",
                  "qq_recommend_playlists", "kcm_recommend_playlists":
                 if let playlists = try? decoder.decode([Playlist].self, from: entry.data) {
-                    memoryCache.setObject(playlists as AnyObject, forKey: cacheKey)
+                    storeInMemory(playlists as AnyObject, forKey: cacheKey)
                     warmPlaylistsInMemory(playlists)
                 }
             default:
@@ -232,7 +357,7 @@ final class OptimizedCacheManager: ObservableObject {
         for dbSong in candidates {
             let song = dbSong.toSong()
             let cacheKey = "song_\(song.id)" as NSString
-            memoryCache.setObject(song as AnyObject, forKey: cacheKey)
+            storeInMemory(song as AnyObject, forKey: cacheKey)
         }
         
         AppLogger.debug(
@@ -252,7 +377,7 @@ final class OptimizedCacheManager: ObservableObject {
         for dbPlaylist in candidates {
             let playlist = dbPlaylist.toPlaylist()
             let cacheKey = "playlist_\(playlist.id)" as NSString
-            memoryCache.setObject(playlist as AnyObject, forKey: cacheKey)
+            storeInMemory(playlist as AnyObject, forKey: cacheKey)
         }
         
         AppLogger.debug("预加载了 \(candidates.count) 个歌单到内存（磁盘回填 \(diskPlaylists.count) 个）")
@@ -304,13 +429,13 @@ final class OptimizedCacheManager: ObservableObject {
 
     private func warmSongsInMemory(_ songs: [Song]) {
         for song in songs {
-            memoryCache.setObject(song as AnyObject, forKey: "song_\(song.id)" as NSString)
+            storeInMemory(song as AnyObject, forKey: "song_\(song.id)" as NSString)
         }
     }
 
     private func warmPlaylistsInMemory(_ playlists: [Playlist]) {
         for playlist in playlists {
-            memoryCache.setObject(playlist as AnyObject, forKey: "playlist_\(playlist.id)" as NSString)
+            storeInMemory(playlist as AnyObject, forKey: "playlist_\(playlist.id)" as NSString)
         }
     }
     
@@ -338,12 +463,12 @@ final class OptimizedCacheManager: ObservableObject {
             switch key {
             case "daily_songs", "popular_songs", "recent_songs", "qq_new_songs":
                 guard let songs = try? decoder.decode([Song].self, from: data) else { continue }
-                memoryCache.setObject(songs as AnyObject, forKey: cacheKey)
+                storeInMemory(songs as AnyObject, forKey: cacheKey)
                 warmSongsInMemory(songs)
             case "recommend_playlists", "user_playlists",
                  "qq_recommend_playlists", "kcm_recommend_playlists":
                 guard let playlists = try? decoder.decode([Playlist].self, from: data) else { continue }
-                memoryCache.setObject(playlists as AnyObject, forKey: cacheKey)
+                storeInMemory(playlists as AnyObject, forKey: cacheKey)
                 warmPlaylistsInMemory(playlists)
             default:
                 // 读取即可预热文件页；未知模型由 getObject 按目标类型解码。
@@ -447,7 +572,7 @@ final class OptimizedCacheManager: ObservableObject {
     ) async -> T? {
         // 1. 检查内存缓存
         let cacheKey = key as NSString
-        if let cached = memoryCache.object(forKey: cacheKey) as? T {
+        if let cached = memoryObject(forKey: cacheKey) as? T {
             return cached
         }
         
@@ -457,7 +582,7 @@ final class OptimizedCacheManager: ObservableObject {
            let timestamp = UserDefaults.standard.object(forKey: timestampKey) as? Date,
            Date().timeIntervalSince(timestamp) < maxAge {
             // 缓存有效，回填内存
-            memoryCache.setObject(diskCached as AnyObject, forKey: cacheKey)
+            storeInMemory(diskCached as AnyObject, forKey: cacheKey)
             return diskCached
         }
         
@@ -465,7 +590,7 @@ final class OptimizedCacheManager: ObservableObject {
         do {
             let freshData = try await fetcher()
             // 更新所有缓存层
-            memoryCache.setObject(freshData as AnyObject, forKey: cacheKey)
+            storeInMemory(freshData as AnyObject, forKey: cacheKey)
             diskCache.setObject(freshData, forKey: key)
             UserDefaults.standard.set(Date(), forKey: timestampKey)
             return freshData
@@ -483,14 +608,14 @@ final class OptimizedCacheManager: ObservableObject {
         let cacheKey = "song_\(id)" as NSString
         
         // L1: 内存缓存
-        if let cached = memoryCache.object(forKey: cacheKey) as? Song {
+        if let cached = memoryObject(forKey: cacheKey) as? Song {
             return cached
         }
         
         // L2: 数据库
         if let dbSong = songRepo.getSong(id: id) {
             let song = dbSong.toSong()
-            memoryCache.setObject(song as AnyObject, forKey: cacheKey)
+            storeInMemory(song as AnyObject, forKey: cacheKey)
             return song
         }
         
@@ -505,7 +630,7 @@ final class OptimizedCacheManager: ObservableObject {
         // 先从内存获取
         for id in ids {
             let cacheKey = "song_\(id)" as NSString
-            if let cached = memoryCache.object(forKey: cacheKey) as? Song {
+            if let cached = memoryObject(forKey: cacheKey) as? Song {
                 result.append(cached)
             } else {
                 missedIds.append(id)
@@ -518,7 +643,7 @@ final class OptimizedCacheManager: ObservableObject {
             for dbSong in dbSongs {
                 let song = dbSong.toSong()
                 let cacheKey = "song_\(song.id)" as NSString
-                memoryCache.setObject(song as AnyObject, forKey: cacheKey)
+                storeInMemory(song as AnyObject, forKey: cacheKey)
                 result.append(song)
             }
         }
@@ -529,7 +654,7 @@ final class OptimizedCacheManager: ObservableObject {
     /// 缓存歌曲
     func cacheSong(_ song: Song) {
         let cacheKey = "song_\(song.id)" as NSString
-        memoryCache.setObject(song as AnyObject, forKey: cacheKey)
+        storeInMemory(song as AnyObject, forKey: cacheKey)
         
         Task.detached { @MainActor in
             self.songRepo.save(song: song)
@@ -541,7 +666,7 @@ final class OptimizedCacheManager: ObservableObject {
         // 先更新内存缓存
         for song in songs {
             let cacheKey = "song_\(song.id)" as NSString
-            memoryCache.setObject(song as AnyObject, forKey: cacheKey)
+            storeInMemory(song as AnyObject, forKey: cacheKey)
         }
         
         // 异步批量写入数据库
@@ -552,10 +677,29 @@ final class OptimizedCacheManager: ObservableObject {
     
     /// 记录歌曲播放
     func recordSongPlay(_ song: Song, duration: Int = 0, completed: Bool = false) {
-        // 播放记录不能假设歌曲已经被首页缓存过，否则 recordPlay 会静默无效。
+        let trackDuration = max(0, (song.dt ?? 0) / 1_000)
+        let effective = ListeningPlaybackPolicy.isEffective(
+            actualPlayback: TimeInterval(max(0, duration)),
+            trackDuration: TimeInterval(trackDuration)
+        )
+
+        // 兼容离线批量导入调用，但仍使用统一有效播放阈值。
         songRepo.save(song: song)
-        songRepo.recordPlay(songId: song.id)
-        historyRepo.addPlayHistory(song: song, duration: duration, completed: completed)
+        if effective {
+            songRepo.recordPlay(songId: song.id)
+        }
+        let record = historyRepo.addPlayHistory(
+            song: song,
+            duration: max(0, duration),
+            completed: completed && ListeningPlaybackPolicy.isCompleted(
+                actualPlayback: TimeInterval(max(0, duration)),
+                trackDuration: TimeInterval(trackDuration)
+            )
+        )
+        record.trackDuration = trackDuration
+        record.effectivePlay = effective
+        record.qualificationVersion = ListeningPlaybackPolicy.qualificationVersion
+        historyRepo.savePlayHistoryUpdates()
     }
     
     // MARK: - 歌单缓存（增强版）
@@ -564,13 +708,13 @@ final class OptimizedCacheManager: ObservableObject {
     func getPlaylist(id: Int) -> Playlist? {
         let cacheKey = "playlist_\(id)" as NSString
         
-        if let cached = memoryCache.object(forKey: cacheKey) as? Playlist {
+        if let cached = memoryObject(forKey: cacheKey) as? Playlist {
             return cached
         }
         
         if let dbPlaylist = playlistRepo.getPlaylist(id: id) {
             let playlist = dbPlaylist.toPlaylist()
-            memoryCache.setObject(playlist as AnyObject, forKey: cacheKey)
+            storeInMemory(playlist as AnyObject, forKey: cacheKey)
             playlistRepo.recordAccess(playlistId: id)
             return playlist
         }
@@ -589,7 +733,7 @@ final class OptimizedCacheManager: ObservableObject {
     /// 缓存歌单
     func cachePlaylist(_ playlist: Playlist, trackIds: [Int] = []) {
         let cacheKey = "playlist_\(playlist.id)" as NSString
-        memoryCache.setObject(playlist as AnyObject, forKey: cacheKey)
+        storeInMemory(playlist as AnyObject, forKey: cacheKey)
         
         Task.detached { @MainActor in
             self.playlistRepo.save(playlist: playlist, trackIds: trackIds)
@@ -600,7 +744,7 @@ final class OptimizedCacheManager: ObservableObject {
     func cachePlaylists(_ playlists: [Playlist]) {
         for playlist in playlists {
             let cacheKey = "playlist_\(playlist.id)" as NSString
-            memoryCache.setObject(playlist as AnyObject, forKey: cacheKey)
+            storeInMemory(playlist as AnyObject, forKey: cacheKey)
         }
         
         Task.detached { @MainActor in
@@ -659,56 +803,45 @@ final class OptimizedCacheManager: ObservableObject {
     func getObject<T: Codable>(forKey key: String, type: T.Type) -> T? {
         let cacheKey = key as NSString
         
-        if let cached = memoryCache.object(forKey: cacheKey) as? T {
+        if let cached = memoryObject(forKey: cacheKey) as? T {
             return cached
         }
         
         if let diskCached = diskCache.getObject(forKey: key, type: type) {
-            memoryCache.setObject(diskCached as AnyObject, forKey: cacheKey)
+            storeInMemory(diskCached as AnyObject, forKey: cacheKey)
             return diskCached
         }
         
         return nil
     }
+
+    /// UI-safe cache restore. Memory hits remain immediate and disk access no
+    /// longer blocks the main actor. Decoding stays actor-isolated so model types
+    /// do not need to opt in to `Sendable` merely for cache restoration.
+    func getObjectAsync<T: Codable>(forKey key: String, type: T.Type) async -> T? {
+        let cacheKey = key as NSString
+        if let cached = memoryObject(forKey: cacheKey) as? T {
+            return cached
+        }
+
+        guard let data = await diskCache.getDataAsync(forKey: key) else {
+            return nil
+        }
+        let decoded = try? JSONDecoder().decode(T.self, from: data)
+        if let decoded {
+            storeInMemory(decoded as AnyObject, forKey: cacheKey, cost: data.count)
+        }
+        return decoded
+    }
     
     func setObject<T: Codable>(_ object: T, forKey key: String, ttl: TimeInterval? = nil) {
         let cacheKey = key as NSString
-        memoryCache.setObject(object as AnyObject, forKey: cacheKey)
+        let encodedCost = (try? JSONEncoder().encode(object).count)
+        storeInMemory(object as AnyObject, forKey: cacheKey, cost: encodedCost)
         diskCache.setObject(object, forKey: key, ttl: ttl)
     }
     
     // MARK: - 内存管理
-    
-    /// 处理内存警告 — 分级释放策略
-    private func handleMemoryWarning() {
-        AppLogger.warning("收到内存警告，执行分级内存释放...")
-        
-        // 第一级：清理非关键内存缓存（保留当前播放相关）
-        let currentSongId = PlayerManager.shared.currentSong?.id
-        
-        // 保存当前播放歌曲的缓存 key
-        var keysToPreserve: [NSString] = []
-        if let id = currentSongId {
-            keysToPreserve.append("song_\(id)" as NSString)
-        }
-        
-        // NSCache 会自动按 cost 淘汰，这里手动触发全量清理
-        memoryCache.removeAllObjects()
-        
-        // 回填当前播放歌曲（避免播放中断）
-        if let id = currentSongId, let dbSong = songRepo.getSong(id: id) {
-            let song = dbSong.toSong()
-            memoryCache.setObject(song as AnyObject, forKey: "song_\(id)" as NSString)
-        }
-        
-        // 第二级：清理图片缓存
-        CachedAsyncImage<EmptyView>.clearMemoryCache()
-        
-        // 第三级：通知 LiquidGlass 释放缓存
-        // 新库自动管理，无需手动释放
-        
-        AppLogger.success("分级内存释放完成")
-    }
     
     /// 清理过期数据（增强版 — 触发数据库维护）
     func cleanupExpiredData() async {
@@ -718,7 +851,7 @@ final class OptimizedCacheManager: ObservableObject {
     
     /// 清空所有缓存（保留下载记录和本地歌单）
     func clearAll() {
-        memoryCache.removeAllObjects()
+        clearMemoryObjects()
         DatabaseManager.shared.clearCacheData()
         diskCache.clearAll()
         UserDefaults.standard.removeObject(forKey: AppConfig.StorageKeys.dailyCacheTimestamp)
@@ -737,8 +870,8 @@ final class OptimizedCacheManager: ObservableObject {
         // 预加载到内存缓存
         for song in upcoming {
             let cacheKey = "song_\(song.id)" as NSString
-            if memoryCache.object(forKey: cacheKey) == nil {
-                memoryCache.setObject(song as AnyObject, forKey: cacheKey)
+            if memoryObject(forKey: cacheKey) == nil {
+                storeInMemory(song as AnyObject, forKey: cacheKey)
             }
         }
         
@@ -751,11 +884,11 @@ final class OptimizedCacheManager: ObservableObject {
     /// 预取歌单详情（用户可能点击的歌单）
     func prefetchPlaylistIfNeeded(id: Int) {
         let cacheKey = "playlist_\(id)" as NSString
-        guard memoryCache.object(forKey: cacheKey) == nil else { return }
+        guard memoryObject(forKey: cacheKey) == nil else { return }
         
         if let dbPlaylist = playlistRepo.getPlaylist(id: id) {
             let playlist = dbPlaylist.toPlaylist()
-            memoryCache.setObject(playlist as AnyObject, forKey: cacheKey)
+            storeInMemory(playlist as AnyObject, forKey: cacheKey)
         }
     }
     

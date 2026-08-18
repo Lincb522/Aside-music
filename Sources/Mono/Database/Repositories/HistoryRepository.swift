@@ -46,8 +46,18 @@ final class HistoryRepository {
         }
     }
 
+    func deletePlayHistory(_ history: PlayHistory) {
+        store.delete(history)
+        if store === DatabaseManager.shared.store {
+            DatabaseManager.shared.scheduleSave()
+        } else {
+            store.save()
+        }
+    }
+
     func makeCloudPlaybackHistorySnapshot() -> CloudPlaybackHistorySnapshot? {
         let records = store.fetchAll(PlayHistory.self)
+            .filter { ListeningPlaybackPolicy.isEffective($0) }
             .sorted { $0.playedAt > $1.playedAt }
             .prefix(20_000)
             .map { CloudPlayHistoryRecord(from: $0) }
@@ -71,6 +81,12 @@ final class HistoryRepository {
             if let local = existingByID[remote.id] {
                 local.playDuration = max(local.playDuration, remote.playDuration)
                 local.completed = local.completed || remote.completed
+                local.trackDuration = max(local.trackDuration, remote.trackDuration ?? 0)
+                local.effectivePlay = local.effectivePlay || (remote.effectivePlay ?? false)
+                local.qualificationVersion = max(
+                    local.qualificationVersion,
+                    remote.qualificationVersion ?? 0
+                )
                 if local.coverUrl == nil { local.coverUrl = remote.coverUrl }
                 if local.sourceRaw == nil { local.sourceRaw = remote.sourceRaw }
                 if local.qqMid == nil { local.qqMid = remote.qqMid }

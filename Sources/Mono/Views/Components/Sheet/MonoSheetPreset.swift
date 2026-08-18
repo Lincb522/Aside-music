@@ -107,6 +107,9 @@ enum MonoSheetPreset: Equatable {
         if CapsuleStyle.isActive {
             return min(max(cornerRadius, 24), 32)
         }
+        if ClarityStyle.isActive {
+            return min(max(cornerRadius, 30), 36)
+        }
         if SequoiaStyle.isActive {
             return min(max(cornerRadius, 24), 30)
         }

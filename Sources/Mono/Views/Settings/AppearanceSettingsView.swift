@@ -4,6 +4,9 @@ import PhotosUI
 import SwiftUI
 
 private func appearanceSettingsFont(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+    if ClarityStyle.isActive {
+        return ClarityStyle.body(size, weight: weight)
+    }
     if MinimalWhiteStyle.isActive {
         return MinimalWhiteStyle.bodyFont(size, weight: weight)
     }
@@ -39,7 +42,7 @@ struct AppearanceSettingsView: View {
                 LazyVStack(spacing: SettingsPageLayout.sectionSpacing) {
                     SettingsScrollablePageHeader(
                         title: String(localized: "settings_navigation_appearance_title"),
-                        eyebrow: "APPEARANCE",
+                        eyebrow: String(localized: "settings_eyebrow_appearance"),
                         icon: .playerTheme
                     )
 
@@ -192,13 +195,23 @@ struct AppearanceSettingsView: View {
     }
 
     private var dynamicBackgroundSection: some View {
-        let paletteAccent = GlobalThemeManager.shared
-            .provider(for: settings.globalThemeId)
-            .colorPalette
-            .accent
+        let paletteAccent = GlobalThemeManager.shared.colors.accent
 
         return SettingsSection(title: String(localized: "settings_appearance_dynamic_background_section")) {
             VStack(spacing: 0) {
+                if settings.globalThemeId == .default {
+                    SettingsToggleRow(
+                        icon: .sparkle,
+                        title: String(localized: "settings_aside_fluid_background"),
+                        subtitle: String(localized: "settings_aside_fluid_background_desc"),
+                        isOn: $settings.asideMusicFluidBackgroundEnabled
+                    )
+
+                    Divider()
+                        .opacity(0.4)
+                        .padding(.leading, 62)
+                }
+
                 SettingsToggleRow(
                     icon: .layers,
                     title: String(localized: "settings_cover_bg_global"),
@@ -236,18 +249,14 @@ struct AppearanceSettingsView: View {
                     .padding(.leading, 62)
 
                 VStack(alignment: .leading, spacing: 10) {
-                    Text(String(localized: "全局自动取色"))
+                    Text(String(localized: "color_engine_title"))
                         .font(appearanceSettingsFont(14, weight: .semibold))
                         .foregroundStyle(Color.monoTextPrimary)
 
-                    CoverPaletteSettingsControls(
-                        accent: paletteAccent,
-                        darkStyle: false
-                    )
+                    UnifiedColorEngineSettingsControls(accent: paletteAccent)
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
-
             }
         }
     }
@@ -259,7 +268,7 @@ struct AppearanceSettingsView: View {
             GridItem(
                 .adaptive(minimum: DeviceLayout.isPad ? 176 : 148, maximum: DeviceLayout.isPad ? 218 : 186),
                 spacing: 12
-            )
+            ),
         ]
     }
 
@@ -329,6 +338,8 @@ struct AppearanceSettingsView: View {
             return .classic
         case .capsule:
             return .classic
+        case .clarity:
+            return .clarity
         case .default, .muji, .manga, .minimalWhite:
             return nil
         }
@@ -412,12 +423,12 @@ private struct ThemeColorCustomizationSection: View {
                             colorRoleEditor(role: .background)
 
                             if ThemeColorCustomization.supportsImageBackground(theme),
-                               theme != .default {
+                               theme != .default
+                            {
                                 Divider().opacity(0.35)
                                 darkBackgroundEditor
                             }
                         }
-
                     }
                     .padding(.horizontal, 14)
                     .padding(.bottom, 14)
@@ -1111,7 +1122,6 @@ private struct ThemeColorCustomizationSection: View {
         .buttonStyle(MonoBouncingButtonStyle(scale: 0.985))
     }
 
-    @ViewBuilder
     private func colorSwatch(_ color: Color) -> some View {
         RoundedRectangle(cornerRadius: 8, style: .continuous)
             .fill(color)
@@ -1193,6 +1203,10 @@ private struct ThemeColorCustomizationSection: View {
         case (.petWhite, .accent, _): return "F6A93B"
         case (.petWhite, .background, "end"): return "F6FAFA"
         case (.petWhite, .background, _): return "FFFFFF"
+        case (.clarity, .accent, "end"): return "2478D8"
+        case (.clarity, .accent, _): return "2478D8"
+        case (.clarity, .background, "end"): return "EAF0F2"
+        case (.clarity, .background, _): return "EEF2F3"
         case (.manga, .accent, "end"): return "FF4F84"
         case (.manga, .accent, _): return "FF4F84"
         case (.manga, .background, "end"): return "E8F1FF"
@@ -1222,7 +1236,6 @@ private struct ThemeColorCustomizationSection: View {
         .frame(width: 17, height: 17)
     }
 
-    @ViewBuilder
     private func gradientStyleChipBackground(isSelected: Bool) -> some View {
         presetBackground(isSelected: isSelected)
     }
@@ -1247,6 +1260,8 @@ private struct ThemeColorCustomizationSection: View {
             Capsule()
                 .fill(isSelected ? CapsuleStyle.accent.opacity(0.16) : CapsuleStyle.surfaceRaised.opacity(0.82))
                 .overlay(Capsule().stroke(isSelected ? CapsuleStyle.accent.opacity(0.38) : CapsuleStyle.separator.opacity(0.5), lineWidth: isSelected ? 0.9 : 0.65))
+        } else if theme == .clarity {
+            ClarityMembrane(shape: Capsule(), strength: isSelected ? .strong : .quiet, selected: isSelected)
         } else {
             Capsule()
                 .fill(isSelected ? Color.monoAccent.opacity(0.12) : Color.monoGlassTint)
@@ -1276,6 +1291,8 @@ private struct ThemeColorCustomizationSection: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(CapsuleStyle.surfaceRaised.opacity(0.78))
                 .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(CapsuleStyle.separator.opacity(0.48), lineWidth: 0.65))
+        } else if theme == .clarity {
+            ClarityMembrane(shape: RoundedRectangle(cornerRadius: 14, style: .continuous), strength: .quiet)
         } else {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(Color.monoGlassTint)
@@ -1288,6 +1305,7 @@ private struct ThemeColorCustomizationSection: View {
         if theme == .manga { return MangaStyle.ink }
         if theme == .muji { return MujiStyle.ink }
         if theme == .capsule { return CapsuleStyle.ink }
+        if theme == .clarity { return ClarityStyle.ink }
         if theme == .default { return Color.monoTextPrimary }
         return NeumorphicStyle.ink
     }
@@ -1297,6 +1315,7 @@ private struct ThemeColorCustomizationSection: View {
         if theme == .manga { return MangaStyle.inkSub }
         if theme == .muji { return MujiStyle.inkSoft }
         if theme == .capsule { return CapsuleStyle.inkSoft }
+        if theme == .clarity { return ClarityStyle.inkSoft }
         if theme == .default { return Color.monoTextSecondary }
         return NeumorphicStyle.inkSoft
     }
@@ -1306,6 +1325,7 @@ private struct ThemeColorCustomizationSection: View {
         if theme == .manga { return MangaStyle.strokeInk }
         if theme == .muji { return MujiStyle.hairline.opacity(0.54) }
         if theme == .capsule { return CapsuleStyle.separator.opacity(0.64) }
+        if theme == .clarity { return ClarityStyle.separator }
         if theme == .default { return Color.monoSeparator }
         return NeumorphicStyle.separator.opacity(0.62)
     }
@@ -1317,6 +1337,7 @@ private struct ThemeColorCustomizationSection: View {
         }
         if theme == .muji { return MujiStyle.clay }
         if theme == .capsule { return CapsuleStyle.accent }
+        if theme == .clarity { return ClarityStyle.ink }
         if theme == .default { return Color.monoAccent }
         return NeumorphicStyle.accent
     }
@@ -1330,6 +1351,9 @@ private struct ThemeColorCustomizationSection: View {
         }
         if theme == .muji {
             return ThemeColorCustomization.readableForegroundColor(on: MujiStyle.tea, light: MujiStyle.ink, dark: Color(hex: "FFF8EF"))
+        }
+        if theme == .clarity {
+            return ClarityStyle.onSelection
         }
         return ThemeColorCustomization.accentForegroundColor(for: theme)
     }
@@ -1352,6 +1376,9 @@ private struct ThemeColorCustomizationSection: View {
         } else if theme == .capsule {
             Circle()
                 .fill(CapsuleStyle.accent)
+        } else if theme == .clarity {
+            Circle()
+                .fill(ClarityStyle.selection)
         } else {
             Circle()
                 .fill(NeumorphicStyle.accent)
@@ -1364,6 +1391,9 @@ private struct ThemeColorCustomizationSection: View {
         }
         if theme == .manga {
             return ThemeColorCustomization.readableForegroundColor(on: MangaStyle.labelYellow, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk)
+        }
+        if theme == .clarity {
+            return ClarityStyle.onSelection
         }
         return ThemeColorCustomization.accentForegroundColor(for: theme)
     }
@@ -1388,6 +1418,10 @@ private struct ThemeColorCustomizationSection: View {
             Circle()
                 .fill(CapsuleStyle.accent)
                 .shadow(color: CapsuleStyle.accent.opacity(0.16), radius: 6, x: 0, y: 3)
+        } else if theme == .clarity {
+            Circle()
+                .fill(ClarityStyle.selection)
+                .shadow(color: Color.black.opacity(0.14), radius: 7, x: 0, y: 4)
         } else {
             Circle()
                 .fill(Color.monoIconBackground)
@@ -1416,13 +1450,14 @@ private struct ThemeColorCustomizationSection: View {
             NeumorphicSurfaceBackground(cornerRadius: 16, elevated: true, pressed: false, tint: NeumorphicStyle.accent.opacity(0.08), lightweight: true)
         } else if theme == .capsule {
             CapsuleSurfaceBackground(cornerRadius: 16, elevated: true, tint: CapsuleStyle.surfaceRaised.opacity(0.86))
+        } else if theme == .clarity {
+            ClaritySurfaceBackground(cornerRadius: 16, elevated: true)
         } else {
             RoundedRectangle(cornerRadius: 13, style: .continuous)
                 .fill(Color.monoGlassTint)
                 .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).stroke(Color.monoSeparator.opacity(0.65), lineWidth: 0.65))
         }
     }
-
 }
 
 /// PhotosPicker 的标签闭包是 nonisolated 的，初始化只保存可发送的值。
@@ -1551,7 +1586,6 @@ private struct ThemeColorPresetPreviewSwatch: View {
             )
         }
     }
-
 }
 
 private struct ThemeColorPreviewSwatch: View {
@@ -2148,7 +2182,7 @@ private struct SettingsInterfaceIconSetRow: View {
 }
 
 /// 通用图标风格选择器（Zappicon / Solar 共用）
-private struct IconStylePicker<Item: Identifiable & CaseIterable>: View where Item: Hashable, Item.AllCases: RandomAccessCollection {
+private struct IconStylePicker<Item: Identifiable & CaseIterable & Hashable>: View where Item.AllCases: RandomAccessCollection {
     let label: String
     let items: Item.AllCases
     let selected: Item
@@ -2167,7 +2201,7 @@ private struct IconStylePicker<Item: Identifiable & CaseIterable>: View where It
         self.selected = selected
         self.onSelect = onSelect
         // 通过协议获取 displayName
-        self.displayName = { item in
+        displayName = { item in
             if let z = item as? ZappiconIconStyle { return z.displayName }
             if let s = item as? SolarIconStyle { return s.displayName }
             return "\(item)"
@@ -2364,12 +2398,17 @@ private struct SettingsDisclosureReveal<Content: View>: View {
     let isExpanded: Bool
     let content: Content
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var measuredHeight: CGFloat = 0
+
+    private var targetHeight: CGFloat {
+        isExpanded ? measuredHeight : 0
+    }
 
     private var revealAnimation: Animation {
         if reduceMotion {
-            return .easeOut(duration: 0.12)
+            return .linear(duration: 0.01)
         }
-        return .interactiveSpring(response: 0.32, dampingFraction: 0.93, blendDuration: 0.04)
+        return .easeInOut(duration: 0.22)
     }
 
     init(isExpanded: Bool, @ViewBuilder content: () -> Content) {
@@ -2378,24 +2417,34 @@ private struct SettingsDisclosureReveal<Content: View>: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            if isExpanded {
-                content
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
-                    .transition(
-                        reduceMotion
-                            ? .opacity
-                            : .opacity.combined(with: .move(edge: .top))
-                    )
+        content
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .opacity(isExpanded ? 1 : 0)
+            .background {
+                GeometryReader { proxy in
+                    Color.clear
+                        .onAppear { updateMeasuredHeight(proxy.size.height) }
+                        .onChange(of: proxy.size.height) { _, newValue in
+                            updateMeasuredHeight(newValue)
+                        }
+                }
             }
+            .frame(height: targetHeight, alignment: .top)
+            .clipped()
+            .contentShape(Rectangle())
+            .allowsHitTesting(isExpanded)
+            .accessibilityHidden(!isExpanded)
+            .animation(revealAnimation, value: isExpanded)
+    }
+
+    private func updateMeasuredHeight(_ height: CGFloat) {
+        guard height > 0, abs(measuredHeight - height) > 0.5 else { return }
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            measuredHeight = height
         }
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-        .clipped()
-        .contentShape(Rectangle())
-        .allowsHitTesting(isExpanded)
-        .accessibilityHidden(!isExpanded)
-        .animation(revealAnimation, value: isExpanded)
     }
 }
 

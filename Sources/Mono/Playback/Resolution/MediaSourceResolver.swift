@@ -410,6 +410,10 @@ final class MediaSourceResolver {
         activeMediaLoadTask = Task { @MainActor [weak self] in
             guard let self else { return }
             do {
+                try Task.checkCancellation()
+                guard player.playbackSessionId == sessionId else {
+                    throw CancellationError()
+                }
                 try await player.appleMusicPlayback.start(
                     song: song,
                     autoPlay: autoPlay,
@@ -736,33 +740,38 @@ final class MediaSourceResolver {
 
         player.playbackStartedAt = Date()
 
-        // 开播前按当前策略激活音频会话（懒激活）：
+        // 真正开播前按当前策略激活音频会话（懒激活）：
         // 冷启动 setupAudioSession 只预声明 category、未 setActive。
-        // 这里是真正需要把 session 接入系统音频路由的第一时间点。
-        // `.automatic` 策略也会在此处按最新的 isOtherAudioPlaying 重新决议 options。
+        // autoPlay=false 只装配暂停管线，不能因为会话恢复/预加载抢占
+        // 其他 App 的音频；用户之后主动播放时由 playPlayback 再激活。
+        // `.automatic` 也只在实际开播时按最新主音频提示决议 options。
         let activationSessionId = player.playbackSessionId
         Task { @MainActor [weak self] in
             guard let self else { return }
-            guard await player.activateAudioSessionForPlaybackChecked(reason: "loadAndPlay start") else {
-                let song = player.pendingPlaybackPresentationSong ?? player.currentSong
-                let error = NSError(
-                    domain: "AudioSession",
-                    code: -1,
-                    userInfo: [NSLocalizedDescriptionKey: "音频输出暂时不可用"]
-                )
-                if let song {
-                    settlePlaybackLoadFailure(
-                        song: song,
-                        sessionId: activationSessionId,
-                        autoPlay: false,
-                        error: error
+            if autoPlay {
+                guard await player.activateAudioSessionForPlaybackChecked(
+                    reason: "loadAndPlay start"
+                ) else {
+                    let song = player.pendingPlaybackPresentationSong ?? player.currentSong
+                    let error = NSError(
+                        domain: "AudioSession",
+                        code: -1,
+                        userInfo: [NSLocalizedDescriptionKey: "音频输出暂时不可用"]
                     )
-                } else {
-                    player.isLoading = false
-                    player.endTransitionKeepAlive()
-                    player.refreshPlaybackSurfaceState()
+                    if let song {
+                        settlePlaybackLoadFailure(
+                            song: song,
+                            sessionId: activationSessionId,
+                            autoPlay: false,
+                            error: error
+                        )
+                    } else {
+                        player.isLoading = false
+                        player.endTransitionKeepAlive()
+                        player.refreshPlaybackSurfaceState()
+                    }
+                    return
                 }
-                return
             }
 
             // URL resolution can be superseded while session activation is in

@@ -143,7 +143,9 @@ private struct MonoPresentedSheetView: View {
     }
 
     private var resolvedBackdropOpacity: Double {
-        MinimalWhiteStyle.isActive ? min(entry.preset.backdropOpacity, 0.08) : entry.preset.backdropOpacity
+        return MinimalWhiteStyle.isActive
+            ? min(entry.preset.backdropOpacity, 0.08)
+            : entry.preset.backdropOpacity
     }
 
     private var upwardStretchAmount: CGFloat {

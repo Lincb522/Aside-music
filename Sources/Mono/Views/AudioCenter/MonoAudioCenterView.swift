@@ -44,6 +44,7 @@ struct MonoAudioCenterView: View {
         case ai
         case custom
         case enhancement
+        case output
 
         var id: String { rawValue }
 
@@ -52,6 +53,7 @@ struct MonoAudioCenterView: View {
             case .ai: return String(localized: "mono_audio_workspace_ai")
             case .custom: return String(localized: "mono_audio_workspace_custom")
             case .enhancement: return String(localized: "mono_audio_workspace_enhancement")
+            case .output: return String(localized: "mono_audio_workspace_output")
             }
         }
 
@@ -60,6 +62,7 @@ struct MonoAudioCenterView: View {
             case .ai: return .sparkle
             case .custom: return .equalizer
             case .enhancement: return .audioWave
+            case .output: return .headphones
             }
         }
     }
@@ -68,6 +71,7 @@ struct MonoAudioCenterView: View {
     @StateObject private var agent = AIEqualizerAgent.shared
     @StateObject private var eqManager = EQManager.shared
     @StateObject private var suite = MonoNextSuiteManager.shared
+    @StateObject private var airPods = AirPodsExperienceManager.shared
     @StateObject private var coverColors = CoverColorExtractor()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Namespace private var workspaceNamespace
@@ -312,13 +316,11 @@ struct MonoAudioCenterView: View {
         .padding(.horizontal, layout.horizontalInset)
         .padding(.vertical, layout.isCompactHeight ? 7 : 9)
         .frame(width: layout.contentMaxWidth)
-        .disabled(isProtectedAppleMusicPlayback)
-        .opacity(isProtectedAppleMusicPlayback ? 0.48 : 1)
     }
 
     @ViewBuilder
     private var selectedWorkspace: some View {
-        if isProtectedAppleMusicPlayback {
+        if isProtectedAppleMusicPlayback, workspace != .output {
             VStack(spacing: 14) {
                 MonoIcon(
                     icon: .musicNote,
@@ -344,6 +346,8 @@ struct MonoAudioCenterView: View {
                 EQSettingsView(isEmbedded: true)
             case .enhancement:
                 MonoSuiteSettingsView(isEmbedded: true)
+            case .output:
+                MonoOutputStudioView()
             }
         }
     }
@@ -371,7 +375,7 @@ struct MonoAudioCenterView: View {
     }
 
     private var workspaceStatusText: String {
-        if isProtectedAppleMusicPlayback {
+        if isProtectedAppleMusicPlayback, workspace != .output {
             return String(localized: "apple_music_protected_audio")
         }
         switch workspace {
@@ -390,6 +394,16 @@ struct MonoAudioCenterView: View {
             let managed: [MonoNextFeature] = [.spatialLive, .dna, .recovery]
             let active = managed.filter { suite.isEnabled($0) }.count
             return String(format: String(localized: "mono_suite_running_count"), active, managed.count)
+        case .output:
+            if eqManager.isHearingCorrectionEnabled {
+                return String(localized: "sound_hearing_enabled")
+            }
+            if eqManager.selectedHeadphoneProfileID != "off" {
+                return String(localized: "sound_output_profile_active")
+            }
+            return airPods.connection.isConnected
+                ? airPods.selectedDeviceModel.title
+                : eqManager.currentOutputKind.title
         }
     }
 
@@ -402,6 +416,12 @@ struct MonoAudioCenterView: View {
         case .enhancement:
             return [MonoNextFeature.spatialLive, .dna, .recovery]
                 .contains { suite.isEnabled($0) }
+        case .output:
+            return eqManager.selectedHeadphoneProfileID != "off"
+                || eqManager.isHearingCorrectionEnabled
+                || MonoLoudnessEngine.shared.isEnabled
+                || (airPods.connection.isConnected
+                    && (airPods.isEnabled || airPods.modelAwareAITuningEnabled))
         }
     }
 

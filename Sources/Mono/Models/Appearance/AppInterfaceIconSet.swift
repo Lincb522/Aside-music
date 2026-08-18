@@ -101,6 +101,8 @@ extension GlobalThemeId {
             return .blobIcons
         case .minimalWhite:
             return .minimalWhiteIcons
+        case .clarity:
+            return .sfSymbols
         }
     }
 }

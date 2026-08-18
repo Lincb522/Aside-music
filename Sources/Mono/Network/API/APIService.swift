@@ -1073,12 +1073,20 @@ class APIService: @unchecked Sendable {
             clients.append(client)
         }
 
-        // 播放 URL / 音质查询属于内容解锁链路。
-        // 只要配置了内置 VIP Cookie，就优先使用它，避免用户账号 VIP 状态误判时被低音质结果截断。
-        if let ncmVIP {
-            appendUnique(ncmVIP)
+        // 用户自己的会员账号始终优先；只有未识别为会员时才优先使用内置 VIP Cookie。
+        // 两条链路都保留另一端作为兜底，避免会员状态检测尚未完成或 Cookie 临时失效时
+        // 被试听地址提前截断。
+        if isCurrentUserVIP {
+            appendUnique(ncm)
+            if let ncmVIP {
+                appendUnique(ncmVIP)
+            }
+        } else {
+            if let ncmVIP {
+                appendUnique(ncmVIP)
+            }
+            appendUnique(ncm)
         }
-        appendUnique(ncm)
 
         return clients
     }
@@ -1128,6 +1136,8 @@ class APIService: @unchecked Sendable {
         var actualNeteaseQuality: SoundQuality? = nil
         /// 实际使用的 QQ 音质（自动选择时回传给播放端更新 UI）
         var actualQQQuality: QQMusicQuality? = nil
+        /// ncm 返回的试听片段。候选 Cookie 尚未全部尝试前不能把它当作完整取址成功。
+        var isPreview: Bool = false
     }
 
     /// 获取歌曲播放URL
@@ -1148,11 +1158,12 @@ class APIService: @unchecked Sendable {
             let prefetchedQuality = prefetchedLevel.flatMap(SoundQuality.init(rawValue:))
             let clients = self.contentClientCandidates()
             var lastError: Error?
+            var previewFallback: SongUrlResult?
 
             for (index, client) in clients.enumerated() {
                 let clientLabel = self.contentClientLabel(client)
                 do {
-                    return try await self.resolveNeteaseSongUrl(
+                    let result = try await self.resolveNeteaseSongUrl(
                         id: id,
                         client: client,
                         clientLabel: clientLabel,
@@ -1160,6 +1171,16 @@ class APIService: @unchecked Sendable {
                         prefetchedQuality: prefetchedQuality,
                         isDownload: isDownload
                     )
+                    if result.isPreview {
+                        previewFallback = previewFallback ?? result
+                        if index < clients.count - 1 {
+                            AppLogger.warning("[Netease] \(clientLabel) 仅返回试听地址，继续尝试下一条 Cookie")
+                            continue
+                        }
+                        AppLogger.warning("[Netease] 所有 Cookie 均未取得完整音源，保留试听地址兜底")
+                        return previewFallback ?? result
+                    }
+                    return result
                 } catch PlaybackError.tokenRequired {
                     throw PlaybackError.tokenRequired
                 } catch PlaybackError.tokenExpired {
@@ -1174,6 +1195,9 @@ class APIService: @unchecked Sendable {
                 }
             }
 
+            if let previewFallback {
+                return previewFallback
+            }
             if let lastError {
                 throw lastError
             }
@@ -1340,6 +1364,10 @@ class APIService: @unchecked Sendable {
            let url = first["url"] as? String, !url.isEmpty {
             let requestedQuality = SoundQuality(rawValue: level)
             let actualQuality = (first["level"] as? String).flatMap(SoundQuality.init(rawValue:)) ?? requestedQuality
+            let freeTrialInfo = first["freeTrialInfo"]
+            let hasFreeTrialInfo = freeTrialInfo != nil && !(freeTrialInfo is NSNull)
+            let trialMode = first["trialMode"] as? Int ?? 0
+            let isPreview = hasFreeTrialInfo || trialMode > 0
 
             if !acceptDowngrade,
                let requestedQuality,
@@ -1352,7 +1380,8 @@ class APIService: @unchecked Sendable {
 
             return SongUrlResult(
                 url: url,
-                actualNeteaseQuality: actualQuality
+                actualNeteaseQuality: actualQuality,
+                isPreview: isPreview
             )
         }
         throw PlaybackError.unavailable

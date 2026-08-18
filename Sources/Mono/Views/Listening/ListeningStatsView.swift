@@ -2,15 +2,15 @@ import SwiftUI
 
 // MARK: - 听歌统计页面
 
-/// 本地听歌统计 —— 编辑部式排版：
-/// 日报/周报/月报/年报入口 + 大数字主指标（含环比）+ 发丝线数据条 +
-/// 随周期自适应的走势图 + 24 小时时钟分布 + 序号式 TOP 歌曲/歌手。
+/// 本地听歌统计 —— 本周真实播放时长第一的歌曲封面作为沉浸头图，
+/// 下方展示核心指标、报告入口、周期走势、时段分布与歌曲/歌手排行。
 /// 数据来自独立播放日志（清空最近播放不受影响）。
 struct ListeningStatsView: View {
     @ObservedObject private var settings = SettingsManager.shared
-    @StateObject private var aiInsightAgent = AIListeningInsightAgent()
+    @StateObject private var aiInsightAgent = AIListeningInsightAgent.shared
     @State private var selectedPeriod: ListeningStatsService.Period = .week
     @State private var stats: ListeningStatsService.Stats = .empty
+    @State private var weeklyStats: ListeningStatsService.Stats = .empty
     @State private var isLoading = true
     @State private var showClearAlert = false
     @State private var showMoreMenu = false
@@ -21,62 +21,63 @@ struct ListeningStatsView: View {
     var body: some View {
         let _ = settings.globalThemeRevision
 
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                SettingsScrollablePageHeader(
-                    title: String(localized: "cloud_sync_listening_stats"),
-                    eyebrow: "LISTENING",
-                    icon: .chart
-                )
+        ZStack {
+            immersivePageBackground
 
-                VStack(alignment: .leading, spacing: 26) {
-                    if settings.listeningReportsEnabled, !reportSummaries.isEmpty {
-                        reportCards
-                    }
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    immersiveHeader
 
-                    periodPicker
+                    VStack(alignment: .leading, spacing: 26) {
+                        periodPicker
 
-                    if stats.totalPlays == 0 && !isLoading {
-                        emptyState
-                    } else {
-                        heroBlock
-                        statsStrip
-                        if !isLoading {
-                            AIListeningInsightSection(
-                                agent: aiInsightAgent,
-                                input: .statistics(period: selectedPeriod, stats: stats)
-                            )
-                        }
+                        if stats.totalPlays == 0 && !isLoading {
+                            emptyState
+                        } else {
+                            if settings.listeningReportsEnabled, !reportSummaries.isEmpty {
+                                reportCards
+                            }
 
-                        if stats.trend.contains(where: { $0.seconds > 0 || $0.plays > 0 }) {
-                            trendSection
-                        }
+                            if !isLoading {
+                                AIListeningInsightSection(
+                                    agent: aiInsightAgent,
+                                    input: .statistics(period: selectedPeriod, stats: stats)
+                                )
+                            }
 
-                        if stats.hourHistogram.contains(where: { $0 > 0 }) {
-                            hourSection
-                        }
+                            if stats.trend.contains(where: { $0.seconds > 0 || $0.plays > 0 }) {
+                                trendSection
+                            }
 
-                        if !stats.topSongs.isEmpty {
-                            topSongsSection
-                        }
+                            if stats.hourHistogram.contains(where: { $0 > 0 }) {
+                                hourSection
+                            }
 
-                        if !stats.topArtists.isEmpty {
-                            topArtistsSection
+                            if !stats.topSongs.isEmpty {
+                                topSongsSection
+                            }
+
+                            if !stats.topArtists.isEmpty {
+                                topArtistsSection
+                            }
                         }
                     }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 48)
+                    .background(immersiveContentTransition)
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 18)
-                .padding(.bottom, 48)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .scrollIndicators(.hidden)
+            .ignoresSafeArea(edges: .top)
+            .coordinateSpace(name: SettingsPageLayout.scrollCoordinateSpace)
+            .themeRenderScrollLayer()
         }
-        .scrollIndicators(.hidden)
-        .coordinateSpace(name: SettingsPageLayout.scrollCoordinateSpace)
-        .themeRenderScrollLayer()
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .monoNavigationBackButton()
+        .monoNavigationBackButton(iconColor: .white)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -84,7 +85,7 @@ struct ListeningStatsView: View {
                         showMoreMenu.toggle()
                     }
                 } label: {
-                    MonoIcon(icon: .more, size: 17, color: .monoTextSecondary)
+                    MonoIcon(icon: .more, size: 17, color: .white)
                         .frame(width: 36, height: 36)
                         .monoGlassCircle(interactive: true)
                 }
@@ -122,7 +123,80 @@ struct ListeningStatsView: View {
         .fullScreenCover(item: $presentedReportKind) { kind in
             ListeningReportView(kind: kind)
         }
-        .background(ThemedPageBackground(useRenderLayer: false))
+    }
+
+    private var weeklyArtworkURL: URL? {
+        weeklyStats.topSongs.first?
+            .coverUrl
+            .flatMap(URL.init(string:))
+    }
+
+    /// 固定在滚动层之后的封面氛围。只渲染一张缓存图，避免把大图模糊
+    /// 放进 LazyVStack 后随滚动反复失效。
+    private var immersivePageBackground: some View {
+        GeometryReader { proxy in
+            ZStack {
+                ThemedPageBackground(useRenderLayer: false)
+
+                if let url = weeklyArtworkURL {
+                    CachedAsyncImage(
+                        url: url.artworkURL(atLeastPixelSize: 1_536),
+                        width: 768,
+                        height: 768
+                    ) {
+                        immersiveArtworkFallback
+                    }
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .scaleEffect(1.08)
+                    .blur(radius: 34, opaque: true)
+                    .saturation(1.12)
+                    .opacity(colorScheme == .dark ? 0.5 : 0.36)
+                    .clipped()
+                }
+
+                Color.monoBackground
+                    .opacity(colorScheme == .dark ? 0.38 : 0.5)
+
+                LinearGradient(
+                    stops: [
+                        .init(color: Color.black.opacity(0.2), location: 0),
+                        .init(color: Color.monoBackground.opacity(0.28), location: 0.32),
+                        .init(color: Color.monoBackground.opacity(0.62), location: 1),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+            .clipped()
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private var immersiveContentTransition: some View {
+        LinearGradient(
+            stops: [
+                .init(
+                    color: Color.monoBackground.opacity(colorScheme == .dark ? 0.72 : 0.82),
+                    location: 0
+                ),
+                .init(
+                    color: Color.monoBackground.opacity(colorScheme == .dark ? 0.58 : 0.7),
+                    location: 0.18
+                ),
+                .init(
+                    color: Color.monoBackground.opacity(colorScheme == .dark ? 0.48 : 0.62),
+                    location: 1
+                ),
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 
     private var listeningStatsMoreMenu: some View {
@@ -272,85 +346,188 @@ struct ListeningStatsView: View {
                 }
             }
         }
+        .padding(5)
+        .background(
+            Capsule()
+                .fill(Color.monoBackground.opacity(colorScheme == .dark ? 0.48 : 0.62))
+                .background(.ultraThinMaterial, in: Capsule())
+        )
     }
 
-    // MARK: - 主指标（大数字）
+    // MARK: - 沉浸式周榜头部
 
-    private var heroBlock: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(String(localized: "听歌时长"))
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
-                .foregroundStyle(Color.monoTextSecondary)
+    private var immersiveHeader: some View {
+        GeometryReader { proxy in
+            let width = max(proxy.size.width, 1)
+            let height = max(proxy.size.height, 1)
 
-            Text(stats.formattedDuration)
-                .font(.system(size: 34, weight: .heavy, design: .rounded))
-                .foregroundStyle(Color.monoTextPrimary)
+            ZStack(alignment: .bottomLeading) {
+                immersiveHeaderArtwork(width: width, height: height)
+
+                LinearGradient(
+                    stops: [
+                        .init(color: Color.black.opacity(0.46), location: 0),
+                        .init(color: Color.black.opacity(0.04), location: 0.34),
+                        .init(color: Color.black.opacity(0.28), location: 0.58),
+                        .init(color: Color.black.opacity(0.96), location: 1),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+
+                LinearGradient(
+                    colors: [
+                        Color.black.opacity(0.5),
+                        Color.clear,
+                        Color.black.opacity(0.16),
+                    ],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+
+                VStack(alignment: .leading, spacing: 0) {
+                    Spacer(minLength: 88)
+
+                    Text("\(selectedPeriod.rawValue) · \(String(localized: "听歌时长"))")
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .tracking(0.8)
+                        .foregroundStyle(Color.white.opacity(0.72))
+
+                    Text(isLoading ? "—" : stats.formattedDuration)
+                        .font(.system(size: 42, weight: .heavy, design: .rounded))
+                        .foregroundStyle(Color.white)
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.62)
+                        .contentTransition(.numericText())
+                        .padding(.top, 5)
+
+                    if let song = weeklyStats.topSongs.first {
+                        Text(String(localized: "本周播放时长第一"))
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .foregroundStyle(Color.white.opacity(0.64))
+                            .padding(.top, 17)
+
+                        Text(song.name)
+                            .font(.system(size: 25, weight: .heavy, design: .rounded))
+                            .foregroundStyle(Color.white)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.68)
+                            .padding(.top, 3)
+
+                        HStack(spacing: 6) {
+                            Text(song.artistName)
+                            Text("·")
+                            Text(formatDuration(song.totalDuration))
+                        }
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Color.white.opacity(0.7))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+                    } else {
+                        Text(String(localized: "本周暂无有效播放"))
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .foregroundStyle(Color.white.opacity(0.7))
+                            .padding(.top, 17)
+                    }
+
+                    immersiveMetrics
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 20)
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 30)
+                .frame(width: width, height: height, alignment: .bottomLeading)
+            }
+            .frame(width: width, height: height)
+            .clipped()
+        }
+        .frame(height: 540)
+        .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder
+    private func immersiveHeaderArtwork(width: CGFloat, height: CGFloat) -> some View {
+        if let url = weeklyArtworkURL {
+            CachedAsyncImage(
+                url: url.artworkURL(atLeastPixelSize: 2_304),
+                width: 1_152,
+                height: 1_152
+            ) {
+                immersiveArtworkFallback
+            }
+            .aspectRatio(contentMode: .fill)
+            .frame(width: width, height: height)
+            .clipped()
+        } else {
+            immersiveArtworkFallback
+                .frame(width: width, height: height)
+        }
+    }
+
+    private var immersiveArtworkFallback: some View {
+        LinearGradient(
+            colors: [
+                Color.monoAccent.opacity(0.88),
+                Color.black.opacity(0.78),
+                Color.black,
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    private var immersiveMetrics: some View {
+        HStack(spacing: 0) {
+            immersiveMetric(
+                value: isLoading ? "—" : "\(stats.totalPlays)",
+                label: String(localized: "有效播放")
+            )
+            immersiveMetricDivider
+            immersiveMetric(
+                value: isLoading ? "—" : "\(stats.completionRate)%",
+                label: String(localized: "完播率")
+            )
+            immersiveMetricDivider
+            immersiveMetric(
+                value: isLoading ? "—" : "\(stats.uniqueSongs)",
+                label: String(localized: "歌曲")
+            )
+        }
+        .padding(.horizontal, 4)
+        .padding(.vertical, 13)
+        .background(
+            RoundedRectangle(cornerRadius: 19, style: .continuous)
+                .fill(Color.black.opacity(0.32))
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 19, style: .continuous)
+                .stroke(Color.white.opacity(0.16), lineWidth: 0.8)
+        }
+    }
+
+    private func immersiveMetric(value: String, label: String) -> some View {
+        VStack(spacing: 3) {
+            Text(value)
+                .font(.system(size: 17, weight: .heavy, design: .rounded))
+                .foregroundStyle(Color.white)
                 .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
                 .contentTransition(.numericText())
 
-            if let change = stats.percentChange, let label = selectedPeriod.comparisonLabel {
-                HStack(spacing: 4) {
-                    Image(systemName: change >= 0 ? "arrow.up.right" : "arrow.down.right")
-                        .font(.system(size: 8.5, weight: .heavy))
-
-                    Text("\(label) \(change >= 0 ? "+" : "")\(change)%")
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                }
-                .foregroundStyle(Color.monoAccent)
-                .padding(.horizontal, 9)
-                .padding(.vertical, 4.5)
-                .background(
-                    Capsule()
-                        .fill(Color.monoAccent.opacity(0.12))
-                        .overlay(Capsule().stroke(Color.monoAccent.opacity(0.24), lineWidth: 0.8))
-                )
-                .padding(.top, 2)
-            }
-
-            if selectedPeriod != .day, stats.activeDays > 1 {
-                Text("日均 \(stats.formattedDailyAvg) · 覆盖 \(stats.activeDays) 天")
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundStyle(Color.monoTextSecondary.opacity(0.9))
-            }
-        }
-    }
-
-    // MARK: - 数据条（发丝线分隔）
-
-    private var statsStrip: some View {
-        HStack(spacing: 0) {
-            statCell(value: "\(stats.totalPlays)", label: String(localized: "播放次数"))
-            statHairline
-            statCell(value: "\(stats.uniqueSongs)", label: String(localized: "不同歌曲"))
-            statHairline
-            statCell(value: "\(stats.uniqueArtists)", label: String(localized: "不同歌手"))
-            statHairline
-            statCell(value: "\(stats.completedPlays)", label: String(localized: "听完整首"))
-        }
-    }
-
-    private func statCell(value: String, label: String) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(value)
-                .font(.system(size: 19, weight: .heavy, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(Color.monoTextPrimary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-
             Text(label)
-                .font(.system(size: 10.5, weight: .semibold, design: .rounded))
-                .foregroundStyle(Color.monoTextSecondary)
+                .font(.system(size: 9.5, weight: .semibold, design: .rounded))
+                .foregroundStyle(Color.white.opacity(0.62))
+                .lineLimit(1)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity)
     }
 
-    private var statHairline: some View {
+    private var immersiveMetricDivider: some View {
         Rectangle()
-            .fill(Color.monoTextPrimary.opacity(0.1))
-            .frame(width: 0.5, height: 28)
-            .padding(.trailing, 12)
+            .fill(Color.white.opacity(0.14))
+            .frame(width: 0.5, height: 26)
     }
 
     // MARK: - 走势（随周期自适应：周 7 天 / 月逐日 / 年逐月 / 其他 14 天）
@@ -714,9 +891,13 @@ struct ListeningStatsView: View {
         isLoading = true
         Task {
             let result = ListeningStatsService.shared.fetchStats(for: selectedPeriod)
+            let weekResult = selectedPeriod == .week
+                ? result
+                : ListeningStatsService.shared.fetchStats(for: .week)
             let summaries = makeReportSummaries()
             withAnimation(.easeOut(duration: 0.2)) {
                 stats = result
+                weeklyStats = weekResult
                 reportSummaries = summaries
                 isLoading = false
             }

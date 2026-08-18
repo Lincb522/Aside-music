@@ -249,8 +249,6 @@ struct AriaStageView: View {
     /// layers when several stages are stacked. This reduces uneven frame
     /// pacing as well as GPU wakeups without changing any rendered content.
     private var preferredStageFrameRateCeiling: Int {
-        if perf.isScreenCaptured || perf.tier == .low { return 30 }
-        if perf.tier == .medium || enabledStageEffectCount >= 2 { return 48 }
         return 60
     }
 
@@ -262,37 +260,16 @@ struct AriaStageView: View {
         }
     }
 
-    /// 歌词时间轴帧率：词入场弹簧由 SwiftUI 隐式动画按屏幕刷新率插值，
-    /// 时间轴只负责推进 time 驱动的包络（辉光/浸染/呼吸），30fps 足够平滑。
+    /// 歌词包含逐字颜色、位移和光效，必须跟随显示刷新节奏推进；
+    /// 性能降档由统一渲染引擎处理，常态不再用 30fps 人为制造顿挫。
     private var lyricFPS: Int {
-        guard player.isPlaying else { return 12 }
-        let baseFPS: Int
-        if lyricMaterialStyle == .particle {
-            switch perf.tier {
-            case .high: baseFPS = 24
-            case .medium: baseFPS = 20
-            case .low: baseFPS = 16
-            }
-        } else if lyricEffect.usesFullStage {
-            switch perf.tier {
-            case .high: baseFPS = 24
-            case .medium: baseFPS = 20
-            case .low: baseFPS = 16
-            }
-        } else {
-            switch perf.tier {
-            case .high: baseFPS = 30
-            case .medium: baseFPS = 24
-            case .low: baseFPS = 20
-            }
-        }
-
-        guard enabledStageEffectCount >= 2 else { return baseFPS }
-        switch perf.tier {
-        case .high: return min(baseFPS, 24)
-        case .medium: return min(baseFPS, 20)
-        case .low: return min(baseFPS, 16)
-        }
+        AriaLyricRenderEngine.framesPerSecond(
+            effect: lyricEffect,
+            material: lyricMaterialStyle,
+            tier: perf.tier,
+            isPlaying: player.isPlaying,
+            enabledStageEffectCount: enabledStageEffectCount
+        )
     }
 
     var body: some View {
@@ -312,6 +289,7 @@ struct AriaStageView: View {
         }()
         let lyricFont = effectiveLyricFont(for: lyricLanguage)
         let lyricTypography = self.lyricTypography
+        let lyricMaterialStyle = self.lyricMaterialStyle
         let lyricDepthAmount = pow(min(max(lyricDepthIntensity, 0), 1), 0.72)
 
         GeometryReader { geo in
@@ -342,17 +320,21 @@ struct AriaStageView: View {
                         )) { _ in
                             // 暂停态 seek 后靠此状态失效重渲染一帧
                             let _ = pausedSeekRefresh
-                            let time = currentPlaybackTime
-                            let activeIndex = AriaLyricEngine.activeLineIndex(
-                                in: lyricLines,
-                                at: time
+                            let frame = AriaLyricRenderEngine.frame(
+                                lines: lyricLines,
+                                time: currentPlaybackTime
                             )
-                            let activeLine = lyricLines.indices.contains(activeIndex)
-                                ? lyricLines[activeIndex]
-                                : nil
+                            let time = frame.time
+                            let activeIndex = frame.activeIndex
+                            let activeLine = frame.activeLine
                             // 副歌张力跟随歌词时间轴。
                             let _ = advanceStageIntelligence(time: time, lines: lyricLines)
-                            let stagePulse = audioPulse.snapshot()
+                            // 默认未开启 GPU 光学和人声呼吸时，歌词不需要争用
+                            // 音频频谱锁；背景拥有自己的低频率快照读取。
+                            let needsLyricPulse = vocalBreathingEnabled || gpuStageEnabled
+                            let stagePulse = needsLyricPulse
+                                ? audioPulse.snapshot()
+                                : AriaAudioPulse.Snapshot()
                             let breathing = vocalBreathingEnabled
                                 ? stagePulse.vocal
                                 : 0
@@ -400,11 +382,22 @@ struct AriaStageView: View {
                                 .id(
                                     "\(lyricEffect.rawValue)|\(lyricFont.cacheIdentity)|\(customFontID)|\(foreignLyricFontRaw)|\(foreignCustomFontID)|\(lyricLanguage)|\(lyricTypography)"
                                 )
+                                .ariaLyricRenderSurface(
+                                    effect: lyricEffect,
+                                    material: lyricMaterialStyle
+                                )
                                 .frame(
                                     width: geo.size.width,
                                     height: lyricEffect.usesFullStage
                                         ? geo.size.height
                                         : geo.size.height * 0.7
+                                )
+                                // 材质在歌词自身视口内完成合成，避免粒子、玻璃和
+                                // 棱镜为整块全屏透明区域反复分配离屏纹理。
+                                .ariaLyricTypography(
+                                    configuration: lyricTypography,
+                                    palette: lyricPalette,
+                                    time: time
                                 )
                                 .offset(
                                     y: lyricEffect.usesFullStage
@@ -412,11 +405,6 @@ struct AriaStageView: View {
                                         : lyricLayoutOffset(stageHeight: geo.size.height)
                                 )
                                 .frame(width: geo.size.width, height: geo.size.height)
-                                .ariaLyricTypography(
-                                    configuration: lyricTypography,
-                                    palette: lyricPalette,
-                                    time: time
-                                )
                                 .ariaLyricSpatialDepth(
                                     palette: lyricPalette,
                                     intensity: lyricDepthIntensity,
@@ -427,10 +415,8 @@ struct AriaStageView: View {
                                 )
                                 .ariaLyricStageOptics(
                                     pulse: stagePulse,
-                                    cue: nil,
                                     fallbackAccent: lyricPalette.accent,
                                     gpuEnabled: gpuStageEnabled,
-                                    directorEnabled: false,
                                     isActive: player.isPlaying && scenePhase == .active,
                                     reduceMotion: reduceMotion,
                                     time: time
@@ -844,9 +830,12 @@ struct AriaStageView: View {
 
     private var currentPlaybackTime: Double {
         if isDraggingSlider { return dragTimeValue }
-        let raw = player.streamPlayer.currentTime
-        if raw.isFinite && !raw.isNaN && raw >= 0 { return raw }
-        return timePublisher.currentTime
+        return LyricKaraokeTimeline.playbackTime(
+            streamPlayerTime: player.streamPlayer.currentTime,
+            publishedTime: timePublisher.currentTime,
+            isAppleMusic: player.currentSong?.isAppleMusic == true,
+            appleMusicPlayerTime: player.appleMusicPlayback.renderingPlaybackTime
+        )
     }
 
     // MARK: - 交互

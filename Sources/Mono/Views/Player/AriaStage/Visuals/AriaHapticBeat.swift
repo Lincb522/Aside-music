@@ -40,11 +40,16 @@ final class AriaHapticBeat: @unchecked Sendable {
         let pulse = attachedPulse
         attachedPulse = nil
         let engine = self.engine
+        let wasRunning = engineRunning
         self.engine = nil
         engineRunning = false
         lock.unlock()
         pulse?.setBeatHitHandler(nil)
-        engine?.stop()
+        // isAutoShutdownEnabled 可能已经由系统停止引擎。只在我们确认仍运行时
+        // 请求 stop，避免 CoreHaptics -4805（Player was not running）。
+        if wasRunning {
+            engine?.stop(completionHandler: nil)
+        }
     }
 
     private func startEngineIfNeeded() {
@@ -74,8 +79,9 @@ final class AriaHapticBeat: @unchecked Sendable {
     // MARK: - 播放
 
     private func play(_ hit: AriaAudioPulse.BeatHit) {
-        // 省电模式下不值得为触觉唤醒马达
-        guard !ProcessInfo.processInfo.isLowPowerModeEnabled else { return }
+        // 触觉和视觉共用 MonoCompute Engine 的预算。低电量、过热、录屏
+        // 或持续高 CPU 时不再单独唤醒触觉引擎，避免多个局部策略互相打架。
+        guard MonoComputeBudgetStore.shared.current.allowsContinuousHaptics else { return }
 
         let now = CACurrentMediaTime()
         lock.lock()

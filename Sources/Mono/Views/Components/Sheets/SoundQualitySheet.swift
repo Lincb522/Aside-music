@@ -73,13 +73,17 @@ struct SoundQualitySheet: View {
         let _ = settings.globalThemeRevision
 
         ZStack {
-            VStack(spacing: 18) {
+            VStack(spacing: 16) {
                 header
                     .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-                    .padding(.top, 6)
+                    .padding(.top, 4)
+
+                currentQualityHero
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                    .iPadContentWidth(500)
 
                 ScrollView {
-                    VStack(spacing: 18) {
+                    VStack(spacing: 0) {
                         if isKugou {
                             if isLoadingQualities {
                                 loadingSkeleton
@@ -160,56 +164,103 @@ struct SoundQualitySheet: View {
         return .monoTextSecondary
     }
 
+    private var activeSource: MusicSource {
+        if isKugou { return .kugou }
+        if isQishui { return .qishui }
+        if isQQMusic { return .qqmusic }
+        return .netease
+    }
+
+    private var currentQualityDetail: String {
+        if isQQMusic { return currentQQQuality.subtitle }
+        if isKugou { return (currentKugouQuality ?? player.kugouSoundQuality).subtitle }
+        return currentQuality.subtitle
+    }
+
+    private var currentQualityIntensity: CGFloat {
+        if isQQMusic {
+            return min(max(CGFloat(currentQQQuality.level + 1) / 16, 0.18), 1)
+        }
+
+        let quality = isKugou ? (currentKugouQuality ?? player.kugouSoundQuality) : currentQuality
+        switch quality {
+        case .none: return 0.18
+        case .standard: return 0.24
+        case .higher: return 0.34
+        case .exhigh: return 0.46
+        case .lossless: return 0.62
+        case .hires: return 0.78
+        case .jyeffect: return 0.7
+        case .sky: return 0.84
+        case .jymaster: return 1
+        case .multitrack: return 0.92
+        }
+    }
+
     private var header: some View {
         HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 5) {
-                HStack(spacing: 8) {
-                    Text(LocalizedStringKey("quality_title"))
-                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(21, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.titleFont(21, weight: .semibold) : .system(size: 21, weight: .heavy, design: .rounded)))
-                        .foregroundColor(headerInk)
-
-                    if isKugou {
-                        PlatformBadgeLabel(text: "KCM", source: .kugou)
-                    } else if isQishui {
-                        PlatformBadgeLabel(text: "QSM", source: .qishui)
-                    } else if isQQMusic {
-                        PlatformBadgeLabel(text: String(localized: "quality_qq_source"), source: .qqmusic)
-                    }
-                }
-
-                // 当前生效音质
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(Color.monoAccent)
-                        .frame(width: 5, height: 5)
-
-                    Text(String(localized: "quality_current_prefix"))
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundColor(headerInkSoft.opacity(0.85))
-
-                    Text(currentQualityDisplayName)
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
-                        .foregroundColor(headerInk.opacity(0.9))
-                }
-            }
+            Text(LocalizedStringKey("quality_title"))
+                .font(NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(25, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.titleFont(25, weight: .semibold) : .system(size: 25, weight: .bold, design: .rounded)))
+                .foregroundColor(headerInk)
 
             Spacer(minLength: 0)
 
             Button(action: { dismissCurrentPresentation(systemDismiss: dismiss, monoSheetDismiss: monoSheetDismiss) }) {
                 MonoIcon(icon: .close, size: 14, color: SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monoTextSecondary)
-                    .padding(10)
+                    .frame(width: 42, height: 42)
                     .background { closeButtonBackground }
             }
+            .accessibilityLabel(Text("关闭"))
         }
+    }
+
+    private var currentQualityHero: some View {
+        ZStack(alignment: .leading) {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(Color.monoSheetSurfaceTop)
+
+            QualitySpectrumArtwork(
+                tint: activeSource.themedBadgeColor,
+                intensity: currentQualityIntensity
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(spacing: 7) {
+                    Text(activeSource.displayName)
+                    Text("·")
+                    Text(String(localized: "quality_current_prefix"))
+                }
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .foregroundColor(headerInkSoft)
+
+                Text(currentQualityDisplayName)
+                    .font(SequoiaStyle.isActive ? SequoiaStyle.titleFont(24, weight: .semibold) : .system(size: 24, weight: .bold, design: .rounded))
+                    .foregroundColor(headerInk)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.76)
+
+                Text(currentQualityDetail)
+                    .font(.system(size: 12, weight: .regular, design: .rounded))
+                    .foregroundColor(headerInkSoft)
+                    .monospacedDigit()
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 16)
+        }
+        .frame(height: 118)
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Color.monoSeparator.opacity(0.45), lineWidth: 0.6)
+        }
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - 加载骨架
 
     private var loadingSkeleton: some View {
-        QualitySheetSkeleton(
-            panelBackground: AnyView(qualityPanelBackground),
-            cornerRadius: qualityPanelCornerRadius
-        )
+        QualitySheetSkeleton()
     }
     
     private func loadQQQualities(mid: String) async {
@@ -282,22 +333,19 @@ struct SoundQualitySheet: View {
                     qualityRow(
                         name: info.quality.displayName,
                         subtitle: details,
-                        badge: info.quality.badgeText,
                         isSelected: (currentKugouQuality ?? player.kugouSoundQuality) == info.quality,
                         isLocked: !info.isAvailable,
                         lockedLabel: info.isAvailable ? nil : String(localized: "quality_unavailable")
                     )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(QualityOptionButtonStyle())
                 .disabled(!info.isAvailable)
 
                 if index < qualities.count - 1 {
-                    Divider().padding(.leading, 65)
+                    qualityDivider
                 }
             }
         }
-        .background(qualityPanelBackground)
-        .clipShape(RoundedRectangle(cornerRadius: qualityPanelCornerRadius, style: .continuous))
     }
 
     private static let defaultKugouQualities: [KCMSongQualityInfo] = [
@@ -340,21 +388,16 @@ struct SoundQualitySheet: View {
                     qualityRow(
                         name: info.displayName,
                         subtitle: "\(info.codec.uppercased()) · \(info.bitrate / 1000)kbps · \(info.sizeText)",
-                        badge: info.soundQuality.badgeText,
                         isSelected: currentQuality == info.soundQuality
                     )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(QualityOptionButtonStyle())
                 
                 if index < qualities.count - 1 {
-                    Divider().padding(.leading, 65)
+                    qualityDivider
                 }
             }
         }
-        .background(
-            qualityPanelBackground
-        )
-        .clipShape(RoundedRectangle(cornerRadius: qualityPanelCornerRadius, style: .continuous))
     }
     
     // MARK: - QQ 音质分组
@@ -364,23 +407,12 @@ struct SoundQualitySheet: View {
     @ViewBuilder
     private func qualityGroup(title: String, qualities: [QQMusicQuality]) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 8) {
-                Capsule()
-                    .fill(rowAccent.opacity(0.85))
-                    .frame(width: 3, height: 11)
-
-                Text(title)
-                    .font(.system(size: 12.5, weight: .bold, design: .rounded))
-                    .tracking(0.4)
-                    .foregroundColor(.monoTextSecondary)
-
-                Rectangle()
-                    .fill(Color.monoSeparator.opacity(0.5))
-                    .frame(height: 0.5)
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 14)
-            .padding(.bottom, 8)
+            Text(title)
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .foregroundColor(headerInkSoft)
+                .padding(.horizontal, 16)
+                .padding(.top, 22)
+                .padding(.bottom, 8)
             
             ForEach(Array(qualities.enumerated()), id: \.element) { index, quality in
                 let locked = qqPremiumBlocked && Self.premiumLocked.contains(quality)
@@ -395,26 +427,21 @@ struct SoundQualitySheet: View {
                     qualityRow(
                         name: quality.displayName,
                         subtitle: info.map { "\(quality.subtitle) · \($0.sizeText)" } ?? quality.subtitle,
-                        badge: quality.badgeText,
                         isSelected: currentQQQuality == quality,
                         isLocked: locked,
                         lockedLabel: locked ? String(localized: "quality_qq_risk_restricted") : nil
                     )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(QualityOptionButtonStyle())
                 // Remove .disabled(locked) so they can tap it to see the toast
                 
                 if index < qualities.count - 1 {
-                    Divider().padding(.leading, 65)
+                    qualityDivider
                 }
             }
             
-            Color.clear.frame(height: 8)
+            Color.clear.frame(height: 6)
         }
-        .background(
-            qualityPanelBackground
-        )
-        .clipShape(RoundedRectangle(cornerRadius: qualityPanelCornerRadius, style: .continuous))
     }
     
     // MARK: - ncm音质列表
@@ -444,81 +471,52 @@ struct SoundQualitySheet: View {
                     qualityRow(
                         name: quality.displayName,
                         subtitle: subtitleText,
-                        badge: quality.badgeText,
                         isSelected: currentQuality == quality
                     )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(QualityOptionButtonStyle())
                 
                 if index < qualities.count - 1 {
-                    Divider().padding(.leading, 65)
+                    qualityDivider
                 }
             }
         }
-        .background(
-            qualityPanelBackground
-        )
-        .clipShape(RoundedRectangle(cornerRadius: qualityPanelCornerRadius, style: .continuous))
     }
     
     // MARK: - 音质行
 
     private var rowAccent: Color {
-        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
-        if SequoiaStyle.isActive { return SequoiaStyle.accent }
-        if MangaStyle.isActive { return MangaStyle.accentPink }
-        if MujiStyle.isActive { return MujiStyle.clay }
-        return .monoTextPrimary
+        activeSource.themedBadgeColor
     }
 
     private func qualityRow(
         name: String,
         subtitle: String,
-        badge: String?,
         isSelected: Bool,
         isLocked: Bool = false,
         lockedLabel: String? = nil
     ) -> some View {
-        HStack(spacing: 13) {
-            // 等级字标：badge 文本直接做成方标，一眼分级
-            ZStack {
-                qualityIconTileBackground(isSelected: isSelected, isLocked: isLocked)
-
-                if let badge, !badge.isEmpty {
-                    Text(badge)
-                        .font(.system(size: badge.count > 3 ? 8 : 9.5, weight: .heavy, design: .rounded))
-                        .tracking(0.3)
-                        .foregroundColor(qualityIconColor(isSelected: isSelected, isLocked: isLocked))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                        .padding(.horizontal, 3)
-                } else {
-                    MonoIcon(icon: .soundQuality, size: 16, color: qualityIconColor(isSelected: isSelected, isLocked: isLocked))
-                }
-            }
-            .frame(width: 38, height: 38)
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-
-            VStack(alignment: .leading, spacing: 3) {
+        HStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 6) {
                     Text(name)
-                        .font(SequoiaStyle.isActive ? SequoiaStyle.bodyFont(15, weight: .semibold) : .system(size: 15.5, weight: isSelected ? .bold : .semibold, design: .rounded))
-                        .foregroundColor(isLocked ? (SequoiaStyle.isActive ? SequoiaStyle.inkMuted.opacity(0.58) : .monoTextSecondary.opacity(0.5)) : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monoTextPrimary))
+                        .font(SequoiaStyle.isActive ? SequoiaStyle.bodyFont(16, weight: isSelected ? .semibold : .medium) : .system(size: 16, weight: isSelected ? .semibold : .medium, design: .rounded))
+                        .foregroundColor(isLocked ? lockedRowColor : (SequoiaStyle.isActive ? SequoiaStyle.ink : .monoTextPrimary))
+                        .lineLimit(1)
 
                     if isLocked, let lockedLabel {
                         Text(lockedLabel)
                             .font(SequoiaStyle.isActive ? SequoiaStyle.labelFont(9, weight: .medium) : .system(size: 9, weight: .medium, design: .rounded))
-                            .foregroundColor(SequoiaStyle.isActive ? SequoiaStyle.inkMuted : .monoTextSecondary.opacity(0.5))
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 2)
-                            .background(SequoiaStyle.isActive ? SequoiaStyle.materialList : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed.opacity(0.78) : Color.monoSeparator.opacity(0.5)))
-                            .cornerRadius(4)
+                            .foregroundColor(lockedRowColor)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(Color.monoSeparator.opacity(0.4), in: Capsule())
                     }
                 }
 
                 Text(subtitle)
                     .font(SequoiaStyle.isActive ? SequoiaStyle.labelFont(12, weight: .regular) : .system(size: 12, weight: .regular, design: .rounded))
-                    .foregroundColor(isLocked ? (SequoiaStyle.isActive ? SequoiaStyle.inkMuted.opacity(0.52) : .monoTextSecondary.opacity(0.4)) : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monoTextSecondary))
+                    .foregroundColor(isLocked ? lockedRowColor : (SequoiaStyle.isActive ? SequoiaStyle.inkSoft : .monoTextSecondary))
                     .monospacedDigit()
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
@@ -526,52 +524,56 @@ struct SoundQualitySheet: View {
 
             Spacer()
 
-            // 单选圈：选中实心，锁定换锁形
             if isLocked {
-                MonoIcon(icon: .lock, size: 13, color: .monoTextSecondary.opacity(0.4))
-            } else {
+                MonoIcon(icon: .lock, size: 14, color: lockedRowColor)
+                    .frame(width: 32, height: 32)
+            } else if isSelected {
                 ZStack {
                     Circle()
-                        .stroke(
-                            isSelected ? rowAccent : Color.monoSeparator.opacity(0.9),
-                            lineWidth: isSelected ? 5.5 : 1.4
-                        )
-                        .frame(width: isSelected ? 14.5 : 19, height: isSelected ? 14.5 : 19)
+                        .fill(rowAccent)
+
+                    MonoIcon(icon: .checkmark, size: 11, color: selectedMarkColor)
+                        .transition(.scale.combined(with: .opacity))
                 }
-                .frame(width: 20, height: 20)
-                .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isSelected)
+                .frame(width: 26, height: 26)
+                .animation(.spring(response: 0.28, dampingFraction: 0.78), value: isSelected)
+            } else {
+                Color.clear
+                    .frame(width: 26, height: 26)
             }
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.vertical, 14)
+        .frame(minHeight: 68)
         .background {
             if isSelected && !isLocked {
-                RoundedRectangle(cornerRadius: 13, style: .continuous)
-                    .fill(rowAccent.opacity(NeumorphicStyle.isActive || SequoiaStyle.isActive ? 0.08 : 0.055))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(rowAccent.opacity(NeumorphicStyle.isActive || SequoiaStyle.isActive ? 0.11 : 0.08))
             }
         }
         .contentShape(Rectangle())
-    }
-
-    private var qualityPanelCornerRadius: CGFloat {
-        if SequoiaStyle.isActive { return 22 }
-        return NeumorphicStyle.isActive ? 22 : 16
+        .animation(.easeOut(duration: 0.18), value: isSelected)
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(isSelected ? Text(String(localized: "quality_current_prefix")) : Text(""))
     }
 
     @ViewBuilder
-    private var qualityPanelBackground: some View {
-        if NeumorphicStyle.isActive {
-            NeumorphicSurfaceBackground(cornerRadius: qualityPanelCornerRadius, elevated: false)
-        } else if SequoiaStyle.isActive {
-            SequoiaSurfaceBackground(cornerRadius: qualityPanelCornerRadius, elevated: true, role: .chrome)
-        } else {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.monoGlassTint)
-                .monoGlass(cornerRadius: 20)
-                .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
-        }
+    private var qualityDivider: some View {
+        Divider()
+            .padding(.leading, 14)
+            .padding(.trailing, 12)
+    }
+
+    private var lockedRowColor: Color {
+        if SequoiaStyle.isActive { return SequoiaStyle.inkMuted.opacity(0.72) }
+        return .monoTextSecondary.opacity(0.7)
+    }
+
+    private var selectedMarkColor: Color {
+        ThemeColorCustomization.readableForegroundColor(
+            on: rowAccent,
+            colorScheme: colorScheme
+        )
     }
 
     @ViewBuilder
@@ -589,59 +591,76 @@ struct SoundQualitySheet: View {
         }
     }
 
-    @ViewBuilder
-    private func qualityIconTileBackground(isSelected: Bool, isLocked: Bool) -> some View {
-        if NeumorphicStyle.isActive {
-            NeumorphicSurfaceBackground(
-                cornerRadius: 10,
-                elevated: false,
-                pressed: isSelected,
-                tint: isSelected ? NeumorphicStyle.accent.opacity(0.18) : NeumorphicStyle.surfacePressed.opacity(0.72)
-            )
-            .opacity(isLocked ? 0.5 : 1)
-        } else if SequoiaStyle.isActive {
-            SequoiaSurfaceBackground(
-                cornerRadius: 10,
-                elevated: isSelected,
-                pressed: !isSelected,
-                fill: isSelected ? SequoiaStyle.accent.opacity(0.13) : SequoiaStyle.materialList,
-                role: isSelected ? .selected : .list
-            )
-            .opacity(isLocked ? 0.5 : 1)
-        } else {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(isLocked ? Color.monoIconBackground.opacity(0.04) : (isSelected ? Color.monoIconBackground : Color.monoIconBackground.opacity(0.08)))
+}
+
+// MARK: - 当前音质频谱
+
+/// 根据当前音质等级生成不同密度的频谱纹理；它属于界面内容，而不是音质图标。
+private struct QualitySpectrumArtwork: View {
+    let tint: Color
+    let intensity: CGFloat
+
+    var body: some View {
+        Canvas { context, size in
+            let clampedIntensity = min(max(intensity, 0.12), 1)
+            let lineCount = 5 + Int(clampedIntensity * 4)
+            let startX = size.width * 0.38
+            let drawingWidth = size.width - startX + 20
+            let centerY = size.height * 0.52
+
+            for index in 0 ..< lineCount {
+                let progress = lineCount > 1 ? CGFloat(index) / CGFloat(lineCount - 1) : 0.5
+                let centered = progress - 0.5
+                let amplitude = (12 + 22 * clampedIntensity) * (1 - abs(centered) * 0.48)
+                let baseline = centerY + centered * (48 + 18 * clampedIntensity)
+                let phase = CGFloat(index) * 0.72
+                var path = Path()
+
+                for step in 0 ... 48 {
+                    let xProgress = CGFloat(step) / 48
+                    let x = startX + drawingWidth * xProgress
+                    let envelope = sin(.pi * xProgress)
+                    let primary = sin(xProgress * .pi * (2.4 + clampedIntensity * 1.8) + phase)
+                    let harmonic = sin(xProgress * .pi * 7.2 - phase * 0.7) * 0.22
+                    let y = baseline + (primary + harmonic) * amplitude * envelope
+
+                    if step == 0 {
+                        path.move(to: CGPoint(x: x, y: y))
+                    } else {
+                        path.addLine(to: CGPoint(x: x, y: y))
+                    }
+                }
+
+                let opacity = 0.1 + Double(1 - abs(centered) * 1.35) * 0.2
+                context.stroke(
+                    path,
+                    with: .color(tint.opacity(max(opacity, 0.07))),
+                    style: StrokeStyle(lineWidth: index == lineCount / 2 ? 1.8 : 1.05, lineCap: .round)
+                )
+            }
         }
+        .mask {
+            LinearGradient(
+                colors: [.clear, .white.opacity(0.3), .white],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
-
-    private func qualityIconColor(isSelected: Bool, isLocked: Bool) -> Color {
-        if isLocked { return .monoTextSecondary.opacity(0.4) }
-        if MangaStyle.isActive { return isSelected ? MangaStyle.ink : MangaStyle.inkSub }
-        if MujiStyle.isActive { return isSelected ? MujiStyle.onTint : MujiStyle.ink }
-        if NeumorphicStyle.isActive { return isSelected ? NeumorphicStyle.accent : NeumorphicStyle.ink }
-        if SequoiaStyle.isActive { return isSelected ? SequoiaStyle.accent : SequoiaStyle.inkSoft }
-        return isSelected ? .monoIconForeground : .monoTextPrimary
-    }
-
 }
 
 // MARK: - 加载骨架
 
 /// 音质加载中的占位行：呼吸明暗，尺寸与真实行一致，避免加载完成后跳版
 private struct QualitySheetSkeleton: View {
-    let panelBackground: AnyView
-    let cornerRadius: CGFloat
-
     @State private var pulsing = false
 
     var body: some View {
         VStack(spacing: 0) {
             ForEach(0 ..< 4, id: \.self) { index in
-                HStack(spacing: 13) {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Color.monoSeparator.opacity(0.45))
-                        .frame(width: 38, height: 38)
-
+                HStack(spacing: 14) {
                     VStack(alignment: .leading, spacing: 6) {
                         Capsule()
                             .fill(Color.monoSeparator.opacity(0.5))
@@ -654,24 +673,33 @@ private struct QualitySheetSkeleton: View {
                     Spacer()
 
                     Circle()
-                        .stroke(Color.monoSeparator.opacity(0.5), lineWidth: 1.4)
-                        .frame(width: 19, height: 19)
+                        .stroke(Color.monoSeparator.opacity(0.5), lineWidth: 1.2)
+                        .frame(width: 26, height: 26)
                 }
-                .padding(.horizontal, 14)
+                .padding(.horizontal, 16)
                 .padding(.vertical, 13)
 
                 if index < 3 {
-                    Divider().padding(.leading, 65)
+                    Divider()
+                        .padding(.leading, 14)
+                        .padding(.trailing, 12)
                 }
             }
         }
-        .background(panelBackground)
-        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .opacity(pulsing ? 0.55 : 1)
         .onAppear {
             withAnimation(.easeInOut(duration: 0.85).repeatForever(autoreverses: true)) {
                 pulsing = true
             }
         }
+    }
+}
+
+private struct QualityOptionButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? 0.7 : 1)
+            .scaleEffect(configuration.isPressed ? 0.992 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }

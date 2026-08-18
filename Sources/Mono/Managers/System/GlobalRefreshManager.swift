@@ -47,18 +47,21 @@ class GlobalRefreshManager: ObservableObject {
             }
             .store(in: &cancellables)
         
-        // 监听应用进入后台 - 同步数据到数据库
-        NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)
-            .sink { [weak self] _ in
-                self?.handleAppDidEnterBackground()
-            }
-            .store(in: &cancellables)
     }
     
     // MARK: - 应用生命周期
     
     /// 应用进入前台时检查是否需要刷新
     private func handleAppWillEnterForeground() {
+        // 缓存回填会读取磁盘并批量写入 SQLite，只允许在前台执行。
+        // 旧实现进入后台后才启动该任务，可能越过统一落盘入口重新持有
+        // 数据库锁，最终被 RunningBoard 以 0xdead10cc 终止。
+        if OptimizedCacheManager.shared.shouldSync() {
+            Task { @MainActor in
+                await OptimizedCacheManager.shared.syncToDatabase()
+            }
+        }
+
         // 首页公共内容不依赖登录状态。每次回到前台都交给首页数据层判断
         // 是否跨天或缓存过期，数据仍新鲜时不会发起网络请求。
         HomeViewModel.shared.ensureHomeDataLoaded(reason: "app foreground")
@@ -73,15 +76,6 @@ class GlobalRefreshManager: ObservableObject {
         if checkDailyRefreshNeeded() || checkDailyRefreshNeeded(for: .podcast) {
             AppLogger.debug("检测到新的一天，触发每日刷新")
             triggerDailyRefresh()
-        }
-    }
-    
-    /// 应用进入后台时同步数据
-    private func handleAppDidEnterBackground() {
-        Task { @MainActor in
-            if OptimizedCacheManager.shared.shouldSync() {
-                await OptimizedCacheManager.shared.syncToDatabase()
-            }
         }
     }
     

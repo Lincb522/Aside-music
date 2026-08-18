@@ -41,6 +41,9 @@ struct LoginView: View {
         .onAppear {
             viewModel.startQRLogin()
         }
+        .onDisappear {
+            viewModel.stopQRPolling()
+        }
     }
 
     // MARK: - aside 版式

@@ -12,7 +12,6 @@ struct MinimalPlayerLayout: View {
     @StateObject private var colorExtractor = CoverColorExtractor()
     @State private var showPlaylist = false
     @State private var showQualitySheet = false
-    @State private var showComments = false
     @State private var showEQSettings = false
     @State private var showThemePicker = false
     @State private var showMoreMenu = false
@@ -123,12 +122,6 @@ struct MinimalPlayerLayout: View {
                 onSelectQishui: { info in player.switchQishuiQuality(info); showQualitySheet = false }
             )
 
-        }
-        .monoSheet(isPresented: $showComments, preset: .large){
-            if let song = player.currentSong {
-                CommentView(song: song)
-
-            }
         }
         .monoSheet(isPresented: $showArtistDetail, preset: .detail){
             if let song = player.currentSong {
@@ -295,7 +288,7 @@ extension MinimalPlayerLayout {
     func coverInfoOverlay(screenWidth: CGFloat, coverHeight: CGFloat) -> some View {
         VStack {
             Spacer()
-                .frame(height: coverHeight - 70)
+                .frame(height: coverHeight - 54)
 
             HStack(alignment: .bottom) {
                 VStack(alignment: .leading, spacing: 4) {
@@ -353,50 +346,27 @@ extension MinimalPlayerLayout {
             }
             .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
 
-            // 评论 + 下载
-            if let song = player.currentSong {
-                HStack(spacing: 0) {
-                    Button { showComments = true } label: {
-                        MonoIcon(icon: .comment, size: 22, color: secondaryColor, lineWidth: 1.4)
-                            .frame(width: 44, height: 44)
-                            .contentShape(Rectangle())
+            // 下载能力开启时仅保留下载；评论与沉浸入口不占用极简主题画面。
+            if AppConfig.Features.downloadEnabled, let song = player.currentSong {
+                HStack {
+                    Spacer()
+                    Button {
+                        if !downloadManager.isDownloaded(songId: song.id) {
+                            showDownloadSheet = true
+                        }
+                    } label: {
+                        MonoIcon(
+                            icon: .playerDownload,
+                            size: 22,
+                            color: downloadManager.isDownloaded(songId: song.id) ? .monoTextSecondary : secondaryColor,
+                            lineWidth: 1.4
+                        )
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(MonoBouncingButtonStyle())
+                    .disabled(downloadManager.isDownloaded(songId: song.id))
                     .frame(width: 44)
-
-                    Spacer()
-
-                    if AppConfig.Features.downloadEnabled {
-                        // 下载按钮（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
-                        Button {
-                            if !downloadManager.isDownloaded(songId: song.id) {
-                                showDownloadSheet = true
-                            }
-                        } label: {
-                            MonoIcon(
-                                icon: .playerDownload,
-                                size: 22,
-                                color: downloadManager.isDownloaded(songId: song.id) ? .monoTextSecondary : secondaryColor,
-                                lineWidth: 1.4
-                            )
-                            .frame(width: 44, height: 44)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(MonoBouncingButtonStyle())
-                        .disabled(downloadManager.isDownloaded(songId: song.id))
-                        .frame(width: 44)
-                    } else {
-                        // 沉浸模式按钮 — 占用原下载按钮的位置
-                        Button {
-                            ImmersiveModeController.shared.present()
-                        } label: {
-                            MonoIcon(icon: .immersive, size: 22, color: secondaryColor, lineWidth: 1.4)
-                                .frame(width: 44, height: 44)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(MonoBouncingButtonStyle())
-                        .frame(width: 44)
-                    }
                 }
                 .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
             }
@@ -549,10 +519,13 @@ private struct MinimalKaraokeLine: View {
             maximumFramesPerSecond: 60,
             paused: !isPlaying
         )) { _ in
-            let rawTime = PlayerManager.shared.streamPlayer.currentTime
-            let currentTime = rawTime.isFinite && !rawTime.isNaN && rawTime >= 0
-                ? rawTime
-                : PlaybackTimePublisher.shared.currentTime
+            let player = PlayerManager.shared
+            let currentTime = LyricKaraokeTimeline.playbackTime(
+                streamPlayerTime: player.streamPlayer.currentTime,
+                publishedTime: PlaybackTimePublisher.shared.currentTime,
+                isAppleMusic: player.currentSong?.isAppleMusic == true,
+                appleMusicPlayerTime: player.appleMusicPlayback.renderingPlaybackTime
+            )
             let style = KaraokeWordStyle.resolve(karaokeStyleRaw)
 
             FlowLayout(spacing: 0) {

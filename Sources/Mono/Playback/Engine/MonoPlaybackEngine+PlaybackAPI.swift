@@ -142,30 +142,6 @@ extension PlayerManager {
         return isOrderedSubsequence(overlappingIDs, of: referenceIDs)
     }
 
-    private func reorderedQueueByPromotingSongToCurrent(
-        _ song: Song,
-        in orderedList: [Song],
-        currentIndex: Int
-    ) -> ([Song], Int) {
-        guard !orderedList.isEmpty else { return ([song], 0) }
-
-        var updatedQueue = orderedList
-        var anchorIndex = max(0, min(currentIndex, updatedQueue.count - 1))
-
-        if let existingIndex = updatedQueue.firstIndex(where: {
-            matchesPlaybackTarget($0, expected: song)
-        }) {
-            updatedQueue.remove(at: existingIndex)
-            if existingIndex <= anchorIndex {
-                anchorIndex = max(0, anchorIndex - 1)
-            }
-        }
-
-        let insertIndex = min(anchorIndex + 1, updatedQueue.count)
-        updatedQueue.insert(song, at: insertIndex)
-        return (updatedQueue, insertIndex)
-    }
-
     private func reorderedQueueByInsertingBatchAfterCurrent(
         _ songs: [Song],
         in orderedList: [Song],
@@ -210,31 +186,32 @@ extension PlayerManager {
         self.playSource = .normal
 
         if mode == .shuffle {
-            let orderedQueue = currentContextList.isEmpty ? context : currentContextList
-            let anchorIndex = currentQueueAnchorIndex(in: orderedQueue)
-            let (updatedQueue, newIndex) = reorderedQueueByPromotingSongToCurrent(
-                song,
-                in: orderedQueue,
-                currentIndex: anchorIndex
-            )
-            shuffledContext = updatedQueue
-            if !context.contains(where: {
+            if let newIndex = shuffledContext.firstIndex(where: {
                 matchesPlaybackTarget($0, expected: song)
             }) {
-                context.append(song)
+                contextIndex = newIndex
+            } else {
+                let insertIndex = min(contextIndex + 1, shuffledContext.count)
+                shuffledContext.insert(song, at: insertIndex)
+                if !context.contains(where: {
+                    matchesPlaybackTarget($0, expected: song)
+                }) {
+                    context.append(song)
+                }
+                contextIndex = insertIndex
             }
-            contextIndex = newIndex
             return
         }
 
-        let anchorIndex = currentQueueAnchorIndex(in: context)
-        let (updatedQueue, newIndex) = reorderedQueueByPromotingSongToCurrent(
-            song,
-            in: context,
-            currentIndex: anchorIndex
-        )
-        context = updatedQueue
-        contextIndex = newIndex
+        if let newIndex = context.firstIndex(where: {
+            matchesPlaybackTarget($0, expected: song)
+        }) {
+            contextIndex = newIndex
+        } else {
+            let insertIndex = min(contextIndex + 1, context.count)
+            context.insert(song, at: insertIndex)
+            contextIndex = insertIndex
+        }
     }
 
     private func enqueueAtTailInSequence(_ song: Song) -> Bool {
@@ -802,16 +779,15 @@ extension PlayerManager {
         }
         stagePlaybackQueueMutationIfNeeded()
         
-        // 手动点选后面的歌曲时，把目标提到当前歌曲之后再播放。
-        // 不能直接把 contextIndex 跳到目标原位置，否则中间所有未播放歌曲都会
-        // 因为落在新索引之前，被队列界面和待播时长误判成“已播放”。
+        // 手动点选只切换当前游标，不改写队列。中间经过但没有真正播放的歌曲
+        // 是否属于“已播放”由播放会话统计决定，不能再通过队列索引推断。
         if currentContextList.contains(where: {
             matchesPlaybackTarget($0, expected: song)
         }) {
             playSongKeepingCurrentQueue(song: song)
             AppLogger.info(
-                "[Queue] 手动点播并保留跳过曲目为待播: \(song.name), " +
-                "contextIndex=\(contextIndex), upcoming=\(contextRemainingSongs.count)"
+                "[Queue] 手动点播并保持原队列顺序: \(song.name), " +
+                "contextIndex=\(contextIndex)"
             )
             loadAndPlay(song: song)
             return

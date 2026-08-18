@@ -511,15 +511,8 @@ struct LocalPlaylistsView: View {
     }
 
     private func showLinkImportPrompt() {
-        AlertManager.shared.showInput(
-            title: String(localized: "从链接导入歌单"),
-            message: String(localized: "支持 QCM、NCM 的歌单分享链接"),
-            placeholder: String(localized: "粘贴歌单链接"),
-            primaryButtonTitle: String(localized: "local_toolbar_import"),
-            secondaryButtonTitle: String(localized: "cancel"),
-            onConfirm: { url in
-                self.importPlaylistFromURL(url)
-            }
+        viewModel.navigationPath.append(
+            LibraryViewModel.NavigationDestination.externalPlaylistImport
         )
     }
 
@@ -615,7 +608,7 @@ struct LocalPlaylistsView: View {
         } else {
             AlertManager.shared.show(
                 title: String(localized: "lib_import_failed"),
-                message: String(localized: "无法识别的歌单链接，请使用 NCM、QCM 或酷狗的歌单分享链接"),
+                message: String(localized: "无法识别歌单链接，请使用 NCM、QCM、KCM、汽水音乐、Apple Music、Spotify 或酷我音乐的歌单分享链接"),
                 primaryButtonTitle: String(localized: "lib_confirm"),
                 primaryAction: {}
             )
@@ -2645,7 +2638,9 @@ struct ArtistLibraryView: View {
                         .monoTextInputBehavior()
                         .focused($focusedSearchField, equals: .kugou)
                         .submitLabel(.search)
-                        .onSubmit { dismissArtistSearchKeyboard() }
+                        .monoOnSubmit(text: $viewModel.kugouArtistSearchText) { _ in
+                            dismissArtistSearchKeyboard()
+                        }
 
                     if !viewModel.kugouArtistSearchText.isEmpty {
                         Button {
@@ -2739,7 +2734,7 @@ struct ArtistLibraryView: View {
                         .monoTextInputBehavior()
                         .focused($focusedSearchField, equals: .ncm)
                         .submitLabel(.search)
-                        .onSubmit {
+                        .monoOnSubmit(text: $viewModel.artistSearchText) { _ in
                             dismissArtistSearchKeyboard()
                             viewModel.fetchArtistData(reset: true)
                         }
@@ -2861,7 +2856,7 @@ struct ArtistLibraryView: View {
                         .monoTextInputBehavior()
                         .focused($focusedSearchField, equals: .qq)
                         .submitLabel(.search)
-                        .onSubmit {
+                        .monoOnSubmit(text: $viewModel.qqArtistSearchText) { _ in
                             dismissArtistSearchKeyboard()
                         }
 
@@ -2975,10 +2970,10 @@ struct ArtistLibraryView: View {
                         .monoTextInputBehavior()
                         .focused($focusedSearchField, equals: .appleMusic)
                         .submitLabel(.search)
-                        .onSubmit {
+                        .monoOnSubmit(text: $viewModel.appleMusicArtistSearchText) { keyword in
                             dismissArtistSearchKeyboard()
-                            if !viewModel.appleMusicArtistSearchText.isEmpty {
-                                viewModel.searchAppleMusicArtists(keyword: viewModel.appleMusicArtistSearchText)
+                            if !keyword.isEmpty {
+                                viewModel.searchAppleMusicArtists(keyword: keyword)
                             }
                         }
 

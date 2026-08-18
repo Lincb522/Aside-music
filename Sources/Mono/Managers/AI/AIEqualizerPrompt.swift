@@ -2,7 +2,7 @@ import Foundation
 import FFmpegSwiftSDK
 
 enum AIEqualizerPrompt {
-    static let version = "mono-audio-agent-v27"
+    static let version = "mono-audio-agent-v29-airpods"
 
     /// The two graphic resolutions deliberately use separate system prompts.
     /// This prevents a model from returning a ten-band curve padded to 32 values.
@@ -51,6 +51,26 @@ enum AIEqualizerPrompt {
         return "Measured audio features and the current Mono playback state are provided below as JSON:\n\(json)\nRequested tuning intensity: \(tuningIntensity.rawValue). \(tuningIntensity.promptDirective)\nRequested tuning profile: \(tuningProfile.rawValue). \(tuningProfile.promptDirective)\nProfile-specific naming and explanation rules: \(tuningProfile.outputCopyDirective)\nThe following unified Agent learning policy combines explicit listening preferences with attributable retained-listening outcomes. It contains no raw audio and is confidence bounded:\n\(learningJSON)\nUse this unified learning evidence only to choose among equally safe alternatives. Do not mechanically add bandAdjustments or duplicate its correction because Mono applies the bounded policy locally after validation. Never let learned preference override measured clipping, phase, headroom, or output-device constraints.\nRecently used profile names that must not be repeated or lightly reworded:\n\(recentNamesJSON)\nGenerate the safest complete tuning plan for the declared graphicEQMode. The gains array must match bandFrequenciesHz one-for-one. Do not stack redundant processing. Treat the artist name and any known artist style only as a weak reference, never as measured fact. Write profileName, summary, artistStyleReference, and vocalCharacterReference in Simplified Chinese. Keep artistStyleReference and vocalCharacterReference separate; do not merge them into summary. Give profileName a distinctive, natural 2-to-4-character preset title derived from the audible character and requested tuning profile. Standard and Mono spatial profiles for the same track must never share a title or interchangeable explanation. It should read like a memorable title rather than a technical label, adjective stack, or parameter summary. Never include output-device information."
     }
 
+    static func appendingDeviceTuningTarget(
+        _ target: AIEqualizerDeviceTuningTarget?,
+        to prompt: String
+    ) throws -> String {
+        guard let target else { return prompt }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let data = try encoder.encode(target)
+        guard let json = String(data: data, encoding: .utf8) else {
+            throw AIEqualizerError.invalidResponse
+        }
+        return """
+        \(prompt)
+
+        The connected output has an explicitly selected AirPods tuning target:
+        \(json)
+        Treat this as authoritative output-device context. Mono applies referenceGainsDB locally after validating your per-track curve, so do not repeat, invert, or cancel that baseline. Shape the track correction around it, leave combined headroom, and follow spatialGuidance. The device model must never appear in profileName or summary.
+        """
+    }
+
     static let connectivityTest = """
     Return only this JSON object. Keep its profileName and summary values in Simplified Chinese: {"profileName":"连接测试","gains":[0,0,0,0,0,0,0,0,0,0],"preampDB":0,"tone":{"bassGain":0,"trebleGain":0},"spatial":{"surroundLevel":0,"reverbLevel":0,"stereoWidth":1},"enhance":{"isEnabled":true,"transientAttack":0.1,"transientSustain":0.05,"vocalFocus":0.1,"airAmount":0.05,"deEssAmount":0.1,"lowFrequencyFocus":0.2,"stageWidth":0.05,"microDynamics":0.1,"lowLevelCompensation":0.1},"calibration":{"outputCalibrationEnabled":true,"loudnessMatchingEnabled":true,"smartSongCompensationEnabled":true},"professional":{"processingIntensity":1,"dynamicEQ":{"enabled":false,"bands":[]},"multiband":{"enabled":false,"lowCrossoverHz":180,"highCrossoverHz":3800,"thresholdsDB":[-13,-11,-15],"ratios":[1.45,1.28,1.5],"maxReductionDB":[2.2,1.5,2],"attackMS":22,"releaseMS":210},"parametricEQ":{"enabled":false,"bands":[]}},"confidence":1,"summary":"连接正常"}
     """
@@ -76,6 +96,7 @@ enum AIEqualizerPrompt {
         Mono calibration must reflect the actual output device. Never invent a headphone correction curve. Avoid excessive overlap between graphic EQ, per-track correction, dynamic EQ, and multiband dynamics.
         effects is a separate compatibility stage. Always return false for loudnessNormalizationEnabled, compressorEnabled, subboostEnabled, bs2bEnabled, crossfeedEnabled, virtualBassEnabled, exciterEnabled, and softclipEnabled. For standard, return haasEnabled false. For monoSpatialEnhancement, return haasEnabled true only when phaseCorrelation and monoCompatibility are safe, and choose haasDelayMS from 7...16 ms: use the shorter end for built-in speakers and Bluetooth, and the longer end for wired or USB stereo output. Mono uses its realtime EQ, professional dynamics, measured preamp, and final limiter instead of the other FFmpeg enhancement filters that add unstable delay, phase shifts, synthesized harmonics, or tails. Keep the final limiter enabled unless the entire plan is neutral, with a ceiling between -3 and -0.2 dBFS.
         confidence must be between 0 and 1. profileName, summary, artistStyleReference, and vocalCharacterReference must be written in Simplified Chinese, with no English explanation. artistStyleReference and vocalCharacterReference must each be one short phrase or an empty string, never a biography or definitive label. Keep artistStyleReference for artist-level style prior only, and keep vocalCharacterReference for measured singing or vocal character only. Do not put labels such as 歌手参考 or 演唱参考 inside summary. profileName must be one memorable, natural 2-to-4-Chinese-character preset title. Derive it from the actual audible character, but express that character through a restrained image of light, weather, distance, texture, motion, or atmosphere. Vary the imagery instead of repeatedly returning the same safe words. Do not mechanically combine an adjective with a technical noun, do not write a sentence, and do not reuse or lightly reword any name listed by the user. Never use stale template terms such as 清晰、通透、平衡、增强、优化、调音、音效、模式、方案、校准、空间、动态、低频、高频、人声、音色、声场、质感、层次、沉浸、自然、明亮、饱满、细腻、顺滑. Never include the output device, device type, connection method, brand, artist, track title, platform, codec, sample rate, or technical parameter in profileName. In particular, never use words such as 内置、扬声器、耳机、蓝牙、有线、USB、车载、AirPlay、设备、输出 in profileName. summary must use one or two concise Chinese sentences to explain only the audible tuning result. Artist and vocal references must be returned only through artistStyleReference and vocalCharacterReference.
+        Before returning, silently verify that every enabled processor is supported by measured evidence, the combined boosts still fit under preamp and limiter headroom, stereo changes respect phase and mono compatibility, and the gains count exactly matches the declared graphicEQMode. If two stages solve the same problem, keep the safer single stage instead of stacking them.
         Return exactly one JSON object using the following English field names. Do not add Markdown or surrounding text:
         {
           "profileName":"string",

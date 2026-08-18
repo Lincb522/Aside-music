@@ -445,6 +445,30 @@ final class AIEqualizerAgent: ObservableObject {
         }
     }
 
+    /// Invalidates only the active output-device result. Measurements remain
+    /// reusable because the selected AirPods baseline is applied after spectral
+    /// analysis, while proposal/cache identity changes with the selected model.
+    func handleOutputTuningTargetChanged() {
+        automaticTask?.cancel()
+        automaticRetryTask?.cancel()
+        analysisTask?.cancel()
+        analysisTask = nil
+        activeAnalysisRunID = nil
+        activeAnalysisSongIdentifier = nil
+        scheduledAutomaticRunID = nil
+        scheduledAutomaticSongIdentifier = nil
+        tuningStartedAt = nil
+        generationStartedAt = nil
+        proposal = nil
+        appliedProposalID = nil
+        appliedSongIdentifier = nil
+        phase = .idle
+
+        guard automaticConfigurationEnabled,
+              PlayerManager.shared.currentSong != nil else { return }
+        scheduleAutomaticAnalysis()
+    }
+
     func cancelAnalysis() {
         automaticTask?.cancel()
         automaticRetryTask?.cancel()
@@ -605,7 +629,7 @@ final class AIEqualizerAgent: ObservableObject {
                 ?? AIEqualizerPrompt.connectivityTest,
             configuration: configuration,
             apiKey: providerStore.apiKey,
-            minimumTimeout: managedAgent?.minimumTimeoutSeconds ?? 0,
+            minimumTimeout: managedAgent?.resolvedMinimumTimeoutSeconds ?? 0,
             options: managedAgent?.generationOptions ?? .standard
         )
         _ = try decodeModelOutput(from: text, expectedMode: .tenBand)
@@ -735,6 +759,7 @@ final class AIEqualizerAgent: ObservableObject {
         let requestedIntensity = tuningIntensity
         let requestedProfile = tuningProfile
         let graphicEQMode = EQManager.shared.graphicEQMode
+        let deviceTuningTarget = AirPodsExperienceManager.currentAITuningTargetSnapshot()
         let outputIdentity = currentOutputIdentity()
 
         // Replaying a song restores its validated result before sampling. The
@@ -803,7 +828,8 @@ final class AIEqualizerAgent: ObservableObject {
                 measuredFeatures = reusableMeasuredFeatures
             }
         }
-        let cacheKey = "\(managedAgent?.promptVersion ?? AIEqualizerPrompt.version)|mono-agent-v4|learning:\(learningRevision)|\(graphicEQMode.rawValue)|\(song.musicSource.rawValue)|\(song.id)|\(audioVariant)|\(configuration.wireProtocol.rawValue)|\(configuration.resolvedModel)|\(outputIdentity)|\(samplingMode.rawValue)|\(Int(samplingDuration.rounded()))|\(requestedIntensity.rawValue)|\(requestedProfile.rawValue)"
+        let deviceTuningIdentity = deviceTuningTarget?.identifier ?? "device-baseline:none"
+        let cacheKey = "\(managedAgent?.promptVersion ?? AIEqualizerPrompt.version)|mono-agent-v5|learning:\(learningRevision)|\(graphicEQMode.rawValue)|\(song.musicSource.rawValue)|\(song.id)|\(audioVariant)|\(configuration.wireProtocol.rawValue)|\(configuration.resolvedModel)|\(outputIdentity)|\(deviceTuningIdentity)|\(samplingMode.rawValue)|\(Int(samplingDuration.rounded()))|\(requestedIntensity.rawValue)|\(requestedProfile.rawValue)"
         if !forceRegeneration, let cached = proposalCache.value(for: cacheKey) {
             samplingRetryCount[identifier] = nil
             if proposalCache.shouldRecord(
@@ -885,6 +911,7 @@ final class AIEqualizerAgent: ObservableObject {
                 graphicEQMode: graphicEQMode,
                 song: song,
                 learningContext: learningContext,
+                deviceTuningTarget: deviceTuningTarget,
                 managedAgent: managedAgent
             )
             let output = generation.output
@@ -901,7 +928,8 @@ final class AIEqualizerAgent: ObservableObject {
                 tuningIntensity: requestedIntensity,
                 tuningProfile: requestedProfile,
                 avoidingProfileNames: Set(recentProfileNames),
-                learningContext: learningContext
+                learningContext: learningContext,
+                deviceTuningTarget: deviceTuningTarget
             )
             proposal = result
             apply(result)
@@ -1065,6 +1093,7 @@ final class AIEqualizerAgent: ObservableObject {
         graphicEQMode: GraphicEQMode,
         song: Song,
         learningContext: AIEqualizerLearningContext?,
+        deviceTuningTarget: AIEqualizerDeviceTuningTarget?,
         managedAgent: AppAgentConfiguration?
     ) async throws -> (output: AIEqualizerModelOutput, elapsed: TimeInterval) {
         let startedAt = Date()
@@ -1076,14 +1105,21 @@ final class AIEqualizerAgent: ObservableObject {
             avoidingProfileNames: recentProfileNames,
             learningContext: learningContext
         )
-        let userPrompt = managedAgent?.userPrompt(fallback: bundledUserPrompt) ?? bundledUserPrompt
+        let configuredUserPrompt = managedAgent?.userPrompt(fallback: bundledUserPrompt) ?? bundledUserPrompt
+        let userPrompt = try AIEqualizerPrompt.appendingDeviceTuningTarget(
+            deviceTuningTarget,
+            to: configuredUserPrompt
+        )
         let bundledSystemPrompt = AIEqualizerPrompt.system(for: graphicEQMode)
         let systemPrompt = managedAgent?.systemPrompt(
             fallback: bundledSystemPrompt,
             secondaryFallback: graphicEQMode == .thirtyTwoBand ? bundledSystemPrompt : nil
         ) ?? bundledSystemPrompt
+        let maximumAttempts = managedAgent?.resolvedMaxAttempts(
+            fallback: Self.maxGenerationRetryAttempts
+        ) ?? Self.maxGenerationRetryAttempts
 
-        for attempt in 1...Self.maxGenerationRetryAttempts {
+        for attempt in 1...maximumAttempts {
             try Task.checkCancellation()
             guard isCurrentSong(song), EQManager.shared.graphicEQMode == graphicEQMode else {
                 throw AIEqualizerError.noSong
@@ -1102,7 +1138,7 @@ final class AIEqualizerAgent: ObservableObject {
                     userPrompt: userPrompt,
                     configuration: configuration,
                     apiKey: providerStore.requestAPIKey,
-                    minimumTimeout: max(120, managedAgent?.minimumTimeoutSeconds ?? 0),
+                    minimumTimeout: max(120, managedAgent?.resolvedMinimumTimeoutSeconds ?? 0),
                     options: managedAgent?.generationOptions ?? .standard
                 )
                 try Task.checkCancellation()
@@ -1110,7 +1146,7 @@ final class AIEqualizerAgent: ObservableObject {
                     throw AIEqualizerError.noSong
                 }
                 AppLogger.debug(
-                    "[AIEqualizerAgent] Model response received songID=\(song.id) attempt=\(attempt)/\(Self.maxGenerationRetryAttempts) characters=\(response.count) expectedBands=\(graphicEQMode.bandCount)",
+                    "[AIEqualizerAgent] Model response received songID=\(song.id) attempt=\(attempt)/\(maximumAttempts) characters=\(response.count) expectedBands=\(graphicEQMode.bandCount)",
                     step: "ai-tuning.response-received"
                 )
                 generationStage = .validating
@@ -1122,8 +1158,8 @@ final class AIEqualizerAgent: ObservableObject {
                 if let reservation, AIUsageLimiter.shouldRefundReservation(for: error) {
                     usageLimiter.releaseReservation(reservation)
                 }
-                guard attempt < Self.maxGenerationRetryAttempts,
-                      isRetryableGenerationError(error) else {
+                guard attempt < maximumAttempts,
+                      AIAgentRuntimePolicy.shouldRetry(error) else {
                     throw error
                 }
                 let delay = generationRetryDelay(
@@ -1131,7 +1167,7 @@ final class AIEqualizerAgent: ObservableObject {
                     minimumRequestInterval: providerStore.usageLimits.minimumRequestInterval
                 )
                 AppLogger.warning(
-                    "[AIEqualizerAgent] Generation retry scheduled song=\(song.id) attempt=\(attempt + 1)/\(Self.maxGenerationRetryAttempts) delay=\(String(format: "%.1f", delay))s error=\(error.localizedDescription)",
+                    "[AIEqualizerAgent] Generation retry scheduled song=\(song.id) attempt=\(attempt + 1)/\(maximumAttempts) delay=\(String(format: "%.1f", delay))s error=\(error.localizedDescription)",
                     step: "ai-tuning.generation-retry"
                 )
                 do {
@@ -1145,46 +1181,14 @@ final class AIEqualizerAgent: ObservableObject {
         throw AIEqualizerError.invalidResponse
     }
 
-    private func isRetryableGenerationError(_ error: Error) -> Bool {
-        if let aiError = error as? AIEqualizerError {
-            switch aiError {
-            case .invalidResponse:
-                return true
-            case let .httpStatus(code, _):
-                return code == 408 || code == 425 || code == 429 || (500...599).contains(code)
-            case .noSong, .playbackRequired, .sampleUnavailable,
-                 .protectedAudioUnsupported,
-                 .invalidEndpoint, .missingAPIKey, .modelUnavailable,
-                 .dailyLimitReached, .hourlyLimitReached, .requestFrequencyLimited:
-                return false
-            }
-        }
-
-        guard let urlError = error as? URLError else { return false }
-        switch urlError.code {
-        case .timedOut, .cannotFindHost, .cannotConnectToHost,
-             .networkConnectionLost, .notConnectedToInternet,
-             .dnsLookupFailed, .secureConnectionFailed,
-             .resourceUnavailable:
-            return true
-        default:
-            return false
-        }
-    }
-
     private func generationRetryDelay(
         for attempt: Int,
         minimumRequestInterval: TimeInterval
     ) -> TimeInterval {
-        let baseDelay: TimeInterval
-        switch attempt {
-        case 1: baseDelay = 2
-        case 2: baseDelay = 5
-        default: baseDelay = 8
-        }
-        // The limiter defaults to a 15 second interval. Waiting below that
-        // would turn a perfectly valid retry into a local frequency-limit error.
-        return max(baseDelay, minimumRequestInterval + 0.25)
+        AIAgentRuntimePolicy.retryDelay(
+            after: attempt,
+            minimumRequestInterval: minimumRequestInterval
+        )
     }
 
     @discardableResult
@@ -1351,9 +1355,13 @@ final class AIEqualizerAgent: ObservableObject {
 
     private func currentOutputIdentity() -> String {
         let manager = EQManager.shared
-        return manager.currentOutputName.isEmpty
+        let baseIdentity = manager.currentOutputName.isEmpty
             ? manager.currentOutputKind.rawValue
             : "\(manager.currentOutputKind.rawValue):\(manager.currentOutputName)"
+        guard let target = AirPodsExperienceManager.currentAITuningTargetSnapshot() else {
+            return baseIdentity
+        }
+        return "\(baseIdentity)|\(target.identifier)"
     }
 
     private func restoredMeasurement(
@@ -1599,9 +1607,6 @@ private struct LossyDecodable<Value: Decodable>: Decodable {
 private final class AIEqualizerProposalCacheStore {
     private static let storageKey = "ai.eq.agent.proposal-cache.v1"
     private static let historyStorageKey = "ai.eq.agent.proposal-history.v1"
-    private static let maximumEntries = 64
-    private static let maximumHistoryEntriesPerSong = 12
-    private static let maximumHistoryEntries = 160
     private static let maximumAge: TimeInterval = 45 * 24 * 60 * 60
 
     private var values: [String: AIEqualizerProposal]
@@ -1626,12 +1631,6 @@ private final class AIEqualizerProposalCacheStore {
     func set(_ value: AIEqualizerProposal, for key: String) {
         values[key] = value
         removeExpiredEntries()
-        if values.count > Self.maximumEntries {
-            let retained = values
-                .sorted { $0.value.createdAt > $1.value.createdAt }
-                .prefix(Self.maximumEntries)
-            values = Dictionary(uniqueKeysWithValues: retained.map { ($0.key, $0.value) })
-        }
         persist()
     }
 
@@ -1648,10 +1647,9 @@ private final class AIEqualizerProposalCacheStore {
         var entries = histories[songIdentifier] ?? []
         entries.removeAll { $0.id == entry.id }
         entries.insert(entry, at: 0)
-        histories[songIdentifier] = Array(entries
-            .sorted { $0.proposal.createdAt > $1.proposal.createdAt }
-            .prefix(Self.maximumHistoryEntriesPerSong))
-        trimHistoryEntries()
+        histories[songIdentifier] = entries.sorted {
+            $0.proposal.createdAt > $1.proposal.createdAt
+        }
         persistHistory()
     }
 
@@ -1751,23 +1749,12 @@ private final class AIEqualizerProposalCacheStore {
                     current.proposal.createdAt >= candidate.proposal.createdAt ? current : candidate
                 }
             )
-            histories[songIdentifier] = Array(
-                merged.values
-                    .sorted { $0.proposal.createdAt > $1.proposal.createdAt }
-                    .prefix(Self.maximumHistoryEntriesPerSong)
-            )
+            histories[songIdentifier] = merged.values.sorted {
+                $0.proposal.createdAt > $1.proposal.createdAt
+            }
         }
 
         removeExpiredEntries()
-        if values.count > Self.maximumEntries {
-            values = Dictionary(
-                uniqueKeysWithValues: values
-                    .sorted { $0.value.createdAt > $1.value.createdAt }
-                    .prefix(Self.maximumEntries)
-                    .map { ($0.key, $0.value) }
-            )
-        }
-        trimHistoryEntries()
         persist()
         persistHistory()
     }
@@ -1778,30 +1765,6 @@ private final class AIEqualizerProposalCacheStore {
         if values.count != originalValueCount {
             persist()
         }
-
-        trimHistoryEntries()
-    }
-
-    private func trimHistoryEntries() {
-        histories = histories.reduce(into: [:]) { result, item in
-            let entries = Array(item.value
-                .sorted { $0.proposal.createdAt > $1.proposal.createdAt }
-                .prefix(Self.maximumHistoryEntriesPerSong))
-            if !entries.isEmpty {
-                result[item.key] = entries
-            }
-        }
-
-        let total = histories.values.reduce(0) { $0 + $1.count }
-        guard total > Self.maximumHistoryEntries else { return }
-        let retained = histories
-            .flatMap { songIdentifier, entries in
-                entries.map { (songIdentifier: songIdentifier, entry: $0) }
-            }
-            .sorted { $0.entry.proposal.createdAt > $1.entry.proposal.createdAt }
-            .prefix(Self.maximumHistoryEntries)
-        histories = Dictionary(grouping: retained, by: \.songIdentifier)
-            .mapValues { $0.map(\.entry) }
     }
 
     private static func hasMeaningfulDifference(

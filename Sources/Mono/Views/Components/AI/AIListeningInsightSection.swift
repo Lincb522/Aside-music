@@ -5,6 +5,7 @@ import SwiftUI
 struct AIListeningInsightSection: View {
     @ObservedObject var agent: AIListeningInsightAgent
     let input: AIListeningInsightInput
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -41,6 +42,7 @@ struct AIListeningInsightSection: View {
     private var header: some View {
         HStack(spacing: 9) {
             MonoIcon(icon: .sparkle, size: 15, color: .monoAccent)
+                .monoCompletionMotion(trigger: agent.phase, reduceMotion: reduceMotion)
             Text(String(localized: "ai_listening_title"))
                 .font(.system(size: 14, weight: .bold, design: .rounded))
                 .foregroundStyle(Color.monoTextPrimary)
@@ -83,16 +85,24 @@ struct AIListeningInsightSection: View {
     }
 
     private var requestingState: some View {
-        HStack(spacing: 10) {
-            ProgressView()
-                .controlSize(.small)
-                .tint(.monoAccent)
-            Text(String(localized: "ai_listening_analyzing"))
-                .font(.system(size: 12.5, weight: .semibold, design: .rounded))
-                .foregroundStyle(Color.monoTextSecondary)
-            Spacer()
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                MonoStatusBeacon(kind: .active, tint: .monoAccent, size: 8)
+                Text(String(localized: "ai_listening_analyzing"))
+                    .font(.system(size: 12.5, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.monoTextSecondary)
+                Spacer()
+            }
+
+            MonoLiquidProgressBar(
+                progress: nil,
+                tint: .monoAccent,
+                secondaryTint: .monoAccent.opacity(0.55),
+                isActive: true,
+                height: 4
+            )
         }
-        .frame(height: 34)
+        .frame(minHeight: 38)
     }
 
     private func resultContent(_ result: AIListeningInsightResult) -> some View {

@@ -18,7 +18,6 @@ struct RadioPlayerLayout: View {
     @State private var showPlaylist = false
     @State private var showMoreMenu = false
     @State private var showEQSettings = false
-    @State private var showThemePicker = false
     @State private var showQualitySheet = false
     @State private var showComments = false
     @State private var showArtistDetail = false
@@ -89,9 +88,10 @@ struct RadioPlayerLayout: View {
                     PlayerMoreMenu(
                         isPresented: $showMoreMenu,
                         isDarkBackground: true,
-                        onEQ: { showEQSettings = true },
-                        onTheme: { showThemePicker = true }
+                        presentsThemeInline: true,
+                        onEQ: { showEQSettings = true }
                     )
+                    .zIndex(20)
                 }
             }
         }
@@ -128,7 +128,6 @@ struct RadioPlayerLayout: View {
         .fullScreenCover(isPresented: $showEQSettings) {
             NavigationStack { MonoAudioCenterView() }
         }
-        .monoSheet(isPresented: $showThemePicker, preset: .themePicker) { PlayerThemePickerSheet() }
         .monoSheet(isPresented: $showComments, preset: .large) {
             if let song = player.currentSong {
                 CommentView(song: song)
@@ -839,6 +838,25 @@ private final class LEDImageCache: @unchecked Sendable {
     private var strips: [String: (CGImage, CGFloat)] = [:]
     private let lock = NSLock()
 
+    init() {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            MonoMemoryEngine.shared.registerResource(
+                id: "cache.radio-led-images",
+                priority: .recreatable,
+                budgetWeight: 0.02,
+                minimumBudgetBytes: 1 * 1_024 * 1_024,
+                applyBudget: { _ in },
+                trim: { [weak self] context in
+                    self?.trimMemory(context) ?? .none
+                },
+                measureUsage: { [weak self] in
+                    self?.memoryUsage() ?? .unknown
+                }
+            )
+        }
+    }
+
     private static var pixelScale: CGFloat {
         MainActor.assumeIsolated {
             max(2, UIScreen.main.scale)
@@ -878,6 +896,9 @@ private final class LEDImageCache: @unchecked Sendable {
 
         let img = cgCtx.makeImage() ?? createFallback()
         lock.lock()
+        if offDots.count >= 8, let oldest = offDots.keys.first {
+            offDots.removeValue(forKey: oldest)
+        }
         offDots[key] = img
         lock.unlock()
         return img
@@ -920,9 +941,40 @@ private final class LEDImageCache: @unchecked Sendable {
 
         let img = cgCtx.makeImage() ?? createFallback()
         lock.lock()
+        if strips.count >= 24, let oldest = strips.keys.first {
+            strips.removeValue(forKey: oldest)
+        }
         strips[key] = (img, stripW)
         lock.unlock()
         return (img, stripW)
+    }
+
+    private func trimMemory(_ context: MonoMemoryEngine.TrimContext) -> MonoMemoryEngine.TrimResult {
+        lock.lock()
+        defer { lock.unlock() }
+        let beforeCount = offDots.count + strips.count
+        let beforeBytes = offDots.values.reduce(0) { $0 + $1.bytesPerRow * $1.height }
+            + strips.values.reduce(0) { $0 + $1.0.bytesPerRow * $1.0.height }
+        if context.level >= .background {
+            offDots.removeAll(keepingCapacity: false)
+            strips.removeAll(keepingCapacity: false)
+        }
+        return .init(
+            releasedItemCount: context.level >= .background ? beforeCount : 0,
+            estimatedReleasedBytes: context.level >= .background ? beforeBytes : 0,
+            preservedItemCount: offDots.count + strips.count
+        )
+    }
+
+    private func memoryUsage() -> MonoMemoryEngine.ResourceUsage {
+        lock.lock()
+        let usage = MonoMemoryEngine.ResourceUsage(
+            itemCount: offDots.count + strips.count,
+            estimatedBytes: offDots.values.reduce(0) { $0 + $1.bytesPerRow * $1.height }
+                + strips.values.reduce(0) { $0 + $1.0.bytesPerRow * $1.0.height }
+        )
+        lock.unlock()
+        return usage
     }
 
     private func createFallback() -> CGImage {
@@ -937,6 +989,25 @@ private final class LEDImageCache: @unchecked Sendable {
 private final class LEDRasterizer: @unchecked Sendable {
     private var cache: [String: [[Bool]]] = [:]
     private let lock = NSLock()
+
+    init() {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            MonoMemoryEngine.shared.registerResource(
+                id: "cache.radio-led-raster",
+                priority: .recreatable,
+                budgetWeight: 0.01,
+                minimumBudgetBytes: 512 * 1_024,
+                applyBudget: { _ in },
+                trim: { [weak self] context in
+                    self?.trimMemory(context) ?? .none
+                },
+                measureUsage: { [weak self] in
+                    self?.memoryUsage() ?? .unknown
+                }
+            )
+        }
+    }
 
     /// 字符内部超采样倍数；略高于 5 可减轻字形边缘锯齿，且只发生在缓存未命中时。
     private static let charSupersample = 6
@@ -961,9 +1032,41 @@ private final class LEDRasterizer: @unchecked Sendable {
         for r in 0..<n { allCols[r].append(contentsOf: [Bool](repeating: false, count: blank)) }
 
         lock.lock()
+        if cache.count >= 24, let oldest = cache.keys.first {
+            cache.removeValue(forKey: oldest)
+        }
         cache[key] = allCols
         lock.unlock()
         return allCols
+    }
+
+    private func trimMemory(_ context: MonoMemoryEngine.TrimContext) -> MonoMemoryEngine.TrimResult {
+        lock.lock()
+        defer { lock.unlock() }
+        let beforeCount = cache.count
+        let beforeBytes = cache.values.reduce(0) { total, grid in
+            total + grid.reduce(0) { $0 + $1.count }
+        }
+        if context.level >= .background {
+            cache.removeAll(keepingCapacity: false)
+        }
+        return .init(
+            releasedItemCount: context.level >= .background ? beforeCount : 0,
+            estimatedReleasedBytes: context.level >= .background ? beforeBytes : 0,
+            preservedItemCount: cache.count
+        )
+    }
+
+    private func memoryUsage() -> MonoMemoryEngine.ResourceUsage {
+        lock.lock()
+        let usage = MonoMemoryEngine.ResourceUsage(
+            itemCount: cache.count,
+            estimatedBytes: cache.values.reduce(0) { total, grid in
+                total + grid.reduce(0) { $0 + $1.count }
+            }
+        )
+        lock.unlock()
+        return usage
     }
 
     private func rasterizeChar(_ ch: Character, n: Int) -> [[Bool]] {

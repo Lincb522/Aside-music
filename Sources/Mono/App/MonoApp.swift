@@ -25,10 +25,8 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     }
     
     func applicationWillTerminate(_ application: UIApplication) {
-        // 终止回调只有很短的执行窗口。播放与数据库状态已在进入后台时保存，
-        // 这里仅落一个轻量标记，避免同步刷新小组件或等待异步任务触发 0x8BADF00D。
-        UserDefaults(suiteName: "group.zijiu.Monologue.com")?
-            .set("paused", forKey: "widget_playbackState")
+        // 不执行 UserDefaults、数据库、音频管线或云端 I/O。播放状态已在
+        // didEnterBackground 保存；终止路径必须立即返回，避免 process-exit watchdog。
     }
 }
 
@@ -93,6 +91,15 @@ struct MonoApp: App {
         // 检测是否为全新安装（删除 App 后 UserDefaults 会被清除，Keychain 不会）
         // 如果是重新安装，清除上次残留的 Keychain 数据
         Self.cleanupKeychainIfNeeded()
+
+        // 所有可重建内存缓存统一由 MonoMemory Engine 分配预算并响应
+        // 内存警告、热状态和前后台切换，避免各模块重复监听和无上限增长。
+        MonoMemoryEngine.shared.start()
+        // CPU/GPU 统一预算：实际 CPU 采样 + GPU 工作量治理，集中控制
+        // 帧率、渲染分辨率、粒子密度、着色器和后台计算并发。
+        MonoComputeEngine.shared.start()
+        ThemeColorCustomization.installMemoryManagement()
+        SongContentDetailCache.installMemoryManagement()
         
         _ = EQManager.shared
         _ = AIEqualizerAgent.shared
@@ -143,6 +150,10 @@ struct MonoApp: App {
                 .background(SwipeBackInjector())
                 .onAppear {
                     AppFrameRate.lockConnectedScenesToPreferredFrameRate(reason: "app root appear")
+                    if UIApplication.shared.applicationState == .active {
+                        MonoNextSuiteManager.shared.activateHeadTrackingRuntimeIfNeeded()
+                        AirPodsExperienceManager.shared.activateRuntimeIfNeeded()
+                    }
 
                     // 冷启动本地预加载必须先于 Token、登录态和任何在线服务判断。
                     // 它只读取本机缓存，不依赖账号状态。
@@ -220,6 +231,8 @@ struct MonoApp: App {
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
                     AppFrameRate.lockConnectedScenesToPreferredFrameRate(reason: "application did become active")
+                    MonoNextSuiteManager.shared.activateHeadTrackingRuntimeIfNeeded()
+                    AirPodsExperienceManager.shared.activateRuntimeIfNeeded()
 
                     ServerLineManager.shared.kickRefresh(trigger: .foreground)
 
@@ -240,15 +253,51 @@ struct MonoApp: App {
                     KCMDailyMembershipEngine.shared.checkIfNeeded()
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
-                    PlayerManager.shared.saveStateImmediately()
+                    // 暂时失焦不等于进入后台，只保存轻量播放位置；完整队列由
+                    // didEnterBackground 的受保护事务统一落盘，避免连续写两份快照。
+                    PlayerManager.shared.savePlaybackProgressIfNeeded()
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
-                    PlayerManager.shared.saveStateImmediately()
-                    DatabaseManager.shared.save()
+                    Self.persistStateForSuspension()
                 }
         }
     }
     
+    /// 进入后台时的持久化必须在系统挂起前彻底落盘：
+    /// 挂起瞬间若仍持有 SQLite/文件锁（异步写盘队列未排空），
+    /// RunningBoard 会以 0xdead10cc 直接杀掉进程。这里用后台任务
+    /// 抵住挂起窗口，等档案/磁盘缓存队列排空后再允许挂起。
+    private static func persistStateForSuspension() {
+        final class TaskHandle: @unchecked Sendable {
+            var id: UIBackgroundTaskIdentifier = .invalid
+        }
+        let application = UIApplication.shared
+        let handle = TaskHandle()
+        handle.id = application.beginBackgroundTask(withName: "Mono.PersistOnBackground") {
+            DispatchQueue.main.async {
+                guard handle.id != .invalid else { return }
+                application.endBackgroundTask(handle.id)
+                handle.id = .invalid
+            }
+        }
+
+        // 最终快照必须同步完成；否则“立即保存”只会把写入排进串行队列，
+        // 后台任务可能在真正写盘前就结束。
+        PlayerManager.shared.saveStateImmediately(synchronously: true)
+        DatabaseManager.shared.save()
+
+        guard handle.id != .invalid else { return }
+        DispatchQueue.global(qos: .userInitiated).async {
+            PlaybackSessionArchive.shared.waitForPendingWrites()
+            CacheManager.shared.waitForPendingDiskWrites()
+            DispatchQueue.main.async {
+                guard handle.id != .invalid else { return }
+                application.endBackgroundTask(handle.id)
+                handle.id = .invalid
+            }
+        }
+    }
+
     /// 检测 App 是否为重新安装，若是则清除上次残留的 Keychain 数据
     private static func cleanupKeychainIfNeeded() {
         let hasLaunchedKey = "mono_has_launched_before"

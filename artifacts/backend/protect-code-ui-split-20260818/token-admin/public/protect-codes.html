@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>保护码管理 - 两条鱼</title>
+  <link rel="icon" href="./brand-mark.svg">
+  <link rel="stylesheet" href="./assets/admin.css">
+  <link rel="stylesheet" href="./assets/admin-terminal.css?v=202607231413">
+  <link rel="stylesheet" href="./assets/admin-theme.css?v=2026072802">
+  <link rel="stylesheet" href="./assets/protect-codes.css?v=2026081802">
+</head>
+<body>
+  <!-- Auth Gate -->
+  <div id="authGate" class="auth-gate hidden">
+    <div class="auth-panel">
+      <div class="brand-lockup">
+        <img src="./brand-mark.svg" alt="两条鱼" loading="eager" decoding="async" fetchpriority="high">
+        <div class="brand-copy">
+          <small>NCM.ZIJIU522.CN</small>
+          <h1>保护码管理</h1>
+          <p>输入管理密码以继续</p>
+        </div>
+      </div>
+      <div class="form-stack">
+        <div class="field">
+          <label for="loginPassword">管理密码</label>
+          <input id="loginPassword" type="password" placeholder="输入密码" autocomplete="current-password">
+        </div>
+        <div id="loginError" class="error-text"></div>
+        <button id="loginButton" class="btn btn-primary btn-large">进入控制台</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- App Shell -->
+  <div id="appShell" class="shell hidden">
+    <!-- Header -->
+    <header class="masthead">
+      <div class="brand-lockup brand-lockup--compact">
+        <img src="./brand-mark.svg" alt="两条鱼" loading="eager" decoding="async" fetchpriority="high">
+        <div class="brand-copy">
+          <small>NCM.ZIJIU522.CN</small>
+          <h1>保护码管理</h1>
+        </div>
+      </div>
+      <nav class="main-nav">
+        <a href="./">首页</a>
+        <a href="./tokens">Token 管理</a>
+        <a href="./ipa">版本管理</a>
+        <a href="./changelogs">更新日志</a>
+        <a class="is-active" href="./protect-codes">保护码</a>
+        <a href="./bindings">绑定管理</a>
+      </nav>
+      <div class="masthead-actions">
+        <a class="btn btn-secondary" href="./register" target="_blank">自助申请页</a>
+        <a class="btn btn-secondary" href="./ipa">版本管理</a>
+        <button id="logoutButton" class="btn btn-ghost">退出</button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="page">
+      <!-- Hero Section -->
+      <section class="page-hero page-hero--single">
+        <div class="page-hero-copy">
+          <small class="eyebrow">Protect Codes Workspace</small>
+          <h2>保护码管理</h2>
+          <p>IPA 自签与 TestFlight 独立管理</p>
+        </div>
+      </section>
+
+      <!-- Generate -->
+      <section class="panel protect-generate-panel">
+        <div class="panel-head">
+          <div>
+            <h3>生成保护码</h3>
+          </div>
+        </div>
+        <div class="protect-settings-grid">
+          <div class="field">
+            <label for="generatePurpose">用途</label>
+            <select id="generatePurpose">
+              <option value="tf">TestFlight</option>
+              <option value="ipa">IPA 自签</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="generateCount">生成数量</label>
+            <input id="generateCount" type="number" min="1" max="1000" value="10" inputmode="numeric">
+          </div>
+          <div class="field">
+            <label for="generateMaxUses">单码可用次数</label>
+            <input id="generateMaxUses" type="number" min="1" max="100000" value="3" inputmode="numeric">
+          </div>
+          <label class="protect-check">
+            <input id="copyAfterGenerate" type="checkbox">
+            <span>生成后复制本批保护码</span>
+          </label>
+          <button id="generateBtn" class="btn btn-primary">生成保护码</button>
+        </div>
+        <div class="protect-presets" aria-label="快捷设置">
+          <span>数量</span>
+          <button class="chip" type="button" data-count-preset="1">1</button>
+          <button class="chip active" type="button" data-count-preset="10">10</button>
+          <button class="chip" type="button" data-count-preset="50">50</button>
+          <button class="chip" type="button" data-count-preset="100">100</button>
+          <i></i>
+          <span>次数</span>
+          <button class="chip" type="button" data-uses-preset="1">1</button>
+          <button class="chip active" type="button" data-uses-preset="3">3</button>
+          <button class="chip" type="button" data-uses-preset="5">5</button>
+          <button class="chip" type="button" data-uses-preset="10">10</button>
+        </div>
+      </section>
+
+      <!-- Display settings -->
+      <section class="panel protect-display-panel">
+        <div class="panel-head protect-display-head">
+          <div>
+            <h3>显示设置</h3>
+          </div>
+          <div class="protect-controls">
+            <input id="codeSearch" type="search" placeholder="搜索保护码" aria-label="搜索保护码">
+            <select id="availabilitySort" aria-label="可用状态排序">
+              <option value="available-first">可用优先</option>
+              <option value="unavailable-first">不可用优先</option>
+              <option value="newest">最新生成</option>
+              <option value="oldest">最早生成</option>
+            </select>
+            <label class="protect-check protect-check--compact">
+              <input id="hideUnavailable" type="checkbox">
+              <span>隐藏不可用</span>
+            </label>
+            <button id="refreshBtn" class="btn btn-secondary btn-small" type="button">刷新</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- IPA codes -->
+      <section class="panel protect-purpose-panel" data-purpose-section="ipa">
+        <div class="panel-head">
+          <div>
+            <small class="eyebrow">IPA Signing</small>
+            <h3>IPA 自签保护码</h3>
+            <p id="ipaSummary" class="text-muted">正在加载</p>
+          </div>
+          <div class="protect-section-actions">
+            <button class="btn btn-secondary btn-small" type="button" data-action="copyPurpose" data-purpose="ipa">复制可用</button>
+            <button class="btn btn-secondary btn-small" type="button" data-action="exportPurpose" data-purpose="ipa">导出可用</button>
+          </div>
+        </div>
+        <div id="ipaCodeGrid" class="list-stack"></div>
+      </section>
+
+      <!-- TestFlight codes -->
+      <section class="panel protect-purpose-panel" data-purpose-section="tf">
+        <div class="panel-head">
+          <div>
+            <small class="eyebrow">TestFlight</small>
+            <h3>TestFlight 保护码</h3>
+            <p id="tfSummary" class="text-muted">正在加载</p>
+          </div>
+          <div class="protect-section-actions">
+            <button class="btn btn-secondary btn-small" type="button" data-action="copyPurpose" data-purpose="tf">复制可用</button>
+            <button class="btn btn-secondary btn-small" type="button" data-action="exportPurpose" data-purpose="tf">导出可用</button>
+          </div>
+        </div>
+        <div id="tfCodeGrid" class="list-stack"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast"></div>
+
+  <!-- Scripts -->
+  <script src="./assets/admin-core.js?v=2026072802"></script>
+  <script src="./assets/protect-codes-page.js?v=2026081802"></script>
+</body>
+</html>

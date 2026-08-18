@@ -1,5 +1,7 @@
 "CFBundleDisplayName" = "Mono";
 "CFBundleName" = "Mono";
 "NSAppleMusicUsageDescription" = "Connect to Apple Music, access your music library, and play songs.";
-"NSMotionUsageDescription" = "Let the Mono Spatial Live stage respond to head movement.";
+"NSHealthShareUsageDescription" = "Read your audiogram and headphone audio exposure data to create on-device left and right hearing calibration and show listening safety information.";
+"NSHealthUpdateUsageDescription" = "HealthKit is used only to read audiograms and headphone audio exposure data. Mono does not write or modify health data.";
+"NSMotionUsageDescription" = "Let AirPods spatial listening follow head movement and keep sound stable during activity.";
 "NSPhotoLibraryAddUsageDescription" = "Save the sign-in QR code to your photo library.";

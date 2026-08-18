@@ -121,25 +121,23 @@ final class AudioSessionCoordinator {
     /// NotificationCenter observer tokens
     private var interruptionObserver: Any?
     private var mediaResetObserver: Any?
-    /// 次要音频降音提示（其他主媒体 App 开始/停止播放时系统发出的提示）
-    private var silenceHintObserver: Any?
     private var foregroundObserver: Any?
+    /// 游戏模式只用系统主音频提示调低本 App 渲染音量，不修改会话类别。
+    private var gameVoiceHintObserver: Any?
+    private var gameVoiceDuckingTask: Task<Void, Never>?
     /// 音频路由变化（其他 App 释放会话等）时用于延迟尝试恢复播放
     private var routeChangeObserver: Any?
     private var routeChangeResumeWorkItem: DispatchWorkItem?
     /// Debounced renderer liveness check after Bluetooth/audio-route changes.
     private var audioOutputRecoveryTask: Task<Void, Never>?
-    /// 自动后台策略在其他 App 退出后需要延迟复查；系统的 hint 通知到达时
-    /// `isOtherAudioPlaying` 偶尔仍是旧值，会让会话长期停留在混音态。
-    private var automaticAudioPolicyReevaluationTask: Task<Void, Never>?
     /// 自己调用 setCategory / setActive 后系统也会回送 categoryChange。
     /// 这段窗口内若输出路由没有变化，不再把回声当成外部路由重建。
     private var selfManagedSessionMutationDeadline: Date = .distantPast
     /// 中断/路由恢复阶梯重试任务（1.5s → 3s → 6s）。
     /// 由 `scheduleInterruptionResumeRetry` 创建，失败时自动按下一档重试。
     private var interruptionResumeTask: Task<Void, Never>?
-    /// 中断超时看门狗。微信、抖音等部分 App 中断结束时不发 `.ended` 通知，
-    /// 这里给 `isUnderInterruption` 加 60s 兜底，超时后强制清除并尝试恢复。
+    /// 中断状态巡检。部分 App 不发送 `.ended`，这里只记录异常状态，
+    /// 不允许在缺少系统恢复建议时自行开始播放。
     private var interruptionWatchdogTask: Task<Void, Never>?
 
     private var isHandlingSelfManagedSessionMutation: Bool {
@@ -152,132 +150,115 @@ final class AudioSessionCoordinator {
 
     // MARK: - 会话选项计算
 
-    private func audioSessionOptions(otherAudioPlaying: Bool? = nil) -> AVAudioSession.CategoryOptions {
+    private func audioSessionOptions(primaryAudioActive: Bool? = nil) -> AVAudioSession.CategoryOptions {
         var base: AVAudioSession.CategoryOptions
         switch SettingsManager.shared.backgroundAudioPolicy {
         case .exclusive:
             base = Self.playbackAudioSessionOptions
         case .automatic:
-            let shouldMix = otherAudioPlaying ?? AVAudioSession.sharedInstance().isOtherAudioPlaying
+            // `isOtherAudioPlaying` 也会把环境音和本就允许混音的会话算进去，
+            // 对媒体 App 来说范围过宽。Apple 建议判断真正的非混音主音频时
+            // 使用 secondaryAudioShouldBeSilencedHint。
+            let shouldMix = primaryAudioActive
+                ?? AVAudioSession.sharedInstance().secondaryAudioShouldBeSilencedHint
             base = shouldMix ? Self.mixingAudioSessionOptions : Self.playbackAudioSessionOptions
         case .alwaysMix:
             base = Self.mixingAudioSessionOptions
-        }
-        // 游戏模式 + 用户开启「游戏语音 / 系统语音优先」时，叠加
-        // `.interruptSpokenAudioAndMixWithOthers` —— VoIP/语音通话开始时自动压低音乐。
-        // 该 option 要求 `.playback` category，与 `.mixWithOthers` 可共存。
-        //
-        // ⚠️ 不直接访问 `GameModeManager.shared.isActive`：
-        // 本方法会在 `PlayerManager.init → setupAudioSession` 流程中同步调用；
-        // 若此时触发 `GameModeManager` 单例首次初始化，`GameModeManager.init`
-        // 又会反向访问 `PlayerManager.shared`（applyEnter 内的 handleBackgroundAudio...）,
-        // 造成冷启动单例循环 → EXC_BREAKPOINT。
-        // 改成从 App Group UserDefaults 直读，零单例依赖。
-        let gameModeActive = UserDefaults(suiteName: "group.zijiu.Monologue.com")?
-            .bool(forKey: "mono_game_mode_enabled") ?? false
-        if gameModeActive && SettingsManager.shared.gameModeAutoDucking {
-            base.insert(.interruptSpokenAudioAndMixWithOthers)
         }
         return base
     }
 
     func handleBackgroundAudioPolicySettingChanged() {
-        reapplyAudioSessionOptions(reason: "策略变更")
-        scheduleAutomaticAudioPolicyReevaluation(reason: "策略变更")
-    }
-
-    /// `.automatic` 模式从混音态回到主播放器依赖系统更新
-    /// `isOtherAudioPlaying`。hint 刚结束时该值偶尔仍未刷新，分阶段复查可避免
-    /// 会话永久留在 mixWithOthers，继而让控制中心/灵动岛长期不接管本 App。
-    func scheduleAutomaticAudioPolicyReevaluation(reason: String) {
-        automaticAudioPolicyReevaluationTask?.cancel()
-        automaticAudioPolicyReevaluationTask = nil
-
-        guard SettingsManager.shared.backgroundAudioPolicy == .automatic else {
-            player.repairSystemPlaybackSurfacesIfNeeded(reason: "audio policy \(reason)")
+        lastAppliedAudioSessionOptions = nil
+        // Apple 明确说明：活动中的 session 改 category/options 会立即引发
+        // 路由变化。正在稳定出声时不热切换，避免卡顿、瞬断和 AudioEngine
+        // 重建；用户的选择会在下一次播放、恢复或真正需要重建会话时应用。
+        if player.isPlaying,
+           player.appleMusicPlayback.isActive || player.streamPlayer.isAudioOutputRunning {
+            AppLogger.info("后台音频策略已更新，将在下一次播放或恢复时应用")
             return
         }
-
-        automaticAudioPolicyReevaluationTask = Task { @MainActor [weak self] in
-            defer { self?.automaticAudioPolicyReevaluationTask = nil }
-            var candidate: AVAudioSession.CategoryOptions?
-            var confirmationCount = 0
-            for delay in [0.8, 1.2, 2.4] {
-                do {
-                    try await Task.sleep(for: .seconds(delay))
-                } catch {
-                    return
-                }
-                guard let self, self.player.currentSong != nil else { return }
-                let desired = self.audioSessionOptions(
-                    otherAudioPlaying: AVAudioSession.sharedInstance().isOtherAudioPlaying
-                )
-                guard desired != self.lastAppliedAudioSessionOptions else {
-                    candidate = nil
-                    confirmationCount = 0
-                    continue
-                }
-
-                if candidate == desired {
-                    confirmationCount += 1
-                } else {
-                    candidate = desired
-                    confirmationCount = 1
-                }
-                // 前后台切换后 isOtherAudioPlaying 可能短暂保留旧值。
-                // 连续两次一致才允许重写正在工作的音频会话。
-                guard confirmationCount >= 2 else { continue }
-                // 正在稳定出声时不为“自动策略”热改 AVAudioSession。
-                // 会话选项会在下一次真正开播或显式恢复时按最新状态应用。
-                guard !(self.player.isPlaying && self.player.streamPlayer.isAudioOutputRunning) else {
-                    AppLogger.debug(
-                        "播放中延后自动音频策略切换 reason=\(reason)"
-                    )
-                    return
-                }
-                self.reapplyAudioSessionOptions(reason: "automatic policy reevaluation: \(reason)")
-                self.player.repairSystemPlaybackSurfacesIfNeeded(reason: "automatic policy reevaluation")
-                return
-            }
-        }
+        reapplyAudioSessionOptions(reason: "策略变更")
     }
 
     /// 其他 App 还在出声时，是否仍允许自动恢复播放。
     ///
-    /// 共存模式（alwaysMix）本来就与其他声音混音，电话/语音中断结束后
-    /// 即便游戏、视频还在响也应该直接恢复；独占与智能模式则保持礼貌，
-    /// 等对方停止再恢复，避免自动播放抢占别人的音频焦点。
+    /// 智能共存与始终共存都允许在其他主音频存在时恢复：
+    /// 智能模式会在恢复前重新判断并切换为 mixWithOthers；标准播放则
+    /// 保持主播放器语义，不在其他主音频仍活跃时主动抢占。
     var canAutoResumeWithOtherAudio: Bool {
-        SettingsManager.shared.backgroundAudioPolicy == .alwaysMix
+        SettingsManager.shared.backgroundAudioPolicy != .exclusive
     }
 
     /// 自动恢复前的统一判定：无其他音频，或当前策略允许共存。
     func isAutoResumePermittedNow() -> Bool {
-        !AVAudioSession.sharedInstance().isOtherAudioPlaying || canAutoResumeWithOtherAudio
+        !AVAudioSession.sharedInstance().secondaryAudioShouldBeSilencedHint
+            || canAutoResumeWithOtherAudio
     }
 
-    /// 供 GameModeManager 调用，当游戏模式/自动 ducking 开关变化时重新应用 options
+    /// 供 GameModeManager 调用：立即应用共存策略，并按当前主音频状态
+    /// 更新本 App 的独立音量乘数。
     func handleGameModeDuckingChanged() {
         reapplyAudioSessionOptions(reason: "游戏模式 ducking 变更")
+        updateGameModeVoiceDucking(
+            primaryAudioActive: AVAudioSession.sharedInstance().secondaryAudioShouldBeSilencedHint
+        )
     }
 
-    /// 根据当前策略和 `isOtherAudioPlaying` 状态，按需切换 session options。
-    /// 被以下时机调用：策略变更、其他 App 音频开始/结束、次要音频降音提示、中断恢复。
+    private var isGameModeEnabledWithoutInitializingManager: Bool {
+        let appGroupEnabled = UserDefaults(suiteName: "group.zijiu.Monologue.com")?
+            .bool(forKey: "mono_game_mode_enabled") ?? false
+        return SettingsManager.shared.gameModeEnabled || appGroupEnabled
+    }
+
+    /// Apple 的 `interruptSpokenAudioAndMixWithOthers` 会暂停其他 App 的语音，
+    /// 与“游戏语音优先”目标相反。这里响应主音频 hint，只调低 Mono 自己
+    /// 的渲染乘数，并与暂停/睡眠淡出音量独立叠加。
+    private func updateGameModeVoiceDucking(primaryAudioActive: Bool) {
+        let shouldDuck = isGameModeEnabledWithoutInitializingManager
+            && SettingsManager.shared.gameModeAutoDucking
+            && primaryAudioActive
+            && !player.appleMusicPlayback.isActive
+        let target: Float = shouldDuck ? 0.32 : 1.0
+        let start = player.streamPlayer.duckingVolume
+        guard abs(start - target) > 0.001 else { return }
+
+        gameVoiceDuckingTask?.cancel()
+        gameVoiceDuckingTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            let steps = 10
+            for step in 1...steps {
+                do {
+                    try await Task.sleep(nanoseconds: 22_000_000)
+                } catch {
+                    return
+                }
+                guard !Task.isCancelled else { return }
+                let progress = Float(step) / Float(steps)
+                self.player.streamPlayer.duckingVolume =
+                    start + (target - start) * progress
+            }
+            self.gameVoiceDuckingTask = nil
+        }
+    }
+
+    /// 根据当前策略和“其他非混音主音频是否存在”的系统提示，
+    /// 按需配置 session options。
     /// 仅在 options 真的发生变化时重写 session，避免无意义的 setActive。
     ///
     /// ⚠️ 懒激活策略：
-    ///   - **有当前歌曲**（`currentSong != nil`）才调用 `setActive(true)`
-    ///     激活 session；
-    ///   - **无当前歌曲**（用户只是切了设置但没播放）只更新 category，
-    ///     避免空闲状态下主动抢占音频路由。
-    ///   - 中断恢复/路由重置等必须激活的场景，调用方会先把
-    ///     `lastAppliedAudioSessionOptions` 置 nil 并确保此时 `currentSong`
-    ///     非空；若为空也不需要激活，自然无害。
+    ///   - 只有真实播放、加载开播或 MusicKit 正在输出时才激活 session；
+    ///   - 仅恢复歌曲信息、预加载或浏览设置时只更新 category，
+    ///     避免空闲状态下主动抢占其他 App 的音频。
     func reapplyAudioSessionOptions(reason: String) {
         let session = AVAudioSession.sharedInstance()
-        let desired = audioSessionOptions(otherAudioPlaying: session.isOtherAudioPlaying)
+        let desired = audioSessionOptions(
+            primaryAudioActive: session.secondaryAudioShouldBeSilencedHint
+        )
         guard desired != lastAppliedAudioSessionOptions else { return }
-        let shouldActivate = player.currentSong != nil
+        let shouldActivate = player.isPlaying
+            || player.streamPlayer.state == .playing
+            || player.appleMusicPlayback.isActive
         markSelfManagedSessionMutation()
         Task { @MainActor [weak self] in
             guard let self else { return }
@@ -304,7 +285,7 @@ final class AudioSessionCoordinator {
     /// 开播前强制激活音频会话。
     ///
     /// `loadAndPlay(song:)` 首次调用此方法以：
-    ///   1. 在 `.automatic` 策略下，按最新的 `isOtherAudioPlaying` 选择 options；
+    ///   1. 在 `.automatic` 策略下，按最新的主音频提示选择 options；
     ///   2. 把之前 `setupAudioSession` 里只预声明的 category 真正 `setActive(true)`；
     ///   3. 与 StreamPlayer.play 前置，避免抢占音频路由在 play 之后发生。
     ///
@@ -319,7 +300,9 @@ final class AudioSessionCoordinator {
     @discardableResult
     func activateAudioSessionForPlaybackChecked(reason: String) async -> Bool {
         let session = AVAudioSession.sharedInstance()
-        let desired = audioSessionOptions(otherAudioPlaying: session.isOtherAudioPlaying)
+        let desired = audioSessionOptions(
+            primaryAudioActive: session.secondaryAudioShouldBeSilencedHint
+        )
 
         do {
             markSelfManagedSessionMutation()
@@ -328,6 +311,9 @@ final class AudioSessionCoordinator {
                 activate: true
             )
             lastAppliedAudioSessionOptions = desired
+            updateGameModeVoiceDucking(
+                primaryAudioActive: session.secondaryAudioShouldBeSilencedHint
+            )
             AppLogger.info("音频会话已激活（开播前） options=\(desired)  原因: \(reason)")
             return true
         } catch {
@@ -393,11 +379,11 @@ final class AudioSessionCoordinator {
         //
         // 正确做法：
         //   - 这里只预声明 category，让系统知道我们属于 playback；
-        //   - 真正的 `setActive(true)` 推迟到 `loadAndPlay(song:)` 第一次
-        //     开播、或 `reapplyAudioSessionOptions` 被策略变更触发时。
+        //   - 真正的 `setActive(true)` 推迟到 `loadAndPlay(song:)` 实际开播
+        //     或已在输出时的恢复流程。
         let session = AVAudioSession.sharedInstance()
-        let otherPlaying = session.isOtherAudioPlaying
-        let opts = audioSessionOptions(otherAudioPlaying: otherPlaying)
+        let primaryAudioActive = session.secondaryAudioShouldBeSilencedHint
+        let opts = audioSessionOptions(primaryAudioActive: primaryAudioActive)
         lastKnownAudioOutputPortTypes = Set(
             session.currentRoute.outputs.map { $0.portType.rawValue }
         )
@@ -410,8 +396,8 @@ final class AudioSessionCoordinator {
                     activate: false
                 )
                 self.lastAppliedAudioSessionOptions = opts
-                if otherPlaying && opts == Self.mixingAudioSessionOptions {
-                    AppLogger.info("启动时检测到其他音频，以共存模式接入（未激活）")
+                if primaryAudioActive && opts == Self.mixingAudioSessionOptions {
+                    AppLogger.info("启动时检测到其他主音频，预设为共存模式（未激活）")
                 }
             } catch {
                 self.lastAppliedAudioSessionOptions = nil
@@ -419,51 +405,29 @@ final class AudioSessionCoordinator {
             }
         }
 
-        setupSilenceHintObserver()
         setupInterruptionObserver()
         setupForegroundObserver()
+        setupGameVoiceHintObserver()
         setupRouteChangeObserver()
         setupMediaResetObserver()
     }
 
-    /// 监听其他主媒体 App 的启停提示，并在 `.automatic` 策略下重新评估混音选项。
-    private func setupSilenceHintObserver() {
-        if let old = silenceHintObserver {
+    private func setupGameVoiceHintObserver() {
+        if let old = gameVoiceHintObserver {
             NotificationCenter.default.removeObserver(old)
         }
-        silenceHintObserver = NotificationCenter.default.addObserver(
+        gameVoiceHintObserver = NotificationCenter.default.addObserver(
             forName: AVAudioSession.silenceSecondaryAudioHintNotification,
             object: nil,
             queue: .main
         ) { [weak self] notification in
             guard let userInfo = notification.userInfo,
-                  let typeValue = userInfo[AVAudioSessionSilenceSecondaryAudioHintTypeKey] as? UInt,
-                  let hintType = AVAudioSession.SilenceSecondaryAudioHintType(rawValue: typeValue)
+                  let rawValue = userInfo[AVAudioSessionSilenceSecondaryAudioHintTypeKey] as? UInt,
+                  let hint = AVAudioSession.SilenceSecondaryAudioHintType(rawValue: rawValue)
             else { return }
+
             Task { @MainActor [weak self] in
-                guard let self else { return }
-                switch hintType {
-                case .begin:
-                    self.automaticAudioPolicyReevaluationTask?.cancel()
-                    self.automaticAudioPolicyReevaluationTask = nil
-                    AppLogger.info("其他主媒体 App 开始播放，等待状态稳定后评估 options")
-                    self.scheduleAutomaticAudioPolicyReevaluation(reason: "secondary hint begin")
-                case .end:
-                    AppLogger.info("其他主媒体 App 停止播放，等待状态稳定后评估 options")
-                    self.scheduleAutomaticAudioPolicyReevaluation(reason: "secondary hint end")
-                    // 其他 App 停止后，等 1s 确认真的停了再尝试恢复
-                    if self.wasPlayingBeforeInterruption, self.player.currentSong != nil, !self.player.isPlaying {
-                        Task { @MainActor [weak self] in
-                            try? await Task.sleep(nanoseconds: 1_000_000_000)
-                            guard let self, self.wasPlayingBeforeInterruption, !self.player.isPlaying else { return }
-                            guard self.isAutoResumePermittedNow() else { return }
-                            AppLogger.info("secondary hint end: 确认可恢复，恢复播放")
-                            let _ = await self.resumeAfterInterruption(reason: "secondary hint end")
-                        }
-                    }
-                @unknown default:
-                    break
-                }
+                self?.updateGameModeVoiceDucking(primaryAudioActive: hint == .begin)
             }
         }
     }
@@ -526,21 +490,19 @@ final class AudioSessionCoordinator {
                         self.player.refreshPlaybackSurfaceState()
                         self.player.saveStateImmediately()
                     }
-                    // 启动 watchdog：60s 后若仍在中断态，强制清除并尝试一次恢复
+                    // 启动中断巡检：只记录异常，不在缺少系统 `.ended` 时擅自续播。
                     self.armInterruptionWatchdog()
                 case .ended:
                     AppLogger.info("音频中断结束")
                     self.isUnderInterruption = false
                     self.cancelInterruptionWatchdog()
                     guard self.wasPlayingBeforeInterruption else { break }
-                    // 检查系统是否建议恢复
-                    let shouldResume: Bool
-                    if let opts = optionsValue {
-                        shouldResume = AVAudioSession.InterruptionOptions(rawValue: opts).contains(.shouldResume)
-                    } else {
-                        // 没有 options 时默认尝试恢复（电话结束等场景）
-                        shouldResume = true
-                    }
+                    // 媒体播放 App 只能在系统明确给出 shouldResume 时自动恢复。
+                    // 缺少 options 与明确不建议恢复含义相同，必须保持暂停，
+                    // 等待用户从 App、锁屏或耳机主动按下播放。
+                    let shouldResume = optionsValue.map {
+                        AVAudioSession.InterruptionOptions(rawValue: $0).contains(.shouldResume)
+                    } ?? false
                     if shouldResume {
                         // 系统明确建议恢复 — 直接恢复，不走重试链
                         // 延迟 0.3s 让系统音频路由稳定
@@ -553,9 +515,10 @@ final class AudioSessionCoordinator {
                             }
                         }
                     } else {
-                        // 系统未建议恢复 — 启动保守重试（1.5s → 3s → 6s）
-                        AppLogger.info("系统未建议立即恢复，启动保守重试")
-                        self.scheduleInterruptionResumeRetry(reason: "interruption ended (no shouldResume)")
+                        self.wasPlayingBeforeInterruption = false
+                        self.player.refreshPlaybackSurfaceState()
+                        self.player.saveStateImmediately()
+                        AppLogger.info("系统未建议恢复，保持暂停并等待用户操作")
                     }
                 @unknown default:
                     break
@@ -576,11 +539,17 @@ final class AudioSessionCoordinator {
                    !self.player.streamPlayer.isAudioOutputRunning {
                     self.scheduleAudioOutputRecoveryIfNeeded(reason: "didBecomeActive")
                 }
-                guard self.wasPlayingBeforeInterruption, !self.player.isPlaying, self.player.currentSong != nil else { return }
+                guard !self.isUnderInterruption,
+                      self.wasPlayingBeforeInterruption,
+                      !self.player.isPlaying,
+                      self.player.currentSong != nil else { return }
                 // App 回前台 — 等 0.5s 让系统状态稳定，然后检查是否可以恢复
                 try? await Task.sleep(nanoseconds: 500_000_000)
-                guard !Task.isCancelled, self.wasPlayingBeforeInterruption, !self.player.isPlaying else { return }
-                // 独占/智能模式只在没有其他音频时恢复；共存模式允许直接混音恢复
+                guard !Task.isCancelled,
+                      !self.isUnderInterruption,
+                      self.wasPlayingBeforeInterruption,
+                      !self.player.isPlaying else { return }
+                // 标准模式不主动抢占；智能/始终共存会按最新状态混音恢复。
                 guard self.isAutoResumePermittedNow() else {
                     AppLogger.debug("didBecomeActive: 其他音频仍在播放，不自动恢复")
                     return
@@ -771,7 +740,7 @@ final class AudioSessionCoordinator {
 
     // MARK: - 路由变化后的延迟恢复
 
-    /// 其他 App 释放音频路由后，`isOtherAudioPlaying` 可能稍后变为 false，在此再尝试恢复。
+    /// 其他 App 释放音频路由后，系统的主音频提示可能稍后才更新，在此再尝试恢复。
     func scheduleResumeAfterRouteChangeIfNeeded() {
         guard !isUnderInterruption else {
             AppLogger.debug("中断进行中，忽略路由变化触发的恢复")
@@ -918,27 +887,33 @@ final class AudioSessionCoordinator {
         guard let song = player.currentSong else { return false }
         let expectedSessionId = player.playbackSessionId
         if song.isAppleMusic {
+            guard wasPlayingBeforeInterruption else { return false }
+            if player.appleMusicPlayback.matches(song) {
+                do {
+                    guard try await player.appleMusicPlayback.resume() else {
+                        return false
+                    }
+                } catch {
+                    player.showPlaybackError(song: song, error: error)
+                    return false
+                }
+            } else {
+                player.loadAndPlay(
+                    song: song,
+                    startTime: max(player.currentTime, 0)
+                )
+            }
+
+            guard player.playbackSessionId == expectedSessionId,
+                  player.matchesPlaybackTarget(player.currentSong, expected: song) else {
+                return false
+            }
             routeChangeResumeWorkItem?.cancel()
             routeChangeResumeWorkItem = nil
             cancelInterruptionResumeRetry()
             cancelInterruptionWatchdog()
             isUnderInterruption = false
             wasPlayingBeforeInterruption = false
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                if self.player.appleMusicPlayback.matches(song) {
-                    do {
-                        _ = try await self.player.appleMusicPlayback.resume()
-                    } catch {
-                        self.player.showPlaybackError(song: song, error: error)
-                    }
-                } else {
-                    self.player.loadAndPlay(
-                        song: song,
-                        startTime: max(self.player.currentTime, 0)
-                    )
-                }
-            }
             return true
         }
         AppLogger.info("恢复播放 (state=\(player.streamPlayer.state), reason=\(reason))")
@@ -1068,7 +1043,7 @@ final class AudioSessionCoordinator {
                     self.player.endTransitionKeepAlive()
                     return
                 }
-                // 独占/智能模式下不抢占其他音频；共存模式直接混音恢复
+                // 标准模式下不抢占其他音频；智能/始终共存可混音恢复。
                 if !self.isAutoResumePermittedNow() {
                     AppLogger.info("中断恢复重试 [\(index+1)/\(schedule.count)]: 其他音频仍在播放，跳过")
                     continue
@@ -1093,19 +1068,15 @@ final class AudioSessionCoordinator {
         interruptionResumeTask = nil
     }
 
-    /// 中断 watchdog：60s 后若仍处于中断态，强制清除 `isUnderInterruption` 并启动恢复重试。
-    /// 处理「微信、抖音等不发 interruption.ended」的场景。
+    /// 中断巡检：部分 App 不发送 `.ended`。巡检只能留下诊断信息，
+    /// 不能猜测通话、录音或 Siri 已结束，更不能擅自恢复播放。
     func armInterruptionWatchdog() {
         cancelInterruptionWatchdog()
         interruptionWatchdogTask = Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 60 * 1_000_000_000)
             guard !Task.isCancelled else { return }
             guard let self, self.isUnderInterruption else { return }
-            AppLogger.warning("中断 watchdog 触发：60s 仍未收到 interruption.ended，强制清除并尝试恢复")
-            self.isUnderInterruption = false
-            if self.wasPlayingBeforeInterruption, self.player.currentSong != nil, !self.player.isPlaying {
-                self.attemptInterruptionResume(reason: "interruption watchdog")
-            }
+            AppLogger.warning("音频中断持续 60s 且未收到 ended；保持暂停，等待系统或用户恢复")
         }
     }
 
@@ -1121,18 +1092,19 @@ final class AudioSessionCoordinator {
         cancelInterruptionResumeRetry()
         cancelInterruptionWatchdog()
         cancelScheduledAutoResumeWork()
-        automaticAudioPolicyReevaluationTask?.cancel()
-        automaticAudioPolicyReevaluationTask = nil
-        for observer in [interruptionObserver, mediaResetObserver, silenceHintObserver,
-                         foregroundObserver, routeChangeObserver] {
+        gameVoiceDuckingTask?.cancel()
+        gameVoiceDuckingTask = nil
+        player.streamPlayer.duckingVolume = 1.0
+        for observer in [interruptionObserver, mediaResetObserver,
+                         foregroundObserver, gameVoiceHintObserver, routeChangeObserver] {
             if let observer {
                 NotificationCenter.default.removeObserver(observer)
             }
         }
         interruptionObserver = nil
         mediaResetObserver = nil
-        silenceHintObserver = nil
         foregroundObserver = nil
+        gameVoiceHintObserver = nil
         routeChangeObserver = nil
     }
 }

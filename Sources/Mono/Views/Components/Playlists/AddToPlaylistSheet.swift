@@ -17,6 +17,9 @@ struct AddToPlaylistSheet: View {
     @State private var activeOperationID: String?
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
+    @State private var completionTrigger = 0
+    @State private var showsCompletion = false
+    @State private var completionDismissTask: Task<Void, Never>?
 
     private enum OperationKey {
         static let favorite = "favorite"
@@ -130,6 +133,39 @@ struct AddToPlaylistSheet: View {
                 Button(LocalizedStringKey("alert_cancel"), role: .cancel) {}
             } message: {
                 Text(errorMessage)
+            }
+            .overlay {
+                ZStack {
+                    Color.monoBackground.opacity(0.22)
+                        .ignoresSafeArea()
+
+                    ZStack {
+                        MonoCompletionBurst(
+                            trigger: completionTrigger,
+                            tint: .green,
+                            radius: 38,
+                            particleCount: 8
+                        )
+                        MonoCompletionMark(
+                            trigger: completionTrigger,
+                            tint: .green,
+                            size: 68
+                        )
+                        .padding(18)
+                        .background(Color.monoFloatingBarFill)
+                        .monoGlass(cornerRadius: 30)
+                        .clipShape(.rect(cornerRadius: 30, style: .continuous))
+                    }
+                }
+                // 确认视图始终挂载，成功 trigger 变化时动画才能被可靠捕获；
+                // 平时完全透明且不参与点击。
+                .opacity(showsCompletion ? 1 : 0)
+                .allowsHitTesting(showsCompletion)
+                .accessibilityHidden(!showsCompletion)
+            }
+            .animation(.easeOut(duration: 0.18), value: showsCompletion)
+            .onDisappear {
+                completionDismissTask?.cancel()
             }
         }
     }
@@ -320,7 +356,7 @@ struct AddToPlaylistSheet: View {
         defer { activeOperationID = nil }
 
         manager.addToFavorite(song)
-        dismissCurrentPresentation(systemDismiss: dismiss, monoSheetDismiss: monoSheetDismiss)
+        completeAndDismiss()
     }
 
     @MainActor
@@ -331,7 +367,7 @@ struct AddToPlaylistSheet: View {
         defer { activeOperationID = nil }
 
         manager.addSong(song, to: playlist)
-        dismissCurrentPresentation(systemDismiss: dismiss, monoSheetDismiss: monoSheetDismiss)
+        completeAndDismiss()
     }
 
     @MainActor
@@ -347,7 +383,7 @@ struct AddToPlaylistSheet: View {
 
         let playlist = manager.createPlaylist(name: name)
         manager.addSong(song, to: playlist)
-        dismissCurrentPresentation(systemDismiss: dismiss, monoSheetDismiss: monoSheetDismiss)
+        completeAndDismiss()
     }
 
     @MainActor
@@ -393,7 +429,7 @@ struct AddToPlaylistSheet: View {
                 throw PlaylistPickerError.saveFailed
             }
 
-                    dismissCurrentPresentation(systemDismiss: dismiss, monoSheetDismiss: monoSheetDismiss)
+            completeAndDismiss()
         } catch {
             presentError(error)
         }
@@ -413,7 +449,7 @@ struct AddToPlaylistSheet: View {
                 throw PlaylistPickerError.saveFailed
             }
 
-            dismissCurrentPresentation(systemDismiss: dismiss, monoSheetDismiss: monoSheetDismiss)
+            completeAndDismiss()
         } catch {
             presentError(error)
         }
@@ -427,5 +463,19 @@ struct AddToPlaylistSheet: View {
 
     private func songsCountText(_ count: Int) -> String {
         String(format: NSLocalizedString("songs_count_format", comment: ""), count)
+    }
+
+    @MainActor
+    private func completeAndDismiss() {
+        completionDismissTask?.cancel()
+        completionTrigger += 1
+        showsCompletion = true
+        HapticManager.shared.success()
+
+        completionDismissTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(640))
+            guard !Task.isCancelled else { return }
+            dismissCurrentPresentation(systemDismiss: dismiss, monoSheetDismiss: monoSheetDismiss)
+        }
     }
 }

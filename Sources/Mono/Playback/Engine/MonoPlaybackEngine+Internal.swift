@@ -432,9 +432,6 @@ extension PlayerManager {
         loadSongExtras(for: song)
         if isNewPresentation {
             addToHistory(song: song)
-            if !song.isQQMusic && !song.isQishui && !song.isKugou && !song.isAppleMusic {
-                scrobbleToCloud(song: song)
-            }
         }
 
         saveState()

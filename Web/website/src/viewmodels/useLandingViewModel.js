@@ -317,7 +317,7 @@ export function useLandingViewModel() {
     }
 
     if (!protectCode) {
-      ipaRegisterError.value = '请输入保护码。'
+      ipaRegisterError.value = '请输入 IPA 自签保护码或 TestFlight 保护码。'
       return
     }
 
@@ -442,7 +442,7 @@ export function useLandingViewModel() {
       showTestFlightNotice({
         type: 'error',
         title: '申请失败',
-        message: '请填写保护码。',
+        message: '请填写 TestFlight 保护码。',
       })
       return
     }
@@ -492,7 +492,7 @@ export function useLandingViewModel() {
           showTestFlightNotice({
             type: 'error',
             title: '保护码不可用',
-            message: '请检查保护码是否填写正确；如果保护码次数已用完，可以重新购买后再申请。',
+            message: payload.message || '此处仅支持 TestFlight 保护码，IPA 自签保护码不能用于 TestFlight 申请。',
             email,
           })
           return

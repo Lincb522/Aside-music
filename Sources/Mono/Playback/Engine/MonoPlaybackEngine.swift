@@ -409,7 +409,8 @@ class PlayerManager: ObservableObject {
     /// 网络流暂停多久后恢复要走「重新取址续播」而非直接 resume（秒）
     nonisolated static let networkResumeRefreshThreshold: TimeInterval = 20 * 60
 
-    /// 持久化时的最大 context 大小（防止序列化过大）
+    /// UserDefaults/内存快速快照的最大 context 大小；
+    /// Cassette 磁盘会话归档会另行保存完整队列。
     let maxPersistContextSize = 200
     /// 回退栈最大长度（防止无限增长）
     let maxBackStackSize = 200
@@ -435,9 +436,12 @@ class PlayerManager: ObservableObject {
     }
     
     var playedContextSongs: [Song] {
-        let list = currentContextList
-        let safeIndex = max(0, min(contextIndex, list.count))
-        return Array(list.prefix(safeIndex))
+        let effectiveHistoryIDs = Set(history.map {
+            Self.playbackIdentityKey(for: $0)
+        })
+        return currentContextList.filter {
+            effectiveHistoryIDs.contains(Self.playbackIdentityKey(for: $0))
+        }
     }
 
     var currentIndexInContext: Int {
@@ -594,7 +598,17 @@ class PlayerManager: ObservableObject {
         heartbeat.start()
         restoreState()
         songContentPrefetch.start()
-        // 延后一拍同步小组件，避免冷启动时因节奏缓存查询触发 AudioLabManager，
+        MonoMemoryEngine.shared.registerResource(
+            id: "runtime.playback-prefetch",
+            priority: .essential,
+            budgetWeight: 0.02,
+            minimumBudgetBytes: 2 * 1_024 * 1_024,
+            applyBudget: { _ in },
+            trim: { [weak self] context in
+                self?.trimPlaybackPrefetchForMemoryPressure(context) ?? .none
+            }
+        )
+        // 延后一拍同步小组件，避免冷启动时因节奏缓存查询触发额外音频分析，
         // 又在其初始化里反向访问 PlayerManager.shared，造成单例循环初始化。
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
@@ -615,6 +629,25 @@ class PlayerManager: ObservableObject {
             pitchSemitones = savedPitch
             audioEffects.setPitch(savedPitch)
         }
+    }
+
+    /// 只取消尚未进入可听管线的解析与下载任务。当前歌曲、已提交的切换事务
+    /// 和正在出声的 decoder 均不触碰，避免内存治理改变播放语义。
+    private func trimPlaybackPrefetchForMemoryPressure(
+        _ context: MonoMemoryEngine.TrimContext
+    ) -> MonoMemoryEngine.TrimResult {
+        guard context.level >= .background else { return .none }
+        // 锁屏后台播放仍需要下一曲预取；普通后台收缩只处理空闲播放器。
+        if context.level == .background, isPlaying { return .none }
+        continuity.cancelScheduledMediaPrefetch()
+        continuity.cancelQmcPrefetch()
+        if context.level >= .warning {
+            continuity.cancelNextTrackResolution()
+        }
+        if context.level >= .critical, !isPlaying, !isLoading {
+            continuity.cancelPreparation(resetPendingState: false)
+        }
+        return .none
     }
     
     deinit {

@@ -2,15 +2,26 @@ import AppIntents
 import SwiftUI
 import WidgetKit
 
+// MARK: - 漫画主题 · 彩色印刷
+//
+// 暖纸底 + 粉黄蓝印刷色的彩色漫画分格。
+// 厚墨框 + 硬投影 + 网点渐晕，封面恢复彩色，
+// 播放按钮做成粉色印泥章。
+// 仅用于桌面小组件，与 App 内漫画播放器主题相互独立。
+
 struct MangaTheme: View {
     let entry: NowPlayingEntry
     let family: WidgetFamily
 
-    private let ink = Color(hex: "141416")
-    private let paper = Color(hex: "F3F0E9")
-    private let paperLight = Color(hex: "FCFBF7")
-    private let gray = Color(hex: "757278")
-    private let paleGray = Color(hex: "D9D6CF")
+    private var ink: Color { Color(hex: "2D2D3A") }
+    private var inkSoft: Color { Color(hex: "8888A0") }
+    private var paper: Color { Color(hex: "FFF8EC") }
+    private var tone: Color { Color(hex: "FFE8F0") }
+    private var pink: Color { Color(hex: "FF8FAB") }
+    private var pinkDeep: Color { Color(hex: "D86782") }
+    private var yellow: Color { Color(hex: "FFE4B5") }
+    private var blue: Color { Color(hex: "B8D4F0") }
+    private var blueDeep: Color { Color(hex: "6A98BD") }
 
     private var song: String {
         entry.isEmpty ? "未在播放" : entry.songName
@@ -21,444 +32,410 @@ struct MangaTheme: View {
     }
 
     private var lyric: String {
-        entry.lyricText
+        entry.lyricText.isEmpty ? "              " : entry.lyricText
     }
 
-    private func paperBackground(size: CGSize) -> some View {
-        ZStack {
-            paper
-
-            Canvas { context, canvasSize in
-                let gap: CGFloat = 10
-                let radius: CGFloat = 0.7
-                var row = 0
-                var y: CGFloat = 5
-
-                while y < canvasSize.height {
-                    var x: CGFloat = row.isMultiple(of: 2) ? 5 : 10
-                    while x < canvasSize.width {
-                        context.fill(
-                            Path(
-                                ellipseIn: CGRect(
-                                    x: x - radius,
-                                    y: y - radius,
-                                    width: radius * 2,
-                                    height: radius * 2
-                                )
-                            ),
-                            with: .color(ink.opacity(0.095))
-                        )
-                        x += gap
-                    }
-                    row += 1
-                    y += gap
-                }
-            }
-
-            LinearGradient(
-                colors: [Color.white.opacity(0.34), .clear, ink.opacity(0.025)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        }
-        .frame(width: size.width, height: size.height)
-    }
-
-    private func albumImage() -> some View {
+    var body: some View {
         Group {
-            if let data = entry.coverImageData, let image = UIImage(data: data) {
-                Image(uiImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .saturation(0)
-                    .contrast(1.12)
-            } else {
-                ZStack {
-                    paleGray
-                    Image(systemName: "music.note")
-                        .font(.system(size: 30, weight: .black))
-                        .foregroundStyle(gray)
-                }
+            switch family {
+            case .systemSmall:
+                smallWidget
+            case .systemMedium:
+                mediumWidget
+            case .systemLarge:
+                largeWidget
+            default:
+                smallWidget
             }
         }
-    }
-
-    private var artwork: some View {
-        GeometryReader { proxy in
-            albumImage()
-                .frame(width: proxy.size.width, height: proxy.size.height)
-                .clipped()
-        }
-        .overlay(
-            Canvas { context, size in
-                let gap: CGFloat = 7
-                var y: CGFloat = 3
-                while y < size.height {
-                    var x: CGFloat = 3
-                    while x < size.width {
-                        context.fill(
-                            Path(ellipseIn: CGRect(x: x, y: y, width: 1, height: 1)),
-                            with: .color(ink.opacity(0.08))
-                        )
-                        x += gap
-                    }
-                    y += gap
-                }
-            }
-        )
-    }
-
-    private func statusLabel(compact: Bool = false) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: "music.note")
-                .font(.system(size: compact ? 7 : 8, weight: .black))
-
-            Text("NOW PLAYING")
-                .font(.system(size: compact ? 7 : 8, weight: .black, design: .rounded))
-                .tracking(compact ? 0.2 : 0.6)
-                .lineLimit(1)
-        }
-        .foregroundStyle(paperLight)
-        .padding(.horizontal, compact ? 8 : 10)
-        .padding(.vertical, compact ? 4 : 5)
-        .background(Rectangle().fill(ink))
-    }
-
-    @ViewBuilder
-    private func metadata(compact: Bool = false, reversed: Bool = false) -> some View {
-        HStack(spacing: compact ? 5 : 8) {
-            if !entry.sourceName.isEmpty {
-                Text(entry.sourceName.uppercased())
-                    .font(.system(size: compact ? 7 : 8, weight: .black, design: .monospaced))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.65)
-            }
-
-            if let bpm = entry.tempoBPM, bpm > 0 {
-                Text("\(bpm) BPM")
-                    .font(.system(size: compact ? 7 : 8, weight: .black, design: .rounded))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.65)
-            }
-        }
-        .foregroundStyle(reversed ? paperLight.opacity(0.72) : gray)
-    }
-
-    private func qualityLabel(compact: Bool = false) -> some View {
-        Group {
-            if !entry.qualityText.isEmpty {
-                Text(entry.qualityText)
-                    .font(.system(size: compact ? 7 : 8, weight: .black, design: .rounded))
-                    .foregroundStyle(ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.65)
-                    .padding(.horizontal, compact ? 6 : 8)
-                    .padding(.vertical, compact ? 3 : 4)
-                    .background(Rectangle().fill(paperLight))
-                    .overlay(Rectangle().stroke(ink, lineWidth: 1.8))
-            }
-        }
-    }
-
-    private func controlButton(
-        intent: some AppIntent,
-        icon: String,
-        side: CGFloat,
-        primary: Bool
-    ) -> some View {
-        Button(intent: intent) {
-            Image(systemName: icon)
-                .font(.system(size: side * 0.4, weight: .black))
-                .foregroundStyle(primary ? paperLight : ink)
-                .frame(width: side, height: side)
-                .background(Circle().fill(primary ? ink : paperLight))
-                .overlay(Circle().stroke(ink, lineWidth: primary ? 2.8 : 2.2))
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func controls(compact: Bool) -> some View {
-        let secondarySide: CGFloat = compact ? 23 : 33
-        let primarySide: CGFloat = compact ? 31 : 44
-
-        return HStack(spacing: compact ? 6 : 10) {
-            controlButton(
-                intent: PreviousTrackIntent(),
-                icon: "backward.fill",
-                side: secondarySide,
-                primary: false
-            )
-            controlButton(
-                intent: TogglePlaybackIntent(),
-                icon: entry.controlSymbolName,
-                side: primarySide,
-                primary: true
-            )
-            controlButton(
-                intent: NextTrackIntent(),
-                icon: "forward.fill",
-                side: secondarySide,
-                primary: false
-            )
-        }
-    }
-
-    private func playbackRow(compact: Bool, showsMetadata: Bool) -> some View {
-        HStack(spacing: compact ? 7 : 12) {
-            if entry.isEmpty {
-                Image(systemName: "music.note")
-                    .font(.system(size: compact ? 16 : 20, weight: .black))
-                    .foregroundStyle(gray)
-                    .frame(height: compact ? 31 : 44)
-            } else {
-                controls(compact: compact)
-            }
-
-            if showsMetadata {
-                Spacer(minLength: 0)
-                metadata(compact: compact)
-            }
-        }
+        .foregroundStyle(ink)
+        .widgetURL(URL(string: "mono://player"))
     }
 
     // MARK: - Small
 
     private var smallWidget: some View {
-        GeometryReader { geometry in
-            let width = geometry.size.width
-            let height = geometry.size.height
-            let artworkHeight = height * 0.46
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(alignment: .top, spacing: 0) {
+                ZStack(alignment: .bottomTrailing) {
+                    coverPanel(size: 62, border: 2.6, shadow: 3)
+                        .rotationEffect(.degrees(-2.5))
 
-            ZStack {
-                paperBackground(size: geometry.size)
-
-                VStack(spacing: 0) {
-                    ZStack(alignment: .topLeading) {
-                        artwork
-                            .frame(width: width, height: artworkHeight)
-
-                        statusLabel(compact: true)
-                            .padding(8)
-                    }
-                    .frame(height: artworkHeight)
-                    .clipped()
-
-                    Rectangle()
-                        .fill(ink)
-                        .frame(height: 3)
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(song)
-                            .font(.system(size: 13, weight: .heavy, design: .rounded))
-                            .foregroundStyle(ink)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.48)
-
-                        HStack(spacing: 6) {
-                            Text(artist)
-                                .font(.system(size: 9, weight: .bold, design: .rounded))
-                                .foregroundStyle(gray)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.55)
-
-                            Spacer(minLength: 0)
-                            qualityLabel(compact: true)
-                        }
-
-                        Rectangle()
-                            .fill(ink.opacity(0.2))
-                            .frame(height: 1)
-
-                        playbackRow(compact: true, showsMetadata: false)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .frame(maxHeight: .infinity, alignment: .top)
-                    .background(paperLight.opacity(0.88))
+                    playStamp(size: 28, iconSize: 10)
+                        .offset(x: 6, y: 6)
                 }
 
-                ContainerRelativeShape()
-                    .stroke(ink, lineWidth: 2)
+                Spacer(minLength: 0)
+
+                VStack(spacing: 6) {
+                    sfxBurst(size: 20)
+
+                    if entry.queueCount > 0 {
+                        queueSticker(fontSize: 8.5)
+                    }
+                }
+            }
+
+            Spacer(minLength: 0)
+
+            Text(song)
+                .font(.system(size: 14, weight: .black))
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            HStack(spacing: 6) {
+                Text(artist)
+                    .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                    .foregroundStyle(pinkDeep)
+                    .lineLimit(1)
+
+                Spacer(minLength: 0)
+
+                statusChip
             }
         }
-        .widgetURL(URL(string: "mono://player"))
+        .padding(12)
+        .background(printPaper)
     }
 
     // MARK: - Medium
 
     private var mediumWidget: some View {
-        GeometryReader { geometry in
-            let width = geometry.size.width
-            let artworkWidth = width * 0.42
+        HStack(spacing: 13) {
+            ZStack(alignment: .topLeading) {
+                ZStack(alignment: .bottomTrailing) {
+                    coverPanel(size: 106, border: 3, shadow: 4)
+                        .rotationEffect(.degrees(-2))
 
-            ZStack {
-                paperBackground(size: geometry.size)
-
-                HStack(spacing: 0) {
-                    ZStack(alignment: .topLeading) {
-                        artwork
-                            .frame(width: artworkWidth)
-
-                        statusLabel(compact: true)
-                            .padding(9)
-                    }
-                    .frame(width: artworkWidth)
-                    .clipped()
-
-                    Rectangle()
-                        .fill(ink)
-                        .frame(width: 3)
-
-                    VStack(alignment: .leading, spacing: 5) {
-                        HStack {
-                            metadata(compact: true)
-                            Spacer(minLength: 0)
-                            qualityLabel(compact: true)
-                        }
-
-                        Text(song)
-                            .font(.system(size: 18, weight: .heavy, design: .rounded))
-                            .foregroundStyle(ink)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.48)
-
-                        Text(artist)
-                            .font(.system(size: 10, weight: .bold, design: .rounded))
-                            .foregroundStyle(gray)
-                            .lineLimit(1)
-
-                        Rectangle()
-                            .fill(ink)
-                            .frame(height: 2)
-
-                        if !lyric.isEmpty {
-                            Text(lyric)
-                                .font(.system(size: 10, weight: .bold, design: .rounded))
-                                .foregroundStyle(ink.opacity(0.78))
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.55)
-                        }
-
-                        Spacer(minLength: 0)
-
-                        playbackRow(compact: true, showsMetadata: false)
-                            .frame(maxWidth: .infinity, alignment: .trailing)
-                    }
-                    .padding(.horizontal, 11)
-                    .padding(.vertical, 8)
-                    .background(paperLight.opacity(0.88))
+                    playStamp(size: 34, iconSize: 12)
+                        .offset(x: 8, y: 8)
                 }
 
-                ContainerRelativeShape()
-                    .stroke(ink, lineWidth: 2)
+                sfxBurst(size: 24)
+                    .offset(x: -9, y: -9)
             }
+            .frame(width: 120)
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    statusChip
+
+                    if entry.queueCount > 0 {
+                        queueSticker(fontSize: 9)
+                    }
+
+                    if !entry.qualityText.isEmpty {
+                        qualitySticker(entry.qualityText)
+                    }
+                }
+
+                Text(song)
+                    .font(.system(size: 19, weight: .black))
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+
+                Text(lyric)
+                    .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                    .foregroundStyle(inkSoft)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+
+                Spacer(minLength: 0)
+
+                HStack(spacing: 8) {
+                    if entry.isPlaying {
+                        PlaybackWave(isActive: true, barCount: 4, color: pinkDeep, height: 11)
+                            .frame(width: 20)
+                    }
+
+                    MangaHatchStrip(color: pink, opacity: 0.9)
+                        .frame(height: 6)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .widgetURL(URL(string: "mono://player"))
+        .padding(14)
+        .background(printPaper)
     }
 
     // MARK: - Large
 
     private var largeWidget: some View {
-        GeometryReader { geometry in
-            let width = geometry.size.width
-            let height = geometry.size.height
-            let heroHeight = height * 0.58
-            let artworkWidth = width * 0.54
+        VStack(spacing: 8) {
+            ZStack(alignment: .topLeading) {
+                coverPanel(size: 150, border: 3.2, shadow: 5)
+                    .rotationEffect(.degrees(-1.6))
 
-            ZStack {
-                paperBackground(size: geometry.size)
+                sfxBurst(size: 30)
+                    .offset(x: -11, y: -11)
+            }
+            .padding(.top, 6)
 
-                VStack(spacing: 0) {
-                    HStack(spacing: 0) {
-                        ZStack(alignment: .topLeading) {
-                            artwork
-                                .frame(width: artworkWidth, height: heroHeight)
+            VStack(spacing: 3) {
+                Text(song)
+                    .font(.system(size: 21, weight: .black))
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+                    .multilineTextAlignment(.center)
 
-                            statusLabel()
-                                .padding(11)
-                        }
-                        .frame(width: artworkWidth, height: heroHeight)
-                        .clipped()
+                Text(lyric)
+                    .font(.system(size: 11.5, weight: .bold, design: .rounded))
+                    .foregroundStyle(inkSoft)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+                    .multilineTextAlignment(.center)
+            }
 
-                        Rectangle()
-                            .fill(ink)
-                            .frame(width: 3)
+            HStack(spacing: 8) {
+                statusChip
 
-                        VStack(alignment: .leading, spacing: 7) {
-                            HStack {
-                                metadata()
-                                Spacer(minLength: 0)
-                            }
-
-                            Text(song)
-                                .font(.system(size: 22, weight: .heavy, design: .rounded))
-                                .foregroundStyle(ink)
-                                .lineLimit(3)
-                                .minimumScaleFactor(0.42)
-
-                            Rectangle()
-                                .fill(ink)
-                                .frame(height: 3)
-
-                            Text(artist)
-                                .font(.system(size: 13, weight: .bold, design: .rounded))
-                                .foregroundStyle(gray)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.55)
-
-                            Spacer(minLength: 0)
-                            qualityLabel()
-                        }
-                        .padding(11)
-                        .frame(maxWidth: .infinity, maxHeight: heroHeight, alignment: .topLeading)
-                        .background(paperLight.opacity(0.9))
-                    }
-                    .frame(height: heroHeight)
-
-                    Rectangle()
-                        .fill(ink)
-                        .frame(height: 3)
-
-                    VStack(spacing: 8) {
-                        if !lyric.isEmpty {
-                            Text(lyric)
-                                .font(.system(size: 12, weight: .bold, design: .rounded))
-                                .foregroundStyle(ink.opacity(0.78))
-                                .multilineTextAlignment(.center)
-                                .lineLimit(3)
-                                .minimumScaleFactor(0.55)
-                                .frame(maxWidth: .infinity)
-                        }
-
-                        Rectangle()
-                            .fill(ink.opacity(0.18))
-                            .frame(height: 1)
-
-                        playbackRow(compact: false, showsMetadata: false)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .frame(maxHeight: .infinity)
-                    .background(paperLight.opacity(0.88))
+                if entry.queueCount > 0 {
+                    queueSticker(fontSize: 9.5)
                 }
 
-                ContainerRelativeShape()
-                    .stroke(ink, lineWidth: 2)
+                if !entry.qualityText.isEmpty {
+                    qualitySticker(entry.qualityText)
+                }
             }
+
+            playbackRow
         }
-        .widgetURL(URL(string: "mono://player"))
+        .padding(12)
+        .background(printPaper)
     }
 
-    var body: some View {
-        switch family {
-        case .systemSmall:
-            smallWidget
-        case .systemMedium:
-            mediumWidget
-        default:
-            largeWidget
+    // MARK: - 组件
+
+    /// 暖纸印刷底：纸色 + 粉蓝网点渐晕。
+    private var printPaper: some View {
+        ZStack {
+            paper
+
+            MangaPrintDots(color: pinkDeep, opacity: 0.08, gap: 8)
+                .mask(RadialGradient(colors: [.black, .clear], center: .topTrailing, startRadius: 0, endRadius: 130))
+
+            MangaPrintDots(color: blueDeep, opacity: 0.10, gap: 7)
+                .mask(RadialGradient(colors: [.black, .clear], center: .bottomLeading, startRadius: 0, endRadius: 110))
         }
     }
+
+    /// 彩色封面分格：厚墨框 + 白网点 + 墨色硬投影。
+    private func coverPanel(size: CGFloat, border: CGFloat, shadow: CGFloat) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
+
+        return ZStack {
+            shape
+                .fill(ink)
+                .offset(x: shadow, y: shadow)
+
+            if let data = entry.coverImageData, let img = UIImage(data: data) {
+                Image(uiImage: img)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: size, height: size)
+                    .clipShape(shape)
+            } else {
+                shape
+                    .fill(tone)
+                    .overlay(
+                        Image(systemName: "music.note")
+                            .font(.system(size: size * 0.34, weight: .black))
+                            .foregroundStyle(pink)
+                    )
+            }
+
+            MangaPrintDots(color: .white, opacity: 0.10, gap: 7)
+                .frame(width: size, height: size)
+                .clipShape(shape)
+
+            shape.stroke(ink, lineWidth: border)
+
+            shape
+                .stroke(ink.opacity(0.9), lineWidth: 1)
+                .padding(4)
+        }
+        .frame(width: size, height: size)
+    }
+
+    /// 粉色印泥章播放钮：墨影托底 + 反白符号，点按切播放状态。
+    private func playStamp(size: CGFloat, iconSize: CGFloat) -> some View {
+        Button(intent: TogglePlaybackIntent()) {
+            ZStack {
+                Circle()
+                    .fill(ink)
+                    .offset(x: size * 0.07, y: size * 0.07)
+
+                Circle().fill(pink)
+                Circle().stroke(ink, lineWidth: max(2, size * 0.075))
+                Circle().stroke(Color.white.opacity(0.65), lineWidth: 1).padding(size * 0.13)
+
+                Image(systemName: entry.controlSymbolName)
+                    .font(.system(size: iconSize, weight: .black))
+                    .foregroundStyle(.white)
+            }
+            .frame(width: size, height: size)
+        }
+    }
+
+    /// 播放控制行：排线 + 粉色印泥章。
+    private var playbackRow: some View {
+        HStack(spacing: 14) {
+            MangaHatchStrip(color: blue, opacity: 0.8)
+                .frame(width: 40, height: 6)
+
+            playStamp(size: 42, iconSize: 15)
+
+            MangaHatchStrip(color: blue, opacity: 0.8)
+                .frame(width: 40, height: 6)
+        }
+    }
+
+    /// 拟声爆炸贴：粉爆形 + 反白音符，背后压黄色错版。
+    private func sfxBurst(size: CGFloat) -> some View {
+        ZStack {
+            MangaBurst(points: 11, innerRatio: 0.72)
+                .fill(yellow)
+                .offset(x: 2, y: 2)
+
+            MangaBurst(points: 11, innerRatio: 0.72)
+                .fill(pink)
+
+            MangaBurst(points: 11, innerRatio: 0.72)
+                .stroke(ink, lineWidth: 1.6)
+
+            Text("♪")
+                .font(.system(size: size * 0.42, weight: .black))
+                .foregroundStyle(.white)
+        }
+        .frame(width: size, height: size)
+        .rotationEffect(.degrees(-8))
+    }
+
+    /// 状态贴纸：白底墨框 + 状态色圆点。
+    private var statusChip: some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(entry.isPlaying ? pink : inkSoft)
+                .frame(width: 5, height: 5)
+
+            Text(entry.isPlaying ? "播放中" : "暂停")
+                .font(.system(size: 9, weight: .heavy, design: .rounded))
+                .foregroundStyle(entry.isPlaying ? pinkDeep : inkSoft)
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .background(Color.white, in: Capsule())
+        .overlay(Capsule().stroke(ink, lineWidth: 1.2))
+        .background(Capsule().fill(ink).offset(x: 1.4, y: 1.4))
+    }
+
+    /// 队列序贴：黄底墨字 + 圆角硬影。
+    private func queueSticker(fontSize: CGFloat) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 5, style: .continuous)
+
+        return Text("\(min(entry.queueIndex, entry.queueCount))/\(entry.queueCount)")
+            .font(.system(size: fontSize, weight: .heavy, design: .rounded))
+            .monospacedDigit()
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(shape.fill(yellow))
+            .overlay(shape.stroke(ink, lineWidth: 1.4))
+            .background(shape.fill(ink).offset(x: 1.6, y: 1.6))
+            .rotationEffect(.degrees(2))
+    }
+
+    /// 音质贴纸：蓝底墨字。
+    private func qualitySticker(_ text: String) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 4, style: .continuous)
+
+        return Text(text)
+            .font(.system(size: 8, weight: .heavy))
+            .padding(.horizontal, 5)
+            .padding(.vertical, 3)
+            .background(shape.fill(blue))
+            .overlay(shape.stroke(ink, lineWidth: 1.2))
+            .background(shape.fill(ink).offset(x: 1.4, y: 1.4))
+    }
+}
+
+// MARK: - 形状
+
+private struct MangaBurst: Shape {
+    var points: Int = 12
+    var innerRatio: CGFloat = 0.68
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let outer = min(rect.width, rect.height) / 2
+        let inner = outer * innerRatio
+        let step = .pi / CGFloat(points)
+        for i in 0 ..< points * 2 {
+            let radius = i.isMultiple(of: 2) ? outer : inner
+            let angle = step * CGFloat(i) - .pi / 2
+            let pt = CGPoint(x: center.x + cos(angle) * radius, y: center.y + sin(angle) * radius)
+            if i == 0 { path.move(to: pt) } else { path.addLine(to: pt) }
+        }
+        path.closeSubpath()
+        return path
+    }
+}
+
+/// 交错排列的印刷网点。
+private struct MangaPrintDots: View {
+    var color: Color
+    var opacity: Double
+    var gap: CGFloat
+    var dotScale: CGFloat = 0.24
+
+    var body: some View {
+        Canvas { context, size in
+            let dot = gap * dotScale
+            var y: CGFloat = gap / 2
+            var row = 0
+            while y < size.height {
+                var x: CGFloat = gap / 2 + (row.isMultiple(of: 2) ? 0 : gap / 2)
+                while x < size.width {
+                    context.fill(
+                        Path(ellipseIn: CGRect(x: x, y: y, width: dot, height: dot)),
+                        with: .color(color.opacity(opacity))
+                    )
+                    x += gap
+                }
+                y += gap
+                row += 1
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// 斜向排线条（漫画速度线式装饰）。
+private struct MangaHatchStrip: View {
+    var color: Color
+    var opacity: Double
+
+    var body: some View {
+        Canvas { context, size in
+            var path = Path()
+            var x: CGFloat = -size.height
+            while x < size.width + size.height {
+                path.move(to: CGPoint(x: x, y: size.height))
+                path.addLine(to: CGPoint(x: x + size.height, y: 0))
+                x += 4
+            }
+            context.stroke(path, with: .color(color.opacity(opacity)), lineWidth: 1)
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+// MARK: - Preview
+
+#Preview("S", as: .systemSmall) {
+    NowPlayingWidget()
+} timeline: {
+    NowPlayingEntry.preview(theme: .manga)
 }

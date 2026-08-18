@@ -58,6 +58,9 @@ struct PodcastSearchView: View {
                     .monoTextInputBehavior()
                     .focused($isSearchFocused)
                     .submitLabel(.search)
+                    .monoOnSubmit(text: $viewModel.searchText) { _ in
+                        isSearchFocused = false
+                    }
 
                 if !viewModel.searchText.isEmpty {
                     Button(action: { viewModel.searchText = "" }) {
