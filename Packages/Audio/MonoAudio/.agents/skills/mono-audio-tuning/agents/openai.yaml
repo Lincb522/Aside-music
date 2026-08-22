@@ -1,7 +1,0 @@
-interface:
-  display_name: "MonoAudio Tuning"
-  short_description: "Design, audit, and verify audio tuning and streaming"
-  icon_small: "./assets/mono-audio-mark.svg"
-  icon_large: "./assets/mono-audio-lockup.svg"
-  brand_color: "#5964F2"
-  default_prompt: "Use $mono-audio-tuning to audit this tuning or streaming change and verify it end to end."
