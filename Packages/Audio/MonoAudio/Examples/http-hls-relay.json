@@ -1,0 +1,35 @@
+{
+  "source": {
+    "id": "documentation-hls-input",
+    "endpoint": {
+      "url": "https://example.com/live/input.m3u8",
+      "streamProtocol": "hls",
+      "format": "hls"
+    },
+    "displayName": "Documentation only — replace both example.com endpoints",
+    "request": {
+      "headers": {},
+      "userAgent": "MonoAudio-Example/1.0",
+      "connectionTimeoutMilliseconds": 10000,
+      "readTimeoutMilliseconds": 30000,
+      "reconnect": {
+        "isEnabled": true,
+        "reconnectAtEndOfFile": false,
+        "reconnectOnNetworkError": true,
+        "maximumDelaySeconds": 5
+      },
+      "rtspTransport": "automatic"
+    }
+  },
+  "destination": {
+    "url": "http://example.com/live/mono-audio.ts",
+    "streamProtocol": "http",
+    "format": "mpegTS"
+  },
+  "tuningPlan": null,
+  "audioCodec": "aac",
+  "audioBitrateKilobitsPerSecond": 128,
+  "sampleRateHz": 48000,
+  "channelCount": 2,
+  "maximumDurationSeconds": 30
+}

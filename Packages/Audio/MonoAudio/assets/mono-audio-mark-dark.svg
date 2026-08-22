@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">MonoAudio mark for dark backgrounds</title>
+  <desc id="desc">One audio stream opening into three parallel sound paths.</desc>
+  <g id="stream-field" fill="none" stroke="#8F98FF" stroke-width="96" stroke-linecap="round" stroke-linejoin="round">
+    <path id="upper-stream" d="M152 512C336 512 328 280 544 280H800"/>
+    <path id="center-stream" d="M152 512H880"/>
+    <path id="lower-stream" d="M152 512C336 512 328 744 544 744H800"/>
+  </g>
+</svg>

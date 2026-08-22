@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mono.audio/schemas/mono-audio-plan-v1.json",
+  "title": "MonoAudio Plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "name", "graphicEQ", "parametricEQ", "compressor", "spatial", "outputSafety"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "id": { "type": "string", "format": "uuid" },
+    "name": { "type": "string", "minLength": 1 },
+    "deviceBaseline": { "$ref": "#/$defs/curve" },
+    "graphicEQ": { "$ref": "#/$defs/curve" },
+    "parametricEQ": {
+      "type": "array",
+      "maxItems": 12,
+      "items": { "$ref": "#/$defs/peqBand" }
+    },
+    "compressor": { "$ref": "#/$defs/compressor" },
+    "spatial": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stereoWidth"],
+      "properties": { "stereoWidth": { "type": "number", "minimum": 0.75, "maximum": 1.5 } }
+    },
+    "outputSafety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["preampDB", "limiterEnabled", "limiterCeilingDBFS", "uncertaintyMarginDB"],
+      "properties": {
+        "preampDB": { "type": "number", "minimum": -24, "maximum": 0 },
+        "limiterEnabled": { "type": "boolean" },
+        "limiterCeilingDBFS": { "type": "number", "minimum": -6, "maximum": -0.05 },
+        "uncertaintyMarginDB": { "type": "number", "minimum": 0, "maximum": 3 }
+      }
+    }
+  },
+  "$defs": {
+    "curve": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "gainsDB"],
+      "properties": {
+        "mode": { "enum": ["tenBand", "thirtyTwoBand"] },
+        "gainsDB": {
+          "type": "array",
+          "minItems": 10,
+          "maxItems": 32,
+          "items": { "type": "number", "minimum": -12, "maximum": 12 }
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "mode": { "const": "tenBand" },
+            "gainsDB": { "minItems": 10, "maxItems": 10 }
+          }
+        },
+        {
+          "properties": {
+            "mode": { "const": "thirtyTwoBand" },
+            "gainsDB": { "minItems": 32, "maxItems": 32 }
+          }
+        }
+      ]
+    },
+    "peqBand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "isEnabled", "kind", "frequencyHz", "gainDB", "q"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "isEnabled": { "type": "boolean" },
+        "kind": { "enum": ["peak", "lowShelf", "highShelf"] },
+        "frequencyHz": { "type": "number", "minimum": 20, "maximum": 20000 },
+        "gainDB": { "type": "number", "minimum": -12, "maximum": 12 },
+        "q": { "type": "number", "minimum": 0.1, "maximum": 12 }
+      }
+    },
+    "compressor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["isEnabled", "thresholdDB", "ratio", "attackMS", "releaseMS", "makeupDB"],
+      "properties": {
+        "isEnabled": { "type": "boolean" },
+        "thresholdDB": { "type": "number", "minimum": -60, "maximum": 0 },
+        "ratio": { "type": "number", "minimum": 1, "maximum": 6 },
+        "attackMS": { "type": "number", "minimum": 0.1, "maximum": 500 },
+        "releaseMS": { "type": "number", "minimum": 10, "maximum": 2000 },
+        "makeupDB": { "type": "number", "minimum": 0, "maximum": 6 }
+      }
+    }
+  }
+}
