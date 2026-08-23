@@ -13,6 +13,8 @@ struct CloudSyncContentSummary: Equatable {
     var playbackRecords = 0
     var aiTuningPlans = 0
     var customEQPresets = 0
+    var audioAgentSkills = 0
+    var hasAudioAgentSkillConfiguration = false
 
     var hasContent: Bool {
         playlists > 0
@@ -22,6 +24,7 @@ struct CloudSyncContentSummary: Equatable {
             || playbackRecords > 0
             || aiTuningPlans > 0
             || customEQPresets > 0
+            || hasAudioAgentSkillConfiguration
     }
 }
 
@@ -392,6 +395,19 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
                 Task { @MainActor in self.scheduleSyncForLocalMutation() }
             }
             .store(in: &cancellables)
+
+        Publishers.CombineLatest3(
+            MonoAudioAgentSkillStore.shared.$artistReferenceEnabled,
+            MonoAudioAgentSkillStore.shared.$vocalReferenceEnabled,
+            MonoAudioAgentSkillStore.shared.$customSkills
+        )
+        .dropFirst()
+        .debounce(for: .milliseconds(500), scheduler: RunLoop.main)
+        .sink { [weak self] _ in
+            guard let self else { return }
+            Task { @MainActor in self.scheduleSyncForLocalMutation() }
+        }
+        .store(in: &cancellables)
     }
 
     private func observeApplicationLifecycle() {
@@ -541,6 +557,7 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
                 playbackHistory: response.playbackHistory,
                 aiEqualizer: response.aiEqualizer,
                 customEQPresets: response.customEQPresets,
+                audioAgentSkills: response.audioAgentSkills,
                 revision: response.revision,
                 updatedAt: response.updatedAt,
                 showStatus: showStatus
@@ -559,6 +576,7 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
         playbackHistory: CloudPlaybackHistorySnapshot?,
         aiEqualizer: CloudAIEqualizerSnapshot?,
         customEQPresets: [EQPreset]?,
+        audioAgentSkills: MonoAudioAgentSkillCloudSnapshot?,
         revision: String?,
         updatedAt: Date?,
         showStatus: Bool
@@ -603,6 +621,10 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
 
         if let customEQPresets, !customEQPresets.isEmpty {
             EQManager.shared.restoreCloudCustomPresets(customEQPresets)
+        }
+
+        if let audioAgentSkills {
+            MonoAudioAgentSkillStore.shared.mergeCloudSnapshot(audioAgentSkills)
         }
 
         let localSnapshot = makeLocalSnapshot()
@@ -667,7 +689,8 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
             themeCustomization: response.themeCustomization,
             playbackHistory: response.playbackHistory,
             aiEqualizer: response.aiEqualizer,
-            customEQPresets: (response.customEQPresets?.isEmpty == false) ? response.customEQPresets : nil
+            customEQPresets: (response.customEQPresets?.isEmpty == false) ? response.customEQPresets : nil,
+            audioAgentSkills: response.audioAgentSkills
         )
         return Self.digest(for: localSnapshot) != Self.digest(for: remoteSnapshot)
     }
@@ -786,6 +809,7 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
             snapshot.aiEqualizer = nil
         }
         snapshot.customEQPresets = EQManager.shared.makeCloudCustomPresets()
+        snapshot.audioAgentSkills = MonoAudioAgentSkillStore.shared.makeCloudSnapshot()
         return snapshot
     }
 
@@ -869,6 +893,17 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
                 .map { $0.proposal.id } ?? []
         )
         let aiPlans = cachedAIPlanIDs.union(savedAIPlanIDs).count
+        let audioAgentSkillCount = snapshot.audioAgentSkills.map {
+            ($0.artistReferenceEnabled == nil ? 0 : 1)
+                + ($0.vocalReferenceEnabled == nil ? 0 : 1)
+                + $0.customSkills.count
+        } ?? 0
+        // A positive local revision is meaningful even when the resulting
+        // configuration is empty: it represents an explicit deletion that must
+        // be uploaded so another device does not restore the removed skill.
+        let hasAudioAgentSkillConfiguration = snapshot.audioAgentSkills.map {
+            $0.revision > 0 || audioAgentSkillCount > 0
+        } ?? false
 
         return CloudSyncContentSummary(
             playlists: snapshot.playlists.count,
@@ -881,7 +916,9 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
             }.count,
             playbackRecords: playbackRecords.count,
             aiTuningPlans: aiPlans,
-            customEQPresets: snapshot.customEQPresets?.count ?? 0
+            customEQPresets: snapshot.customEQPresets?.count ?? 0,
+            audioAgentSkills: audioAgentSkillCount,
+            hasAudioAgentSkillConfiguration: hasAudioAgentSkillConfiguration
         )
     }
 
@@ -898,6 +935,7 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
             let playbackHistory: CloudPlaybackHistorySnapshot?
             let aiEqualizer: CloudAIEqualizerSnapshot?
             let customEQPresets: [EQPreset]?
+            let audioAgentSkills: MonoAudioAgentSkillCloudSnapshot?
         }
         let content = DigestContent(
             playlists: snapshot.playlists,
@@ -906,7 +944,8 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
             themeCustomization: snapshot.themeCustomization,
             playbackHistory: snapshot.playbackHistory,
             aiEqualizer: snapshot.aiEqualizer,
-            customEQPresets: snapshot.customEQPresets
+            customEQPresets: snapshot.customEQPresets,
+            audioAgentSkills: snapshot.audioAgentSkills
         )
         guard let data = try? encoder.encode(content) else { return "" }
         return SHA256.hash(data: data)

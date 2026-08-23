@@ -28,7 +28,10 @@ extension APIService {
         guard let url = components.url else { throw SongContentServiceError.invalidURL }
         var request = URLRequest(url: url)
         request.timeoutInterval = 10
-        request.cachePolicy = .returnCacheDataElseLoad
+        // SongContentConfigurationStore already owns the product-level TTL.
+        // Once it decides to refresh, bypass URLCache so a newly published
+        // Agent skill/tool policy becomes effective in the same request.
+        request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
         let (data, response) = try await URLSession.shared.data(for: request)

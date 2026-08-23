@@ -253,6 +253,8 @@ test_layout.swift
 !Web/website/**/*.png
 *.pdf
 *.json
+!Sources/Mono/Resources/mono_audio_tuning_knowledge.json
 /artifacts/web-reverse
 __pycache__/
 *.pyc
+DesignAssets/AsideIconSystem/aside-design-dna.md

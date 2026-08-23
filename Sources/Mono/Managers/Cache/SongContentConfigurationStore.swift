@@ -25,9 +25,17 @@ actor SongContentConfigurationStore {
     }
 
     func configuration(forceRefresh: Bool = false) async -> SongContentFeatureConfiguration {
-        if !forceRefresh, isFresh { return cached }
+        if !forceRefresh, isFresh {
+            await synchronizeAudioAgentSkills(from: cached, source: .cached)
+            return cached
+        }
         if let refreshTask {
-            return (try? await refreshTask.value) ?? cached
+            if let configuration = try? await refreshTask.value {
+                await synchronizeAudioAgentSkills(from: configuration, source: .server)
+                return configuration
+            }
+            await synchronizeAudioAgentSkills(from: cached, source: .cached)
+            return cached
         }
 
         let fallback = cached
@@ -41,10 +49,12 @@ actor SongContentConfigurationStore {
             cached = configuration
             fetchedAt = Date()
             persist(configuration)
+            await synchronizeAudioAgentSkills(from: configuration, source: .server)
             return configuration
         } catch {
             refreshTask = nil
             AppLogger.debug("Song content configuration unavailable: \(error)")
+            await synchronizeAudioAgentSkills(from: fallback, source: .cached)
             return fallback
         }
     }
@@ -75,5 +85,20 @@ actor SongContentConfigurationStore {
         guard let data = try? JSONEncoder().encode(configuration) else { return }
         defaults.set(data, forKey: Keys.payload)
         defaults.set(fetchedAt, forKey: Keys.fetchedAt)
+    }
+
+    private func synchronizeAudioAgentSkills(
+        from configuration: SongContentFeatureConfiguration,
+        source: MonoAudioAgentSkillConfigurationSource
+    ) async {
+        let equalizer = configuration.agentManagementEnabled == true
+            ? configuration.agents?[.equalizer]
+            : nil
+        await MainActor.run {
+            MonoAudioAgentSkillStore.shared.applyRemoteAgentConfiguration(
+                equalizer,
+                source: source
+            )
+        }
     }
 }

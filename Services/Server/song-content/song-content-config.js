@@ -96,7 +96,7 @@ function createSongContentConfigStore({ databasePath, encryptionKey, logger = co
     const release = current()
     const eligible = isEligible(release.client, context, release.version)
     return {
-      schema_version: 2,
+      schema_version: 3,
       release: release.id,
       version: release.version,
       enabled: release.client.enabled && eligible,
@@ -340,14 +340,18 @@ function normalizeClientConfig(raw = {}) {
 
 function normalizeAppAgents(raw = {}) {
   const defaults = {
-    equalizer: ['mono-audio-agent-v28', 0.1, 4096, 120, 3],
+    equalizer: ['mono-audio-agent-v30-dsp', 0.1, 4096, 120, 3],
     listeningInsight: ['mono-listening-insight-v3', 0.1, 4096, 30, 2],
     specialGreeting: ['special-greeting-v2', 0.7, 1024, 20, 2]
   }
   const legacyBundledVersions = {
-    equalizer: 'mono-audio-agent-v27',
-    listeningInsight: 'mono-listening-insight-v2',
-    specialGreeting: 'special-greeting-v1'
+    equalizer: new Set([
+      'mono-audio-agent-v27',
+      'mono-audio-agent-v28',
+      'mono-audio-agent-v29-airpods'
+    ]),
+    listeningInsight: new Set(['mono-listening-insight-v2']),
+    specialGreeting: new Set(['special-greeting-v1'])
   }
   return Object.fromEntries(Object.entries(defaults).map(([key, fallback]) => {
     const value = raw?.[key] || {}
@@ -356,10 +360,10 @@ function normalizeAppAgents(raw = {}) {
     const userPromptTemplate = clean(value.userPromptTemplate, 20_000)
     let promptVersion = clean(value.promptVersion, 160) || fallback[0]
     if (!systemPrompt && !secondarySystemPrompt && !userPromptTemplate
-        && promptVersion === legacyBundledVersions[key]) {
+        && legacyBundledVersions[key].has(promptVersion)) {
       promptVersion = fallback[0]
     }
-    return [key, {
+    const configuration = {
       enabled: value.enabled !== false,
       promptVersion,
       systemPrompt,
@@ -369,8 +373,76 @@ function normalizeAppAgents(raw = {}) {
       maxOutputTokens: Math.round(clamp(value.maxOutputTokens, 128, 32_000, fallback[2])),
       minimumTimeoutSeconds: clamp(value.minimumTimeoutSeconds, 0, 180, fallback[3]),
       maxAttempts: Math.round(clamp(value.maxAttempts, 1, 4, fallback[4]))
-    }]
+    }
+    if (key === 'equalizer') {
+      configuration.skills = normalizeAudioAgentSkills(value.skills || value.skillConfiguration)
+      configuration.toolPolicy = normalizeAudioAgentToolPolicy(value.toolPolicy || value.tool_policy)
+    }
+    return [key, configuration]
   }))
+}
+
+const requiredAudioAgentSkills = [
+  'measurementEvidence',
+  'deviceCoordination',
+  'headroomGuard',
+  'phaseGuard',
+  'outputValidation'
+]
+const optionalAudioAgentSkills = ['artistReference', 'vocalReference']
+
+function normalizeAudioAgentSkills(raw = {}) {
+  const value = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}
+  const builtIns = value.builtIns && typeof value.builtIns === 'object' && !Array.isArray(value.builtIns)
+    ? value.builtIns
+    : {}
+  const enabledBuiltIns = Object.fromEntries([
+    ...requiredAudioAgentSkills.map((key) => [key, true]),
+    ...optionalAudioAgentSkills.map((key) => [key, builtIns[key] !== false])
+  ])
+  const custom = normalizeAudioAgentCustomSkills(value.custom || value.customSkills)
+  return {
+    revision: clean(value.revision, 160) || 'mono-audio-skills-v1',
+    builtIns: enabledBuiltIns,
+    custom
+  }
+}
+
+function normalizeAudioAgentCustomSkills(raw) {
+  if (!Array.isArray(raw)) return []
+  const normalized = []
+  const seen = new Set()
+  let enabledCount = 0
+  for (const [index, item] of raw.entries()) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue
+    const name = cleanOneLine(item.name, 20)
+    const instruction = cleanOneLine(item.instruction, 120)
+    if (!name || !instruction) continue
+    const fallbackID = `custom-${crypto.createHash('sha256')
+      .update(`${name}\u0000${instruction}\u0000${index}`)
+      .digest('hex').slice(0, 16)}`
+    const id = cleanOneLine(item.id, 80) || fallbackID
+    if (seen.has(id)) continue
+    seen.add(id)
+    const requestedEnabled = item.enabled !== false && item.isEnabled !== false
+    const enabled = requestedEnabled && enabledCount < 4
+    if (enabled) enabledCount += 1
+    normalized.push({ id, name, instruction, enabled })
+    if (normalized.length >= 12) break
+  }
+  return normalized
+}
+
+function normalizeAudioAgentToolPolicy(raw = {}) {
+  const value = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}
+  return {
+    revision: clean(value.revision, 160) || 'mono-audio-tool-policy-v1',
+    requiredToolName: 'mono_audio_tuning',
+    invocationMode: 'required',
+    requireExactlyOnce: true,
+    localValidationRequired: true,
+    allowPromptFallback: false
+  }
 }
 
 function isEligible(config, context, version) {
@@ -451,6 +523,26 @@ function validateRelease(release, appAI) {
     if (agent.userPromptTemplate && !agent.userPromptTemplate.includes('{{input}}')) {
       warnings.push(`${name}_user_template_appends_input`)
     }
+    if (name === 'equalizer') {
+      const skills = agent.skills || {}
+      const toolPolicy = agent.toolPolicy || {}
+      if (!skills.revision) errors.push('equalizer_skill_revision_missing')
+      for (const skill of requiredAudioAgentSkills) {
+        if (skills.builtIns?.[skill] !== true) errors.push(`equalizer_required_skill_disabled:${skill}`)
+      }
+      if ((skills.custom || []).filter((skill) => skill.enabled).length > 4) {
+        errors.push('equalizer_too_many_enabled_custom_skills')
+      }
+      if (toolPolicy.requiredToolName !== 'mono_audio_tuning') {
+        errors.push('equalizer_required_tool_invalid')
+      }
+      if (toolPolicy.localValidationRequired !== true) {
+        errors.push('equalizer_local_validation_disabled')
+      }
+      if (toolPolicy.invocationMode !== 'required') errors.push('equalizer_tool_not_required')
+      if (toolPolicy.requireExactlyOnce !== true) errors.push('equalizer_tool_once_disabled')
+      if (toolPolicy.allowPromptFallback) errors.push('equalizer_prompt_fallback_enabled')
+    }
   }
   return { passed: errors.length === 0, errors, warnings, checkedAt: new Date().toISOString() }
 }
@@ -528,6 +620,7 @@ function normalizeList(value, maximum) { return Array.isArray(value) ? [...new S
 function compareVersions(left, right) { const a = String(left || '0').split('.').map(Number); const b = String(right || '0').split('.').map(Number); for (let i = 0; i < Math.max(a.length, b.length); i += 1) { const diff = (a[i] || 0) - (b[i] || 0); if (diff) return diff }; return 0 }
 function validHTTPURL(value) { try { return ['http:', 'https:'].includes(new URL(value).protocol) } catch (_) { return false } }
 function clean(value, maximum) { return typeof value === 'string' ? value.trim().slice(0, maximum) : '' }
+function cleanOneLine(value, maximum) { return clean(value, maximum * 4).replace(/\s+/g, ' ').trim().slice(0, maximum) }
 function clamp(value, minimum, maximum, fallback) { const number = Number(value); return Number.isFinite(number) ? Math.min(maximum, Math.max(minimum, number)) : fallback }
 function parseJSON(value, fallback) { try { return JSON.parse(value) } catch (_) { return fallback } }
 function configError(code, message) { const error = new Error(message); error.code = code; return error }

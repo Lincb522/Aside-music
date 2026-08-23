@@ -881,9 +881,9 @@ struct ClassicPlayerLayout: View {
         .padding(18)
         .background(MangaCardBackground(cornerRadius: MangaStyle.cardRadius + 4, elevated: true, tint: MangaStyle.paperWarm))
         .overlay(alignment: .topTrailing) {
-            MangaStar()
+            ClassicDecorativeStar()
                 .fill(MangaStyle.labelYellow)
-                .overlay(MangaStar().stroke(MangaStyle.strokeInk, lineWidth: 1.5))
+                .overlay(ClassicDecorativeStar().stroke(MangaStyle.strokeInk, lineWidth: 1.5))
                 .frame(width: 42, height: 42)
                 .padding(10)
                 .rotationEffect(.degrees(8))
@@ -2824,5 +2824,31 @@ struct ClassicPlayerLayout: View {
         if let bd = info.bitDepth, bd > 0 { parts.append("\(bd)bit") }
         if let ch = info.channelCount, ch > 2 { parts.append("\(ch)ch") }
         return parts.joined(separator: " / ")
+    }
+}
+
+private struct ClassicDecorativeStar: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let outerRadius = min(rect.width, rect.height) / 2
+        let innerRadius = outerRadius * 0.4
+        let pointCount = 5
+
+        for index in 0..<(pointCount * 2) {
+            let angle = (Double(index) * .pi / Double(pointCount)) - .pi / 2
+            let radius = index.isMultiple(of: 2) ? outerRadius : innerRadius
+            let point = CGPoint(
+                x: center.x + CGFloat(cos(angle)) * radius,
+                y: center.y + CGFloat(sin(angle)) * radius
+            )
+            if index == 0 {
+                path.move(to: point)
+            } else {
+                path.addLine(to: point)
+            }
+        }
+        path.closeSubpath()
+        return path
     }
 }

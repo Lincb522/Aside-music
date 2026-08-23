@@ -10,6 +10,7 @@ struct LiquidFloatingBar: View {
     @ObservedObject private var playbackTime = PlaybackTimePublisher.shared
     @ObservedObject private var settings = SettingsManager.shared
     @StateObject private var coverColors = CoverColorExtractor(minimumColorCount: 3)
+    @AppStorage(AppConfig.StorageKeys.interfaceIconSet) private var iconSetRaw: String = AppInterfaceIconSet.hicon.rawValue
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.scenePhase) private var scenePhase
@@ -84,6 +85,11 @@ struct LiquidFloatingBar: View {
         hasResolvedPalette ? coverColors.secondaryContentColor : .white.opacity(0.72)
     }
 
+    private var usesPulseBloomArtwork: Bool {
+        _ = iconSetRaw
+        return AppInterfaceIconSet.selectedFromDefaults == .pulseBloom
+    }
+
     var body: some View {
         ZStack {
             shellBackground
@@ -111,6 +117,9 @@ struct LiquidFloatingBar: View {
                         panelSecondaryColor: Color.monoTextPrimary.opacity(0.78),
                         liquidPrimaryColor: liquidPrimaryColor,
                         liquidSecondaryColor: liquidPrimaryColor.opacity(0.82),
+                        pulseBloomAccentColor: colorScheme == .dark
+                            ? .white
+                            : (liquidColors.first ?? Color.monoAccent),
                         liquidProgress: progress,
                         onSelect: selectTab
                     )
@@ -370,37 +379,51 @@ struct LiquidFloatingBar: View {
         .buttonStyle(MonoBouncingButtonStyle(scale: 0.91))
     }
 
+    @ViewBuilder
     private func splitIcon(
         icon: MonoIcon.IconType,
         panelColor: Color,
         liquidColor: Color,
         coverage: Double
     ) -> some View {
-        ZStack {
+        if usesPulseBloomArtwork {
             MonoIcon(
                 icon: icon,
                 size: 15,
                 color: panelColor,
                 lineWidth: 1.75,
                 normalizesBitmapScale: true,
-                forceTemplateRendering: true
+                pulseBloomContrastColor: colorScheme == .dark
+                    ? .white
+                    : (liquidColors.first ?? Color.monoAccent)
             )
-            MonoIcon(
-                icon: icon,
-                size: 15,
-                color: liquidColor,
-                lineWidth: 1.75,
-                normalizesBitmapScale: true,
-                forceTemplateRendering: true
-            )
-                .mask(alignment: .leading) {
-                    GeometryReader { proxy in
-                        HStack(spacing: 0) {
-                            Color.white.frame(width: proxy.size.width * min(max(coverage, 0), 1))
-                            Spacer(minLength: 0)
+        } else {
+            ZStack {
+                MonoIcon(
+                    icon: icon,
+                    size: 15,
+                    color: panelColor,
+                    lineWidth: 1.75,
+                    normalizesBitmapScale: true,
+                    forceTemplateRendering: true
+                )
+                MonoIcon(
+                    icon: icon,
+                    size: 15,
+                    color: liquidColor,
+                    lineWidth: 1.75,
+                    normalizesBitmapScale: true,
+                    forceTemplateRendering: true
+                )
+                    .mask(alignment: .leading) {
+                        GeometryReader { proxy in
+                            HStack(spacing: 0) {
+                                Color.white.frame(width: proxy.size.width * min(max(coverage, 0), 1))
+                                Spacer(minLength: 0)
+                            }
                         }
                     }
-                }
+            }
         }
     }
 
@@ -543,12 +566,20 @@ private struct LiquidTabContent: View {
     let panelSecondaryColor: Color
     let liquidPrimaryColor: Color
     let liquidSecondaryColor: Color
+    let pulseBloomAccentColor: Color
     let liquidProgress: Double
     let onSelect: (Tab) -> Void
 
     @ObservedObject private var onlineAccess = OnlineAccessManager.shared
+    @AppStorage(AppConfig.StorageKeys.interfaceIconSet) private var iconSetRaw: String = AppInterfaceIconSet.hicon.rawValue
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
     @Namespace private var selectionNamespace
+
+    private var usesPulseBloomArtwork: Bool {
+        _ = iconSetRaw
+        return AppInterfaceIconSet.selectedFromDefaults == .pulseBloom
+    }
 
     var body: some View {
         GeometryReader { proxy in
@@ -622,39 +653,51 @@ private struct LiquidTabContent: View {
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
+    @ViewBuilder
     private func tabIcon(_ tab: Tab, selected: Bool, coverage: Double) -> some View {
         let icon = icon(for: tab, selected: selected)
         let iconFrame: CGFloat = 28
         let iconSize: CGFloat = 21
-        return ZStack {
+        if usesPulseBloomArtwork {
             MonoIcon(
                 icon: icon,
                 size: iconSize,
                 color: selected ? panelPrimaryColor : panelSecondaryColor,
                 lineWidth: selected ? 1.9 : 1.6,
                 normalizesBitmapScale: true,
-                forceTemplateRendering: true
+                pulseBloomContrastColor: pulseBloomAccentColor
             )
             .frame(width: iconFrame, height: iconFrame)
-            MonoIcon(
-                icon: icon,
-                size: iconSize,
-                color: selected ? liquidPrimaryColor : liquidSecondaryColor,
-                lineWidth: selected ? 1.9 : 1.6,
-                normalizesBitmapScale: true,
-                forceTemplateRendering: true
-            )
-            .frame(width: iconFrame, height: iconFrame)
-            .mask(alignment: .leading) {
-                GeometryReader { proxy in
-                    HStack(spacing: 0) {
-                        Color.white.frame(width: proxy.size.width * min(max(coverage, 0), 1))
-                        Spacer(minLength: 0)
+        } else {
+            ZStack {
+                MonoIcon(
+                    icon: icon,
+                    size: iconSize,
+                    color: selected ? panelPrimaryColor : panelSecondaryColor,
+                    lineWidth: selected ? 1.9 : 1.6,
+                    normalizesBitmapScale: true,
+                    forceTemplateRendering: true
+                )
+                .frame(width: iconFrame, height: iconFrame)
+                MonoIcon(
+                    icon: icon,
+                    size: iconSize,
+                    color: selected ? liquidPrimaryColor : liquidSecondaryColor,
+                    lineWidth: selected ? 1.9 : 1.6,
+                    normalizesBitmapScale: true,
+                    forceTemplateRendering: true
+                )
+                .frame(width: iconFrame, height: iconFrame)
+                .mask(alignment: .leading) {
+                    GeometryReader { proxy in
+                        HStack(spacing: 0) {
+                            Color.white.frame(width: proxy.size.width * min(max(coverage, 0), 1))
+                            Spacer(minLength: 0)
+                        }
                     }
                 }
             }
         }
-        .frame(width: iconFrame, height: iconFrame)
     }
 
     private func icon(for tab: Tab, selected: Bool) -> MonoIcon.IconType {

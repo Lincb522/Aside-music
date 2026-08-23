@@ -80,7 +80,7 @@ final class GlobalThemeManager: ObservableObject {
         switch id {
         case .default: return DefaultThemeProvider()
         case .muji: return MujiThemeProvider()
-        case .manga: return MangaThemeProvider()
+        case .manga: return DefaultThemeProvider()
         case .neumorphic: return NeumorphicThemeProvider()
         case .capsule: return CapsuleThemeProvider()
         case .petWhite: return PetWhiteThemeProvider()
@@ -92,8 +92,9 @@ final class GlobalThemeManager: ObservableObject {
     // MARK: - 切换
 
     func switchTheme(to id: GlobalThemeId) {
-        guard id != currentThemeId else { return }
-        currentThemeId = id
+        let resolved = id == .manga ? GlobalThemeId.appDefault : id
+        guard resolved != currentThemeId else { return }
+        currentThemeId = resolved
     }
 
     func refreshCurrentThemeTokens() {

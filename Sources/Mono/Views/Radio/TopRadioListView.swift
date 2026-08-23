@@ -9,7 +9,7 @@ struct TopRadioListView: View {
     @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.dismiss) private var dismiss
 
-    enum ListType {
+    enum ListType: Equatable {
         case hot
         case toplist
     }

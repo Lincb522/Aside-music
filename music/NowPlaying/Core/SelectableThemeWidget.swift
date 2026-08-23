@@ -18,7 +18,6 @@ extension WidgetTheme: AppEnum {
         .vinyl: "黑胶",
         .vinylDark: "黑胶（深色）",
         .poster: "海报",
-        .manga: "漫画",
         .magazine: "杂志",
         .aperture: "圆窗唱片",
         .pager: "寻呼机（深色）",

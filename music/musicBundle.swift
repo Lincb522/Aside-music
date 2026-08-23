@@ -12,7 +12,6 @@ struct musicBundle: WidgetBundle {
         NowPlayingWidget(theme: .vinyl)
         NowPlayingWidget(theme: .vinylDark)
         NowPlayingWidget(theme: .poster)
-        NowPlayingWidget(theme: .manga)
         NowPlayingWidget(theme: .magazine)
         NowPlayingWidget(theme: .aperture)
         NowPlayingWidget(theme: .pager)

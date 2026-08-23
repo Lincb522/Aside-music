@@ -21,7 +21,7 @@
 		C0DE60000000000000000001 /* MinimalWhiteIcons in Frameworks */ = {isa = PBXBuildFile; productRef = C0DE60000000000000000003 /* MinimalWhiteIcons */; };
 		C0DE70000000000000000001 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = C0DE70000000000000000003 /* ZIPFoundation */; };
 		C0DE80000000000000000001 /* SwiftPixelGrid in Frameworks */ = {isa = PBXBuildFile; productRef = C0DE80000000000000000003 /* SwiftPixelGrid */; };
-		C0DE90000000000000000001 /* RiveRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = C0DE90000000000000000003 /* RiveRuntime */; };
+		C0DEA0000000000000000001 /* PulseBloomIcons in Frameworks */ = {isa = PBXBuildFile; productRef = C0DEA0000000000000000003 /* PulseBloomIcons */; };
 		DD300001DD300001DD300001 /* HiconIcons in Frameworks */ = {isa = PBXBuildFile; productRef = DD300002DD300002DD300002 /* HiconIcons */; };
 		F4087C202F543A24006005CB /* HiconIcons in Frameworks */ = {isa = PBXBuildFile; productRef = F4087C1F2F543A24006005CB /* HiconIcons */; };
 		F41CFD832F6C1576006ACEF7 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F40957812F4E8A7E006EA119 /* WidgetKit.framework */; };
@@ -77,6 +77,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
+				Themes/Clarity/DESIGN.md,
 			);
 			target = F4CCFD772F320B5900FC36CA /* Mono */;
 		};
@@ -138,7 +139,7 @@
 				C0DE60000000000000000001 /* MinimalWhiteIcons in Frameworks */,
 				C0DE70000000000000000001 /* ZIPFoundation in Frameworks */,
 				C0DE80000000000000000001 /* SwiftPixelGrid in Frameworks */,
-				C0DE90000000000000000001 /* RiveRuntime in Frameworks */,
+				C0DEA0000000000000000001 /* PulseBloomIcons in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -239,7 +240,7 @@
 				C0DE60000000000000000003 /* MinimalWhiteIcons */,
 				C0DE70000000000000000003 /* ZIPFoundation */,
 				C0DE80000000000000000003 /* SwiftPixelGrid */,
-				C0DE90000000000000000003 /* RiveRuntime */,
+				C0DEA0000000000000000003 /* PulseBloomIcons */,
 			);
 			productName = Mono;
 			productReference = F4CCFD782F320B5900FC36CA /* Mono.app */;
@@ -289,7 +290,7 @@
 				C0DE60000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/MinimalWhiteIcons" */,
 				C0DE70000000000000000002 /* XCRemoteSwiftPackageReference "ZIPFoundation" */,
 				C0DE80000000000000000002 /* XCLocalSwiftPackageReference "Packages/UI/SwiftPixelGrid" */,
-				C0DE90000000000000000002 /* XCRemoteSwiftPackageReference "rive-ios" */,
+				C0DEA0000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/PulseBloomIcons" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = F4CCFD792F320B5900FC36CA /* Products */;
@@ -730,6 +731,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/UI/SwiftPixelGrid;
 		};
+		C0DEA0000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/PulseBloomIcons" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/Icons/PulseBloomIcons;
+		};
 		D4E5F6A7B8C9D0E1F2A3B4C5 /* XCLocalSwiftPackageReference "Packages/Icons/SolarIcons" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/Icons/SolarIcons;
@@ -759,14 +764,6 @@
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 0.9.20;
-			};
-		};
-		C0DE90000000000000000002 /* XCRemoteSwiftPackageReference "rive-ios" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/rive-app/rive-ios.git";
-			requirement = {
-				kind = exactVersion;
-				version = 6.23.1;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -822,10 +819,10 @@
 			package = C0DE80000000000000000002 /* XCLocalSwiftPackageReference "Packages/UI/SwiftPixelGrid" */;
 			productName = SwiftPixelGrid;
 		};
-		C0DE90000000000000000003 /* RiveRuntime */ = {
+		C0DEA0000000000000000003 /* PulseBloomIcons */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = C0DE90000000000000000002 /* XCRemoteSwiftPackageReference "rive-ios" */;
-			productName = RiveRuntime;
+			package = C0DEA0000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/PulseBloomIcons" */;
+			productName = PulseBloomIcons;
 		};
 		DD300002DD300002DD300002 /* HiconIcons */ = {
 			isa = XCSwiftPackageProductDependency;

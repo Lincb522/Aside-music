@@ -557,6 +557,29 @@ struct AIEqualizerModelOutput: Decodable, Equatable, Sendable {
     }
 }
 
+/// Evidence that the enabled Agent skills and the mandatory local tuning tool
+/// participated in a successful generation. This remains intentionally small
+/// because every proposal is persisted locally and may also be cloud-synced.
+struct AIEqualizerSkillCompliance: Codable, Equatable, Sendable {
+    enum ExecutionMode: String, Codable, Equatable, Sendable {
+        case requiredModelTool
+        case modelPromptFallback
+        case appleIntelligenceLocalCompiler
+    }
+
+    let accepted: Bool
+    let executionMode: ExecutionMode
+    let knowledgeVersion: String
+    let toolVersion: String
+    let checkedRuleCount: Int
+    let warningCodes: [String]
+    let enabledSkillIDs: [String]
+    let requiredSkillIDs: [String]
+    let modelToolInvocationCount: Int
+    let localValidationApplied: Bool
+    let validatedAt: Date
+}
+
 /// AI 生成并经本地校验后的完整调音方案。
 ///
 /// 同时携带图示均衡、空间、增强、校准、专业处理与效果参数，可缓存并重新应用。
@@ -580,6 +603,12 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
     let provider: AIWireProtocol
     let model: String
     let agentVersion: String?
+    /// The effective, merged skill identity (bundled rules + remote policy +
+    /// local user skills). Missing values identify proposals from older builds
+    /// and deliberately prevent automatic reuse after the skill pipeline ships.
+    let skillFingerprint: String?
+    let skillRevision: String?
+    let skillCompliance: AIEqualizerSkillCompliance?
     let learningRevision: Int?
     let learningConfidence: Float?
     let learningEvidenceCount: Int?
@@ -620,6 +649,9 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
         case provider
         case model
         case agentVersion
+        case skillFingerprint
+        case skillRevision
+        case skillCompliance
         case learningRevision
         case learningConfidence
         case learningEvidenceCount
@@ -684,6 +716,12 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
         provider = (try? values.decode(AIWireProtocol.self, forKey: .provider)) ?? .openAICompatible
         model = (try? values.decode(String.self, forKey: .model)) ?? ""
         agentVersion = try? values.decode(String.self, forKey: .agentVersion)
+        skillFingerprint = try? values.decode(String.self, forKey: .skillFingerprint)
+        skillRevision = try? values.decode(String.self, forKey: .skillRevision)
+        skillCompliance = try? values.decode(
+            AIEqualizerSkillCompliance.self,
+            forKey: .skillCompliance
+        )
         learningRevision = try? values.decode(Int.self, forKey: .learningRevision)
         learningConfidence = try? values.decode(Float.self, forKey: .learningConfidence)
         learningEvidenceCount = try? values.decode(Int.self, forKey: .learningEvidenceCount)
@@ -700,6 +738,11 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
         provider: AIWireProtocol,
         model: String,
         agentVersion: String,
+        skillFingerprint: String,
+        skillRevision: String,
+        skillCompliance: AIEqualizerSkillCompliance,
+        allowsArtistStyleReference: Bool,
+        allowsVocalCharacterReference: Bool,
         tuningIntensity: AIEqualizerTuningIntensity = .smart,
         tuningProfile: AIEqualizerTuningProfile = .standard,
         avoidingProfileNames: Set<String> = [],
@@ -792,13 +835,21 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
             + resolvedEffects.exciterAmountDB * 0.18
             + max(0, resolvedEffects.compressorMakeupDB)
             + (resolvedEffects.haasEnabled ? 0.6 : 0)
+        let parametricPeak = resolvedProfessional.parametricEQ.enabled
+            ? max(0, resolvedProfessional.parametricEQ.bands.map(\.gainDB).max() ?? 0)
+            : 0
+        let truePeakReserve = max(0, features.estimatedTruePeakDBTP + 1)
+        let clippingReserve = min(1.5, max(0, features.clippingRatio) * 6)
         let requiredHeadroom = -min(
             18,
             graphicPeak
                 + tonePeak
+                + parametricPeak
                 + spatialReserve
                 + enhancementReserve
                 + resolvedEnhance.estimatedPeakBoostDB
+                + truePeakReserve
+                + clippingReserve
                 + 0.75
         )
 
@@ -826,14 +877,21 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
         professional = resolvedProfessional
         effects = resolvedEffects
         confidence = min(1, max(0, output.confidence))
-        let resolvedArtistReference = Self.localizedReference(output.artistStyleReference)
-        let resolvedVocalReference = Self.localizedReference(output.vocalCharacterReference)
+        let resolvedArtistReference = allowsArtistStyleReference
+            ? Self.localizedReference(output.artistStyleReference)
+            : nil
+        let resolvedVocalReference = allowsVocalCharacterReference
+            ? Self.localizedReference(output.vocalCharacterReference)
+            : nil
         artistStyleReference = resolvedArtistReference
         vocalCharacterReference = resolvedVocalReference
         summary = Self.localizedSummary(output.summary, tuningProfile: tuningProfile)
         self.provider = provider
         self.model = model
         self.agentVersion = agentVersion
+        self.skillFingerprint = skillFingerprint
+        self.skillRevision = skillRevision
+        self.skillCompliance = skillCompliance
         learningRevision = learningContext?.revision
         learningConfidence = learningContext?.isActive == true ? learningContext?.confidence : nil
         learningEvidenceCount = learningContext?.isActive == true ? learningContext?.evidenceCount : nil
@@ -1524,23 +1582,7 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
     ) -> AIEqualizerProfessionalConfiguration {
         let dynamicBandLimit = features.graphicEQMode == .thirtyTwoBand ? 3 : 4
         let parametricBandLimit = features.graphicEQMode == .thirtyTwoBand ? 3 : 6
-        let defaultDynamicBands = [
-            AIEqualizerDynamicBandConfiguration(
-                frequency: 72, q: 0.85, thresholdDB: -17, ratio: 1.7,
-                maxReductionDB: 2.4, attackMS: 28, releaseMS: 190
-            ),
-            AIEqualizerDynamicBandConfiguration(
-                frequency: 280, q: 1.05, thresholdDB: -19, ratio: 1.55,
-                maxReductionDB: 1.8, attackMS: 35, releaseMS: 230
-            ),
-            AIEqualizerDynamicBandConfiguration(
-                frequency: 7_200, q: 2.2, thresholdDB: -25, ratio: 2.3,
-                maxReductionDB: 3, attackMS: 5, releaseMS: 95
-            )
-        ]
-        let dynamicSource = value?.dynamicEQ.bands.isEmpty == false
-            ? Array(value?.dynamicEQ.bands.prefix(dynamicBandLimit) ?? [])
-            : Array(defaultDynamicBands.prefix(dynamicBandLimit))
+        let dynamicSource = Array(value?.dynamicEQ.bands.prefix(dynamicBandLimit) ?? [])
         let dynamicBands = dynamicSource.map {
             AIEqualizerDynamicBandConfiguration(
                 frequency: clampedFinite($0.frequency, fallback: 1_000, range: 20...20_000),
@@ -1562,7 +1604,10 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
         }
 
         let multibandSource = value?.multiband
-        let dynamicEnabled = value?.dynamicEQ.enabled ?? true
+        // Missing or empty professional output is neutral. Earlier versions
+        // silently enabled a generic three-band dynamic EQ, which could add
+        // processing without track-specific evidence.
+        let dynamicEnabled = value?.dynamicEQ.enabled == true && !dynamicBands.isEmpty
         let multibandEnabled = (multibandSource?.enabled ?? false) && !dynamicEnabled
         let multiband = AIEqualizerMultibandConfiguration(
             enabled: multibandEnabled,
@@ -1610,7 +1655,8 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
             ),
             multiband: multiband,
             parametricEQ: AIEqualizerParametricEQConfiguration(
-                enabled: value?.parametricEQ.enabled ?? !parametricBands.isEmpty,
+                enabled: (value?.parametricEQ.enabled ?? !parametricBands.isEmpty)
+                    && !parametricBands.isEmpty,
                 bands: parametricBands
             )
         )

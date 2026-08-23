@@ -11,7 +11,7 @@
 | `generation_jobs` | 持久化生成任务 | 活跃任务幂等键唯一；保存租约、错误、Token 和费用 |
 | `generation_job_sources` | 任务证据关联 | 任务和来源多对多 |
 | `song_content_whitelist` | 首次生成白名单 | 非白名单歌曲不调用 AI |
-| `song_content_config_versions` | 内容生成与客户端配置版本 | 草稿、验证、发布和归档版本不可覆盖 |
+| `song_content_config_versions` | 内容生成与客户端配置版本 | 草稿、验证、发布和归档版本不可覆盖；客户端 JSON 同时保存调音技能 revision、内置/自定义技能及工具策略 |
 | `song_content_config_publication` | 当前公开配置指针 | 单例发布指针 |
 | `ai_provider_credentials` | 兼容的服务端加密凭据 | AES-256-GCM；不明文回显 |
 | `song_content_roles` | Agent 管理角色 | 编辑、审核、管理员 |

@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="./assets/admin.css?v=2026072802">
   <link rel="stylesheet" href="./assets/admin-terminal.css?v=2026072802">
   <link rel="stylesheet" href="./assets/admin-theme.css?v=2026072802">
-  <link rel="stylesheet" href="./assets/song-content.css?v=2026080301">
+  <link rel="stylesheet" href="./assets/song-content.css?v=2026082201">
 </head>
 <body>
   <div id="authGate" class="auth-gate hidden">
@@ -277,6 +277,39 @@
                   <label class="field config-wide"><span>10 段系统提示词（空则使用 App 内置）</span><textarea data-agent-field="systemPrompt"></textarea></label>
                   <label class="field config-wide"><span>32 段系统提示词（空则使用上项或 App 内置）</span><textarea data-agent-field="secondarySystemPrompt"></textarea></label>
                   <label class="field config-wide"><span>用户提示词模板（{{input}} 为 App 输入）</span><textarea data-agent-field="userPromptTemplate"></textarea></label>
+                  <fieldset class="config-wide agent-skill-config">
+                    <legend>调音技能</legend>
+                    <div class="config-grid">
+                      <label class="field config-wide"><span>技能版本</span><input data-agent-skill-field="revision" type="text" maxlength="160"></label>
+                      <div class="agent-built-in-skills config-wide">
+                        <span class="agent-section-label">内置技能</span>
+                        <div class="agent-built-in-grid">
+                          <label><input data-agent-builtin="measurementEvidence" type="checkbox" checked disabled><span><strong>测量证据</strong><small>强制启用</small></span></label>
+                          <label><input data-agent-builtin="deviceCoordination" type="checkbox" checked disabled><span><strong>设备协同</strong><small>强制启用</small></span></label>
+                          <label><input data-agent-builtin="headroomGuard" type="checkbox" checked disabled><span><strong>余量保护</strong><small>强制启用</small></span></label>
+                          <label><input data-agent-builtin="phaseGuard" type="checkbox" checked disabled><span><strong>相位保护</strong><small>强制启用</small></span></label>
+                          <label><input data-agent-builtin="outputValidation" type="checkbox" checked disabled><span><strong>输出验证</strong><small>强制启用</small></span></label>
+                          <label><input data-agent-builtin="artistReference" type="checkbox"><span><strong>艺人风格参考</strong><small>可选</small></span></label>
+                          <label><input data-agent-builtin="vocalReference" type="checkbox"><span><strong>人声特征参考</strong><small>可选</small></span></label>
+                        </div>
+                      </div>
+                      <div class="agent-custom-skill-section config-wide">
+                        <div class="agent-section-head"><span class="agent-section-label">自定义技能</span><button type="button" class="btn btn-secondary btn-small" data-add-custom-skill>新增技能</button></div>
+                        <div class="agent-custom-skill-list" data-custom-skill-list></div>
+                      </div>
+                    </div>
+                  </fieldset>
+                  <fieldset class="config-wide agent-tool-policy">
+                    <legend>模型工具策略</legend>
+                    <div class="config-grid">
+                      <label class="field"><span>策略版本</span><input data-agent-tool-field="revision" type="text" maxlength="160"></label>
+                      <label class="field"><span>工具名称</span><input data-agent-tool-field="requiredToolName" type="text" maxlength="120" disabled></label>
+                      <label class="field"><span>调用方式</span><select data-agent-tool-field="invocationMode" disabled><option value="required">强制调用</option></select></label>
+                      <label class="field"><span>单次仅调用一次</span><select data-agent-tool-field="requireExactlyOnce" disabled><option value="true">强制开启</option></select></label>
+                      <label class="field"><span>本地安全验证</span><select data-agent-tool-field="localValidationRequired" disabled><option value="true">强制开启</option></select></label>
+                      <label class="field"><span>提示词降级</span><select data-agent-tool-field="allowPromptFallback" disabled><option value="false">禁止</option></select></label>
+                    </div>
+                  </fieldset>
                 </div>
               </details>
               <details class="agent-config-card" data-agent-key="listeningInsight">
@@ -379,6 +412,6 @@
 
   <div id="toast" class="toast" role="status"></div>
   <script src="./assets/admin-core.js?v=2026072802"></script>
-  <script src="./assets/song-content-page.js?v=2026080301"></script>
+  <script src="./assets/song-content-page.js?v=2026082201"></script>
 </body>
 </html>

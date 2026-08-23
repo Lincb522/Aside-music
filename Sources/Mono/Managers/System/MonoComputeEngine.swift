@@ -1,7 +1,6 @@
 import Combine
 import Darwin
 import Foundation
-import QuartzCore
 import UIKit
 
 /// CPU/GPU 统一运行预算。GPU 在 iOS 上没有适合生产环境持续轮询的全局利用率 API，
@@ -39,7 +38,7 @@ struct MonoComputeBudget: Equatable, Sendable {
                 heavyVisualFramesPerSecond: 60,
                 gpuRenderScale: 1,
                 particleDensityScale: 1,
-                backgroundComputeConcurrency: 4,
+                backgroundComputeConcurrency: 3,
                 allowsExpensiveShaders: true,
                 allowsContinuousHaptics: true
             )
@@ -49,9 +48,9 @@ struct MonoComputeBudget: Equatable, Sendable {
                 interactiveFramesPerSecond: 60,
                 continuousFramesPerSecond: 60,
                 heavyVisualFramesPerSecond: 60,
-                gpuRenderScale: 0.92,
-                particleDensityScale: 0.84,
-                backgroundComputeConcurrency: 3,
+                gpuRenderScale: 1,
+                particleDensityScale: 1,
+                backgroundComputeConcurrency: 2,
                 allowsExpensiveShaders: true,
                 allowsContinuousHaptics: true
             )
@@ -61,9 +60,9 @@ struct MonoComputeBudget: Equatable, Sendable {
                 interactiveFramesPerSecond: 60,
                 continuousFramesPerSecond: 60,
                 heavyVisualFramesPerSecond: 60,
-                gpuRenderScale: 0.84,
-                particleDensityScale: 0.72,
-                backgroundComputeConcurrency: 2,
+                gpuRenderScale: 1,
+                particleDensityScale: 1,
+                backgroundComputeConcurrency: 1,
                 allowsExpensiveShaders: true,
                 allowsContinuousHaptics: false
             )
@@ -73,8 +72,8 @@ struct MonoComputeBudget: Equatable, Sendable {
                 interactiveFramesPerSecond: 60,
                 continuousFramesPerSecond: 60,
                 heavyVisualFramesPerSecond: 60,
-                gpuRenderScale: 0.78,
-                particleDensityScale: 0.60,
+                gpuRenderScale: 1,
+                particleDensityScale: 1,
                 backgroundComputeConcurrency: 1,
                 allowsExpensiveShaders: true,
                 allowsContinuousHaptics: false
@@ -161,8 +160,6 @@ final class MonoComputeEngine: ObservableObject {
 
     private var observerTokens: [NSObjectProtocol] = []
     private var monitorTask: Task<Void, Never>?
-    private var frameDisplayLink: CADisplayLink?
-    private var framePacingTarget: MonoFramePacingTarget?
     private var activeWorkloads: [UUID: WorkloadKind] = [:]
     private var isStarted = false
     private var isApplicationActive = true
@@ -172,19 +169,14 @@ final class MonoComputeEngine: ObservableObject {
     private var pendingCPUTier: MonoComputeBudget.Tier?
     private var pendingCPUStreak = 0
     private var recoveryStreak = 0
-    private var renderPressureTier: MonoComputeBudget.Tier = .maximum
-    private var pendingRenderTier: MonoComputeBudget.Tier?
-    private var pendingRenderStreak = 0
-    private var renderRecoveryStreak = 0
-    private var frameWindowStartedAt: CFTimeInterval?
-    private var previousFrameTimestamp: CFTimeInterval?
-    private var frameOpportunityCount = 0
-    private var missedFrameCount = 0
-    private var longestFrameDuration = 0.0
-    private var lastFrameDropRatio = 0.0
-    private var lastLongestFrameDuration = 0.0
+    /// GPU 没有可用于生产环境持续轮询的全局占用率 API。旧实现另外创建
+    /// CADisplayLink 作为“帧探针”，它本身会持续唤醒主线程和渲染服务，
+    /// 在流体与沉浸页面反而成为长期发热源。渲染质量现固定保持完整，
+    /// 引擎只把系统压力转移到后台计算并发，不再主动制造额外帧循环。
+    private let renderPressureTier: MonoComputeBudget.Tier = .maximum
+    private let lastFrameDropRatio = 0.0
+    private let lastLongestFrameDuration = 0.0
     private var transientPressureUntil: Date?
-    private var frameMonitoringGraceUntil: Date?
 
     private init() {
         let initial = MonoComputeBudgetStore.shared.current
@@ -225,24 +217,18 @@ final class MonoComputeEngine: ObservableObject {
         snapshot
     }
 
-    /// 登记持续重视觉工作。首个工作负载出现时才启动单一帧探针；最后一个
-    /// 结束后立即关闭，不让性能监控本身成为常驻耗电源。
+    /// 登记持续重视觉工作，用来让 CPU 采样采用较快节奏；不再创建额外
+    /// CADisplayLink，避免性能引擎与真实动画争抢每帧主线程预算。
     @discardableResult
     func beginWorkload(_ kind: WorkloadKind) -> UUID {
         let token = UUID()
         activeWorkloads[token] = kind
-        if activeWorkloads.count == 1 {
-            startFramePacingMonitor()
-        }
         refreshBudget(reason: "workload begin")
         return token
     }
 
     func endWorkload(_ token: UUID) {
         guard activeWorkloads.removeValue(forKey: token) != nil else { return }
-        if activeWorkloads.isEmpty {
-            stopFramePacingMonitor(resetPressure: true)
-        }
         refreshBudget(reason: "workload end")
     }
 
@@ -253,7 +239,7 @@ final class MonoComputeEngine: ObservableObject {
             "tier=\(current.budget.tier.rawValue) cpu=\(String(format: "%.1f%%", current.processCPUPercent)) smoothed=\(String(format: "%.1f%%", current.smoothedCPUPercent))",
             "fps interactive=\(current.budget.interactiveFramesPerSecond) continuous=\(current.budget.continuousFramesPerSecond) heavy=\(current.budget.heavyVisualFramesPerSecond)",
             "gpuScale=\(String(format: "%.2f", current.budget.gpuRenderScale)) particles=\(String(format: "%.2f", current.budget.particleDensityScale)) shaders=\(current.budget.allowsExpensiveShaders)",
-            "frameDrops=\(String(format: "%.1f%%", current.frameDropRatio * 100)) longest=\(String(format: "%.1fms", current.longestFrameDurationMilliseconds)) renderTier=\(current.renderPressureTier.rawValue)",
+            "frameProbe=disabled renderQuality=full renderTier=\(current.renderPressureTier.rawValue)",
             "thermal=\(current.thermalStateRawValue) lowPower=\(current.isLowPowerModeEnabled) active=\(current.isApplicationActive) captured=\(current.isScreenCaptured)",
             "workloads=\(current.activeWorkloads.joined(separator: ","))"
         ].joined(separator: "\n")
@@ -310,9 +296,6 @@ final class MonoComputeEngine: ObservableObject {
                 self.isApplicationActive = true
                 self.isScreenCaptured = Self.anyScreenCaptured()
                 self.screenCaptured = self.isScreenCaptured
-                if !self.activeWorkloads.isEmpty {
-                    self.startFramePacingMonitor()
-                }
                 self.refreshBudget(reason: "foreground")
             }
         })
@@ -324,7 +307,6 @@ final class MonoComputeEngine: ObservableObject {
             Task { @MainActor in
                 guard let self else { return }
                 self.isApplicationActive = false
-                self.stopFramePacingMonitor(resetPressure: false)
                 // 后台直接由环境档位接管，不再保留/消费前台瞬时 CPU 峰值；
                 // 否则重新回前台时会被旧样本继续压在低画质档。
                 self.smoothedCPUPercent = 0
@@ -342,7 +324,18 @@ final class MonoComputeEngine: ObservableObject {
         monitorTask = Task { [weak self] in
             while !Task.isCancelled {
                 guard let self else { return }
-                let interval: Duration = self.isApplicationActive ? .seconds(2) : .seconds(8)
+                // 线程级 CPU 采样会遍历进程中的每条线程。旧版每 2 秒常驻
+                // 扫描，在播放和复杂动画期间会与主业务叠加。重视觉期间 8 秒、
+                // 普通前台 20 秒、后台 60 秒已经足够判断持续压力，并允许系统
+                // 合并唤醒，避免监控器自身造成发热。
+                let interval: Duration
+                if !self.isApplicationActive {
+                    interval = .seconds(60)
+                } else if !self.activeWorkloads.isEmpty {
+                    interval = .seconds(8)
+                } else {
+                    interval = .seconds(20)
+                }
                 try? await Task.sleep(for: interval)
                 guard !Task.isCancelled else { return }
                 let cpu = await Task.detached(priority: .utility) {
@@ -352,152 +345,6 @@ final class MonoComputeEngine: ObservableObject {
                 self.consumeCPUSample(cpu)
             }
         }
-    }
-
-    private func startFramePacingMonitor() {
-        guard isApplicationActive,
-              !activeWorkloads.isEmpty,
-              frameDisplayLink == nil else { return }
-
-        resetFrameWindow()
-        // 首次进入流体/沉浸页面时通常伴随封面解码、Shader 首次编译和
-        // 转场动画。这些一次性开销不能被当作持续渲染压力。
-        frameMonitoringGraceUntil = Date().addingTimeInterval(7)
-        let target = MonoFramePacingTarget { [weak self] displayLink in
-            self?.consumeFrame(displayLink)
-        }
-        let displayLink = CADisplayLink(
-            target: target,
-            selector: #selector(MonoFramePacingTarget.tick(_:))
-        )
-        // 探针只需要观察持续掉帧趋势，不需要额外把屏幕唤醒到 60/120Hz。
-        // 重视觉本身已在刷新，30Hz 足以覆盖 2.5 秒统计窗口。
-        displayLink.preferredFrameRateRange = CAFrameRateRange(
-            minimum: 15,
-            maximum: 30,
-            preferred: 30
-        )
-        displayLink.add(to: .main, forMode: .common)
-        framePacingTarget = target
-        frameDisplayLink = displayLink
-    }
-
-    private func stopFramePacingMonitor(resetPressure: Bool) {
-        frameDisplayLink?.invalidate()
-        frameDisplayLink = nil
-        framePacingTarget = nil
-        frameMonitoringGraceUntil = nil
-        resetFrameWindow()
-        if resetPressure {
-            renderPressureTier = .maximum
-            pendingRenderTier = nil
-            pendingRenderStreak = 0
-            renderRecoveryStreak = 0
-            lastFrameDropRatio = 0
-            lastLongestFrameDuration = 0
-        }
-    }
-
-    private func resetFrameWindow() {
-        frameWindowStartedAt = nil
-        previousFrameTimestamp = nil
-        frameOpportunityCount = 0
-        missedFrameCount = 0
-        longestFrameDuration = 0
-    }
-
-    private func consumeFrame(_ displayLink: CADisplayLink) {
-        if let frameMonitoringGraceUntil, frameMonitoringGraceUntil > Date() {
-            resetFrameWindow()
-            return
-        }
-        frameMonitoringGraceUntil = nil
-
-        let timestamp = displayLink.timestamp
-        if frameWindowStartedAt == nil {
-            frameWindowStartedAt = timestamp
-        }
-
-        if let previousFrameTimestamp {
-            let actualInterval = max(0, timestamp - previousFrameTimestamp)
-            let nominalInterval = max(
-                displayLink.targetTimestamp - displayLink.timestamp,
-                1.0 / 30.0
-            )
-            let opportunities = max(1, Int((actualInterval / nominalInterval).rounded()))
-            frameOpportunityCount += opportunities
-            missedFrameCount += max(0, opportunities - 1)
-            longestFrameDuration = max(longestFrameDuration, actualInterval)
-        }
-        previousFrameTimestamp = timestamp
-
-        guard let frameWindowStartedAt,
-              timestamp - frameWindowStartedAt >= 2.5,
-              frameOpportunityCount >= 20 else { return }
-
-        let dropRatio = min(
-            1,
-            Double(missedFrameCount) / Double(max(frameOpportunityCount, 1))
-        )
-        let longest = longestFrameDuration
-        evaluateRenderPressure(dropRatio: dropRatio, longestFrameDuration: longest)
-        resetFrameWindow()
-    }
-
-    private func evaluateRenderPressure(
-        dropRatio: Double,
-        longestFrameDuration: TimeInterval
-    ) {
-        lastFrameDropRatio = max(0, min(1, dropRatio))
-        lastLongestFrameDuration = max(0, longestFrameDuration)
-
-        let candidate: MonoComputeBudget.Tier
-        if dropRatio >= 0.48 || longestFrameDuration >= 0.36 {
-            candidate = .minimum
-        } else if dropRatio >= 0.26 || longestFrameDuration >= 0.22 {
-            candidate = .reduced
-        } else if dropRatio >= 0.11 || longestFrameDuration >= 0.11 {
-            candidate = .balanced
-        } else {
-            candidate = .maximum
-        }
-
-        if candidate > renderPressureTier {
-            if pendingRenderTier == candidate {
-                pendingRenderStreak += 1
-            } else {
-                pendingRenderTier = candidate
-                pendingRenderStreak = 1
-            }
-            renderRecoveryStreak = 0
-            // 至少持续四个统计窗口才降一级。即便遇到严重瞬时压力也禁止
-            // 从最高档直接跳到最低档，避免流体突然改变形态或停止运动。
-            let requiredStreak = candidate == .minimum ? 6 : 4
-            if pendingRenderStreak >= requiredStreak {
-                renderPressureTier = MonoComputeBudget.Tier(
-                    rawValue: min(candidate.rawValue, renderPressureTier.rawValue + 1)
-                ) ?? candidate
-                pendingRenderTier = nil
-                pendingRenderStreak = 0
-            }
-        } else if candidate < renderPressureTier {
-            renderRecoveryStreak += 1
-            pendingRenderTier = nil
-            pendingRenderStreak = 0
-            // 稳定约 7.5 秒即可恢复一级；恢复速度略快于降档速度。
-            if renderRecoveryStreak >= 3 {
-                renderPressureTier = MonoComputeBudget.Tier(
-                    rawValue: max(candidate.rawValue, renderPressureTier.rawValue - 1)
-                ) ?? candidate
-                renderRecoveryStreak = 0
-            }
-        } else {
-            pendingRenderTier = nil
-            pendingRenderStreak = 0
-            renderRecoveryStreak = 0
-        }
-
-        refreshBudget(reason: "frame pacing")
     }
 
     private func consumeCPUSample(_ cpuPercent: Double) {
@@ -621,6 +468,7 @@ final class MonoComputeEngine: ObservableObject {
         guard nextBudget != budget else { return }
         budget = nextBudget
         MonoComputeBudgetStore.shared.update(nextBudget)
+        Task { await MonoComputeScheduler.shared.budgetDidChange() }
         NotificationCenter.default.post(name: .monoComputeBudgetDidChange, object: nil)
         AppLogger.info(
             "MonoCompute Engine 调整 tier=\(resolvedTier.rawValue) reason=\(reason) cpu=\(String(format: "%.1f", cpu)) fps=\(nextBudget.interactiveFramesPerSecond)/\(nextBudget.continuousFramesPerSecond)/\(nextBudget.heavyVisualFramesPerSecond) gpuScale=\(String(format: "%.2f", nextBudget.gpuRenderScale))",
@@ -668,18 +516,5 @@ final class MonoComputeEngine: ObservableObject {
             total += Double(info.cpu_usage) / Double(TH_USAGE_SCALE) * 100
         }
         return total
-    }
-}
-
-@MainActor
-private final class MonoFramePacingTarget: NSObject {
-    private let handler: (CADisplayLink) -> Void
-
-    init(handler: @escaping (CADisplayLink) -> Void) {
-        self.handler = handler
-    }
-
-    @objc func tick(_ displayLink: CADisplayLink) {
-        handler(displayLink)
     }
 }

@@ -375,34 +375,7 @@ final class AIEqualizerAgent: ObservableObject {
         }
 
         let identifier = songIdentifier(song)
-        let outputIdentity = currentOutputIdentity()
-        let graphicEQMode = EQManager.shared.graphicEQMode
         samplingRetryCount[identifier] = nil
-
-        if let saved = proposalCache.latestReusable(
-            for: identifier,
-            outputIdentity: outputIdentity,
-            graphicEQMode: graphicEQMode,
-            tuningIntensity: tuningIntensity,
-            tuningProfile: profile
-        ) {
-            let generatedAgentVersion = saved.proposal.agentVersion ?? "legacy"
-            let requiresSpatialUpgrade = profile == .monoSpatialEnhancement
-                && generatedAgentVersion != activePromptVersion
-            if !requiresSpatialUpgrade {
-                proposal = saved.proposal
-                AppLogger.info(
-                    "[AIEqualizerAgent] Tuning profile selection reused saved proposal song=\(identifier) profile=\(profile.rawValue) proposal=\(saved.id.uuidString)",
-                    step: "ai-tuning.profile-reuse"
-                )
-                apply(saved.proposal)
-                return
-            }
-            AppLogger.info(
-                "[AIEqualizerAgent] Tuning profile selection requires spatial upgrade song=\(identifier) proposal=\(saved.id.uuidString) generatedBy=\(generatedAgentVersion) currentAgent=\(activePromptVersion)",
-                step: "ai-tuning.spatial-upgrade"
-            )
-        }
 
         EQManager.shared.prepareForAIAnalysis(songIdentifier: identifier)
         proposal = nil
@@ -623,8 +596,12 @@ final class AIEqualizerAgent: ObservableObject {
         if let managedAgent, !managedAgent.enabled { throw AIEqualizerError.modelUnavailable }
         let configuration = try await resolvedProviderConfiguration(usePublishedConfiguration: false)
         let bundledSystemPrompt = AIEqualizerPrompt.system(for: .tenBand)
+        let configuredSystemPrompt = managedAgent?.systemPrompt(fallback: bundledSystemPrompt)
         let text = try await client.generate(
-            systemPrompt: managedAgent?.systemPrompt(fallback: bundledSystemPrompt) ?? bundledSystemPrompt,
+            systemPrompt: AIEqualizerPrompt.managedSystemPrompt(
+                for: .tenBand,
+                configuredPrompt: configuredSystemPrompt
+            ),
             userPrompt: managedAgent?.userPrompt(fallback: AIEqualizerPrompt.connectivityTest)
                 ?? AIEqualizerPrompt.connectivityTest,
             configuration: configuration,
@@ -755,44 +732,14 @@ final class AIEqualizerAgent: ObservableObject {
             phase = .failed(AIEqualizerError.modelUnavailable.localizedDescription)
             return
         }
+        let skillExecution = resolvedSkillExecutionContext(managedAgent: managedAgent)
+        let currentAgentVersion = managedAgent?.promptVersion ?? AIEqualizerPrompt.version
 
         let requestedIntensity = tuningIntensity
         let requestedProfile = tuningProfile
         let graphicEQMode = EQManager.shared.graphicEQMode
         let deviceTuningTarget = AirPodsExperienceManager.currentAITuningTargetSnapshot()
         let outputIdentity = currentOutputIdentity()
-
-        // Replaying a song restores its validated result before sampling. The
-        // current spatial profile is the exception because earlier versions were
-        // clamped to standard-profile spatial ranges and need one regeneration.
-        if !forceRegeneration,
-           let saved = proposalCache.latestReusable(
-               for: identifier,
-               outputIdentity: outputIdentity,
-               graphicEQMode: graphicEQMode,
-               tuningIntensity: requestedIntensity,
-               tuningProfile: requestedProfile
-           ) {
-            let generatedAgentVersion = saved.proposal.agentVersion ?? "legacy"
-            let requiresSpatialUpgrade = requestedProfile == .monoSpatialEnhancement
-                && generatedAgentVersion != activePromptVersion
-            if requiresSpatialUpgrade {
-                AppLogger.info(
-                    "[AIEqualizerAgent] Regenerating legacy spatial proposal song=\(identifier) proposal=\(saved.id.uuidString) generatedBy=\(generatedAgentVersion) currentAgent=\(activePromptVersion)",
-                    step: "ai-tuning.spatial-upgrade"
-                )
-            } else {
-                samplingRetryCount[identifier] = nil
-                savedProposals = proposalCache.history(for: identifier)
-                proposal = saved.proposal
-                AppLogger.info(
-                    "[AIEqualizerAgent] Reused saved proposal before analysis song=\(identifier) proposal=\(saved.id.uuidString) output=\(outputIdentity) generatedBy=\(generatedAgentVersion) currentAgent=\(activePromptVersion)",
-                    step: "ai-tuning.saved-reuse"
-                )
-                apply(saved.proposal)
-                return
-            }
-        }
 
         let configuration: AIProviderConfiguration
         do {
@@ -829,8 +776,81 @@ final class AIEqualizerAgent: ObservableObject {
             }
         }
         let deviceTuningIdentity = deviceTuningTarget?.identifier ?? "device-baseline:none"
-        let cacheKey = "\(managedAgent?.promptVersion ?? AIEqualizerPrompt.version)|mono-agent-v5|learning:\(learningRevision)|\(graphicEQMode.rawValue)|\(song.musicSource.rawValue)|\(song.id)|\(audioVariant)|\(configuration.wireProtocol.rawValue)|\(configuration.resolvedModel)|\(outputIdentity)|\(deviceTuningIdentity)|\(samplingMode.rawValue)|\(Int(samplingDuration.rounded()))|\(requestedIntensity.rawValue)|\(requestedProfile.rawValue)"
-        if !forceRegeneration, let cached = proposalCache.value(for: cacheKey) {
+        let agentSkillContext = skillExecution.runtime.modelContext
+        let traceID = AIAgentTraceStore.shared.begin(
+            agentID: "equalizer",
+            agentName: "AI 自动调音",
+            subject: "\(song.name) · \(song.artistName)",
+            provider: configuration.wireProtocol.rawValue,
+            model: configuration.resolvedModel
+        )
+        AIAgentTraceStore.shared.append(
+            traceID,
+            category: .reasoning,
+            stage: .configuration,
+            title: "任务创建",
+            detail: "已确认播放目标、输出设备、均衡器频段与调音模式，开始为当前歌曲准备测量和模型请求。",
+            metadata: [
+                "songID": String(song.id),
+                "source": song.musicSource.rawValue,
+                "agentVersion": currentAgentVersion,
+                "knowledgeVersion": MonoAudioTuningKnowledge.version,
+                "toolVersion": MonoAudioTuningTool.version,
+                "provider": configuration.wireProtocol.rawValue,
+                "model": configuration.resolvedModel,
+                "profile": requestedProfile.rawValue,
+                "intensity": requestedIntensity.rawValue,
+                "eqBands": String(graphicEQMode.bandCount),
+                "eqMode": graphicEQMode.rawValue,
+                "output": EQManager.shared.currentOutputName,
+                "audioVariant": audioVariant,
+                "samplingMode": samplingMode.rawValue,
+                "samplingSeconds": samplingDurationText,
+                "deviceTuningIdentity": deviceTuningIdentity,
+                "learningRevision": String(learningRevision)
+            ]
+        )
+        let enabledCustomSkills = skillExecution.runtime.customSkills.filter(\.isEnabled)
+        let skillStore = MonoAudioAgentSkillStore.shared
+        let builtInSkillSources = MonoAudioAgentBuiltInSkill.allCases.map { skill in
+            let source = skillStore.source(for: skill)?.rawValue ?? "bundled"
+            return "\(skill.rawValue)=\(source)"
+        }.joined(separator: ",")
+        AIAgentTraceStore.shared.append(
+            traceID,
+            category: .skill,
+            stage: .skills,
+            title: "加载 Agent 技能",
+            detail: agentSkillContext.isEmpty ? "本次没有启用额外技能。" : agentSkillContext,
+            metadata: [
+                "adaptiveLearning": adaptiveLearningEnabled ? "enabled" : "disabled",
+                "configurationSource": MonoAudioAgentSkillStore.shared.configurationSource.rawValue,
+                "runtimeFingerprint": skillExecution.runtime.fingerprint,
+                "executionFingerprint": skillExecution.fingerprint,
+                "revision": skillExecution.runtime.revision,
+                "toolPolicyRevision": skillExecution.policy.revision ?? "bundled-v1",
+                "toolName": skillExecution.policy.requiredToolName ?? "mono_audio_tuning",
+                "invocationMode": skillExecution.policy.invocationMode ?? "required",
+                "requireExactlyOnce": (skillExecution.policy.requireExactlyOnce ?? true) ? "true" : "false",
+                "localValidationRequired": (skillExecution.policy.localValidationRequired ?? true) ? "true" : "false",
+                "allowPromptFallback": (skillExecution.policy.allowPromptFallback ?? false) ? "true" : "false",
+                "enabled": skillExecution.runtime.enabledSkillIDs.joined(separator: ","),
+                "required": skillExecution.runtime.requiredSkillIDs.joined(separator: ","),
+                "builtInSources": builtInSkillSources,
+                "customCount": String(enabledCustomSkills.count),
+                "customSkills": enabledCustomSkills.map(\.name).joined(separator: ","),
+                "customSources": enabledCustomSkills.map(\.source.rawValue).joined(separator: ",")
+            ]
+        )
+        let toolPolicyRevision = skillExecution.policy.revision ?? "bundled-v1"
+        let cacheKey = "\(currentAgentVersion)|\(MonoAudioTuningTool.version)|mono-agent-v6|learning:\(learningRevision)|skillFingerprint:\(skillExecution.fingerprint)|skillRevision:\(skillExecution.runtime.revision)|toolPolicy:\(toolPolicyRevision)|\(graphicEQMode.rawValue)|\(song.musicSource.rawValue)|\(song.id)|\(audioVariant)|\(configuration.wireProtocol.rawValue)|\(configuration.resolvedModel)|\(outputIdentity)|\(deviceTuningIdentity)|\(samplingMode.rawValue)|\(Int(samplingDuration.rounded()))|\(requestedIntensity.rawValue)|\(requestedProfile.rawValue)"
+        if !forceRegeneration,
+           let cached = proposalCache.value(
+               for: cacheKey,
+               agentVersion: currentAgentVersion,
+               skillFingerprint: skillExecution.fingerprint,
+               skillRevision: skillExecution.runtime.revision
+           ) {
             samplingRetryCount[identifier] = nil
             if proposalCache.shouldRecord(
                 cached,
@@ -849,8 +869,46 @@ final class AIEqualizerAgent: ObservableObject {
                 step: "ai-tuning.cache-hit"
             )
             recordProfileName(cached.profileName)
-            proposal = cached
-            apply(cached)
+            let didApply = apply(
+                cached,
+                expectedSongIdentifier: identifier,
+                expectedOutputIdentity: outputIdentity
+            )
+            AIAgentTraceStore.shared.append(
+                traceID,
+                category: .reasoning,
+                level: didApply ? .success : .warning,
+                stage: .application,
+                title: "复用已验证方案",
+                detail: didApply
+                    ? "当前歌曲、音源版本、输出设备、调音模式和技能版本均与缓存一致，已直接写入播放 DSP。"
+                    : "缓存方案本身有效，但播放目标或均衡器模式已变化，因此没有写入当前 DSP。",
+                metadata: [
+                    "result": didApply ? "applied" : "skipped-context-changed",
+                    "cacheReused": "true",
+                    "proposalID": cached.id.uuidString,
+                    "profile": cached.profileName,
+                    "bands": String(cached.gains.count),
+                    "preampDB": String(format: "%.2f", cached.preampDB),
+                    "confidence": String(format: "%.3f", cached.confidence),
+                    "knowledgeVersion": cached.skillCompliance?.knowledgeVersion ?? "",
+                    "toolVersion": cached.skillCompliance?.toolVersion ?? "",
+                    "checkedRuleCount": String(cached.skillCompliance?.checkedRuleCount ?? 0),
+                    "warningCodes": cached.skillCompliance?.warningCodes.joined(separator: ",") ?? "",
+                    "output": EQManager.shared.currentOutputName,
+                    "eqMode": cached.graphicEQMode.rawValue
+                ]
+            )
+            if didApply {
+                proposal = cached
+                AIAgentTraceStore.shared.finish(traceID, status: .completed)
+            } else {
+                AIAgentTraceStore.shared.finish(
+                    traceID,
+                    status: .cancelled,
+                    message: String(localized: "agent_trace_dsp_context_changed")
+                )
+            }
             return
         }
         do {
@@ -866,7 +924,26 @@ final class AIEqualizerAgent: ObservableObject {
                     "[AIEqualizerAgent] Reused measured features song=\(identifier) variant=\(audioVariant) output=\(outputIdentity) mode=\(graphicEQMode.rawValue) frames=\(features.frameCount)",
                     step: "ai-tuning.measurement-reuse"
                 )
+                AIAgentTraceStore.shared.append(
+                    traceID,
+                    category: .reasoning,
+                    stage: .measurement,
+                    title: "复用音频测量",
+                    detail: "当前音频版本与输出环境已有可靠测量，直接用于本次调音。",
+                    metadata: [
+                        "frames": String(features.frameCount),
+                        "sampleSeconds": String(format: "%.2f", features.sampleDuration)
+                    ]
+                )
             } else {
+                AIAgentTraceStore.shared.append(
+                    traceID,
+                    category: .reasoning,
+                    stage: .measurement,
+                    title: "采集音频特征",
+                    detail: "开始采样响度、频谱、峰值、动态与相位兼容性等可验证特征。",
+                    metadata: ["targetSeconds": samplingDurationText]
+                )
                 samplingStage = .preparing
                 phase = .sampling(progress: 0)
                 features = try await sampler.sample(
@@ -897,6 +974,21 @@ final class AIEqualizerAgent: ObservableObject {
                 )
             }
             measuredFeatures = features
+            AIAgentTraceStore.shared.append(
+                traceID,
+                category: .reasoning,
+                level: .success,
+                stage: .measurement,
+                title: "测量完成",
+                detail: "已生成模型可用的结构化音频证据，下一步提交调音请求。",
+                durationSeconds: samplingElapsed,
+                metadata: [
+                    "frames": String(features.frameCount),
+                    "sampleSeconds": String(format: "%.2f", features.sampleDuration),
+                    "truePeakDBTP": String(format: "%.2f", features.estimatedTruePeakDBTP),
+                    "phaseCorrelation": String(format: "%.3f", features.phaseCorrelation)
+                ]
+            )
             let learningContext = adaptiveLearningEnabled
                 ? learningStore.context(
                     for: features,
@@ -912,28 +1004,68 @@ final class AIEqualizerAgent: ObservableObject {
                 song: song,
                 learningContext: learningContext,
                 deviceTuningTarget: deviceTuningTarget,
-                managedAgent: managedAgent
+                managedAgent: managedAgent,
+                skillRuntime: skillExecution.runtime,
+                toolPolicy: skillExecution.policy,
+                traceID: traceID
             )
             let output = generation.output
             let generationElapsed = generation.elapsed
-            let applyingStartedAt = Date()
+            let compilationStartedAt = Date()
             generationStage = .finalizing
-            var result = AIEqualizerProposal(
+            var result = try MonoAudioTuningTool.compileProposal(
                 songID: song.id,
                 output: output,
                 features: features,
                 provider: configuration.wireProtocol,
                 model: configuration.resolvedModel,
-                agentVersion: managedAgent?.promptVersion ?? AIEqualizerPrompt.version,
+                agentVersion: currentAgentVersion,
+                skillFingerprint: skillExecution.fingerprint,
+                skillRevision: skillExecution.runtime.revision,
+                executionMode: generation.executionMode,
+                modelToolInvocationCount: generation.modelToolInvocationCount,
+                skillRuntime: skillExecution.runtime,
                 tuningIntensity: requestedIntensity,
                 tuningProfile: requestedProfile,
                 avoidingProfileNames: Set(recentProfileNames),
                 learningContext: learningContext,
                 deviceTuningTarget: deviceTuningTarget
             )
-            proposal = result
-            apply(result)
-            let applyingElapsed = Date().timeIntervalSince(applyingStartedAt)
+            let compilationElapsed = Date().timeIntervalSince(compilationStartedAt)
+            let compliance = result.skillCompliance
+            AIAgentTraceStore.shared.append(
+                traceID,
+                category: .skill,
+                level: .success,
+                stage: .compilation,
+                title: "本地调音编译器",
+                detail: "模型方案已通过频段、增益、相位、动态与余量规则编译，生成可应用的播放参数。",
+                durationSeconds: compilationElapsed,
+                metadata: [
+                    "toolVersion": MonoAudioTuningTool.version,
+                    "knowledgeVersion": MonoAudioTuningKnowledge.version,
+                    "skillFingerprint": skillExecution.fingerprint,
+                    "skillRevision": skillExecution.runtime.revision,
+                    "executionMode": generation.executionMode.rawValue,
+                    "modelToolInvocationCount": String(generation.modelToolInvocationCount),
+                    "enabledSkills": skillExecution.runtime.enabledSkillIDs.joined(separator: ","),
+                    "requiredSkills": skillExecution.runtime.requiredSkillIDs.joined(separator: ","),
+                    "profile": result.profileName,
+                    "bands": String(result.gains.count),
+                    "preampDB": String(format: "%.2f", result.preampDB),
+                    "confidence": String(format: "%.3f", result.confidence),
+                    "checkedRuleCount": String(compliance?.checkedRuleCount ?? 0),
+                    "warningCodes": compliance?.warningCodes.joined(separator: ",") ?? "",
+                    "localValidationApplied": (compliance?.localValidationApplied ?? false) ? "true" : "false"
+                ]
+            )
+            let applicationStartedAt = Date()
+            let didApply = apply(
+                result,
+                expectedSongIdentifier: identifier,
+                expectedOutputIdentity: outputIdentity
+            )
+            let applyingElapsed = Date().timeIntervalSince(applicationStartedAt)
             let timing = AIEqualizerTiming(
                 total: Date().timeIntervalSince(runStartedAt),
                 sampling: samplingElapsed,
@@ -942,6 +1074,29 @@ final class AIEqualizerAgent: ObservableObject {
                 completedAt: Date()
             )
             result.timing = timing
+            AIAgentTraceStore.shared.append(
+                traceID,
+                category: .skill,
+                level: didApply ? .success : .warning,
+                stage: .application,
+                title: didApply ? "DSP 应用完成" : "DSP 未应用",
+                detail: didApply
+                    ? "编译后的均衡、动态、空间与保护参数已提交到当前播放 DSP。"
+                    : "生成与编译已经完成，但播放目标或均衡器模式发生变化，因此没有修改当前 DSP。",
+                durationSeconds: applyingElapsed,
+                metadata: [
+                    "result": didApply ? "applied" : "skipped-context-changed",
+                    "cacheReused": "false",
+                    "proposalID": result.id.uuidString,
+                    "output": EQManager.shared.currentOutputName,
+                    "eqMode": result.graphicEQMode.rawValue,
+                    "profile": result.profileName,
+                    "bands": String(result.gains.count),
+                    "preampDB": String(format: "%.2f", result.preampDB),
+                    "limiter": result.effects.finalLimiterEnabled ? "enabled" : "disabled",
+                    "limiterCeilingDB": String(format: "%.2f", result.effects.finalLimiterCeilingDB)
+                ]
+            )
             recordProfileName(result.profileName)
             proposalCache.set(result, for: cacheKey)
             if proposalCache.shouldRecord(
@@ -962,12 +1117,31 @@ final class AIEqualizerAgent: ObservableObject {
             }
             savedProposals = proposalCache.history(for: identifier)
             samplingRetryCount[identifier] = nil
-            proposal = result
             AppLogger.success(
                 "[AIEqualizerAgent] Analysis timing songID=\(song.id) total=\(String(format: "%.2f", timing.total))s sampling=\(String(format: "%.2f", timing.sampling))s generation=\(String(format: "%.2f", timing.generation))s applying=\(String(format: "%.2f", timing.applying))s intensity=\(requestedIntensity.rawValue)",
                 step: "ai-tuning.timing"
             )
+            if didApply {
+                proposal = result
+                AIAgentTraceStore.shared.finish(traceID, status: .completed)
+            } else {
+                AIAgentTraceStore.shared.finish(
+                    traceID,
+                    status: .cancelled,
+                    message: String(localized: "agent_trace_dsp_context_changed")
+                )
+            }
         } catch is CancellationError {
+            AIAgentTraceStore.shared.append(
+                traceID,
+                category: .reasoning,
+                level: .warning,
+                stage: .completion,
+                title: "任务已取消",
+                detail: "播放目标、输出环境或用户操作发生变化，本次尚未完成的 Agent 任务已停止。",
+                durationSeconds: Date().timeIntervalSince(runStartedAt)
+            )
+            AIAgentTraceStore.shared.finish(traceID, status: .cancelled)
             guard activeAnalysisRunID == analysisRunID else { return }
             let elapsed = Date().timeIntervalSince(runStartedAt)
             AppLogger.info(
@@ -984,6 +1158,24 @@ final class AIEqualizerAgent: ObservableObject {
                 phase = .idle
             }
         } catch {
+            AIAgentTraceStore.shared.append(
+                traceID,
+                category: .reasoning,
+                level: .error,
+                stage: .completion,
+                title: "任务失败",
+                detail: error.localizedDescription,
+                durationSeconds: Date().timeIntervalSince(runStartedAt),
+                metadata: [
+                    "failureStage": String(describing: phase),
+                    "errorType": String(reflecting: type(of: error))
+                ]
+            )
+            AIAgentTraceStore.shared.finish(
+                traceID,
+                status: .failed,
+                message: error.localizedDescription
+            )
             guard activeAnalysisRunID == analysisRunID else { return }
             let elapsed = Date().timeIntervalSince(runStartedAt)
             let failurePositionText = String(format: "%.1f", PlayerManager.shared.currentTime)
@@ -1094,10 +1286,32 @@ final class AIEqualizerAgent: ObservableObject {
         song: Song,
         learningContext: AIEqualizerLearningContext?,
         deviceTuningTarget: AIEqualizerDeviceTuningTarget?,
-        managedAgent: AppAgentConfiguration?
-    ) async throws -> (output: AIEqualizerModelOutput, elapsed: TimeInterval) {
+        managedAgent: AppAgentConfiguration?,
+        skillRuntime: MonoAudioAgentRuntimeSkillConfiguration,
+        toolPolicy: AppAgentToolPolicyConfiguration,
+        traceID: UUID
+    ) async throws -> (
+        output: AIEqualizerModelOutput,
+        elapsed: TimeInterval,
+        executionMode: AIEqualizerSkillCompliance.ExecutionMode,
+        modelToolInvocationCount: Int
+    ) {
         let startedAt = Date()
         generationStartedAt = startedAt
+        let requiredModelTool = MonoAudioTuningTool.requiredModelTool(for: graphicEQMode)
+        guard toolPolicy.requiredToolName == requiredModelTool.name,
+              toolPolicy.invocationMode?.lowercased() == "required",
+              toolPolicy.requireExactlyOnce == true,
+              toolPolicy.localValidationRequired == true,
+              toolPolicy.allowPromptFallback == false else {
+            let configuredToolName = toolPolicy.requiredToolName ?? "missing"
+            let configuredInvocationMode = toolPolicy.invocationMode ?? "missing"
+            AppLogger.error(
+                "[AIEqualizerAgent] Resolved tool policy is not safe tool=\(configuredToolName) mode=\(configuredInvocationMode) once=\(toolPolicy.requireExactlyOnce ?? false) local=\(toolPolicy.localValidationRequired ?? false) fallback=\(toolPolicy.allowPromptFallback ?? false)",
+                step: "ai-tuning.tool-policy-invalid"
+            )
+            throw AIEqualizerError.invalidResponse
+        }
         let bundledUserPrompt = try AIEqualizerPrompt.userPrompt(
             features: features,
             tuningIntensity: requestedIntensity,
@@ -1106,18 +1320,63 @@ final class AIEqualizerAgent: ObservableObject {
             learningContext: learningContext
         )
         let configuredUserPrompt = managedAgent?.userPrompt(fallback: bundledUserPrompt) ?? bundledUserPrompt
-        let userPrompt = try AIEqualizerPrompt.appendingDeviceTuningTarget(
+        let promptWithDeviceTarget = try AIEqualizerPrompt.appendingDeviceTuningTarget(
             deviceTuningTarget,
             to: configuredUserPrompt
         )
+        let userPrompt = AIEqualizerPrompt.appendingAgentSkillContext(
+            skillRuntime.modelContext,
+            to: promptWithDeviceTarget
+        )
+        let toolContext = MonoAudioTuningTool.prepareInvocation(
+            features: features,
+            tuningProfile: requestedProfile,
+            deviceTuningTarget: deviceTuningTarget,
+            skillRuntime: skillRuntime
+        )
         let bundledSystemPrompt = AIEqualizerPrompt.system(for: graphicEQMode)
-        let systemPrompt = managedAgent?.systemPrompt(
+        let configuredSystemPrompt = managedAgent?.systemPrompt(
             fallback: bundledSystemPrompt,
             secondaryFallback: graphicEQMode == .thirtyTwoBand ? bundledSystemPrompt : nil
-        ) ?? bundledSystemPrompt
+        )
+        let systemPrompt = AIEqualizerPrompt.managedSystemPrompt(
+            for: graphicEQMode,
+            configuredPrompt: configuredSystemPrompt
+        )
         let maximumAttempts = managedAgent?.resolvedMaxAttempts(
             fallback: Self.maxGenerationRetryAttempts
         ) ?? Self.maxGenerationRetryAttempts
+
+        AIAgentTraceStore.shared.append(
+            traceID,
+            category: .conversation,
+            stage: .configuration,
+            title: "System",
+            detail: systemPrompt,
+            metadata: ["role": "system", "characters": String(systemPrompt.count)]
+        )
+        AIAgentTraceStore.shared.append(
+            traceID,
+            category: .conversation,
+            stage: .configuration,
+            title: "User",
+            detail: userPrompt,
+            metadata: ["role": "user", "characters": String(userPrompt.count)]
+        )
+        AIAgentTraceStore.shared.append(
+            traceID,
+            category: .reasoning,
+            stage: .configuration,
+            title: "执行策略",
+            detail: "根据测量可信度、峰值风险和相位兼容性确定本次可用处理边界。",
+            metadata: [
+                "evidence": toolContext.evidenceClass,
+                "evidenceScore": String(format: "%.3f", toolContext.evidenceScore),
+                "peakRisk": toolContext.peakRisk,
+                "phaseRisk": toolContext.phaseRisk,
+                "haasAllowed": toolContext.haasAllowed ? "true" : "false"
+            ]
+        )
 
         for attempt in 1...maximumAttempts {
             try Task.checkCancellation()
@@ -1128,18 +1387,78 @@ final class AIEqualizerAgent: ObservableObject {
             generationStage = .preparing
             phase = .requesting
             var reservation: Date?
+            let attemptStartedAt = Date()
             do {
                 // Reserve every actual request. Quota and frequency errors are
                 // intentionally not retried by the classifier below.
                 reservation = try usageLimiter.reserveRequest(limits: providerStore.usageLimits)
                 generationStage = .generating
-                let response = try await client.generate(
+                AIAgentTraceStore.shared.append(
+                    traceID,
+                    category: .reasoning,
+                    stage: .model,
+                    title: "请求模型",
+                    detail: "发送第 \(attempt) 次请求。模型只需返回一次完整结果，不增加额外往返。",
+                    metadata: [
+                        "attempt": "\(attempt)/\(maximumAttempts)",
+                        "protocol": configuration.wireProtocol.rawValue,
+                        "model": configuration.resolvedModel
+                    ]
+                )
+                let toolResponse = try await client.generateRequiringTool(
                     systemPrompt: systemPrompt,
                     userPrompt: userPrompt,
+                    tool: requiredModelTool,
                     configuration: configuration,
                     apiKey: providerStore.requestAPIKey,
                     minimumTimeout: max(120, managedAgent?.resolvedMinimumTimeoutSeconds ?? 0),
-                    options: managedAgent?.generationOptions ?? .standard
+                    options: managedAgent?.generationOptions ?? .standard,
+                    allowContentFallback: toolPolicy.allowPromptFallback ?? false,
+                    requireExactlyOnce: toolPolicy.requireExactlyOnce ?? true
+                )
+                let response = toolResponse.arguments
+                let modelToolInvocationCount = toolResponse.toolInvocationCount
+                let executionMode: AIEqualizerSkillCompliance.ExecutionMode
+                if configuration.wireProtocol == .appleIntelligence {
+                    guard toolResponse.invocation == .toolCall,
+                          toolResponse.toolInvocationCount == 1 else {
+                        throw AIEqualizerError.invalidResponse
+                    }
+                    executionMode = .appleIntelligenceLocalCompiler
+                } else {
+                    executionMode = toolResponse.invocation == .toolCall
+                        ? .requiredModelTool
+                        : .modelPromptFallback
+                }
+                AppLogger.debug(
+                    "[AIEqualizerAgent] Model completed mono_audio_tuning policy songID=\(song.id) attempt=\(attempt)/\(maximumAttempts) invocation=\(toolResponse.invocation.rawValue) count=\(toolResponse.toolInvocationCount)",
+                    step: "ai-tuning.model-tool-called"
+                )
+                AIAgentTraceStore.shared.append(
+                    traceID,
+                    category: .skill,
+                    level: .success,
+                    stage: .tool,
+                    title: configuration.wireProtocol == .appleIntelligence
+                        ? "Apple Intelligence · mono_audio_tuning"
+                        : "mono_audio_tuning",
+                    detail: response,
+                    durationSeconds: Date().timeIntervalSince(attemptStartedAt),
+                    metadata: [
+                        "caller": configuration.wireProtocol == .appleIntelligence
+                            ? "foundation-models-tool"
+                            : "model",
+                        "toolName": requiredModelTool.name,
+                        "invocationMode": toolPolicy.invocationMode ?? "required",
+                        "requireExactlyOnce": (toolPolicy.requireExactlyOnce ?? true) ? "true" : "false",
+                        "localValidationRequired": (toolPolicy.localValidationRequired ?? true) ? "true" : "false",
+                        "allowPromptFallback": (toolPolicy.allowPromptFallback ?? false) ? "true" : "false",
+                        "attempt": String(attempt),
+                        "invocation": toolResponse.invocation.rawValue,
+                        "invocationCount": String(toolResponse.toolInvocationCount),
+                        "policyRevision": toolPolicy.revision ?? "bundled-v1",
+                        "argumentsCharacters": String(response.count)
+                    ]
                 )
                 try Task.checkCancellation()
                 guard isCurrentSong(song), EQManager.shared.graphicEQMode == graphicEQMode else {
@@ -1149,9 +1468,58 @@ final class AIEqualizerAgent: ObservableObject {
                     "[AIEqualizerAgent] Model response received songID=\(song.id) attempt=\(attempt)/\(maximumAttempts) characters=\(response.count) expectedBands=\(graphicEQMode.bandCount)",
                     step: "ai-tuning.response-received"
                 )
+                AIAgentTraceStore.shared.append(
+                    traceID,
+                    category: .conversation,
+                    level: .success,
+                    stage: .tool,
+                    title: "Assistant · Tool Arguments",
+                    detail: response,
+                    metadata: ["role": "assistant", "attempt": String(attempt)]
+                )
                 generationStage = .validating
+                let validationStartedAt = Date()
                 let output = try decodeModelOutput(from: response, expectedMode: graphicEQMode)
-                return (output, Date().timeIntervalSince(startedAt))
+                let review = MonoAudioTuningTool.review(
+                    output: output,
+                    features: features,
+                    context: toolContext
+                )
+                guard review.isAccepted else {
+                    AIAgentTraceStore.shared.append(
+                        traceID,
+                        category: .skill,
+                        level: .error,
+                        stage: .validation,
+                        title: "工具校验未通过",
+                        detail: review.issues.map { "\($0.code)：\($0.detail)" }.joined(separator: "\n"),
+                        durationSeconds: Date().timeIntervalSince(validationStartedAt),
+                        metadata: ["summary": review.summary]
+                    )
+                    AppLogger.error(
+                        "[AIEqualizerAgent] MonoAudioTuningTool rejected model output issues=\(review.summary)",
+                        step: "ai-tuning.tool-rejected"
+                    )
+                    throw AIEqualizerError.invalidResponse
+                }
+                AIAgentTraceStore.shared.append(
+                    traceID,
+                    category: .skill,
+                    level: review.issues.isEmpty ? .success : .warning,
+                    stage: .validation,
+                    title: "工具校验通过",
+                    detail: review.issues.isEmpty
+                        ? "返回结构、频段数量与数值范围均有效。"
+                        : review.issues.map { "\($0.code)：\($0.detail)" }.joined(separator: "\n"),
+                    durationSeconds: Date().timeIntervalSince(validationStartedAt),
+                    metadata: ["summary": review.summary]
+                )
+                return (
+                    output,
+                    Date().timeIntervalSince(startedAt),
+                    executionMode,
+                    modelToolInvocationCount
+                )
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
@@ -1169,6 +1537,19 @@ final class AIEqualizerAgent: ObservableObject {
                 AppLogger.warning(
                     "[AIEqualizerAgent] Generation retry scheduled song=\(song.id) attempt=\(attempt + 1)/\(maximumAttempts) delay=\(String(format: "%.1f", delay))s error=\(error.localizedDescription)",
                     step: "ai-tuning.generation-retry"
+                )
+                AIAgentTraceStore.shared.append(
+                    traceID,
+                    category: .reasoning,
+                    level: .warning,
+                    stage: .model,
+                    title: "准备重试",
+                    detail: error.localizedDescription,
+                    durationSeconds: Date().timeIntervalSince(attemptStartedAt),
+                    metadata: [
+                        "nextAttempt": String(attempt + 1),
+                        "delaySeconds": String(format: "%.1f", delay)
+                    ]
                 )
                 do {
                     try await Task.sleep(for: .seconds(delay))
@@ -1192,14 +1573,27 @@ final class AIEqualizerAgent: ObservableObject {
     }
 
     @discardableResult
-    private func apply(_ proposal: AIEqualizerProposal, isManualAction: Bool = false) -> Bool {
-        let currentSongID = PlayerManager.shared.currentSong?.id
+    private func apply(
+        _ proposal: AIEqualizerProposal,
+        expectedSongIdentifier: String? = nil,
+        expectedOutputIdentity: String? = nil,
+        isManualAction: Bool = false
+    ) -> Bool {
+        let currentSong = PlayerManager.shared.currentSong
+        let currentSongID = currentSong?.id
+        let currentSongIdentifier = currentSong.map(songIdentifier)
         let currentMode = EQManager.shared.graphicEQMode
-        guard currentSongID == proposal.songID, currentMode == proposal.graphicEQMode else {
+        let currentOutputIdentity = currentOutputIdentity()
+        let songMatches = expectedSongIdentifier.map { $0 == currentSongIdentifier }
+            ?? (currentSongID == proposal.songID)
+        let outputMatches = expectedOutputIdentity.map { $0 == currentOutputIdentity } ?? true
+        guard songMatches,
+              outputMatches,
+              currentMode == proposal.graphicEQMode else {
             // 静默丢弃会让 UI 停在“已生成/已应用”的假象上，DSP 却没动。
             // 手动操作给出明确失败反馈；自动流程至少留痕并收敛工作状态。
             AppLogger.warning(
-                "[AIEqualizerAgent] Apply skipped currentSong=\(currentSongID.map { String($0) } ?? "none") proposalSong=\(proposal.songID) currentMode=\(currentMode.rawValue) proposalMode=\(proposal.graphicEQMode.rawValue) manual=\(isManualAction)",
+                "[AIEqualizerAgent] Apply skipped currentSong=\(currentSongIdentifier ?? currentSongID.map { String($0) } ?? "none") expectedSong=\(expectedSongIdentifier ?? String(proposal.songID)) currentOutput=\(currentOutputIdentity) expectedOutput=\(expectedOutputIdentity ?? "any") currentMode=\(currentMode.rawValue) proposalMode=\(proposal.graphicEQMode.rawValue) manual=\(isManualAction)",
                 step: "ai-tuning.apply-skipped"
             )
             if isManualAction {
@@ -1362,6 +1756,31 @@ final class AIEqualizerAgent: ObservableObject {
             return baseIdentity
         }
         return "\(baseIdentity)|\(target.identifier)"
+    }
+
+    /// Binds the model context, remote policy, bundled knowledge, and local
+    /// skill selection into one immutable identity for this tuning request.
+    /// This is intentionally synchronous and performs no network or sampling
+    /// work, so enabling skills does not add tuning latency.
+    private func resolvedSkillExecutionContext(
+        managedAgent: AppAgentConfiguration?
+    ) -> (
+        runtime: MonoAudioAgentRuntimeSkillConfiguration,
+        policy: AppAgentToolPolicyConfiguration,
+        fingerprint: String
+    ) {
+        let runtime = MonoAudioAgentSkillStore.shared.runtimeConfiguration(
+            adaptiveLearningEnabled: adaptiveLearningEnabled,
+            remoteConfiguration: managedAgent?.resolvedSkillConfiguration,
+            remoteToolPolicy: managedAgent?.toolPolicy
+        )
+        let policy = (runtime.toolPolicy ?? .bundledSafeDefault).resolvedSafePolicy
+        let fingerprint = MonoAudioTuningKnowledge.executionFingerprint(
+            runtimeFingerprint: runtime.fingerprint,
+            runtimeRevision: runtime.revision,
+            toolPolicyRevision: policy.revision ?? "bundled-v1"
+        )
+        return (runtime, policy, fingerprint)
     }
 
     private func restoredMeasurement(
@@ -1618,11 +2037,23 @@ private final class AIEqualizerProposalCacheStore {
         removeExpiredEntries()
     }
 
-    func value(for key: String, now: Date = Date()) -> AIEqualizerProposal? {
+    func value(
+        for key: String,
+        agentVersion: String,
+        skillFingerprint: String,
+        skillRevision: String,
+        now: Date = Date()
+    ) -> AIEqualizerProposal? {
         guard let value = values[key] else { return nil }
         guard now.timeIntervalSince(value.createdAt) <= Self.maximumAge else {
             values.removeValue(forKey: key)
             persist()
+            return nil
+        }
+        guard value.agentVersion == agentVersion,
+              value.skillFingerprint == skillFingerprint,
+              value.skillRevision == skillRevision,
+              Self.hasCurrentSkillCompliance(value) else {
             return nil
         }
         return value
@@ -1668,6 +2099,9 @@ private final class AIEqualizerProposalCacheStore {
                     && $0.proposal.provider == proposal.provider
                     && $0.proposal.model == proposal.model
                     && $0.proposal.agentVersion == proposal.agentVersion
+                    && $0.proposal.skillFingerprint == proposal.skillFingerprint
+                    && $0.proposal.skillRevision == proposal.skillRevision
+                    && Self.hasCurrentSkillCompliance($0.proposal)
             }) else {
             return true
         }
@@ -1678,21 +2112,6 @@ private final class AIEqualizerProposalCacheStore {
         removeExpiredEntries(now: now)
         return histories[songIdentifier, default: []]
             .sorted { $0.proposal.createdAt > $1.proposal.createdAt }
-    }
-
-    func latestReusable(
-        for songIdentifier: String,
-        outputIdentity: String,
-        graphicEQMode: GraphicEQMode,
-        tuningIntensity: AIEqualizerTuningIntensity,
-        tuningProfile: AIEqualizerTuningProfile
-    ) -> AIEqualizerSavedProposal? {
-        history(for: songIdentifier).first {
-            $0.outputIdentity == outputIdentity
-                && $0.proposal.graphicEQMode == graphicEQMode
-                && ($0.proposal.tuningIntensity ?? .smart) == tuningIntensity
-                && ($0.proposal.tuningProfile ?? .standard) == tuningProfile
-        }
     }
 
     func delete(_ entry: AIEqualizerSavedProposal, for songIdentifier: String) {
@@ -1827,6 +2246,31 @@ private final class AIEqualizerProposalCacheStore {
         return abs(currentEffects.subboostGainDB - previousEffects.subboostGainDB) >= 0.5
             || abs(currentEffects.exciterAmountDB - previousEffects.exciterAmountDB) >= 0.5
             || abs(currentEffects.finalLimiterCeilingDB - previousEffects.finalLimiterCeilingDB) >= 0.5
+    }
+
+    private static func hasCurrentSkillCompliance(
+        _ proposal: AIEqualizerProposal
+    ) -> Bool {
+        guard let compliance = proposal.skillCompliance,
+              compliance.accepted,
+              compliance.knowledgeVersion == MonoAudioTuningKnowledge.version,
+              compliance.toolVersion == MonoAudioTuningTool.version,
+              compliance.checkedRuleCount >= MonoAudioTuningKnowledge.enforcedRuleCount,
+              compliance.localValidationApplied,
+              Set(compliance.requiredSkillIDs).isSubset(of: Set(compliance.enabledSkillIDs)) else {
+            return false
+        }
+        switch compliance.executionMode {
+        case .requiredModelTool:
+            return proposal.provider != .appleIntelligence
+                && compliance.modelToolInvocationCount == 1
+        case .modelPromptFallback:
+            return proposal.provider != .appleIntelligence
+                && compliance.modelToolInvocationCount == 0
+        case .appleIntelligenceLocalCompiler:
+            return proposal.provider == .appleIntelligence
+                && compliance.modelToolInvocationCount == 1
+        }
     }
 
     private static func restoreCachedProposals() -> [String: AIEqualizerProposal] {

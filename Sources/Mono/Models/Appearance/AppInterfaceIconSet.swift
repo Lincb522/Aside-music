@@ -12,6 +12,7 @@ enum AppInterfaceIconSet: String, CaseIterable, Identifiable {
     case pawPrint
     case dotDogSnake
     case minimalWhiteIcons
+    case pulseBloom
 
     var id: String { rawValue }
 
@@ -39,12 +40,14 @@ enum AppInterfaceIconSet: String, CaseIterable, Identifiable {
             return "Dot Dog-Snake"
         case .minimalWhiteIcons:
             return "Minimal White"
+        case .pulseBloom:
+            return "Pulse Bloom"
         }
     }
 
     var usesOriginalArtwork: Bool {
         switch self {
-        case .iconExport, .doodlePop, .pawPrint, .dotDogSnake, .minimalWhiteIcons:
+        case .iconExport, .doodlePop, .pawPrint, .dotDogSnake, .minimalWhiteIcons, .pulseBloom:
             return true
         case .hicon, .sfSymbols, .zappicon, .lucide, .solar, .blobIcons:
             return false

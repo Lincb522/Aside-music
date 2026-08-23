@@ -405,30 +405,27 @@ extension MinimalPlayerLayout {
                             ForEach(Array(lyricVM.lyrics.enumerated()), id: \.element.id) { index, line in
                                 let isCurrent = index == lyricVM.currentLineIndex
                                 let distance = abs(index - lyricVM.currentLineIndex)
-                                let karaokeWords = LyricKaraokeTimeline.resolvedWords(for: line)
 
                                 Button(action: { player.seek(to: line.time) }) {
                                     VStack(alignment: .leading, spacing: 4) {
-                                        if isCurrent && enableKaraoke && !karaokeWords.isEmpty {
-                                            MinimalKaraokeLine(
-                                                words: karaokeWords,
-                                                contentColor: contentColor,
-                                                isPlaying: player.isPlaying
-                                            )
-                                        } else {
-                                            Text(line.text.monoLyricDisplayText)
-                                                .font(
-                                                    MonoPlayerFont.activeFont(
-                                                        size: isCurrent ? 28 : 16,
-                                                        weight: isCurrent ? .heavy : .medium,
-                                                        fallback: .system(
-                                                            size: isCurrent ? 28 : 16,
-                                                            weight: isCurrent ? .heavy : .medium,
-                                                            design: .rounded
-                                                        )
-                                                    )
+                                        if isCurrent && enableKaraoke {
+                                            // Parsed lyric lines already carry a normalized
+                                            // word timeline. Reuse it instead of rebuilding
+                                            // every visible line whenever playback advances.
+                                            let karaokeWords = line.words.isEmpty
+                                                ? LyricKaraokeTimeline.resolvedWords(for: line)
+                                                : line.words
+                                            if !karaokeWords.isEmpty {
+                                                MinimalKaraokeLine(
+                                                    words: karaokeWords,
+                                                    contentColor: contentColor,
+                                                    isPlaying: player.isPlaying
                                                 )
-                                                .foregroundColor(isCurrent ? contentColor : contentColor.opacity(0.3))
+                                            } else {
+                                                minimalLyricText(line, isCurrent: true)
+                                            }
+                                        } else {
+                                            minimalLyricText(line, isCurrent: isCurrent)
                                         }
 
                                         if showTranslation, let trans = line.translation, !trans.isEmpty {
@@ -504,6 +501,22 @@ extension MinimalPlayerLayout {
             }
         }
     }
+
+    private func minimalLyricText(_ line: LyricLine, isCurrent: Bool) -> some View {
+        Text(line.text.monoLyricDisplayText)
+            .font(
+                MonoPlayerFont.activeFont(
+                    size: isCurrent ? 28 : 16,
+                    weight: isCurrent ? .heavy : .medium,
+                    fallback: .system(
+                        size: isCurrent ? 28 : 16,
+                        weight: isCurrent ? .heavy : .medium,
+                        design: .rounded
+                    )
+                )
+            )
+            .foregroundColor(isCurrent ? contentColor : contentColor.opacity(0.3))
+    }
 }
 
 /// 极简歌词主题只让当前行订阅高频时间轴，避免整张播放器随进度重绘。
@@ -528,11 +541,17 @@ private struct MinimalKaraokeLine: View {
             )
             let style = KaraokeWordStyle.resolve(karaokeStyleRaw)
 
-            FlowLayout(spacing: 0) {
+            FlowLayout(
+                spacing: 0,
+                measurementToken: wordsMeasurementToken
+            ) {
                 ForEach(words) { word in
                     MinimalKaraokeWord(
                         word: word,
-                        currentTime: currentTime,
+                        progress: LyricKaraokeTimeline.progress(
+                            for: word,
+                            at: currentTime
+                        ),
                         contentColor: contentColor,
                         style: style
                     )
@@ -540,19 +559,27 @@ private struct MinimalKaraokeLine: View {
             }
         }
     }
+
+    private var wordsMeasurementToken: Int {
+        var hasher = Hasher()
+        hasher.combine(words.first?.id)
+        hasher.combine(words.last?.id)
+        hasher.combine(words.count)
+        return hasher.finalize()
+    }
 }
 
 /// 极简布局专用卡拉OK逐字视图
 private struct MinimalKaraokeWord: View {
     let word: LyricWord
-    let currentTime: TimeInterval
+    let progress: CGFloat
     let contentColor: Color
     let style: KaraokeWordStyle
 
     var body: some View {
         KaraokeStyledWordView(
             text: word.text.monoLyricDisplayText,
-            progress: calculateProgress(),
+            progress: progress,
             font: MonoPlayerFont.activeFont(
                 size: 28,
                 weight: .heavy,
@@ -564,12 +591,6 @@ private struct MinimalKaraokeWord: View {
         )
     }
 
-    func calculateProgress() -> CGFloat {
-        guard word.duration > 0 else { return currentTime >= word.startTime ? 1 : 0 }
-        if currentTime < word.startTime { return 0 }
-        if currentTime >= word.startTime + word.duration { return 1 }
-        return min(max(CGFloat((currentTime - word.startTime) / word.duration), 0), 1)
-    }
 }
 
 // MARK: - 辅助

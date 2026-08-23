@@ -265,6 +265,18 @@ struct ExternalPlaylistImportView: View {
         }
     }
 
+    @ViewBuilder
+    private func phaseContent(scrollProxy: ScrollViewProxy) -> some View {
+        switch model.phase {
+        case .input, .resolving:
+            inputSection
+        case .preview, .importing:
+            previewSection(scrollProxy: scrollProxy)
+        case let .finished(imported, skipped):
+            resultSection(imported: imported, skipped: skipped)
+        }
+    }
+
     private var inputSection: some View {
         VStack(alignment: .leading, spacing: 18) {
             sectionTitle("来源")

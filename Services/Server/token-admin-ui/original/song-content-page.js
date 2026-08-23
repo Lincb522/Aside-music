@@ -17,7 +17,34 @@
   const els = {}
   const agentKeys = ['equalizer', 'listeningInsight', 'specialGreeting']
   const agentDefaults = {
-    equalizer: { promptVersion: 'mono-audio-agent-v28', temperature: 0.1, maxOutputTokens: 4096, minimumTimeoutSeconds: 120, maxAttempts: 3 },
+    equalizer: {
+      promptVersion: 'mono-audio-agent-v30-dsp',
+      temperature: 0.1,
+      maxOutputTokens: 4096,
+      minimumTimeoutSeconds: 120,
+      maxAttempts: 3,
+      skills: {
+        revision: 'mono-audio-skills-v1',
+        builtIns: {
+          measurementEvidence: true,
+          deviceCoordination: true,
+          headroomGuard: true,
+          phaseGuard: true,
+          outputValidation: true,
+          artistReference: true,
+          vocalReference: true
+        },
+        custom: []
+      },
+      toolPolicy: {
+        revision: 'mono-audio-tool-policy-v1',
+        requiredToolName: 'mono_audio_tuning',
+        invocationMode: 'required',
+        requireExactlyOnce: true,
+        localValidationRequired: true,
+        allowPromptFallback: false
+      }
+    },
     listeningInsight: { promptVersion: 'mono-listening-insight-v3', temperature: 0.1, maxOutputTokens: 4096, minimumTimeoutSeconds: 30, maxAttempts: 2 },
     specialGreeting: { promptVersion: 'special-greeting-v2', temperature: 0.7, maxOutputTokens: 1024, minimumTimeoutSeconds: 20, maxAttempts: 2 }
   }
@@ -133,6 +160,26 @@
   function bindEvents() {
     els.logoutButton?.addEventListener('click', Admin.logout)
     els.refreshButton?.addEventListener('click', refreshActiveView)
+    const equalizerRoot = document.querySelector('.agent-config-card[data-agent-key="equalizer"]')
+    equalizerRoot?.querySelector('[data-add-custom-skill]')?.addEventListener('click', () => {
+      const list = equalizerRoot.querySelector('[data-custom-skill-list]')
+      if (!list || list.children.length >= 12) return Admin.notify('自定义技能最多 12 个', 'error')
+      const enabledCount = [...list.querySelectorAll('[data-custom-skill-field="enabled"]')]
+        .filter((input) => input.value === 'true').length
+      list.insertAdjacentHTML('beforeend', customSkillMarkup({ id: newCustomSkillID(), enabled: enabledCount < 4 }))
+    })
+    equalizerRoot?.querySelector('[data-custom-skill-list]')?.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-remove-custom-skill]')
+      if (button) button.closest('.agent-custom-skill-row')?.remove()
+    })
+    equalizerRoot?.querySelector('[data-custom-skill-list]')?.addEventListener('change', (event) => {
+      if (!event.target.matches('[data-custom-skill-field="enabled"]') || event.target.value !== 'true') return
+      const enabledCount = [...equalizerRoot.querySelectorAll('[data-custom-skill-field="enabled"]')]
+        .filter((input) => input.value === 'true').length
+      if (enabledCount <= 4) return
+      event.target.value = 'false'
+      Admin.notify('同时启用的自定义技能最多 4 个', 'error')
+    })
     els.contentStatusFilter?.addEventListener('change', loadContent)
     els.songSearch?.addEventListener('input', debounce(() => {
       state.songsPage = 0
@@ -786,6 +833,7 @@
       setAgentField(root, 'systemPrompt', agent.systemPrompt || '')
       setAgentField(root, 'secondarySystemPrompt', agent.secondarySystemPrompt || '')
       setAgentField(root, 'userPromptTemplate', agent.userPromptTemplate || '')
+      if (key === 'equalizer') fillEqualizerAgentSkills(root, agent.skills, agent.toolPolicy)
       const version = root?.querySelector('[data-agent-version]')
       if (version) version.textContent = agent.promptVersion || fallback.promptVersion
     })
@@ -805,11 +853,81 @@
     if (input) input.value = value
   }
 
+  function fillEqualizerAgentSkills(root, skills, toolPolicy) {
+    const defaults = agentDefaults.equalizer
+    const resolvedSkills = {
+      ...defaults.skills,
+      ...(skills || {}),
+      builtIns: { ...defaults.skills.builtIns, ...(skills?.builtIns || {}) },
+      custom: Array.isArray(skills?.custom) ? skills.custom : []
+    }
+    const resolvedPolicy = { ...defaults.toolPolicy, ...(toolPolicy || {}) }
+    const revision = root?.querySelector('[data-agent-skill-field="revision"]')
+    if (revision) revision.value = resolvedSkills.revision
+    root?.querySelectorAll('[data-agent-builtin]').forEach((input) => {
+      input.checked = resolvedSkills.builtIns[input.dataset.agentBuiltin] !== false
+    })
+    const list = root?.querySelector('[data-custom-skill-list]')
+    if (list) list.innerHTML = resolvedSkills.custom.map(customSkillMarkup).join('')
+    root?.querySelectorAll('[data-agent-tool-field]').forEach((input) => {
+      const value = resolvedPolicy[input.dataset.agentToolField]
+      input.value = typeof value === 'boolean' ? String(value) : (value ?? '')
+    })
+  }
+
+  function customSkillMarkup(skill = {}) {
+    return `<div class="agent-custom-skill-row" data-custom-skill-id="${escapeAttribute(skill.id || '')}">
+      <label class="field agent-custom-skill-enabled"><span>状态</span><select data-custom-skill-field="enabled"><option value="true"${skill.enabled !== false ? ' selected' : ''}>开启</option><option value="false"${skill.enabled === false ? ' selected' : ''}>关闭</option></select></label>
+      <label class="field"><span>名称</span><input data-custom-skill-field="name" type="text" maxlength="20" value="${escapeAttribute(skill.name || '')}"></label>
+      <label class="field agent-custom-skill-instruction"><span>技能指令</span><input data-custom-skill-field="instruction" type="text" maxlength="120" value="${escapeAttribute(skill.instruction || '')}"></label>
+      <button type="button" class="btn btn-secondary btn-small agent-custom-skill-remove" data-remove-custom-skill>删除</button>
+    </div>`
+  }
+
+  function escapeAttribute(value) {
+    return Admin.esc(value).replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+  }
+
+  function newCustomSkillID() {
+    if (window.crypto?.randomUUID) return window.crypto.randomUUID()
+    return `custom-${Date.now()}-${Math.random().toString(16).slice(2)}`
+  }
+
+  function readEqualizerAgentSkills(root) {
+    const requiredBuiltIns = ['measurementEvidence', 'deviceCoordination', 'headroomGuard', 'phaseGuard', 'outputValidation']
+    const builtIns = {}
+    root?.querySelectorAll('[data-agent-builtin]').forEach((input) => {
+      builtIns[input.dataset.agentBuiltin] = requiredBuiltIns.includes(input.dataset.agentBuiltin) || input.checked
+    })
+    const custom = [...(root?.querySelectorAll('.agent-custom-skill-row') || [])].map((row) => {
+      const read = (field) => row.querySelector(`[data-custom-skill-field="${field}"]`)?.value || ''
+      return {
+        id: row.dataset.customSkillId || '',
+        name: read('name'),
+        instruction: read('instruction'),
+        enabled: read('enabled') !== 'false'
+      }
+    })
+    const readSkill = (field) => root?.querySelector(`[data-agent-skill-field="${field}"]`)?.value || ''
+    const readTool = (field) => root?.querySelector(`[data-agent-tool-field="${field}"]`)?.value || ''
+    return {
+      skills: { revision: readSkill('revision'), builtIns, custom },
+      toolPolicy: {
+        revision: readTool('revision'),
+        requiredToolName: readTool('requiredToolName'),
+        invocationMode: readTool('invocationMode'),
+        requireExactlyOnce: readTool('requireExactlyOnce') !== 'false',
+        localValidationRequired: true,
+        allowPromptFallback: readTool('allowPromptFallback') !== 'false'
+      }
+    }
+  }
+
   function readAgentConfigurations() {
     return Object.fromEntries(agentKeys.map((key) => {
       const root = document.querySelector(`.agent-config-card[data-agent-key="${key}"]`)
       const read = (field) => root?.querySelector(`[data-agent-field="${field}"]`)?.value || ''
-      return [key, {
+      const configuration = {
         enabled: read('enabled') !== 'false',
         promptVersion: read('promptVersion'),
         systemPrompt: read('systemPrompt'),
@@ -819,7 +937,9 @@
         maxOutputTokens: Number(read('maxOutputTokens')),
         minimumTimeoutSeconds: Number(read('minimumTimeoutSeconds')),
         maxAttempts: Number(read('maxAttempts'))
-      }]
+      }
+      if (key === 'equalizer') Object.assign(configuration, readEqualizerAgentSkills(root))
+      return [key, configuration]
     }))
   }
 

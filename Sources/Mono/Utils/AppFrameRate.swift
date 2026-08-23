@@ -1,8 +1,6 @@
 import SwiftUI
-import Combine
 
 #if os(iOS)
-import QuartzCore
 import UIKit
 #endif
 
@@ -82,91 +80,45 @@ enum AppFrameRate {
     }
 
     #if os(iOS)
-    /// 全局帧率封顶（nil = 不封顶）。沉浸模式等重负载全屏场景把 ProMotion 从 120Hz 压回 60Hz，
-    /// 整机渲染开销直接减半，是发热/耗电的第一杠杆。
-    @MainActor
-    private static var frameRateCeiling: Int?
-
     @MainActor
     private static var heavyWorkloadToken: UUID?
 
-    @MainActor
-    private static var adaptivePolicyCancellables: Set<AnyCancellable> = []
-
-    @MainActor
-    private static var adaptivePolicyInstalled = false
-
-    /// 进入重负载场景时调用：把所有场景的锁定帧率压到 ceiling（如 60）
+    /// 进入重负载场景时登记生命周期。视觉层自己的 TimelineView 已经明确
+    /// 使用 60/30fps；这里不再创建空 CADisplayLink 试图“锁定全局帧率”。
+    /// CADisplayLink 的 preferredFrameRateRange 只约束它自己的回调，不能约束
+    /// 整个 UIWindowScene，旧实现因此只会额外持续唤醒主线程与 RenderServer。
     @MainActor
     static func pushFrameRateCeiling(_ ceiling: Int, reason: String) {
-        frameRateCeiling = ceiling
         if heavyWorkloadToken == nil {
             heavyWorkloadToken = MonoComputeEngine.shared.beginWorkload(.immersiveStage)
         }
-        lockConnectedScenesToPreferredFrameRate(reason: "ceiling on: \(reason)")
+        AppLogger.debug("[FrameRate] workload begin ceiling=\(ceiling) reason=\(reason)")
     }
 
     /// 离开重负载场景时调用：恢复原始锁定帧率
     @MainActor
     static func popFrameRateCeiling(reason: String) {
-        frameRateCeiling = nil
         if let heavyWorkloadToken {
             MonoComputeEngine.shared.endWorkload(heavyWorkloadToken)
             self.heavyWorkloadToken = nil
         }
-        lockConnectedScenesToPreferredFrameRate(reason: "ceiling off: \(reason)")
+        AppLogger.debug("[FrameRate] workload end reason=\(reason)")
     }
 
     @MainActor
-    private static var activeDisplayLinks: [ObjectIdentifier: CADisplayLink] = [:]
-
-    @MainActor
-    private static var displayLinkTargets: [ObjectIdentifier: DisplayLinkTarget] = [:]
-
-    @MainActor
     static func lockConnectedScenesToPreferredFrameRate(reason: String) {
-        installAdaptivePolicyIfNeeded()
-        let windowScenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        let activeSceneIds = Set(windowScenes.map(ObjectIdentifier.init))
-
-        for scene in windowScenes {
-            lock(scene, reason: reason)
-        }
-
-        DisplayLinkStore.removeStaleLinks(activeSceneIds: activeSceneIds)
+        // 保留调用入口兼容现有场景生命周期。iOS 会自行调节 ProMotion；
+        // 不创建无内容的显示链接，不增加任何常驻逐帧工作。
     }
 
     @MainActor
     static func lock(_ windowScene: UIWindowScene, reason: String) {
-        installAdaptivePolicyIfNeeded()
-        let sceneId = ObjectIdentifier(windowScene)
-
-        // 常规界面始终交给 iOS / ProMotion 自适应。显示链接只用于沉浸模式
-        // 主动设置的帧率上限，避免静止页面也持续唤醒渲染线程。
-        guard shouldForceFrameRate else {
-            DisplayLinkStore.unlock(sceneId: sceneId)
-            AppLogger.debug("[FrameRate] system adaptive reason=\(reason)")
-            return
-        }
-
-        let targetFPS = preferredFramesPerSecond(for: windowScene.screen)
-        let frameRateRange = CAFrameRateRange(
-            minimum: Float(targetFPS),
-            maximum: Float(targetFPS),
-            preferred: Float(targetFPS)
-        )
-
-        DisplayLinkStore.lock(sceneId: sceneId, frameRateRange: frameRateRange)
-
-        AppLogger.info("[FrameRate] lock reason=\(reason) targetFPS=\(targetFPS) screenMaxFPS=\(windowScene.screen.maximumFramesPerSecond)")
+        // Compatibility no-op. A standalone CADisplayLink cannot set a scene-wide
+        // refresh rate and keeping one alive caused permanent GPU/CPU wakeups.
     }
 
     @MainActor
-    static func unlock(_ scene: UIScene) {
-        guard let windowScene = scene as? UIWindowScene else { return }
-        let sceneId = ObjectIdentifier(windowScene)
-        DisplayLinkStore.unlock(sceneId: sceneId)
-    }
+    static func unlock(_ scene: UIScene) {}
 
     private static var mainScreenMaximumFramesPerSecond: Int {
         if Thread.isMainThread {
@@ -177,74 +129,6 @@ enum AppFrameRate {
         return DispatchQueue.main.sync {
             MainActor.assumeIsolated {
                 UIScreen.main.maximumFramesPerSecond
-            }
-        }
-    }
-
-    @MainActor
-    private static func preferredFramesPerSecond(for screen: UIScreen) -> Int {
-        let base = min(max(screen.maximumFramesPerSecond, 60), preferredMaximumFramesPerSecond)
-        let requested = frameRateCeiling.map { min(base, max($0, 30)) } ?? base
-        return min(requested, systemPerformanceCeiling)
-    }
-
-    @MainActor
-    private static var shouldForceFrameRate: Bool {
-        frameRateCeiling != nil
-    }
-
-    /// Start reducing refresh work as soon as iOS reports heat pressure rather
-    /// than waiting for the app to enter the immersive player. This affects
-    /// cadence only; view content and animation equations stay unchanged.
-    private static var systemPerformanceCeiling: Int {
-        MonoComputeBudgetStore.shared.current.interactiveFramesPerSecond
-    }
-
-    @MainActor
-    private static func installAdaptivePolicyIfNeeded() {
-        guard !adaptivePolicyInstalled else { return }
-        adaptivePolicyInstalled = true
-
-        NotificationCenter.default.publisher(for: .monoComputeBudgetDidChange)
-            .receive(on: DispatchQueue.main)
-            .sink { _ in
-                Task { @MainActor in
-                    lockConnectedScenesToPreferredFrameRate(reason: "compute budget changed")
-                }
-            }
-            .store(in: &adaptivePolicyCancellables)
-    }
-
-    @MainActor
-    private static func makeDisplayLink(for sceneId: ObjectIdentifier) -> CADisplayLink {
-        let target = DisplayLinkTarget()
-        let displayLink = CADisplayLink(target: target, selector: #selector(DisplayLinkTarget.tick(_:)))
-        displayLink.add(to: .main, forMode: .common)
-        displayLinkTargets[sceneId] = target
-        return displayLink
-    }
-
-    private final class DisplayLinkTarget: NSObject {
-        @objc func tick(_ displayLink: CADisplayLink) {}
-    }
-
-    @MainActor
-    private enum DisplayLinkStore {
-        static func lock(sceneId: ObjectIdentifier, frameRateRange: CAFrameRateRange) {
-            let displayLink = activeDisplayLinks[sceneId] ?? makeDisplayLink(for: sceneId)
-            displayLink.preferredFrameRateRange = frameRateRange
-            activeDisplayLinks[sceneId] = displayLink
-        }
-
-        static func unlock(sceneId: ObjectIdentifier) {
-            activeDisplayLinks.removeValue(forKey: sceneId)?.invalidate()
-            displayLinkTargets.removeValue(forKey: sceneId)
-        }
-
-        static func removeStaleLinks(activeSceneIds: Set<ObjectIdentifier>) {
-            let staleSceneIds = activeDisplayLinks.keys.filter { !activeSceneIds.contains($0) }
-            for sceneId in staleSceneIds {
-                unlock(sceneId: sceneId)
             }
         }
     }

@@ -33,6 +33,7 @@ struct PlaylistPickerContainerCard<Content: View>: View {
                         .stroke(Color.monoTextPrimary.opacity(0.06), lineWidth: 1)
                 }
             }
+            .contentShape(.rect(cornerRadius: NeumorphicStyle.isActive ? 22 : (SequoiaStyle.isActive ? 20 : 18), style: .continuous))
     }
 }
 
@@ -186,8 +187,10 @@ struct PlaylistPickerActionCard: View {
                 }
             }
             .opacity(isDisabled ? 0.58 : 1)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .contentShape(Rectangle())
         .disabled(isDisabled || isLoading)
     }
 
@@ -269,8 +272,10 @@ struct PlaylistPickerPlaylistRow: View {
                 }
             }
             .opacity(isDisabled ? 0.58 : 1)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .contentShape(Rectangle())
         .disabled(isDisabled || isLoading)
     }
 

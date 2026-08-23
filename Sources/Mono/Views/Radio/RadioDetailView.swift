@@ -14,6 +14,7 @@ struct RadioDetailView: View {
     @State private var scrollOffset: CGFloat = 0
     @State private var showDescSheet = false
     @FocusState private var isSearchFieldFocused: Bool
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     init(radioId: Int) {
         self.radioId = radioId

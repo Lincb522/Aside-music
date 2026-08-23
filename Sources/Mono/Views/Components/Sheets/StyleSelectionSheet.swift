@@ -213,7 +213,7 @@ struct StyleSelectionMorphView: View {
                 .padding(.horizontal, 7)
                 .background(tagBackground(isSelected: isSelected, tint: tint))
                 .overlay(tagStroke(isSelected: isSelected, tint: tint))
-                .contentShape(RoundedRectangle(cornerRadius: tagRadius, style: .continuous))
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }

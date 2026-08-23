@@ -73,9 +73,6 @@ struct FloatingBarBottomSpacer: View {
         case .flux, .liquid:
             return hasCurrentSong ? 112 : 94
 
-        case .rivePulse:
-            return hasCurrentSong ? 144 : 96
-
         case .cassette:
             return hasCurrentSong ? 136 : 78
 

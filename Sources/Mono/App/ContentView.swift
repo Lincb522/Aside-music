@@ -1,5 +1,6 @@
 import HiconIcons
 import SwiftUI
+import UIKit
 
 /// 应用根视图，负责启动阶段、全局主题、主导航与迷你播放器容器的装配。
 @MainActor
@@ -15,7 +16,9 @@ public struct ContentView: View {
     @ObservedObject private var onlineAccess = OnlineAccessManager.shared
     @ObservedObject private var announcementCenter = AnnouncementCenter.shared
     @ObservedObject private var themeManager = GlobalThemeManager.shared
+    @ObservedObject private var colorEngine = UnifiedColorEngine.shared
     @ObservedObject private var textInputActivity = MonoTextInputActivity.shared
+    @ObservedObject private var libraryTabSwipe = LibraryTabSwipeCoordinator.shared
     @Environment(\.colorScheme) private var systemColorScheme
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -215,11 +218,10 @@ public struct ContentView: View {
 
     private var tabViewCore: some View {
         let _ = settings.globalThemeRevision
-        let tabTint = themeManager.provider(for: settings.globalThemeId).colorPalette.accent
+        let _ = colorEngine.revision
 
         return TabView(selection: tabSelectionBinding) {
             tabRootView(for: .home)
-                .id(tabRootIdentity(for: .home))
                 .toolbar(settings.useSystemTabBar && settings.globalThemeId != .manga ? .automatic : .hidden, for: .tabBar)
                 .tabItem {
                     Label {
@@ -230,7 +232,6 @@ public struct ContentView: View {
                 }
                 .tag(Tab.home)
             tabRootView(for: .podcast)
-                .id(tabRootIdentity(for: .podcast))
                 .toolbar(settings.useSystemTabBar && settings.globalThemeId != .manga ? .automatic : .hidden, for: .tabBar)
                 .tabItem {
                     Label {
@@ -241,7 +242,6 @@ public struct ContentView: View {
                 }
                 .tag(Tab.podcast)
             tabRootView(for: .library)
-                .id(tabRootIdentity(for: .library))
                 .toolbar(settings.useSystemTabBar && settings.globalThemeId != .manga ? .automatic : .hidden, for: .tabBar)
                 .tabItem {
                     Label {
@@ -252,7 +252,6 @@ public struct ContentView: View {
                 }
                 .tag(Tab.library)
             tabRootView(for: .profile)
-                .id(tabRootIdentity(for: .profile))
                 .toolbar(settings.useSystemTabBar && settings.globalThemeId != .manga ? .automatic : .hidden, for: .tabBar)
                 .tabItem {
                     Label {
@@ -263,11 +262,11 @@ public struct ContentView: View {
                 }
                 .tag(Tab.profile)
         }
-        .tint(tabTint)
+        .tint(tabBarTint)
         .background {
             if settings.useSystemTabBar && settings.globalThemeId != .manga {
                 SystemTabBarAppearanceBridge(
-                    accent: tabTint,
+                    accent: tabBarTint,
                     colorScheme: settings.activeColorScheme,
                     revision: settings.globalThemeRevision
                 )
@@ -280,7 +279,10 @@ public struct ContentView: View {
     @ViewBuilder
     private func tabRootView(for tab: Tab) -> some View {
         let _ = themeManager.tokenRevision
-        let theme = themeManager.provider(for: settings.globalThemeId)
+        // 复用主题管理器缓存的 provider。根 Tab 每次刷新都新建 provider 会让
+        // AnyView 包装下的 NavigationStack 更容易在系统 Tab 切换期间被判为
+        // 新宿主；音乐库恰好又包含自身的分页容器，最容易放大这个时序问题。
+        let theme = themeManager.current
 
         Group {
             switch tab {
@@ -310,16 +312,6 @@ public struct ContentView: View {
                 }
             }
         }
-    }
-
-    private func tabRootIdentity(for tab: Tab) -> String {
-        let accessMode = onlineAccess.canUseOnlineFeatures ? "online" : "local"
-        // TabView 本身必须保持稳定。启动主题同步会刷新 revision；若把 revision
-        // 放进 identity，SwiftUI 会在 UITabBarController 切换/导航栏布局期间同时
-        // 销毁四个 NavigationStack，iOS 26 会在 UINavigationBar.layoutSubviews
-        // 内触发一致性断言。真正改变根结构的只有主题或在线能力，因此只用二者
-        // 重建对应 tab 的内容，不再重建整个 TabView 容器。
-        return "\(settings.globalThemeId.rawValue)-\(accessMode)-tab-\(tab.rawValue)"
     }
 
     private func refreshHomeStateForThemeChange() {
@@ -418,13 +410,66 @@ public struct ContentView: View {
         iconSet: AppInterfaceIconSet,
         visualSize: CGFloat
     ) -> some View {
-        Image(uiImage: iconSet.image(for: icon).withRenderingMode(.alwaysOriginal))
+        Image(uiImage: originalArtworkImage(for: icon, iconSet: iconSet))
             .resizable()
             .interpolation(.high)
             .antialiased(true)
             .scaledToFit()
             .frame(width: visualSize, height: visualSize)
             .frame(width: tabIconFrameSize, height: tabIconFrameSize)
+    }
+
+    private func originalArtworkImage(
+        for icon: MonoIcon.IconType,
+        iconSet: AppInterfaceIconSet
+    ) -> UIImage {
+        guard iconSet == .pulseBloom else {
+            return iconSet.image(for: icon).withRenderingMode(.alwaysOriginal)
+        }
+
+        // PulseBloom 的两套资源都保留原始多色细节，只切换结构线的明暗版本。
+        // 用强调色作为对比参照，避免“浅色强调色 + 浅色图标”或
+        // “深色模式白色强调色 + 白色图标”叠在一起。
+        return icon.pulseBloomImage(
+            prefersLightOutline: pulseBloomTabPrefersLightOutline
+        )
+        .withRenderingMode(.alwaysOriginal)
+    }
+
+    private var currentTabTint: Color {
+        // Tab 强调色读取封面融合后的统一颜色，而不是主题静态 accent。
+        Color.monoAccent
+    }
+
+    private var tabBarTint: Color {
+        if settings.activeColorScheme == .dark {
+            // 深色模式固定白色强调色；PulseBloom 据此使用深色结构线版本。
+            return .white
+        }
+        return currentTabTint
+    }
+
+    private var pulseBloomTabPrefersLightOutline: Bool {
+        if settings.activeColorScheme == .dark {
+            // 深色模式强调色是白色，对应原始深色结构线版本。
+            return false
+        }
+
+        let interfaceStyle: UIUserInterfaceStyle = settings.activeColorScheme == .dark ? .dark : .light
+        let resolved = UIColor(currentTabTint).resolvedColor(
+            with: UITraitCollection(userInterfaceStyle: interfaceStyle)
+        )
+
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 1
+        guard resolved.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else {
+            return false
+        }
+
+        let luminance = (0.2126 * red) + (0.7152 * green) + (0.0722 * blue)
+        return luminance < 0.56
     }
 
     private var tabIconFrameSize: CGFloat { 23 }
@@ -461,7 +506,7 @@ public struct ContentView: View {
         switch iconSet {
         case .doodlePop:
             return 16.5
-        case .blobIcons, .iconExport, .dotDogSnake, .minimalWhiteIcons:
+        case .blobIcons, .iconExport, .dotDogSnake, .minimalWhiteIcons, .pulseBloom:
             return 17
         case .pawPrint:
             return 18
@@ -609,9 +654,6 @@ public struct ContentView: View {
         DragGesture(minimumDistance: 16, coordinateSpace: .global)
             .onEnded { value in
                 guard !isFloatingBarGestureArea(value.startLocation) else { return }
-                // 首页歌单、榜单等横向 ScrollView 必须优先消费手势。全局 Tab
-                // 切换只在非横向滚动区域生效，避免滑歌单时整页被切走。
-                guard !startsInsideHorizontalScrollRegion(value.startLocation) else { return }
                 let translation = value.translation
                 let projected = value.predictedEndTranslation
                 let horizontalIntent = abs(projected.width) > abs(projected.height) * 1.45
@@ -625,6 +667,17 @@ public struct ContentView: View {
                 let allTabs = Tab.allCases
                 guard let currentIndex = allTabs.firstIndex(of: currentTab) else { return }
                 let direction = projectedTravel > travel ? projected.width : translation.width
+
+                // 音乐库先消费内部“歌单 / 广场 / 歌手 / 榜单”分页，避免一次
+                // 手势同时切换音乐库页签和应用主 Tab。
+                if currentTab == .library,
+                   libraryTabSwipe.canConsume(direction: direction) {
+                    return
+                }
+
+                // 首页歌单、榜单等横向 ScrollView 必须优先消费手势。全局 Tab
+                // 切换只在非横向滚动区域生效，避免滑歌单时整页被切走。
+                guard !startsInsideHorizontalScrollRegion(value.startLocation) else { return }
 
                 // 左侧返回边缘的右滑交给导航返回手势，避免全局 Tab 切换抢占。
                 if direction > 0, value.startLocation.x <= 44 {
@@ -662,7 +715,7 @@ public struct ContentView: View {
             return playerAwareBottomGestureHeight(hasMiniPlayer: PlayerManager.shared.currentSong != nil)
         case .floatingBall:
             return 112
-        case .unified, .classic, .flux, .liquid, .rivePulse:
+        case .unified, .classic, .flux, .liquid:
             return 96
         case .cassette:
             return 132
@@ -706,7 +759,15 @@ public struct ContentView: View {
                         - scrollView.adjustedContentInset.right,
                     0
                 )
-                if scrollView.contentSize.width > visibleWidth + 8 {
+                let hasHorizontalOverflow = scrollView.contentSize.width > visibleWidth + 24
+                let isExplicitlyHorizontal = scrollView.alwaysBounceHorizontal
+                    && !scrollView.alwaysBounceVertical
+                let isHorizontalPager = scrollView.isPagingEnabled && hasHorizontalOverflow
+
+                // 纵向列表在安全区、缩放或浮点误差下也可能出现几像素的横向
+                // contentSize 偏差。只保护真正的横向滚动区，避免全局 Tab
+                // 左右滑动在大多数列表页面被误判并吞掉。
+                if isHorizontalPager || (hasHorizontalOverflow && isExplicitlyHorizontal) {
                     return true
                 }
             }
@@ -735,11 +796,43 @@ private struct ContentViewFloatingBarContainer: View {
             floatingBarView
                 .id("\(settings.globalThemeId.rawValue)-\(settings.globalThemeRevision)")
                 .themeRenderInteractiveLayer()
+                .simultaneousGesture(floatingTabSwipeGesture)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .zIndex(10)
                 .animation(.spring(response: 0.35, dampingFraction: 0.82), value: player.isTabBarHidden)
                 .animation(MonoAnimation.floatingBar, value: settings.globalThemeRevision)
         }
+    }
+
+    /// 在悬浮栏最下方的导航区左右滑动切换主 Tab。迷你播放器、进度拖动
+    /// 与上下曲手势位于更高区域，不会被这里抢占。
+    private var floatingTabSwipeGesture: some Gesture {
+        DragGesture(minimumDistance: 18, coordinateSpace: .global)
+            .onEnded { value in
+                guard value.startLocation.y >= UIScreen.main.bounds.height - 70 else { return }
+
+                let translation = value.translation
+                let projected = value.predictedEndTranslation
+                guard abs(projected.width) > abs(projected.height) * 1.35,
+                      abs(translation.width) >= 34 || abs(projected.width) >= 76 else {
+                    return
+                }
+
+                let tabs = Tab.allCases
+                guard let index = tabs.firstIndex(of: currentTab) else { return }
+                let direction = abs(projected.width) > abs(translation.width)
+                    ? projected.width
+                    : translation.width
+                let targetIndex = direction < 0 ? index + 1 : index - 1
+                guard tabs.indices.contains(targetIndex) else { return }
+
+                HapticManager.shared.light()
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    currentTab = tabs[targetIndex]
+                }
+            }
     }
 
     @ViewBuilder
@@ -750,8 +843,8 @@ private struct ContentViewFloatingBarContainer: View {
             VStack {
                 Spacer()
                 UnifiedFloatingBar(currentTab: $currentTab)
-                    .iPadContentWidth(600)
-                    .padding(.horizontal, DeviceLayout.isPad ? 40 : 6)
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 0)
                     .padding(.bottom, 0)
             }
         } else {
@@ -795,15 +888,6 @@ private struct ContentViewFloatingBarContainer: View {
                     LiquidFloatingBar(currentTab: $currentTab)
                         .iPadContentWidth(600)
                         .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
-                        .padding(.bottom, 6)
-                }
-
-            case .rivePulse:
-                VStack {
-                    Spacer()
-                    RivePulseFloatingBar(currentTab: $currentTab)
-                        .iPadContentWidth(600)
-                        .padding(.horizontal, DeviceLayout.isPad ? 40 : 18)
                         .padding(.bottom, 6)
                 }
 

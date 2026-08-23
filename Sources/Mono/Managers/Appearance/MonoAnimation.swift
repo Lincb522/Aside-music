@@ -76,6 +76,9 @@ struct MonoBouncingButtonStyle: ButtonStyle {
         let effectivePressed = configuration.isPressed && !isSwiping
         
         configuration.label
+            // SwiftUI 默认只命中实际绘制出的像素；列表行中的 Spacer 和透明
+            // 留白因此经常无法点击。统一把按钮 label 的布局矩形作为命中区。
+            .contentShape(Rectangle())
             .scaleEffect(effectivePressed ? scale : 1.0)
             .opacity(effectivePressed ? opacity : 1.0)
             .animation(MonoAnimation.buttonPress, value: effectivePressed)
@@ -99,10 +102,12 @@ extension View {
         _ style: HapticStyle = .light,
         perform action: @escaping () -> Void
     ) -> some View {
-        self.onTapGesture {
-            style.trigger()
-            action()
-        }
+        self
+            .contentShape(Rectangle())
+            .onTapGesture {
+                style.trigger()
+                action()
+            }
     }
 }
 

@@ -1,13 +1,37 @@
 import Combine
 import QQMusicKit
 import SwiftUI
+import UIKit
 import UniformTypeIdentifiers
 
 // MARK: - Main View
 
+/// 协调音乐库内部页签与应用主 Tab 的横向手势。音乐库内部仍有可切换
+/// 页签时，主 Tab 不应同时跳走。
+@MainActor
+final class LibraryTabSwipeCoordinator: ObservableObject {
+    static let shared = LibraryTabSwipeCoordinator()
+
+    @Published private(set) var currentIndex = 0
+    @Published private(set) var tabCount = 0
+
+    private init() {}
+
+    func update(index: Int, tabCount: Int) {
+        currentIndex = index
+        self.tabCount = tabCount
+    }
+
+    func canConsume(direction: CGFloat) -> Bool {
+        guard tabCount > 0 else { return false }
+        return direction < 0 ? currentIndex < tabCount - 1 : currentIndex > 0
+    }
+}
+
 struct LibraryView: View {
     @StateObject private var viewModel = LibraryViewModel()
     @ObservedObject private var settings = SettingsManager.shared
+    @ObservedObject private var tabSwipeCoordinator = LibraryTabSwipeCoordinator.shared
 
     typealias Theme = PlaylistDetailView.Theme
 
@@ -18,6 +42,7 @@ struct LibraryView: View {
     @State private var libraryHeaderCollapseProgress: CGFloat = 0
     @State private var libraryHeaderDragStart: CGFloat?
     @State private var libraryHeaderHeight: CGFloat = 0
+    @State private var libraryPagingStartIndex: Int?
 
     private let allTabs = LibraryViewModel.LibraryTab.allCases
 
@@ -37,6 +62,7 @@ struct LibraryView: View {
                     defaultLibraryExperience
                 }
             }
+            .simultaneousGesture(libraryPagingGesture)
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -86,6 +112,7 @@ struct LibraryView: View {
                 switchToTab(.artists)
             }
             .onAppear {
+                tabSwipeCoordinator.update(index: tabIndex, tabCount: allTabs.count)
                 if UserDefaults.standard.bool(forKey: "pendingLibrarySquareSwitch") {
                     UserDefaults.standard.set(false, forKey: "pendingLibrarySquareSwitch")
                     if let rawSource = UserDefaults.standard.string(forKey: "pendingLibrarySquareSource"),
@@ -117,7 +144,76 @@ struct LibraryView: View {
                     viewModel.fetchChartsForSelectedSource()
                 }
             }
+            .onChange(of: tabIndex) { _, index in
+                tabSwipeCoordinator.update(index: index, tabCount: allTabs.count)
+            }
         }
+    }
+
+    /// 自定义音乐库主题使用普通 ScrollView 组织内容，系统不会自动分页。
+    /// 此手势补齐左右翻页；默认主题的 PageTabView 会被横向分页 UIScrollView
+    /// 识别并继续交给系统原生分页，不重复处理。
+    private var libraryPagingGesture: some Gesture {
+        DragGesture(minimumDistance: 18, coordinateSpace: .global)
+            .onChanged { value in
+                guard libraryPagingStartIndex == nil,
+                      !startsInsideLibraryHorizontalScrollRegion(value.startLocation),
+                      abs(value.translation.width) > abs(value.translation.height) * 1.25 else {
+                    return
+                }
+                libraryPagingStartIndex = tabIndex
+            }
+            .onEnded { value in
+                defer { libraryPagingStartIndex = nil }
+                guard let startIndex = libraryPagingStartIndex else { return }
+
+                let translation = value.translation
+                let projected = value.predictedEndTranslation
+                guard abs(translation.width) >= 48 || abs(projected.width) >= 96 else { return }
+
+                let direction = abs(projected.width) > abs(translation.width)
+                    ? projected.width
+                    : translation.width
+                let targetIndex = direction < 0 ? startIndex + 1 : startIndex - 1
+                guard allTabs.indices.contains(targetIndex) else { return }
+
+                HapticManager.shared.light()
+                withAnimation(MonoAnimation.tabSwitch) {
+                    switchToTab(allTabs[targetIndex])
+                }
+            }
+    }
+
+    private func startsInsideLibraryHorizontalScrollRegion(_ location: CGPoint) -> Bool {
+        let windows = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+        guard let window = windows.first(where: \.isKeyWindow) ?? windows.first,
+              var view = window.hitTest(location, with: nil) else {
+            return false
+        }
+
+        while true {
+            if let scrollView = view as? UIScrollView,
+               scrollView.isScrollEnabled {
+                let visibleWidth = max(
+                    scrollView.bounds.width
+                        - scrollView.adjustedContentInset.left
+                        - scrollView.adjustedContentInset.right,
+                    0
+                )
+                let hasHorizontalOverflow = scrollView.contentSize.width > visibleWidth + 24
+                if hasHorizontalOverflow,
+                   (scrollView.isPagingEnabled
+                    || (scrollView.alwaysBounceHorizontal && !scrollView.alwaysBounceVertical)) {
+                    return true
+                }
+            }
+
+            guard let parent = view.superview else { break }
+            view = parent
+        }
+        return false
     }
 
     private var defaultLibraryExperience: some View {

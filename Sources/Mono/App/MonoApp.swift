@@ -147,7 +147,6 @@ struct MonoApp: App {
             ContentView()
                 .compatFontDesign(.rounded)
                 .preferredColorScheme(effectiveColorScheme)
-                .background(SwipeBackInjector())
                 .onAppear {
                     AppFrameRate.lockConnectedScenesToPreferredFrameRate(reason: "app root appear")
                     if UIApplication.shared.applicationState == .active {

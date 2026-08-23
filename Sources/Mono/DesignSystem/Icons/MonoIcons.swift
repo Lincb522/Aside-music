@@ -9,6 +9,7 @@ import doodlePop
 import PawPrintIcons
 import DotDogSnakeIcons
 import MinimalWhiteIcons
+import PulseBloomIcons
 
 // MARK: - 统一图标系统
 
@@ -16,10 +17,19 @@ private struct MonoIconDarkArtworkSurfaceKey: EnvironmentKey {
     static let defaultValue = false
 }
 
+private struct MonoIconPulseBloomArtworkKey: EnvironmentKey {
+    static let defaultValue: String? = nil
+}
+
 extension EnvironmentValues {
     fileprivate var monoIconDarkArtworkSurface: Bool {
         get { self[MonoIconDarkArtworkSurfaceKey.self] }
         set { self[MonoIconDarkArtworkSurfaceKey.self] = newValue }
+    }
+
+    fileprivate var monoIconPulseBloomArtwork: String? {
+        get { self[MonoIconPulseBloomArtworkKey.self] }
+        set { self[MonoIconPulseBloomArtworkKey.self] = newValue }
     }
 }
 
@@ -28,6 +38,12 @@ extension View {
     /// 显式选择支持深色外观图标包的白边资源。系统深色模式不需要调用此修饰器。
     func monoIconDarkArtworkSurface(_ enabled: Bool = true) -> some View {
         environment(\.monoIconDarkArtworkSurface, enabled)
+    }
+
+    /// Pulse Bloom 为外观设置提供了更精确的专属语义图标。其他图标包会继续使用
+    /// `MonoIcon.IconType` 的通用语义，不受这个覆盖值影响。
+    func monoIconPulseBloomArtwork(_ assetId: String?) -> some View {
+        environment(\.monoIconPulseBloomArtwork, assetId)
     }
 }
 
@@ -189,8 +205,11 @@ struct MonoIcon: View {
     /// 需要参与渐变遮罩或动态前景色计算时，强制把彩色图标包按模板渲染。
     /// 默认关闭，避免改变其他页面原有的彩色图标外观。
     var forceTemplateRendering: Bool = false
+    /// PulseBloom 根据 Tab 强调色选择结构线明暗，而不是根据图标前景色判断。
+    var pulseBloomContrastColor: Color? = nil
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.monoIconDarkArtworkSurface) private var isDarkArtworkSurface
+    @Environment(\.monoIconPulseBloomArtwork) private var pulseBloomArtworkId
     @AppStorage(AppConfig.StorageKeys.interfaceIconSet) private var iconSetRaw: String = AppInterfaceIconSet.hicon.rawValue
     @AppStorage(AppInterfaceIconSet.zappiconStyleKey) private var zappiconStyleRaw: String = ZappiconIconStyle.light.rawValue
     @AppStorage(AppInterfaceIconSet.solarStyleKey) private var solarStyleRaw: String = SolarIconStyle.line.rawValue
@@ -239,6 +258,11 @@ struct MonoIcon: View {
             return icon.dotDogSnakeImage(prefersLightOutline: usesLightAdaptiveOutline)
         case .minimalWhiteIcons:
             return icon.minimalWhiteIconImage(prefersLightOutline: usesLightAdaptiveOutline)
+        case .pulseBloom:
+            return icon.pulseBloomImage(
+                assetId: pulseBloomArtworkId,
+                prefersLightOutline: usesLightAdaptiveOutline
+            )
         }
     }
 
@@ -247,17 +271,27 @@ struct MonoIcon: View {
     }
 
     private var rendersOriginalArtwork: Bool {
-        usesOriginalArtwork && !forceTemplateRendering
+        guard usesOriginalArtwork else { return false }
+
+        // Pulse Bloom adapts by selecting its light/dark artwork variant. It must
+        // stay in original mode so the accent layers survive; template rendering
+        // would flatten the tab and playback artwork to pure black or pure white.
+        if iconSet == .pulseBloom {
+            return true
+        }
+        return !forceTemplateRendering
     }
 
     private var usesBitmapVisualScale: Bool {
-        iconSet == .iconExport || iconSet == .blobIcons || iconSet == .doodlePop || iconSet == .pawPrint || iconSet == .dotDogSnake || iconSet == .minimalWhiteIcons
+        iconSet == .iconExport || iconSet == .blobIcons || iconSet == .doodlePop || iconSet == .pawPrint || iconSet == .dotDogSnake || iconSet == .minimalWhiteIcons || iconSet == .pulseBloom
     }
 
     private var bitmapIconVisualScale: CGFloat {
         switch iconSet {
         case .minimalWhiteIcons:
             return 1.18
+        case .pulseBloom:
+            return 1.08
         case .doodlePop, .pawPrint, .dotDogSnake:
             switch icon {
             case .karaoke:
@@ -282,7 +316,76 @@ struct MonoIcon: View {
     }
 
     private var usesLightAdaptiveOutline: Bool {
-        colorScheme == .dark || isDarkArtworkSurface
+        if iconSet == .pulseBloom {
+            if let pulseBloomContrastColor {
+                return pulseBloomContrastColorPrefersLightOutline(pulseBloomContrastColor)
+            }
+            if isPrimaryTabNavigationIcon {
+                let tabAccent: Color = colorScheme == .dark ? .white : .monoAccent
+                return pulseBloomContrastColorPrefersLightOutline(tabAccent)
+            }
+            return requestedColorPrefersLightArtwork
+        }
+        if isDarkArtworkSurface { return true }
+        return colorScheme == .dark
+    }
+
+    private var isPrimaryTabNavigationIcon: Bool {
+        switch icon {
+        case .home, .homeFilled,
+             .podcast, .podcastFilled,
+             .musicNote, .musicNoteList,
+             .library, .libraryFilled,
+             .profile, .profileFilled:
+            return true
+        default:
+            return false
+        }
+    }
+
+    private func pulseBloomContrastColorPrefersLightOutline(_ contrastColor: Color) -> Bool {
+        let interfaceStyle: UIUserInterfaceStyle = colorScheme == .dark ? .dark : .light
+        let resolvedColor = UIColor(contrastColor).resolvedColor(
+            with: UITraitCollection(userInterfaceStyle: interfaceStyle)
+        )
+
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 1
+        guard resolvedColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else {
+            return false
+        }
+
+        let luminance = (0.2126 * red) + (0.7152 * green) + (0.0722 * blue)
+        return luminance < 0.56
+    }
+
+    /// Pulse Bloom is monochrome at its structural edge, so the requested
+    /// foreground color is also a useful signal for cover-driven surfaces. A
+    /// light foreground means the surface behind it is expected to be dark and
+    /// therefore selects the white-outline artwork even while the app itself is
+    /// still in light mode.
+    private var requestedColorPrefersLightArtwork: Bool {
+        let interfaceStyle: UIUserInterfaceStyle = colorScheme == .dark ? .dark : .light
+        let traits = UITraitCollection(userInterfaceStyle: interfaceStyle)
+        let resolvedColor = UIColor(color).resolvedColor(with: traits)
+
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        if resolvedColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha) {
+            let luminance = (0.2126 * red) + (0.7152 * green) + (0.0722 * blue)
+            return luminance >= 0.56
+        }
+
+        var white: CGFloat = 0
+        if resolvedColor.getWhite(&white, alpha: &alpha) {
+            return white >= 0.56
+        }
+
+        return colorScheme == .dark
     }
 
     private var iconImage: some View {
@@ -687,6 +790,8 @@ extension AppInterfaceIconSet {
             return icon.dotDogSnakeImage
         case .minimalWhiteIcons:
             return icon.minimalWhiteIconImage
+        case .pulseBloom:
+            return icon.pulseBloomImage(prefersLightOutline: false)
         }
     }
 }
@@ -929,6 +1034,33 @@ extension MonoIcon.IconType {
         guard prefersLightOutline else { return image }
         return UIImage(minimalWhiteIconId: bitmapIconId, userInterfaceStyle: .dark) ?? image
     }
+
+    var pulseBloomImage: UIImage {
+        // Keep the compatibility accessor deterministic. Tab surfaces use the
+        // explicit variant overload below instead of a trait-adaptive image.
+        UIImage(pulseBloomIconId: bitmapIconId, userInterfaceStyle: .light) ?? hiconImage
+    }
+
+    func pulseBloomImage(prefersLightOutline: Bool) -> UIImage {
+        pulseBloomImage(assetId: nil, prefersLightOutline: prefersLightOutline)
+    }
+
+    func pulseBloomImage(assetId: String?, prefersLightOutline: Bool) -> UIImage {
+        let resolvedAssetId = assetId ?? bitmapIconId
+        let requestedStyle: UIUserInterfaceStyle = prefersLightOutline ? .dark : .light
+
+        // The asset catalog contains luminosity variants. Always resolve the
+        // requested variant explicitly; a nil-compatible image can switch back
+        // to the system appearance later when UIKit renders the tab.
+        return UIImage(
+            pulseBloomIconId: resolvedAssetId,
+            userInterfaceStyle: requestedStyle
+        ) ?? UIImage(
+            pulseBloomIconId: resolvedAssetId,
+            userInterfaceStyle: .light
+        ) ?? hiconImage
+    }
+
 }
 
 #if os(iOS)

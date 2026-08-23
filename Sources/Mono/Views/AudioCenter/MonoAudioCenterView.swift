@@ -76,6 +76,7 @@ struct MonoAudioCenterView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Namespace private var workspaceNamespace
     @State private var workspace: Workspace
+    @State private var showsAgentSettings = false
 
     init(initialWorkspace: Workspace = .ai) {
         _workspace = State(initialValue: initialWorkspace)
@@ -146,8 +147,20 @@ struct MonoAudioCenterView: View {
             }
 
             ToolbarItem(placement: .topBarTrailing) {
-                workspaceStatus
+                HStack(spacing: 8) {
+                    workspaceStatus
+                    Button { showsAgentSettings = true } label: {
+                        MonoIcon(icon: .settings, size: 16, color: .white)
+                            .frame(width: 36, height: 36)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(String(localized: "audio_agent_settings_title"))
+                }
             }
+        }
+        .navigationDestination(isPresented: $showsAgentSettings) {
+            MonoAudioAgentSettingsView()
         }
         .onAppear(perform: refreshAccent)
         .onChange(of: player.currentSong?.id) { _, _ in

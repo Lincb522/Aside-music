@@ -209,6 +209,7 @@ struct ThemedLibraryEmptyState: View {
                 Color.clear.monoGlass(cornerRadius: 18)
             }
         }
+        .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 }
 
@@ -305,6 +306,7 @@ struct ThemedLibraryArtistCard: View {
                 SequoiaSurfaceBackground(cornerRadius: 20, elevated: false, fill: tint.opacity(0.055), role: .list)
             }
         }
+        .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 }
 
@@ -422,6 +424,7 @@ struct NeumorphicPlaylistPoster: View {
                 lightweight: true
             )
         )
+        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 
     private var metaText: String {
@@ -475,6 +478,7 @@ struct NeumorphicLocalShelfRow: View {
                 lightweight: true
             )
         )
+        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 
     @ViewBuilder
@@ -548,6 +552,7 @@ struct NeumorphicPlaylistShelfRow: View {
                 lightweight: true
             )
         )
+        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 
     private var metaText: String {
@@ -752,6 +757,7 @@ struct NeumorphicChartShelfRow: View {
         }
         .padding(12)
         .background(NeumorphicSurfaceBackground(cornerRadius: 24, elevated: true, tint: tint.opacity(0.055), lightweight: true))
+        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 }
 
@@ -788,6 +794,7 @@ struct NeumorphicQQChartShelfRow: View {
         }
         .padding(12)
         .background(NeumorphicSurfaceBackground(cornerRadius: 24, elevated: true, tint: tint.opacity(0.055), lightweight: true))
+        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 }
 

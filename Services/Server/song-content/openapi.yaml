@@ -80,7 +80,7 @@ paths:
         - { name: device_uuid, in: query, schema: { type: string } }
       responses:
         '200':
-          description: 版本化公开配置，含客户端模块、缓存策略和五类 App Agent 运行配置
+          description: 版本化公开配置，含客户端模块、缓存策略、App Agent 运行配置及调音技能工具策略
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PublicAppConfiguration' }
@@ -164,7 +164,7 @@ components:
       type: object
       required: [schema_version, release, version, enabled, modules, agent_management_enabled, agents, polling_interval_seconds, cache_max_age_seconds]
       properties:
-        schema_version: { type: integer, enum: [2] }
+        schema_version: { type: integer, enum: [3] }
         release: { type: string }
         version: { type: integer }
         enabled: { type: boolean }
@@ -191,3 +191,47 @@ components:
         maxOutputTokens: { type: integer, minimum: 128, maximum: 32000 }
         minimumTimeoutSeconds: { type: number, minimum: 0, maximum: 180 }
         maxAttempts: { type: integer, minimum: 1, maximum: 4 }
+        skills: { $ref: '#/components/schemas/AudioAgentSkillConfiguration' }
+        toolPolicy: { $ref: '#/components/schemas/AudioAgentToolPolicy' }
+    AudioAgentSkillConfiguration:
+      type: object
+      required: [revision, builtIns, custom]
+      properties:
+        revision: { type: string, maxLength: 160 }
+        builtIns: { $ref: '#/components/schemas/AudioAgentBuiltInSkills' }
+        custom:
+          type: array
+          maxItems: 12
+          items: { $ref: '#/components/schemas/AudioAgentCustomSkill' }
+    AudioAgentBuiltInSkills:
+      type: object
+      additionalProperties: false
+      required: [measurementEvidence, deviceCoordination, headroomGuard, phaseGuard, outputValidation, artistReference, vocalReference]
+      properties:
+        measurementEvidence: { type: boolean, enum: [true] }
+        deviceCoordination: { type: boolean, enum: [true] }
+        headroomGuard: { type: boolean, enum: [true] }
+        phaseGuard: { type: boolean, enum: [true] }
+        outputValidation: { type: boolean, enum: [true] }
+        artistReference: { type: boolean }
+        vocalReference: { type: boolean }
+    AudioAgentCustomSkill:
+      type: object
+      additionalProperties: false
+      required: [id, name, instruction, enabled]
+      properties:
+        id: { type: string, maxLength: 80 }
+        name: { type: string, maxLength: 20 }
+        instruction: { type: string, maxLength: 120 }
+        enabled: { type: boolean }
+    AudioAgentToolPolicy:
+      type: object
+      additionalProperties: false
+      required: [revision, requiredToolName, invocationMode, requireExactlyOnce, localValidationRequired, allowPromptFallback]
+      properties:
+        revision: { type: string, maxLength: 160 }
+        requiredToolName: { type: string, enum: [mono_audio_tuning] }
+        invocationMode: { type: string, enum: [required] }
+        requireExactlyOnce: { type: boolean, enum: [true] }
+        localValidationRequired: { type: boolean, enum: [true] }
+        allowPromptFallback: { type: boolean, enum: [false] }

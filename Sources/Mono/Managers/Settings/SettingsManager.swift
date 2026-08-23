@@ -437,19 +437,20 @@ final class SettingsManager: ObservableObject {
         bumpApplicationRevision: Bool,
         applyPreferredIconSet: Bool
     ) {
+        let resolvedThemeId = themeId == .manga ? GlobalThemeId.appDefault : themeId
         let previousThemeId = GlobalThemeManager.shared.currentThemeId
 
-        if globalThemeIdRaw != themeId.rawValue {
-            globalThemeIdRaw = themeId.rawValue
+        if globalThemeIdRaw != resolvedThemeId.rawValue {
+            globalThemeIdRaw = resolvedThemeId.rawValue
         }
-        UserDefaults.standard.set(themeId.rawValue, forKey: GlobalThemeId.storageKey)
+        UserDefaults.standard.set(resolvedThemeId.rawValue, forKey: GlobalThemeId.storageKey)
 
-        GlobalThemeManager.shared.switchTheme(to: themeId)
-        if previousThemeId == themeId, bumpRevision {
+        GlobalThemeManager.shared.switchTheme(to: resolvedThemeId)
+        if previousThemeId == resolvedThemeId, bumpRevision {
             GlobalThemeManager.shared.refreshCurrentThemeTokens()
         }
         let iconSetChanged = applyPreferredIconSet
-            ? applyPreferredInterfaceIconSet(for: themeId)
+            ? applyPreferredInterfaceIconSet(for: resolvedThemeId)
             : false
         enforceCoverBackgroundPolicyForCurrentTheme()
 
@@ -459,7 +460,7 @@ final class SettingsManager: ObservableObject {
         if bumpRevision || iconSetChanged {
             globalThemeRevision &+= 1
         }
-        AppLogger.info("[ApplyTheme] themeId=\(themeId.rawValue) savedThemeId=\(UserDefaults.standard.string(forKey: GlobalThemeId.storageKey) ?? "nil") previousManagerThemeId=\(previousThemeId.rawValue) bumpRevision=\(bumpRevision) appRevision=\(globalThemeApplicationRevision) applyPreferredIconSet=\(applyPreferredIconSet) revision=\(globalThemeRevision)")
+        AppLogger.info("[ApplyTheme] themeId=\(resolvedThemeId.rawValue) savedThemeId=\(UserDefaults.standard.string(forKey: GlobalThemeId.storageKey) ?? "nil") previousManagerThemeId=\(previousThemeId.rawValue) bumpRevision=\(bumpRevision) appRevision=\(globalThemeApplicationRevision) applyPreferredIconSet=\(applyPreferredIconSet) revision=\(globalThemeRevision)")
     }
 
     @discardableResult

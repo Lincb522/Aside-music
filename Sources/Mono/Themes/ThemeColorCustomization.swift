@@ -756,7 +756,7 @@ enum ThemeColorCustomization {
         case .capsule: return "F6F8FF"
         case .petWhite: return "FFFFFF"
         case .clarity: return "EEF2F3"
-        case .manga: return "FFF3D7"
+        case .manga: return "F3E9D8"
         case .default: return "F8FAFC"
         }
     }
@@ -769,7 +769,7 @@ enum ThemeColorCustomization {
         case .capsule: return "EAF1FF"
         case .petWhite: return "FFFFFF"
         case .clarity: return "EAF0F2"
-        case .manga: return "E8F1FF"
+        case .manga: return "E8DECD"
         case .default: return "E6EDF6"
         }
     }
@@ -788,7 +788,7 @@ enum ThemeColorCustomization {
             case .capsule: return "F8F2FF"
             case .petWhite: return "FFF7DE"
             case .clarity: return "F1EAF7"
-            case .manga: return "FFEAF4"
+            case .manga: return "FFF8EB"
             case .default: return "EEF4EE"
             }
         case "stop4":
@@ -799,7 +799,7 @@ enum ThemeColorCustomization {
             case .capsule: return "EDF9FF"
             case .petWhite: return "EFFAF5"
             case .clarity: return "E7F5F5"
-            case .manga: return "F8F6DE"
+            case .manga: return "DED3C1"
             case .default: return "F6F1EA"
             }
         default:
@@ -809,11 +809,11 @@ enum ThemeColorCustomization {
 
     static func defaultMangaExtraHex(_ suffix: String) -> String {
         switch suffix {
-        case "blockA": return "FFE067"
-        case "blockB": return "58B9FF"
-        case "blockC": return "8DE4B8"
-        case "stroke", "settingsIcon": return "17151F"
-        default: return "17151F"
+        case "blockA": return "DBF400"
+        case "blockB": return "124BFF"
+        case "blockC": return "FF4B0A"
+        case "stroke", "settingsIcon": return "071E34"
+        default: return "071E34"
         }
     }
 
@@ -839,7 +839,7 @@ enum ThemeColorCustomization {
         case .minimalWhite:
             return readableForegroundColor(on: accent, light: MinimalWhiteStyle.ink, dark: .white)
         case .manga:
-            return readableForegroundColor(on: accent, light: Color(hex: "17151F"), dark: Color(hex: "FFFDF5"))
+            return readableForegroundColor(on: accent, light: Color(hex: "071E34"), dark: Color(hex: "F3E9D8"))
         case .muji:
             return readableForegroundColor(on: accent, light: Color(hex: "211A15"), dark: Color(hex: "FFF8EF"))
         case .neumorphic:
@@ -1207,6 +1207,17 @@ enum ThemeColorCustomization {
             backgroundStartHex: "10090D",
             backgroundEndHex: "32101B",
             backgroundHexes: ["10090D", "32101B", "1B0E19", "09080B"],
+            gradientStyle: .radial
+        ),
+        ThemeColorPreset(
+            id: "default-dark-pulse-bloom",
+            name: "Pulse Bloom",
+            accentStartHex: "8D7CFF",
+            accentEndHex: "8D7CFF",
+            backgroundMode: .gradient,
+            backgroundStartHex: "1B1730",
+            backgroundEndHex: "261F48",
+            backgroundHexes: ["1B1730", "261F48", "15112D", "0B0915"],
             gradientStyle: .radial
         ),
     ]

@@ -142,7 +142,11 @@ struct MonoSheetContainer<Content: View>: View {
         case .fixed(let value):
             return min(value, clampedAvailableHeight)
         case .maximumRatio(let value):
-            return clampedAvailableHeight * value
+            // The ratio describes the share of the full safe-area height.  The
+            // top-spacing limit is a separate cap, not a second reduction that
+            // should be multiplied into the ratio.  Keeping both constraints
+            // independent gives compact landscape sheets enough usable room.
+            return min(max(0, availableHeight * value), clampedAvailableHeight)
         }
     }
 

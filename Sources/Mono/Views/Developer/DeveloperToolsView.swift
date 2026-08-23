@@ -149,10 +149,14 @@ extension View {
 struct DeveloperToolsView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var settings = SettingsManager.shared
+    @ObservedObject private var onlineAccess = OnlineAccessManager.shared
     @ObservedObject private var aiProvider = AIProviderConfigurationStore.shared
+    @ObservedObject private var agentTraces = AIAgentTraceStore.shared
 
     var body: some View {
         let _ = settings.globalThemeRevision
+        let _ = onlineAccess.lastTokenStatus
+        let hasFullAccess = AppConfig.DeveloperAccess.hasFullTools
 
         ZStack {
             DeveloperDiagnosticBackdrop()
@@ -161,49 +165,24 @@ struct DeveloperToolsView: View {
                 VStack(spacing: SettingsPageLayout.deepSectionSpacing) {
                     DeveloperDiagnosticHeader(
                         title: String(localized: "dev_mode_title"),
-                        status: String(localized: "dev_mode_enabled_short"),
+                        status: String(
+                            localized: hasFullAccess
+                                ? "dev_mode_access_full"
+                                : "dev_mode_access_basic"
+                        ),
                         icon: .unlock,
-                        tint: .green
+                        tint: hasFullAccess ? .green : .cyan
                     )
                     .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
                     .iPadContentWidth(SettingsPageLayout.contentWidth)
 
                     VStack(spacing: SettingsPageLayout.deepSectionSpacing) {
-                        SettingsSection(title: "账号") {
+                        SettingsSection(title: String(localized: "developer_tools_section_diagnostics")) {
                             SettingsRouteLinkRow(
-                                icon: .personCircle,
-                                title: "平台切号管理",
-                                value: "QCM · KCM",
-                                destination: .platformAccountSwitching
-                            )
-                        }
-
-                        SettingsSection(title: String(localized: "developer_tools_section_testing")) {
-                            SettingsRouteLinkRow(
-                                icon: .sparkle,
-                                title: String(localized: "ai_provider_settings_title"),
-                                value: aiProvider.wireProtocol.title,
-                                destination: .aiProviderSettings
-                            )
-
-                            Divider()
-                                .padding(.leading, 58)
-
-                            SettingsRouteLinkRow(
-                                icon: .waveform,
-                                title: "实时音频实验台",
-                                value: "FFmpeg",
-                                destination: .ffmpegCapabilityTest
-                            )
-
-                            Divider()
-                                .padding(.leading, 58)
-
-                            SettingsRouteLinkRow(
-                                icon: .gridSquare,
-                                title: String(localized: "dev_popup_catalog_title"),
-                                value: "\(DeveloperPopupCatalogView.previewCount)",
-                                destination: .developerPopupCatalog
+                                icon: .history,
+                                title: String(localized: "agent_trace_title"),
+                                value: "\(agentTraces.sessions.count)",
+                                destination: .agentTrace
                             )
 
                             Divider()
@@ -217,22 +196,62 @@ struct DeveloperToolsView: View {
                             )
                         }
 
-                        SettingsSection(title: String(localized: "developer_tools_section_access")) {
-                            SettingsInfoRow(
-                                icon: .unlock,
-                                title: String(localized: "dev_mode_title"),
-                                value: String(localized: "dev_mode_enabled_short")
-                            )
+                        if hasFullAccess {
+                            SettingsSection(title: String(localized: "developer_tools_section_accounts")) {
+                                SettingsRouteLinkRow(
+                                    icon: .personCircle,
+                                    title: String(localized: "developer_platform_switching"),
+                                    value: "QCM · KCM",
+                                    destination: .platformAccountSwitching
+                                )
+                            }
 
-                            Divider()
-                                .padding(.leading, 58)
+                            SettingsSection(title: String(localized: "developer_tools_section_testing")) {
+                                SettingsRouteLinkRow(
+                                    icon: .sparkle,
+                                    title: String(localized: "ai_provider_settings_title"),
+                                    value: aiProvider.wireProtocol.title,
+                                    destination: .aiProviderSettings
+                                )
 
-                            SettingsButtonRow(
-                                icon: .lock,
-                                title: String(localized: "dev_mode_disable_action"),
-                                titleColor: .red,
-                                action: confirmDisableDeveloperMode
-                            )
+                                Divider()
+                                    .padding(.leading, 58)
+
+                                SettingsRouteLinkRow(
+                                    icon: .waveform,
+                                    title: String(localized: "developer_audio_lab"),
+                                    value: "FFmpeg",
+                                    destination: .ffmpegCapabilityTest
+                                )
+
+                                Divider()
+                                    .padding(.leading, 58)
+
+                                SettingsRouteLinkRow(
+                                    icon: .gridSquare,
+                                    title: String(localized: "dev_popup_catalog_title"),
+                                    value: "\(DeveloperPopupCatalogView.previewCount)",
+                                    destination: .developerPopupCatalog
+                                )
+                            }
+
+                            SettingsSection(title: String(localized: "developer_tools_section_access")) {
+                                SettingsInfoRow(
+                                    icon: .unlock,
+                                    title: String(localized: "dev_mode_title"),
+                                    value: String(localized: "dev_mode_access_full")
+                                )
+
+                                Divider()
+                                    .padding(.leading, 58)
+
+                                SettingsButtonRow(
+                                    icon: .lock,
+                                    title: String(localized: "dev_mode_disable_action"),
+                                    titleColor: .red,
+                                    action: confirmDisableDeveloperMode
+                                )
+                            }
                         }
 
                         FloatingBarBottomSpacer()
@@ -254,7 +273,7 @@ struct DeveloperToolsView: View {
             primaryButtonTitle: String(localized: "dev_mode_confirm"),
             secondaryButtonTitle: String(localized: "dev_mode_cancel"),
             primaryAction: {
-                UserDefaults.standard.set(false, forKey: "qqDevMode")
+                UserDefaults.standard.set(false, forKey: AppConfig.StorageKeys.developerModeEnabled)
                 HapticManager.shared.success()
                 dismiss()
             }

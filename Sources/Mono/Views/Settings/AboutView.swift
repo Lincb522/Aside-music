@@ -10,7 +10,7 @@ struct AboutView: View {
     @State private var bodyVisible = false
     @State private var tapCount = 0
     @State private var versionTapCount = 0
-    @AppStorage("qqDevMode") private var qqDevMode = false
+    @AppStorage(AppConfig.StorageKeys.developerModeEnabled) private var qqDevMode = false
     @AppStorage(ChangelogPreferenceKeys.autoPresent) private var changelogAutoPresent = true
 
     private var versionNumber: String {
@@ -412,11 +412,6 @@ struct AboutView: View {
                     .transition(.scale.combined(with: .opacity))
             }
 
-            if qqDevMode {
-                Text(String(localized: "dev_mode_enabled"))
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .foregroundColor(accent)
-            }
         }
         .animation(.spring, value: tapCount)
         .animation(.easeOut(duration: 0.2), value: qqDevMode)
@@ -446,28 +441,14 @@ struct AboutView: View {
                 }
             )
         } else {
-            AlertManager.shared.showInput(
+            AlertManager.shared.show(
                 title: String(localized: "dev_mode_title"),
-                message: String(localized: "dev_mode_enable"),
-                placeholder: String(localized: "dev_mode_password"),
-                isSecure: true,
+                message: String(localized: "dev_mode_enable_message"),
                 primaryButtonTitle: String(localized: "dev_mode_confirm"),
                 secondaryButtonTitle: String(localized: "dev_mode_cancel"),
-                onConfirm: { password in
-                    if password == "yqq977522" {
-                        qqDevMode = true
-                        HapticManager.shared.success()
-                    } else {
-                        HapticManager.shared.error()
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                            AlertManager.shared.show(
-                                title: String(localized: "dev_mode_title"),
-                                message: String(localized: "dev_mode_password_error"),
-                                primaryButtonTitle: String(localized: "common_ok"),
-                                primaryAction: {}
-                            )
-                        }
-                    }
+                primaryAction: {
+                    qqDevMode = true
+                    HapticManager.shared.success()
                 }
             )
         }

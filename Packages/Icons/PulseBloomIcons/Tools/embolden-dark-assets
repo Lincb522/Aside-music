@@ -1,0 +1,109 @@
+#!/usr/bin/python3
+"""Apply the Pulse Bloom dark-mode optical-weight correction.
+
+Existing outline strokes receive a small, bounded weight increase, while the
+two neutral structural fills receive a same-color hairline. The moon is the
+intentional exception: it owns a broad filled crescent drawn in its asset and
+must not be converted into an outlined/thickened version here. Accent colors
+are intentionally left untouched.
+
+The transformation is idempotent and only targets ``*_dark.svg`` assets.
+"""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+
+ASSET_ROOT = (
+    Path(__file__).resolve().parents[1]
+    / "Sources"
+    / "PulseBloomIcons"
+    / "icons.xcassets"
+)
+STRUCTURAL_COLORS = ("#F7F4FF", "#D8D0F2")
+FILL_HAIRLINE = "0.52"
+SKIP_FILLED_HAIRLINE = {
+    # The moon owns a purpose-built broad crescent silhouette. Adding a stroke
+    # changes its geometry instead of fixing it, so it is excluded here.
+    "moon_dark.svg",
+}
+
+TAG_PATTERN = re.compile(r"<(path|circle|rect|ellipse|polygon|polyline)\b[^>]*?/>")
+STROKE_WIDTH_PATTERN = re.compile(r'stroke-width="([0-9.]+)"')
+
+
+def normalize_existing_stroke(tag: str) -> str:
+    # Filled structural shapes are handled separately below; their added
+    # hairline must not be promoted to the outline weight on a second run.
+    if any(f'fill="{color}"' in tag for color in STRUCTURAL_COLORS):
+        return tag
+    if not any(f'stroke="{color}"' in tag for color in STRUCTURAL_COLORS):
+        return tag
+
+    match = STROKE_WIDTH_PATTERN.search(tag)
+    if match is None:
+        return tag
+
+    width = float(match.group(1))
+    if abs(width - 1.55) < 0.01:
+        replacement = "1.85"
+    elif abs(width - 2.15) < 0.01:
+        replacement = "2.45"
+    else:
+        return tag
+    return STROKE_WIDTH_PATTERN.sub(f'stroke-width="{replacement}"', tag, count=1)
+
+
+def embolden_filled_shape(tag: str, fill_hairline: str | None) -> str:
+    fill_color = next(
+        (color for color in STRUCTURAL_COLORS if f'fill="{color}"' in tag),
+        None,
+    )
+    if fill_color is None:
+        return tag
+    if fill_hairline is None:
+        return tag
+
+    if f'stroke="{fill_color}"' in tag:
+        if 'stroke-linecap="round"' in tag and 'stroke-linejoin="round"' in tag:
+            if STROKE_WIDTH_PATTERN.search(tag):
+                return STROKE_WIDTH_PATTERN.sub(
+                    f'stroke-width="{fill_hairline}"', tag, count=1
+                )
+        return tag
+    if "stroke=" in tag:
+        return tag
+
+    suffix = (
+        f' stroke="{fill_color}" stroke-width="{fill_hairline}"'
+        ' stroke-linecap="round" stroke-linejoin="round"'
+    )
+    return tag[:-2].rstrip() + suffix + " />"
+
+
+def transform_tag(match: re.Match[str], fill_hairline: str | None) -> str:
+    tag = normalize_existing_stroke(match.group(0))
+    return embolden_filled_shape(tag, fill_hairline)
+
+
+def main() -> None:
+    changed = 0
+    for svg_path in sorted(ASSET_ROOT.rglob("*_dark.svg")):
+        source = svg_path.read_text(encoding="utf-8")
+        fill_hairline = None if svg_path.name in SKIP_FILLED_HAIRLINE else FILL_HAIRLINE
+        updated = TAG_PATTERN.sub(
+            lambda match: transform_tag(match, fill_hairline),
+            source,
+        )
+        if updated != source:
+            svg_path.write_text(updated, encoding="utf-8")
+            changed += 1
+
+    print(f"Pulse Bloom dark assets checked: {len(list(ASSET_ROOT.rglob('*_dark.svg')))}")
+    print(f"Pulse Bloom dark assets updated: {changed}")
+
+
+if __name__ == "__main__":
+    main()

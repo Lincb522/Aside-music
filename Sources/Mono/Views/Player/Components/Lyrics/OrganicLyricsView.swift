@@ -2,16 +2,17 @@ import SwiftUI
 import Combine
 
 struct OrganicGlyph: Identifiable {
-    let id = UUID()
     let char: String
     let startTime: TimeInterval
     let duration: TimeInterval
     let globalIndex: Int
     let wordIndex: Int
+
+    var id: Int { globalIndex }
 }
 
 struct OrganicWordGroup: Identifiable {
-    let id = UUID()
+    let id: Int
     let glyphs: [OrganicGlyph]
 }
 
@@ -212,14 +213,18 @@ struct OrganicLyricLineView: View {
         VStack(alignment: .leading, spacing: 8) {
             if isCurrent {
                 if enableKaraoke && !wordGroups.isEmpty {
-                    FlowLayout(spacing: 0) {
+                    FlowLayout(
+                        spacing: 0,
+                        measurementToken: line.id.hashValue
+                    ) {
                         ForEach(wordGroups) { group in
                             HStack(spacing: 0) {
                                 ForEach(group.glyphs) { glyph in
                                     OrganicLyricCharacterView(
                                         glyph: glyph,
                                         isCurrent: isCurrent,
-                                        currentTime: currentTime,
+                                        progress: lyricProgress(for: glyph),
+                                        waveTime: style == .wave ? currentTime : 0,
                                         font: mainFont,
                                         style: style
                                     )
@@ -266,26 +271,7 @@ struct OrganicLyricLineView: View {
                                 )
                             )
                             .foregroundColor(.white.opacity(0.8)) // 到的翻译字高亮
-                            .mask(
-                                GeometryReader { geo in
-                                    let w = geo.size.width
-                                    let h = geo.size.height
-                                    LinearGradient(
-                                        stops: [
-                                            .init(color: .black, location: 0),
-                                            .init(color: .black, location: 0.3),     // 纯黑完全浸没区
-                                            .init(color: .black.opacity(0.4), location: 0.6), // 极其宽广柔和的流水前端
-                                            .init(color: .clear, location: 0.9)      // 较远距离才完全透明，确保字间融合
-                                        ],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                    .frame(width: w * 5, height: h * 2)     // 极其宽广的遮罩平面
-                                    .offset(x: -w * 2.5, y: -h * 0.5)       // 居中校准
-                                    // 让极其柔和的半透明过渡带缓缓滑过
-                                    .offset(x: -w * 1.5 + (w * 3.5) * transProgress)
-                                }
-                            )
+                            .mask(KaraokeSweepMask(progress: transProgress))
                     }
                 } else {
                     Text(trans)
@@ -315,6 +301,14 @@ struct OrganicLyricLineView: View {
         let progress = (currentTime - line.time) / line.duration
         return CGFloat(max(0, min(1, progress)))
     }
+
+    private func lyricProgress(for glyph: OrganicGlyph) -> CGFloat {
+        guard isCurrent else { return 0 }
+        guard glyph.duration > 0 else { return currentTime >= glyph.startTime ? 1 : 0 }
+        if currentTime <= glyph.startTime { return 0 }
+        if currentTime >= glyph.startTime + glyph.duration { return 1 }
+        return min(max(CGFloat((currentTime - glyph.startTime) / glyph.duration), 0), 1)
+    }
     
     private func prepareWordGroups(line: LyricLine) -> [OrganicWordGroup] {
         let sourceWords = LyricKaraokeTimeline.resolvedWords(for: line)
@@ -340,7 +334,7 @@ struct OrganicLyricLineView: View {
                 ))
                 globalIndex += 1
             }
-            groups.append(OrganicWordGroup(glyphs: glyphs))
+            groups.append(OrganicWordGroup(id: wordGlobalIndex, glyphs: glyphs))
             wordGlobalIndex += 1
         }
         return groups
@@ -352,20 +346,24 @@ struct OrganicLyricLineView: View {
 struct OrganicLyricCharacterView: View {
     let glyph: OrganicGlyph
     let isCurrent: Bool
-    let currentTime: TimeInterval
+    let progress: CGFloat
+    let waveTime: TimeInterval
     let font: Font
     var style: KaraokeWordStyle = .flow
     
     // 数学旗帜横波偏移量 (数学正弦波随时间传播)
     private var continuousFlagWaveOffset: CGFloat {
-        guard isCurrent, currentTime > 0 else { return 0 }
+        // Only the Wave style needs a continuous sine calculation. Previously
+        // every character in every style performed trigonometry at 60 fps and
+        // received an offset modifier even when the result was visually unused.
+        guard style == .wave, isCurrent, waveTime > 0 else { return 0 }
         // 降低频率让波浪变宽长更有飘扬感，同时防抖动
         let waveSpeed: Double = 1.8
         // 恢复空间相位差以保证短句依旧能产生“涟漪飘扬”感。
         // 原先英文撕裂的根本原因是用了 wordIndex，导致整个单词像阶梯一样硬生生断层错位。
         // 现在强制改为 globalIndex 并使用极小的频率 (0.08)，使得无论是长句还是短句，所有字符必然连成一条平滑完美的物理正弦横波（丝带般），绝不断层。
         let spatialFrequency: Double = 0.08
-        let phase = currentTime * waveSpeed - Double(glyph.globalIndex) * spatialFrequency
+        let phase = waveTime * waveSpeed - Double(glyph.globalIndex) * spatialFrequency
         // 上下飘浮微波动
         return CGFloat(sin(phase)) * 2.5
     }
@@ -375,22 +373,13 @@ struct OrganicLyricCharacterView: View {
         // 缓动扫光 + 激活脉冲（托起/回弹/辉光…）替代原先的线性硬扫，消除生硬感
         KaraokeStyledWordView(
             text: glyph.char,
-            progress: calculateProgress(),
+            progress: progress,
             font: font,
             style: style,
             inactiveColor: .white.opacity(isCurrent ? 0.35 : 0.25),
             activeColor: .white
         )
-        .blur(radius: isCurrent ? 0 : 2.5)
         .offset(y: continuousFlagWaveOffset)
-        .animation(.spring(response: 0.5, dampingFraction: 0.8), value: isCurrent)
     }
     
-    func calculateProgress() -> CGFloat {
-        guard isCurrent else { return 0 }
-        guard glyph.duration > 0 else { return currentTime >= glyph.startTime ? 1 : 0 }
-        if currentTime < glyph.startTime { return 0 }
-        if currentTime >= glyph.startTime + glyph.duration { return 1 }
-        return CGFloat((currentTime - glyph.startTime) / glyph.duration)
-    }
 }

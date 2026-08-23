@@ -88,6 +88,7 @@ private struct DownloadProgressGlyph: View {
 struct CurrentSongDownloadSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.monoSheetDismiss) private var monoSheetDismiss
+    @Environment(\.colorScheme) private var inheritedColorScheme
     @ObservedObject private var player = PlayerManager.shared
     @ObservedObject private var downloadManager = DownloadManager.shared
     @ObservedObject private var lyricDownloadManager = LyricDownloadManager.shared
@@ -374,6 +375,7 @@ struct CurrentSongDownloadSheet: View {
 
 struct DownloadManageView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var inheritedColorScheme
     @ObservedObject private var player = PlayerManager.shared
     @ObservedObject private var downloadManager = DownloadManager.shared
     @ObservedObject private var lyricDownloadManager = LyricDownloadManager.shared

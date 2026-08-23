@@ -43,7 +43,12 @@ final class AppleMusicPlaybackCoordinator {
     /// `player.currentTime` 仍由心跳统一提交，避免高频发布污染全局状态。
     var renderingPlaybackTime: TimeInterval? {
         guard isActive else { return nil }
-        let time = lastPlaybackTime
+        // `lastPlaybackTime` is committed by the low-frequency playback
+        // heartbeat. Returning it directly makes every karaoke renderer hold
+        // and then jump on the next heartbeat. Interpolate from the confirmed
+        // local monotonic anchor instead; this performs no MusicKit/XPC query
+        // and gives all 60 fps lyric surfaces a smooth clock.
+        let time = resolvedLocalPlaybackTime()
         return time.isFinite && !time.isNaN && time >= 0 ? time : nil
     }
 

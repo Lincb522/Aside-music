@@ -1,6 +1,6 @@
 # Mono 引擎总览
 
-> 更新日期：2026-08-18  
+> 更新日期：2026-08-22
 > 本文只记录当前仓库中已经存在的实现，不把规划、实验构想或已删除功能写成已上线能力。
 
 Mono 的“引擎”不是单一巨型模块，而是按播放、数据、资源治理、颜色、声音中心、歌词渲染、内容服务和基础包分层。业务页面只消费公开状态和动作；实时音频、持久化、图像分析与后台维护分别由对应引擎负责。
@@ -189,9 +189,41 @@ Mono 的“引擎”不是单一巨型模块，而是按播放、数据、资源
 
 ## 8. Agent 运行体系（相关但不归入本地 Engine 类型）
 
-- **运行策略**：`Sources/Mono/Managers/AI/AIAgentRuntimePolicy.swift`
-- **当前 Agent**：Mono Audio Agent、Listening Insight Agent、Content Agent 等通过统一服务端配置读取模型、提示词、超时和生成选项。
-- **职责边界**：Agent 负责生成或整理；播放、取色、数据库、内存和算力仍由本地专用引擎处理。音乐幕后已发布内容由服务端持久化，客户端优先读取已存在结果，不重复调用 AI。
+### 通用 Agent 配置面
+
+- **运行策略**：`Sources/Mono/Managers/AI/AIAgentRuntimePolicy.swift`。
+- **服务端配置**：`Services/Server/song-content/song-content-config.js` 统一下发模型、提示词、超时、生成选项以及 Mono Audio Agent 的 `skills` / `toolPolicy`；Agent 管理页可发布可选内置技能和自定义技能，但不能关闭必需安全契约。
+- **客户端配置**：`SongContentConfigurationStore` 按既有 TTL 缓存读取服务端 Agent 配置，并在返回配置前同步给 `MonoAudioAgentSkillStore`，避免 UI 与本次调音请求使用不同的技能快照。
+- **当前 Agent**：Mono Audio Agent、Listening Insight Agent、Content Agent 等共用配置与错误/重试策略；音乐幕后已发布内容由服务端持久化，客户端优先读取已存在结果，不重复调用 AI。
+
+### 开发期 Skill 与 App 运行时技能的边界
+
+- `.agents/skills/mono-audio-tuning/SKILL.md` 是供 Codex/开发 Agent 修改和审计调音代码时使用的**开发期流程说明**；它不会被 App 运行时读取，也不会自动成为模型提示词或 DSP 规则。
+- App 真正携带的运行时知识由 `Sources/Mono/Resources/mono_audio_tuning_knowledge.json` 提供，`MonoAudioTuningKnowledge.swift` 负责加载、版本校验、编译期安全回退与执行指纹，`MonoAudioTuningTool.swift` 负责本地审计和方案编译。
+- 修改必需调音契约时，必须同步知识 JSON、Swift 回退文档、提示词/工具版本和校验逻辑；只改 `SKILL.md` 不会改变已发布 App 的调音行为。
+
+### Mono Audio Agent 技能合并与云同步
+
+- **必需内置技能**：测量证据、设备协同、余量保护、相位保护和输出校验始终开启；服务端和客户端会同时将这些字段强制规范化为 `true`。
+- **可选与自定义技能**：艺人风格、人声特征支持服务端默认与本机覆盖；服务端和本机自定义技能在 `MonoAudioAgentSkillStore` 内按稳定 ID 合并。服务端和本地各自最多保存 12 项，合并后同时启用最多 4 项，避免无界叠加处理目标。
+- **云同步**：本机的可选技能覆盖和自定义技能进入 `LocalPlaylistCloudSnapshot.audioAgentSkills`，通过现有云快照上传/恢复；可选开关使用可空值区分“跟随服务端默认”与“用户明确覆盖”，不会因一次云恢复把服务端默认冻结成本地常量。
+- 合并结果会生成不依赖 Swift 随机 `Hasher` 的稳定指纹，包含远程修订、本机修订、开关、启用的自定义指令与工具策略。
+
+### 单次生成、必需工具与本地 DSP 落地
+
+1. `AIEqualizerAgent` 在采样和生成前固定本次的服务端配置、本机技能、输出路由、调音模式和知识/工具版本。
+2. 对支持模型工具的提供方，`AIProviderClient.generateRequiringTool` 在**同一次模型请求**中必须且只能调用一次 `mono_audio_tuning`，工具参数就是该次请求的最终结构化结果，不再发第二次“工具请求”。`toolPolicy` 锁定工具名、`required`、exactly-once 与本地校验；服务端可发布值和 App 内置安全默认都不允许纯文本回退。
+3. Apple Intelligence 当前不暴露相同的远程 tool-call 介面；它仍只生成一次，返回结果后进入同一个 `MonoAudioTuningTool` 本地审计/编译路径，并以 `appleIntelligenceLocalCompiler` 记录合规模式，不伪造远程工具调用次数。
+4. 模型结果先经证据、频段数量、参数范围、相位、动态与余量 `review`，再 `compileProposal`、清理未启用的可选技能输出，并对编译后方案二次本地审计；通过后才由 `AIEqualizerAgent.apply` 提交给 `EQManager` / Mono Sound Pipeline。
+5. 每个方案持久化 `skillCompliance`，包括知识/工具版本、启用/必需技能 ID、工具调用次数和本地校验结果；开发者记录可查看会话、决策、技能与工具执行轨迹。
+
+### 缓存失效和时延约束
+
+- 内存缓存和已保存方案只在歌曲/音源版本、输出设备、模式、模型、提示词 Agent 版本、技能指纹/修订、知识版本和工具版本均一致且 `localValidationApplied == true` 时复用。任何 skill / prompt / knowledge / tool 变更都会自动让旧方案失效；旧版不含合规字段的方案不会自动复用。
+- 技能快照、指纹、工具准备和本地 review/compile 全部是进程内确定性操作；它们不增加音频采样时长、不创建额外模型/网络轮次，也不进入实时渲染回调。生成失败后是否重试仍由原有 `AIAgentRuntimePolicy` 与 `maxAttempts` 控制，不是技能链新增的第二轮。
+- 当已验证方案指纹完全一致时，会在采样之前直接复用，因此完整接入技能不会让同一歌曲的后续调音反而变慢。
+
+**职责边界**：Agent 负责生成或整理；播放、真实 DSP 提交、取色、数据库、内存和算力仍由本地专用引擎处理。远程 Agent 配置可以收紧风格和选择可选技能，不能替换必需工具、校准、余量、相位和实时安全规则。
 
 ## 9. 启动与依赖关系
 
@@ -209,6 +241,12 @@ flowchart TD
     App --> UnifiedColor["Unified Color"]
     UnifiedColor --> Color["MonoColor"]
     Sound --> Acoustic["声学 / 监听 / 听力 / 环境 / 响度"]
+    App --> AgentConfig["Agent 配置与技能快照"]
+    ServerConfig["Song Content Agent 配置"] --> AgentConfig
+    CloudSync["云快照"] <--> AgentConfig
+    AgentConfig --> AudioAgent["Mono Audio Agent"]
+    AudioAgent --> TuningTool["mono_audio_tuning 本地审计/编译"]
+    TuningTool --> Sound
     Playback --> Aria["Aria 歌词与渲染"]
     Prefetch --> ServerDB["Song Content Database Engine"]
 ```

@@ -1309,7 +1309,7 @@ struct PodcastView: View {
 
     private var newestSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            podcastSectionHeader(title: String(localized: "上新佳作"))
+            podcastSectionHeader(title: String(localized: "podcast_latest_voices"))
 
             ScrollView(.horizontal) {
                 LazyHStack(spacing: 14) {
@@ -1344,7 +1344,7 @@ struct PodcastView: View {
 
     private var chartSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            podcastSectionHeader(title: String(localized: "音乐播客榜"))
+            podcastSectionHeader(title: String(localized: "podcast_music_chart"))
 
             ScrollView(.horizontal) {
                 LazyHStack(spacing: 14) {

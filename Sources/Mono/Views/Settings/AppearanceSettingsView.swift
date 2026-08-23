@@ -45,6 +45,7 @@ struct AppearanceSettingsView: View {
                         eyebrow: String(localized: "settings_eyebrow_appearance"),
                         icon: .playerTheme
                     )
+                    .monoIconPulseBloomArtwork("themeStyle")
 
                     LazyVStack(spacing: SettingsPageLayout.sectionSpacing) {
                         globalThemeSection
@@ -76,13 +77,10 @@ struct AppearanceSettingsView: View {
 
     @ViewBuilder
     private var themeColorCustomizationSection: some View {
-        // 漫画主题为固定黑白体系，不开放配色自定义
-        if settings.globalThemeId != .manga {
-            ThemeColorCustomizationSection(
-                theme: settings.globalThemeId,
-                isExpanded: $isThemeColorExpanded
-            )
-        }
+        ThemeColorCustomizationSection(
+            theme: settings.globalThemeId,
+            isExpanded: $isThemeColorExpanded
+        )
     }
 
     private var appIconSection: some View {
@@ -129,6 +127,7 @@ struct AppearanceSettingsView: View {
                     subtitle: nil,
                     isOn: $settings.useSystemTabBar
                 )
+                .monoIconPulseBloomArtwork("systemTabBar")
 
                 if !settings.useSystemTabBar {
                     Divider()
@@ -142,6 +141,7 @@ struct AppearanceSettingsView: View {
                             set: { settings.floatingBarStyle = $0 }
                         )
                     )
+                    .monoIconPulseBloomArtwork("floatingBarStyle")
 
                     if settings.globalThemeId == .default {
                         Divider()
@@ -153,6 +153,7 @@ struct AppearanceSettingsView: View {
                             subtitle: nil,
                             isOn: $settings.defaultThemeUsesLiquidGlassTabBar
                         )
+                        .monoIconPulseBloomArtwork("liquidGlass")
                     }
                 }
             }
@@ -206,6 +207,7 @@ struct AppearanceSettingsView: View {
                         subtitle: String(localized: "settings_aside_fluid_background_desc"),
                         isOn: $settings.asideMusicFluidBackgroundEnabled
                     )
+                    .monoIconPulseBloomArtwork("fluidBackground")
 
                     Divider()
                         .opacity(0.4)
@@ -219,6 +221,7 @@ struct AppearanceSettingsView: View {
                     isOn: $settings.coverBgGlobal,
                     isEnabled: !settings.locksCoverBackgroundSettings
                 )
+                .monoIconPulseBloomArtwork("backgroundGlobal")
 
                 Divider()
                     .opacity(0.4)
@@ -231,6 +234,7 @@ struct AppearanceSettingsView: View {
                     isOn: $settings.coverBgPlaylist,
                     isEnabled: !settings.locksCoverBackgroundSettings
                 )
+                .monoIconPulseBloomArtwork("backgroundPlaylist")
 
                 Divider()
                     .opacity(0.4)
@@ -243,15 +247,21 @@ struct AppearanceSettingsView: View {
                     isOn: $settings.coverBgPlayer,
                     isEnabled: !settings.locksCoverBackgroundSettings
                 )
+                .monoIconPulseBloomArtwork("backgroundPlayer")
 
                 Divider()
                     .opacity(0.4)
                     .padding(.leading, 62)
 
                 VStack(alignment: .leading, spacing: 10) {
-                    Text(String(localized: "color_engine_title"))
-                        .font(appearanceSettingsFont(14, weight: .semibold))
-                        .foregroundStyle(Color.monoTextPrimary)
+                    HStack(spacing: 10) {
+                        SettingsIconBadge(icon: .sparkle)
+                            .monoIconPulseBloomArtwork("colorEngine")
+
+                        Text(String(localized: "color_engine_title"))
+                            .font(appearanceSettingsFont(14, weight: .semibold))
+                            .foregroundStyle(Color.monoTextPrimary)
+                    }
 
                     UnifiedColorEngineSettingsControls(accent: paletteAccent)
                 }
@@ -280,6 +290,7 @@ struct AppearanceSettingsView: View {
                 } label: {
                     HStack(spacing: 12) {
                         SettingsIconBadge(icon: .playerTheme)
+                            .monoIconPulseBloomArtwork("themeStyle")
 
                         VStack(alignment: .leading, spacing: 3) {
                             Text(String(localized: "settings_appearance_theme_style"))
@@ -367,6 +378,7 @@ private struct ThemeColorCustomizationSection: View {
                 } label: {
                     HStack(spacing: 12) {
                         SettingsIconBadge(icon: .sparkle)
+                            .monoIconPulseBloomArtwork("colorEngine")
 
                         VStack(alignment: .leading, spacing: 3) {
                             Text(String(localized: "自定义配色"))
@@ -441,7 +453,7 @@ private struct ThemeColorCustomizationSection: View {
             preset: .custom(
                 height: .fixed(438),
                 maxContentWidth: 620,
-                cornerRadius: theme == .manga ? 22 : (theme == .minimalWhite ? MinimalWhiteStyle.chromeRadius : (theme == .muji ? 20 : 30))
+                cornerRadius: theme == .manga ? 3 : (theme == .minimalWhite ? MinimalWhiteStyle.chromeRadius : (theme == .muji ? 20 : 30))
             )
         ) { target in
             ThemeColorPickerSheet(
@@ -604,7 +616,7 @@ private struct ThemeColorCustomizationSection: View {
             ThemeColorPresetPreviewSwatch(
                 theme: theme,
                 preset: preset,
-                cornerRadius: theme == .manga ? 8 : 10
+                cornerRadius: theme == .manga ? 2 : 10
             )
             .frame(width: isSelected ? 31 : 28, height: isSelected ? 31 : 28)
 
@@ -1207,10 +1219,10 @@ private struct ThemeColorCustomizationSection: View {
         case (.clarity, .accent, _): return "2478D8"
         case (.clarity, .background, "end"): return "EAF0F2"
         case (.clarity, .background, _): return "EEF2F3"
-        case (.manga, .accent, "end"): return "FF4F84"
-        case (.manga, .accent, _): return "FF4F84"
-        case (.manga, .background, "end"): return "E8F1FF"
-        case (.manga, .background, _): return "FFF3D7"
+        case (.manga, .accent, "end"): return "124BFF"
+        case (.manga, .accent, _): return "DBF400"
+        case (.manga, .background, "end"): return "E8DECD"
+        case (.manga, .background, _): return "F3E9D8"
         case (.default, .accent, "end"): return "4D6F95"
         case (.default, .accent, _): return "4D6F95"
         case (.default, .background, "end"): return "E6EDF6"
@@ -1220,7 +1232,7 @@ private struct ThemeColorCustomizationSection: View {
 
     private func roleTitle(_ role: ThemeCustomColorRole) -> String {
         if theme == .manga && role == .accent {
-            return String(localized: "强调色（按钮/选中）")
+            return String(localized: "强调色（计时/选中）")
         }
         return role.displayName
     }
@@ -1776,9 +1788,9 @@ private struct ThemeColorPickerSheet: View {
     private var quickHexes: [String] {
         if theme == .manga {
             if target.suffix == "stroke" {
-                return ["3B3145", "4B3A55", "344B5E", "6E5475", "5F5650", "48645C", "83576A", "526483", "6D6A45", "7C5A49", "5F6F7C", "735E87"]
+                return ["071E34", "102C46", "173B58", "234C68", "F3E9D8", "E8DECD", "124BFF", "0B39BF", "FF4B0A", "C93400", "DBF400", "A6BB00"]
             }
-            return ["FF4F84", "FFE067", "58B9FF", "8DE4B8", "FF8CB4", "F8D957", "B7D8FF", "BDE9B8", "FFF3D7", "E8F1FF", "FFEAF0", "EEF7FF"]
+            return ["DBF400", "124BFF", "FF4B0A", "071E34", "F3E9D8", "E8DECD", "A6BB00", "0B39BF", "C93400", "102C46", "FFF8EB", "DED3C1"]
         }
 
         if theme == .muji {
@@ -2000,6 +2012,7 @@ private struct SettingsAppBrandRow: View {
             } label: {
                 HStack(spacing: 12) {
                     SettingsIconBadge(icon: .sparkle)
+                        .monoIconPulseBloomArtwork("appBrand")
 
                     VStack(alignment: .leading, spacing: 3) {
                         Text(title)
@@ -2106,6 +2119,7 @@ private struct SettingsInterfaceIconSetRow: View {
             } label: {
                 HStack(spacing: 12) {
                     SettingsIconBadge(icon: .gridSquare)
+                        .monoIconPulseBloomArtwork("interfaceIconSet")
 
                     VStack(alignment: .leading, spacing: 3) {
                         Text(title)
@@ -2310,7 +2324,7 @@ private struct InterfaceIconSetOptionCard: View {
 
     private var previewIconSize: CGFloat {
         switch iconSet {
-        case .iconExport, .doodlePop, .pawPrint, .dotDogSnake, .minimalWhiteIcons:
+        case .iconExport, .doodlePop, .pawPrint, .dotDogSnake, .minimalWhiteIcons, .pulseBloom:
             return 18
         case .blobIcons:
             return 17
@@ -2323,6 +2337,8 @@ private struct InterfaceIconSetOptionCard: View {
         switch iconSet {
         case .minimalWhiteIcons:
             return 1.02
+        case .pulseBloom:
+            return 1
         case .doodlePop, .pawPrint, .dotDogSnake:
             switch icon {
             case .karaoke:

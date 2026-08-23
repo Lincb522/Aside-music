@@ -12,6 +12,7 @@ struct FluxFloatingBar: View {
     @ObservedObject private var playbackTime = PlaybackTimePublisher.shared
     @ObservedObject private var settings = SettingsManager.shared
     @StateObject private var coverColors = CoverColorExtractor(minimumColorCount: 5)
+    @AppStorage(AppConfig.StorageKeys.interfaceIconSet) private var iconSetRaw: String = AppInterfaceIconSet.hicon.rawValue
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.scenePhase) private var scenePhase
@@ -101,6 +102,11 @@ struct FluxFloatingBar: View {
 
     private var fluidSecondaryColor: Color { coverColors.secondaryContentColor }
 
+    private var usesPulseBloomArtwork: Bool {
+        _ = iconSetRaw
+        return AppInterfaceIconSet.selectedFromDefaults == .pulseBloom
+    }
+
     /// 仅用于圆形专辑图的装饰环，不参与悬浮栏外圈播放进度。
     private var artworkRingColors: [Color] {
         let colors = hasResolvedArtworkPalette ? palette : [Color.monoAccent, Color.monoAccent.opacity(0.55)]
@@ -141,6 +147,9 @@ struct FluxFloatingBar: View {
                         panelSecondaryColor: Color.monoTextPrimary.opacity(0.78),
                         fluidPrimaryColor: fluidPrimaryColor,
                         fluidSecondaryColor: fluidPrimaryColor.opacity(0.82),
+                        pulseBloomAccentColor: colorScheme == .dark
+                            ? .white
+                            : (palette.first ?? Color.monoAccent),
                         fluidProgress: fluidProgress
                     ) { tab in
                         selectTab(tab)
@@ -470,6 +479,7 @@ struct FluxFloatingBar: View {
         )
     }
 
+    @ViewBuilder
     private func fluidControlIcon(
         icon: MonoIcon.IconType,
         size: CGFloat,
@@ -478,33 +488,46 @@ struct FluxFloatingBar: View {
         lineWidth: CGFloat,
         coverage: Double
     ) -> some View {
-        ZStack {
+        if usesPulseBloomArtwork {
             MonoIcon(
                 icon: icon,
                 size: size,
                 color: panelColor,
                 lineWidth: lineWidth,
                 normalizesBitmapScale: true,
-                forceTemplateRendering: true
+                pulseBloomContrastColor: colorScheme == .dark
+                    ? .white
+                    : (palette.first ?? Color.monoAccent)
             )
+        } else {
+            ZStack {
+                MonoIcon(
+                    icon: icon,
+                    size: size,
+                    color: panelColor,
+                    lineWidth: lineWidth,
+                    normalizesBitmapScale: true,
+                    forceTemplateRendering: true
+                )
 
-            MonoIcon(
-                icon: icon,
-                size: size,
-                color: fluidColor,
-                lineWidth: lineWidth,
-                normalizesBitmapScale: true,
-                forceTemplateRendering: true
-            )
-                .mask(alignment: .leading) {
-                    GeometryReader { proxy in
-                        HStack(spacing: 0) {
-                            Color.white
-                                .frame(width: proxy.size.width * min(max(coverage, 0), 1))
-                            Spacer(minLength: 0)
+                MonoIcon(
+                    icon: icon,
+                    size: size,
+                    color: fluidColor,
+                    lineWidth: lineWidth,
+                    normalizesBitmapScale: true,
+                    forceTemplateRendering: true
+                )
+                    .mask(alignment: .leading) {
+                        GeometryReader { proxy in
+                            HStack(spacing: 0) {
+                                Color.white
+                                    .frame(width: proxy.size.width * min(max(coverage, 0), 1))
+                                Spacer(minLength: 0)
+                            }
                         }
                     }
-                }
+            }
         }
     }
 
@@ -653,12 +676,20 @@ private struct FluxTabContent: View {
     let panelSecondaryColor: Color
     let fluidPrimaryColor: Color
     let fluidSecondaryColor: Color
+    let pulseBloomAccentColor: Color
     let fluidProgress: Double
     let onSelect: (Tab) -> Void
 
     @ObservedObject private var onlineAccess = OnlineAccessManager.shared
+    @AppStorage(AppConfig.StorageKeys.interfaceIconSet) private var iconSetRaw: String = AppInterfaceIconSet.hicon.rawValue
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
     @Namespace private var selectionNamespace
+
+    private var usesPulseBloomArtwork: Bool {
+        _ = iconSetRaw
+        return AppInterfaceIconSet.selectedFromDefaults == .pulseBloom
+    }
 
     var body: some View {
         GeometryReader { proxy in
@@ -764,6 +795,7 @@ private struct FluxTabContent: View {
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
+    @ViewBuilder
     private func splitIcon(
         icon: MonoIcon.IconType,
         size: CGFloat,
@@ -772,37 +804,48 @@ private struct FluxTabContent: View {
         lineWidth: CGFloat,
         coverage: Double
     ) -> some View {
-        ZStack {
+        if usesPulseBloomArtwork {
             MonoIcon(
                 icon: icon,
                 size: size,
                 color: panelColor,
                 lineWidth: lineWidth,
                 normalizesBitmapScale: true,
-                forceTemplateRendering: true
+                pulseBloomContrastColor: pulseBloomAccentColor
             )
                 .frame(width: size, height: size)
+        } else {
+            ZStack {
+                MonoIcon(
+                    icon: icon,
+                    size: size,
+                    color: panelColor,
+                    lineWidth: lineWidth,
+                    normalizesBitmapScale: true,
+                    forceTemplateRendering: true
+                )
+                    .frame(width: size, height: size)
 
-            MonoIcon(
-                icon: icon,
-                size: size,
-                color: fluidColor,
-                lineWidth: lineWidth,
-                normalizesBitmapScale: true,
-                forceTemplateRendering: true
-            )
-                .frame(width: size, height: size)
-                .mask(alignment: .leading) {
-                    GeometryReader { proxy in
-                        HStack(spacing: 0) {
-                            Color.white
-                                .frame(width: proxy.size.width * min(max(coverage, 0), 1))
-                            Spacer(minLength: 0)
+                MonoIcon(
+                    icon: icon,
+                    size: size,
+                    color: fluidColor,
+                    lineWidth: lineWidth,
+                    normalizesBitmapScale: true,
+                    forceTemplateRendering: true
+                )
+                    .frame(width: size, height: size)
+                    .mask(alignment: .leading) {
+                        GeometryReader { proxy in
+                            HStack(spacing: 0) {
+                                Color.white
+                                    .frame(width: proxy.size.width * min(max(coverage, 0), 1))
+                                Spacer(minLength: 0)
+                            }
                         }
                     }
-                }
+            }
         }
-        .frame(width: size, height: size)
     }
 
     private func icon(for tab: Tab, selected: Bool) -> MonoIcon.IconType {
@@ -1057,8 +1100,6 @@ private struct FluxMetalMaterial: View {
     let motionSeed: CGFloat
     let isDarkMode: Bool
     let isPaused: Bool
-
-    @ObservedObject private var compute = MonoComputeEngine.shared
 
     var body: some View {
         TimelineView(

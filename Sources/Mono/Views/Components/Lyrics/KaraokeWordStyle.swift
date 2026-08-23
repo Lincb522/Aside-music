@@ -103,6 +103,35 @@ enum KaraokeProgressCurve {
     }
 }
 
+/// Compact progress mask shared by every per-word renderer.
+///
+/// The previous mask rendered a surface up to five times wider and twice as
+/// tall as every glyph. With a full lyric line that produced dozens of large
+/// offscreen textures per frame. Dynamic gradient stops keep the same soft
+/// leading edge while staying inside the word's actual bounds.
+struct KaraokeSweepMask: View {
+    let progress: CGFloat
+    var softEdge: CGFloat = 0.16
+
+    var body: some View {
+        let p = min(max(progress, 0), 1)
+        let featherStart = min(max(p - softEdge, 0), 1)
+        let featherEnd = min(max(p + 0.025, featherStart + 0.001), 1)
+
+        LinearGradient(
+            stops: [
+                .init(color: .black, location: 0),
+                .init(color: .black, location: featherStart),
+                .init(color: .black.opacity(0.42), location: p),
+                .init(color: .clear, location: featherEnd),
+                .init(color: .clear, location: 1)
+            ],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+    }
+}
+
 // MARK: - 样式化逐字视图（词级）
 
 /// 单个歌词词块的样式化渲染，供默认歌词页与极简主题复用。
@@ -265,33 +294,18 @@ struct KaraokeStyledWordView: View {
         switch style {
         case .classic:
             // 经典硬边填充
-            GeometryReader { geo in
-                Rectangle()
-                    .frame(width: geo.size.width * min(max(progress, 0), 1))
-            }
+            Rectangle()
+                .scaleEffect(
+                    x: min(max(progress, 0), 1),
+                    y: 1,
+                    anchor: .leading
+                )
         case .bounce, .flip, .pulse:
             // 整词类动画快速点亮，不叠加横向扫光。
             Rectangle()
                 .opacity(min(max(progress, 0) * 3.5, 1))
         default:
-            // 柔和光带：宽阔渐变缓缓滑过，相邻词的交界自然贯通
-            GeometryReader { geo in
-                let w = max(geo.size.width, 1)
-                let h = max(geo.size.height, 1)
-                LinearGradient(
-                    stops: [
-                        .init(color: .black, location: 0),
-                        .init(color: .black, location: 0.3),
-                        .init(color: .black.opacity(0.4), location: 0.6),
-                        .init(color: .clear, location: 0.9)
-                    ],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-                .frame(width: w * 5, height: h * 2)
-                .offset(x: -w * 2.5, y: -h * 0.5)
-                .offset(x: -w * 1.5 + (w * 3.5) * eased)
-            }
+            KaraokeSweepMask(progress: eased)
         }
     }
 }

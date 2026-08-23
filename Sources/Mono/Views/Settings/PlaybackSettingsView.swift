@@ -120,8 +120,8 @@ struct PlaybackSettingsView: View {
 
                 if !settings.preferHighestPlaybackQuality {
                     Divider()
-                        .opacity(0.4)
-                        .padding(.leading, 62)
+                    .opacity(0.4)
+                    .padding(.leading, 62)
 
                     SettingsNavigationRow(
                         icon: .soundQuality,
@@ -132,20 +132,20 @@ struct PlaybackSettingsView: View {
                     }
 
                     Divider()
-                        .opacity(0.4)
-                        .padding(.leading, 62)
+                    .opacity(0.4)
+                    .padding(.leading, 62)
 
                     SettingsNavigationRow(
                         icon: .soundQuality,
-                        title: "KCM 默认音质",
+                        title: String(localized: "settings_kcm_playback_quality"),
                         value: defaultKugouPlaybackQualityText
                     ) {
                         showKugouPlaybackQualitySheet = true
                     }
 
                     Divider()
-                        .opacity(0.4)
-                        .padding(.leading, 62)
+                    .opacity(0.4)
+                    .padding(.leading, 62)
 
                     SettingsNavigationRow(
                         icon: .soundQuality,
@@ -156,12 +156,12 @@ struct PlaybackSettingsView: View {
                     }
 
                     Divider()
-                        .opacity(0.4)
-                        .padding(.leading, 62)
+                    .opacity(0.4)
+                    .padding(.leading, 62)
 
                     SettingsNavigationRow(
                         icon: .soundQuality,
-                        title: "QSM 默认音质",
+                        title: String(localized: "settings_qsm_playback_quality"),
                         value: defaultQishuiPlaybackQualityText
                     ) {
                         showQishuiPlaybackQualitySheet = true

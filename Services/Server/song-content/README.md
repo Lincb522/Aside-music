@@ -84,7 +84,7 @@ Return `identityStatus: "provisional"` when a recording cannot be confirmed. Pro
 - `GET /api/public/song-content`
 - `POST /api/public/song-content/ensure`
 - `GET /api/public/song-content/jobs/:jobId`
-- `GET /api/public/song-content-config`（歌曲内容模块、灰度策略及 App Agent 提示词与生成参数）
+- `GET /api/public/song-content-config`（歌曲内容模块、灰度策略、App Agent 提示词、调音技能及模型工具策略）
 - `GET /api/public/announcements/manifest`（仅返回当前客户端适用的公告轻量清单，支持 ETag / 304）
 - `GET /api/public/announcements/:id?revision=`（仅在发现未读展示版本后读取公告正文与展示资源）
 - `/api/song-content/*` authenticated administration routes
@@ -106,6 +106,7 @@ The App first posts `platform`, `song_id`, `locale`, and a concrete song snapsho
 - Editing creates a new version; publication atomically changes the locale publication pointer.
 - Provider credentials are AES-256-GCM encrypted and never returned by public routes.
 - App Agent 配置覆盖音效调音、听歌洞察和每日问候；可分别下发提示词、生成参数、最低超时和单次任务最大尝试次数，空提示词由 App 使用同版本内置值回退。
+- 音效调音 Agent 额外下发版本化技能配置和 `mono_audio_tuning` 工具策略。五项核心技能、本地安全验证及单次强制工具调用不能由远程配置关闭；艺人/人声参考和最多 12 个自定义技能可在 Agent 管理中维护，同时启用的自定义技能最多 4 个。
 - 服务端内容生成提示词、凭据、预算、并发、限流和熔断策略不进入公开配置。
 
 See [OPERATIONS.md](./OPERATIONS.md) before enabling a production rollout.

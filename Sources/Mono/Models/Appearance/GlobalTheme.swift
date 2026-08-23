@@ -14,12 +14,24 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable, Sendable {
     case minimalWhite  // 纯白极简 — 纯白表面、轻分隔、克制层级
     case clarity       // 通透 — 独立空气光层与浮游界面
 
+    /// `.manga` 仅保留用于解码旧版本持久化值，不再作为可选主题公开。
+    static let allCases: [GlobalThemeId] = [
+        .default,
+        .muji,
+        .neumorphic,
+        .capsule,
+        .petWhite,
+        .minimalWhite,
+        .clarity,
+    ]
+
     var id: String { rawValue }
 
     /// 当前新安装默认主题是经典 Aside（`.default`）；Paw 等为可选主题。
     static let appDefault: GlobalThemeId = .default
     static let storageKey = "globalThemeId"
     private static let removedRawValues: Set<String> = [
+        "manga",
         "doodlePop",
         "pureWhite",
         "material3Expressive",
@@ -88,7 +100,7 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable, Sendable {
         case .muji:
             return .catLife
         case .manga:
-            return .catBook
+            return .waveform
         case .neumorphic:
             return .layers
         case .capsule:

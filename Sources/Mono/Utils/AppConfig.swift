@@ -16,6 +16,25 @@ enum AppConfig {
             }
             return token == "472409b9"
         }
+
+        /// 完整开发者工具沿用受限下载授权，不再维护第二套开发者口令。
+        /// 普通用户开启开发者模式后仍只获得本机诊断能力。
+        static var fullDeveloperToolsEnabled: Bool {
+            restrictedDownloadEnabled
+        }
+    }
+
+    // MARK: - 开发者模式
+
+    enum DeveloperAccess {
+        static var isModeEnabled: Bool {
+            UserDefaults.standard.bool(forKey: StorageKeys.developerModeEnabled)
+        }
+
+        /// 目标页的二次门禁：必须先开启开发者模式，并且当前 Token 具备受限下载授权。
+        static var hasFullTools: Bool {
+            isModeEnabled && Features.fullDeveloperToolsEnabled
+        }
     }
 
     // MARK: - 缓存配置
@@ -74,6 +93,7 @@ enum AppConfig {
     
     // MARK: - 存储键
     enum StorageKeys {
+        static let developerModeEnabled = "qqDevMode"
         static let cookie = "mono_music_cookie"
         static let userId = "mono_music_uid"
         static let soundQuality = "mono_sound_quality"

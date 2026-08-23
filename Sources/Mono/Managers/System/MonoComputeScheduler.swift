@@ -75,6 +75,12 @@ actor MonoComputeScheduler {
         )
     }
 
+    /// 预算恢复后立即放行等待任务。旧实现只在某个活跃任务结束时重新
+    /// drain，升档期间队列可能无故继续等待，随后又集中启动造成卡顿尖峰。
+    func budgetDidChange() {
+        drainWaiters()
+    }
+
     private func acquire(id: UUID, workClass: WorkClass) async -> Bool {
         guard !Task.isCancelled,
               cancelledBeforeEnqueue.remove(id) == nil else { return false }

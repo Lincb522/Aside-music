@@ -38,6 +38,7 @@ final class SystemTabBarAppearanceController: UIViewController {
     private var colorScheme: ColorScheme = .light
     private var revision = 0
     private var lastSignature = ""
+    private var transitionRetryScheduled = false
 
     override func loadView() {
         let view = UIView(frame: .zero)
@@ -56,11 +57,6 @@ final class SystemTabBarAppearanceController: UIViewController {
         scheduleConfiguration(force: true)
     }
 
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        configureIfNeeded()
-    }
-
     func update(accent: UIColor, colorScheme: ColorScheme, revision: Int) {
         self.accent = accent
         self.colorScheme = colorScheme
@@ -76,7 +72,19 @@ final class SystemTabBarAppearanceController: UIViewController {
     }
 
     private func configureIfNeeded(force: Bool = false) {
-        guard let tabBar = resolvedTabBar(), tabBar.bounds.width > 0 else { return }
+        guard let tabController = resolvedTabBarController() else { return }
+
+        // 不在 UITabBarController 正搬移子 UINavigationController 时改写外观。
+        // iOS 26 的导航栏一致性检查更严格，转场中触发布局更新可能让新旧
+        // UINavigationItem 短暂落到不同 UINavigationBar 上。
+        if tabController.transitionCoordinator != nil {
+            scheduleRetryAfterTransition()
+            return
+        }
+
+        transitionRetryScheduled = false
+        let tabBar = tabController.tabBar
+        guard tabBar.bounds.width > 0 else { return }
 
         let resolvedAccent = readableAccent(
             accent.resolvedColor(with: tabBar.traitCollection)
@@ -215,16 +223,28 @@ final class SystemTabBarAppearanceController: UIViewController {
         )
     }
 
-    private func resolvedTabBar() -> UITabBar? {
+    private func resolvedTabBarController() -> UITabBarController? {
         var ancestor: UIViewController? = self
         while let current = ancestor {
             if let tabController = current as? UITabBarController {
-                return tabController.tabBar
+                return tabController
             }
             ancestor = current.parent
         }
 
-        return findTabBarController(in: view.window?.rootViewController)?.tabBar
+        return findTabBarController(in: view.window?.rootViewController)
+    }
+
+    private func scheduleRetryAfterTransition() {
+        guard !transitionRetryScheduled else { return }
+        transitionRetryScheduled = true
+
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(180))
+            guard let self else { return }
+            self.transitionRetryScheduled = false
+            self.configureIfNeeded(force: true)
+        }
     }
 
     private func findTabBarController(in controller: UIViewController?) -> UITabBarController? {

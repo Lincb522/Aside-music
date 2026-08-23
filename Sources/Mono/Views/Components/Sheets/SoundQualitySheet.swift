@@ -17,6 +17,7 @@ struct SoundQualitySheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.monoSheetDismiss) private var monoSheetDismiss
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     @ObservedObject private var settings = SettingsManager.shared
     @ObservedObject private var player = PlayerManager.shared
     
@@ -69,14 +70,18 @@ struct SoundQualitySheet: View {
         return currentSong.isKugou
     }
 
+    private var usesCompactVerticalLayout: Bool {
+        verticalSizeClass == .compact
+    }
+
     var body: some View {
         let _ = settings.globalThemeRevision
 
         ZStack {
-            VStack(spacing: 16) {
+            VStack(spacing: usesCompactVerticalLayout ? 8 : 16) {
                 header
                     .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-                    .padding(.top, 4)
+                    .padding(.top, usesCompactVerticalLayout ? 0 : 4)
 
                 currentQualityHero
                     .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
@@ -135,7 +140,7 @@ struct SoundQualitySheet: View {
             }
         }
         .alert(String(localized: "risk_control_blocked", defaultValue: "当前环境由于风控限制，高保真音源暂不能使用"), isPresented: $showRiskAlert) {
-            Button("好的", role: .cancel) { }
+            Button(String(localized: "common_ok"), role: .cancel) { }
         }
         .task {
             if isKugou, let song = player.currentSong, song.isKugou {
@@ -686,18 +691,14 @@ private struct QualitySheetSkeleton: View {
                 }
             }
         }
-        .opacity(pulsing ? 0.55 : 1)
-        .onAppear {
-            withAnimation(.easeInOut(duration: 0.85).repeatForever(autoreverses: true)) {
-                pulsing = true
-            }
-        }
     }
 }
 
 private struct QualityOptionButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
             .opacity(configuration.isPressed ? 0.7 : 1)
             .scaleEffect(configuration.isPressed ? 0.992 : 1)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)

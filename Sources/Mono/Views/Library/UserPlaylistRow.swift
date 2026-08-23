@@ -51,6 +51,7 @@ struct UserPlaylistRow: View {
             }
             .clipShape(RoundedRectangle(cornerRadius: PetWhiteStyle.isActive ? 22 : 16, style: .continuous))
             .shadow(color: Color.black.opacity(PetWhiteStyle.isActive ? 0.04 : 0.1), radius: PetWhiteStyle.isActive ? 8 : 12, x: 0, y: PetWhiteStyle.isActive ? 4 : 6)
+            .contentShape(Rectangle())
         }
     }
 
@@ -104,5 +105,6 @@ struct UserPlaylistRow: View {
                 .frame(height: MinimalWhiteStyle.strokeWidth)
                 .padding(.leading, 76)
         }
+        .contentShape(Rectangle())
     }
 }

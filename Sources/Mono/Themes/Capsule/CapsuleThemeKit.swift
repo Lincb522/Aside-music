@@ -357,6 +357,7 @@ struct CapsuleActionButton<Content: View>: View {
 struct CapsulePressStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
+            .contentShape(Rectangle())
             .scaleEffect(configuration.isPressed ? 0.965 : 1)
             .opacity(configuration.isPressed ? 0.86 : 1)
             .animation(.spring(response: 0.22, dampingFraction: 0.82), value: configuration.isPressed)

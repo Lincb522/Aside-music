@@ -57,8 +57,6 @@ struct FullScreenPlayerView: View {
                     RadioPlayerLayout()
                 case .immersiveLyric:
                     ImmersiveLyricPlayerLayout()
-                case .mangaChat:
-                    MangaChatPlayerLayout()
                 case .folk:
                     FolkPlayerLayout()
                 case .game2048:
@@ -73,8 +71,6 @@ struct FullScreenPlayerView: View {
                     ClarityPlayerLayout()
                 case .dotMatrix:
                     DotMatrixPlayerLayout()
-                case .riveMotion:
-                    RiveMotionPlayerLayout()
                 }
             }
             .id(themeManager.currentTheme)

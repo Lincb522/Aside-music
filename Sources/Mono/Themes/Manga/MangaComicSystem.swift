@@ -779,6 +779,7 @@ struct MangaComicRoundControl: View {
 struct MangaComicPressButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
+            .contentShape(Rectangle())
             .scaleEffect(configuration.isPressed ? 0.965 : 1)
             .rotationEffect(.degrees(configuration.isPressed ? -0.4 : 0))
             .animation(.spring(response: 0.22, dampingFraction: 0.62), value: configuration.isPressed)

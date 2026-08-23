@@ -12,15 +12,22 @@ final class MonoTextInputActivity: ObservableObject {
 
     private var cancellables = Set<AnyCancellable>()
     private var pendingEndTask: Task<Void, Never>?
+    private weak var recentTextResponder: UIView?
+    private var recentTextResponderDate = Date.distantPast
 
     private init() {
         let center = NotificationCenter.default
-        Publishers.Merge(
+        Publishers.Merge3(
             center.publisher(for: UITextField.textDidBeginEditingNotification),
-            center.publisher(for: UITextView.textDidBeginEditingNotification)
+            center.publisher(for: UITextView.textDidBeginEditingNotification),
+            Publishers.Merge(
+                center.publisher(for: UITextField.textDidChangeNotification),
+                center.publisher(for: UITextView.textDidChangeNotification)
+            )
         )
         .receive(on: DispatchQueue.main)
-        .sink { [weak self] _ in
+        .sink { [weak self] notification in
+            self?.rememberTextResponder(from: notification)
             self?.pendingEndTask?.cancel()
             self?.pendingEndTask = nil
             self?.isEditing = true
@@ -32,10 +39,24 @@ final class MonoTextInputActivity: ObservableObject {
             center.publisher(for: UITextView.textDidEndEditingNotification)
         )
         .receive(on: DispatchQueue.main)
-        .sink { [weak self] _ in
+        .sink { [weak self] notification in
+            self?.rememberTextResponder(from: notification)
             self?.scheduleEditingStateRefresh()
         }
         .store(in: &cancellables)
+    }
+
+    private func rememberTextResponder(from notification: Notification) {
+        guard let responder = notification.object as? UIView else { return }
+        recentTextResponder = responder
+        recentTextResponderDate = Date()
+    }
+
+    /// Return 提交时 SwiftUI 可能已经让输入框失去第一响应者。短时间保留最近
+    /// 编辑的 UIKit 输入控件，确保仍可读取输入法刚刚确认的完整组合文本。
+    fileprivate func mostRecentTextResponder(maxAge: TimeInterval = 1.5) -> UIView? {
+        guard Date().timeIntervalSince(recentTextResponderDate) <= maxAge else { return nil }
+        return recentTextResponder
     }
 
     private func scheduleEditingStateRefresh() {
@@ -81,17 +102,90 @@ enum MonoTextInputCommitter {
         text: Binding<String>,
         perform action: @escaping @MainActor (String) -> Void
     ) {
-        let value = committedText(fallback: text.wrappedValue)
-        if text.wrappedValue != value {
-            text.wrappedValue = value
+        let responder = activeTextResponder
+            ?? MonoTextInputActivity.shared.mostRecentTextResponder()
+        // 先保留 Binding 中已经可见的内容。部分输入法在 Return 事件到达时，
+        // UITextField 会短暂回报空字符串；此时不能用这个瞬时空值覆盖用户
+        // 已经输入并显示在 SwiftUI TextField 中的关键词。
+        let bindingValueBeforeCommit = text.wrappedValue
+        let responderValueBeforeCommit = textValue(from: responder)
+        let hadMarkedText: Bool
+
+        if let input = responder as? UITextInput,
+           input.markedTextRange != nil {
+            hadMarkedText = true
+            input.unmarkText()
+        } else {
+            hadMarkedText = false
         }
 
         Task { @MainActor in
-            // 给 SwiftUI 一次机会消费 UIKit 在 unmarkText 后发出的 editingChanged，
-            // 但提交动作始终使用上面直接读取的完整文本，不依赖事件到达顺序。
+            // unmarkText 的 editingChanged 与 SwiftUI Binding 更新并不同步。
+            // 跨过当前键盘事件周期，再从同一个 UIKit 控件读取最终值。
             await Task.yield()
+            try? await Task.sleep(nanoseconds: 12_000_000)
+
+            let valueAfterCommit = textValue(from: responder)
+            let value = resolvedValue(
+                valueAfterCommit: valueAfterCommit,
+                responderValueBeforeCommit: responderValueBeforeCommit,
+                bindingValueBeforeCommit: bindingValueBeforeCommit,
+                currentBindingValue: text.wrappedValue,
+                hadMarkedText: hadMarkedText
+            )
+
+            if text.wrappedValue != value {
+                text.wrappedValue = value
+            }
             action(value)
         }
+    }
+
+    /// 优先采用输入控件完成组合后的内容；若 UIKit 在 Return 周期短暂返回空值，
+    /// 则回退到提交前后非空的 Binding，而不是把真正输入清空。
+    private static func resolvedValue(
+        valueAfterCommit: String?,
+        responderValueBeforeCommit: String?,
+        bindingValueBeforeCommit: String,
+        currentBindingValue: String,
+        hadMarkedText: Bool
+    ) -> String {
+        // 中文输入法按 Return 时，SwiftUI Binding 往往还是“周杰”，而完整
+        // UITextInput 文档已经是“周杰伦”。如果 unmark 后系统短暂回退成旧值，
+        // 保留提交前完整文档中包含的组合文字，不能把最后一个字截掉。
+        if hadMarkedText {
+            let responderCandidates = [
+                valueAfterCommit,
+                responderValueBeforeCommit
+            ]
+            .compactMap { $0 }
+            .filter { !$0.isEmpty }
+
+            if let completeResponderValue = responderCandidates.max(by: {
+                $0.count < $1.count
+            }) {
+                return completeResponderValue
+            }
+        }
+
+        if let valueAfterCommit, !valueAfterCommit.isEmpty {
+            return valueAfterCommit
+        }
+
+        if let responderValueBeforeCommit,
+           !responderValueBeforeCommit.isEmpty {
+            return responderValueBeforeCommit
+        }
+
+        if !currentBindingValue.isEmpty {
+            return currentBindingValue
+        }
+
+        if !bindingValueBeforeCommit.isEmpty {
+            return bindingValueBeforeCommit
+        }
+
+        return responderValueBeforeCommit ?? valueAfterCommit ?? ""
     }
 
     /// 只结束真实存在且仍属于前台场景的输入会话。避免在弹窗已经关闭、
@@ -107,27 +201,38 @@ enum MonoTextInputCommitter {
         return responder.resignFirstResponder()
     }
 
-    private static func committedText(fallback: String) -> String {
-        guard let responder = activeTextResponder else { return fallback }
-
+    private static func textValue(from responder: UIView?) -> String? {
+        // `UITextField.text` 在中文/日文组合输入期间可能尚未包含 marked text。
+        // UITextInput 的完整 document range 才是屏幕上当前显示的完整字符串。
         if let input = responder as? UITextInput,
-           input.markedTextRange != nil {
-            input.unmarkText()
+           let documentRange = input.textRange(
+               from: input.beginningOfDocument,
+               to: input.endOfDocument
+           ),
+           let documentText = input.text(in: documentRange) {
+            return documentText
         }
 
         if let textField = responder as? UITextField {
-            return textField.text ?? fallback
+            return textField.text
         }
         if let textView = responder as? UITextView {
             return textView.text
         }
-        return fallback
+        return nil
     }
 
     private static var activeTextResponder: UIView? {
         UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
+            .filter { $0.activationState == .foregroundActive }
             .flatMap(\.windows)
+            .sorted { lhs, rhs in
+                if lhs.isKeyWindow != rhs.isKeyWindow {
+                    return lhs.isKeyWindow
+                }
+                return lhs.windowLevel.rawValue > rhs.windowLevel.rawValue
+            }
             .compactMap(\.monoFirstResponder)
             .first
     }

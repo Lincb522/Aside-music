@@ -83,6 +83,7 @@ enum SettingsNavigationDestination: Hashable {
     case developerTools
     case developerPopupCatalog
     case debugLog
+    case agentTrace
     case aiProviderSettings
     case ffmpegCapabilityTest
     case platformAccountSwitching
@@ -106,15 +107,33 @@ enum SettingsNavigationDestination: Hashable {
         case .developerTools:
             DeveloperToolsView()
         case .developerPopupCatalog:
-            DeveloperPopupCatalogView()
+            if AppConfig.DeveloperAccess.hasFullTools {
+                DeveloperPopupCatalogView()
+            } else {
+                DeveloperToolsView()
+            }
         case .debugLog:
             DebugLogView()
+        case .agentTrace:
+            AIAgentTraceDeveloperView()
         case .aiProviderSettings:
-            AIProviderDeveloperSettingsView()
+            if AppConfig.DeveloperAccess.hasFullTools {
+                AIProviderDeveloperSettingsView()
+            } else {
+                DeveloperToolsView()
+            }
         case .ffmpegCapabilityTest:
-            FFmpegCapabilityTestView()
+            if AppConfig.DeveloperAccess.hasFullTools {
+                FFmpegCapabilityTestView()
+            } else {
+                DeveloperToolsView()
+            }
         case .platformAccountSwitching:
-            PlatformAccountSwitchingView()
+            if AppConfig.DeveloperAccess.hasFullTools {
+                PlatformAccountSwitchingView()
+            } else {
+                DeveloperToolsView()
+            }
         }
     }
 }
@@ -168,6 +187,7 @@ private struct AsideSettingsDetailChromeModifier: ViewModifier {
                     MonoToolbarBackButton()
                 }
             }
+            .monoEdgeSwipeToDismiss()
     }
 }
 
@@ -183,7 +203,7 @@ struct SettingsView: View {
     @ObservedObject private var onlineAccess = OnlineAccessManager.shared
     @ObservedObject private var playlistCloudSync = LocalPlaylistCloudSyncManager.shared
     @State private var cacheSize: String = .init(localized: "settings_calculating")
-    @AppStorage("qqDevMode") private var qqDevMode = false
+    @AppStorage(AppConfig.StorageKeys.developerModeEnabled) private var qqDevMode = false
     @State private var apiTokenInput: String = SecureConfig.apiToken ?? ""
     @State private var tokenSaved = false
     @State private var isHeaderCardExpanded = false
@@ -213,7 +233,7 @@ struct SettingsView: View {
             }
             // aside / muji：标题落在页面内容里（刊头版式），导航栏只留返回；其余主题维持内联标题
             .themedInlineNavigationTitle(
-                (settings.globalThemeId == .default || settings.globalThemeId == .muji || settings.globalThemeId == .clarity) ? "" : String(localized: "settings_title")
+                (settings.globalThemeId == .default || settings.globalThemeId == .muji || settings.globalThemeId == .clarity || settings.globalThemeId == .manga) ? "" : String(localized: "settings_title")
             )
             .toolbarBackground(.hidden, for: .navigationBar)
             .navigationDestination(for: SettingsNavigationDestination.self) { destination in
@@ -646,15 +666,33 @@ struct SettingsView: View {
         case .developerTools:
             DeveloperToolsView()
         case .developerPopupCatalog:
-            DeveloperPopupCatalogView()
+            if AppConfig.DeveloperAccess.hasFullTools {
+                DeveloperPopupCatalogView()
+            } else {
+                DeveloperToolsView()
+            }
         case .debugLog:
             DebugLogView()
+        case .agentTrace:
+            AIAgentTraceDeveloperView()
         case .aiProviderSettings:
-            AIProviderDeveloperSettingsView()
+            if AppConfig.DeveloperAccess.hasFullTools {
+                AIProviderDeveloperSettingsView()
+            } else {
+                DeveloperToolsView()
+            }
         case .ffmpegCapabilityTest:
-            FFmpegCapabilityTestView()
+            if AppConfig.DeveloperAccess.hasFullTools {
+                FFmpegCapabilityTestView()
+            } else {
+                DeveloperToolsView()
+            }
         case .platformAccountSwitching:
-            PlatformAccountSwitchingView()
+            if AppConfig.DeveloperAccess.hasFullTools {
+                PlatformAccountSwitchingView()
+            } else {
+                DeveloperToolsView()
+            }
         }
     }
 
@@ -2289,7 +2327,11 @@ struct SettingsView: View {
             SettingsRouteLinkRow(
                 icon: .unlock,
                 title: String(localized: "dev_mode_title"),
-                value: String(localized: "dev_mode_enabled_short"),
+                value: String(
+                    localized: AppConfig.Features.fullDeveloperToolsEnabled
+                        ? "dev_mode_access_full"
+                        : "dev_mode_access_basic"
+                ),
                 destination: .developerTools
             )
         }
@@ -3131,6 +3173,17 @@ struct SettingsToggleRow: View {
     @Environment(\.developerDiagnosticStyle) private var developerDiagnosticStyle
 
     var body: some View {
+        Button {
+            isOn.toggle()
+        } label: {
+            rowLabel
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .opacity(isEnabled ? 1 : 0.42)
+    }
+
+    private var rowLabel: some View {
         HStack(spacing: 12) {
             SettingsIconBadge(icon: icon)
 
@@ -3155,20 +3208,20 @@ struct SettingsToggleRow: View {
             Spacer()
 
             if developerDiagnosticStyle {
-                Toggle("", isOn: $isOn)
+                Toggle("", isOn: .constant(isOn))
                     .labelsHidden()
                     .tint(.cyan)
-                    .disabled(!isEnabled)
+                    .allowsHitTesting(false)
             } else {
-                Toggle("", isOn: $isOn)
+                Toggle("", isOn: .constant(isOn))
                     .labelsHidden()
                     .toggleStyle(SettingsSwitchToggleStyle())
-                    .disabled(!isEnabled)
+                    .allowsHitTesting(false)
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 13)
-        .opacity(isEnabled ? 1 : 0.42)
+        .contentShape(Rectangle())
     }
 }
 
@@ -3241,6 +3294,7 @@ struct SettingsNavigationRow: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 13)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
@@ -3295,6 +3349,7 @@ struct SettingsRouteLinkRow: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, verticalPadding)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
@@ -3340,6 +3395,7 @@ struct SettingsLinkRow<Destination: View>: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, verticalPadding)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
@@ -3521,11 +3577,11 @@ struct SettingsThemeRow: View {
                     MonoIcon(icon: .checkmark, size: 16, color: themedSettingsPrimaryColor(), lineWidth: 1.8)
                 }
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
     }
 }
 
@@ -3624,6 +3680,8 @@ struct SettingsFloatingBarRow: View {
                         lineWidth: 1.7
                     )
                 }
+                .frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 
@@ -4137,6 +4195,8 @@ struct SettingsHitokotoTypeRow: View {
                         lineWidth: 1.7
                     )
                 }
+                .frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 

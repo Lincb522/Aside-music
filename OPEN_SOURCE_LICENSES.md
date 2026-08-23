@@ -17,7 +17,6 @@ Mono 使用了下列开源软件。各项目仍由原作者及贡献者持有权
 | [SwiftUI-Animations](https://github.com/Shubham0812/SwiftUI-Animations) | 中性触摸水波节奏与液态进度波面实现参考；当前适配基于 `f4e6b3ca6bfc83eb673bf5d8c77032270b93bbb5` | Apache-2.0 |
 | [open-swiftui-animations](https://github.com/amosgyamfi/open-swiftui-animations) | KeyframeAnimator、PhaseAnimator 与短时状态微交互节奏参考；当前调研基于 `db0a59cc4b091644f4569339d7cb076eba91b9a0` | Unlicense |
 | [SwiftPixelGrid](https://github.com/afetmin/SwiftPixelGrid) | 点阵播放器的 3×3 Canvas 动画渲染；当前适配基于 `v0.1.0` / `1496aacdf2ffb92ddd9d51788c24a33f35ef0b42` | MIT |
-| [Rive Runtime](https://github.com/rive-app/rive-ios) | 矢量状态机动画渲染；当前接入版本 `6.23.1` | MIT |
 
 ## 音乐服务与后端参考
 
@@ -38,7 +37,6 @@ Mono 使用了下列开源软件。各项目仍由原作者及贡献者持有权
 - SwiftUI-Animations Apache-2.0：[`ThirdPartyLicenses/SwiftUI-Animations-APACHE-2.0.txt`](ThirdPartyLicenses/SwiftUI-Animations-APACHE-2.0.txt)
 - open-swiftui-animations Unlicense：[`ThirdPartyLicenses/open-swiftui-animations-UNLICENSE.txt`](ThirdPartyLicenses/open-swiftui-animations-UNLICENSE.txt)
 - SwiftPixelGrid MIT：[`Packages/UI/SwiftPixelGrid/LICENSE`](Packages/UI/SwiftPixelGrid/LICENSE)
-- Rive Runtime MIT：[`ThirdPartyLicenses/RiveRuntime-MIT.txt`](ThirdPartyLicenses/RiveRuntime-MIT.txt)
 - NeteaseCloudMusicApi Enhanced MIT：[LICENSE](https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced/blob/main/LICENSE)
 - QQMusicApi GPL-3.0：[LICENSE](https://github.com/L-1124/QQMusicApi/blob/main/LICENSE)
 - KuGouMusicApi MIT：[LICENSE](https://github.com/MakcRe/KuGouMusicApi/blob/main/LICENSE)

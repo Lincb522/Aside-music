@@ -33,8 +33,6 @@ struct NowPlayingWidgetView: View {
             VinylTheme(entry: entry, family: family, isDark: true)
         case .poster:
             PosterWidgetTheme(entry: entry, family: family)
-        case .manga:
-            MangaTheme(entry: entry, family: family)
         case .magazine:
             MagazineTheme(entry: entry, family: family)
         case .aperture:
@@ -70,8 +68,6 @@ struct NowPlayingWidgetView: View {
                 .ignoresSafeArea()
         case .poster:
             Color(hex: "0A0A0C").ignoresSafeArea()
-        case .manga:
-            Color(hex: "FFF0F5").ignoresSafeArea()
         case .magazine:
             Color(hex: "F4F1EA").ignoresSafeArea()
         case .aperture:

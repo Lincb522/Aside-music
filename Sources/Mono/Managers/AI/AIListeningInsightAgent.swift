@@ -160,50 +160,206 @@ final class AIListeningInsightAgent: ObservableObject {
         configuration: AIProviderConfiguration,
         managedAgent: AppAgentConfiguration?
     ) async throws -> AIListeningInsightResult {
+        let traceStartedAt = Date()
         let bundledUserPrompt = try AIListeningInsightPrompt.userPrompt(input: input)
         let maximumAttempts = managedAgent?.resolvedMaxAttempts(fallback: 2) ?? 2
+        let systemPrompt = managedAgent?.systemPrompt(fallback: AIListeningInsightPrompt.system)
+            ?? AIListeningInsightPrompt.system
+        let userPrompt = managedAgent?.userPrompt(fallback: bundledUserPrompt) ?? bundledUserPrompt
+        let traceID = AIAgentTraceStore.shared.begin(
+            agentID: "listening-insight",
+            agentName: "听歌洞察",
+            subject: input.periodTitle,
+            provider: configuration.wireProtocol.rawValue,
+            model: configuration.resolvedModel
+        )
+        AIAgentTraceStore.shared.append(
+            traceID,
+            category: .conversation,
+            stage: .configuration,
+            title: "System",
+            detail: systemPrompt,
+            metadata: ["role": "system", "characters": String(systemPrompt.count)]
+        )
+        AIAgentTraceStore.shared.append(
+            traceID,
+            category: .conversation,
+            stage: .configuration,
+            title: "User",
+            detail: userPrompt,
+            metadata: ["role": "user", "characters": String(userPrompt.count)]
+        )
+        AIAgentTraceStore.shared.append(
+            traceID,
+            category: .reasoning,
+            stage: .configuration,
+            title: "准备洞察数据",
+            detail: "已聚合真实播放时长、有效播放次数、完播率、歌曲排行和歌手排行，开始生成本期洞察。",
+            durationSeconds: Date().timeIntervalSince(traceStartedAt),
+            metadata: [
+                "scope": input.scope.rawValue,
+                "plays": String(input.totalPlays),
+                "seconds": String(input.totalSeconds),
+                "songs": String(input.uniqueSongs),
+                "artists": String(input.uniqueArtists)
+            ]
+        )
 
         for attempt in 1...maximumAttempts {
-            try Task.checkCancellation()
-            let reservation = try usageLimiter.reserveRequest(limits: providerStore.usageLimits)
+            var reservation: Date?
+            let attemptStartedAt = Date()
             do {
+                try Task.checkCancellation()
+                reservation = try usageLimiter.reserveRequest(limits: providerStore.usageLimits)
+                AIAgentTraceStore.shared.append(
+                    traceID,
+                    category: .reasoning,
+                    stage: .model,
+                    title: "请求模型",
+                    detail: "发送第 \(attempt) 次听歌洞察请求。",
+                    metadata: ["attempt": "\(attempt)/\(maximumAttempts)"]
+                )
                 let response = try await client.generate(
-                    systemPrompt: managedAgent?.systemPrompt(fallback: AIListeningInsightPrompt.system)
-                        ?? AIListeningInsightPrompt.system,
-                    userPrompt: managedAgent?.userPrompt(fallback: bundledUserPrompt) ?? bundledUserPrompt,
+                    systemPrompt: systemPrompt,
+                    userPrompt: userPrompt,
                     configuration: configuration,
                     apiKey: providerStore.requestAPIKey,
                     minimumTimeout: managedAgent?.resolvedMinimumTimeoutSeconds ?? 0,
                     options: managedAgent?.generationOptions ?? .standard
                 )
                 try Task.checkCancellation()
+                AIAgentTraceStore.shared.append(
+                    traceID,
+                    category: .conversation,
+                    level: .success,
+                    stage: .model,
+                    title: "Assistant",
+                    detail: response,
+                    durationSeconds: Date().timeIntervalSince(attemptStartedAt),
+                    metadata: ["role": "assistant", "attempt": String(attempt)]
+                )
+                let validationStartedAt = Date()
                 let output = try decodeOutput(from: response)
                 if let result = validatedResult(output: output, input: input) {
+                    AIAgentTraceStore.shared.append(
+                        traceID,
+                        category: .skill,
+                        level: .success,
+                        stage: .validation,
+                        title: "洞察结果校验",
+                        detail: "中文比例、标题、摘要、亮点数量与统计数据引用均已通过本地校验。",
+                        durationSeconds: Date().timeIntervalSince(validationStartedAt)
+                    )
+                    AIAgentTraceStore.shared.finish(traceID, status: .completed)
                     return result
                 }
+                AIAgentTraceStore.shared.append(
+                    traceID,
+                    category: .skill,
+                    level: .error,
+                    stage: .validation,
+                    title: "洞察结果校验未通过",
+                    detail: "模型内容未满足中文比例、文本长度、条目数量或数据一致性要求。",
+                    durationSeconds: Date().timeIntervalSince(validationStartedAt)
+                )
                 throw AIEqualizerError.invalidResponse
             } catch is CancellationError {
+                AIAgentTraceStore.shared.append(
+                    traceID,
+                    category: .reasoning,
+                    level: .warning,
+                    stage: .completion,
+                    title: "任务已取消",
+                    detail: "用户离开页面或统计范围发生变化，停止处理过时的洞察任务。",
+                    durationSeconds: Date().timeIntervalSince(traceStartedAt)
+                )
+                AIAgentTraceStore.shared.finish(traceID, status: .cancelled)
                 throw CancellationError()
             } catch {
-                if AIUsageLimiter.shouldRefundReservation(for: error) {
+                if let reservation, AIUsageLimiter.shouldRefundReservation(for: error) {
                     usageLimiter.releaseReservation(reservation)
                 }
                 guard attempt < maximumAttempts,
                       AIAgentRuntimePolicy.shouldRetry(error) else {
                     if let aiError = error as? AIEqualizerError,
                        case .invalidResponse = aiError {
-                        return fallbackResult(for: input)
+                        let fallbackStartedAt = Date()
+                        let result = fallbackResult(for: input)
+                        AIAgentTraceStore.shared.append(
+                            traceID,
+                            category: .reasoning,
+                            level: .warning,
+                            stage: .fallback,
+                            title: "使用本地结果",
+                            detail: "模型结果连续未通过校验，已改用基于真实统计的本地洞察文案。",
+                            durationSeconds: Date().timeIntervalSince(fallbackStartedAt)
+                        )
+                        AIAgentTraceStore.shared.finish(traceID, status: .completed)
+                        return result
                     }
+                    AIAgentTraceStore.shared.append(
+                        traceID,
+                        category: .reasoning,
+                        level: .error,
+                        stage: .completion,
+                        title: "任务失败",
+                        detail: error.localizedDescription,
+                        durationSeconds: Date().timeIntervalSince(traceStartedAt)
+                    )
+                    AIAgentTraceStore.shared.finish(
+                        traceID,
+                        status: .failed,
+                        message: error.localizedDescription
+                    )
                     throw error
                 }
                 let delay = AIAgentRuntimePolicy.retryDelay(
                     after: attempt,
                     minimumRequestInterval: providerStore.usageLimits.minimumRequestInterval
                 )
-                try await Task.sleep(for: .seconds(delay))
+                AIAgentTraceStore.shared.append(
+                    traceID,
+                    category: .reasoning,
+                    level: .warning,
+                    stage: .model,
+                    title: "准备重试",
+                    detail: error.localizedDescription,
+                    durationSeconds: Date().timeIntervalSince(attemptStartedAt),
+                    metadata: [
+                        "nextAttempt": String(attempt + 1),
+                        "delaySeconds": String(format: "%.1f", delay)
+                    ]
+                )
+                do {
+                    try await Task.sleep(for: .seconds(delay))
+                } catch {
+                    AIAgentTraceStore.shared.append(
+                        traceID,
+                        category: .reasoning,
+                        level: .warning,
+                        stage: .completion,
+                        title: "任务已取消",
+                        detail: "等待重试期间任务已失效。",
+                        durationSeconds: Date().timeIntervalSince(traceStartedAt)
+                    )
+                    AIAgentTraceStore.shared.finish(traceID, status: .cancelled)
+                    throw CancellationError()
+                }
             }
         }
-        return fallbackResult(for: input)
+        let fallbackStartedAt = Date()
+        let result = fallbackResult(for: input)
+        AIAgentTraceStore.shared.append(
+            traceID,
+            category: .reasoning,
+            level: .warning,
+            stage: .fallback,
+            title: "使用本地结果",
+            detail: "没有获得可用的模型结果，已生成基于真实统计的本地洞察文案。",
+            durationSeconds: Date().timeIntervalSince(fallbackStartedAt)
+        )
+        AIAgentTraceStore.shared.finish(traceID, status: .completed)
+        return result
     }
 
     /// 后台自动分析入口：频率受限时等待后重试一次，仍失败则静默降级到本地文案，不抛错。

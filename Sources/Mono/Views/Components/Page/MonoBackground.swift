@@ -87,6 +87,10 @@ private struct MonoNavigationBackButtonModifier: ViewModifier {
                     MonoToolbarBackButton(iconColor: iconColor)
                 }
             }
+            // 返回手势必须通过 SwiftUI dismiss 更新 NavigationStack 的 path。
+            // 不能直接调用底层 UINavigationController.popViewController，
+            // 否则 SwiftUI 状态仍保留目标页，下一次导航栏布局会发生宿主错配。
+            .monoEdgeSwipeToDismiss()
     }
 }
 

@@ -11,7 +11,6 @@ enum WidgetTheme: String, CaseIterable, Hashable, Sendable {
     case vinyl
     case vinylDark
     case poster
-    case manga
     case magazine
     case aperture
     case pager
@@ -28,7 +27,6 @@ enum WidgetTheme: String, CaseIterable, Hashable, Sendable {
         case .vinyl: return "黑胶"
         case .vinylDark: return "黑胶（深色）"
         case .poster: return "海报"
-        case .manga: return "漫画"
         case .magazine: return "杂志"
         case .aperture: return "圆窗唱片"
         case .pager: return "寻呼机（深色）"

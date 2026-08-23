@@ -179,6 +179,12 @@ struct CloudSyncSettingsView: View {
                     title: String(localized: "cloud_sync_custom_eq"),
                     value: countText(summary.customEQPresets)
                 )
+                contentDivider
+                contentRow(
+                    icon: .sparkle,
+                    title: String(localized: "cloud_sync_audio_agent_skills"),
+                    value: countText(summary.audioAgentSkills)
+                )
             }
             .background(cardBackground)
             .monoGlass(cornerRadius: 14)

@@ -636,6 +636,7 @@ struct ClarityPressStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
+            .contentShape(Rectangle())
             .scaleEffect(configuration.isPressed ? 0.975 : 1)
             .brightness(configuration.isPressed ? -0.025 : 0)
             .animation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.82), value: configuration.isPressed)

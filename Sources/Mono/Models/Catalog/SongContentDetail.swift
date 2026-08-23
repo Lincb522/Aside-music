@@ -242,6 +242,15 @@ struct AppAgentConfiguration: Codable, Sendable {
     let maxOutputTokens: Int
     let minimumTimeoutSeconds: Double
     let maxAttempts: Int?
+    /// Server-managed skill configuration. `skillConfiguration` is retained as
+    /// a decoding alias for early server builds; new payloads use `skills`.
+    let skills: AppAgentSkillConfiguration?
+    let skillConfiguration: AppAgentSkillConfiguration?
+    let toolPolicy: AppAgentToolPolicyConfiguration?
+
+    var resolvedSkillConfiguration: AppAgentSkillConfiguration? {
+        skills ?? skillConfiguration
+    }
 
     func systemPrompt(fallback: String, secondaryFallback: String? = nil) -> String {
         let primary = systemPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -273,6 +282,71 @@ struct AppAgentConfiguration: Codable, Sendable {
     func resolvedMaxAttempts(fallback: Int) -> Int {
         min(4, max(1, maxAttempts ?? fallback))
     }
+}
+
+/// Remotely managed capabilities for the tuning Agent. Every field is optional
+/// so clients remain compatible with both old payloads and partial rollouts.
+struct AppAgentSkillConfiguration: Codable, Equatable, Sendable {
+    let revision: String?
+    let builtIns: AppAgentBuiltInSkillConfiguration?
+    let custom: [AppAgentCustomSkillConfiguration]?
+}
+
+struct AppAgentBuiltInSkillConfiguration: Codable, Equatable, Sendable {
+    let measurementEvidence: Bool?
+    let deviceCoordination: Bool?
+    let headroomGuard: Bool?
+    let phaseGuard: Bool?
+    let outputValidation: Bool?
+    let artistReference: Bool?
+    let vocalReference: Bool?
+}
+
+struct AppAgentCustomSkillConfiguration: Codable, Equatable, Sendable {
+    let id: String?
+    let name: String?
+    let instruction: String?
+    let enabled: Bool?
+    /// Compatibility with the local custom-skill representation.
+    let isEnabled: Bool?
+
+    var resolvedEnabled: Bool { enabled ?? isEnabled ?? true }
+}
+
+struct AppAgentToolPolicyConfiguration: Codable, Equatable, Sendable {
+    let revision: String?
+    let requiredToolName: String?
+    let invocationMode: String?
+    let requireExactlyOnce: Bool?
+    let localValidationRequired: Bool?
+    let allowPromptFallback: Bool?
+
+    static let bundledSafeDefault = AppAgentToolPolicyConfiguration(
+        revision: "bundled-v1",
+        requiredToolName: "mono_audio_tuning",
+        invocationMode: "required",
+        requireExactlyOnce: true,
+        localValidationRequired: true,
+        allowPromptFallback: false
+    )
+
+    /// Server policy may supply revision metadata, but cannot replace Mono's
+    /// mandatory tool contract or enable prompt/content fallback.
+    var resolvedSafePolicy: AppAgentToolPolicyConfiguration {
+        AppAgentToolPolicyConfiguration(
+            revision: revision?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+                ?? Self.bundledSafeDefault.revision,
+            requiredToolName: Self.bundledSafeDefault.requiredToolName,
+            invocationMode: Self.bundledSafeDefault.invocationMode,
+            requireExactlyOnce: true,
+            localValidationRequired: true,
+            allowPromptFallback: false
+        )
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? { isEmpty ? nil : self }
 }
 
 struct AppAgentConfigurationSet: Codable, Sendable {

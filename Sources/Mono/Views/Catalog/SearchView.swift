@@ -46,6 +46,7 @@ struct SearchView: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
         .toolbarBackground(.hidden, for: .navigationBar)
+        .monoEdgeSwipeToDismiss()
         .navigationDestination(isPresented: $showArtistDetail) {
             if let artist = selectedArtist {
                 ArtistDetailView(artist: artist)
@@ -348,9 +349,9 @@ struct SearchView: View {
 
                 HStack(spacing: 0) {
                     ZStack(alignment: .leading) {
-                        if viewModel.query.isEmpty {
+                        if !isFocused, viewModel.query.isEmpty {
                             if viewModel.hasSearched {
-                                if !isFocused, !viewModel.displayKeyword.isEmpty {
+                                if !viewModel.displayKeyword.isEmpty {
                                     Text(viewModel.displayKeyword)
                                         .font(searchFieldFont(weight: .medium))
                                         .foregroundColor(searchPlaceholderColor)
@@ -458,16 +459,22 @@ struct SearchView: View {
     }
 
     private func submitSearchInput(committedText: String) {
-        let keyword = committedText
+        let committedKeyword = committedText
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        isFocused = false
+        let boundKeyword = viewModel.query
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        // Return 只能提交用户真正输入的内容。输入法提交瞬间如果 committedText
+        // 暂时为空，就使用界面当前 Binding；两者都为空时保持搜索页，不再偷偷
+        // 回退到默认热词（例如“畏难而退”）。默认词仅由用户主动点击触发。
+        let keyword = committedKeyword.isEmpty ? boundKeyword : committedKeyword
 
-        if !keyword.isEmpty {
-            viewModel.performSearch(keyword: keyword)
-        } else if !viewModel.hasSearched,
-                  let defaultKeyword = viewModel.defaultKeyword {
-            viewModel.performSearch(keyword: defaultKeyword.realkeyword)
+        guard !keyword.isEmpty else {
+            isFocused = true
+            return
         }
+
+        isFocused = false
+        viewModel.performSearch(keyword: keyword)
 
         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
             isSearchBarExpanded = false

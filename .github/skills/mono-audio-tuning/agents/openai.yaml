@@ -1,0 +1,4 @@
+interface:
+  display_name: "Mono Audio Tuning"
+  short_description: "为 Mono 调音 Agent 设计、验证和升级 DSP 方案"
+  default_prompt: "使用 $mono-audio-tuning 审核并升级当前歌曲的 AI 调音链路。"

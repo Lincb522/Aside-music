@@ -63,6 +63,17 @@ enum LyricKaraokeTimeline {
         return syntheticWords(for: line, displayText: text)
     }
 
+    /// Stateless word progress used by every karaoke surface. Passing this
+    /// scalar into a word view (instead of the continuously changing playback
+    /// clock) lets SwiftUI keep all completed and waiting word subtrees stable;
+    /// only the actively sung word changes from frame to frame.
+    static func progress(for word: LyricWord, at time: TimeInterval) -> CGFloat {
+        guard word.duration > 0 else { return time >= word.startTime ? 1 : 0 }
+        if time <= word.startTime { return 0 }
+        if time >= word.startTime + word.duration { return 1 }
+        return min(max(CGFloat((time - word.startTime) / word.duration), 0), 1)
+    }
+
     private static func normalizedPlatformWords(for line: LyricLine, displayText: String) -> [LyricWord] {
         let validWords = line.words.filter {
             !$0.text.isEmpty
@@ -1438,7 +1449,7 @@ class LyricViewModel: ObservableObject {
 
 struct KaraokeWordView: View {
     let word: LyricWord
-    let currentTime: TimeInterval
+    let progress: CGFloat
     var font: Font = .rounded(size: 26, weight: .bold)
     var activeColor: Color = .monoTextPrimary
     var inactiveColor: Color = .gray.opacity(0.3)
@@ -1448,7 +1459,7 @@ struct KaraokeWordView: View {
     var body: some View {
         KaraokeStyledWordView(
             text: word.text,
-            progress: calculateProgress(),
+            progress: progress,
             font: font,
             style: style,
             inactiveColor: inactiveColor,
@@ -1457,12 +1468,6 @@ struct KaraokeWordView: View {
         )
     }
     
-    func calculateProgress() -> CGFloat {
-        guard word.duration > 0 else { return currentTime >= word.startTime ? 1 : 0 }
-        if currentTime < word.startTime { return 0 }
-        if currentTime >= word.startTime + word.duration { return 1 }
-        return CGFloat((currentTime - word.startTime) / word.duration)
-    }
 }
 
 struct FlowLayout: Layout {
@@ -1470,16 +1475,53 @@ struct FlowLayout: Layout {
     /// 行内对齐：默认靠左（标签云等场景）；歌词逐字用 .center，
     /// 长句换行后每行都居中，而不是整块居中、行内靠左
     var rowAlignment: HorizontalAlignment = .leading
+    /// Stable token for rapidly animated content whose intrinsic sizes do not
+    /// change between frames. Other FlowLayout call sites keep the default and
+    /// retain SwiftUI's normal cache invalidation semantics.
+    var measurementToken: Int? = nil
     
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let rows = arrangeSubviews(proposal: proposal, subviews: subviews)
+    struct Cache {
+        var sizes: [CGSize] = []
+        var proposedWidth: CGFloat?
+        var rows: [Row] = []
+        var measurementToken: Int?
+    }
+
+    func makeCache(subviews: Subviews) -> Cache {
+        Cache(
+            sizes: subviews.map { $0.sizeThatFits(.unspecified) },
+            measurementToken: measurementToken
+        )
+    }
+
+    func updateCache(_ cache: inout Cache, subviews: Subviews) {
+        if let measurementToken,
+           cache.measurementToken == measurementToken,
+           cache.sizes.count == subviews.count {
+            return
+        }
+        cache.sizes = subviews.map { $0.sizeThatFits(.unspecified) }
+        cache.proposedWidth = nil
+        cache.rows.removeAll(keepingCapacity: true)
+        cache.measurementToken = measurementToken
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache) -> CGSize {
+        let rows = cachedRows(proposal: proposal, subviews: subviews, cache: &cache)
         let maxWidth = rows.map(\.maxX).max() ?? 0
         let totalHeight = rows.last.map { $0.y + $0.height } ?? 0
         return CGSize(width: maxWidth, height: totalHeight)
     }
     
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let rows = arrangeSubviews(proposal: proposal, subviews: subviews)
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache) {
+        // SwiftUI may omit the width in the placement proposal even though it
+        // supplied one during measurement. Reuse the measured wrapping width
+        // instead of measuring every word for a second time on every lyric tick.
+        let placementProposal = ProposedViewSize(
+            width: proposal.width ?? cache.proposedWidth ?? bounds.width,
+            height: proposal.height
+        )
+        let rows = cachedRows(proposal: placementProposal, subviews: subviews, cache: &cache)
         for row in rows {
             let leftover = max(0, bounds.width - row.maxX)
             let rowOffset: CGFloat
@@ -1489,9 +1531,10 @@ struct FlowLayout: Layout {
             default: rowOffset = 0
             }
             for item in row.items {
-                item.view.place(
+                guard subviews.indices.contains(item.index) else { continue }
+                subviews[item.index].place(
                     at: CGPoint(x: bounds.minX + rowOffset + item.x, y: bounds.minY + row.y),
-                    proposal: .unspecified
+                    proposal: ProposedViewSize(cache.sizes[item.index])
                 )
             }
         }
@@ -1505,11 +1548,29 @@ struct FlowLayout: Layout {
     }
     
     struct Item {
-        var view: LayoutSubview
+        var index: Int
         var x: CGFloat
     }
+
+    private func cachedRows(
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout Cache
+    ) -> [Row] {
+        let proposedWidth = proposal.width
+        if cache.sizes.count != subviews.count {
+            cache.sizes = subviews.map { $0.sizeThatFits(.unspecified) }
+            cache.proposedWidth = nil
+        }
+
+        if cache.rows.isEmpty || cache.proposedWidth != proposedWidth {
+            cache.rows = arrangeSubviews(proposal: proposal, sizes: cache.sizes)
+            cache.proposedWidth = proposedWidth
+        }
+        return cache.rows
+    }
     
-    func arrangeSubviews(proposal: ProposedViewSize, subviews: Subviews) -> [Row] {
+    private func arrangeSubviews(proposal: ProposedViewSize, sizes: [CGSize]) -> [Row] {
         var rows: [Row] = []
         var currentRowY: CGFloat = 0
         var currentRowHeight: CGFloat = 0
@@ -1518,8 +1579,7 @@ struct FlowLayout: Layout {
         
         let maxWidth = proposal.width ?? .infinity
         
-        for view in subviews {
-            let viewSize = view.sizeThatFits(.unspecified)
+        for (index, viewSize) in sizes.enumerated() {
             
             if currentX + viewSize.width > maxWidth && !currentItems.isEmpty {
                 rows.append(Row(y: currentRowY, height: currentRowHeight, items: currentItems, maxX: currentX - spacing))
@@ -1529,7 +1589,7 @@ struct FlowLayout: Layout {
                 currentItems = []
             }
             
-            currentItems.append(Item(view: view, x: currentX))
+            currentItems.append(Item(index: index, x: currentX))
             currentX += viewSize.width + spacing
             currentRowHeight = max(currentRowHeight, viewSize.height)
         }
@@ -1805,11 +1865,18 @@ struct KaraokeLineView: View {
             if enableKaraoke {
                 if #available(iOS 16.0, *) {
                     let words = resolvedKaraokeWords()
-                    FlowLayout(spacing: 0, rowAlignment: .center) {
+                    FlowLayout(
+                        spacing: 0,
+                        rowAlignment: .center,
+                        measurementToken: karaokeMeasurementToken(words: words)
+                    ) {
                         ForEach(words.indices, id: \.self) { i in
                             KaraokeWordView(
                                 word: words[i],
-                                currentTime: currentTime,
+                                progress: LyricKaraokeTimeline.progress(
+                                    for: words[i],
+                                    at: currentTime
+                                ),
                                 font: currentLineFont,
                                 activeColor: customActiveColor,
                                 inactiveColor: adaptiveSecondaryColor ?? .gray.opacity(0.3),
@@ -1854,7 +1921,32 @@ struct KaraokeLineView: View {
     }
     
     private func resolvedKaraokeWords() -> [LyricWord] {
-        LyricKaraokeTimeline.resolvedWords(for: line, displayText: displayText)
+        // The parser normalizes every line once before publishing it. Reusing
+        // that immutable timeline avoids filtering, sorting and allocating new
+        // UUID-backed words at 60 fps. Uppercase mode is the only case that
+        // needs a display-only copy.
+        if !line.words.isEmpty {
+            guard forceUppercaseEnglish else { return line.words }
+            return line.words.map {
+                LyricWord(
+                    text: $0.text.monoUppercasingEnglish(),
+                    startTime: $0.startTime,
+                    duration: $0.duration
+                )
+            }
+        }
+        return LyricKaraokeTimeline.resolvedWords(for: line, displayText: displayText)
+    }
+
+    private func karaokeMeasurementToken(words: [LyricWord]) -> Int {
+        var hasher = Hasher()
+        hasher.combine(line.id)
+        hasher.combine(words.count)
+        hasher.combine(forceUppercaseEnglish)
+        hasher.combine(playerFontSelectionRaw)
+        hasher.combine(playerCustomFontID)
+        hasher.combine(playerFontScale.bitPattern)
+        return hasher.finalize()
     }
 
     private func constructFallbackText() -> Text {

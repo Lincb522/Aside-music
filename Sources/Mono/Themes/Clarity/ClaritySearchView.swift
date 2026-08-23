@@ -68,9 +68,13 @@ struct ClaritySearchView: View {
             TextField(String(localized: "search_bar_placeholder"), text: $model.query)
                 .font(ClarityStyle.body(15, weight: .medium))
                 .foregroundStyle(ClarityStyle.ink)
+                .monoTextInputBehavior()
                 .focused($focused)
                 .submitLabel(.search)
-                .onSubmit { model.performSearch(keyword: model.query) }
+                .monoOnSubmit(text: $model.query) { keyword in
+                    focused = false
+                    model.performSearch(keyword: keyword)
+                }
 
             if !model.query.isEmpty {
                 Button {

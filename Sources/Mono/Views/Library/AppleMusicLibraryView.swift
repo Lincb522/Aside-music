@@ -10,10 +10,10 @@ enum AppleMusicLibraryCategory: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .playlists: return "播放列表"
-        case .songs: return "歌曲"
-        case .albums: return "专辑"
-        case .artists: return "艺人"
+        case .playlists: return String(localized: "apple_music_category_playlists")
+        case .songs: return String(localized: "apple_music_category_songs")
+        case .albums: return String(localized: "apple_music_category_albums")
+        case .artists: return String(localized: "apple_music_category_artists")
         }
     }
 

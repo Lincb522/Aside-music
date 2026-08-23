@@ -187,10 +187,8 @@ private struct PlayerThemeStaticPreview: View {
         switch theme {
         case .typewriter, .folk:
             return .system(size: 11.5, weight: .semibold, design: .serif)
-        case .pixel, .motoPager, .dotMatrix, .riveMotion:
+        case .pixel, .motoPager, .dotMatrix:
             return .system(size: 11, weight: .bold, design: .monospaced)
-        case .mangaChat:
-            return .system(size: 11.5, weight: .black, design: .rounded)
         default:
             return .system(size: 11.5, weight: .bold, design: .rounded)
         }
@@ -213,7 +211,6 @@ private struct PlayerThemeStaticPreview: View {
         case .cassette:       return ink
         case .radio:          return Color(hex: "DCC8FF")
         case .immersiveLyric: return ink
-        case .mangaChat:      return isDark ? Color.white : Color.black
         case .folk:           return Color(hex: "B44A3B")
         case .game2048:       return Color(hex: "EDC22E")
         case .ipod:           return Color(hex: "6F8B68")
@@ -221,7 +218,6 @@ private struct PlayerThemeStaticPreview: View {
         case .tornPaper:      return Color(hex: "D96850")
         case .clarity:        return Color(hex: "2478D8")
         case .dotMatrix:      return Color(hex: "68F8CF")
-        case .riveMotion:     return Color(hex: "A88BFF")
         }
     }
 
@@ -244,8 +240,6 @@ private struct PlayerThemeStaticPreview: View {
             return isDark ? Color.white.opacity(0.94) : Color(hex: "11151A")
         case .dotMatrix:
             return Color(hex: "D9FFF5")
-        case .riveMotion:
-            return Color.white.opacity(0.94)
         default:
             return ink
         }
@@ -270,7 +264,6 @@ private struct PlayerThemeStaticPreview: View {
         case .cassette: cassetteMotif
         case .radio: radioMotif
         case .immersiveLyric: immersiveLyricMotif
-        case .mangaChat: mangaChatMotif
         case .folk: folkMotif
         case .game2048: game2048Motif
         case .ipod: ipodMotif
@@ -278,30 +271,6 @@ private struct PlayerThemeStaticPreview: View {
         case .tornPaper: tornPaperMotif
         case .clarity: clarityMotif
         case .dotMatrix: dotMatrixMotif
-        case .riveMotion: riveMotionMotif
-        }
-    }
-
-    private var riveMotionMotif: some View {
-        ZStack {
-            ForEach(0..<4, id: \.self) { index in
-                Circle()
-                    .stroke(
-                        LinearGradient(
-                            colors: [Color(hex: "7CEBFF"), Color(hex: "A88BFF"), Color(hex: "FF80BC")],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 2.4
-                    )
-                    .frame(width: CGFloat(38 + index * 17), height: CGFloat(38 + index * 17))
-                    .opacity(0.9 - Double(index) * 0.15)
-            }
-
-            Circle()
-                .fill(Color.white.opacity(0.94))
-                .frame(width: 28, height: 28)
-                .overlay(MonoIcon(icon: .play, size: 10, color: Color(hex: "151322")))
         }
     }
 
@@ -825,42 +794,6 @@ private struct PlayerThemeStaticPreview: View {
         .padding(.leading, 16)
     }
 
-    /// 漫画对话：气泡真实台词 + 音符
-    private var mangaChatMotif: some View {
-        ZStack {
-            mangaDotTexture
-
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color.white)
-                .frame(width: 90, height: 38)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(Color.black.opacity(isDark ? 0.5 : 0.85), lineWidth: 1.5)
-                )
-                .overlay(
-                    HStack(spacing: 5) {
-                        MonoIcon(icon: .musicNote, size: 11, color: .black, lineWidth: 1.7)
-                        Text("一起听歌吗")
-                            .font(.system(size: 9.5, weight: .heavy, design: .rounded))
-                            .foregroundColor(.black)
-                    }
-                )
-                .overlay(alignment: .bottomLeading) {
-                    Triangle()
-                        .fill(Color.white)
-                        .frame(width: 10, height: 9)
-                        .rotationEffect(.degrees(180))
-                        .offset(x: 16, y: 8)
-                }
-
-            HeartShape()
-                .fill(Color.black.opacity(isDark ? 0.75 : 0.85))
-                .frame(width: 15, height: 13)
-                .overlay(HeartShape().stroke(Color.black.opacity(isDark ? 0.55 : 0.85), lineWidth: 1.1))
-                .offset(x: 47, y: -24)
-        }
-    }
-
     /// 民谣：拍立得 + 邮票 + 手写笺
     private var folkMotif: some View {
         ZStack {
@@ -1029,17 +962,6 @@ private struct PlayerThemeStaticPreview: View {
             .overlay(Circle().fill(Color.black.opacity(0.4)).frame(width: 4.5, height: 4.5))
     }
 
-    private var mangaDotTexture: some View {
-        Canvas { ctx, size in
-            let color = Color.black.opacity(isDark ? 0.12 : 0.08)
-            for x in stride(from: 3, through: size.width, by: 11) {
-                for y in stride(from: 3, through: size.height, by: 11) {
-                    ctx.fill(Path(ellipseIn: CGRect(x: x, y: y, width: 2, height: 2)), with: .color(color))
-                }
-            }
-        }
-    }
-
     private func gameTile(_ text: String, fill: Color, textColor: Color = .white) -> some View {
         RoundedRectangle(cornerRadius: 5, style: .continuous)
             .fill(fill)
@@ -1092,8 +1014,6 @@ private struct PlayerThemeStaticPreview: View {
             LinearGradient(colors: isDark ? [Color(hex: "180F32"), Color(hex: "382061")] : [Color(hex: "BCA6E7"), Color(hex: "8869BE")], startPoint: .topLeading, endPoint: .bottomTrailing)
         case .immersiveLyric:
             LinearGradient(colors: isDark ? [Color(hex: "191526"), Color(hex: "0B0A11")] : [Color(hex: "FAF7FF"), Color(hex: "ECE9FA")], startPoint: .top, endPoint: .bottom)
-        case .mangaChat:
-            LinearGradient(colors: isDark ? [Color(hex: "2A2631"), Color(hex: "17151D")] : [MangaComicPalette.paperBright, MangaComicPalette.paperWarm], startPoint: .topLeading, endPoint: .bottomTrailing)
         case .folk:
             LinearGradient(colors: isDark ? [Color(hex: "2C2118"), Color(hex: "15100C")] : [Color(hex: "F5E9D8"), Color(hex: "E4D1B8")], startPoint: .top, endPoint: .bottom)
         case .game2048:
@@ -1135,13 +1055,6 @@ private struct PlayerThemeStaticPreview: View {
                 colors: [Color(hex: "07110F"), Color(hex: "0B1F20"), Color(hex: "10162B")],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
-            )
-        case .riveMotion:
-            RadialGradient(
-                colors: [Color(hex: "302A64"), Color(hex: "15152A"), Color(hex: "080812")],
-                center: .center,
-                startRadius: 8,
-                endRadius: 140
             )
         }
     }
@@ -1207,47 +1120,5 @@ private struct PickerTornPaperShape: Shape {
 
     private func offset(_ index: Int, _ amplitude: CGFloat) -> CGFloat {
         CGFloat(sin(Double(index * 41 + variant * 67))) * amplitude
-    }
-}
-
-private struct HeartShape: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        let w = rect.width
-        let h = rect.height
-        path.move(to: CGPoint(x: rect.midX, y: rect.maxY))
-        path.addCurve(
-            to: CGPoint(x: rect.minX, y: rect.minY + h * 0.33),
-            control1: CGPoint(x: rect.midX - w * 0.42, y: rect.maxY - h * 0.18),
-            control2: CGPoint(x: rect.minX, y: rect.minY + h * 0.62)
-        )
-        path.addCurve(
-            to: CGPoint(x: rect.midX, y: rect.minY + h * 0.22),
-            control1: CGPoint(x: rect.minX, y: rect.minY + h * 0.02),
-            control2: CGPoint(x: rect.midX - w * 0.28, y: rect.minY - h * 0.02)
-        )
-        path.addCurve(
-            to: CGPoint(x: rect.maxX, y: rect.minY + h * 0.33),
-            control1: CGPoint(x: rect.midX + w * 0.28, y: rect.minY - h * 0.02),
-            control2: CGPoint(x: rect.maxX, y: rect.minY + h * 0.02)
-        )
-        path.addCurve(
-            to: CGPoint(x: rect.midX, y: rect.maxY),
-            control1: CGPoint(x: rect.maxX, y: rect.minY + h * 0.62),
-            control2: CGPoint(x: rect.midX + w * 0.42, y: rect.maxY - h * 0.18)
-        )
-        return path
-    }
-}
-
-/// 三角形 Shape（用于小票锯齿边缘）
-struct Triangle: Shape {
-    func path(in rect: CGRect) -> Path {
-        Path { p in
-            p.move(to: CGPoint(x: rect.midX, y: rect.minY))
-            p.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
-            p.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
-            p.closeSubpath()
-        }
     }
 }

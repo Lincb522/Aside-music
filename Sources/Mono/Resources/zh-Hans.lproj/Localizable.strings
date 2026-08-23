@@ -211,6 +211,9 @@
 "settings_netease_playback_quality" = "NCM默认播放音质";
 "settings_qq_playback_quality" = "QCM默认播放音质";
 "settings_qmc_decrypt" = "QMC 解密";
+"download_qmc_decryption_required_title" = "需要开启 QMC 解密";
+"download_qmc_decryption_required_message" = "此音质为加密格式，请在播放设置中开启「QMC 本地解密播放」后再下载。";
+"download_decryption_required_badge" = "需要开启解密";
 "settings_qmc_decrypt_desc" = "因风控原因，无损及以上音质的播放暂不可用。如有高音质下载需求请开启此选项，下载将通过解密通道获取并本地解密保存";
 "settings_global_equalizer" = "全局均衡器";
 "settings_global_equalizer_desc" = "开启后对全部播放生效";
@@ -266,6 +269,7 @@
 "comment_title" = "评论";
 "comment_hot" = "热门评论";
 "common_ok" = "好的";
+"common_no_more_content" = "没有更多了";
 "common_done" = "完成";
 "common_unknown_error" = "未知错误";
 "common_custom" = "自定义";
@@ -611,10 +615,6 @@
 "floating_bar_flux_desc" = "封面取色云雾随播放进度漫过迷你播放器";
 "floating_bar_liquid" = "液态";
 "floating_bar_liquid_desc" = "有黏性的液体随真实播放进度推进";
-"floating_bar_rive_pulse" = "矢量脉动";
-"floating_bar_rive_pulse_desc" = "Rive 状态动画连接播放控制与页面导航";
-"矢量律动" = "矢量律动";
-"可触摸的矢量声环与状态动画控制" = "可触摸的矢量声环与状态动画控制";
 "floating_bar_vinyl" = "黑胶唱针";
 "floating_bar_vinyl_desc" = "旋转黑胶与唱针轨迹随播放推进";
 "floating_bar_cassette" = "磁带卡座";
@@ -978,6 +978,16 @@
 "quality_lossless" = "无损音质";
 "quality_high" = "高品音质";
 "quality_standard" = "标准音质";
+"qishui_quality_title" = "QSM 音质";
+"qishui_quality_lossless" = "无损";
+"qishui_quality_spatial" = "空间音频";
+"qishui_quality_spatial_badge" = "沉浸环绕声";
+"qishui_quality_hi_res" = "高解析度";
+"qishui_quality_highest" = "超清";
+"qishui_quality_higher" = "较高";
+"qishui_quality_medium" = "标准";
+"settings_kcm_playback_quality" = "KCM 默认音质";
+"settings_qsm_playback_quality" = "QSM 默认音质";
 
 /* Tab Bar - New */
 "tabbar_home" = "首页";
@@ -1302,11 +1312,23 @@
 "dev_mode_enable" = "输入密码以启用";
 "dev_mode_enabled" = "开发者模式已开启";
 "dev_mode_enabled_short" = "已开启";
+"dev_mode_tap_hint" = "连续点击 5 次可进入开发者模式";
+"dev_mode_enable_message" = "确认开启开发者模式？";
+"dev_mode_enabled_basic" = "开发者模式已开启 · 基础诊断";
+"dev_mode_enabled_full" = "开发者模式已开启 · 完整权限";
+"dev_mode_access_basic" = "基础诊断";
+"dev_mode_access_full" = "完整权限";
+"dev_mode_enable_basic_message" = "开启后可查看调试日志和 Agent 记录。";
+"dev_mode_enable_full_message" = "当前 Token 已包含下载授权，将同时启用完整开发者工具。";
 "dev_mode_password_error" = "密码错误";
 "dev_mode_disable_action" = "关闭开发者模式";
 "developer_tools_title" = "开发者";
+"developer_tools_section_diagnostics" = "诊断";
+"developer_tools_section_accounts" = "账号";
 "developer_tools_section_testing" = "测试工具";
 "developer_tools_section_access" = "访问";
+"developer_platform_switching" = "平台切号管理";
+"developer_audio_lab" = "实时音频实验台";
 "dev_popup_catalog_title" = "弹窗预览";
 "dev_popup_group_alerts" = "基础提示";
 "dev_popup_group_launch" = "启动弹窗";
@@ -1750,6 +1772,7 @@
 "cloud_sync_listening_stats" = "听歌统计";
 "cloud_sync_playback_history" = "播放记录";
 "cloud_sync_ai_tuning" = "AI 调音方案";
+"cloud_sync_audio_agent_skills" = "Agent 技能设置";
 "cloud_sync_custom_eq" = "自定义均衡器预设";
 "cloud_sync_count" = "%d 项";
 "cloud_sync_syncing" = "正在同步";

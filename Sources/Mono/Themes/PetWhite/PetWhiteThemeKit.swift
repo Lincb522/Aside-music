@@ -1119,6 +1119,7 @@ struct PetWhiteSquishyButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
+            .contentShape(Rectangle())
             .scaleEffect(configuration.isPressed ? scale : 1)
             .offset(y: configuration.isPressed ? 1.5 : 0)
             .animation(

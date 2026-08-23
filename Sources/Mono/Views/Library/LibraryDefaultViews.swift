@@ -1224,6 +1224,7 @@ struct LocalPlaylistRow: View {
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: PetWhiteStyle.isActive ? 22 : (NeumorphicStyle.isActive ? 20 : (MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 10 : (CapsuleStyle.isActive ? 18 : (SequoiaStyle.isActive ? 20 : 18))))), style: .continuous))
+        .contentShape(Rectangle())
     }
 
     private var systemPlaceholder: some View {
@@ -2563,6 +2564,7 @@ struct CinematicStaggerIn: ViewModifier {
 struct CinematicPressStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
+            .contentShape(Rectangle())
             .scaleEffect(configuration.isPressed ? 0.965 : 1)
             .brightness(configuration.isPressed ? -0.04 : 0)
             .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
@@ -3129,14 +3131,6 @@ struct ArtistLibraryView: View {
             FloatingBarBottomSpacer()
         }
         .scrollDismissesKeyboard(.immediately)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 4)
-                .onChanged { _ in
-                    if focusedSearchField != nil {
-                        focusedSearchField = nil
-                    }
-                }
-        )
         .simultaneousGesture(TapGesture().onEnded {
             dismissArtistSearchKeyboard()
         })
@@ -3762,5 +3756,6 @@ struct LibraryPlaylistRow: View {
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: PetWhiteStyle.isActive ? 22 : (NeumorphicStyle.isActive ? 20 : (CapsuleStyle.isActive ? 18 : (SequoiaStyle.isActive ? 20 : 18))), style: .continuous))
+        .contentShape(Rectangle())
     }
 }

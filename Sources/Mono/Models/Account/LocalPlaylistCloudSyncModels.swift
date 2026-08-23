@@ -189,7 +189,7 @@ struct CloudAIEqualizerSnapshot: Codable {
 
 struct LocalPlaylistCloudSnapshot: Codable {
     /// 云端协议版本；服务端据此区分旧客户端未上传字段与新版主动清空。
-    var version: Int = 3
+    var version: Int = 4
     var updatedAt: Date
     var deviceId: String
     var deviceName: String
@@ -206,6 +206,9 @@ struct LocalPlaylistCloudSnapshot: Codable {
     var aiEqualizer: CloudAIEqualizerSnapshot?
     /// 用户自定义均衡器预设（协议 v3 起）
     var customEQPresets: [EQPreset]?
+    /// 声音中心 Agent 的本机技能偏好与自定义技能（协议 v4 起）。
+    /// 服务端强制技能与工具策略仍由 Agent 配置接口统一下发。
+    var audioAgentSkills: MonoAudioAgentSkillCloudSnapshot?
 }
 
 struct LocalPlaylistCloudFetchResponse: Codable {
@@ -228,6 +231,8 @@ struct LocalPlaylistCloudFetchResponse: Codable {
     var aiEqualizer: CloudAIEqualizerSnapshot?
     /// 用户自定义均衡器预设（协议 v3 起）
     var customEQPresets: [EQPreset]?
+    /// 声音中心 Agent 的本机技能偏好与自定义技能（协议 v4 起）
+    var audioAgentSkills: MonoAudioAgentSkillCloudSnapshot?
 }
 
 struct LocalPlaylistCloudUploadResponse: Codable {

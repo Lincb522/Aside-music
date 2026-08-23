@@ -68,7 +68,6 @@ enum MonoLegalDocument: String, CaseIterable, Identifiable {
         return [
             MonoLegalLink(title: "FFmpeg · LGPL-2.1-or-later", urlString: "https://ffmpeg.org/legal.html"),
             MonoLegalLink(title: "ZIPFoundation · MIT", urlString: "https://github.com/weichsel/ZIPFoundation/blob/development/LICENSE"),
-            MonoLegalLink(title: "Rive Runtime · MIT", urlString: "https://github.com/rive-app/rive-ios/blob/main/LICENSE"),
             MonoLegalLink(title: "Lucide · ISC", urlString: "https://github.com/lucide-icons/lucide/blob/main/LICENSE"),
             MonoLegalLink(title: "NeteaseCloudMusicApi Enhanced · MIT", urlString: "https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced/blob/main/LICENSE"),
             MonoLegalLink(title: "QQMusicApi · GPL-3.0", urlString: "https://github.com/L-1124/QQMusicApi/blob/main/LICENSE"),
@@ -235,7 +234,6 @@ enum MonoLegalDocument: String, CaseIterable, Identifiable {
                         "FFmpeg — LGPL-2.1-or-later。当前构建未启用 GPL 与 nonfree 组件。",
                         "FFmpegSwiftSDK — MIT。",
                         "ZIPFoundation — MIT。",
-                        "Rive Runtime — MIT。",
                         "Lucide — ISC；其中 Feather 衍生部分适用 MIT。"
                     ]
                 ),
@@ -285,7 +283,7 @@ enum MonoLegalDocument: String, CaseIterable, Identifiable {
         case .openSource:
             return [
                 MonoLegalSection(title: "Notice", paragraphs: ["Mono uses open-source software under each project's original license. Those licenses do not automatically license Mono source code, its name, icons, or brand assets."]),
-                MonoLegalSection(title: "App and audio", paragraphs: ["FFmpeg — LGPL-2.1-or-later; the current build has GPL and nonfree components disabled.", "FFmpegSwiftSDK — MIT.", "ZIPFoundation — MIT.", "Rive Runtime — MIT.", "Lucide — ISC, with Feather-derived portions under MIT."]),
+                MonoLegalSection(title: "App and audio", paragraphs: ["FFmpeg — LGPL-2.1-or-later; the current build has GPL and nonfree components disabled.", "FFmpegSwiftSDK — MIT.", "ZIPFoundation — MIT.", "Lucide — ISC, with Feather-derived portions under MIT."]),
                 MonoLegalSection(title: "Service references", paragraphs: ["NeteaseCloudMusicApi Enhanced — MIT.", "QQMusicApi — GPL-3.0.", "KuGouMusicApi — MIT."]),
                 MonoLegalSection(title: "License obligations", paragraphs: ["Distribution, modification, or redistribution must comply with each license's notice, source, modification, and other requirements. A license file shipped with a component takes precedence."])
             ]

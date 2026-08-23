@@ -10,7 +10,6 @@ struct AsideMusicFluidBackground: View {
     var onBrightnessChanged: ((Bool) -> Void)?
 
     @ObservedObject private var player = FloatingBarPlaybackModel.shared
-    @ObservedObject private var compute = MonoComputeEngine.shared
     // FLUX 原版使用三种独立颜料。这里固定至少提取五色，再从首、中、尾
     // 选出跨度最大的三色，避免全局取色数量设为 2 时退化成双色渐变。
     @StateObject private var coverColors = CoverColorExtractor(minimumColorCount: 5)
@@ -49,10 +48,9 @@ struct AsideMusicFluidBackground: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let renderScale = max(
-                CGFloat(0.34),
-                CGFloat(0.58 * compute.budget.gpuRenderScale)
-            )
+            // 渲染分辨率是该材质的固定设计参数，不随设备压力改变，避免
+            // MonoCompute 策略更新令整块 Shader 视图重建或视觉清晰度跳变。
+            let renderScale = CGFloat(0.58)
             let renderSize = CGSize(
                 width: max(proxy.size.width * renderScale, 1),
                 height: max(proxy.size.height * renderScale, 1)
@@ -110,9 +108,6 @@ struct AsideMusicFluidBackground: View {
         .onChange(of: reduceMotion) { _, _ in
             synchronizeMotionClock()
         }
-        .onChange(of: compute.budget) { _, _ in
-            synchronizeMotionClock()
-        }
         .onChange(of: coverColors.isDark) { _, isDark in
             onBrightnessChanged?(isDark)
         }
@@ -123,7 +118,7 @@ struct AsideMusicFluidBackground: View {
         }
         .onDisappear {
             if let computeWorkloadToken {
-                compute.endWorkload(computeWorkloadToken)
+                MonoComputeEngine.shared.endWorkload(computeWorkloadToken)
                 self.computeWorkloadToken = nil
             }
         }
@@ -149,9 +144,9 @@ struct AsideMusicFluidBackground: View {
             && !reduceMotion
             && coverColors.resolvedURL == artworkURL
         if shouldObserve, computeWorkloadToken == nil {
-            computeWorkloadToken = compute.beginWorkload(.fluidBackground)
+            computeWorkloadToken = MonoComputeEngine.shared.beginWorkload(.fluidBackground)
         } else if !shouldObserve, let computeWorkloadToken {
-            compute.endWorkload(computeWorkloadToken)
+            MonoComputeEngine.shared.endWorkload(computeWorkloadToken)
             self.computeWorkloadToken = nil
         }
     }

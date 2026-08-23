@@ -1,5 +1,28 @@
 import Foundation
 
+struct AIRequiredTool: Sendable {
+    let name: String
+    let description: String
+    let parametersJSON: String
+}
+
+struct AIRequiredToolResponse: Sendable {
+    enum Invocation: String, Sendable, Equatable {
+        case toolCall
+        case contentFallback
+    }
+
+    let arguments: String
+    let invocation: Invocation
+    let toolInvocationCount: Int
+}
+
+private struct AIProviderGeneratedContent: Sendable {
+    let value: String
+    let toolInvocation: AIRequiredToolResponse.Invocation?
+    let toolInvocationCount: Int
+}
+
 struct AIProviderClient: Sendable {
     func fetchModels(
         configuration: AIProviderConfiguration,
@@ -69,7 +92,57 @@ struct AIProviderClient: Sendable {
             apiKey: apiKey,
             minimumTimeout: minimumTimeout,
             options: options,
-            allowsModelFallback: true
+            requiredTool: nil,
+            allowsModelFallback: true,
+            allowsToolContentFallback: false,
+            requiresExactlyOneToolCall: true
+        ).value
+    }
+
+    /// Performs a single model request that must end in one function call.
+    /// The function arguments are the model's final structured result, so a
+    /// second model round-trip is not required.
+    func generateRequiringTool(
+        systemPrompt: String,
+        userPrompt: String,
+        tool: AIRequiredTool,
+        configuration: AIProviderConfiguration,
+        apiKey: String,
+        minimumTimeout: TimeInterval = 0,
+        options: AIGenerationOptions = .standard,
+        allowContentFallback: Bool = false,
+        requireExactlyOnce: Bool = true
+    ) async throws -> AIRequiredToolResponse {
+        if configuration.wireProtocol == .appleIntelligence {
+            // FoundationModels performs its native tool continuation within a
+            // single `respond` call. Apple tuning never accepts prompt/content
+            // fallback and always enforces exactly one recorded invocation.
+            return try await AppleIntelligenceEqualizerProvider.generateRequiringTool(
+                systemPrompt: systemPrompt,
+                userPrompt: userPrompt,
+                toolName: tool.name
+            )
+        }
+
+        let generated = try await generate(
+            systemPrompt: systemPrompt,
+            userPrompt: userPrompt,
+            configuration: configuration,
+            apiKey: apiKey,
+            minimumTimeout: minimumTimeout,
+            options: options,
+            requiredTool: tool,
+            allowsModelFallback: true,
+            allowsToolContentFallback: allowContentFallback,
+            requiresExactlyOneToolCall: requireExactlyOnce
+        )
+        guard let invocation = generated.toolInvocation else {
+            throw AIEqualizerError.invalidResponse
+        }
+        return AIRequiredToolResponse(
+            arguments: generated.value,
+            invocation: invocation,
+            toolInvocationCount: generated.toolInvocationCount
         )
     }
 
@@ -80,12 +153,19 @@ struct AIProviderClient: Sendable {
         apiKey: String,
         minimumTimeout: TimeInterval,
         options: AIGenerationOptions,
-        allowsModelFallback: Bool
-    ) async throws -> String {
+        requiredTool: AIRequiredTool?,
+        allowsModelFallback: Bool,
+        allowsToolContentFallback: Bool,
+        requiresExactlyOneToolCall: Bool
+    ) async throws -> AIProviderGeneratedContent {
         if configuration.wireProtocol == .appleIntelligence {
-            return try await AppleIntelligenceEqualizerProvider.generate(
-                systemPrompt: systemPrompt,
-                userPrompt: userPrompt
+            return AIProviderGeneratedContent(
+                value: try await AppleIntelligenceEqualizerProvider.generate(
+                    systemPrompt: systemPrompt,
+                    userPrompt: userPrompt
+                ),
+                toolInvocation: nil,
+                toolInvocationCount: 0
             )
         }
 
@@ -101,7 +181,8 @@ struct AIProviderClient: Sendable {
             configuration: configuration,
             apiKey: normalizedKey,
             timeout: responseTimeout,
-            options: options
+            options: options,
+            requiredTool: requiredTool
         )
         let sessionConfiguration = URLSessionConfiguration.ephemeral
         sessionConfiguration.timeoutIntervalForRequest = responseTimeout
@@ -163,13 +244,34 @@ struct AIProviderClient: Sendable {
                     apiKey: apiKey,
                     minimumTimeout: minimumTimeout,
                     options: options,
-                    allowsModelFallback: false
+                    requiredTool: requiredTool,
+                    allowsModelFallback: false,
+                    allowsToolContentFallback: allowsToolContentFallback,
+                    requiresExactlyOneToolCall: requiresExactlyOneToolCall
                 )
             }
             throw AIEqualizerError.httpStatus(http.statusCode, message)
         }
         do {
-            return try Self.extractText(from: data, wireProtocol: configuration.wireProtocol)
+            if let requiredTool {
+                let result = try Self.extractToolArguments(
+                    from: data,
+                    wireProtocol: configuration.wireProtocol,
+                    toolName: requiredTool.name,
+                    allowContentFallback: allowsToolContentFallback,
+                    requireExactlyOnce: requiresExactlyOneToolCall
+                )
+                return AIProviderGeneratedContent(
+                    value: result.arguments,
+                    toolInvocation: result.invocation,
+                    toolInvocationCount: result.toolInvocationCount
+                )
+            }
+            return AIProviderGeneratedContent(
+                value: try Self.extractText(from: data, wireProtocol: configuration.wireProtocol),
+                toolInvocation: nil,
+                toolInvocationCount: 0
+            )
         } catch {
             let responsePreview = String(decoding: data.prefix(1_200), as: UTF8.self)
                 .replacingOccurrences(of: "\n", with: " ")
@@ -187,7 +289,8 @@ struct AIProviderClient: Sendable {
         configuration: AIProviderConfiguration,
         apiKey: String,
         timeout: TimeInterval,
-        options: AIGenerationOptions
+        options: AIGenerationOptions,
+        requiredTool: AIRequiredTool?
     ) throws -> URLRequest {
         let model = configuration.resolvedModel
         guard !model.isEmpty else { throw AIEqualizerError.modelUnavailable }
@@ -197,7 +300,7 @@ struct AIProviderClient: Sendable {
         request.timeoutInterval = timeout
         request.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
 
-        let body: [String: Any]
+        var body: [String: Any]
         let temperature = options.normalizedTemperature
         let maximumOutputTokens = options.normalizedMaxOutputTokens
         switch configuration.wireProtocol {
@@ -287,9 +390,78 @@ struct AIProviderClient: Sendable {
             throw AIEqualizerError.invalidEndpoint
         }
 
+        if let requiredTool {
+            body = try applyingRequiredTool(
+                requiredTool,
+                to: body,
+                wireProtocol: configuration.wireProtocol
+            )
+        }
+
         applyCustomHeaders(configuration.customHeadersJSON, to: &request)
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         return request
+    }
+
+    private func applyingRequiredTool(
+        _ tool: AIRequiredTool,
+        to source: [String: Any],
+        wireProtocol: AIWireProtocol
+    ) throws -> [String: Any] {
+        guard let data = tool.parametersJSON.data(using: .utf8),
+              let parameters = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw AIEqualizerError.invalidResponse
+        }
+        var body = source
+        let function: [String: Any] = [
+            "name": tool.name,
+            "description": tool.description,
+            "parameters": parameters
+        ]
+
+        switch wireProtocol {
+        case .openAIResponses:
+            body["tools"] = [[
+                "type": "function",
+                "name": tool.name,
+                "description": tool.description,
+                "parameters": parameters
+            ]]
+            body["tool_choice"] = ["type": "function", "name": tool.name]
+        case .openAIChat, .openAICompatible, .azureOpenAI:
+            body["tools"] = [["type": "function", "function": function]]
+            body["tool_choice"] = [
+                "type": "function",
+                "function": ["name": tool.name]
+            ]
+            // Function arguments already provide a strict JSON container.
+            body.removeValue(forKey: "response_format")
+        case .anthropicMessages:
+            body["tools"] = [[
+                "name": tool.name,
+                "description": tool.description,
+                "input_schema": parameters
+            ]]
+            body["tool_choice"] = ["type": "tool", "name": tool.name]
+        case .googleGemini:
+            body["tools"] = [["functionDeclarations": [function]]]
+            body["toolConfig"] = [
+                "functionCallingConfig": [
+                    "mode": "ANY",
+                    "allowedFunctionNames": [tool.name]
+                ]
+            ]
+            if var generation = body["generationConfig"] as? [String: Any] {
+                generation.removeValue(forKey: "responseMimeType")
+                body["generationConfig"] = generation
+            }
+        case .ollama:
+            body["tools"] = [["type": "function", "function": function]]
+            body.removeValue(forKey: "format")
+        case .appleIntelligence:
+            break
+        }
+        return body
     }
 
     private func chatBody(
@@ -552,6 +724,116 @@ struct AIProviderClient: Sendable {
             throw AIEqualizerError.invalidResponse
         }
         return text
+    }
+
+    private static func extractToolArguments(
+        from data: Data,
+        wireProtocol: AIWireProtocol,
+        toolName: String,
+        allowContentFallback: Bool,
+        requireExactlyOnce: Bool
+    ) throws -> AIRequiredToolResponse {
+        guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw AIEqualizerError.invalidResponse
+        }
+
+        let arguments: Any?
+        let toolInvocationCount: Int
+        let matchingToolInvocationCount: Int
+        switch wireProtocol {
+        case .openAIResponses:
+            let output = root["output"] as? [[String: Any]] ?? []
+            let calls = output.filter { ($0["type"] as? String) == "function_call" }
+            let matchingCalls = calls.filter { ($0["name"] as? String) == toolName }
+            toolInvocationCount = calls.count
+            matchingToolInvocationCount = matchingCalls.count
+            arguments = matchingCalls.first?["arguments"]
+        case .openAIChat, .openAICompatible, .azureOpenAI:
+            let choices = root["choices"] as? [[String: Any]]
+            let message = choices?.first?["message"] as? [String: Any]
+            let calls = message?["tool_calls"] as? [[String: Any]] ?? []
+            let matchingCalls = calls.filter {
+                let function = $0["function"] as? [String: Any]
+                return (function?["name"] as? String) == toolName
+            }
+            toolInvocationCount = calls.count
+            matchingToolInvocationCount = matchingCalls.count
+            arguments = (matchingCalls.first?["function"] as? [String: Any])?["arguments"]
+        case .anthropicMessages:
+            let content = root["content"] as? [[String: Any]] ?? []
+            let calls = content.filter { ($0["type"] as? String) == "tool_use" }
+            let matchingCalls = calls.filter { ($0["name"] as? String) == toolName }
+            toolInvocationCount = calls.count
+            matchingToolInvocationCount = matchingCalls.count
+            arguments = matchingCalls.first?["input"]
+        case .googleGemini:
+            let candidates = root["candidates"] as? [[String: Any]]
+            let content = candidates?.first?["content"] as? [String: Any]
+            let parts = content?["parts"] as? [[String: Any]] ?? []
+            let calls = parts.compactMap { $0["functionCall"] as? [String: Any] }
+            let matchingCalls = calls.filter { ($0["name"] as? String) == toolName }
+            toolInvocationCount = calls.count
+            matchingToolInvocationCount = matchingCalls.count
+            arguments = matchingCalls.first?["args"]
+        case .ollama:
+            let message = root["message"] as? [String: Any]
+            let rawCalls = message?["tool_calls"] as? [[String: Any]] ?? []
+            let calls = rawCalls.compactMap { $0["function"] as? [String: Any] }
+            let matchingCalls = calls.filter { ($0["name"] as? String) == toolName }
+            toolInvocationCount = rawCalls.count
+            matchingToolInvocationCount = matchingCalls.count
+            arguments = matchingCalls.first?["arguments"]
+        case .appleIntelligence:
+            return AIRequiredToolResponse(
+                arguments: try extractText(from: data, wireProtocol: wireProtocol),
+                invocation: .contentFallback,
+                toolInvocationCount: 0
+            )
+        }
+
+        if requireExactlyOnce {
+            // A required function choice is successful only when the response
+            // contains exactly one tool call and it is the named Mono tool.
+            // Duplicate calls and calls to any other function are rejected.
+            guard toolInvocationCount == 1,
+                  matchingToolInvocationCount == 1 else {
+                throw AIEqualizerError.invalidResponse
+            }
+        } else if toolInvocationCount > 0, matchingToolInvocationCount == 0 {
+            // Prompt fallback applies only to responses with no tool call; it
+            // must not conceal a model invoking the wrong function.
+            throw AIEqualizerError.invalidResponse
+        }
+
+        if let value = arguments as? String,
+           !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return AIRequiredToolResponse(
+                arguments: value,
+                invocation: .toolCall,
+                toolInvocationCount: toolInvocationCount
+            )
+        }
+        if let arguments,
+           JSONSerialization.isValidJSONObject(arguments),
+           let data = try? JSONSerialization.data(withJSONObject: arguments),
+           let value = String(data: data, encoding: .utf8) {
+            return AIRequiredToolResponse(
+                arguments: value,
+                invocation: .toolCall,
+                toolInvocationCount: toolInvocationCount
+            )
+        }
+
+        // Compatibility endpoints may put the final JSON in message.content.
+        // This is accepted only when the remotely managed tool policy opts in;
+        // otherwise a successful required-tool request must contain the named
+        // function call and cannot silently degrade into prompt-only output.
+        guard allowContentFallback else { throw AIEqualizerError.invalidResponse }
+        return AIRequiredToolResponse(
+            arguments: try extractText(from: data, wireProtocol: wireProtocol),
+            invocation: .contentFallback,
+            toolInvocationCount: 0
+        )
     }
 
     private static func extractModels(from data: Data, wireProtocol: AIWireProtocol) throws -> [String] {
