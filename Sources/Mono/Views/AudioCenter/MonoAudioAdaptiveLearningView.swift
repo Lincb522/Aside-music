@@ -5,13 +5,12 @@ struct MonoAudioAdaptiveLearningView: View {
     @ObservedObject private var player = PlayerManager.shared
     @StateObject private var agent = AIEqualizerAgent.shared
     @State private var selectedFilter: LearningRecordFilter = .all
+    @State private var recordPage = 0
     @State private var showsClearConfirmation = false
 
     let accent: Color
 
-    private var filteredRecords: [AIEqualizerLearningRecord] {
-        agent.learningRecords.filter(selectedFilter.includes)
-    }
+    private static let recordsPerPage = 15
 
     var body: some View {
         GeometryReader { proxy in
@@ -20,18 +19,26 @@ struct MonoAudioAdaptiveLearningView: View {
             HStack(spacing: 0) {
                 Spacer(minLength: 0)
 
-                ScrollView(showsIndicators: false) {
-                    LazyVStack(alignment: .leading, spacing: layout.isCompactHeight ? 18 : 24) {
-                        header(layout: layout)
-                        learningSettings(layout: layout)
-                        learningSources(layout: layout)
-                        storageNotice
-                        learningRecords(layout: layout)
+                ScrollViewReader { scrollProxy in
+                    ScrollView(showsIndicators: false) {
+                        LazyVStack(alignment: .leading, spacing: layout.isCompactHeight ? 18 : 24) {
+                            header(layout: layout)
+                            learningSettings(layout: layout)
+                            learningSources(layout: layout)
+                            storageNotice
+                            learningRecords(layout: layout) { page in
+                                recordPage = page
+                                DispatchQueue.main.async {
+                                    scrollProxy.scrollTo(LearningRecordsAnchor.id, anchor: .top)
+                                }
+                            }
+                            .id(LearningRecordsAnchor.id)
+                        }
+                        .padding(.horizontal, layout.horizontalInset)
+                        .padding(.top, layout.isCompactHeight ? 8 : 12)
+                        .padding(.bottom, layout.isCompactHeight ? 24 : 36)
+                        .frame(width: layout.workspaceMaxWidth)
                     }
-                    .padding(.horizontal, layout.horizontalInset)
-                    .padding(.top, layout.isCompactHeight ? 8 : 12)
-                    .padding(.bottom, layout.isCompactHeight ? 24 : 36)
-                    .frame(width: layout.workspaceMaxWidth)
                 }
                 .frame(width: layout.contentMaxWidth)
 
@@ -73,6 +80,9 @@ struct MonoAudioAdaptiveLearningView: View {
             }
         } message: {
             Text(String(localized: "ai_learning_clear_message"))
+        }
+        .onChange(of: agent.learningRecords.count) { _, _ in
+            recordPage = recordPageSnapshot.resolvedPage
         }
     }
 
@@ -219,8 +229,13 @@ struct MonoAudioAdaptiveLearningView: View {
         .background(sectionSurface)
     }
 
-    private func learningRecords(layout: MonoSoundCenterLayout) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+    private func learningRecords(
+        layout: MonoSoundCenterLayout,
+        onSelectPage: @escaping (Int) -> Void
+    ) -> some View {
+        let page = recordPageSnapshot
+
+        return VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Text(String(localized: "audio_agent_learning_records"))
                     .font(.system(.caption, design: .rounded, weight: .bold))
@@ -241,10 +256,10 @@ struct MonoAudioAdaptiveLearningView: View {
             filterBar
 
             VStack(spacing: 0) {
-                if filteredRecords.isEmpty {
+                if page.records.isEmpty {
                     emptyRecords
                 } else {
-                    ForEach(Array(filteredRecords.enumerated()), id: \.element.id) { index, record in
+                    ForEach(Array(page.records.enumerated()), id: \.element.id) { index, record in
                         NavigationLink {
                             MonoAudioLearningRecordDetailView(recordID: record.id, accent: accent)
                         } label: {
@@ -252,9 +267,14 @@ struct MonoAudioAdaptiveLearningView: View {
                         }
                         .buttonStyle(.plain)
 
-                        if index < filteredRecords.count - 1 {
+                        if index < page.records.count - 1 {
                             rowDivider
                         }
+                    }
+
+                    if page.pageCount > 1 {
+                        rowDivider
+                        recordPagination(page: page, onSelectPage: onSelectPage)
                     }
                 }
             }
@@ -268,6 +288,7 @@ struct MonoAudioAdaptiveLearningView: View {
             HStack(spacing: 8) {
                 ForEach(LearningRecordFilter.allCases) { filter in
                     Button {
+                        recordPage = 0
                         selectedFilter = filter
                     } label: {
                         Text(filter.localizedTitle)
@@ -288,6 +309,68 @@ struct MonoAudioAdaptiveLearningView: View {
             }
         }
         .scrollIndicators(.hidden)
+    }
+
+    private func recordPagination(
+        page: LearningRecordPage,
+        onSelectPage: @escaping (Int) -> Void
+    ) -> some View {
+        HStack(spacing: 12) {
+            paginationButton(
+                icon: .chevronLeft,
+                label: String(localized: "audio_agent_learning_previous_page"),
+                isEnabled: page.resolvedPage > 0
+            ) {
+                onSelectPage(page.resolvedPage - 1)
+            }
+
+            Spacer(minLength: 0)
+
+            Text(
+                String(
+                    format: String(localized: "audio_agent_learning_page_indicator"),
+                    page.resolvedPage + 1,
+                    page.pageCount
+                )
+            )
+            .font(.system(.caption, design: .rounded, weight: .semibold))
+            .foregroundStyle(.white.opacity(0.52))
+            .monospacedDigit()
+
+            Spacer(minLength: 0)
+
+            paginationButton(
+                icon: .chevronRight,
+                label: String(localized: "audio_agent_learning_next_page"),
+                isEnabled: page.resolvedPage + 1 < page.pageCount
+            ) {
+                onSelectPage(page.resolvedPage + 1)
+            }
+        }
+        .padding(.vertical, 8)
+    }
+
+    private func paginationButton(
+        icon: MonoIcon.IconType,
+        label: String,
+        isEnabled: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            MonoIcon(
+                icon: icon,
+                size: 13,
+                color: isEnabled ? .white.opacity(0.78) : .white.opacity(0.22)
+            )
+            .frame(width: 38, height: 36)
+            .background(Color.white.opacity(isEnabled ? 0.06 : 0.025), in: Capsule())
+            .overlay {
+                Capsule().stroke(Color.white.opacity(0.07), lineWidth: 1)
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .accessibilityLabel(label)
     }
 
     private var emptyRecords: some View {
@@ -451,6 +534,23 @@ struct MonoAudioAdaptiveLearningView: View {
         )
     }
 
+    private var recordPageSnapshot: LearningRecordPage {
+        let records = agent.learningRecords.filter(selectedFilter.includes)
+        let pageCount = max(
+            1,
+            (records.count + Self.recordsPerPage - 1) / Self.recordsPerPage
+        )
+        let resolvedPage = min(max(0, recordPage), pageCount - 1)
+        let start = resolvedPage * Self.recordsPerPage
+        let end = min(start + Self.recordsPerPage, records.count)
+        let visibleRecords = start < end ? Array(records[start..<end]) : []
+        return LearningRecordPage(
+            records: visibleRecords,
+            resolvedPage: resolvedPage,
+            pageCount: pageCount
+        )
+    }
+
     private var learningBackdrop: some View {
         ZStack {
             Color(red: 0.035, green: 0.038, blue: 0.048)
@@ -472,9 +572,20 @@ struct MonoAudioAdaptiveLearningView: View {
     }
 }
 
+private enum LearningRecordsAnchor {
+    static let id = "mono-audio-learning-records"
+}
+
+private struct LearningRecordPage {
+    let records: [AIEqualizerLearningRecord]
+    let resolvedPage: Int
+    let pageCount: Int
+}
+
 @MainActor
 private struct MonoAudioLearningRecordDetailView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ObservedObject private var player = PlayerManager.shared
     @StateObject private var agent = AIEqualizerAgent.shared
     @State private var showsDeleteConfirmation = false
@@ -489,44 +600,39 @@ private struct MonoAudioLearningRecordDetailView: View {
     var body: some View {
         GeometryReader { proxy in
             let layout = MonoAudioLearningDetailLayout(size: proxy.size)
+            let usesTwoColumns = layout.usesTwoColumns && !dynamicTypeSize.isAccessibilitySize
 
             ZStack {
                 detailBackdrop
 
                 if let record {
                     ScrollView(showsIndicators: false) {
-                        HStack(spacing: 0) {
-                            Spacer(minLength: 0)
-
-                            Group {
-                                if layout.usesTwoColumns {
-                                    VStack(alignment: .leading, spacing: layout.sectionSpacing) {
-                                        detailHeader(record, layout: layout)
-                                        HStack(alignment: .top, spacing: layout.columnSpacing) {
-                                            VStack(alignment: .leading, spacing: layout.sectionSpacing) {
-                                                summarySection(record, layout: layout)
-                                                contextSection(record, layout: layout)
-                                            }
-                                            .frame(maxWidth: .infinity, alignment: .top)
-
-                                            parameterSection(record, layout: layout)
-                                                .frame(maxWidth: .infinity, alignment: .top)
+                        Group {
+                            if usesTwoColumns {
+                                VStack(alignment: .leading, spacing: layout.sectionSpacing) {
+                                    detailHeader(record, layout: layout)
+                                    HStack(alignment: .top, spacing: layout.columnSpacing) {
+                                        VStack(alignment: .leading, spacing: layout.sectionSpacing) {
+                                            summarySection(record, layout: layout)
+                                            contextSection(record, layout: layout)
                                         }
-                                    }
-                                } else {
-                                    LazyVStack(alignment: .leading, spacing: layout.sectionSpacing) {
-                                        detailHeader(record, layout: layout)
-                                        summarySection(record, layout: layout)
-                                        contextSection(record, layout: layout)
+                                        .frame(maxWidth: .infinity, alignment: .topLeading)
+
                                         parameterSection(record, layout: layout)
+                                            .frame(maxWidth: .infinity, alignment: .topLeading)
                                     }
                                 }
+                            } else {
+                                LazyVStack(alignment: .leading, spacing: layout.sectionSpacing) {
+                                    detailHeader(record, layout: layout)
+                                    summarySection(record, layout: layout)
+                                    contextSection(record, layout: layout)
+                                    parameterSection(record, layout: layout)
+                                }
                             }
-                            .frame(maxWidth: layout.contentMaxWidth, alignment: .leading)
-
-                            Spacer(minLength: 0)
                         }
-                        .padding(.horizontal, layout.horizontalInset)
+                        .frame(width: layout.workspaceWidth, alignment: .topLeading)
+                        .frame(maxWidth: .infinity, alignment: .top)
                         .padding(.top, layout.topInset)
                         .padding(.bottom, layout.bottomInset)
                     }
@@ -589,6 +695,8 @@ private struct MonoAudioLearningRecordDetailView: View {
                     .font(.system(.caption, design: .rounded, weight: .bold))
                     .foregroundStyle(record.feedback.tint)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .layoutPriority(1)
 
             Spacer(minLength: 0)
         }
@@ -746,6 +854,7 @@ private struct MonoAudioLearningRecordDetailView: View {
 
             VStack(spacing: 0) { content() }
                 .padding(.horizontal, layout.cardHorizontalInset)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .background(
                     RoundedRectangle(cornerRadius: 15, style: .continuous)
                         .fill(Color.black.opacity(0.24))
@@ -755,6 +864,7 @@ private struct MonoAudioLearningRecordDetailView: View {
                         }
                 )
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func detailValueRow(
@@ -771,13 +881,16 @@ private struct MonoAudioLearningRecordDetailView: View {
                     .foregroundStyle(.white.opacity(0.84))
                     .multilineTextAlignment(.trailing)
             }
+            .fixedSize(horizontal: true, vertical: false)
 
             VStack(alignment: .leading, spacing: 5) {
                 Text(title)
                     .foregroundStyle(.white.opacity(0.54))
                 Text(value)
                     .foregroundStyle(.white.opacity(0.84))
+                    .fixedSize(horizontal: false, vertical: true)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .font(.system(.caption, design: .rounded, weight: .medium))
         .frame(maxWidth: .infinity, minHeight: layout.valueRowMinHeight, alignment: .leading)
@@ -812,17 +925,19 @@ private struct MonoAudioLearningDetailLayout {
     let size: CGSize
 
     var compactHeight: Bool { size.height < 700 }
-    var usesTwoColumns: Bool { size.width >= 720 }
-    var horizontalInset: CGFloat { size.width < 390 ? 14 : size.width < 720 ? 18 : 24 }
+    var horizontalInset: CGFloat { size.width < 390 ? 12 : size.width < 760 ? 16 : 24 }
+    var workspaceWidth: CGFloat {
+        max(1, min(940, size.width - horizontalInset * 2))
+    }
+    var usesTwoColumns: Bool { workspaceWidth >= 760 }
     var topInset: CGFloat { compactHeight ? 6 : 10 }
     var bottomInset: CGFloat { compactHeight ? 24 : 36 }
     var sectionSpacing: CGFloat { compactHeight ? 12 : 15 }
     var columnSpacing: CGFloat { 18 }
-    var contentMaxWidth: CGFloat { usesTwoColumns ? 940 : 640 }
     var cardHorizontalInset: CGFloat { size.width < 390 ? 12 : 14 }
     var rowVerticalInset: CGFloat { compactHeight ? 9 : 11 }
     var valueRowMinHeight: CGFloat { compactHeight ? 40 : 43 }
-    var parameterCellMinWidth: CGFloat { size.width < 390 ? 64 : 70 }
+    var parameterCellMinWidth: CGFloat { workspaceWidth < 390 ? 58 : 66 }
     var parameterCellHeight: CGFloat { compactHeight ? 40 : 43 }
 }
 

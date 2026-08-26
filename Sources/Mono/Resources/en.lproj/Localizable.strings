@@ -930,6 +930,9 @@
 "audio_agent_learning_filter_negative" = "Not a Fit";
 "audio_agent_learning_filter_manual" = "Manual EQ";
 "audio_agent_learning_filter_automatic" = "Automatic";
+"audio_agent_learning_previous_page" = "Previous page";
+"audio_agent_learning_next_page" = "Next page";
+"audio_agent_learning_page_indicator" = "Page %d of %d";
 "audio_agent_learning_empty_title" = "No Learned Content";
 "audio_agent_learning_empty_message" = "Feedback and tuning retained during playback will appear here.";
 "audio_agent_learning_summary" = "%d kept · %d not a fit · %d manual EQ · %d automatic";

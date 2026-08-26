@@ -930,6 +930,9 @@
 "audio_agent_learning_filter_negative" = "不适合";
 "audio_agent_learning_filter_manual" = "手动均衡器";
 "audio_agent_learning_filter_automatic" = "自动记录";
+"audio_agent_learning_previous_page" = "上一页";
+"audio_agent_learning_next_page" = "下一页";
+"audio_agent_learning_page_indicator" = "第 %d / %d 页";
 "audio_agent_learning_empty_title" = "暂无学习内容";
 "audio_agent_learning_empty_message" = "反馈听感或保留调音并继续播放后，学习内容会显示在这里。";
 "audio_agent_learning_summary" = "%d 个保留 · %d 个不适合 · %d 个手动均衡 · %d 个自动记录";
