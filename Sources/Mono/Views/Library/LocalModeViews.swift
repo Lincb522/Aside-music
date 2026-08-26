@@ -233,13 +233,13 @@ struct LocalModeHomeView: View {
         ) { result in
             handleMusicImport(result)
         }
-        .onAppear {
+        .task {
+            guard await MainTabActivationGate.waitUntilSettled(.home) else { return }
             refreshRecentSongs()
-            Task {
-                await LocalPlaylistCloudSyncManager.shared.refreshFromCloudIfNeeded()
-            }
+            await LocalPlaylistCloudSyncManager.shared.refreshFromCloudIfNeeded()
         }
         .onReceive(playerManager.$currentSong.dropFirst()) { _ in
+            guard MainTabActivationGate.isSettled(.home) else { return }
             refreshRecentSongs()
         }
     }
@@ -635,8 +635,12 @@ struct LocalMusicView: View {
                 )
             }
         }
-        .onAppear(perform: refreshRecentSongs)
+        .task {
+            guard await MainTabActivationGate.waitUntilSettled(.podcast) else { return }
+            refreshRecentSongs()
+        }
         .onReceive(playerManager.$currentSong.dropFirst()) { _ in
+            guard MainTabActivationGate.isSettled(.podcast) else { return }
             refreshRecentSongs()
         }
     }
@@ -836,11 +840,10 @@ struct LocalLibraryView: View {
         ) { result in
             handlePlaylistImport(result)
         }
-        .onAppear {
+        .task {
+            guard await MainTabActivationGate.waitUntilSettled(.library) else { return }
             refreshRecentSongs()
-            Task {
-                await LocalPlaylistCloudSyncManager.shared.refreshFromCloudIfNeeded()
-            }
+            await LocalPlaylistCloudSyncManager.shared.refreshFromCloudIfNeeded()
         }
     }
 
@@ -1157,11 +1160,13 @@ struct LocalModeProfileView: View {
                 }
             }
         }
-        .onAppear {
+        .task {
+            guard await MainTabActivationGate.waitUntilSettled(.profile) else { return }
             tokenInput = SecureConfig.apiToken ?? tokenInput
             refreshRecentSongs()
         }
         .onReceive(playerManager.$currentSong.dropFirst()) { _ in
+            guard MainTabActivationGate.isSettled(.profile) else { return }
             refreshRecentSongs()
         }
         .monoSheet(isPresented: $isShowingTokenAgreement, onDismiss: {

@@ -24,6 +24,7 @@ final class SleepAndFadeController {
     private var playbackFadeTask: Task<Void, Never>?
     /// 音量包络代际号：新包络启动或播放管线重置时递增，旧任务的收尾回调据此失效
     private var playbackFadeGeneration: Int = 0
+    var isPlaybackFadeActive: Bool { playbackFadeTask != nil }
     /// 下一次播放管线启动时使用的一次性淡入请求。绑定歌曲并携带时长，
     /// 同时覆盖冷启动恢复与热启动重建，不影响正常无缝切歌。
     var playbackStartFadeSongID: Int?

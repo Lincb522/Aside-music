@@ -78,11 +78,12 @@ private final class ArtworkMemoryCache {
         )
     }
 
-    func image(forKey key: NSString) -> UIImage? {
+    func image(forKey key: NSString, recordsAccess: Bool = true) -> UIImage? {
         guard let image = cache.object(forKey: key) else {
             metadata.removeValue(forKey: key as String)
             return nil
         }
+        guard recordsAccess else { return image }
         accessSequence &+= 1
         if var entry = metadata[key as String] {
             entry.lastAccess = accessSequence
@@ -377,8 +378,12 @@ class ImageLoader: ObservableObject {
         
         // 1. 内存缓存命中 → 立即返回
         if let cachedImage = ArtworkMemoryCache.shared.image(forKey: cacheKey) {
-            self.image = cachedImage
-            self.isLoading = false
+            if self.image !== cachedImage {
+                self.image = cachedImage
+            }
+            if self.isLoading {
+                self.isLoading = false
+            }
             self.currentUrl = url
             self.currentRequestKey = cacheKeyStr
             return
@@ -473,7 +478,9 @@ class ImageLoader: ObservableObject {
     func cancel() {
         loadTask?.cancel()
         loadTask = nil
-        isLoading = false
+        if isLoading {
+            isLoading = false
+        }
     }
     
     /// 仅在还在加载中时取消（已加载完成的图片保留）
@@ -565,7 +572,8 @@ struct CachedAsyncImage<Placeholder: View>: View {
         let resolvedImage: UIImage? = loader.image
             ?? (url.flatMap {
                 ArtworkMemoryCache.shared.image(
-                    forKey: ImageCacheConfig.cacheKey(for: $0, maxSize: maxDecodeSize) as NSString
+                    forKey: ImageCacheConfig.cacheKey(for: $0, maxSize: maxDecodeSize) as NSString,
+                    recordsAccess: false
                 )
             })
 

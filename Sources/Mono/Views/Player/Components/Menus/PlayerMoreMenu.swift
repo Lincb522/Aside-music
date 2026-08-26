@@ -50,7 +50,7 @@ struct PlayerMoreMenu: View {
     @State private var showCurrentSongDownload = false
     @State private var showDownloadManager = false
     @State private var showsInlineThemeChoices = false
-    @State private var selectedSongForStory: Song?
+    @State private var selectedSongForInfo: Song?
     /// 子级页面关闭时，Sheet 的绑定会先复位；单独保留转场状态，避免菜单短暂重绘。
     @State private var isPresentingChild = false
 
@@ -224,7 +224,7 @@ struct PlayerMoreMenu: View {
                 DownloadManageView()
             }
         }
-        .fullScreenCover(item: $selectedSongForStory, onDismiss: {
+        .fullScreenCover(item: $selectedSongForInfo, onDismiss: {
             closeMenu()
         }) { song in
             NavigationStack {
@@ -482,13 +482,13 @@ struct PlayerMoreMenu: View {
     private var playerActionList: some View {
         menuGroup {
             menuActionRow(
-                icon: .catStory,
-                title: String(localized: "player_more_behind_music"),
+                icon: .infoCircle,
+                title: String(localized: "player_more_song_info"),
                 isEnabled: player.currentSong != nil
             ) {
                 guard let song = player.currentSong else { return }
                 isPresentingChild = true
-                selectedSongForStory = song
+                selectedSongForInfo = song
             }
 
             menuDivider

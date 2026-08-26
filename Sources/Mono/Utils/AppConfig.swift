@@ -113,6 +113,7 @@ enum AppConfig {
         static let appBrandStyle = "mono_app_brand_style"
         static let appBrandAppearance = "mono_app_brand_appearance"
         static let interfaceIconSet = "mono_interface_icon_set"
+        static let clarityPulseBloomDefaultMigrationV1 = "mono_clarity_pulse_bloom_default_migration_v1"
         static let playlistSyncDeviceId = "mono_playlist_sync_device_id"
         static let playlistSyncLastSyncedAt = "mono_playlist_sync_last_synced_at"
         static let playlistSyncLastMessage = "mono_playlist_sync_last_message"

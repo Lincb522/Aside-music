@@ -101,7 +101,8 @@ struct ScrollableLibraryExperience: View {
             .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
         }
-        .onAppear {
+        .task {
+            guard await MainTabActivationGate.waitUntilSettled(.library) else { return }
             syncTabFromViewModel()
             loadCurrentTab()
             if subManager.subscribedRadios.isEmpty {
@@ -109,13 +110,16 @@ struct ScrollableLibraryExperience: View {
             }
         }
         .onChange(of: viewModel.currentTab) { _, _ in
+            guard MainTabActivationGate.isSettled(.library) else { return }
             syncTabFromViewModel()
             loadCurrentTab()
         }
         .onChange(of: tabIndex) { _, _ in
+            guard MainTabActivationGate.isSettled(.library) else { return }
             loadCurrentTab()
         }
         .onChange(of: qqSession.isLoggedIn) { _, isLoggedIn in
+            guard MainTabActivationGate.isSettled(.library) else { return }
             if isLoggedIn {
                 hasLoadedQQUserPlaylists = false
                 loadQQUserPlaylistsIfNeeded(force: true)

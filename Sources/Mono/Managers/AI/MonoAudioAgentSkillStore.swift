@@ -169,7 +169,7 @@ final class MonoAudioAgentSkillStore: ObservableObject {
     private init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
 
-        let cachedAgent = SongContentConfigurationStore.cachedAgentConfiguration(.equalizer)
+        let cachedAgent = AppAgentConfigurationStore.cachedAgentConfiguration(.equalizer)
         let cachedSkills = cachedAgent?.resolvedSkillConfiguration
         remoteSkillConfiguration = cachedSkills
         remoteToolPolicy = cachedAgent?.toolPolicy
@@ -321,7 +321,7 @@ final class MonoAudioAgentSkillStore: ObservableObject {
         rebuildResolvedState()
     }
 
-    /// Called by `SongContentConfigurationStore` before returning an Agent
+    /// Called by `AppAgentConfigurationStore` before returning an Agent
     /// configuration. This makes the freshly fetched remote skills visible to
     /// both the UI and the same generation request without a notification race.
     func applyRemoteAgentConfiguration(
@@ -357,7 +357,7 @@ final class MonoAudioAgentSkillStore: ObservableObject {
     }
 
     func refreshRemoteConfiguration(forceRefresh: Bool = false) async {
-        _ = await SongContentConfigurationStore.shared.configuration(forceRefresh: forceRefresh)
+        _ = await AppAgentConfigurationStore.shared.configuration(forceRefresh: forceRefresh)
     }
 
     /// Stable runtime snapshot consumed by the generation chain. The explicit

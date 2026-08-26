@@ -134,7 +134,9 @@ struct ClarityPodcastView: View {
                 }
             }
         }
-        .onAppear { model.ensureDataLoaded(reason: "clarity podcast") }
+        .task {
+            await model.ensureDataLoadedAfterTabTransition(reason: "clarity podcast")
+        }
         .fullScreenCover(isPresented: $showsRadioPlayer, onDismiss: { radioIDToOpen = 0 }) {
             PodcastPlayerView(radioId: radioIDToOpen)
         }

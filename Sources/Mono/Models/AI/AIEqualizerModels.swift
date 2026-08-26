@@ -482,6 +482,55 @@ enum AIEqualizerLearningFeedback: String, Codable, Equatable, Sendable {
     case reset
     case regenerated
     case retained
+    case manualEqualizer
+}
+
+enum AIEqualizerLearningStrength: String, CaseIterable, Codable, Identifiable, Sendable {
+    case cautious
+    case balanced
+    case responsive
+
+    var id: String { rawValue }
+
+    var adjustmentScale: Float {
+        switch self {
+        case .cautious: return 0.65
+        case .balanced: return 1
+        case .responsive: return 1.3
+        }
+    }
+}
+
+enum AIEqualizerLearningRetention: Int, CaseIterable, Codable, Identifiable, Sendable {
+    case thirtyDays = 30
+    case ninetyDays = 90
+    case oneYear = 365
+
+    var id: Int { rawValue }
+    var days: Int { rawValue }
+}
+
+struct AIEqualizerLearningRecord: Identifiable, Equatable, Sendable {
+    let id: UUID
+    let songTitle: String?
+    let songIdentifier: String
+    let artist: String
+    let outputIdentity: String
+    let outputKind: String
+    let graphicEQMode: GraphicEQMode
+    let genreHints: [String]
+    let instrumentHints: [String]
+    let gains: [Float]
+    let learnedBandAdjustments: [Float]
+    let bassGain: Float
+    let trebleGain: Float
+    let surroundLevel: Float
+    let reverbLevel: Float
+    let stereoWidth: Float
+    let processingIntensity: Float
+    let feedback: AIEqualizerLearningFeedback
+    let listenedSeconds: TimeInterval
+    let recordedAt: Date
 }
 
 /// A compact, bounded policy produced from prior tuning outcomes. Raw audio is

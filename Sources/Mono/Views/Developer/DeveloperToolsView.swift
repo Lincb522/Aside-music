@@ -152,6 +152,7 @@ struct DeveloperToolsView: View {
     @ObservedObject private var onlineAccess = OnlineAccessManager.shared
     @ObservedObject private var aiProvider = AIProviderConfigurationStore.shared
     @ObservedObject private var agentTraces = AIAgentTraceStore.shared
+    @ObservedObject private var crashDiagnostics = CrashDiagnosticsStore.shared
 
     var body: some View {
         let _ = settings.globalThemeRevision
@@ -193,6 +194,16 @@ struct DeveloperToolsView: View {
                                 title: String(localized: "settings_debug_log"),
                                 value: "\(AppLogger.getAllLogs().count)",
                                 destination: .debugLog
+                            )
+
+                            Divider()
+                                .padding(.leading, 58)
+
+                            SettingsRouteLinkRow(
+                                icon: .warning,
+                                title: String(localized: "crash_diagnostics_title"),
+                                value: "\(crashDiagnostics.records.count)",
+                                destination: .crashDiagnostics
                             )
                         }
 

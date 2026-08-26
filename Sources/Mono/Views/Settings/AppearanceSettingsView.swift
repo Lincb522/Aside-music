@@ -2260,6 +2260,7 @@ private struct IconStylePicker<Item: Identifiable & CaseIterable & Hashable>: Vi
 private struct InterfaceIconSetOptionCard: View {
     let iconSet: AppInterfaceIconSet
     let isSelected: Bool
+    @Environment(\.colorScheme) private var colorScheme
 
     private let samples: [MonoIcon.IconType] = [
         .homeFilled,
@@ -2302,7 +2303,10 @@ private struct InterfaceIconSetOptionCard: View {
     @ViewBuilder
     private func previewIcon(_ icon: MonoIcon.IconType) -> some View {
         if iconSet.usesOriginalArtwork {
-            Image(uiImage: iconSet.image(for: icon))
+            Image(uiImage: iconSet.image(
+                for: icon,
+                prefersLightOutline: colorScheme == .dark
+            ))
                 .renderingMode(.original)
                 .resizable()
                 .aspectRatio(contentMode: .fit)

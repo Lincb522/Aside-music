@@ -64,6 +64,10 @@ extension APIService {
         asyncToPublisher { try await KCMMusicService.shared.fetchSongQualities(song: song) }
     }
 
+    func fetchKugouSongPlatformDetail(song: Song) -> AnyPublisher<PlatformSongDetail, Error> {
+        asyncToPublisher { try await KCMMusicService.shared.fetchSongPlatformDetail(song: song) }
+    }
+
     func fetchKugouLyrics(song: Song) -> AnyPublisher<String, Error> {
         asyncToPublisher { try await KCMMusicService.shared.fetchLyrics(song: song) }
     }

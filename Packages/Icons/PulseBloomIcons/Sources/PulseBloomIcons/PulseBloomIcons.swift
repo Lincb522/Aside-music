@@ -5,9 +5,10 @@ public struct PulseBloomIcons {}
 
 public extension UIImage {
     convenience init?(pulseBloomIconId: String) {
+        let currentStyle = UITraitCollection.current.userInterfaceStyle
         self.init(
             pulseBloomIconId: pulseBloomIconId,
-            userInterfaceStyle: .light
+            userInterfaceStyle: currentStyle == .dark ? .dark : .light
         )
     }
 

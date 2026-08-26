@@ -43,6 +43,13 @@ enum MonoAudioOutputKind: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+struct EQGraphicGainUserAdjustment {
+    let graphicEQMode: GraphicEQMode
+    let previousGains: [Float]
+    let adjustedGains: [Float]
+    let changedAt: Date
+}
+
 struct MonoHeadphoneCorrectionProfile: Identifiable, Codable, Equatable {
     let id: String
     var name: String
@@ -197,6 +204,14 @@ class EQManager: ObservableObject {
     private var committedAdaptiveGains = Array(repeating: Float(0), count: 10)
     private var isSafetyLimiterActive = false
     private var preAIProcessingSnapshot: AIProcessingSnapshot?
+    private let userGraphicGainAdjustmentSubject = PassthroughSubject<
+        EQGraphicGainUserAdjustment,
+        Never
+    >()
+
+    var userGraphicGainAdjustments: AnyPublisher<EQGraphicGainUserAdjustment, Never> {
+        userGraphicGainAdjustmentSubject.eraseToAnyPublisher()
+    }
     
     // MARK: - Published
     
@@ -869,12 +884,25 @@ class EQManager: ObservableObject {
     
     // MARK: - 自定义增益
     
-    func setCustomGain(_ gain: Float, at index: Int) {
+    func setCustomGain(_ gain: Float, at index: Int, userInitiated: Bool = true) {
         guard customGains.indices.contains(index) else { return }
-        customGains[index] = EQBandGain.clamped(gain)
+        let clampedGain = EQBandGain.clamped(gain)
+        guard abs(customGains[index] - clampedGain) > 0.001 else { return }
+        let previousGains = customGains
+        customGains[index] = clampedGain
         if isEnabled {
             PlayerManager.shared.equalizer.setGraphicGain(customGains[index], at: index)
             updateSafetyLimiter()
+        }
+        if userInitiated {
+            userGraphicGainAdjustmentSubject.send(
+                EQGraphicGainUserAdjustment(
+                    graphicEQMode: graphicEQMode,
+                    previousGains: previousGains,
+                    adjustedGains: customGains,
+                    changedAt: Date()
+                )
+            )
         }
     }
     

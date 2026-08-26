@@ -189,7 +189,7 @@ final class SpecialGreetingManager: ObservableObject {
         isLunarBirthday: Bool?
     ) async -> String {
         let key = Self.dayKey(date)
-        let managedAgent = await SongContentConfigurationStore.shared.agentConfiguration(.specialGreeting)
+        let managedAgent = await AppAgentConfigurationStore.shared.agentConfiguration(.specialGreeting)
         let promptVersion = managedAgent?.promptVersion ?? SpecialGreetingPrompt.version
         let cached: SpecialGreetingCache? = UserDefaults.standard
             .data(forKey: Self.aiGreetingCacheKey)

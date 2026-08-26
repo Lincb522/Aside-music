@@ -249,8 +249,6 @@ class LibraryViewModel: ObservableObject {
             }
             .store(in: &cancellables)
 
-        fetchPlaylists()
-
         $artistSearchText
             .dropFirst()
             .debounce(for: .milliseconds(AppConfig.UI.searchDebounceMs), scheduler: DispatchQueue.main)

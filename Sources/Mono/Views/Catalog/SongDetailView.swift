@@ -12,7 +12,6 @@ struct SongDetailView: View {
     @State private var showSongDetail = false
     @State private var selectedAlbumId: Int?
     @State private var showAlbumDetail = false
-    @State private var showsSources = false
 
     struct Theme {
         static var text: Color {
@@ -63,8 +62,7 @@ struct SongDetailView: View {
                     VStack(alignment: .leading, spacing: 0) {
                         heroSection(height: heroHeight)
                             .monoPageHeaderCollapse()
-                        storyContent
-                        contentProvenanceSection
+                        platformContent
                         similarSongsSection
                         artistSongsSection
                     }
@@ -100,7 +98,7 @@ struct SongDetailView: View {
 
             }
         }
-        .task(id: song.contentRequestIdentity.cacheKey) {
+        .task(id: song.platformIdentity.cacheKey) {
             viewModel.load(song: song)
         }
         .onDisappear {
@@ -231,132 +229,73 @@ struct SongDetailView: View {
         }
     }
 
-    // MARK: - Metadata
+    // MARK: - Platform content
 
-    @ViewBuilder
-    private var metadataSection: some View {
-        let items = metadataItems
-        if !items.isEmpty {
-            HStack(alignment: .top, spacing: 0) {
-                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(item.label)
-                            .font(.caption)
-                            .foregroundStyle(Theme.secondaryText)
-                        Text(item.value)
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(Theme.text)
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.78)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    if index < items.count - 1 {
-                        Divider()
-                            .overlay(Theme.text.opacity(0.12))
-                            .padding(.horizontal, 14)
-                    }
-                }
+    private var platformContent: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            HStack(spacing: 9) {
+                MonoIcon(icon: .infoCircle, size: 16, color: Theme.secondaryText)
+                Text(
+                    String(
+                        format: NSLocalizedString("song_detail_platform_information", comment: ""),
+                        song.musicSource.displayName
+                    )
+                )
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Theme.secondaryText)
             }
-            .padding(.vertical, 20)
-            .padding(.horizontal, 18)
-            .overlay(alignment: .top) {
-                Divider().overlay(Theme.text.opacity(0.12))
-            }
-            .overlay(alignment: .bottom) {
-                Divider().overlay(Theme.text.opacity(0.12))
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 18)
-        }
-    }
 
-    // MARK: - Story content
-
-    @ViewBuilder
-    private var storyContent: some View {
-        if let content = viewModel.publishedContent {
-            let creationStory = normalizedContent(content.creationStory)
-            let background = normalizedContent(content.background)
-            let albumSummary = normalizedContent(content.albumSummary)
-            let distinctCreationStory = creationStory != albumSummary ? creationStory : nil
-            VStack(alignment: .leading, spacing: 26) {
-                contentArticle(titleKey: "song_detail_summary", text: content.songSummary)
-                contentArticle(titleKey: "song_detail_background", text: background)
-                contentArticle(titleKey: "song_detail_creation_story", text: distinctCreationStory)
-                contentArticle(titleKey: "song_detail_album_summary", text: albumSummary)
-
-                if !viewModel.wikiBlocks.isEmpty {
-                    wikiArticleContent
-                }
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 28)
-        } else if !viewModel.wikiBlocks.isEmpty {
-            wikiFallbackContent
-        } else if viewModel.isContentLoading {
-            contentSkeleton
-        } else if viewModel.isContentGenerating {
-            HStack(spacing: 10) {
-                MonoIcon(icon: .clock, size: 15, color: Theme.secondaryText)
-                Text(String(localized: "song_detail_content_generating"))
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(Theme.secondaryText)
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 28)
-        }
-    }
-
-    @ViewBuilder
-    private func contentArticle(titleKey: String, text: String?) -> some View {
-        if let text = normalizedContent(text) {
-            VStack(alignment: .leading, spacing: 11) {
-                Text(String(localized: String.LocalizationValue(titleKey)))
-                    .font(.title3.weight(.bold))
-                    .foregroundStyle(Theme.text)
-                Text(text)
-                    .font(.body)
-                    .foregroundStyle(Theme.text.opacity(0.88))
-                    .lineSpacing(6)
-                    .textSelection(.enabled)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-
-    private var wikiFallbackContent: some View {
-        wikiArticleContent
-            .padding(.horizontal, 20)
-            .padding(.top, 28)
-    }
-
-    private var wikiArticleContent: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Text(String(localized: "song_wiki_title"))
-                .font(.title3.weight(.bold))
-                .foregroundStyle(Theme.text)
-
-            ForEach(viewModel.wikiBlocks) { block in
-                VStack(alignment: .leading, spacing: 8) {
-                    if let title = block.readableTitle {
-                        Text(title)
-                            .font(.headline)
-                            .foregroundStyle(Theme.text)
-                    }
-                    if let description = block.readableDescription {
-                        Text(description)
-                            .font(.body)
-                            .foregroundStyle(Theme.text.opacity(0.86))
-                            .lineSpacing(6)
-                            .textSelection(.enabled)
+            if !viewModel.platformDetail.attributes.isEmpty {
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 138), spacing: 12)],
+                    alignment: .leading,
+                    spacing: 12
+                ) {
+                    ForEach(viewModel.platformDetail.attributes) { attribute in
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(attribute.label)
+                                .font(.caption)
+                                .foregroundStyle(Theme.secondaryText)
+                            Text(attribute.value)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(Theme.text)
+                                .lineLimit(2)
+                                .minimumScaleFactor(0.78)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(14)
+                        .background(
+                            Theme.text.opacity(0.055),
+                            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        )
                     }
                 }
             }
+
+            ForEach(viewModel.platformDetail.sections) { section in
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(section.title)
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(Theme.text)
+                    Text(section.body)
+                        .font(.body)
+                        .foregroundStyle(Theme.text.opacity(0.88))
+                        .lineSpacing(6)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            if viewModel.isPlatformDetailLoading,
+               viewModel.platformDetail.sections.isEmpty {
+                platformContentSkeleton
+            }
         }
+        .padding(.horizontal, 20)
+        .padding(.top, 28)
     }
 
-    private var contentSkeleton: some View {
+    private var platformContentSkeleton: some View {
         VStack(alignment: .leading, spacing: 13) {
             RoundedRectangle(cornerRadius: 5, style: .continuous)
                 .fill(Theme.text.opacity(0.12))
@@ -369,104 +308,14 @@ struct SongDetailView: View {
                     .scaleEffect(x: width, anchor: .leading)
             }
         }
-        .accessibilityLabel(String(localized: "song_detail_content_loading"))
-        .padding(.horizontal, 20)
-        .padding(.top, 28)
-    }
-
-    // MARK: - Sources
-
-    @ViewBuilder
-    private var contentProvenanceSection: some View {
-        if viewModel.contentConfiguration.modules.sources,
-           viewModel.publishedContent != nil,
-           let content = viewModel.contentDetail?.content {
-            let sources = viewModel.contentDetail?.sources ?? []
-            let sourceCount = content.sourceSummary?.count ?? sources.count
-
-            if sourceCount > 0 || content.updatedAt != nil {
-                VStack(alignment: .leading, spacing: 12) {
-                    if !sources.isEmpty {
-                        DisclosureGroup(isExpanded: $showsSources) {
-                            VStack(alignment: .leading, spacing: 12) {
-                                ForEach(sources) { source in
-                                    sourceRow(source)
-                                }
-                            }
-                            .padding(.top, 12)
-                        } label: {
-                            provenanceLabel(content: content, sourceCount: sourceCount)
-                        }
-                        .tint(Theme.secondaryText)
-                    } else {
-                        provenanceLabel(content: content, sourceCount: sourceCount)
-                    }
-
-                    Text(String(localized: "song_detail_source_reliability_notice"))
-                        .font(.caption2)
-                        .foregroundStyle(Theme.secondaryText.opacity(0.86))
-                        .lineSpacing(3)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.leading, 23)
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 24)
-            }
-        }
-    }
-
-    private func provenanceLabel(content: SongContentBody, sourceCount: Int) -> some View {
-        HStack(spacing: 8) {
-            MonoIcon(icon: .infoCircle, size: 15, color: Theme.secondaryText)
-            Text(sourceSummaryText(content: content, sourceCount: sourceCount))
-                .font(.caption.weight(.medium))
-                .foregroundStyle(Theme.secondaryText)
-            Spacer(minLength: 8)
-        }
-        .contentShape(Rectangle())
-    }
-
-    @ViewBuilder
-    private func sourceRow(_ source: SongContentSource) -> some View {
-        if let destination = source.destinationURL {
-            Link(destination: destination) {
-                sourceLabel(source)
-            }
-            .buttonStyle(.plain)
-        } else {
-            sourceLabel(source)
-        }
-    }
-
-    private func sourceLabel(_ source: SongContentSource) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(source.title)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(Theme.text)
-                    .multilineTextAlignment(.leading)
-                if let publisher = normalizedContent(source.publisher) {
-                    Text(publisher)
-                        .font(.caption)
-                        .foregroundStyle(Theme.secondaryText)
-                }
-            }
-            Spacer(minLength: 8)
-            if let grade = normalizedContent(source.grade) {
-                Text(grade)
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(Theme.secondaryText)
-            }
-            MonoIcon(icon: .chevronRight, size: 11, color: Theme.secondaryText)
-        }
+        .accessibilityLabel(String(localized: "song_detail_platform_loading"))
     }
 
     // MARK: - Recommendations
 
     @ViewBuilder
     private var similarSongsSection: some View {
-        if viewModel.contentConfiguration.modules.similarSongs != false,
-           !viewModel.simiSongs.isEmpty {
+        if !viewModel.simiSongs.isEmpty {
             VStack(alignment: .leading, spacing: 14) {
                 sectionTitle(String(localized: "simi_songs_title"))
 
@@ -513,8 +362,7 @@ struct SongDetailView: View {
 
     @ViewBuilder
     private var artistSongsSection: some View {
-        if viewModel.contentConfiguration.modules.artistSongs != false,
-           !viewModel.relatedSongs.isEmpty {
+        if !viewModel.relatedSongs.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
                 sectionTitle(
                     String(format: NSLocalizedString("more_by_artist", comment: ""), song.artistName)
@@ -545,8 +393,7 @@ struct SongDetailView: View {
                 }
             }
             .padding(.top, 30)
-        } else if viewModel.contentConfiguration.modules.artistSongs != false,
-                  viewModel.isRelatedLoading {
+        } else if viewModel.isRelatedLoading {
             VStack(alignment: .leading, spacing: 12) {
                 RoundedRectangle(cornerRadius: 5, style: .continuous)
                     .fill(Theme.text.opacity(0.1))
@@ -575,7 +422,7 @@ struct SongDetailView: View {
     private var metadataItems: [SongDetailMetadataItem] {
         var items: [SongDetailMetadataItem] = []
 
-        if let duration = formattedDuration(milliseconds: viewModel.contentDetail?.song?.durationMs ?? song.dt) {
+        if let duration = formattedDuration(milliseconds: song.dt) {
             items.append(
                 SongDetailMetadataItem(
                     label: String(localized: "song_detail_duration"),
@@ -584,7 +431,7 @@ struct SongDetailView: View {
             )
         }
 
-        if let releaseDate = normalizedContent(viewModel.contentDetail?.song?.releaseDate?.value) {
+        if let releaseDate = normalizedContent(viewModel.platformDetail.releaseDate) {
             items.append(
                 SongDetailMetadataItem(
                     label: String(localized: "song_detail_release_date"),
@@ -593,7 +440,7 @@ struct SongDetailView: View {
             )
         }
 
-        if let album = normalizedContent(viewModel.contentDetail?.song?.album?.name ?? song.album?.name) {
+        if let album = normalizedContent(song.album?.name) {
             items.append(
                 SongDetailMetadataItem(
                     label: String(localized: "song_detail_album"),
@@ -612,49 +459,11 @@ struct SongDetailView: View {
     }
 
     private func normalizedContent(_ value: String?) -> String? {
-        guard SongContentBody.isReadableContent(value), let value else { return nil }
+        guard let value else { return nil }
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }
 
-    private func sourceSummaryText(content: SongContentBody, sourceCount: Int) -> String {
-        var parts: [String] = []
-        if sourceCount > 0 {
-            parts.append(
-                String(
-                    format: NSLocalizedString("song_detail_source_count", comment: ""),
-                    sourceCount
-                )
-            )
-        }
-        if let updatedAt = formattedUpdatedAt(content.updatedAt) {
-            parts.append(
-                String(
-                    format: NSLocalizedString("song_detail_updated_at", comment: ""),
-                    updatedAt
-                )
-            )
-        }
-        if viewModel.isShowingCachedContent {
-            parts.append(String(localized: "song_detail_cached_content"))
-        }
-        return parts.joined(separator: " · ")
-    }
-
-    private func formattedUpdatedAt(_ rawValue: String?) -> String? {
-        guard let rawValue = normalizedContent(rawValue) else { return nil }
-
-        let formatter = ISO8601DateFormatter()
-        if let date = formatter.date(from: rawValue) {
-            return date.formatted(date: .abbreviated, time: .omitted)
-        }
-
-        formatter.formatOptions.insert(.withFractionalSeconds)
-        if let date = formatter.date(from: rawValue) {
-            return date.formatted(date: .abbreviated, time: .omitted)
-        }
-        return rawValue
-    }
 }
 
 private struct SongDetailMetadataItem: Identifiable {
@@ -755,8 +564,8 @@ private struct SongDetailHeroActions: View {
             ? "\(components.path)\(route.dropFirst())"
             : "\(components.path)\(route)"
         components.queryItems = [
-            URLQueryItem(name: "platform", value: song.contentRequestIdentity.platform),
-            URLQueryItem(name: "song_id", value: song.contentRequestIdentity.platformSongID),
+            URLQueryItem(name: "platform", value: song.platformIdentity.platform),
+            URLQueryItem(name: "song_id", value: song.platformIdentity.platformSongID),
         ]
         return components.url
     }

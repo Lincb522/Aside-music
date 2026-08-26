@@ -123,7 +123,8 @@ struct NeumorphicLibraryWorkspace: View {
             .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
         }
-        .onAppear {
+        .task {
+            guard await MainTabActivationGate.waitUntilSettled(.library) else { return }
             syncTabFromViewModel()
             loadCurrentTab()
             if subManager.subscribedRadios.isEmpty {
@@ -131,15 +132,18 @@ struct NeumorphicLibraryWorkspace: View {
             }
         }
         .onChange(of: viewModel.currentTab) { _, _ in
+            guard MainTabActivationGate.isSettled(.library) else { return }
             syncTabFromViewModel()
         }
         .onChange(of: tabIndex) { _, _ in
+            guard MainTabActivationGate.isSettled(.library) else { return }
             if viewModel.currentTab != selectedTab {
                 viewModel.currentTab = selectedTab
             }
             loadCurrentTab()
         }
         .onChange(of: qqSession.isLoggedIn) { _, isLoggedIn in
+            guard MainTabActivationGate.isSettled(.library) else { return }
             if isLoggedIn {
                 hasLoadedQQUserPlaylists = false
                 loadQQUserPlaylistsIfNeeded(force: true)

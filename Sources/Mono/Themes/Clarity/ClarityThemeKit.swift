@@ -133,33 +133,73 @@ enum ClarityBackdropContext {
 
 struct ClarityBackdrop: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.themeRenderHostActive) private var themeRenderHostActive
     @ObservedObject private var settings = SettingsManager.shared
     var context: ClarityBackdropContext = .global
 
+    @ViewBuilder
     var body: some View {
+        if usesManagedGlobalBackdrop {
+            // ThemeRenderHost renders the same field once below all four tabs.
+            // Keep the local placeholder transparent so existing page layouts
+            // and destination modifiers do not need a visual rewrite.
+            Color.clear
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        } else {
+            backdropContent
+        }
+    }
+
+    @ViewBuilder
+    private var backdropContent: some View {
         let _ = settings.globalThemeRevision
-        let palette = ThemeColorCustomization.backgroundGradientColors(
-            for: .clarity,
-            fallbackHexes: ["F8F8F7", "EDF1F2", "F1EAF7", "E7F5F5"]
-        )
+        let fallbackHexes = ["F8F8F7", "EDF1F2", "F1EAF7", "E7F5F5"]
+        let hasCustomBackground = ThemeColorCustomization.hasStoredBackground(for: .clarity)
+        let palette = colorScheme == .dark && hasCustomBackground
+            ? ThemeColorCustomization.configuredBackgroundGradientColors(
+                for: .clarity,
+                fallbackHexes: fallbackHexes
+            )
+            : ThemeColorCustomization.backgroundGradientColors(
+                for: .clarity,
+                fallbackHexes: fallbackHexes
+            )
         let first = palette.first ?? ClarityStyle.base
         let second = palette.dropFirst().first ?? first
         let third = palette.dropFirst(2).first ?? ClarityStyle.lilac
         let fourth = palette.dropFirst(3).first ?? ClarityStyle.cyan
+        let backgroundGradientPoints = ThemeColorCustomization.gradientStyle(
+            for: .clarity,
+            role: .background
+        ).points
 
         ZStack {
             ClarityStyle.base
 
             if colorScheme == .dark {
-                LinearGradient(
-                    colors: [Color(hex: "111A22"), Color(hex: "070D13")],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
+                ZStack {
+                    LinearGradient(
+                        colors: [Color(hex: "111A22"), Color(hex: "070D13")],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+
+                    if hasCustomBackground {
+                        LinearGradient(
+                            colors: palette.count == 1 ? [first, first] : palette,
+                            startPoint: backgroundGradientPoints.start,
+                            endPoint: backgroundGradientPoints.end
+                        )
+                        .saturation(0.9)
+                        .blendMode(.color)
+                        .opacity(0.48)
+                    }
+                }
             } else {
                 ThemeCustomDiffuseBackground(
                     theme: .clarity,
-                    fallbackHexes: ["F8F8F7", "EDF1F2", "F1EAF7", "E7F5F5"],
+                    fallbackHexes: fallbackHexes,
                     accentFallbackHexes: ["2478D8"],
                     opacity: 0.78
                 )
@@ -187,6 +227,14 @@ struct ClarityBackdrop: View {
         .ignoresSafeArea()
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+    }
+
+    private var usesManagedGlobalBackdrop: Bool {
+        guard themeRenderHostActive else { return false }
+        switch context {
+        case .global: return true
+        case .player: return false
+        }
     }
 
     private var coverGradientEnabled: Bool {
@@ -605,7 +653,10 @@ struct ClarityArtwork: View {
     var body: some View {
         Group {
             if let url {
-                CachedAsyncImage(url: url.sized(Int(max(size * 3, 600))), width: size, height: size) {
+                // The image loader already downsamples to the rendered point
+                // size at 3x. Request the matching CDN bucket instead of forcing
+                // every 38-150pt thumbnail through a 600px network response.
+                CachedAsyncImage(url: url.sized(requestPixelSize), width: size, height: size) {
                     placeholder
                 }
                 .aspectRatio(contentMode: .fill)
@@ -619,6 +670,10 @@ struct ClarityArtwork: View {
             RoundedRectangle(cornerRadius: radius, style: .continuous)
                 .stroke(Color.white.opacity(0.72), lineWidth: 0.8)
         }
+    }
+
+    private var requestPixelSize: Int {
+        max(96, min(Int(ceil(size * 3)), 1_200))
     }
 
     private var placeholder: some View {

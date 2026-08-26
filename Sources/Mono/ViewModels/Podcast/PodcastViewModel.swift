@@ -29,6 +29,7 @@ class PodcastViewModel: ObservableObject {
 
     private var cancellables = Set<AnyCancellable>()
     private let apiService = APIService.shared
+    private var didHydrateCache = false
     private enum CacheKey {
         static let personalizedRadios = "podcast_personalized_radios"
         static let categories = "podcast_categories"
@@ -69,6 +70,15 @@ class PodcastViewModel: ObservableObject {
             marksDailyRefresh: shouldRefreshDaily,
             reason: reason
         )
+    }
+
+    /// 播客 Tab 的 `onAppear` 会发生在 `UITabBarController` 尚未完成子控制器
+    /// 搬移的窗口内。缓存水合会连续发布多组 `@Published` 状态，若此时立刻
+    /// 执行，iOS 26.3 可能在 UINavigationBar 布局期间重算整棵播客页面。
+    /// 使用可取消的 `.task` 等待系统转场提交后再加载；离开播客时任务自动取消。
+    func ensureDataLoadedAfterTabTransition(reason: String) async {
+        guard await MainTabActivationGate.waitUntilSettled(.podcast) else { return }
+        ensureDataLoaded(reason: reason)
     }
 
     func preloadIfNeeded(forceDaily: Bool, reason: String) {
@@ -239,6 +249,9 @@ class PodcastViewModel: ObservableObject {
     }
 
     private func loadCache() {
+        guard !didHydrateCache else { return }
+        didHydrateCache = true
+
         let cache = OptimizedCacheManager.shared
 
         if let cached = cache.getObject(forKey: CacheKey.personalizedRadios, type: [RadioStation].self) {

@@ -56,6 +56,157 @@ extension APIService {
 
 extension APIService {
 
+    func fetchQishuiSongPlatformDetail(song: Song) -> AnyPublisher<PlatformSongDetail, Error> {
+        asyncToPublisher { [weak self] in
+            guard let self,
+                  let trackID = song.qishuiTrackId,
+                  trackID > 0 else { return .empty }
+
+            var payloads: [[String: Any]] = []
+            var lastError: Error?
+            for path in ["/song/detail", "/track/detail"] {
+                do {
+                    var components = URLComponents(
+                        url: self.qishuiURL(path),
+                        resolvingAgainstBaseURL: false
+                    )!
+                    components.queryItems = [
+                        URLQueryItem(name: "track_id", value: String(trackID))
+                    ]
+                    var request = URLRequest(url: components.url!)
+                    self.applyQishuiApplicationAuthorization(to: &request)
+                    let (data, response) = try await URLSession.shared.data(for: request)
+                    guard let http = response as? HTTPURLResponse,
+                          (200..<300).contains(http.statusCode),
+                          let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                        throw PlaybackError.networkError
+                    }
+                    payloads.append(payload)
+                } catch {
+                    lastError = error
+                }
+            }
+
+            guard !payloads.isEmpty else {
+                throw lastError ?? PlaybackError.unavailable
+            }
+
+            let introductions = payloads.flatMap(Self.qishuiIntroductionTexts(in:))
+            let introduction = introductions.max { lhs, rhs in lhs.count < rhs.count }
+            let releaseDate = payloads.compactMap {
+                Self.qishuiFirstReadableText(
+                    in: $0,
+                    keys: ["publish_date", "publish_time", "release_date", "releasedate"]
+                )
+            }.first
+            let tags = payloads.flatMap {
+                Self.qishuiReadableTexts(
+                    in: $0,
+                    keys: ["tags", "tag_list", "genre", "genres", "style", "styles"],
+                    maximumLength: 60
+                )
+            }
+            .reduce(into: [String]()) { result, value in
+                if !result.contains(value) { result.append(value) }
+            }
+
+            var sections: [PlatformSongSection] = []
+            if let introduction {
+                sections.append(
+                    PlatformSongSection(
+                        id: "qsm-introduction",
+                        title: String(localized: "song_detail_introduction"),
+                        body: introduction
+                    )
+                )
+            }
+            if !tags.isEmpty {
+                sections.append(
+                    PlatformSongSection(
+                        id: "qsm-tags",
+                        title: String(localized: "song_detail_tags"),
+                        body: tags.joined(separator: " · ")
+                    )
+                )
+            }
+            return PlatformSongDetail(
+                releaseDate: releaseDate,
+                attributes: [],
+                sections: sections
+            )
+        }
+    }
+
+    private static func qishuiIntroductionTexts(in payload: [String: Any]) -> [String] {
+        qishuiReadableTexts(
+            in: payload,
+            keys: [
+                "description", "desc", "intro", "introduction", "track_description",
+                "track_desc", "song_description", "song_desc", "share_description"
+            ],
+            maximumLength: 12_000
+        )
+        .filter { $0.count >= 12 }
+    }
+
+    private static func qishuiFirstReadableText(
+        in value: Any,
+        keys: Set<String>
+    ) -> String? {
+        qishuiReadableTexts(in: value, keys: keys, maximumLength: 160).first
+    }
+
+    private static func qishuiReadableTexts(
+        in value: Any,
+        keys: Set<String>,
+        maximumLength: Int
+    ) -> [String] {
+        var result: [String] = []
+
+        func collect(_ value: Any, acceptsScalar: Bool) {
+            if let text = value as? String {
+                guard acceptsScalar,
+                      let normalized = qishuiNormalizedPlatformText(text),
+                      normalized.count <= maximumLength else { return }
+                result.append(normalized)
+                return
+            }
+            if let dictionary = value as? [String: Any] {
+                for (key, child) in dictionary {
+                    collect(child, acceptsScalar: acceptsScalar || keys.contains(key.lowercased()))
+                }
+                return
+            }
+            if let array = value as? [Any] {
+                array.forEach { collect($0, acceptsScalar: acceptsScalar) }
+            }
+        }
+
+        collect(value, acceptsScalar: false)
+        return result
+    }
+
+    private static func qishuiNormalizedPlatformText(_ value: String) -> String? {
+        var text = value
+            .replacingOccurrences(of: #"<br\s*/?>"#, with: "\n", options: .regularExpression)
+            .replacingOccurrences(of: #"<[^>]+>"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: "&nbsp;", with: " ")
+            .replacingOccurrences(of: "&amp;", with: "&")
+            .replacingOccurrences(of: "&lt;", with: "<")
+            .replacingOccurrences(of: "&gt;", with: ">")
+        text = text
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
+        guard !text.isEmpty,
+              text.range(of: #"^https?://"#, options: .regularExpression) == nil,
+              text.range(of: #"^\d+$"#, options: .regularExpression) == nil else {
+            return nil
+        }
+        return text
+    }
+
     func searchQishuiSongs(keyword: String, page: Int = 0) -> AnyPublisher<[Song], Error> {
         searchQishuiSongsWithTotal(keyword: keyword, page: page)
             .map(\.songs)

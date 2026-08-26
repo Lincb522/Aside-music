@@ -1,4 +1,5 @@
 import HiconIcons
+import Darwin
 import SwiftUI
 import UIKit
 
@@ -10,15 +11,15 @@ public struct ContentView: View {
     @State private var canMountMainContent = false
     @State private var currentTab: Tab = .home
     @State private var didSynchronizeLaunchTheme = false
+    @State private var displayedOnlineContent: Bool
     @State private var pendingDeepLink: URL?
     @State private var isDeliveringDeepLink = false
+    @State private var welcomeDiagnosticsMailDraft: WelcomeDiagnosticsMailDraft?
     @ObservedObject private var settings = SettingsManager.shared
     @ObservedObject private var onlineAccess = OnlineAccessManager.shared
     @ObservedObject private var announcementCenter = AnnouncementCenter.shared
     @ObservedObject private var themeManager = GlobalThemeManager.shared
-    @ObservedObject private var colorEngine = UnifiedColorEngine.shared
     @ObservedObject private var textInputActivity = MonoTextInputActivity.shared
-    @ObservedObject private var libraryTabSwipe = LibraryTabSwipeCoordinator.shared
     @Environment(\.colorScheme) private var systemColorScheme
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -33,6 +34,9 @@ public struct ContentView: View {
     public init() {
         _showWelcome = State(
             initialValue: !ProcessInfo.processInfo.arguments.contains("-SkipWelcome")
+        )
+        _displayedOnlineContent = State(
+            initialValue: OnlineAccessManager.shared.canUseOnlineFeatures
         )
     }
 
@@ -61,7 +65,10 @@ public struct ContentView: View {
                     .zIndex(75)
 
                 if showWelcome {
-                    WelcomeView(isPresented: $showWelcome)
+                    WelcomeView(
+                        isPresented: $showWelcome,
+                        onForceEnter: forceEnterFromWelcome
+                    )
                         .transition(.identity)
                         .zIndex(100)
                 }
@@ -101,6 +108,12 @@ public struct ContentView: View {
         .onChange(of: settings.globalThemeRevision) { _, _ in
             refreshHomeStateForThemeChange()
         }
+        .onChange(of: onlineAccess.canUseOnlineFeatures) { _, canUseOnlineFeatures in
+            scheduleOnlineModeCommit(
+                canUseOnlineFeatures,
+                afterSettling: currentTab
+            )
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active, !showWelcome {
                 announcementCenter.checkIfNeeded()
@@ -121,6 +134,9 @@ public struct ContentView: View {
         }
         .onOpenURL { url in
             queueDeepLink(url)
+        }
+        .sheet(item: $welcomeDiagnosticsMailDraft) { draft in
+            WelcomeDiagnosticsMailView(draft: draft)
         }
     }
 
@@ -204,25 +220,55 @@ public struct ContentView: View {
         }
     }
 
+    private func forceEnterFromWelcome(_ context: WelcomeDiagnosticsContext) {
+        let draft = WelcomeDiagnosticsMailDraft.make(context: context)
+        mountMainContentWithoutAnimation()
+        showWelcome = false
+
+        if WelcomeDiagnosticsMailView.canSendMail {
+            welcomeDiagnosticsMailDraft = draft
+        } else if let mailtoURL = draft.mailtoURL {
+            UIApplication.shared.open(mailtoURL, options: [:]) { opened in
+                guard !opened else { return }
+                AppLogger.error(
+                    "[Welcome] No mail client could open the diagnostics draft",
+                    category: .interface,
+                    event: "welcome_diagnostics_mail_unavailable"
+                )
+            }
+        }
+    }
+
     /// TabView 内容：在 iOS 26 + 用户开启系统 TabBar 时，启用 Liquid Glass 的"滚动下滑最小化"效果
     /// 同时把迷你播放器嵌入到 TabView 的 bottomAccessory（和 TabBar 一起 Liquid Glass 风格展示）。
     /// 其他场景保持原有行为。
     @ViewBuilder
     private var tabViewContent: some View {
-        if #available(iOS 26.0, *), settings.useSystemTabBar, settings.globalThemeId != .manga {
+        if #available(iOS 26.0, *),
+           usesSystemTabBarAtRuntime,
+           settings.globalThemeId != .manga,
+           !SystemTabBarRuntimePolicy.requiresStableAccessoryFallback {
             SystemTabBarWithAccessory(content: { tabViewCore })
         } else {
             tabViewCore
         }
     }
 
+    /// iPhone18,4 + iOS 26.3 的五份现场日志都在系统
+    /// `UITabBarController` 切页后的 SwiftUI 子视图重挂载中崩溃。
+    /// 这个组合不只停用 bottomAccessory，而是整体回退到已有
+    /// 自定义悬浮栏，彻底避开有问题的 UIKit Tab 子控制器转场。
+    private var usesSystemTabBarAtRuntime: Bool {
+        settings.useSystemTabBar
+            && !SystemTabBarRuntimePolicy.requiresStableAccessoryFallback
+    }
+
     private var tabViewCore: some View {
         let _ = settings.globalThemeRevision
-        let _ = colorEngine.revision
 
         return TabView(selection: tabSelectionBinding) {
             tabRootView(for: .home)
-                .toolbar(settings.useSystemTabBar && settings.globalThemeId != .manga ? .automatic : .hidden, for: .tabBar)
+                .toolbar(usesSystemTabBarAtRuntime && settings.globalThemeId != .manga ? .automatic : .hidden, for: .tabBar)
                 .tabItem {
                     Label {
                         Text(tabLabel(for: .home))
@@ -232,7 +278,7 @@ public struct ContentView: View {
                 }
                 .tag(Tab.home)
             tabRootView(for: .podcast)
-                .toolbar(settings.useSystemTabBar && settings.globalThemeId != .manga ? .automatic : .hidden, for: .tabBar)
+                .toolbar(usesSystemTabBarAtRuntime && settings.globalThemeId != .manga ? .automatic : .hidden, for: .tabBar)
                 .tabItem {
                     Label {
                         Text(tabLabel(for: .podcast))
@@ -242,7 +288,7 @@ public struct ContentView: View {
                 }
                 .tag(Tab.podcast)
             tabRootView(for: .library)
-                .toolbar(settings.useSystemTabBar && settings.globalThemeId != .manga ? .automatic : .hidden, for: .tabBar)
+                .toolbar(usesSystemTabBarAtRuntime && settings.globalThemeId != .manga ? .automatic : .hidden, for: .tabBar)
                 .tabItem {
                     Label {
                         Text(tabLabel(for: .library))
@@ -252,7 +298,7 @@ public struct ContentView: View {
                 }
                 .tag(Tab.library)
             tabRootView(for: .profile)
-                .toolbar(settings.useSystemTabBar && settings.globalThemeId != .manga ? .automatic : .hidden, for: .tabBar)
+                .toolbar(usesSystemTabBarAtRuntime && settings.globalThemeId != .manga ? .automatic : .hidden, for: .tabBar)
                 .tabItem {
                     Label {
                         Text(tabLabel(for: .profile))
@@ -264,54 +310,34 @@ public struct ContentView: View {
         }
         .tint(tabBarTint)
         .background {
-            if settings.useSystemTabBar && settings.globalThemeId != .manga {
-                SystemTabBarAppearanceBridge(
-                    accent: tabBarTint,
-                    colorScheme: settings.activeColorScheme,
-                    revision: settings.globalThemeRevision
-                )
-                .frame(width: 0, height: 0)
-                .accessibilityHidden(true)
+            if usesSystemTabBarAtRuntime && settings.globalThemeId != .manga {
+                if #available(iOS 26.0, *) {
+                    // iOS 26 的 Liquid Glass TabBar 由系统持有完整外观生命周期。
+                    // 不能再往 TabView 的背景中插入 UIViewControllerRepresentable：
+                    // 系统切换 Tab 时会搬移各 UINavigationController，SwiftUI 同时
+                    // 重挂这个托管控制器会在 UINavigationBar.layoutSubviews 内触发
+                    // UIKit 一致性断言。选中颜色继续交给上方 `.tint` 即可。
+                    EmptyView()
+                } else {
+                    SystemTabBarAppearanceBridge(
+                        accent: tabBarTint,
+                        colorScheme: settings.activeColorScheme,
+                        revision: settings.globalThemeRevision
+                    )
+                    .frame(width: 0, height: 0)
+                    .accessibilityHidden(true)
+                }
             }
         }
     }
 
-    @ViewBuilder
     private func tabRootView(for tab: Tab) -> some View {
-        let _ = themeManager.tokenRevision
-        // 复用主题管理器缓存的 provider。根 Tab 每次刷新都新建 provider 会让
-        // AnyView 包装下的 NavigationStack 更容易在系统 Tab 切换期间被判为
-        // 新宿主；音乐库恰好又包含自身的分页容器，最容易放大这个时序问题。
-        let theme = themeManager.current
-
-        Group {
-            switch tab {
-            case .home:
-                if onlineAccess.canUseOnlineFeatures {
-                    theme.makeHomeView()
-                } else {
-                    theme.makeLocalHomeView()
-                }
-            case .podcast:
-                if onlineAccess.canUseOnlineFeatures {
-                    theme.makePodcastView()
-                } else {
-                    theme.makeLocalMusicView()
-                }
-            case .library:
-                if onlineAccess.canUseOnlineFeatures {
-                    theme.makeLibraryView()
-                } else {
-                    theme.makeLocalLibraryView()
-                }
-            case .profile:
-                if onlineAccess.canUseOnlineFeatures {
-                    theme.makeProfileView()
-                } else {
-                    theme.makeLocalProfileView()
-                }
-            }
-        }
+        StableContentTabRoot(
+            tab: tab,
+            themeId: themeManager.currentThemeId,
+            usesOnlineContent: displayedOnlineContent
+        )
+        .equatable()
     }
 
     private func refreshHomeStateForThemeChange() {
@@ -322,7 +348,7 @@ public struct ContentView: View {
         Binding(
             get: { currentTab },
             set: { tab in
-                if currentTab != tab, settings.useSystemTabBar {
+                if currentTab != tab, usesSystemTabBarAtRuntime {
                     UISelectionFeedbackGenerator().selectionChanged()
                 }
                 selectTabImmediately(tab)
@@ -331,12 +357,30 @@ public struct ContentView: View {
     }
 
     private func selectTabImmediately(_ tab: Tab) {
+        MainTabActivationGate.select(tab)
         guard currentTab != tab else { return }
 
         var transaction = Transaction()
         transaction.disablesAnimations = true
         withTransaction(transaction) {
             currentTab = tab
+        }
+        scheduleOnlineModeCommit(
+            onlineAccess.canUseOnlineFeatures,
+            afterSettling: tab
+        )
+    }
+
+    private func scheduleOnlineModeCommit(_ value: Bool, afterSettling tab: Tab) {
+        Task { @MainActor in
+            guard await MainTabActivationGate.waitUntilSettled(tab),
+                  currentTab == tab,
+                  displayedOnlineContent != value else { return }
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                displayedOnlineContent = value
+            }
         }
     }
 
@@ -347,7 +391,7 @@ public struct ContentView: View {
     }
 
     private func tabLabelKey(for tab: Tab) -> String {
-        tab.titleKey(isLocalMode: !onlineAccess.canUseOnlineFeatures)
+        tab.titleKey(isLocalMode: !displayedOnlineContent)
     }
 
     private func tabLabel(for tab: Tab) -> LocalizedStringKey {
@@ -389,19 +433,23 @@ public struct ContentView: View {
 
     @ViewBuilder
     private func systemTabSymbolIcon(for tab: Tab) -> some View {
+        // `tabItem` 的内容必须保持稳定。若根据 `currentTab` 在选中瞬间把
+        // outline/filled 图像整棵替换，SwiftUI 会在 UITabBarController 正在
+        // 搬移导航控制器时同步重建 Tab item；iOS 26 会把这次更新扩散到
+        // UINavigationBar 布局并触发一致性断言。选中反馈由系统 tint 负责。
         switch tab {
         case .home:
-            Image(systemName: currentTab == .home ? "house.fill" : "house")
+            Image(systemName: "house")
         case .podcast:
-            if onlineAccess.canUseOnlineFeatures {
-                Image(systemName: currentTab == .podcast ? "mic.fill" : "mic")
+            if displayedOnlineContent {
+                Image(systemName: "mic")
             } else {
-                Image(systemName: currentTab == .podcast ? "music.note.list" : "music.note")
+                Image(systemName: "music.note")
             }
         case .library:
-            Image(systemName: currentTab == .library ? "square.stack.fill" : "square.stack")
+            Image(systemName: "square.stack")
         case .profile:
-            Image(systemName: currentTab == .profile ? "person.fill" : "person")
+            Image(systemName: "person")
         }
     }
 
@@ -427,78 +475,48 @@ public struct ContentView: View {
             return iconSet.image(for: icon).withRenderingMode(.alwaysOriginal)
         }
 
-        // PulseBloom 的两套资源都保留原始多色细节，只切换结构线的明暗版本。
-        // 用强调色作为对比参照，避免“浅色强调色 + 浅色图标”或
-        // “深色模式白色强调色 + 白色图标”叠在一起。
+        // Pulse Bloom 的结构线版本跟随 TabBar 所在界面的真实明暗外观，
+        // 不再用强调色亮度反推，避免深色界面拿到黑图、浅色界面拿到白图。
         return icon.pulseBloomImage(
-            prefersLightOutline: pulseBloomTabPrefersLightOutline
+            prefersLightOutline: settings.activeColorScheme == .dark
         )
         .withRenderingMode(.alwaysOriginal)
     }
 
-    private var currentTabTint: Color {
-        // Tab 强调色读取封面融合后的统一颜色，而不是主题静态 accent。
-        Color.monoAccent
-    }
-
     private var tabBarTint: Color {
-        if settings.activeColorScheme == .dark {
-            // 深色模式固定白色强调色；PulseBloom 据此使用深色结构线版本。
-            return .white
-        }
-        return currentTabTint
-    }
-
-    private var pulseBloomTabPrefersLightOutline: Bool {
-        if settings.activeColorScheme == .dark {
-            // 深色模式强调色是白色，对应原始深色结构线版本。
-            return false
-        }
-
-        let interfaceStyle: UIUserInterfaceStyle = settings.activeColorScheme == .dark ? .dark : .light
-        let resolved = UIColor(currentTabTint).resolvedColor(
-            with: UITraitCollection(userInterfaceStyle: interfaceStyle)
-        )
-
-        var red: CGFloat = 0
-        var green: CGFloat = 0
-        var blue: CGFloat = 0
-        var alpha: CGFloat = 1
-        guard resolved.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else {
-            return false
-        }
-
-        let luminance = (0.2126 * red) + (0.7152 * green) + (0.0722 * blue)
-        return luminance < 0.56
+        // 系统 TabBar 属于根导航结构，切页时颜色必须保持稳定。封面取色会在
+        // 播放、预加载和封面解码结束时连续发布 revision；若把它直接用作
+        // Tab tint，iOS 26 会在 UITabBarController 转场中途重配 item 外观，
+        // 并进一步触发 UINavigationBar 的重新挂载。动态取色仍保留在播放器
+        // 和页面背景，根导航只使用当前主题的稳定强调色。
+        themeManager.provider(for: settings.globalThemeId).colorPalette.accent
     }
 
     private var tabIconFrameSize: CGFloat { 23 }
 
     private func pawPrintTabIconVisualSize(for tab: Tab) -> CGFloat {
-        let isSelected = currentTab == tab
-
         switch tab {
         case .library:
             return 23
         case .home, .podcast, .profile:
-            return isSelected ? 17.5 : 18.5
+            return 18.5
         }
     }
 
     private func pawPrintTabIcon(for tab: Tab) -> MonoIcon.IconType {
         switch tab {
         case .home:
-            return currentTab == .home ? .homeFilled : .home
+            return .home
         case .podcast:
-            if onlineAccess.canUseOnlineFeatures {
-                return currentTab == .podcast ? .podcastFilled : .podcast
+            if displayedOnlineContent {
+                return .podcast
             } else {
-                return currentTab == .podcast ? .musicNoteList : .musicNote
+                return .musicNote
             }
         case .library:
-            return currentTab == .library ? .libraryFilled : .library
+            return .library
         case .profile:
-            return currentTab == .profile ? .profileFilled : .profile
+            return .profile
         }
     }
 
@@ -518,17 +536,17 @@ public struct ContentView: View {
     private func themedTabIcon(for tab: Tab) -> MonoIcon.IconType {
         switch tab {
         case .home:
-            return currentTab == .home ? .homeFilled : .home
+            return .home
         case .podcast:
-            if onlineAccess.canUseOnlineFeatures {
-                return currentTab == .podcast ? .podcastFilled : .podcast
+            if displayedOnlineContent {
+                return .podcast
             } else {
-                return currentTab == .podcast ? .musicNoteList : .musicNote
+                return .musicNote
             }
         case .library:
-            return currentTab == .library ? .libraryFilled : .library
+            return .library
         case .profile:
-            return currentTab == .profile ? .profileFilled : .profile
+            return .profile
         }
     }
 
@@ -536,20 +554,20 @@ public struct ContentView: View {
     private func defaultTabIcon(for tab: Tab) -> some View {
         switch tab {
         case .home:
-            Image(uiImage: currentTab == .home ? Hicon.home2 : Hicon.home1)
+            Image(uiImage: Hicon.home1)
                 .renderingMode(.template)
         case .podcast:
-            if onlineAccess.canUseOnlineFeatures {
-                Image(uiImage: currentTab == .podcast ? Hicon.microphone4 : Hicon.microphone3)
+            if displayedOnlineContent {
+                Image(uiImage: Hicon.microphone3)
                     .renderingMode(.template)
             } else {
-                MonoIcon(icon: currentTab == .podcast ? .musicNoteList : .musicNote, size: 23)
+                MonoIcon(icon: .musicNote, size: 23)
             }
         case .library:
-            Image(uiImage: currentTab == .library ? Hicon.headphone2 : Hicon.headphone1)
+            Image(uiImage: Hicon.headphone1)
                 .renderingMode(.template)
         case .profile:
-            Image(uiImage: currentTab == .profile ? Hicon.profileCircle : Hicon.profile1)
+            Image(uiImage: Hicon.profile1)
                 .renderingMode(.template)
         }
     }
@@ -671,7 +689,7 @@ public struct ContentView: View {
                 // 音乐库先消费内部“歌单 / 广场 / 歌手 / 榜单”分页，避免一次
                 // 手势同时切换音乐库页签和应用主 Tab。
                 if currentTab == .library,
-                   libraryTabSwipe.canConsume(direction: direction) {
+                   LibraryTabSwipeCoordinator.shared.canConsume(direction: direction) {
                     return
                 }
 
@@ -702,11 +720,26 @@ public struct ContentView: View {
 
     private func selectTabFromSwipe(_ tab: Tab) {
         guard currentTab != tab else { return }
+
+        // 系统 TabView 自己管理 UIViewController 转场。额外给 selection 注入
+        // SwiftUI spring 会延长新旧 NavigationStack 同时存在的窗口，正好放大
+        // iPhone18,4 / iOS 26.3 的导航栏重挂载断言。系统模式必须原子提交；
+        // 自定义悬浮栏继续保留原有视觉转场。
+        if usesSystemTabBarAtRuntime && settings.globalThemeId != .manga {
+            selectTabImmediately(tab)
+            return
+        }
+
         var transaction = Transaction(animation: reduceMotion ? nil : MonoAnimation.tabSwitch)
         transaction.disablesAnimations = reduceMotion
+        MainTabActivationGate.select(tab)
         withTransaction(transaction) {
             currentTab = tab
         }
+        scheduleOnlineModeCommit(
+            onlineAccess.canUseOnlineFeatures,
+            afterSettling: tab
+        )
     }
 
     private var floatingBarGestureExclusionHeight: CGFloat {
@@ -788,8 +821,13 @@ private struct ContentViewFloatingBarContainer: View {
     @ObservedObject private var player = FloatingBarPlaybackModel.shared
     @ObservedObject private var textInputActivity = MonoTextInputActivity.shared
 
+    private var usesSystemTabBarAtRuntime: Bool {
+        settings.useSystemTabBar
+            && !SystemTabBarRuntimePolicy.requiresStableAccessoryFallback
+    }
+
     var body: some View {
-        if (!settings.useSystemTabBar || settings.globalThemeId == .manga),
+        if (!usesSystemTabBarAtRuntime || settings.globalThemeId == .manga),
            !player.isTabBarHidden,
            !textInputActivity.isEditing
         {
@@ -909,6 +947,97 @@ private struct ContentViewFloatingBarContainer: View {
 
 }
 
+// MARK: - 稳定的根 Tab 宿主
+
+/// 隔离 `currentTab`、播放状态、取色 revision 等根层刷新。
+///
+/// `GlobalThemeProvider` 的工厂接口返回 `AnyView`。如果直接在 `ContentView`
+/// 的 body 中调用，任何根状态变化都会重新创建四个 `NavigationStack` 的
+/// 类型擦除容器；这与 `UITabBarController` 正在切换子控制器重叠时，iOS 26
+/// 会尝试把同一个导航项重新挂到新的 `UINavigationBar`，最终在布局阶段断言。
+///
+/// 把主题 ID、在线模式和 Tab 作为唯一相等性输入后，普通的 Tab 选择变化不会
+/// 再求值内部工厂；真正改变页面根类型时才重建对应内容。
+@available(iOS 16.0, *)
+@MainActor
+private struct StableContentTabRoot: View, Equatable {
+    let tab: Tab
+    let themeId: GlobalThemeId
+    let usesOnlineContent: Bool
+
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.tab == rhs.tab
+            && lhs.themeId == rhs.themeId
+            && lhs.usesOnlineContent == rhs.usesOnlineContent
+    }
+
+    @ViewBuilder
+    var body: some View {
+        let theme = GlobalThemeManager.shared.provider(for: themeId)
+
+        switch tab {
+        case .home:
+            if usesOnlineContent {
+                theme.makeHomeView()
+            } else {
+                theme.makeLocalHomeView()
+            }
+        case .podcast:
+            if usesOnlineContent {
+                theme.makePodcastView()
+            } else {
+                theme.makeLocalMusicView()
+            }
+        case .library:
+            if usesOnlineContent {
+                theme.makeLibraryView()
+            } else {
+                theme.makeLocalLibraryView()
+            }
+        case .profile:
+            if usesOnlineContent {
+                theme.makeProfileView()
+            } else {
+                theme.makeLocalProfileView()
+            }
+        }
+    }
+}
+
+// MARK: - iOS 26 系统 TabBar 运行时兼容策略
+
+/// 5 份现场日志都来自 iPhone18,4 + iOS 26.3，并在系统 Tab 切换时进入
+/// `UITabBarController transitionFromViewController` → `UINavigationBar layoutSubviews`
+/// 后触发 Objective-C 一致性断言。该系统组合使用 iPhone 专属的折叠 TabBar
+/// 与 bottomAccessory 重排路径；该组合回退到现有自定义悬浮栏，不改变
+/// 四个页面内容或视觉主题。系统升级后会自动恢复原生 TabBar 与 bottomAccessory。
+private enum SystemTabBarRuntimePolicy {
+    static let requiresStableAccessoryFallback: Bool = {
+        let version = ProcessInfo.processInfo.operatingSystemVersion
+        guard version.majorVersion == 26,
+              version.minorVersion == 3 else {
+            return false
+        }
+        return hardwareIdentifier == "iPhone18,4"
+    }()
+
+    private static let hardwareIdentifier: String = {
+        if let simulatorIdentifier = ProcessInfo.processInfo.environment["SIMULATOR_MODEL_IDENTIFIER"],
+           !simulatorIdentifier.isEmpty {
+            return simulatorIdentifier
+        }
+
+        var systemInfo = utsname()
+        guard uname(&systemInfo) == 0 else { return "unknown" }
+
+        return withUnsafePointer(to: &systemInfo.machine) { machinePointer in
+            machinePointer.withMemoryRebound(to: CChar.self, capacity: 1) {
+                String(cString: $0)
+            }
+        }
+    }()
+}
+
 // MARK: - 紧凑迷你播放器容器（隔离 PlayerManager + PlaybackTimePublisher 订阅）
 
 @MainActor
@@ -920,14 +1049,19 @@ private struct ContentViewCompactPlayerContainer: View {
     /// iOS 26+ 时改用 `.tabViewBottomAccessory` 原生嵌入，这里跳过避免重复显示
     private var shouldUseNativeBottomAccessory: Bool {
         if #available(iOS 26.0, *) {
-            return settings.useSystemTabBar && settings.globalThemeId != .manga
+            return settings.useSystemTabBar
+                && settings.globalThemeId != .manga
+                && !SystemTabBarRuntimePolicy.requiresStableAccessoryFallback
         }
         return false
     }
 
     var body: some View {
         if !shouldUseNativeBottomAccessory,
-           settings.useSystemTabBar && settings.globalThemeId != .manga && !player.isTabBarHidden,
+           settings.useSystemTabBar
+            && !SystemTabBarRuntimePolicy.requiresStableAccessoryFallback
+            && settings.globalThemeId != .manga
+            && !player.isTabBarHidden,
            !textInputActivity.isEditing,
            let song = player.currentSong
         {
@@ -964,24 +1098,42 @@ private struct SystemTabBarWithAccessory<Content: View>: View {
     @State private var playlistPresented = false
     @ObservedObject private var textInputActivity = MonoTextInputActivity.shared
 
+    @ViewBuilder
     var body: some View {
-        content()
-            .tabBarMinimizeBehavior(.onScrollDown)
-            .tabViewBottomAccessory {
-                if !textInputActivity.isEditing {
+        if #available(iOS 26.1, *) {
+            content()
+                .tabBarMinimizeBehavior(.onScrollDown)
+                // 26.1 起使用系统提供的 enabled 入口保持 accessory 宿主身份
+                // 稳定；不能在 builder 内用 if 插入/移除整棵视图，否则键盘
+                // 变化可能与 Tab 切换同时触发 UIKit 重挂载。
+                .tabViewBottomAccessory(isEnabled: !textInputActivity.isEditing) {
                     TabViewBottomMiniPlayer(playlistPresented: $playlistPresented)
                 }
-            }
-            // sheet 挂在 TabView 层而不是 accessory 内部，避免按钮一点就被关
-            .monoSheet(isPresented: $playlistPresented, preset: .standard) {
-                Group {
-                    if PlayerManager.shared.isPlayingPodcast {
-                        PodcastPlaylistPopupView()
-                    } else {
-                        PlaylistPopupView()
+                .monoSheet(isPresented: $playlistPresented, preset: .standard) {
+                    playlistSheetContent
+                }
+        } else {
+            // iOS 26.0 尚未提供 isEnabled 重载，保留兼容实现。
+            content()
+                .tabBarMinimizeBehavior(.onScrollDown)
+                .tabViewBottomAccessory {
+                    if !textInputActivity.isEditing {
+                        TabViewBottomMiniPlayer(playlistPresented: $playlistPresented)
                     }
                 }
-            }
+                .monoSheet(isPresented: $playlistPresented, preset: .standard) {
+                    playlistSheetContent
+                }
+        }
+    }
+
+    @ViewBuilder
+    private var playlistSheetContent: some View {
+        if PlayerManager.shared.isPlayingPodcast {
+            PodcastPlaylistPopupView()
+        } else {
+            PlaylistPopupView()
+        }
     }
 }
 
@@ -1429,5 +1581,55 @@ enum Tab: Int, CaseIterable, Hashable {
         case .library: return "tabbar_library"
         case .profile: return "tabbar_profile"
         }
+    }
+}
+
+// MARK: - Main Tab activation gate
+
+/// Keeps first-entry work out of UIKit's tab-controller transition window.
+///
+/// `TabView` is free to construct or briefly appear an off-screen tab.  The
+/// gate deliberately is not observable: changing selection must not invalidate
+/// the four root `NavigationStack`s while `UITabBarController` is reparenting
+/// their navigation bars.  A root task waits for the transition to settle and
+/// then verifies it is still the selected tab before publishing cached or
+/// remote data.
+@MainActor
+enum MainTabActivationGate {
+    private static var selectedTab: Tab = .home
+    private static var settledTab: Tab?
+    private static var selectionGeneration: UInt64 = 0
+    private static var settledGeneration: UInt64?
+    private static let settlingDelayNanoseconds: UInt64 = 420_000_000
+
+    static func select(_ tab: Tab) {
+        guard selectedTab != tab else { return }
+        selectedTab = tab
+        settledTab = nil
+        settledGeneration = nil
+        selectionGeneration &+= 1
+    }
+
+    static func waitUntilSettled(_ tab: Tab) async -> Bool {
+        if isSettled(tab) { return true }
+        guard selectedTab == tab else { return false }
+        let expectedGeneration = selectionGeneration
+        do {
+            try await Task.sleep(nanoseconds: settlingDelayNanoseconds)
+        } catch {
+            return false
+        }
+        guard !Task.isCancelled,
+              selectedTab == tab,
+              selectionGeneration == expectedGeneration else { return false }
+        settledTab = tab
+        settledGeneration = expectedGeneration
+        return true
+    }
+
+    static func isSettled(_ tab: Tab) -> Bool {
+        selectedTab == tab
+            && settledTab == tab
+            && settledGeneration == selectionGeneration
     }
 }

@@ -99,7 +99,6 @@ struct MonoApp: App {
         // 帧率、渲染分辨率、粒子密度、着色器和后台计算并发。
         MonoComputeEngine.shared.start()
         ThemeColorCustomization.installMemoryManagement()
-        SongContentDetailCache.installMemoryManagement()
         
         _ = EQManager.shared
         _ = AIEqualizerAgent.shared
@@ -148,6 +147,7 @@ struct MonoApp: App {
                 .compatFontDesign(.rounded)
                 .preferredColorScheme(effectiveColorScheme)
                 .onAppear {
+                    CrashDiagnosticsStore.shared.start()
                     AppFrameRate.lockConnectedScenesToPreferredFrameRate(reason: "app root appear")
                     if UIApplication.shared.applicationState == .active {
                         MonoNextSuiteManager.shared.activateHeadTrackingRuntimeIfNeeded()
@@ -176,7 +176,7 @@ struct MonoApp: App {
                             await AIProviderConfigurationStore.shared.refreshRemoteConfigurationIfNeeded(force: true)
                         }
                         Task {
-                            _ = await SongContentConfigurationStore.shared.configuration(forceRefresh: true)
+                            _ = await AppAgentConfigurationStore.shared.configuration(forceRefresh: true)
                         }
                     } else {
                         AppLogger.info("未配置 Token，跳过在线启动刷新")
@@ -246,7 +246,7 @@ struct MonoApp: App {
                             await AIProviderConfigurationStore.shared.refreshRemoteConfigurationIfNeeded()
                         }
                         Task {
-                            _ = await SongContentConfigurationStore.shared.configuration()
+                            _ = await AppAgentConfigurationStore.shared.configuration()
                         }
                     }
                     KCMDailyMembershipEngine.shared.checkIfNeeded()

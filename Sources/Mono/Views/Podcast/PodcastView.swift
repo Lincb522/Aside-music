@@ -147,8 +147,8 @@ struct PodcastView: View {
                     .petWhiteNestedPage()
             }
         }
-        .onAppear {
-            viewModel.ensureDataLoaded(reason: "podcast appear")
+        .task {
+            await viewModel.ensureDataLoadedAfterTabTransition(reason: "podcast appear")
         }
         .fullScreenCover(isPresented: $showRadioPlayer, onDismiss: {
             radioIdToOpen = 0
@@ -2727,13 +2727,22 @@ private struct PodcastHistorySection: View {
                 content
             }
         }
+        .task {
+            guard await MainTabActivationGate.waitUntilSettled(.podcast) else { return }
+            history = Self.uniqued(player.podcastHistory)
+            currentSongID = player.currentSong?.id
+            isPlaying = player.isPlaying
+        }
         .onReceive(PlayerManager.shared.$podcastHistory.map { Self.uniqued($0) }) { history in
+            guard MainTabActivationGate.isSettled(.podcast) else { return }
             self.history = history
         }
         .onReceive(PlayerManager.shared.$currentSong.map { $0?.id }.removeDuplicates()) { currentSongID in
+            guard MainTabActivationGate.isSettled(.podcast) else { return }
             self.currentSongID = currentSongID
         }
         .onReceive(PlayerManager.shared.$isPlaying.removeDuplicates()) { isPlaying in
+            guard MainTabActivationGate.isSettled(.podcast) else { return }
             self.isPlaying = isPlaying
         }
     }

@@ -73,7 +73,8 @@ struct CapsuleHomeView: View {
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
-            .onAppear {
+            .task {
+                guard await MainTabActivationGate.waitUntilSettled(.home) else { return }
                 viewModel.ensureHomeDataLoaded(reason: "capsule home appear")
                 if hitokotoEnabled,
                    viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false
@@ -347,6 +348,7 @@ struct CapsuleHomeView: View {
             .frame(height: 138)
             .tabViewStyle(.page(indexDisplayMode: .never))
             .onReceive(bannerTimer) { _ in
+                guard MainTabActivationGate.isSettled(.home) else { return }
                 let count = min(viewModel.banners.count, 8)
                 guard count > 1 else { return }
                 withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) {
@@ -354,6 +356,7 @@ struct CapsuleHomeView: View {
                 }
             }
             .onChange(of: viewModel.banners.count) { _, count in
+                guard MainTabActivationGate.isSettled(.home) else { return }
                 let maxIndex = max(0, min(count, 8) - 1)
                 if bannerIndex > maxIndex {
                     bannerIndex = 0

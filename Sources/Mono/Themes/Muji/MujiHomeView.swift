@@ -41,7 +41,8 @@ struct MujiHomeView: View {
                     scrollBody
                 }
             }
-            .onAppear {
+            .task {
+                guard await MainTabActivationGate.waitUntilSettled(.home) else { return }
                 viewModel.ensureHomeDataLoaded(reason: "muji home appear")
                 if hitokotoEnabled,
                    viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
@@ -672,6 +673,7 @@ private struct MujiHomeBannerSection: View {
             .frame(maxWidth: .infinity)
             .frame(height: DeviceLayout.isPad ? 222 : 166)
             .onReceive(timer) { _ in
+                guard MainTabActivationGate.isSettled(.home) else { return }
                 guard banners.count > 1 else { return }
                 if reduceMotion {
                     index = (index + 1) % banners.count

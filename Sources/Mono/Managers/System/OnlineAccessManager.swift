@@ -141,7 +141,7 @@ final class OnlineAccessManager: ObservableObject {
                 await AIProviderConfigurationStore.shared.refreshRemoteConfigurationIfNeeded(force: true)
             }
             Task {
-                _ = await SongContentConfigurationStore.shared.configuration(forceRefresh: true)
+                _ = await AppAgentConfigurationStore.shared.configuration(forceRefresh: true)
             }
         case .missing:
             lastTokenStatus = .missing

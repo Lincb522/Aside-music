@@ -137,7 +137,9 @@ class HomeViewModel: ObservableObject {
         } else {
             hitokoto = nil
         }
-        restoreLoginStateIfNeeded(reason: "home init")
+        // Network-backed login restoration is deferred to the selected home
+        // root. Starting it while TabView constructs all four navigation roots
+        // can publish profile state inside UIKit's controller transition.
     }
     
     func fetchData(forceDaily: Bool = false) {

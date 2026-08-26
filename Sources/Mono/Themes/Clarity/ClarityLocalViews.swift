@@ -22,6 +22,7 @@ struct ClarityLocalHomeView: View {
                         .padding(.top, 8)
                     }
                     .scrollIndicators(.hidden)
+                    .themeRenderScrollLayer()
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
@@ -252,6 +253,7 @@ struct ClarityLocalHomeView: View {
                 }
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
         .padding(20)
     }
@@ -366,6 +368,7 @@ private struct ClarityLocalScene<Content: View>: View {
                 .padding(.horizontal, DeviceLayout.isPad ? 28 : 16)
             }
             .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
         }
         .toolbarBackground(.hidden, for: .navigationBar)
     }
@@ -376,7 +379,11 @@ private struct ClarityLocalSongList: View {
     let songs: [Song]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        // Local libraries can contain thousands of songs. A regular VStack
+        // eagerly constructs every artwork, button and glass sublayer before
+        // the first scroll frame; keep the exact row design but instantiate
+        // rows with the surrounding scroll viewport instead.
+        LazyVStack(alignment: .leading, spacing: 10) {
             ClaritySectionHeading(title: title)
             if songs.isEmpty {
                 Text(String(localized: "empty_no_songs"))

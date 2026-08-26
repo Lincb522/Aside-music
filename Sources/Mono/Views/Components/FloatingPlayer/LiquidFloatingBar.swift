@@ -117,9 +117,6 @@ struct LiquidFloatingBar: View {
                         panelSecondaryColor: Color.monoTextPrimary.opacity(0.78),
                         liquidPrimaryColor: liquidPrimaryColor,
                         liquidSecondaryColor: liquidPrimaryColor.opacity(0.82),
-                        pulseBloomAccentColor: colorScheme == .dark
-                            ? .white
-                            : (liquidColors.first ?? Color.monoAccent),
                         liquidProgress: progress,
                         onSelect: selectTab
                     )
@@ -392,10 +389,7 @@ struct LiquidFloatingBar: View {
                 size: 15,
                 color: panelColor,
                 lineWidth: 1.75,
-                normalizesBitmapScale: true,
-                pulseBloomContrastColor: colorScheme == .dark
-                    ? .white
-                    : (liquidColors.first ?? Color.monoAccent)
+                normalizesBitmapScale: true
             )
         } else {
             ZStack {
@@ -566,14 +560,12 @@ private struct LiquidTabContent: View {
     let panelSecondaryColor: Color
     let liquidPrimaryColor: Color
     let liquidSecondaryColor: Color
-    let pulseBloomAccentColor: Color
     let liquidProgress: Double
     let onSelect: (Tab) -> Void
 
     @ObservedObject private var onlineAccess = OnlineAccessManager.shared
     @AppStorage(AppConfig.StorageKeys.interfaceIconSet) private var iconSetRaw: String = AppInterfaceIconSet.hicon.rawValue
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.colorScheme) private var colorScheme
     @Namespace private var selectionNamespace
 
     private var usesPulseBloomArtwork: Bool {
@@ -664,8 +656,7 @@ private struct LiquidTabContent: View {
                 size: iconSize,
                 color: selected ? panelPrimaryColor : panelSecondaryColor,
                 lineWidth: selected ? 1.9 : 1.6,
-                normalizesBitmapScale: true,
-                pulseBloomContrastColor: pulseBloomAccentColor
+                normalizesBitmapScale: true
             )
             .frame(width: iconFrame, height: iconFrame)
         } else {

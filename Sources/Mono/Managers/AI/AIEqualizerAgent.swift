@@ -118,7 +118,7 @@ final class AIEqualizerAgent: ObservableObject {
     private let providerStore = AIProviderConfigurationStore.shared
     private let usageLimiter = AIUsageLimiter.shared
     private var activePromptVersion: String {
-        SongContentConfigurationStore.cachedAgentConfiguration(.equalizer)?.promptVersion
+        AppAgentConfigurationStore.cachedAgentConfiguration(.equalizer)?.promptVersion
             ?? AIEqualizerPrompt.version
     }
     private var cancellables = Set<AnyCancellable>()
@@ -592,7 +592,7 @@ final class AIEqualizerAgent: ObservableObject {
     }
 
     func testProviderConnection() async throws {
-        let managedAgent = await SongContentConfigurationStore.shared.agentConfiguration(.equalizer)
+        let managedAgent = await AppAgentConfigurationStore.shared.agentConfiguration(.equalizer)
         if let managedAgent, !managedAgent.enabled { throw AIEqualizerError.modelUnavailable }
         let configuration = try await resolvedProviderConfiguration(usePublishedConfiguration: false)
         let bundledSystemPrompt = AIEqualizerPrompt.system(for: .tenBand)
@@ -727,7 +727,7 @@ final class AIEqualizerAgent: ObservableObject {
             }
         }
 
-        let managedAgent = await SongContentConfigurationStore.shared.agentConfiguration(.equalizer)
+        let managedAgent = await AppAgentConfigurationStore.shared.agentConfiguration(.equalizer)
         if let managedAgent, !managedAgent.enabled {
             phase = .failed(AIEqualizerError.modelUnavailable.localizedDescription)
             return

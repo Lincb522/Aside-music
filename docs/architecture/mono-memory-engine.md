@@ -50,7 +50,6 @@
 - Apple Music / MusicKit 模型与曲目集合：`cache.apple-music`
 - 本地歌单派生数据：`cache.local-playlists`
 - 播放 URL：`cache.playback-url`
-- 音乐幕后已发布内容：`cache.song-content`
 - 自定义主题背景图：`cache.theme-background`
 - 沉浸背景视频缩略图与时长：`cache.video-thumbnails`、`cache.video-duration`
 - 收音机 LED 预渲染图与点阵：`cache.radio-led-images`、`cache.radio-led-raster`
@@ -68,7 +67,6 @@
 ## 数据安全约束
 
 - `CacheManager` 的内存层可以回收，磁盘层不会因内存压力被删除。
-- `SongContentDetailCache` 回收后仍从持久化副本按需恢复，写入前会先合并被回收的内容。
 - 本地歌单只清理派生数组，不修改 `MonoStore` 数据。
 - Apple Music 缓存会优先保留当前播放歌曲的目录模型。
 - 图片回收会取消已无必要的后台下载，但不会清除磁盘图片缓存。

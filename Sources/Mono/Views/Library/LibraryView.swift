@@ -9,11 +9,11 @@ import UniformTypeIdentifiers
 /// 协调音乐库内部页签与应用主 Tab 的横向手势。音乐库内部仍有可切换
 /// 页签时，主 Tab 不应同时跳走。
 @MainActor
-final class LibraryTabSwipeCoordinator: ObservableObject {
+final class LibraryTabSwipeCoordinator {
     static let shared = LibraryTabSwipeCoordinator()
 
-    @Published private(set) var currentIndex = 0
-    @Published private(set) var tabCount = 0
+    private(set) var currentIndex = 0
+    private(set) var tabCount = 0
 
     private init() {}
 
@@ -31,7 +31,6 @@ final class LibraryTabSwipeCoordinator: ObservableObject {
 struct LibraryView: View {
     @StateObject private var viewModel = LibraryViewModel()
     @ObservedObject private var settings = SettingsManager.shared
-    @ObservedObject private var tabSwipeCoordinator = LibraryTabSwipeCoordinator.shared
 
     typealias Theme = PlaylistDetailView.Theme
 
@@ -103,16 +102,24 @@ struct LibraryView: View {
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToLibrarySquare"))) { notification in
-                if let source = notification.object as? LibraryViewModel.MusicSource {
-                    viewModel.squareSource = source
+                let source = notification.object as? LibraryViewModel.MusicSource
+                Task { @MainActor in
+                    guard await MainTabActivationGate.waitUntilSettled(.library) else { return }
+                    if let source {
+                        viewModel.squareSource = source
+                    }
+                    switchToTab(.square)
                 }
-                switchToTab(.square)
             }
             .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToLibraryArtists"))) { _ in
-                switchToTab(.artists)
+                Task { @MainActor in
+                    guard await MainTabActivationGate.waitUntilSettled(.library) else { return }
+                    switchToTab(.artists)
+                }
             }
-            .onAppear {
-                tabSwipeCoordinator.update(index: tabIndex, tabCount: allTabs.count)
+            .task {
+                guard await MainTabActivationGate.waitUntilSettled(.library) else { return }
+                LibraryTabSwipeCoordinator.shared.update(index: tabIndex, tabCount: allTabs.count)
                 if UserDefaults.standard.bool(forKey: "pendingLibrarySquareSwitch") {
                     UserDefaults.standard.set(false, forKey: "pendingLibrarySquareSwitch")
                     if let rawSource = UserDefaults.standard.string(forKey: "pendingLibrarySquareSource"),
@@ -128,6 +135,7 @@ struct LibraryView: View {
                 }
             }
             .onChange(of: viewModel.currentTab) { _, newTab in
+                guard MainTabActivationGate.isSettled(.library) else { return }
                 if let idx = allTabs.firstIndex(of: newTab), idx != tabIndex {
                     tabIndex = idx
                 }
@@ -145,7 +153,8 @@ struct LibraryView: View {
                 }
             }
             .onChange(of: tabIndex) { _, index in
-                tabSwipeCoordinator.update(index: index, tabCount: allTabs.count)
+                guard MainTabActivationGate.isSettled(.library) else { return }
+                LibraryTabSwipeCoordinator.shared.update(index: index, tabCount: allTabs.count)
             }
         }
     }
@@ -257,10 +266,12 @@ struct LibraryView: View {
                 libraryHeaderHeight = height
             }
         }
-        .onAppear {
+        .task {
+            guard await MainTabActivationGate.waitUntilSettled(.library) else { return }
             loadDefaultLibraryTab(viewModel.currentTab)
         }
         .onChange(of: tabIndex) { _, index in
+            guard MainTabActivationGate.isSettled(.library) else { return }
             if libraryHeaderCollapseProgress != 0 {
                 withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
                     libraryHeaderCollapseProgress = 0

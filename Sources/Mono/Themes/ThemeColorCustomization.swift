@@ -881,6 +881,14 @@ enum ThemeColorCustomization {
         guard customColorsEnabled else {
             return fallbackHexes.map { Color(hex: $0) }
         }
+
+        return configuredBackgroundGradientColors(for: theme, fallbackHexes: fallbackHexes)
+    }
+
+    /// Resolves the stored background palette without applying the global
+    /// light-appearance gate. Themes that adapt a user's palette into their
+    /// own dark material can use this while preserving dark-mode contrast.
+    static func configuredBackgroundGradientColors(for theme: GlobalThemeId, fallbackHexes: [String]) -> [Color] {
         let mode = mode(for: theme, role: .background)
         if mode == .solid || mode == .image {
             return [Color(hex: hex(theme, .background, "solid", fallback: fallbackHexes.first ?? "FFFFFF"))]

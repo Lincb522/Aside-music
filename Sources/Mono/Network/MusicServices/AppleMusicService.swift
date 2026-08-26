@@ -1192,6 +1192,55 @@ final class AppleMusicService: ObservableObject {
         throw AppleMusicServiceError.itemUnavailable
     }
 
+    /// Reads Apple Music catalog metadata directly through MusicKit. This is
+    /// the song-information replacement for the former generated story copy.
+    func platformSongDetail(for song: Song) async throws -> PlatformSongDetail {
+        let catalogSong = try await playableSong(for: song)
+        var detail = PlatformSongDetail.empty
+
+        if let releaseDate = catalogSong.releaseDate {
+            detail.releaseDate = releaseDate.formatted(date: .abbreviated, time: .omitted)
+        }
+
+        if let composer = catalogSong.composerName?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           !composer.isEmpty {
+            detail.sections.append(
+                PlatformSongSection(
+                    id: "apple-music-composer",
+                    title: String(localized: "song_detail_composer"),
+                    body: composer
+                )
+            )
+        }
+
+        let genres = catalogSong.genreNames
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        if !genres.isEmpty {
+            detail.sections.append(
+                PlatformSongSection(
+                    id: "apple-music-genres",
+                    title: String(localized: "song_detail_genres"),
+                    body: genres.joined(separator: " · ")
+                )
+            )
+        }
+
+        if let isrc = catalogSong.isrc?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !isrc.isEmpty {
+            detail.attributes.append(
+                PlatformSongAttribute(
+                    id: "apple-music-isrc",
+                    label: "ISRC",
+                    value: isrc
+                )
+            )
+        }
+
+        return detail
+    }
+
     private static func normalizedError(_ error: Error) -> Error {
         if let serviceError = error as? AppleMusicServiceError {
             return serviceError

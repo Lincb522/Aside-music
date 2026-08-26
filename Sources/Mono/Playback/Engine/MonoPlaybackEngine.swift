@@ -43,7 +43,6 @@ class PlayerManager: ObservableObject {
     private(set) lazy var cacheGovernor = DecryptedAudioCacheGovernor(player: self)
     private(set) lazy var heartbeat = PlaybackHeartbeat(player: self)
     private(set) lazy var appleMusicPlayback = AppleMusicPlaybackCoordinator(player: self)
-    private(set) lazy var songContentPrefetch = SongContentPrefetchEngine(player: self)
     
     // MARK: - Published Properties
     @Published var currentSong: Song?
@@ -597,7 +596,6 @@ class PlayerManager: ObservableObject {
         )
         heartbeat.start()
         restoreState()
-        songContentPrefetch.start()
         MonoMemoryEngine.shared.registerResource(
             id: "runtime.playback-prefetch",
             priority: .essential,
@@ -665,7 +663,6 @@ class PlayerManager: ObservableObject {
             widgetSync.cancelPendingWork()
             sleepAndFade.cancelAllWork()
             persistence.cancelPendingWork()
-            songContentPrefetch.stop()
             audioSessionCoordinator.cancelAllWork()
             for observer in backgroundStateObservers {
                 NotificationCenter.default.removeObserver(observer)

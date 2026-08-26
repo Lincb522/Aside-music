@@ -1,22 +1,23 @@
 import Foundation
 
-actor SongContentConfigurationStore {
-    static let shared = SongContentConfigurationStore()
+actor AppAgentConfigurationStore {
+    static let shared = AppAgentConfigurationStore()
 
     private enum Keys {
+        // 保留旧键以无损复用已经下发的 Agent 配置缓存。
         static let payload = "songContent.remoteConfiguration"
         static let fetchedAt = "songContent.remoteConfiguration.fetchedAt"
     }
 
     private let defaults: UserDefaults
-    private var cached: SongContentFeatureConfiguration
+    private var cached: AppAgentRemoteConfiguration
     private var fetchedAt: Date?
-    private var refreshTask: Task<SongContentFeatureConfiguration, Error>?
+    private var refreshTask: Task<AppAgentRemoteConfiguration, Error>?
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         if let data = defaults.data(forKey: Keys.payload),
-           let configuration = try? JSONDecoder().decode(SongContentFeatureConfiguration.self, from: data) {
+           let configuration = try? JSONDecoder().decode(AppAgentRemoteConfiguration.self, from: data) {
             cached = configuration
         } else {
             cached = .bundledDefault
@@ -24,7 +25,7 @@ actor SongContentConfigurationStore {
         fetchedAt = defaults.object(forKey: Keys.fetchedAt) as? Date
     }
 
-    func configuration(forceRefresh: Bool = false) async -> SongContentFeatureConfiguration {
+    func configuration(forceRefresh: Bool = false) async -> AppAgentRemoteConfiguration {
         if !forceRefresh, isFresh {
             await synchronizeAudioAgentSkills(from: cached, source: .cached)
             return cached
@@ -39,8 +40,8 @@ actor SongContentConfigurationStore {
         }
 
         let fallback = cached
-        let task = Task<SongContentFeatureConfiguration, Error> {
-            try await APIService.shared.fetchSongContentConfiguration()
+        let task = Task<AppAgentRemoteConfiguration, Error> {
+            try await APIService.shared.fetchAppAgentConfiguration()
         }
         refreshTask = task
         do {
@@ -53,7 +54,7 @@ actor SongContentConfigurationStore {
             return configuration
         } catch {
             refreshTask = nil
-            AppLogger.debug("Song content configuration unavailable: \(error)")
+            AppLogger.debug("App Agent configuration unavailable: \(error)")
             await synchronizeAudioAgentSkills(from: fallback, source: .cached)
             return fallback
         }
@@ -71,7 +72,7 @@ actor SongContentConfigurationStore {
     static func cachedAgentConfiguration(_ identifier: AppAgentIdentifier) -> AppAgentConfiguration? {
         let defaults = UserDefaults.standard
         guard let data = defaults.data(forKey: Keys.payload),
-              let configuration = try? JSONDecoder().decode(SongContentFeatureConfiguration.self, from: data),
+              let configuration = try? JSONDecoder().decode(AppAgentRemoteConfiguration.self, from: data),
               configuration.agentManagementEnabled == true else { return nil }
         return configuration.agents?[identifier]
     }
@@ -81,14 +82,14 @@ actor SongContentConfigurationStore {
         return Date().timeIntervalSince(fetchedAt) < TimeInterval(max(30, cached.cacheMaxAgeSeconds))
     }
 
-    private func persist(_ configuration: SongContentFeatureConfiguration) {
+    private func persist(_ configuration: AppAgentRemoteConfiguration) {
         guard let data = try? JSONEncoder().encode(configuration) else { return }
         defaults.set(data, forKey: Keys.payload)
         defaults.set(fetchedAt, forKey: Keys.fetchedAt)
     }
 
     private func synchronizeAudioAgentSkills(
-        from configuration: SongContentFeatureConfiguration,
+        from configuration: AppAgentRemoteConfiguration,
         source: MonoAudioAgentSkillConfigurationSource
     ) async {
         let equalizer = configuration.agentManagementEnabled == true

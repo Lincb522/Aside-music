@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 /// 为 SwiftUI `TabView` 提供接近 Apple Music 的原生底部导航：
-/// 选中状态只通过填充图标、强调色和字重表达，不再叠加胶囊选中底；
+/// 选中状态只通过强调色和字重表达，图标内容保持稳定，不再叠加胶囊选中底；
 /// iOS 26 保留系统 Liquid Glass，iOS 16–25 使用贴近系统背景的音乐应用栏材质。
 @MainActor
 struct SystemTabBarAppearanceBridge: UIViewControllerRepresentable {
@@ -58,10 +58,15 @@ final class SystemTabBarAppearanceController: UIViewController {
     }
 
     func update(accent: UIColor, colorScheme: ColorScheme, revision: Int) {
+        let appearanceInputsChanged = !self.accent.isEqual(accent)
+            || self.colorScheme != colorScheme
+            || self.revision != revision
+        guard appearanceInputsChanged else { return }
+
         self.accent = accent
         self.colorScheme = colorScheme
         self.revision = revision
-        scheduleConfiguration(force: true)
+        scheduleConfiguration(force: false)
     }
 
     private func scheduleConfiguration(force: Bool) {

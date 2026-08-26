@@ -130,6 +130,11 @@ final class AudioSessionCoordinator {
     private var routeChangeResumeWorkItem: DispatchWorkItem?
     /// Debounced renderer liveness check after Bluetooth/audio-route changes.
     private var audioOutputRecoveryTask: Task<Void, Never>?
+    private var stalledOutputRecoveryTask: Task<Void, Never>?
+    private var observedPlaybackSessionID: Int?
+    private var lastAudibleDuration: TimeInterval = 0
+    private var lastAudibleAdvanceAt = Date()
+    private var zeroEnvelopeDetectedAt: Date?
     /// 自己调用 setCategory / setActive 后系统也会回送 categoryChange。
     /// 这段窗口内若输出路由没有变化，不再把回声当成外部路由重建。
     private var selfManagedSessionMutationDeadline: Date = .distantPast
@@ -771,6 +776,9 @@ final class AudioSessionCoordinator {
         routeChangeResumeWorkItem = nil
         audioOutputRecoveryTask?.cancel()
         audioOutputRecoveryTask = nil
+        stalledOutputRecoveryTask?.cancel()
+        stalledOutputRecoveryTask = nil
+        resetPlaybackOutputLiveness()
     }
 
     // MARK: - 假播放输出修复
@@ -808,6 +816,170 @@ final class AudioSessionCoordinator {
                   !self.player.streamPlayer.isAudioOutputRunning else { return }
             _ = await self.recoverUnavailableAudioOutput(reason: reason)
         }
+    }
+
+    func observePlaybackOutputLiveness(now: Date = Date()) {
+        if observedPlaybackSessionID != player.playbackSessionId {
+            observedPlaybackSessionID = player.playbackSessionId
+            lastAudibleDuration = player.streamPlayer.totalAudiblePlaybackDuration
+            lastAudibleAdvanceAt = now
+            zeroEnvelopeDetectedAt = nil
+        }
+
+        guard player.currentSong != nil,
+              !player.appleMusicPlayback.isActive,
+              player.isPlaying,
+              !player.isLoading,
+              !player.isSeeking,
+              !player.needsPlaybackRestoration,
+              !isUnderInterruption,
+              !wasPlayingBeforeInterruption,
+              player.streamPlayer.state == .playing,
+              !player.streamPlayer.isDrainingEndOfStream,
+              !player.streamPlayer.isTrackTransitionNotificationDeferred else {
+            resetPlaybackOutputLiveness(now: now)
+            return
+        }
+
+        let duration = player.effectivePlaybackDuration
+        if duration > 0, duration - player.currentTime <= 3 {
+            resetPlaybackOutputLiveness(now: now)
+            return
+        }
+
+        let outputVolume = player.streamPlayer.outputVolume
+        if !player.sleepAndFade.isPlaybackFadeActive,
+           outputVolume <= 0.01 || player.streamPlayer.duckingVolume <= 0.01 {
+            if let zeroEnvelopeDetectedAt,
+               now.timeIntervalSince(zeroEnvelopeDetectedAt) >= 1.25 {
+                AppLogger.error(
+                    "播放仍在进行但输出包络保持静音，恢复混音台音量",
+                    step: "playback.output-envelope-repair"
+                )
+                player.cancelPlaybackFade(restoreVolume: true)
+                player.streamPlayer.duckingVolume = 1.0
+                self.zeroEnvelopeDetectedAt = nil
+            } else if zeroEnvelopeDetectedAt == nil {
+                zeroEnvelopeDetectedAt = now
+            }
+            return
+        }
+        zeroEnvelopeDetectedAt = nil
+
+        let audibleDuration = player.streamPlayer.totalAudiblePlaybackDuration
+        if audibleDuration > lastAudibleDuration + 0.02 {
+            lastAudibleDuration = audibleDuration
+            lastAudibleAdvanceAt = now
+            return
+        }
+
+        guard player.streamPlayer.isAudioOutputRunning else {
+            scheduleAudioOutputRecoveryIfNeeded(reason: "playback liveness")
+            return
+        }
+        guard now.timeIntervalSince(lastAudibleAdvanceAt) >= 6,
+              stalledOutputRecoveryTask == nil else { return }
+
+        let expectedSong = player.currentSong
+        stalledOutputRecoveryTask = Task { @MainActor [weak self] in
+            guard let self, let expectedSong else { return }
+            defer { self.stalledOutputRecoveryTask = nil }
+            await self.recoverStalledAudioOutput(song: expectedSong)
+        }
+    }
+
+    private func resetPlaybackOutputLiveness(now: Date = Date()) {
+        observedPlaybackSessionID = player.playbackSessionId
+        lastAudibleDuration = player.streamPlayer.totalAudiblePlaybackDuration
+        lastAudibleAdvanceAt = now
+        zeroEnvelopeDetectedAt = nil
+    }
+
+    private func recoverStalledAudioOutput(song: Song) async {
+        let initialSessionID = player.playbackSessionId
+        let initialAudibleDuration = player.streamPlayer.totalAudiblePlaybackDuration
+        AppLogger.error(
+            "播放进度仍在推进但 PCM 输出已停止，开始恢复音频管线",
+            step: "playback.audible-stall"
+        )
+
+        player.cancelPlaybackFade(restoreVolume: true)
+        lastAppliedAudioSessionOptions = nil
+        guard await activateAudioSessionForPlaybackChecked(reason: "recover audible stall") else {
+            pauseAndReleaseStalledPlayback(song: song, reason: "audio session activation failed")
+            return
+        }
+        guard player.playbackSessionId == initialSessionID,
+              player.matchesPlaybackTarget(player.currentSong, expected: song),
+              player.isPlaying else { return }
+
+        _ = player.streamPlayer.pauseAudioOutputImmediately()
+        player.streamPlayer.outputVolume = 0
+        if player.streamPlayer.resume() {
+            player.beginPlaybackFade(to: 1, duration: 0.45)
+        }
+
+        do {
+            try await Task.sleep(for: .seconds(2))
+        } catch {
+            return
+        }
+        guard !Task.isCancelled,
+              player.matchesPlaybackTarget(player.currentSong, expected: song),
+              player.isPlaying else { return }
+        if player.streamPlayer.totalAudiblePlaybackDuration >= initialAudibleDuration + 0.3 {
+            resetPlaybackOutputLiveness()
+            AppLogger.info("音频输出已原位恢复", step: "playback.audible-stall-recovered")
+            return
+        }
+
+        let resumeTime = max(player.currentTime, 0)
+        player.loadAndPlay(
+            song: song,
+            startTime: resumeTime,
+            fadeInDuration: 0.65,
+            fadeInReason: "audible output recovery",
+            preserveRetryBudget: true
+        )
+        let rebuildSessionID = player.playbackSessionId
+        let rebuildBaseline = player.streamPlayer.totalAudiblePlaybackDuration
+
+        do {
+            try await Task.sleep(for: .seconds(12))
+        } catch {
+            return
+        }
+        guard !Task.isCancelled,
+              player.playbackSessionId == rebuildSessionID,
+              player.matchesPlaybackTarget(player.currentSong, expected: song),
+              player.isPlaying || player.isLoading else { return }
+        if player.streamPlayer.totalAudiblePlaybackDuration >= rebuildBaseline + 0.5 {
+            resetPlaybackOutputLiveness()
+            AppLogger.info("音频管线重建后已恢复输出", step: "playback.audible-stall-rebuilt")
+            return
+        }
+
+        AppLogger.error(
+            "音频输出恢复失败，暂停播放并释放系统音频会话",
+            step: "playback.audible-stall-release-session"
+        )
+        pauseAndReleaseStalledPlayback(song: song, reason: "recovery budget exhausted")
+    }
+
+    private func pauseAndReleaseStalledPlayback(song: Song, reason: String) {
+        guard player.matchesPlaybackTarget(player.currentSong, expected: song),
+              player.isPlaying || player.isLoading else { return }
+        player.invalidateInFlightPlaybackWork(reason: "audible output recovery exhausted")
+        player.cancelPlaybackFade(restoreVolume: true)
+        _ = player.streamPlayer.pauseAudioOutputImmediately()
+        player.isPlaying = false
+        player.isLoading = false
+        player.lastPausedAt = Date()
+        wasPlayingBeforeInterruption = false
+        player.refreshPlaybackSurfaceState()
+        player.saveState()
+        deactivateAudioSession(reason: "audible output recovery: \(reason)")
+        resetPlaybackOutputLiveness()
     }
 
     /// Rebuilds an invalidated output in place when possible. If iOS refuses the

@@ -205,8 +205,6 @@ struct MonoIcon: View {
     /// 需要参与渐变遮罩或动态前景色计算时，强制把彩色图标包按模板渲染。
     /// 默认关闭，避免改变其他页面原有的彩色图标外观。
     var forceTemplateRendering: Bool = false
-    /// PulseBloom 根据 Tab 强调色选择结构线明暗，而不是根据图标前景色判断。
-    var pulseBloomContrastColor: Color? = nil
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.monoIconDarkArtworkSurface) private var isDarkArtworkSurface
     @Environment(\.monoIconPulseBloomArtwork) private var pulseBloomArtworkId
@@ -317,13 +315,16 @@ struct MonoIcon: View {
 
     private var usesLightAdaptiveOutline: Bool {
         if iconSet == .pulseBloom {
-            if let pulseBloomContrastColor {
-                return pulseBloomContrastColorPrefersLightOutline(pulseBloomContrastColor)
-            }
-            if isPrimaryTabNavigationIcon {
-                let tabAccent: Color = colorScheme == .dark ? .white : .monoAccent
-                return pulseBloomContrastColorPrefersLightOutline(tabAccent)
-            }
+            // Pulse Bloom 的明暗资源首先跟随真实界面外观，而不是图标 tint。
+            // 深色模式固定使用白色结构线，避免语义色解析成深色后误选黑图。
+            if isDarkArtworkSurface || colorScheme == .dark { return true }
+
+            // 主导航位于随系统外观变化的 Tab 表面。浅色模式必须使用黑色
+            // 结构线，不能再根据强调色亮度误选白色版本。
+            if isPrimaryTabNavigationIcon { return false }
+
+            // 浅色模式中的封面舞台、视频等局部深色表面仍可通过明确的白色
+            // 前景色自动选中白边资源；显式 surface 修饰器的优先级更高。
             return requestedColorPrefersLightArtwork
         }
         if isDarkArtworkSurface { return true }
@@ -341,24 +342,6 @@ struct MonoIcon: View {
         default:
             return false
         }
-    }
-
-    private func pulseBloomContrastColorPrefersLightOutline(_ contrastColor: Color) -> Bool {
-        let interfaceStyle: UIUserInterfaceStyle = colorScheme == .dark ? .dark : .light
-        let resolvedColor = UIColor(contrastColor).resolvedColor(
-            with: UITraitCollection(userInterfaceStyle: interfaceStyle)
-        )
-
-        var red: CGFloat = 0
-        var green: CGFloat = 0
-        var blue: CGFloat = 0
-        var alpha: CGFloat = 1
-        guard resolvedColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else {
-            return false
-        }
-
-        let luminance = (0.2126 * red) + (0.7152 * green) + (0.0722 * blue)
-        return luminance < 0.56
     }
 
     /// Pulse Bloom is monochrome at its structural edge, so the requested
@@ -766,7 +749,10 @@ extension MonoIcon.IconType {
 }
 
 extension AppInterfaceIconSet {
-    func image(for icon: MonoIcon.IconType) -> UIImage {
+    func image(
+        for icon: MonoIcon.IconType,
+        prefersLightOutline: Bool = UITraitCollection.current.userInterfaceStyle == .dark
+    ) -> UIImage {
         switch self {
         case .hicon:
             return icon.hiconImage
@@ -791,7 +777,7 @@ extension AppInterfaceIconSet {
         case .minimalWhiteIcons:
             return icon.minimalWhiteIconImage
         case .pulseBloom:
-            return icon.pulseBloomImage(prefersLightOutline: false)
+            return icon.pulseBloomImage(prefersLightOutline: prefersLightOutline)
         }
     }
 }

@@ -110,7 +110,7 @@ final class AIListeningInsightAgent: ObservableObject {
         guard input.totalPlays > 0 else {
             throw AIEqualizerError.sampleUnavailable
         }
-        let managedAgent = await SongContentConfigurationStore.shared.agentConfiguration(.listeningInsight)
+        let managedAgent = await AppAgentConfigurationStore.shared.agentConfiguration(.listeningInsight)
         if let managedAgent, !managedAgent.enabled {
             throw AIEqualizerError.modelUnavailable
         }
@@ -532,7 +532,7 @@ final class AIListeningInsightAgent: ObservableObject {
 
     private func versionedCacheKey(
         for input: AIListeningInsightInput,
-        managedAgent: AppAgentConfiguration? = SongContentConfigurationStore.cachedAgentConfiguration(.listeningInsight)
+        managedAgent: AppAgentConfiguration? = AppAgentConfigurationStore.cachedAgentConfiguration(.listeningInsight)
     ) -> String {
         "\(managedAgent?.promptVersion ?? AIListeningInsightPrompt.version)|\(input.cacheKey)"
     }

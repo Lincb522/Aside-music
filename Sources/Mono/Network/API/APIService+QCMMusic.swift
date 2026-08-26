@@ -31,6 +31,232 @@ extension APIService {
     }
 }
 
+// MARK: - qcm歌曲平台信息
+
+extension APIService {
+    /// 直接读取 qcm 的歌曲详情、制作信息、标签与音质，不经过 Mono AI。
+    func fetchQQSongPlatformDetail(song: Song) -> AnyPublisher<PlatformSongDetail, Error> {
+        asyncToPublisher { [weak self] in
+            guard let self else { return .empty }
+            let value = song.qqMid?.nilIfBlank ?? String(song.id)
+            var detail = PlatformSongDetail.empty
+
+            do {
+                let rawDetail = try await self.withContentSession { client in
+                    try await client.songDetail(value: value)
+                }
+                detail.releaseDate = Self.qqReleaseDate(in: rawDetail)
+            } catch {
+                AppLogger.debug("[QQMusic] 歌曲详情不可用: \(error)")
+            }
+
+            do {
+                let rawCredits = try await self.withContentSession { client in
+                    try await client.songProducer(value: value)
+                }
+                let lines = Self.qqCreditLines(in: rawCredits)
+                if !lines.isEmpty {
+                    detail.sections.append(
+                        PlatformSongSection(
+                            id: "qcm-credits",
+                            title: String(localized: "song_detail_credits"),
+                            body: lines.joined(separator: "\n")
+                        )
+                    )
+                }
+            } catch {
+                AppLogger.debug("[QQMusic] 歌曲制作信息不可用: \(error)")
+            }
+
+            do {
+                let rawLabels = try await self.withContentSession { client in
+                    try await client.songLabels(songId: song.id)
+                }
+                let labels = Self.qqLabelTexts(in: rawLabels)
+                if !labels.isEmpty {
+                    detail.sections.append(
+                        PlatformSongSection(
+                            id: "qcm-tags",
+                            title: String(localized: "song_detail_tags"),
+                            body: labels.joined(separator: " · ")
+                        )
+                    )
+                }
+            } catch {
+                AppLogger.debug("[QQMusic] 歌曲标签不可用: \(error)")
+            }
+
+            do {
+                let rawQualities = try await self.withContentSession { client in
+                    try await client.songQualities(mid: value)
+                }
+                let qualities = Self.qqQualityRows(in: rawQualities)
+                if let highest = qualities.first?.name {
+                    detail.attributes.append(
+                        PlatformSongAttribute(
+                            id: "qcm-quality",
+                            label: String(localized: "song_detail_audio_quality"),
+                            value: highest
+                        )
+                    )
+                }
+                if !qualities.isEmpty {
+                    detail.sections.append(
+                        PlatformSongSection(
+                            id: "qcm-qualities",
+                            title: String(localized: "song_detail_available_qualities"),
+                            body: qualities.map(\.description).joined(separator: "\n")
+                        )
+                    )
+                }
+            } catch {
+                AppLogger.debug("[QQMusic] 歌曲音质不可用: \(error)")
+            }
+
+            return detail
+        }
+    }
+
+    private struct QQPlatformQualityRow {
+        let name: String
+        let description: String
+    }
+
+    private static func qqQualityRows(in payload: JSON) -> [QQPlatformQualityRow] {
+        let values = payload["qualities"]?.arrayValue ?? payload.arrayValue ?? []
+        return values.compactMap { item in
+            let name = item["name"]?.stringValue?.nilIfBlank
+                ?? item["code"]?.stringValue?.nilIfBlank
+            guard let name else { return nil }
+            let bitrate = item["bitrate"]?.intValue ?? 0
+            let size = item["size"]?.intValue ?? 0
+            var details: [String] = []
+            if bitrate > 0 { details.append("\(bitrate / 1_000)kbps") }
+            if size > 0 {
+                details.append(ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file))
+            }
+            let suffix = details.isEmpty ? "" : " · \(details.joined(separator: " · "))"
+            return QQPlatformQualityRow(name: name, description: "\(name)\(suffix)")
+        }
+    }
+
+    private static func qqReleaseDate(in payload: JSON) -> String? {
+        let raw = qqFirstText(
+            in: payload,
+            keys: ["time_public", "publish_date", "publishdate", "pub_time", "release_date", "releasedate"]
+        )
+        guard let raw = raw?.nilIfBlank else { return nil }
+        if let timestamp = Double(raw), timestamp > 100_000_000 {
+            let seconds = timestamp > 10_000_000_000 ? timestamp / 1_000 : timestamp
+            return Date(timeIntervalSince1970: seconds).formatted(date: .abbreviated, time: .omitted)
+        }
+        return raw
+    }
+
+    private static func qqCreditLines(in payload: [JSON]) -> [String] {
+        var lines: [String] = []
+        for item in payload {
+            guard let object = item.objectValue else { continue }
+            let role = qqDirectText(
+                in: object,
+                keys: ["role", "type", "title", "job", "key", "label"]
+            )
+            let names = qqPreferredTexts(
+                in: item,
+                keys: ["name", "value", "content", "singer", "singers", "artist", "artists", "staff", "producer", "person"]
+            )
+            .filter { $0 != role }
+            let uniqueNames = names.reduce(into: [String]()) { result, name in
+                if !result.contains(name) { result.append(name) }
+            }
+            guard !uniqueNames.isEmpty else { continue }
+            let line = role.map { "\($0)：\(uniqueNames.joined(separator: "、"))" }
+                ?? uniqueNames.joined(separator: "、")
+            if !lines.contains(line) { lines.append(line) }
+        }
+        return lines
+    }
+
+    private static func qqLabelTexts(in payload: [JSON]) -> [String] {
+        var labels: [String] = []
+        for item in payload {
+            labels.append(contentsOf: qqPreferredTexts(
+                in: item,
+                keys: ["label", "tag", "name", "title", "value"]
+            ))
+        }
+        return labels.reduce(into: []) { result, value in
+            guard value.count <= 40, !result.contains(value) else { return }
+            result.append(value)
+        }
+    }
+
+    private static func qqFirstText(in payload: JSON, keys: Set<String>) -> String? {
+        switch payload {
+        case .object(let object):
+            if let direct = qqDirectText(in: object, keys: keys) { return direct }
+            for value in object.values {
+                if let nested = qqFirstText(in: value, keys: keys) { return nested }
+            }
+        case .array(let values):
+            for value in values {
+                if let nested = qqFirstText(in: value, keys: keys) { return nested }
+            }
+        default:
+            break
+        }
+        return nil
+    }
+
+    private static func qqDirectText(in object: [String: JSON], keys: Set<String>) -> String? {
+        for (key, value) in object where keys.contains(key.lowercased()) {
+            if let text = value.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines),
+               qqIsReadablePlatformText(text) {
+                return text
+            }
+        }
+        return nil
+    }
+
+    private static func qqPreferredTexts(in payload: JSON, keys: Set<String>) -> [String] {
+        var values: [String] = []
+        func collect(_ value: JSON, acceptsScalar: Bool) {
+            switch value {
+            case .string(let text):
+                let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                if acceptsScalar, qqIsReadablePlatformText(normalized) { values.append(normalized) }
+            case .array(let array):
+                array.forEach { collect($0, acceptsScalar: acceptsScalar) }
+            case .object(let object):
+                for (key, nested) in object {
+                    collect(nested, acceptsScalar: acceptsScalar || keys.contains(key.lowercased()))
+                }
+            default:
+                break
+            }
+        }
+        collect(payload, acceptsScalar: false)
+        return values
+    }
+
+    private static func qqIsReadablePlatformText(_ value: String) -> Bool {
+        guard !value.isEmpty,
+              value.count <= 160,
+              value.range(of: #"^https?://"#, options: .regularExpression) == nil,
+              value.range(of: #"^\d+$"#, options: .regularExpression) == nil else {
+            return false
+        }
+        return true
+    }
+}
+
+private extension String {
+    var nilIfBlank: String? {
+        let value = trimmingCharacters(in: .whitespacesAndNewlines)
+        return value.isEmpty ? nil : value
+    }
+}
+
 // MARK: - qcm搜索
 
 extension APIService {

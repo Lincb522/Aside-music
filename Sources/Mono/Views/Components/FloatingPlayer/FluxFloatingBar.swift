@@ -147,9 +147,6 @@ struct FluxFloatingBar: View {
                         panelSecondaryColor: Color.monoTextPrimary.opacity(0.78),
                         fluidPrimaryColor: fluidPrimaryColor,
                         fluidSecondaryColor: fluidPrimaryColor.opacity(0.82),
-                        pulseBloomAccentColor: colorScheme == .dark
-                            ? .white
-                            : (palette.first ?? Color.monoAccent),
                         fluidProgress: fluidProgress
                     ) { tab in
                         selectTab(tab)
@@ -494,10 +491,7 @@ struct FluxFloatingBar: View {
                 size: size,
                 color: panelColor,
                 lineWidth: lineWidth,
-                normalizesBitmapScale: true,
-                pulseBloomContrastColor: colorScheme == .dark
-                    ? .white
-                    : (palette.first ?? Color.monoAccent)
+                normalizesBitmapScale: true
             )
         } else {
             ZStack {
@@ -676,14 +670,12 @@ private struct FluxTabContent: View {
     let panelSecondaryColor: Color
     let fluidPrimaryColor: Color
     let fluidSecondaryColor: Color
-    let pulseBloomAccentColor: Color
     let fluidProgress: Double
     let onSelect: (Tab) -> Void
 
     @ObservedObject private var onlineAccess = OnlineAccessManager.shared
     @AppStorage(AppConfig.StorageKeys.interfaceIconSet) private var iconSetRaw: String = AppInterfaceIconSet.hicon.rawValue
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.colorScheme) private var colorScheme
     @Namespace private var selectionNamespace
 
     private var usesPulseBloomArtwork: Bool {
@@ -810,8 +802,7 @@ private struct FluxTabContent: View {
                 size: size,
                 color: panelColor,
                 lineWidth: lineWidth,
-                normalizesBitmapScale: true,
-                pulseBloomContrastColor: pulseBloomAccentColor
+                normalizesBitmapScale: true
             )
                 .frame(width: size, height: size)
         } else {

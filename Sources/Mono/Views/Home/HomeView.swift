@@ -65,7 +65,8 @@ struct HomeView: View {
                     scrollBody
                 }
             }
-            .onAppear {
+            .task {
+                guard await MainTabActivationGate.waitUntilSettled(.home) else { return }
                 viewModel.ensureHomeDataLoaded(reason: "home appear")
                 if !appeared {
                     withAnimation(.spring(response: 0.6, dampingFraction: 0.85).delay(0.05)) {
@@ -130,7 +131,8 @@ struct HomeView: View {
                     minimalWhiteScrollBody
                 }
             }
-            .onAppear {
+            .task {
+                guard await MainTabActivationGate.waitUntilSettled(.home) else { return }
                 viewModel.ensureHomeDataLoaded(reason: "minimal white home appear")
                 appeared = true
             }

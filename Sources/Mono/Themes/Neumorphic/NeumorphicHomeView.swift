@@ -65,7 +65,8 @@ struct NeumorphicHomeView: View {
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
-            .onAppear {
+            .task {
+                guard await MainTabActivationGate.waitUntilSettled(.home) else { return }
                 viewModel.ensureHomeDataLoaded(reason: "neumorphic home appear")
                 if hitokotoEnabled,
                    viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false
@@ -339,12 +340,14 @@ struct NeumorphicHomeView: View {
             .tabViewStyle(.page(indexDisplayMode: .never))
             .frame(height: 164)
             .onReceive(bannerTimer) { _ in
+                guard MainTabActivationGate.isSettled(.home) else { return }
                 guard banners.count > 1 else { return }
                 withAnimation(.spring(response: 0.55, dampingFraction: 0.88)) {
                     bannerIndex = (bannerIndex + 1) % banners.count
                 }
             }
             .onChange(of: viewModel.banners.count) { _, _ in
+                guard MainTabActivationGate.isSettled(.home) else { return }
                 if bannerIndex >= banners.count {
                     bannerIndex = 0
                 }
@@ -854,13 +857,22 @@ private struct NeumorphicFeaturedDial: View {
                 .overlay(Circle().fill(NeumorphicStyle.inkMuted.opacity(0.18)).frame(width: 7, height: 7))
         }
         .frame(maxWidth: .infinity)
+        .task {
+            guard await MainTabActivationGate.waitUntilSettled(.home) else { return }
+            currentSong = PlayerManager.shared.currentSong
+            historyFirstSong = PlayerManager.shared.history.first
+            isPlaying = PlayerManager.shared.isPlaying
+        }
         .onReceive(PlayerManager.shared.$currentSong) { song in
+            guard MainTabActivationGate.isSettled(.home) else { return }
             currentSong = song
         }
         .onReceive(PlayerManager.shared.$history.map { $0.first }.removeDuplicates { $0?.id == $1?.id }) { song in
+            guard MainTabActivationGate.isSettled(.home) else { return }
             historyFirstSong = song
         }
         .onReceive(PlayerManager.shared.$isPlaying.removeDuplicates()) { isPlaying in
+            guard MainTabActivationGate.isSettled(.home) else { return }
             self.isPlaying = isPlaying
         }
     }
@@ -923,13 +935,22 @@ private struct NeumorphicFeaturedSongButton: View {
                 .buttonStyle(MonoBouncingButtonStyle(scale: 0.97))
             }
         }
+        .task {
+            guard await MainTabActivationGate.waitUntilSettled(.home) else { return }
+            currentSong = PlayerManager.shared.currentSong
+            historyFirstSong = PlayerManager.shared.history.first
+            isPlaying = PlayerManager.shared.isPlaying
+        }
         .onReceive(PlayerManager.shared.$currentSong) { song in
+            guard MainTabActivationGate.isSettled(.home) else { return }
             currentSong = song
         }
         .onReceive(PlayerManager.shared.$history.map { $0.first }.removeDuplicates { $0?.id == $1?.id }) { song in
+            guard MainTabActivationGate.isSettled(.home) else { return }
             historyFirstSong = song
         }
         .onReceive(PlayerManager.shared.$isPlaying.removeDuplicates()) { isPlaying in
+            guard MainTabActivationGate.isSettled(.home) else { return }
             self.isPlaying = isPlaying
         }
     }
@@ -1103,10 +1124,17 @@ private struct NeumorphicHomeSongRow: View {
             .background(NeumorphicSurfaceBackground(cornerRadius: 19, elevated: false, pressed: !isPlaying, tint: isPlaying ? NeumorphicStyle.accent.opacity(0.16) : NeumorphicStyle.surface, lightweight: true))
         }
         .buttonStyle(.plain)
+        .task {
+            guard await MainTabActivationGate.waitUntilSettled(.home) else { return }
+            currentSongID = PlayerManager.shared.currentSong?.id
+            playerIsPlaying = PlayerManager.shared.isPlaying
+        }
         .onReceive(PlayerManager.shared.$currentSong.map { $0?.id }.removeDuplicates()) { songID in
+            guard MainTabActivationGate.isSettled(.home) else { return }
             currentSongID = songID
         }
         .onReceive(PlayerManager.shared.$isPlaying.removeDuplicates()) { isPlaying in
+            guard MainTabActivationGate.isSettled(.home) else { return }
             playerIsPlaying = isPlaying
         }
     }

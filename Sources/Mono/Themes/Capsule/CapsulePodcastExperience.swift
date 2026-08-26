@@ -35,8 +35,8 @@ struct CapsulePodcastExperience: View {
         .fullScreenCover(item: $selectedBroadcastChannel) { channel in
             BroadcastPlayerView(channel: channel)
         }
-        .onAppear {
-            viewModel.ensureDataLoaded(reason: "capsule podcast appear")
+        .task {
+            await viewModel.ensureDataLoadedAfterTabTransition(reason: "capsule podcast appear")
         }
     }
 

@@ -115,7 +115,7 @@ enum MonoLegalDocument: String, CaseIterable, Identifiable {
                 MonoLegalSection(
                     title: "AI 与音频处理",
                     paragraphs: [
-                        "Mono Audio Agent、音乐幕后和听歌报告中的 AI 内容由模型根据歌曲信息、音频特征或收听数据生成，仅供参考，结果可能不准确、不完整或不适合当前设备与听音环境。",
+                        "Mono Audio Agent 和听歌报告中的 AI 内容由模型根据歌曲信息、音频特征或收听数据生成，仅供参考，结果可能不准确、不完整或不适合当前设备与听音环境。",
                         "你可以关闭智能调音、重新分析、切换方案或恢复原声。请避免在高音量下长时间试听或频繁切换音效。"
                     ]
                 ),
@@ -154,7 +154,7 @@ enum MonoLegalDocument: String, CaseIterable, Identifiable {
                 MonoLegalSection(
                     title: "AI 功能",
                     paragraphs: [
-                        "使用智能调音、音乐幕后或听歌报告 AI 分析时，Mono 会向配置的 AI 服务发送歌曲信息、必要的歌词片段、输出设备类型、音频测量特征、调音设置、聚合听歌统计或内容请求。",
+                        "使用智能调音或听歌报告 AI 分析时，Mono 会向配置的 AI 服务发送歌曲信息、必要的歌词片段、输出设备类型、音频测量特征、调音设置或聚合听歌统计。",
                         "智能调音发送的是频谱、响度、动态、节奏和声场等数值特征，不上传采样得到的原始音频。AI 服务由 DengDeng AI 或开发者配置的兼容服务提供。"
                     ]
                 ),
@@ -206,7 +206,7 @@ enum MonoLegalDocument: String, CaseIterable, Identifiable {
                 MonoLegalSection(
                     title: "AI 与音效",
                     paragraphs: [
-                        "AI 调音、音乐幕后和听歌报告不构成专业录音、母带、听力保护或事实核验意见。不同设备、音量和环境会产生不同结果。",
+                        "AI 调音和听歌报告不构成专业录音、母带、听力保护或事实核验意见。不同设备、音量和环境会产生不同结果。",
                         "请保持合理音量；出现不适、爆音或异常时，应立即停止使用相关音效并恢复原声。"
                     ]
                 ),

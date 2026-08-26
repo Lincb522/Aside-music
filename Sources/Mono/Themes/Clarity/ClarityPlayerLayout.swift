@@ -19,7 +19,8 @@ struct ClarityPlayerLayout: View {
             let metrics = ClarityPlayerMetrics(size: proxy.size)
 
             ZStack {
-                ClarityPlayerBackdrop()
+                ClarityPlayerBackdrop(coverURL: player.currentSong?.coverUrl)
+                    .equatable()
 
                 VStack(spacing: 0) {
                     toolbar
@@ -394,16 +395,20 @@ struct ClarityPlayerLayout: View {
 /// The cover wash is deliberately isolated from the playback clock. A progress
 /// tick now invalidates only `ClarityPlaybackProgress`, never this full-screen
 /// blur/Canvas subtree.
-private struct ClarityPlayerBackdrop: View {
-    @ObservedObject private var player = PlayerManager.shared
+private struct ClarityPlayerBackdrop: View, Equatable {
+    let coverURL: URL?
     @ObservedObject private var settings = SettingsManager.shared
+
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.coverURL == rhs.coverURL
+    }
 
     var body: some View {
         GeometryReader { proxy in
             ZStack {
                 ClarityBackdrop(context: .player)
 
-                if settings.coverBgPlayer, let cover = player.currentSong?.coverUrl {
+                if settings.coverBgPlayer, let cover = coverURL {
                     CachedAsyncImage(
                         // A 54pt blur contains no visible 1200px detail. Decode a
                         // compact source and let the compositor scale the static

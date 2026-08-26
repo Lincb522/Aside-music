@@ -21,10 +21,14 @@ struct ClarityProfileView: View {
                     .frame(maxWidth: .infinity)
                 }
                 .scrollIndicators(.hidden)
+                .themeRenderScrollLayer()
             }
             .toolbar(.hidden, for: .navigationBar)
         }
-        .onAppear { home.ensureHomeDataLoaded(reason: "clarity profile") }
+        .task {
+            guard await MainTabActivationGate.waitUntilSettled(.profile) else { return }
+            home.ensureHomeDataLoaded(reason: "clarity profile")
+        }
     }
 
     private var titleBar: some View {

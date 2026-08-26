@@ -6,6 +6,7 @@ struct WelcomeView: View {
     @ObservedObject private var settings = SettingsManager.shared
 
     @Binding var isPresented: Bool
+    let onForceEnter: (WelcomeDiagnosticsContext) -> Void
     @AppStorage("isLoggedIn") private var isAppLoggedIn = false
 
     // 背景必须从首个 SwiftUI frame 就存在。若等待 onAppear 后再淡入，
@@ -27,12 +28,20 @@ struct WelcomeView: View {
     @State private var sceneOffset: CGFloat = 0
     @State private var sceneScale: CGFloat = 1
     @State private var isDismissing = false
+    @State private var showsForceEntryButton = false
     @State private var animationTask: Task<Void, Never>?
     @State private var preloadTask: Task<Void, Never>?
+    @State private var forceEntryTask: Task<Void, Never>?
+    @State private var welcomeStartedAt = Date()
+    @State private var preloadCompleted = false
+    @State private var isWaitingForInitialHomeContent = false
+    @State private var initialContentRetryCount = 0
 
     private enum Timing {
         static let preloadStartDelay: TimeInterval = 0.08
         static let dismissDelay: TimeInterval = 2.05
+        static let forceEntryDelay: TimeInterval = 7.0
+        static let initialContentWaitLimit: TimeInterval = 30.0
         static let initialContentPollInterval: TimeInterval = 0.12
         static let initialContentRetryInterval: TimeInterval = 2.0
     }
@@ -92,6 +101,31 @@ struct WelcomeView: View {
                     .opacity(footerOpacity)
             }
             .padding(.horizontal, 28)
+
+            if showsForceEntryButton, !isDismissing {
+                VStack {
+                    Spacer()
+
+                    Button(action: forceEnter) {
+                        Text(LocalizedStringKey("welcome_force_enter"))
+                            .font(.headline)
+                            .multilineTextAlignment(.center)
+                            .foregroundStyle(forceEntryForeground)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(
+                                forceEntryBackground,
+                                in: Capsule(style: .continuous)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .frame(maxWidth: 340)
+                }
+                .padding(.horizontal, 28)
+                .padding(.bottom, DeviceLayout.isPad ? 92 : 76)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                .zIndex(2)
+            }
         }
         .scaleEffect(sceneScale)
         .offset(y: sceneOffset)
@@ -101,6 +135,7 @@ struct WelcomeView: View {
         .onDisappear {
             animationTask?.cancel()
             preloadTask?.cancel()
+            forceEntryTask?.cancel()
         }
     }
 
@@ -848,9 +883,37 @@ struct WelcomeView: View {
         return .monoTextSecondary.opacity(0.62)
     }
 
+    private var forceEntryBackground: Color {
+        if ClarityStyle.isActive { return ClarityStyle.accent }
+        if MangaStyle.isActive { return MangaStyle.strokeInk }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.accent }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.accent }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+        if CapsuleStyle.isActive { return CapsuleStyle.accent }
+        if MujiStyle.isActive { return MujiStyle.clay }
+        return .monoIconBackground
+    }
+
+    private var forceEntryForeground: Color {
+        if ClarityStyle.isActive { return ClarityStyle.onAccent }
+        if MangaStyle.isActive { return MangaStyle.onStrokeInk }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.onAccent }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.onAccent }
+        if NeumorphicStyle.isActive { return Color(light: .white, dark: .black) }
+        if CapsuleStyle.isActive { return CapsuleStyle.onAccent }
+        if MujiStyle.isActive { return MujiStyle.onTint }
+        return .monoIconForeground
+    }
+
     private func startAnimation() {
         animationTask?.cancel()
+        forceEntryTask?.cancel()
         isDismissing = false
+        showsForceEntryButton = false
+        welcomeStartedAt = Date()
+        preloadCompleted = false
+        isWaitingForInitialHomeContent = false
+        initialContentRetryCount = 0
 
         backgroundOpacity = 1
         backgroundScale = (reduceMotion || PetWhiteStyle.isActive) ? 1 : 1.018
@@ -871,6 +934,18 @@ struct WelcomeView: View {
         preloadTask = Task(priority: .utility) {
             try? await sleep(seconds: Timing.preloadStartDelay)
             await loadDataInBackground(isLoggedIn: isLoggedIn)
+        }
+
+        forceEntryTask = Task { @MainActor in
+            do {
+                try await sleep(seconds: Timing.forceEntryDelay)
+                guard isPresented, !isDismissing else { return }
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.24)) {
+                    showsForceEntryButton = true
+                }
+            } catch {
+                return
+            }
         }
 
         animationTask = Task { @MainActor in
@@ -922,6 +997,8 @@ struct WelcomeView: View {
     }
 
     private func loadDataInBackground(isLoggedIn: Bool) async {
+        defer { preloadCompleted = true }
+
         await MainActor.run {
             _ = HomeViewModel.shared
             _ = PodcastViewModel.shared
@@ -968,9 +1045,23 @@ struct WelcomeView: View {
         }
         guard shouldWait else { return }
 
+        isWaitingForInitialHomeContent = true
+        defer { isWaitingForInitialHomeContent = false }
+
+        let waitStartedAt = Date()
         var lastRetry = Date.distantPast
         while true {
             if Task.isCancelled { return }
+
+            if Date().timeIntervalSince(waitStartedAt) >= Timing.initialContentWaitLimit {
+                AppLogger.warning(
+                    "[Welcome] Initial home content wait timed out",
+                    category: .interface,
+                    event: "welcome_content_wait_timeout",
+                    context: welcomeDiagnosticContext().logContext
+                )
+                return
+            }
 
             let isReady = await MainActor.run {
                 HomeViewModel.shared.reloadHomeCacheIfUseful(reason: "welcome before dismiss")
@@ -980,6 +1071,7 @@ struct WelcomeView: View {
 
             if Date().timeIntervalSince(lastRetry) >= Timing.initialContentRetryInterval {
                 lastRetry = Date()
+                initialContentRetryCount += 1
                 await MainActor.run {
                     if HomeViewModel.shared.isLoading {
                         HomeViewModel.shared.ensureHomeDataLoaded(reason: "welcome waiting for initial content")
@@ -996,6 +1088,8 @@ struct WelcomeView: View {
     private func dismissWelcome() {
         guard !isDismissing else { return }
         isDismissing = true
+        forceEntryTask?.cancel()
+        showsForceEntryButton = false
 
         let applyDismissState = {
             sceneOffset = -(ScreenInfo.mainScreenSize.height + DeviceLayout.safeAreaTop + DeviceLayout.safeAreaBottom + 80)
@@ -1022,6 +1116,38 @@ struct WelcomeView: View {
                 isPresented = false
             }
         }
+    }
+
+    private func forceEnter() {
+        guard !isDismissing else { return }
+
+        let context = welcomeDiagnosticContext()
+        AppLogger.warning(
+            "[Welcome] Force entry requested",
+            category: .interface,
+            event: "welcome_force_entry",
+            context: context.logContext
+        )
+        animationTask?.cancel()
+        preloadTask?.cancel()
+        forceEntryTask?.cancel()
+        onForceEnter(context)
+    }
+
+    private func welcomeDiagnosticContext() -> WelcomeDiagnosticsContext {
+        WelcomeDiagnosticsContext(
+            capturedAt: Date(),
+            elapsedSeconds: Date().timeIntervalSince(welcomeStartedAt),
+            themeID: settings.globalThemeId.rawValue,
+            isLoggedIn: isAppLoggedIn,
+            hasStoredToken: OnlineAccessManager.shared.hasStoredToken,
+            preloadCompleted: preloadCompleted,
+            isWaitingForInitialHomeContent: isWaitingForInitialHomeContent,
+            initialContentRetryCount: initialContentRetryCount,
+            homeIsLoading: HomeViewModel.shared.isLoading,
+            homeHasDisplayableContent: HomeViewModel.shared.hasDisplayableHomeContent,
+            reduceMotionEnabled: reduceMotion
+        )
     }
 
     private func sleep(seconds: TimeInterval) async throws {

@@ -2,24 +2,43 @@ import SwiftUI
 
 private struct MonoPageHeaderCollapseModifier: ViewModifier {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.themeRenderContext) private var renderContext
 
     @ViewBuilder
     func body(content: Content) -> some View {
         if #available(iOS 17.0, *), !reduceMotion {
-            content
-                .scrollTransition(
-                    .animated(.spring(response: 0.32, dampingFraction: 0.86)),
-                    axis: .vertical
-                ) { content, phase in
-                    content
-                        .scaleEffect(phase.isIdentity ? 1 : 0.92, anchor: .top)
-                        .opacity(phase.isIdentity ? 1 : 0.18)
-                        .offset(y: phase.isIdentity ? 0 : -12)
-                }
+            if renderContext.theme == .clarity {
+                // An animated spring is restarted as the scroll phase changes,
+                // which creates main-thread animation work on every gesture
+                // frame. The interactive curve preserves the same collapse,
+                // fade and offset while mapping them directly to scroll phase.
+                content
+                    .scrollTransition(
+                        .interactive(timingCurve: .easeOut),
+                        axis: .vertical
+                    ) { content, phase in
+                        content
+                            .scaleEffect(phase.isIdentity ? 1 : 0.92, anchor: .top)
+                            .opacity(phase.isIdentity ? 1 : 0.18)
+                            .offset(y: phase.isIdentity ? 0 : -12)
+                    }
+            } else {
+                content
+                    .scrollTransition(
+                        .animated(.spring(response: 0.32, dampingFraction: 0.86)),
+                        axis: .vertical
+                    ) { content, phase in
+                        content
+                            .scaleEffect(phase.isIdentity ? 1 : 0.92, anchor: .top)
+                            .opacity(phase.isIdentity ? 1 : 0.18)
+                            .offset(y: phase.isIdentity ? 0 : -12)
+                    }
+            }
         } else {
             content
         }
     }
+
 }
 
 extension View {

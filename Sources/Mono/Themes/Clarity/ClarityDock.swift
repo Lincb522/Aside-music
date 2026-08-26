@@ -5,7 +5,6 @@ import SwiftUI
 struct ClarityDock: View {
     @Binding var currentTab: Tab
     @ObservedObject private var playback = FloatingBarPlaybackModel.shared
-    @ObservedObject private var time = PlaybackTimePublisher.shared
     @State private var showsQueue = false
 
     var body: some View {
@@ -70,12 +69,7 @@ struct ClarityDock: View {
         .padding(.top, 8)
         .padding(.bottom, 7)
         .overlay(alignment: .bottom) {
-            GeometryReader { proxy in
-                let progress = time.duration > 0 ? min(max(time.currentTime / time.duration, 0), 1) : 0
-                Capsule()
-                    .fill(ClarityStyle.accent.opacity(0.78))
-                    .frame(width: proxy.size.width * progress, height: 2)
-            }
+            ClarityDockProgress()
             .frame(height: 2)
             .padding(.horizontal, 20)
         }
@@ -130,5 +124,22 @@ struct ClarityDock: View {
         case let .podcast(id): NotificationCenter.default.post(name: .init("OpenRadioPlayer"), object: id)
         case .normal: NotificationCenter.default.post(name: .init("OpenNormalPlayer"), object: nil)
         }
+    }
+}
+
+/// Keeps the playback clock out of the dock's membrane and navigation subtree.
+private struct ClarityDockProgress: View {
+    @ObservedObject private var time = PlaybackTimePublisher.shared
+
+    var body: some View {
+        GeometryReader { proxy in
+            let progress = time.duration > 0
+                ? min(max(time.currentTime / time.duration, 0), 1)
+                : 0
+            Capsule()
+                .fill(ClarityStyle.accent.opacity(0.78))
+                .frame(width: proxy.size.width * progress, height: 2)
+        }
+        .accessibilityHidden(true)
     }
 }

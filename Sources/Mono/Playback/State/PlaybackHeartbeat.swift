@@ -105,6 +105,7 @@ final class PlaybackHeartbeat {
            !player.streamPlayer.isAudioOutputRunning {
             player.audioSessionCoordinator.scheduleAudioOutputRecoveryIfNeeded(reason: "playback heartbeat")
         }
+        player.audioSessionCoordinator.observePlaybackOutputLiveness()
 
         if player.currentSong != nil {
             player.repairSystemPlaybackSurfacesIfNeeded(

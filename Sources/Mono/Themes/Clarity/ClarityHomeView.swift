@@ -34,14 +34,15 @@ struct ClarityHomeView: View {
             .fullScreenCover(isPresented: $showFM) { PersonalFMView() }
             .fullScreenCover(item: $bannerWebURL) { url in MonoWebView(url: url, title: nil) }
         }
-        .onAppear {
+        .task {
+            guard await MainTabActivationGate.waitUntilSettled(.home) else { return }
             model.ensureHomeDataLoaded(reason: "clarity home appear")
             if settings.hitokotoEnabled {
                 model.refreshHitokoto()
             }
         }
         .onChange(of: settings.hitokotoEnabled) { _, enabled in
-            if enabled {
+            if enabled, MainTabActivationGate.isSettled(.home) {
                 model.refreshHitokoto(force: true)
             }
         }
@@ -380,7 +381,7 @@ struct ClarityHomeView: View {
         case let .album(id): AlbumDetailView(albumId: id, albumName: nil, albumCoverUrl: nil).clarityDetailChrome()
         case .mv: MVDiscoverView().clarityDetailChrome()
         case .newSongs: NewSongExpressView().clarityDetailChrome()
-        case .meditation: MeditationModeView().clarityDetailChrome()
+        case .meditation: ClarityMeditationView().clarityDetailChrome(addsBackButton: true)
         }
     }
 }
@@ -420,6 +421,7 @@ private struct ClarityBannerCarousel: View {
             .tabViewStyle(.page(indexDisplayMode: .never))
             .aspectRatio(2.7, contentMode: .fit)
             .onReceive(timer) { _ in
+                guard MainTabActivationGate.isSettled(.home) else { return }
                 guard banners.count > 1 else { return }
                 if reduceMotion { index = (index + 1) % banners.count }
                 else { withAnimation(.easeInOut(duration: 0.32)) { index = (index + 1) % banners.count } }

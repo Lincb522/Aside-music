@@ -164,13 +164,18 @@ struct MonoAudioAgentSettingsView: View {
                 layout: layout
             )
             rowDivider
-            toggleRow(
-                icon: .history,
-                title: String(localized: "ai_learning_title"),
-                detail: String(localized: "audio_agent_learning_detail"),
-                isOn: $agent.adaptiveLearningEnabled,
-                layout: layout
-            )
+            NavigationLink {
+                MonoAudioAdaptiveLearningView(accent: accent)
+            } label: {
+                navigationRow(
+                    icon: .history,
+                    title: String(localized: "ai_learning_title"),
+                    detail: String(localized: "audio_agent_learning_detail"),
+                    value: learningStatusText,
+                    layout: layout
+                )
+            }
+            .buttonStyle(.plain)
             rowDivider
             toggleRow(
                 icon: .info,
@@ -461,6 +466,35 @@ struct MonoAudioAgentSettingsView: View {
         .frame(minHeight: layout.isCompactHeight ? 44 : 48)
     }
 
+    private func navigationRow(
+        icon: MonoIcon.IconType,
+        title: String,
+        detail: String,
+        value: String,
+        layout: MonoSoundCenterLayout
+    ) -> some View {
+        HStack(spacing: 12) {
+            MonoIcon(icon: icon, size: 17, color: accent).frame(width: 22)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.92))
+                Text(detail)
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.46))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 8)
+            Text(value)
+                .font(.system(size: 10.5, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.42))
+                .lineLimit(1)
+            MonoIcon(icon: .chevronRight, size: 11, color: .white.opacity(0.3))
+        }
+        .padding(.vertical, layout.isCompactHeight ? 11 : 13)
+        .contentShape(Rectangle())
+    }
+
     private func settingsSection<Content: View>(
         title: String,
         layout: MonoSoundCenterLayout,
@@ -516,6 +550,14 @@ struct MonoAudioAgentSettingsView: View {
         case .cached: return String(localized: "audio_agent_sync_cached")
         case .server: return String(localized: "audio_agent_sync_current")
         }
+    }
+
+    private var learningStatusText: String {
+        guard agent.adaptiveLearningEnabled else { return String(localized: "settings_off") }
+        return String(
+            format: String(localized: "audio_agent_learning_count_value"),
+            agent.learningEvidenceCount
+        )
     }
 
     private func refreshAccent() {

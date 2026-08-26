@@ -412,6 +412,24 @@ final class SettingsManager: ObservableObject {
 
         let storedRaw = defaults.string(forKey: GlobalThemeId.storageKey)
         let resolved = GlobalThemeId.resolvedStoredTheme(storedRaw ?? globalThemeIdRaw)
+
+        // 仅迁移通透主题过去的 SF Symbols 默认值。其他主题继续使用各自的
+        // 默认图标包，也不覆盖用户已经主动选择的其他图标包。
+        if !defaults.bool(forKey: AppConfig.StorageKeys.clarityPulseBloomDefaultMigrationV1) {
+            let storedIconSet = defaults.string(forKey: AppConfig.StorageKeys.interfaceIconSet)
+            if resolved == .clarity,
+               storedIconSet == nil || storedIconSet == AppInterfaceIconSet.sfSymbols.rawValue {
+                defaults.set(
+                    AppInterfaceIconSet.pulseBloom.rawValue,
+                    forKey: AppConfig.StorageKeys.interfaceIconSet
+                )
+            }
+            defaults.set(
+                true,
+                forKey: AppConfig.StorageKeys.clarityPulseBloomDefaultMigrationV1
+            )
+        }
+
         let hasStoredInterfaceIconSet = defaults.object(forKey: AppConfig.StorageKeys.interfaceIconSet) != nil
 
         if storedRaw == nil || resolved.rawValue != globalThemeIdRaw {

@@ -1362,7 +1362,9 @@ struct AIEqualizerLabView: View {
                 .accessibilityLabel(String(localized: "ai_lab_reanalyze"))
             }
 
-            if agent.adaptiveLearningEnabled, agent.isCurrentProposalApplied {
+            if agent.adaptiveLearningEnabled,
+               agent.learnsFromExplicitFeedback,
+               agent.isCurrentProposalApplied {
                 adaptiveLearningFeedbackRow
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }

@@ -29,7 +29,6 @@ struct ClarityFloatingBarFamily: View {
 private struct ClarityGalleryDeck: View {
     @Binding var currentTab: Tab
     @ObservedObject private var playback = FloatingBarPlaybackModel.shared
-    @ObservedObject private var time = PlaybackTimePublisher.shared
     @State private var showsQueue = false
     @Namespace private var selection
 
@@ -119,7 +118,7 @@ private struct ClarityGalleryDeck: View {
                             .font(ClarityStyle.body(9.5, weight: .medium))
                             .foregroundStyle(ClarityStyle.inkSoft)
                             .lineLimit(1)
-                        ClarityLinearProgress(time: time)
+                        ClarityLinearProgress()
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -168,7 +167,6 @@ private struct ClarityGalleryDeck: View {
 private struct ClarityHorizonRail: View {
     @Binding var currentTab: Tab
     @ObservedObject private var playback = FloatingBarPlaybackModel.shared
-    @ObservedObject private var time = PlaybackTimePublisher.shared
     @State private var showsQueue = false
     @Namespace private var selection
 
@@ -198,7 +196,7 @@ private struct ClarityHorizonRail: View {
                     }
                     .buttonStyle(.plain)
 
-                    ClarityLinearProgress(time: time)
+                    ClarityLinearProgress()
                         .frame(width: DeviceLayout.isPad ? 120 : 58)
 
                     Button { showsQueue = true } label: {
@@ -297,7 +295,6 @@ private struct ClarityHorizonRail: View {
 private struct ClarityLensStrip: View {
     @Binding var currentTab: Tab
     @ObservedObject private var playback = FloatingBarPlaybackModel.shared
-    @ObservedObject private var time = PlaybackTimePublisher.shared
     @Namespace private var selection
 
     var body: some View {
@@ -317,7 +314,7 @@ private struct ClarityLensStrip: View {
                                 .font(ClarityStyle.body(11.5, weight: .semibold))
                                 .foregroundStyle(ClarityStyle.ink)
                                 .lineLimit(1)
-                            ClarityLinearProgress(time: time)
+                            ClarityLinearProgress()
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -392,7 +389,6 @@ private struct ClarityLensStrip: View {
 private struct ClarityCornerBloom: View {
     @Binding var currentTab: Tab
     @ObservedObject private var playback = FloatingBarPlaybackModel.shared
-    @ObservedObject private var time = PlaybackTimePublisher.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isExpanded = false
     @State private var showsQueue = false
@@ -442,10 +438,7 @@ private struct ClarityCornerBloom: View {
                     Button { clarityOpenPlayer(playback) } label: {
                         ZStack {
                             Circle().stroke(ClarityStyle.line, lineWidth: 3)
-                            Circle()
-                                .trim(from: 0, to: clarityPlaybackProgress(time))
-                                .stroke(ClarityStyle.accent, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                                .rotationEffect(.degrees(-90))
+                            ClarityCircularProgress()
 
                             ClarityArtwork(
                                 url: playback.currentSong?.coverUrl,
@@ -515,7 +508,7 @@ private struct ClarityCornerBloom: View {
                     .buttonStyle(ClarityPressStyle())
                 }
 
-                ClarityLinearProgress(time: time)
+                ClarityLinearProgress()
             }
 
             HStack(spacing: 5) {
@@ -605,7 +598,7 @@ private struct ClarityPrismaticDockSurface<S: InsettableShape>: View {
 }
 
 private struct ClarityLinearProgress: View {
-    @ObservedObject var time: PlaybackTimePublisher
+    @ObservedObject private var time = PlaybackTimePublisher.shared
 
     var body: some View {
         GeometryReader { proxy in
@@ -624,6 +617,20 @@ private struct ClarityLinearProgress: View {
         }
         .frame(height: 2)
         .accessibilityHidden(true)
+    }
+}
+
+/// The clock owns only this 67pt vector layer. Progress publications no longer
+/// rebuild the corner controller, artwork, buttons or membrane surface.
+private struct ClarityCircularProgress: View {
+    @ObservedObject private var time = PlaybackTimePublisher.shared
+
+    var body: some View {
+        Circle()
+            .trim(from: 0, to: clarityPlaybackProgress(time))
+            .stroke(ClarityStyle.accent, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+            .rotationEffect(.degrees(-90))
+            .accessibilityHidden(true)
     }
 }
 

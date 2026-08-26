@@ -105,7 +105,7 @@ extension GlobalThemeId {
         case .minimalWhite:
             return .minimalWhiteIcons
         case .clarity:
-            return .sfSymbols
+            return .pulseBloom
         }
     }
 }

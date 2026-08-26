@@ -117,7 +117,7 @@ final class MonoDSPHistoryEngine: ObservableObject {
         } else {
             manager.currentPreset = nil
             for (index, gain) in snapshot.customGains.enumerated() {
-                manager.setCustomGain(gain, at: index)
+                manager.setCustomGain(gain, at: index, userInitiated: false)
             }
         }
         manager.isEnabled = snapshot.isEnabled

@@ -83,6 +83,7 @@ enum SettingsNavigationDestination: Hashable {
     case developerTools
     case developerPopupCatalog
     case debugLog
+    case crashDiagnostics
     case agentTrace
     case aiProviderSettings
     case ffmpegCapabilityTest
@@ -114,6 +115,8 @@ enum SettingsNavigationDestination: Hashable {
             }
         case .debugLog:
             DebugLogView()
+        case .crashDiagnostics:
+            CrashDiagnosticsView()
         case .agentTrace:
             AIAgentTraceDeveloperView()
         case .aiProviderSettings:
@@ -569,7 +572,7 @@ struct SettingsView: View {
 
                         VStack(spacing: 12) {
                             HStack(spacing: 9) {
-                                MonoIcon(icon: .unlock, size: 14, color: tokenStatusColor, lineWidth: 1.45)
+                                MonoIcon(icon: .unlock, size: 14, color: ClarityStyle.ink, lineWidth: 1.45)
                                 TextField(settingsText("access_token_input_placeholder"), text: $apiTokenInput)
                                     .font(.system(size: 13, weight: .medium, design: .monospaced))
                                     .foregroundStyle(ClarityStyle.ink)
@@ -602,12 +605,18 @@ struct SettingsView: View {
                                         withAnimation { wechatCopied = false }
                                     }
                                 } label: {
-                                    Label(
-                                        wechatCopied ? settingsText("settings_contact_copied") : "Fallin-Out0122",
-                                        systemImage: wechatCopied ? "checkmark" : "doc.on.doc"
-                                    )
-                                    .font(ClarityStyle.body(11, weight: .semibold))
-                                    .foregroundStyle(wechatCopied ? Color.green : ClarityStyle.ink)
+                                    HStack(spacing: 7) {
+                                        MonoIcon(
+                                            icon: wechatCopied ? .checkmark : .layers,
+                                            size: 13,
+                                            color: wechatCopied ? .green : ClarityStyle.ink,
+                                            lineWidth: 1.5
+                                        )
+                                        Text(wechatCopied ? settingsText("settings_contact_copied") : "Fallin-Out0122")
+                                            .font(ClarityStyle.body(11, weight: .semibold))
+                                            .foregroundStyle(wechatCopied ? Color.green : ClarityStyle.ink)
+                                            .lineLimit(1)
+                                    }
                                     .frame(maxWidth: .infinity)
                                     .frame(height: 40)
                                     .background(ClarityMembrane(shape: Capsule(), strength: .quiet))
@@ -621,9 +630,13 @@ struct SettingsView: View {
                                         UIApplication.shared.open(url)
                                     }
                                 } label: {
-                                    Text(settingsText("settings_open_wechat"))
-                                        .font(ClarityStyle.body(11, weight: .semibold))
-                                        .foregroundStyle(ClarityStyle.ink)
+                                    HStack(spacing: 7) {
+                                        MonoIcon(icon: .send, size: 13, color: ClarityStyle.ink, lineWidth: 1.5)
+                                        Text(settingsText("settings_open_wechat"))
+                                            .font(ClarityStyle.body(11, weight: .semibold))
+                                            .foregroundStyle(ClarityStyle.ink)
+                                            .lineLimit(1)
+                                    }
                                         .frame(maxWidth: .infinity)
                                         .frame(height: 40)
                                         .background(ClarityMembrane(shape: Capsule(), strength: .quiet))
@@ -673,6 +686,8 @@ struct SettingsView: View {
             }
         case .debugLog:
             DebugLogView()
+        case .crashDiagnostics:
+            CrashDiagnosticsView()
         case .agentTrace:
             AIAgentTraceDeveloperView()
         case .aiProviderSettings:
@@ -2324,16 +2339,31 @@ struct SettingsView: View {
 
     private var otherSection: some View {
         SettingsSection(title: String(localized: "developer_tools_title")) {
-            SettingsRouteLinkRow(
-                icon: .unlock,
-                title: String(localized: "dev_mode_title"),
-                value: String(
-                    localized: AppConfig.Features.fullDeveloperToolsEnabled
-                        ? "dev_mode_access_full"
-                        : "dev_mode_access_basic"
-                ),
-                destination: .developerTools
-            )
+            if ClarityStyle.isActive {
+                // Settings is already a destination in Clarity's NavigationStack.
+                // Push directly so this page is not queued underneath Settings.
+                SettingsLinkRow(
+                    icon: .unlock,
+                    title: String(localized: "dev_mode_title"),
+                    value: String(
+                        localized: AppConfig.Features.fullDeveloperToolsEnabled
+                            ? "dev_mode_access_full"
+                            : "dev_mode_access_basic"
+                    ),
+                    destination: DeveloperToolsView()
+                )
+            } else {
+                SettingsRouteLinkRow(
+                    icon: .unlock,
+                    title: String(localized: "dev_mode_title"),
+                    value: String(
+                        localized: AppConfig.Features.fullDeveloperToolsEnabled
+                            ? "dev_mode_access_full"
+                            : "dev_mode_access_basic"
+                    ),
+                    destination: .developerTools
+                )
+            }
         }
     }
 

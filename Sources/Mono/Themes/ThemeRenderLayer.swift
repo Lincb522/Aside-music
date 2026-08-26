@@ -26,7 +26,11 @@ struct ThemeRenderContext: Equatable {
     }
 
     var providesGlobalBackdrop: Bool {
-        false
+        // Clarity used to mount one full-screen optical field inside every
+        // TabView root (and another one in pushed destinations). Keep exactly
+        // one global field below the app content; local Clarity backdrops defer
+        // to this host through `themeRenderHostActive`.
+        isHosted && theme == .clarity
     }
 
     var stabilizesSceneRendering: Bool {
@@ -93,7 +97,6 @@ extension EnvironmentValues {
 /// 应用根视图与独立展示层（如全屏播放器）各自包一层。
 struct ThemeRenderHost<Content: View>: View {
     @ObservedObject private var settings = SettingsManager.shared
-    @ObservedObject private var colorEngine = UnifiedColorEngine.shared
     @Environment(\.colorScheme) private var colorScheme
 
     private let content: () -> Content
@@ -111,13 +114,20 @@ struct ThemeRenderHost<Content: View>: View {
 
             if renderContext.providesGlobalBackdrop {
                 ThemeRenderBackdrop(theme: renderContext.theme, revision: renderContext.revision)
-                    .id("managed-backdrop-\(renderContext.backdropIdentity)")
+                    // The async Clarity Canvas keeps its render resource while
+                    // the view identity is stable. Remount only this one shared
+                    // backdrop when a custom palette revision changes so a new
+                    // background is visible immediately without rebuilding the
+                    // tab/navigation content above it.
+                    .id("managed-backdrop-\(renderContext.backdropIdentity)-r\(renderContext.revision)")
                     .ignoresSafeArea()
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
                     .transaction { transaction in
+                        // Prevent the host itself from inheriting tab/navigation
+                        // transitions, while still allowing Clarity's explicit
+                        // 0.5s artwork-palette crossfade inside the backdrop.
                         transaction.animation = nil
-                        transaction.disablesAnimations = true
                     }
             }
 
@@ -127,14 +137,18 @@ struct ThemeRenderHost<Content: View>: View {
                 .environment(\.themeCustomizationRevision, renderContext.revision)
         }
         .onAppear {
-            colorEngine.start()
+            UnifiedColorEngine.shared.start()
         }
     }
 
     private var renderContext: ThemeRenderContext {
         ThemeRenderContext(
             theme: settings.globalThemeId,
-            revision: settings.globalThemeRevision &* 31 &+ colorEngine.revision,
+            // 封面取色只应刷新 ThemeRenderUnderlay 和真正消费调色板的局部视图。
+            // 把 color revision 注入根环境会让每次封面采样都重算整个 App 子树，
+            // 包括四个 NavigationStack；它与系统 Tab 转场重叠时会触发导航栏
+            // 重挂载。主题 revision 仍负责真正的全局主题切换。
+            revision: settings.globalThemeRevision,
             colorScheme: colorScheme,
             isHosted: true
         )
@@ -154,30 +168,44 @@ struct ThemeRenderUnderlay: View {
         let _ = revision
         let _ = settings.globalThemeRevision
 
-        ZStack {
+        if theme == .clarity {
+            // The managed Clarity backdrop already owns its complete theme and
+            // artwork field. A second blurred palette here would duplicate the
+            // largest render target without contributing visible detail.
             baseColor
+                .transaction { transaction in
+                    transaction.animation = nil
+                    transaction.disablesAnimations = true
+                }
+        } else {
+            ZStack {
+                baseColor
 
-            DynamicCoverPaletteLayer(
-                colors: colorEngine.ambientColors,
-                opacity: ambientOpacity
-            )
-            .blur(radius: colorEngine.hasArtworkPalette ? 34 : 52)
-            .saturation(colorEngine.mode == .artwork ? 1.04 : 0.88)
+                DynamicCoverPaletteLayer(
+                    colors: colorEngine.ambientColors,
+                    opacity: ambientOpacity
+                )
+                .blur(radius: colorEngine.hasArtworkPalette ? 34 : 52)
+                .saturation(colorEngine.mode == .artwork ? 1.04 : 0.88)
 
-            LinearGradient(
-                colors: [
-                    Color.white.opacity(colorEngine.hasArtworkPalette ? 0.10 : 0.18),
-                    Color.clear,
-                    colorEngine.colors.background.opacity(0.18),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+                LinearGradient(
+                    colors: [
+                        Color.white.opacity(colorEngine.hasArtworkPalette ? 0.10 : 0.18),
+                        Color.clear,
+                        colorEngine.colors.background.opacity(0.18),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+            .animation(.easeOut(duration: 0.5), value: colorEngine.revision)
         }
-        .animation(.easeOut(duration: 0.5), value: colorEngine.revision)
     }
 
     private var baseColor: Color {
+        if theme == .clarity {
+            return ClarityStyle.base
+        }
         if colorEngine.isStarted {
             return colorEngine.colors.background
         }

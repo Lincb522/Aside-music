@@ -2,10 +2,6 @@ import SwiftUI
 
 @MainActor
 struct DebugLogView: View {
-    private enum Destination: Hashable {
-        case detail(LogEntry)
-    }
-
     @StateObject private var model = DebugLogViewModel()
     @State private var showMoreMenu = false
     @State private var showShareSheet = false
@@ -40,12 +36,6 @@ struct DebugLogView: View {
                     moreMenuContent
                 }
                 .zIndex(20)
-            }
-        }
-        .navigationDestination(for: Destination.self) { destination in
-            switch destination {
-            case .detail(let log):
-                DebugLogDetailView(log: log)
             }
         }
         .alert(String(localized: "debug_clear_confirm_title"), isPresented: $showClearAlert) {
@@ -545,7 +535,9 @@ struct DebugLogView: View {
             } else {
                 LazyVStack(spacing: 0) {
                     ForEach(Array(model.visibleEntries.enumerated()), id: \.element.id) { index, log in
-                        NavigationLink(value: Destination.detail(log)) {
+                        NavigationLink {
+                            DebugLogDetailView(log: log)
+                        } label: {
                             DebugLogTimelineRow(
                                 log: log,
                                 isLast: index == model.visibleEntries.count - 1

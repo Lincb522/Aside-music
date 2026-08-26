@@ -178,28 +178,23 @@ struct PetWhiteHomeView: View {
                 .navigationTitle("")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbarBackground(.hidden, for: .navigationBar)
-                .onAppear {
-                    viewModel.reloadHomeCacheForVisibleHomeIfNeeded(reason: "pet white home appear cache sync")
-                    syncPetWhiteHitokoto(reason: "pet white home appear")
-                    syncRenderedHomeData(reason: "pet white home appear")
-                    refreshPetWhiteHitokotoIfNeeded(reason: "pet white home appear")
-                    hydratePetWhiteHome(reason: "pet white home appear")
-                    scheduleEmptyStateReveal(reason: "pet white home appear")
-                    invalidateHomeRender()
-                    revealHomeContent()
-                }
                 .task {
-                    guard !didRunInitialRenderedHomeDataSync else { return }
-                    didRunInitialRenderedHomeDataSync = true
+                    guard await MainTabActivationGate.waitUntilSettled(.home) else { return }
                     viewModel.reloadHomeCacheForVisibleHomeIfNeeded(reason: "pet white home task cache sync")
                     syncPetWhiteHitokoto(reason: "pet white home task")
                     syncRenderedHomeData(reason: "pet white home task")
+                    invalidateHomeRender()
+                    revealHomeContent()
+                    guard !didRunInitialRenderedHomeDataSync else { return }
+                    didRunInitialRenderedHomeDataSync = true
                     refreshPetWhiteHitokotoIfNeeded(reason: "pet white home task")
                     hydratePetWhiteHome(reason: "pet white home task")
                     recoverEmptyHomeIfNeeded(reason: "pet white empty task")
+                    scheduleEmptyStateReveal(reason: "pet white home task")
                     await runInitialRenderedHomeDataSync()
                 }
                 .onChange(of: settings.globalThemeRevision) { _, _ in
+                    guard MainTabActivationGate.isSettled(.home) else { return }
                     appeared = false
                     didRunInitialRenderedHomeDataSync = false
                     emptyHomeRecoveryAttempts = 0
@@ -212,7 +207,8 @@ struct PetWhiteHomeView: View {
                     revealHomeContent()
                 }
                 .onChange(of: scenePhase) { _, phase in
-                    guard phase == .active else { return }
+                    guard phase == .active,
+                          MainTabActivationGate.isSettled(.home) else { return }
                     emptyHomeRecoveryAttempts = 0
                     syncPetWhiteHitokoto(reason: "pet white foreground")
                     syncRenderedHomeData(reason: "pet white foreground")
@@ -224,6 +220,7 @@ struct PetWhiteHomeView: View {
                     revealHomeContent()
                 }
                 .onChange(of: isHomeDataEmpty) { _, isEmpty in
+                    guard MainTabActivationGate.isSettled(.home) else { return }
                     if isEmpty {
                         scheduleEmptyStateReveal(reason: "pet white empty appeared")
                         recoverEmptyHomeIfNeeded(reason: "pet white empty appeared")
@@ -233,7 +230,8 @@ struct PetWhiteHomeView: View {
                     }
                 }
                 .onChange(of: viewModel.isLoading) { _, isLoading in
-                    guard !isLoading else { return }
+                    guard !isLoading,
+                          MainTabActivationGate.isSettled(.home) else { return }
                     syncRenderedHomeData(reason: "pet white loading completed")
                     if isHomeDataEmpty {
                         scheduleEmptyStateReveal(reason: "pet white loading completed empty")
@@ -245,6 +243,7 @@ struct PetWhiteHomeView: View {
                     invalidateHomeRender()
                 }
                 .onReceive(viewModel.$homeContentRevision) { _ in
+                    guard MainTabActivationGate.isSettled(.home) else { return }
                     syncRenderedHomeData(reason: "pet white content revision")
                     if !isHomeDataEmpty {
                         emptyHomeRecoveryAttempts = 0
@@ -253,16 +252,20 @@ struct PetWhiteHomeView: View {
                     invalidateHomeRender()
                 }
                 .onReceive(viewModel.$hitokoto) { hitokoto in
+                    guard MainTabActivationGate.isSettled(.home) else { return }
                     syncPetWhiteHitokoto(hitokoto, reason: "pet white hitokoto updated")
                 }
                 .onReceive(viewModel.$userProfile) { _ in
+                    guard MainTabActivationGate.isSettled(.home) else { return }
                     invalidateHomeRender()
                 }
                 .onChange(of: settings.hitokotoEnabled) { _, _ in
+                    guard MainTabActivationGate.isSettled(.home) else { return }
                     syncPetWhiteHitokoto(reason: "pet white hitokoto setting changed")
                     refreshPetWhiteHitokotoIfNeeded(reason: "pet white hitokoto setting changed")
                 }
                 .onChange(of: viewModel.popularSongs.count) { _, _ in
+                    guard MainTabActivationGate.isSettled(.home) else { return }
                     syncRenderedHomeData(reason: "pet white popular songs updated")
                     if !isHomeDataEmpty {
                         hideEmptyState()
@@ -270,7 +273,8 @@ struct PetWhiteHomeView: View {
                     invalidateHomeRender()
                 }
                 .onChange(of: cacheManager.isPreloading) { _, isPreloading in
-                    guard !isPreloading else { return }
+                    guard !isPreloading,
+                          MainTabActivationGate.isSettled(.home) else { return }
                     syncRenderedHomeData(reason: "pet white cache preload completed")
                     if isHomeDataEmpty {
                         emptyHomeRecoveryAttempts = 0
@@ -282,7 +286,8 @@ struct PetWhiteHomeView: View {
                     invalidateHomeRender()
                 }
                 .onChange(of: refreshManager.isPreloading) { _, isPreloading in
-                    guard !isPreloading else { return }
+                    guard !isPreloading,
+                          MainTabActivationGate.isSettled(.home) else { return }
                     syncRenderedHomeData(reason: "pet white launch preload completed")
                     if isHomeDataEmpty {
                         emptyHomeRecoveryAttempts = 0
@@ -294,7 +299,8 @@ struct PetWhiteHomeView: View {
                     invalidateHomeRender()
                 }
                 .onChange(of: onlineAccess.lastTokenStatus) { _, _ in
-                    guard onlineAccess.canUseOnlineFeatures else { return }
+                    guard onlineAccess.canUseOnlineFeatures,
+                          MainTabActivationGate.isSettled(.home) else { return }
                     emptyHomeRecoveryAttempts = 0
                     syncRenderedHomeData(reason: "pet white online access refreshed")
                     hydratePetWhiteHome(reason: "pet white online access refreshed")
@@ -303,7 +309,9 @@ struct PetWhiteHomeView: View {
                     invalidateHomeRender()
                 }
                 .onChange(of: onlineAccess.isVerifying) { _, isVerifying in
-                    guard !isVerifying, onlineAccess.canUseOnlineFeatures else { return }
+                    guard !isVerifying,
+                          onlineAccess.canUseOnlineFeatures,
+                          MainTabActivationGate.isSettled(.home) else { return }
                     emptyHomeRecoveryAttempts = 0
                     syncRenderedHomeData(reason: "pet white online verification completed")
                     hydratePetWhiteHome(reason: "pet white online verification completed")
@@ -966,6 +974,7 @@ private struct PetWhiteBannerCarousel: View {
             .tabViewStyle(.page(indexDisplayMode: .never))
             .frame(height: DeviceLayout.isPad ? 206 : 176)
             .onReceive(timer) { _ in
+                guard MainTabActivationGate.isSettled(.home) else { return }
                 guard banners.count > 1 else { return }
                 withAnimation(MonoAnimation.tabSwitch) {
                     bannerIndex = (bannerIndex + 1) % min(banners.count, 6)

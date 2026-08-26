@@ -462,7 +462,7 @@ final class MonoNextSuiteManager: ObservableObject {
         RunLoop.main.add(timer, forMode: .common)
     }
 
-    /// 检查播放管线是否失去可闻输出，并排除加载切换、中断、拖尾和自然结束等正常静默。
+    /// 检查长时间未完成的加载，并维护恢复动作的可闻输出验证。
     ///
     /// 每次事故受重试预算约束，防止无法恢复的音频环境触发无限重建。
     private func recoveryHeartbeat() {
@@ -526,12 +526,6 @@ final class MonoNextSuiteManager: ObservableObject {
             return
         }
 
-        if player.isPlaying,
-           !player.isLoading,
-           player.streamPlayer.state == .playing,
-           now.timeIntervalSince(lastAudibleAdvanceAt) >= 8 {
-            performRecovery(reason: player.streamPlayer.isAudioOutputRunning ? "audible-stall" : "audio-output-stopped")
-        }
     }
 
     /// 按当前故障状态选择最小恢复动作，并登记待验证结果。

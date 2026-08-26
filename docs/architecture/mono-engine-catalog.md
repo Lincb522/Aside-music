@@ -51,21 +51,8 @@ Mono 的“引擎”不是单一巨型模块，而是按播放、数据、资源
 - **实现**：`Sources/Mono/Managers/Memory/MonoMemoryEngine.swift`
 - **详细文档**：[mono-memory-engine.md](mono-memory-engine.md)
 - **职责**：按照设备内存、前后台、低电量、热状态和系统压力统一分配缓存预算，并按 `routine`、`background`、`warning`、`critical` 四级回收可重建资源。
-- **当前接入**：封面、URLSession 响应、编码数据、歌曲与歌单模型、Apple Music 模型、本地歌单派生数据、播放地址、音乐幕后内容、主题背景、视频缩略图、收音机栅格、听歌洞察和下一曲预取任务。
+- **当前接入**：封面、URLSession 响应、编码数据、歌曲与歌单模型、Apple Music 模型、本地歌单派生数据、播放地址、主题背景、视频缩略图、收音机栅格、听歌洞察和下一曲预取任务。
 - **边界**：只治理内存资源，不删除数据库、下载、用户配置和磁盘持久化缓存。
-
-### 音乐幕后预取引擎
-
-- **实现**：`Sources/Mono/Managers/Cache/SongContentPrefetchEngine.swift`
-- **类型**：`SongContentPrefetchEngine`
-- **职责**：歌曲真正开始播放后调用服务端幂等 `ensure`；已有持久化内容时直接命中，没有内容时只创建唯一生成任务。
-- **边界**：不阻塞播放，不直接向播放器状态写入生成结果。
-
-### 服务端 Song Content Database Engine
-
-- **实现**：`Services/Server/song-content/song-content-database-engine.js`
-- **入口**：`createSongContentDatabaseEngine`
-- **职责**：对歌曲内容 SQLite 数据库执行有序迁移、事务回滚、`quick_check`、页面信息检查、WAL checkpoint、`PRAGMA optimize` 与可选 `VACUUM`。
 
 ## 3. CPU、GPU 与后台任务
 
@@ -193,8 +180,8 @@ Mono 的“引擎”不是单一巨型模块，而是按播放、数据、资源
 
 - **运行策略**：`Sources/Mono/Managers/AI/AIAgentRuntimePolicy.swift`。
 - **服务端配置**：`Services/Server/song-content/song-content-config.js` 统一下发模型、提示词、超时、生成选项以及 Mono Audio Agent 的 `skills` / `toolPolicy`；Agent 管理页可发布可选内置技能和自定义技能，但不能关闭必需安全契约。
-- **客户端配置**：`SongContentConfigurationStore` 按既有 TTL 缓存读取服务端 Agent 配置，并在返回配置前同步给 `MonoAudioAgentSkillStore`，避免 UI 与本次调音请求使用不同的技能快照。
-- **当前 Agent**：Mono Audio Agent、Listening Insight Agent、Content Agent 等共用配置与错误/重试策略；音乐幕后已发布内容由服务端持久化，客户端优先读取已存在结果，不重复调用 AI。
+- **客户端配置**：`AppAgentConfigurationStore` 按既有 TTL 缓存读取服务端 Agent 配置，并在返回配置前同步给 `MonoAudioAgentSkillStore`，避免 UI 与本次调音请求使用不同的技能快照。
+- **当前 Agent**：Mono Audio Agent 与 Listening Insight Agent 共用配置与错误/重试策略；歌曲详情改为读取各音乐平台的原生信息，不调用内容生成 Agent。
 
 ### 开发期 Skill 与 App 运行时技能的边界
 
@@ -233,7 +220,6 @@ flowchart TD
     Playback --> Continuity["Mono Continuity"]
     Playback --> Sound["Mono Sound Pipeline"]
     Playback --> Archive["Cassette 会话归档"]
-    Playback --> Prefetch["音乐幕后预取"]
     App --> Vault["MonoVault"]
     App --> Memory["MonoMemory"]
     App --> Compute["MonoCompute"]
@@ -242,13 +228,12 @@ flowchart TD
     UnifiedColor --> Color["MonoColor"]
     Sound --> Acoustic["声学 / 监听 / 听力 / 环境 / 响度"]
     App --> AgentConfig["Agent 配置与技能快照"]
-    ServerConfig["Song Content Agent 配置"] --> AgentConfig
+    ServerConfig["服务端 Agent 配置"] --> AgentConfig
     CloudSync["云快照"] <--> AgentConfig
     AgentConfig --> AudioAgent["Mono Audio Agent"]
     AudioAgent --> TuningTool["mono_audio_tuning 本地审计/编译"]
     TuningTool --> Sound
     Playback --> Aria["Aria 歌词与渲染"]
-    Prefetch --> ServerDB["Song Content Database Engine"]
 ```
 
 ## 10. 新引擎接入约束

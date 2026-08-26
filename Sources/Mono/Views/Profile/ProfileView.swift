@@ -42,6 +42,10 @@ struct ProfileView: View {
     }
 
     @AppStorage("isLoggedIn") private var isAppLoggedIn = false
+    /// Keep the visible root branch stable while UIKit is moving the Profile
+    /// navigation controller between tab hosts. Login changes received while
+    /// off-screen are committed only after Profile becomes the settled tab.
+    @State private var displayedLoginState = UserDefaults.standard.bool(forKey: "isLoggedIn")
 
     @State private var cachedProfile: UserProfile?
     @State private var hasAppeared = false
@@ -60,15 +64,25 @@ struct ProfileView: View {
         let _ = settings.globalThemeRevision
 
         Group {
-            if isAppLoggedIn {
+            if displayedLoginState {
                 loggedInContent
             } else {
                 notLoggedInContent
             }
         }
-        .onAppear {
+        .task {
+            guard await MainTabActivationGate.waitUntilSettled(.profile) else { return }
+            if displayedLoginState != isAppLoggedIn {
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    displayedLoginState = isAppLoggedIn
+                }
+            }
+            downloadedSongCount = DownloadManager.shared.downloadedSongIds.count
+            localPlaylistCount = LocalPlaylistManager.shared.playlists.count
             restoreQQSessionIfNeeded()
-            if isAppLoggedIn {
+            if displayedLoginState {
                 refreshWeekListeningDuration()
                 if let profile = viewModel.userProfile, profile.userId != cachedProfile?.userId {
                     cachedProfile = profile
@@ -78,33 +92,51 @@ struct ProfileView: View {
                     return
                 }
                 hasAppeared = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    cachedProfile = viewModel.userProfile
-                    GlobalRefreshManager.shared.markProfileDataReady()
-                    fetchUserExtra()
-                    // 移除网易云历史记录抓取，统一使用播放器本地历史
-                }
+                try? await Task.sleep(nanoseconds: 100_000_000)
+                guard !Task.isCancelled,
+                      MainTabActivationGate.isSettled(.profile) else { return }
+                cachedProfile = viewModel.userProfile
+                GlobalRefreshManager.shared.markProfileDataReady()
+                fetchUserExtra()
+                // 移除网易云历史记录抓取，统一使用播放器本地历史
             } else {
                 GlobalRefreshManager.shared.markProfileDataReady()
             }
         }
+        .onChange(of: isAppLoggedIn) { _, newValue in
+            guard MainTabActivationGate.isSettled(.profile),
+                  displayedLoginState != newValue else { return }
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                displayedLoginState = newValue
+            }
+        }
         .onReceive(GlobalRefreshManager.shared.refreshProfilePublisher) { _ in
-            if isAppLoggedIn {
+            guard MainTabActivationGate.isSettled(.profile) else {
+                GlobalRefreshManager.shared.markProfileDataReady()
+                return
+            }
+            if displayedLoginState {
                 cachedProfile = viewModel.userProfile
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 300_000_000)
+                guard !Task.isCancelled else { return }
                 GlobalRefreshManager.shared.markProfileDataReady()
             }
         }
         .onReceive(viewModel.$userProfile) { profile in
-            if profile != nil {
+            if MainTabActivationGate.isSettled(.profile), profile != nil {
                 cachedProfile = profile
             }
         }
         .onReceive(DownloadManager.shared.$downloadedSongIds.map(\.count).removeDuplicates()) { count in
+            guard MainTabActivationGate.isSettled(.profile) else { return }
             downloadedSongCount = count
         }
         .onReceive(LocalPlaylistManager.shared.$playlists.map(\.count).removeDuplicates()) { count in
+            guard MainTabActivationGate.isSettled(.profile) else { return }
             localPlaylistCount = count
         }
     }
@@ -323,6 +355,7 @@ struct ProfileView: View {
             Rectangle().fill(Color.monoSeparator.opacity(0.55)).frame(height: 0.5)
         }
         .task {
+            guard await MainTabActivationGate.waitUntilSettled(.profile) else { return }
             refreshWeekListeningDuration()
         }
     }
@@ -4105,13 +4138,22 @@ private struct ProfileRecentPlaysHost: View {
                 }
             }
         }
+        .task {
+            guard await MainTabActivationGate.waitUntilSettled(.profile) else { return }
+            history = PlayerManager.shared.history
+            currentSongID = PlayerManager.shared.currentSong?.id
+            isPlaying = PlayerManager.shared.isPlaying
+        }
         .onReceive(PlayerManager.shared.$history.removeDuplicates()) { history in
+            guard MainTabActivationGate.isSettled(.profile) else { return }
             self.history = history
         }
         .onReceive(PlayerManager.shared.$currentSong.map { $0?.id }.removeDuplicates()) { currentSongID in
+            guard MainTabActivationGate.isSettled(.profile) else { return }
             self.currentSongID = currentSongID
         }
         .onReceive(PlayerManager.shared.$isPlaying.removeDuplicates()) { isPlaying in
+            guard MainTabActivationGate.isSettled(.profile) else { return }
             self.isPlaying = isPlaying
         }
     }
