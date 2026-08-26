@@ -146,7 +146,9 @@ private struct SettingsNavigationLink<Label: View>: View {
     @ViewBuilder let label: () -> Label
 
     var body: some View {
-        NavigationLink(value: destination) {
+        NavigationLink {
+            destination.view
+        } label: {
             label()
         }
     }
@@ -239,13 +241,6 @@ struct SettingsView: View {
                 (settings.globalThemeId == .default || settings.globalThemeId == .muji || settings.globalThemeId == .clarity || settings.globalThemeId == .manga) ? "" : String(localized: "settings_title")
             )
             .toolbarBackground(.hidden, for: .navigationBar)
-            .navigationDestination(for: SettingsNavigationDestination.self) { destination in
-                if ClarityStyle.isActive {
-                    destination.view.clarityDetailChrome()
-                } else {
-                    destination.view
-                }
-            }
             .monoSheet(isPresented: $isShowingTokenAgreement, onDismiss: {
                 onlineAccess.declinePendingTokenAuthorization()
             }, preset: .standard) {
@@ -473,7 +468,7 @@ struct SettingsView: View {
         destination: SettingsNavigationDestination
     ) -> some View {
         NavigationLink {
-            claritySettingsDestination(destination)
+            destination.view
         } label: {
             HStack(spacing: 12) {
                 MonoIcon(icon: icon, size: 17, color: ClarityStyle.ink, lineWidth: 1.5)
@@ -653,60 +648,6 @@ struct SettingsView: View {
                         .padding(.bottom, 16)
                     }
                 }
-            }
-        }
-    }
-
-    /// 通透主题的设置页本身已经作为父级 `NavigationStack` 的目标出现。
-    /// 这里使用直接目标导航，避免在已入栈页面中再次依赖值路由解析，
-    /// 否则路径会增长但可见内容仍停留在设置首页。
-    @MainActor
-    @ViewBuilder
-    private func claritySettingsDestination(_ destination: SettingsNavigationDestination) -> some View {
-        switch destination {
-        case .appearance:
-            AppearanceSettingsView()
-        case .playback:
-            PlaybackSettingsView()
-        case .cloudSync:
-            CloudSyncSettingsView()
-        case .storage:
-            StorageManageView()
-        case .download:
-            DownloadManageView()
-        case .about:
-            AboutView()
-        case .developerTools:
-            DeveloperToolsView()
-        case .developerPopupCatalog:
-            if AppConfig.DeveloperAccess.hasFullTools {
-                DeveloperPopupCatalogView()
-            } else {
-                DeveloperToolsView()
-            }
-        case .debugLog:
-            DebugLogView()
-        case .crashDiagnostics:
-            CrashDiagnosticsView()
-        case .agentTrace:
-            AIAgentTraceDeveloperView()
-        case .aiProviderSettings:
-            if AppConfig.DeveloperAccess.hasFullTools {
-                AIProviderDeveloperSettingsView()
-            } else {
-                DeveloperToolsView()
-            }
-        case .ffmpegCapabilityTest:
-            if AppConfig.DeveloperAccess.hasFullTools {
-                FFmpegCapabilityTestView()
-            } else {
-                DeveloperToolsView()
-            }
-        case .platformAccountSwitching:
-            if AppConfig.DeveloperAccess.hasFullTools {
-                PlatformAccountSwitchingView()
-            } else {
-                DeveloperToolsView()
             }
         }
     }
@@ -2678,7 +2619,9 @@ private struct MujiSettingsLedgerLink: View {
     let destination: SettingsNavigationDestination
 
     var body: some View {
-        NavigationLink(value: destination) {
+        NavigationLink {
+            destination.view
+        } label: {
             HStack(spacing: 13) {
                 MonoIcon(icon: icon, size: 15, color: ledgerTint, lineWidth: 1.4)
                     .frame(width: 22, alignment: .leading)
@@ -3341,7 +3284,9 @@ struct SettingsRouteLinkRow: View {
     @Environment(\.developerDiagnosticStyle) private var developerDiagnosticStyle
 
     var body: some View {
-        NavigationLink(value: destination) {
+        NavigationLink {
+            destination.view
+        } label: {
             HStack(spacing: 12) {
                 SettingsIconBadge(icon: icon)
 

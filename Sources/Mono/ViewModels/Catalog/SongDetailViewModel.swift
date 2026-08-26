@@ -2,8 +2,7 @@ import Combine
 import Foundation
 
 /// Loads provider-owned song information. The detail page never calls the
-/// generated song-story service: NCM wiki, qcm credits/tags, QSM/KCM qualities,
-/// Apple Music catalog metadata, and local file metadata stay provider-native.
+/// generated song-story service; every section comes from the selected platform.
 @MainActor
 final class SongDetailViewModel: ObservableObject {
     @Published private(set) var platformDetail: PlatformSongDetail = .empty
@@ -83,21 +82,45 @@ final class SongDetailViewModel: ObservableObject {
             })
             .store(in: &cancellables)
 
-        beginPlatformRequest()
-        APIService.shared.fetchSongQualities(id: song.id)
-            .receive(on: DispatchQueue.main)
-            .sink(receiveCompletion: { [weak self] completion in
-                if case .failure(let error) = completion {
-                    AppLogger.debug("[Netease] 歌曲音质不可用: \(error)")
-                }
-                self?.endPlatformRequest()
-            }, receiveValue: { [weak self] qualities in
-                let rows = qualities.map {
-                    QualityRow(name: $0.name, bitrate: $0.bitrate, sizeText: $0.sizeText)
-                }
-                self?.mergeQualityRows(rows, prefix: "ncm", for: identity)
-            })
-            .store(in: &cancellables)
+        if let albumID = song.album?.id, albumID > 0 {
+            beginPlatformRequest()
+            APIService.shared.fetchAlbumDetail(id: albumID)
+                .receive(on: DispatchQueue.main)
+                .sink(receiveCompletion: { [weak self] completion in
+                    if case .failure(let error) = completion {
+                        AppLogger.debug("[Netease] 专辑简介不可用: \(error)")
+                    }
+                    self?.endPlatformRequest()
+                }, receiveValue: { [weak self] result in
+                    guard let self, self.requestedIdentity == identity else { return }
+                    let description = result.album?.description?
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                    let releaseDate = result.album?.publishTime.map { timestamp in
+                        Date(timeIntervalSince1970: TimeInterval(timestamp) / 1_000)
+                            .formatted(date: .abbreviated, time: .omitted)
+                    }
+                    let sections = description.flatMap { value -> [PlatformSongSection]? in
+                        guard !value.isEmpty else { return nil }
+                        return [
+                            PlatformSongSection(
+                                id: "ncm-album-introduction",
+                                title: String(localized: "song_detail_album_introduction"),
+                                body: value
+                            )
+                        ]
+                    } ?? []
+                    self.merge(
+                        PlatformSongDetail(
+                            releaseDate: releaseDate,
+                            attributes: [],
+                            sections: sections
+                        ),
+                        for: identity
+                    )
+                })
+                .store(in: &cancellables)
+        }
+
     }
 
     private func loadQQDetail(song: Song, identity: PlatformSongIdentity) {
@@ -116,42 +139,31 @@ final class SongDetailViewModel: ObservableObject {
     }
 
     private func loadQishuiDetail(song: Song, identity: PlatformSongIdentity) {
-        guard let trackID = song.qishuiTrackId, trackID > 0 else { return }
         beginPlatformRequest()
-        APIService.shared.fetchQishuiTrackQualities(trackId: trackID)
+        APIService.shared.fetchQishuiSongPlatformDetail(song: song)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
                 if case .failure(let error) = completion {
-                    AppLogger.debug("[Qishui] 歌曲音质不可用: \(error)")
+                    AppLogger.debug("[Qishui] 歌曲平台信息不可用: \(error)")
                 }
                 self?.endPlatformRequest()
-            }, receiveValue: { [weak self] qualities in
-                let rows = qualities.map {
-                    QualityRow(name: $0.displayName, bitrate: $0.bitrate, sizeText: $0.sizeText)
-                }
-                self?.mergeQualityRows(rows, prefix: "qsm", for: identity)
+            }, receiveValue: { [weak self] detail in
+                self?.merge(detail, for: identity)
             })
             .store(in: &cancellables)
     }
 
     private func loadKugouDetail(song: Song, identity: PlatformSongIdentity) {
         beginPlatformRequest()
-        APIService.shared.fetchKugouSongQualities(song: song)
+        APIService.shared.fetchKugouSongPlatformDetail(song: song)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
                 if case .failure(let error) = completion {
-                    AppLogger.debug("[Kugou] 歌曲音质不可用: \(error)")
+                    AppLogger.debug("[Kugou] 歌曲平台信息不可用: \(error)")
                 }
                 self?.endPlatformRequest()
-            }, receiveValue: { [weak self] qualities in
-                let rows = qualities.filter(\.isAvailable).map {
-                    QualityRow(
-                        name: $0.quality.displayName,
-                        bitrate: $0.bitrate,
-                        sizeText: $0.sizeText
-                    )
-                }
-                self?.mergeQualityRows(rows, prefix: "kcm", for: identity)
+            }, receiveValue: { [weak self] detail in
+                self?.merge(detail, for: identity)
             })
             .store(in: &cancellables)
     }
@@ -204,46 +216,6 @@ final class SongDetailViewModel: ObservableObject {
         }
 
         return PlatformSongDetail(releaseDate: nil, attributes: attributes, sections: [])
-    }
-
-    private struct QualityRow {
-        let name: String
-        let bitrate: Int
-        let sizeText: String
-
-        var text: String {
-            var parts = [name]
-            if bitrate > 0 { parts.append("\(bitrate / 1_000)kbps") }
-            if !sizeText.isEmpty { parts.append(sizeText) }
-            return parts.joined(separator: " · ")
-        }
-    }
-
-    private func mergeQualityRows(
-        _ rows: [QualityRow],
-        prefix: String,
-        for identity: PlatformSongIdentity
-    ) {
-        guard !rows.isEmpty else { return }
-        let highest = rows.max { lhs, rhs in lhs.bitrate < rhs.bitrate } ?? rows[0]
-        let detail = PlatformSongDetail(
-            releaseDate: nil,
-            attributes: [
-                PlatformSongAttribute(
-                    id: "\(prefix)-quality",
-                    label: String(localized: "song_detail_audio_quality"),
-                    value: highest.name
-                )
-            ],
-            sections: [
-                PlatformSongSection(
-                    id: "\(prefix)-qualities",
-                    title: String(localized: "song_detail_available_qualities"),
-                    body: rows.map(\.text).joined(separator: "\n")
-                )
-            ]
-        )
-        merge(detail, for: identity)
     }
 
     private func merge(_ incoming: PlatformSongDetail, for identity: PlatformSongIdentity) {

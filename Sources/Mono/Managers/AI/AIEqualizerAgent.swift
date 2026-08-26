@@ -30,10 +30,12 @@ final class AIEqualizerAgent: ObservableObject {
     @Published private(set) var generationStartedAt: Date?
     @Published private(set) var currentLearningFeedback: AIEqualizerLearningFeedback?
     @Published private(set) var learningEvidenceCount = 0
+    @Published private(set) var learningRecords: [AIEqualizerLearningRecord] = []
     @Published var adaptiveLearningEnabled: Bool {
         didSet {
             UserDefaults.standard.set(adaptiveLearningEnabled, forKey: Self.adaptiveLearningKey)
             if !adaptiveLearningEnabled {
+                discardPendingManualEqualizerLearning()
                 activeLearningSession = nil
                 currentLearningFeedback = nil
             }
@@ -41,6 +43,45 @@ final class AIEqualizerAgent: ObservableObject {
                 "[AIEqualizerAgent] Adaptive learning enabled=\(adaptiveLearningEnabled)",
                 step: "ai-tuning.learning-toggle"
             )
+        }
+    }
+    @Published var learnsFromExplicitFeedback: Bool {
+        didSet {
+            UserDefaults.standard.set(
+                learnsFromExplicitFeedback,
+                forKey: Self.learnsFromExplicitFeedbackKey
+            )
+        }
+    }
+    @Published var learnsFromListeningBehavior: Bool {
+        didSet {
+            UserDefaults.standard.set(
+                learnsFromListeningBehavior,
+                forKey: Self.learnsFromListeningBehaviorKey
+            )
+        }
+    }
+    @Published var learnsFromAdjustmentActions: Bool {
+        didSet {
+            UserDefaults.standard.set(
+                learnsFromAdjustmentActions,
+                forKey: Self.learnsFromAdjustmentActionsKey
+            )
+            if !learnsFromAdjustmentActions {
+                discardPendingManualEqualizerLearning()
+            }
+        }
+    }
+    @Published var learningStrength: AIEqualizerLearningStrength {
+        didSet {
+            UserDefaults.standard.set(learningStrength.rawValue, forKey: Self.learningStrengthKey)
+        }
+    }
+    @Published var learningRetention: AIEqualizerLearningRetention {
+        didSet {
+            UserDefaults.standard.set(learningRetention.rawValue, forKey: Self.learningRetentionKey)
+            learningStore.setRetentionDays(learningRetention.days)
+            refreshLearningRecords()
         }
     }
     @Published var tuningIntensity: AIEqualizerTuningIntensity {
@@ -110,6 +151,11 @@ final class AIEqualizerAgent: ObservableObject {
     private static let customSamplingDurationKey = "ai.eq.agent.custom-sampling-duration"
     private static let playerStatusKey = "ai.eq.agent.player-status"
     private static let adaptiveLearningKey = "ai.eq.agent.adaptive-learning"
+    private static let learnsFromExplicitFeedbackKey = "ai.eq.agent.learning.explicit-feedback"
+    private static let learnsFromListeningBehaviorKey = "ai.eq.agent.learning.listening-behavior"
+    private static let learnsFromAdjustmentActionsKey = "ai.eq.agent.learning.adjustment-actions"
+    private static let learningStrengthKey = "ai.eq.agent.learning.strength"
+    private static let learningRetentionKey = "ai.eq.agent.learning.retention-days"
     private static let recentProfileNamesKey = "ai.eq.agent.recent-profile-names.v1"
     private static let maxSamplingRetryAttempts = 3
     private static let maxGenerationRetryAttempts = 3
@@ -138,6 +184,8 @@ final class AIEqualizerAgent: ObservableObject {
     private var recentProfileNames: [String] = []
     private var discoveredProviderModels: [String: String] = [:]
     private var activeLearningSession: AIEqualizerActiveLearningSession?
+    private var pendingManualEqualizerLearning: AIEqualizerPendingManualAdjustment?
+    private var manualEqualizerLearningTask: Task<Void, Never>?
 
     private init() {
         let defaults = UserDefaults.standard
@@ -156,7 +204,25 @@ final class AIEqualizerAgent: ObservableObject {
         adaptiveLearningEnabled = defaults.object(forKey: Self.adaptiveLearningKey) == nil
             ? true
             : defaults.bool(forKey: Self.adaptiveLearningKey)
+        learnsFromExplicitFeedback = defaults.object(forKey: Self.learnsFromExplicitFeedbackKey) == nil
+            ? true
+            : defaults.bool(forKey: Self.learnsFromExplicitFeedbackKey)
+        learnsFromListeningBehavior = defaults.object(forKey: Self.learnsFromListeningBehaviorKey) == nil
+            ? true
+            : defaults.bool(forKey: Self.learnsFromListeningBehaviorKey)
+        learnsFromAdjustmentActions = defaults.object(forKey: Self.learnsFromAdjustmentActionsKey) == nil
+            ? true
+            : defaults.bool(forKey: Self.learnsFromAdjustmentActionsKey)
+        learningStrength = defaults.string(forKey: Self.learningStrengthKey)
+            .flatMap(AIEqualizerLearningStrength.init(rawValue:)) ?? .balanced
+        learningRetention = AIEqualizerLearningRetention(
+            rawValue: defaults.integer(forKey: Self.learningRetentionKey)
+        ) ?? .oneYear
+        learningStore.setRetentionDays(learningRetention.days)
+        let player = PlayerManager.shared
+        learningStore.hydrateSongMetadata(from: learningSongMetadata(in: player))
         learningEvidenceCount = learningStore.evidenceCount
+        learningRecords = learningStore.records
         recentProfileNames = Array(
             (defaults.stringArray(forKey: Self.recentProfileNamesKey) ?? []).suffix(16)
         )
@@ -164,7 +230,6 @@ final class AIEqualizerAgent: ObservableObject {
             EQManager.shared.restoreProcessingBeforeAI(reason: "agent-restored-disabled")
         }
 
-        let player = PlayerManager.shared
         observedSongIdentifier = player.currentSong.map { "\($0.musicSource.rawValue):\($0.id)" }
         if let observedSongIdentifier {
             savedProposals = proposalCache.history(for: observedSongIdentifier)
@@ -180,6 +245,7 @@ final class AIEqualizerAgent: ObservableObject {
             .sink { [weak self] identifier in
                 guard let self else { return }
                 guard self.observedSongIdentifier != identifier else { return }
+                self.flushPendingManualEqualizerLearning()
                 self.finalizeRetainedLearningSession()
                 self.observedSongIdentifier = identifier
                 self.analysisTask?.cancel()
@@ -211,12 +277,30 @@ final class AIEqualizerAgent: ObservableObject {
                 self.samplingStage = .preparing
                 self.generationStage = .preparing
                 self.phase = .idle
+                self.refreshLearningRecords()
             }
             .store(in: &cancellables)
+
+        Publishers.Merge3(
+            player.$context.map { _ in () },
+            player.$history.map { _ in () },
+            player.$podcastHistory.map { _ in () }
+        )
+        .debounce(for: .milliseconds(180), scheduler: RunLoop.main)
+        .sink { [weak self] in
+            self?.refreshLearningRecords()
+        }
+        .store(in: &cancellables)
 
         PlaybackTimePublisher.shared.$currentTime
             .sink { [weak self] position in
                 self?.updateLearningPlaybackPosition(position)
+            }
+            .store(in: &cancellables)
+
+        EQManager.shared.userGraphicGainAdjustments
+            .sink { [weak self] adjustment in
+                self?.captureManualEqualizerAdjustment(adjustment)
             }
             .store(in: &cancellables)
 
@@ -260,6 +344,7 @@ final class AIEqualizerAgent: ObservableObject {
         .sink { [weak self] _ in
             guard let self,
                   let currentSong = PlayerManager.shared.currentSong else { return }
+            self.flushPendingManualEqualizerLearning()
             guard self.automaticConfigurationEnabled else {
                 self.measuredFeatures = self.restoredMeasurement(for: currentSong)
                 return
@@ -292,6 +377,7 @@ final class AIEqualizerAgent: ObservableObject {
             .dropFirst()
             .sink { [weak self] mode in
                 guard let self else { return }
+                self.flushPendingManualEqualizerLearning()
                 self.analysisTask?.cancel()
                 self.automaticTask?.cancel()
                 self.automaticRetryTask?.cancel()
@@ -326,6 +412,7 @@ final class AIEqualizerAgent: ObservableObject {
         analysisTask?.cancel()
         automaticTask?.cancel()
         automaticRetryTask?.cancel()
+        manualEqualizerLearningTask?.cancel()
     }
 
     var isCurrentProposalApplied: Bool {
@@ -558,19 +645,33 @@ final class AIEqualizerAgent: ObservableObject {
     }
 
     func recordCurrentProposalFeedback(_ feedback: AIEqualizerLearningFeedback) {
+        guard learnsFromExplicitFeedback else { return }
         guard feedback == .positive || feedback == .negative else { return }
         guard currentLearningFeedback != feedback else { return }
         recordFeedbackIfPossible(feedback)
     }
 
     func clearLearningHistory() {
+        discardPendingManualEqualizerLearning()
         learningStore.clear()
         activeLearningSession = nil
         currentLearningFeedback = nil
-        learningEvidenceCount = 0
+        refreshLearningRecords()
         AppLogger.info(
             "[AIEqualizerAgent] Adaptive learning history cleared",
             step: "ai-tuning.learning-cleared"
+        )
+    }
+
+    func deleteLearningRecord(id: UUID) {
+        guard learningStore.delete(id: id) else { return }
+        if proposal?.id == id {
+            currentLearningFeedback = nil
+        }
+        refreshLearningRecords()
+        AppLogger.info(
+            "[AIEqualizerAgent] Adaptive learning record deleted",
+            step: "ai-tuning.learning-record-deleted"
         )
     }
 
@@ -843,7 +944,7 @@ final class AIEqualizerAgent: ObservableObject {
             ]
         )
         let toolPolicyRevision = skillExecution.policy.revision ?? "bundled-v1"
-        let cacheKey = "\(currentAgentVersion)|\(MonoAudioTuningTool.version)|mono-agent-v6|learning:\(learningRevision)|skillFingerprint:\(skillExecution.fingerprint)|skillRevision:\(skillExecution.runtime.revision)|toolPolicy:\(toolPolicyRevision)|\(graphicEQMode.rawValue)|\(song.musicSource.rawValue)|\(song.id)|\(audioVariant)|\(configuration.wireProtocol.rawValue)|\(configuration.resolvedModel)|\(outputIdentity)|\(deviceTuningIdentity)|\(samplingMode.rawValue)|\(Int(samplingDuration.rounded()))|\(requestedIntensity.rawValue)|\(requestedProfile.rawValue)"
+        let cacheKey = "\(currentAgentVersion)|\(MonoAudioTuningTool.version)|mono-agent-v6|learning:\(learningRevision)|learningStrength:\(learningStrength.rawValue)|skillFingerprint:\(skillExecution.fingerprint)|skillRevision:\(skillExecution.runtime.revision)|toolPolicy:\(toolPolicyRevision)|\(graphicEQMode.rawValue)|\(song.musicSource.rawValue)|\(song.id)|\(audioVariant)|\(configuration.wireProtocol.rawValue)|\(configuration.resolvedModel)|\(outputIdentity)|\(deviceTuningIdentity)|\(samplingMode.rawValue)|\(Int(samplingDuration.rounded()))|\(requestedIntensity.rawValue)|\(requestedProfile.rawValue)"
         if !forceRegeneration,
            let cached = proposalCache.value(
                for: cacheKey,
@@ -992,7 +1093,8 @@ final class AIEqualizerAgent: ObservableObject {
             let learningContext = adaptiveLearningEnabled
                 ? learningStore.context(
                     for: features,
-                    outputIdentity: outputIdentity
+                    outputIdentity: outputIdentity,
+                    strengthScale: learningStrength.adjustmentScale
                 )
                 : nil
             let generation = try await generateValidatedOutputWithRetry(
@@ -1054,6 +1156,14 @@ final class AIEqualizerAgent: ObservableObject {
                     "bands": String(result.gains.count),
                     "preampDB": String(format: "%.2f", result.preampDB),
                     "confidence": String(format: "%.3f", result.confidence),
+                    "adaptiveLearningApplied": result.learningRevision == nil ? "false" : "true",
+                    "learningRevision": String(result.learningRevision ?? 0),
+                    "learningEvidence": String(result.learningEvidenceCount ?? 0),
+                    "learningConfidence": String(format: "%.3f", result.learningConfidence ?? 0),
+                    "maximumLearnedBandAdjustmentDB": String(
+                        format: "%.3f",
+                        learningContext?.bandAdjustments.map { abs($0) }.max() ?? 0
+                    ),
                     "checkedRuleCount": String(compliance?.checkedRuleCount ?? 0),
                     "warningCodes": compliance?.warningCodes.joined(separator: ",") ?? "",
                     "localValidationApplied": (compliance?.localValidationApplied ?? false) ? "true" : "false"
@@ -1638,6 +1748,7 @@ final class AIEqualizerAgent: ObservableObject {
         currentLearningFeedback = previousFeedback
         activeLearningSession = AIEqualizerActiveLearningSession(
             proposal: proposal,
+            songTitle: song.name,
             songIdentifier: songIdentifier(song),
             artist: song.artistName,
             outputIdentity: currentOutputIdentity(),
@@ -1670,8 +1781,91 @@ final class AIEqualizerAgent: ObservableObject {
         }
     }
 
+    private func captureManualEqualizerAdjustment(_ adjustment: EQGraphicGainUserAdjustment) {
+        guard adaptiveLearningEnabled,
+              learnsFromAdjustmentActions,
+              let song = PlayerManager.shared.currentSong else { return }
+        let identifier = songIdentifier(song)
+        let outputIdentity = currentOutputIdentity()
+        let matchesPendingContext = pendingManualEqualizerLearning.map {
+            $0.songIdentifier == identifier
+                && $0.outputIdentity == outputIdentity
+                && $0.graphicEQMode == adjustment.graphicEQMode
+        } ?? false
+        if !matchesPendingContext {
+            flushPendingManualEqualizerLearning()
+        }
+
+        if var pending = pendingManualEqualizerLearning {
+            pending.adjustedGains = adjustment.adjustedGains
+            pending.changedAt = adjustment.changedAt
+            pendingManualEqualizerLearning = pending
+        } else {
+            let features = measuredFeatures.flatMap { measured -> AIEqualizerAudioFeatures? in
+                measured.songID == song.id && measured.graphicEQMode == adjustment.graphicEQMode
+                    ? measured
+                    : nil
+            }
+            let effects = PlayerManager.shared.audioEffects
+            pendingManualEqualizerLearning = AIEqualizerPendingManualAdjustment(
+                songTitle: song.name,
+                songIdentifier: identifier,
+                artist: song.artistName,
+                outputIdentity: outputIdentity,
+                outputKind: features?.outputKind ?? EQManager.shared.currentOutputKind.rawValue,
+                graphicEQMode: adjustment.graphicEQMode,
+                genreHints: features?.genreHints ?? [],
+                instrumentHints: features?.instrumentHints ?? [],
+                previousGains: adjustment.previousGains,
+                adjustedGains: adjustment.adjustedGains,
+                bassGain: effects.bassGain,
+                trebleGain: effects.trebleGain,
+                surroundLevel: effects.surroundLevel,
+                reverbLevel: effects.reverbLevel,
+                stereoWidth: effects.stereoWidth,
+                processingIntensity: EQManager.shared.professionalProcessingIntensity,
+                changedAt: adjustment.changedAt
+            )
+        }
+        activeLearningSession?.hasExplicitFeedback = true
+        currentLearningFeedback = .manualEqualizer
+        scheduleManualEqualizerLearningCommit()
+    }
+
+    private func scheduleManualEqualizerLearningCommit() {
+        manualEqualizerLearningTask?.cancel()
+        manualEqualizerLearningTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 900_000_000)
+            guard !Task.isCancelled else { return }
+            self?.flushPendingManualEqualizerLearning()
+        }
+    }
+
+    private func flushPendingManualEqualizerLearning() {
+        manualEqualizerLearningTask?.cancel()
+        manualEqualizerLearningTask = nil
+        guard let pending = pendingManualEqualizerLearning else { return }
+        pendingManualEqualizerLearning = nil
+        guard learningStore.recordManualEqualizerAdjustment(pending) else { return }
+        refreshLearningRecords()
+        let maximumDelta = zip(pending.previousGains, pending.adjustedGains)
+            .map { abs($0 - $1) }
+            .max() ?? 0
+        AppLogger.info(
+            "[AIEqualizerAgent] Manual equalizer preference recorded song=\(pending.songIdentifier) mode=\(pending.graphicEQMode.rawValue) maxDelta=\(String(format: "%.2f", maximumDelta))dB revision=\(learningStore.revision)",
+            step: "ai-tuning.learning-manual-eq"
+        )
+    }
+
+    private func discardPendingManualEqualizerLearning() {
+        manualEqualizerLearningTask?.cancel()
+        manualEqualizerLearningTask = nil
+        pendingManualEqualizerLearning = nil
+    }
+
     private func finalizeRetainedLearningSession() {
         guard adaptiveLearningEnabled,
+              learnsFromListeningBehavior,
               let session = activeLearningSession else {
             activeLearningSession = nil
             return
@@ -1685,6 +1879,7 @@ final class AIEqualizerAgent: ObservableObject {
 
     private func recordImplicitFeedbackIfNeeded(_ feedback: AIEqualizerLearningFeedback) {
         guard adaptiveLearningEnabled,
+              learnsFromAdjustmentActions,
               let session = activeLearningSession,
               appliedProposalID == session.proposal.id else { return }
         persistLearningFeedback(feedback, session: session)
@@ -1693,7 +1888,7 @@ final class AIEqualizerAgent: ObservableObject {
     }
 
     private func recordFeedbackIfPossible(_ feedback: AIEqualizerLearningFeedback) {
-        guard adaptiveLearningEnabled else { return }
+        guard adaptiveLearningEnabled, learnsFromExplicitFeedback else { return }
         let session: AIEqualizerActiveLearningSession
         if let activeLearningSession,
            activeLearningSession.proposal.id == proposal?.id {
@@ -1702,6 +1897,7 @@ final class AIEqualizerAgent: ObservableObject {
                   let song = PlayerManager.shared.currentSong {
             session = AIEqualizerActiveLearningSession(
                 proposal: proposal,
+                songTitle: song.name,
                 songIdentifier: songIdentifier(song),
                 artist: song.artistName,
                 outputIdentity: currentOutputIdentity(),
@@ -1728,12 +1924,43 @@ final class AIEqualizerAgent: ObservableObject {
         session: AIEqualizerActiveLearningSession
     ) {
         learningStore.record(feedback: feedback, session: session)
-        learningEvidenceCount = learningStore.evidenceCount
+        refreshLearningRecords()
         let listenedText = String(format: "%.1f", session.listenedSeconds)
         AppLogger.info(
             "[AIEqualizerAgent] Learning feedback recorded feedback=\(feedback.rawValue) proposal=\(session.proposal.id.uuidString) listened=\(listenedText)s revision=\(learningStore.revision) evidence=\(learningEvidenceCount)",
             step: "ai-tuning.learning-feedback"
         )
+    }
+
+    private func refreshLearningRecords() {
+        learningStore.hydrateSongMetadata(
+            from: learningSongMetadata(in: PlayerManager.shared)
+        )
+        learningEvidenceCount = learningStore.evidenceCount
+        learningRecords = learningStore.records
+    }
+
+    private func learningSongMetadata(
+        in player: PlayerManager
+    ) -> [String: AIEqualizerLearningSongMetadata] {
+        var metadata = measurementStore.learningSongMetadata
+        var songs = player.currentContextList
+        songs.append(contentsOf: player.history)
+        songs.append(contentsOf: player.podcastHistory)
+        if let currentSong = player.currentSong {
+            songs.insert(currentSong, at: 0)
+        }
+
+        var seen = Set<String>()
+        for song in songs {
+            let identifier = songIdentifier(song)
+            guard seen.insert(identifier).inserted else { continue }
+            metadata[identifier] = AIEqualizerLearningSongMetadata(
+                title: song.name,
+                artist: song.artistName
+            )
+        }
+        return metadata
     }
 
     private func recordProfileName(_ name: String) {
@@ -2342,6 +2569,11 @@ private final class AIEqualizerProposalCacheStore {
     }
 }
 
+private struct AIEqualizerLearningSongMetadata: Sendable {
+    let title: String
+    let artist: String
+}
+
 private struct AIEqualizerMeasuredFeatureRecord: Codable, Sendable {
     let schemaVersion: Int
     let songIdentifier: String
@@ -2378,6 +2610,19 @@ private final class AIEqualizerMeasurementStore {
             records = [:]
         }
         removeInvalidRecords(persistChanges: true)
+    }
+
+    var learningSongMetadata: [String: AIEqualizerLearningSongMetadata] {
+        var metadata: [String: AIEqualizerLearningSongMetadata] = [:]
+        for record in records.values.sorted(by: { $0.capturedAt < $1.capturedAt }) {
+            let title = record.features.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !title.isEmpty else { continue }
+            metadata[record.songIdentifier] = AIEqualizerLearningSongMetadata(
+                title: title,
+                artist: record.features.artist
+            )
+        }
+        return metadata
     }
 
     func value(
@@ -2498,6 +2743,7 @@ private final class AIEqualizerMeasurementStore {
 
 private struct AIEqualizerActiveLearningSession {
     let proposal: AIEqualizerProposal
+    let songTitle: String
     let songIdentifier: String
     let artist: String
     let outputIdentity: String
@@ -2511,9 +2757,30 @@ private struct AIEqualizerActiveLearningSession {
     var hasExplicitFeedback: Bool
 }
 
+private struct AIEqualizerPendingManualAdjustment {
+    let songTitle: String
+    let songIdentifier: String
+    let artist: String
+    let outputIdentity: String
+    let outputKind: String
+    let graphicEQMode: GraphicEQMode
+    let genreHints: [String]
+    let instrumentHints: [String]
+    let previousGains: [Float]
+    var adjustedGains: [Float]
+    let bassGain: Float
+    let trebleGain: Float
+    let surroundLevel: Float
+    let reverbLevel: Float
+    let stereoWidth: Float
+    let processingIntensity: Float
+    var changedAt: Date
+}
+
 private struct AIEqualizerLearningEpisode: Codable, Sendable {
     let schemaVersion: Int
     let proposalID: UUID
+    let songTitle: String?
     let songIdentifier: String
     let artist: String
     let outputIdentity: String
@@ -2522,6 +2789,7 @@ private struct AIEqualizerLearningEpisode: Codable, Sendable {
     let genreHints: [String]
     let instrumentHints: [String]
     let gains: [Float]
+    let learnedBandAdjustments: [Float]?
     let bassGain: Float
     let trebleGain: Float
     let surroundLevel: Float
@@ -2544,13 +2812,41 @@ private final class AIEqualizerLearningStore {
     private static let schemaVersion = 1
     private static let fileName = "MonoAudioAgentLearning-v1.json"
     private static let maximumEntries = 320
-    private static let maximumAge: TimeInterval = 365 * 24 * 60 * 60
 
     private let storageURL: URL?
     private var archive: AIEqualizerLearningArchive
+    private var retentionDays = AIEqualizerLearningRetention.oneYear.days
 
     var revision: Int { archive.revision }
     var evidenceCount: Int { archive.episodes.count }
+    var records: [AIEqualizerLearningRecord] {
+        archive.episodes
+            .sorted { $0.recordedAt > $1.recordedAt }
+            .map { episode in
+                AIEqualizerLearningRecord(
+                    id: episode.proposalID,
+                    songTitle: episode.songTitle,
+                    songIdentifier: episode.songIdentifier,
+                    artist: episode.artist,
+                    outputIdentity: episode.outputIdentity,
+                    outputKind: episode.outputKind,
+                    graphicEQMode: episode.graphicEQMode,
+                    genreHints: episode.genreHints,
+                    instrumentHints: episode.instrumentHints,
+                    gains: episode.gains,
+                    learnedBandAdjustments: episode.learnedBandAdjustments ?? [],
+                    bassGain: episode.bassGain,
+                    trebleGain: episode.trebleGain,
+                    surroundLevel: episode.surroundLevel,
+                    reverbLevel: episode.reverbLevel,
+                    stereoWidth: episode.stereoWidth,
+                    processingIntensity: episode.processingIntensity,
+                    feedback: episode.feedback,
+                    listenedSeconds: episode.listenedSeconds,
+                    recordedAt: episode.recordedAt
+                )
+            }
+    }
 
     init() {
         storageURL = Self.makeStorageURL()
@@ -2576,6 +2872,55 @@ private final class AIEqualizerLearningStore {
             .feedback
     }
 
+    func setRetentionDays(_ days: Int) {
+        retentionDays = max(1, days)
+        removeExpiredEpisodes()
+    }
+
+    func hydrateSongMetadata(
+        from metadataByIdentifier: [String: AIEqualizerLearningSongMetadata]
+    ) {
+        var changed = false
+
+        archive.episodes = archive.episodes.map { episode in
+            let existingTitle = episode.songTitle?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            guard existingTitle.isEmpty,
+                  let metadata = metadataByIdentifier[episode.songIdentifier],
+                  !metadata.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                return episode
+            }
+            changed = true
+            return AIEqualizerLearningEpisode(
+                schemaVersion: episode.schemaVersion,
+                proposalID: episode.proposalID,
+                songTitle: metadata.title,
+                songIdentifier: episode.songIdentifier,
+                artist: episode.artist.isEmpty ? metadata.artist : episode.artist,
+                outputIdentity: episode.outputIdentity,
+                outputKind: episode.outputKind,
+                graphicEQMode: episode.graphicEQMode,
+                genreHints: episode.genreHints,
+                instrumentHints: episode.instrumentHints,
+                gains: episode.gains,
+                learnedBandAdjustments: episode.learnedBandAdjustments,
+                bassGain: episode.bassGain,
+                trebleGain: episode.trebleGain,
+                surroundLevel: episode.surroundLevel,
+                reverbLevel: episode.reverbLevel,
+                stereoWidth: episode.stereoWidth,
+                processingIntensity: episode.processingIntensity,
+                feedback: episode.feedback,
+                listenedSeconds: episode.listenedSeconds,
+                recordedAt: episode.recordedAt
+            )
+        }
+
+        guard changed else { return }
+        archive.revision += 1
+        persist()
+    }
+
     func record(
         feedback: AIEqualizerLearningFeedback,
         session: AIEqualizerActiveLearningSession,
@@ -2586,6 +2931,7 @@ private final class AIEqualizerLearningStore {
             AIEqualizerLearningEpisode(
                 schemaVersion: Self.schemaVersion,
                 proposalID: session.proposal.id,
+                songTitle: session.songTitle,
                 songIdentifier: session.songIdentifier,
                 artist: session.artist,
                 outputIdentity: session.outputIdentity,
@@ -2594,6 +2940,7 @@ private final class AIEqualizerLearningStore {
                 genreHints: session.genreHints,
                 instrumentHints: session.instrumentHints,
                 gains: session.proposal.gains,
+                learnedBandAdjustments: nil,
                 bassGain: session.proposal.tone.bassGain,
                 trebleGain: session.proposal.tone.trebleGain,
                 surroundLevel: session.proposal.spatial.surroundLevel,
@@ -2617,15 +2964,106 @@ private final class AIEqualizerLearningStore {
         persist()
     }
 
+    func recordManualEqualizerAdjustment(
+        _ adjustment: AIEqualizerPendingManualAdjustment
+    ) -> Bool {
+        let previous = adjustment.graphicEQMode.normalizedGains(adjustment.previousGains)
+        let adjusted = adjustment.graphicEQMode.normalizedGains(adjustment.adjustedGains)
+        let newOffsets = zip(adjusted, previous).map {
+            min(Float(6), max(Float(-6), $0 - $1))
+        }
+        guard newOffsets.map({ abs($0) }).max() ?? 0 >= 0.08 else { return false }
+
+        let mergeWindow: TimeInterval = 5 * 60
+        let mergeIndex = archive.episodes.indices
+            .filter { index in
+                let episode = archive.episodes[index]
+                return episode.feedback == .manualEqualizer
+                    && episode.songIdentifier == adjustment.songIdentifier
+                    && episode.outputIdentity == adjustment.outputIdentity
+                    && episode.graphicEQMode == adjustment.graphicEQMode
+                    && adjustment.changedAt.timeIntervalSince(episode.recordedAt) <= mergeWindow
+            }
+            .max { archive.episodes[$0].recordedAt < archive.episodes[$1].recordedAt }
+        let recordID: UUID
+        let learnedOffsets: [Float]
+        if let mergeIndex {
+            let previousEpisode = archive.episodes.remove(at: mergeIndex)
+            let existingOffsets = adjustment.graphicEQMode.normalizedGains(
+                previousEpisode.learnedBandAdjustments ?? []
+            )
+            learnedOffsets = zip(existingOffsets, newOffsets).map {
+                min(Float(6), max(Float(-6), $0 + $1))
+            }
+            recordID = previousEpisode.proposalID
+        } else {
+            learnedOffsets = newOffsets
+            recordID = UUID()
+        }
+
+        if learnedOffsets.map({ abs($0) }).max() ?? 0 < 0.08 {
+            archive.revision += 1
+            persist()
+            return true
+        }
+
+        archive.episodes.append(
+            AIEqualizerLearningEpisode(
+                schemaVersion: Self.schemaVersion,
+                proposalID: recordID,
+                songTitle: adjustment.songTitle,
+                songIdentifier: adjustment.songIdentifier,
+                artist: adjustment.artist,
+                outputIdentity: adjustment.outputIdentity,
+                outputKind: adjustment.outputKind,
+                graphicEQMode: adjustment.graphicEQMode,
+                genreHints: adjustment.genreHints,
+                instrumentHints: adjustment.instrumentHints,
+                gains: adjusted,
+                learnedBandAdjustments: learnedOffsets,
+                bassGain: adjustment.bassGain,
+                trebleGain: adjustment.trebleGain,
+                surroundLevel: adjustment.surroundLevel,
+                reverbLevel: adjustment.reverbLevel,
+                stereoWidth: adjustment.stereoWidth,
+                processingIntensity: adjustment.processingIntensity,
+                feedback: .manualEqualizer,
+                listenedSeconds: 0,
+                recordedAt: adjustment.changedAt
+            )
+        )
+        archive.revision += 1
+        removeExpiredEpisodes(now: adjustment.changedAt)
+        if archive.episodes.count > Self.maximumEntries {
+            archive.episodes = Array(
+                archive.episodes
+                    .sorted { $0.recordedAt > $1.recordedAt }
+                    .prefix(Self.maximumEntries)
+            )
+        }
+        persist()
+        return true
+    }
+
     func clear() {
         archive.episodes.removeAll()
         archive.revision += 1
         persist()
     }
 
+    func delete(id: UUID) -> Bool {
+        let previousCount = archive.episodes.count
+        archive.episodes.removeAll { $0.proposalID == id }
+        guard archive.episodes.count != previousCount else { return false }
+        archive.revision += 1
+        persist()
+        return true
+    }
+
     func context(
         for features: AIEqualizerAudioFeatures,
         outputIdentity: String,
+        strengthScale: Float,
         now: Date = Date()
     ) -> AIEqualizerLearningContext? {
         removeExpiredEpisodes(now: now)
@@ -2675,20 +3113,30 @@ private final class AIEqualizerLearningStore {
                 * genreMatch * instrumentMatch * songMatch
             guard abs(weight) >= 0.025 else { continue }
 
-            let gains = features.graphicEQMode.resampledGains(
-                episode.gains,
-                from: episode.graphicEQMode
-            )
-            let average = gains.reduce(0, +) / Float(max(gains.count, 1))
-            for index in bandSums.indices {
-                bandSums[index] += (gains[index] - average) * weight
+            let learnedCurve: [Float]
+            if episode.feedback == .manualEqualizer {
+                learnedCurve = features.graphicEQMode.resampledGains(
+                    episode.learnedBandAdjustments ?? [],
+                    from: episode.graphicEQMode
+                )
+            } else {
+                learnedCurve = features.graphicEQMode.resampledGains(
+                    episode.gains,
+                    from: episode.graphicEQMode
+                )
             }
-            bassSum += episode.bassGain * weight
-            trebleSum += episode.trebleGain * weight
-            surroundSum += episode.surroundLevel * weight
-            reverbSum += episode.reverbLevel * weight
-            widthSum += (episode.stereoWidth - 1) * weight
-            processingSum += (episode.processingIntensity - 1) * weight
+            let average = learnedCurve.reduce(0, +) / Float(max(learnedCurve.count, 1))
+            for index in bandSums.indices {
+                bandSums[index] += (learnedCurve[index] - average) * weight
+            }
+            if episode.feedback != .manualEqualizer {
+                bassSum += episode.bassGain * weight
+                trebleSum += episode.trebleGain * weight
+                surroundSum += episode.surroundLevel * weight
+                reverbSum += episode.reverbLevel * weight
+                widthSum += (episode.stereoWidth - 1) * weight
+                processingSum += (episode.processingIntensity - 1) * weight
+            }
             normalizer += abs(weight)
             relevantEvidence += 1
         }
@@ -2697,7 +3145,7 @@ private final class AIEqualizerLearningStore {
             return emptyContext(for: features.graphicEQMode)
         }
         let confidence = min(Float(0.42), (1 - expf(-normalizer / 2.8)) * 0.42)
-        let adaptation = min(0.28, 0.10 + confidence * 0.36)
+        let adaptation = min(0.36, (0.10 + confidence * 0.36) * strengthScale)
         func adjustment(_ sum: Float, limit: Float) -> Float {
             min(limit, max(-limit, (sum / normalizer) * adaptation))
         }
@@ -2733,9 +3181,10 @@ private final class AIEqualizerLearningStore {
 
     private func removeExpiredEpisodes(now: Date = Date()) {
         let count = archive.episodes.count
+        let maximumAge = TimeInterval(retentionDays) * 24 * 60 * 60
         archive.episodes.removeAll {
             $0.schemaVersion != Self.schemaVersion
-                || now.timeIntervalSince($0.recordedAt) > Self.maximumAge
+                || now.timeIntervalSince($0.recordedAt) > maximumAge
         }
         if archive.episodes.count != count {
             archive.revision += 1
@@ -2769,6 +3218,7 @@ private final class AIEqualizerLearningStore {
         case .negative: return -0.72
         case .reset: return -0.48
         case .regenerated: return -0.24
+        case .manualEqualizer: return 1.35
         }
     }
 

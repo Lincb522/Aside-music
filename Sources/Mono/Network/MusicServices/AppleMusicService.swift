@@ -1202,6 +1202,16 @@ final class AppleMusicService: ObservableObject {
             detail.releaseDate = releaseDate.formatted(date: .abbreviated, time: .omitted)
         }
 
+        if let introduction = Self.appleMusicEditorialText(catalogSong.editorialNotes) {
+            detail.sections.append(
+                PlatformSongSection(
+                    id: "apple-music-introduction",
+                    title: String(localized: "song_detail_introduction"),
+                    body: introduction
+                )
+            )
+        }
+
         if let composer = catalogSong.composerName?
             .trimmingCharacters(in: .whitespacesAndNewlines),
            !composer.isEmpty {
@@ -1239,6 +1249,21 @@ final class AppleMusicService: ObservableObject {
         }
 
         return detail
+    }
+
+    private static func appleMusicEditorialText(_ notes: EditorialNotes?) -> String? {
+        guard let rawValue = notes?.standard ?? notes?.short else { return nil }
+        var value = rawValue
+            .replacingOccurrences(of: #"<br\s*/?>"#, with: "\n", options: .regularExpression)
+            .replacingOccurrences(of: #"<[^>]+>"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: "&nbsp;", with: " ")
+            .replacingOccurrences(of: "&amp;", with: "&")
+        value = value
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
+        return value.isEmpty ? nil : value
     }
 
     private static func normalizedError(_ error: Error) -> Error {

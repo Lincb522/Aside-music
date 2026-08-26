@@ -487,26 +487,54 @@ private struct MonoAudioLearningRecordDetailView: View {
     }
 
     var body: some View {
-        ZStack {
-            detailBackdrop
+        GeometryReader { proxy in
+            let layout = MonoAudioLearningDetailLayout(size: proxy.size)
 
-            if let record {
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 18) {
-                        detailHeader(record)
-                        summarySection(record)
-                        contextSection(record)
-                        parameterSection(record)
+            ZStack {
+                detailBackdrop
+
+                if let record {
+                    ScrollView(showsIndicators: false) {
+                        HStack(spacing: 0) {
+                            Spacer(minLength: 0)
+
+                            Group {
+                                if layout.usesTwoColumns {
+                                    VStack(alignment: .leading, spacing: layout.sectionSpacing) {
+                                        detailHeader(record, layout: layout)
+                                        HStack(alignment: .top, spacing: layout.columnSpacing) {
+                                            VStack(alignment: .leading, spacing: layout.sectionSpacing) {
+                                                summarySection(record, layout: layout)
+                                                contextSection(record, layout: layout)
+                                            }
+                                            .frame(maxWidth: .infinity, alignment: .top)
+
+                                            parameterSection(record, layout: layout)
+                                                .frame(maxWidth: .infinity, alignment: .top)
+                                        }
+                                    }
+                                } else {
+                                    LazyVStack(alignment: .leading, spacing: layout.sectionSpacing) {
+                                        detailHeader(record, layout: layout)
+                                        summarySection(record, layout: layout)
+                                        contextSection(record, layout: layout)
+                                        parameterSection(record, layout: layout)
+                                    }
+                                }
+                            }
+                            .frame(maxWidth: layout.contentMaxWidth, alignment: .leading)
+
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, layout.horizontalInset)
+                        .padding(.top, layout.topInset)
+                        .padding(.bottom, layout.bottomInset)
                     }
-                    .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
-                    .padding(.top, 8)
-                    .padding(.bottom, 36)
-                    .iPadContentWidth(SettingsPageLayout.contentWidth)
+                } else {
+                    Text(String(localized: "audio_agent_learning_record_missing"))
+                        .font(.system(.body, design: .rounded, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.56))
                 }
-            } else {
-                Text(String(localized: "audio_agent_learning_record_missing"))
-                    .font(.system(.body, design: .rounded, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.56))
             }
         }
         .compatFontDesign(nil)
@@ -542,16 +570,19 @@ private struct MonoAudioLearningRecordDetailView: View {
         }
     }
 
-    private func detailHeader(_ record: AIEqualizerLearningRecord) -> some View {
-        HStack(spacing: 14) {
-            MonoIcon(icon: record.feedback.icon, size: 20, color: record.feedback.tint)
-                .frame(width: 48, height: 48)
+    private func detailHeader(
+        _ record: AIEqualizerLearningRecord,
+        layout: MonoAudioLearningDetailLayout
+    ) -> some View {
+        HStack(spacing: layout.compactHeight ? 11 : 13) {
+            MonoIcon(icon: record.feedback.icon, size: 18, color: record.feedback.tint)
+                .frame(width: 42, height: 42)
                 .background(record.feedback.tint.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(record.displayTitle)
-                    .font(.system(.title3, design: .rounded, weight: .bold))
+                    .font(.system(.headline, design: .rounded, weight: .bold))
                     .foregroundStyle(.white)
                     .fixedSize(horizontal: false, vertical: true)
                 Text(record.feedback.localizedTitle)
@@ -563,41 +594,51 @@ private struct MonoAudioLearningRecordDetailView: View {
         }
     }
 
-    private func summarySection(_ record: AIEqualizerLearningRecord) -> some View {
-        detailSection(String(localized: "audio_agent_learning_record_summary")) {
-            detailValueRow(String(localized: "audio_agent_learning_record_artist"), record.artist)
+    private func summarySection(
+        _ record: AIEqualizerLearningRecord,
+        layout: MonoAudioLearningDetailLayout
+    ) -> some View {
+        detailSection(String(localized: "audio_agent_learning_record_summary"), layout: layout) {
+            detailValueRow(String(localized: "audio_agent_learning_record_artist"), record.artist, layout: layout)
             detailDivider
-            detailValueRow(String(localized: "audio_agent_learning_record_source"), record.songIdentifier)
+            detailValueRow(String(localized: "audio_agent_learning_record_source"), record.songIdentifier, layout: layout)
             detailDivider
-            detailValueRow(String(localized: "audio_agent_learning_record_output"), record.displayOutput)
+            detailValueRow(String(localized: "audio_agent_learning_record_output"), record.displayOutput, layout: layout)
             detailDivider
             detailValueRow(
                 String(localized: "audio_agent_learning_record_feedback"),
-                record.feedback.localizedTitle
+                record.feedback.localizedTitle,
+                layout: layout
             )
             if record.feedback != .manualEqualizer {
                 detailDivider
                 detailValueRow(
                     String(localized: "audio_agent_learning_record_listened"),
-                    record.listenedSeconds.localizedDuration
+                    record.listenedSeconds.localizedDuration,
+                    layout: layout
                 )
             }
             detailDivider
             detailValueRow(
                 String(localized: "audio_agent_learning_record_time"),
-                record.recordedAt.formatted(date: .abbreviated, time: .shortened)
+                record.recordedAt.formatted(date: .abbreviated, time: .shortened),
+                layout: layout
             )
         }
     }
 
     @ViewBuilder
-    private func contextSection(_ record: AIEqualizerLearningRecord) -> some View {
+    private func contextSection(
+        _ record: AIEqualizerLearningRecord,
+        layout: MonoAudioLearningDetailLayout
+    ) -> some View {
         if !record.genreHints.isEmpty || !record.instrumentHints.isEmpty {
-            detailSection(String(localized: "audio_agent_learning_record_context")) {
+            detailSection(String(localized: "audio_agent_learning_record_context"), layout: layout) {
                 if !record.genreHints.isEmpty {
                     detailValueRow(
                         String(localized: "audio_agent_learning_record_genres"),
-                        record.genreHints.joined(separator: " · ")
+                        record.genreHints.joined(separator: " · "),
+                        layout: layout
                     )
                 }
                 if !record.genreHints.isEmpty, !record.instrumentHints.isEmpty {
@@ -606,24 +647,28 @@ private struct MonoAudioLearningRecordDetailView: View {
                 if !record.instrumentHints.isEmpty {
                     detailValueRow(
                         String(localized: "audio_agent_learning_record_instruments"),
-                        record.instrumentHints.joined(separator: " · ")
+                        record.instrumentHints.joined(separator: " · "),
+                        layout: layout
                     )
                 }
             }
         }
     }
 
-    private func parameterSection(_ record: AIEqualizerLearningRecord) -> some View {
-        detailSection(String(localized: "audio_agent_learning_record_parameters")) {
-            VStack(alignment: .leading, spacing: 10) {
+    private func parameterSection(
+        _ record: AIEqualizerLearningRecord,
+        layout: MonoAudioLearningDetailLayout
+    ) -> some View {
+        detailSection(String(localized: "audio_agent_learning_record_parameters"), layout: layout) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text(String(localized: "audio_agent_learning_record_eq_curve"))
                     .font(.system(.caption, design: .rounded, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.54))
 
                 LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: 70), spacing: 8)],
+                    columns: [GridItem(.adaptive(minimum: layout.parameterCellMinWidth), spacing: 7)],
                     alignment: .leading,
-                    spacing: 8
+                    spacing: 7
                 ) {
                     ForEach(Array(record.graphicEQMode.frequencyLabels.enumerated()), id: \.offset) { index, label in
                         VStack(spacing: 3) {
@@ -634,24 +679,24 @@ private struct MonoAudioLearningRecordDetailView: View {
                                 .font(.system(.caption, design: .monospaced, weight: .bold))
                                 .foregroundStyle(.white.opacity(0.82))
                         }
-                        .frame(maxWidth: .infinity, minHeight: 46)
+                        .frame(maxWidth: .infinity, minHeight: layout.parameterCellHeight)
                         .background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
                     }
                 }
             }
-            .padding(.vertical, 12)
+            .padding(.vertical, layout.rowVerticalInset)
 
             if record.feedback == .manualEqualizer {
                 detailDivider
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 8) {
                     Text(String(localized: "audio_agent_learning_record_manual_offsets"))
                         .font(.system(.caption, design: .rounded, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.54))
 
                     LazyVGrid(
-                        columns: [GridItem(.adaptive(minimum: 70), spacing: 8)],
+                        columns: [GridItem(.adaptive(minimum: layout.parameterCellMinWidth), spacing: 7)],
                         alignment: .leading,
-                        spacing: 8
+                        spacing: 7
                     ) {
                         ForEach(Array(record.graphicEQMode.frequencyLabels.enumerated()), id: \.offset) { index, label in
                             VStack(spacing: 3) {
@@ -662,27 +707,28 @@ private struct MonoAudioLearningRecordDetailView: View {
                                     .font(.system(.caption, design: .monospaced, weight: .bold))
                                     .foregroundStyle(accent.opacity(0.88))
                             }
-                            .frame(maxWidth: .infinity, minHeight: 46)
+                            .frame(maxWidth: .infinity, minHeight: layout.parameterCellHeight)
                             .background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
                         }
                     }
                 }
-                .padding(.vertical, 12)
+                .padding(.vertical, layout.rowVerticalInset)
             } else {
                 detailDivider
-                detailValueRow(String(localized: "audio_agent_learning_record_bass"), record.bassGain.decibelText)
+                detailValueRow(String(localized: "audio_agent_learning_record_bass"), record.bassGain.decibelText, layout: layout)
                 detailDivider
-                detailValueRow(String(localized: "audio_agent_learning_record_treble"), record.trebleGain.decibelText)
+                detailValueRow(String(localized: "audio_agent_learning_record_treble"), record.trebleGain.decibelText, layout: layout)
                 detailDivider
-                detailValueRow(String(localized: "audio_agent_learning_record_surround"), record.surroundLevel.decimalText)
+                detailValueRow(String(localized: "audio_agent_learning_record_surround"), record.surroundLevel.decimalText, layout: layout)
                 detailDivider
-                detailValueRow(String(localized: "audio_agent_learning_record_reverb"), record.reverbLevel.decimalText)
+                detailValueRow(String(localized: "audio_agent_learning_record_reverb"), record.reverbLevel.decimalText, layout: layout)
                 detailDivider
-                detailValueRow(String(localized: "audio_agent_learning_record_width"), record.stereoWidth.decimalText)
+                detailValueRow(String(localized: "audio_agent_learning_record_width"), record.stereoWidth.decimalText, layout: layout)
                 detailDivider
                 detailValueRow(
                     String(localized: "audio_agent_learning_record_processing"),
-                    record.processingIntensity.decimalText
+                    record.processingIntensity.decimalText,
+                    layout: layout
                 )
             }
         }
@@ -690,15 +736,16 @@ private struct MonoAudioLearningRecordDetailView: View {
 
     private func detailSection<Content: View>(
         _ title: String,
+        layout: MonoAudioLearningDetailLayout,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 9) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.system(.caption, design: .rounded, weight: .bold))
                 .foregroundStyle(.white.opacity(0.6))
 
             VStack(spacing: 0) { content() }
-                .padding(.horizontal, 14)
+                .padding(.horizontal, layout.cardHorizontalInset)
                 .background(
                     RoundedRectangle(cornerRadius: 15, style: .continuous)
                         .fill(Color.black.opacity(0.24))
@@ -710,7 +757,11 @@ private struct MonoAudioLearningRecordDetailView: View {
         }
     }
 
-    private func detailValueRow(_ title: String, _ value: String) -> some View {
+    private func detailValueRow(
+        _ title: String,
+        _ value: String,
+        layout: MonoAudioLearningDetailLayout
+    ) -> some View {
         ViewThatFits(in: .horizontal) {
             HStack(alignment: .firstTextBaseline, spacing: 14) {
                 Text(title)
@@ -729,7 +780,7 @@ private struct MonoAudioLearningRecordDetailView: View {
             }
         }
         .font(.system(.caption, design: .rounded, weight: .medium))
-        .frame(maxWidth: .infinity, minHeight: 46, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: layout.valueRowMinHeight, alignment: .leading)
     }
 
     private var detailDivider: some View {
@@ -755,6 +806,24 @@ private struct MonoAudioLearningRecordDetailView: View {
         }
         .ignoresSafeArea()
     }
+}
+
+private struct MonoAudioLearningDetailLayout {
+    let size: CGSize
+
+    var compactHeight: Bool { size.height < 700 }
+    var usesTwoColumns: Bool { size.width >= 720 }
+    var horizontalInset: CGFloat { size.width < 390 ? 14 : size.width < 720 ? 18 : 24 }
+    var topInset: CGFloat { compactHeight ? 6 : 10 }
+    var bottomInset: CGFloat { compactHeight ? 24 : 36 }
+    var sectionSpacing: CGFloat { compactHeight ? 12 : 15 }
+    var columnSpacing: CGFloat { 18 }
+    var contentMaxWidth: CGFloat { usesTwoColumns ? 940 : 640 }
+    var cardHorizontalInset: CGFloat { size.width < 390 ? 12 : 14 }
+    var rowVerticalInset: CGFloat { compactHeight ? 9 : 11 }
+    var valueRowMinHeight: CGFloat { compactHeight ? 40 : 43 }
+    var parameterCellMinWidth: CGFloat { size.width < 390 ? 64 : 70 }
+    var parameterCellHeight: CGFloat { compactHeight ? 40 : 43 }
 }
 
 private enum LearningRecordFilter: String, CaseIterable, Identifiable {
