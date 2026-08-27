@@ -586,6 +586,8 @@ private struct LearningRecordPage {
 private struct MonoAudioLearningRecordDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     @ObservedObject private var player = PlayerManager.shared
     @StateObject private var agent = AIEqualizerAgent.shared
     @State private var showsDeleteConfirmation = false
@@ -598,49 +600,51 @@ private struct MonoAudioLearningRecordDetailView: View {
     }
 
     var body: some View {
-        GeometryReader { proxy in
-            let layout = MonoAudioLearningDetailLayout(size: proxy.size)
-            let usesTwoColumns = layout.usesTwoColumns && !dynamicTypeSize.isAccessibilitySize
+        let layout = MonoAudioLearningDetailLayout(
+            compactWidth: horizontalSizeClass == .compact,
+            compactHeight: verticalSizeClass == .compact,
+            usesTwoColumns: DeviceLayout.isPad && horizontalSizeClass == .regular
+        )
+        let usesTwoColumns = layout.usesTwoColumns && !dynamicTypeSize.isAccessibilitySize
 
-            ZStack {
-                detailBackdrop
+        ZStack {
+            detailBackdrop
 
-                if let record {
-                    ScrollView(showsIndicators: false) {
-                        Group {
-                            if usesTwoColumns {
-                                VStack(alignment: .leading, spacing: layout.sectionSpacing) {
-                                    detailHeader(record, layout: layout)
-                                    HStack(alignment: .top, spacing: layout.columnSpacing) {
-                                        VStack(alignment: .leading, spacing: layout.sectionSpacing) {
-                                            summarySection(record, layout: layout)
-                                            contextSection(record, layout: layout)
-                                        }
-                                        .frame(maxWidth: .infinity, alignment: .topLeading)
-
-                                        parameterSection(record, layout: layout)
-                                            .frame(maxWidth: .infinity, alignment: .topLeading)
+            if let record {
+                ScrollView(showsIndicators: false) {
+                    Group {
+                        if usesTwoColumns {
+                            VStack(alignment: .leading, spacing: layout.sectionSpacing) {
+                                detailHeader(record, layout: layout)
+                                HStack(alignment: .top, spacing: layout.columnSpacing) {
+                                    VStack(alignment: .leading, spacing: layout.sectionSpacing) {
+                                        summarySection(record, layout: layout)
+                                        contextSection(record, layout: layout)
                                     }
-                                }
-                            } else {
-                                LazyVStack(alignment: .leading, spacing: layout.sectionSpacing) {
-                                    detailHeader(record, layout: layout)
-                                    summarySection(record, layout: layout)
-                                    contextSection(record, layout: layout)
+                                    .frame(maxWidth: .infinity, alignment: .topLeading)
+
                                     parameterSection(record, layout: layout)
+                                        .frame(maxWidth: .infinity, alignment: .topLeading)
                                 }
                             }
+                        } else {
+                            LazyVStack(alignment: .leading, spacing: layout.sectionSpacing) {
+                                detailHeader(record, layout: layout)
+                                summarySection(record, layout: layout)
+                                contextSection(record, layout: layout)
+                                parameterSection(record, layout: layout)
+                            }
                         }
-                        .frame(width: layout.workspaceWidth, alignment: .topLeading)
-                        .frame(maxWidth: .infinity, alignment: .top)
-                        .padding(.top, layout.topInset)
-                        .padding(.bottom, layout.bottomInset)
                     }
-                } else {
-                    Text(String(localized: "audio_agent_learning_record_missing"))
-                        .font(.system(.body, design: .rounded, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.56))
+                    .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
+                    .padding(.top, layout.topInset)
+                    .padding(.bottom, layout.bottomInset)
+                    .iPadContentWidth(940)
                 }
+            } else {
+                Text(String(localized: "audio_agent_learning_record_missing"))
+                    .font(.system(.body, design: .rounded, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.56))
             }
         }
         .compatFontDesign(nil)
@@ -872,28 +876,34 @@ private struct MonoAudioLearningRecordDetailView: View {
         _ value: String,
         layout: MonoAudioLearningDetailLayout
     ) -> some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .firstTextBaseline, spacing: 14) {
-                Text(title)
-                    .foregroundStyle(.white.opacity(0.54))
-                Spacer(minLength: 12)
-                Text(value)
-                    .foregroundStyle(.white.opacity(0.84))
-                    .multilineTextAlignment(.trailing)
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                stackedDetailValue(title, value)
+            } else {
+                HStack(alignment: .top, spacing: 12) {
+                    Text(title)
+                        .foregroundStyle(.white.opacity(0.54))
+                        .frame(width: layout.valueLabelWidth, alignment: .leading)
+                    Text(value)
+                        .foregroundStyle(.white.opacity(0.84))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
-            .fixedSize(horizontal: true, vertical: false)
-
-            VStack(alignment: .leading, spacing: 5) {
-                Text(title)
-                    .foregroundStyle(.white.opacity(0.54))
-                Text(value)
-                    .foregroundStyle(.white.opacity(0.84))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .font(.system(.caption, design: .rounded, weight: .medium))
         .frame(maxWidth: .infinity, minHeight: layout.valueRowMinHeight, alignment: .leading)
+    }
+
+    private func stackedDetailValue(_ title: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(title)
+                .foregroundStyle(.white.opacity(0.54))
+            Text(value)
+                .foregroundStyle(.white.opacity(0.84))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var detailDivider: some View {
@@ -922,22 +932,19 @@ private struct MonoAudioLearningRecordDetailView: View {
 }
 
 private struct MonoAudioLearningDetailLayout {
-    let size: CGSize
+    let compactWidth: Bool
+    let compactHeight: Bool
+    let usesTwoColumns: Bool
 
-    var compactHeight: Bool { size.height < 700 }
-    var horizontalInset: CGFloat { size.width < 390 ? 12 : size.width < 760 ? 16 : 24 }
-    var workspaceWidth: CGFloat {
-        max(1, min(940, size.width - horizontalInset * 2))
-    }
-    var usesTwoColumns: Bool { workspaceWidth >= 760 }
     var topInset: CGFloat { compactHeight ? 6 : 10 }
     var bottomInset: CGFloat { compactHeight ? 24 : 36 }
     var sectionSpacing: CGFloat { compactHeight ? 12 : 15 }
     var columnSpacing: CGFloat { 18 }
-    var cardHorizontalInset: CGFloat { size.width < 390 ? 12 : 14 }
+    var cardHorizontalInset: CGFloat { compactWidth ? 12 : 14 }
     var rowVerticalInset: CGFloat { compactHeight ? 9 : 11 }
     var valueRowMinHeight: CGFloat { compactHeight ? 40 : 43 }
-    var parameterCellMinWidth: CGFloat { workspaceWidth < 390 ? 58 : 66 }
+    var valueLabelWidth: CGFloat { compactWidth ? 86 : 112 }
+    var parameterCellMinWidth: CGFloat { compactWidth ? 58 : 66 }
     var parameterCellHeight: CGFloat { compactHeight ? 40 : 43 }
 }
 

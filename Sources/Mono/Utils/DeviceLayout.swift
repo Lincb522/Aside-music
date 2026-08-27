@@ -32,6 +32,19 @@ struct DeviceLayout {
         return 375
     }
 
+    /// 当前应用窗口宽度，iPad 分屏和窗口化时随窗口变化
+    static var viewportWidth: CGFloat {
+        let scenes = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+        let window = scenes.lazy
+            .compactMap { scene in
+                scene.windows.first(where: \.isKeyWindow)
+                    ?? scene.windows.first(where: { !$0.isHidden && $0.windowLevel == .normal })
+            }
+            .first
+        return max(1, window?.bounds.width ?? screenWidth)
+    }
+
     static var screenHeight: CGFloat {
         if let windowScene = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene }).first {
