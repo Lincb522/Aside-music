@@ -507,13 +507,31 @@ final class ServerLineManager: ObservableObject, @unchecked Sendable {
     /// 任何 < 500 的 HTTP 响应都视为线路可达（404 属正常：探测路径不存在于业务路由）；
     /// 备用线路是独立分流节点，5xx 意味着当前节点或本机业务服务异常。
     private func probe(line: ServerLine) async -> ProbeResult {
-        async let ncmProbe = probeEndpoint(base: SecureConfig.apiBaseURL(for: line), collectActiveConnections: true)
-        async let qcmProbe = probeEndpoint(base: SecureConfig.qqMusicBaseURL(for: line), collectActiveConnections: false)
-        async let qishuiProbe = probeEndpoint(base: SecureConfig.qishuiBaseURL(for: line), collectActiveConnections: false)
+        async let ncmProbe = probeEndpoint(
+            base: SecureConfig.apiBaseURL(for: line),
+            line: line,
+            service: "NCM",
+            collectActiveConnections: true
+        )
+        async let qcmProbe = probeEndpoint(
+            base: SecureConfig.qqMusicBaseURL(for: line),
+            line: line,
+            service: "QCM",
+            collectActiveConnections: false
+        )
+        async let qishuiProbe = probeEndpoint(
+            base: SecureConfig.qishuiBaseURL(for: line),
+            line: line,
+            service: "Qishui",
+            collectActiveConnections: false
+        )
         async let kcmProbe = probeEndpoint(
             base: SecureConfig.kugouBaseURL(for: line),
+            line: line,
+            service: "KCM",
             collectActiveConnections: false,
-            requiresSuccessfulStatus: true
+            requiresSuccessfulStatus: true,
+            requiresOKBody: true
         )
         let (ncm, qcm, qishui, kcm) = await (ncmProbe, qcmProbe, qishuiProbe, kcmProbe)
 
@@ -531,16 +549,21 @@ final class ServerLineManager: ObservableObject, @unchecked Sendable {
 
     private func probeEndpoint(
         base: String,
+        line: ServerLine,
+        service: String,
         collectActiveConnections: Bool,
-        requiresSuccessfulStatus: Bool = false
+        requiresSuccessfulStatus: Bool = false,
+        requiresOKBody: Bool = false
     ) async -> ProbeResult {
         guard var components = URLComponents(string: base) else {
+            AppLogger.warning("[ServerLine] endpoint failure line=\(line.rawValue) service=\(service) reason=invalid_url")
             return .failure()
         }
         let basePath = components.path.hasSuffix("/") ? String(components.path.dropLast()) : components.path
         components.path = basePath + "/__line_ok"
 
         guard let url = components.url else {
+            AppLogger.warning("[ServerLine] endpoint failure line=\(line.rawValue) service=\(service) reason=invalid_url")
             return .failure()
         }
 
@@ -552,16 +575,36 @@ final class ServerLineManager: ObservableObject, @unchecked Sendable {
         do {
             let (data, response) = try await probeSession.data(for: request)
             let elapsed = CFAbsoluteTimeGetCurrent() - start
-            guard let http = response as? HTTPURLResponse,
-                  requiresSuccessfulStatus ? (200..<300).contains(http.statusCode) : http.statusCode < 500 else {
+            guard let http = response as? HTTPURLResponse else {
+                AppLogger.warning("[ServerLine] endpoint failure line=\(line.rawValue) service=\(service) reason=non_http")
                 return .failure()
+            }
+            let accepted = requiresSuccessfulStatus
+                ? (200..<300).contains(http.statusCode)
+                : http.statusCode < 500
+            guard accepted else {
+                AppLogger.warning("[ServerLine] endpoint failure line=\(line.rawValue) service=\(service) status=\(http.statusCode)")
+                return .failure()
+            }
+            if requiresOKBody {
+                let body = String(data: data, encoding: .utf8)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .lowercased()
+                guard body == "ok" else {
+                    AppLogger.warning("[ServerLine] endpoint failure line=\(line.rawValue) service=\(service) reason=unexpected_health_body")
+                    return .failure()
+                }
             }
             return ProbeResult(
                 latency: elapsed,
                 activeConnections: collectActiveConnections ? Self.parseActiveConnections(from: data) : nil,
                 date: Date()
             )
+        } catch let error as URLError {
+            AppLogger.warning("[ServerLine] endpoint failure line=\(line.rawValue) service=\(service) url_error=\(error.code.rawValue)")
+            return .failure()
         } catch {
+            AppLogger.warning("[ServerLine] endpoint failure line=\(line.rawValue) service=\(service) reason=request_error")
             return .failure()
         }
     }

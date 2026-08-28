@@ -134,6 +134,22 @@ final class KCMMusicService: @unchecked Sendable {
         URL(string: AppConfig.API.kugouBaseURL)!
     }
 
+    private var serviceEndpoints: [(line: ServerLine, url: URL)] {
+        var lines = [ServerLineManager.currentLine]
+        if !lines.contains(.primary) {
+            lines.append(.primary)
+        }
+        if ServerLineManager.isFirstBackupConfigured, !lines.contains(.backup) {
+            lines.append(.backup)
+        }
+        if ServerLineManager.isSecondBackupConfigured, !lines.contains(.backup2) {
+            lines.append(.backup2)
+        }
+        return lines.compactMap { line in
+            URL(string: SecureConfig.kugouBaseURL(for: line)).map { (line, $0) }
+        }
+    }
+
     var currentCookie: String? {
         let value = KeychainHelper.loadString(key: cookieKey)?
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1034,44 +1050,92 @@ final class KCMMusicService: @unchecked Sendable {
         method: String = "GET",
         query: [URLQueryItem] = []
     ) async throws -> [String: Any] {
-        guard var components = URLComponents(url: baseURL.appendingPathComponent(path), resolvingAgainstBaseURL: false) else {
-            throw KCMMusicError.invalidResponse
+        var lastError: Error = KCMMusicError.invalidResponse
+        let endpoints = serviceEndpoints
+        for (index, endpoint) in endpoints.enumerated() {
+            guard var components = URLComponents(
+                url: endpoint.url.appendingPathComponent(path),
+                resolvingAgainstBaseURL: false
+            ) else {
+                continue
+            }
+            components.queryItems = query.isEmpty ? nil : query
+            guard let url = components.url else { continue }
+            do {
+                return try await request(url: url, method: method)
+            } catch {
+                lastError = error
+                guard Self.shouldTryNextServiceEndpoint(after: error),
+                      index < endpoints.index(before: endpoints.endIndex) else {
+                    throw error
+                }
+                AppLogger.warning(
+                    "[KCM] \(endpoint.line.rawValue) endpoint unavailable, trying \(endpoints[index + 1].line.rawValue)"
+                )
+            }
         }
-        components.queryItems = query.isEmpty ? nil : query
-        guard let url = components.url else { throw KCMMusicError.invalidResponse }
-        return try await request(url: url, method: method)
+        throw lastError
     }
 
     private func loginRequest(
         path: String,
         query: [URLQueryItem] = []
     ) async throws -> ([String: Any], URL) {
-        guard var components = URLComponents(
-            url: baseURL.appendingPathComponent(path),
-            resolvingAgainstBaseURL: false
-        ) else {
-            throw KCMMusicError.invalidResponse
-        }
-        var items = query
-        items.append(URLQueryItem(name: "timestamp", value: String(Int(Date().timeIntervalSince1970 * 1_000))))
-        components.queryItems = items
-        guard let url = components.url else { throw KCMMusicError.invalidResponse }
+        var lastError: Error = KCMMusicError.invalidResponse
+        let endpoints = serviceEndpoints
+        for (index, endpoint) in endpoints.enumerated() {
+            guard var components = URLComponents(
+                url: endpoint.url.appendingPathComponent(path),
+                resolvingAgainstBaseURL: false
+            ) else {
+                continue
+            }
+            var items = query
+            items.append(URLQueryItem(name: "timestamp", value: String(Int(Date().timeIntervalSince1970 * 1_000))))
+            components.queryItems = items
+            guard let url = components.url else { continue }
 
-        var request = URLRequest(url: url)
-        request.cachePolicy = .reloadIgnoringLocalCacheData
-        request.timeoutInterval = 20
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue("no-store, no-cache, max-age=0", forHTTPHeaderField: "Cache-Control")
-        request.setValue("no-cache", forHTTPHeaderField: "Pragma")
-        applyApplicationAuthorization(to: &request)
-        let (data, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse,
-              !data.isEmpty,
-              let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw KCMMusicError.invalidResponse
+            var request = URLRequest(url: url)
+            request.cachePolicy = .reloadIgnoringLocalCacheData
+            request.timeoutInterval = 20
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+            request.setValue("no-store, no-cache, max-age=0", forHTTPHeaderField: "Cache-Control")
+            request.setValue("no-cache", forHTTPHeaderField: "Pragma")
+            applyApplicationAuthorization(to: &request)
+            do {
+                let (data, response) = try await session.data(for: request)
+                guard let http = response as? HTTPURLResponse,
+                      !data.isEmpty,
+                      let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                    throw KCMMusicError.invalidResponse
+                }
+                try Self.validate(json: json, statusCode: http.statusCode)
+                return (json, url)
+            } catch {
+                lastError = error
+                guard Self.shouldTryNextServiceEndpoint(after: error),
+                      index < endpoints.index(before: endpoints.endIndex) else {
+                    throw error
+                }
+                AppLogger.warning(
+                    "[KCM] \(endpoint.line.rawValue) login endpoint unavailable, trying \(endpoints[index + 1].line.rawValue)"
+                )
+            }
         }
-        try Self.validate(json: json, statusCode: http.statusCode)
-        return (json, url)
+        throw lastError
+    }
+
+    private static func shouldTryNextServiceEndpoint(after error: Error) -> Bool {
+        if error is URLError { return true }
+        guard let error = error as? KCMMusicError else { return false }
+        switch error {
+        case .invalidResponse:
+            return true
+        case .server(let code, _):
+            return code >= 500
+        case .authenticationRequired, .verificationRequired, .unavailable:
+            return false
+        }
     }
 
     private func persistAuthenticatedSession(json: [String: Any], responseURL: URL) throws {

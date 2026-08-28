@@ -19,6 +19,7 @@ class APIService: @unchecked Sendable {
         private static let mask: UInt8 = 0x39
         private static let verifySeed: [UInt8] = [22, 102, 88, 93, 84, 80, 87, 22, 88, 73, 80, 22, 79, 92, 75, 80, 95, 64]
         private static let tokenSeed: [UInt8] = [77, 86, 82, 92, 87]
+        static let requestTimeout: TimeInterval = 8
 
         static var verifyPath: String {
             reveal(verifySeed)
@@ -308,7 +309,37 @@ class APIService: @unchecked Sendable {
             return .missing
         }
 
-        guard var components = URLComponents(string: SecureConfig.apiBaseURL) else {
+        var lines: [ServerLine] = [.primary]
+        if ServerLineManager.isFirstBackupConfigured {
+            lines.append(.backup)
+        }
+        if ServerLineManager.isSecondBackupConfigured {
+            lines.append(.backup2)
+        }
+
+        for (index, line) in lines.enumerated() {
+            let status = await verifyToken(
+                token,
+                isRefresh: isRefresh,
+                on: line
+            )
+            guard status == .networkError, index < lines.index(before: lines.endIndex) else {
+                return status
+            }
+            AppLogger.warning(
+                "[TokenValidation] \(line.rawValue) unavailable, trying \(lines[index + 1].rawValue)"
+            )
+        }
+
+        return .networkError
+    }
+
+    private func verifyToken(
+        _ token: String,
+        isRefresh: Bool,
+        on line: ServerLine
+    ) async -> TokenStatus {
+        guard var components = URLComponents(string: SecureConfig.apiBaseURL(for: line)) else {
             return .networkError
         }
 
@@ -333,6 +364,7 @@ class APIService: @unchecked Sendable {
         do {
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
+            request.timeoutInterval = AccessRelay.requestTimeout
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
             // 上报设备信息到服务端进行绑定验证

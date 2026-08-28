@@ -7,7 +7,7 @@ enum AnnouncementManifestFetchResult {
 
 extension APIService {
     func fetchAnnouncementManifest(etag: String?) async throws -> AnnouncementManifestFetchResult {
-        var components = try announcementURLComponents(path: "/api/public/announcements/manifest")
+        var components = try announcementURLComponents(path: "/_admin/api/public/announcements/manifest")
         appendAnnouncementContext(to: &components, includeVersion: true)
         guard let url = components.url else { throw AnnouncementServiceError.invalidURL }
 
@@ -31,7 +31,7 @@ extension APIService {
 
     func fetchAnnouncementDetail(id: String, displayRevision: Int) async throws -> AppAnnouncement {
         let safeID = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
-        var components = try announcementURLComponents(path: "/api/public/announcements/\(safeID)")
+        var components = try announcementURLComponents(path: "/_admin/api/public/announcements/\(safeID)")
         appendAnnouncementContext(to: &components, includeVersion: true)
         var items = components.queryItems ?? []
         items.append(URLQueryItem(name: "revision", value: String(displayRevision)))
@@ -55,7 +55,7 @@ extension APIService {
     }
 
     private func announcementURLComponents(path route: String) throws -> URLComponents {
-        guard var components = URLComponents(string: SecureConfig.apiBaseURL) else {
+        guard var components = URLComponents(string: SecureConfig.apiBaseURL(for: .primary)) else {
             throw AnnouncementServiceError.invalidURL
         }
         components.path = components.path.hasSuffix("/")

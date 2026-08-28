@@ -32,7 +32,7 @@ private struct AppChangelogResponse: Codable {
 // MARK: - 更新日志管理器
 
 /// 版本更新后的首次启动拉取服务端更新日志并触发弹窗。
-/// 数据源：官网后端 `/api/public/changelogs`（latest + releases）。
+/// 数据源：主服务器 `/_admin/api/public/changelogs`（latest + releases）。
 @MainActor
 final class ChangelogManager: ObservableObject {
     static let shared = ChangelogManager()
@@ -141,7 +141,14 @@ final class ChangelogManager: ObservableObject {
     }
 
     private func fetchPayload() async -> AppChangelogResponse? {
-        guard let url = URL(string: "\(SecureConfig.officialWebsiteBaseURL)/api/public/changelogs") else {
+        guard var components = URLComponents(string: SecureConfig.apiBaseURL(for: .primary)) else {
+            return nil
+        }
+        let route = "/_admin/api/public/changelogs"
+        components.path = components.path.hasSuffix("/")
+            ? "\(components.path)\(route.dropFirst())"
+            : "\(components.path)\(route)"
+        guard let url = components.url else {
             return nil
         }
 

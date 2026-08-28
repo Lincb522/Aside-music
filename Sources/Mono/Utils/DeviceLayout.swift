@@ -3,18 +3,46 @@ import SwiftUI
 
 @MainActor
 struct DeviceLayout {
+    private static var cachedSafeAreaInsets: [ObjectIdentifier: UIEdgeInsets] = [:]
+    private static var resolvingSafeAreaWindows = Set<ObjectIdentifier>()
+
+    private static var layoutWindow: UIWindow? {
+        let scenes = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .filter { $0.session.role == .windowApplication }
+        let foregroundScenes = scenes.filter {
+            $0.activationState == .foregroundActive || $0.activationState == .foregroundInactive
+        }
+        let windows = (foregroundScenes.isEmpty ? scenes : foregroundScenes).flatMap(\.windows)
+
+        return windows.first(where: { $0.isKeyWindow && $0.windowLevel == .normal })
+            ?? windows.first(where: { !$0.isHidden && $0.windowLevel == .normal })
+            ?? windows.first(where: \.isKeyWindow)
+    }
+
+    private static var safeAreaInsets: UIEdgeInsets {
+        guard let window = layoutWindow else { return .zero }
+        let windowID = ObjectIdentifier(window)
+
+        // UIKit can re-enter SwiftUI status-bar evaluation while resolving window insets.
+        guard resolvingSafeAreaWindows.insert(windowID).inserted else {
+            return cachedSafeAreaInsets[windowID] ?? .zero
+        }
+        defer { resolvingSafeAreaWindows.remove(windowID) }
+
+        let insets = window.safeAreaInsets
+        cachedSafeAreaInsets[windowID] = insets
+        return insets
+    }
+
     /// 获取当前设备的顶部安全区域高度
     static var safeAreaTop: CGFloat {
-        UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .first?.windows.first?.safeAreaInsets.top ?? 0
+        safeAreaInsets.top
     }
     
     /// 获取当前设备的底部安全区域高度
     static var safeAreaBottom: CGFloat {
-        UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .first?.windows.first?.safeAreaInsets.bottom ?? 0
+        safeAreaInsets.bottom
     }
     
     /// 是否为刘海屏设备
@@ -25,32 +53,16 @@ struct DeviceLayout {
     
     /// 当前屏幕宽度
     static var screenWidth: CGFloat {
-        if let windowScene = UIApplication.shared.connectedScenes
-            .compactMap({ $0 as? UIWindowScene }).first {
-            return windowScene.screen.bounds.width
-        }
-        return 375
+        layoutWindow?.screen.bounds.width ?? 375
     }
 
     /// 当前应用窗口宽度，iPad 分屏和窗口化时随窗口变化
     static var viewportWidth: CGFloat {
-        let scenes = UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-        let window = scenes.lazy
-            .compactMap { scene in
-                scene.windows.first(where: \.isKeyWindow)
-                    ?? scene.windows.first(where: { !$0.isHidden && $0.windowLevel == .normal })
-            }
-            .first
-        return max(1, window?.bounds.width ?? screenWidth)
+        max(1, layoutWindow?.bounds.width ?? screenWidth)
     }
 
     static var screenHeight: CGFloat {
-        if let windowScene = UIApplication.shared.connectedScenes
-            .compactMap({ $0 as? UIWindowScene }).first {
-            return windowScene.screen.bounds.height
-        }
-        return 812
+        layoutWindow?.screen.bounds.height ?? 812
     }
     
     /// 动态计算顶部 Padding

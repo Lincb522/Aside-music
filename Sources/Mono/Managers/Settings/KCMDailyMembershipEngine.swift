@@ -11,14 +11,18 @@ final class KCMDailyMembershipEngine {
     private let lastCheckKey = "mono_kcm_daily_membership_last_check"
     private var task: Task<Void, Never>?
 
-    func checkIfNeeded(force: Bool = false, date: Date = Date()) {
-        guard KCMMusicService.shared.isAuthenticated,
-              let userID = KCMMusicService.shared.currentUserID else {
-            return
-        }
+    func hasCompletedToday(date: Date = Date()) -> Bool {
+        guard let marker = completionMarker(for: date) else { return false }
+        return UserDefaults.standard.string(forKey: lastCheckKey) == marker
+    }
 
-        let day = Self.dayKey(for: date)
-        let marker = "\(userID):\(day)"
+    func recordCompletion(date: Date = Date()) {
+        guard let marker = completionMarker(for: date) else { return }
+        UserDefaults.standard.set(marker, forKey: lastCheckKey)
+    }
+
+    func checkIfNeeded(force: Bool = false, date: Date = Date()) {
+        guard let marker = completionMarker(for: date) else { return }
         if !force, UserDefaults.standard.string(forKey: lastCheckKey) == marker {
             return
         }
@@ -44,6 +48,14 @@ final class KCMDailyMembershipEngine {
                 AppLogger.warning("[KCM] 每日会员检查失败，将在下次前台继续重试: \(error)")
             }
         }
+    }
+
+    private func completionMarker(for date: Date) -> String? {
+        guard KCMMusicService.shared.isAuthenticated,
+              let userID = KCMMusicService.shared.currentUserID else {
+            return nil
+        }
+        return "\(userID):\(Self.dayKey(for: date))"
     }
 
     private static func dayKey(for date: Date) -> String {

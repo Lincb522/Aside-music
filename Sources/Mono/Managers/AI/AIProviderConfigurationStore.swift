@@ -505,7 +505,7 @@ final class AIProviderConfigurationStore: ObservableObject {
     }
 
     private static func tokenAdminURL(path: String) -> URL? {
-        guard var components = URLComponents(string: SecureConfig.apiBaseURL) else { return nil }
+        guard var components = URLComponents(string: SecureConfig.apiBaseURL(for: .primary)) else { return nil }
         let currentPath = components.path
         components.path = currentPath.hasSuffix("/")
             ? "\(currentPath)\(path.dropFirst())"

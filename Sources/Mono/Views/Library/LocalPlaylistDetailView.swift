@@ -220,7 +220,6 @@ struct LocalPlaylistDetailView: View {
             }
 
             songListSection
-                .padding(.bottom, 100)
         }
     }
 

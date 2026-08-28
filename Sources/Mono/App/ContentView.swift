@@ -334,7 +334,7 @@ public struct ContentView: View {
     private func tabRootView(for tab: Tab) -> some View {
         StableContentTabRoot(
             tab: tab,
-            themeId: themeManager.currentThemeId,
+            themeId: settings.globalThemeId,
             usesOnlineContent: displayedOnlineContent
         )
         .equatable()

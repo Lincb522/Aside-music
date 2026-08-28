@@ -7,10 +7,10 @@ enum AppAgentConfigurationServiceError: Error {
 
 extension APIService {
     func fetchAppAgentConfiguration() async throws -> AppAgentRemoteConfiguration {
-        guard var components = URLComponents(string: SecureConfig.apiBaseURL) else {
+        guard var components = URLComponents(string: SecureConfig.apiBaseURL(for: .primary)) else {
             throw AppAgentConfigurationServiceError.invalidURL
         }
-        let route = "/api/public/song-content-config"
+        let route = "/_admin/api/public/song-content-config"
         components.path = components.path.hasSuffix("/")
             ? "\(components.path)\(route.dropFirst())"
             : "\(components.path)\(route)"

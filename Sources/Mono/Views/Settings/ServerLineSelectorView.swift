@@ -35,6 +35,9 @@ struct ServerLineSelectorView: View {
                 }
             }
         }
+        .task {
+            await lineManager.refresh(trigger: .manual)
+        }
     }
 
     private var availableOptions: [ServerLinePreference] {
@@ -53,9 +56,12 @@ struct ServerLineSelectorView: View {
     private func optionButton(_ option: ServerLinePreference) -> some View {
         let isSelected = lineManager.preference == option
         return Button {
-            guard lineManager.preference != option else { return }
             HapticManager.shared.selection()
-            lineManager.setPreference(option)
+            if isSelected {
+                lineManager.kickRefresh(trigger: .manual)
+            } else {
+                lineManager.setPreference(option)
+            }
         } label: {
             Text(optionTitle(option))
                 .font(.system(size: 12.5, weight: .semibold, design: .rounded))

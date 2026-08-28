@@ -16,7 +16,7 @@ extension APIService {
     }
 
     private func playlistCloudSyncURL() -> URL? {
-        guard var components = URLComponents(string: SecureConfig.apiBaseURL) else {
+        guard var components = URLComponents(string: SecureConfig.apiBaseURL(for: .primary)) else {
             return nil
         }
 

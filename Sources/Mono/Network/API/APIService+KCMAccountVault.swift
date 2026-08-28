@@ -102,7 +102,7 @@ extension APIService {
     ) -> URLRequest? {
         guard let token = SecureConfig.apiToken?.trimmingCharacters(in: .whitespacesAndNewlines),
               !token.isEmpty,
-              var components = URLComponents(string: SecureConfig.apiBaseURL) else {
+              var components = URLComponents(string: SecureConfig.apiBaseURL(for: .primary)) else {
             return nil
         }
         let route = "\(basePath ?? kcmAccountVaultPath)\(pathSuffix)"

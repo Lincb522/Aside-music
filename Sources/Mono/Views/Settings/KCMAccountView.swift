@@ -172,6 +172,11 @@ struct KCMAccountView: View {
 
     private func claimDailyVIP() {
         guard !isProcessingVIP else { return }
+        if KCMDailyMembershipEngine.shared.hasCompletedToday() {
+            statusMessage = "今日会员已领取"
+            HapticManager.shared.success()
+            return
+        }
         isProcessingVIP = true
         statusMessage = nil
         Task { @MainActor in
@@ -182,14 +187,17 @@ struct KCMAccountView: View {
                 case .claimed: "领取成功"
                 case .alreadyClaimed: "今日会员已领取"
                 }
+                KCMDailyMembershipEngine.shared.recordCompletion()
 
+                let resultMessage: String
                 do {
                     let upgraded = try await KCMMusicService.shared.upgradeDailyLiteVIP()
-                    statusMessage = upgraded ? "\(claimText)，升级成功" : "\(claimText)，升级未完成"
+                    resultMessage = upgraded ? "\(claimText)，升级成功" : "\(claimText)，升级未完成"
                 } catch {
-                    statusMessage = "\(claimText)，\(error.localizedDescription)"
+                    resultMessage = "\(claimText)，\(error.localizedDescription)"
                 }
                 await refreshAccount()
+                statusMessage = resultMessage
                 HapticManager.shared.success()
             } catch {
                 statusMessage = error.localizedDescription
