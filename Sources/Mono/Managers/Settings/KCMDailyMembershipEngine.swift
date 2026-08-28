@@ -10,6 +10,7 @@ final class KCMDailyMembershipEngine {
 
     private let lastCheckKey = "mono_kcm_daily_membership_last_check"
     private var task: Task<Void, Never>?
+    private var blockedUserID: Int?
 
     func hasCompletedToday(date: Date = Date()) -> Bool {
         guard let marker = completionMarker(for: date) else { return false }
@@ -18,12 +19,22 @@ final class KCMDailyMembershipEngine {
 
     func recordCompletion(date: Date = Date()) {
         guard let marker = completionMarker(for: date) else { return }
+        blockedUserID = nil
         UserDefaults.standard.set(marker, forKey: lastCheckKey)
     }
 
+    func resumeAfterLogin() {
+        blockedUserID = nil
+        checkIfNeeded()
+    }
+
     func checkIfNeeded(force: Bool = false, date: Date = Date()) {
-        guard let marker = completionMarker(for: date) else { return }
+        guard let marker = completionMarker(for: date),
+              let userID = KCMMusicService.shared.currentUserID else { return }
         if !force, UserDefaults.standard.string(forKey: lastCheckKey) == marker {
+            return
+        }
+        if !force, blockedUserID == userID {
             return
         }
 
@@ -44,6 +55,9 @@ final class KCMDailyMembershipEngine {
                 AppLogger.info("[KCM] 每日会员检查完成: \(claimText), upgrade=\(upgradeText)")
             } catch is CancellationError {
                 return
+            } catch KCMMusicError.sessionExpired {
+                self.blockedUserID = userID
+                AppLogger.warning("[KCM] 登录状态已失效，重新扫码登录后再检查每日会员")
             } catch {
                 AppLogger.warning("[KCM] 每日会员检查失败，将在下次前台继续重试: \(error)")
             }

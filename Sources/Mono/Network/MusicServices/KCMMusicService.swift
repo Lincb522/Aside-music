@@ -1,5 +1,20 @@
 import Foundation
 
+actor KCMAuthenticationRefreshCoordinator {
+    private var inFlight: Task<Void, Error>?
+
+    func run(_ operation: @escaping @Sendable () async throws -> Void) async throws {
+        if let inFlight {
+            return try await inFlight.value
+        }
+
+        let task = Task { try await operation() }
+        inFlight = task
+        defer { inFlight = nil }
+        try await task.value
+    }
+}
+
 final class KCMMusicService: @unchecked Sendable {
     static let shared = KCMMusicService()
 
@@ -7,6 +22,7 @@ final class KCMMusicService: @unchecked Sendable {
     let cookieKey = "mono_kugou_cookie"
     let membershipLevelKey = "mono_kcm_membership_level"
     let membershipUserIDKey = "mono_kcm_membership_user_id"
+    let authenticationRefreshCoordinator = KCMAuthenticationRefreshCoordinator()
 
     init(session: URLSession = .shared) {
         self.session = session

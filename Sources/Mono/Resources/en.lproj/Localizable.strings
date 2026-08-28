@@ -241,6 +241,12 @@
 "lib_local_podcasts" = "Local Podcasts";
 "lib_ncm_podcasts" = "NCM Podcasts";
 "kcm_login_required" = "Sign in to KCM first";
+"kcm_error_authentication_required" = "Sign in to KCM";
+"kcm_error_session_expired" = "Your KCM session expired. Scan the QR code to sign in again.";
+"kcm_error_verification_required" = "KCM verification is required";
+"kcm_error_invalid_response" = "KCM returned an invalid response";
+"kcm_error_server_format" = "KCM service error %d";
+"kcm_error_unavailable" = "KCM is temporarily unavailable";
 "lib_my_podcasts" = "My Podcasts";
 "lib_loading" = "Loading...";
 "lib_no_podcasts" = "No subscribed podcasts yet";

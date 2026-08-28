@@ -97,6 +97,7 @@ enum KCMDailyVIPClaimResult: Sendable {
 
 enum KCMMusicError: LocalizedError {
     case authenticationRequired
+    case sessionExpired
     case verificationRequired
     case invalidResponse
     case server(Int, String)
@@ -105,15 +106,19 @@ enum KCMMusicError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .authenticationRequired:
-            return "需要登录 KCM"
+            return String(localized: "kcm_error_authentication_required")
+        case .sessionExpired:
+            return String(localized: "kcm_error_session_expired")
         case .verificationRequired:
-            return "KCM 需要完成验证"
+            return String(localized: "kcm_error_verification_required")
         case .invalidResponse:
-            return "KCM 返回了无效响应"
+            return String(localized: "kcm_error_invalid_response")
         case .server(let code, let message):
-            return message.isEmpty ? "KCM 服务错误 \(code)" : message
+            return message.isEmpty
+                ? String(format: String(localized: "kcm_error_server_format"), code)
+                : message
         case .unavailable:
-            return "KCM 暂不可用"
+            return String(localized: "kcm_error_unavailable")
         }
     }
 }

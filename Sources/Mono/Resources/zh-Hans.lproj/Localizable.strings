@@ -241,6 +241,12 @@
 "lib_local_podcasts" = "本地播客";
 "lib_ncm_podcasts" = "NCM播客";
 "kcm_login_required" = "请先登录 KCM";
+"kcm_error_authentication_required" = "需要登录 KCM";
+"kcm_error_session_expired" = "KCM 登录已失效，请重新扫码登录";
+"kcm_error_verification_required" = "KCM 需要完成验证";
+"kcm_error_invalid_response" = "KCM 返回了无效响应";
+"kcm_error_server_format" = "KCM 服务错误 %d";
+"kcm_error_unavailable" = "KCM 暂不可用";
 "lib_my_podcasts" = "我的播客";
 "lib_loading" = "加载中...";
 "lib_no_podcasts" = "还没有订阅播客";

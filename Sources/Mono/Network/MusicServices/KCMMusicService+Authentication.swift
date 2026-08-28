@@ -1,6 +1,22 @@
 import Foundation
 
 extension KCMMusicService {
+    func refreshAuthenticatedSession() async throws {
+        guard isAuthenticated else { throw KCMMusicError.authenticationRequired }
+        do {
+            let (json, responseURL) = try await loginRequest(
+                path: "/login/token",
+                sendStoredCookie: true
+            )
+            try persistAuthenticatedSession(json: json, responseURL: responseURL)
+        } catch {
+            if Self.isAuthenticationFailure(error) {
+                throw KCMMusicError.sessionExpired
+            }
+            throw error
+        }
+    }
+
     func createQRCode() async throws -> KCMQRCodeSession {
         let (keyResponse, _) = try await loginRequest(path: "/login/qr/key")
         let keyData = keyResponse["data"] as? [String: Any] ?? [:]
@@ -47,7 +63,7 @@ extension KCMMusicService {
         case 4:
             try persistAuthenticatedSession(json: json, responseURL: responseURL)
             Task { [weak self] in await self?.synchronizeCurrentAccount() }
-            Task { @MainActor in KCMDailyMembershipEngine.shared.checkIfNeeded() }
+            Task { @MainActor in KCMDailyMembershipEngine.shared.resumeAfterLogin() }
             return .confirmed
         default:
             return .waiting

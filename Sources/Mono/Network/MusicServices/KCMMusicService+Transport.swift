@@ -6,8 +6,23 @@ extension KCMMusicService {
         method: String = "GET",
         query: [URLQueryItem] = []
     ) async throws -> [String: Any] {
+        try await request(
+            path: path,
+            method: method,
+            query: query,
+            allowsAuthenticationRefresh: true
+        )
+    }
+
+    private func request(
+        path: String,
+        method: String,
+        query: [URLQueryItem],
+        allowsAuthenticationRefresh: Bool
+    ) async throws -> [String: Any] {
         var lastError: Error = KCMMusicError.invalidResponse
         let endpoints = serviceEndpoints
+        let cookieAtRequestStart = currentCookie
         for (index, endpoint) in endpoints.enumerated() {
             guard var components = URLComponents(
                 url: endpoint.url.appendingPathComponent(path),
@@ -20,6 +35,27 @@ extension KCMMusicService {
             do {
                 return try await request(url: url, method: method)
             } catch {
+                if allowsAuthenticationRefresh,
+                   cookieAtRequestStart != nil,
+                   Self.isAuthenticationFailure(error) {
+                    do {
+                        try await authenticationRefreshCoordinator.run { [self] in
+                            guard currentCookie == cookieAtRequestStart else { return }
+                            try await refreshAuthenticatedSession()
+                        }
+                        return try await request(
+                            path: path,
+                            method: method,
+                            query: query,
+                            allowsAuthenticationRefresh: false
+                        )
+                    } catch let refreshError {
+                        if Self.isAuthenticationFailure(refreshError) {
+                            throw KCMMusicError.sessionExpired
+                        }
+                        throw refreshError
+                    }
+                }
                 lastError = error
                 guard Self.shouldTryNextServiceEndpoint(after: error),
                       index < endpoints.index(before: endpoints.endIndex) else {
@@ -35,7 +71,8 @@ extension KCMMusicService {
 
     func loginRequest(
         path: String,
-        query: [URLQueryItem] = []
+        query: [URLQueryItem] = [],
+        sendStoredCookie: Bool = false
     ) async throws -> ([String: Any], URL) {
         var lastError: Error = KCMMusicError.invalidResponse
         let endpoints = serviceEndpoints
@@ -58,6 +95,9 @@ extension KCMMusicService {
             request.setValue("no-store, no-cache, max-age=0", forHTTPHeaderField: "Cache-Control")
             request.setValue("no-cache", forHTTPHeaderField: "Pragma")
             applyApplicationAuthorization(to: &request)
+            if sendStoredCookie, let cookie = currentCookie {
+                request.setValue(cookie, forHTTPHeaderField: "Cookie")
+            }
             do {
                 let (data, response) = try await session.data(for: request)
                 guard let http = response as? HTTPURLResponse,
@@ -88,8 +128,20 @@ extension KCMMusicService {
         case .invalidResponse:
             return true
         case .server(let code, _):
-            return code >= 500
-        case .authenticationRequired, .verificationRequired, .unavailable:
+            return (500...599).contains(code)
+        case .authenticationRequired, .sessionExpired, .verificationRequired, .unavailable:
+            return false
+        }
+    }
+
+    static func isAuthenticationFailure(_ error: Error) -> Bool {
+        guard let error = error as? KCMMusicError else { return false }
+        switch error {
+        case .authenticationRequired, .sessionExpired:
+            return true
+        case .server(let code, _):
+            return code == 20017 || code == 20018
+        case .verificationRequired, .invalidResponse, .unavailable:
             return false
         }
     }
@@ -118,7 +170,7 @@ extension KCMMusicService {
             .sorted { $0.key < $1.key }
             .map { "\($0.key)=\($0.value)" }
             .joined(separator: "; ")
-        KeychainHelper.save(key: cookieKey, value: header)
+        applyCookie(header)
     }
 
     func request(

@@ -18,8 +18,22 @@ extension KCMMusicService {
             guard Self.isSuccess(json) else { throw KCMMusicError.unavailable }
             Task { [weak self] in await self?.synchronizeCurrentAccount() }
             return .claimed
-        } catch KCMMusicError.server(let code, _) where code == 131001 {
+        } catch KCMMusicError.server(let code, _) where code == 131001 || code == 297002 {
             return .alreadyClaimed
+        } catch let error as KCMMusicError {
+            guard case .server(let code, _) = error, code == 51002 else {
+                throw error
+            }
+            do {
+                if try await fetchAccountProfile()?.isVIP == true {
+                    return .alreadyClaimed
+                }
+            } catch KCMMusicError.sessionExpired {
+                throw KCMMusicError.sessionExpired
+            } catch {
+                throw error
+            }
+            throw error
         }
     }
 
