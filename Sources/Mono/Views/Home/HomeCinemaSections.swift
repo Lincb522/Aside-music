@@ -8,13 +8,21 @@ enum HomeCinemaStyle {
     static var posterWidth: CGFloat { DeviceLayout.isPad ? 172 : 140 }
     static var posterBlockHeight: CGFloat { DeviceLayout.isPad ? 82 : 66 }
     static var posterHeight: CGFloat { posterWidth + posterBlockHeight }
-    static let posterCorner: CGFloat = 14
+    static var posterCorner: CGFloat { SignalStyle.isActive ? 8 : 14 }
     static var heroHeight: CGFloat { DeviceLayout.bannerHeight }
-    static let ticketGold = Color(hex: "E7B24C")
+    static var ticketGold: Color { SignalStyle.isActive ? SignalStyle.accent : Color(hex: "E7B24C") }
 
-    static func kicker(_ size: CGFloat = 10) -> Font { .system(size: size, weight: .heavy, design: .rounded) }
-    static func filmTitle(_ size: CGFloat, weight: Font.Weight = .bold) -> Font { .system(size: size, weight: weight, design: .serif) }
-    static func credit(_ size: CGFloat = 9) -> Font { .system(size: size, weight: .semibold, design: .rounded) }
+    static func kicker(_ size: CGFloat = 10) -> Font {
+        .system(size: size, weight: .heavy, design: SignalStyle.isActive ? .monospaced : .rounded)
+    }
+
+    static func filmTitle(_ size: CGFloat, weight: Font.Weight = .bold) -> Font {
+        .system(size: size, weight: weight, design: SignalStyle.isActive ? .monospaced : .serif)
+    }
+
+    static func credit(_ size: CGFloat = 9) -> Font {
+        .system(size: size, weight: .semibold, design: SignalStyle.isActive ? .monospaced : .rounded)
+    }
 }
 
 // MARK: - Section Header (ticket stub + uppercase kicker + serif title)
@@ -110,7 +118,7 @@ struct CinemaPosterCard: View {
                             Text(badge)
                                 .font(.system(size: 9, weight: .heavy, design: .monospaced))
                                 .tracking(0.4)
-                                .foregroundColor(.black.opacity(0.85))
+                                .foregroundColor(SignalStyle.isActive ? SignalStyle.onAccent : .black.opacity(0.85))
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 3)
                                 .background(Capsule().fill(HomeCinemaStyle.ticketGold))

@@ -37,16 +37,10 @@ struct ThemedLibrarySectionHeader: View {
             }
             .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
         } else if SignalStyle.isActive {
-            HStack(spacing: 9) {
-                SignalPulseDot(tint: SignalStyle.accent, size: 17)
-
-                Text(title)
-                    .font(SignalStyle.titleFont(16, weight: .bold))
-                    .foregroundColor(SignalStyle.ink)
-
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
+            Text(title)
+                .font(SignalStyle.titleFont(17, weight: .semibold))
+                .foregroundColor(SignalStyle.ink)
+                .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
         } else if SequoiaStyle.isActive {
             HStack(spacing: 9) {
                 RoundedRectangle(cornerRadius: 2, style: .continuous)
@@ -78,21 +72,6 @@ struct ThemedLibrarySectionHeader: View {
                 .foregroundColor(MujiStyle.isActive ? MujiStyle.ink : .monoTextPrimary)
                 .padding(.horizontal, DeviceLayout.libraryHorizontalPadding)
         }
-    }
-}
-
-struct SignalLibraryMiniBars: View {
-    let tint: Color
-
-    var body: some View {
-        HStack(alignment: .bottom, spacing: 3) {
-            ForEach(0..<4, id: \.self) { index in
-                Capsule()
-                    .fill(index < 3 ? tint : SignalStyle.inkMuted.opacity(0.24))
-                    .frame(width: 4, height: 6 + CGFloat(index) * 3)
-            }
-        }
-        .frame(height: 17)
     }
 }
 

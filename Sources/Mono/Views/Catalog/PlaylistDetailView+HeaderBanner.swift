@@ -413,7 +413,7 @@ extension PlaylistDetailView {
                 .stroke(NeumorphicStyle.separator.opacity(0.32), lineWidth: 0.8)
         } else if SignalStyle.isActive {
             RoundedRectangle(cornerRadius: bannerHeaderRadius, style: .continuous)
-                .stroke(SignalStyle.accent.opacity(0.22), lineWidth: 0.9)
+                .stroke(SignalStyle.separator.opacity(0.72), lineWidth: 0.9)
         } else if SequoiaStyle.isActive {
             RoundedRectangle(cornerRadius: bannerHeaderRadius, style: .continuous)
                 .stroke(SequoiaStyle.separator.opacity(0.82), lineWidth: 0.6)

@@ -43,7 +43,8 @@ struct AppearanceSettingsView: View {
                     SettingsScrollablePageHeader(
                         title: String(localized: "settings_navigation_appearance_title"),
                         eyebrow: String(localized: "settings_eyebrow_appearance"),
-                        icon: .playerTheme
+                        icon: .playerTheme,
+                        signalModule: .appearance
                     )
                     .monoIconPulseBloomArtwork("themeStyle")
 
@@ -349,6 +350,8 @@ struct AppearanceSettingsView: View {
             return .classic
         case .capsule:
             return .classic
+        case .signal:
+            return .console
         case .clarity:
             return .clarity
         case .default, .muji, .manga, .minimalWhite:

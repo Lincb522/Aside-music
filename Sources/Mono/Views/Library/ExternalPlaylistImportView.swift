@@ -237,6 +237,15 @@ struct ExternalPlaylistImportView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(spacing: 22) {
+                        if SignalStyle.isActive {
+                            SignalNestedPageHeader(
+                                title: String(localized: "导入歌单"),
+                                eyebrow: "DATA IMPORT",
+                                icon: .download,
+                                module: .importData
+                            )
+                        }
+
                         switch model.phase {
                         case .input, .resolving:
                             inputSection
@@ -256,7 +265,7 @@ struct ExternalPlaylistImportView: View {
                 .scrollDismissesKeyboard(.interactively)
             }
         }
-        .navigationTitle("导入歌单")
+        .navigationTitle(SignalStyle.isActive ? "" : "导入歌单")
         .navigationBarTitleDisplayMode(.inline)
         .monoNavigationBackButton()
         .animation(.easeInOut(duration: 0.18), value: model.phase)
@@ -293,23 +302,23 @@ struct ExternalPlaylistImportView: View {
             sectionTitle("歌单链接或曲目")
 
             TextEditor(text: $model.input)
-                .font(.system(size: 15, design: .rounded))
-                .foregroundStyle(Color.monoTextPrimary)
+                .font(SignalStyle.isActive ? SignalStyle.bodyFont(13, weight: .medium) : .system(size: 15, design: .rounded))
+                .foregroundStyle(SignalStyle.isActive ? SignalStyle.ink : Color.monoTextPrimary)
                 .scrollContentBackground(.hidden)
                 .monoTextInputBehavior()
                 .padding(12)
                 .frame(minHeight: 176, alignment: .topLeading)
-                .background(Color.monoGlassTint)
-                .clipShape(.rect(cornerRadius: 18, style: .continuous))
+                .background(SignalStyle.isActive ? SignalStyle.controlPressed : Color.monoGlassTint)
+                .clipShape(.rect(cornerRadius: SignalStyle.isActive ? 10 : 18, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(Color.monoSeparator.opacity(0.7), lineWidth: 0.8)
+                    RoundedRectangle(cornerRadius: SignalStyle.isActive ? 10 : 18, style: .continuous)
+                        .stroke(SignalStyle.isActive ? SignalStyle.separator.opacity(0.74) : Color.monoSeparator.opacity(0.7), lineWidth: 0.8)
                 }
                 .overlay(alignment: .topLeading) {
                     if model.input.isEmpty {
                         Text("粘贴 NCM、QCM、KCM、汽水音乐、Apple Music、Spotify 或酷我音乐歌单链接，也可每行输入一首歌曲")
-                            .font(.system(size: 14, design: .rounded))
-                            .foregroundStyle(Color.monoTextSecondary.opacity(0.72))
+                            .font(SignalStyle.isActive ? SignalStyle.labelFont(11, weight: .medium) : .system(size: 14, design: .rounded))
+                            .foregroundStyle(SignalStyle.isActive ? SignalStyle.inkMuted : Color.monoTextSecondary.opacity(0.72))
                             .padding(.horizontal, 17)
                             .padding(.vertical, 20)
                             .allowsHitTesting(false)
@@ -373,11 +382,11 @@ struct ExternalPlaylistImportView: View {
                         }
                     }
                     .padding(.horizontal, 16)
-                    .background(Color.monoGlassTint)
-                    .clipShape(.rect(cornerRadius: 18, style: .continuous))
+                    .background(SignalStyle.isActive ? SignalStyle.surface : Color.monoGlassTint)
+                    .clipShape(.rect(cornerRadius: SignalStyle.isActive ? 10 : 18, style: .continuous))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .stroke(Color.monoSeparator.opacity(0.7), lineWidth: 0.8)
+                        RoundedRectangle(cornerRadius: SignalStyle.isActive ? 10 : 18, style: .continuous)
+                            .stroke(SignalStyle.isActive ? SignalStyle.separator.opacity(0.72) : Color.monoSeparator.opacity(0.7), lineWidth: 0.8)
                     }
 
                     if model.previewPageCount > 1 {
@@ -517,11 +526,11 @@ struct ExternalPlaylistImportView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.monoGlassTint)
-        .clipShape(.rect(cornerRadius: 20, style: .continuous))
+        .background(SignalStyle.isActive ? SignalStyle.surface : Color.monoGlassTint)
+        .clipShape(.rect(cornerRadius: SignalStyle.isActive ? 12 : 20, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(Color.monoSeparator.opacity(0.7), lineWidth: 0.8)
+            RoundedRectangle(cornerRadius: SignalStyle.isActive ? 12 : 20, style: .continuous)
+                .stroke(SignalStyle.isActive ? SignalStyle.separator.opacity(0.72) : Color.monoSeparator.opacity(0.7), lineWidth: 0.8)
         }
     }
 
@@ -531,17 +540,15 @@ struct ExternalPlaylistImportView: View {
             model.provider = provider
         } label: {
             Text(provider.title)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundStyle(isSelected ? Color.monoIconForeground : Color.monoTextPrimary)
+                .font(SignalStyle.isActive ? SignalStyle.labelFont(10, weight: isSelected ? .semibold : .medium) : .system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(SignalStyle.isActive ? (isSelected ? SignalStyle.accent : SignalStyle.inkSoft) : (isSelected ? Color.monoIconForeground : Color.monoTextPrimary))
                 .padding(.horizontal, 15)
                 .frame(height: 38)
-                .background(isSelected ? Color.monoIconBackground : Color.monoGlassTint)
+                .background(SignalStyle.isActive ? (isSelected ? SignalStyle.accent.opacity(0.14) : SignalStyle.control) : (isSelected ? Color.monoIconBackground : Color.monoGlassTint))
                 .clipShape(Capsule())
                 .overlay {
-                    if !isSelected {
-                        Capsule()
-                            .stroke(Color.monoSeparator.opacity(0.7), lineWidth: 0.8)
-                    }
+                    Capsule()
+                        .stroke(SignalStyle.isActive ? (isSelected ? SignalStyle.accent.opacity(0.22) : SignalStyle.separator.opacity(0.72)) : Color.monoSeparator.opacity(0.7), lineWidth: 0.8)
                 }
         }
         .buttonStyle(.plain)
@@ -549,9 +556,15 @@ struct ExternalPlaylistImportView: View {
     }
 
     private func sectionTitle(_ title: String) -> some View {
-        Text(title)
-            .font(.system(size: 15, weight: .bold, design: .rounded))
-            .foregroundStyle(Color.monoTextPrimary)
+        Group {
+            if SignalStyle.isActive {
+                SignalSectionTitle(title: title)
+            } else {
+                Text(title)
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.monoTextPrimary)
+            }
+        }
     }
 
     private var operationSpeedNotice: some View {
@@ -559,8 +572,8 @@ struct ExternalPlaylistImportView: View {
             MonoIcon(icon: .info, size: 14, color: .monoTextSecondary)
                 .padding(.top, 1)
             Text("识别与导入速度受网络状况和歌曲数量影响")
-                .font(.system(size: 12, weight: .medium, design: .rounded))
-                .foregroundStyle(Color.monoTextSecondary)
+                .font(SignalStyle.isActive ? SignalStyle.labelFont(10, weight: .medium) : .system(size: 12, weight: .medium, design: .rounded))
+                .foregroundStyle(SignalStyle.isActive ? SignalStyle.inkMuted : Color.monoTextSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
@@ -576,21 +589,21 @@ struct ExternalPlaylistImportView: View {
             HStack(spacing: 12) {
                 ZStack {
                     Circle()
-                        .fill(isSelected ? Color.monoIconBackground : Color.monoTextPrimary.opacity(0.08))
+                        .fill(SignalStyle.isActive ? (isSelected ? SignalStyle.accent : SignalStyle.controlPressed) : (isSelected ? Color.monoIconBackground : Color.monoTextPrimary.opacity(0.08)))
                     if isSelected {
-                        MonoIcon(icon: .checkmark, size: 12, color: .monoIconForeground)
+                        MonoIcon(icon: .checkmark, size: 12, color: SignalStyle.isActive ? SignalStyle.onAccent : .monoIconForeground)
                     }
                 }
                 .frame(width: 24, height: 24)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(track.title)
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Color.monoTextPrimary)
+                        .font(SignalStyle.isActive ? SignalStyle.bodyFont(12, weight: .semibold) : .system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundStyle(SignalStyle.isActive ? SignalStyle.ink : Color.monoTextPrimary)
                         .lineLimit(1)
                     Text(track.artist.isEmpty ? (track.album ?? "未知歌手") : track.artist)
-                        .font(.system(size: 12, design: .rounded))
-                        .foregroundStyle(Color.monoTextSecondary)
+                        .font(SignalStyle.isActive ? SignalStyle.labelFont(10, weight: .medium) : .system(size: 12, design: .rounded))
+                        .foregroundStyle(SignalStyle.isActive ? SignalStyle.inkSoft : Color.monoTextSecondary)
                         .lineLimit(1)
                 }
                 Spacer(minLength: 8)
@@ -678,12 +691,12 @@ struct ExternalPlaylistImportView: View {
     ) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 15, weight: .bold, design: .rounded))
-                .foregroundStyle(Color.monoIconForeground)
+                .font(SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .bold) : .system(size: 15, weight: .bold, design: .rounded))
+                .foregroundStyle(SignalStyle.isActive ? SignalStyle.onAccent : Color.monoIconForeground)
                 .frame(maxWidth: .infinity)
                 .frame(height: 50)
-                .background(Color.monoIconBackground)
-                .clipShape(.rect(cornerRadius: 16, style: .continuous))
+                .background(SignalStyle.isActive ? SignalStyle.accent : Color.monoIconBackground)
+                .clipShape(.rect(cornerRadius: SignalStyle.isActive ? 9 : 16, style: .continuous))
         }
         .buttonStyle(.plain)
         .disabled(!isEnabled)

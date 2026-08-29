@@ -146,7 +146,7 @@ struct QQPlaylistDetailView: View {
     @State private var scrollOffset: CGFloat = 0
 
     /// aside(默认)分支使用歌手页风格 Hero 头部
-    private var usesAsideHero: Bool { !MinimalWhiteStyle.isActive }
+    private var usesAsideHero: Bool { !MinimalWhiteStyle.isActive && !SignalStyle.isActive }
 
     init(playlistId: Int, name: String, coverUrl: String?, creatorName: String?) {
         self.playlistId = playlistId
@@ -171,6 +171,8 @@ struct QQPlaylistDetailView: View {
             MonoSheetAwareBackground {
                 if MinimalWhiteStyle.isActive {
                     MinimalWhiteRootBackdrop()
+                } else if SignalStyle.isActive {
+                    SignalRootBackdrop()
                 } else if SettingsManager.shared.coverBgPlaylist {
                     PlaylistColorBackground(coverUrl: displayCoverUrl?.sized(200))
                         .ignoresSafeArea()
@@ -242,6 +244,8 @@ struct QQPlaylistDetailView: View {
     private var headerSection: some View {
         if MinimalWhiteStyle.isActive {
             minimalWhiteQQPlaylistHeaderSection
+        } else if SignalStyle.isActive {
+            signalQQPlaylistHeaderSection
         } else {
             AsideDetailHeroHeader(
                 coverUrl: displayCoverUrl,
@@ -276,6 +280,89 @@ struct QQPlaylistDetailView: View {
             .padding(.bottom, DeviceLayout.isPad ? 20 : 12)
             .iPadContentWidth(900)
         }
+    }
+
+    private var signalQQPlaylistHeaderSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 15) {
+                ZStack {
+                    SignalScreenBackground(cornerRadius: 11)
+
+                    if let url = displayCoverUrl {
+                        CachedAsyncImage(url: url) {
+                            SignalStyle.controlPressed
+                        }
+                        .aspectRatio(contentMode: .fill)
+                        .padding(8)
+                    } else {
+                        SignalIconBadge(icon: .musicNoteList, size: 58)
+                    }
+
+                }
+                .frame(width: DeviceLayout.isPad ? 154 : 118, height: DeviceLayout.isPad ? 154 : 118)
+                .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 9) {
+                    HStack(spacing: 7) {
+                        SignalPill(text: "QCM", tint: SignalStyle.accent, selected: true, compact: true)
+                        SignalPill(text: "PLAYLIST", tint: SignalStyle.mint, compact: true)
+                    }
+
+                    Text(displayName)
+                        .font(SignalStyle.titleFont(22, weight: .bold))
+                        .foregroundStyle(SignalStyle.ink)
+                        .lineLimit(3)
+
+                    if let creatorName, !creatorName.isEmpty {
+                        Text(creatorName)
+                            .font(SignalStyle.labelFont(11, weight: .medium))
+                            .foregroundStyle(SignalStyle.inkSoft)
+                            .lineLimit(1)
+                    }
+                }
+            }
+
+            HStack(spacing: 10) {
+                Button {
+                    if let first = viewModel.songs.first {
+                        PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                        viewModel.loadAllSongs(appendToQueue: true)
+                    }
+                } label: {
+                    SignalPlayPill(title: String(localized: "play_now"))
+                }
+                .buttonStyle(.plain)
+                .disabled(viewModel.songs.isEmpty)
+
+                SubscribeButton(
+                    isSubscribed: isCollectedLocally,
+                    action: {
+                        guard !isCollectedLocally, !viewModel.songs.isEmpty else { return }
+                        Task {
+                            let allSongs = await viewModel.loadAllSongsAsync()
+                            LocalPlaylistManager.shared.importPlaylist(name: displayName, songs: allSongs)
+                            isCollectedLocally = true
+                        }
+                    }
+                )
+                .disabled(isCollectedLocally || viewModel.songs.isEmpty)
+
+                Spacer(minLength: 0)
+
+                SignalPill(
+                    text: String(format: "%02d", viewModel.songs.count),
+                    tint: SignalStyle.inkSoft,
+                    icon: .musicNote,
+                    compact: true
+                )
+            }
+        }
+        .padding(16)
+        .background(SignalSurfaceBackground(cornerRadius: 14, elevated: true, fill: SignalStyle.surface))
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.top, DeviceLayout.headerTopPadding + 10)
+        .padding(.bottom, 16)
+        .iPadContentWidth(900)
     }
 
     private var minimalWhiteQQPlaylistHeaderSection: some View {

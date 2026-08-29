@@ -26,7 +26,8 @@ struct CloudSyncSettingsView: View {
                     SettingsScrollablePageHeader(
                         title: String(localized: "settings_navigation_cloud_sync_title"),
                         eyebrow: String(localized: "settings_eyebrow_cloud"),
-                        icon: .cloud
+                        icon: .cloud,
+                        signalModule: .cloud
                     )
 
                     VStack(alignment: .leading, spacing: 16) {

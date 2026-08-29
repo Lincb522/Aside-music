@@ -131,32 +131,10 @@ extension ScrollableLibraryExperience {
 
     var signalHeaderDeck: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .center, spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 7) {
-                        SignalPulseDot(tint: activeTabTint, size: 18)
-
-                        Text(activeTabEyebrow)
-                            .font(SignalStyle.monoFont(10, weight: .semibold))
-                            .foregroundStyle(activeTabTint)
-                    }
-
-                    Text(String(localized: "tabbar_library"))
-                        .font(SignalStyle.titleFont(27, weight: .bold))
-                        .foregroundStyle(SignalStyle.ink)
-                        .lineLimit(1)
-                }
-
-                Spacer(minLength: 8)
-
-                HStack(spacing: 8) {
-                    SignalLibraryMiniBars(tint: activeTabTint)
-                    SignalPill(text: activeTabShortLabel, tint: activeTabTint, selected: true, compact: true)
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
-                .background(SignalSurfaceBackground(cornerRadius: 18, elevated: false, pressed: true, fill: SignalStyle.control))
-            }
+            Text(String(localized: "tabbar_library"))
+                .font(SignalStyle.titleFont(27, weight: .semibold))
+                .foregroundStyle(SignalStyle.ink)
+                .lineLimit(1)
 
             tabStrip
         }

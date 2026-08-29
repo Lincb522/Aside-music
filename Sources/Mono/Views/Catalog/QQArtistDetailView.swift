@@ -67,6 +67,9 @@ struct QQArtistDetailView: View {
                 if NeumorphicStyle.isActive {
                     neumorphicQQArtistDetailBody
                         .iPadContentWidth(900)
+                } else if SignalStyle.isActive {
+                    signalQQArtistDetailBody
+                        .iPadContentWidth(900)
                 } else if MinimalWhiteStyle.isActive {
                     minimalWhiteQQArtistDetailBody
                         .iPadContentWidth(900)
@@ -243,6 +246,108 @@ struct QQArtistDetailView: View {
             .padding(.horizontal, 9)
             .padding(.vertical, 5)
             .background(MinimalWhiteCapsuleBackground())
+    }
+
+    private var signalQQArtistDetailBody: some View {
+        VStack(spacing: 15) {
+            signalQQArtistConsole
+            tabBar
+            tabContent
+                .padding(.top, 2)
+        }
+        .padding(.top, DeviceLayout.headerTopPadding + 12)
+        .padding(.bottom, 120)
+    }
+
+    private var signalQQArtistConsole: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: 16) {
+                    signalQQArtistIdentity
+                    signalQQArtistPortrait
+                        .frame(width: DeviceLayout.isPad ? 154 : 124)
+                }
+
+                VStack(alignment: .leading, spacing: 14) {
+                    signalQQArtistPortrait
+                        .frame(maxWidth: .infinity, alignment: .center)
+                    signalQQArtistIdentity
+                }
+            }
+
+            HStack(spacing: 8) {
+                if let fans = viewModel.fansCount, fans > 0 {
+                    SignalPill(text: String(format: String(localized: "qq_fans_count"), formatCount(fans)), compact: true)
+                }
+                if let albumCount = viewModel.albumCount, albumCount > 0 {
+                    SignalPill(text: String(format: String(localized: "qq_album_count"), albumCount), tint: SignalStyle.mint, compact: true)
+                }
+                if let songCount = viewModel.songCount, songCount > 0 {
+                    SignalPill(text: String(format: String(localized: "qq_song_count"), songCount), tint: SignalStyle.inkSoft, compact: true)
+                }
+            }
+
+            Button {
+                if let first = viewModel.songs.first {
+                    PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                }
+            } label: {
+                SignalPlayPill(title: String(localized: "qq_play_all"))
+            }
+            .buttonStyle(.plain)
+            .disabled(viewModel.songs.isEmpty)
+        }
+        .padding(16)
+        .background(SignalSurfaceBackground(cornerRadius: 14, elevated: true, fill: SignalStyle.surface))
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+    }
+
+    private var signalQQArtistIdentity: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 7) {
+                SignalPill(text: "QCM", tint: SignalStyle.accent, selected: true, compact: true)
+                SignalPill(text: "ARTIST", tint: SignalStyle.mint, compact: true)
+            }
+
+            Text(displayName)
+                .font(SignalStyle.titleFont(DeviceLayout.isPad ? 31 : 26, weight: .bold))
+                .foregroundStyle(SignalStyle.ink)
+                .lineLimit(3)
+
+            if let desc = viewModel.resolvedDesc, !desc.isEmpty {
+                Button(action: { showFullDescription = true }) {
+                    HStack(spacing: 8) {
+                        Text(desc)
+                            .font(SignalStyle.bodyFont(12, weight: .regular))
+                            .foregroundStyle(SignalStyle.inkSoft)
+                            .lineLimit(3)
+
+                        MonoIcon(icon: .chevronRight, size: 10, color: SignalStyle.accent, lineWidth: 1.5)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var signalQQArtistPortrait: some View {
+        ZStack {
+            SignalScreenBackground(cornerRadius: 11)
+
+            CachedAsyncImage(url: displayCoverUrl) {
+                SignalStyle.controlPressed
+            }
+            .aspectRatio(contentMode: .fill)
+            .padding(8)
+
+        }
+        .aspectRatio(1, contentMode: .fit)
+        .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                .stroke(SignalStyle.separator.opacity(0.72), lineWidth: 0.7)
+        }
     }
 
     // MARK: - 新拟物 QCM 歌手详情
@@ -609,16 +714,18 @@ struct QQArtistDetailView: View {
     // MARK: - Tab 栏
     
     private var tabBar: some View {
-        HStack(spacing: MinimalWhiteStyle.isActive ? 4 : 28) {
+        HStack(spacing: (MinimalWhiteStyle.isActive || SignalStyle.isActive) ? 4 : 28) {
             tabItem(String(localized: "qq_tab_music"), index: 0)
             tabItem(String(localized: "qq_tab_album"), index: 1)
             tabItem(String(localized: "qq_tab_video"), index: 2)
         }
-        .padding(.horizontal, MinimalWhiteStyle.isActive ? 6 : DeviceLayout.viewHorizontalPadding)
-        .padding(.vertical, MinimalWhiteStyle.isActive ? 6 : 0)
+        .padding(.horizontal, (MinimalWhiteStyle.isActive || SignalStyle.isActive) ? 6 : DeviceLayout.viewHorizontalPadding)
+        .padding(.vertical, (MinimalWhiteStyle.isActive || SignalStyle.isActive) ? 6 : 0)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
-            if MinimalWhiteStyle.isActive {
+            if SignalStyle.isActive {
+                SignalSurfaceBackground(cornerRadius: 10, elevated: false, pressed: true, fill: SignalStyle.control)
+            } else if MinimalWhiteStyle.isActive {
                 MinimalWhiteSurfaceBackground(
                     cornerRadius: MinimalWhiteStyle.chromeRadius,
                     elevated: false,
@@ -626,14 +733,26 @@ struct QQArtistDetailView: View {
                 )
             }
         }
-        .padding(.horizontal, MinimalWhiteStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
+        .padding(.horizontal, (MinimalWhiteStyle.isActive || SignalStyle.isActive) ? DeviceLayout.viewHorizontalPadding : 0)
     }
     
     private func tabItem(_ title: String, index: Int) -> some View {
         Button(action: {
             withAnimation(.easeInOut(duration: 0.2)) { selectedTab = index }
         }) {
-            if MinimalWhiteStyle.isActive {
+            if SignalStyle.isActive {
+                Text(title)
+                    .font(SignalStyle.labelFont(11, weight: selectedTab == index ? .bold : .medium))
+                    .foregroundStyle(selectedTab == index ? SignalStyle.onAccent : SignalStyle.inkSoft)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background {
+                        if selectedTab == index {
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .fill(SignalStyle.accent)
+                        }
+                    }
+            } else if MinimalWhiteStyle.isActive {
                 Text(title)
                     .font(MinimalWhiteStyle.labelFont(13, weight: selectedTab == index ? .semibold : .regular))
                     .foregroundStyle(selectedTab == index ? MinimalWhiteStyle.ink : MinimalWhiteStyle.inkMuted)

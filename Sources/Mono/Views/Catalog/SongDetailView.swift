@@ -15,30 +15,35 @@ struct SongDetailView: View {
 
     struct Theme {
         static var text: Color {
+            if SignalStyle.isActive { return SignalStyle.ink }
             if SequoiaStyle.isActive { return SequoiaStyle.ink }
             if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
             return Color.monoTextPrimary
         }
 
         static var secondaryText: Color {
+            if SignalStyle.isActive { return SignalStyle.inkSoft }
             if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
             if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
             return Color.monoTextSecondary
         }
 
         static var accent: Color {
+            if SignalStyle.isActive { return SignalStyle.accent }
             if SequoiaStyle.isActive { return SequoiaStyle.accent }
             if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
             return Color.monoIconBackground
         }
 
         static var accentForeground: Color {
+            if SignalStyle.isActive { return SignalStyle.onAccent }
             if SequoiaStyle.isActive { return SequoiaStyle.onAccent }
             if NeumorphicStyle.isActive { return Color(light: .white, dark: .black) }
             return Color.monoIconForeground
         }
 
         static var coverFill: Color {
+            if SignalStyle.isActive { return SignalStyle.controlPressed }
             if SequoiaStyle.isActive { return SequoiaStyle.materialPressed.opacity(0.74) }
             if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
             return Color.gray.opacity(0.3)
@@ -56,12 +61,21 @@ struct SongDetailView: View {
             )
 
             ZStack {
-                PlaylistColorBackground(coverUrl: song.coverUrl?.sized(720))
+                if SignalStyle.isActive {
+                    SignalRootBackdrop()
+                } else {
+                    PlaylistColorBackground(coverUrl: song.coverUrl?.sized(720))
+                }
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
-                        heroSection(height: heroHeight)
-                            .monoPageHeaderCollapse()
+                        if SignalStyle.isActive {
+                            signalHeroSection(height: heroHeight)
+                                .monoPageHeaderCollapse()
+                        } else {
+                            heroSection(height: heroHeight)
+                                .monoPageHeaderCollapse()
+                        }
                         platformContent
                         similarSongsSection
                         artistSongsSection
@@ -180,6 +194,82 @@ struct SongDetailView: View {
         .accessibilityElement(children: .combine)
     }
 
+    private func signalHeroSection(height: CGFloat) -> some View {
+        GeometryReader { hero in
+            let coverSize = min(hero.size.width * 0.52, hero.size.height * 0.36, 230)
+
+            VStack(spacing: 14) {
+                Spacer(minLength: 58)
+
+                ZStack {
+                    SignalScreenBackground(cornerRadius: 15)
+
+                    CachedAsyncImage(url: song.coverUrl?.sized(1_000)) {
+                        Theme.coverFill
+                    }
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: coverSize - 20, height: coverSize - 20)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+                }
+                .frame(width: coverSize, height: coverSize)
+                .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 15, style: .continuous)
+                        .stroke(SignalStyle.separator.opacity(0.74), lineWidth: 0.8)
+                }
+                .shadow(color: Color.black.opacity(0.24), radius: 18, y: 8)
+
+                VStack(spacing: 6) {
+                    if let alias = song.alia?.first, !alias.isEmpty {
+                        Text(alias)
+                            .font(SignalStyle.labelFont(10, weight: .medium))
+                            .foregroundStyle(SignalStyle.inkMuted)
+                            .lineLimit(1)
+                    }
+
+                    Text(song.name)
+                        .font(SignalStyle.titleFont(23, weight: .bold))
+                        .foregroundStyle(SignalStyle.ink)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+
+                    Button {
+                        guard let artistID = song.artists.first?.id, artistID > 0 else { return }
+                        selectedArtistId = artistID
+                        showArtistDetail = true
+                    } label: {
+                        Text(song.artistName)
+                            .font(SignalStyle.bodyFont(13, weight: .medium))
+                            .foregroundStyle(SignalStyle.inkSoft)
+                            .lineLimit(1)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled((song.artists.first?.id ?? 0) <= 0)
+                }
+
+                heroActions
+
+                heroMetadata
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 18)
+            .frame(width: hero.size.width, height: hero.size.height)
+            .background {
+                ZStack {
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.018), .clear, SignalStyle.surfaceInset.opacity(0.72)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                }
+            }
+        }
+        .frame(height: height)
+        .clipped()
+        .accessibilityElement(children: .contain)
+    }
+
     private func resolvedHeroHeight(contentWidth: CGFloat, viewportHeight: CGFloat) -> CGFloat {
         let aspectHeight = contentWidth / (DeviceLayout.isPad ? 1.08 : 0.86)
         let viewportLimit = viewportHeight * (DeviceLayout.isPad ? 0.58 : 0.56)
@@ -254,20 +344,24 @@ struct SongDetailView: View {
                     ForEach(viewModel.platformDetail.attributes) { attribute in
                         VStack(alignment: .leading, spacing: 5) {
                             Text(attribute.label)
-                                .font(.caption)
+                                .font(SignalStyle.isActive ? SignalStyle.labelFont(10, weight: .medium) : .caption)
                                 .foregroundStyle(Theme.secondaryText)
                             Text(attribute.value)
-                                .font(.subheadline.weight(.semibold))
+                                .font(SignalStyle.isActive ? SignalStyle.bodyFont(13, weight: .semibold) : .subheadline.weight(.semibold))
                                 .foregroundStyle(Theme.text)
                                 .lineLimit(2)
                                 .minimumScaleFactor(0.78)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(14)
-                        .background(
-                            Theme.text.opacity(0.055),
-                            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        )
+                        .background {
+                            if SignalStyle.isActive {
+                                SignalSurfaceBackground(cornerRadius: 10, elevated: false, pressed: true, fill: SignalStyle.control)
+                            } else {
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .fill(Theme.text.opacity(0.055))
+                            }
+                        }
                     }
                 }
             }
@@ -275,14 +369,20 @@ struct SongDetailView: View {
             ForEach(viewModel.platformDetail.sections) { section in
                 VStack(alignment: .leading, spacing: 10) {
                     Text(section.title)
-                        .font(.title3.weight(.bold))
+                        .font(SignalStyle.isActive ? SignalStyle.titleFont(18, weight: .bold) : .title3.weight(.bold))
                         .foregroundStyle(Theme.text)
                     Text(section.body)
-                        .font(.body)
+                        .font(SignalStyle.isActive ? SignalStyle.bodyFont(14, weight: .regular) : .body)
                         .foregroundStyle(Theme.text.opacity(0.88))
                         .lineSpacing(6)
                         .textSelection(.enabled)
                         .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(SignalStyle.isActive ? 15 : 0)
+                .background {
+                    if SignalStyle.isActive {
+                        SignalSurfaceBackground(cornerRadius: 12, elevated: false, fill: SignalStyle.surface)
+                    }
                 }
             }
 
@@ -333,16 +433,22 @@ struct SongDetailView: View {
                                             .fill(Theme.text.opacity(0.08))
                                     }
                                     .frame(width: 124, height: 124)
-                                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                    .clipShape(RoundedRectangle(cornerRadius: SignalStyle.isActive ? 8 : 12, style: .continuous))
+                                    .overlay {
+                                        if SignalStyle.isActive {
+                                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                                .stroke(SignalStyle.separator.opacity(0.72), lineWidth: 0.7)
+                                        }
+                                    }
 
                                     Text(simiSong.name)
-                                        .font(.subheadline.weight(.medium))
+                                        .font(SignalStyle.isActive ? SignalStyle.bodyFont(13, weight: .semibold) : .subheadline.weight(.medium))
                                         .foregroundStyle(Theme.text)
                                         .lineLimit(1)
                                         .frame(width: 124, alignment: .leading)
 
                                     Text(simiSong.artistName)
-                                        .font(.caption)
+                                        .font(SignalStyle.isActive ? SignalStyle.labelFont(10, weight: .medium) : .caption)
                                         .foregroundStyle(Theme.secondaryText)
                                         .lineLimit(1)
                                         .frame(width: 124, alignment: .leading)
@@ -411,10 +517,16 @@ struct SongDetailView: View {
     }
 
     private func sectionTitle(_ title: String) -> some View {
-        Text(title)
-            .font(.title3.weight(.bold))
-            .foregroundStyle(Theme.text)
-            .padding(.horizontal, 20)
+        Group {
+            if SignalStyle.isActive {
+                SignalSectionTitle(title: title)
+            } else {
+                Text(title)
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(Theme.text)
+            }
+        }
+        .padding(.horizontal, 20)
     }
 
     // MARK: - Values and actions
@@ -521,21 +633,30 @@ private struct SongDetailHeroActions: View {
 
     private func actionLabel(icon: MonoIcon.IconType, title: String) -> some View {
         HStack(spacing: 7) {
-            MonoIcon(icon: icon, size: 15, color: .white)
+            MonoIcon(icon: icon, size: 15, color: SignalStyle.isActive ? SignalStyle.accent : .white)
             Text(title)
-                .font(.subheadline.weight(.semibold))
+                .font(SignalStyle.isActive ? SignalStyle.labelFont(12, weight: .bold) : .subheadline.weight(.semibold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.78)
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(SignalStyle.isActive ? SignalStyle.ink : .white)
         .frame(maxWidth: .infinity)
         .frame(height: 48)
-        .background(Color.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.1), lineWidth: 0.8)
+        .background {
+            if SignalStyle.isActive {
+                SignalSurfaceBackground(cornerRadius: 9, elevated: false, pressed: true, fill: SignalStyle.control)
+            } else {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.black.opacity(0.25))
+            }
         }
-        .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            if !SignalStyle.isActive {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.1), lineWidth: 0.8)
+            }
+        }
+        .contentShape(RoundedRectangle(cornerRadius: SignalStyle.isActive ? 9 : 14, style: .continuous))
     }
 
     private var isLiked: Bool {

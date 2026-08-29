@@ -87,7 +87,7 @@ public enum AsciiStringGen {
     /// 用于 Property 2 的反例采样。
     public static func anyNotMatchingGlobalThemeId(using rng: inout SeededRNG, maxLen: Int = 24) -> String {
         let banned = Set(GlobalThemeId.allCases.map { $0.rawValue })
-            .union(["bento", "sequoia", "liquidGlass", "clay", "signal"])
+            .union(["bento", "sequoia", "liquidGlass", "clay"])
         // 最多尝试 32 次生成,若仍命中则在末尾追加 "!" 强制区分
         for _ in 0..<32 {
             let s = any(using: &rng, maxLen: maxLen)

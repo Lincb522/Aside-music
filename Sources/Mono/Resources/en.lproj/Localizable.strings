@@ -161,6 +161,10 @@
 "global_theme_pet_white_name" = "Furry Paws";
 "global_theme_minimal_white_name" = "Pure White";
 "global_theme_pet_white_description" = "Chunky clay blocks in macaron candy colors, with a squishy press feel.";
+"global_theme_console_name" = "Console";
+"global_theme_console_description" = "Modern black surfaces with green playback and status feedback.";
+"player_theme_console_name" = "Console";
+"player_theme_console_description" = "Black-and-green terminal controls with segmented progress and live signal status.";
 "immersive_bg_title" = "Video Background";
 "immersive_bg_import_failed" = "Import failed";
 "immersive_bg_bind_target" = "Bind To";
@@ -496,6 +500,7 @@
 "settings_lyric_preview" = "Lyric Preview";
 "lyric_source_default_title" = "Default Lyric Source";
 "apple_music_lyric_source_title" = "Apple Music Lyric Source";
+"lyric_source_automatic" = "Automatic";
 "lyric_source_change" = "Change Lyrics";
 "lyric_source_selected" = "Selected";
 "common_close" = "Close";

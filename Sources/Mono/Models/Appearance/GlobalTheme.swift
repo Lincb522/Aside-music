@@ -10,6 +10,7 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable, Sendable {
     case manga         // 漫画风 — 粗描边、硬阴影、网点背景
     case neumorphic    // 新拟物 — 柔和凸起、凹陷控件、低对比实体感
     case capsule       // Capsule OS — 胶囊模块化系统界面
+    case signal        // 控制台 — 现代深色表面、绿色状态反馈与呼吸灯
     case petWhite      // Paw · 黏土玩具 — 厚圆角黏土块、马卡龙糖果色、squishy 按压（可选主题）
     case minimalWhite  // 纯白极简 — 纯白表面、轻分隔、克制层级
     case clarity       // 通透 — 独立空气光层与浮游界面
@@ -20,6 +21,7 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable, Sendable {
         .muji,
         .neumorphic,
         .capsule,
+        .signal,
         .petWhite,
         .minimalWhite,
         .clarity,
@@ -38,8 +40,7 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable, Sendable {
         "bento",
         "sequoia",
         "liquidGlass",
-        "clay",
-        "signal"
+        "clay"
     ]
 
     static var persistedOrDefault: GlobalThemeId {
@@ -63,6 +64,8 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable, Sendable {
             return String(localized: "新拟物")
         case .capsule:
             return "Capsule OS"
+        case .signal:
+            return String(localized: "global_theme_console_name")
         case .petWhite:
             return String(localized: "global_theme_pet_white_name")
         case .minimalWhite:
@@ -84,6 +87,8 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable, Sendable {
             return String(localized: "柔软凸起与凹陷控件，安静的实体触感")
         case .capsule:
             return String(localized: "胶囊模块化音乐系统")
+        case .signal:
+            return String(localized: "global_theme_console_description")
         case .petWhite:
             return String(localized: "global_theme_pet_white_description")
         case .minimalWhite:
@@ -105,6 +110,8 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable, Sendable {
             return .layers
         case .capsule:
             return .layers
+        case .signal:
+            return .waveform
         case .petWhite:
             return .catLife
         case .minimalWhite:

@@ -35,6 +35,8 @@ struct RecentPlayHistoryView: View {
                 CapsuleRootBackdrop()
             } else if SequoiaStyle.isActive {
                 SequoiaRootBackdrop()
+            } else if SignalStyle.isActive {
+                SignalRootBackdrop()
             } else {
                 ThemedPageBackground()
                     .ignoresSafeArea()
@@ -90,6 +92,15 @@ struct RecentPlayHistoryView: View {
                             ) {
                                 SequoiaIconBadge(icon: .history, tint: SequoiaStyle.accent, size: 48)
                             }
+                        } else if SignalStyle.isActive {
+                            SignalNestedPageHeader(
+                                title: String(localized: "profile_recently_played"),
+                                eyebrow: "PLAYBACK LOG",
+                                icon: .history,
+                                module: .changelog
+                            )
+                            .padding(.horizontal, 16)
+                            .padding(.top, 8)
                         }
 
                         PlaylistSearchBar(
@@ -185,6 +196,14 @@ struct RecentPlayHistoryView: View {
                         )
                     } else if SequoiaStyle.isActive {
                         SequoiaPill(text: String(localized: "artist_play_all"), icon: .play, tint: SequoiaStyle.accent, selected: true)
+                    } else if SignalStyle.isActive {
+                        SignalPill(
+                            text: String(localized: "artist_play_all"),
+                            tint: SignalStyle.accent,
+                            icon: .play,
+                            selected: true,
+                            compact: true
+                        )
                     } else {
                         HStack(spacing: 6) {
                             MonoIcon(icon: .play, size: 12, color: .monoTextPrimary)

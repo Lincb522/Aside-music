@@ -29,6 +29,18 @@ struct QQPlaylistImportView: View {
                     .ignoresSafeArea()
                 
                 VStack(spacing: 0) {
+                    if SignalStyle.isActive {
+                        SignalNestedPageHeader(
+                            title: String(localized: "QCM歌单导入"),
+                            eyebrow: "QCM DATA IMPORT",
+                            icon: .download,
+                            module: .importData
+                        )
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                        .padding(.bottom, 12)
+                    }
+
                     if playlists.isEmpty && !isLoading {
                         inputSection
                     } else if isLoading && playlists.isEmpty {
@@ -38,7 +50,7 @@ struct QQPlaylistImportView: View {
                     }
                 }
             }
-            .themedNavigationChrome(title: String(localized: "QCM歌单导入"), eyebrow: "IMPORT", icon: .download)
+            .themedNavigationChrome(title: SignalStyle.isActive ? "" : String(localized: "QCM歌单导入"), eyebrow: "IMPORT", icon: .download)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .monoNavigationBackButton()
@@ -62,45 +74,51 @@ struct QQPlaylistImportView: View {
     private var inputSection: some View {
         ScrollView {
             VStack(spacing: 28) {
-                Spacer().frame(height: 40)
-                
-                ZStack {
-                    RoundedRectangle(cornerRadius: importIconRadius, style: .continuous)
-                        .fill(MangaStyle.isActive ? MangaStyle.bubbleBlue : (MujiStyle.isActive ? MujiStyle.surfaceRaised : (NeumorphicStyle.isActive ? NeumorphicStyle.surface : Color.monoGlassTint)))
-                        .frame(width: 80, height: 80)
-                        .background {
-                            if NeumorphicStyle.isActive {
-                                NeumorphicSurfaceBackground(cornerRadius: importIconRadius, elevated: true)
-                                    .frame(width: 80, height: 80)
+                if SignalStyle.isActive {
+                    SignalSectionTitle(title: "USER LOOKUP", detail: "QCM")
+                        .padding(.horizontal, 24)
+                } else {
+                    Spacer().frame(height: 40)
+
+                    ZStack {
+                        RoundedRectangle(cornerRadius: importIconRadius, style: .continuous)
+                            .fill(MangaStyle.isActive ? MangaStyle.bubbleBlue : (MujiStyle.isActive ? MujiStyle.surfaceRaised : (NeumorphicStyle.isActive ? NeumorphicStyle.surface : Color.monoGlassTint)))
+                            .frame(width: 80, height: 80)
+                            .background {
+                                if NeumorphicStyle.isActive {
+                                    NeumorphicSurfaceBackground(cornerRadius: importIconRadius, elevated: true)
+                                        .frame(width: 80, height: 80)
+                                }
                             }
-                        }
-                        .overlay {
-                            if MangaStyle.isActive {
-                                RoundedRectangle(cornerRadius: importIconRadius, style: .continuous)
-                                    .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
-                            } else if MujiStyle.isActive {
-                                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                                    .stroke(MujiStyle.hairline.opacity(0.45), lineWidth: 0.6)
+                            .overlay {
+                                if MangaStyle.isActive {
+                                    RoundedRectangle(cornerRadius: importIconRadius, style: .continuous)
+                                        .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth)
+                                } else if MujiStyle.isActive {
+                                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                        .stroke(MujiStyle.hairline.opacity(0.45), lineWidth: 0.6)
+                                }
                             }
-                        }
-                    MonoIcon(icon: .musicNoteList, size: 32, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monoTextSecondary.opacity(0.5))
-                }
-                
-                VStack(spacing: 8) {
-                    Text("导入 QCM歌单")
-                        .font(MangaStyle.isActive ? MangaStyle.titleFont(21, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(20, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(21, weight: .semibold) : .system(size: 20, weight: .bold, design: .rounded))))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monoTextPrimary)
-                    Text("输入 QCM 号或用户名可添加用户歌单")
-                        .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .system(size: 13, weight: .medium, design: .rounded))
-                        .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monoTextSecondary)
-                        .multilineTextAlignment(.center)
+                        MonoIcon(icon: .musicNoteList, size: 32, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monoTextSecondary.opacity(0.5))
+                    }
+
+                    VStack(spacing: 8) {
+                        Text("导入 QCM歌单")
+                            .font(MangaStyle.isActive ? MangaStyle.titleFont(21, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(20, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(21, weight: .semibold) : .system(size: 20, weight: .bold, design: .rounded))))
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monoTextPrimary)
+                        Text("输入 QCM 号或用户名可添加用户歌单")
+                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(13, weight: .medium) : .system(size: 13, weight: .medium, design: .rounded))
+                            .foregroundColor(NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monoTextSecondary)
+                            .multilineTextAlignment(.center)
+                    }
                 }
                 
                 HStack(spacing: 12) {
                     HStack {
                         MonoIcon(icon: .search, size: 16, color: NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monoTextSecondary)
                         TextField(String(localized: "QCM 号 / 用户名"), text: $uin)
-                            .font(NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(16, weight: .medium) : .system(size: 16, weight: .medium, design: .rounded))
+                            .font(SignalStyle.isActive ? SignalStyle.bodyFont(15, weight: .medium) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(16, weight: .medium) : .system(size: 16, weight: .medium, design: .rounded)))
+                            .foregroundStyle(SignalStyle.isActive ? SignalStyle.ink : Color.monoTextPrimary)
                             .monoTextInputBehavior()
                             .submitLabel(.search)
                             .monoOnSubmit(text: $uin) { _ in

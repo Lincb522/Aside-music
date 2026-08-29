@@ -42,6 +42,15 @@ struct PlatformLoginView: View {
 
             ScrollView {
                 VStack(spacing: 28) {
+                    if SignalStyle.isActive {
+                        SignalNestedPageHeader(
+                            title: String(localized: "扫码登录"),
+                            eyebrow: "AUTH TERMINAL",
+                            icon: .personCircle,
+                            module: .accounts
+                        )
+                    }
+
                     platformPicker
                     if selectedPlatform == .qcm {
                         qcmLoginModePicker
@@ -56,7 +65,7 @@ struct PlatformLoginView: View {
             }
             .scrollIndicators(.hidden)
         }
-        .navigationTitle("扫码登录")
+        .navigationTitle(SignalStyle.isActive ? "" : "扫码登录")
         .navigationBarTitleDisplayMode(.inline)
         .monoNavigationBackButton()
         .onAppear(perform: startSelectedLogin)
@@ -93,21 +102,21 @@ struct PlatformLoginView: View {
                         )
 
                         Text(platform.title)
-                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .font(SignalStyle.isActive ? SignalStyle.labelFont(10, weight: selectedPlatform == platform ? .bold : .medium) : .system(size: 13, weight: .semibold, design: .rounded))
                     }
                     .foregroundStyle(
-                        selectedPlatform == platform
-                            ? Color.monoTextPrimary
-                            : Color.monoTextSecondary
+                        SignalStyle.isActive
+                            ? (selectedPlatform == platform ? SignalStyle.onAccent : SignalStyle.inkSoft)
+                            : (selectedPlatform == platform ? Color.monoTextPrimary : Color.monoTextSecondary)
                     )
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 11)
                     .background {
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .fill(
-                                selectedPlatform == platform
-                                    ? platform.musicSource.themedBadgeColor.opacity(0.14)
-                                    : Color.clear
+                                SignalStyle.isActive
+                                    ? (selectedPlatform == platform ? SignalStyle.accent : SignalStyle.control)
+                                    : (selectedPlatform == platform ? platform.musicSource.themedBadgeColor.opacity(0.14) : Color.clear)
                             )
                     }
                     .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -146,16 +155,16 @@ struct PlatformLoginView: View {
             }
         } label: {
             Text(title)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundStyle(selected ? Color.monoTextPrimary : Color.monoTextSecondary)
+                .font(SignalStyle.isActive ? SignalStyle.labelFont(10, weight: selected ? .bold : .medium) : .system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(SignalStyle.isActive ? (selected ? SignalStyle.onAccent : SignalStyle.inkSoft) : (selected ? Color.monoTextPrimary : Color.monoTextSecondary))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
                 .background {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .fill(
-                            selected
-                                ? MusicSource.qqmusic.themedBadgeColor.opacity(0.14)
-                                : Color.clear
+                            SignalStyle.isActive
+                                ? (selected ? SignalStyle.accent : SignalStyle.control)
+                                : (selected ? MusicSource.qqmusic.themedBadgeColor.opacity(0.14) : Color.clear)
                         )
                 }
                 .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -166,7 +175,7 @@ struct PlatformLoginView: View {
 
     private var qrCodePanel: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: SignalStyle.isActive ? 9 : 20, style: .continuous)
                 .fill(Color.white)
 
             if let image = qrCodeImage {
@@ -181,7 +190,7 @@ struct PlatformLoginView: View {
             }
 
             if isQRExpired {
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                RoundedRectangle(cornerRadius: SignalStyle.isActive ? 9 : 20, style: .continuous)
                     .fill(.ultraThinMaterial)
                     .overlay {
                         Button(action: refreshQRCode) {
@@ -199,8 +208,8 @@ struct PlatformLoginView: View {
         }
         .frame(width: 244, height: 244)
         .overlay {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(Color.monoSeparator.opacity(0.75), lineWidth: 0.8)
+            RoundedRectangle(cornerRadius: SignalStyle.isActive ? 9 : 20, style: .continuous)
+                .stroke(SignalStyle.isActive ? SignalStyle.separator.opacity(0.78) : Color.monoSeparator.opacity(0.75), lineWidth: 0.8)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(qrCodeAccessibilityLabel)
@@ -215,8 +224,8 @@ struct PlatformLoginView: View {
             )
 
             Text(qrStatusMessage)
-                .font(.system(size: 14, weight: .medium, design: .rounded))
-                .foregroundStyle(Color.monoTextSecondary)
+                .font(SignalStyle.isActive ? SignalStyle.bodyFont(12, weight: .medium) : .system(size: 14, weight: .medium, design: .rounded))
+                .foregroundStyle(SignalStyle.isActive ? SignalStyle.inkSoft : Color.monoTextSecondary)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)

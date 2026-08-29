@@ -116,9 +116,12 @@ final class MonoListeningEnvironmentEngine: ObservableObject {
                 let collector = MonoMicrophoneSampleCollector()
                 self.audioEngine = engine
                 self.collector = collector
-                engine.inputNode.installTap(onBus: 0, bufferSize: 4096, format: nil) { buffer, _ in
-                    collector.append(buffer)
-                }
+                engine.inputNode.installTap(
+                    onBus: 0,
+                    bufferSize: 4096,
+                    format: nil,
+                    block: Self.makeTapBlock(collector: collector)
+                )
                 try engine.start()
                 let started = Date()
                 while !Task.isCancelled {
@@ -164,6 +167,14 @@ final class MonoListeningEnvironmentEngine: ObservableObject {
         Task.detached(priority: .utility) {
             guard let data = try? JSONEncoder().encode(value) else { return }
             try? data.write(to: url, options: .atomic)
+        }
+    }
+
+    private nonisolated static func makeTapBlock(
+        collector: MonoMicrophoneSampleCollector
+    ) -> AVAudioNodeTapBlock {
+        { buffer, _ in
+            collector.append(buffer)
         }
     }
 

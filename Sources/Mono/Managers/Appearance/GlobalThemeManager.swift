@@ -83,6 +83,7 @@ final class GlobalThemeManager: ObservableObject {
         case .manga: return DefaultThemeProvider()
         case .neumorphic: return NeumorphicThemeProvider()
         case .capsule: return CapsuleThemeProvider()
+        case .signal: return ConsoleThemeProvider()
         case .petWhite: return PetWhiteThemeProvider()
         case .minimalWhite: return MinimalWhiteThemeProvider()
         case .clarity: return ClarityThemeProvider()

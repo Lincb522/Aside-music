@@ -756,14 +756,10 @@ struct DailyRecommendView: View {
                             MonoIcon(icon: .play, size: 16, color: SignalStyle.onAccent, lineWidth: 1.8)
                                 .frame(width: 46, height: 46)
                                 .background(
-                                    LinearGradient(
-                                        colors: [SignalStyle.accent, SignalStyle.violet],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
+                                    SignalStyle.accent,
                                     in: RoundedRectangle(cornerRadius: 17, style: .continuous)
                                 )
-                                .shadow(color: SignalStyle.accent.opacity(0.24), radius: 14, x: 0, y: 8)
+                                .shadow(color: Color.black.opacity(0.24), radius: 10, x: 0, y: 6)
                         }
                         .buttonStyle(MonoBouncingButtonStyle(scale: 0.95))
                     }

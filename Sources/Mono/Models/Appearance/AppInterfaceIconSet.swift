@@ -102,6 +102,8 @@ extension GlobalThemeId {
             return .doodlePop
         case .neumorphic, .capsule:
             return .blobIcons
+        case .signal:
+            return .lucide
         case .minimalWhite:
             return .minimalWhiteIcons
         case .clarity:

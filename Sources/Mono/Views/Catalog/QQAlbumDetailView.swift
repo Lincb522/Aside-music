@@ -187,7 +187,7 @@ struct QQAlbumDetailView: View {
     @State private var scrollOffset: CGFloat = 0
 
     /// aside(默认)分支使用歌手页风格 Hero 头部
-    private var usesAsideHero: Bool { !MinimalWhiteStyle.isActive }
+    private var usesAsideHero: Bool { !MinimalWhiteStyle.isActive && !SignalStyle.isActive }
 
     init(mid: String, name: String, coverUrl: String?, artistName: String?) {
         self.mid = mid
@@ -213,6 +213,8 @@ struct QQAlbumDetailView: View {
             MonoSheetAwareBackground {
                 if MinimalWhiteStyle.isActive {
                     MinimalWhiteRootBackdrop()
+                } else if SignalStyle.isActive {
+                    SignalRootBackdrop()
                 } else if SettingsManager.shared.coverBgPlaylist {
                     PlaylistColorBackground(coverUrl: displayCoverUrl?.sized(200))
                 } else {
@@ -291,6 +293,8 @@ struct QQAlbumDetailView: View {
     private var headerView: some View {
         if MinimalWhiteStyle.isActive {
             minimalWhiteQQAlbumHeaderView
+        } else if SignalStyle.isActive {
+            signalQQAlbumHeaderView
         } else {
             AsideDetailHeroHeader(
                 coverUrl: displayCoverUrl,
@@ -315,6 +319,75 @@ struct QQAlbumDetailView: View {
             )
             .padding(.bottom, DeviceLayout.isPad ? 20 : 12)
         }
+    }
+
+    private var signalQQAlbumHeaderView: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 15) {
+                ZStack {
+                    SignalScreenBackground(cornerRadius: 11)
+
+                    CachedAsyncImage(url: displayCoverUrl) {
+                        SignalStyle.controlPressed
+                    }
+                    .aspectRatio(contentMode: .fill)
+                    .padding(8)
+
+                }
+                .frame(width: DeviceLayout.isPad ? 154 : 118, height: DeviceLayout.isPad ? 154 : 118)
+                .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 9) {
+                    HStack(spacing: 7) {
+                        SignalPill(text: "QCM", tint: SignalStyle.accent, selected: true, compact: true)
+                        SignalPill(text: "ALBUM", tint: SignalStyle.mint, compact: true)
+                    }
+
+                    Text(displayName)
+                        .font(SignalStyle.titleFont(22, weight: .bold))
+                        .foregroundStyle(SignalStyle.ink)
+                        .lineLimit(3)
+
+                    if let displayArtist, !displayArtist.isEmpty {
+                        Text(displayArtist)
+                            .font(SignalStyle.bodyFont(12, weight: .medium))
+                            .foregroundStyle(SignalStyle.inkSoft)
+                            .lineLimit(1)
+                    }
+
+                    if let date = viewModel.publishDate, !date.isEmpty {
+                        SignalPill(text: date, tint: SignalStyle.inkSoft, compact: true)
+                    }
+                }
+            }
+
+            HStack(spacing: 10) {
+                Button {
+                    if let first = viewModel.songs.first {
+                        PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                    }
+                } label: {
+                    SignalPlayPill(title: String(localized: "qq_play"))
+                }
+                .buttonStyle(.plain)
+                .disabled(viewModel.songs.isEmpty)
+
+                Spacer(minLength: 0)
+
+                SignalPill(
+                    text: String(format: "%02d", viewModel.songCount ?? viewModel.songs.count),
+                    tint: SignalStyle.inkSoft,
+                    icon: .album,
+                    compact: true
+                )
+            }
+        }
+        .padding(16)
+        .background(SignalSurfaceBackground(cornerRadius: 14, elevated: true, fill: SignalStyle.surface))
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.top, DeviceLayout.headerTopPadding + 10)
+        .padding(.bottom, 16)
+        .iPadContentWidth(900)
     }
 
     private var minimalWhiteQQAlbumHeaderView: some View {

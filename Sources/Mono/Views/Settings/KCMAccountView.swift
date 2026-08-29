@@ -11,9 +11,22 @@ struct KCMAccountView: View {
 
     var body: some View {
         List {
+            if SignalStyle.isActive {
+                SignalNestedPageHeader(
+                    title: "KCM 账号",
+                    eyebrow: "ACCOUNT NODE",
+                    icon: .personCircle,
+                    module: .accounts
+                )
+                .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20))
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            }
+
             Section("账号") {
                 accountRow
             }
+            .listRowBackground(SignalStyle.isActive ? SignalStyle.surface : nil)
 
             Section {
                 NavigationLink {
@@ -22,6 +35,7 @@ struct KCMAccountView: View {
                     Label(isLoggedIn ? "重新登录" : "扫码登录", systemImage: "qrcode")
                 }
             }
+            .listRowBackground(SignalStyle.isActive ? SignalStyle.surface : nil)
 
             if isLoggedIn {
                 Section("概念版会员") {
@@ -50,18 +64,20 @@ struct KCMAccountView: View {
                             .foregroundStyle(Color.monoTextSecondary)
                     }
                 }
+                .listRowBackground(SignalStyle.isActive ? SignalStyle.surface : nil)
 
                 Section {
                     Button("退出登录", role: .destructive) {
                         showLogoutConfirmation = true
                     }
                 }
+                .listRowBackground(SignalStyle.isActive ? SignalStyle.surface : nil)
             }
         }
         .scrollContentBackground(.hidden)
         .claritySettingsListStyle()
         .background(ThemedPageBackground())
-        .navigationTitle("KCM 账号")
+        .navigationTitle(SignalStyle.isActive ? "" : "KCM 账号")
         .navigationBarTitleDisplayMode(.inline)
         .monoNavigationBackButton()
         .task { await refreshAccount() }
@@ -87,18 +103,18 @@ struct KCMAccountView: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(profile?.nickname ?? "KCM")
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Color.monoTextPrimary)
+                    .font(SignalStyle.isActive ? SignalStyle.bodyFont(14, weight: .semibold) : .system(size: 16, weight: .semibold, design: .rounded))
+                    .foregroundStyle(SignalStyle.isActive ? SignalStyle.ink : Color.monoTextPrimary)
                     .lineLimit(1)
 
                 if let userID = profile?.userID ?? KCMMusicService.shared.currentUserID {
                     Text("ID \(userID)")
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundStyle(Color.monoTextSecondary)
+                        .font(SignalStyle.isActive ? SignalStyle.labelFont(10, weight: .medium) : .system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundStyle(SignalStyle.isActive ? SignalStyle.inkSoft : Color.monoTextSecondary)
                 } else {
                     Text(isLoggedIn ? "已登录" : "未登录")
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundStyle(Color.monoTextSecondary)
+                        .font(SignalStyle.isActive ? SignalStyle.labelFont(10, weight: .medium) : .system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundStyle(SignalStyle.isActive ? SignalStyle.inkSoft : Color.monoTextSecondary)
                 }
             }
 

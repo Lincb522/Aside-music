@@ -260,6 +260,7 @@ public struct ContentView: View {
     /// 自定义悬浮栏，彻底避开有问题的 UIKit Tab 子控制器转场。
     private var usesSystemTabBarAtRuntime: Bool {
         settings.useSystemTabBar
+            && settings.globalThemeId != .signal
             && !SystemTabBarRuntimePolicy.requiresStableAccessoryFallback
     }
 
@@ -823,6 +824,7 @@ private struct ContentViewFloatingBarContainer: View {
 
     private var usesSystemTabBarAtRuntime: Bool {
         settings.useSystemTabBar
+            && settings.globalThemeId != .signal
             && !SystemTabBarRuntimePolicy.requiresStableAccessoryFallback
     }
 
@@ -875,7 +877,15 @@ private struct ContentViewFloatingBarContainer: View {
 
     @ViewBuilder
     private var floatingBarView: some View {
-        if settings.globalThemeId == .clarity {
+        if settings.globalThemeId == .signal {
+            VStack {
+                Spacer()
+                SignalUnifiedFloatingBar(currentTab: $currentTab)
+                    .iPadContentWidth(600)
+                    .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
+                    .padding(.bottom, 6)
+            }
+        } else if settings.globalThemeId == .clarity {
             ClarityFloatingBarFamily(currentTab: $currentTab)
         } else if settings.globalThemeId == .manga {
             VStack {

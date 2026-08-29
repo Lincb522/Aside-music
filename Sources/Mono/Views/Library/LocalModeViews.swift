@@ -246,28 +246,21 @@ struct LocalModeHomeView: View {
 
     private var masthead: some View {
         VStack(alignment: .leading, spacing: 0) {
-            LocalEyebrowRow(label: "COLLECTION")
-                .padding(.bottom, 18)
+            if !SignalStyle.isActive {
+                LocalEyebrowRow(label: "COLLECTION")
+                    .padding(.bottom, 18)
+            }
 
             Text(localModeText("local_home_hero_title"))
-                .font(.system(size: 30, weight: .heavy, design: .rounded))
+                .font(SignalStyle.isActive ? SignalStyle.titleFont(30, weight: .semibold) : .system(size: 30, weight: .heavy, design: .rounded))
                 .foregroundColor(.monoTextPrimary)
 
             if !localLibrary.songs.isEmpty {
-                // 强调线用 overlay 贴在文本上，高度永远等于文本高度
                 Text(localModeFormat("local_home_hero_subtitle", localLibrary.songCount))
-                    .font(.rounded(size: 13))
+                    .font(SignalStyle.isActive ? SignalStyle.bodyFont(13) : .rounded(size: 13))
                     .foregroundColor(.monoTextSecondary)
                     .lineSpacing(3)
-                    .padding(.leading, 12)
-                    .overlay(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 1)
-                            .fill(Color.monoAccent.opacity(0.8))
-                            .frame(width: 2)
-                            .padding(.vertical, 1)
-                    }
                     .padding(.top, 12)
-                    .padding(.leading, 2)
             }
 
             HStack(spacing: 10) {
@@ -657,12 +650,14 @@ struct LocalMusicView: View {
 
     private var masthead: some View {
         VStack(alignment: .leading, spacing: 0) {
-            LocalEyebrowRow(label: "TRACKS")
-                .padding(.bottom, 16)
+            if !SignalStyle.isActive {
+                LocalEyebrowRow(label: "TRACKS")
+                    .padding(.bottom, 16)
+            }
 
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Text(localModeText("tabbar_local_music"))
-                    .font(.system(size: 28, weight: .heavy, design: .rounded))
+                    .font(SignalStyle.isActive ? SignalStyle.titleFont(28, weight: .semibold) : .system(size: 28, weight: .heavy, design: .rounded))
                     .foregroundColor(.monoTextPrimary)
 
                 Text("\(filteredSongs.count)")
@@ -849,11 +844,13 @@ struct LocalLibraryView: View {
 
     private var masthead: some View {
         VStack(alignment: .leading, spacing: 0) {
-            LocalEyebrowRow(label: "SHELF")
-                .padding(.bottom, 16)
+            if !SignalStyle.isActive {
+                LocalEyebrowRow(label: "SHELF")
+                    .padding(.bottom, 16)
+            }
 
             Text(localModeText("local_library_navigation_title"))
-                .font(.system(size: 28, weight: .heavy, design: .rounded))
+                .font(SignalStyle.isActive ? SignalStyle.titleFont(28, weight: .semibold) : .system(size: 28, weight: .heavy, design: .rounded))
                 .foregroundColor(.monoTextPrimary)
 
             HStack(spacing: 10) {
@@ -1181,15 +1178,17 @@ struct LocalModeProfileView: View {
 
     private var masthead: some View {
         VStack(alignment: .leading, spacing: 0) {
-            LocalEyebrowRow(label: "PROFILE")
-                .padding(.bottom, 18)
+            if !SignalStyle.isActive {
+                LocalEyebrowRow(label: "PROFILE")
+                    .padding(.bottom, 18)
+            }
 
             Text(String(localized: LocalizedStringResource(stringLiteral: MonoTimeGreeting.localizedKey)))
                 .font(.rounded(size: 12.5, weight: .semibold))
                 .foregroundColor(.monoTextSecondary.opacity(0.85))
 
             Text(localModeText("local_profile_hero_title"))
-                .font(.system(size: 32, weight: .heavy, design: .rounded))
+                .font(SignalStyle.isActive ? SignalStyle.titleFont(32, weight: .semibold) : .system(size: 32, weight: .heavy, design: .rounded))
                 .foregroundColor(.monoTextPrimary)
                 .padding(.top, 5)
         }
@@ -1436,14 +1435,22 @@ private struct LocalSectionHeader: View {
     let title: String
 
     var body: some View {
-        HStack(spacing: 8) {
-            Capsule()
-                .fill(Color.monoAccent)
-                .frame(width: 3, height: 13)
+        Group {
+            if SignalStyle.isActive {
+                Text(title)
+                    .font(SignalStyle.titleFont(17, weight: .semibold))
+                    .foregroundColor(SignalStyle.ink)
+            } else {
+                HStack(spacing: 8) {
+                    Capsule()
+                        .fill(Color.monoAccent)
+                        .frame(width: 3, height: 13)
 
-            Text(title)
-                .font(.rounded(size: 15, weight: .bold))
-                .foregroundColor(.monoTextPrimary)
+                    Text(title)
+                        .font(.rounded(size: 15, weight: .bold))
+                        .foregroundColor(.monoTextPrimary)
+                }
+            }
         }
     }
 }
@@ -1465,7 +1472,7 @@ private struct LocalStatsBand: View {
 
                     HStack(spacing: 5) {
                         Circle()
-                            .fill(Color.monoAccent)
+                            .fill(SignalStyle.isActive ? SignalStyle.inkMuted : Color.monoAccent)
                             .frame(width: 4, height: 4)
 
                         Text(item.label)
@@ -1654,21 +1661,11 @@ private struct LocalEmptyStateView: View {
                 .font(.system(size: 20, weight: .heavy, design: .rounded))
                 .foregroundColor(.monoTextPrimary)
 
-            // 强调线用 overlay 贴在文本上，高度永远等于文本高度，
-            // 不会在非滚动容器里被拉成整屏长竖线
             Text(subtitle)
-                .font(.rounded(size: 13))
+                .font(SignalStyle.isActive ? SignalStyle.bodyFont(13) : .rounded(size: 13))
                 .foregroundColor(.monoTextSecondary)
                 .lineSpacing(3)
-                .padding(.leading, 12)
-                .overlay(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 1)
-                        .fill(Color.monoAccent.opacity(0.8))
-                        .frame(width: 2)
-                        .padding(.vertical, 1)
-                }
                 .padding(.top, 12)
-                .padding(.leading, 2)
 
             if let buttonTitle, let buttonAction {
                 LocalInkCapsuleButton(title: buttonTitle, action: buttonAction)
@@ -1754,17 +1751,23 @@ private struct LocalStarterPanel: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color.monoGlassTint.opacity(0.55))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(
-                    Color.monoSeparator.opacity(0.85),
-                    style: StrokeStyle(lineWidth: 1, dash: [5, 5])
-                )
-        )
+        .background {
+            if SignalStyle.isActive {
+                SignalSurfaceBackground(cornerRadius: 16, elevated: false, fill: SignalStyle.surface)
+            } else {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Color.monoGlassTint.opacity(0.55))
+            }
+        }
+        .overlay {
+            if !SignalStyle.isActive {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .strokeBorder(
+                        Color.monoSeparator.opacity(0.85),
+                        style: StrokeStyle(lineWidth: 1, dash: [5, 5])
+                    )
+            }
+        }
     }
 
     private func starterStep(_ number: Int, text: String) -> some View {
@@ -1772,7 +1775,7 @@ private struct LocalStarterPanel: View {
             Text(String(format: "%02d", number))
                 .font(.system(size: 11, weight: .heavy, design: .rounded))
                 .tracking(1)
-                .foregroundColor(.monoAccent)
+                .foregroundColor(SignalStyle.isActive ? SignalStyle.inkMuted : Color.monoAccent)
                 .monospacedDigit()
 
             Text(text)

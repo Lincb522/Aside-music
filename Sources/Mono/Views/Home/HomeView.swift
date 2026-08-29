@@ -669,31 +669,65 @@ struct HomeView: View {
 
     // MARK: - Cinema Masthead
 
+    @ViewBuilder
     private var cinemaMasthead: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(String(localized: LocalizedStringResource(stringLiteral: homeGreetingKey)))
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
-                    .foregroundColor(.monoTextSecondary)
+        if SignalStyle.isActive {
+            consoleMasthead
+        } else {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(String(localized: LocalizedStringResource(stringLiteral: homeGreetingKey)))
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .foregroundColor(.monoTextSecondary)
+                        .lineLimit(1)
+
+                    Spacer(minLength: 8)
+
+                    Text(cinemaDateString)
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .tracking(1)
+                        .foregroundColor(.monoTextSecondary.opacity(0.8))
+                }
+
+                Text(viewModel.userProfile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
+                    .font(.system(size: 27, weight: .heavy, design: .serif))
+                    .foregroundColor(.monoTextPrimary)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+
+                if settings.hitokotoEnabled {
+                    let hitokotoText = viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                    cinemaTagline(hitokotoText.isEmpty ? HitokotoFallbackSlogan.text : hitokotoText)
+                }
+            }
+            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+            .monoPageHeaderCollapse()
+        }
+    }
+
+    private var consoleMasthead: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Text(String(localized: LocalizedStringResource(stringLiteral: homeGreetingKey)))
+                    .font(SignalStyle.labelFont(12, weight: .medium))
+                    .foregroundStyle(SignalStyle.inkSoft)
 
                 Spacer(minLength: 8)
 
                 Text(cinemaDateString)
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    .tracking(1)
-                    .foregroundColor(.monoTextSecondary.opacity(0.8))
+                    .font(SignalStyle.monoFont(10, weight: .medium))
+                    .foregroundStyle(SignalStyle.inkMuted)
             }
 
             Text(viewModel.userProfile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
-                .font(.system(size: 27, weight: .heavy, design: .serif))
-                .foregroundColor(.monoTextPrimary)
+                .font(SignalStyle.titleFont(27, weight: .semibold))
+                .foregroundStyle(SignalStyle.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
 
             if settings.hitokotoEnabled {
-                let hitokotoText = viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                cinemaTagline(hitokotoText.isEmpty ? HitokotoFallbackSlogan.text : hitokotoText)
+                let text = viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                cinemaTagline(text.isEmpty ? HitokotoFallbackSlogan.text : text)
             }
         }
         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
@@ -708,13 +742,22 @@ struct HomeView: View {
 
     private func cinemaTagline(_ text: String) -> some View {
         HStack(alignment: .top, spacing: 9) {
-            Capsule()
-                .fill(Color.monoAccent.opacity(0.65))
-                .frame(width: 2.5)
+            if !SignalStyle.isActive {
+                Capsule()
+                    .fill(Color.monoAccent.opacity(0.65))
+                    .frame(width: 2.5)
+            }
 
-            Text(text)
-                .font(.system(size: 13, weight: .medium, design: .serif))
-                .italic()
+            Group {
+                if SignalStyle.isActive {
+                    Text(text)
+                        .font(SignalStyle.bodyFont(12, weight: .medium))
+                } else {
+                    Text(text)
+                        .font(.system(size: 13, weight: .medium, design: .serif))
+                        .italic()
+                }
+            }
                 .foregroundColor(.monoTextPrimary.opacity(0.72))
                 .lineLimit(2)
                 .minimumScaleFactor(0.85)

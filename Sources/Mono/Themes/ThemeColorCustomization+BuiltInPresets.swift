@@ -8,6 +8,8 @@ extension ThemeColorCustomization {
         switch theme {
         case .minimalWhite:
             return []
+        case .signal:
+            return []
         case .clarity:
             return [
                 ThemeColorPreset(id: "clarity-air", name: "Air", accentStartHex: "2478D8", accentEndHex: "2478D8", backgroundStartHex: "F8F8F7", backgroundEndHex: "EDF1F2", backgroundHexes: ["F8F8F7", "EDF1F2", "F1EAF7", "E7F5F5"], gradientStyle: .diffuse),

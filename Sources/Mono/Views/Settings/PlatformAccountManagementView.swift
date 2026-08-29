@@ -20,7 +20,8 @@ struct PlatformAccountManagementView: View {
                     SettingsScrollablePageHeader(
                         title: String(localized: "platform_account_management"),
                         eyebrow: String(localized: "settings_eyebrow_accounts"),
-                        icon: .personCircle
+                        icon: .personCircle,
+                        signalModule: .accounts
                     )
 
                     SettingsSection(title: String(localized: "platform_account_music_services")) {

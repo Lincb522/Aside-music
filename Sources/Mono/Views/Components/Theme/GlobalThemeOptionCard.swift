@@ -76,6 +76,8 @@ struct GlobalThemeOptionCard: View {
             neumorphicPoster
         case .capsule:
             capsulePoster
+        case .signal:
+            consolePoster
         case .clarity:
             clarityPoster
         }
@@ -88,9 +90,66 @@ struct GlobalThemeOptionCard: View {
         case .manga:        return Color(hex: "111110")
         case .neumorphic:   return Color(hex: "4F8E86")
         case .capsule:      return Color(hex: "3867FF")
+        case .signal:       return SignalStyle.accent
         case .petWhite:     return Color(hex: "F6A93B")
         case .minimalWhite: return MinimalWhiteStyle.accent
         case .clarity:      return Color(hex: "2478D8")
+        }
+    }
+
+    // MARK: - 控制台
+
+    private var consolePoster: some View {
+        ZStack {
+            LinearGradient(
+                colors: [SignalStyle.surfaceRaised, SignalStyle.base, Color(hex: "05070A")],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 7) {
+                    SignalBreathingIndicator(size: 6)
+
+                    Spacer(minLength: 0)
+
+                    paletteDots([
+                        SignalStyle.accent,
+                        SignalStyle.mint,
+                        SignalStyle.inkSoft
+                    ], ring: SignalStyle.accent.opacity(0.32))
+                }
+
+                Text(themeId.displayName)
+                    .font(SignalStyle.titleFont(20, weight: .semibold))
+                    .foregroundStyle(SignalStyle.ink)
+                    .padding(.top, 8)
+
+                Spacer(minLength: 6)
+
+                miniPlayerChip(
+                    cover: RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(SignalStyle.control)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .stroke(SignalStyle.separator.opacity(0.72), lineWidth: 0.7)
+                        ),
+                    coverRadius: 4,
+                    titleFont: SignalStyle.labelFont(9.5, weight: .semibold),
+                    artistFont: SignalStyle.labelFont(7.5, weight: .medium),
+                    titleColor: SignalStyle.ink,
+                    artistColor: SignalStyle.inkSoft,
+                    accent: SignalStyle.accent,
+                    playForeground: SignalStyle.onAccent,
+                    background: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(SignalStyle.screen.opacity(0.94))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .stroke(SignalStyle.separator.opacity(0.72), lineWidth: 0.8)
+                        )
+                )
+            }
+            .padding(12)
         }
     }
 

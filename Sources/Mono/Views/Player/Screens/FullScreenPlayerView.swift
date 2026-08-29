@@ -71,6 +71,8 @@ struct FullScreenPlayerView: View {
                     ClarityPlayerLayout()
                 case .dotMatrix:
                     DotMatrixPlayerLayout()
+                case .console:
+                    ConsolePlayerLayout()
                 }
             }
             .id(themeManager.currentTheme)

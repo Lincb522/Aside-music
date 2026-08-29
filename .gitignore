@@ -258,3 +258,4 @@ test_layout.swift
 __pycache__/
 *.pyc
 DesignAssets/AsideIconSystem/aside-design-dna.md
+*.mov

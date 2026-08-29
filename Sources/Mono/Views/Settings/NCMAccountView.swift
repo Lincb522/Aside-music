@@ -7,9 +7,22 @@ struct NCMAccountView: View {
 
     var body: some View {
         List {
+            if SignalStyle.isActive {
+                SignalNestedPageHeader(
+                    title: "NCM 账号",
+                    eyebrow: "ACCOUNT NODE",
+                    icon: .personCircle,
+                    module: .accounts
+                )
+                .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20))
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            }
+
             Section("账号") {
                 accountRow
             }
+            .listRowBackground(SignalStyle.isActive ? SignalStyle.surface : nil)
 
             Section {
                 NavigationLink {
@@ -24,11 +37,12 @@ struct NCMAccountView: View {
                     }
                 }
             }
+            .listRowBackground(SignalStyle.isActive ? SignalStyle.surface : nil)
         }
         .scrollContentBackground(.hidden)
         .claritySettingsListStyle()
         .background(ThemedPageBackground())
-        .navigationTitle("NCM 账号")
+        .navigationTitle(SignalStyle.isActive ? "" : "NCM 账号")
         .navigationBarTitleDisplayMode(.inline)
         .monoNavigationBackButton()
         .confirmationDialog("退出 NCM 登录？", isPresented: $showLogoutConfirmation) {
@@ -43,12 +57,12 @@ struct NCMAccountView: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(homeViewModel.userProfile?.nickname ?? "NCM")
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Color.monoTextPrimary)
+                    .font(SignalStyle.isActive ? SignalStyle.bodyFont(14, weight: .semibold) : .system(size: 16, weight: .semibold, design: .rounded))
+                    .foregroundStyle(SignalStyle.isActive ? SignalStyle.ink : Color.monoTextPrimary)
 
                 Text(isLoggedIn ? "已登录" : "未登录")
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundStyle(Color.monoTextSecondary)
+                    .font(SignalStyle.isActive ? SignalStyle.labelFont(10, weight: .medium) : .system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundStyle(SignalStyle.isActive ? SignalStyle.inkSoft : Color.monoTextSecondary)
             }
 
             Spacer()

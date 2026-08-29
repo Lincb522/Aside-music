@@ -39,6 +39,8 @@ struct ClassicFloatingBar: View {
             return 28
         case .capsule:
             return 30
+        case .signal:
+            return 16
         case .clarity:
             return 34
         case .default:
@@ -72,6 +74,8 @@ struct ClassicFloatingBar: View {
             return NeumorphicStyle.darkShadow(colorScheme, intensity: 0.55)
         case .capsule:
             return CapsuleStyle.accent.opacity(colorScheme == .dark ? 0.18 : 0.13)
+        case .signal:
+            return SignalStyle.accent.opacity(0.16)
         case .clarity:
             return Color.black.opacity(colorScheme == .dark ? 0.28 : 0.10)
         case .default:
@@ -93,6 +97,8 @@ struct ClassicFloatingBar: View {
             return NeumorphicStyle.separator.opacity(colorScheme == .dark ? 0.46 : 0.34)
         case .capsule:
             return CapsuleStyle.separator.opacity(colorScheme == .dark ? 0.40 : 0.30)
+        case .signal:
+            return SignalStyle.separator.opacity(0.82)
         case .clarity:
             return ClarityStyle.separator
         case .default:
@@ -229,6 +235,10 @@ struct ClassicFloatingBar: View {
                         )
                     )
                 )
+        case .signal:
+            shape
+                .fill(SignalStyle.paper.opacity(0.98))
+                .overlay(shape.stroke(SignalStyle.separator.opacity(0.72), lineWidth: 0.8))
         case .clarity:
             shape
                 .fill(.ultraThinMaterial)
@@ -297,6 +307,8 @@ struct ClassicFloatingBar: View {
             return NeumorphicStyle.separator.opacity(colorScheme == .dark ? 0.40 : 0.34)
         case .capsule:
             return CapsuleStyle.hairline.opacity(colorScheme == .dark ? 0.52 : 0.66)
+        case .signal:
+            return SignalStyle.accent.opacity(0.38)
         case .clarity:
             return ClarityStyle.edge.opacity(0.72)
         case .default:
@@ -336,6 +348,8 @@ struct ClassicFloatingBar: View {
             .frame(width: 72, height: 5)
             .padding(.leading, 22)
             .padding(.top, 7)
+        case .signal:
+            EmptyView()
         case .clarity:
             EmptyView()
         case .muji:
@@ -367,7 +381,7 @@ struct ClassicFloatingBar: View {
             return 0.8
         case .petWhite:
             return 0.76
-        case .capsule, .neumorphic, .clarity:
+        case .capsule, .neumorphic, .signal, .clarity:
             return 0.72
         default:
             return 0.64
@@ -386,6 +400,8 @@ struct ClassicFloatingBar: View {
             return 14
         case .capsule:
             return 13
+        case .signal:
+            return 14
         case .clarity:
             return 18
         default:

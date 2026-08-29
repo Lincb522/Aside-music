@@ -319,7 +319,8 @@ struct LegalDocumentsView: View {
                     SettingsScrollablePageHeader(
                         title: String(localized: "legal_center_title"),
                         eyebrow: "MONO",
-                        icon: .infoCircle
+                        icon: .infoCircle,
+                        signalModule: .legal
                     )
 
                     VStack(alignment: .leading, spacing: 0) {
@@ -433,7 +434,8 @@ struct LegalDocumentDetailView: View {
                     SettingsScrollablePageHeader(
                         title: document.title,
                         eyebrow: "MONO",
-                        icon: document.icon
+                        icon: document.icon,
+                        signalModule: .legal
                     )
 
                     VStack(alignment: .leading, spacing: 0) {

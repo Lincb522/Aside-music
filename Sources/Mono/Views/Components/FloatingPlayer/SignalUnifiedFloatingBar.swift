@@ -19,22 +19,14 @@ struct SignalUnifiedFloatingBar: View {
                 .contentShape(Rectangle())
                 .simultaneousGesture(tabSwipeGesture)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 8)
-        .background(SignalSurfaceBackground(cornerRadius: 24, elevated: true, fill: SignalStyle.paper.opacity(0.96)))
+        .padding(6)
+        .background(SignalSurfaceBackground(cornerRadius: 14, elevated: true, fill: SignalStyle.paper.opacity(0.98)))
         .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(SignalStyle.separator.opacity(0.62), lineWidth: 0.75)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(SignalStyle.separator.opacity(0.76), lineWidth: 0.8)
                 .padding(0.5)
         )
-        .overlay(alignment: .topLeading) {
-            Capsule()
-                .fill(LinearGradient(colors: [SignalStyle.accent.opacity(0.74), SignalStyle.mint.opacity(0.46)], startPoint: .leading, endPoint: .trailing))
-                .frame(width: 56, height: 4)
-                .padding(.top, 10)
-                .padding(.leading, 18)
-        }
-        .shadow(color: Color.black.opacity(0.12), radius: 16, x: 0, y: 8)
+        .shadow(color: Color.black.opacity(0.3), radius: 18, x: 0, y: 7)
         .animation(MonoAnimation.floatingBar, value: player.currentSong != nil)
         .animation(MonoAnimation.tabSwitch, value: currentTab)
         .themeRenderInteractiveLayer()
@@ -82,21 +74,21 @@ struct SignalMiniPlayerStrip: View {
         VStack(spacing: 6) {
             HStack(spacing: 10) {
                 CachedAsyncImage(url: song.coverUrl) {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
                         .fill(SignalStyle.controlPressed)
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(width: 40, height: 40)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(SignalStyle.separator.opacity(0.62), lineWidth: 0.65)
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .stroke(SignalStyle.separator.opacity(0.74), lineWidth: 0.7)
                 )
 
                 VStack(alignment: .leading, spacing: 3) {
                     MarqueeText(
                         text: song.name,
-                        font: SignalStyle.labelFont(13, weight: .bold),
+                        font: SignalStyle.labelFont(13, weight: .semibold),
                         color: SignalStyle.ink,
                         speed: 25
                     )
@@ -146,7 +138,7 @@ struct SignalMiniPlayerStrip: View {
                 .padding(.horizontal, 12)
                 .padding(.bottom, 6)
         }
-        .background(SignalSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, fill: SignalStyle.screen.opacity(0.78)))
+        .background(SignalSurfaceBackground(cornerRadius: 11, elevated: false, pressed: true, fill: SignalStyle.screen.opacity(0.9)))
         .monoSheet(isPresented: $showPlaylist, preset: .standard) {
             if player.isPlayingPodcast {
                 PodcastPlaylistPopupView()
@@ -165,8 +157,8 @@ struct SignalMiniPlayerStrip: View {
         Button(action: action) {
             MonoIcon(icon: icon, size: size, color: tint, lineWidth: 1.75)
                 .frame(width: 32, height: 32)
-                .background(SignalSurfaceBackground(cornerRadius: 12, elevated: true, fill: SignalStyle.surfaceRaised))
-                .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .background(SignalSurfaceBackground(cornerRadius: 8, elevated: true, fill: SignalStyle.surfaceRaised))
+                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(MonoBouncingButtonStyle(scale: 0.94))
     }
@@ -201,20 +193,18 @@ struct SignalDedicatedTabBar: View {
         HStack(spacing: 5) {
             ForEach(0 ..< Self.tabs.count, id: \.self) { index in
                 let item = Self.tabs[index]
-                tabButton(tab: item.tab, index: index, outline: item.outline, filled: item.filled)
+                tabButton(tab: item.tab, outline: item.outline, filled: item.filled)
             }
         }
         .padding(.horizontal, 5)
         .padding(.vertical, 5)
         .frame(height: 48)
-        .background(SignalSurfaceBackground(cornerRadius: 19, elevated: false, pressed: true, fill: SignalStyle.controlPressed))
+        .background(SignalSurfaceBackground(cornerRadius: 11, elevated: false, pressed: true, fill: SignalStyle.controlPressed))
     }
 
-    private func tabButton(tab: Tab, index: Int, outline: MonoIcon.IconType, filled: MonoIcon.IconType) -> some View {
+    private func tabButton(tab: Tab, outline: MonoIcon.IconType, filled: MonoIcon.IconType) -> some View {
         let isSelected = currentTab == tab
         let label = NSLocalizedString(tab.titleKey(isLocalMode: !onlineAccess.canUseOnlineFeatures), comment: "")
-        let tint = tabTint(index)
-
         return Button {
             HapticManager.shared.light()
             withAnimation(MonoAnimation.tabSwitch) {
@@ -225,14 +215,14 @@ struct SignalDedicatedTabBar: View {
                 MonoIcon(
                     icon: isSelected ? filled : outline,
                     size: isSelected ? 16 : 18,
-                    color: isSelected ? SignalStyle.onAccent : SignalStyle.inkMuted,
+                    color: isSelected ? SignalStyle.accent : SignalStyle.inkMuted,
                     lineWidth: isSelected ? 1.9 : 1.55
                 )
 
                 if isSelected {
                     Text(label)
-                        .font(SignalStyle.labelFont(9, weight: .bold))
-                        .foregroundStyle(SignalStyle.onAccent)
+                        .font(SignalStyle.labelFont(9, weight: .semibold))
+                        .foregroundStyle(SignalStyle.accent)
                         .lineLimit(1)
                         .minimumScaleFactor(0.76)
                 }
@@ -240,28 +230,17 @@ struct SignalDedicatedTabBar: View {
             .frame(maxWidth: .infinity, minHeight: 38)
             .background {
                 if isSelected {
-                    RoundedRectangle(cornerRadius: 17, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [tint, SignalStyle.mint.opacity(0.82)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(SignalStyle.accent.opacity(0.12))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .stroke(SignalStyle.accent.opacity(0.18), lineWidth: 0.7)
                         )
                         .matchedGeometryEffect(id: "signal-tab", in: selectionNS)
-                        .shadow(color: tint.opacity(0.18), radius: 8, x: 0, y: 4)
                 }
             }
         }
         .buttonStyle(.plain)
     }
 
-    private func tabTint(_ index: Int) -> Color {
-        switch index {
-        case 0: return SignalStyle.accent
-        case 1: return SignalStyle.mint
-        case 2: return SignalStyle.lavender
-        default: return SignalStyle.clay
-        }
-    }
 }

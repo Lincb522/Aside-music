@@ -19,6 +19,7 @@ extension ThemeColorCustomization {
         case .muji: return "B56B4B"
         case .neumorphic: return "4F8E86"
         case .capsule: return "3867FF"
+        case .signal: return "5AD68C"
         case .petWhite: return "F6A93B"
         case .clarity: return "2478D8"
         case .manga: return "FF4F84"
@@ -32,6 +33,7 @@ extension ThemeColorCustomization {
         case .muji: return "F7F1E8"
         case .neumorphic: return "E9EDF0"
         case .capsule: return "F6F8FF"
+        case .signal: return "07090C"
         case .petWhite: return "FFFFFF"
         case .clarity: return "EEF2F3"
         case .manga: return "F3E9D8"
@@ -45,6 +47,7 @@ extension ThemeColorCustomization {
         case .muji: return "F7F1E8"
         case .neumorphic: return "F2EEE8"
         case .capsule: return "EAF1FF"
+        case .signal: return "05070A"
         case .petWhite: return "FFFFFF"
         case .clarity: return "EAF0F2"
         case .manga: return "E8DECD"
@@ -64,6 +67,7 @@ extension ThemeColorCustomization {
             case .muji: return "F4EBDD"
             case .neumorphic: return "E4ECE7"
             case .capsule: return "F8F2FF"
+            case .signal: return "090C10"
             case .petWhite: return "FFF7DE"
             case .clarity: return "F1EAF7"
             case .manga: return "FFF8EB"
@@ -75,6 +79,7 @@ extension ThemeColorCustomization {
             case .muji: return "FAF4E8"
             case .neumorphic: return "EEF0F5"
             case .capsule: return "EDF9FF"
+            case .signal: return "0F1318"
             case .petWhite: return "EFFAF5"
             case .clarity: return "E7F5F5"
             case .manga: return "DED3C1"
@@ -124,6 +129,8 @@ extension ThemeColorCustomization {
             return readableForegroundColor(on: accent, light: Color(hex: "172026"), dark: .white)
         case .capsule:
             return readableForegroundColor(on: accent, light: Color(hex: "101A2A"), dark: .white)
+        case .signal:
+            return SignalStyle.onAccent
         case .petWhite:
             return readableForegroundColor(on: accent, light: Color(hex: "111111"), dark: .white)
         case .clarity:

@@ -26,7 +26,7 @@ struct ListeningStatsView: View {
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    immersiveHeader
+                    statsHeader
 
                     VStack(alignment: .leading, spacing: 26) {
                         periodPicker
@@ -136,9 +136,13 @@ struct ListeningStatsView: View {
     private var immersivePageBackground: some View {
         GeometryReader { proxy in
             ZStack {
-                ThemedPageBackground(useRenderLayer: false)
+                if SignalStyle.isActive {
+                    SignalRootBackdrop()
+                } else {
+                    ThemedPageBackground(useRenderLayer: false)
+                }
 
-                if let url = weeklyArtworkURL {
+                if !SignalStyle.isActive, let url = weeklyArtworkURL {
                     CachedAsyncImage(
                         url: url.artworkURL(atLeastPixelSize: 1_536),
                         width: 768,
@@ -155,18 +159,20 @@ struct ListeningStatsView: View {
                     .clipped()
                 }
 
-                Color.monoBackground
-                    .opacity(colorScheme == .dark ? 0.38 : 0.5)
+                if !SignalStyle.isActive {
+                    Color.monoBackground
+                        .opacity(colorScheme == .dark ? 0.38 : 0.5)
 
-                LinearGradient(
-                    stops: [
-                        .init(color: Color.black.opacity(0.2), location: 0),
-                        .init(color: Color.monoBackground.opacity(0.28), location: 0.32),
-                        .init(color: Color.monoBackground.opacity(0.62), location: 1),
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
+                    LinearGradient(
+                        stops: [
+                            .init(color: Color.black.opacity(0.2), location: 0),
+                            .init(color: Color.monoBackground.opacity(0.28), location: 0.32),
+                            .init(color: Color.monoBackground.opacity(0.62), location: 1),
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                }
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
             .clipped()
@@ -355,6 +361,78 @@ struct ListeningStatsView: View {
     }
 
     // MARK: - 沉浸式周榜头部
+
+    @ViewBuilder
+    private var statsHeader: some View {
+        if SignalStyle.isActive {
+            signalStatsHeader
+        } else {
+            immersiveHeader
+        }
+    }
+
+    private var signalStatsHeader: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            SignalNestedPageHeader(
+                title: String(localized: "听歌统计"),
+                eyebrow: "LISTENING DATA",
+                icon: .chart,
+                module: .playback
+            )
+
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(String(localized: "听歌时长"))
+                        .font(SignalStyle.labelFont(10, weight: .bold))
+                        .tracking(1.3)
+                        .foregroundStyle(SignalStyle.inkSoft)
+
+                    Spacer()
+
+                    SignalPill(text: selectedPeriod.rawValue, tint: SignalStyle.accent, compact: true)
+                }
+
+                Text(isLoading ? "—" : stats.formattedDuration)
+                    .font(SignalStyle.titleFont(38, weight: .bold))
+                    .foregroundStyle(SignalStyle.ink)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.64)
+
+                HStack(spacing: 0) {
+                    signalMetric(value: isLoading ? "—" : "\(stats.totalPlays)", label: String(localized: "有效播放"))
+                    signalMetricDivider
+                    signalMetric(value: isLoading ? "—" : "\(stats.completionRate)%", label: String(localized: "完播率"))
+                    signalMetricDivider
+                    signalMetric(value: isLoading ? "—" : "\(stats.uniqueSongs)", label: String(localized: "歌曲"))
+                }
+            }
+            .padding(16)
+            .background(SignalSurfaceBackground(cornerRadius: 2, elevated: true))
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 88)
+    }
+
+    private func signalMetric(value: String, label: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(value)
+                .font(SignalStyle.titleFont(18, weight: .bold))
+                .foregroundStyle(SignalStyle.accent)
+                .monospacedDigit()
+            Text(label)
+                .font(SignalStyle.labelFont(9, weight: .medium))
+                .foregroundStyle(SignalStyle.inkSoft)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var signalMetricDivider: some View {
+        Rectangle()
+            .fill(SignalStyle.separator)
+            .frame(width: 1, height: 30)
+            .padding(.horizontal, 10)
+    }
 
     private var immersiveHeader: some View {
         GeometryReader { proxy in

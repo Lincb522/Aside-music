@@ -985,6 +985,13 @@ struct CurrentSongLyricSourceSheet: View {
 
             if let song = player.currentSong {
                 VStack(spacing: 0) {
+                    automaticSourceRow(song)
+
+                    Rectangle()
+                        .fill(Color.monoSeparator)
+                        .frame(height: 0.5)
+                        .padding(.leading, 18)
+
                     ForEach(LyricSource.allCases) { source in
                         sourceRow(source, song: song)
 
@@ -1042,8 +1049,43 @@ struct CurrentSongLyricSourceSheet: View {
         }
     }
 
+    private func automaticSourceRow(_ song: Song) -> some View {
+        let isSelected = lyricViewModel.pinnedSource(for: song) == nil
+        let tint = (lyricViewModel.activeSource?.musicSource ?? song.musicSource).themedBadgeColor
+
+        return Button {
+            UISelectionFeedbackGenerator().selectionChanged()
+            lyricViewModel.useAutomaticSource(for: song)
+            close()
+        } label: {
+            HStack(spacing: 12) {
+                Text(String(localized: "lyric_source_automatic"))
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundColor(.monoTextPrimary)
+
+                Spacer(minLength: 0)
+
+                if isSelected {
+                    if lyricViewModel.isLoading {
+                        ProgressView()
+                            .tint(tint)
+                            .controlSize(.small)
+                    } else {
+                        MonoIcon(icon: .checkmark, size: 15, color: tint, lineWidth: 2)
+                    }
+                }
+            }
+            .frame(minHeight: 54)
+            .padding(.horizontal, 18)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(isSelected ? String(localized: "lyric_source_selected") : "")
+    }
+
     private func sourceRow(_ source: LyricSource, song: Song) -> some View {
-        let isSelected = lyricViewModel.selectedSource(for: song) == source
+        let isSelected = lyricViewModel.pinnedSource(for: song) == source
         let tint = source.musicSource.themedBadgeColor
 
         return Button {

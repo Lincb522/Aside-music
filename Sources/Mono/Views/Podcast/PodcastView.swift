@@ -67,6 +67,12 @@ struct PodcastView: View {
                             } else if NeumorphicStyle.isActive {
                                 neumorphicPodcastHeader
                                 neumorphicPodcastSummary
+                            } else if SignalStyle.isActive {
+                                SignalPageHeader(
+                                    eyebrow: "",
+                                    title: String(localized: "tabbar_podcast"),
+                                    subtitle: ""
+                                )
                             } else if SequoiaStyle.isActive {
                                 sequoiaPodcastHeader
                                 sequoiaPodcastSummary

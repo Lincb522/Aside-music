@@ -71,7 +71,8 @@ struct ChangelogHistoryView: View {
                 SettingsScrollablePageHeader(
                     title: String(localized: "更新日志"),
                     eyebrow: String(localized: "settings_eyebrow_changelog"),
-                    icon: .history
+                    icon: .history,
+                    signalModule: .changelog
                 )
 
                 contentState

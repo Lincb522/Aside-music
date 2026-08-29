@@ -371,21 +371,32 @@ struct SettingsScrollablePageHeader: View {
     let eyebrow: String
     let subtitle: String
     let icon: MonoIcon.IconType
+    let signalModule: SignalConsoleModule
 
     init(
         title: String,
         eyebrow: String,
         subtitle: String = "",
-        icon: MonoIcon.IconType = .sparkle
+        icon: MonoIcon.IconType = .sparkle,
+        signalModule: SignalConsoleModule = .system
     ) {
         self.title = title
         self.eyebrow = eyebrow
         self.subtitle = subtitle
         self.icon = icon
+        self.signalModule = signalModule
     }
 
     var body: some View {
-        if ClarityStyle.isActive {
+        if SignalStyle.isActive {
+            SignalNestedPageHeader(
+                title: title,
+                eyebrow: eyebrow,
+                icon: icon,
+                module: signalModule
+            )
+            .padding(.horizontal, settingsHeaderHorizontalInset)
+        } else if ClarityStyle.isActive {
             ZStack(alignment: .trailing) {
                 HStack(alignment: .center, spacing: 14) {
                     VStack(alignment: .leading, spacing: 5) {

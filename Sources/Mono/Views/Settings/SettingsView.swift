@@ -191,7 +191,18 @@ struct AsideSettingsDetailChromeModifier: ViewModifier {
                 ToolbarItem(placement: .topBarLeading) {
                     MonoToolbarBackButton()
                 }
+
+                if SignalStyle.isActive {
+                    ToolbarItem(placement: .principal) {
+                        Text(title)
+                            .font(SignalStyle.labelFont(13, weight: .semibold))
+                            .foregroundStyle(SignalStyle.ink)
+                            .lineLimit(1)
+                    }
+                }
             }
+            .tint(SignalStyle.isActive ? SignalStyle.accent : nil)
+            .preferredColorScheme(SignalStyle.isActive ? .dark : nil)
             .monoEdgeSwipeToDismiss()
     }
 }

@@ -6,7 +6,9 @@ extension SearchView {
     @ViewBuilder
     var suggestionsOverlay: some View {
         if viewModel.showSuggestions && !viewModel.suggestions.isEmpty {
-            if MangaStyle.isActive {
+            if SignalStyle.isActive {
+                themedSuggestionsOverlay
+            } else if MangaStyle.isActive {
                 themedSuggestionsOverlay
             } else if MujiStyle.isActive {
                 themedSuggestionsOverlay
@@ -106,10 +108,12 @@ extension SearchView {
     }
 
     var suggestionsRowSpacing: CGFloat {
+        if SignalStyle.isActive { return 7 }
         return MangaStyle.isActive ? 8 : 7
     }
 
     var suggestionsFont: Font {
+        if SignalStyle.isActive { return SignalStyle.bodyFont(14, weight: .medium) }
         if MangaStyle.isActive { return MangaStyle.comicFont(14, weight: .bold) }
         if MujiStyle.isActive { return MujiStyle.bodyFont(15, weight: .regular) }
         if CapsuleStyle.isActive { return CapsuleStyle.bodyFont(15, weight: .semibold) }
@@ -117,6 +121,7 @@ extension SearchView {
     }
 
     var suggestionsPrimaryColor: Color {
+        if SignalStyle.isActive { return SignalStyle.ink }
         if MangaStyle.isActive { return MangaStyle.ink }
         if MujiStyle.isActive { return MujiStyle.ink }
         if CapsuleStyle.isActive { return CapsuleStyle.ink }
@@ -124,6 +129,7 @@ extension SearchView {
     }
 
     var suggestionsSecondaryColor: Color {
+        if SignalStyle.isActive { return SignalStyle.inkMuted }
         if MangaStyle.isActive { return MangaStyle.inkMuted }
         if MujiStyle.isActive { return MujiStyle.inkMuted }
         if CapsuleStyle.isActive { return CapsuleStyle.inkMuted }
@@ -132,7 +138,13 @@ extension SearchView {
 
     @ViewBuilder
     var suggestionsIcon: some View {
-        if MangaStyle.isActive {
+        if SignalStyle.isActive {
+            ZStack {
+                SignalSurfaceBackground(cornerRadius: 9, elevated: false, pressed: true, fill: SignalStyle.control)
+                MonoIcon(icon: .magnifyingGlass, size: 13, color: SignalStyle.accent, lineWidth: 1.6)
+            }
+            .frame(width: 30, height: 30)
+        } else if MangaStyle.isActive {
             MangaSectionMark(kind: .star, tint: MangaStyle.labelYellow)
                 .frame(width: 30, height: 30)
         } else if MujiStyle.isActive {
@@ -149,7 +161,9 @@ extension SearchView {
 
     @ViewBuilder
     var suggestionsRowBackground: some View {
-        if MangaStyle.isActive {
+        if SignalStyle.isActive {
+            SignalSurfaceBackground(cornerRadius: 10, elevated: false, pressed: true, fill: SignalStyle.screen.opacity(0.88))
+        } else if MangaStyle.isActive {
             // 去卡片化：候选词行只留底部细墨线
             VStack(spacing: 0) {
                 Spacer(minLength: 0)
@@ -174,7 +188,9 @@ extension SearchView {
 
     @ViewBuilder
     var suggestionsPanelBackground: some View {
-        if MangaStyle.isActive {
+        if SignalStyle.isActive {
+            SignalSurfaceBackground(cornerRadius: 14, elevated: true, fill: SignalStyle.paper.opacity(0.98))
+        } else if MangaStyle.isActive {
             MangaCardBackground(cornerRadius: MangaStyle.cardRadius + 4, elevated: true)
         } else if MujiStyle.isActive {
             MujiPaperCardBackground(cornerRadius: 13, elevated: true)

@@ -22,7 +22,8 @@ struct PlaybackSettingsView: View {
                     SettingsScrollablePageHeader(
                         title: String(localized: "settings_navigation_playback_title"),
                         eyebrow: String(localized: "settings_eyebrow_playback"),
-                        icon: .playCircle
+                        icon: .playCircle,
+                        signalModule: .playback
                     )
 
                     VStack(spacing: SettingsPageLayout.sectionSpacing) {

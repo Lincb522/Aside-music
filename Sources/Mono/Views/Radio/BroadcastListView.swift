@@ -14,6 +14,16 @@ struct BroadcastListView: View {
             ThemedPageBackground()
 
             VStack(spacing: 0) {
+                if SignalStyle.isActive {
+                    SignalNestedPageHeader(
+                        title: NSLocalizedString("broadcast_title", comment: ""),
+                        eyebrow: "FM TUNER",
+                        icon: .radio,
+                        module: .broadcast
+                    )
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                }
+
                 // 地区筛选标签
                 if !viewModel.regions.isEmpty {
                     regionFilter
@@ -49,8 +59,8 @@ struct BroadcastListView: View {
                 } else {
                     ScrollView {
                         LazyVStack(spacing: ThemedPageStyle.listSpacing) {
-                            ForEach(viewModel.channels) { channel in
-                                channelRow(channel: channel)
+                            ForEach(Array(viewModel.channels.enumerated()), id: \.element.id) { index, channel in
+                                channelRow(channel: channel, index: index + 1)
                                     .onTapWithHaptic {
                                         selectedChannel = channel
                                     }
@@ -65,7 +75,7 @@ struct BroadcastListView: View {
                 }
             }
         }
-        .themedNavigationChrome(title: NSLocalizedString("broadcast_title", comment: ""), eyebrow: "RADIO", icon: .radio)
+        .themedNavigationChrome(title: SignalStyle.isActive ? "" : NSLocalizedString("broadcast_title", comment: ""), eyebrow: "RADIO", icon: .radio)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .monoNavigationBackButton()
@@ -134,6 +144,7 @@ struct BroadcastListView: View {
     }
 
     private func chipFont(isSelected: Bool) -> Font {
+        if SignalStyle.isActive { return SignalStyle.labelFont(11, weight: isSelected ? .bold : .medium) }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.labelFont(13, weight: isSelected ? .semibold : .regular) }
         if MangaStyle.isActive { return MangaStyle.labelFont(13, weight: isSelected ? .black : .bold) }
         if MujiStyle.isActive { return MujiStyle.labelFont(13, weight: isSelected ? .semibold : .regular) }
@@ -143,6 +154,7 @@ struct BroadcastListView: View {
     }
 
     private func chipTextColor(isSelected: Bool) -> Color {
+        if SignalStyle.isActive { return isSelected ? SignalStyle.onAccent : SignalStyle.inkSoft }
         if MinimalWhiteStyle.isActive { return isSelected ? MinimalWhiteStyle.ink : MinimalWhiteStyle.inkMuted }
         if MangaStyle.isActive {
             return isSelected
@@ -158,7 +170,11 @@ struct BroadcastListView: View {
 
     @ViewBuilder
     private func chipBackground(isSelected: Bool) -> some View {
-        if MinimalWhiteStyle.isActive {
+        if SignalStyle.isActive {
+            Capsule()
+                .fill(isSelected ? SignalStyle.accent : SignalStyle.control)
+                .overlay(Capsule().stroke(isSelected ? SignalStyle.accent.opacity(0.24) : SignalStyle.separator.opacity(0.72), lineWidth: 0.7))
+        } else if MinimalWhiteStyle.isActive {
             MinimalWhiteCapsuleBackground(selected: isSelected)
         } else if MangaStyle.isActive {
             RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
@@ -192,11 +208,11 @@ struct BroadcastListView: View {
     // MARK: - 频道行
 
     @ViewBuilder
-    private func channelRow(channel: BroadcastChannel) -> some View {
+    private func channelRow(channel: BroadcastChannel, index: Int) -> some View {
         if !ThemedPageStyle.isActive {
             asideChannelRow(channel: channel)
         } else {
-            legacyChannelRow(channel: channel)
+            legacyChannelRow(channel: channel, index: index)
         }
     }
 
@@ -262,8 +278,15 @@ struct BroadcastListView: View {
         .contentShape(Rectangle())
     }
 
-    private func legacyChannelRow(channel: BroadcastChannel) -> some View {
+    private func legacyChannelRow(channel: BroadcastChannel, index: Int) -> some View {
         HStack(spacing: 14) {
+            if SignalStyle.isActive {
+                Text(String(format: "%02d", index))
+                    .font(SignalStyle.monoFont(10, weight: .bold))
+                    .foregroundStyle(SignalStyle.accent)
+                    .frame(width: 23, alignment: .leading)
+            }
+
             // 封面
             if let url = channel.coverImageUrl {
                 CachedAsyncImage(url: url) {
@@ -301,7 +324,9 @@ struct BroadcastListView: View {
             Spacer()
 
             // FM 标识
-            if NeumorphicStyle.isActive {
+            if SignalStyle.isActive {
+                SignalPill(text: "FM", tint: SignalStyle.accent, icon: .radio, compact: true)
+            } else if NeumorphicStyle.isActive {
                 NeumorphicPill(text: "FM", tint: NeumorphicStyle.sage, compact: true)
             } else if SequoiaStyle.isActive {
                 SequoiaPill(text: "FM", icon: .radio, tint: SequoiaStyle.aqua, compact: true)
@@ -311,7 +336,7 @@ struct BroadcastListView: View {
                     .foregroundColor(.monoTextSecondary)
             }
 
-            MonoIcon(icon: .playCircle, size: 26, color: SequoiaStyle.isActive ? SequoiaStyle.accent : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monoTextSecondary), lineWidth: 1.4)
+            MonoIcon(icon: .playCircle, size: 26, color: SignalStyle.isActive ? SignalStyle.accent : (SequoiaStyle.isActive ? SequoiaStyle.accent : (NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monoTextSecondary)), lineWidth: 1.4)
         }
         .padding(.horizontal, ThemedPageStyle.isActive ? 16 : DeviceLayout.viewHorizontalPadding)
         .padding(.vertical, 10)
@@ -320,13 +345,17 @@ struct BroadcastListView: View {
     }
 
     private var coverRadius: CGFloat {
+        if SignalStyle.isActive { return 8 }
         if MinimalWhiteStyle.isActive { return 12 }
         return (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 14 : 12
     }
 
     @ViewBuilder
     private var coverStroke: some View {
-        if NeumorphicStyle.isActive {
+        if SignalStyle.isActive {
+            RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
+                .stroke(SignalStyle.separator.opacity(0.72), lineWidth: 0.7)
+        } else if NeumorphicStyle.isActive {
             RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
                 .stroke(NeumorphicStyle.separator.opacity(0.5), lineWidth: 0.7)
         } else if SequoiaStyle.isActive {
@@ -339,6 +368,7 @@ struct BroadcastListView: View {
     }
 
     private var rowTitleFont: Font {
+        if SignalStyle.isActive { return SignalStyle.bodyFont(14, weight: .semibold) }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.bodyFont(15, weight: .medium) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(15, weight: .semibold) }
         if SequoiaStyle.isActive { return SequoiaStyle.bodyFont(15, weight: .semibold) }
@@ -346,6 +376,7 @@ struct BroadcastListView: View {
     }
 
     private var primaryTextColor: Color {
+        if SignalStyle.isActive { return SignalStyle.ink }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.ink }
@@ -353,6 +384,7 @@ struct BroadcastListView: View {
     }
 
     private var secondaryTextColor: Color {
+        if SignalStyle.isActive { return SignalStyle.inkSoft }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
@@ -360,6 +392,7 @@ struct BroadcastListView: View {
     }
 
     private var coverPlaceholderFill: Color {
+        if SignalStyle.isActive { return SignalStyle.controlPressed }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.controlGlassFill }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
         if SequoiaStyle.isActive { return SequoiaStyle.materialList }

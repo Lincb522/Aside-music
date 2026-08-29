@@ -5,19 +5,12 @@ import Combine
 class LyricViewModel: ObservableObject {
     static let shared = LyricViewModel()
 
-    private struct ParsedLyricCandidate {
-        let source: LyricSource
-        let lines: [LyricLine]
-        let hasPlatformWordTiming: Bool
-        let hasTranslation: Bool
-
-        var qualityScore: Int {
-            guard !lines.isEmpty else { return 0 }
-            return 1
-                + (hasPlatformWordTiming ? 4 : 0)
-                + (hasTranslation ? 2 : 0)
-        }
+    private struct FallbackSourcePlan {
+        let identity: String
+        var remainingSources: [LyricSource]
     }
+
+    private static let pinnedSourcesStorageKey = "pinnedLyricSourcesBySong.v1"
     
     @Published var lyrics: [LyricLine] = []
     @Published var isLoading = false
@@ -45,37 +38,39 @@ class LyricViewModel: ObservableObject {
     private var translations: [TimeInterval: String] = [:]
     /// 当前歌词请求的会话 ID，防止旧请求回调覆盖新歌词
     private var lyricSessionId: Int = 0
-    /// 仅对当前歌曲有效；完整播放身份可避免跨平台数字 ID 碰撞。
-    private var currentSongSourceOverride: (
-        identity: String,
-        songId: Int,
-        source: LyricSource
-    )?
+    private var fallbackSourcePlan: FallbackSourcePlan?
     
     func fetchLyrics(for song: Song) {
+        loadLyrics(for: song, forceReload: false)
+    }
+
+    private func loadLyrics(for song: Song, forceReload: Bool) {
         prepareLyricIdentity(for: song)
 
         let identity = PlayerManager.playbackIdentityKey(for: song)
-        if currentSongSourceOverride?.identity != identity {
-            currentSongSourceOverride = nil
-        }
-
-        let source = currentSongSourceOverride?.source ?? LyricSource.resolvedGlobalSource(for: song)
+        let pinnedSource = pinnedSource(for: song)
+        let source = pinnedSource ?? LyricSource.resolvedGlobalSource(for: song)
+        let remainingSources = LyricSource.allCases.filter { $0 != source }
+        fallbackSourcePlan = FallbackSourcePlan(
+            identity: identity,
+            remainingSources: remainingSources
+        )
         activeSource = source
 
         if applyDownloadedLyricsIfAvailable(for: song, source: source) {
+            fallbackSourcePlan = nil
             return
         }
 
         // 旧缓存没有记录歌词来源。只有歌词来源与歌曲平台一致时才复用，
         // 手动换源和跨平台默认源始终重新请求，防止显示错误来源的旧歌词。
-        let canUseLegacyCache = currentSongSourceOverride?.songId == nil
-            && source.musicSource == song.musicSource
+        let canUseLegacyCache = pinnedSource == nil && source.musicSource == song.musicSource
         if canUseLegacyCache, applyCachedLyricsIfAvailable(for: song) {
+            fallbackSourcePlan = nil
             return
         }
 
-        fetchLyrics(for: song, source: source, forceReload: false)
+        fetchLyrics(for: song, source: source, forceReload: forceReload)
     }
 
     func hasCurrentLyrics(for song: Song) -> Bool {
@@ -89,6 +84,7 @@ class LyricViewModel: ObservableObject {
         guard currentSongIdentity != identity else { return }
 
         currentSongIdentity = identity
+        fallbackSourcePlan = nil
         // 强制新平台/新目录身份重新进入请求链，不能只按可能重复的数字 ID 复用。
         currentSongId = nil
     }
@@ -118,36 +114,50 @@ class LyricViewModel: ObservableObject {
     }
 
     func selectedSource(for song: Song) -> LyricSource {
-        if currentSongSourceOverride?.identity == PlayerManager.playbackIdentityKey(for: song),
-           currentSongSourceOverride?.songId == song.id,
-           let source = currentSongSourceOverride?.source {
-            return source
-        }
         if currentSongIdentity == PlayerManager.playbackIdentityKey(for: song),
            currentSongId == song.id,
            let activeSource {
             return activeSource
         }
-        return LyricSource.resolvedGlobalSource(for: song)
+        return pinnedSource(for: song) ?? LyricSource.resolvedGlobalSource(for: song)
     }
 
-    /// 临时更换当前歌曲的歌词来源；切歌后自动失效。
+    func pinnedSource(for song: Song) -> LyricSource? {
+        let identity = PlayerManager.playbackIdentityKey(for: song)
+        guard let rawValue = pinnedSourceValues()[identity] else { return nil }
+        return LyricSource(rawValue: rawValue)
+    }
+
+    /// 固定当前歌曲的首选歌词来源，后续播放仍优先尝试该来源。
     func changeSource(_ source: LyricSource, for song: Song) {
         prepareLyricIdentity(for: song)
-        currentSongSourceOverride = (
-            PlayerManager.playbackIdentityKey(for: song),
-            song.id,
-            source
-        )
-        fetchLyrics(for: song, source: source, forceReload: true)
+        setPinnedSource(source, for: song)
+        loadLyrics(for: song, forceReload: true)
     }
 
-    /// 应用当前全局来源策略，并清除当前歌曲的临时覆盖。
+    func useAutomaticSource(for song: Song) {
+        prepareLyricIdentity(for: song)
+        setPinnedSource(nil, for: song)
+        loadLyrics(for: song, forceReload: true)
+    }
+
+    /// 全局来源策略变化时，只刷新未单独固定来源的歌曲。
     func useGlobalSource(for song: Song) {
         prepareLyricIdentity(for: song)
-        currentSongSourceOverride = nil
-        let source = LyricSource.resolvedGlobalSource(for: song)
-        fetchLyrics(for: song, source: source, forceReload: true)
+        guard pinnedSource(for: song) == nil else { return }
+        loadLyrics(for: song, forceReload: true)
+    }
+
+    private func pinnedSourceValues() -> [String: String] {
+        UserDefaults.standard.dictionary(forKey: Self.pinnedSourcesStorageKey)?
+            .compactMapValues { $0 as? String } ?? [:]
+    }
+
+    private func setPinnedSource(_ source: LyricSource?, for song: Song) {
+        let identity = PlayerManager.playbackIdentityKey(for: song)
+        var values = pinnedSourceValues()
+        values[identity] = source?.rawValue
+        UserDefaults.standard.set(values, forKey: Self.pinnedSourcesStorageKey)
     }
 
     private func fetchLyrics(for song: Song, source: LyricSource, forceReload: Bool) {
@@ -155,14 +165,7 @@ class LyricViewModel: ObservableObject {
 
         switch source {
         case .netease:
-            fetchNeteaseLyrics(
-                for: song,
-                fallbackQQMid: nil,
-                // Apple Music 不向第三方提供歌词正文。跟随歌曲来源时先按
-                // 元数据匹配 NCM，缺失后继续匹配 QCM。
-                allowQQFallback: song.isAppleMusic,
-                forceReload: forceReload
-            )
+            fetchNeteaseLyrics(for: song, forceReload: forceReload)
         case .qqmusic:
             fetchQQLyrics(for: song, forceReload: forceReload)
         case .qishui:
@@ -170,6 +173,38 @@ class LyricViewModel: ObservableObject {
         case .kugou:
             fetchKugouLyrics(for: song, forceReload: forceReload)
         }
+    }
+
+    private func completeLyricRequest(source: LyricSource, sessionId: Int) {
+        guard lyricSessionId == sessionId else { return }
+        activeSource = source
+        fallbackSourcePlan = nil
+        isLoading = false
+    }
+
+    private func finishFailedLyricRequest(
+        source: LyricSource,
+        for song: Song,
+        sessionId: Int
+    ) {
+        guard lyricSessionId == sessionId else { return }
+
+        let identity = PlayerManager.playbackIdentityKey(for: song)
+        if var plan = fallbackSourcePlan,
+           plan.identity == identity,
+           let nextSource = plan.remainingSources.first {
+            plan.remainingSources.removeFirst()
+            fallbackSourcePlan = plan
+            AppLogger.info(
+                "[Lyrics] \(source.shortName) 无可用歌词，自动尝试 \(nextSource.shortName): \(song.name) - \(song.artistName)"
+            )
+            fetchLyrics(for: song, source: nextSource, forceReload: true)
+            return
+        }
+
+        fallbackSourcePlan = nil
+        isLoading = false
+        currentSongId = nil
     }
 
     private func beginLyricRequest(songId: Int, forceReload: Bool) -> Int? {
@@ -231,7 +266,7 @@ class LyricViewModel: ObservableObject {
 
     private func fetchQishuiLyrics(for song: Song, forceReload: Bool) {
         if let trackId = song.qishuiTrackId, trackId > 0 {
-            fetchQishuiLyrics(trackId: trackId, songId: song.id, forceReload: forceReload)
+            fetchQishuiLyrics(trackId: trackId, for: song, forceReload: forceReload)
             return
         }
 
@@ -251,23 +286,26 @@ class LyricViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
                 guard let self, self.lyricSessionId == sessionId else { return }
-                self.isLoading = false
                 if case .failure(let error) = completion {
                     self.hasLyrics = false
                     AppLogger.warning("[Lyrics] KCM 歌词获取失败: \(error.localizedDescription)")
+                    self.finishFailedLyricRequest(source: .kugou, for: song, sessionId: sessionId)
                 }
             }, receiveValue: { [weak self] content in
                 guard let self, self.lyricSessionId == sessionId else { return }
-                self.isLoading = false
                 self.applyKugouLyrics(content, songId: song.id)
+                if self.hasLyrics {
+                    self.completeLyricRequest(source: .kugou, sessionId: sessionId)
+                } else {
+                    self.finishFailedLyricRequest(source: .kugou, for: song, sessionId: sessionId)
+                }
             })
             .store(in: &cancellables)
     }
 
     private func searchKugouLyricsByMetadata(for song: Song, sessionId: Int) {
         guard !song.name.isEmpty || !song.artistName.isEmpty else {
-            isLoading = false
-            currentSongId = nil
+            finishFailedLyricRequest(source: .kugou, for: song, sessionId: sessionId)
             return
         }
 
@@ -294,9 +332,9 @@ class LyricViewModel: ObservableObject {
                     let content = try await APIService.shared.fetchKugouLyrics(song: matchedSong).async()
                     guard self.lyricSessionId == sessionId else { return }
 
-                    self.isLoading = false
                     self.applyKugouLyrics(content, songId: song.id)
                     if self.hasLyrics {
+                        self.completeLyricRequest(source: .kugou, sessionId: sessionId)
                         AppLogger.info("[Lyrics] 已从 KCM 搜索结果补全歌词: \(song.name) - \(song.artistName)")
                         return
                     }
@@ -305,8 +343,7 @@ class LyricViewModel: ObservableObject {
                 AppLogger.warning("[Lyrics] KCM 搜索补全失败: \(query) - \(error.localizedDescription)")
             }
 
-            self.isLoading = false
-            self.currentSongId = nil
+            self.finishFailedLyricRequest(source: .kugou, for: song, sessionId: sessionId)
         }
     }
 
@@ -324,23 +361,27 @@ class LyricViewModel: ObservableObject {
         )
     }
 
-    private func fetchQishuiLyrics(trackId: Int, songId: Int, forceReload: Bool = false) {
-        guard let sessionId = beginLyricRequest(songId: songId, forceReload: forceReload) else { return }
+    private func fetchQishuiLyrics(trackId: Int, for song: Song, forceReload: Bool) {
+        guard let sessionId = beginLyricRequest(songId: song.id, forceReload: forceReload) else { return }
 
         APIService.shared.fetchQishuiLyric(trackId: trackId)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
                 guard let self, self.lyricSessionId == sessionId else { return }
-                self.isLoading = false
                 if case .failure = completion {
                     AppLogger.warning("[Lyrics] 汽水歌词获取失败")
+                    self.finishFailedLyricRequest(source: .qishui, for: song, sessionId: sessionId)
                 }
             }, receiveValue: { [weak self] content in
                 guard let self, self.lyricSessionId == sessionId else { return }
-                self.isLoading = false
                 if !content.isEmpty {
                     self.applyQishuiLyrics(content)
+                }
+                if self.hasLyrics {
+                    self.completeLyricRequest(source: .qishui, sessionId: sessionId)
                     AppLogger.info("[Lyrics] 汽水歌词加载成功: \(self.lyrics.count) 行")
+                } else {
+                    self.finishFailedLyricRequest(source: .qishui, for: song, sessionId: sessionId)
                 }
             })
             .store(in: &cancellables)
@@ -348,8 +389,7 @@ class LyricViewModel: ObservableObject {
 
     private func searchQishuiLyricsByMetadata(for song: Song, sessionId: Int) {
         guard !song.name.isEmpty || !song.artistName.isEmpty else {
-            isLoading = false
-            currentSongId = nil
+            finishFailedLyricRequest(source: .qishui, for: song, sessionId: sessionId)
             return
         }
 
@@ -372,9 +412,8 @@ class LyricViewModel: ObservableObject {
                     guard self.lyricSessionId == sessionId else { return }
 
                     self.applyQishuiLyrics(content)
-                    self.isLoading = false
                     if self.hasLyrics {
-                        self.activeSource = .qishui
+                        self.completeLyricRequest(source: .qishui, sessionId: sessionId)
                         AppLogger.info("[Lyrics] 已从 QSM 搜索结果补全歌词: \(song.name) - \(song.artistName)")
                         return
                     }
@@ -383,8 +422,7 @@ class LyricViewModel: ObservableObject {
                 AppLogger.warning("[Lyrics] QSM 搜索补全失败: \(query) - \(error.localizedDescription)")
             }
 
-            self.isLoading = false
-            self.currentSongId = nil
+            self.finishFailedLyricRequest(source: .qishui, for: song, sessionId: sessionId)
         }
     }
 
@@ -416,6 +454,7 @@ class LyricViewModel: ObservableObject {
     }
 
     func fetchLyrics(for songId: Int) {
+        fallbackSourcePlan = nil
         activeSource = .netease
         let song = Song(
             id: songId,
@@ -433,18 +472,11 @@ class LyricViewModel: ObservableObject {
             alia: nil
         )
         prepareLyricIdentity(for: song)
-        fetchNeteaseLyrics(
-            for: song,
-            fallbackQQMid: nil,
-            allowQQFallback: false,
-            forceReload: false
-        )
+        fetchNeteaseLyrics(for: song, forceReload: false)
     }
 
     private func fetchNeteaseLyrics(
         for song: Song,
-        fallbackQQMid: String?,
-        allowQQFallback: Bool,
         forceReload: Bool
     ) {
         let songId = song.id
@@ -454,9 +486,7 @@ class LyricViewModel: ObservableObject {
         if song.musicSource != .netease {
             fetchLyricsByMetadataFallback(
                 for: song,
-                fallbackQQMid: fallbackQQMid,
-                sessionId: sessionId,
-                allowQQFallback: allowQQFallback
+                sessionId: sessionId
             )
             return
         }
@@ -468,9 +498,7 @@ class LyricViewModel: ObservableObject {
                     AppLogger.error("Failed to fetch lyrics: \(error)")
                     self.fetchLyricsByMetadataFallback(
                         for: song,
-                        fallbackQQMid: fallbackQQMid,
-                        sessionId: sessionId,
-                        allowQQFallback: allowQQFallback
+                        sessionId: sessionId
                     )
                 }
             }, receiveValue: { [weak self] response in
@@ -480,12 +508,10 @@ class LyricViewModel: ObservableObject {
                 if !self.hasLyrics {
                     self.fetchLyricsByMetadataFallback(
                         for: song,
-                        fallbackQQMid: fallbackQQMid,
-                        sessionId: sessionId,
-                        allowQQFallback: allowQQFallback
+                        sessionId: sessionId
                     )
                 } else {
-                    self.isLoading = false
+                    self.completeLyricRequest(source: .netease, sessionId: sessionId)
                 }
             })
             .store(in: &cancellables)
@@ -494,7 +520,7 @@ class LyricViewModel: ObservableObject {
     /// 获取 qcm歌词
     private func fetchQQLyrics(for song: Song, forceReload: Bool) {
         if let mid = song.qqMid, !mid.isEmpty {
-            fetchQQLyrics(mid: mid, songId: song.id, forceReload: forceReload)
+            fetchQQLyrics(mid: mid, for: song, forceReload: forceReload)
             return
         }
 
@@ -502,31 +528,32 @@ class LyricViewModel: ObservableObject {
         searchQQLyricsByMetadata(for: song, sessionId: sessionId)
     }
 
-    func fetchQQLyrics(mid: String, songId: Int, forceReload: Bool = false) {
-        guard let sessionId = beginLyricRequest(songId: songId, forceReload: forceReload) else { return }
-        
+    private func fetchQQLyrics(mid: String, for song: Song, forceReload: Bool) {
+        guard let sessionId = beginLyricRequest(songId: song.id, forceReload: forceReload) else { return }
+
         APIService.shared.fetchQQLyric(mid: mid)
             .sink(receiveCompletion: { [weak self] completion in
                 guard let self = self, self.lyricSessionId == sessionId else { return }
                 if case .failure(let error) = completion {
                     AppLogger.error("[QQMusic] 获取歌词失败: \(error)")
-                    self.isLoading = false
-                    // 请求失败时清除 currentSongId，允许下次重试
-                    self.currentSongId = nil
+                    self.finishFailedLyricRequest(source: .qqmusic, for: song, sessionId: sessionId)
                 }
             }, receiveValue: { [weak self] response in
                 guard let self = self, self.lyricSessionId == sessionId else { return }
                 self.applyQQLyrics(response)
-                self.isLoading = false
+                if self.hasLyrics {
+                    self.completeLyricRequest(source: .qqmusic, sessionId: sessionId)
+                } else {
+                    self.finishFailedLyricRequest(source: .qqmusic, for: song, sessionId: sessionId)
+                }
             })
             .store(in: &cancellables)
     }
 
-    private func fetchQQLyricsFallback(
+    private func fetchQQLyrics(
         mid: String,
-        songId: Int,
-        sessionId: Int,
-        qishuiFallbackSong: Song? = nil
+        for song: Song,
+        sessionId: Int
     ) {
         translations = [:]
         lyrics = []
@@ -538,31 +565,17 @@ class LyricViewModel: ObservableObject {
             .sink(receiveCompletion: { [weak self] completion in
                 guard let self = self, self.lyricSessionId == sessionId else { return }
                 if case .failure(let error) = completion {
-                    AppLogger.warning("[Lyrics] NCM 歌词缺失，QCM 回退也失败: \(error)")
-                    if let qishuiFallbackSong {
-                        self.searchQishuiLyricsByMetadata(
-                            for: qishuiFallbackSong,
-                            sessionId: sessionId
-                        )
-                        return
-                    }
-                    self.isLoading = false
-                    self.currentSongId = nil
+                    AppLogger.warning("[Lyrics] QCM 歌词获取失败: \(error)")
+                    self.finishFailedLyricRequest(source: .qqmusic, for: song, sessionId: sessionId)
                 }
             }, receiveValue: { [weak self] response in
                 guard let self = self, self.lyricSessionId == sessionId else { return }
                 self.applyQQLyrics(response)
                 if self.hasLyrics {
-                    self.activeSource = .qqmusic
-                    self.isLoading = false
-                    AppLogger.info("[Lyrics] 已从 QCM 回退补全歌词: \(songId)")
-                } else if let qishuiFallbackSong {
-                    self.searchQishuiLyricsByMetadata(
-                        for: qishuiFallbackSong,
-                        sessionId: sessionId
-                    )
+                    self.completeLyricRequest(source: .qqmusic, sessionId: sessionId)
+                    AppLogger.info("[Lyrics] 已从 QCM 搜索结果补全歌词: \(song.name) - \(song.artistName)")
                 } else {
-                    self.isLoading = false
+                    self.finishFailedLyricRequest(source: .qqmusic, for: song, sessionId: sessionId)
                 }
             })
             .store(in: &cancellables)
@@ -570,17 +583,10 @@ class LyricViewModel: ObservableObject {
 
     private func fetchLyricsByMetadataFallback(
         for song: Song,
-        fallbackQQMid: String?,
-        sessionId: Int,
-        allowQQFallback: Bool
+        sessionId: Int
     ) {
         guard !song.name.isEmpty || !song.artistName.isEmpty else {
-            finishNeteaseFallback(
-                allowQQFallback: allowQQFallback,
-                fallbackQQMid: fallbackQQMid,
-                song: song,
-                sessionId: sessionId
-            )
+            finishFailedLyricRequest(source: .netease, for: song, sessionId: sessionId)
             return
         }
 
@@ -600,46 +606,10 @@ class LyricViewModel: ObservableObject {
 
                     self.applyNeteaseLyrics(response)
                     if self.hasLyrics {
-                        let neteaseCandidate = self.captureLyricCandidate(
-                            source: .netease,
-                            hasPlatformWordTiming: self.hasNonEmptyText(response.yrc?.lyric),
-                            hasTranslation: self.hasNonEmptyText(response.tlyric?.lyric)
+                        self.completeLyricRequest(source: .netease, sessionId: sessionId)
+                        AppLogger.info(
+                            "[Lyrics] 已从 NCM 搜索结果补全歌词: \(song.name) - \(song.artistName)"
                         )
-
-                        // Apple Music 的公开 API 只暴露 hasLyrics，未开放歌词正文、
-                        // 翻译或逐字时间轴。跨平台匹配时不能在首份普通 LRC
-                        // 命中后就停止；继续比较 QCM 官方歌词，优先保留翻译和
-                        // 平台逐字时间更完整的候选。
-                        if song.isAppleMusic,
-                           let neteaseCandidate,
-                           neteaseCandidate.qualityScore < 7 {
-                            let qqCandidate = await self.qqLyricCandidateByMetadata(
-                                for: song,
-                                sessionId: sessionId
-                            )
-                            guard self.lyricSessionId == sessionId else { return }
-
-                            if let qqCandidate,
-                               qqCandidate.qualityScore > neteaseCandidate.qualityScore {
-                                self.applyLyricCandidate(qqCandidate)
-                                AppLogger.info(
-                                    "[Lyrics] AM 匹配到更完整的 QCM 官方歌词（翻译/逐字）: \(song.name) - \(song.artistName)"
-                                )
-                            } else {
-                                self.applyLyricCandidate(neteaseCandidate)
-                            }
-                        }
-
-                        self.isLoading = false
-                        if song.isAppleMusic {
-                            AppLogger.info(
-                                "[Lyrics] 已为 AM 补全歌词，采用 \(self.activeSource?.shortName ?? "NCM"): \(song.name) - \(song.artistName)"
-                            )
-                        } else {
-                            AppLogger.info(
-                                "[Lyrics] 已从 NCM 搜索结果补全歌词: \(song.name) - \(song.artistName)"
-                            )
-                        }
                         return
                     }
                 }
@@ -647,132 +617,16 @@ class LyricViewModel: ObservableObject {
                 AppLogger.warning("[Lyrics] NCM 搜索补全失败: \(query) - \(error.localizedDescription)")
             }
 
-            self.finishNeteaseFallback(
-                allowQQFallback: allowQQFallback,
-                fallbackQQMid: fallbackQQMid,
-                song: song,
-                sessionId: sessionId
-            )
-        }
-    }
-
-    private func qqLyricCandidateByMetadata(
-        for song: Song,
-        sessionId: Int
-    ) async -> ParsedLyricCandidate? {
-        let query = "\(song.artistName) \(song.name)"
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        do {
-            let candidates = try await APIService.shared.searchQQSongs(
-                keyword: query,
-                page: 1,
-                num: 10
-            ).async()
-            guard lyricSessionId == sessionId,
-                  let matchedSong = bestMetadataMatch(
-                      from: candidates,
-                      title: song.name,
-                      artist: song.artistName,
-                      durationMs: song.dt
-                  ),
-                  let qqMid = matchedSong.qqMid,
-                  !qqMid.isEmpty else {
-                return nil
-            }
-
-            let response = try await APIService.shared.fetchQQLyric(mid: qqMid).async()
-            guard lyricSessionId == sessionId else { return nil }
-
-            applyQQLyrics(response)
-            return captureLyricCandidate(
-                source: .qqmusic,
-                hasPlatformWordTiming: hasNonEmptyText(response.qrc)
-                    || isQRCFormatted(response.lyric),
-                hasTranslation: hasNonEmptyText(response.trans)
-            )
-        } catch {
-            AppLogger.warning(
-                "[Lyrics] AM 的 QCM 完整歌词比较失败: \(query) - \(error.localizedDescription)"
-            )
-            return nil
-        }
-    }
-
-    private func captureLyricCandidate(
-        source: LyricSource,
-        hasPlatformWordTiming: Bool,
-        hasTranslation: Bool
-    ) -> ParsedLyricCandidate? {
-        guard hasLyrics, !lyrics.isEmpty else { return nil }
-        return ParsedLyricCandidate(
-            source: source,
-            lines: lyrics,
-            hasPlatformWordTiming: hasPlatformWordTiming,
-            hasTranslation: hasTranslation && lyrics.contains {
-                !($0.translation ?? "")
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                    .isEmpty
-            }
-        )
-    }
-
-    private func applyLyricCandidate(_ candidate: ParsedLyricCandidate) {
-        translations = [:]
-        lyrics = candidate.lines
-        hasLyrics = !candidate.lines.isEmpty
-        activeSource = candidate.source
-        currentLineIndex = 0
-        currentLineProgress = 0
-    }
-
-    private func hasNonEmptyText(_ value: String?) -> Bool {
-        guard let value else { return false }
-        return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
-    private func isQRCFormatted(_ value: String?) -> Bool {
-        guard let value, hasNonEmptyText(value) else { return false }
-        return value.contains("<QrcInfos>")
-            || value.hasPrefix("<?xml")
-            || (value.first == "[" && value.contains("(") && value.contains(")"))
-    }
-
-    private func finishNeteaseFallback(
-        allowQQFallback: Bool,
-        fallbackQQMid: String?,
-        song: Song,
-        sessionId: Int
-    ) {
-        guard lyricSessionId == sessionId else { return }
-        if allowQQFallback {
-            fallbackToQQIfNeeded(mid: fallbackQQMid, song: song, sessionId: sessionId)
-        } else {
-            isLoading = false
-            currentSongId = nil
-        }
-    }
-
-    private func fallbackToQQIfNeeded(mid: String?, song: Song, sessionId: Int) {
-        if let mid, !mid.isEmpty {
-            fetchQQLyricsFallback(mid: mid, songId: song.id, sessionId: sessionId)
-        } else {
-            searchQQLyricsByMetadata(
-                for: song,
-                sessionId: sessionId,
-                fallbackToQishui: song.isAppleMusic
-            )
+            self.finishFailedLyricRequest(source: .netease, for: song, sessionId: sessionId)
         }
     }
 
     private func searchQQLyricsByMetadata(
         for song: Song,
-        sessionId: Int,
-        fallbackToQishui: Bool = false
+        sessionId: Int
     ) {
         guard !song.name.isEmpty || !song.artistName.isEmpty else {
-            isLoading = false
-            currentSongId = nil
+            finishFailedLyricRequest(source: .qqmusic, for: song, sessionId: sessionId)
             return
         }
 
@@ -789,11 +643,10 @@ class LyricViewModel: ObservableObject {
                    let qqMid = matchedSong.qqMid,
                    !qqMid.isEmpty {
                     AppLogger.info("[Lyrics] 已从 QCM 搜索结果补全歌词入口: \(song.name) - \(song.artistName)")
-                    self.fetchQQLyricsFallback(
+                    self.fetchQQLyrics(
                         mid: qqMid,
-                        songId: song.id,
-                        sessionId: sessionId,
-                        qishuiFallbackSong: fallbackToQishui ? song : nil
+                        for: song,
+                        sessionId: sessionId
                     )
                     return
                 }
@@ -801,12 +654,7 @@ class LyricViewModel: ObservableObject {
                 AppLogger.warning("[Lyrics] QCM 搜索补全失败: \(query) - \(error.localizedDescription)")
             }
 
-            if fallbackToQishui {
-                self.searchQishuiLyricsByMetadata(for: song, sessionId: sessionId)
-                return
-            }
-            self.isLoading = false
-            self.currentSongId = nil
+            self.finishFailedLyricRequest(source: .qqmusic, for: song, sessionId: sessionId)
         }
     }
 
@@ -1300,6 +1148,6 @@ class LyricViewModel: ObservableObject {
         currentSongIdentity = nil
         isLoading = false
         activeSource = nil
-        currentSongSourceOverride = nil
+        fallbackSourcePlan = nil
     }
 }

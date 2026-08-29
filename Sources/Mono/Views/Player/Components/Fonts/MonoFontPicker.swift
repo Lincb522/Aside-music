@@ -375,7 +375,7 @@ struct PlayerTypographySettingsView: View {
     @AppStorage("playerFontScale") private var fontScale = 1.0
     @AppStorage("lyricsForceUppercaseEnglish") private var forceUppercaseEnglish = false
     @AppStorage(KaraokeWordStyle.storageKey) private var karaokeStyleRaw = KaraokeWordStyle.defaultStyle.rawValue
-    @AppStorage(LyricSource.storageKey) private var defaultLyricSourceRaw = LyricSource.netease.rawValue
+    @AppStorage(LyricSource.storageKey) private var defaultLyricSourceRaw = LyricSource.followSongRawValue
     @AppStorage(LyricSource.appleMusicStorageKey) private var appleMusicLyricSourceRaw = LyricSource.netease.rawValue
 
     @ObservedObject private var player = PlayerManager.shared
@@ -449,7 +449,7 @@ struct PlayerTypographySettingsView: View {
         }
         .onChange(of: defaultLyricSourceRaw) { _, newValue in
             guard newValue == LyricSource.followSongRawValue || LyricSource(rawValue: newValue) != nil else {
-                defaultLyricSourceRaw = LyricSource.netease.rawValue
+                defaultLyricSourceRaw = LyricSource.followSongRawValue
                 return
             }
 
@@ -555,7 +555,7 @@ struct PlayerTypographySettingsView: View {
     private var lyricSourceSection: some View {
         section(title: String(localized: "lyric_source_default_title")) {
             Picker("", selection: $defaultLyricSourceRaw) {
-                Text(String(localized: "跟随")).tag(LyricSource.followSongRawValue)
+                Text(String(localized: "lyric_source_automatic")).tag(LyricSource.followSongRawValue)
                 ForEach(LyricSource.allCases) { source in
                     Text(source.shortName).tag(source.rawValue)
                 }

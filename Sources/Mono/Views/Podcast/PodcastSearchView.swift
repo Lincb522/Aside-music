@@ -15,6 +15,16 @@ struct PodcastSearchView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
+                if SignalStyle.isActive {
+                    SignalNestedPageHeader(
+                        title: String(localized: "podcast_title"),
+                        eyebrow: "RADIO SEARCH",
+                        icon: .magnifyingGlass,
+                        module: .search
+                    )
+                    .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                }
+
                 // 搜索栏
                 searchBar
                     .padding(.top, 8)
@@ -36,7 +46,7 @@ struct PodcastSearchView: View {
                 }
             }
         }
-        .themedNavigationChrome(title: String(localized: "podcast_title"), eyebrow: "PODCAST", icon: .magnifyingGlass)
+        .themedNavigationChrome(title: SignalStyle.isActive ? "" : String(localized: "podcast_title"), eyebrow: "PODCAST", icon: .magnifyingGlass)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .monoNavigationBackButton()
@@ -50,6 +60,12 @@ struct PodcastSearchView: View {
     private var searchBar: some View {
         HStack(spacing: 12) {
             HStack(spacing: 8) {
+                if SignalStyle.isActive {
+                    Text(">")
+                        .font(SignalStyle.monoFont(14, weight: .bold))
+                        .foregroundStyle(SignalStyle.accent)
+                }
+
                 MonoIcon(icon: .magnifyingGlass, size: 15, color: searchAccentColor, lineWidth: 1.4)
 
                 TextField(String(localized: "podcast_search_placeholder"), text: $viewModel.searchText)
@@ -100,7 +116,10 @@ struct PodcastSearchView: View {
     private var hotRadiosSection: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                if ThemedPageStyle.isActive {
+                if SignalStyle.isActive {
+                    SignalSectionTitle(title: String(localized: "podcast_hot_radios"))
+                        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                } else if ThemedPageStyle.isActive {
                     Text("podcast_hot_radios")
                         .font(sectionTitleFont)
                         .foregroundColor(primaryTextColor)
@@ -259,13 +278,17 @@ struct PodcastSearchView: View {
     }
 
     private var coverRadius: CGFloat {
+        if SignalStyle.isActive { return 8 }
         if MinimalWhiteStyle.isActive { return 12 }
         return (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 14 : 10
     }
 
     @ViewBuilder
     private var coverStroke: some View {
-        if NeumorphicStyle.isActive {
+        if SignalStyle.isActive {
+            RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
+                .stroke(SignalStyle.separator.opacity(0.72), lineWidth: 0.7)
+        } else if NeumorphicStyle.isActive {
             RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
                 .stroke(NeumorphicStyle.separator.opacity(0.5), lineWidth: 0.7)
         } else if SequoiaStyle.isActive {
@@ -278,6 +301,7 @@ struct PodcastSearchView: View {
     }
 
     private var searchRadius: CGFloat {
+        if SignalStyle.isActive { return 9 }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.cardRadius }
         if NeumorphicStyle.isActive { return 18 }
         if SequoiaStyle.isActive { return 16 }
@@ -286,6 +310,7 @@ struct PodcastSearchView: View {
     }
 
     private var searchFieldFont: Font {
+        if SignalStyle.isActive { return SignalStyle.bodyFont(14, weight: .medium) }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.bodyFont(15, weight: .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(15, weight: .medium) }
         if SequoiaStyle.isActive { return SequoiaStyle.bodyFont(15, weight: .regular) }
@@ -293,6 +318,7 @@ struct PodcastSearchView: View {
     }
 
     private var searchCancelFont: Font {
+        if SignalStyle.isActive { return SignalStyle.labelFont(12, weight: .bold) }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.labelFont(15, weight: .medium) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(15, weight: .semibold) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(15, weight: .semibold) }
@@ -300,6 +326,7 @@ struct PodcastSearchView: View {
     }
 
     private var sectionTitleFont: Font {
+        if SignalStyle.isActive { return SignalStyle.titleFont(18, weight: .bold) }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.titleFont(18, weight: .semibold) }
         if MangaStyle.isActive { return MangaStyle.titleFont(18, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.titleFont(17, weight: .medium) }
@@ -309,6 +336,7 @@ struct PodcastSearchView: View {
     }
 
     private var rowTitleFont: Font {
+        if SignalStyle.isActive { return SignalStyle.bodyFont(14, weight: .semibold) }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.bodyFont(15, weight: .medium) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(15, weight: .semibold) }
         if SequoiaStyle.isActive { return SequoiaStyle.bodyFont(15, weight: .semibold) }
@@ -316,6 +344,7 @@ struct PodcastSearchView: View {
     }
 
     private var rowMetaFont: Font {
+        if SignalStyle.isActive { return SignalStyle.labelFont(10, weight: .medium) }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.labelFont(12, weight: .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(12, weight: .medium) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(12, weight: .regular) }
@@ -323,6 +352,7 @@ struct PodcastSearchView: View {
     }
 
     private var primaryTextColor: Color {
+        if SignalStyle.isActive { return SignalStyle.ink }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.ink }
@@ -330,6 +360,7 @@ struct PodcastSearchView: View {
     }
 
     private var secondaryTextColor: Color {
+        if SignalStyle.isActive { return SignalStyle.inkSoft }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
@@ -337,6 +368,7 @@ struct PodcastSearchView: View {
     }
 
     private var searchAccentColor: Color {
+        if SignalStyle.isActive { return SignalStyle.accent }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
@@ -344,6 +376,7 @@ struct PodcastSearchView: View {
     }
 
     private var coverPlaceholderFill: Color {
+        if SignalStyle.isActive { return SignalStyle.controlPressed }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.controlGlassFill }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
         if SequoiaStyle.isActive { return SequoiaStyle.materialList }

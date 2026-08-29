@@ -26,12 +26,12 @@ private enum DownloadClearTarget {
 }
 
 private enum DownloadCenterPalette {
-    static let primary: Color = .white
-    static let secondary: Color = .white.opacity(0.58)
-    static let accent = Color(red: 0.55, green: 0.84, blue: 0.98)
-    static let separator: Color = .white.opacity(0.08)
-    static let card: Color = .white.opacity(0.055)
-    static let backdrop = Color(red: 0.028, green: 0.031, blue: 0.04)
+    static var primary: Color { SignalStyle.isActive ? SignalStyle.ink : .white }
+    static var secondary: Color { SignalStyle.isActive ? SignalStyle.inkSoft : .white.opacity(0.58) }
+    static var accent: Color { SignalStyle.isActive ? SignalStyle.accent : Color(red: 0.55, green: 0.84, blue: 0.98) }
+    static var separator: Color { SignalStyle.isActive ? SignalStyle.separator : .white.opacity(0.08) }
+    static var card: Color { SignalStyle.isActive ? SignalStyle.surface : .white.opacity(0.055) }
+    static var backdrop: Color { SignalStyle.isActive ? SignalStyle.base : Color(red: 0.028, green: 0.031, blue: 0.04) }
 }
 
 @MainActor
@@ -455,73 +455,89 @@ struct DownloadManageView: View {
     }
 
     private var downloadBackdrop: some View {
-        ZStack {
-            DownloadCenterPalette.backdrop
+        Group {
+            if SignalStyle.isActive {
+                SignalRootBackdrop()
+            } else {
+                ZStack {
+                    DownloadCenterPalette.backdrop
 
-            if let url = player.currentSong?.coverUrl?.sized(720) {
-                CachedAsyncImage(url: url) {
-                    Color.clear
+                    if let url = player.currentSong?.coverUrl?.sized(720) {
+                        CachedAsyncImage(url: url) {
+                            Color.clear
+                        }
+                        .aspectRatio(contentMode: .fill)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .scaleEffect(1.18)
+                        .blur(radius: 76)
+                        .saturation(0.68)
+                        .opacity(0.16)
+                        .clipped()
+                    }
+
+                    LinearGradient(
+                        colors: [Color.black.opacity(0.3), Color.black.opacity(0.72)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
                 }
-                .aspectRatio(contentMode: .fill)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .scaleEffect(1.18)
-                .blur(radius: 76)
-                .saturation(0.68)
-                .opacity(0.16)
-                .clipped()
             }
-
-            LinearGradient(
-                colors: [Color.black.opacity(0.3), Color.black.opacity(0.72)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
         }
         .ignoresSafeArea()
     }
 
+    @ViewBuilder
     private var downloadHeader: some View {
-        HStack(spacing: 13) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 15, style: .continuous)
-                    .fill(DownloadCenterPalette.accent.opacity(0.11))
+        if SignalStyle.isActive {
+            SignalNestedPageHeader(
+                title: String(localized: "下载管理"),
+                eyebrow: "DOWNLOAD QUEUE",
+                icon: .download,
+                module: .storage
+            )
+        } else {
+            HStack(spacing: 13) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 15, style: .continuous)
+                        .fill(DownloadCenterPalette.accent.opacity(0.11))
 
-                if activeTaskCount == 0 {
-                    MonoIcon(icon: .download, size: 22, color: DownloadCenterPalette.accent)
-                } else {
-                    DownloadProgressGlyph(progress: overallProgress)
+                    if activeTaskCount == 0 {
+                        MonoIcon(icon: .download, size: 22, color: DownloadCenterPalette.accent)
+                    } else {
+                        DownloadProgressGlyph(progress: overallProgress)
+                    }
                 }
+                .frame(width: 54, height: 54)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 15, style: .continuous)
+                        .stroke(DownloadCenterPalette.accent.opacity(0.2), lineWidth: 0.8)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(String(localized: "下载管理"))
+                        .font(.system(size: 20, weight: .heavy, design: .rounded))
+                        .foregroundStyle(DownloadCenterPalette.primary)
+
+                    Text(
+                        activeTaskCount == 0
+                            ? String(localized: "本地音乐与歌词")
+                            : L10n.format("download_active_tasks_format", activeTaskCount)
+                    )
+                    .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                    .foregroundStyle(DownloadCenterPalette.secondary)
+                }
+
+                Spacer(minLength: 0)
+
+                Text(ByteCountFormatter.string(fromByteCount: totalBytes, countStyle: .file))
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundStyle(DownloadCenterPalette.secondary)
+                    .padding(.horizontal, 11)
+                    .frame(height: 32)
+                    .background(Capsule().fill(Color.white.opacity(0.06)))
             }
-            .frame(width: 54, height: 54)
-            .overlay {
-                RoundedRectangle(cornerRadius: 15, style: .continuous)
-                    .stroke(DownloadCenterPalette.accent.opacity(0.2), lineWidth: 0.8)
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(String(localized: "下载管理"))
-                    .font(.system(size: 20, weight: .heavy, design: .rounded))
-                    .foregroundStyle(DownloadCenterPalette.primary)
-
-                Text(
-                    activeTaskCount == 0
-                        ? String(localized: "本地音乐与歌词")
-                        : L10n.format("download_active_tasks_format", activeTaskCount)
-                )
-                .font(.system(size: 11.5, weight: .medium, design: .rounded))
-                .foregroundStyle(DownloadCenterPalette.secondary)
-            }
-
-            Spacer(minLength: 0)
-
-            Text(ByteCountFormatter.string(fromByteCount: totalBytes, countStyle: .file))
-                .font(.system(size: 11, weight: .bold, design: .rounded))
-                .foregroundStyle(DownloadCenterPalette.secondary)
-                .padding(.horizontal, 11)
-                .frame(height: 32)
-                .background(Capsule().fill(Color.white.opacity(0.06)))
+            .padding(.vertical, 4)
         }
-        .padding(.vertical, 4)
     }
 
     private var overallProgress: Double? {

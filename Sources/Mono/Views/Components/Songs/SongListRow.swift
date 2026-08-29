@@ -93,17 +93,14 @@ struct SongListRow: View {
         static let text = Color.monoTextPrimary
         static let secondaryText = Color.monoTextSecondary
         static var accent: Color {
-            MangaStyle.isActive
-                ? MangaStyle.accentPink
-                : (PetWhiteStyle.isActive
-                    ? PetWhiteStyle.dogOrange
-                    : (MujiStyle.isActive
-                        ? MujiStyle.clay
-                        : (NeumorphicStyle.isActive
-                            ? NeumorphicStyle.accent
-                            : (CapsuleStyle.isActive
-                                ? CapsuleStyle.accent
-                                : (SequoiaStyle.isActive ? SequoiaStyle.accent : Color.monoTextPrimary)))))
+            if SignalStyle.isActive { return SignalStyle.accent }
+            if MangaStyle.isActive { return MangaStyle.accentPink }
+            if PetWhiteStyle.isActive { return PetWhiteStyle.dogOrange }
+            if MujiStyle.isActive { return MujiStyle.clay }
+            if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
+            if CapsuleStyle.isActive { return CapsuleStyle.accent }
+            if SequoiaStyle.isActive { return SequoiaStyle.accent }
+            return Color.monoTextPrimary
         }
     }
 
@@ -187,6 +184,7 @@ struct SongListRow: View {
     }
 
     private var quickActionButtonSize: CGFloat {
+        if SignalStyle.isActive { return 31 }
         if MangaStyle.isActive { return 32 }
         if PetWhiteStyle.isActive { return 26 }
         if MujiStyle.isActive { return 31 }
@@ -197,6 +195,7 @@ struct SongListRow: View {
     }
 
     private var quickActionButtonCornerRadius: CGFloat {
+        if SignalStyle.isActive { return 9 }
         if MangaStyle.isActive { return 11 }
         if PetWhiteStyle.isActive { return 11 }
         if MujiStyle.isActive { return 10 }
@@ -209,6 +208,7 @@ struct SongListRow: View {
     private func quickActionTint(for kind: QuickAction) -> Color {
         switch kind {
         case .like:
+            if SignalStyle.isActive { return SignalStyle.red }
             if MangaStyle.isActive { return MangaStyle.accentPink }
             if PetWhiteStyle.isActive { return PetWhiteStyle.blush }
             if MujiStyle.isActive { return Color.red.opacity(0.86) }
@@ -217,6 +217,7 @@ struct SongListRow: View {
             if SequoiaStyle.isActive { return Color.red.opacity(0.88) }
             return .red
         case .addToQueue:
+            if SignalStyle.isActive { return SignalStyle.accent }
             if MangaStyle.isActive { return MangaStyle.labelYellow }
             if PetWhiteStyle.isActive { return PetWhiteStyle.dogOrange }
             if MujiStyle.isActive { return MujiStyle.clay }
@@ -225,6 +226,7 @@ struct SongListRow: View {
             if SequoiaStyle.isActive { return SequoiaStyle.accent }
             return Color.monoTextPrimary
         case .download:
+            if SignalStyle.isActive { return SignalStyle.aqua }
             if MangaStyle.isActive { return MangaStyle.decoBlue }
             if PetWhiteStyle.isActive { return PetWhiteStyle.sky }
             if MujiStyle.isActive { return MujiStyle.indigo }
@@ -246,7 +248,13 @@ struct SongListRow: View {
             if PetWhiteStyle.isActive {
                 return PetWhiteStyle.ink.opacity(isDisabled ? 0.34 : 0.72)
             }
+            if SignalStyle.isActive {
+                return SignalStyle.inkSoft.opacity(isDisabled ? 0.34 : 0.74)
+            }
             return Theme.secondaryText.opacity(isDisabled ? 0.34 : 0.62)
+        }
+        if SignalStyle.isActive {
+            return quickActionTint(for: kind).opacity(isDisabled ? 0.34 : 0.96)
         }
         if MangaStyle.isActive {
             return MangaStyle.strokeInk.opacity(isDisabled ? 0.34 : 1)
@@ -270,6 +278,7 @@ struct SongListRow: View {
     }
 
     private var rowCornerRadius: CGFloat {
+        if SignalStyle.isActive { return 10 }
         if MangaStyle.isActive { return 2 }
         if PetWhiteStyle.isActive { return 21 }
         if MujiStyle.isActive { return 10 }
@@ -280,6 +289,7 @@ struct SongListRow: View {
     }
 
     private var coverCornerRadius: CGFloat {
+        if SignalStyle.isActive { return 8 }
         if MangaStyle.isActive { return 2 }
         if PetWhiteStyle.isActive { return 14 }
         if MujiStyle.isActive { return 6 }
@@ -290,6 +300,7 @@ struct SongListRow: View {
     }
 
     private var rowCoverSize: CGFloat {
+        if SignalStyle.isActive { return 46 }
         if MangaStyle.isActive { return 47 }
         if PetWhiteStyle.isActive { return 44 }
         if MujiStyle.isActive { return 46 }
@@ -303,6 +314,7 @@ struct SongListRow: View {
     }
 
     private var rowContentSpacing: CGFloat {
+        if SignalStyle.isActive { return 9 }
         if MangaStyle.isActive { return 9 }
         if PetWhiteStyle.isActive { return 7 }
         if MujiStyle.isActive { return 9 }
@@ -318,6 +330,7 @@ struct SongListRow: View {
             return horizontalPadding
         }
         if MangaStyle.isActive { return max(DeviceLayout.viewHorizontalPadding - 2, 14) }
+        if SignalStyle.isActive { return max(DeviceLayout.viewHorizontalPadding - 2, 14) }
         if PetWhiteStyle.isActive { return DeviceLayout.viewHorizontalPadding }
         if MujiStyle.isActive { return max(DeviceLayout.viewHorizontalPadding - 2, 14) }
         if NeumorphicStyle.isActive { return max(DeviceLayout.viewHorizontalPadding - 2, 14) }
@@ -326,6 +339,7 @@ struct SongListRow: View {
     }
 
     private var rowIndexWidth: CGFloat {
+        if SignalStyle.isActive { return 19 }
         if MangaStyle.isActive { return 15 }
         if PetWhiteStyle.isActive { return 22 }
         if MujiStyle.isActive { return 14 }
@@ -517,6 +531,9 @@ struct SongListRow: View {
                                 } else if SequoiaStyle.isActive {
                                     RoundedRectangle(cornerRadius: coverCornerRadius, style: .continuous)
                                         .stroke(SequoiaStyle.luminousSeparator.opacity(0.42), lineWidth: 0.55)
+                                } else if SignalStyle.isActive {
+                                    RoundedRectangle(cornerRadius: coverCornerRadius, style: .continuous)
+                                        .stroke(isPlaybackEmphasized ? SignalStyle.accent.opacity(0.34) : SignalStyle.separator.opacity(0.72), lineWidth: 0.8)
                                 }
                             }
                             .overlay {
@@ -577,6 +594,14 @@ struct SongListRow: View {
                     } else if isPlaybackEmphasized {
                         currentRowBackground
                             .opacity(isLoadingPlayback ? 0.72 : 1)
+                    } else if SignalStyle.isActive {
+                        SignalSurfaceBackground(
+                            cornerRadius: rowCornerRadius,
+                            elevated: false,
+                            pressed: true,
+                            fill: SignalStyle.screen.opacity(0.72)
+                        )
+                        .padding(.horizontal, 5)
                     }
                 }
                 .padding(.horizontal, PetWhiteStyle.isActive ? rowHorizontalPadding : 0)
@@ -735,7 +760,22 @@ struct SongListRow: View {
 
     @ViewBuilder
     private var currentRowBackground: some View {
-        if MangaStyle.isActive {
+        if SignalStyle.isActive {
+            ZStack(alignment: .leading) {
+                SignalSurfaceBackground(
+                    cornerRadius: rowCornerRadius,
+                    elevated: false,
+                    pressed: true,
+                    fill: SignalStyle.control
+                )
+
+                Circle()
+                    .fill(SignalStyle.accent)
+                    .frame(width: 5, height: 5)
+                    .padding(.leading, 9)
+            }
+            .padding(.horizontal, 5)
+        } else if MangaStyle.isActive {
             // 周刊印刷:朱红浅网点底 + 左侧墨条书签
             ZStack(alignment: .leading) {
                 MangaCardBackground(cornerRadius: rowCornerRadius, elevated: true, tint: MangaStyle.bubblePink)
@@ -930,6 +970,7 @@ struct SongListRow: View {
     }
 
     private var songInfoVerticalSpacing: CGFloat {
+        if SignalStyle.isActive { return 3.5 }
         if MangaStyle.isActive { return 3.5 }
         if PetWhiteStyle.isActive { return 5 }
         if MujiStyle.isActive { return 3 }
@@ -940,6 +981,7 @@ struct SongListRow: View {
     }
 
     private var indexFont: Font {
+        if SignalStyle.isActive { return SignalStyle.monoFont(11, weight: .semibold) }
         if MangaStyle.isActive { return MangaStyle.comicFont(13, weight: .bold) }
         if PetWhiteStyle.isActive { return PetWhiteStyle.labelFont(11, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.labelFont(12, weight: .medium) }
@@ -950,6 +992,7 @@ struct SongListRow: View {
     }
 
     private var songTitleFont: Font {
+        if SignalStyle.isActive { return SignalStyle.bodyFont(15, weight: isPlaybackEmphasized ? .bold : .semibold) }
         if MangaStyle.isActive { return MangaStyle.bodyFont(16, weight: isPlaybackEmphasized ? .black : .bold) }
         if PetWhiteStyle.isActive { return PetWhiteStyle.bodyFont(15.5, weight: isPlaybackEmphasized ? .black : .bold) }
         if MujiStyle.isActive { return MujiStyle.bodyFont(15, weight: isPlaybackEmphasized ? .medium : .regular) }
@@ -962,6 +1005,7 @@ struct SongListRow: View {
     private var songTitleColor: Color {
         if isGrayed { return Theme.secondaryText.opacity(0.4) }
         if isPlaybackEmphasized { return Theme.accent }
+        if SignalStyle.isActive { return SignalStyle.ink }
         if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if CapsuleStyle.isActive { return CapsuleStyle.ink }
@@ -976,6 +1020,9 @@ struct SongListRow: View {
     }
 
     private var songArtistAlbumFont: Font {
+        if SignalStyle.isActive {
+            return SignalStyle.labelFont(11, weight: .medium)
+        }
         if MangaStyle.isActive {
             return MangaStyle.comicFont(12, weight: .medium)
         }
@@ -999,6 +1046,7 @@ struct SongListRow: View {
 
     private var songArtistAlbumColor: Color {
         if isGrayed { return Theme.secondaryText.opacity(0.3) }
+        if SignalStyle.isActive { return SignalStyle.inkSoft }
         if PetWhiteStyle.isActive { return PetWhiteStyle.inkSoft }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         if CapsuleStyle.isActive { return CapsuleStyle.inkSoft }
@@ -1007,6 +1055,7 @@ struct SongListRow: View {
     }
 
     private var songBadgeRailSpacing: CGFloat {
+        if SignalStyle.isActive { return 5 }
         if MangaStyle.isActive { return 5 }
         if PetWhiteStyle.isActive { return 5 }
         if MujiStyle.isActive { return 4 }
@@ -1136,6 +1185,9 @@ struct SongListRow: View {
     }
 
     private func songMetaBadgeFont(fontSize: CGFloat) -> Font {
+        if SignalStyle.isActive {
+            return SignalStyle.monoFont(max(fontSize + 0.5, 8), weight: .bold)
+        }
         if MangaStyle.isActive {
             return MangaStyle.labelFont(max(fontSize + 1, 8), weight: .black)
         }
@@ -1158,6 +1210,7 @@ struct SongListRow: View {
     }
 
     private var songMetaBadgeHorizontalPadding: CGFloat {
+        if SignalStyle.isActive { return 5.5 }
         if MangaStyle.isActive { return 5.5 }
         if PetWhiteStyle.isActive { return 6 }
         if MujiStyle.isActive { return 5 }
@@ -1168,6 +1221,7 @@ struct SongListRow: View {
     }
 
     private var songMetaBadgeVerticalPadding: CGFloat {
+        if SignalStyle.isActive { return 2 }
         if MangaStyle.isActive { return 2 }
         if PetWhiteStyle.isActive { return 2.5 }
         if MujiStyle.isActive { return 1.5 }
@@ -1178,6 +1232,7 @@ struct SongListRow: View {
     }
 
     private var songMetaBadgeCornerRadius: CGFloat {
+        if SignalStyle.isActive { return 5 }
         if MangaStyle.isActive { return 6 }
         if PetWhiteStyle.isActive { return 8 }
         if MujiStyle.isActive { return 5 }
@@ -1188,6 +1243,7 @@ struct SongListRow: View {
     }
 
     private func songMetaBadgeForeground(_ color: Color) -> Color {
+        if SignalStyle.isActive { return color }
         if PetWhiteStyle.isActive { return PetWhiteStyle.ink }
         if CapsuleStyle.isActive { return color }
         return MangaStyle.isActive ? MangaStyle.ink : color
@@ -1195,7 +1251,10 @@ struct SongListRow: View {
 
     @ViewBuilder
     private func songMetaBadgeBackground(_ color: Color) -> some View {
-        if NeumorphicStyle.isActive {
+        if SignalStyle.isActive {
+            RoundedRectangle(cornerRadius: songMetaBadgeCornerRadius, style: .continuous)
+                .fill(color.opacity(0.1))
+        } else if NeumorphicStyle.isActive {
             NeumorphicSurfaceBackground(
                 cornerRadius: songMetaBadgeCornerRadius,
                 elevated: false,
@@ -1228,7 +1287,10 @@ struct SongListRow: View {
 
     @ViewBuilder
     private func songMetaBadgeStroke(_ color: Color) -> some View {
-        if MangaStyle.isActive {
+        if SignalStyle.isActive {
+            RoundedRectangle(cornerRadius: songMetaBadgeCornerRadius, style: .continuous)
+                .stroke(color.opacity(0.34), lineWidth: 0.65)
+        } else if MangaStyle.isActive {
             RoundedRectangle(cornerRadius: songMetaBadgeCornerRadius, style: .continuous)
                 .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth)
         } else if PetWhiteStyle.isActive {
@@ -1346,7 +1408,20 @@ struct SongListRow: View {
         let radius = quickActionButtonCornerRadius
         let iconColor = quickActionIconColor(kind: kind, isDisabled: isDisabled)
 
-        if MangaStyle.isActive {
+        if SignalStyle.isActive {
+            ZStack {
+                SignalSurfaceBackground(
+                    cornerRadius: radius,
+                    elevated: isActive && !isDisabled,
+                    pressed: !isActive,
+                    fill: isActive ? tint.opacity(0.16) : SignalStyle.control
+                )
+
+                MonoIcon(icon: icon, size: 13, color: iconColor, lineWidth: 1.65)
+            }
+            .frame(width: size, height: size)
+            .scaleEffect(isActive ? 1.06 : 1)
+        } else if MangaStyle.isActive {
             ZStack {
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
                     .fill(MangaStyle.strokeInk.opacity(isDisabled ? 0.15 : 0.84))
@@ -1539,6 +1614,7 @@ struct SongListRow: View {
     }
 
     private var quickActionFeedbackFont: Font {
+        if SignalStyle.isActive { return SignalStyle.labelFont(10, weight: .bold) }
         if MangaStyle.isActive { return MangaStyle.comicFont(10, weight: .black) }
         if MujiStyle.isActive { return MujiStyle.labelFont(10, weight: .medium) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(10, weight: .semibold) }
@@ -1548,6 +1624,7 @@ struct SongListRow: View {
     }
 
     private func quickActionFeedbackForeground(for action: QuickAction) -> Color {
+        if SignalStyle.isActive { return SignalStyle.ink }
         if MangaStyle.isActive {
             return ThemeColorCustomization.readableForegroundColor(
                 on: quickActionTint(for: action),
@@ -1566,7 +1643,12 @@ struct SongListRow: View {
     private func quickActionFeedbackBackground(for action: QuickAction) -> some View {
         let tint = quickActionTint(for: action)
 
-        if MangaStyle.isActive {
+        if SignalStyle.isActive {
+            Capsule(style: .continuous)
+                .fill(SignalStyle.surfaceRaised.opacity(0.98))
+                .overlay(Capsule(style: .continuous).stroke(tint.opacity(0.38), lineWidth: 0.7))
+                .shadow(color: tint.opacity(0.16), radius: 8)
+        } else if MangaStyle.isActive {
             ZStack {
                 Capsule(style: .continuous)
                     .fill(MangaStyle.strokeInk.opacity(0.78))

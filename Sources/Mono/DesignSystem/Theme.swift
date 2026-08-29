@@ -130,6 +130,7 @@ extension Color {
         if MujiStyle.isActive { return MujiStyle.clay }
         if CapsuleStyle.isActive { return CapsuleStyle.accent }
         if ClarityStyle.isActive { return ClarityStyle.accent }
+        if SignalStyle.isActive { return SignalStyle.accent }
         return monoDefaultAccent
     }
 
@@ -142,6 +143,7 @@ extension Color {
         if MujiStyle.isActive { return MujiStyle.onTint }
         if CapsuleStyle.isActive { return CapsuleStyle.onAccent }
         if ClarityStyle.isActive { return ClarityStyle.onAccent }
+        if SignalStyle.isActive { return SignalStyle.onAccent }
         return ThemeColorCustomization.readableForegroundColor(on: monoDefaultAccent, light: Color(hex: "111821"), dark: .white)
     }
     
@@ -154,6 +156,7 @@ extension Color {
         if MujiStyle.isActive { return MujiStyle.clay }
         if CapsuleStyle.isActive { return CapsuleStyle.accent }
         if ClarityStyle.isActive { return ClarityStyle.accent }
+        if SignalStyle.isActive { return SignalStyle.accent }
         return monoDefaultAccent.opacity(0.9)
     }
     

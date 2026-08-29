@@ -5,7 +5,9 @@ extension SearchView {
 
     @ViewBuilder
     var emptySearchView: some View {
-        if MinimalWhiteStyle.isActive {
+        if SignalStyle.isActive {
+            signalEmptySearchView
+        } else if MinimalWhiteStyle.isActive {
             minimalWhiteEmptySearchView
         } else if MangaStyle.isActive {
             mangaEmptySearchView
@@ -22,6 +24,107 @@ extension SearchView {
         } else {
             defaultEmptySearchView
         }
+    }
+
+    var signalEmptySearchView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
+                if !viewModel.searchHistory.isEmpty {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(spacing: 9) {
+                            SignalPulseDot(tint: SignalStyle.accent, size: 18)
+
+                            Text(String(localized: "search_history"))
+                                .font(SignalStyle.titleFont(16, weight: .bold))
+                                .foregroundStyle(SignalStyle.ink)
+
+                            Spacer()
+
+                            Button {
+                                withAnimation(.easeOut(duration: 0.2)) {
+                                    viewModel.clearAllHistory()
+                                }
+                            } label: {
+                                MonoIcon(icon: .trash, size: 13, color: SignalStyle.inkSoft)
+                                    .frame(width: 32, height: 32)
+                                    .background(SignalSurfaceBackground(cornerRadius: 9, elevated: false, pressed: true, fill: SignalStyle.control))
+                            }
+                            .buttonStyle(.plain)
+                        }
+
+                        FlowLayout(spacing: 8) {
+                            ForEach(viewModel.searchHistory, id: \.id) { item in
+                                Button {
+                                    viewModel.performSearch(keyword: item.keyword)
+                                    isFocused = false
+                                } label: {
+                                    SignalPill(text: item.keyword, tint: SignalStyle.accent, compact: true)
+                                }
+                                .buttonStyle(.plain)
+                                .contextMenu {
+                                    Button(role: .destructive) {
+                                        viewModel.deleteHistoryItem(keyword: item.keyword)
+                                    } label: {
+                                        Label(String(localized: "删除"), systemImage: "trash")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .padding(14)
+                    .background(SignalSurfaceBackground(cornerRadius: 14, elevated: true, fill: SignalStyle.surface))
+                }
+
+                if !viewModel.hotSearchItems.isEmpty {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(spacing: 9) {
+                            SignalPulseDot(tint: SignalStyle.mint, size: 18)
+                            Text(String(localized: "search_hot"))
+                                .font(SignalStyle.titleFont(16, weight: .bold))
+                                .foregroundStyle(SignalStyle.ink)
+                        }
+
+                        LazyVStack(spacing: 7) {
+                            ForEach(Array(viewModel.hotSearchItems.prefix(15).enumerated()), id: \.element.searchWord) { index, item in
+                                Button {
+                                    viewModel.performSearch(keyword: item.searchWord)
+                                    isFocused = false
+                                } label: {
+                                    HStack(spacing: 12) {
+                                        Text(String(format: "%02d", index + 1))
+                                            .font(SignalStyle.monoFont(11, weight: .bold))
+                                            .foregroundStyle(index < 3 ? SignalStyle.accent : SignalStyle.inkMuted)
+                                            .monospacedDigit()
+                                            .frame(width: 26, alignment: .leading)
+
+                                        Text(item.searchWord)
+                                            .font(SignalStyle.bodyFont(14, weight: index < 3 ? .semibold : .medium))
+                                            .foregroundStyle(SignalStyle.ink)
+                                            .lineLimit(1)
+
+                                        Spacer(minLength: 8)
+
+                                        MonoIcon(icon: .chevronRight, size: 10, color: SignalStyle.inkMuted, lineWidth: 1.5)
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 10)
+                                    .background(SignalSurfaceBackground(cornerRadius: 10, elevated: false, pressed: true, fill: SignalStyle.screen.opacity(0.88)))
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                    .padding(14)
+                    .background(SignalSurfaceBackground(cornerRadius: 14, elevated: true, fill: SignalStyle.surface))
+                }
+            }
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, 16)
+            .padding(.bottom, 120)
+            .iPadContentWidth(720)
+        }
+        .scrollIndicators(.hidden)
+        .themeRenderScrollLayer()
     }
 
     // MARK: - aside 待搜索页：历史胶囊 + 热搜榜单

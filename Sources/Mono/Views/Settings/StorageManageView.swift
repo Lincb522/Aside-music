@@ -92,7 +92,8 @@ struct StorageManageView: View {
                     SettingsScrollablePageHeader(
                         title: String(localized: "storage_title"),
                         eyebrow: String(localized: "settings_eyebrow_storage"),
-                        icon: .storage
+                        icon: .storage,
+                        signalModule: .storage
                     )
 
                     VStack(spacing: SettingsPageLayout.sectionSpacing) {

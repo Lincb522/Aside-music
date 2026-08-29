@@ -74,33 +74,68 @@ struct AppleMusicArtistSongsView: View {
         }
     }
 
+    @ViewBuilder
     private var header: some View {
-        HStack(spacing: 16) {
-            CachedAsyncImage(url: artist.coverUrl?.sized(600)) {
-                Color.monoSeparator.opacity(0.22)
+        if SignalStyle.isActive {
+            HStack(spacing: 15) {
+                ZStack {
+                    SignalScreenBackground(cornerRadius: 9)
+                    CachedAsyncImage(url: artist.coverUrl?.sized(600)) {
+                        SignalStyle.controlPressed
+                    }
+                    .aspectRatio(contentMode: .fill)
+                    .padding(7)
+                }
+                .frame(width: 86, height: 86)
+                .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 7) {
+                        SignalPill(text: MusicSource.appleMusic.shortName, tint: SignalStyle.accent, selected: true, compact: true)
+                        SignalPill(text: "ARTIST TRACKS", tint: SignalStyle.mint, compact: true)
+                    }
+
+                    Text(artist.name)
+                        .font(SignalStyle.titleFont(23, weight: .bold))
+                        .foregroundStyle(SignalStyle.ink)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.75)
+                }
+
+                Spacer(minLength: 0)
             }
-            .aspectRatio(contentMode: .fill)
-            .frame(width: 82, height: 82)
-            .clipShape(Circle())
+            .padding(15)
+            .background(SignalSurfaceBackground(cornerRadius: 13, elevated: true, fill: SignalStyle.surface))
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, 12)
+        } else {
+            HStack(spacing: 16) {
+                CachedAsyncImage(url: artist.coverUrl?.sized(600)) {
+                    Color.monoSeparator.opacity(0.22)
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 82, height: 82)
+                .clipShape(Circle())
 
-            VStack(alignment: .leading, spacing: 7) {
-                PlatformBadgeLabel(
-                    text: MusicSource.appleMusic.shortName,
-                    source: .appleMusic,
-                    fontSize: 11
-                )
+                VStack(alignment: .leading, spacing: 7) {
+                    PlatformBadgeLabel(
+                        text: MusicSource.appleMusic.shortName,
+                        source: .appleMusic,
+                        fontSize: 11
+                    )
 
-                Text(artist.name)
-                    .font(.rounded(size: 27, weight: .heavy))
-                    .foregroundStyle(Color.monoTextPrimary)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.75)
+                    Text(artist.name)
+                        .font(.rounded(size: 27, weight: .heavy))
+                        .foregroundStyle(Color.monoTextPrimary)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.75)
+                }
+
+                Spacer(minLength: 0)
             }
-
-            Spacer(minLength: 0)
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, 16)
         }
-        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-        .padding(.top, 16)
     }
 
     private func loadMoreIfNeeded() {

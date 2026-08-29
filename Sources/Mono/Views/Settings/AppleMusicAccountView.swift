@@ -10,6 +10,18 @@ struct AppleMusicAccountView: View {
 
     var body: some View {
         List {
+            if SignalStyle.isActive {
+                SignalNestedPageHeader(
+                    title: "Apple Music",
+                    eyebrow: "MEDIA ACCESS",
+                    icon: .personCircle,
+                    module: .accounts
+                )
+                .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20))
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            }
+
             Section("授权") {
                 HStack(spacing: 12) {
                     PlatformBadgeLabel(
@@ -30,6 +42,7 @@ struct AppleMusicAccountView: View {
                 }
                 .padding(.vertical, 4)
             }
+            .listRowBackground(SignalStyle.isActive ? SignalStyle.surface : nil)
 
             if !service.isAuthorized {
                 Section {
@@ -45,12 +58,13 @@ struct AppleMusicAccountView: View {
                     .frame(maxWidth: .infinity)
                     .disabled(isRequestingAuthorization)
                 }
+                .listRowBackground(SignalStyle.isActive ? SignalStyle.surface : nil)
             }
         }
         .scrollContentBackground(.hidden)
         .claritySettingsListStyle()
         .background(ThemedPageBackground())
-        .navigationTitle("Apple Music")
+        .navigationTitle(SignalStyle.isActive ? "" : "Apple Music")
         .navigationBarTitleDisplayMode(.inline)
         .monoNavigationBackButton()
         .onAppear {

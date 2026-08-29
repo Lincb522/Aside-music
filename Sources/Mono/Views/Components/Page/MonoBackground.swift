@@ -198,6 +198,8 @@ struct MonoBackground: View {
             neumorphicBackground
         case .capsule:
             CapsuleRootBackdrop()
+        case .signal:
+            SignalRootBackdrop()
         case .clarity:
             ClarityBackdrop()
         case .default:

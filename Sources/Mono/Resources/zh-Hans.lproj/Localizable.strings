@@ -161,6 +161,10 @@
 "global_theme_pet_white_name" = "Furry Paws";
 "global_theme_minimal_white_name" = "纯白极简";
 "global_theme_pet_white_description" = "厚圆角黏土块与马卡龙糖果色，按下去软软的猫狗小窝";
+"global_theme_console_name" = "控制台";
+"global_theme_console_description" = "现代黑色界面，绿色用于播放与状态反馈";
+"player_theme_console_name" = "控制台";
+"player_theme_console_description" = "黑绿终端界面、分段进度与实时信号";
 "immersive_bg_title" = "视频背景";
 "immersive_bg_import_failed" = "导入失败";
 "immersive_bg_bind_target" = "绑定到";
@@ -496,6 +500,7 @@
 "settings_lyric_preview" = "歌词预览";
 "lyric_source_default_title" = "默认歌词源";
 "apple_music_lyric_source_title" = "Apple Music 歌词源";
+"lyric_source_automatic" = "自动";
 "lyric_source_change" = "更换歌词";
 "lyric_source_selected" = "已选择";
 "common_close" = "关闭";

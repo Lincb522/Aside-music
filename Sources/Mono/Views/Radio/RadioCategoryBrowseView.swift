@@ -14,6 +14,16 @@ struct RadioCategoryBrowseView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
+                if SignalStyle.isActive {
+                    SignalNestedPageHeader(
+                        title: String(localized: "radio_category_browse"),
+                        eyebrow: "RADIO MATRIX",
+                        icon: .gridSquare,
+                        module: .radio
+                    )
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                }
+
                 // 分类标签栏
                 if !viewModel.categories.isEmpty {
                     categoryBar
@@ -54,7 +64,7 @@ struct RadioCategoryBrowseView: View {
                         LazyVStack(spacing: ThemedPageStyle.listSpacing) {
                             ForEach(Array(viewModel.radios.enumerated()), id: \.element.id) { index, radio in
                                 NavigationLink(value: PodcastView.PodcastDestination.radioDetail(radio.id)) {
-                                    radioRow(radio: radio)
+                                    radioRow(radio: radio, index: index + 1)
                                 }
                                 .buttonStyle(.plain)
                                 .onAppear {
@@ -82,7 +92,7 @@ struct RadioCategoryBrowseView: View {
                 }
             }
         }
-        .themedNavigationChrome(title: String(localized: "radio_category_browse"), eyebrow: "RADIO", icon: .gridSquare)
+        .themedNavigationChrome(title: SignalStyle.isActive ? "" : String(localized: "radio_category_browse"), eyebrow: "RADIO", icon: .gridSquare)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .monoNavigationBackButton()
@@ -135,6 +145,7 @@ struct RadioCategoryBrowseView: View {
     }
 
     private func categoryChipFont(isSelected: Bool) -> Font {
+        if SignalStyle.isActive { return SignalStyle.labelFont(11, weight: isSelected ? .bold : .medium) }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.labelFont(13, weight: isSelected ? .semibold : .regular) }
         if MangaStyle.isActive { return MangaStyle.labelFont(13, weight: isSelected ? .black : .bold) }
         if MujiStyle.isActive { return MujiStyle.labelFont(13, weight: isSelected ? .semibold : .regular) }
@@ -145,7 +156,9 @@ struct RadioCategoryBrowseView: View {
     }
 
     private func categoryTextColor(isSelected: Bool) -> Color {
-        if MinimalWhiteStyle.isActive {
+        if SignalStyle.isActive {
+            return isSelected ? SignalStyle.onAccent : SignalStyle.inkSoft
+        } else if MinimalWhiteStyle.isActive {
             return isSelected ? MinimalWhiteStyle.ink : MinimalWhiteStyle.inkMuted
         } else if MangaStyle.isActive {
             return isSelected ? ThemeColorCustomization.readableForegroundColor(on: MangaStyle.labelYellow, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk) : .monoTextPrimary
@@ -162,7 +175,11 @@ struct RadioCategoryBrowseView: View {
 
     @ViewBuilder
     private func categoryChipBackground(isSelected: Bool) -> some View {
-        if MinimalWhiteStyle.isActive {
+        if SignalStyle.isActive {
+            Capsule()
+                .fill(isSelected ? SignalStyle.accent : SignalStyle.control)
+                .overlay(Capsule().stroke(isSelected ? SignalStyle.accent.opacity(0.24) : SignalStyle.separator.opacity(0.72), lineWidth: 0.7))
+        } else if MinimalWhiteStyle.isActive {
             MinimalWhiteCapsuleBackground(selected: isSelected)
         } else if MangaStyle.isActive {
             RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
@@ -196,16 +213,23 @@ struct RadioCategoryBrowseView: View {
     // MARK: - 电台行
 
     @ViewBuilder
-    private func radioRow(radio: RadioStation) -> some View {
+    private func radioRow(radio: RadioStation, index: Int) -> some View {
         if !ThemedPageStyle.isActive {
             AsideRadioListRow(radio: radio)
         } else {
-            legacyRadioRow(radio: radio)
+            legacyRadioRow(radio: radio, index: index)
         }
     }
 
-    private func legacyRadioRow(radio: RadioStation) -> some View {
+    private func legacyRadioRow(radio: RadioStation, index: Int) -> some View {
         HStack(spacing: 14) {
+            if SignalStyle.isActive {
+                Text(String(format: "%02d", index))
+                    .font(SignalStyle.monoFont(10, weight: .bold))
+                    .foregroundStyle(SignalStyle.accent)
+                    .frame(width: 23, alignment: .leading)
+            }
+
             CachedAsyncImage(url: radio.coverUrl) {
                 RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
                     .fill(coverPlaceholderFill)
@@ -246,13 +270,17 @@ struct RadioCategoryBrowseView: View {
     }
 
     private var coverRadius: CGFloat {
+        if SignalStyle.isActive { return 8 }
         if MinimalWhiteStyle.isActive { return 12 }
         return (NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 14 : 10
     }
 
     @ViewBuilder
     private var coverStroke: some View {
-        if NeumorphicStyle.isActive {
+        if SignalStyle.isActive {
+            RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
+                .stroke(SignalStyle.separator.opacity(0.72), lineWidth: 0.7)
+        } else if NeumorphicStyle.isActive {
             RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
                 .stroke(NeumorphicStyle.separator.opacity(0.5), lineWidth: 0.7)
         } else if SequoiaStyle.isActive {
@@ -265,6 +293,7 @@ struct RadioCategoryBrowseView: View {
     }
 
     private var rowTitleFont: Font {
+        if SignalStyle.isActive { return SignalStyle.bodyFont(14, weight: .semibold) }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.bodyFont(15, weight: .medium) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(15, weight: .semibold) }
         if SequoiaStyle.isActive { return SequoiaStyle.bodyFont(15, weight: .semibold) }
@@ -272,6 +301,7 @@ struct RadioCategoryBrowseView: View {
     }
 
     private var rowMetaFont: Font {
+        if SignalStyle.isActive { return SignalStyle.labelFont(10, weight: .medium) }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.labelFont(12, weight: .regular) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(12, weight: .medium) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(12, weight: .regular) }
@@ -279,12 +309,14 @@ struct RadioCategoryBrowseView: View {
     }
 
     private var emptyStateFont: Font {
+        if SignalStyle.isActive { return SignalStyle.labelFont(13, weight: .semibold) }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.labelFont(14, weight: .medium) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(16, weight: .medium) }
         return .system(size: 16, weight: .medium, design: .rounded)
     }
 
     private var primaryTextColor: Color {
+        if SignalStyle.isActive { return SignalStyle.ink }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.ink }
@@ -292,6 +324,7 @@ struct RadioCategoryBrowseView: View {
     }
 
     private var secondaryTextColor: Color {
+        if SignalStyle.isActive { return SignalStyle.inkSoft }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
@@ -299,6 +332,7 @@ struct RadioCategoryBrowseView: View {
     }
 
     private var tertiaryTextColor: Color {
+        if SignalStyle.isActive { return SignalStyle.inkMuted }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
         if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
@@ -306,12 +340,14 @@ struct RadioCategoryBrowseView: View {
     }
 
     private var emptyStateColor: Color {
+        if SignalStyle.isActive { return SignalStyle.inkMuted }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
         return .monoTextSecondary
     }
 
     private var accentColor: Color {
+        if SignalStyle.isActive { return SignalStyle.accent }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
@@ -319,6 +355,7 @@ struct RadioCategoryBrowseView: View {
     }
 
     private var coverPlaceholderFill: Color {
+        if SignalStyle.isActive { return SignalStyle.controlPressed }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.controlGlassFill }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
         if SequoiaStyle.isActive { return SequoiaStyle.materialList }

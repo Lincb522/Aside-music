@@ -21,24 +21,28 @@ private enum MVTheme {
     }
 
     static var ink: Color {
+        if SignalStyle.isActive { return SignalStyle.ink }
         if SequoiaStyle.isActive { return SequoiaStyle.ink }
         if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
         return .monoTextPrimary
     }
 
     static var inkSoft: Color {
+        if SignalStyle.isActive { return SignalStyle.inkSoft }
         if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
         return .monoTextSecondary
     }
 
     static var inkMuted: Color {
+        if SignalStyle.isActive { return SignalStyle.inkMuted }
         if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
         if NeumorphicStyle.isActive { return NeumorphicStyle.inkMuted }
         return .monoTextSecondary.opacity(0.55)
     }
 
     static var accent: Color {
+        if SignalStyle.isActive { return SignalStyle.accent }
         if SequoiaStyle.isActive { return SequoiaStyle.accent }
         if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
         if isAside { return .monoAccent }
@@ -46,42 +50,49 @@ private enum MVTheme {
     }
 
     static var separator: Color {
+        if SignalStyle.isActive { return SignalStyle.separator }
         if SequoiaStyle.isActive { return SequoiaStyle.separator }
         if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.48) }
         return .monoSeparator
     }
 
     static var coverPlaceholder: Color {
+        if SignalStyle.isActive { return SignalStyle.controlPressed }
         if SequoiaStyle.isActive { return SequoiaStyle.materialPressed.opacity(0.72) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
         return Color.monoTextSecondary.opacity(0.06)
     }
 
     static var selectedIconBackground: Color {
+        if SignalStyle.isActive { return SignalStyle.control }
         if SequoiaStyle.isActive { return SequoiaStyle.selectedWash }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
         return Color.monoSeparator
     }
 
     static func titleFont(_ size: CGFloat, weight: Font.Weight = .semibold) -> Font {
+        if SignalStyle.isActive { return SignalStyle.titleFont(size, weight: weight) }
         if SequoiaStyle.isActive { return SequoiaStyle.titleFont(size, weight: weight) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.titleFont(size, weight: weight) }
         return .rounded(size: size, weight: weight)
     }
 
     static func bodyFont(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+        if SignalStyle.isActive { return SignalStyle.bodyFont(size, weight: weight) }
         if SequoiaStyle.isActive { return SequoiaStyle.bodyFont(size, weight: weight) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(size, weight: weight) }
         return .rounded(size: size, weight: weight)
     }
 
     static func labelFont(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+        if SignalStyle.isActive { return SignalStyle.labelFont(size, weight: weight) }
         if SequoiaStyle.isActive { return SequoiaStyle.labelFont(size, weight: weight) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.labelFont(size, weight: weight) }
         return .rounded(size: size, weight: weight)
     }
 
     static func cardRadius(_ fallback: CGFloat = 20) -> CGFloat {
+        if SignalStyle.isActive { return 10 }
         if SequoiaStyle.isActive { return 18 }
         if NeumorphicStyle.isActive { return 18 }
         return fallback
@@ -330,7 +341,7 @@ private func coverImage(url: String?, width: CGFloat? = nil, height: CGFloat, co
     .overlay {
         if MVTheme.isAside {
             shape.stroke(Color.monoSeparator.opacity(0.9), lineWidth: 0.8)
-        } else if NeumorphicStyle.isActive || SequoiaStyle.isActive {
+        } else if SignalStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive {
             shape.stroke(MVTheme.separator, lineWidth: 0.7)
         }
     }
@@ -361,6 +372,16 @@ struct MVDiscoverView: View {
 
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 24) {
+                        if SignalStyle.isActive {
+                            SignalNestedPageHeader(
+                                title: "MV",
+                                eyebrow: "VIDEO FEED",
+                                icon: .mv,
+                                module: .track
+                            )
+                            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                        }
+
                         sourceFilter
 
                         if let source = selectedSource {
@@ -389,7 +410,7 @@ struct MVDiscoverView: View {
                 }
             }
         }
-        .themedNavigationChrome(title: "MV", eyebrow: "VIDEO", icon: .mv)
+        .themedNavigationChrome(title: SignalStyle.isActive ? "" : "MV", eyebrow: "VIDEO", icon: .mv)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .onAppear { viewModel.fetchUnified() }
@@ -431,14 +452,14 @@ struct MVDiscoverView: View {
             HStack(spacing: 6) {
                 Circle().fill(tint).frame(width: 6, height: 6)
                 Text(title)
-                    .font(.rounded(size: 12, weight: selected ? .bold : .medium))
+                    .font(SignalStyle.isActive ? SignalStyle.labelFont(10, weight: selected ? .bold : .medium) : .rounded(size: 12, weight: selected ? .bold : .medium))
             }
-            .foregroundStyle(selected ? Color.monoTextPrimary : Color.monoTextSecondary)
+            .foregroundStyle(SignalStyle.isActive ? (selected ? SignalStyle.onAccent : SignalStyle.inkSoft) : (selected ? Color.monoTextPrimary : Color.monoTextSecondary))
             .padding(.horizontal, 13)
             .padding(.vertical, 8)
             .background(
                 Capsule()
-                    .fill(selected ? tint.opacity(0.14) : Color.monoTextPrimary.opacity(0.045))
+                    .fill(SignalStyle.isActive ? (selected ? SignalStyle.accent : SignalStyle.control) : (selected ? tint.opacity(0.14) : Color.monoTextPrimary.opacity(0.045)))
             )
         }
         .buttonStyle(.plain)
@@ -473,7 +494,13 @@ struct MVDiscoverView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(18)
             }
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: SignalStyle.isActive ? 11 : 20, style: .continuous))
+            .overlay {
+                if SignalStyle.isActive {
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .stroke(SignalStyle.separator.opacity(0.74), lineWidth: 0.8)
+                }
+            }
         }
         .buttonStyle(MonoBouncingButtonStyle(scale: 0.98))
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)

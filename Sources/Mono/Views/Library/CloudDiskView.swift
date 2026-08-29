@@ -26,6 +26,7 @@ struct CloudDiskView: View {
 
     private struct Theme {
         static var accent: Color {
+            if SignalStyle.isActive { return SignalStyle.accent }
             if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
             if MangaStyle.isActive { return MangaStyle.accentPink }
             if MujiStyle.isActive { return MujiStyle.clay }
@@ -36,6 +37,7 @@ struct CloudDiskView: View {
         }
 
         static var accentForeground: Color {
+            if SignalStyle.isActive { return SignalStyle.onAccent }
             if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.onAccent }
             if MangaStyle.isActive { return MangaStyle.ink }
             if MujiStyle.isActive { return MujiStyle.paper }
@@ -46,6 +48,7 @@ struct CloudDiskView: View {
         }
 
         static var text: Color {
+            if SignalStyle.isActive { return SignalStyle.ink }
             if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
             if CapsuleStyle.isActive { return CapsuleStyle.ink }
             if SequoiaStyle.isActive { return SequoiaStyle.ink }
@@ -54,6 +57,7 @@ struct CloudDiskView: View {
         }
 
         static var secondaryText: Color {
+            if SignalStyle.isActive { return SignalStyle.inkSoft }
             if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkSoft }
             if CapsuleStyle.isActive { return CapsuleStyle.inkSoft }
             if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
@@ -62,6 +66,7 @@ struct CloudDiskView: View {
         }
 
         static var mutedText: Color {
+            if SignalStyle.isActive { return SignalStyle.inkMuted }
             if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
             if CapsuleStyle.isActive { return CapsuleStyle.inkMuted }
             if SequoiaStyle.isActive { return SequoiaStyle.inkMuted }
@@ -70,6 +75,7 @@ struct CloudDiskView: View {
         }
 
         static var coverFill: Color {
+            if SignalStyle.isActive { return SignalStyle.controlPressed }
             if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.controlGlassFill }
             if CapsuleStyle.isActive { return CapsuleStyle.surfaceTint }
             if SequoiaStyle.isActive { return SequoiaStyle.materialPressed.opacity(0.74) }
@@ -78,6 +84,7 @@ struct CloudDiskView: View {
         }
 
         static func labelFont(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+            if SignalStyle.isActive { return SignalStyle.labelFont(size, weight: weight) }
             if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.labelFont(size, weight: weight) }
             if CapsuleStyle.isActive { return CapsuleStyle.labelFont(size, weight: weight) }
             if SequoiaStyle.isActive { return SequoiaStyle.labelFont(size, weight: weight) }
@@ -86,6 +93,7 @@ struct CloudDiskView: View {
         }
 
         static func bodyFont(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+            if SignalStyle.isActive { return SignalStyle.bodyFont(size, weight: weight) }
             if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.bodyFont(size, weight: weight) }
             if CapsuleStyle.isActive { return CapsuleStyle.bodyFont(size, weight: weight) }
             if SequoiaStyle.isActive { return SequoiaStyle.bodyFont(size, weight: weight) }
@@ -107,6 +115,18 @@ struct CloudDiskView: View {
                 .ignoresSafeArea()
             
             VStack(spacing: 0) {
+                if SignalStyle.isActive {
+                    SignalNestedPageHeader(
+                        title: String(localized: "cloud_title"),
+                        eyebrow: "CLOUD LIBRARY",
+                        icon: .cloud,
+                        module: .cloud
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .padding(.bottom, 14)
+                }
+
                 if isLoading && songs.isEmpty {
                     Spacer()
                     MonoLoadingView(text: MinimalWhiteStyle.isActive ? nil : "LOADING")
@@ -120,7 +140,7 @@ struct CloudDiskView: View {
                 }
             }
         }
-        .themedNavigationChrome(title: isAside ? "" : String(localized: "cloud_title"), eyebrow: "CLOUD", icon: .cloud)
+        .themedNavigationChrome(title: isAside || SignalStyle.isActive ? "" : String(localized: "cloud_title"), eyebrow: "CLOUD", icon: .cloud)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .monoNavigationBackButton()

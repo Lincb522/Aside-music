@@ -23,6 +23,7 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
     case tornPaper         // 撕页 - 系统主体抠图与撕纸拼贴
     case clarity           // 通透 - 空气光层、漂浮封面与独立控制界面
     case dotMatrix         // 点阵 - 动态九点信号与分段式播放控制
+    case console           // 控制台 - 黑绿终端与实时信号灯
     var id: String { rawValue }
     
     var displayName: String {
@@ -48,6 +49,7 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
         case .tornPaper: return String(localized: "撕页")
         case .clarity: return String(localized: "通透")
         case .dotMatrix: return String(localized: "点阵")
+        case .console: return String(localized: "player_theme_console_name")
         }
     }
     
@@ -74,6 +76,7 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
         case .tornPaper: return "doc.richtext.fill"
         case .clarity: return "circle.hexagongrid.fill"
         case .dotMatrix: return "circle.grid.3x3.fill"
+        case .console: return "terminal.fill"
         }
     }
     
@@ -100,6 +103,7 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
         case .tornPaper: return String(localized: "从封面提取主体，以撕纸拼贴重新组织歌曲与歌词")
         case .clarity: return String(localized: "空气光层、漂浮封面与独立控制界面")
         case .dotMatrix: return String(localized: "动态点阵信号、分段进度与独立控制界面")
+        case .console: return String(localized: "player_theme_console_description")
         }
     }
     
@@ -108,7 +112,7 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .classic, .vinyl, .lyricFocus, .poster, .breathing, .immersiveLyric:
             return false // 依赖全局模糊封面背景
-        case .card, .neumorphic, .motoPager, .typewriter, .pixel, .aqua, .cassette, .radio, .folk, .game2048, .ipod, .liquidGlass, .tornPaper, .clarity, .dotMatrix:
+        case .card, .neumorphic, .motoPager, .typewriter, .pixel, .aqua, .cassette, .radio, .folk, .game2048, .ipod, .liquidGlass, .tornPaper, .clarity, .dotMatrix, .console:
             return true  // 自带不透明的自定义背景
         }
     }

@@ -187,7 +187,7 @@ private struct PlayerThemeStaticPreview: View {
         switch theme {
         case .typewriter, .folk:
             return .system(size: 11.5, weight: .semibold, design: .serif)
-        case .pixel, .motoPager, .dotMatrix:
+        case .pixel, .motoPager, .dotMatrix, .console:
             return .system(size: 11, weight: .bold, design: .monospaced)
         default:
             return .system(size: 11.5, weight: .bold, design: .rounded)
@@ -218,6 +218,7 @@ private struct PlayerThemeStaticPreview: View {
         case .tornPaper:      return Color(hex: "D96850")
         case .clarity:        return Color(hex: "2478D8")
         case .dotMatrix:      return Color(hex: "68F8CF")
+        case .console:        return SignalStyle.accent
         }
     }
 
@@ -240,6 +241,8 @@ private struct PlayerThemeStaticPreview: View {
             return isDark ? Color.white.opacity(0.94) : Color(hex: "11151A")
         case .dotMatrix:
             return Color(hex: "D9FFF5")
+        case .console:
+            return SignalStyle.ink
         default:
             return ink
         }
@@ -271,6 +274,35 @@ private struct PlayerThemeStaticPreview: View {
         case .tornPaper: tornPaperMotif
         case .clarity: clarityMotif
         case .dotMatrix: dotMatrixMotif
+        case .console: consoleMotif
+        }
+    }
+
+    private var consoleMotif: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(SignalStyle.screen)
+                .frame(width: 112, height: 82)
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(SignalStyle.separator.opacity(0.72), lineWidth: 0.8))
+
+            VStack(spacing: 9) {
+                HStack(spacing: 4) {
+                    SignalBreathingIndicator(size: 6)
+                }
+
+                HStack(spacing: 4) {
+                    ForEach(0..<9, id: \.self) { index in
+                        Capsule()
+                            .fill(index == 5 ? SignalStyle.accent : SignalStyle.inkMuted.opacity(0.34))
+                            .frame(width: 5, height: CGFloat(4 + index % 4 * 3))
+                    }
+                }
+
+                Circle()
+                    .fill(SignalStyle.accent)
+                    .frame(width: 21, height: 21)
+                    .overlay(MonoIcon(icon: .play, size: 8, color: SignalStyle.onAccent, lineWidth: 1.8))
+            }
         }
     }
 
@@ -1053,6 +1085,12 @@ private struct PlayerThemeStaticPreview: View {
         case .dotMatrix:
             LinearGradient(
                 colors: [Color(hex: "07110F"), Color(hex: "0B1F20"), Color(hex: "10162B")],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        case .console:
+            LinearGradient(
+                colors: [SignalStyle.base, SignalStyle.surface, Color.black],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )

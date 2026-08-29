@@ -121,7 +121,11 @@ final class AudioSessionCoordinator {
     /// NotificationCenter observer tokens
     private var interruptionObserver: Any?
     private var mediaResetObserver: Any?
+    private var mediaLostObserver: Any?
     private var foregroundObserver: Any?
+    private var willResignActiveObserver: Any?
+    private var backgroundObserver: Any?
+    private var backgroundDiagnosticTask: Task<Void, Never>?
     /// 游戏模式只用系统主音频提示调低本 App 渲染音量，不修改会话类别。
     private var gameVoiceHintObserver: Any?
     private var gameVoiceDuckingTask: Task<Void, Never>?
@@ -151,6 +155,155 @@ final class AudioSessionCoordinator {
 
     private func markSelfManagedSessionMutation() {
         selfManagedSessionMutationDeadline = Date().addingTimeInterval(1.0)
+    }
+
+    private enum DiagnosticLevel {
+        case debug
+        case info
+        case warning
+        case error
+    }
+
+    private func recordAudioDiagnostic(
+        _ message: String,
+        level: DiagnosticLevel,
+        event: String,
+        context additionalContext: [String: String] = [:]
+    ) {
+        var context = audioDiagnosticContext()
+        context.merge(additionalContext) { _, newValue in newValue }
+
+        switch level {
+        case .debug:
+            AppLogger.debug(
+                message,
+                step: event,
+                category: .audio,
+                event: event,
+                context: context
+            )
+        case .info:
+            AppLogger.info(
+                message,
+                step: event,
+                category: .audio,
+                event: event,
+                context: context
+            )
+        case .warning:
+            AppLogger.warning(
+                message,
+                step: event,
+                category: .audio,
+                event: event,
+                context: context
+            )
+        case .error:
+            AppLogger.error(
+                message,
+                step: event,
+                category: .audio,
+                event: event,
+                context: context
+            )
+        }
+    }
+
+    private func audioDiagnosticContext() -> [String: String] {
+        let session = AVAudioSession.sharedInstance()
+        let outputPorts = session.currentRoute.outputs
+            .map { $0.portType.rawValue }
+            .sorted()
+            .joined(separator: ",")
+        let inputPorts = session.currentRoute.inputs
+            .map { $0.portType.rawValue }
+            .sorted()
+            .joined(separator: ",")
+        let applicationState: String
+        switch UIApplication.shared.applicationState {
+        case .active:
+            applicationState = "active"
+        case .inactive:
+            applicationState = "inactive"
+        case .background:
+            applicationState = "background"
+        @unknown default:
+            applicationState = "unknown"
+        }
+
+        return [
+            "appState": applicationState,
+            "appPlaying": String(player.isPlaying),
+            "loading": String(player.isLoading),
+            "seeking": String(player.isSeeking),
+            "playbackSession": String(player.playbackSessionId),
+            "songSource": player.currentSong?.musicSource.rawValue ?? "none",
+            "streamState": String(describing: player.streamPlayer.state),
+            "engineOutputRunning": String(player.streamPlayer.isAudioOutputRunning),
+            "engineTime": Self.diagnosticNumber(player.streamPlayer.currentTime),
+            "surfaceTime": Self.diagnosticNumber(player.currentTime),
+            "audibleDuration": Self.diagnosticNumber(
+                player.streamPlayer.totalAudiblePlaybackDuration
+            ),
+            "mixerVolume": Self.diagnosticNumber(player.streamPlayer.outputVolume),
+            "duckingVolume": Self.diagnosticNumber(player.streamPlayer.duckingVolume),
+            "interrupted": String(isUnderInterruption),
+            "resumePending": String(wasPlayingBeforeInterruption),
+            "sessionCategory": session.category.rawValue,
+            "sessionMode": session.mode.rawValue,
+            "sessionOptions": String(format: "0x%lX", session.categoryOptions.rawValue),
+            "cachedOptions": lastAppliedAudioSessionOptions.map {
+                String(format: "0x%lX", $0.rawValue)
+            } ?? "none",
+            "systemVolume": Self.diagnosticNumber(session.outputVolume),
+            "sampleRate": Self.diagnosticNumber(session.sampleRate),
+            "ioBufferMs": Self.diagnosticNumber(session.ioBufferDuration * 1_000),
+            "outputLatencyMs": Self.diagnosticNumber(session.outputLatency * 1_000),
+            "outputPorts": outputPorts.isEmpty ? "none" : outputPorts,
+            "inputPorts": inputPorts.isEmpty ? "none" : inputPorts,
+            "otherAudioPlaying": String(session.isOtherAudioPlaying),
+            "secondaryShouldSilence": String(session.secondaryAudioShouldBeSilencedHint),
+            "backgroundPolicy": SettingsManager.shared.backgroundAudioPolicy.rawValue
+        ]
+    }
+
+    nonisolated private static func diagnosticNumber<T: BinaryFloatingPoint>(_ value: T) -> String {
+        String(format: "%.3f", Double(value))
+    }
+
+    private func scheduleBackgroundPlaybackDiagnosticSample() {
+        backgroundDiagnosticTask?.cancel()
+        guard player.currentSong != nil,
+              player.isPlaying || player.streamPlayer.state == .playing else { return }
+
+        let sessionID = player.playbackSessionId
+        let engineTime = player.streamPlayer.currentTime
+        let audibleDuration = player.streamPlayer.totalAudiblePlaybackDuration
+        backgroundDiagnosticTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(for: .seconds(3))
+            } catch {
+                return
+            }
+            guard let self else { return }
+            defer { self.backgroundDiagnosticTask = nil }
+            guard self.player.playbackSessionId == sessionID,
+                  self.player.currentSong != nil else { return }
+
+            self.recordAudioDiagnostic(
+                "进入后台后的音频输出采样",
+                level: .info,
+                event: "audio.background.playback-sample",
+                context: [
+                    "engineTimeDelta": Self.diagnosticNumber(
+                        self.player.streamPlayer.currentTime - engineTime
+                    ),
+                    "audibleDurationDelta": Self.diagnosticNumber(
+                        self.player.streamPlayer.totalAudiblePlaybackDuration - audibleDuration
+                    )
+                ]
+            )
+        }
     }
 
     // MARK: - 会话选项计算
@@ -274,15 +427,30 @@ final class AudioSessionCoordinator {
                 )
                 self.lastAppliedAudioSessionOptions = desired
                 if shouldActivate {
-                    AppLogger.info("音频会话已激活 options=\(desired)  原因: \(reason)")
+                    self.recordAudioDiagnostic(
+                        "音频会话已重新配置并激活",
+                        level: .info,
+                        event: "audio.session.reapplied",
+                        context: ["reason": reason]
+                    )
                     self.player.updateNowPlayingInfo()
                     self.player.updateNowPlayingArtwork(for: self.player.currentSong)
                 } else {
-                    AppLogger.info("音频会话仅更新 category options=\(desired)（无当前歌曲，延迟激活） 原因: \(reason)")
+                    self.recordAudioDiagnostic(
+                        "音频会话类别已更新，保持未激活",
+                        level: .debug,
+                        event: "audio.session.category-updated",
+                        context: ["reason": reason]
+                    )
                 }
             } catch {
                 self.lastAppliedAudioSessionOptions = nil
-                AppLogger.error("应用后台音频策略失败: \(error)")
+                self.recordAudioDiagnostic(
+                    "应用后台音频策略失败: \(error.localizedDescription)",
+                    level: .error,
+                    event: "audio.session.reapply-failed",
+                    context: ["reason": reason]
+                )
             }
         }
     }
@@ -319,12 +487,22 @@ final class AudioSessionCoordinator {
             updateGameModeVoiceDucking(
                 primaryAudioActive: session.secondaryAudioShouldBeSilencedHint
             )
-            AppLogger.info("音频会话已激活（开播前） options=\(desired)  原因: \(reason)")
+            recordAudioDiagnostic(
+                "音频会话已激活",
+                level: .info,
+                event: "audio.session.activated",
+                context: ["reason": reason]
+            )
             return true
         } catch {
-            AppLogger.error("开播前激活音频会话失败 reason=\(reason): \(error)")
             // 激活失败时清缓存，下次重试一定会重写 category
             lastAppliedAudioSessionOptions = nil
+            recordAudioDiagnostic(
+                "激活音频会话失败: \(error.localizedDescription)",
+                level: .error,
+                event: "audio.session.activation-failed",
+                context: ["reason": reason]
+            )
             return false
         }
     }
@@ -337,10 +515,20 @@ final class AudioSessionCoordinator {
             markSelfManagedSessionMutation()
             try await AudioSessionMutationExecutor.shared.configureRecordingAndActivate()
             lastAppliedAudioSessionOptions = nil
-            AppLogger.info("音频会话已切换到录音模式 原因: \(reason)")
+            recordAudioDiagnostic(
+                "音频会话已切换到录音模式",
+                level: .info,
+                event: "audio.session.recording-activated",
+                context: ["reason": reason]
+            )
             return true
         } catch {
-            AppLogger.error("录音音频会话激活失败 reason=\(reason): \(error)")
+            recordAudioDiagnostic(
+                "录音音频会话激活失败: \(error.localizedDescription)",
+                level: .error,
+                event: "audio.session.recording-activation-failed",
+                context: ["reason": reason]
+            )
             return false
         }
     }
@@ -356,8 +544,13 @@ final class AudioSessionCoordinator {
                 try await AudioSessionMutationExecutor.shared.deactivate(
                     optionsRawValue: AVAudioSession.SetActiveOptions.notifyOthersOnDeactivation.rawValue
                 )
-                AppLogger.info("音频会话已释放 原因: \(reason)")
                 guard let self else { return }
+                self.recordAudioDiagnostic(
+                    "音频会话已释放",
+                    level: .info,
+                    event: "audio.session.deactivated",
+                    context: ["reason": reason]
+                )
                 // A new play command may arrive while deactivation is in flight.
                 // Repair that rare ordering rather than leaving the new pipeline
                 // attached to an inactive session.
@@ -368,7 +561,13 @@ final class AudioSessionCoordinator {
                     )
                 }
             } catch {
-                AppLogger.warning("释放音频会话失败 reason=\(reason): \(error)")
+                guard let self else { return }
+                self.recordAudioDiagnostic(
+                    "释放音频会话失败: \(error.localizedDescription)",
+                    level: .error,
+                    event: "audio.session.deactivation-failed",
+                    context: ["reason": reason]
+                )
             }
         }
     }
@@ -401,6 +600,11 @@ final class AudioSessionCoordinator {
                     activate: false
                 )
                 self.lastAppliedAudioSessionOptions = opts
+                self.recordAudioDiagnostic(
+                    "启动时音频会话类别已配置",
+                    level: .debug,
+                    event: "audio.session.initial-category"
+                )
                 if primaryAudioActive && opts == Self.mixingAudioSessionOptions {
                     AppLogger.info("启动时检测到其他主音频，预设为共存模式（未激活）")
                 }
@@ -415,6 +619,13 @@ final class AudioSessionCoordinator {
         setupGameVoiceHintObserver()
         setupRouteChangeObserver()
         setupMediaResetObserver()
+        setupMediaLostObserver()
+
+        recordAudioDiagnostic(
+            "音频诊断监听已启动",
+            level: .info,
+            event: "audio.diagnostics.started"
+        )
     }
 
     private func setupGameVoiceHintObserver() {
@@ -432,7 +643,14 @@ final class AudioSessionCoordinator {
             else { return }
 
             Task { @MainActor [weak self] in
-                self?.updateGameModeVoiceDucking(primaryAudioActive: hint == .begin)
+                guard let self else { return }
+                self.recordAudioDiagnostic(
+                    "系统主音频提示发生变化",
+                    level: .debug,
+                    event: "audio.secondary-hint",
+                    context: ["hint": String(describing: hint)]
+                )
+                self.updateGameModeVoiceDucking(primaryAudioActive: hint == .begin)
             }
         }
     }
@@ -451,6 +669,19 @@ final class AudioSessionCoordinator {
             let reasonValue = userInfo[AVAudioSessionInterruptionReasonKey] as? UInt
             Task { @MainActor [weak self] in
                 guard let self else { return }
+
+                self.recordAudioDiagnostic(
+                    "收到系统音频中断通知",
+                    level: type == .began ? .warning : .info,
+                    event: "audio.interruption",
+                    context: [
+                        "type": String(describing: type),
+                        "reason": reasonValue.flatMap {
+                            AVAudioSession.InterruptionReason(rawValue: $0)
+                        }.map { String(describing: $0) } ?? "none",
+                        "optionsRaw": optionsValue.map { String($0) } ?? "none"
+                    ]
+                )
 
                 // iOS 17 起，耳机/蓝牙断开可能以「中断 + routeDisconnected」的形式下发，
                 // 而不只是 routeChange 通知。这类"中断"永远不会有 .ended，
@@ -536,9 +767,53 @@ final class AudioSessionCoordinator {
         if let old = foregroundObserver {
             NotificationCenter.default.removeObserver(old)
         }
+        if let old = willResignActiveObserver {
+            NotificationCenter.default.removeObserver(old)
+        }
+        if let old = backgroundObserver {
+            NotificationCenter.default.removeObserver(old)
+        }
+
+        willResignActiveObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.willResignActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.recordAudioDiagnostic(
+                    "App 即将失去前台状态",
+                    level: .debug,
+                    event: "audio.lifecycle.will-resign-active"
+                )
+            }
+        }
+
+        backgroundObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.didEnterBackgroundNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.recordAudioDiagnostic(
+                    "App 已进入后台",
+                    level: .info,
+                    event: "audio.lifecycle.did-enter-background"
+                )
+                self.scheduleBackgroundPlaybackDiagnosticSample()
+            }
+        }
+
         foregroundObserver = NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self else { return }
+                self.backgroundDiagnosticTask?.cancel()
+                self.backgroundDiagnosticTask = nil
+                self.recordAudioDiagnostic(
+                    "App 已恢复前台",
+                    level: .info,
+                    event: "audio.lifecycle.did-become-active"
+                )
                 if !self.player.appleMusicPlayback.isActive,
                    (self.player.isPlaying || self.player.streamPlayer.state == .playing),
                    !self.player.streamPlayer.isAudioOutputRunning {
@@ -595,6 +870,18 @@ final class AudioSessionCoordinator {
                     .isDisjoint(with: Self.disconnectSensitiveAudioOutputPortTypes)
                 let didLoseExternalOutput = previousHadExternalOutput && !currentHasExternalOutput
                 let routeTopologyUnchanged = previousOutputPortTypes == currentOutputPortTypes
+
+                self.recordAudioDiagnostic(
+                    "系统音频路由发生变化",
+                    level: .info,
+                    event: "audio.route-change",
+                    context: [
+                        "reason": String(describing: reason),
+                        "previousOutputs": previousOutputPortTypes.sorted().joined(separator: ","),
+                        "currentOutputs": currentOutputPortTypes.sorted().joined(separator: ","),
+                        "selfManagedMutation": String(self.isHandlingSelfManagedSessionMutation)
+                    ]
+                )
 
                 if self.isHandlingSelfManagedSessionMutation,
                    routeTopologyUnchanged,
@@ -675,6 +962,11 @@ final class AudioSessionCoordinator {
             AppLogger.warning("媒体服务被重置，重建 audio session")
             Task { @MainActor [weak self] in
                 guard let self else { return }
+                self.recordAudioDiagnostic(
+                    "系统媒体服务已重置",
+                    level: .warning,
+                    event: "audio.media-services-reset"
+                )
                 // 重置缓存，强制重写 options（而非跳过）
                 self.lastAppliedAudioSessionOptions = nil
                 // 清理可能正在跑的重试任务，避免和重建竞态
@@ -694,6 +986,25 @@ final class AudioSessionCoordinator {
                         fadeInReason: "media services reset"
                     )
                 }
+            }
+        }
+    }
+
+    private func setupMediaLostObserver() {
+        if let old = mediaLostObserver {
+            NotificationCenter.default.removeObserver(old)
+        }
+        mediaLostObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.mediaServicesWereLostNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.recordAudioDiagnostic(
+                    "系统媒体服务连接已丢失",
+                    level: .error,
+                    event: "audio.media-services-lost"
+                )
             }
         }
     }
@@ -793,6 +1104,13 @@ final class AudioSessionCoordinator {
         guard !player.streamPlayer.isAudioOutputRunning else { return }
         guard audioOutputRecoveryTask == nil else { return }
 
+        recordAudioDiagnostic(
+            "播放状态仍在推进，但音频输出引擎未运行",
+            level: .error,
+            event: "audio.silence.engine-not-running",
+            context: ["reason": reason]
+        )
+
         let expectedSessionId = player.playbackSessionId
         audioOutputRecoveryTask = Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 450_000_000)
@@ -852,9 +1170,10 @@ final class AudioSessionCoordinator {
            outputVolume <= 0.01 || player.streamPlayer.duckingVolume <= 0.01 {
             if let zeroEnvelopeDetectedAt,
                now.timeIntervalSince(zeroEnvelopeDetectedAt) >= 1.25 {
-                AppLogger.error(
+                recordAudioDiagnostic(
                     "播放仍在进行但输出包络保持静音，恢复混音台音量",
-                    step: "playback.output-envelope-repair"
+                    level: .error,
+                    event: "audio.silence.output-envelope"
                 )
                 player.cancelPlaybackFade(restoreVolume: true)
                 player.streamPlayer.duckingVolume = 1.0
@@ -898,9 +1217,15 @@ final class AudioSessionCoordinator {
     private func recoverStalledAudioOutput(song: Song) async {
         let initialSessionID = player.playbackSessionId
         let initialAudibleDuration = player.streamPlayer.totalAudiblePlaybackDuration
-        AppLogger.error(
+        recordAudioDiagnostic(
             "播放进度仍在推进但 PCM 输出已停止，开始恢复音频管线",
-            step: "playback.audible-stall"
+            level: .error,
+            event: "audio.silence.pcm-stalled",
+            context: [
+                "secondsWithoutPCM": Self.diagnosticNumber(
+                    Date().timeIntervalSince(lastAudibleAdvanceAt)
+                )
+            ]
         )
 
         player.cancelPlaybackFade(restoreVolume: true)
@@ -929,7 +1254,11 @@ final class AudioSessionCoordinator {
               player.isPlaying else { return }
         if player.streamPlayer.totalAudiblePlaybackDuration >= initialAudibleDuration + 0.3 {
             resetPlaybackOutputLiveness()
-            AppLogger.info("音频输出已原位恢复", step: "playback.audible-stall-recovered")
+            recordAudioDiagnostic(
+                "音频输出已原位恢复",
+                level: .info,
+                event: "audio.silence.recovered-in-place"
+            )
             return
         }
 
@@ -955,13 +1284,18 @@ final class AudioSessionCoordinator {
               player.isPlaying || player.isLoading else { return }
         if player.streamPlayer.totalAudiblePlaybackDuration >= rebuildBaseline + 0.5 {
             resetPlaybackOutputLiveness()
-            AppLogger.info("音频管线重建后已恢复输出", step: "playback.audible-stall-rebuilt")
+            recordAudioDiagnostic(
+                "音频管线重建后已恢复输出",
+                level: .info,
+                event: "audio.silence.recovered-after-rebuild"
+            )
             return
         }
 
-        AppLogger.error(
+        recordAudioDiagnostic(
             "音频输出恢复失败，暂停播放并释放系统音频会话",
-            step: "playback.audible-stall-release-session"
+            level: .error,
+            event: "audio.silence.recovery-exhausted"
         )
         pauseAndReleaseStalledPlayback(song: song, reason: "recovery budget exhausted")
     }
@@ -997,7 +1331,12 @@ final class AudioSessionCoordinator {
             return true
         }
 
-        AppLogger.warning("检测到假播放状态，重建音频输出 reason=\(reason)")
+        recordAudioDiagnostic(
+            "检测到假播放状态，准备重建音频输出",
+            level: .warning,
+            event: "audio.silence.rebuild-dead-output",
+            context: ["reason": reason]
+        )
         player.cancelPlaybackFade(restoreVolume: false)
         lastAppliedAudioSessionOptions = nil
         guard await activateAudioSessionForPlaybackChecked(reason: "recover dead output: \(reason)") else {
@@ -1266,16 +1605,22 @@ final class AudioSessionCoordinator {
         cancelScheduledAutoResumeWork()
         gameVoiceDuckingTask?.cancel()
         gameVoiceDuckingTask = nil
+        backgroundDiagnosticTask?.cancel()
+        backgroundDiagnosticTask = nil
         player.streamPlayer.duckingVolume = 1.0
-        for observer in [interruptionObserver, mediaResetObserver,
-                         foregroundObserver, gameVoiceHintObserver, routeChangeObserver] {
+        for observer in [interruptionObserver, mediaResetObserver, mediaLostObserver,
+                         foregroundObserver, willResignActiveObserver, backgroundObserver,
+                         gameVoiceHintObserver, routeChangeObserver] {
             if let observer {
                 NotificationCenter.default.removeObserver(observer)
             }
         }
         interruptionObserver = nil
         mediaResetObserver = nil
+        mediaLostObserver = nil
         foregroundObserver = nil
+        willResignActiveObserver = nil
+        backgroundObserver = nil
         gameVoiceHintObserver = nil
         routeChangeObserver = nil
     }

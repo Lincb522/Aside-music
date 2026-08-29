@@ -26,7 +26,8 @@ struct GameModeSettingsView: View {
                     SettingsScrollablePageHeader(
                         title: String(localized: "game_mode_settings_title"),
                         eyebrow: String(localized: "settings_eyebrow_game_mode"),
-                        icon: .playCircle
+                        icon: .playCircle,
+                        signalModule: .game
                     )
 
                     VStack(spacing: 24) {

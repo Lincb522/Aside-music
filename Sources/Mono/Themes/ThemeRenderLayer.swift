@@ -26,11 +26,9 @@ struct ThemeRenderContext: Equatable {
     }
 
     var providesGlobalBackdrop: Bool {
-        // Clarity used to mount one full-screen optical field inside every
-        // TabView root (and another one in pushed destinations). Keep exactly
-        // one global field below the app content; local Clarity backdrops defer
-        // to this host through `themeRenderHostActive`.
-        isHosted && theme == .clarity
+        // Animated full-screen fields stay below the TabView instead of being
+        // duplicated inside every tab and pushed destination.
+        isHosted && (theme == .clarity || theme == .signal)
     }
 
     var stabilizesSceneRendering: Bool {
@@ -46,15 +44,15 @@ struct ThemeRenderContext: Equatable {
     }
 
     var stabilizesLightweightSurfaces: Bool {
-        isHosted && (theme == .neumorphic || theme == .capsule || theme == .clarity || theme == .minimalWhite || theme == .petWhite)
+        isHosted && (theme == .neumorphic || theme == .capsule || theme == .clarity || theme == .signal || theme == .minimalWhite || theme == .petWhite)
     }
 
     var isolatesFrequentRows: Bool {
-        isHosted && (theme == .neumorphic || theme == .capsule || theme == .clarity || theme == .minimalWhite || theme == .petWhite)
+        isHosted && (theme == .neumorphic || theme == .capsule || theme == .clarity || theme == .signal || theme == .minimalWhite || theme == .petWhite)
     }
 
     var isolatesInteractiveSurfaces: Bool {
-        isHosted && (theme == .neumorphic || theme == .manga || theme == .capsule || theme == .clarity || theme == .minimalWhite || theme == .petWhite)
+        isHosted && (theme == .neumorphic || theme == .manga || theme == .capsule || theme == .clarity || theme == .signal || theme == .minimalWhite || theme == .petWhite)
     }
 }
 
@@ -168,10 +166,7 @@ struct ThemeRenderUnderlay: View {
         let _ = revision
         let _ = settings.globalThemeRevision
 
-        if theme == .clarity {
-            // The managed Clarity backdrop already owns its complete theme and
-            // artwork field. A second blurred palette here would duplicate the
-            // largest render target without contributing visible detail.
+        if theme == .clarity || theme == .signal {
             baseColor
                 .transaction { transaction in
                     transaction.animation = nil
@@ -206,6 +201,9 @@ struct ThemeRenderUnderlay: View {
         if theme == .clarity {
             return ClarityStyle.base
         }
+        if theme == .signal {
+            return SignalStyle.base
+        }
         if colorEngine.isStarted {
             return colorEngine.colors.background
         }
@@ -216,6 +214,7 @@ struct ThemeRenderUnderlay: View {
         case .muji: return MujiStyle.paper
         case .neumorphic: return NeumorphicStyle.base
         case .capsule: return CapsuleStyle.base
+        case .signal: return SignalStyle.base
         case .clarity: return ClarityStyle.base
         case .default: return Color.monoBackground
         }
@@ -254,6 +253,8 @@ struct ThemeRenderBackdrop: View {
             NeumorphicRenderBackdrop()
         case .capsule:
             CapsuleRootBackdrop()
+        case .signal:
+            SignalRootBackdrop()
         case .clarity:
             ClarityBackdrop()
         case .default:

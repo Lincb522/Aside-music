@@ -140,6 +140,7 @@ struct WelcomeView: View {
     }
 
     private var welcomeBaseColor: Color {
+        if SignalStyle.isActive { return SignalStyle.base }
         if ClarityStyle.isActive { return ClarityStyle.base }
         if MangaStyle.isActive { return MangaStyle.paper }
         if PetWhiteStyle.isActive { return PetWhiteStyle.paper }
@@ -152,7 +153,9 @@ struct WelcomeView: View {
 
     @ViewBuilder
     private var welcomeBackdrop: some View {
-        if ClarityStyle.isActive {
+        if SignalStyle.isActive {
+            SignalRootBackdrop()
+        } else if ClarityStyle.isActive {
             ClarityWelcomeBackdrop()
         } else if MangaStyle.isActive {
             MangaWelcomeBackdrop()
@@ -173,7 +176,10 @@ struct WelcomeView: View {
 
     @ViewBuilder
     private var welcomeDecor: some View {
-        if ClarityStyle.isActive || MangaStyle.isActive || PetWhiteStyle.isActive || PureWhiteStyle.isActive {
+        if SignalStyle.isActive {
+            SignalWelcomeDecor(accentOpacity: accentOpacity)
+                .scaleEffect(plateScale)
+        } else if ClarityStyle.isActive || MangaStyle.isActive || PetWhiteStyle.isActive || PureWhiteStyle.isActive {
             EmptyView()
         } else if NeumorphicStyle.isActive {
             NeumorphicWelcomeDecor()
@@ -193,7 +199,9 @@ struct WelcomeView: View {
 
     @ViewBuilder
     private var heroSection: some View {
-        if ClarityStyle.isActive {
+        if SignalStyle.isActive {
+            signalHeroSection
+        } else if ClarityStyle.isActive {
             clarityHeroSection
         } else if MangaStyle.isActive {
             mangaHeroSection
@@ -209,6 +217,46 @@ struct WelcomeView: View {
             mujiHeroSection
         } else {
             defaultHeroSection
+        }
+    }
+
+    private var signalHeroSection: some View {
+        VStack(spacing: DeviceLayout.isPad ? 30 : 24) {
+            ZStack {
+                SignalWelcomeTerminalStage(
+                    accentOpacity: accentOpacity,
+                    isAnimating: !isDismissing && !reduceMotion
+                )
+
+                welcomeLogoImage(size: logoSize * 0.86)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: logoSize * 0.19, style: .continuous)
+                            .stroke(SignalStyle.separator.opacity(0.72), lineWidth: 0.8)
+                    }
+            }
+            .frame(width: plateSize * 1.55, height: plateSize * 1.08)
+            .scaleEffect(plateScale)
+            .opacity(plateOpacity)
+            .offset(y: plateOffset)
+
+            VStack(spacing: 12) {
+                MonoWordmarkImage(height: titleWordmarkHeight)
+                    .opacity(titleOpacity)
+                    .offset(y: titleOffset)
+
+                welcomeSloganBlock(
+                    font: SignalStyle.labelFont(DeviceLayout.isPad ? 13 : 12, weight: .medium),
+                    color: SignalStyle.inkSoft,
+                    tracking: 1.1,
+                    shortColor: SignalStyle.accent.opacity(0.84)
+                )
+                .opacity(subtitleOpacity)
+                .offset(y: subtitleOffset)
+
+                SignalBreathingIndicator(size: 7)
+                .scaleEffect(accentScaleX)
+                .opacity(accentOpacity)
+            }
         }
     }
 
@@ -852,6 +900,7 @@ struct WelcomeView: View {
     }
 
     private var logoShadowColor: Color {
+        if SignalStyle.isActive { return SignalStyle.accent.opacity(0.32) }
         if ClarityStyle.isActive { return ClarityStyle.accent.opacity(colorScheme == .dark ? 0.28 : 0.16) }
         if MangaStyle.isActive { return MangaStyle.strokeInk.opacity(colorScheme == .dark ? 0.42 : 0.22) }
         if PureWhiteStyle.isActive { return PureWhiteStyle.strokeInk.opacity(colorScheme == .dark ? 0.34 : 0.18) }
@@ -862,6 +911,7 @@ struct WelcomeView: View {
     }
 
     private var footerFont: Font {
+        if SignalStyle.isActive { return SignalStyle.monoFont(10, weight: .medium) }
         if ClarityStyle.isActive { return ClarityStyle.body(10, weight: .medium) }
         if MangaStyle.isActive { return MangaStyle.labelFont(10, weight: .black) }
         if PetWhiteStyle.isActive { return PetWhiteStyle.labelFont(10, weight: .black) }
@@ -873,6 +923,7 @@ struct WelcomeView: View {
     }
 
     private var footerColor: Color {
+        if SignalStyle.isActive { return SignalStyle.inkMuted.opacity(0.78) }
         if ClarityStyle.isActive { return ClarityStyle.inkFaint.opacity(0.72) }
         if MangaStyle.isActive { return MangaStyle.inkMuted.opacity(0.78) }
         if PetWhiteStyle.isActive { return PetWhiteStyle.inkMuted.opacity(0.74) }
@@ -884,6 +935,7 @@ struct WelcomeView: View {
     }
 
     private var forceEntryBackground: Color {
+        if SignalStyle.isActive { return SignalStyle.accent }
         if ClarityStyle.isActive { return ClarityStyle.accent }
         if MangaStyle.isActive { return MangaStyle.strokeInk }
         if PetWhiteStyle.isActive { return PetWhiteStyle.accent }
@@ -895,6 +947,7 @@ struct WelcomeView: View {
     }
 
     private var forceEntryForeground: Color {
+        if SignalStyle.isActive { return SignalStyle.onAccent }
         if ClarityStyle.isActive { return ClarityStyle.onAccent }
         if MangaStyle.isActive { return MangaStyle.onStrokeInk }
         if PetWhiteStyle.isActive { return PetWhiteStyle.onAccent }
@@ -916,10 +969,10 @@ struct WelcomeView: View {
         initialContentRetryCount = 0
 
         backgroundOpacity = 1
-        backgroundScale = (reduceMotion || PetWhiteStyle.isActive) ? 1 : 1.018
+        backgroundScale = (reduceMotion || PetWhiteStyle.isActive || SignalStyle.isActive) ? 1 : 1.018
         plateOpacity = 1
-        plateScale = MangaStyle.isActive ? 0.78 : (PureWhiteStyle.isActive ? 0.8 : (NeumorphicStyle.isActive ? 0.84 : (CapsuleStyle.isActive ? 0.8 : 0.82)))
-        plateOffset = MujiStyle.isActive ? 18 : (PureWhiteStyle.isActive ? 24 : (NeumorphicStyle.isActive ? 22 : (CapsuleStyle.isActive ? 24 : 28)))
+        plateScale = SignalStyle.isActive ? 0.86 : (MangaStyle.isActive ? 0.78 : (PureWhiteStyle.isActive ? 0.8 : (NeumorphicStyle.isActive ? 0.84 : (CapsuleStyle.isActive ? 0.8 : 0.82))))
+        plateOffset = SignalStyle.isActive ? 18 : (MujiStyle.isActive ? 18 : (PureWhiteStyle.isActive ? 24 : (NeumorphicStyle.isActive ? 22 : (CapsuleStyle.isActive ? 24 : 28))))
         titleOpacity = reduceMotion ? 1 : 0
         titleOffset = reduceMotion ? 0 : 12
         subtitleOpacity = reduceMotion ? 1 : 0
@@ -1153,6 +1206,32 @@ struct WelcomeView: View {
     private func sleep(seconds: TimeInterval) async throws {
         let nanoseconds = UInt64(seconds * 1_000_000_000)
         try await Task.sleep(nanoseconds: nanoseconds)
+    }
+}
+
+private struct SignalWelcomeDecor: View {
+    let accentOpacity: Double
+
+    var body: some View {
+        SignalAmbientTexture(opacity: 0.12 * accentOpacity)
+        .accessibilityHidden(true)
+    }
+}
+
+private struct SignalWelcomeTerminalStage: View {
+    let accentOpacity: Double
+    let isAnimating: Bool
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            SignalSurfaceBackground(cornerRadius: 18, elevated: true, fill: SignalStyle.surfaceRaised)
+            SignalAmbientTexture(opacity: 0.1 * accentOpacity)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            SignalBreathingIndicator(size: 7)
+                .padding(15)
+        }
+        .opacity(isAnimating ? 1 : 0.94)
+        .accessibilityHidden(true)
     }
 }
 

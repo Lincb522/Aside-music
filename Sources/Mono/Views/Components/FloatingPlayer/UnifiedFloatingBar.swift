@@ -24,6 +24,8 @@ struct UnifiedFloatingBar: View {
             NeumorphicUnifiedFloatingBar(currentTab: $currentTab)
         case .capsule:
             CapsuleUnifiedFloatingBar(currentTab: $currentTab)
+        case .signal:
+            SignalUnifiedFloatingBar(currentTab: $currentTab)
         case .clarity:
             ClarityDock(currentTab: $currentTab)
         case .petWhite:

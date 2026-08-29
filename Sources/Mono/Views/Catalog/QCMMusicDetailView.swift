@@ -17,11 +17,13 @@ enum QQDetailType {
 
 enum QQDetailPalette {
     static var accent: Color {
+        if SignalStyle.isActive { return SignalStyle.accent }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         return NeumorphicStyle.isActive ? NeumorphicStyle.accent : .monoIconBackground
     }
 
     static var accentForeground: Color {
+        if SignalStyle.isActive { return SignalStyle.onAccent }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.onAccent }
         if NeumorphicStyle.isActive {
             return ThemeColorCustomization.readableForegroundColor(
@@ -34,26 +36,33 @@ enum QQDetailPalette {
     }
 
     static var primaryText: Color {
+        if SignalStyle.isActive { return SignalStyle.ink }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
         return NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monoTextPrimary
     }
 
     static var secondaryText: Color {
+        if SignalStyle.isActive { return SignalStyle.inkSoft }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkSoft }
         return NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monoTextSecondary
     }
 
     static var mutedText: Color {
+        if SignalStyle.isActive { return SignalStyle.inkMuted }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
         return NeumorphicStyle.isActive ? NeumorphicStyle.inkMuted : .monoTextSecondary
     }
 
     static var placeholderFill: Color {
+        if SignalStyle.isActive { return SignalStyle.controlPressed }
         if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.controlGlassFill }
         return NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : .monoGlassTint
     }
 
     static func pageBase(for colorScheme: ColorScheme) -> Color {
+        if SignalStyle.isActive {
+            return SignalStyle.base
+        }
         if MinimalWhiteStyle.isActive {
             return MinimalWhiteStyle.paper
         }

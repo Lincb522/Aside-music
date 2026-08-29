@@ -157,7 +157,21 @@ struct MonoSheetContainer<Content: View>: View {
 
 extension View {
     func monoSheetGlobalContentStyle() -> some View {
-        self
+        modifier(MonoSheetGlobalContentStyleModifier())
+    }
+}
+
+private struct MonoSheetGlobalContentStyleModifier: ViewModifier {
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if SignalStyle.isActive {
+            content
+                .tint(SignalStyle.accent)
+                .foregroundStyle(SignalStyle.ink)
+                .preferredColorScheme(.dark)
+        } else {
+            content
+        }
     }
 }
 
@@ -243,7 +257,7 @@ enum MonoSheetThemeStyle {
         if SequoiaStyle.isActive { return Color(light: Color(hex: "304760").opacity(0.11), dark: Color.black.opacity(0.34)) }
         if LiquidGlassStyle.isActive { return Color(light: Color(hex: "2D6B8A").opacity(0.14), dark: Color.black.opacity(0.38)) }
         if ClayStyle.isActive { return Color.black.opacity(0.14) }
-        if SignalStyle.isActive { return Color.black.opacity(0.16) }
+        if SignalStyle.isActive { return SignalStyle.accent.opacity(0.14) }
         if BentoStyle.isActive { return Color.black.opacity(0.11) }
         return Color.monoSheetShadow
     }
@@ -468,21 +482,12 @@ struct MonoSheetHandleView: View {
                     .overlay(Capsule().stroke(LiquidGlassStyle.luminousEdge.opacity(0.36), lineWidth: 0.55))
             )
         } else if SignalStyle.isActive {
-            HStack(spacing: 5) {
-                Capsule()
-                    .fill(SignalStyle.accent)
-                    .frame(width: 22, height: 4)
-                Capsule()
-                    .fill(SignalStyle.mint.opacity(0.62))
-                    .frame(width: 9, height: 4)
-                Capsule()
-                    .fill(SignalStyle.inkMuted.opacity(0.24))
-                    .frame(width: 9, height: 4)
-            }
+            Capsule()
+                .fill(SignalStyle.inkMuted.opacity(0.5))
+                .frame(width: 34, height: 4)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(SignalStyle.control.opacity(0.86), in: Capsule())
-            .overlay(Capsule().stroke(SignalStyle.separator.opacity(0.56), lineWidth: 0.7))
         } else if BentoStyle.isActive {
             HStack(spacing: 5) {
                 Capsule()
@@ -698,30 +703,9 @@ struct MonoSheetSurfaceBackground: View {
                 .clipShape(shape)
             } else if SignalStyle.isActive {
                 shape
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                SignalStyle.surfaceRaised.opacity(colorScheme == .dark ? 0.86 : 0.98),
-                                SignalStyle.paper.opacity(0.98),
-                                SignalStyle.screen.opacity(colorScheme == .dark ? 0.36 : 0.52)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                    .fill(SignalStyle.surfaceRaised)
 
-                LinearGradient(
-                    colors: [
-                        SignalStyle.accent.opacity(colorScheme == .dark ? 0.14 : 0.12),
-                        .clear,
-                        SignalStyle.mint.opacity(colorScheme == .dark ? 0.1 : 0.08)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .clipShape(shape)
-
-                SignalAmbientTexture(opacity: colorScheme == .dark ? 0.06 : 0.08)
+                SignalAmbientTexture(opacity: colorScheme == .dark ? 0.03 : 0.04)
                     .clipShape(shape)
             } else if BentoStyle.isActive {
                 shape

@@ -64,9 +64,11 @@ enum LyricSource: String, Codable, CaseIterable, Identifiable {
 
     /// `nil` 表示关闭全局覆盖，歌词跟随歌曲自身的平台。
     static var globalDefaultOverride: LyricSource? {
-        let rawValue = UserDefaults.standard.string(forKey: storageKey)
+        guard let rawValue = UserDefaults.standard.string(forKey: storageKey) else {
+            return nil
+        }
         guard rawValue != followSongRawValue else { return nil }
-        return rawValue.flatMap(LyricSource.init(rawValue:)) ?? .netease
+        return LyricSource(rawValue: rawValue)
     }
 
     /// Apple Music 不提供可供第三方读取的歌词正文，因此单独保存其默认匹配来源。

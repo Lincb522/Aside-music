@@ -117,7 +117,7 @@ enum MonoSheetPreset: Equatable {
             return min(max(cornerRadius, 26), 32)
         }
         if SignalStyle.isActive {
-            return min(max(cornerRadius, 28), 32)
+            return min(cornerRadius, 18)
         }
         if BentoStyle.isActive {
             return min(max(cornerRadius, 24), 28)

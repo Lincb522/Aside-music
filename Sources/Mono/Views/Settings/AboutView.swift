@@ -71,7 +71,8 @@ struct AboutView: View {
                     SettingsScrollablePageHeader(
                         title: String(localized: "关于"),
                         eyebrow: "MONO",
-                        icon: .infoCircle
+                        icon: .infoCircle,
+                        signalModule: .about
                     )
 
                     VStack(alignment: .leading, spacing: 0) {
