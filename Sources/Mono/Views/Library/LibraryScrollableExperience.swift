@@ -34,6 +34,7 @@ struct ScrollableLibraryExperience: View {
     @ObservedObject var viewModel: LibraryViewModel
     @Binding var tabIndex: Int
     @ObservedObject var settings = SettingsManager.shared
+    @ObservedObject var loginIdentity = LoginIdentityManager.shared
     @ObservedObject var localManager = LocalPlaylistManager.shared
     @ObservedObject var subManager = SubscriptionManager.shared
     @ObservedObject var qqSession = QQUserSession.shared
@@ -103,6 +104,7 @@ struct ScrollableLibraryExperience: View {
         }
         .task {
             guard await MainTabActivationGate.waitUntilSettled(.library) else { return }
+            selectActiveIdentityLibrary()
             syncTabFromViewModel()
             loadCurrentTab()
             if subManager.subscribedRadios.isEmpty {
@@ -118,14 +120,20 @@ struct ScrollableLibraryExperience: View {
             guard MainTabActivationGate.isSettled(.library) else { return }
             loadCurrentTab()
         }
-        .onChange(of: qqSession.isLoggedIn) { _, isLoggedIn in
+        .onChange(of: qqSession.sessionRevision) { _, _ in
+            qqUserPlaylists = []
+            hasLoadedQQUserPlaylists = false
+            isLoadingQQUserPlaylists = false
             guard MainTabActivationGate.isSettled(.library) else { return }
-            if isLoggedIn {
-                hasLoadedQQUserPlaylists = false
+            if qqSession.isLoggedIn {
                 loadQQUserPlaylistsIfNeeded(force: true)
-            } else {
-                qqUserPlaylists = []
-                hasLoadedQQUserPlaylists = false
+            }
+        }
+        .onChange(of: loginIdentity.activeSource) { _, _ in
+            guard MainTabActivationGate.isSettled(.library) else { return }
+            selectActiveIdentityLibrary()
+            if selectedTab == .my {
+                loadCurrentTab()
             }
         }
         .monoSheet(isPresented: $showQQImport, preset: .large) {
@@ -144,6 +152,15 @@ struct ScrollableLibraryExperience: View {
                     primaryAction: {}
                 )
             }
+        }
+    }
+
+    private func selectActiveIdentityLibrary() {
+        switch loginIdentity.activeSource {
+        case .netease: selectedMyLibraryColumn = .ncmPlaylists
+        case .qqmusic: selectedMyLibraryColumn = .qcmPlaylists
+        case .kugou: selectedMyLibraryColumn = .kcmPlaylists
+        case .qishui, .appleMusic, .local, nil: selectedMyLibraryColumn = .localPlaylists
         }
     }
 

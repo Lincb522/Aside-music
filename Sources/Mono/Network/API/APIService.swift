@@ -12,8 +12,21 @@ extension Notification.Name {
     static let didLogout = Notification.Name("Mono.didLogout")
 }
 
+final class NCMLoginAttempt: @unchecked Sendable {
+    fileprivate let client: NCMClient
+
+    fileprivate init(client: NCMClient) {
+        self.client = client
+    }
+}
+
 class APIService: @unchecked Sendable {
     static let shared = APIService()
+
+    struct NCMSessionSnapshot: Sendable, Equatable {
+        let revision: UInt64
+        let userID: Int?
+    }
 
     private enum AccessRelay {
         private static let mask: UInt8 = 0x39
@@ -37,7 +50,7 @@ class APIService: @unchecked Sendable {
     // MARK: - NCMClient 实例
     /// ncm API 客户端（后端代理模式）— 用户自己的 Cookie
     let ncm: NCMClient
-    
+
     /// VIP 客户端 — 服务器 VIP 账号 Cookie（非会员用户的内容请求回退）
     private(set) var ncmVIP: NCMClient?
     
@@ -56,9 +69,25 @@ class APIService: @unchecked Sendable {
     
     private let cookieKey = "mono_music_cookie"
     private let userIdKey = "mono_music_uid"
+    private(set) var ncmSessionRevision: UInt64 = 0
+
+    var ncmSessionSnapshot: NCMSessionSnapshot {
+        NCMSessionSnapshot(revision: ncmSessionRevision, userID: currentUserId)
+    }
+
+    func isCurrentNCMSession(_ snapshot: NCMSessionSnapshot) -> Bool {
+        snapshot.revision == ncmSessionRevision && snapshot.userID == currentUserId
+    }
+
+    private func advanceNCMSessionRevision() {
+        ncmSessionRevision &+= 1
+    }
 
     @Published var currentUserId: Int? {
         didSet {
+            if oldValue != currentUserId {
+                advanceNCMSessionRevision()
+            }
             if let uid = currentUserId {
                 KeychainHelper.save(key: userIdKey, intValue: uid)
             } else {
@@ -88,19 +117,24 @@ class APIService: @unchecked Sendable {
             // 直接塞给 "Cookie" 请求头会让后端把 Max-Age / Expires / Path 等属性当作 cookie,
             // 导致真实的 MUSIC_U 被污染,网易云判定为未登录(code 301)。
             // 在存储前先清洗成 "k=v; k=v" 的标准请求头格式。
-            let normalized = newValue.map { Self.normalizeCookieHeader($0) }
+            let normalized = newValue
+                .map { Self.normalizeCookieHeader($0) }
+                .flatMap { $0.isEmpty ? nil : $0 }
 
-            if let value = normalized, !value.isEmpty {
+            if currentCookie != normalized {
+                advanceNCMSessionRevision()
+            }
+
+            if let value = normalized {
                 KeychainHelper.save(key: cookieKey, value: value)
             } else {
                 KeychainHelper.delete(key: cookieKey)
             }
-            if let cookie = normalized, !cookie.isEmpty {
-                // 先清空 NCMClient 内部可能被污染的 session cookie,再注入清洗后的新值
-                ncm.clearCookies()
+            ncm.clearCookies()
+            if let cookie = normalized {
                 ncm.setCookie(cookie)
             }
-            if (normalized == nil || normalized?.isEmpty == true) && currentUserId != nil {
+            if normalized == nil && currentUserId != nil {
                 currentUserId = nil
             }
         }
@@ -110,67 +144,11 @@ class APIService: @unchecked Sendable {
     /// 清洗为可直接用于 "Cookie" 请求头的 "k=v; k=v" 格式。
     ///
     /// - 去掉 cookie 属性(Max-Age / Expires / Path / Domain / Secure / HttpOnly / SameSite)
-    /// - 跳过 Max-Age=0 或已过期的 cookie(Set-Cookie 里用于清除登录态的占位,如 MUSIC_SNS=)
+    /// - 跳过 Max-Age=0 的 cookie(Set-Cookie 里用于清除登录态的占位,如 MUSIC_SNS=)
     /// - 保留最后一次出现的 key(Set-Cookie 串里后写的覆盖先写的)
     /// - 去掉空 key / 无 "=" 的段
     static func normalizeCookieHeader(_ raw: String) -> String {
-        // 已经是清洗后的标准格式(没有 Max-Age / Expires / Path 等属性),原样返回
-        let hasSetCookieAttributes = raw.range(
-            of: #"\b(?:Max-Age|Expires|Path|Domain|Secure|HttpOnly|SameSite)\b"#,
-            options: [.regularExpression, .caseInsensitive]
-        ) != nil
-        guard hasSetCookieAttributes else {
-            return raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-
-        let reservedAttributes: Set<String> = [
-            "max-age", "expires", "path", "domain",
-            "secure", "httponly", "samesite", "version", "comment", "priority"
-        ]
-
-        var pairs: [(String, String)] = []
-        var indexByKey: [String: Int] = [:]
-        var skipCurrent = false
-
-        for rawSegment in raw.split(separator: ";", omittingEmptySubsequences: true) {
-            let segment = rawSegment.trimmingCharacters(in: .whitespaces)
-            if segment.isEmpty { continue }
-
-            let parts = segment.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
-            let key = parts.first.map { $0.trimmingCharacters(in: .whitespaces) } ?? ""
-            let value = parts.count > 1 ? parts[1].trimmingCharacters(in: .whitespaces) : ""
-
-            let lowered = key.lowercased()
-
-            if reservedAttributes.contains(lowered) {
-                // 碰到 Max-Age=0 / Expires=过去时间 → 当前 cookie 是"清除"指令,跳过紧邻的 pair
-                if lowered == "max-age", let age = Int(value), age <= 0 {
-                    if let last = pairs.last {
-                        indexByKey.removeValue(forKey: last.0.lowercased())
-                        pairs.removeLast()
-                    }
-                    skipCurrent = true
-                }
-                continue
-            }
-
-            if skipCurrent {
-                skipCurrent = false
-                continue
-            }
-
-            if key.isEmpty { continue }
-
-            // 同名 key 取后面出现的那一个
-            if let existingIndex = indexByKey[lowered] {
-                pairs[existingIndex] = (key, value)
-            } else {
-                indexByKey[lowered] = pairs.count
-                pairs.append((key, value))
-            }
-        }
-
-        return pairs.map { "\($0.0)=\($0.1)" }.joined(separator: "; ")
+        NCMClient.normalizeCookieHeader(raw)
     }
 
     private static func normalizedCookieHeader(_ raw: String?) -> String? {
@@ -212,7 +190,7 @@ class APIService: @unchecked Sendable {
         let savedUid = KeychainHelper.loadInt(key: userIdKey)
         
         #if DEBUG
-        print("[APIService] init - cookie: \(savedCookie.map { "有(\($0.prefix(30))...)" } ?? "无"), uid: \(savedUid?.description ?? "无")")
+        print("[APIService] init - cookie: \(savedCookie == nil ? "无" : "有"), uid: \(savedUid?.description ?? "无")")
         #endif
 
         self.ncm = NCMClient(
@@ -457,11 +435,13 @@ class APIService: @unchecked Sendable {
             isCurrentUserVIP = false
             return
         }
+        let session = ncmSessionSnapshot
         Task {
             do {
                 let status = try await fetchLoginStatus().async()
                 let vipType = status.data.profile?.vipType ?? 0
                 await MainActor.run {
+                    guard self.isCurrentNCMSession(session) else { return }
                     self.isCurrentUserVIP = vipType > 0
                     #if DEBUG
                     print("[APIService] VIP 状态检测: vipType=\(vipType), isVIP=\(vipType > 0)")
@@ -469,6 +449,7 @@ class APIService: @unchecked Sendable {
                 }
             } catch {
                 await MainActor.run {
+                    guard self.isCurrentNCMSession(session) else { return }
                     self.isCurrentUserVIP = false
                 }
                 #if DEBUG
@@ -481,6 +462,7 @@ class APIService: @unchecked Sendable {
     // MARK: - 登出
 
     func clearLocalLoginState(clearCache: Bool = true) {
+        advanceNCMSessionRevision()
         let wasLoggedIn = currentCookie != nil
             || currentUserId != nil
             || UserDefaults.standard.bool(forKey: AppConfig.StorageKeys.isLoggedIn)
@@ -499,8 +481,11 @@ class APIService: @unchecked Sendable {
         }
 
         if clearCache {
-            Task { @MainActor in
-                OptimizedCacheManager.shared.clearAll()
+            let loggedOutSession = ncmSessionSnapshot
+            Task { @MainActor [weak self] in
+                guard let self,
+                      self.isCurrentNCMSession(loggedOutSession) else { return }
+                OptimizedCacheManager.shared.clearNCMAccountData()
                 LikeManager.shared.refreshLikes()
             }
         }
@@ -530,29 +515,87 @@ class APIService: @unchecked Sendable {
     func fetchLoginStatus() -> AnyPublisher<LoginStatusResponse, Error> {
         ncm.publisher { [ncm] in
             let response = try await ncm.loginStatus()
-            // Node 后端 login_status.js 返回 {data: {code: 200, profile: {...}, account: {...}}}
-            // 直连模式返回 {code: 200, profile: {...}, account: {...}}
-            var profile: UserProfile? = nil
-            // 优先从 data 包装层取（后端代理模式）
-            let profileSource: [String: Any]?
-            if let dataDict = response.body["data"] as? [String: Any] {
-                profileSource = dataDict["profile"] as? [String: Any]
-            } else {
-                profileSource = response.body["profile"] as? [String: Any]
-            }
-            if let profileDict = profileSource {
-                let data = try JSONSerialization.data(withJSONObject: profileDict)
-                profile = try JSONDecoder().decode(UserProfile.self, from: data)
-            }
-            return LoginStatusResponse(data: LoginStatusData(profile: profile))
+            return try Self.parseLoginStatus(response.body)
         }
+    }
+
+    func validateLoginStatus(cookie: String) -> AnyPublisher<LoginStatusResponse, Error> {
+        let authClient = NCMClient(
+            cookie: cookie,
+            serverUrl: ncm.serverUrl ?? SecureConfig.apiBaseURL
+        )
+        authClient.apiToken = SecureConfig.apiToken
+        return authClient.publisher {
+            let response = try await authClient.loginStatus()
+            return try Self.parseLoginStatus(response.body)
+        }
+    }
+
+    private static func parseLoginStatus(_ body: [String: Any]) throws -> LoginStatusResponse {
+        let profileSource: [String: Any]?
+        if let data = body["data"] as? [String: Any] {
+            profileSource = data["profile"] as? [String: Any]
+        } else {
+            profileSource = body["profile"] as? [String: Any]
+        }
+
+        var profile: UserProfile?
+        if let profileSource {
+            let data = try JSONSerialization.data(withJSONObject: profileSource)
+            profile = try JSONDecoder().decode(UserProfile.self, from: data)
+        }
+        return LoginStatusResponse(data: LoginStatusData(profile: profile))
+    }
+
+    @MainActor
+    func commitValidatedLogin(
+        cookie rawCookie: String,
+        userID: Int,
+        ifCurrentSession expectedSession: NCMSessionSnapshot
+    ) -> Bool {
+        guard isCurrentNCMSession(expectedSession),
+              let cookie = Self.normalizedCookieHeader(rawCookie) else { return false }
+
+        let hadAuthenticatedUser = currentUserId != nil
+        advanceNCMSessionRevision()
+        OptimizedCacheManager.shared.clearNCMAccountData()
+        currentCookie = cookie
+        currentUserId = userID
+
+        guard currentCookie == cookie, currentUserId == userID else { return false }
+        if hadAuthenticatedUser {
+            NotificationCenter.default.post(name: .didLogin, object: nil)
+        }
+        return true
+    }
+
+    func makeLoginAttempt(
+        preservingCookiesFrom previousAttempt: NCMLoginAttempt? = nil
+    ) -> NCMLoginAttempt {
+        let cookie: String?
+        if let previousAttempt {
+            let pairs = previousAttempt.client.currentCookies
+                .sorted { $0.key < $1.key }
+                .map { "\($0.key)=\($0.value)" }
+            cookie = pairs.isEmpty ? nil : pairs.joined(separator: "; ")
+        } else {
+            cookie = nil
+        }
+
+        let client = NCMClient(
+            cookie: cookie,
+            serverUrl: ncm.serverUrl ?? SecureConfig.apiBaseURL
+        )
+        client.apiToken = SecureConfig.apiToken
+        return NCMLoginAttempt(client: client)
     }
 
     // MARK: - 登录接口
 
-    func fetchQRKey() -> AnyPublisher<QRKeyResponse, Error> {
-        ncm.publisher { [ncm] in
-            let response = try await ncm.loginQrKey()
+    func fetchQRKey(using attempt: NCMLoginAttempt) -> AnyPublisher<QRKeyResponse, Error> {
+        let client = attempt.client
+        return client.publisher {
+            let response = try await client.loginQrKey()
             // Node 后端 login_qr_key.js 返回 {data: {unikey: "xxx", code: 200}, code: 200}
             let unikey: String
             if let dataDict = response.body["data"] as? [String: Any],
@@ -566,9 +609,13 @@ class APIService: @unchecked Sendable {
         }
     }
 
-    func fetchQRCreate(key: String) -> AnyPublisher<QRCreateResponse, Error> {
-        ncm.publisher { [ncm] in
-            let response = try await ncm.loginQrCreate(key: key)
+    func fetchQRCreate(
+        key: String,
+        using attempt: NCMLoginAttempt
+    ) -> AnyPublisher<QRCreateResponse, Error> {
+        let client = attempt.client
+        return client.publisher {
+            let response = try await client.loginQrCreate(key: key)
             // NCMClient 的 loginQrCreate 直接构建 URL
             let data = response.body["data"] as? [String: Any]
             let qrurl = data?["qrurl"] as? String ?? ""
@@ -577,9 +624,13 @@ class APIService: @unchecked Sendable {
         }
     }
 
-    func checkQRStatus(key: String) -> AnyPublisher<QRCheckResponse, Error> {
-        ncm.publisher { [ncm] in
-            let response = try await ncm.loginQrCheck(key: key)
+    func checkQRStatus(
+        key: String,
+        using attempt: NCMLoginAttempt
+    ) -> AnyPublisher<QRCheckResponse, Error> {
+        let client = attempt.client
+        return client.publisher {
+            let response = try await client.loginQrCheck(key: key)
             let code = response.body["code"] as? Int ?? 0
             let message = response.body["message"] as? String ?? ""
             // 优先从 JSON body 中取 cookie（Node 后端把登录 cookie 放在 body 里），
@@ -596,18 +647,36 @@ class APIService: @unchecked Sendable {
         }
     }
 
-    func sendCaptcha(phone: String) -> AnyPublisher<SimpleResponse, Error> {
-        ncm.publisher { [ncm] in
-            let response = try await ncm.captchaSent(phone: phone)
+    func sendCaptcha(
+        phone: String,
+        countryCode: String = "86",
+        using attempt: NCMLoginAttempt
+    ) -> AnyPublisher<SimpleResponse, Error> {
+        let client = attempt.client
+        return client.publisher {
+            let response = try await client.captchaSentV1(phone: phone, ctcode: countryCode)
             let code = response.body["code"] as? Int ?? 0
             let message = response.body["message"] as? String
+                ?? response.body["msg"] as? String
             return SimpleResponse(code: code, message: message)
         }
     }
 
-    func loginCellphone(phone: String, captcha: String) -> AnyPublisher<LoginResponse, Error> {
-        ncm.publisher { [ncm] in
-            let response = try await ncm.loginCellphone(phone: phone, captcha: captcha)
+    func loginCellphone(
+        phone: String,
+        countryCode: String = "86",
+        captcha: String,
+        secureCaptcha: String? = nil,
+        using attempt: NCMLoginAttempt
+    ) -> AnyPublisher<LoginResponse, Error> {
+        let client = attempt.client
+        return client.publisher {
+            let response = try await client.loginCellphone(
+                phone: phone,
+                countrycode: countryCode,
+                captcha: captcha,
+                secureCaptcha: secureCaptcha
+            )
             let code = response.body["code"] as? Int ?? 0
             // 优先从 JSON body 中取 cookie（Node 后端把登录 cookie 放在 body 里），
             // 其次从 HTTP Set-Cookie 头取
@@ -622,9 +691,11 @@ class APIService: @unchecked Sendable {
             var profile: UserProfile? = nil
             if let profileDict = response.body["profile"] as? [String: Any] {
                 let data = try JSONSerialization.data(withJSONObject: profileDict)
-                profile = try JSONDecoder().decode(UserProfile.self, from: data)
+                profile = try? JSONDecoder().decode(UserProfile.self, from: data)
             }
-            return LoginResponse(code: code, cookie: cookie, profile: profile)
+            let message = response.body["message"] as? String
+                ?? response.body["msg"] as? String
+            return LoginResponse(code: code, cookie: cookie, profile: profile, message: message)
         }
     }
 
@@ -762,20 +833,7 @@ class APIService: @unchecked Sendable {
                     "offset": 0,
                     "timestamp": Int(Date().timeIntervalSince1970 * 1000),
                 ]
-                // 优先使用 NCMClient sessionManager 中的最新 cookie（proxyRequest 会更新它）
-                let cookieHeader: String? = {
-                    let cookies = ncm.currentCookies
-                    if !cookies.isEmpty {
-                        let header = cookies.map { "\($0.key)=\($0.value)" }.joined(separator: "; ")
-                        // NCMClient 内部可能把 Set-Cookie 里的 Max-Age / Expires / Path 等属性
-                        // 也当作 cookie,需要清洗
-                        let normalized = Self.normalizeCookieHeader(header)
-                        if !normalized.isEmpty {
-                            return normalized
-                        }
-                    }
-                    return APIService.shared.currentCookie
-                }()
+                let cookieHeader = try ncm.currentSessionCookieHeader()
                 let body = try await Self.postToBackend(serverUrl: serverUrl, route: "/user/playlist", params: params, cookie: cookieHeader)
                 #if DEBUG
                 print("[API] postToBackend 响应 keys: \(body.keys.sorted())")
@@ -1497,7 +1555,7 @@ class APIService: @unchecked Sendable {
     }
 
     /// 直接 POST 到 Node 后端指定路由
-    static func postToBackend(serverUrl: String, route: String, params: [String: Any], cookie: String? = nil) async throws -> [String: Any] {
+    static func postToBackend(serverUrl: String, route: String, params: [String: Any], cookie: String?) async throws -> [String: Any] {
         let base = serverUrl.hasSuffix("/") ? String(serverUrl.dropLast()) : serverUrl
         var urlString = base + route
         if let token = SecureConfig.apiToken, !token.isEmpty {
@@ -1511,9 +1569,7 @@ class APIService: @unchecked Sendable {
         request.httpMethod = "POST"
         request.timeoutInterval = 15
         request.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
-        // 优先使用传入的 cookie，回退到 APIService 存储的 cookie
-        let effectiveCookie = cookie ?? APIService.shared.currentCookie
-        if let c = effectiveCookie {
+        if let c = cookie {
             request.setValue(c, forHTTPHeaderField: "Cookie")
         }
         request.httpBody = try JSONSerialization.data(withJSONObject: params)

@@ -56,7 +56,10 @@ struct AppearanceSettingsView: View {
                         appIconSection
                         layoutSection
                         contentExperienceSection
-                        dynamicBackgroundSection
+                        if settings.globalThemeId.supportsArtworkColoring
+                            || settings.globalThemeId.supportsCoverBackgrounds {
+                            dynamicBackgroundSection
+                        }
                         FloatingBarBottomSpacer()
                     }
                     .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)

@@ -113,7 +113,7 @@ struct MonoBackground: View {
     private var useCoverBg: Bool {
         !useAsideFluidBackground
             && !MinimalWhiteStyle.isActive
-            && settings.coverBgGlobal
+            && settings.usesGlobalCoverBackground
             && coverURL != nil
     }
 
@@ -135,7 +135,7 @@ struct MonoBackground: View {
                 .opacity(useCoverBg || useAsideFluidBackground ? 0 : 1)
 
             if let coverUrl = coverURL,
-               settings.coverBgGlobal,
+               settings.usesGlobalCoverBackground,
                !useAsideFluidBackground {
                 PlaylistColorBackground(
                     coverUrl: coverUrl,

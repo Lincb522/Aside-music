@@ -12,9 +12,9 @@ private enum QCMQRLoginError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidImage:
-            return "QCM 登录二维码生成失败，请重试"
+            return String(localized: "qr_error_invalid_image")
         case .missingCredentials:
-            return "QCM 登录成功但未取得有效凭证，请刷新二维码重试"
+            return String(localized: "qr_error_validation_failed")
         }
     }
 }
@@ -24,7 +24,7 @@ class QQLoginViewModel: ObservableObject {
 
     // MARK: - QR 登录状态
     @Published var qrCodeImage: UIImage?
-    @Published var qrStatusMessage: String = String(localized: "加载二维码中...")
+    @Published var qrStatusMessage: String = String(localized: "qr_loading")
     @Published var isQRExpired = false
     @Published var qrLoginType: QRLoginType = .qq
 
@@ -45,6 +45,16 @@ class QQLoginViewModel: ObservableObject {
         APIService.shared.qqClient
     }
 
+    private func makeAnonymousLoginClient() -> QQMusicClient {
+        let configuration = qqClient.configurationSnapshot
+        return QQMusicClient(
+            baseURL: configuration.baseURL,
+            timeout: configuration.timeout,
+            maxRetries: configuration.maxRetries,
+            apiToken: configuration.apiToken
+        )
+    }
+
     init() {
         syncFromUserSession()
     }
@@ -54,7 +64,7 @@ class QQLoginViewModel: ObservableObject {
         isVIP = userSession.isVIP
         qqMusicId = userSession.musicId
         if isLoggedIn {
-            loginStatusText = isVIP ? String(localized: "已登录 · VIP") : String(localized: "settings_qq_logged_in")
+            loginStatusText = isVIP ? String(localized: "qq_logged_in_vip") : String(localized: "settings_qq_logged_in")
         }
     }
 
@@ -81,17 +91,17 @@ class QQLoginViewModel: ObservableObject {
         isLoggedIn = false
         qrCodeImage = nil
         isQRExpired = false
-        qrStatusMessage = String(localized: "加载二维码中...")
+        qrStatusMessage = String(localized: "qr_loading")
 
         let sessionID = UUID()
         let requestedType = qrLoginType
+        let requestedUserSession = userSession.sessionSnapshot
+        let loginClient = makeAnonymousLoginClient()
         loginSessionID = sessionID
         loginTask = Task { [weak self] in
             guard let self else { return }
             do {
-                let qrCode = try await userSession.withUserSession { client in
-                    try await client.createQRCode(type: requestedType)
-                }
+                let qrCode = try await loginClient.createQRCode(type: requestedType)
                 try Task.checkCancellation()
                 guard isCurrentSession(sessionID) else { return }
                 currentQRId = qrCode.qrId
@@ -110,16 +120,29 @@ class QQLoginViewModel: ObservableObject {
                     }
                 }
                 guard let image else { throw QCMQRLoginError.invalidImage }
+                guard userSession.isCurrentSession(requestedUserSession) else {
+                    finishSession(sessionID)
+                    return
+                }
                 qrCodeImage = image
 
                 qrStatusMessage = requestedType == .qq
-                    ? String(localized: "请使用 QQ 扫描二维码")
-                    : String(localized: "请使用微信扫描二维码")
-                await poll(qrId: qrCode.qrId, sessionID: sessionID)
+                    ? String(localized: "qq_qr_scan_with_qq")
+                    : String(localized: "qq_qr_scan_with_wechat")
+                await poll(
+                    qrId: qrCode.qrId,
+                    sessionID: sessionID,
+                    userSession: requestedUserSession,
+                    client: loginClient
+                )
             } catch is CancellationError {
                 return
             } catch {
-                guard isCurrentSession(sessionID) else { return }
+                guard isCurrentSession(sessionID),
+                      userSession.isCurrentSession(requestedUserSession) else {
+                    finishSession(sessionID)
+                    return
+                }
                 qrStatusMessage = L10n.format(
                     "qq_qr_create_failed_format",
                     error.localizedDescription
@@ -129,34 +152,43 @@ class QQLoginViewModel: ObservableObject {
         }
     }
 
-    private func poll(qrId: String, sessionID: UUID) async {
-        AppLogger.info("[QQLogin] startPolling: qrId=\(qrId)")
+    private func poll(
+        qrId: String,
+        sessionID: UUID,
+        userSession requestedUserSession: QQUserSession.SessionSnapshot,
+        client loginClient: QQMusicClient
+    ) async {
+        AppLogger.info("[QQLogin] startPolling")
         do {
             AppLogger.info("[QQLogin] pollTask started, calling pollQRCode...")
-            let finalStatus = try await userSession.withUserSession { client in
-                try await client.pollQRCode(
-                    qrId: qrId,
-                    interval: 3,
-                    timeout: 300
-                ) { [weak self] status in
-                    Task { @MainActor [weak self] in
-                        guard let self,
-                              isCurrentSession(sessionID),
-                              currentQRId == qrId else { return }
-                        if status.isScan {
-                            qrStatusMessage = String(localized: "等待扫码...")
-                        } else if status.isConfirm {
-                            qrStatusMessage = String(localized: "已扫码，请在手机上确认")
-                        }
+            let finalStatus = try await loginClient.pollQRCode(
+                qrId: qrId,
+                interval: 3,
+                timeout: 300
+            ) { [weak self] status in
+                Task { @MainActor [weak self] in
+                    guard let self,
+                          isCurrentSession(sessionID),
+                          userSession.isCurrentSession(requestedUserSession),
+                          currentQRId == qrId else { return }
+                    if status.isScan {
+                        qrStatusMessage = String(localized: "qr_waiting")
+                    } else if status.isConfirm {
+                        qrStatusMessage = String(localized: "qr_scanned")
                     }
                 }
             }
 
             try Task.checkCancellation()
-            guard isCurrentSession(sessionID), currentQRId == qrId else { return }
+            guard isCurrentSession(sessionID),
+                  currentQRId == qrId,
+                  userSession.isCurrentSession(requestedUserSession) else {
+                finishSession(sessionID)
+                return
+            }
 
             if finalStatus.isDone {
-                AppLogger.info("[QQLogin] DONE! musicid=\(finalStatus.musicid ?? 0)")
+                AppLogger.info("[QQLogin] DONE")
                 guard let musicID = finalStatus.musicid,
                       musicID > 0,
                       let musicKey = finalStatus.musickey,
@@ -170,14 +202,14 @@ class QQLoginViewModel: ObservableObject {
                     loginType: finalStatus.loginType
                 )
                 syncFromUserSession()
-                qrStatusMessage = String(localized: "登录成功")
+                qrStatusMessage = String(localized: "login_success")
                 finishSession(sessionID)
             } else if finalStatus.isTimeout {
-                qrStatusMessage = String(localized: "二维码已过期")
+                qrStatusMessage = String(localized: "qr_expired")
                 isQRExpired = true
                 finishSession(sessionID)
             } else if finalStatus.isRefused {
-                qrStatusMessage = String(localized: "登录被拒绝")
+                qrStatusMessage = String(localized: "qq_qr_refused")
                 isQRExpired = true
                 finishSession(sessionID)
             }
@@ -185,7 +217,11 @@ class QQLoginViewModel: ObservableObject {
             return
         } catch {
             AppLogger.error("[QQLogin] pollTask error: \(error)")
-            guard isCurrentSession(sessionID) else { return }
+            guard isCurrentSession(sessionID),
+                  userSession.isCurrentSession(requestedUserSession) else {
+                finishSession(sessionID)
+                return
+            }
             qrStatusMessage = L10n.format(
                 "qq_qr_poll_failed_format",
                 error.localizedDescription

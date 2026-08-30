@@ -14,7 +14,7 @@ extension APIService {
         QQMusicClient.shared
     }
 
-    /// 使用用户凭证执行请求（临时设置 musicId/musicKey，完成后恢复）
+    /// 使用用户凭证的独立客户端执行请求。
     @MainActor
     func withUserSession<T>(_ block: (QQMusicClient) async throws -> T) async throws -> T {
         try await QQUserSession.shared.withUserSession(block)

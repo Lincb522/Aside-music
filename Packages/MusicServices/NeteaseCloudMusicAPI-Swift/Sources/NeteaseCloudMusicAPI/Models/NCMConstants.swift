@@ -7,7 +7,7 @@ import Foundation
 /// NeteaseCloudMusicApiEnhanced 后端版本信息。
 public enum NCMAPIVersion {
     /// 当前 SDK 对齐的服务端版本。
-    public static let backend = "4.36.2"
+    public static let backend = "4.40.1"
 }
 
 /// ncm API 核心常量

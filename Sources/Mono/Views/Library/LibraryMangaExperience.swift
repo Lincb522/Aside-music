@@ -52,6 +52,7 @@ struct MangaLibraryExperience: View {
     @ObservedObject var viewModel: LibraryViewModel
     @Binding var tabIndex: Int
     @ObservedObject private var settings = SettingsManager.shared
+    @ObservedObject private var loginIdentity = LoginIdentityManager.shared
     @ObservedObject private var localManager = LocalPlaylistManager.shared
     @ObservedObject private var subManager = SubscriptionManager.shared
     @ObservedObject private var qqSession = QQUserSession.shared
@@ -97,6 +98,7 @@ struct MangaLibraryExperience: View {
         }
         .task {
             guard await MainTabActivationGate.waitUntilSettled(.library) else { return }
+            selectActiveIdentityLibrary()
             syncTabFromViewModel()
             loadCurrentTab()
             if subManager.subscribedRadios.isEmpty {
@@ -112,14 +114,20 @@ struct MangaLibraryExperience: View {
             guard MainTabActivationGate.isSettled(.library) else { return }
             loadCurrentTab()
         }
-        .onChange(of: qqSession.isLoggedIn) { _, isLoggedIn in
+        .onChange(of: qqSession.sessionRevision) { _, _ in
+            qqUserPlaylists = []
+            hasLoadedQQUserPlaylists = false
+            isLoadingQQUserPlaylists = false
             guard MainTabActivationGate.isSettled(.library) else { return }
-            if isLoggedIn {
-                hasLoadedQQUserPlaylists = false
+            if qqSession.isLoggedIn {
                 loadQQUserPlaylistsIfNeeded(force: true)
-            } else {
-                qqUserPlaylists = []
-                hasLoadedQQUserPlaylists = false
+            }
+        }
+        .onChange(of: loginIdentity.activeSource) { _, _ in
+            guard MainTabActivationGate.isSettled(.library) else { return }
+            selectActiveIdentityLibrary()
+            if selectedTab == .my {
+                loadCurrentTab()
             }
         }
         .monoSheet(isPresented: $showQQImport, preset: .large) {
@@ -138,6 +146,15 @@ struct MangaLibraryExperience: View {
                     primaryAction: {}
                 )
             }
+        }
+    }
+
+    private func selectActiveIdentityLibrary() {
+        switch loginIdentity.activeSource {
+        case .netease: selectedMyLibraryColumn = .ncmPlaylists
+        case .qqmusic: selectedMyLibraryColumn = .qcmPlaylists
+        case .kugou: selectedMyLibraryColumn = .kcmPlaylists
+        case .qishui, .appleMusic, .local, nil: selectedMyLibraryColumn = .localPlaylists
         }
     }
 
@@ -1000,10 +1017,11 @@ struct MangaLibraryExperience: View {
     }
 
     private func loadQQUserPlaylistsIfNeeded(force: Bool = false) {
+        let session = qqSession.sessionSnapshot
         guard force || !hasLoadedQQUserPlaylists else { return }
         guard !isLoadingQQUserPlaylists else { return }
 
-        guard qqSession.isLoggedIn, let mid = qqSession.musicId else {
+        guard session.isLoggedIn, let mid = session.musicID else {
             qqUserPlaylists = []
             hasLoadedQQUserPlaylists = true
             return
@@ -1013,16 +1031,20 @@ struct MangaLibraryExperience: View {
 
         Task { @MainActor in
             defer {
-                isLoadingQQUserPlaylists = false
-                hasLoadedQQUserPlaylists = true
+                if qqSession.isCurrentSession(session) {
+                    isLoadingQQUserPlaylists = false
+                    hasLoadedQQUserPlaylists = true
+                }
             }
 
             do {
                 let result: JSON = try await QQUserSession.shared.withUserSession { client in
                     try await client.createdSonglist(uin: String(mid))
                 }
+                guard qqSession.isCurrentSession(session) else { return }
                 qqUserPlaylists = Self.parseQQUserPlaylists(result)
             } catch {
+                guard qqSession.isCurrentSession(session) else { return }
                 AppLogger.error("[MangaLibrary] 加载 QCM 歌单失败: \(error)")
             }
         }

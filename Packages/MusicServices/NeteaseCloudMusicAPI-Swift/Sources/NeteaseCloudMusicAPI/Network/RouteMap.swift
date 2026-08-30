@@ -642,6 +642,9 @@ enum RouteMap {
             // song_dynamic_cover.js: 后端期望 id, SDK 传 songId
             if let v = data["songId"] { result["id"] = v }
 
+        case let path where path.hasPrefix("/api/event/get/"):
+            if let value = data["time"] { result["lasttime"] = value }
+
         case "/api/song/play/lyrics/mark/song":
             // song_lyrics_mark.js: 后端期望 id, SDK 传 songId
             if let v = data["songId"] { result["id"] = v }
@@ -749,6 +752,15 @@ enum RouteMap {
         // login: username → email
         case "/api/w/login":
             if let v = data["username"] { result["email"] = v }
+
+        case "/api/w/login/cellphone":
+            if let secureCaptcha = result.removeValue(forKey: "secureCaptcha") {
+                result["sca"] = secureCaptcha
+            }
+            if result["captcha"] == nil,
+               let passwordMD5 = result.removeValue(forKey: "password") {
+                result["md5_password"] = passwordMD5
+            }
 
         // songIds → id
         case "/api/v1/cloud/get/byids":

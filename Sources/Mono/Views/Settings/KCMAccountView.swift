@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 
 @MainActor
@@ -8,6 +9,8 @@ struct KCMAccountView: View {
     @State private var isProcessingVIP = false
     @State private var statusMessage: String?
     @State private var showLogoutConfirmation = false
+    @State private var profileRequestID: UUID?
+    @State private var membershipRequestID: UUID?
 
     var body: some View {
         List {
@@ -85,6 +88,12 @@ struct KCMAccountView: View {
         .confirmationDialog("退出 KCM 登录？", isPresented: $showLogoutConfirmation) {
             Button("退出登录", role: .destructive, action: logout)
             Button("取消", role: .cancel) {}
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(for: .kcmSessionDidChange)
+                .receive(on: DispatchQueue.main)
+        ) { _ in
+            handleSessionDidChange()
         }
     }
 
@@ -165,22 +174,44 @@ struct KCMAccountView: View {
         }
     }
 
-    private func refreshAccount() async {
-        isLoggedIn = KCMMusicService.shared.isAuthenticated
-        guard isLoggedIn else {
+    private func refreshAccount(
+        ifCurrentSession expectedSession: KCMMusicService.SessionSnapshot? = nil
+    ) async {
+        let service = KCMMusicService.shared
+        let requestedSession = expectedSession ?? service.sessionSnapshot
+        guard service.isCurrentSession(requestedSession) else { return }
+        let requestID = UUID()
+        profileRequestID = requestID
+        isLoggedIn = requestedSession.isAuthenticated
+        guard requestedSession.isAuthenticated else {
             profile = nil
             return
         }
 
         isLoadingProfile = true
-        defer { isLoadingProfile = false }
+        defer {
+            if profileRequestID == requestID {
+                isLoadingProfile = false
+            }
+        }
         do {
-            let refreshedProfile = try await KCMMusicService.shared.fetchAccountProfile()
+            let refreshedProfile = try await service.fetchAccountProfile(
+                ifCurrentSession: requestedSession
+            )
+            guard profileRequestID == requestID,
+                  service.isCurrentSession(requestedSession) else { return }
             profile = refreshedProfile
             if let refreshedProfile {
-                await KCMMusicService.shared.synchronizeCurrentAccount(profile: refreshedProfile)
+                await service.synchronizeCurrentAccount(
+                    profile: refreshedProfile,
+                    ifCurrentSession: requestedSession
+                )
             }
+        } catch is CancellationError {
+            return
         } catch {
+            guard profileRequestID == requestID,
+                  service.isCurrentSession(requestedSession) else { return }
             statusMessage = error.localizedDescription
             AppLogger.warning("KCM 账号信息获取失败: \(error)")
         }
@@ -188,43 +219,96 @@ struct KCMAccountView: View {
 
     private func claimDailyVIP() {
         guard !isProcessingVIP else { return }
-        if KCMDailyMembershipEngine.shared.hasCompletedToday() {
+        let service = KCMMusicService.shared
+        let requestedSession = service.sessionSnapshot
+        guard requestedSession.isAuthenticated,
+              service.isCurrentSession(requestedSession) else { return }
+        if KCMDailyMembershipEngine.shared.hasCompletedToday(
+            ifCurrentSession: requestedSession
+        ) {
             statusMessage = "今日会员已领取"
             HapticManager.shared.success()
             return
         }
+        let requestID = UUID()
+        membershipRequestID = requestID
         isProcessingVIP = true
         statusMessage = nil
         Task { @MainActor in
-            defer { isProcessingVIP = false }
+            defer {
+                if membershipRequestID == requestID {
+                    isProcessingVIP = false
+                }
+            }
             do {
-                let claimResult = try await KCMMusicService.shared.claimDailyLiteVIP()
+                let claimResult = try await service.claimDailyLiteVIP(
+                    ifCurrentSession: requestedSession
+                )
+                guard membershipRequestID == requestID,
+                      service.isCurrentSession(requestedSession) else { return }
                 let claimText = switch claimResult {
                 case .claimed: "领取成功"
                 case .alreadyClaimed: "今日会员已领取"
                 }
-                KCMDailyMembershipEngine.shared.recordCompletion()
+                KCMDailyMembershipEngine.shared.recordCompletion(
+                    ifCurrentSession: requestedSession
+                )
 
                 let resultMessage: String
                 do {
-                    let upgraded = try await KCMMusicService.shared.upgradeDailyLiteVIP()
+                    let upgraded = try await service.upgradeDailyLiteVIP(
+                        ifCurrentSession: requestedSession
+                    )
                     resultMessage = upgraded ? "\(claimText)，升级成功" : "\(claimText)，升级未完成"
                 } catch {
+                    guard service.isCurrentSession(requestedSession) else { return }
                     resultMessage = "\(claimText)，\(error.localizedDescription)"
                 }
-                await refreshAccount()
+                guard membershipRequestID == requestID,
+                      service.isCurrentSession(requestedSession) else { return }
+                await refreshAccount(ifCurrentSession: requestedSession)
+                guard membershipRequestID == requestID,
+                      service.isCurrentSession(requestedSession) else { return }
                 statusMessage = resultMessage
                 HapticManager.shared.success()
+            } catch is CancellationError {
+                return
             } catch {
+                guard membershipRequestID == requestID,
+                      service.isCurrentSession(requestedSession) else { return }
                 statusMessage = error.localizedDescription
             }
         }
     }
 
     private func logout() {
-        KCMMusicService.shared.logout()
+        KCMMusicService.shared.logout {
+            LoginIdentityManager.shared.accountDidLogOut(.kugou)
+        }
+        profileRequestID = nil
+        membershipRequestID = nil
+        isLoadingProfile = false
+        isProcessingVIP = false
         isLoggedIn = false
         profile = nil
         statusMessage = nil
+    }
+
+    private func handleSessionDidChange() {
+        profileRequestID = nil
+        membershipRequestID = nil
+        isLoadingProfile = false
+        isProcessingVIP = false
+        profile = nil
+        statusMessage = nil
+
+        let service = KCMMusicService.shared
+        let session = service.sessionSnapshot
+        isLoggedIn = session.isAuthenticated
+        guard session.isAuthenticated,
+              service.isCurrentSession(session) else { return }
+        Task { @MainActor in
+            await refreshAccount(ifCurrentSession: session)
+        }
     }
 }

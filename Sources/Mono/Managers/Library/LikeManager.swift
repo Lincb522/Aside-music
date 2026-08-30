@@ -12,8 +12,9 @@ class LikeManager: ObservableObject {
     private let apiService = APIService.shared
     
     private init() {
-        if apiService.isLoggedIn, let uid = apiService.currentUserId {
-            fetchNeteaseLikedSongs(uid: uid)
+        let session = apiService.ncmSessionSnapshot
+        if apiService.isLoggedIn, let uid = session.userID {
+            fetchNeteaseLikedSongs(uid: uid, session: session)
         }
     }
     
@@ -60,29 +61,42 @@ class LikeManager: ObservableObject {
     // MARK: - ncm同步
     
     func refreshLikes() {
-        if apiService.isLoggedIn, let uid = apiService.currentUserId {
-            fetchNeteaseLikedSongs(uid: uid)
+        let session = apiService.ncmSessionSnapshot
+        if apiService.isLoggedIn, let uid = session.userID {
+            fetchNeteaseLikedSongs(uid: uid, session: session)
         } else {
             neteaseLikedIds = []
         }
     }
     
-    func fetchNeteaseLikedSongs(uid: Int) {
+    private func fetchNeteaseLikedSongs(
+        uid: Int,
+        session: APIService.NCMSessionSnapshot
+    ) {
+        guard session.userID == uid,
+              apiService.isCurrentNCMSession(session) else { return }
+
         apiService.fetchLikedSongs(uid: uid)
             .receive(on: DispatchQueue.main)
-            .sink(receiveCompletion: { completion in
+            .sink(receiveCompletion: { [weak self] completion in
+                guard let self,
+                      self.apiService.isCurrentNCMSession(session) else { return }
                 if case .failure(let error) = completion {
                     AppLogger.error("Fetch liked songs failed: \(error)")
                 }
             }, receiveValue: { [weak self] ids in
-                self?.neteaseLikedIds = Set(ids)
+                guard let self,
+                      self.apiService.isCurrentNCMSession(session) else { return }
+                self.neteaseLikedIds = Set(ids)
             })
             .store(in: &cancellables)
     }
     
     /// 同步喜欢状态到ncm
     private func syncToNetease(songId: Int, like: Bool) {
-        guard apiService.isLoggedIn else { return }
+        let session = apiService.ncmSessionSnapshot
+        guard apiService.isLoggedIn,
+              session.userID != nil else { return }
         
         if like {
             neteaseLikedIds.insert(songId)
@@ -94,12 +108,18 @@ class LikeManager: ObservableObject {
         bag = apiService.likeSong(id: songId, like: like)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
+                guard let self,
+                      self.apiService.isCurrentNCMSession(session) else {
+                    bag?.cancel()
+                    bag = nil
+                    return
+                }
                 if case .failure(let error) = completion {
                     AppLogger.error("Sync like to Netease failed: \(error)")
                     if like {
-                        self?.neteaseLikedIds.remove(songId)
+                        self.neteaseLikedIds.remove(songId)
                     } else {
-                        self?.neteaseLikedIds.insert(songId)
+                        self.neteaseLikedIds.insert(songId)
                     }
                 }
                 bag?.cancel()

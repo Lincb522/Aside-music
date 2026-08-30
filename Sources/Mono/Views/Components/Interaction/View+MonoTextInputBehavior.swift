@@ -27,10 +27,13 @@ final class MonoTextInputActivity: ObservableObject {
         )
         .receive(on: DispatchQueue.main)
         .sink { [weak self] notification in
-            self?.rememberTextResponder(from: notification)
-            self?.pendingEndTask?.cancel()
-            self?.pendingEndTask = nil
-            self?.isEditing = true
+            guard let self else { return }
+            self.rememberTextResponder(from: notification)
+            self.pendingEndTask?.cancel()
+            self.pendingEndTask = nil
+            if !self.isEditing {
+                self.isEditing = true
+            }
         }
         .store(in: &cancellables)
 
@@ -98,94 +101,59 @@ private extension UIView {
 /// 确认 marked text，并把最终文本同步回 Binding。
 @MainActor
 enum MonoTextInputCommitter {
+    private static var activeSessions: [ObjectIdentifier: MonoTextInputCommitSession] = [:]
+
     static func commit(
         text: Binding<String>,
+        responder preferredResponder: UIView? = nil,
         perform action: @escaping @MainActor (String) -> Void
     ) {
-        let responder = activeTextResponder
+        guard let responder = preferredResponder
+            ?? activeTextResponder
             ?? MonoTextInputActivity.shared.mostRecentTextResponder()
-        // 先保留 Binding 中已经可见的内容。部分输入法在 Return 事件到达时，
-        // UITextField 会短暂回报空字符串；此时不能用这个瞬时空值覆盖用户
-        // 已经输入并显示在 SwiftUI TextField 中的关键词。
-        let bindingValueBeforeCommit = text.wrappedValue
-        let responderValueBeforeCommit = textValue(from: responder)
-        let hadMarkedText: Bool
-
-        if let input = responder as? UITextInput,
-           input.markedTextRange != nil {
-            hadMarkedText = true
-            input.unmarkText()
-        } else {
-            hadMarkedText = false
+        else {
+            action(text.wrappedValue)
+            return
         }
 
-        Task { @MainActor in
-            // unmarkText 的 editingChanged 与 SwiftUI Binding 更新并不同步。
-            // 跨过当前键盘事件周期，再从同一个 UIKit 控件读取最终值。
-            await Task.yield()
-            try? await Task.sleep(nanoseconds: 12_000_000)
+        let responderID = ObjectIdentifier(responder)
+        guard activeSessions[responderID] == nil else { return }
 
-            let valueAfterCommit = textValue(from: responder)
-            let value = resolvedValue(
-                valueAfterCommit: valueAfterCommit,
-                responderValueBeforeCommit: responderValueBeforeCommit,
-                bindingValueBeforeCommit: bindingValueBeforeCommit,
-                currentBindingValue: text.wrappedValue,
-                hadMarkedText: hadMarkedText
-            )
-
-            if text.wrappedValue != value {
-                text.wrappedValue = value
-            }
-            action(value)
+        let session = MonoTextInputCommitSession(
+            responder: responder,
+            text: text,
+            perform: action
+        ) {
+            activeSessions[responderID] = nil
         }
+        activeSessions[responderID] = session
+        session.start()
     }
 
-    /// 优先采用输入控件完成组合后的内容；若 UIKit 在 Return 周期短暂返回空值，
-    /// 则回退到提交前后非空的 Binding，而不是把真正输入清空。
-    private static func resolvedValue(
-        valueAfterCommit: String?,
+    fileprivate static func resolvedValue(
+        settledResponderValue: String?,
         responderValueBeforeCommit: String?,
         bindingValueBeforeCommit: String,
-        currentBindingValue: String,
-        hadMarkedText: Bool
+        currentBindingValue: String
     ) -> String {
-        // 中文输入法按 Return 时，SwiftUI Binding 往往还是“周杰”，而完整
-        // UITextInput 文档已经是“周杰伦”。如果 unmark 后系统短暂回退成旧值，
-        // 保留提交前完整文档中包含的组合文字，不能把最后一个字截掉。
-        if hadMarkedText {
-            let responderCandidates = [
-                valueAfterCommit,
-                responderValueBeforeCommit
-            ]
-            .compactMap { $0 }
-            .filter { !$0.isEmpty }
-
-            if let completeResponderValue = responderCandidates.max(by: {
-                $0.count < $1.count
-            }) {
-                return completeResponderValue
-            }
-        }
-
-        if let valueAfterCommit, !valueAfterCommit.isEmpty {
-            return valueAfterCommit
-        }
-
-        if let responderValueBeforeCommit,
-           !responderValueBeforeCommit.isEmpty {
-            return responderValueBeforeCommit
+        // 组合词确认后可能比拼音或临时候选更短，最终文档值必须优先于字符数量。
+        if let settledResponderValue, !settledResponderValue.isEmpty {
+            return settledResponderValue
         }
 
         if !currentBindingValue.isEmpty {
             return currentBindingValue
         }
 
+        if let responderValueBeforeCommit, !responderValueBeforeCommit.isEmpty {
+            return responderValueBeforeCommit
+        }
+
         if !bindingValueBeforeCommit.isEmpty {
             return bindingValueBeforeCommit
         }
 
-        return responderValueBeforeCommit ?? valueAfterCommit ?? ""
+        return settledResponderValue ?? responderValueBeforeCommit ?? ""
     }
 
     /// 只结束真实存在且仍属于前台场景的输入会话。避免在弹窗已经关闭、
@@ -201,7 +169,7 @@ enum MonoTextInputCommitter {
         return responder.resignFirstResponder()
     }
 
-    private static func textValue(from responder: UIView?) -> String? {
+    fileprivate static func textValue(from responder: UIView?) -> String? {
         // `UITextField.text` 在中文/日文组合输入期间可能尚未包含 marked text。
         // UITextInput 的完整 document range 才是屏幕上当前显示的完整字符串。
         if let input = responder as? UITextInput,
@@ -238,6 +206,296 @@ enum MonoTextInputCommitter {
     }
 }
 
+@MainActor
+private final class MonoTextInputCommitSession {
+    private weak var responder: UIView?
+    private let text: Binding<String>
+    private let perform: @MainActor (String) -> Void
+    private let didFinish: @MainActor () -> Void
+    private let bindingValueBeforeCommit: String
+    private let responderValueBeforeCommit: String?
+    private var fallbackWorkItem: DispatchWorkItem?
+    private var finishGeneration = 0
+    private var isFinished = false
+
+    init(
+        responder: UIView,
+        text: Binding<String>,
+        perform: @escaping @MainActor (String) -> Void,
+        didFinish: @escaping @MainActor () -> Void
+    ) {
+        self.responder = responder
+        self.text = text
+        self.perform = perform
+        self.didFinish = didFinish
+        bindingValueBeforeCommit = text.wrappedValue
+        responderValueBeforeCommit = MonoTextInputCommitter.textValue(from: responder)
+    }
+
+    func start() {
+        observeTextChanges()
+
+        let hadMarkedText: Bool
+        if let input = responder as? UITextInput, input.markedTextRange != nil {
+            hadMarkedText = true
+            input.unmarkText()
+        } else {
+            hadMarkedText = false
+        }
+
+        if hadMarkedText {
+            // 第三方输入法可在 unmarkText 返回后才投递最终替换事件；通知负责
+            // 提前完成，截止时间只处理未投递通知的键盘实现。
+            let workItem = DispatchWorkItem { [weak self] in
+                self?.finish()
+            }
+            fallbackWorkItem = workItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: workItem)
+        } else {
+            scheduleFinishAfterCurrentInputEvent()
+        }
+    }
+
+    private func observeTextChanges() {
+        let center = NotificationCenter.default
+        let names: [Notification.Name] = [
+            UITextField.textDidChangeNotification,
+            UITextField.textDidEndEditingNotification,
+            UITextView.textDidChangeNotification,
+            UITextView.textDidEndEditingNotification
+        ]
+
+        for name in names {
+            center.addObserver(
+                self,
+                selector: #selector(handleTextChange(_:)),
+                name: name,
+                object: responder
+            )
+        }
+    }
+
+    @objc
+    private func handleTextChange(_ notification: Notification) {
+        scheduleFinishAfterCurrentInputEvent()
+    }
+
+    private func scheduleFinishAfterCurrentInputEvent() {
+        finishGeneration += 1
+        let generation = finishGeneration
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.finishGeneration == generation else { return }
+            if let input = self.responder as? UITextInput,
+               input.markedTextRange != nil {
+                return
+            }
+            self.finish()
+        }
+    }
+
+    private func finish() {
+        guard !isFinished else { return }
+        isFinished = true
+        fallbackWorkItem?.cancel()
+        NotificationCenter.default.removeObserver(self)
+
+        let value = MonoTextInputCommitter.resolvedValue(
+            settledResponderValue: MonoTextInputCommitter.textValue(from: responder),
+            responderValueBeforeCommit: responderValueBeforeCommit,
+            bindingValueBeforeCommit: bindingValueBeforeCommit,
+            currentBindingValue: text.wrappedValue
+        )
+        if text.wrappedValue != value {
+            text.wrappedValue = value
+        }
+        perform(value)
+        didFinish()
+    }
+}
+
+@MainActor
+private final class MonoTextFieldSubmitProbe: UIView {
+    var onSubmit: (@MainActor (UITextField) -> Void)?
+
+    private weak var attachedTextField: UITextField?
+    private var isAttachmentScheduled = false
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isUserInteractionEnabled = false
+        backgroundColor = .clear
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleBeginEditing(_:)),
+            name: UITextField.textDidBeginEditingNotification,
+            object: nil
+        )
+    }
+
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window == nil {
+            detach()
+        } else {
+            scheduleAttachment()
+        }
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        scheduleAttachment()
+    }
+
+    func scheduleAttachment() {
+        guard !isAttachmentScheduled else { return }
+        isAttachmentScheduled = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.isAttachmentScheduled = false
+            self.attachToMatchingTextField()
+        }
+    }
+
+    func detach() {
+        attachedTextField?.removeTarget(
+            self,
+            action: #selector(handleReturn(_:)),
+            for: .editingDidEndOnExit
+        )
+        attachedTextField = nil
+    }
+
+    private func attachToMatchingTextField() {
+        guard let window else { return }
+        if let attachedTextField,
+           attachedTextField.window === window,
+           matches(attachedTextField) {
+            return
+        }
+
+        let candidate = window.monoDescendantTextFields
+            .filter(matches)
+            .max { matchScore(for: $0) < matchScore(for: $1) }
+        if let candidate {
+            attach(to: candidate)
+        }
+    }
+
+    private func attach(to textField: UITextField) {
+        guard attachedTextField !== textField else { return }
+        detach()
+        attachedTextField = textField
+        textField.addTarget(
+            self,
+            action: #selector(handleReturn(_:)),
+            for: .editingDidEndOnExit
+        )
+    }
+
+    private func matches(_ textField: UITextField) -> Bool {
+        guard let window,
+              textField.window === window,
+              !textField.isHidden,
+              textField.alpha > 0.01 else { return false }
+
+        let probeFrame = convert(bounds, to: window)
+        let fieldFrame = textField.convert(textField.bounds, to: window)
+        guard probeFrame.width > 0,
+              probeFrame.height > 0,
+              fieldFrame.width > 0,
+              fieldFrame.height > 0 else { return false }
+
+        let intersection = probeFrame.intersection(fieldFrame)
+        guard !intersection.isNull else { return false }
+        let fieldArea = fieldFrame.width * fieldFrame.height
+        return intersection.width * intersection.height >= fieldArea * 0.6
+    }
+
+    private func matchScore(for textField: UITextField) -> CGFloat {
+        guard let window else { return 0 }
+        let probeFrame = convert(bounds, to: window)
+        let fieldFrame = textField.convert(textField.bounds, to: window)
+        let intersection = probeFrame.intersection(fieldFrame)
+        return intersection.isNull ? 0 : intersection.width * intersection.height
+    }
+
+    @objc
+    private func handleBeginEditing(_ notification: Notification) {
+        guard let textField = notification.object as? UITextField,
+              matches(textField) else { return }
+        attach(to: textField)
+    }
+
+    @objc
+    private func handleReturn(_ textField: UITextField) {
+        onSubmit?(textField)
+    }
+}
+
+private extension UIView {
+    var monoDescendantTextFields: [UITextField] {
+        var result: [UITextField] = []
+        if let textField = self as? UITextField {
+            result.append(textField)
+        }
+        for child in subviews {
+            result.append(contentsOf: child.monoDescendantTextFields)
+        }
+        return result
+    }
+}
+
+@MainActor
+private struct MonoTextFieldSubmitBridge: UIViewRepresentable {
+    let text: Binding<String>
+    let perform: @MainActor (String) -> Void
+
+    func makeUIView(context: Context) -> MonoTextFieldSubmitProbe {
+        let probe = MonoTextFieldSubmitProbe()
+        update(probe)
+        return probe
+    }
+
+    func updateUIView(_ uiView: MonoTextFieldSubmitProbe, context: Context) {
+        update(uiView)
+        uiView.scheduleAttachment()
+    }
+
+    static func dismantleUIView(_ uiView: MonoTextFieldSubmitProbe, coordinator: ()) {
+        uiView.detach()
+    }
+
+    private func update(_ probe: MonoTextFieldSubmitProbe) {
+        probe.onSubmit = { textField in
+            MonoTextInputCommitter.commit(
+                text: text,
+                responder: textField,
+                perform: perform
+            )
+        }
+    }
+}
+
+private struct MonoOnSubmitModifier: ViewModifier {
+    let text: Binding<String>
+    let perform: @MainActor (String) -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .onSubmit {
+                MonoTextInputCommitter.commit(text: text, perform: perform)
+            }
+            .background {
+                MonoTextFieldSubmitBridge(text: text, perform: perform)
+                    .allowsHitTesting(false)
+            }
+    }
+}
+
 extension View {
     /// 统一的文本输入行为：关闭自动大写与自动纠错（用于搜索词、Key、URL 等字段）。
     func monoTextInputBehavior() -> some View {
@@ -251,8 +509,6 @@ extension View {
         text: Binding<String>,
         perform action: @escaping @MainActor (String) -> Void
     ) -> some View {
-        onSubmit {
-            MonoTextInputCommitter.commit(text: text, perform: action)
-        }
+        modifier(MonoOnSubmitModifier(text: text, perform: action))
     }
 }

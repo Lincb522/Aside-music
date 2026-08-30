@@ -8,7 +8,9 @@ extension SettingsView {
             SettingsThemeRow(
                 icon: .sparkle,
                 title: String(localized: "settings_theme_mode"),
-                selection: $settings.themeMode
+                selection: $settings.themeMode,
+                isSelectionEnabled: !settings.globalThemeId.requiresDarkAppearance,
+                lockedSelection: settings.globalThemeId.requiresDarkAppearance ? "dark" : nil
             )
         }
     }

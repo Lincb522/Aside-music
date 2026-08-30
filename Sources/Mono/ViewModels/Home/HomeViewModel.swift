@@ -13,6 +13,14 @@ class HomeViewModel: ObservableObject {
     @Published var banners: [Banner] = []
     @Published var hotSearch: String = NSLocalizedString("search_bar_placeholder", comment: "")
     @Published var userProfile: UserProfile?
+
+    var displayedIdentityProfile: UserProfile? {
+        LoginIdentityManager.shared.displayedProfile(ncmProfile: userProfile)
+    }
+
+    var displayedIdentitySource: MusicSource? {
+        LoginIdentityManager.shared.activeSource
+    }
     
     @Published var qqRecommendPlaylists: [Playlist] = []
     @Published var qqNewSongs: [Song] = []
@@ -33,6 +41,7 @@ class HomeViewModel: ObservableObject {
     private var homeRefreshStartedAt: Date?
     private var isHomeRefreshInFlight = false
     private var lastLoginRefreshAttempt: Date?
+    private var lastHandledLoginSession: APIService.NCMSessionSnapshot?
     private var homeLoadingStartedAt: Date?
     private var pendingLoginRefresh = false
     private var isRestoringLoginState = false
@@ -51,6 +60,25 @@ class HomeViewModel: ObservableObject {
     private let emptyHomeBaseRetryDelay: TimeInterval = 1.6
     private static let userProfileBackupKey = "mono_user_profile_backup"
     private static let lastSuccessfulHomeRefreshKey = "mono_home_last_successful_refresh"
+
+    private static func qcmCacheOwner(for session: QQUserSession.SessionSnapshot) -> String {
+        guard session.isLoggedIn, let musicID = session.musicID else {
+            return "anonymous"
+        }
+        return "musicid_\(musicID)"
+    }
+
+    private static func qcmRecommendPlaylistsCacheKey(
+        for session: QQUserSession.SessionSnapshot
+    ) -> String {
+        "qq_recommend_playlists_\(qcmCacheOwner(for: session))"
+    }
+
+    private static func qcmNewSongsCacheKey(
+        for session: QQUserSession.SessionSnapshot
+    ) -> String {
+        "qq_new_songs_\(qcmCacheOwner(for: session))"
+    }
     
     private init() {
         primeInitialHomeState()
@@ -112,8 +140,7 @@ class HomeViewModel: ObservableObject {
             }
             .store(in: &cancellables)
 
-        // 登录流程会通过 GlobalRefreshManager 触发刷新，这里再兜接一次登录通知：
-        // 如果首页 VM 当时已经存在，就立刻补齐首页数据；如果正在加载，则交给当前请求完成。
+        // 登录流程会通过 GlobalRefreshManager 触发刷新，这里再兜接一次登录通知。
         NotificationCenter.default.publisher(for: .didLogin)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
@@ -126,6 +153,21 @@ class HomeViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.handleLogout()
+            }
+            .store(in: &cancellables)
+
+        LoginIdentityManager.shared.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
+        QQUserSession.shared.$sessionRevision
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.handleQCMSessionChange()
             }
             .store(in: &cancellables)
     }
@@ -306,8 +348,21 @@ class HomeViewModel: ObservableObject {
     }
 
     private func handleLogin() {
+        let session = apiService.ncmSessionSnapshot
+        guard apiService.isLoggedIn, session.userID != nil else { return }
+        let isNewSession = lastHandledLoginSession != session
+        lastHandledLoginSession = session
+
+        userProfile = nil
+        recentSongs = []
+        dailySongs = []
+        recommendPlaylists = []
+        UserDefaults.standard.removeObject(forKey: Self.userProfileBackupKey)
+        UserDefaults.standard.removeObject(forKey: Self.lastSuccessfulHomeRefreshKey)
+
         let now = Date()
-        if let lastLoginRefreshAttempt,
+        if !isNewSession,
+           let lastLoginRefreshAttempt,
            now.timeIntervalSince(lastLoginRefreshAttempt) < loginRefreshCooldown {
             return
         }
@@ -317,7 +372,9 @@ class HomeViewModel: ObservableObject {
 
         if isLoading || isHomeRefreshInFlight {
             pendingLoginRefresh = true
-            AppLogger.debug("HomeViewModel: 登录后首页数据正在加载，完成后补刷")
+            AppLogger.debug("HomeViewModel: 登录态已变化，终止旧首页刷新并补刷")
+            completeHomeRefresh()
+            finishHomeLoading()
             return
         }
 
@@ -331,6 +388,7 @@ class HomeViewModel: ObservableObject {
         guard apiService.currentUserId == nil || userProfile == nil else { return }
         guard !isRestoringLoginState else { return }
 
+        let session = apiService.ncmSessionSnapshot
         isRestoringLoginState = true
         AppLogger.debug("HomeViewModel: 尝试恢复登录态 - \(reason)")
 
@@ -345,10 +403,14 @@ class HomeViewModel: ObservableObject {
             }, receiveValue: { [weak self] response in
                 guard let self else { return }
                 guard let profile = response.data.profile else { return }
-
-                self.applyUserProfile(profile, reason: "login state restored")
+                guard self.applyUserProfile(
+                    profile,
+                    reason: "login state restored",
+                    session: session
+                ) != nil else { return }
                 UserDefaults.standard.set(true, forKey: AppConfig.StorageKeys.isLoggedIn)
                 self.lastHomeHydrationAttempt = nil
+                self.completeHomeRefresh()
                 self.fetchData(forceDaily: true)
             })
             .store(in: &cancellables)
@@ -367,30 +429,70 @@ class HomeViewModel: ObservableObject {
         if let cachedRecommend = cache.getObject(forKey: "recommend_playlists", type: [Playlist].self) {
             assignIfIdentityChanged(cachedRecommend, to: &recommendPlaylists) { $0.id }
         }
-        if let cachedRecent = cache.getObject(forKey: "recent_songs", type: [Song].self) {
+        if apiService.currentUserId != nil,
+           let cachedRecent = cache.getObject(forKey: "recent_songs", type: [Song].self) {
             assignIfIdentityChanged(cachedRecent, to: &recentSongs) { $0.id }
         }
         if let cachedBanners = cache.getObject(forKey: "banners", type: [Banner].self) {
             assignIfIdentityChanged(cachedBanners, to: &banners) { $0.id }
         }
-        if let cachedQQPlaylists = cache.getObject(forKey: "qq_recommend_playlists", type: [Playlist].self) {
-            assignIfIdentityChanged(cachedQQPlaylists, to: &qqRecommendPlaylists) { $0.id }
-        }
-        if let cachedQQNewSongs = cache.getObject(forKey: "qq_new_songs", type: [Song].self) {
-            assignIfIdentityChanged(cachedQQNewSongs, to: &qqNewSongs) { $0.id }
-        }
+        loadQCMCache(for: QQUserSession.shared.sessionSnapshot, cache: cache)
         if let cachedKugouPlaylists = cache.getObject(forKey: "kcm_recommend_playlists", type: [Playlist].self) {
             assignIfIdentityChanged(cachedKugouPlaylists, to: &kugouRecommendPlaylists) { $0.id }
         }
-        if let cachedProfile = cache.getObject(forKey: "user_profile_detail", type: UserProfile.self) ?? restoreUserProfileBackup() {
-            if userProfile != cachedProfile {
-                userProfile = cachedProfile
-                storeUserProfileBackup(cachedProfile)
+        if let currentUserID = apiService.currentUserId {
+            if let cachedProfile = cache.getObject(
+                forKey: "user_profile_detail",
+                type: UserProfile.self
+            ) ?? restoreUserProfileBackup(),
+               cachedProfile.userId == currentUserID {
+                if userProfile != cachedProfile {
+                    userProfile = cachedProfile
+                    storeUserProfileBackup(cachedProfile)
+                }
+            } else if userProfile?.userId != currentUserID {
+                userProfile = nil
             }
+        } else {
+            userProfile = nil
+            recentSongs = []
         }
         if !isHomeDataEmpty {
             markHomeDataArrived(reason: "cache load")
         }
+    }
+
+    private func loadQCMCache(
+        for session: QQUserSession.SessionSnapshot,
+        cache: OptimizedCacheManager
+    ) {
+        if let playlists = cache.getObject(
+            forKey: Self.qcmRecommendPlaylistsCacheKey(for: session),
+            type: [Playlist].self
+        ) {
+            assignIfIdentityChanged(playlists, to: &qqRecommendPlaylists) { $0.id }
+        }
+        if let songs = cache.getObject(
+            forKey: Self.qcmNewSongsCacheKey(for: session),
+            type: [Song].self
+        ) {
+            assignIfIdentityChanged(songs, to: &qqNewSongs) { $0.id }
+        }
+    }
+
+    private func handleQCMSessionChange() {
+        let session = QQUserSession.shared.sessionSnapshot
+        qqRecommendPlaylists = []
+        qqNewSongs = []
+        loadQCMCache(for: session, cache: OptimizedCacheManager.shared)
+
+        if qqRecommendPlaylists.isEmpty && qqNewSongs.isEmpty {
+            publishHomeContentChange(reason: "qcm session changed")
+        } else {
+            markHomeDataArrived(reason: "qcm account cache load")
+        }
+
+        refreshQCMHomeData(session: session)
     }
 
     private func assignIfIdentityChanged<Element, ID: Equatable>(
@@ -411,14 +513,31 @@ class HomeViewModel: ObservableObject {
         return zip(lhs, rhs).allSatisfy { id($0) == id($1) }
     }
 
-    private func applyUserProfile(_ profile: UserProfile, reason: String) {
-        if apiService.currentUserId != profile.userId {
+    @discardableResult
+    private func applyUserProfile(
+        _ profile: UserProfile,
+        reason: String,
+        session: APIService.NCMSessionSnapshot
+    ) -> APIService.NCMSessionSnapshot? {
+        guard apiService.isCurrentNCMSession(session),
+              apiService.currentCookie != nil,
+              session.userID == nil || session.userID == profile.userId else { return nil }
+
+        if session.userID == nil {
             apiService.currentUserId = profile.userId
         }
+        let acceptedSession = apiService.ncmSessionSnapshot
+        let expectedRevision = session.userID == nil
+            ? session.revision &+ 1
+            : session.revision
+        guard acceptedSession.revision == expectedRevision,
+              acceptedSession.userID == profile.userId else { return nil }
+
         userProfile = profile
         OptimizedCacheManager.shared.setObject(profile, forKey: "user_profile_detail")
         storeUserProfileBackup(profile)
         AppLogger.debug("HomeViewModel: 用户资料已同步 - \(reason) - \(profile.nickname)")
+        return acceptedSession
     }
 
     private func restoreUserProfileBackup() -> UserProfile? {
@@ -583,35 +702,68 @@ class HomeViewModel: ObservableObject {
         return true
     }
     
-    private func fetchUserProfile(completion: @escaping () -> Void) {
+    private func fetchUserProfile(
+        session: APIService.NCMSessionSnapshot,
+        completion: @escaping () -> Void
+    ) {
+        var responseSession = session
         apiService.fetchLoginStatus()
             .receive(on: DispatchQueue.main)
-            .flatMap { [weak self] response -> AnyPublisher<APIService.UserDetailResponse, Error> in
+            .flatMap { [weak self] response -> AnyPublisher<(
+                APIService.UserDetailResponse,
+                APIService.NCMSessionSnapshot
+            ), Error> in
                 guard let self = self, let profile = response.data.profile else {
                     return Fail(error: URLError(.userAuthenticationRequired)).eraseToAnyPublisher()
                 }
-                self.applyUserProfile(profile, reason: "login status fallback")
+                guard let detailSession = self.applyUserProfile(
+                    profile,
+                    reason: "login status fallback",
+                    session: session
+                ) else {
+                    return Empty(completeImmediately: true).eraseToAnyPublisher()
+                }
+                responseSession = detailSession
                 return self.apiService.fetchUserDetail(uid: profile.userId)
+                    .map { ($0, detailSession) }
+                    .eraseToAnyPublisher()
             }
             .timeout(.seconds(15), scheduler: DispatchQueue.main, customError: { URLError(.timedOut) })
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completionResult in
+                guard let self,
+                      self.apiService.isCurrentNCMSession(responseSession) else {
+                    completion()
+                    return
+                }
                 if case .failure(let error) = completionResult {
-                    if self?.userProfile == nil {
+                    if self.userProfile == nil {
                         AppLogger.error("用户资料获取失败: \(error)")
                     } else {
                         AppLogger.warning("用户详情获取失败，已使用 loginStatus 资料: \(error)")
                     }
                 }
-                self?.finishHomeLoading()
+                if responseSession != session {
+                    self.completeHomeRefresh()
+                }
+                self.finishHomeLoading()
                 completion()
-            }, receiveValue: { [weak self] detailResponse in
-                self?.applyUserProfile(detailResponse.profile, reason: "user detail")
+            }, receiveValue: { [weak self] detailResponse, detailSession in
+                guard let self,
+                      self.apiService.isCurrentNCMSession(detailSession),
+                      detailSession.userID == detailResponse.profile.userId else { return }
+                self.applyUserProfile(
+                    detailResponse.profile,
+                    reason: "user detail",
+                    session: detailSession
+                )
             })
             .store(in: &cancellables)
     }
     
     private func fetchAllData(forceDaily: Bool) {
+        let ncmSession = apiService.ncmSessionSnapshot
+        let qcmSession = QQUserSession.shared.sessionSnapshot
         // 跟踪数据加载完成状态
         var dailySongsLoaded = false
         var bannersLoaded = false
@@ -620,15 +772,20 @@ class HomeViewModel: ObservableObject {
         fetchHitokoto()
         
         let checkAndMarkReady = { [weak self] in
+            guard let self,
+                  self.apiService.isCurrentNCMSession(ncmSession) else { return }
             if dailySongsLoaded && bannersLoaded && userProfileLoaded {
-                self?.completeHomeRefresh()
-                self?.finishHomeLoading()
+                self.completeHomeRefresh()
+                self.finishHomeLoading()
                 GlobalRefreshManager.shared.markHomeDataReady()
             }
         }
         
         // 每日推荐（支持风格切换）
-        fetchDailySongsOrStyle(force: forceDaily || dailySongs.isEmpty) { 
+        fetchDailySongsOrStyle(
+            force: forceDaily || dailySongs.isEmpty,
+            session: ncmSession
+        ) {
             dailySongsLoaded = true
             checkAndMarkReady()
         }
@@ -655,14 +812,14 @@ class HomeViewModel: ObservableObject {
                         AppLogger.error("推荐歌单获取失败: \(error)")
                     }
                 }, receiveValue: { [weak self] playlists in
-                    self?.recommendPlaylists = playlists
+                    guard let self,
+                          self.apiService.isCurrentNCMSession(ncmSession) else { return }
+                    self.recommendPlaylists = playlists
                     if !playlists.isEmpty {
-                        self?.markRemoteHomeDataArrived(reason: "recommend playlists")
+                        self.markRemoteHomeDataArrived(reason: "recommend playlists")
                     }
-                    Task { @MainActor in
-                        OptimizedCacheManager.shared.setObject(playlists, forKey: "recommend_playlists")
-                        OptimizedCacheManager.shared.cachePlaylists(playlists)
-                    }
+                    OptimizedCacheManager.shared.setObject(playlists, forKey: "recommend_playlists")
+                    OptimizedCacheManager.shared.cachePlaylists(playlists)
                 })
                 .store(in: &cancellables)
         }
@@ -687,42 +844,7 @@ class HomeViewModel: ObservableObject {
             })
             .store(in: &cancellables)
         
-        // qcm推荐歌单
-        apiService.fetchQQRecommendPlaylists()
-            .receive(on: DispatchQueue.main)
-            .sink(receiveCompletion: { completion in
-                if case .failure(let error) = completion {
-                    AppLogger.error("QQ推荐歌单获取失败: \(error)")
-                }
-            }, receiveValue: { [weak self] playlists in
-                self?.qqRecommendPlaylists = playlists
-                if !playlists.isEmpty {
-                    self?.markRemoteHomeDataArrived(reason: "qq recommend playlists")
-                }
-                Task { @MainActor in
-                    OptimizedCacheManager.shared.setObject(playlists, forKey: "qq_recommend_playlists")
-                }
-            })
-            .store(in: &cancellables)
-        
-        // qcm推荐新歌
-        apiService.fetchQQRecommendNewSongs()
-            .receive(on: DispatchQueue.main)
-            .sink(receiveCompletion: { completion in
-                if case .failure(let error) = completion {
-                    AppLogger.error("QQ推荐新歌获取失败: \(error)")
-                }
-            }, receiveValue: { [weak self] songs in
-                self?.qqNewSongs = songs
-                if !songs.isEmpty {
-                    self?.markRemoteHomeDataArrived(reason: "qq new songs")
-                }
-                Task { @MainActor in
-                    OptimizedCacheManager.shared.setObject(songs, forKey: "qq_new_songs")
-                    OptimizedCacheManager.shared.cacheSongs(songs)
-                }
-            })
-            .store(in: &cancellables)
+        refreshQCMHomeData(session: qcmSession)
 
         apiService.fetchKugouRecommendedPlaylists()
             .receive(on: DispatchQueue.main)
@@ -754,15 +876,15 @@ class HomeViewModel: ObservableObject {
             .store(in: &cancellables)
         
         // 需要登录的数据
-        if let uid = apiService.currentUserId {
+        if apiService.isLoggedIn, let uid = ncmSession.userID {
             apiService.fetchRecentSongs()
                 .receive(on: DispatchQueue.main)
                 .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] songs in
-                    self?.recentSongs = songs
-                    Task { @MainActor in
-                        OptimizedCacheManager.shared.setObject(songs, forKey: "recent_songs")
-                        OptimizedCacheManager.shared.cacheSongs(songs)
-                    }
+                    guard let self,
+                          self.apiService.isCurrentNCMSession(ncmSession) else { return }
+                    self.recentSongs = songs
+                    OptimizedCacheManager.shared.setObject(songs, forKey: "recent_songs")
+                    OptimizedCacheManager.shared.cacheSongs(songs)
                 })
                 .store(in: &cancellables)
             
@@ -772,21 +894,30 @@ class HomeViewModel: ObservableObject {
                 .receive(on: DispatchQueue.main)
                 .sink(receiveCompletion: { [weak self] completionResult in
                     if case .failure(let error) = completionResult {
+                        guard let self,
+                              self.apiService.isCurrentNCMSession(ncmSession) else { return }
                         AppLogger.warning("fetchUserDetail 失败: \(error)，尝试通过 loginStatus 获取")
                         // 降级：通过 loginStatus 获取用户信息
-                        self?.fetchUserProfile {
+                        self.fetchUserProfile(session: ncmSession) {
                             userProfileLoaded = true
                             checkAndMarkReady()
                         }
                     }
                 }, receiveValue: { [weak self] response in
-                    self?.applyUserProfile(response.profile, reason: "current user detail")
+                    guard let self,
+                          self.apiService.isCurrentNCMSession(ncmSession),
+                          response.profile.userId == uid,
+                          self.applyUserProfile(
+                              response.profile,
+                              reason: "current user detail",
+                              session: ncmSession
+                          ) != nil else { return }
                     userProfileLoaded = true
                     checkAndMarkReady()
                 })
                 .store(in: &cancellables)
         } else if shouldLoadUserProfile {
-            fetchUserProfile {
+            fetchUserProfile(session: ncmSession) {
                 userProfileLoaded = true
                 checkAndMarkReady()
             }
@@ -795,7 +926,12 @@ class HomeViewModel: ObservableObject {
     
     // MARK: - Helper Methods
     
-    private func fetchDailySongsOrStyle(force: Bool, completion: @escaping () -> Void = {}) {
+    private func fetchDailySongsOrStyle(
+        force: Bool,
+        session: APIService.NCMSessionSnapshot? = nil,
+        completion: @escaping () -> Void = {}
+    ) {
+        let session = session ?? apiService.ncmSessionSnapshot
         if !force && !dailySongs.isEmpty { 
             completion()
             return 
@@ -808,28 +944,33 @@ class HomeViewModel: ObservableObject {
                 .timeout(.seconds(15), scheduler: DispatchQueue.main, customError: { URLError(.timedOut) })
                 .receive(on: DispatchQueue.main)
                 .sink(receiveCompletion: { [weak self] result in
+                    guard let self,
+                          self.apiService.isCurrentNCMSession(session) else {
+                        completion()
+                        return
+                    }
                     if case .failure(let error) = result {
                         AppLogger.error("风格歌曲获取失败: \(error)")
-                        self?.fetchFallbackDailySongs(completion: completion)
+                        self.fetchFallbackDailySongs(session: session, completion: completion)
                         return
                     }
 
                     if !didReceiveSongs {
-                        self?.fetchFallbackDailySongs(completion: completion)
+                        self.fetchFallbackDailySongs(session: session, completion: completion)
                         return
                     }
 
                     completion()
                 }, receiveValue: { [weak self] songs in
+                    guard let self,
+                          self.apiService.isCurrentNCMSession(session) else { return }
                     didReceiveSongs = !songs.isEmpty
-                    self?.dailySongs = songs
+                    self.dailySongs = songs
                     if !songs.isEmpty {
-                        self?.markRemoteHomeDataArrived(reason: "style daily songs")
+                        self.markRemoteHomeDataArrived(reason: "style daily songs")
                     }
-                    Task { @MainActor in
-                        OptimizedCacheManager.shared.setObject(songs, forKey: "daily_songs")
-                        OptimizedCacheManager.shared.cacheSongs(songs)
-                    }
+                    OptimizedCacheManager.shared.setObject(songs, forKey: "daily_songs")
+                    OptimizedCacheManager.shared.cacheSongs(songs)
 
                     if !songs.isEmpty {
                         GlobalRefreshManager.shared.markDailyRefreshCompleted(for: .home)
@@ -843,28 +984,33 @@ class HomeViewModel: ObservableObject {
                 .timeout(.seconds(15), scheduler: DispatchQueue.main, customError: { URLError(.timedOut) })
                 .receive(on: DispatchQueue.main)
                 .sink(receiveCompletion: { [weak self] result in
+                    guard let self,
+                          self.apiService.isCurrentNCMSession(session) else {
+                        completion()
+                        return
+                    }
                     if case .failure(let error) = result {
                         AppLogger.error("每日推荐获取失败: \(error)")
-                        self?.fetchFallbackDailySongs(completion: completion)
+                        self.fetchFallbackDailySongs(session: session, completion: completion)
                         return
                     }
 
                     if !didReceiveSongs {
-                        self?.fetchFallbackDailySongs(completion: completion)
+                        self.fetchFallbackDailySongs(session: session, completion: completion)
                         return
                     }
 
                     completion()
                 }, receiveValue: { [weak self] songs in
+                    guard let self,
+                          self.apiService.isCurrentNCMSession(session) else { return }
                     didReceiveSongs = !songs.isEmpty
-                    self?.dailySongs = songs
+                    self.dailySongs = songs
                     if !songs.isEmpty {
-                        self?.markRemoteHomeDataArrived(reason: "daily songs")
+                        self.markRemoteHomeDataArrived(reason: "daily songs")
                     }
-                    Task { @MainActor in
-                        OptimizedCacheManager.shared.setObject(songs, forKey: "daily_songs")
-                        OptimizedCacheManager.shared.cacheSongs(songs)
-                    }
+                    OptimizedCacheManager.shared.setObject(songs, forKey: "daily_songs")
+                    OptimizedCacheManager.shared.cacheSongs(songs)
                     
                     if !songs.isEmpty {
                         GlobalRefreshManager.shared.markDailyRefreshCompleted(for: .home)
@@ -874,24 +1020,81 @@ class HomeViewModel: ObservableObject {
         }
     }
 
-    private func fetchFallbackDailySongs(completion: @escaping () -> Void) {
+    private func fetchFallbackDailySongs(
+        session: APIService.NCMSessionSnapshot,
+        completion: @escaping () -> Void
+    ) {
+        guard apiService.isCurrentNCMSession(session) else {
+            completion()
+            return
+        }
         AppLogger.debug("HomeViewModel: 使用公开新歌兜底首页歌曲")
         apiService.fetchPopularSongs()
             .timeout(.seconds(15), scheduler: DispatchQueue.main, customError: { URLError(.timedOut) })
             .receive(on: DispatchQueue.main)
-            .sink(receiveCompletion: { result in
+            .sink(receiveCompletion: { [weak self] result in
+                guard let self,
+                      self.apiService.isCurrentNCMSession(session) else {
+                    completion()
+                    return
+                }
                 if case .failure(let error) = result {
                     AppLogger.error("首页歌曲兜底获取失败: \(error)")
                 }
                 completion()
             }, receiveValue: { [weak self] songs in
-                guard !songs.isEmpty else { return }
-                self?.dailySongs = songs
-                self?.markRemoteHomeDataArrived(reason: "fallback daily songs")
-                Task { @MainActor in
-                    OptimizedCacheManager.shared.setObject(songs, forKey: "daily_songs")
-                    OptimizedCacheManager.shared.cacheSongs(songs)
+                guard let self,
+                      self.apiService.isCurrentNCMSession(session),
+                      !songs.isEmpty else { return }
+                self.dailySongs = songs
+                self.markRemoteHomeDataArrived(reason: "fallback daily songs")
+                OptimizedCacheManager.shared.setObject(songs, forKey: "daily_songs")
+                OptimizedCacheManager.shared.cacheSongs(songs)
+            })
+            .store(in: &cancellables)
+    }
+
+    private func refreshQCMHomeData(session: QQUserSession.SessionSnapshot) {
+        apiService.fetchQQRecommendPlaylists()
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { completion in
+                guard QQUserSession.shared.isCurrentSession(session) else { return }
+                if case .failure(let error) = completion {
+                    AppLogger.error("QQ推荐歌单获取失败: \(error)")
                 }
+            }, receiveValue: { [weak self] playlists in
+                guard let self,
+                      QQUserSession.shared.isCurrentSession(session) else { return }
+                self.qqRecommendPlaylists = playlists
+                if !playlists.isEmpty {
+                    self.markRemoteHomeDataArrived(reason: "qq recommend playlists")
+                }
+                OptimizedCacheManager.shared.setObject(
+                    playlists,
+                    forKey: Self.qcmRecommendPlaylistsCacheKey(for: session)
+                )
+            })
+            .store(in: &cancellables)
+
+        apiService.fetchQQRecommendNewSongs()
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { completion in
+                guard QQUserSession.shared.isCurrentSession(session) else { return }
+                if case .failure(let error) = completion {
+                    AppLogger.error("QQ推荐新歌获取失败: \(error)")
+                }
+            }, receiveValue: { [weak self] songs in
+                guard let self,
+                      QQUserSession.shared.isCurrentSession(session) else { return }
+                self.qqNewSongs = songs
+                if !songs.isEmpty {
+                    self.markRemoteHomeDataArrived(reason: "qq new songs")
+                }
+                OptimizedCacheManager.shared.setObject(
+                    songs,
+                    forKey: Self.qcmNewSongsCacheKey(for: session)
+                )
+                OptimizedCacheManager.shared.cacheSongs(songs)
             })
             .store(in: &cancellables)
     }
@@ -1187,36 +1390,28 @@ class HomeViewModel: ObservableObject {
 
     // MARK: - Actions
     
-    /// 退出登录时清除用户相关数据
+    /// NCM 退出时只清除 NCM 账号数据。
     private func handleLogout() {
-        AppLogger.info("HomeViewModel: 收到退出登录通知，清除数据")
+        guard !apiService.isLoggedIn else { return }
+        AppLogger.info("HomeViewModel: NCM 退出，清除 NCM 账号数据")
         emptyHomeRetryTask?.cancel()
         emptyHomeRetryTask = nil
         emptyHomeAutomaticRetryCount = 0
         completeHomeRefresh()
         userProfile = nil
-        hitokoto = nil
         UserDefaults.standard.removeObject(forKey: Self.userProfileBackupKey)
         UserDefaults.standard.removeObject(forKey: Self.lastSuccessfulHomeRefreshKey)
         recentSongs = []
         dailySongs = []
         recommendPlaylists = []
-        qqRecommendPlaylists = []
-        qqNewSongs = []
-        kugouRecommendPlaylists = []
-        popularSongs = []
-        banners = []
-        hotSearch = NSLocalizedString("search_bar_placeholder", comment: "")
-        
-        // 清空所有缓存，防止 loadCache 恢复旧数据
-        OptimizedCacheManager.shared.clearAll()
+        OptimizedCacheManager.shared.clearNCMAccountData()
         
         // 重置数据就绪状态，确保后续加载能正确标记
         GlobalRefreshManager.shared.isHomeDataReady = false
         GlobalRefreshManager.shared.isLibraryDataReady = false
         GlobalRefreshManager.shared.isProfileDataReady = false
         
-        // 重新获取公开数据（不需要登录的）
+        // 刷新退出后的首页数据
         fetchData(forceDaily: true)
     }
     

@@ -163,7 +163,7 @@ extension ProfileView {
     }
 
     var mujiProfileJournalPanel: some View {
-        let profile = cachedProfile ?? viewModel.userProfile
+        let profile = displayedProfile
         let signature = profile?.signature?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
         return VStack(alignment: .leading, spacing: 0) {
@@ -172,10 +172,10 @@ extension ProfileView {
 
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 10) {
-                        if let level = userLevel {
+                        if loginIdentity.activeSource == .netease, let level = userLevel {
                             MujiPill(text: "Lv.\(level)", tint: MujiStyle.clay)
                         }
-                        MujiPill(text: formatNumber(listenSongs ?? 0), tint: MujiStyle.tea)
+                        MujiPill(text: identityPrimaryMetricValue, tint: MujiStyle.tea)
                     }
 
                     Text(profile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
@@ -257,16 +257,18 @@ extension ProfileView {
                 }
                 .buttonStyle(.plain)
 
-                MujiProfileDivider()
+                if loginIdentity.activeSource == .netease {
+                    MujiProfileDivider()
 
-                NavigationLink(destination: CloudDiskView()) {
-                    MujiProfileLedgerRow(
-                        icon: .cloud,
-                        title: NSLocalizedString("profile_cloud_disk", comment: ""),
-                        value: "CLOUD"
-                    )
+                    NavigationLink(destination: CloudDiskView()) {
+                        MujiProfileLedgerRow(
+                            icon: .cloud,
+                            title: NSLocalizedString("profile_cloud_disk", comment: ""),
+                            value: "CLOUD"
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 6)

@@ -408,7 +408,7 @@ private struct ClarityPlayerBackdrop: View, Equatable {
             ZStack {
                 ClarityBackdrop(context: .player)
 
-                if settings.coverBgPlayer, let cover = coverURL {
+                if settings.usesPlayerCoverBackground, let cover = coverURL {
                     CachedAsyncImage(
                         // A 54pt blur contains no visible 1200px detail. Decode a
                         // compact source and let the compositor scale the static

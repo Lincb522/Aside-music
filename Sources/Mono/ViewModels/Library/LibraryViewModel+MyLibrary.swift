@@ -5,18 +5,22 @@ import Combine
 extension LibraryViewModel {
     // MARK: - My Library
     
-    /// 退出登录时清除用户相关数据
-    func handleLogout() {
-        AppLogger.info("LibraryViewModel: 收到退出登录通知，清除数据")
+    func handleNCMLogout() {
+        guard !apiService.isLoggedIn else { return }
+        AppLogger.info("LibraryViewModel: NCM 退出，清除 NCM 用户歌单")
+        playlistRetryCount = 0
         userPlaylists = []
+        SubscriptionManager.shared.resetRemoteNCMState()
+    }
+
+    func handleKCMSessionDidChange() {
         kugouUserPlaylists = []
-        squarePlaylists = []
-        topArtists = []
-        topLists = []
-        qqSquarePlaylists = []
-        qqArtists = []
-        qqTopLists = []
-        kugouTopLists = []
+        let service = KCMMusicService.shared
+        let session = service.sessionSnapshot
+        guard session.isAuthenticated,
+              service.isCurrentSession(session) else { return }
+        restoreCachedPlaylistsIfNeeded()
+        loadKugouUserPlaylists(session: session)
     }
 
     func fetchPlaylists(force: Bool = false) {
@@ -25,13 +29,16 @@ extension LibraryViewModel {
         // corresponding collection is still empty.
         restoreCachedPlaylistsIfNeeded()
 
-        if KCMMusicService.shared.isAuthenticated {
-            loadKugouUserPlaylists()
-        } else {
+        let kcmService = KCMMusicService.shared
+        let kcmSession = kcmService.sessionSnapshot
+        if kcmSession.isAuthenticated {
+            loadKugouUserPlaylists(session: kcmSession)
+        } else if kcmService.isCurrentSession(kcmSession) {
             kugouUserPlaylists = []
         }
 
-        guard let uid = apiService.currentUserId else {
+        let ncmSession = apiService.ncmSessionSnapshot
+        guard apiService.isLoggedIn, let uid = ncmSession.userID else {
             #if DEBUG
             AppLogger.debug("[Library] fetchPlaylists: currentUserId 为 nil，跳过")
             #endif
@@ -52,7 +59,9 @@ extension LibraryViewModel {
         if force {
             // 服务端数据可能有短暂延迟，等待 0.5 秒再请求
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-                self?.loadUserPlaylists(uid: uid)
+                guard let self,
+                      self.apiService.isCurrentNCMSession(ncmSession) else { return }
+                self.loadUserPlaylists(uid: uid, session: ncmSession)
             }
             return
         }
@@ -61,22 +70,26 @@ extension LibraryViewModel {
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
                 if case .failure(let error) = completion {
+                    guard let self,
+                          self.apiService.isCurrentNCMSession(ncmSession) else { return }
                     #if DEBUG
                     print("[Library] fetchLoginStatus 失败: \(error)，使用已有 uid=\(uid) 加载歌单")
                     #endif
                     // 即使登录状态检查失败，也尝试用已有 uid 加载歌单
-                    self?.loadUserPlaylists(uid: uid)
+                    self.loadUserPlaylists(uid: uid, session: ncmSession)
                 }
             }, receiveValue: { [weak self] response in
+                guard let self,
+                      self.apiService.isCurrentNCMSession(ncmSession) else { return }
                 if let profile = response.data.profile {
-                    self?.apiService.currentUserId = profile.userId
-                    self?.loadUserPlaylists(uid: profile.userId)
+                    guard profile.userId == uid else { return }
+                    self.loadUserPlaylists(uid: uid, session: ncmSession)
                 } else {
                     #if DEBUG
                     print("[Library] fetchLoginStatus 返回 profile 为 nil，使用已有 uid=\(uid) 加载歌单")
                     #endif
                     // profile 为 nil 但 uid 存在，仍然尝试加载歌单
-                    self?.loadUserPlaylists(uid: uid)
+                    self.loadUserPlaylists(uid: uid, session: ncmSession)
                 }
             })
             .store(in: &cancellables)
@@ -84,52 +97,72 @@ extension LibraryViewModel {
 
     private func restoreCachedPlaylistsIfNeeded() {
         guard userPlaylists.isEmpty || kugouUserPlaylists.isEmpty else { return }
+        let ncmSession = apiService.ncmSessionSnapshot
+        let kcmSession = KCMMusicService.shared.sessionSnapshot
 
         Task { [weak self] in
             async let cachedUser = OptimizedCacheManager.shared.getObjectAsync(
                 forKey: "user_playlists",
                 type: [Playlist].self
             )
-            async let cachedKugou = OptimizedCacheManager.shared.getObjectAsync(
-                forKey: "kcm_user_playlists",
-                type: [Playlist].self
-            )
-            let (user, kugou) = await (cachedUser, cachedKugou)
+            let kugou: [Playlist]?
+            if let userID = kcmSession.userID {
+                kugou = await OptimizedCacheManager.shared.getObjectAsync(
+                    forKey: "kcm_user_playlists_\(userID)",
+                    type: [Playlist].self
+                )
+            } else {
+                kugou = nil
+            }
+            let user = await cachedUser
             guard let self else { return }
 
-            if self.userPlaylists.isEmpty, let user {
+            if self.apiService.isCurrentNCMSession(ncmSession),
+               ncmSession.userID != nil,
+               self.apiService.isLoggedIn,
+               self.userPlaylists.isEmpty,
+               let user {
                 self.userPlaylists = user.filter { !$0.isKugou }
             }
             if self.kugouUserPlaylists.isEmpty,
-               KCMMusicService.shared.isAuthenticated,
+               kcmSession.isAuthenticated,
+               KCMMusicService.shared.isCurrentSession(kcmSession),
                let kugou {
+                guard KCMMusicService.shared.isCurrentSession(kcmSession) else { return }
                 self.kugouUserPlaylists = kugou
             }
         }
     }
 
-    func loadUserPlaylists(uid: Int) {
+    func loadUserPlaylists(uid: Int, session: APIService.NCMSessionSnapshot) {
+        guard session.userID == uid,
+              apiService.isCurrentNCMSession(session),
+              apiService.isLoggedIn else { return }
         #if DEBUG
         print("[Library] loadUserPlaylists: uid=\(uid)")
         #endif
         apiService.fetchUserPlaylists(uid: uid)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
+                guard let self,
+                      self.apiService.isCurrentNCMSession(session) else { return }
                 if case .failure(let error) = completion {
                     AppLogger.error("歌单获取失败: \(error)")
                     #if DEBUG
                     print("[Library] ❌ 歌单获取失败: \(error)")
                     #endif
-                    self?.retryLoadPlaylistsIfNeeded(uid: uid)
+                    self.retryLoadPlaylistsIfNeeded(uid: uid, session: session)
                 }
                 GlobalRefreshManager.shared.markLibraryDataReady()
             }, receiveValue: { [weak self] playlists in
+                guard let self,
+                      self.apiService.isCurrentNCMSession(session) else { return }
                 #if DEBUG
                 print("[Library] ✅ 获取到 \(playlists.count) 个歌单")
                 #endif
-                self?.playlistRetryCount = 0
+                self.playlistRetryCount = 0
                 let filtered = playlists.filter { !$0.name.hasPrefix("test_audit") && $0.name != "test_audit_tmp" }
-                self?.userPlaylists = filtered
+                self.userPlaylists = filtered
                 SubscriptionManager.shared.updatePlaylistSubscriptions(from: playlists, userId: uid)
                 OptimizedCacheManager.shared.setObject(filtered, forKey: "user_playlists")
                 OptimizedCacheManager.shared.cachePlaylists(playlists)
@@ -138,22 +171,42 @@ extension LibraryViewModel {
     }
 
     func loadKugouUserPlaylists() {
+        loadKugouUserPlaylists(session: KCMMusicService.shared.sessionSnapshot)
+    }
+
+    private func loadKugouUserPlaylists(session: KCMMusicService.SessionSnapshot) {
+        let service = KCMMusicService.shared
+        guard session.isAuthenticated,
+              let userID = session.userID,
+              service.isCurrentSession(session) else { return }
         apiService.fetchKugouUserPlaylists()
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { completion in
+                guard service.isCurrentSession(session) else { return }
                 if case .failure(let error) = completion {
                     AppLogger.warning("KCM 个人歌单获取失败: \(error)")
                 }
             }, receiveValue: { [weak self] playlists in
-                guard let self else { return }
+                guard let self,
+                      service.isCurrentSession(session) else { return }
                 self.kugouUserPlaylists = playlists
-                OptimizedCacheManager.shared.setObject(playlists, forKey: "kcm_user_playlists")
+                guard service.isCurrentSession(session) else { return }
+                OptimizedCacheManager.shared.setObject(
+                    playlists,
+                    forKey: "kcm_user_playlists_\(userID)"
+                )
+                guard service.isCurrentSession(session) else { return }
                 OptimizedCacheManager.shared.cachePlaylists(playlists)
             })
             .store(in: &cancellables)
     }
 
-    func retryLoadPlaylistsIfNeeded(uid: Int) {
+    func retryLoadPlaylistsIfNeeded(
+        uid: Int,
+        session: APIService.NCMSessionSnapshot
+    ) {
+        guard session.userID == uid,
+              apiService.isCurrentNCMSession(session) else { return }
         guard playlistRetryCount < maxPlaylistRetries, userPlaylists.isEmpty else { return }
         playlistRetryCount += 1
         let delay = Double(playlistRetryCount) * 3.0
@@ -161,7 +214,9 @@ extension LibraryViewModel {
         print("[Library] 🔄 歌单加载失败，\(delay)秒后第\(playlistRetryCount)次重试")
         #endif
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-            self?.loadUserPlaylists(uid: uid)
+            guard let self,
+                  self.apiService.isCurrentNCMSession(session) else { return }
+            self.loadUserPlaylists(uid: uid, session: session)
         }
     }
 }

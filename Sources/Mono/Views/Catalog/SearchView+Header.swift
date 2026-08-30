@@ -173,18 +173,11 @@ extension SearchView {
                                         .foregroundColor(searchPlaceholderColor)
                                         .lineLimit(1)
                                 }
-                            } else if let defaultKw = viewModel.defaultKeyword {
-                                Text(defaultKw.showKeyword)
+                            } else {
+                                Text(String(localized: "action_search"))
                                     .font(searchFieldFont(weight: .medium))
                                     .foregroundColor(searchPlaceholderColor)
                                     .lineLimit(1)
-                                    .onTapWithHaptic {
-                                        viewModel.performSearch(keyword: defaultKw.realkeyword)
-                                        isFocused = false
-                                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                                            isSearchBarExpanded = false
-                                        }
-                                    }
                             }
                         }
 

@@ -58,8 +58,8 @@ extension KCMMusicService {
                 }
             } catch KCMMusicError.authenticationRequired {
                 throw KCMMusicError.authenticationRequired
-            } catch KCMMusicError.sessionExpired {
-                throw KCMMusicError.sessionExpired
+            } catch KCMMusicError.sessionExpired(let failureContext) {
+                throw KCMMusicError.sessionExpired(failureContext)
             } catch {
                 lastError = error
             }

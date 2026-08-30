@@ -4,7 +4,7 @@ import SwiftUI
 
 extension ProfileView {
     var neumorphicProfileHeroPanel: some View {
-        let profile = cachedProfile ?? viewModel.userProfile
+        let profile = displayedProfile
 
         return VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .center, spacing: 16) {
@@ -31,13 +31,13 @@ extension ProfileView {
                     }
 
                     HStack(spacing: 8) {
-                        if let level = userLevel {
+                        if loginIdentity.activeSource == .netease, let level = userLevel {
                             NeumorphicPill(text: "Lv.\(level)", tint: NeumorphicStyle.accent, compact: true)
                         }
                         NeumorphicPill(
-                            text: formatNumber(listenSongs ?? 0),
+                            text: identityPrimaryMetricValue,
                             tint: NeumorphicStyle.warm,
-                            icon: .headphones,
+                            icon: identityPrimaryMetricIcon,
                             compact: true
                         )
                     }
@@ -51,7 +51,7 @@ extension ProfileView {
                 neumorphicProfileSignalBar(tint: NeumorphicStyle.sage, width: 38)
                 neumorphicProfileSignalBar(tint: NeumorphicStyle.warm, width: 48)
                 Spacer(minLength: 0)
-                Text(String(localized: "profile_total_songs"))
+                Text(identityPrimaryMetricLabel)
                     .font(NeumorphicStyle.labelFont(11, weight: .medium))
                     .foregroundStyle(NeumorphicStyle.inkMuted)
             }
@@ -103,10 +103,10 @@ extension ProfileView {
     var neumorphicProfileMetricDeck: some View {
         HStack(spacing: 8) {
             NeumorphicProfileMetricTile(
-                value: formatNumber(listenSongs ?? 0),
-                label: String(localized: "profile_total_songs"),
+                value: identityPrimaryMetricValue,
+                label: identityPrimaryMetricLabel,
                 tint: NeumorphicStyle.accent,
-                icon: .headphones
+                icon: identityPrimaryMetricIcon
             )
             NeumorphicProfileMetricTile(
                 value: "\(localPlaylistCount)",
@@ -218,15 +218,17 @@ extension ProfileView {
                 }
                 .buttonStyle(MonoBouncingButtonStyle(scale: 0.97))
 
-                NavigationLink(destination: CloudDiskView()) {
-                    NeumorphicProfileShortcutTile(
-                        icon: .cloud,
-                        title: NSLocalizedString("profile_cloud_disk", comment: ""),
-                        value: "CLOUD",
-                        tint: NeumorphicStyle.accent
-                    )
+                if loginIdentity.activeSource == .netease {
+                    NavigationLink(destination: CloudDiskView()) {
+                        NeumorphicProfileShortcutTile(
+                            icon: .cloud,
+                            title: NSLocalizedString("profile_cloud_disk", comment: ""),
+                            value: "CLOUD",
+                            tint: NeumorphicStyle.accent
+                        )
+                    }
+                    .buttonStyle(MonoBouncingButtonStyle(scale: 0.97))
                 }
-                .buttonStyle(MonoBouncingButtonStyle(scale: 0.97))
             }
         }
     }

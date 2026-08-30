@@ -1,9 +1,13 @@
 import SwiftUI
 
 struct NCMAccountView: View {
-    @AppStorage("isLoggedIn") private var isLoggedIn = false
     @ObservedObject private var homeViewModel = HomeViewModel.shared
+    @ObservedObject private var loginIdentity = LoginIdentityManager.shared
     @State private var showLogoutConfirmation = false
+
+    private var isLoggedIn: Bool {
+        loginIdentity.isLoggedIn(to: .netease)
+    }
 
     var body: some View {
         List {
@@ -28,7 +32,12 @@ struct NCMAccountView: View {
                 NavigationLink {
                     PlatformLoginView(initialPlatform: .ncm)
                 } label: {
-                    Label(isLoggedIn ? "重新登录" : "扫码登录", systemImage: "qrcode")
+                    Label(
+                        isLoggedIn
+                            ? String(localized: "ncm_account_relogin")
+                            : String(localized: "ncm_account_login"),
+                        systemImage: "person.crop.circle"
+                    )
                 }
 
                 if isLoggedIn {
@@ -89,7 +98,7 @@ struct NCMAccountView: View {
 
     private func logout() {
         let publisher = UnsafeSendableBox(APIService.shared.logout())
-        isLoggedIn = false
+        LoginIdentityManager.shared.accountDidLogOut(.netease)
         Task {
             do {
                 _ = try await publisher.value.async()

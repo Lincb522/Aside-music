@@ -197,6 +197,7 @@ struct SoundQualitySheet: View {
         case .hires: return 0.78
         case .jyeffect: return 0.7
         case .sky: return 0.84
+        case .vivid: return 0.9
         case .jymaster: return 1
         case .multitrack: return 0.92
         }

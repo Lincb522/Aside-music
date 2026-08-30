@@ -10,6 +10,22 @@ extension KCMMusicService {
             path: path,
             method: method,
             query: query,
+            expectedSession: nil,
+            allowsAuthenticationRefresh: true
+        )
+    }
+
+    func request(
+        path: String,
+        method: String = "GET",
+        query: [URLQueryItem] = [],
+        ifCurrentSession expectedSession: SessionSnapshot
+    ) async throws -> [String: Any] {
+        try await request(
+            path: path,
+            method: method,
+            query: query,
+            expectedSession: expectedSession,
             allowsAuthenticationRefresh: true
         )
     }
@@ -18,12 +34,17 @@ extension KCMMusicService {
         path: String,
         method: String,
         query: [URLQueryItem],
+        expectedSession: SessionSnapshot?,
         allowsAuthenticationRefresh: Bool
     ) async throws -> [String: Any] {
+        guard let context = sessionRequestContext(ifCurrent: expectedSession) else {
+            throw CancellationError()
+        }
+
         var lastError: Error = KCMMusicError.invalidResponse
         let endpoints = serviceEndpoints
-        let cookieAtRequestStart = currentCookie
         for (index, endpoint) in endpoints.enumerated() {
+            guard isCurrentRequestContext(context) else { throw CancellationError() }
             guard var components = URLComponents(
                 url: endpoint.url.appendingPathComponent(path),
                 resolvingAgainstBaseURL: false
@@ -33,28 +54,58 @@ extension KCMMusicService {
             components.queryItems = query.isEmpty ? nil : query
             guard let url = components.url else { continue }
             do {
-                return try await request(url: url, method: method)
+                return try await request(url: url, method: method, context: context)
             } catch {
                 if allowsAuthenticationRefresh,
-                   cookieAtRequestStart != nil,
+                   context.snapshot.isAuthenticated,
                    Self.isAuthenticationFailure(error) {
                     do {
-                        try await authenticationRefreshCoordinator.run { [self] in
-                            guard currentCookie == cookieAtRequestStart else { return }
-                            try await refreshAuthenticatedSession()
+                        try await authenticationRefreshCoordinator.run(
+                            for: context.credentialContext
+                        ) { [self] in
+                            guard isCurrentRequestContext(context) else {
+                                throw CancellationError()
+                            }
+                            _ = try await refreshAuthenticatedSession(
+                                ifCurrentRequestContext: context
+                            )
+                        }
+                        guard isCurrentSession(context.snapshot) else {
+                            throw CancellationError()
                         }
                         return try await request(
                             path: path,
                             method: method,
                             query: query,
+                            expectedSession: context.snapshot,
                             allowsAuthenticationRefresh: false
                         )
                     } catch let refreshError {
+                        if let kcmError = refreshError as? KCMMusicError,
+                           case .sessionExpired(let failureContext) = kcmError,
+                           failureContext != nil {
+                            throw kcmError
+                        }
                         if Self.isAuthenticationFailure(refreshError) {
-                            throw KCMMusicError.sessionExpired
+                            guard isCurrentRequestContext(context) else {
+                                throw CancellationError()
+                            }
+                            throw KCMMusicError.sessionExpired(context.credentialContext)
                         }
                         throw refreshError
                     }
+                }
+                if context.snapshot.isAuthenticated,
+                   Self.isAuthenticationFailure(error) {
+                    if let kcmError = error as? KCMMusicError,
+                       case .sessionExpired(let failureContext) = kcmError,
+                       failureContext != nil {
+                        throw kcmError
+                    }
+                    guard isCurrentRequestContext(context) else {
+                        throw CancellationError()
+                    }
+                    throw KCMMusicError.sessionExpired(context.credentialContext)
                 }
                 lastError = error
                 guard Self.shouldTryNextServiceEndpoint(after: error),
@@ -72,11 +123,38 @@ extension KCMMusicService {
     func loginRequest(
         path: String,
         query: [URLQueryItem] = [],
-        sendStoredCookie: Bool = false
-    ) async throws -> ([String: Any], URL) {
+        sendStoredCookie: Bool = false,
+        ifCurrentRequestContext expectedContext: SessionRequestContext? = nil
+    ) async throws -> ([String: Any], HTTPURLResponse, SessionRequestContext?) {
+        let context: SessionRequestContext?
+        if sendStoredCookie {
+            let requestContext: SessionRequestContext
+            if let expectedContext {
+                guard isCurrentRequestContext(expectedContext) else {
+                    throw CancellationError()
+                }
+                requestContext = expectedContext
+            } else {
+                guard let currentContext = sessionRequestContext() else {
+                    throw KCMMusicError.authenticationRequired
+                }
+                requestContext = currentContext
+            }
+            guard requestContext.snapshot.isAuthenticated,
+                  requestContext.cookieHeader != nil else {
+                throw KCMMusicError.authenticationRequired
+            }
+            context = requestContext
+        } else {
+            context = nil
+        }
+
         var lastError: Error = KCMMusicError.invalidResponse
         let endpoints = serviceEndpoints
         for (index, endpoint) in endpoints.enumerated() {
+            if let context, !isCurrentRequestContext(context) {
+                throw CancellationError()
+            }
             guard var components = URLComponents(
                 url: endpoint.url.appendingPathComponent(path),
                 resolvingAgainstBaseURL: false
@@ -95,7 +173,7 @@ extension KCMMusicService {
             request.setValue("no-store, no-cache, max-age=0", forHTTPHeaderField: "Cache-Control")
             request.setValue("no-cache", forHTTPHeaderField: "Pragma")
             applyApplicationAuthorization(to: &request)
-            if sendStoredCookie, let cookie = currentCookie {
+            if let cookie = context?.cookieHeader {
                 request.setValue(cookie, forHTTPHeaderField: "Cookie")
             }
             do {
@@ -106,8 +184,19 @@ extension KCMMusicService {
                     throw KCMMusicError.invalidResponse
                 }
                 try Self.validate(json: json, statusCode: http.statusCode)
-                return (json, url)
+                if let context, !isCurrentRequestContext(context) {
+                    throw CancellationError()
+                }
+                return (json, http, context)
             } catch {
+                if let context {
+                    guard isCurrentRequestContext(context) else {
+                        throw CancellationError()
+                    }
+                    if Self.isAuthenticationFailure(error) {
+                        throw KCMMusicError.sessionExpired(context.credentialContext)
+                    }
+                }
                 lastError = error
                 guard Self.shouldTryNextServiceEndpoint(after: error),
                       index < endpoints.index(before: endpoints.endIndex) else {
@@ -146,59 +235,149 @@ extension KCMMusicService {
         }
     }
 
-    func persistAuthenticatedSession(json: [String: Any], responseURL: URL) throws {
-        let data = json["data"] as? [String: Any] ?? [:]
-        var values: [String: String] = [:]
-        for cookie in HTTPCookieStorage.shared.cookies(for: responseURL) ?? [] {
-            values[cookie.name] = cookie.value
-        }
-        if let token = Self.string(data["token"]), !token.isEmpty {
-            values["token"] = token
-        }
-        if let userID = Self.string(data["userid"]), !userID.isEmpty {
-            values["userid"] = userID
-        }
-        var normalizedValues: [String: String] = [:]
-        for (name, value) in values {
-            normalizedValues[name.lowercased()] = value
-        }
-        guard let token = normalizedValues["token"], !token.isEmpty,
-              let userID = normalizedValues["userid"], userID != "0", !userID.isEmpty else {
-            throw KCMMusicError.authenticationRequired
-        }
-        let header = values
-            .sorted { $0.key < $1.key }
-            .map { "\($0.key)=\($0.value)" }
-            .joined(separator: "; ")
-        applyCookie(header)
-    }
-
-    func request(
+    func requestPublicJSON(
         url: URL,
         method: String = "GET",
-        sendCookie: Bool = true,
         headers: [String: String] = [:]
     ) async throws -> [String: Any] {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.timeoutInterval = 20
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        applyApplicationAuthorization(to: &request)
         for (name, value) in headers {
             request.setValue(value, forHTTPHeaderField: name)
         }
-        if sendCookie, let cookie = currentCookie {
-            request.setValue(cookie, forHTTPHeaderField: "Cookie")
-        }
 
         let (data, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse else { throw KCMMusicError.invalidResponse }
-        if sendCookie { persistResponseCookies(for: url) }
-        guard !data.isEmpty,
+        guard let http = response as? HTTPURLResponse,
+              !data.isEmpty,
               let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw KCMMusicError.invalidResponse
         }
         try Self.validate(json: json, statusCode: http.statusCode)
+        return json
+    }
+
+    @discardableResult
+    func persistAuthenticatedSession(
+        json: [String: Any],
+        response: HTTPURLResponse,
+        ifCurrentRequestContext context: SessionRequestContext
+    ) throws -> SessionSnapshot {
+        let header = try authenticatedCookieHeader(
+            json: json,
+            response: response,
+            requestCookieHeader: context.cookieHeader
+        )
+        guard let updatedSession = updateCookie(
+            header,
+            ifCurrentRequestContext: context
+        ) else {
+            throw CancellationError()
+        }
+        return updatedSession
+    }
+
+    @discardableResult
+    func persistAuthenticatedSession(
+        json: [String: Any],
+        response: HTTPURLResponse,
+        forLoginAttempt attempt: LoginAttempt
+    ) throws -> SessionSnapshot {
+        let header = try authenticatedCookieHeader(
+            json: json,
+            response: response,
+            requestCookieHeader: nil
+        )
+        guard let acceptedSession = applyCookie(header, forLoginAttempt: attempt) else {
+            throw CancellationError()
+        }
+        return acceptedSession
+    }
+
+    private func authenticatedCookieHeader(
+        json: [String: Any],
+        response: HTTPURLResponse,
+        requestCookieHeader: String?
+    ) throws -> String {
+        var values = requestCookieHeader.map(Self.cookieValues(in:)) ?? [:]
+        for (name, value) in responseCookieValues(from: response) {
+            values[name] = value
+        }
+
+        let data = json["data"] as? [String: Any] ?? [:]
+        if let token = Self.string(data["token"]), !token.isEmpty {
+            values["token"] = token
+        }
+        if let userID = Self.string(data["userid"]), !userID.isEmpty {
+            values["userid"] = userID
+        }
+        guard values["token"]?.isEmpty == false,
+              let userID = values["userid"], userID != "0", !userID.isEmpty else {
+            throw KCMMusicError.authenticationRequired
+        }
+        return Self.cookieHeader(from: values)
+    }
+
+    private func request(
+        url: URL,
+        method: String,
+        context: SessionRequestContext
+    ) async throws -> [String: Any] {
+        guard isCurrentRequestContext(context) else { throw CancellationError() }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.timeoutInterval = 20
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        applyApplicationAuthorization(to: &request)
+        if let cookie = context.cookieHeader {
+            request.setValue(cookie, forHTTPHeaderField: "Cookie")
+        }
+
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw KCMMusicError.invalidResponse
+        }
+        guard !data.isEmpty,
+              let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw KCMMusicError.invalidResponse
+        }
+        do {
+            try Self.validate(json: json, statusCode: http.statusCode)
+        } catch {
+            guard isCurrentRequestContext(context) else {
+                throw CancellationError()
+            }
+            if context.snapshot.isAuthenticated,
+               Self.isAuthenticationFailure(error) {
+                throw KCMMusicError.sessionExpired(context.credentialContext)
+            }
+            throw error
+        }
+
+        let responseValues = responseCookieValues(from: http)
+        if context.snapshot.isAuthenticated, !responseValues.isEmpty {
+            guard isCurrentRequestContext(context) else { throw CancellationError() }
+            var values = context.cookieHeader.map(Self.cookieValues(in:)) ?? [:]
+            for (name, value) in responseValues {
+                values[name] = value
+            }
+            guard values["token"]?.isEmpty == false,
+                  let userID = values["userid"], userID != "0", !userID.isEmpty else {
+                throw KCMMusicError.sessionExpired(context.credentialContext)
+            }
+            guard updateCookie(
+                Self.cookieHeader(from: values),
+                ifCurrentRequestContext: context
+            ) != nil else {
+                throw CancellationError()
+            }
+        } else if !isCurrentRequestContext(context) {
+            throw CancellationError()
+        }
+
+        guard isCurrentSession(context.snapshot) else { throw CancellationError() }
         return json
     }
 
@@ -209,14 +388,24 @@ extension KCMMusicService {
         request.setValue(DeviceIdentifier.uuid, forHTTPHeaderField: "X-Device-ID")
     }
 
-    func persistResponseCookies(for url: URL) {
-        guard let cookies = HTTPCookieStorage.shared.cookies(for: url), !cookies.isEmpty else { return }
-        let header = HTTPCookie.requestHeaderFields(with: cookies)["Cookie"]
-        guard let header, !header.isEmpty else { return }
-        let values = Self.cookieValues(in: header)
-        guard values["token"]?.isEmpty == false,
-              let userID = values["userid"], userID != "0", !userID.isEmpty else { return }
-        KeychainHelper.save(key: cookieKey, value: header)
+    private func responseCookieValues(from response: HTTPURLResponse) -> [String: String] {
+        var fields: [String: String] = [:]
+        for (name, value) in response.allHeaderFields {
+            guard let name = name as? String else { continue }
+            fields[name] = String(describing: value)
+        }
+        let responseURL = response.url ?? baseURL
+        var values: [String: String] = [:]
+        for cookie in HTTPCookie.cookies(withResponseHeaderFields: fields, for: responseURL) {
+            values[cookie.name.lowercased()] = cookie.value
+        }
+        return values
     }
 
+    private static func cookieHeader(from values: [String: String]) -> String {
+        values
+            .sorted { $0.key < $1.key }
+            .map { "\($0.key)=\($0.value)" }
+            .joined(separator: "; ")
+    }
 }

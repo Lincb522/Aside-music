@@ -77,21 +77,27 @@ struct QQPlaylistsView: View {
         .onAppear {
             if !hasLoaded { Task { await loadPlaylists() } }
         }
-        .onChange(of: qqSession.isLoggedIn) { _, loggedIn in
-            if !loggedIn {
-                qqPlaylists = []
-                hasLoaded = false
-            } else if !hasLoaded {
-                Task { await loadPlaylists() }
+        .onChange(of: qqSession.sessionRevision) { _, _ in
+            qqPlaylists = []
+            hasLoaded = false
+            isLoading = false
+            if qqSession.isLoggedIn {
+                Task { await loadPlaylists(force: true) }
             }
         }
     }
 
     private func loadPlaylists(force _: Bool = false) async {
-        guard QQUserSession.shared.isLoggedIn else { return }
-        guard let mid = QQUserSession.shared.musicId else { return }
+        let session = qqSession.sessionSnapshot
+        guard !isLoading else { return }
+        guard session.isLoggedIn, let mid = session.musicID else { return }
         isLoading = true
-        defer { isLoading = false; hasLoaded = true }
+        defer {
+            if qqSession.isCurrentSession(session) {
+                isLoading = false
+                hasLoaded = true
+            }
+        }
 
         do {
             let result: JSON = try await QQUserSession.shared.withUserSession { client in
@@ -118,8 +124,10 @@ struct QQPlaylistsView: View {
                     ))
                 }
             }
+            guard qqSession.isCurrentSession(session) else { return }
             qqPlaylists = items
         } catch {
+            guard qqSession.isCurrentSession(session) else { return }
             AppLogger.error("[QQPlaylists] 加载歌单失败: \(error)")
         }
     }

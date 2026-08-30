@@ -204,7 +204,8 @@ extension APIService {
             let body = try await Self.postToBackend(
                 serverUrl: serverUrl,
                 route: "/dj/sub",
-                params: params
+                params: params,
+                cookie: try ncm.currentSessionCookieHeader()
             )
             return SimpleResponse(
                 code: body["code"] as? Int ?? 200,
@@ -236,7 +237,8 @@ extension APIService {
             let body = try await Self.postToBackend(
                 serverUrl: serverUrl,
                 route: "/playlist/subscribe",
-                params: params
+                params: params,
+                cookie: try ncm.currentSessionCookieHeader()
             )
             return SimpleResponse(
                 code: body["code"] as? Int ?? 200,

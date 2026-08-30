@@ -265,7 +265,7 @@ final class GameModeManager: ObservableObject {
         } else if settings.gameModeLowerQuality {
             let current = PlayerManager.shared.soundQuality
             // 只在当前音质高于"标准"时降低，避免用户本来就是标准不必折腾
-            let downgrade: [SoundQuality] = [.multitrack, .jymaster, .sky, .jyeffect, .hires, .lossless, .exhigh, .higher]
+            let downgrade: [SoundQuality] = [.multitrack, .jymaster, .vivid, .sky, .jyeffect, .hires, .lossless, .exhigh, .higher]
             if downgrade.contains(current) {
                 PlayerManager.shared.switchQuality(.standard)
             }
@@ -435,7 +435,7 @@ final class GameModeManager: ObservableObject {
         defer { isApplyingEnter = false }
         if settings.gameModeLowerQuality {
             let current = PlayerManager.shared.soundQuality
-            let downgrade: [SoundQuality] = [.multitrack, .jymaster, .sky, .jyeffect, .hires, .lossless, .exhigh, .higher]
+            let downgrade: [SoundQuality] = [.multitrack, .jymaster, .vivid, .sky, .jyeffect, .hires, .lossless, .exhigh, .higher]
             if downgrade.contains(current) {
                 PlayerManager.shared.switchQuality(.standard)
             }

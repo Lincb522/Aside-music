@@ -97,7 +97,7 @@ enum KCMDailyVIPClaimResult: Sendable {
 
 enum KCMMusicError: LocalizedError {
     case authenticationRequired
-    case sessionExpired
+    case sessionExpired(KCMMusicService.SessionCredentialContext? = nil)
     case verificationRequired
     case invalidResponse
     case server(Int, String)

@@ -237,15 +237,26 @@ class LibraryViewModel: ObservableObject {
         NotificationCenter.default.publisher(for: .didLogin)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
-                self?.fetchPlaylists(force: true)
+                guard let self, self.apiService.isLoggedIn else { return }
+                self.playlistRetryCount = 0
+                self.userPlaylists = []
+                SubscriptionManager.shared.resetRemoteNCMState()
+                self.fetchPlaylists(force: true)
             }
             .store(in: &cancellables)
         
-        // 监听退出登录，清除用户歌单数据
+        // .didLogout 属于 NCM 会话，不影响仍有效的 QCM / KCM 数据。
         NotificationCenter.default.publisher(for: .didLogout)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
-                self?.handleLogout()
+                self?.handleNCMLogout()
+            }
+            .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: .kcmSessionDidChange)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.handleKCMSessionDidChange()
             }
             .store(in: &cancellables)
 

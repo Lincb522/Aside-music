@@ -165,7 +165,7 @@ enum KeychainHelper {
     }
     
     static func loadString(key: String) -> String? {
-        let data = keychainAvailable ? keychainLoad(key: key) : fileLoad(key: key)
+        let data = keychainAvailable ? keychainLoad(key: key) : fileLoadCurrent(key: key)
         guard let data else { return nil }
         return String(data: data, encoding: .utf8)
     }
@@ -182,7 +182,7 @@ enum KeychainHelper {
     }
     
     static func loadInt(key: String) -> Int? {
-        let data = keychainAvailable ? keychainLoad(key: key) : fileLoad(key: key)
+        let data = keychainAvailable ? keychainLoad(key: key) : fileLoadCurrent(key: key)
         guard let data, data.count == MemoryLayout<Int>.size else { return nil }
         return data.withUnsafeBytes { $0.load(as: Int.self) }
     }
@@ -198,7 +198,7 @@ enum KeychainHelper {
     }
     
     static func loadData(key: String) -> Data? {
-        keychainAvailable ? keychainLoad(key: key) : fileLoad(key: key)
+        keychainAvailable ? keychainLoad(key: key) : fileLoadCurrent(key: key)
     }
     
     // MARK: - 公开接口（Codable）
@@ -225,9 +225,9 @@ enum KeychainHelper {
     static func delete(key: String) {
         if keychainAvailable {
             keychainDelete(key: key)
-        } else {
-            fileDelete(key: key)
         }
+        fileDeleteFallback(key: key)
+        fileSaveTombstone(key: key)
     }
     
     /// 清除本 App 在 Keychain 中存储的所有数据
@@ -282,12 +282,14 @@ enum KeychainHelper {
         
         // 写入后回读验证
         if status == errSecSuccess {
-            if keychainLoad(key: key) != nil {
+            if keychainLoadRaw(key: key) == data {
+                fileDeleteAllState(key: key)
                 #if DEBUG
                 print("[Keychain] ✅ 写入并验证成功 key=\(key) (\(data.count) bytes)")
                 #endif
                 return
             }
+            keychainDelete(key: key)
             #if DEBUG
             print("[Keychain] ⚠️ 写入成功但回读失败 key=\(key)，降级到文件存储")
             #endif
@@ -302,12 +304,17 @@ enum KeychainHelper {
     }
     
     private static func keychainLoad(key: String) -> Data? {
-        var query = baseQuery(for: key)
-        query[kSecReturnData as String] = true
-        query[kSecMatchLimit as String] = kSecMatchLimitOne
-        var result: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-        if status == errSecSuccess, let data = result as? Data {
+        if fileHasTombstone(key: key) {
+            keychainDelete(key: key)
+            return nil
+        }
+        if fileHasFallbackMarker(key: key) {
+            if let data = fileLoad(key: key) {
+                return data
+            }
+            fileDeleteFallbackMarker(key: key)
+        }
+        if let data = keychainLoadRaw(key: key) {
             return data
         }
         // Keychain 读不到时，尝试从文件兜底读取
@@ -316,6 +323,18 @@ enum KeychainHelper {
             print("[Keychain] ℹ️ Keychain 未命中 key=\(key)，从文件兜底读取")
             #endif
             return fileData
+        }
+        return nil
+    }
+
+    private static func keychainLoadRaw(key: String) -> Data? {
+        var query = baseQuery(for: key)
+        query[kSecReturnData as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        if status == errSecSuccess, let data = result as? Data {
+            return data
         }
         return nil
     }
@@ -342,10 +361,24 @@ enum KeychainHelper {
     private static func fileUrl(for key: String) -> URL {
         storageDir.appendingPathComponent(key.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? key)
     }
+
+    private static func fileFallbackMarkerUrl(for key: String) -> URL {
+        fileUrl(for: key).appendingPathExtension("fallback")
+    }
+
+    private static func fileTombstoneUrl(for key: String) -> URL {
+        fileUrl(for: key).appendingPathExtension("deleted")
+    }
     
     private static func fileSave(key: String, data: Data) {
         do {
+            try ensureStorageDirectory()
             try data.write(to: fileUrl(for: key), options: .completeFileProtectionUntilFirstUserAuthentication)
+            try Data().write(
+                to: fileFallbackMarkerUrl(for: key),
+                options: .completeFileProtectionUntilFirstUserAuthentication
+            )
+            fileDeleteTombstone(key: key)
         } catch {
             #if DEBUG
             print("[FileStore] ⚠️ 写入失败 key=\(key) error=\(error)")
@@ -356,8 +389,60 @@ enum KeychainHelper {
     private static func fileLoad(key: String) -> Data? {
         try? Data(contentsOf: fileUrl(for: key))
     }
+
+    private static func fileLoadCurrent(key: String) -> Data? {
+        guard !fileHasTombstone(key: key) else { return nil }
+        return fileLoad(key: key)
+    }
     
-    private static func fileDelete(key: String) {
+    private static func fileHasFallbackMarker(key: String) -> Bool {
+        FileManager.default.fileExists(atPath: fileFallbackMarkerUrl(for: key).path)
+    }
+
+    private static func fileDeleteFallbackMarker(key: String) {
+        try? FileManager.default.removeItem(at: fileFallbackMarkerUrl(for: key))
+    }
+
+    private static func fileDeleteFallback(key: String) {
         try? FileManager.default.removeItem(at: fileUrl(for: key))
+        fileDeleteFallbackMarker(key: key)
+    }
+
+    private static func fileHasTombstone(key: String) -> Bool {
+        FileManager.default.fileExists(atPath: fileTombstoneUrl(for: key).path)
+    }
+
+    private static func fileSaveTombstone(key: String) {
+        do {
+            try ensureStorageDirectory()
+            try Data().write(
+                to: fileTombstoneUrl(for: key),
+                options: .completeFileProtectionUntilFirstUserAuthentication
+            )
+        } catch {
+            #if DEBUG
+            print("[FileStore] ⚠️ 删除标记写入失败 key=\(key) error=\(error)")
+            #endif
+        }
+    }
+
+    private static func fileDeleteTombstone(key: String) {
+        try? FileManager.default.removeItem(at: fileTombstoneUrl(for: key))
+    }
+
+    private static func fileDeleteAllState(key: String) {
+        fileDeleteFallback(key: key)
+        fileDeleteTombstone(key: key)
+    }
+
+    private static func ensureStorageDirectory() throws {
+        try FileManager.default.createDirectory(
+            at: storageDir,
+            withIntermediateDirectories: true
+        )
+        var directory = storageDir
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        try directory.setResourceValues(values)
     }
 }

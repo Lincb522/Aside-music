@@ -4,7 +4,7 @@ import SwiftUI
 
 extension ProfileView {
     var profileHeroCard: some View {
-        let profile = cachedProfile ?? viewModel.userProfile
+        let profile = displayedProfile
 
         return HStack(spacing: 16) {
             if let avatarUrl = profile?.avatarUrl, let url = URL(string: avatarUrl) {
@@ -44,7 +44,7 @@ extension ProfileView {
                         .foregroundColor(PetWhiteStyle.isActive ? PetWhiteStyle.ink : .monoTextPrimary)
                         .lineLimit(1)
 
-                    if let level = userLevel {
+                    if loginIdentity.activeSource == .netease, let level = userLevel {
                         Text("Lv.\(level)")
                             .font(MangaStyle.isActive ? MangaStyle.comicFont(10, weight: .bold) : (PetWhiteStyle.isActive ? PetWhiteStyle.labelFont(10, weight: .black) : (MujiStyle.isActive ? MujiStyle.labelFont(10, weight: .semibold) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(10, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.labelFont(10, weight: .bold) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(10, weight: .semibold) : .system(size: 10, weight: .bold, design: .rounded)))))))
                             .foregroundColor(PetWhiteStyle.isActive ? PetWhiteStyle.ink : .monoIconForeground)

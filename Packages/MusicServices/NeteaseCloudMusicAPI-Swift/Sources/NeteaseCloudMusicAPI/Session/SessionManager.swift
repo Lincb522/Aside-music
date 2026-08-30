@@ -42,10 +42,33 @@ public class SessionManager {
     /// 当前 Cookie 存储（键值对）— 通过 lock 保护线程安全
     public var cookies: [String: String] {
         get { lock.withLock { _cookies } }
-        set { lock.withLock { _cookies = newValue } }
+        set {
+            lock.withLock {
+                guard _cookies != newValue else { return }
+                _cookies = newValue
+                _sessionGeneration &+= 1
+            }
+        }
     }
     private var _cookies: [String: String]
+    private var _sessionGeneration: UInt64 = 0
     private let lock = NSLock()
+
+    public var sessionGeneration: UInt64 {
+        lock.withLock { _sessionGeneration }
+    }
+
+    func cookiesSnapshot(ifSessionGeneration expectedGeneration: UInt64) -> [String: String]? {
+        lock.withLock {
+            guard expectedGeneration == _sessionGeneration else { return nil }
+            return _cookies
+        }
+    }
+
+    public struct CookieHeaderSnapshot: Sendable {
+        public let header: String
+        public let sessionGeneration: UInt64
+    }
 
     /// 当前平台类型
     public var platformType: PlatformType
@@ -141,10 +164,21 @@ public class SessionManager {
     ///   - crypto: 加密模式
     /// - Returns: 格式化的 Cookie 头字符串（key=value; key=value; ...）
     public func buildCookieHeader(for uri: String, crypto: CryptoMode) -> String {
+        cookieHeaderSnapshot(for: uri, crypto: crypto)?.header ?? ""
+    }
+
+    public func cookieHeaderSnapshot(
+        for uri: String,
+        crypto: CryptoMode,
+        ifSessionGeneration expectedGeneration: UInt64? = nil
+    ) -> CookieHeaderSnapshot? {
         let osInfo = SessionManager.osMap[platformType] ?? SessionManager.osMap[.pc]!
 
-        // 整个读取操作在同一把锁内完成，保证一致性
-        let cookieDict: [String: String] = lock.withLock {
+        return lock.withLock {
+            if let expectedGeneration,
+               expectedGeneration != _sessionGeneration {
+                return nil
+            }
             let nuid = _cookies["_ntes_nuid"] ?? SessionManager.generateRandomHex(count: 32)
             let nnid = _cookies["_ntes_nnid"] ?? "\(nuid),\(Int(Date().timeIntervalSince1970 * 1000))"
 
@@ -169,10 +203,21 @@ public class SessionManager {
                 dict["MUSIC_A"] = dict["MUSIC_A"] ?? anonymousToken
             }
 
-            return dict
+            return CookieHeaderSnapshot(
+                header: SessionManager.cookieDictToString(dict),
+                sessionGeneration: _sessionGeneration
+            )
         }
+    }
 
-        return SessionManager.cookieDictToString(cookieDict)
+    func mergeCookiesForNewSession(_ cookies: [String: String]) {
+        guard !cookies.isEmpty else { return }
+        lock.withLock {
+            _sessionGeneration &+= 1
+            for (key, value) in cookies {
+                _cookies[key] = value
+            }
+        }
     }
 
     /// 构建 EAPI/API 专用请求头
@@ -215,9 +260,17 @@ public class SessionManager {
     /// 从响应的 Set-Cookie 头更新 Cookie 存储
     /// 解析 Set-Cookie 头字符串列表，提取键值对并更新存储
     /// - Parameter setCookieHeaders: Set-Cookie 头字符串数组
-    public func updateCookies(from setCookieHeaders: [String]) {
-        // 防御：空数组直接返回
-        guard !setCookieHeaders.isEmpty else { return }
+    @discardableResult
+    public func updateCookies(
+        from setCookieHeaders: [String],
+        ifSessionGeneration expectedGeneration: UInt64? = nil
+    ) -> Bool {
+        // 即使响应没有 Set-Cookie，也必须验证该响应仍属于当前会话。
+        guard !setCookieHeaders.isEmpty else {
+            return lock.withLock {
+                expectedGeneration == nil || expectedGeneration == _sessionGeneration
+            }
+        }
         
         // 将输入拷贝为局部不可变数组，避免任何外部引用问题
         let headers = Array(setCookieHeaders)
@@ -247,10 +300,15 @@ public class SessionManager {
         }
         
         // 一次性加锁批量写入
-        lock.withLock {
+        return lock.withLock {
+            if let expectedGeneration,
+               expectedGeneration != _sessionGeneration {
+                return false
+            }
             for (key, value) in parsed {
                 _cookies[key] = value
             }
+            return true
         }
     }
 

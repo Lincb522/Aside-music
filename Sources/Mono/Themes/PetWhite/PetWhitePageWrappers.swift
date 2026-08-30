@@ -351,7 +351,7 @@ struct PetWhiteHomeView: View {
             displayHomeData.fingerprint,
             "loading-\(viewModel.isLoading)",
             "content-\(viewModel.homeContentRevision)",
-            "profile-\(viewModel.userProfile?.userId ?? 0)-\(viewModel.userProfile?.nickname ?? "none")",
+            "profile-\(viewModel.displayedIdentityProfile?.userId ?? 0)-\(viewModel.displayedIdentityProfile?.nickname ?? "none")",
         ].joined(separator: "|")
     }
 
@@ -432,8 +432,8 @@ struct PetWhiteHomeView: View {
             ),
             banners: nonEmpty(viewModel.banners, cacheKey: "banners", type: [Banner].self),
             recommendPlaylists: nonEmpty(viewModel.recommendPlaylists, cacheKey: "recommend_playlists", type: [Playlist].self),
-            qqRecommendPlaylists: nonEmpty(viewModel.qqRecommendPlaylists, cacheKey: "qq_recommend_playlists", type: [Playlist].self),
-            qqNewSongs: nonEmpty(viewModel.qqNewSongs, cacheKey: "qq_new_songs", type: [Song].self)
+            qqRecommendPlaylists: viewModel.qqRecommendPlaylists,
+            qqNewSongs: viewModel.qqNewSongs
         )
     }
 
@@ -461,7 +461,7 @@ struct PetWhiteHomeView: View {
             let hasContent = await MainActor.run {
                 !displayHomeData.isEmpty
                     && (!settings.hitokotoEnabled || !renderedHitokotoText.isEmpty)
-                    && (!expectsUserProfile || viewModel.userProfile != nil)
+                    && (!expectsUserProfile || viewModel.displayedIdentityProfile != nil)
             }
             if hasContent { return }
 
@@ -588,7 +588,7 @@ struct PetWhiteHomeView: View {
                         .foregroundStyle(PetWhiteStyle.dogEar)
                         .lineLimit(1)
 
-                    Text(viewModel.userProfile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
+                    Text(viewModel.displayedIdentityProfile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
                         .font(PetWhiteStyle.titleFont(32, weight: .bold))
                         .foregroundStyle(PetWhiteStyle.ink)
                         .lineLimit(1)
@@ -667,7 +667,7 @@ struct PetWhiteHomeView: View {
     @ViewBuilder
     private var avatarView: some View {
         let size: CGFloat = 48
-        if let avatarUrl = viewModel.userProfile?.avatarUrl, let url = URL(string: avatarUrl) {
+        if let avatarUrl = viewModel.displayedIdentityProfile?.avatarUrl, let url = URL(string: avatarUrl) {
             CachedAsyncImage(url: url) {
                 PetWhiteMascotMark(kind: .cat, size: size)
             }

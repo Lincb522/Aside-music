@@ -10,6 +10,7 @@ struct ClarityProfileView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
                         titleBar
+                        LoginIdentitySwitcher()
                         identityPlane
                         destinationGrid
                         settingsPlane
@@ -27,6 +28,7 @@ struct ClarityProfileView: View {
         }
         .task {
             guard await MainTabActivationGate.waitUntilSettled(.profile) else { return }
+            await LoginIdentityManager.shared.refreshAvailableIdentities()
             home.ensureHomeDataLoaded(reason: "clarity profile")
         }
     }
@@ -52,7 +54,9 @@ struct ClarityProfileView: View {
         ClarityShell(cornerRadius: 36) {
             VStack(spacing: 18) {
                 identity
-                metrics
+                if home.displayedIdentitySource == .netease {
+                    metrics
+                }
             }
             .padding(20)
         }
@@ -98,10 +102,10 @@ struct ClarityProfileView: View {
         HStack(spacing: 17) {
             avatar
             VStack(alignment: .leading, spacing: 6) {
-                Text(home.userProfile?.nickname ?? String(localized: "clarity_profile_guest"))
+                Text(identityTitle)
                     .font(ClarityStyle.title(22, weight: .semibold))
                     .foregroundStyle(ClarityStyle.ink)
-                Text(home.userProfile?.signature ?? String(localized: "clarity_profile_signature"))
+                Text(identitySubtitle)
                     .font(ClarityStyle.body(12.5))
                     .foregroundStyle(ClarityStyle.inkSoft)
                     .lineLimit(2)
@@ -110,9 +114,27 @@ struct ClarityProfileView: View {
         }
     }
 
+    private var authenticatedIdentitySource: MusicSource? {
+        guard let source = home.displayedIdentitySource,
+              LoginIdentityManager.shared.isLoggedIn(to: source) else { return nil }
+        return source
+    }
+
+    private var identityTitle: String {
+        home.displayedIdentityProfile?.nickname
+            ?? authenticatedIdentitySource?.displayName
+            ?? String(localized: "clarity_profile_guest")
+    }
+
+    private var identitySubtitle: String {
+        home.displayedIdentityProfile?.signature
+            ?? authenticatedIdentitySource.map { _ in String(localized: "login_identity_current") }
+            ?? String(localized: "clarity_profile_signature")
+    }
+
     private var avatar: some View {
         Group {
-            if let raw = home.userProfile?.avatarUrl, let url = URL(string: raw) {
+            if let raw = home.displayedIdentityProfile?.avatarUrl, let url = URL(string: raw) {
                 CachedAsyncImage(url: url.sized(400), width: 82, height: 82) { avatarPlaceholder }
                     .aspectRatio(contentMode: .fill)
             } else {
@@ -133,9 +155,9 @@ struct ClarityProfileView: View {
 
     private var metrics: some View {
         HStack(spacing: 8) {
-            metric(value: home.userProfile?.follows ?? 0, label: String(localized: "clarity_profile_follows"))
-            metric(value: home.userProfile?.followeds ?? 0, label: String(localized: "clarity_profile_followers"))
-            metric(value: home.userProfile?.eventCount ?? 0, label: String(localized: "clarity_profile_events"))
+            metric(value: home.displayedIdentityProfile?.follows ?? 0, label: String(localized: "clarity_profile_follows"))
+            metric(value: home.displayedIdentityProfile?.followeds ?? 0, label: String(localized: "clarity_profile_followers"))
+            metric(value: home.displayedIdentityProfile?.eventCount ?? 0, label: String(localized: "clarity_profile_events"))
         }
     }
 

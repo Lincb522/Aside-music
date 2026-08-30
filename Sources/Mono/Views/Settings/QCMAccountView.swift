@@ -109,6 +109,7 @@ struct QCMAccountView: View {
 
     private func logout() {
         userSession.onLogout()
+        LoginIdentityManager.shared.accountDidLogOut(.qqmusic)
     }
 }
 

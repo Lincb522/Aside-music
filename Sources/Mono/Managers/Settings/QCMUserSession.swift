@@ -12,6 +12,18 @@ final class QQUserSession: ObservableObject {
 
     static let shared = QQUserSession()
 
+    enum RefreshResult: Sendable, Equatable {
+        case authenticated
+        case unauthenticated
+        case unavailable
+    }
+
+    struct SessionSnapshot: Sendable, Equatable {
+        let revision: UInt64
+        let musicID: Int?
+        let isLoggedIn: Bool
+    }
+
     private static let isVIPKey = "qq_user_is_vip"
     private static let musicIdKey = "qq_user_music_id"
     private static let musicKeyKey = "qq_user_music_key"
@@ -27,6 +39,19 @@ final class QQUserSession: ObservableObject {
     @Published private(set) var loginType: Int?
     @Published private(set) var nickname: String?
     @Published private(set) var avatarURL: URL?
+    @Published private(set) var sessionRevision: UInt64 = 0
+
+    var sessionSnapshot: SessionSnapshot {
+        SessionSnapshot(
+            revision: sessionRevision,
+            musicID: musicId,
+            isLoggedIn: isLoggedIn
+        )
+    }
+
+    func isCurrentSession(_ snapshot: SessionSnapshot) -> Bool {
+        snapshot == sessionSnapshot
+    }
 
     var hasStoredCredentials: Bool {
         musicId != nil && !(musicKey?.isEmpty ?? true)
@@ -48,33 +73,68 @@ final class QQUserSession: ObservableObject {
     }
 
     /// 刷新登录状态和 VIP 信息（调用服务器）
-    func refresh() async {
-        guard musicId != nil, let mkey = musicKey, !mkey.isEmpty else {
+    @discardableResult
+    func refresh() async -> RefreshResult {
+        let requestedSession = sessionSnapshot
+        guard requestedSession.musicID != nil,
+              let mkey = musicKey,
+              !mkey.isEmpty else {
             AppLogger.info("[QQUserSession] 无有效凭证，标记为未登录")
             onLogout()
-            return
+            return .unauthenticated
         }
         do {
             let status = try await withUserSession { client in
                 try await client.authStatus()
             }
+            guard isCurrentSession(requestedSession) else {
+                if isLoggedIn { return .authenticated }
+                return hasStoredCredentials ? .unavailable : .unauthenticated
+            }
+
+            let nextMusicKey = status.musickey?.isEmpty == false
+                ? status.musickey
+                : musicKey
+            let nextEncryptUin = status.euin?.isEmpty == false
+                ? status.euin
+                : encryptUin
+            let nextLoginType = status.loginType ?? loginType
+            if isLoggedIn != status.loggedIn
+                || musicId != status.musicid
+                || musicKey != nextMusicKey
+                || encryptUin != nextEncryptUin
+                || loginType != nextLoginType {
+                sessionRevision &+= 1
+            }
+
             isLoggedIn = status.loggedIn
             musicId = status.musicid
             UserDefaults.standard.set(status.loggedIn, forKey: Self.loggedInKey)
             if let mid = status.musicid {
                 KeychainHelper.save(key: Self.musicIdKey, intValue: mid)
+            } else {
+                KeychainHelper.delete(key: Self.musicIdKey)
             }
-            if let mkey = status.musickey, !mkey.isEmpty {
-                musicKey = mkey
-                KeychainHelper.save(key: Self.musicKeyKey, value: mkey)
+            if let nextMusicKey, !nextMusicKey.isEmpty {
+                musicKey = nextMusicKey
+                KeychainHelper.save(key: Self.musicKeyKey, value: nextMusicKey)
+            } else {
+                musicKey = nil
+                KeychainHelper.delete(key: Self.musicKeyKey)
             }
-            if let euin = status.euin, !euin.isEmpty {
-                encryptUin = euin
-                KeychainHelper.save(key: Self.euinKey, value: euin)
+            if let nextEncryptUin, !nextEncryptUin.isEmpty {
+                encryptUin = nextEncryptUin
+                KeychainHelper.save(key: Self.euinKey, value: nextEncryptUin)
+            } else {
+                encryptUin = nil
+                KeychainHelper.delete(key: Self.euinKey)
             }
-            if let lt = status.loginType {
-                loginType = lt
-                UserDefaults.standard.set(lt, forKey: Self.loginTypeKey)
+            if let nextLoginType {
+                loginType = nextLoginType
+                UserDefaults.standard.set(nextLoginType, forKey: Self.loginTypeKey)
+            } else {
+                loginType = nil
+                UserDefaults.standard.removeObject(forKey: Self.loginTypeKey)
             }
 
             if status.loggedIn {
@@ -86,7 +146,10 @@ final class QQUserSession: ObservableObject {
                 UserDefaults.standard.set(isVIP, forKey: Self.isVIPKey)
                 if nickname?.isEmpty != false || avatarURL == nil,
                    let currentMusicID = musicId {
-                    await refreshProfileFallback(musicID: currentMusicID)
+                    await refreshProfileFallback(
+                        musicID: currentMusicID,
+                        session: sessionSnapshot
+                    )
                 }
             } else {
                 isVIP = false
@@ -94,17 +157,21 @@ final class QQUserSession: ObservableObject {
                 avatarURL = nil
                 UserDefaults.standard.set(false, forKey: Self.isVIPKey)
             }
+            return status.loggedIn ? .authenticated : .unauthenticated
         } catch {
             AppLogger.error("[QQUserSession] 刷新状态失败: \(error)")
+            return .unavailable
         }
     }
 
     /// 查询 VIP 状态
     func refreshVIPStatus() async {
+        let requestedSession = sessionSnapshot
         do {
             let status = try await withUserSession { client in
                 try await client.authStatus()
             }
+            guard isCurrentSession(requestedSession) else { return }
             let isSvip = (status.isSvip ?? 0) == 1
             let isRegularVip = (status.isVip ?? 0) == 1
             isVIP = status.loggedIn && (isSvip || isRegularVip)
@@ -119,30 +186,46 @@ final class QQUserSession: ObservableObject {
 
     /// 登录成功后调用
     func onLoginSuccess(musicId: Int?, musicKey: String? = nil, encryptUin: String? = nil, loginType: Int? = nil) {
+        sessionRevision &+= 1
         isLoggedIn = true
+        isVIP = false
+        nickname = nil
+        avatarURL = nil
         self.musicId = musicId
         self.musicKey = musicKey
         UserDefaults.standard.set(true, forKey: Self.loggedInKey)
+        UserDefaults.standard.set(false, forKey: Self.isVIPKey)
         if let mid = musicId {
             KeychainHelper.save(key: Self.musicIdKey, intValue: mid)
+        } else {
+            KeychainHelper.delete(key: Self.musicIdKey)
         }
         if let mkey = musicKey, !mkey.isEmpty {
             KeychainHelper.save(key: Self.musicKeyKey, value: mkey)
+        } else {
+            KeychainHelper.delete(key: Self.musicKeyKey)
         }
         if let euin = encryptUin, !euin.isEmpty {
             self.encryptUin = euin
             KeychainHelper.save(key: Self.euinKey, value: euin)
+        } else {
+            self.encryptUin = nil
+            KeychainHelper.delete(key: Self.euinKey)
         }
         if let lt = loginType {
             self.loginType = lt
             UserDefaults.standard.set(lt, forKey: Self.loginTypeKey)
+        } else {
+            self.loginType = nil
+            UserDefaults.standard.removeObject(forKey: Self.loginTypeKey)
         }
         Task { await refresh() }
     }
 
     /// 登出
     func onLogout() {
-        AppLogger.info("[QQUserSession] onLogout: clearing musicId=\(musicId ?? 0), euin=\(encryptUin ?? "nil")")
+        sessionRevision &+= 1
+        AppLogger.info("[QQUserSession] onLogout")
         isLoggedIn = false
         isVIP = false
         musicId = nil
@@ -161,45 +244,42 @@ final class QQUserSession: ObservableObject {
         let checkMid = KeychainHelper.loadInt(key: Self.musicIdKey)
         let checkMkey = KeychainHelper.loadString(key: Self.musicKeyKey)
         let checkEuin = KeychainHelper.loadString(key: Self.euinKey)
-        AppLogger.info("[QQUserSession] onLogout verify: musicId=\(checkMid ?? 0), musicKey=\(checkMkey?.isEmpty == false ? "exists" : "nil"), euin=\(checkEuin ?? "nil")")
+        AppLogger.info(
+            "[QQUserSession] onLogout verify: musicId=\(checkMid == nil ? "nil" : "exists"), musicKey=\(checkMkey?.isEmpty == false ? "exists" : "nil"), euin=\(checkEuin?.isEmpty == false ? "exists" : "nil")"
+        )
     }
 
-    /// 使用用户凭证执行请求（临时设置 musicId/musicKey，完成后恢复）
+    /// 使用当前用户凭证的独立客户端执行请求。
     func withUserSession<T>(_ block: (QQMusicClient) async throws -> T) async throws -> T {
-        let client = qqClient
-        let orig = (client.musicId, client.musicKey, client.encryptUin, client.loginType)
-        client.musicId = musicId
-        client.musicKey = musicKey
-        client.encryptUin = encryptUin
-        client.loginType = loginType
-        defer {
-            (client.musicId, client.musicKey, client.encryptUin, client.loginType) = orig
-        }
+        let configuration = qqClient.configurationSnapshot
+        let client = QQMusicClient(
+            baseURL: configuration.baseURL,
+            timeout: configuration.timeout,
+            maxRetries: configuration.maxRetries,
+            apiToken: configuration.apiToken,
+            musicId: musicId,
+            musicKey: musicKey,
+            encryptUin: encryptUin,
+            loginType: loginType
+        )
         return try await block(client)
     }
 
-    nonisolated func withUserSessionSync<T>(_ block: (QQMusicClient) throws -> T) rethrows -> T {
-        let client = QQMusicClient.shared
-        let orig = (client.musicId, client.musicKey, client.encryptUin, client.loginType)
-        client.musicId = MainActor.assumeIsolated { musicId }
-        client.musicKey = MainActor.assumeIsolated { musicKey }
-        client.encryptUin = MainActor.assumeIsolated { encryptUin }
-        client.loginType = MainActor.assumeIsolated { loginType }
-        defer {
-            (client.musicId, client.musicKey, client.encryptUin, client.loginType) = orig
-        }
-        return try block(client)
-    }
-
-    private func refreshProfileFallback(musicID: Int) async {
+    private func refreshProfileFallback(
+        musicID: Int,
+        session: SessionSnapshot
+    ) async {
         do {
+            guard isCurrentSession(session) else { return }
             let euinResult = try await withUserSession { client in
                 try await client.getEuin(musicid: musicID)
             }
+            guard isCurrentSession(session) else { return }
             guard let euin = euinResult.stringValue, !euin.isEmpty else { return }
             let homepage = try await withUserSession { client in
                 try await client.userHomepage(euin: euin)
             }
+            guard isCurrentSession(session) else { return }
             guard let baseInfo = homepage["base_info"] ?? homepage["Info"]?["BaseInfo"] else {
                 return
             }

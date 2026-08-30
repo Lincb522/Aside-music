@@ -1,15 +1,19 @@
+import Combine
 import SwiftUI
 
 @MainActor
 struct PlatformAccountManagementView: View {
-    @AppStorage("isLoggedIn") private var isNCMLoggedIn = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ObservedObject private var homeViewModel = HomeViewModel.shared
     @ObservedObject private var qcmSession = QQUserSession.shared
     @ObservedObject private var appleMusicService = AppleMusicService.shared
+    @ObservedObject private var loginIdentity = LoginIdentityManager.shared
     @State private var refreshedNCMProfile: UserProfile?
-    @State private var isKCMLoggedIn = KCMMusicService.shared.isAuthenticated
+    @State private var refreshedNCMSession: APIService.NCMSessionSnapshot?
     @State private var kcmProfile: KCMAccountProfile?
+    @State private var kcmProfileSession: KCMMusicService.SessionSnapshot?
     @State private var isRefreshing = false
+    @State private var refreshRequestID: UUID?
 
     var body: some View {
         ZStack {
@@ -23,6 +27,19 @@ struct PlatformAccountManagementView: View {
                         icon: .personCircle,
                         signalModule: .accounts
                     )
+
+                    SettingsSection(title: String(localized: "login_identity_section")) {
+                        ForEach(
+                            Array(LoginIdentityManager.supportedSources.enumerated()),
+                            id: \.element.rawValue
+                        ) { index, source in
+                            identitySelectionControl(source)
+
+                            if index < LoginIdentityManager.supportedSources.count - 1 {
+                                rowDivider
+                            }
+                        }
+                    }
 
                     SettingsSection(title: String(localized: "platform_account_music_services")) {
                         NavigationLink {
@@ -63,10 +80,10 @@ struct PlatformAccountManagementView: View {
                             platformRow(
                                 source: .kugou,
                                 platformName: "KCM",
-                                displayName: kcmProfile?.nickname ?? "KCM",
-                                detail: kcmProfile?.membershipLevel.displayName,
+                                displayName: currentKCMProfile?.nickname ?? "KCM",
+                                detail: currentKCMProfile?.membershipLevel.displayName,
                                 isConnected: isKCMLoggedIn,
-                                avatarURL: kcmProfile?.avatarURL
+                                avatarURL: currentKCMProfile?.avatarURL
                             )
                         }
                         .buttonStyle(.plain)
@@ -101,6 +118,23 @@ struct PlatformAccountManagementView: View {
         }
         .asideSettingsDetailChrome(String(localized: "platform_account_management"))
         .task { await refreshAccounts() }
+        .onReceive(
+            NotificationCenter.default.publisher(for: .didLogin)
+                .merge(with: NotificationCenter.default.publisher(for: .didLogout))
+                .receive(on: DispatchQueue.main)
+        ) { _ in
+            refreshedNCMProfile = nil
+            refreshedNCMSession = nil
+            restartAccountRefresh()
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(for: .kcmSessionDidChange)
+                .receive(on: DispatchQueue.main)
+        ) { _ in
+            kcmProfile = nil
+            kcmProfileSession = nil
+            restartAccountRefresh()
+        }
     }
 
     private var rowDivider: some View {
@@ -129,7 +163,104 @@ struct PlatformAccountManagementView: View {
     }
 
     private var ncmProfile: UserProfile? {
-        refreshedNCMProfile ?? homeViewModel.userProfile
+        let apiService = APIService.shared
+        let session = apiService.ncmSessionSnapshot
+        guard isNCMLoggedIn,
+              apiService.isLoggedIn,
+              let userID = session.userID else { return nil }
+        if refreshedNCMSession == session,
+           refreshedNCMProfile?.userId == userID {
+            return refreshedNCMProfile
+        }
+        return homeViewModel.userProfile.flatMap {
+            $0.userId == userID ? $0 : nil
+        }
+    }
+
+    private var currentKCMProfile: KCMAccountProfile? {
+        let service = KCMMusicService.shared
+        let session = service.sessionSnapshot
+        guard session.isAuthenticated,
+              let userID = session.userID,
+              kcmProfileSession == session,
+              kcmProfile?.userID == userID else { return nil }
+        return kcmProfile
+    }
+
+    private var isKCMLoggedIn: Bool {
+        KCMMusicService.shared.sessionSnapshot.isAuthenticated
+    }
+
+    private var isNCMLoggedIn: Bool {
+        loginIdentity.isLoggedIn(to: .netease)
+    }
+
+    @ViewBuilder
+    private func identitySelectionControl(_ source: MusicSource) -> some View {
+        if loginIdentity.isLoggedIn(to: source) {
+            Button {
+                guard loginIdentity.select(source) else { return }
+                HapticManager.shared.selection()
+            } label: {
+                identitySelectionRow(source, isConnected: true)
+            }
+            .buttonStyle(.plain)
+        } else {
+            NavigationLink {
+                PlatformLoginView(initialPlatform: loginPlatform(for: source))
+            } label: {
+                identitySelectionRow(source, isConnected: false)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func identitySelectionRow(_ source: MusicSource, isConnected: Bool) -> some View {
+        let isActive = isConnected && loginIdentity.activeSource == source
+        return HStack(spacing: 13) {
+            PlatformBadgeLabel(text: source.shortName, source: source, fontSize: 9)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(source.displayName)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(Color.monoTextPrimary)
+
+                Text(
+                    LocalizedStringKey(
+                        isActive
+                            ? "login_identity_active"
+                            : (isConnected ? "login_identity_select" : "login_identity_sign_in")
+                    )
+                )
+                .font(.caption)
+                .foregroundStyle(Color.monoTextSecondary)
+            }
+
+            Spacer(minLength: 8)
+
+            if isActive {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(source.themedBadgeColor)
+                    .accessibilityHidden(true)
+            } else {
+                MonoIcon(icon: .chevronRight, size: 12, color: .monoTextSecondary)
+                    .accessibilityHidden(true)
+            }
+        }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 54)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(isActive ? .isSelected : [])
+    }
+
+    private func loginPlatform(for source: MusicSource) -> PlatformLoginSource {
+        switch source {
+        case .netease: return .ncm
+        case .qqmusic: return .qcm
+        case .kugou: return .kcm
+        case .qishui, .appleMusic, .local: return .ncm
+        }
     }
 
     private func platformRow(
@@ -142,45 +273,73 @@ struct PlatformAccountManagementView: View {
         connectedText: String = String(localized: "platform_account_connected"),
         disconnectedText: String = String(localized: "platform_account_disconnected")
     ) -> some View {
-        HStack(spacing: 13) {
-            platformAvatar(source: source, avatarURL: avatarURL)
+        VStack(alignment: .leading, spacing: dynamicTypeSize.isAccessibilitySize ? 8 : 0) {
+            HStack(spacing: 13) {
+                platformAvatar(source: source, avatarURL: avatarURL)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(displayName)
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Color.monoTextPrimary)
-                    .lineLimit(1)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(displayName)
+                        .font(.system(.body, design: .rounded).weight(.semibold))
+                        .foregroundStyle(Color.monoTextPrimary)
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
+                        .fixedSize(horizontal: false, vertical: true)
 
-                HStack(spacing: 6) {
-                    Text(platformName)
-                    if let detail, !detail.isEmpty {
-                        Text("·")
-                        Text(detail)
-                    }
+                    Text(
+                        detail.map { "\(platformName) · \($0)" }
+                            ?? platformName
+                    )
+                    .font(.system(.caption, design: .rounded))
+                    .foregroundStyle(Color.monoTextSecondary)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
                 }
-                .font(.system(size: 11, weight: .regular, design: .rounded))
-                .foregroundStyle(Color.monoTextSecondary)
-                .lineLimit(1)
+
+                if !dynamicTypeSize.isAccessibilitySize {
+                    Spacer(minLength: 8)
+                    platformConnectionLabel(
+                        source: source,
+                        isConnected: isConnected,
+                        connectedText: connectedText,
+                        disconnectedText: disconnectedText
+                    )
+                    MonoIcon(icon: .chevronRight, size: 12, color: .monoTextSecondary)
+                }
             }
 
-            Spacer(minLength: 8)
-
-            Text(isConnected ? connectedText : disconnectedText)
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                .foregroundStyle(
-                    isConnected
-                        ? ThemeColorCustomization.visibleTintColor(
-                            source.themedBadgeColor,
-                            darkFallback: Color.monoTextPrimary
-                        )
-                        : Color.monoTextSecondary
-                )
-
-            MonoIcon(icon: .chevronRight, size: 12, color: .monoTextSecondary)
+            if dynamicTypeSize.isAccessibilitySize {
+                HStack(spacing: 8) {
+                    platformConnectionLabel(
+                        source: source,
+                        isConnected: isConnected,
+                        connectedText: connectedText,
+                        disconnectedText: disconnectedText
+                    )
+                    Spacer(minLength: 8)
+                    MonoIcon(icon: .chevronRight, size: 12, color: .monoTextSecondary)
+                }
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 11)
         .contentShape(Rectangle())
+    }
+
+    private func platformConnectionLabel(
+        source: MusicSource,
+        isConnected: Bool,
+        connectedText: String,
+        disconnectedText: String
+    ) -> some View {
+        Text(isConnected ? connectedText : disconnectedText)
+            .font(.system(.caption, design: .rounded).weight(.semibold))
+            .foregroundStyle(
+                isConnected
+                    ? ThemeColorCustomization.visibleTintColor(
+                        source.themedBadgeColor,
+                        darkFallback: Color.monoTextPrimary
+                    )
+                    : Color.monoTextSecondary
+            )
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private func platformAvatar(source: MusicSource, avatarURL: URL?) -> some View {
@@ -208,37 +367,84 @@ struct PlatformAccountManagementView: View {
     }
 
     private func refreshAccounts() async {
-        guard !isRefreshing else { return }
+        let requestID = UUID()
+        refreshRequestID = requestID
+        let ncmSession = APIService.shared.ncmSessionSnapshot
+        let kcmSession = KCMMusicService.shared.sessionSnapshot
         isRefreshing = true
-        defer { isRefreshing = false }
+        defer {
+            if refreshRequestID == requestID {
+                isRefreshing = false
+            }
+        }
         appleMusicService.refreshAuthorizationStatus()
 
-        async let ncmRefresh = fetchNCMProfile()
-        async let qcmRefresh: Void = qcmSession.refresh()
-        async let kcmRefresh: KCMAccountProfile? = {
-            guard KCMMusicService.shared.isAuthenticated else { return nil }
-            return try? await KCMMusicService.shared.fetchAccountProfile()
-        }()
+        async let ncmRefresh = fetchNCMProfile(ifCurrentSession: ncmSession)
+        async let identityRefresh: Void = loginIdentity.refreshAvailableIdentities()
 
-        refreshedNCMProfile = await ncmRefresh
-        await qcmRefresh
-        kcmProfile = await kcmRefresh
-        if let kcmProfile {
-            await KCMMusicService.shared.synchronizeCurrentAccount(profile: kcmProfile)
+        let nextNCMProfile = await ncmRefresh
+        await identityRefresh
+        guard refreshRequestID == requestID else { return }
+
+        let apiService = APIService.shared
+        if apiService.isCurrentNCMSession(ncmSession),
+           nextNCMProfile?.userId == ncmSession.userID {
+            refreshedNCMProfile = nextNCMProfile
+            refreshedNCMSession = ncmSession
+        } else {
+            refreshedNCMProfile = nil
+            refreshedNCMSession = nil
         }
-        isKCMLoggedIn = KCMMusicService.shared.isAuthenticated
+
+        let service = KCMMusicService.shared
+        if service.isCurrentSession(kcmSession),
+           loginIdentity.kcmProfile?.userID == kcmSession.userID {
+            kcmProfile = loginIdentity.kcmProfile
+            kcmProfileSession = kcmSession
+        } else {
+            kcmProfile = nil
+            kcmProfileSession = nil
+        }
     }
 
-    private func fetchNCMProfile() async -> UserProfile? {
-        guard isNCMLoggedIn else { return nil }
+    private func fetchNCMProfile(
+        ifCurrentSession session: APIService.NCMSessionSnapshot
+    ) async -> UserProfile? {
+        let apiService = APIService.shared
+        guard isNCMLoggedIn,
+              apiService.isLoggedIn,
+              let userID = session.userID,
+              apiService.isCurrentNCMSession(session) else { return nil }
+
+        let localProfile = homeViewModel.userProfile.flatMap {
+            $0.userId == userID ? $0 : nil
+        }
         do {
-            let loginStatus = try await UnsafeSendableBox(APIService.shared.fetchLoginStatus()).value.async()
-            guard let profile = loginStatus.data.profile else { return homeViewModel.userProfile }
-            let detail = try? await UnsafeSendableBox(APIService.shared.fetchUserDetail(uid: profile.userId)).value.async()
-            return detail?.profile ?? profile
+            let loginStatus = try await UnsafeSendableBox(apiService.fetchLoginStatus()).value.async()
+            guard apiService.isCurrentNCMSession(session) else { return nil }
+            guard let profile = loginStatus.data.profile,
+                  profile.userId == userID else { return localProfile }
+
+            let detail = try? await UnsafeSendableBox(
+                apiService.fetchUserDetail(uid: userID)
+            ).value.async()
+            guard apiService.isCurrentNCMSession(session) else { return nil }
+            if let detailProfile = detail?.profile, detailProfile.userId == userID {
+                return detailProfile
+            }
+            return profile
         } catch {
+            guard apiService.isCurrentNCMSession(session) else { return nil }
             AppLogger.warning("NCM 账号信息获取失败，使用本地资料: \(error)")
-            return homeViewModel.userProfile
+            return localProfile
+        }
+    }
+
+    private func restartAccountRefresh() {
+        refreshRequestID = nil
+        isRefreshing = false
+        Task { @MainActor in
+            await refreshAccounts()
         }
     }
 }

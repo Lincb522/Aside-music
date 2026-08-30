@@ -80,7 +80,10 @@ extension NCMClient {
     func publisher<T>(
         _ operation: @escaping () async throws -> T
     ) -> AnyPublisher<T, Error> {
-        asyncToPublisher(operation)
+        let session = captureSessionToken()
+        return asyncToPublisher { [self] in
+            try await withSessionToken(session, operation: operation)
+        }
     }
 
     /// 执行 API 请求并自动解码为 Codable 类型

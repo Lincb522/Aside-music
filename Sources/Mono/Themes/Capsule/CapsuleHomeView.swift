@@ -180,7 +180,7 @@ struct CapsuleHomeView: View {
                     .foregroundStyle(CapsuleStyle.inkMuted)
                     .tracking(0.6)
 
-                Text(viewModel.userProfile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
+                Text(viewModel.displayedIdentityProfile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
                     .font(CapsuleStyle.titleFont(22, weight: .bold))
                     .foregroundStyle(CapsuleStyle.ink)
                     .lineLimit(1)
@@ -203,7 +203,7 @@ struct CapsuleHomeView: View {
     @ViewBuilder
     private var avatarView: some View {
         let size: CGFloat = 46
-        if let avatarUrl = viewModel.userProfile?.avatarUrl, let url = URL(string: avatarUrl) {
+        if let avatarUrl = viewModel.displayedIdentityProfile?.avatarUrl, let url = URL(string: avatarUrl) {
             CachedAsyncImage(url: url, width: size, height: size) {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(CapsuleStyle.surfaceTint)

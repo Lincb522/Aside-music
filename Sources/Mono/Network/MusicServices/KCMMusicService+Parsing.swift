@@ -138,6 +138,7 @@ extension KCMMusicService {
         case "high", "hires", "res": return .hires
         case "viper_clear", "jyeffect": return .jyeffect
         case "viper_atmos", "sky": return .sky
+        case "vivid": return .vivid
         case "viper_tape", "jymaster", "master": return .jymaster
         default: return nil
         }
@@ -152,6 +153,7 @@ extension KCMMusicService {
         case .hires: return "high"
         case .jyeffect: return "viper_clear"
         case .sky: return "viper_atmos"
+        case .vivid: return "vivid"
         case .jymaster: return "viper_tape"
         }
     }

@@ -4,11 +4,31 @@
 
 import Foundation
 
+private final class RedirectCaptureDelegate: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping (URLRequest?) -> Void
+    ) {
+        completionHandler(nil)
+    }
+}
+
 // MARK: - 主客户端
 
 /// ncm API 主客户端
 /// 封装 RequestClient，提供统一的 API 调用入口
 public class NCMClient {
+
+    public struct SessionToken: Sendable {
+        fileprivate let clientID: UUID
+        fileprivate let generation: UInt64
+    }
+
+    @TaskLocal private static var scopedSessionToken: SessionToken?
+    private let sessionIdentity = UUID()
 
     // MARK: - 内部属性
 
@@ -44,13 +64,15 @@ public class NCMClient {
     ///   - domain: 主域名，默认 `https://music.163.com`
     ///   - apiDomain: API 接口域名，默认 `https://interface.music.163.com`
     ///   - serverUrl: Node 后端服务地址（可选），设置后走后端代理模式
+    ///   - urlSession: 用于发送网络请求的 URLSession
     public init(
         platformType: PlatformType = .iphone,
         anonymousToken: String = "",
         cookie: String? = nil,
         domain: String? = nil,
         apiDomain: String? = nil,
-        serverUrl: String? = nil
+        serverUrl: String? = nil,
+        urlSession: URLSession = .shared
     ) {
         // 创建会话管理器
         let sessionManager = SessionManager(
@@ -67,7 +89,7 @@ public class NCMClient {
         }
 
         // 创建请求客户端
-        self.requestClient = RequestClient(sessionManager: sessionManager)
+        self.requestClient = RequestClient(session: urlSession, sessionManager: sessionManager)
 
         // 设置自定义域名
         if let domain = domain {
@@ -88,9 +110,7 @@ public class NCMClient {
     /// - Parameter cookie: Cookie 字符串，格式为 `key1=value1; key2=value2`
     public func setCookie(_ cookie: String) {
         let parsed = NCMClient.parseCookieString(cookie)
-        for (key, value) in parsed {
-            requestClient.sessionManager.cookies[key] = value
-        }
+        requestClient.sessionManager.mergeCookiesForNewSession(parsed)
     }
 
     /// 清空当前会话中的所有 Cookie（不影响匿名令牌等会话元数据）
@@ -101,6 +121,109 @@ public class NCMClient {
     /// 获取当前所有 Cookie
     public var currentCookies: [String: String] {
         return requestClient.sessionManager.cookies
+    }
+
+    public func captureSessionToken() -> SessionToken {
+        SessionToken(
+            clientID: sessionIdentity,
+            generation: requestClient.sessionManager.sessionGeneration
+        )
+    }
+
+    public func withSessionToken<T>(
+        _ token: SessionToken,
+        operation: () async throws -> T
+    ) async throws -> T {
+        guard token.clientID == sessionIdentity,
+              requestClient.sessionManager.sessionGeneration == token.generation else {
+            throw CancellationError()
+        }
+        return try await Self.$scopedSessionToken.withValue(token) {
+            let result = try await operation()
+            guard requestClient.sessionManager.sessionGeneration == token.generation else {
+                throw CancellationError()
+            }
+            return result
+        }
+    }
+
+    public func currentSessionCookieHeader() throws -> String? {
+        let expectedGeneration = requestSessionGeneration()
+        guard let cookies = requestClient.sessionManager.cookiesSnapshot(
+            ifSessionGeneration: expectedGeneration
+        ) else {
+            throw CancellationError()
+        }
+        let header = cookies
+            .sorted { $0.key < $1.key }
+            .map { "\($0.key)=\($0.value)" }
+            .joined(separator: "; ")
+        return header.isEmpty ? nil : header
+    }
+
+    internal func requestSessionGeneration() -> UInt64 {
+        if let token = Self.scopedSessionToken,
+           token.clientID == sessionIdentity {
+            return token.generation
+        }
+        return requestClient.sessionManager.sessionGeneration
+    }
+
+    public static func normalizeCookieHeader(_ raw: String) -> String {
+        let hasSetCookieAttributes = raw.range(
+            of: #"\b(?:Max-Age|Expires|Path|Domain|Secure|HttpOnly|SameSite)\b"#,
+            options: [.regularExpression, .caseInsensitive]
+        ) != nil
+        guard hasSetCookieAttributes else {
+            return raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        let reservedAttributes: Set<String> = [
+            "max-age", "expires", "path", "domain",
+            "secure", "httponly", "samesite", "version", "comment", "priority",
+        ]
+        var order: [String] = []
+        var values: [String: (key: String, value: String)] = [:]
+        var current: (key: String, value: String, expired: Bool)?
+
+        func commit(_ cookie: (key: String, value: String, expired: Bool)?) {
+            guard let cookie else { return }
+            let lowered = cookie.key.lowercased()
+            if cookie.expired {
+                values.removeValue(forKey: lowered)
+                order.removeAll { $0 == lowered }
+            } else {
+                if values[lowered] == nil { order.append(lowered) }
+                values[lowered] = (cookie.key, cookie.value)
+            }
+        }
+
+        for rawSegment in raw.split(separator: ";", omittingEmptySubsequences: true) {
+            let segment = rawSegment.trimmingCharacters(in: .whitespaces)
+            if segment.isEmpty { continue }
+
+            let parts = segment.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+            let key = parts.first.map { $0.trimmingCharacters(in: .whitespaces) } ?? ""
+            let value = parts.count > 1 ? parts[1].trimmingCharacters(in: .whitespaces) : ""
+            let lowered = key.lowercased()
+
+            if reservedAttributes.contains(lowered) {
+                if lowered == "max-age", let age = Int(value), age <= 0, var active = current {
+                    active.expired = true
+                    current = active
+                }
+                continue
+            }
+            if key.isEmpty { continue }
+
+            commit(current)
+            current = (key, value, false)
+        }
+        commit(current)
+
+        return order.compactMap { values[$0] }
+            .map { "\($0.key)=\($0.value)" }
+            .joined(separator: "; ")
     }
 
     /// 直接调用 Node 后端模块路由。
@@ -114,6 +237,22 @@ public class NCMClient {
         }
         let normalizedRoute = route.hasPrefix("/") ? route : "/\(route)"
         return try await proxyRequest(serverUrl: serverUrl, uri: normalizedRoute, data: data)
+    }
+
+    internal func backendRedirectRoute(
+        _ route: String,
+        data: [String: Any]
+    ) async throws -> APIResponse {
+        guard let serverUrl else {
+            throw NCMError.invalidResponse(detail: "backendRedirectRoute 仅支持后端代理模式，请先设置 serverUrl")
+        }
+        let normalizedRoute = route.hasPrefix("/") ? route : "/\(route)"
+        return try await proxyRequest(
+            serverUrl: serverUrl,
+            uri: normalizedRoute,
+            data: data,
+            captureRedirect: true
+        )
     }
 
     /// 调用上游 ncm API 路径。
@@ -151,7 +290,12 @@ public class NCMClient {
             return try await proxyRequest(serverUrl: serverUrl, uri: uri, data: data)
         }
         let options = RequestOptions(crypto: crypto, e_r: e_r)
-        return try await requestClient.request(uri: uri, data: data, options: options)
+        return try await requestClient.request(
+            uri: uri,
+            data: data,
+            options: options,
+            expectedSessionGeneration: requestSessionGeneration()
+        )
     }
 
     /// 后端代理模式请求
@@ -164,9 +308,11 @@ public class NCMClient {
     private func proxyRequest(
         serverUrl: String,
         uri: String,
-        data: [String: Any]
+        data: [String: Any],
+        captureRedirect: Bool = false
     ) async throws -> APIResponse {
         let start = CFAbsoluteTimeGetCurrent()
+        let expectedSessionGeneration = requestSessionGeneration()
 
         // 使用路由映射表转换路径
         let route = RouteMap.resolve(uri)
@@ -188,14 +334,9 @@ public class NCMClient {
         }
 
         #if DEBUG
-        print("[NCM] ➡️ PROXY POST \(urlString)")
+        print("[NCM] ➡️ PROXY POST \(base + route)")
         print("[NCM]    原始路径: \(uri)")
-        let paramSummary = adaptedData.map { k, v in
-            let vs = "\(v)"
-            let preview = vs.count > 60 ? String(vs.prefix(60)) + "..." : vs
-            return "\(k)=\(preview)"
-        }.sorted().joined(separator: ", ")
-        print("[NCM]    参数: \(paramSummary)")
+        print("[NCM]    参数: \(adaptedData.keys.sorted().joined(separator: ", "))")
         #endif
 
         guard let url = URL(string: urlString) else {
@@ -213,11 +354,18 @@ public class NCMClient {
         }
 
         // 附带 Cookie
-        let cookieHeader = requestClient.sessionManager.buildCookieHeader(for: uri, crypto: .eapi)
+        guard let cookieSnapshot = requestClient.sessionManager.cookieHeaderSnapshot(
+            for: uri,
+            crypto: .eapi,
+            ifSessionGeneration: expectedSessionGeneration
+        ) else {
+            throw CancellationError()
+        }
+        let cookieHeader = cookieSnapshot.header
         if !cookieHeader.isEmpty {
             urlRequest.setValue(cookieHeader, forHTTPHeaderField: "Cookie")
             #if DEBUG
-            print("[NCM]    Cookie: \(String(cookieHeader.prefix(80)))...")
+            print("[NCM]    Cookie: attached")
             #endif
         }
 
@@ -232,10 +380,45 @@ public class NCMClient {
         }.joined(separator: "&")
         urlRequest.httpBody = formBody.data(using: .utf8)
 
-        let (responseData, response) = try await URLSession.shared.data(for: urlRequest)
+        let redirectSession = captureRedirect
+            ? URLSession(
+                configuration: requestClient.session.configuration,
+                delegate: RedirectCaptureDelegate(),
+                delegateQueue: nil
+            )
+            : nil
+        defer { redirectSession?.finishTasksAndInvalidate() }
+        let activeSession = redirectSession ?? requestClient.session
+
+        let (responseData, response) = try await activeSession.data(for: urlRequest)
         let httpResponse = response as? HTTPURLResponse
         let statusCode = httpResponse?.statusCode ?? 200
         let ms = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
+
+        func capturedRedirect(
+            response: HTTPURLResponse?,
+            statusCode: Int
+        ) throws -> APIResponse? {
+            guard captureRedirect, (300..<400).contains(statusCode) else { return nil }
+            let setCookies = response.map(RequestClient.extractSetCookieHeaders) ?? []
+            guard requestClient.sessionManager.updateCookies(
+                from: setCookies,
+                ifSessionGeneration: cookieSnapshot.sessionGeneration
+            ) else {
+                throw CancellationError()
+            }
+            guard let location = response?.value(forHTTPHeaderField: "Location"), !location.isEmpty else {
+                throw NCMError.invalidResponse(detail: "重定向响应缺少 Location")
+            }
+            return APIResponse(
+                status: statusCode,
+                body: ["code": statusCode, "url": location],
+                cookies: setCookies
+            )
+        }
+        if let redirect = try capturedRedirect(response: httpResponse, statusCode: statusCode) {
+            return redirect
+        }
 
         // 全局 5xx 服务端错误处理：自动重试一次
         if statusCode >= 500 {
@@ -243,7 +426,10 @@ public class NCMClient {
             print("[NCM] ⚠️ 服务端错误 \(statusCode) \(route) [\(ms)ms]，1.5s 后重试...")
             #endif
             try await Task.sleep(nanoseconds: 1_500_000_000)
-            let (retryData, retryResponse) = try await URLSession.shared.data(for: urlRequest)
+            guard requestClient.sessionManager.sessionGeneration == cookieSnapshot.sessionGeneration else {
+                throw CancellationError()
+            }
+            let (retryData, retryResponse) = try await activeSession.data(for: urlRequest)
             let retryHttp = retryResponse as? HTTPURLResponse
             let retryStatus = retryHttp?.statusCode ?? 200
             let retryMs = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
@@ -257,39 +443,45 @@ public class NCMClient {
                 throw NCMError.networkError(statusCode: retryStatus, message: msg)
             }
 
+            if let redirect = try capturedRedirect(response: retryHttp, statusCode: retryStatus) {
+                return redirect
+            }
+
             // 重试成功，用重试的响应继续
             return try parseProxyResponse(
                 data: retryData, httpResponse: retryHttp,
-                statusCode: retryStatus, route: route, uri: uri, ms: retryMs
+                statusCode: retryStatus, route: route, uri: uri, ms: retryMs,
+                expectedSessionGeneration: cookieSnapshot.sessionGeneration
             )
         }
 
         return try parseProxyResponse(
             data: responseData, httpResponse: httpResponse,
-            statusCode: statusCode, route: route, uri: uri, ms: ms
+            statusCode: statusCode, route: route, uri: uri, ms: ms,
+            expectedSessionGeneration: cookieSnapshot.sessionGeneration
         )
     }
 
     /// 解析代理请求的响应
-    private func parseProxyResponse(
+    internal func parseProxyResponse(
         data responseData: Data,
         httpResponse: HTTPURLResponse?,
         statusCode: Int,
         route: String,
         uri: String,
-        ms: Int
+        ms: Int,
+        expectedSessionGeneration: UInt64? = nil
     ) throws -> APIResponse {
         // 提取 Set-Cookie
-        var setCookies: [String] = []
-        if let httpResp = httpResponse,
-           let respUrl = httpResp.url,
-           let allHeaders = httpResp.allHeaderFields as? [String: String] {
-            let httpCookies = HTTPCookie.cookies(withResponseHeaderFields: allHeaders, for: respUrl)
-            setCookies = httpCookies.map { "\($0.name)=\($0.value)" }
-        }
+        let setCookies = httpResponse.map(RequestClient.extractSetCookieHeaders) ?? []
 
         // 更新本地 Cookie
-        requestClient.sessionManager.updateCookies(from: setCookies)
+        guard requestClient.sessionManager.updateCookies(
+            from: setCookies,
+            ifSessionGeneration: expectedSessionGeneration
+        ) else {
+            throw CancellationError()
+        }
 
         // 解析 JSON
         let body = (try? JSONSerialization.jsonObject(with: responseData)) as? [String: Any]
@@ -302,10 +494,6 @@ public class NCMClient {
         }
         if !setCookies.isEmpty {
             print("[NCM]    Set-Cookie: \(setCookies.count) 条")
-        }
-        if let jsonStr = String(data: responseData, encoding: .utf8) {
-            let preview = String(jsonStr.prefix(500))
-            print("[NCM]    响应体: \(preview)\(jsonStr.count > 500 ? "..." : "")")
         }
         #endif
 
@@ -338,7 +526,7 @@ public class NCMClient {
     /// - Returns: Cookie 键值对字典
     private static func parseCookieString(_ cookieString: String) -> [String: String] {
         var result: [String: String] = [:]
-        let pairs = cookieString.split(separator: ";")
+        let pairs = normalizeCookieHeader(cookieString).split(separator: ";")
         for pair in pairs {
             let keyValue = pair.split(separator: "=", maxSplits: 1)
             guard keyValue.count == 2 else { continue }

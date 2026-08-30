@@ -54,7 +54,7 @@ extension ProfileView {
     }
 
     var liquidGlassProfileLensBoard: some View {
-        let profile = cachedProfile ?? viewModel.userProfile
+        let profile = displayedProfile
         let signature = profile?.signature?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
         return ZStack(alignment: .bottomTrailing) {
@@ -87,7 +87,7 @@ extension ProfileView {
                             .lineLimit(2)
 
                         HStack(spacing: 8) {
-                            if let userLevel {
+                            if loginIdentity.activeSource == .netease, let userLevel {
                                 LiquidGlassPill(text: "Lv.\(userLevel)", tint: LiquidGlassStyle.accent, selected: true, compact: true)
                             }
                             LiquidGlassPill(text: String(format: String(localized: "profile_recent_count"), playerManager.history.count), icon: .clock, tint: LiquidGlassStyle.cyan, compact: true)
@@ -101,7 +101,7 @@ extension ProfileView {
                 LiquidGlassHairline(tint: LiquidGlassStyle.accent.opacity(0.32))
 
                 HStack(spacing: 8) {
-                    LiquidGlassPill(text: formatNumber(listenSongs ?? 0), icon: .headphones, tint: LiquidGlassStyle.violet, compact: true)
+                    LiquidGlassPill(text: identityPrimaryMetricValue, icon: identityPrimaryMetricIcon, tint: LiquidGlassStyle.violet, compact: true)
                     LiquidGlassPill(text: "\(localPlaylistCount)", icon: .musicNoteList, tint: LiquidGlassStyle.mint, compact: true)
                     LiquidGlassPill(text: "\(downloadedSongCount)", icon: .download, tint: LiquidGlassStyle.amber, compact: true)
                 }
@@ -114,10 +114,10 @@ extension ProfileView {
     var liquidGlassProfileMetricStreams: some View {
         HStack(spacing: 10) {
             liquidGlassMetricStream(
-                value: formatNumber(listenSongs ?? 0),
-                label: String(localized: "profile_total_songs"),
+                value: identityPrimaryMetricValue,
+                label: identityPrimaryMetricLabel,
                 tint: LiquidGlassStyle.violet,
-                icon: .headphones
+                icon: identityPrimaryMetricIcon
             )
             liquidGlassMetricStream(
                 value: "\(localPlaylistCount)",
@@ -293,15 +293,17 @@ extension ProfileView {
             }
             .buttonStyle(.plain)
 
-            NavigationLink(destination: CloudDiskView()) {
-                liquidGlassProfilePortalTile(
-                    icon: .cloud,
-                    title: NSLocalizedString("profile_cloud_disk", comment: ""),
-                    value: "CLOUD",
-                    tint: LiquidGlassStyle.violet
-                )
+            if loginIdentity.activeSource == .netease {
+                NavigationLink(destination: CloudDiskView()) {
+                    liquidGlassProfilePortalTile(
+                        icon: .cloud,
+                        title: NSLocalizedString("profile_cloud_disk", comment: ""),
+                        value: "CLOUD",
+                        tint: LiquidGlassStyle.violet
+                    )
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
     }
 

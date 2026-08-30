@@ -4,7 +4,7 @@ import PackageDescription
 let package = Package(
     name: "NeteaseCloudMusicAPI",
     platforms: [
-        .iOS(.v15), .tvOS(.v15), .watchOS(.v8)
+        .iOS(.v15), .tvOS(.v15), .watchOS(.v8), .macOS(.v12)
     ],
     products: [
         .library(name: "NeteaseCloudMusicAPI", targets: ["NeteaseCloudMusicAPI"])
@@ -14,6 +14,11 @@ let package = Package(
         .target(
             name: "NeteaseCloudMusicAPI",
             path: "Sources/NeteaseCloudMusicAPI"
+        ),
+        .testTarget(
+            name: "NeteaseCloudMusicAPIContractTests",
+            dependencies: ["NeteaseCloudMusicAPI"],
+            path: "ContractTests/NeteaseCloudMusicAPIContractTests"
         ),
     ]
 )

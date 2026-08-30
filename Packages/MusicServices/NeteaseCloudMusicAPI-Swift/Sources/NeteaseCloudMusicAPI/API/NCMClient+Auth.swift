@@ -14,13 +14,36 @@ extension NCMClient {
     ///   - password: 密码（明文，内部会进行 MD5 加密），验证码登录时可为空
     ///   - countrycode: 国家码，默认为 "86"（中国大陆）
     ///   - captcha: 验证码（可选），传入时使用验证码登录替代密码登录
+    ///   - secureCaptcha: 风控安全验证码
     /// - Returns: API 响应，包含用户信息和认证 Cookie
     public func loginCellphone(
         phone: String,
         password: String = "",
         countrycode: String = "86",
-        captcha: String? = nil
+        captcha: String? = nil,
+        secureCaptcha: String? = nil
     ) async throws -> APIResponse {
+        let data = Self.loginCellphoneRequestData(
+            phone: phone,
+            password: password,
+            countrycode: countrycode,
+            captcha: captcha,
+            secureCaptcha: secureCaptcha
+        )
+        return try await request(
+            "/api/w/login/cellphone",
+            data: data,
+            crypto: .weapi
+        )
+    }
+
+    internal static func loginCellphoneRequestData(
+        phone: String,
+        password: String,
+        countrycode: String,
+        captcha: String?,
+        secureCaptcha: String?
+    ) -> [String: Any] {
         var data: [String: Any] = [
             "type": "1",
             "https": "true",
@@ -34,11 +57,10 @@ extension NCMClient {
         } else {
             data["password"] = CryptoEngine.md5(password)
         }
-        return try await request(
-            "/api/w/login/cellphone",
-            data: data,
-            crypto: .weapi
-        )
+        if let secureCaptcha {
+            data["secureCaptcha"] = secureCaptcha
+        }
+        return data
     }
 
     /// 邮箱登录

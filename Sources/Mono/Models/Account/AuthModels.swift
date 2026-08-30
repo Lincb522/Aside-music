@@ -39,6 +39,7 @@ struct LoginResponse: Codable {
     let code: Int
     let cookie: String?
     let profile: UserProfile?
+    let message: String?
 }
 
 /// 当前登录状态响应。

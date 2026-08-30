@@ -34,7 +34,7 @@ extension ProfileView {
     }
 
     var capsuleProfileIdentityPanel: some View {
-        let profile = cachedProfile ?? viewModel.userProfile
+        let profile = displayedProfile
         let signature = profile?.signature?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
         return VStack(alignment: .leading, spacing: 16) {
@@ -49,7 +49,7 @@ extension ProfileView {
                             .lineLimit(1)
                             .minimumScaleFactor(0.76)
 
-                        if let userLevel {
+                        if loginIdentity.activeSource == .netease, let userLevel {
                             CapsulePillLabel(
                                 title: "Lv.\(userLevel)",
                                 tint: CapsuleStyle.violet,
@@ -71,8 +71,8 @@ extension ProfileView {
                             tint: CapsuleStyle.cyan
                         )
                         CapsulePillLabel(
-                            title: formatNumber(listenSongs ?? 0),
-                            icon: .headphones,
+                            title: identityPrimaryMetricValue,
+                            icon: identityPrimaryMetricIcon,
                             tint: CapsuleStyle.mint
                         )
                     }
@@ -144,10 +144,10 @@ extension ProfileView {
     var capsuleProfileMetricDeck: some View {
         HStack(spacing: 10) {
             CapsuleProfileMetricTile(
-                value: formatNumber(listenSongs ?? 0),
-                label: String(localized: "profile_total_songs"),
+                value: identityPrimaryMetricValue,
+                label: identityPrimaryMetricLabel,
                 tint: CapsuleStyle.accent,
-                icon: .headphones
+                icon: identityPrimaryMetricIcon
             )
             CapsuleProfileMetricTile(
                 value: "\(localPlaylistCount)",
@@ -215,15 +215,17 @@ extension ProfileView {
             }
             .buttonStyle(CapsulePressStyle())
 
-            NavigationLink(destination: CloudDiskView()) {
-                CapsuleProfilePortalTile(
-                    icon: .cloud,
-                    title: NSLocalizedString("profile_cloud_disk", comment: ""),
-                    value: "CLOUD",
-                    tint: CapsuleStyle.violet
-                )
+            if loginIdentity.activeSource == .netease {
+                NavigationLink(destination: CloudDiskView()) {
+                    CapsuleProfilePortalTile(
+                        icon: .cloud,
+                        title: NSLocalizedString("profile_cloud_disk", comment: ""),
+                        value: "CLOUD",
+                        tint: CapsuleStyle.violet
+                    )
+                }
+                .buttonStyle(CapsulePressStyle())
             }
-            .buttonStyle(CapsulePressStyle())
         }
     }
 

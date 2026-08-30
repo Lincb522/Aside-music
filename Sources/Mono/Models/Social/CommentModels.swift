@@ -13,6 +13,7 @@ enum CommentResourceType: Int, Equatable, Sendable {
     case dj = 4
     case video = 5
     case event = 6
+    case podcast = 7
 }
 
 /// 评论接口使用的平台原始资源标识，避免把应用内部的稳定 ID 误传给其他平台。

@@ -135,6 +135,120 @@ extension ProfileView {
         }
     }
 
+    // MARK: - Signal 未登录页
+
+    var signalNotLoggedInContent: some View {
+        NavigationStack(path: $navigationPath) {
+            ZStack {
+                SignalRootBackdrop()
+
+                ScrollView {
+                    LazyVStack(spacing: 16) {
+                        signalGuestHeader
+
+                        SignalGuestIdentityPanel {
+                            navigationPath.append(ProfileNavigationDestination.loginNCM)
+                        }
+
+                        signalGuestMenu
+
+                        FloatingBarBottomSpacer()
+                    }
+                    .frame(maxWidth: 620)
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                    .padding(.top, 8)
+                }
+                .scrollIndicators(.hidden)
+                .themeRenderScrollLayer()
+            }
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .navigationBar)
+            .profileNavigationDestinations()
+        }
+    }
+
+    private var signalGuestHeader: some View {
+        HStack(spacing: 12) {
+            Text(String(localized: "tab_profile"))
+                .font(SignalStyle.titleFont(28, weight: .semibold))
+                .foregroundStyle(SignalStyle.ink)
+
+            Spacer(minLength: 8)
+
+            NavigationLink(value: ProfileNavigationDestination.settings) {
+                MonoIcon(
+                    icon: .settings,
+                    size: 17,
+                    color: SignalStyle.inkSoft,
+                    lineWidth: 1.6,
+                    forceTemplateRendering: true
+                )
+                .frame(width: 42, height: 42)
+                .background(
+                    SignalSurfaceBackground(
+                        cornerRadius: 13,
+                        elevated: false,
+                        fill: SignalStyle.control
+                    )
+                )
+                .contentShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+            }
+            .buttonStyle(MonoBouncingButtonStyle(scale: 0.94))
+            .accessibilityLabel(String(localized: "profile_settings"))
+        }
+        .monoPageHeaderCollapse()
+    }
+
+    private var signalGuestMenu: some View {
+        VStack(spacing: 0) {
+            Button {
+                navigationPath.append(ProfileNavigationDestination.platformAccounts)
+            } label: {
+                SignalGuestMenuRow(
+                    icon: .musicNote,
+                    title: String(localized: "platform_account_management")
+                )
+            }
+            .buttonStyle(MonoBouncingButtonStyle(scale: 0.98))
+
+            signalGuestDivider
+
+            NavigationLink(destination: ListeningStatsView()) {
+                SignalGuestMenuRow(
+                    icon: .sparkle,
+                    title: String(localized: "cloud_sync_listening_stats")
+                )
+            }
+            .buttonStyle(MonoBouncingButtonStyle(scale: 0.98))
+
+            signalGuestDivider
+
+            NavigationLink(destination: StorageManageView()) {
+                SignalGuestMenuRow(
+                    icon: .storage,
+                    title: String(localized: "profile_cache_manage")
+                )
+            }
+            .buttonStyle(MonoBouncingButtonStyle(scale: 0.98))
+        }
+        .background(
+            SignalSurfaceBackground(
+                cornerRadius: 16,
+                elevated: false,
+                fill: SignalStyle.surface
+            )
+        )
+    }
+
+    private var signalGuestDivider: some View {
+        Rectangle()
+            .fill(SignalStyle.separator.opacity(0.62))
+            .frame(height: 0.7)
+            .padding(.leading, 64)
+    }
+
     var minimalWhiteNotLoggedInContent: some View {
         NavigationStack(path: $navigationPath) {
             ZStack {
@@ -458,4 +572,151 @@ extension ProfileView {
         }
     }
 
+}
+
+private struct SignalGuestIdentityPanel: View {
+    let login: () -> Void
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 14) {
+                    guestAvatar
+                    guestCopy
+                }
+            } else {
+                HStack(spacing: 15) {
+                    guestAvatar
+                    guestCopy
+                    Spacer(minLength: 0)
+                }
+            }
+
+            Button(action: login) {
+                HStack(spacing: 10) {
+                    Text(LocalizedStringKey("profile_login_button"))
+                        .font(SignalStyle.labelFont(15, weight: .semibold))
+
+                    Spacer(minLength: 8)
+
+                    MonoIcon(
+                        icon: .chevronRight,
+                        size: 13,
+                        color: SignalStyle.onAccent,
+                        lineWidth: 1.8,
+                        forceTemplateRendering: true
+                    )
+                }
+                .foregroundStyle(SignalStyle.onAccent)
+                .padding(.horizontal, 17)
+                .frame(maxWidth: .infinity, minHeight: 50)
+                .background(
+                    RoundedRectangle(cornerRadius: 13, style: .continuous)
+                        .fill(SignalStyle.accent)
+                )
+                .contentShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+            }
+            .buttonStyle(MonoBouncingButtonStyle(scale: 0.98))
+        }
+        .padding(18)
+        .background(
+            SignalSurfaceBackground(
+                cornerRadius: 16,
+                elevated: true,
+                fill: SignalStyle.surfaceRaised
+            )
+        )
+    }
+
+    private var guestAvatar: some View {
+        ZStack(alignment: .bottomTrailing) {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(SignalStyle.screen)
+                .frame(width: 64, height: 64)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(SignalStyle.separator.opacity(0.72), lineWidth: 0.7)
+                }
+                .overlay {
+                    MonoIcon(
+                        icon: .profile,
+                        size: 23,
+                        color: SignalStyle.inkSoft,
+                        lineWidth: 1.6,
+                        forceTemplateRendering: true
+                    )
+                }
+
+            SignalBreathingIndicator(size: 7)
+                .padding(7)
+        }
+        .accessibilityHidden(true)
+    }
+
+    private var guestCopy: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(LocalizedStringKey("profile_not_logged_in"))
+                .font(SignalStyle.titleFont(23, weight: .semibold))
+                .foregroundStyle(SignalStyle.ink)
+
+            Text(LocalizedStringKey("profile_login_hint"))
+                .font(SignalStyle.bodyFont(13, weight: .regular))
+                .foregroundStyle(SignalStyle.inkSoft)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+private struct SignalGuestMenuRow: View {
+    let icon: MonoIcon.IconType
+    let title: String
+    var trailingText: String? = nil
+
+    var body: some View {
+        HStack(spacing: 13) {
+            MonoIcon(
+                icon: icon,
+                size: 16,
+                color: SignalStyle.inkSoft,
+                lineWidth: 1.6,
+                forceTemplateRendering: true
+            )
+            .frame(width: 36, height: 36)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(SignalStyle.control)
+            )
+            .accessibilityHidden(true)
+
+            Text(title)
+                .font(SignalStyle.bodyFont(15, weight: .medium))
+                .foregroundStyle(SignalStyle.ink)
+                .lineLimit(2)
+
+            Spacer(minLength: 8)
+
+            if let trailingText {
+                Text(trailingText)
+                    .font(SignalStyle.labelFont(12, weight: .medium))
+                    .foregroundStyle(SignalStyle.inkMuted)
+                    .lineLimit(1)
+            }
+
+            MonoIcon(
+                icon: .chevronRight,
+                size: 12,
+                color: SignalStyle.inkMuted,
+                lineWidth: 1.7,
+                forceTemplateRendering: true
+            )
+            .accessibilityHidden(true)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+    }
 }

@@ -40,9 +40,10 @@ extension ScrollableLibraryExperience {
     }
 
     func loadQQUserPlaylistsIfNeeded(force: Bool = false) {
+        let session = qqSession.sessionSnapshot
         guard force || !hasLoadedQQUserPlaylists else { return }
         guard !isLoadingQQUserPlaylists else { return }
-        guard qqSession.isLoggedIn, let mid = qqSession.musicId else {
+        guard session.isLoggedIn, let mid = session.musicID else {
             qqUserPlaylists = []
             hasLoadedQQUserPlaylists = true
             return
@@ -51,16 +52,20 @@ extension ScrollableLibraryExperience {
         isLoadingQQUserPlaylists = true
         Task { @MainActor in
             defer {
-                isLoadingQQUserPlaylists = false
-                hasLoadedQQUserPlaylists = true
+                if qqSession.isCurrentSession(session) {
+                    isLoadingQQUserPlaylists = false
+                    hasLoadedQQUserPlaylists = true
+                }
             }
 
             do {
                 let result: JSON = try await QQUserSession.shared.withUserSession { client in
                     try await client.createdSonglist(uin: String(mid))
                 }
+                guard qqSession.isCurrentSession(session) else { return }
                 qqUserPlaylists = Self.parseQQUserPlaylists(result)
             } catch {
+                guard qqSession.isCurrentSession(session) else { return }
                 AppLogger.error("[Library] 加载 QCM 歌单失败: \(error)")
             }
         }

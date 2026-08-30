@@ -112,7 +112,7 @@ struct MujiHomeView: View {
     @ViewBuilder
     private var mujiAvatarView: some View {
         let size: CGFloat = 36
-        if let avatarUrl = viewModel.userProfile?.avatarUrl, let url = URL(string: avatarUrl) {
+        if let avatarUrl = viewModel.displayedIdentityProfile?.avatarUrl, let url = URL(string: avatarUrl) {
             CachedAsyncImage(url: url) {
                 Circle().fill(MujiStyle.wash(accent))
             }
@@ -238,7 +238,7 @@ struct MujiHomeView: View {
                     .tracking(1.8)
                     .textCase(.uppercase)
 
-                Text(viewModel.userProfile?.nickname ?? String(localized: "default_nickname"))
+                Text(viewModel.displayedIdentityProfile?.nickname ?? String(localized: "default_nickname"))
                     .font(MujiStyle.titleFont(30, weight: .medium))
                     .foregroundColor(textPrimary)
                     .tracking(0.5)

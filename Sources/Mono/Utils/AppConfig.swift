@@ -104,6 +104,7 @@ enum AppConfig {
         static let lastPodcastDailyRefresh = "last_podcast_daily_refresh_date"
         static let lastFullSync = "last_full_sync_time"
         static let isLoggedIn = "isLoggedIn"
+        static let activeLoginIdentity = "mono_active_login_identity"
         static let pitchSemitones = "mono_pitch_semitones"
         static let preferHighestPlaybackQuality = "mono_prefer_highest_playback_quality"
         static let gaplessPlaybackEnabled = "mono_gapless_playback_enabled"

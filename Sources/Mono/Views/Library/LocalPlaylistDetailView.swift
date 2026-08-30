@@ -90,7 +90,7 @@ struct LocalPlaylistDetailView: View {
             SequoiaRootBackdrop()
         } else if CapsuleStyle.isActive {
             CapsuleRootBackdrop()
-        } else if SettingsManager.shared.coverBgPlaylist {
+        } else if SettingsManager.shared.usesPlaylistCoverBackground {
             PlaylistColorBackground(coverUrl: playlistCoverUrl?.sized(200))
         } else {
                 ThemedPageBackground()

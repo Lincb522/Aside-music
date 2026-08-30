@@ -1,24 +1,46 @@
 import Foundation
 
 extension KCMMusicService {
-    func refreshAuthenticatedSession() async throws {
-        guard isAuthenticated else { throw KCMMusicError.authenticationRequired }
+    @discardableResult
+    func refreshAuthenticatedSession(
+        ifCurrentRequestContext expectedContext: SessionRequestContext
+    ) async throws -> SessionSnapshot {
+        guard expectedContext.snapshot.isAuthenticated,
+              isCurrentRequestContext(expectedContext) else {
+            throw CancellationError()
+        }
+        let (json, response, requestContext) = try await loginRequest(
+            path: "/login/token",
+            sendStoredCookie: true,
+            ifCurrentRequestContext: expectedContext
+        )
+        guard let requestContext else { throw KCMMusicError.invalidResponse }
         do {
-            let (json, responseURL) = try await loginRequest(
-                path: "/login/token",
-                sendStoredCookie: true
+            return try persistAuthenticatedSession(
+                json: json,
+                response: response,
+                ifCurrentRequestContext: requestContext
             )
-            try persistAuthenticatedSession(json: json, responseURL: responseURL)
         } catch {
+            if let kcmError = error as? KCMMusicError,
+               case .sessionExpired(let failureContext) = kcmError,
+               failureContext != nil {
+                throw kcmError
+            }
             if Self.isAuthenticationFailure(error) {
-                throw KCMMusicError.sessionExpired
+                guard isCurrentRequestContext(requestContext) else {
+                    throw CancellationError()
+                }
+                throw KCMMusicError.sessionExpired(requestContext.credentialContext)
             }
             throw error
         }
     }
 
-    func createQRCode() async throws -> KCMQRCodeSession {
-        let (keyResponse, _) = try await loginRequest(path: "/login/qr/key")
+    func createQRCode(for attempt: LoginAttempt) async throws -> KCMQRCodeSession {
+        guard isCurrentLoginAttempt(attempt) else { throw CancellationError() }
+        let (keyResponse, _, _) = try await loginRequest(path: "/login/qr/key")
+        guard isCurrentLoginAttempt(attempt) else { throw CancellationError() }
         let keyData = keyResponse["data"] as? [String: Any] ?? [:]
         guard let key = Self.string(keyData["qrcode"]), !key.isEmpty else {
             throw KCMMusicError.invalidResponse
@@ -29,13 +51,14 @@ extension KCMMusicService {
             return KCMQRCodeSession(key: key, imageData: imageData)
         }
 
-        let (createResponse, _) = try await loginRequest(
+        let (createResponse, _, _) = try await loginRequest(
             path: "/login/qr/create",
             query: [
                 URLQueryItem(name: "key", value: key),
                 URLQueryItem(name: "qrimg", value: "1"),
             ]
         )
+        guard isCurrentLoginAttempt(attempt) else { throw CancellationError() }
         let createData = createResponse["data"] as? [String: Any] ?? [:]
         guard let encodedImage = Self.string(createData["base64"]),
               let imageData = Self.decodeBase64Image(encodedImage) else {
@@ -44,11 +67,16 @@ extension KCMMusicService {
         return KCMQRCodeSession(key: key, imageData: imageData)
     }
 
-    func checkQRCode(key: String) async throws -> KCMQRCodeStatus {
-        let (json, responseURL) = try await loginRequest(
+    func checkQRCode(
+        key: String,
+        for attempt: LoginAttempt
+    ) async throws -> KCMQRCodeStatus {
+        guard isCurrentLoginAttempt(attempt) else { throw CancellationError() }
+        let (json, response, _) = try await loginRequest(
             path: "/login/qr/check",
             query: [URLQueryItem(name: "key", value: key)]
         )
+        guard isCurrentLoginAttempt(attempt) else { throw CancellationError() }
         let data = json["data"] as? [String: Any] ?? [:]
         guard let status = Self.int(data["status"]) else {
             throw KCMMusicError.invalidResponse
@@ -61,31 +89,65 @@ extension KCMMusicService {
         case 2:
             return .scanned
         case 4:
-            try persistAuthenticatedSession(json: json, responseURL: responseURL)
-            Task { [weak self] in await self?.synchronizeCurrentAccount() }
-            Task { @MainActor in KCMDailyMembershipEngine.shared.resumeAfterLogin() }
+            let acceptedSession = try persistAuthenticatedSession(
+                json: json,
+                response: response,
+                forLoginAttempt: attempt
+            )
+            Task { [weak self] in
+                await self?.synchronizeCurrentAccount(
+                    ifCurrentSession: acceptedSession
+                )
+            }
+            Task { @MainActor [weak self] in
+                guard self?.isCurrentSession(acceptedSession) == true else { return }
+                KCMDailyMembershipEngine.shared.resumeAfterLogin()
+            }
             return .confirmed
         default:
             return .waiting
         }
     }
 
-    func fetchAccountProfile() async throws -> KCMAccountProfile? {
-        guard isAuthenticated, let fallbackUserID = currentUserID else { return nil }
+    func fetchAccountProfile(
+        ifCurrentSession expectedSession: SessionSnapshot? = nil
+    ) async throws -> KCMAccountProfile? {
+        let requestedSession = expectedSession ?? sessionSnapshot
+        guard requestedSession.isAuthenticated,
+              let requestedUserID = requestedSession.userID,
+              isCurrentSession(requestedSession) else { return nil }
+
         let timestamp = Self.requestTimestamp
         let cacheBuster = [URLQueryItem(name: "timestamp", value: timestamp)]
-        async let detailRequest = request(path: "/user/detail", query: cacheBuster)
-        async let vipRequest = request(path: "/user/vip/detail", query: cacheBuster)
+        async let detailRequest = request(
+            path: "/user/detail",
+            query: cacheBuster,
+            ifCurrentSession: requestedSession
+        )
+        async let vipRequest = request(
+            path: "/user/vip/detail",
+            query: cacheBuster,
+            ifCurrentSession: requestedSession
+        )
         let detail = try await detailRequest
         let vip = (try? await vipRequest) ?? [:]
-        let userID = Self.firstInt(in: detail, keys: ["userid", "user_id", "id"]) ?? fallbackUserID
+        guard isCurrentSession(requestedSession) else { throw CancellationError() }
+
+        let userID = Self.firstInt(in: detail, keys: ["userid", "user_id", "id"]) ?? requestedUserID
+        guard userID == requestedUserID else { throw KCMMusicError.invalidResponse }
         let nickname = Self.firstString(in: detail, keys: ["nickname", "nick_name", "username", "user_name"])
         let avatarString = Self.firstString(
             in: detail,
             keys: ["pic", "k_pic", "avatar", "avatar_url", "headimg", "user_image"]
         )
         let membership = Self.membershipSummary(detail: detail, vip: vip)
-        cacheMembershipLevel(membership.level, userID: userID)
+        guard cacheMembershipLevel(
+            membership.level,
+            userID: userID,
+            ifCurrentSession: requestedSession
+        ) else {
+            throw CancellationError()
+        }
         return KCMAccountProfile(
             userID: userID,
             nickname: nickname,
@@ -98,20 +160,62 @@ extension KCMMusicService {
         )
     }
 
-    func synchronizeCurrentAccount(profile: KCMAccountProfile? = nil) async {
-        guard let cookie = currentCookie else { return }
-        do {
-            let resolvedProfile: KCMAccountProfile?
-            if let profile {
-                resolvedProfile = profile
-            } else {
-                resolvedProfile = try await fetchAccountProfile()
+    func synchronizeCurrentAccount(
+        profile: KCMAccountProfile? = nil,
+        ifCurrentSession expectedSession: SessionSnapshot? = nil
+    ) async {
+        let requestedSession = expectedSession ?? sessionSnapshot
+        guard requestedSession.isAuthenticated,
+              let requestedUserID = requestedSession.userID,
+              isCurrentSession(requestedSession) else { return }
+        var remainingCredentialRotationRetries = 1
+        while true {
+            do {
+                let resolvedProfile: KCMAccountProfile?
+                if let profile {
+                    resolvedProfile = profile
+                } else {
+                    resolvedProfile = try await fetchAccountProfile(
+                        ifCurrentSession: requestedSession
+                    )
+                }
+                guard let resolvedProfile,
+                      resolvedProfile.userID == requestedUserID,
+                      let requestContext = sessionRequestContext(ifCurrent: requestedSession),
+                      let cookie = requestContext.cookieHeader else { return }
+
+                let outcome = await KCMAccountVaultSaveCoordinator.shared.enqueue(
+                    while: { [weak self] in
+                        self?.isCurrentRequestContext(requestContext) == true
+                    },
+                    operation: {
+                        do {
+                            _ = try await APIService.shared.saveKCMAccount(
+                                cookie: cookie,
+                                profile: resolvedProfile
+                            )
+                            return .succeeded
+                        } catch {
+                            AppLogger.warning("KCM 账号同步失败: \(error.localizedDescription)")
+                            return .failed
+                        }
+                    }
+                )
+                if outcome.requiresCurrentAccountCompensation
+                    || !isCurrentRequestContext(requestContext) {
+                    guard sessionSnapshot.isAuthenticated else { return }
+                    await synchronizeCurrentAccount()
+                }
+                return
+            } catch is CancellationError {
+                guard remainingCredentialRotationRetries > 0,
+                      !Task.isCancelled,
+                      isCurrentSession(requestedSession) else { return }
+                remainingCredentialRotationRetries -= 1
+            } catch {
+                AppLogger.warning("KCM 账号同步失败: \(error.localizedDescription)")
+                return
             }
-            guard let resolvedProfile else { return }
-            _ = try await APIService.shared.saveKCMAccount(cookie: cookie, profile: resolvedProfile)
-        } catch {
-            AppLogger.warning("KCM 账号同步失败: \(error)")
         }
     }
-
 }

@@ -159,7 +159,7 @@ struct NeumorphicHomeView: View {
                     .foregroundStyle(NeumorphicStyle.inkMuted)
                     .tracking(0.8)
 
-                Text(viewModel.userProfile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
+                Text(viewModel.displayedIdentityProfile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
                     .font(NeumorphicStyle.titleFont(24, weight: .semibold))
                     .foregroundStyle(NeumorphicStyle.ink)
                     .lineLimit(1)
@@ -182,7 +182,7 @@ struct NeumorphicHomeView: View {
     @ViewBuilder
     private var avatarView: some View {
         let size: CGFloat = 46
-        if let avatarUrl = viewModel.userProfile?.avatarUrl, let url = URL(string: avatarUrl) {
+        if let avatarUrl = viewModel.displayedIdentityProfile?.avatarUrl, let url = URL(string: avatarUrl) {
             CachedAsyncImage(url: url, width: size, height: size) {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(NeumorphicStyle.surface)

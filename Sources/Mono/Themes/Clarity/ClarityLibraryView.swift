@@ -37,6 +37,7 @@ struct ClarityLibraryView: View {
     @ObservedObject private var localManager = LocalPlaylistManager.shared
     @ObservedObject private var subscriptionManager = SubscriptionManager.shared
     @ObservedObject private var qqSession = QQUserSession.shared
+    @ObservedObject private var loginIdentity = LoginIdentityManager.shared
     @State private var tab: LibraryViewModel.LibraryTab = .my
     @State private var personalSection: PersonalLibrarySection = .localPlaylists
     @State private var qcmPlaylists: [Playlist] = []
@@ -92,16 +93,17 @@ struct ClarityLibraryView: View {
             guard MainTabActivationGate.isSettled(.library) else { return }
             loadPersonalSection(force: false)
         }
-        .onChange(of: qqSession.isLoggedIn) { _, isLoggedIn in
-            if isLoggedIn {
-                hasLoadedQCMPlaylists = false
-                if personalSection == .qcmPlaylists {
-                    loadQCMPlaylists(force: true)
-                }
-            } else {
-                qcmPlaylists = []
-                hasLoadedQCMPlaylists = false
+        .onChange(of: qqSession.sessionRevision) { _, _ in
+            qcmPlaylists = []
+            hasLoadedQCMPlaylists = false
+            isLoadingQCMPlaylists = false
+            if qqSession.isLoggedIn, personalSection == .qcmPlaylists {
+                loadQCMPlaylists(force: true)
             }
+        }
+        .onChange(of: loginIdentity.activeSource) { _, _ in
+            guard MainTabActivationGate.isSettled(.library) else { return }
+            selectActiveIdentityLibrary()
         }
         .onReceive(NotificationCenter.default.publisher(for: .init("SwitchToLibrarySquare"))) { notification in
             let source = notification.object as? LibraryViewModel.MusicSource
@@ -121,6 +123,7 @@ struct ClarityLibraryView: View {
         }
         .task {
             guard await MainTabActivationGate.waitUntilSettled(.library) else { return }
+            selectActiveIdentityLibrary()
             reload(force: false)
         }
     }
@@ -599,10 +602,20 @@ struct ClarityLibraryView: View {
         }
     }
 
+    private func selectActiveIdentityLibrary() {
+        switch loginIdentity.activeSource {
+        case .netease: personalSection = .ncmPlaylists
+        case .qqmusic: personalSection = .qcmPlaylists
+        case .kugou: personalSection = .kcmPlaylists
+        case .qishui, .appleMusic, .local, nil: personalSection = .localPlaylists
+        }
+    }
+
     private func loadQCMPlaylists(force: Bool) {
+        let session = qqSession.sessionSnapshot
         guard force || !hasLoadedQCMPlaylists else { return }
         guard !isLoadingQCMPlaylists else { return }
-        guard qqSession.isLoggedIn, let mid = qqSession.musicId else {
+        guard session.isLoggedIn, let mid = session.musicID else {
             qcmPlaylists = []
             hasLoadedQCMPlaylists = true
             return
@@ -611,16 +624,20 @@ struct ClarityLibraryView: View {
         isLoadingQCMPlaylists = true
         Task { @MainActor in
             defer {
-                isLoadingQCMPlaylists = false
-                hasLoadedQCMPlaylists = true
+                if qqSession.isCurrentSession(session) {
+                    isLoadingQCMPlaylists = false
+                    hasLoadedQCMPlaylists = true
+                }
             }
 
             do {
                 let result: JSON = try await QQUserSession.shared.withUserSession { client in
                     try await client.createdSonglist(uin: String(mid))
                 }
+                guard qqSession.isCurrentSession(session) else { return }
                 qcmPlaylists = Self.parseQCMPlaylists(result)
             } catch {
+                guard qqSession.isCurrentSession(session) else { return }
                 AppLogger.error("[ClarityLibrary] 加载 QCM 歌单失败: \(error)")
             }
         }

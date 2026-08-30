@@ -33,7 +33,7 @@ extension ProfileView {
     }
 
     var liquidGlassProfileHeroPanel: some View {
-        let profile = cachedProfile ?? viewModel.userProfile
+        let profile = displayedProfile
         let signature = profile?.signature?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
         return HStack(alignment: .center, spacing: 15) {
@@ -47,7 +47,7 @@ extension ProfileView {
                         .lineLimit(1)
                         .minimumScaleFactor(0.76)
 
-                    if let level = userLevel {
+                    if loginIdentity.activeSource == .netease, let level = userLevel {
                         LiquidGlassPill(text: "Lv.\(level)", tint: LiquidGlassStyle.accent, selected: true, compact: true)
                     }
                 }
@@ -58,7 +58,7 @@ extension ProfileView {
                     .lineLimit(2)
 
                 HStack(spacing: 8) {
-                    LiquidGlassPill(text: formatNumber(listenSongs ?? 0), icon: .headphones, tint: LiquidGlassStyle.cyan, compact: true)
+                    LiquidGlassPill(text: identityPrimaryMetricValue, icon: identityPrimaryMetricIcon, tint: LiquidGlassStyle.cyan, compact: true)
                     LiquidGlassPill(text: "\(localPlaylistCount)", icon: .musicNoteList, tint: LiquidGlassStyle.mint, compact: true)
                 }
             }
@@ -91,7 +91,7 @@ extension ProfileView {
     }
 
     var sequoiaProfileHeroPanel: some View {
-        let profile = cachedProfile ?? viewModel.userProfile
+        let profile = displayedProfile
         let signature = profile?.signature?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
         return ZStack(alignment: .bottomTrailing) {
@@ -107,7 +107,7 @@ extension ProfileView {
                             .foregroundStyle(SequoiaStyle.ink)
                             .lineLimit(1)
 
-                        if let level = userLevel {
+                        if loginIdentity.activeSource == .netease, let level = userLevel {
                             SequoiaPill(text: "Lv.\(level)", tint: SequoiaStyle.accent, selected: true, compact: true)
                         }
                     }
@@ -157,7 +157,7 @@ extension ProfileView {
     }
 
     var signalProfileHeroPanel: some View {
-        let profile = cachedProfile ?? viewModel.userProfile
+        let profile = displayedProfile
 
         return VStack(alignment: .leading, spacing: 15) {
             HStack(alignment: .center, spacing: 14) {
@@ -176,10 +176,10 @@ extension ProfileView {
                         .lineLimit(2)
 
                     HStack(spacing: 8) {
-                        if let userLevel {
+                        if loginIdentity.activeSource == .netease, let userLevel {
                             SignalPill(text: "Lv.\(userLevel)", tint: SignalStyle.accent, selected: true, compact: true)
                         }
-                        SignalPill(text: formatNumber(listenSongs ?? 0), tint: SignalStyle.olive, icon: .headphones, compact: true)
+                        SignalPill(text: identityPrimaryMetricValue, tint: SignalStyle.olive, icon: identityPrimaryMetricIcon, compact: true)
                     }
                 }
 

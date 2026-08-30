@@ -840,6 +840,28 @@ final class OptimizedCacheManager: ObservableObject {
         storeInMemory(object as AnyObject, forKey: cacheKey, cost: encodedCost)
         diskCache.setObject(object, forKey: key, ttl: ttl)
     }
+
+    func clearNCMAccountData() {
+        let keys = [
+            AppConfig.CacheKeys.dailySongs,
+            AppConfig.CacheKeys.recommendPlaylists,
+            AppConfig.CacheKeys.recentSongs,
+            AppConfig.CacheKeys.userProfile,
+            AppConfig.CacheKeys.userPlaylists,
+        ]
+
+        for key in keys {
+            memoryCache.removeObject(forKey: key as NSString)
+            memoryEntries.removeValue(forKey: key)
+            diskCache.removeObject(forKey: key)
+            UserDefaults.standard.removeObject(
+                forKey: AppConfig.StorageKeys.timestampKey(for: key)
+            )
+        }
+
+        UserDefaults.standard.removeObject(forKey: AppConfig.StorageKeys.dailyCacheTimestamp)
+        resetDataReadyState()
+    }
     
     // MARK: - 内存管理
     

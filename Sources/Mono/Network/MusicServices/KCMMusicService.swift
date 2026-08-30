@@ -1,16 +1,23 @@
 import Foundation
 
-actor KCMAuthenticationRefreshCoordinator {
-    private var inFlight: Task<Void, Error>?
+extension Notification.Name {
+    static let kcmSessionDidChange = Notification.Name("KCMMusicServiceSessionDidChange")
+}
 
-    func run(_ operation: @escaping @Sendable () async throws -> Void) async throws {
-        if let inFlight {
-            return try await inFlight.value
+actor KCMAuthenticationRefreshCoordinator {
+    private var inFlight: [KCMMusicService.SessionCredentialContext: Task<Void, Error>] = [:]
+
+    func run(
+        for context: KCMMusicService.SessionCredentialContext,
+        _ operation: @escaping @Sendable () async throws -> Void
+    ) async throws {
+        if let task = inFlight[context] {
+            return try await task.value
         }
 
         let task = Task { try await operation() }
-        inFlight = task
-        defer { inFlight = nil }
+        inFlight[context] = task
+        defer { inFlight[context] = nil }
         try await task.value
     }
 }
@@ -18,14 +25,54 @@ actor KCMAuthenticationRefreshCoordinator {
 final class KCMMusicService: @unchecked Sendable {
     static let shared = KCMMusicService()
 
+    struct SessionSnapshot: Sendable, Hashable {
+        let revision: UInt64
+        let userID: Int?
+        let isAuthenticated: Bool
+    }
+
+    struct SessionRequestContext: Sendable {
+        let snapshot: SessionSnapshot
+        let cookieHeader: String?
+        let credentialRevision: UInt64
+
+        var credentialContext: SessionCredentialContext {
+            SessionCredentialContext(
+                snapshot: snapshot,
+                credentialRevision: credentialRevision
+            )
+        }
+    }
+
+    struct SessionCredentialContext: Sendable, Hashable {
+        let snapshot: SessionSnapshot
+        let credentialRevision: UInt64
+    }
+
+    struct LoginAttempt: Sendable, Equatable {
+        let id: UUID
+        let startingRevision: UInt64
+    }
+
     let session: URLSession
     let cookieKey = "mono_kugou_cookie"
     let membershipLevelKey = "mono_kcm_membership_level"
     let membershipUserIDKey = "mono_kcm_membership_user_id"
     let authenticationRefreshCoordinator = KCMAuthenticationRefreshCoordinator()
+    private let sessionStateLock = NSLock()
+    private var storedSessionRevision: UInt64 = 0
+    private var storedCredentialRevision: UInt64 = 0
+    private var activeLoginAttemptID: UUID?
 
-    init(session: URLSession = .shared) {
-        self.session = session
+    init(session: URLSession? = nil) {
+        let configuration = session?.configuration ?? URLSessionConfiguration.ephemeral
+        configuration.httpCookieStorage = nil
+        configuration.httpShouldSetCookies = false
+        self.session = URLSession(
+            configuration: configuration,
+            delegate: session?.delegate,
+            delegateQueue: session?.delegateQueue
+        )
     }
 
     var baseURL: URL {
@@ -49,24 +96,121 @@ final class KCMMusicService: @unchecked Sendable {
     }
 
     var currentCookie: String? {
+        sessionStateLock.lock()
+        defer { sessionStateLock.unlock() }
+        return currentCookieLocked()
+    }
+
+    var sessionRevision: UInt64 {
+        sessionStateLock.lock()
+        defer { sessionStateLock.unlock() }
+        return storedSessionRevision
+    }
+
+    var sessionSnapshot: SessionSnapshot {
+        sessionStateLock.lock()
+        defer { sessionStateLock.unlock() }
+        return makeSessionSnapshotLocked()
+    }
+
+    var sessionCredentialContext: SessionCredentialContext {
+        sessionStateLock.lock()
+        defer { sessionStateLock.unlock() }
+        return SessionCredentialContext(
+            snapshot: makeSessionSnapshotLocked(),
+            credentialRevision: storedCredentialRevision
+        )
+    }
+
+    func isCurrentSession(_ snapshot: SessionSnapshot) -> Bool {
+        sessionStateLock.lock()
+        defer { sessionStateLock.unlock() }
+        return makeSessionSnapshotLocked() == snapshot
+    }
+
+    func isCurrentRequestContext(_ context: SessionRequestContext) -> Bool {
+        sessionStateLock.lock()
+        defer { sessionStateLock.unlock() }
+        return makeSessionSnapshotLocked() == context.snapshot
+            && storedCredentialRevision == context.credentialRevision
+            && currentCookieLocked() == context.cookieHeader
+    }
+
+    func isCurrentCredentialContext(_ context: SessionCredentialContext) -> Bool {
+        sessionStateLock.lock()
+        defer { sessionStateLock.unlock() }
+        return makeSessionSnapshotLocked() == context.snapshot
+            && storedCredentialRevision == context.credentialRevision
+    }
+
+    func sessionRequestContext(
+        ifCurrent expectedSession: SessionSnapshot? = nil
+    ) -> SessionRequestContext? {
+        sessionStateLock.lock()
+        defer { sessionStateLock.unlock() }
+        let snapshot = makeSessionSnapshotLocked()
+        if let expectedSession, snapshot != expectedSession {
+            return nil
+        }
+        return SessionRequestContext(
+            snapshot: snapshot,
+            cookieHeader: currentCookieLocked(),
+            credentialRevision: storedCredentialRevision
+        )
+    }
+
+    func cookieHeader(ifCurrent expectedSession: SessionSnapshot) -> String? {
+        sessionStateLock.lock()
+        defer { sessionStateLock.unlock() }
+        guard makeSessionSnapshotLocked() == expectedSession else { return nil }
+        return currentCookieLocked()
+    }
+
+    func beginLoginAttempt() -> LoginAttempt {
+        sessionStateLock.lock()
+        defer { sessionStateLock.unlock() }
+        let attempt = LoginAttempt(id: UUID(), startingRevision: storedSessionRevision)
+        activeLoginAttemptID = attempt.id
+        return attempt
+    }
+
+    func cancelLoginAttempt(_ attempt: LoginAttempt) {
+        sessionStateLock.lock()
+        defer { sessionStateLock.unlock() }
+        if activeLoginAttemptID == attempt.id {
+            activeLoginAttemptID = nil
+        }
+    }
+
+    func isCurrentLoginAttempt(_ attempt: LoginAttempt) -> Bool {
+        sessionStateLock.lock()
+        defer { sessionStateLock.unlock() }
+        return activeLoginAttemptID == attempt.id
+            && storedSessionRevision == attempt.startingRevision
+    }
+
+    private func currentCookieLocked() -> String? {
         let value = KeychainHelper.loadString(key: cookieKey)?
             .trimmingCharacters(in: .whitespacesAndNewlines)
         return value?.isEmpty == false ? value : nil
     }
 
+    private func makeSessionSnapshotLocked() -> SessionSnapshot {
+        let values = currentCookieLocked().map(Self.cookieValues(in:)) ?? [:]
+        let userID = values["userid"].flatMap(Int.init)
+        return SessionSnapshot(
+            revision: storedSessionRevision,
+            userID: userID,
+            isAuthenticated: values["token"]?.isEmpty == false && userID != nil && userID != 0
+        )
+    }
+
     var isAuthenticated: Bool {
-        guard let cookie = currentCookie else { return false }
-        let values = Self.cookieValues(in: cookie)
-        guard let token = values["token"], !token.isEmpty,
-              let userID = values["userid"], userID != "0", !userID.isEmpty else {
-            return false
-        }
-        return true
+        sessionSnapshot.isAuthenticated
     }
 
     var currentUserID: Int? {
-        guard let cookie = currentCookie else { return nil }
-        return Self.cookieValues(in: cookie)["userid"].flatMap(Int.init)
+        sessionSnapshot.userID
     }
 
     var currentMembershipLevel: KCMMembershipLevel? {
@@ -78,8 +222,148 @@ final class KCMMusicService: @unchecked Sendable {
         return KCMMembershipLevel(rawValue: rawValue)
     }
 
+    @discardableResult
+    func cacheMembershipLevel(
+        _ level: KCMMembershipLevel,
+        userID: Int,
+        ifCurrentSession expectedSession: SessionSnapshot
+    ) -> Bool {
+        sessionStateLock.lock()
+        defer { sessionStateLock.unlock() }
+        guard makeSessionSnapshotLocked() == expectedSession,
+              expectedSession.userID == userID else { return false }
+        UserDefaults.standard.set(level.rawValue, forKey: membershipLevelKey)
+        UserDefaults.standard.set(userID, forKey: membershipUserIDKey)
+        return true
+    }
+
     func applyCookie(_ cookie: String) {
-        let previousUserID = currentUserID
+        _ = applyCookie(cookie, expectedSession: nil)
+    }
+
+    func applyCookie(
+        _ cookie: String,
+        forLoginAttempt attempt: LoginAttempt
+    ) -> SessionSnapshot? {
+        guard let normalized = normalizedCookie(cookie) else { return nil }
+        let nextCookieValues = Self.cookieValues(in: normalized)
+
+        sessionStateLock.lock()
+        guard activeLoginAttemptID == attempt.id,
+              storedSessionRevision == attempt.startingRevision else {
+            sessionStateLock.unlock()
+            return nil
+        }
+
+        guard Self.isAuthenticatedCookieValues(nextCookieValues) else {
+            sessionStateLock.unlock()
+            return nil
+        }
+        let didChangeSession = applyCookieLocked(
+            normalized,
+            values: nextCookieValues,
+            advancesRevision: true,
+            forceRevisionAdvance: true
+        )
+        activeLoginAttemptID = nil
+        let snapshot = makeSessionSnapshotLocked()
+        sessionStateLock.unlock()
+        if didChangeSession {
+            postSessionDidChange()
+        }
+        return snapshot
+    }
+
+    @discardableResult
+    func applyCookie(_ cookie: String, ifCurrentSession expectedSession: SessionSnapshot) -> Bool {
+        updateCookie(cookie, ifCurrentSession: expectedSession) != nil
+    }
+
+    func updateCookie(
+        _ cookie: String,
+        ifCurrentSession expectedSession: SessionSnapshot
+    ) -> SessionSnapshot? {
+        guard let normalized = normalizedCookie(cookie) else { return nil }
+        let nextCookieValues = Self.cookieValues(in: normalized)
+
+        sessionStateLock.lock()
+        defer { sessionStateLock.unlock() }
+        guard makeSessionSnapshotLocked() == expectedSession,
+              Self.isAuthenticatedCookieValues(nextCookieValues),
+              nextCookieValues["userid"].flatMap(Int.init) == expectedSession.userID else {
+            return nil
+        }
+        applyCookieLocked(
+            normalized,
+            values: nextCookieValues,
+            advancesRevision: false,
+            forceRevisionAdvance: false
+        )
+        return makeSessionSnapshotLocked()
+    }
+
+    func updateCookie(
+        _ cookie: String,
+        ifCurrentRequestContext context: SessionRequestContext
+    ) -> SessionSnapshot? {
+        guard let normalized = normalizedCookie(cookie) else { return nil }
+        let nextCookieValues = Self.cookieValues(in: normalized)
+
+        sessionStateLock.lock()
+        defer { sessionStateLock.unlock() }
+        guard makeSessionSnapshotLocked() == context.snapshot,
+              storedCredentialRevision == context.credentialRevision,
+              currentCookieLocked() == context.cookieHeader,
+              Self.isAuthenticatedCookieValues(nextCookieValues),
+              nextCookieValues["userid"].flatMap(Int.init) == context.snapshot.userID else {
+            return nil
+        }
+        applyCookieLocked(
+            normalized,
+            values: nextCookieValues,
+            advancesRevision: false,
+            forceRevisionAdvance: false
+        )
+        return makeSessionSnapshotLocked()
+    }
+
+    private func applyCookie(
+        _ cookie: String,
+        expectedSession: SessionSnapshot?
+    ) -> Bool {
+        guard let normalized = normalizedCookie(cookie) else {
+            if let expectedSession {
+                return clearSession(
+                    ifSessionRevision: expectedSession.revision,
+                    userID: expectedSession.userID
+                )
+            }
+            logout()
+            return true
+        }
+
+        let nextCookieValues = Self.cookieValues(in: normalized)
+
+        sessionStateLock.lock()
+        if let expectedSession,
+           makeSessionSnapshotLocked() != expectedSession {
+            sessionStateLock.unlock()
+            return false
+        }
+        let didChangeSession = applyCookieLocked(
+            normalized,
+            values: nextCookieValues,
+            advancesRevision: true,
+            forceRevisionAdvance: false
+        )
+        sessionStateLock.unlock()
+        if didChangeSession {
+            postSessionDidChange()
+        }
+        return true
+    }
+
+    private func normalizedCookie(_ cookie: String) -> String? {
         let ignoredAttributes = Set(["path", "domain", "expires", "max-age", "samesite", "secure", "httponly"])
         let normalized = cookie
             .replacingOccurrences(of: "Set-Cookie:", with: "", options: .caseInsensitive)
@@ -91,23 +375,127 @@ final class KCMMusicService: @unchecked Sendable {
                 return !ignoredAttributes.contains(name)
             }
             .joined(separator: "; ")
-        guard !normalized.isEmpty else {
-            logout()
-            return
+        return normalized.isEmpty ? nil : normalized
+    }
+
+    private static func isAuthenticatedCookieValues(_ values: [String: String]) -> Bool {
+        values["token"]?.isEmpty == false
+            && values["userid"].flatMap(Int.init).map { $0 != 0 } == true
+    }
+
+    @discardableResult
+    private func applyCookieLocked(
+        _ normalized: String,
+        values nextCookieValues: [String: String],
+        advancesRevision: Bool,
+        forceRevisionAdvance: Bool
+    ) -> Bool {
+        let nextUserID = nextCookieValues["userid"].flatMap(Int.init)
+        let previousCookieValues = currentCookieLocked().map(Self.cookieValues(in:)) ?? [:]
+        let previousUserID = previousCookieValues["userid"].flatMap(Int.init)
+        if previousCookieValues != nextCookieValues {
+            storedCredentialRevision &+= 1
         }
-        let nextUserID = Self.cookieValues(in: normalized)["userid"].flatMap(Int.init)
+        let didChangeSession = advancesRevision
+            && (forceRevisionAdvance || previousCookieValues != nextCookieValues)
+        if didChangeSession {
+            storedSessionRevision &+= 1
+            activeLoginAttemptID = nil
+        }
         if previousUserID != nextUserID {
             clearMembershipCache()
         }
         KeychainHelper.save(key: cookieKey, value: normalized)
+        return didChangeSession
     }
 
     func logout() {
+        _ = clearSession(ifSessionRevision: nil, userID: nil)
+    }
+
+    func logout(onLogout: () -> Void) {
+        sessionStateLock.lock()
+        clearSessionLocked()
+        onLogout()
+        sessionStateLock.unlock()
+        postSessionDidChange()
+    }
+
+    @discardableResult
+    func logout(ifSessionRevision expectedRevision: UInt64, userID expectedUserID: Int) -> Bool {
+        clearSession(ifSessionRevision: expectedRevision, userID: expectedUserID)
+    }
+
+    @discardableResult
+    func logout(
+        ifCurrentCredentialContext context: SessionCredentialContext,
+        onLogout: () -> Void
+    ) -> Bool {
+        sessionStateLock.lock()
+        guard makeSessionSnapshotLocked() == context.snapshot,
+              storedCredentialRevision == context.credentialRevision else {
+            sessionStateLock.unlock()
+            return false
+        }
+        clearSessionLocked()
+        sessionStateLock.unlock()
+        onLogout()
+        postSessionDidChange()
+        return true
+    }
+
+    @discardableResult
+    func logout(
+        ifSessionRevision expectedRevision: UInt64,
+        userID expectedUserID: Int,
+        onLogout: () -> Void
+    ) -> Bool {
+        sessionStateLock.lock()
+        let snapshot = makeSessionSnapshotLocked()
+        guard snapshot.revision == expectedRevision,
+              snapshot.userID == expectedUserID else {
+            sessionStateLock.unlock()
+            return false
+        }
+        clearSessionLocked()
+        onLogout()
+        sessionStateLock.unlock()
+        postSessionDidChange()
+        return true
+    }
+
+    private func clearSession(
+        ifSessionRevision expectedRevision: UInt64?,
+        userID expectedUserID: Int?
+    ) -> Bool {
+        sessionStateLock.lock()
+
+        let snapshot = makeSessionSnapshotLocked()
+        if let expectedRevision, snapshot.revision != expectedRevision {
+            sessionStateLock.unlock()
+            return false
+        }
+        if let expectedUserID, snapshot.userID != expectedUserID {
+            sessionStateLock.unlock()
+            return false
+        }
+
+        clearSessionLocked()
+        sessionStateLock.unlock()
+        postSessionDidChange()
+        return true
+    }
+
+    private func clearSessionLocked() {
+        storedSessionRevision &+= 1
+        storedCredentialRevision &+= 1
+        activeLoginAttemptID = nil
         KeychainHelper.delete(key: cookieKey)
         clearMembershipCache()
-        HTTPCookieStorage.shared.cookies(for: baseURL)?.forEach {
-            HTTPCookieStorage.shared.deleteCookie($0)
-        }
+    }
+
+    private func postSessionDidChange() {
+        NotificationCenter.default.post(name: .kcmSessionDidChange, object: self)
     }
 
 

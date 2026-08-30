@@ -173,7 +173,7 @@ struct QQPlaylistDetailView: View {
                     MinimalWhiteRootBackdrop()
                 } else if SignalStyle.isActive {
                     SignalRootBackdrop()
-                } else if SettingsManager.shared.coverBgPlaylist {
+                } else if SettingsManager.shared.usesPlaylistCoverBackground {
                     PlaylistColorBackground(coverUrl: displayCoverUrl?.sized(200))
                         .ignoresSafeArea()
                 } else {

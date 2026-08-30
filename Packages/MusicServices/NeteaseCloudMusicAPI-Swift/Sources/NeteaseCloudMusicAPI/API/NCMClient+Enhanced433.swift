@@ -207,7 +207,7 @@ extension NCMClient {
 
     /// 302 形式获取歌曲 v1 下载链接。
     public func songUrlV1302(id: Int, level: SoundQualityType = .exhigh) async throws -> APIResponse {
-        return try await backendRoute("/song/url/v1/302", data: [
+        return try await backendRedirectRoute("/song/url/v1/302", data: [
             "id": id,
             "level": level.rawValue,
         ])

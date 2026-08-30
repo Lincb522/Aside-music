@@ -13,7 +13,7 @@ struct FullScreenPlayerView: View {
     var body: some View {
         ZStack {
             Group {
-                if SettingsManager.shared.coverBgPlayer && !MinimalWhiteStyle.isActive {
+                if settings.usesPlayerCoverBackground && !MinimalWhiteStyle.isActive {
                     PlaylistColorBackground(coverUrl: player.currentSong?.coverUrl?.sized(200))
                 } else {
                     ThemedPageBackground()

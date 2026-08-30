@@ -98,8 +98,10 @@ final class UnifiedColorEngine: ObservableObject {
     private var requestedArtworkIdentity: String?
 
     private init() {
-        let initialMode = GlobalColorEnginePreferences.shared.mode
         let initialTheme = GlobalThemeId.persistedOrDefault
+        let initialMode = initialTheme.supportsArtworkColoring
+            ? GlobalColorEnginePreferences.shared.mode
+            : .theme
         let base = GlobalColorPalette.default
         snapshot = Snapshot(
             themeId: initialTheme,
@@ -156,6 +158,24 @@ final class UnifiedColorEngine: ObservableObject {
     }
 
     func refreshTheme() {
+        let themeId = GlobalThemeManager.shared.currentThemeId
+        guard themeId.supportsArtworkColoring else {
+            artworkTask?.cancel()
+            rebuildSnapshot(
+                artwork: nil,
+                artworkIdentity: requestedArtworkIdentity,
+                preserveArtwork: false
+            )
+            return
+        }
+
+        if snapshot.themeId != themeId,
+           snapshot.artwork == nil,
+           let requestedArtworkIdentity {
+            setNowPlayingArtwork(requestedArtworkIdentity)
+            return
+        }
+
         rebuildSnapshot()
     }
 
@@ -164,7 +184,11 @@ final class UnifiedColorEngine: ObservableObject {
         for urlString: String,
         minimumCount: Int = 2
     ) async -> UIImage.ExtractedColors? {
-        await MonoColorEngine.shared.configuredColors(
+        guard GlobalThemeManager.shared.currentThemeId.supportsArtworkColoring else {
+            return nil
+        }
+
+        return await MonoColorEngine.shared.configuredColors(
             for: urlString,
             minimumCount: minimumCount
         )
@@ -211,6 +235,15 @@ final class UnifiedColorEngine: ObservableObject {
         artworkTask?.cancel()
         requestedArtworkIdentity = urlString
 
+        guard GlobalThemeManager.shared.currentThemeId.supportsArtworkColoring else {
+            rebuildSnapshot(
+                artwork: nil,
+                artworkIdentity: urlString,
+                preserveArtwork: false
+            )
+            return
+        }
+
         guard let urlString, !urlString.isEmpty else {
             rebuildSnapshot(artwork: nil, artworkIdentity: nil, preserveArtwork: false)
             return
@@ -247,7 +280,7 @@ final class UnifiedColorEngine: ObservableObject {
             retainedIdentity = artworkIdentity
         }
 
-        let mode = preferences.mode
+        let mode = themeId.supportsArtworkColoring ? preferences.mode : .theme
         let resolved = Self.resolve(base: base, artwork: retainedArtwork, mode: mode)
         let ambient = Self.ambientColors(
             base: base,

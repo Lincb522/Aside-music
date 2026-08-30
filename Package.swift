@@ -13,7 +13,7 @@ let package = Package(
             targets: ["Mono"]),
     ],
     dependencies: [
-        // NeteaseCloudMusicAPI - ncm API 封装库（对齐后端 4.36.2）
+        // NeteaseCloudMusicAPI - ncm API 封装库（对齐后端 4.40.1）
         .package(path: "Packages/MusicServices/NeteaseCloudMusicAPI-Swift"),
         // FFmpegSwiftSDK - Mono播放引擎底层 FFmpeg 8.0 解码与流媒体 SDK
         .package(path: "Packages/Audio/ffmpeg-swift"),

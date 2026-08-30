@@ -17,6 +17,7 @@ extension NCMClient {
         .dj: "A_DJ_1_",
         .video: "R_VI_62_",
         .event: "A_EV_2_",
+        .podcast: "A_DR_14_",
     ]
 
     /// 发表/删除/回复评论
@@ -36,7 +37,7 @@ extension NCMClient {
     ) async throws -> APIResponse {
         // ncm /comment 接口需要的参数格式
         // t: 操作类型 (1=发送, 0=删除, 2=回复)
-        // type: 资源类型 (0=歌曲, 1=MV, 2=歌单, 3=专辑, 4=电台节目, 5=视频, 6=动态)
+        // type: 资源类型 (0=歌曲, 1=MV, 2=歌单, 3=专辑, 4=电台节目, 5=视频, 6=动态, 7=播客声音)
         // id: 资源 ID
         // content: 评论内容
         // commentId: 回复的评论 ID（回复时需要）

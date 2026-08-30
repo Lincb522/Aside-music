@@ -21,7 +21,7 @@ extension ProfileView {
     }
 
     var petWhiteProfileIdentityDeck: some View {
-        let profile = cachedProfile ?? viewModel.userProfile
+        let profile = displayedProfile
         let signature = profile?.signature?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
         return VStack(alignment: .leading, spacing: 18) {
@@ -29,7 +29,7 @@ extension ProfileView {
                 VStack(alignment: .leading, spacing: 9) {
                     HStack(spacing: 8) {
                         PetWhitePill(text: "PAWCELAIN", tint: PetWhiteStyle.mint)
-                        if let userLevel {
+                        if loginIdentity.activeSource == .netease, let userLevel {
                             PetWhitePill(text: "LV.\(userLevel)", tint: PetWhiteStyle.butter)
                         }
                     }
@@ -62,9 +62,9 @@ extension ProfileView {
                 VStack(spacing: 9) {
                     HStack(spacing: 9) {
                         PetWhiteProfileMetricPill(
-                            value: formatNumber(listenSongs ?? 0),
-                            label: String(localized: "profile_total_songs"),
-                            icon: .headphones,
+                            value: identityPrimaryMetricValue,
+                            label: identityPrimaryMetricLabel,
+                            icon: identityPrimaryMetricIcon,
                             tint: PetWhiteStyle.dogOrange
                         )
 
@@ -157,7 +157,7 @@ extension ProfileView {
                     PetWhiteProfileActionTile(
                         icon: .headphones,
                         title: String(localized: "cloud_sync_listening_stats"),
-                        value: formatNumber(listenSongs ?? 0),
+                        value: identityPrimaryMetricValue,
                         tint: PetWhiteStyle.dogOrange
                     )
                 }
@@ -173,15 +173,17 @@ extension ProfileView {
                 }
                 .buttonStyle(MonoBouncingButtonStyle(scale: 0.96))
 
-                NavigationLink(destination: CloudDiskView()) {
-                    PetWhiteProfileActionTile(
-                        icon: .cloud,
-                        title: NSLocalizedString("profile_cloud_disk", comment: ""),
-                        value: "Cloud",
-                        tint: PetWhiteStyle.lilac
-                    )
+                if loginIdentity.activeSource == .netease {
+                    NavigationLink(destination: CloudDiskView()) {
+                        PetWhiteProfileActionTile(
+                            icon: .cloud,
+                            title: NSLocalizedString("profile_cloud_disk", comment: ""),
+                            value: "Cloud",
+                            tint: PetWhiteStyle.lilac
+                        )
+                    }
+                    .buttonStyle(MonoBouncingButtonStyle(scale: 0.96))
                 }
-                .buttonStyle(MonoBouncingButtonStyle(scale: 0.96))
             }
         }
     }

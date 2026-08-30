@@ -722,6 +722,8 @@ extension APIService {
             return .flac
         case .sky:
             return .flac
+        case .vivid:
+            return .flac
         case .jymaster:
             return .master
         case .multitrack:

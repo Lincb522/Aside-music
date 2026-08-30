@@ -12,7 +12,85 @@ import os
 /// QQMusicClient.configure(baseURL: URL(string: "http://你的IP:8000")!)
 /// let songs = try await QQMusicClient.shared.search(keyword: "周杰伦")
 /// ```
+/// 可变配置与凭证均由锁保护；每个请求使用一次性状态快照。
 public final class QQMusicClient: @unchecked Sendable {
+
+    public struct ConfigurationSnapshot: Sendable {
+        public let baseURL: URL
+        public let timeout: TimeInterval
+        public let maxRetries: Int
+        public let apiToken: String?
+    }
+
+    private struct MutableValues: Sendable {
+        var apiToken: String?
+        var musicId: Int?
+        var musicKey: String?
+        var encryptUin: String?
+        var loginType: Int?
+    }
+
+    private final class MutableState: @unchecked Sendable {
+        private let lock = NSLock()
+        private var values: MutableValues
+
+        init(values: MutableValues) {
+            self.values = values
+        }
+
+        func read<Value>(_ keyPath: KeyPath<MutableValues, Value>) -> Value {
+            lock.lock()
+            defer { lock.unlock() }
+            return values[keyPath: keyPath]
+        }
+
+        func write<Value>(_ keyPath: WritableKeyPath<MutableValues, Value>, value: Value) {
+            lock.lock()
+            defer { lock.unlock() }
+            values[keyPath: keyPath] = value
+        }
+
+        func snapshot() -> MutableValues {
+            lock.lock()
+            defer { lock.unlock() }
+            return values
+        }
+
+        func replaceCredentials(
+            musicId: Int?,
+            musicKey: String?,
+            encryptUin: String?,
+            loginType: Int?
+        ) {
+            lock.lock()
+            defer { lock.unlock() }
+            values.musicId = musicId
+            values.musicKey = musicKey
+            values.encryptUin = encryptUin
+            values.loginType = loginType
+        }
+    }
+
+    private final class SharedStorage: @unchecked Sendable {
+        private let lock = NSLock()
+        private var client: QQMusicClient
+
+        init(client: QQMusicClient) {
+            self.client = client
+        }
+
+        func current() -> QQMusicClient {
+            lock.lock()
+            defer { lock.unlock() }
+            return client
+        }
+
+        func replace(with client: QQMusicClient) {
+            lock.lock()
+            defer { lock.unlock() }
+            self.client = client
+        }
+    }
 
     // MARK: - 属性
 
@@ -20,19 +98,34 @@ public final class QQMusicClient: @unchecked Sendable {
     public let baseURL: URL
 
     /// API 访问令牌
-    public var apiToken: String?
+    public var apiToken: String? {
+        get { mutableState.read(\.apiToken) }
+        set { mutableState.write(\.apiToken, value: newValue) }
+    }
 
     /// 用户 musicId（传递给服务端用于身份识别）
-    public var musicId: Int?
+    public var musicId: Int? {
+        get { mutableState.read(\.musicId) }
+        set { mutableState.write(\.musicId, value: newValue) }
+    }
 
     /// 用户 musicKey（传递给服务端用于鉴权）
-    public var musicKey: String?
+    public var musicKey: String? {
+        get { mutableState.read(\.musicKey) }
+        set { mutableState.write(\.musicKey, value: newValue) }
+    }
 
     /// 用户 encrypt_uin（传递给服务端用于查询用户资料）
-    public var encryptUin: String?
+    public var encryptUin: String? {
+        get { mutableState.read(\.encryptUin) }
+        set { mutableState.write(\.encryptUin, value: newValue) }
+    }
 
     /// 登录类型（1=微信, 2=QQ）
-    public var loginType: Int?
+    public var loginType: Int? {
+        get { mutableState.read(\.loginType) }
+        set { mutableState.write(\.loginType, value: newValue) }
+    }
 
     /// 请求超时时间（秒）
     public let timeout: TimeInterval
@@ -43,6 +136,8 @@ public final class QQMusicClient: @unchecked Sendable {
     /// URLSession
     private let session: URLSession
 
+    private let mutableState: MutableState
+
     #if canImport(os)
     /// 日志
     private static let logger = Logger(subsystem: "QQMusicKit", category: "Network")
@@ -51,7 +146,14 @@ public final class QQMusicClient: @unchecked Sendable {
     // MARK: - 单例
 
     /// 共享实例（需先调用 configure 设置服务器地址）
-    public static var shared = QQMusicClient(baseURL: URL(string: "http://localhost:8000")!)
+    private static let sharedStorage = SharedStorage(
+        client: QQMusicClient(baseURL: URL(string: "http://localhost:8000")!)
+    )
+
+    public static var shared: QQMusicClient {
+        get { sharedStorage.current() }
+        set { sharedStorage.replace(with: newValue) }
+    }
 
     /// 配置共享实例
     /// - Parameters:
@@ -78,20 +180,59 @@ public final class QQMusicClient: @unchecked Sendable {
         baseURL: URL,
         timeout: TimeInterval = 30,
         maxRetries: Int = 1,
-        session: URLSession? = nil
+        session: URLSession? = nil,
+        apiToken: String? = nil,
+        musicId: Int? = nil,
+        musicKey: String? = nil,
+        encryptUin: String? = nil,
+        loginType: Int? = nil
     ) {
         self.baseURL = baseURL
         self.timeout = timeout
         self.maxRetries = maxRetries
+        self.mutableState = MutableState(
+            values: MutableValues(
+                apiToken: apiToken,
+                musicId: musicId,
+                musicKey: musicKey,
+                encryptUin: encryptUin,
+                loginType: loginType
+            )
+        )
 
         if let session {
             self.session = session
         } else {
-            let config = URLSessionConfiguration.default
+            // 每个客户端保留自己的内存 Cookie，避免登录与账号请求共享系统 Cookie 容器。
+            let config = URLSessionConfiguration.ephemeral
             config.timeoutIntervalForRequest = timeout
             config.timeoutIntervalForResource = timeout * 2
             self.session = URLSession(configuration: config)
         }
+    }
+
+    public var configurationSnapshot: ConfigurationSnapshot {
+        let values = mutableState.snapshot()
+        return ConfigurationSnapshot(
+            baseURL: baseURL,
+            timeout: timeout,
+            maxRetries: maxRetries,
+            apiToken: values.apiToken
+        )
+    }
+
+    public func replaceCredentials(
+        musicId: Int?,
+        musicKey: String?,
+        encryptUin: String?,
+        loginType: Int?
+    ) {
+        mutableState.replaceCredentials(
+            musicId: musicId,
+            musicKey: musicKey,
+            encryptUin: encryptUin,
+            loginType: loginType
+        )
     }
 
     // MARK: - 网络请求
@@ -176,6 +317,7 @@ public final class QQMusicClient: @unchecked Sendable {
 
     /// 底层请求方法（带重试）
     private func rawRequest(_ path: String, params: [String: String]) async throws -> Data {
+        let requestIdentity = mutableState.snapshot()
         guard var components = URLComponents(
             url: baseURL.appendingPathComponent(path),
             resolvingAgainstBaseURL: false
@@ -184,19 +326,19 @@ public final class QQMusicClient: @unchecked Sendable {
         }
 
         var allParams = params
-        if let token = apiToken, !token.isEmpty {
+        if let token = requestIdentity.apiToken, !token.isEmpty {
             allParams["token"] = token
         }
-        if let mid = musicId {
+        if let mid = requestIdentity.musicId {
             allParams["_musicid"] = String(mid)
         }
-        if let mkey = musicKey, !mkey.isEmpty {
+        if let mkey = requestIdentity.musicKey, !mkey.isEmpty {
             allParams["_musickey"] = mkey
         }
-        if let euin = encryptUin, !euin.isEmpty {
+        if let euin = requestIdentity.encryptUin, !euin.isEmpty {
             allParams["_euin"] = euin
         }
-        if let lt = loginType {
+        if let lt = requestIdentity.loginType {
             allParams["_login_type"] = String(lt)
         }
         if !allParams.isEmpty {

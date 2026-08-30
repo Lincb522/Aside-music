@@ -46,16 +46,20 @@ extension NCMClient {
     /// - Parameters:
     ///   - ids: 歌曲 ID 数组
     ///   - level: 音质等级，默认 `.exhigh`
+    ///   - immersiveType: `sky` 音质的沉浸声类型
     /// - Returns: API 响应，包含歌曲播放链接
-    public func songUrlV1(ids: [Int], level: SoundQualityType = .exhigh) async throws -> APIResponse {
+    public func songUrlV1(
+        ids: [Int],
+        level: SoundQualityType = .exhigh,
+        immersiveType: ImmersiveAudioType = .surround51
+    ) async throws -> APIResponse {
         var data: [String: Any] = [
             "ids": "[" + ids.map { String($0) }.joined(separator: ",") + "]",
             "level": level.rawValue,
-            "encodeType": "flac",
+            "encodeType": level == .vivid ? "mp3" : "flac",
         ]
-        // 沉浸环绕声需要额外参数
         if level == .sky {
-            data["immerseType"] = "c51"
+            data["immerseType"] = immersiveType.rawValue
         }
         let response = try await request(
             "/api/song/enhance/player/url/v1",

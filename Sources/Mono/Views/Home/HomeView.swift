@@ -449,7 +449,7 @@ struct HomeView: View {
                     .foregroundColor(.monoTextSecondary.opacity(0.7))
             }
 
-            Text(viewModel.userProfile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
+            Text(viewModel.displayedIdentityProfile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
                 .font(.system(size: 17, weight: .bold, design: .rounded))
                 .foregroundColor(.monoTextPrimary)
                 .lineLimit(1)
@@ -461,7 +461,7 @@ struct HomeView: View {
     @ViewBuilder
     private var homeAvatarView: some View {
         let size: CGFloat = 36
-        if let avatarUrl = viewModel.userProfile?.avatarUrl, let url = URL(string: avatarUrl) {
+        if let avatarUrl = viewModel.displayedIdentityProfile?.avatarUrl, let url = URL(string: avatarUrl) {
             CachedAsyncImage(url: url, width: size, height: size) {
                 Circle().fill(Color.monoSeparator)
             }
@@ -498,7 +498,7 @@ struct HomeView: View {
                 .font(.system(size: 13, weight: .semibold, design: .rounded))
                 .foregroundColor(.monoTextSecondary.opacity(0.7))
 
-            Text(viewModel.userProfile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
+            Text(viewModel.displayedIdentityProfile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
                 .font(.system(size: 24, weight: .black, design: .rounded))
                 .foregroundStyle(
                     LinearGradient(
@@ -689,7 +689,7 @@ struct HomeView: View {
                         .foregroundColor(.monoTextSecondary.opacity(0.8))
                 }
 
-                Text(viewModel.userProfile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
+                Text(viewModel.displayedIdentityProfile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
                     .font(.system(size: 27, weight: .heavy, design: .serif))
                     .foregroundColor(.monoTextPrimary)
                     .lineLimit(1)
@@ -719,7 +719,7 @@ struct HomeView: View {
                     .foregroundStyle(SignalStyle.inkMuted)
             }
 
-            Text(viewModel.userProfile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
+            Text(viewModel.displayedIdentityProfile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
                 .font(SignalStyle.titleFont(27, weight: .semibold))
                 .foregroundStyle(SignalStyle.ink)
                 .lineLimit(1)

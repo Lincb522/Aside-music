@@ -700,6 +700,7 @@ final class DownloadManager: NSObject, ObservableObject {
             switch record.quality {
             case .lossless, .hires, .jymaster:  return "flac"
             case .sky, .jyeffect:               return "flac"
+            case .vivid:                        return "mp3"
             default:                            return "mp3"
             }
         }

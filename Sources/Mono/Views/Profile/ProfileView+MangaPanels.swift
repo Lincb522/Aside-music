@@ -163,7 +163,7 @@ extension ProfileView {
     }
 
     var mangaProfileHeroPanel: some View {
-        let profile = cachedProfile ?? viewModel.userProfile
+        let profile = displayedProfile
 
         return HStack(alignment: .center, spacing: 14) {
             mangaAvatar(profile: profile, size: 76)
@@ -173,7 +173,7 @@ extension ProfileView {
                     MangaMisprintTitle(text: profile?.nickname ?? NSLocalizedString("default_nickname", comment: ""), size: 24)
                         .layoutPriority(1)
 
-                    if let level = userLevel {
+                    if loginIdentity.activeSource == .netease, let level = userLevel {
                         MangaProfileInfoPill(text: "Lv.\(level)", tint: MangaStyle.accentPink)
                     }
                 }
@@ -263,17 +263,19 @@ extension ProfileView {
                 }
                 .buttonStyle(.plain)
 
-                MangaProfileActionDivider()
+                if loginIdentity.activeSource == .netease {
+                    MangaProfileActionDivider()
 
-                NavigationLink(destination: CloudDiskView()) {
-                    MangaProfileActionRow(
-                        icon: .cloud,
-                        title: NSLocalizedString("profile_cloud_disk", comment: ""),
-                        value: "CLOUD",
-                        tint: MangaStyle.bubblePink
-                    )
+                    NavigationLink(destination: CloudDiskView()) {
+                        MangaProfileActionRow(
+                            icon: .cloud,
+                            title: NSLocalizedString("profile_cloud_disk", comment: ""),
+                            value: "CLOUD",
+                            tint: MangaStyle.bubblePink
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
             .padding(.vertical, 4)
         }

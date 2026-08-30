@@ -102,6 +102,8 @@ final class SettingsManager: ObservableObject {
 
     /// 根据设置返回对应的 ColorScheme（用于 .preferredColorScheme 修饰符）
     var preferredColorScheme: ColorScheme? {
+        if globalThemeId.requiresDarkAppearance { return .dark }
+
         switch themeMode {
         case "light": return .light
         case "dark": return .dark
@@ -111,6 +113,8 @@ final class SettingsManager: ObservableObject {
 
     /// 返回未被全局封面影响的“真实”系统/用户预设色彩模式
     var nativeColorScheme: ColorScheme {
+        if globalThemeId.requiresDarkAppearance { return .dark }
+
         switch themeMode {
         case "light": return .light
         case "dark": return .dark
@@ -122,7 +126,8 @@ final class SettingsManager: ObservableObject {
     /// 应用主题到所有窗口（确保 fullScreenCover 等独立层级也能实时生效）
     func applyTheme() {
         let style: UIUserInterfaceStyle
-        switch themeMode {
+        let effectiveMode = globalThemeId.requiresDarkAppearance ? "dark" : themeMode
+        switch effectiveMode {
         case "light": style = .light
         case "dark": style = .dark
         default: style = .unspecified // 跟随系统
@@ -156,7 +161,7 @@ final class SettingsManager: ObservableObject {
 
     /// 前台恢复时仅在系统明暗外观确实变化后刷新窗口，避免重复触发整棵主题视图更新。
     func refreshSystemThemeIfNeeded() {
-        guard themeMode == "system" else { return }
+        guard !globalThemeId.requiresDarkAppearance, themeMode == "system" else { return }
         let resolved: ColorScheme = UIScreen.main.traitCollection.userInterfaceStyle == .dark
             ? .dark
             : .light
@@ -386,7 +391,19 @@ final class SettingsManager: ObservableObject {
     @Published var globalCoverIsDark: Bool = false
 
     var locksCoverBackgroundSettings: Bool {
-        globalThemeId != .default && globalThemeId != .clarity
+        !globalThemeId.supportsCoverBackgrounds
+    }
+
+    var usesGlobalCoverBackground: Bool {
+        globalThemeId.supportsCoverBackgrounds && coverBgGlobal
+    }
+
+    var usesPlaylistCoverBackground: Bool {
+        globalThemeId.supportsCoverBackgrounds && coverBgPlaylist
+    }
+
+    var usesPlayerCoverBackground: Bool {
+        globalThemeId.supportsCoverBackgrounds && coverBgPlayer
     }
 
     // MARK: - 歌词设置
@@ -471,6 +488,9 @@ final class SettingsManager: ObservableObject {
             ? applyPreferredInterfaceIconSet(for: resolvedThemeId)
             : false
         enforceCoverBackgroundPolicyForCurrentTheme()
+        if bumpRevision || bumpApplicationRevision {
+            applyTheme()
+        }
 
         if bumpApplicationRevision {
             globalThemeApplicationRevision &+= 1

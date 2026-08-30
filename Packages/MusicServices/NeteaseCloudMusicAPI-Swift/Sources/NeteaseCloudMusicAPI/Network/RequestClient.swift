@@ -49,9 +49,14 @@ class RequestClient {
     func request(
         uri: String,
         data: [String: Any],
-        options: RequestOptions
+        options: RequestOptions,
+        expectedSessionGeneration: UInt64? = nil
     ) async throws -> APIResponse {
         let start = CFAbsoluteTimeGetCurrent()
+        let requestGeneration = expectedSessionGeneration ?? sessionManager.sessionGeneration
+        guard sessionManager.sessionGeneration == requestGeneration else {
+            throw CancellationError()
+        }
 
         #if DEBUG
         print("[NCM] ➡️ \(options.crypto) \(uri)")
@@ -67,6 +72,9 @@ class RequestClient {
 
         // 2. 构建请求头
         let headers = buildHeaders(uri: uri, options: options)
+        guard sessionManager.sessionGeneration == requestGeneration else {
+            throw CancellationError()
+        }
 
         // 3. 构建 URLRequest
         var urlRequest = URLRequest(url: url)
@@ -84,12 +92,15 @@ class RequestClient {
 
         // 4. 发送 HTTP POST 请求
         let (responseData, httpResponse) = try await executeRequest(urlRequest)
+        guard sessionManager.sessionGeneration == requestGeneration else {
+            throw CancellationError()
+        }
 
         let ms = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
 
         // 5. 提取响应信息
         let statusCode = httpResponse.statusCode
-        let setCookieHeaders = extractSetCookieHeaders(from: httpResponse)
+        let setCookieHeaders = RequestClient.extractSetCookieHeaders(from: httpResponse)
 
         #if DEBUG
         print("[NCM] ⬅️ \(statusCode) \(uri) [\(ms)ms] 数据=\(responseData.count)字节")
@@ -105,12 +116,6 @@ class RequestClient {
         if let code = responseBody["code"] as? Int {
             print("[NCM]    响应 code=\(code)")
         }
-        // 输出响应体预览（截断到 500 字符）
-        if let jsonData = try? JSONSerialization.data(withJSONObject: responseBody, options: []),
-           let jsonStr = String(data: jsonData, encoding: .utf8) {
-            let preview = String(jsonStr.prefix(500))
-            print("[NCM]    响应体: \(preview)\(jsonStr.count > 500 ? "..." : "")")
-        }
         #endif
 
         // 7. 处理响应（状态码归一化、EAPI 解密、Cookie 更新、非 200 抛错）
@@ -120,7 +125,8 @@ class RequestClient {
                 responseData: responseData,
                 responseBody: responseBody,
                 setCookieHeaders: setCookieHeaders,
-                options: options
+                options: options,
+                expectedSessionGeneration: requestGeneration
             )
             #if DEBUG
             print("[NCM] ✅ \(uri) 完成 [\(ms)ms]")
@@ -151,7 +157,8 @@ class RequestClient {
         responseData: Data,
         responseBody: [String: Any],
         setCookieHeaders: [String],
-        options: RequestOptions
+        options: RequestOptions,
+        expectedSessionGeneration: UInt64
     ) throws -> APIResponse {
         var body = responseBody
 
@@ -164,7 +171,12 @@ class RequestClient {
         let normalizedStatus = RequestClient.normalizeStatusCode(statusCode, body: body)
 
         // 3. 更新会话 Cookie
-        sessionManager.updateCookies(from: setCookieHeaders)
+        guard sessionManager.updateCookies(
+            from: setCookieHeaders,
+            ifSessionGeneration: expectedSessionGeneration
+        ) else {
+            throw CancellationError()
+        }
 
         // 4. 如果归一化后状态码非 200，抛出 API 业务错误
         if normalizedStatus != 200 {
@@ -480,7 +492,7 @@ class RequestClient {
     /// 从 HTTP 响应中提取 Set-Cookie 头
     /// - Parameter response: HTTP 响应
     /// - Returns: Set-Cookie 头字符串数组（每个 Cookie 一条）
-    private func extractSetCookieHeaders(from response: HTTPURLResponse) -> [String] {
+    static func extractSetCookieHeaders(from response: HTTPURLResponse) -> [String] {
         // 优先使用 HTTPCookieStorage 解析（最可靠）
         if let url = response.url,
            let allHeaders = response.allHeaderFields as? [String: String] {

@@ -12,6 +12,10 @@ extension ProfileView {
 
                 ScrollView {
                     LazyVStack(spacing: themedProfileSpacing) {
+                        LoginIdentitySwitcher()
+                            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                            .padding(.top, 8)
+
                         loggedInDashboardContent
                         FloatingBarBottomSpacer()
                     }
@@ -84,7 +88,7 @@ extension ProfileView {
 
     /// 刊头：眉题行 + 问候语 + 大号昵称 + 引文式签名，全部直接落在页面上
     var asideProfileMasthead: some View {
-        let profile = cachedProfile ?? viewModel.userProfile
+        let profile = displayedProfile
         let signature = profile?.signature?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
         return VStack(alignment: .leading, spacing: 0) {
@@ -153,7 +157,7 @@ extension ProfileView {
                             .lineLimit(1)
                             .minimumScaleFactor(0.65)
 
-                        if let level = userLevel {
+                        if loginIdentity.activeSource == .netease, let level = userLevel {
                             Text("LV.\(level)")
                                 .font(.system(size: 9.5, weight: .heavy, design: .rounded))
                                 .tracking(0.8)
@@ -195,8 +199,8 @@ extension ProfileView {
     var asideStatsBand: some View {
         HStack(alignment: .firstTextBaseline, spacing: 0) {
             asideStatCell(
-                value: formatNumber(listenSongs ?? 0),
-                label: String(localized: "profile_total_songs")
+                value: identityPrimaryMetricValue,
+                label: identityPrimaryMetricLabel
             )
 
             asideStatCell(
@@ -292,12 +296,14 @@ extension ProfileView {
             }
             .buttonStyle(MonoBouncingButtonStyle(scale: 0.98))
 
-            asideMenuHairline
+            if loginIdentity.activeSource == .netease {
+                asideMenuHairline
 
-            NavigationLink(destination: CloudDiskView()) {
-                asideMenuRow(index: 3, title: NSLocalizedString("profile_cloud_disk", comment: ""))
+                NavigationLink(destination: CloudDiskView()) {
+                    asideMenuRow(index: 3, title: NSLocalizedString("profile_cloud_disk", comment: ""))
+                }
+                .buttonStyle(MonoBouncingButtonStyle(scale: 0.98))
             }
-            .buttonStyle(MonoBouncingButtonStyle(scale: 0.98))
         }
     }
 
@@ -400,7 +406,7 @@ extension ProfileView {
     }
 
     var minimalWhiteIdentity: some View {
-        let profile = cachedProfile ?? viewModel.userProfile
+        let profile = displayedProfile
         let signature = profile?.signature?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
         return HStack(spacing: 16) {
@@ -413,7 +419,7 @@ extension ProfileView {
                         .foregroundStyle(MinimalWhiteStyle.ink)
                         .lineLimit(1)
 
-                    if let userLevel {
+                    if loginIdentity.activeSource == .netease, let userLevel {
                         Text("Lv.\(userLevel)")
                             .font(MinimalWhiteStyle.labelFont(11, weight: .medium))
                             .foregroundStyle(MinimalWhiteStyle.inkSoft)
@@ -461,7 +467,7 @@ extension ProfileView {
 
     var minimalWhiteMetrics: some View {
         HStack(spacing: 0) {
-            StatCell(value: formatNumber(listenSongs ?? 0), label: String(localized: "profile_total_songs"))
+            StatCell(value: identityPrimaryMetricValue, label: identityPrimaryMetricLabel)
             statDivider
             StatCell(value: "\(localPlaylistCount)", label: String(localized: "profile_local_playlists"))
             statDivider

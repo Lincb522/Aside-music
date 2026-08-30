@@ -1,7 +1,7 @@
 // Enums.swift
 // 枚举和参数类型定义
 // 定义搜索类型、评论类型、订阅操作等枚举
-// 所有枚举的 rawValue 与 TypeScript interface.d.ts 中的定义完全匹配
+// 所有枚举的 rawValue 与后端请求契约匹配
 
 import Foundation
 
@@ -35,7 +35,7 @@ public enum SearchType: Int, Codable, CaseIterable, Sendable {
 // MARK: - 评论类型
 
 /// 评论资源类型枚举
-/// 对应 TypeScript 中的 CommentType
+/// 对应后端 resourceTypeMap
 public enum CommentType: Int, Codable, CaseIterable, Sendable {
     /// 歌曲评论
     case song = 0
@@ -51,6 +51,8 @@ public enum CommentType: Int, Codable, CaseIterable, Sendable {
     case video = 5
     /// 动态评论
     case event = 6
+    /// 播客声音评论
+    case podcast = 7
 }
 
 // MARK: - 订阅操作
@@ -348,6 +350,14 @@ public enum SoundQualityType: String, Codable, CaseIterable, Sendable {
     case jymaster = "jymaster"
     /// 沉浸环绕声
     case sky = "sky"
+    /// 臻音全景声
+    case vivid = "vivid"
+}
+
+public enum ImmersiveAudioType: String, Codable, CaseIterable, Sendable {
+    case surround51 = "c51"
+    case stereo = "ste"
+    case aac = "aac"
 }
 
 // MARK: - 新歌榜类型

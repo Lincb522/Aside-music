@@ -6,6 +6,7 @@ import UniformTypeIdentifiers
 struct MyPlaylistsContainerView: View {
     @ObservedObject var viewModel: LibraryViewModel
     @ObservedObject private var settings = SettingsManager.shared
+    @ObservedObject private var loginIdentity = LoginIdentityManager.shared
     @State private var selectedSubTab: Int = 0
     typealias Theme = PlaylistDetailView.Theme
 
@@ -72,6 +73,19 @@ struct MyPlaylistsContainerView: View {
             }
         }
         .background(Color.clear)
+        .onAppear { selectActiveIdentityLibrary() }
+        .onChange(of: loginIdentity.activeSource) { _, _ in
+            selectActiveIdentityLibrary()
+        }
+    }
+
+    private func selectActiveIdentityLibrary() {
+        switch loginIdentity.activeSource {
+        case .netease: selectedSubTab = 1
+        case .qqmusic: selectedSubTab = 2
+        case .kugou: selectedSubTab = 3
+        case .qishui, .appleMusic, .local, nil: selectedSubTab = 0
+        }
     }
 
     private func subTabButton(title: String, index: Int) -> some View {

@@ -290,6 +290,7 @@ extension NCMClient {
             "limit": limit,
             "offset": offset,
             "total": false,
+            "fromRN": true,
         ]
         return try await request("/api/event/get/\(uid)", data: data)
     }

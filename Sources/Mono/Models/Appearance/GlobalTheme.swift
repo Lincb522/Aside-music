@@ -120,6 +120,27 @@ enum GlobalThemeId: String, CaseIterable, Codable, Identifiable, Sendable {
             return .layers
         }
     }
+
+    var requiresDarkAppearance: Bool {
+        self == .signal
+    }
+
+    var supportsArtworkColoring: Bool {
+        self != .signal
+    }
+
+    var supportsColorCustomization: Bool {
+        switch self {
+        case .default, .muji, .manga, .neumorphic, .capsule, .petWhite, .clarity:
+            return true
+        case .signal, .minimalWhite:
+            return false
+        }
+    }
+
+    var supportsCoverBackgrounds: Bool {
+        self == .default || self == .clarity
+    }
 }
 
 // MARK: - 全局主题协议

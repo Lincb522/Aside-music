@@ -134,7 +134,13 @@ extension APIService {
                 "mvid": id,
                 "t": subscribe ? 1 : 0
             ]
-            let body = try await Self.postToBackend(serverUrl: serverUrl, route: "/mv/sub", params: params)
+            let cookie = try ncm.currentSessionCookieHeader()
+            let body = try await Self.postToBackend(
+                serverUrl: serverUrl,
+                route: "/mv/sub",
+                params: params,
+                cookie: cookie
+            )
             let code = body["code"] as? Int ?? 200
             let msg = body["message"] as? String
             return SimpleResponse(code: code, message: msg)

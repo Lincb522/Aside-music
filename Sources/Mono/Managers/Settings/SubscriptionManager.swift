@@ -40,19 +40,27 @@ class SubscriptionManager: ObservableObject {
 
     /// 获取用户订阅的播客
     func fetchSubscribedRadios() {
-        guard apiService.isLoggedIn else { return }
+        let session = apiService.ncmSessionSnapshot
+        guard apiService.isLoggedIn,
+              let userID = session.userID,
+              isCurrentNCMSession(session, userID: userID) else { return }
         isLoadingRadios = true
 
         apiService.fetchDJSublist(limit: 200, offset: 0)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
-                self?.isLoadingRadios = false
+                guard let self,
+                      self.isCurrentNCMSession(session, userID: userID) else { return }
+                self.isLoadingRadios = false
                 if case .failure(let error) = completion {
+                    guard !(error is CancellationError) else { return }
                     AppLogger.error("获取订阅播客失败: \(error)")
                 }
             }, receiveValue: { [weak self] radios in
-                self?.subscribedRadios = radios
-                self?.subscribedRadioIds = Set(radios.map { $0.id })
+                guard let self,
+                      self.isCurrentNCMSession(session, userID: userID) else { return }
+                self.subscribedRadios = radios
+                self.subscribedRadioIds = Set(radios.map { $0.id })
             })
             .store(in: &cancellables)
     }
@@ -95,6 +103,15 @@ class SubscriptionManager: ObservableObject {
 
     // MARK: - 歌单收藏
 
+    func resetRemoteNCMState() {
+        subscribedRadios = []
+        subscribedRadioIds = []
+        subscribedPlaylistIds = []
+        recentlySubscribedIds = []
+        recentlyUnsubscribedIds = []
+        isLoadingRadios = false
+    }
+
     /// 检查歌单是否已收藏（通过用户歌单列表判断）
     func isPlaylistSubscribed(_ id: Int) -> Bool {
         subscribedPlaylistIds.contains(id)
@@ -120,7 +137,10 @@ class SubscriptionManager: ObservableObject {
 
     /// 收藏/取消收藏歌单
     func togglePlaylistSubscription(id: Int) {
-        guard apiService.isLoggedIn else { return }
+        let session = apiService.ncmSessionSnapshot
+        guard apiService.isLoggedIn,
+              let userID = session.userID,
+              isCurrentNCMSession(session, userID: userID) else { return }
 
         let isCurrently = isPlaylistSubscribed(id)
         let targetState = !isCurrently
@@ -136,36 +156,65 @@ class SubscriptionManager: ObservableObject {
             recentlySubscribedIds.remove(id)
         }
 
-        performSubscribePlaylist(id: id, subscribe: targetState, retriesLeft: 2)
+        performSubscribePlaylist(
+            id: id,
+            subscribe: targetState,
+            retriesLeft: 2,
+            session: session,
+            userID: userID
+        )
     }
     
     /// 执行收藏请求，失败时自动重试
-    private func performSubscribePlaylist(id: Int, subscribe: Bool, retriesLeft: Int) {
+    private func performSubscribePlaylist(
+        id: Int,
+        subscribe: Bool,
+        retriesLeft: Int,
+        session: APIService.NCMSessionSnapshot,
+        userID: Int
+    ) {
+        guard isCurrentNCMSession(session, userID: userID) else { return }
+
         apiService.subscribePlaylist(id: id, subscribe: subscribe)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
+                guard let self,
+                      self.isCurrentNCMSession(session, userID: userID) else { return }
                 if case .failure(let error) = completion {
+                    guard !(error is CancellationError) else { return }
                     if retriesLeft > 0 {
                         AppLogger.warning("[Subscribe] 收藏请求失败，\(retriesLeft) 次重试剩余: \(error.localizedDescription)")
                         // 延迟 1 秒重试
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                            self?.performSubscribePlaylist(id: id, subscribe: subscribe, retriesLeft: retriesLeft - 1)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+                            guard let self,
+                                  self.isCurrentNCMSession(session, userID: userID) else { return }
+                            self.performSubscribePlaylist(
+                                id: id,
+                                subscribe: subscribe,
+                                retriesLeft: retriesLeft - 1,
+                                session: session,
+                                userID: userID
+                            )
                         }
                     } else {
                         // 重试耗尽，回滚
                         AppLogger.error("[Subscribe] 收藏请求最终失败: \(error.localizedDescription)")
                         if subscribe {
-                            self?.subscribedPlaylistIds.remove(id)
-                            self?.recentlySubscribedIds.remove(id)
+                            self.subscribedPlaylistIds.remove(id)
+                            self.recentlySubscribedIds.remove(id)
                         } else {
-                            self?.subscribedPlaylistIds.insert(id)
-                            self?.recentlyUnsubscribedIds.remove(id)
+                            self.subscribedPlaylistIds.insert(id)
+                            self.recentlyUnsubscribedIds.remove(id)
                         }
                     }
                 }
-            }, receiveValue: { response in
+            }, receiveValue: { [weak self] response in
+                guard let self,
+                      self.isCurrentNCMSession(session, userID: userID) else { return }
                 if response.code == 200 {
-                    Task { @MainActor in
+                    Task { @MainActor [weak self] in
+                        guard let self,
+                              self.isCurrentNCMSession(session, userID: userID) else { return }
                         GlobalRefreshManager.shared.refreshLibraryPublisher.send(true)
                     }
                 }
@@ -175,19 +224,27 @@ class SubscriptionManager: ObservableObject {
 
     /// 删除用户创建的歌单（真实 API 调用）
     func deletePlaylist(id: Int, completion: @escaping (Bool) -> Void) {
-        guard apiService.isLoggedIn else {
+        let session = apiService.ncmSessionSnapshot
+        guard apiService.isLoggedIn,
+              let userID = session.userID,
+              isCurrentNCMSession(session, userID: userID) else {
             completion(false)
             return
         }
 
         apiService.deletePlaylist(id: id)
             .receive(on: DispatchQueue.main)
-            .sink(receiveCompletion: { result in
+            .sink(receiveCompletion: { [weak self] result in
+                guard let self,
+                      self.isCurrentNCMSession(session, userID: userID) else { return }
                 if case .failure(let error) = result {
+                    guard !(error is CancellationError) else { return }
                     AppLogger.error("删除歌单失败: \(error)")
                     completion(false)
                 }
-            }, receiveValue: { response in
+            }, receiveValue: { [weak self] response in
+                guard let self,
+                      self.isCurrentNCMSession(session, userID: userID) else { return }
                 completion(response.code == 200)
             })
             .store(in: &cancellables)
@@ -195,7 +252,10 @@ class SubscriptionManager: ObservableObject {
 
     /// 取消收藏歌单（真实 API 调用）
     func unsubscribePlaylist(id: Int, completion: @escaping (Bool) -> Void) {
-        guard apiService.isLoggedIn else {
+        let session = apiService.ncmSessionSnapshot
+        guard apiService.isLoggedIn,
+              let userID = session.userID,
+              isCurrentNCMSession(session, userID: userID) else {
             completion(false)
             return
         }
@@ -207,16 +267,23 @@ class SubscriptionManager: ObservableObject {
         apiService.subscribePlaylist(id: id, subscribe: false)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] result in
+                guard let self,
+                      self.isCurrentNCMSession(session, userID: userID) else { return }
                 if case .failure(let error) = result {
+                    guard !(error is CancellationError) else { return }
                     AppLogger.error("取消收藏歌单失败: \(error)")
-                    self?.subscribedPlaylistIds.insert(id)
-                    self?.recentlyUnsubscribedIds.remove(id)
+                    self.subscribedPlaylistIds.insert(id)
+                    self.recentlyUnsubscribedIds.remove(id)
                     completion(false)
                 }
-            }, receiveValue: { response in
+            }, receiveValue: { [weak self] response in
+                guard let self,
+                      self.isCurrentNCMSession(session, userID: userID) else { return }
                 let success = response.code == 200
                 if success {
-                    Task { @MainActor in
+                    Task { @MainActor [weak self] in
+                        guard let self,
+                              self.isCurrentNCMSession(session, userID: userID) else { return }
                         GlobalRefreshManager.shared.refreshLibraryPublisher.send(true)
                     }
                 }
@@ -227,7 +294,10 @@ class SubscriptionManager: ObservableObject {
 
     /// 取消订阅播客（真实 API 调用）
     func unsubscribeRadio(_ radio: RadioStation, completion: @escaping (Bool) -> Void) {
-        guard apiService.isLoggedIn else {
+        let session = apiService.ncmSessionSnapshot
+        guard apiService.isLoggedIn,
+              let userID = session.userID,
+              isCurrentNCMSession(session, userID: userID) else {
             completion(false)
             return
         }
@@ -239,14 +309,19 @@ class SubscriptionManager: ObservableObject {
         apiService.subscribeDJ(rid: radio.id, subscribe: false)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] result in
+                guard let self,
+                      self.isCurrentNCMSession(session, userID: userID) else { return }
                 if case .failure(let error) = result {
+                    guard !(error is CancellationError) else { return }
                     AppLogger.error("取消订阅播客失败: \(error)")
                     // 回滚
-                    self?.subscribedRadioIds.insert(radio.id)
-                    self?.subscribedRadios.insert(radio, at: 0)
+                    self.subscribedRadioIds.insert(radio.id)
+                    self.subscribedRadios.insert(radio, at: 0)
                     completion(false)
                 }
-            }, receiveValue: { response in
+            }, receiveValue: { [weak self] response in
+                guard let self,
+                      self.isCurrentNCMSession(session, userID: userID) else { return }
                 completion(response.code == 200)
             })
             .store(in: &cancellables)
@@ -263,5 +338,12 @@ class SubscriptionManager: ObservableObject {
             recentlySubscribedIds = []
             recentlyUnsubscribedIds = []
         }
+    }
+
+    private func isCurrentNCMSession(
+        _ session: APIService.NCMSessionSnapshot,
+        userID: Int
+    ) -> Bool {
+        session.userID == userID && apiService.isCurrentNCMSession(session)
     }
 }

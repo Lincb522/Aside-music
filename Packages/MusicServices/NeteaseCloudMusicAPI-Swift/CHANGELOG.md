@@ -1,5 +1,21 @@
 # 更新日志
 
+## 1.5.0 (2026-08-30)
+
+### 新功能
+- 对齐 NeteaseCloudMusicApiEnhanced 4.40.1，新增 35 个后端模块的强类型 Swift 入口
+- 支持 `vivid` 音质与 `sky` 的 `c51` / `ste` / `aac` 沉浸声类型
+- 新增 `/voice/upload` 音频与可选封面图的 multipart 上传入口
+
+### 改进
+- 手机号登录支持 `secureCaptcha`
+- 后端代理共享可注入 `URLSession`，并统一解析 `Set-Cookie`
+- 二维码登录会保留过期清理指令之后返回的有效会话 Cookie
+- `/song/url/v1/302` 保留 302 状态和 `Location`，不下载音频响应体
+- 评论资源类型新增播客声音 `7`
+
+---
+
 ## 1.4.0 (2026-05-24)
 
 ### 新功能

@@ -205,7 +205,7 @@ enum ThemeColorCustomization {
     }
 
     static func supports(_ theme: GlobalThemeId) -> Bool {
-        theme == .default || theme == .muji || theme == .manga || theme == .neumorphic || theme == .capsule || theme == .petWhite || theme == .clarity
+        theme.supportsColorCustomization
     }
 
     static func key(_ theme: GlobalThemeId, _ role: ThemeCustomColorRole, _ suffix: String) -> String {

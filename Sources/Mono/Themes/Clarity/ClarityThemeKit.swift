@@ -240,9 +240,9 @@ struct ClarityBackdrop: View {
     private var coverGradientEnabled: Bool {
         switch context {
         case .global:
-            return settings.coverBgGlobal
+            return settings.usesGlobalCoverBackground
         case .player:
-            return settings.coverBgPlayer
+            return settings.usesPlayerCoverBackground
         }
     }
 }

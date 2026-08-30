@@ -6,11 +6,14 @@ struct SettingsThemeRow: View {
     let icon: MonoIcon.IconType
     let title: String
     @Binding var selection: String
+    var isSelectionEnabled: Bool = true
+    var lockedSelection: String? = nil
     @State private var isExpanded = false
 
     var body: some View {
         VStack(spacing: 0) {
             Button {
+                guard isSelectionEnabled else { return }
                 isExpanded.toggle()
             } label: {
                 HStack(spacing: 14) {
@@ -28,20 +31,33 @@ struct SettingsThemeRow: View {
                         .minimumScaleFactor(0.84)
                         .foregroundColor(themedSettingsSecondaryColor())
 
-                    PetWhiteDisclosureChevron(
-                        isExpanded: isExpanded,
-                        size: 11,
-                        color: themedSettingsSecondaryColor(),
-                        lineWidth: 1.7
-                    )
+                    if isSelectionEnabled {
+                        PetWhiteDisclosureChevron(
+                            isExpanded: isExpanded,
+                            size: 11,
+                            color: themedSettingsSecondaryColor(),
+                            lineWidth: 1.7
+                        )
+                    } else {
+                        MonoIcon(
+                            icon: .lock,
+                            size: 14,
+                            color: themedSettingsSecondaryColor(),
+                            lineWidth: 1.6,
+                            forceTemplateRendering: true
+                        )
+                        .accessibilityHidden(true)
+                    }
                 }
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .disabled(!isSelectionEnabled)
+            .accessibilityValue(summaryText)
             .padding(.horizontal, 16)
             .padding(.vertical, 13)
 
-            SettingsHeaderReveal(isExpanded: isExpanded) {
+            SettingsHeaderReveal(isExpanded: isSelectionEnabled && isExpanded) {
                 VStack(spacing: 0) {
                     Divider()
                         .opacity(0.4)
@@ -78,7 +94,7 @@ struct SettingsThemeRow: View {
     }
 
     private var summaryText: String {
-        switch selection {
+        switch displayedSelection {
         case "light":
             return String(localized: "settings_theme_light")
         case "dark":
@@ -89,7 +105,7 @@ struct SettingsThemeRow: View {
     }
 
     private var summaryIcon: MonoIcon.IconType {
-        switch selection {
+        switch displayedSelection {
         case "light":
             return .sun
         case "dark":
@@ -124,5 +140,9 @@ struct SettingsThemeRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+
+    private var displayedSelection: String {
+        lockedSelection ?? selection
     }
 }

@@ -8,6 +8,7 @@ enum SoundQuality: String, CaseIterable, Codable, Sendable {
     case hires = "hires"       // Hi-Res
     case jyeffect = "jyeffect" // 高清臻音
     case sky = "sky"           // 沉浸环绕声
+    case vivid = "vivid"       // 臻音全景声
     case jymaster = "jymaster" // 超清母带
     case multitrack = "multitrack" // 多音轨
     case none = "none"
@@ -21,6 +22,7 @@ enum SoundQuality: String, CaseIterable, Codable, Sendable {
         case .hires: return String(localized: "Hi-Res 音质")
         case .jyeffect: return String(localized: "高清臻音")
         case .sky: return String(localized: "沉浸环绕声")
+        case .vivid: return String(localized: "quality_vivid")
         case .jymaster: return String(localized: "超清母带")
         case .multitrack: return String(localized: "quality_kcm_multitrack")
         case .none: return String(localized: "未知")
@@ -36,6 +38,7 @@ enum SoundQuality: String, CaseIterable, Codable, Sendable {
         case .hires: return "Hi-Res"
         case .jyeffect: return "Spatial"
         case .sky: return "Surround"
+        case .vivid: return "Vivid"
         case .jymaster: return "Master"
         case .multitrack: return "Multi"
         case .none: return ""
@@ -51,6 +54,7 @@ enum SoundQuality: String, CaseIterable, Codable, Sendable {
         case .hires: return String(localized: "最高192kHz/24bit")
         case .jyeffect: return String(localized: "清晰沉浸感")
         case .sky: return String(localized: "最高5.1声道")
+        case .vivid: return String(localized: "quality_vivid_subtitle")
         case .jymaster: return String(localized: "极致细节")
         case .multitrack: return String(localized: "quality_kcm_multitrack_subtitle")
         case .none: return ""
@@ -71,6 +75,7 @@ enum SoundQuality: String, CaseIterable, Codable, Sendable {
         case .hires: return "Hi-Res"
         case .jyeffect: return String(localized: "高清臻音")
         case .sky: return String(localized: "沉浸环绕声")
+        case .vivid: return String(localized: "quality_vivid")
         case .jymaster: return String(localized: "超清母带")
         case .multitrack: return "Multi"
         }
@@ -78,13 +83,13 @@ enum SoundQuality: String, CaseIterable, Codable, Sendable {
     
     var isBadgeChinese: Bool {
         switch self {
-        case .jyeffect, .sky, .jymaster: return true
+        case .jyeffect, .sky, .vivid, .jymaster: return true
         default: return false
         }
     }
 
     static let descendingPreferenceOrder: [SoundQuality] = [
-        .jymaster, .sky, .jyeffect, .hires, .lossless, .exhigh, .higher, .standard
+        .jymaster, .vivid, .sky, .jyeffect, .hires, .lossless, .exhigh, .higher, .standard
     ]
     
     static func fallbackCandidates(from preferred: SoundQuality?) -> [SoundQuality] {

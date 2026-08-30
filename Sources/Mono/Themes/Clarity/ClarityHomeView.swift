@@ -97,7 +97,7 @@ struct ClarityHomeView: View {
                 Text(greeting)
                     .font(ClarityStyle.body(11.5, weight: .medium))
                     .foregroundStyle(ClarityStyle.inkSoft)
-                Text(model.userProfile?.nickname ?? String(localized: "tabbar_home"))
+                Text(model.displayedIdentityProfile?.nickname ?? String(localized: "tabbar_home"))
                     .font(ClarityStyle.title(25, weight: .semibold))
                     .foregroundStyle(ClarityStyle.ink)
                     .lineLimit(1)
@@ -116,7 +116,7 @@ struct ClarityHomeView: View {
 
     private var avatar: some View {
         Group {
-            if let raw = model.userProfile?.avatarUrl, let url = URL(string: raw) {
+            if let raw = model.displayedIdentityProfile?.avatarUrl, let url = URL(string: raw) {
                 CachedAsyncImage(url: url, width: 42, height: 42) { Circle().fill(ClarityStyle.membraneStrong) }
                     .aspectRatio(contentMode: .fill)
             } else {

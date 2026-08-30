@@ -10,8 +10,8 @@ extension ProfileView {
         if MangaStyle.isActive {
             HStack(spacing: 10) {
                 MangaMetricTile(
-                    value: formatNumber(listenSongs ?? 0),
-                    label: String(localized: "profile_total_songs"),
+                    value: identityPrimaryMetricValue,
+                    label: identityPrimaryMetricLabel,
                     tint: MangaStyle.labelYellow
                 )
                 MangaMetricTile(
@@ -35,8 +35,8 @@ extension ProfileView {
         } else if PetWhiteStyle.isActive {
             HStack(spacing: 0) {
                 StatCell(
-                    value: formatNumber(listenSongs ?? 0),
-                    label: String(localized: "profile_total_songs")
+                    value: identityPrimaryMetricValue,
+                    label: identityPrimaryMetricLabel
                 )
                 statDivider
                 StatCell(
@@ -55,8 +55,8 @@ extension ProfileView {
             // 杂志数据带：裸排统计签，靠上缘发丝线分区
             HStack(alignment: .top, spacing: 22) {
                 MujiMetricTile(
-                    value: formatNumber(listenSongs ?? 0),
-                    label: String(localized: "profile_total_songs"),
+                    value: identityPrimaryMetricValue,
+                    label: identityPrimaryMetricLabel,
                     tint: MujiStyle.ink
                 )
                 MujiMetricTile(
@@ -73,8 +73,8 @@ extension ProfileView {
         } else if NeumorphicStyle.isActive {
             HStack(spacing: 10) {
                 StatCell(
-                    value: formatNumber(listenSongs ?? 0),
-                    label: String(localized: "profile_total_songs")
+                    value: identityPrimaryMetricValue,
+                    label: identityPrimaryMetricLabel
                 )
                 statDivider
                 StatCell(
@@ -92,8 +92,8 @@ extension ProfileView {
         } else if SignalStyle.isActive {
             HStack(spacing: 0) {
                 StatCell(
-                    value: formatNumber(listenSongs ?? 0),
-                    label: String(localized: "profile_total_songs")
+                    value: identityPrimaryMetricValue,
+                    label: identityPrimaryMetricLabel
                 )
                 statDivider
                 StatCell(
@@ -111,8 +111,8 @@ extension ProfileView {
         } else if SequoiaStyle.isActive {
             HStack(spacing: 0) {
                 StatCell(
-                    value: formatNumber(listenSongs ?? 0),
-                    label: String(localized: "profile_total_songs")
+                    value: identityPrimaryMetricValue,
+                    label: identityPrimaryMetricLabel
                 )
                 statDivider
                 StatCell(
@@ -130,8 +130,8 @@ extension ProfileView {
         } else if LiquidGlassStyle.isActive {
             HStack(spacing: 0) {
                 StatCell(
-                    value: formatNumber(listenSongs ?? 0),
-                    label: String(localized: "profile_total_songs")
+                    value: identityPrimaryMetricValue,
+                    label: identityPrimaryMetricLabel
                 )
                 statDivider
                 StatCell(
@@ -149,8 +149,8 @@ extension ProfileView {
         } else {
             HStack(spacing: 0) {
                 StatCell(
-                    value: formatNumber(listenSongs ?? 0),
-                    label: String(localized: "profile_total_songs")
+                    value: identityPrimaryMetricValue,
+                    label: identityPrimaryMetricLabel
                 )
                 statDivider
                 StatCell(
@@ -342,17 +342,19 @@ extension ProfileView {
                 }
                 .buttonStyle(MonoBouncingButtonStyle(scale: 0.98))
 
-                Divider().padding(.leading, 56)
+                if loginIdentity.activeSource == .netease {
+                    Divider().padding(.leading, 56)
 
-                NavigationLink(
-                    destination: CloudDiskView()
-                ) {
-                    ProfileMenuRow(
-                        icon: .cloud,
-                        title: NSLocalizedString("profile_cloud_disk", comment: "")
-                    )
+                    NavigationLink(
+                        destination: CloudDiskView()
+                    ) {
+                        ProfileMenuRow(
+                            icon: .cloud,
+                            title: NSLocalizedString("profile_cloud_disk", comment: "")
+                        )
+                    }
+                    .buttonStyle(MonoBouncingButtonStyle(scale: 0.98))
                 }
-                .buttonStyle(MonoBouncingButtonStyle(scale: 0.98))
             }
             .themedProfileSurface(cornerRadius: PetWhiteStyle.isActive ? PetWhiteStyle.cardRadius : (MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 12 : (SignalStyle.isActive ? 24 : (NeumorphicStyle.isActive ? 20 : (SequoiaStyle.isActive ? 18 : 20))))), mangaTint: MangaStyle.bubbleWhite)
         }
@@ -371,22 +373,39 @@ extension ProfileView {
     }
 
     func performLogout() {
-        let logoutPublisher = UnsafeSendableBox(APIService.shared.logout())
-        isAppLoggedIn = false
-        cachedProfile = nil
+        guard let source = loginIdentity.activeSource else { return }
+
+        switch source {
+        case .netease:
+            let logoutPublisher = UnsafeSendableBox(APIService.shared.logout())
+            isAppLoggedIn = false
+            loginIdentity.accountDidLogOut(.netease)
+            Task {
+                do {
+                    _ = try await logoutPublisher.value.async()
+                } catch {
+                    AppLogger.warning("NCM 远端退出失败，本地已退出: \(error)")
+                }
+            }
+        case .qqmusic:
+            qqSession.onLogout()
+            loginIdentity.accountDidLogOut(.qqmusic)
+        case .kugou:
+            KCMMusicService.shared.logout {
+                loginIdentity.accountDidLogOut(.kugou)
+            }
+        case .qishui, .appleMusic, .local:
+            return
+        }
+
+        cacheDisplayedProfile(
+            loginIdentity.displayedProfile(ncmProfile: viewModel.userProfile)
+        )
         hasAppeared = false
         userLevel = nil
         listenSongs = nil
         // 播放记录是设备本地数据，退出账号不清空
         AlertManager.shared.dismiss()
-
-        Task {
-            do {
-                _ = try await logoutPublisher.value.async()
-            } catch {
-                AppLogger.warning("远端退出登录失败，本地已退出: \(error)")
-            }
-        }
     }
 
     var logoutButton: some View {
@@ -417,6 +436,8 @@ extension ProfileView {
     var notLoggedInContent: some View {
         if MinimalWhiteStyle.isActive {
             minimalWhiteNotLoggedInContent
+        } else if SignalStyle.isActive {
+            signalNotLoggedInContent
         } else if MangaStyle.isActive {
             mangaNotLoggedInContent
         } else if PetWhiteStyle.isActive {

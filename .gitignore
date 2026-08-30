@@ -259,3 +259,4 @@ __pycache__/
 *.pyc
 DesignAssets/AsideIconSystem/aside-design-dna.md
 *.mov
+/artifacts/

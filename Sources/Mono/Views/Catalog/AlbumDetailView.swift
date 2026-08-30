@@ -83,7 +83,7 @@ struct AlbumDetailView: View {
                     BentoRootBackdrop()
                 } else if CapsuleStyle.isActive {
                     CapsuleRootBackdrop()
-                } else if SettingsManager.shared.coverBgPlaylist {
+                } else if SettingsManager.shared.usesPlaylistCoverBackground {
             PlaylistColorBackground(coverUrl: effectiveCoverUrl)
         } else {
                     ThemedPageBackground()

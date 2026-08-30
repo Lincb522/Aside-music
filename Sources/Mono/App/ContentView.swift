@@ -96,7 +96,8 @@ public struct ContentView: View {
             }
         }
         .onChange(of: systemColorScheme) { _, newScheme in
-            if settings.themeMode == "system" {
+            if settings.themeMode == "system",
+               !settings.globalThemeId.requiresDarkAppearance {
                 settings.activeColorScheme = newScheme
             }
         }
@@ -1596,6 +1597,10 @@ enum Tab: Int, CaseIterable, Hashable {
 
 // MARK: - Main Tab activation gate
 
+extension Notification.Name {
+    static let mainTabDidSettle = Notification.Name("Mono.mainTabDidSettle")
+}
+
 /// Keeps first-entry work out of UIKit's tab-controller transition window.
 ///
 /// `TabView` is free to construct or briefly appear an off-screen tab.  The
@@ -1629,11 +1634,13 @@ enum MainTabActivationGate {
         } catch {
             return false
         }
+        if isSettled(tab) { return true }
         guard !Task.isCancelled,
               selectedTab == tab,
               selectionGeneration == expectedGeneration else { return false }
         settledTab = tab
         settledGeneration = expectedGeneration
+        NotificationCenter.default.post(name: .mainTabDidSettle, object: tab)
         return true
     }
 

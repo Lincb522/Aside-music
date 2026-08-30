@@ -16,9 +16,8 @@ extension KCMMusicService {
                 URLQueryItem(name: "privilege_filter", value: "0"),
         ]
         guard let url = components.url else { throw KCMMusicError.invalidResponse }
-        let json = try await request(
+        let json = try await requestPublicJSON(
             url: url,
-            sendCookie: false,
             headers: [
                 "Referer": "https://www.kugou.com/",
                 "User-Agent": "Mozilla/5.0",
