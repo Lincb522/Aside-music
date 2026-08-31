@@ -115,77 +115,27 @@ extension PlaylistDetailView {
     }
 
     var signalPlaylistHeaderContent: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top, spacing: 16) {
-                CachedAsyncImage(url: playlist.coverUrl?.sized(500)) {
-                    SignalStyle.controlPressed
-                }
-                .aspectRatio(contentMode: .fill)
-                .frame(width: DeviceLayout.isPad ? 178 : 132, height: DeviceLayout.isPad ? 178 : 132)
-                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .stroke(SignalStyle.separator.opacity(0.72), lineWidth: 0.8)
+        SignalPlaylistHero(
+            coverURL: playlist.coverUrl,
+            title: viewModel.playlistDetail?.name ?? playlist.name,
+            sourceLabel: playlist.sourceShortName,
+            subtitle: (viewModel.playlistDetail?.creator?.nickname ?? playlist.creator?.nickname).map {
+                String(format: NSLocalizedString("created_by_format", comment: ""), $0)
+            },
+            descriptionText: viewModel.playlistDetail?.description ?? playlist.description,
+            trackCount: viewModel.playlistDetail?.trackCount ?? playlist.trackCount,
+            playDisabled: viewModel.songs.isEmpty,
+            onPlay: playBannerPlaylist
+        ) {
+            if playlist.creator?.userId != APIService.shared.currentUserId {
+                let serverSubscribed = !playlist.usesLocalCollection && subManager.isPlaylistSubscribed(playlist.id)
+                SubscribeButton(
+                    isSubscribed: isCollectedLocally || serverSubscribed,
+                    action: handleBannerPlaylistCollectTap
                 )
-                .background(SignalSurfaceBackground(cornerRadius: 26, elevated: true, fill: SignalStyle.control))
-
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 7) {
-                        SignalPill(text: "PLAYLIST", tint: SignalStyle.accent, selected: true, compact: true)
-                        if let count = viewModel.playlistDetail?.trackCount ?? playlist.trackCount {
-                            SignalPill(text: "\(count) \(String(localized: "songs_unit"))", tint: SignalStyle.olive, compact: true)
-                        }
-                    }
-
-                    Text(viewModel.playlistDetail?.name ?? playlist.name)
-                        .font(SignalStyle.titleFont(DeviceLayout.isPad ? 30 : 24, weight: .bold))
-                        .foregroundStyle(SignalStyle.ink)
-                        .lineLimit(3)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    if let creator = viewModel.playlistDetail?.creator?.nickname ?? playlist.creator?.nickname {
-                        Text(String(format: NSLocalizedString("created_by_format", comment: ""), creator))
-                            .font(SignalStyle.labelFont(12, weight: .medium))
-                            .foregroundStyle(SignalStyle.inkSoft)
-                            .lineLimit(1)
-                    }
-
-                    HStack(spacing: 7) {
-                        if let playCount = playlist.playCount, playCount > 0 {
-                            SignalPill(text: formatCount(playCount), tint: SignalStyle.amber, compact: true)
-                        }
-                            if playlist.usesLocalCollection {
-                            SignalPill(text: playlist.sourceShortName, tint: (playlist.source ?? .netease).themedBadgeColor, compact: true)
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-
-            HStack(spacing: 10) {
-                Button(action: playBannerPlaylist) {
-                    SignalPlayPill(title: String(localized: "play_now"))
-                }
-                .buttonStyle(MonoBouncingButtonStyle(scale: 0.95))
-                .opacity(viewModel.songs.isEmpty ? 0.55 : 1)
-                .disabled(viewModel.songs.isEmpty)
-
-                if playlist.creator?.userId != APIService.shared.currentUserId {
-                    let serverSubscribed = !playlist.usesLocalCollection && subManager.isPlaylistSubscribed(playlist.id)
-                    SubscribeButton(
-                        isSubscribed: isCollectedLocally || serverSubscribed,
-                        action: handleBannerPlaylistCollectTap
-                    )
-                    .disabled(playlist.usesLocalCollection && (isCollectedLocally || viewModel.songs.isEmpty))
-                }
+                .disabled(playlist.usesLocalCollection && (isCollectedLocally || viewModel.songs.isEmpty))
             }
         }
-        .padding(16)
-        .background(SignalSurfaceBackground(cornerRadius: 30, elevated: true, fill: SignalStyle.paper))
-        .padding(.horizontal, DeviceLayout.isPad ? 40 : 18)
-        .padding(.top, DeviceLayout.isPad ? 28 : 18)
-        .padding(.bottom, 12)
-        .iPadContentWidth(900)
         .confirmationDialog(String(localized: "playlist_collect"), isPresented: $showCollectOptions, titleVisibility: .visible) {
             Button(String(localized: "playlist_collect_local")) {
                 collectBannerPlaylistLocally()

@@ -24,6 +24,10 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
     case clarity           // 通透 - 空气光层、漂浮封面与独立控制界面
     case dotMatrix         // 点阵 - 动态九点信号与分段式播放控制
     case console           // 控制台 - 黑绿终端与实时信号灯
+    case muji              // 无印良品全局主题播放器
+    case capsule           // Capsule OS 全局主题播放器
+    case petWhite          // 白绒爪印全局主题播放器
+    case minimalWhite      // 纯白极简全局主题播放器
     var id: String { rawValue }
     
     var displayName: String {
@@ -50,6 +54,10 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
         case .clarity: return String(localized: "通透")
         case .dotMatrix: return String(localized: "点阵")
         case .console: return String(localized: "player_theme_console_name")
+        case .muji: return String(localized: "无印良品")
+        case .capsule: return "Capsule OS"
+        case .petWhite: return String(localized: "global_theme_pet_white_name")
+        case .minimalWhite: return String(localized: "global_theme_minimal_white_name")
         }
     }
     
@@ -77,6 +85,10 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
         case .clarity: return "circle.hexagongrid.fill"
         case .dotMatrix: return "circle.grid.3x3.fill"
         case .console: return "terminal.fill"
+        case .muji: return "leaf.fill"
+        case .capsule: return "capsule.fill"
+        case .petWhite: return "pawprint.fill"
+        case .minimalWhite: return "circle.dotted"
         }
     }
     
@@ -104,6 +116,10 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
         case .clarity: return String(localized: "空气光层、漂浮封面与独立控制界面")
         case .dotMatrix: return String(localized: "动态点阵信号、分段进度与独立控制界面")
         case .console: return String(localized: "player_theme_console_description")
+        case .muji: return String(localized: "极简纸质感，温暖呼吸感")
+        case .capsule: return String(localized: "胶囊模块化音乐系统")
+        case .petWhite: return String(localized: "global_theme_pet_white_description")
+        case .minimalWhite: return String(localized: "global_theme_minimal_white_description")
         }
     }
     
@@ -112,7 +128,7 @@ enum PlayerTheme: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .classic, .vinyl, .lyricFocus, .poster, .breathing, .immersiveLyric:
             return false // 依赖全局模糊封面背景
-        case .card, .neumorphic, .motoPager, .typewriter, .pixel, .aqua, .cassette, .radio, .folk, .game2048, .ipod, .liquidGlass, .tornPaper, .clarity, .dotMatrix, .console:
+        case .card, .neumorphic, .motoPager, .typewriter, .pixel, .aqua, .cassette, .radio, .folk, .game2048, .ipod, .liquidGlass, .tornPaper, .clarity, .dotMatrix, .console, .muji, .capsule, .petWhite, .minimalWhite:
             return true  // 自带不透明的自定义背景
         }
     }

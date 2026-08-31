@@ -562,6 +562,10 @@ enum RouteMap {
         // 2. 特定接口参数转换
         switch apiPath {
 
+        // 扫码成功时 Cookie 已在 JSON body 中返回，避免 Node 再生成过大的 Set-Cookie 响应头
+        case "/api/login/qrcode/client/login":
+            result["noCookie"] = "true"
+
         // song_url_v1: SDK 传 ids="[123]", 后端期望 id=123
         case "/api/song/enhance/player/url/v1":
             if let ids = data["ids"] as? String {

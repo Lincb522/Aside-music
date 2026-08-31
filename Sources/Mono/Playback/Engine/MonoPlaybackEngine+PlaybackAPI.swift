@@ -19,7 +19,7 @@ extension PlayerManager {
     /// 这样做到：点全部播放时自动排除灰色歌，但手动点灰色歌仍给明确反馈。
     private func filterUnavailable(_ songs: [Song], keeping tappedSong: Song?) -> [Song] {
         let unavailableManager = UnavailableSongsManager.shared
-        let hasVIPCookie = APIService.shared.hasVIPCookie
+        let hasVIPCookie = APIService.shared.hasNCMVIPPoolAccess
         return songs.filter { candidate in
             // 用户点击的歌保留
             if let tapped = tappedSong,

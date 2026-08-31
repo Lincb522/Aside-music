@@ -30,10 +30,10 @@ struct AlbumDetailView: View {
     @State private var scrollOffset: CGFloat = 0
 
     private struct Theme {
-        static let text = Color.monoTextPrimary
-        static let secondaryText = Color.monoTextSecondary
-        static let accent = Color.monoIconBackground
-        static let milk = Color.monoMilk
+        static var text: Color { .monoTextPrimary }
+        static var secondaryText: Color { .monoTextSecondary }
+        static var accent: Color { .monoIconBackground }
+        static var milk: Color { .monoMilk }
     }
 
     init(albumId: Int, albumName: String?, albumCoverUrl: URL?) {

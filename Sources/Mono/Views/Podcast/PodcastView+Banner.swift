@@ -117,6 +117,83 @@ extension PodcastView {
         .padding(.horizontal, padH)
     }
 
+    var signalPodcastHeader: some View {
+        VStack(spacing: 14) {
+            HStack(spacing: 12) {
+                SignalBreathingIndicator(size: 8)
+
+                Text(String(localized: "tabbar_podcast"))
+                    .font(SignalStyle.titleFont(27, weight: .semibold))
+                    .foregroundStyle(SignalStyle.ink)
+                    .lineLimit(1)
+
+                Spacer(minLength: 10)
+
+                NavigationLink(value: PodcastDestination.categoryBrowse) {
+                    MonoIcon(icon: .gridSquare, size: 17, color: SignalStyle.inkSoft, lineWidth: 1.6)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(MonoBouncingButtonStyle(scale: 0.94))
+
+                NavigationLink(value: PodcastDestination.search) {
+                    MonoIcon(icon: .magnifyingGlass, size: 17, color: SignalStyle.accent, lineWidth: 1.7)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(MonoBouncingButtonStyle(scale: 0.94))
+            }
+
+            HStack(spacing: 12) {
+                SignalLevelMeter(
+                    activeCount: min(max(viewModel.personalizedRadios.count / 2, 2), 9),
+                    barCount: 9,
+                    height: 20
+                )
+
+                Spacer(minLength: 8)
+
+                signalPodcastMetric(
+                    value: "\(viewModel.personalizedRadios.count)",
+                    label: String(localized: "podcast_for_you")
+                )
+
+                signalPodcastMetric(
+                    value: "\(viewModel.categories.count)",
+                    label: String(localized: "podcast_all")
+                )
+            }
+            .padding(.vertical, 12)
+            .overlay(alignment: .top) {
+                Rectangle()
+                    .fill(SignalStyle.separator.opacity(0.84))
+                    .frame(height: 0.65)
+            }
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(SignalStyle.separator.opacity(0.52))
+                    .frame(height: 0.65)
+            }
+        }
+        .padding(.horizontal, padH)
+        .padding(.top, DeviceLayout.headerTopPadding + 4)
+        .monoPageHeaderCollapse()
+    }
+
+    func signalPodcastMetric(value: String, label: String) -> some View {
+        VStack(alignment: .trailing, spacing: 1) {
+            Text(value)
+                .font(SignalStyle.monoFont(12, weight: .bold))
+                .foregroundStyle(SignalStyle.ink)
+                .monospacedDigit()
+
+            Text(label)
+                .font(SignalStyle.labelFont(9, weight: .medium))
+                .foregroundStyle(SignalStyle.inkMuted)
+                .lineLimit(1)
+        }
+    }
+
     var sequoiaPodcastHeader: some View {
         SequoiaPageHeader(
             eyebrow: "RADIO",
@@ -327,6 +404,38 @@ extension PodcastView {
                 if let destination {
                     NavigationLink(value: destination) {
                         NeumorphicPill(text: String(localized: "view_all"), tint: NeumorphicStyle.accent, icon: .chevronRight, selected: true, compact: true)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, padH)
+        } else if SignalStyle.isActive {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(SignalStyle.titleFont(18, weight: .semibold))
+                        .foregroundStyle(SignalStyle.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.82)
+
+                    if let detail, !detail.isEmpty {
+                        Text(detail)
+                            .font(SignalStyle.labelFont(11, weight: .medium))
+                            .foregroundStyle(SignalStyle.inkMuted)
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer(minLength: 8)
+
+                if let destination {
+                    NavigationLink(value: destination) {
+                        SignalPill(
+                            text: String(localized: "view_all"),
+                            tint: SignalStyle.accent,
+                            icon: .chevronRight,
+                            compact: true
+                        )
                     }
                     .buttonStyle(.plain)
                 }

@@ -108,6 +108,15 @@ public enum FFmpegRuntimeInspector {
         )
     }
 
+    public static func hasAudioDecoder(named name: String) -> Bool {
+        name.withCString { namePointer in
+            guard let codec = avcodec_find_decoder_by_name(namePointer) else {
+                return false
+            }
+            return codec.pointee.type == AVMEDIA_TYPE_AUDIO
+        }
+    }
+
     private static func insertAliases(
         from pointer: UnsafePointer<CChar>?,
         into names: inout Set<String>

@@ -83,15 +83,15 @@ struct SongListRow: View {
     /// - 运行时记录的播放失败（兜底全失败）也显示灰色
     var isGrayed: Bool {
         if song.isNoCopyright { return true }
-        if song.isVIPRestricted { return !APIService.shared.hasVIPCookie }
+        if song.isVIPRestricted { return !APIService.shared.hasNCMVIPPoolAccess }
         if song.isUnpurchasedDigitalAlbum { return true }
         if unavailableSongs.isUnavailable(song: song) { return true }
         return false
     }
     
     private struct Theme {
-        static let text = Color.monoTextPrimary
-        static let secondaryText = Color.monoTextSecondary
+        static var text: Color { .monoTextPrimary }
+        static var secondaryText: Color { .monoTextSecondary }
         static var accent: Color {
             if SignalStyle.isActive { return SignalStyle.accent }
             if MangaStyle.isActive { return MangaStyle.accentPink }
@@ -594,14 +594,15 @@ struct SongListRow: View {
                     } else if isPlaybackEmphasized {
                         currentRowBackground
                             .opacity(isLoadingPlayback ? 0.72 : 1)
-                    } else if SignalStyle.isActive {
-                        SignalSurfaceBackground(
-                            cornerRadius: rowCornerRadius,
-                            elevated: false,
-                            pressed: true,
-                            fill: SignalStyle.screen.opacity(0.72)
-                        )
-                        .padding(.horizontal, 5)
+                    }
+                }
+                .overlay(alignment: .bottom) {
+                    if SignalStyle.isActive {
+                        Rectangle()
+                            .fill(SignalStyle.separator.opacity(0.44))
+                            .frame(height: 0.65)
+                            .padding(.leading, rowHorizontalPadding + rowIndexWidth + rowCoverSize + rowContentSpacing * 2)
+                            .padding(.trailing, rowHorizontalPadding)
                     }
                 }
                 .padding(.horizontal, PetWhiteStyle.isActive ? rowHorizontalPadding : 0)
@@ -761,18 +762,13 @@ struct SongListRow: View {
     @ViewBuilder
     private var currentRowBackground: some View {
         if SignalStyle.isActive {
-            ZStack(alignment: .leading) {
-                SignalSurfaceBackground(
-                    cornerRadius: rowCornerRadius,
-                    elevated: false,
-                    pressed: true,
-                    fill: SignalStyle.control
-                )
-
+            ZStack(alignment: .trailing) {
+                RoundedRectangle(cornerRadius: rowCornerRadius, style: .continuous)
+                    .fill(SignalStyle.accent.opacity(0.075))
                 Circle()
                     .fill(SignalStyle.accent)
-                    .frame(width: 5, height: 5)
-                    .padding(.leading, 9)
+                    .frame(width: 4, height: 4)
+                    .padding(.trailing, 10)
             }
             .padding(.horizontal, 5)
         } else if MangaStyle.isActive {

@@ -46,6 +46,7 @@ extension SearchView {
     }
 
     var themedSearchResultRowsSpacing: CGFloat {
+        if SignalStyle.isActive { return 0 }
         return themedSearchResultRowsActive ? 6 : 0
     }
 
@@ -62,7 +63,7 @@ extension SearchView {
     }
 
     var searchResultOuterVerticalPadding: CGFloat {
-        if MujiStyle.isActive { return 0 }
+        if MujiStyle.isActive || SignalStyle.isActive { return 0 }
         return themedSearchResultRowsActive ? 6 : 0
     }
 
@@ -184,7 +185,13 @@ extension SearchView {
         } else if NeumorphicStyle.isActive {
             NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, lightweight: true)
         } else if SignalStyle.isActive {
-            SignalSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, fill: SignalStyle.paper)
+            VStack(spacing: 0) {
+                Spacer(minLength: 0)
+                Rectangle()
+                    .fill(SignalStyle.separator.opacity(0.46))
+                    .frame(height: 0.65)
+                    .padding(.leading, 70)
+            }
         } else if SequoiaStyle.isActive {
             SequoiaSurfaceBackground(cornerRadius: 20, elevated: false, role: .list)
         } else if CapsuleStyle.isActive {

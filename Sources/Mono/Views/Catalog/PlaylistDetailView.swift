@@ -39,10 +39,10 @@ struct PlaylistDetailView: View {
 
     struct Theme {
         static let cream = Color.clear
-        static let milk = Color.monoMilk
-        static let accent = Color.monoIconBackground // 黑/白自适应
-        static let text = Color.monoTextPrimary
-        static let secondaryText = Color.monoTextSecondary
+        static var milk: Color { .monoMilk }
+        static var accent: Color { .monoIconBackground }
+        static var text: Color { .monoTextPrimary }
+        static var secondaryText: Color { .monoTextSecondary }
         static let softShadow = Color.clear
     }
 
@@ -88,7 +88,7 @@ struct PlaylistDetailView: View {
 
             ScrollView {
                 VStack(spacing: 0) {
-                    if usesAsideHero {
+                    if usesAsideHero || SignalStyle.isActive {
                         // Hero 头部自带拉伸/视差，不叠加收缩动效
                         playlistHeaderContent
                     } else {
@@ -119,7 +119,7 @@ struct PlaylistDetailView: View {
             .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
             .monoScrollOffset($scrollOffset)
-            .ignoresSafeArea(edges: usesAsideHero ? .top : [])
+            .ignoresSafeArea(edges: (usesAsideHero || SignalStyle.isActive) ? .top : [])
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)

@@ -22,28 +22,35 @@ extension ProfileView {
     }
 
     var signalProfileHeaderBar: some View {
-        HStack(spacing: 13) {
-            SignalIconBadge(icon: .profileFilled, tint: SignalStyle.accent, size: 48)
+        HStack(spacing: 12) {
+            SignalBreathingIndicator(size: 8)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text("PROFILE")
-                    .font(SignalStyle.labelFont(11, weight: .bold))
-                    .foregroundStyle(SignalStyle.accent)
-
-                Text(String(localized: "tab_profile"))
-                    .font(SignalStyle.titleFont(24, weight: .bold))
-                    .foregroundStyle(SignalStyle.ink)
-            }
+            Text(String(localized: "tab_profile"))
+                .font(SignalStyle.titleFont(24, weight: .semibold))
+                .foregroundStyle(SignalStyle.ink)
 
             Spacer(minLength: 8)
 
+            SignalPill(
+                text: loginIdentity.activeSource?.shortName ?? String(localized: "profile_not_logged_in"),
+                tint: SignalStyle.accent,
+                icon: .personCircle,
+                selected: true,
+                compact: true
+            )
+
             NavigationLink(value: ProfileNavigationDestination.settings) {
-                MonoIcon(icon: .settings, size: 17, color: SignalStyle.accent, lineWidth: 1.55)
-                    .frame(width: 42, height: 42)
-                    .background(SignalSurfaceBackground(cornerRadius: 11, elevated: true, fill: SignalStyle.control))
-                    .contentShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+                MonoIcon(icon: .settings, size: 17, color: SignalStyle.inkSoft, lineWidth: 1.55)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(MonoBouncingButtonStyle(scale: 0.94))
+        }
+        .padding(.vertical, 8)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(SignalStyle.separator.opacity(0.62))
+                .frame(height: 0.65)
         }
         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
         .padding(.top, 8)

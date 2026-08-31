@@ -13,6 +13,7 @@ final class DebugLogViewModel: ObservableObject {
         var coalescedCount = 0
         var levelCounts: [LogEntry.LogLevel: Int] = [:]
         var categoryCounts: [LogEntry.Category: Int] = [:]
+        var hasSilenceDiagnostics = false
     }
 
     @Published private var presentation = PresentationState()
@@ -21,6 +22,7 @@ final class DebugLogViewModel: ObservableObject {
     var totalCount: Int { presentation.totalCount }
     var droppedCount: Int { presentation.droppedCount }
     var coalescedCount: Int { presentation.coalescedCount }
+    var hasSilenceDiagnostics: Bool { presentation.hasSilenceDiagnostics }
 
     func count(for level: LogEntry.LogLevel?) -> Int {
         guard let level else { return presentation.totalCount }
@@ -125,7 +127,8 @@ final class DebugLogViewModel: ObservableObject {
             droppedCount: snapshot.droppedCount,
             coalescedCount: snapshot.coalescedCount,
             levelCounts: snapshot.counts,
-            categoryCounts: snapshot.categoryCounts
+            categoryCounts: snapshot.categoryCounts,
+            hasSilenceDiagnostics: AppLogger.hasSilenceDiagnostics
         )
     }
 
@@ -141,6 +144,10 @@ final class DebugLogViewModel: ObservableObject {
     func jsonExport() -> String {
         AppLogger.jsonExport(entries: allEntriesForExport)
             ?? AppLogger.textExport(entries: allEntriesForExport)
+    }
+
+    func silenceDiagnosticsExport() -> String {
+        AppLogger.silenceDiagnosticsJSON() ?? ""
     }
 
     // MARK: - 筛选实现

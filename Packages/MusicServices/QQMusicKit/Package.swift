@@ -5,6 +5,7 @@ let package = Package(
     name: "QQMusicKit",
     platforms: [
         .iOS(.v15),
+        .macOS(.v11),
         .tvOS(.v15),
         .watchOS(.v8),
     ],
@@ -13,5 +14,6 @@ let package = Package(
     ],
     targets: [
         .target(name: "QQMusicKit", path: "Sources"),
+        .testTarget(name: "QQMusicKitTests", dependencies: ["QQMusicKit"], path: "Tests"),
     ]
 )

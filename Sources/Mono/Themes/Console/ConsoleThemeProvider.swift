@@ -55,6 +55,8 @@ struct ConsoleThemeProvider: GlobalThemeProvider {
         )
     }
 
+    var suggestedPlayerTheme: PlayerTheme? { .console }
+
     func makeHomeView() -> AnyView { AnyView(ConsoleThemeRoot { HomeView() }) }
     func makePodcastView() -> AnyView { AnyView(ConsoleThemeRoot { PodcastView() }) }
     func makeSearchView() -> AnyView { AnyView(ConsoleThemeRoot { SearchView() }) }

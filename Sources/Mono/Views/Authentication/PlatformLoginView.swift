@@ -364,7 +364,7 @@ struct PlatformLoginView: View {
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: 48)
                 .background {
-                    RoundedRectangle(cornerRadius: SignalStyle.isActive ? 7 : 14, style: .continuous)
+                    RoundedRectangle(cornerRadius: SignalStyle.isActive ? SignalStyle.buttonRadius : 14, style: .continuous)
                         .fill(phoneActionBackground)
                 }
             }
@@ -387,7 +387,7 @@ struct PlatformLoginView: View {
             }
         }
         .padding(SignalStyle.isActive ? 16 : 18)
-        .themedPageSurface(cornerRadius: SignalStyle.isActive ? 9 : 20, elevated: false, mangaTint: MangaStyle.bubbleWhite)
+        .themedPageSurface(cornerRadius: SignalStyle.isActive ? SignalStyle.cardRadius : 20, elevated: false, mangaTint: MangaStyle.bubbleWhite)
     }
 
     private func countryCodeField(maxWidth: CGFloat) -> some View {
@@ -455,7 +455,7 @@ struct PlatformLoginView: View {
             .frame(maxWidth: .infinity)
             .frame(minHeight: 48)
             .background {
-                RoundedRectangle(cornerRadius: SignalStyle.isActive ? 7 : 14, style: .continuous)
+                RoundedRectangle(cornerRadius: SignalStyle.isActive ? SignalStyle.buttonRadius : 14, style: .continuous)
                     .fill(phoneSecondaryActionBackground)
             }
         }
@@ -478,10 +478,10 @@ struct PlatformLoginView: View {
     }
 
     private var phoneInputSurface: some View {
-        RoundedRectangle(cornerRadius: SignalStyle.isActive ? 7 : 14, style: .continuous)
+        RoundedRectangle(cornerRadius: SignalStyle.isActive ? SignalStyle.buttonRadius : 14, style: .continuous)
             .fill(phoneInputBackground)
             .overlay {
-                RoundedRectangle(cornerRadius: SignalStyle.isActive ? 7 : 14, style: .continuous)
+                RoundedRectangle(cornerRadius: SignalStyle.isActive ? SignalStyle.buttonRadius : 14, style: .continuous)
                     .stroke(phoneInputBorder, lineWidth: 0.8)
             }
     }
@@ -534,7 +534,7 @@ struct PlatformLoginView: View {
 
     private var qrCodePanel: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: SignalStyle.isActive ? 9 : 20, style: .continuous)
+            RoundedRectangle(cornerRadius: SignalStyle.isActive ? SignalStyle.cardRadius : 20, style: .continuous)
                 .fill(Color.white)
 
             if let image = qrCodeImage {
@@ -549,7 +549,7 @@ struct PlatformLoginView: View {
             }
 
             if isQRExpired {
-                RoundedRectangle(cornerRadius: SignalStyle.isActive ? 9 : 20, style: .continuous)
+                RoundedRectangle(cornerRadius: SignalStyle.isActive ? SignalStyle.cardRadius : 20, style: .continuous)
                     .fill(.ultraThinMaterial)
                     .overlay {
                         Button(action: refreshQRCode) {
@@ -567,7 +567,7 @@ struct PlatformLoginView: View {
         }
         .frame(width: 244, height: 244)
         .overlay {
-            RoundedRectangle(cornerRadius: SignalStyle.isActive ? 9 : 20, style: .continuous)
+            RoundedRectangle(cornerRadius: SignalStyle.isActive ? SignalStyle.cardRadius : 20, style: .continuous)
                 .stroke(SignalStyle.isActive ? SignalStyle.separator.opacity(0.78) : Color.monoSeparator.opacity(0.75), lineWidth: 0.8)
         }
         .accessibilityElement(children: isQRExpired ? .contain : .ignore)

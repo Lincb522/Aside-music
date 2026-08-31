@@ -716,34 +716,40 @@ struct DailyRecommendView: View {
 
     private var signalHeaderSection: some View {
         VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(alignment: .center, spacing: 14) {
-                    VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(alignment: .bottom, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text(dayString)
-                            .font(SignalStyle.titleFont(48, weight: .bold))
+                            .font(SignalStyle.titleFont(58, weight: .semibold))
                             .foregroundStyle(SignalStyle.ink)
                             .lineLimit(1)
 
                         Text("/ \(monthString)")
-                            .font(SignalStyle.monoFont(12, weight: .semibold))
+                            .font(SignalStyle.monoFont(11, weight: .semibold))
                             .foregroundStyle(SignalStyle.inkMuted)
-                            .padding(.leading, 3)
                     }
-                    .frame(width: 74, alignment: .leading)
+                    .frame(width: 82, alignment: .leading)
 
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(spacing: 7) {
-                            SignalPill(text: String(localized: "daily_recommend"), tint: SignalStyle.accent, selected: true, compact: true)
-                            if !viewModel.songs.isEmpty {
-                                SignalPill(text: "\(viewModel.songs.count) \(String(localized: "songs_unit"))", tint: SignalStyle.olive, compact: true)
-                            }
-                        }
-
+                    VStack(alignment: .leading, spacing: 9) {
                         Text(dailyHeaderTitle)
-                            .font(SignalStyle.titleFont(24, weight: .bold))
+                            .font(SignalStyle.titleFont(27, weight: .semibold))
                             .foregroundStyle(SignalStyle.ink)
                             .lineLimit(2)
                             .minimumScaleFactor(0.78)
+
+                        HStack(spacing: 7) {
+                            Text(String(localized: "daily_recommend").uppercased())
+                                .font(SignalStyle.monoFont(9, weight: .semibold))
+                                .foregroundStyle(SignalStyle.accent)
+
+                            if !viewModel.songs.isEmpty {
+                                Text("·")
+                                    .foregroundStyle(SignalStyle.inkMuted)
+                                Text("\(viewModel.songs.count) \(String(localized: "songs_unit"))")
+                                    .font(SignalStyle.monoFont(9, weight: .medium))
+                                    .foregroundStyle(SignalStyle.inkMuted)
+                            }
+                        }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -757,45 +763,75 @@ struct DailyRecommendView: View {
                                 .frame(width: 46, height: 46)
                                 .background(
                                     SignalStyle.accent,
-                                    in: RoundedRectangle(cornerRadius: 17, style: .continuous)
+                                    in: RoundedRectangle(cornerRadius: SignalStyle.buttonRadius, style: .continuous)
                                 )
-                                .shadow(color: Color.black.opacity(0.24), radius: 10, x: 0, y: 6)
                         }
                         .buttonStyle(MonoBouncingButtonStyle(scale: 0.95))
                     }
                 }
 
-                HStack(spacing: 9) {
-                    Button(action: toggleStyleMenu) {
-                        SignalPill(
-                            text: dailyStyleChipTitle,
-                            tint: SignalStyle.accent,
-                            icon: .sparkle,
-                            selected: viewModel.showStyleMenu
-                        )
-                    }
-                    .buttonStyle(.plain)
+                HStack(spacing: 10) {
+                    dailySignalControl(
+                        title: dailyStyleChipTitle,
+                        icon: .sparkle,
+                        selected: viewModel.showStyleMenu,
+                        action: toggleStyleMenu
+                    )
 
-                    Button(action: {
-                        viewModel.loadHistoryDates()
-                    }) {
-                        SignalPill(
-                            text: NSLocalizedString("daily_history", comment: ""),
-                            tint: SignalStyle.amber,
-                            icon: .history
-                        )
-                    }
-                    .buttonStyle(MonoBouncingButtonStyle(scale: 0.96))
+                    dailySignalControl(
+                        title: NSLocalizedString("daily_history", comment: ""),
+                        icon: .history,
+                        selected: false,
+                        action: viewModel.loadHistoryDates
+                    )
                 }
             }
-            .padding(16)
+            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            .padding(.top, 16)
+            .padding(.bottom, 18)
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(SignalStyle.separator.opacity(0.68))
+                    .frame(height: 0.65)
+                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            }
 
             attachedStylePanel
         }
-        .background(signalHeaderBackground)
-        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-        .padding(.top, 16)
         .padding(.bottom, 10)
+    }
+
+    private func dailySignalControl(
+        title: String,
+        icon: MonoIcon.IconType,
+        selected: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 7) {
+                MonoIcon(
+                    icon: icon,
+                    size: 13,
+                    color: selected ? SignalStyle.accent : SignalStyle.inkSoft,
+                    lineWidth: 1.6
+                )
+                Text(title)
+                    .font(SignalStyle.labelFont(11, weight: .semibold))
+                    .foregroundStyle(selected ? SignalStyle.ink : SignalStyle.inkSoft)
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 40)
+            .background(
+                SignalStyle.controlPressed,
+                in: RoundedRectangle(cornerRadius: SignalStyle.buttonRadius, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: SignalStyle.buttonRadius, style: .continuous)
+                    .stroke(SignalStyle.separator.opacity(0.72), lineWidth: 0.7)
+            }
+        }
+        .buttonStyle(MonoBouncingButtonStyle(scale: 0.95))
     }
 
     private var sequoiaHeaderSection: some View {
@@ -1108,11 +1144,6 @@ struct DailyRecommendView: View {
     @ViewBuilder
     private var neumorphicHeaderBackground: some View {
         NeumorphicSurfaceBackground(cornerRadius: 26, elevated: true)
-    }
-
-    @ViewBuilder
-    private var signalHeaderBackground: some View {
-        SignalSurfaceBackground(cornerRadius: 30, elevated: true, fill: SignalStyle.paper)
     }
 
     private func mangaHeaderChip(text: String, icon: MonoIcon.IconType, tint: Color, foreground: Color? = nil) -> some View {

@@ -250,6 +250,13 @@ test_layout.swift
 !DesignAssets/**/*.txt
 !DesignAssets/**/*.zip
 !Web/website/**/*.md
+
+!Packages/Audio/ffmpeg-swift/scripts/
+Packages/Audio/ffmpeg-swift/scripts/*
+!Packages/Audio/ffmpeg-swift/scripts/build-ffmpeg-ios.sh
+!Packages/Audio/ffmpeg-swift/scripts/prepare-audio-vivid.py
+!Packages/Audio/ffmpeg-swift/scripts/rebuild-all.sh
+!Packages/Audio/ffmpeg-swift/scripts/rebuild-sim-and-xcframework.sh
 !Web/website/**/*.png
 *.pdf
 *.json

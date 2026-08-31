@@ -35,7 +35,7 @@ extension SettingsView {
     /// 分组内行间发丝分隔线
     var asideRowDivider: some View {
         Rectangle()
-            .fill(Color.monoSeparator.opacity(0.55))
+            .fill(SignalStyle.isActive ? SignalStyle.separator.opacity(0.52) : Color.monoSeparator.opacity(0.55))
             .frame(height: 0.5)
             .padding(.leading, 58)
     }
@@ -45,7 +45,9 @@ extension SettingsView {
             SettingsThemeRow(
                 icon: .sparkle,
                 title: String(localized: "settings_theme_mode"),
-                selection: $settings.themeMode
+                selection: $settings.themeMode,
+                isSelectionEnabled: !settings.globalThemeId.requiresDarkAppearance,
+                lockedSelection: settings.globalThemeId.requiresDarkAppearance ? "dark" : nil
             )
 
             asideRowDivider
@@ -141,12 +143,60 @@ extension SettingsView {
 
     @ViewBuilder
     var signalSettingsContent: some View {
+        signalSettingsMasthead
         settingsHeaderCard
-        themeSection
-        navigationCardsSection
+        asidePersonalizationSection
+        asidePlaybackSection
+        asideDataSection
+        signalSystemSection
 
         if qqDevMode {
             otherSection
+        }
+    }
+
+    var signalSettingsMasthead: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                SignalBreathingIndicator(size: 6)
+
+                Text("SYSTEM")
+                    .font(SignalStyle.monoFont(9, weight: .semibold))
+                    .foregroundStyle(SignalStyle.inkMuted)
+                    .tracking(1.5)
+
+                Rectangle()
+                    .fill(SignalStyle.separator.opacity(0.72))
+                    .frame(height: 0.65)
+            }
+
+            Text(String(localized: "settings_title"))
+                .font(SignalStyle.titleFont(30, weight: .semibold))
+                .foregroundStyle(SignalStyle.ink)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 4)
+        .monoPageHeaderCollapse()
+    }
+
+    var signalSystemSection: some View {
+        SettingsSection(title: String(localized: "settings_about")) {
+            if AppConfig.Features.downloadEnabled {
+                SettingsRouteLinkRow(
+                    icon: .download,
+                    title: String(localized: "settings_download_manage"),
+                    destination: .download
+                )
+
+                asideRowDivider
+            }
+
+            SettingsRouteLinkRow(
+                icon: .infoCircle,
+                title: String(localized: "settings_about"),
+                value: appVersion,
+                destination: .about
+            )
         }
     }
 

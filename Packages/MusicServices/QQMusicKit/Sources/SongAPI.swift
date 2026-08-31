@@ -4,10 +4,36 @@ import Foundation
 
 public extension QQMusicClient {
 
-    /// 查询歌曲信息
+    /// 获取当前可用的歌曲 CDN 调度信息。
+    func songCDNDispatch() async throws -> JSON {
+        try await requestWrapped("/song/get_cdn_dispatch")
+    }
+
+    /// 查询歌曲信息。
+    func querySongs(_ queries: [QQMusicSongQuery]) async throws -> [JSON] {
+        guard !queries.isEmpty else {
+            throw QQMusicError.invalidParameter(name: "song_info")
+        }
+        let response: JSON = try await requestWrapped(
+            "/song/query_song",
+            parameters: ["song_info": queries.map(\.parameters)]
+        )
+        return response["tracks"]?.arrayValue ?? []
+    }
+
+    /// 查询歌曲信息，兼容逗号分隔的歌曲 id 或 mid。
     /// - Parameter value: 歌曲 id 或 mid 列表，逗号分隔
     func querySong(value: String) async throws -> [JSON] {
-        try await requestWrapped("/song/query_song", params: ["value": value])
+        let queries = value
+            .split(separator: ",")
+            .map { component -> QQMusicSongQuery in
+                let value = String(component).trimmingCharacters(in: .whitespacesAndNewlines)
+                if let id = Int(value) {
+                    return QQMusicSongQuery(id: id)
+                }
+                return QQMusicSongQuery(mid: value)
+            }
+        return try await querySongs(queries)
     }
 
     /// 获取歌曲详情
@@ -123,19 +149,31 @@ public extension QQMusicClient {
     /// 获取歌曲标签
     /// - Parameter songId: 歌曲 id
     func songLabels(songId: Int) async throws -> [JSON] {
-        try await requestWrapped("/song/get_lables", params: ["songid": String(songId)])
+        let response: JSON = try await requestWrapped(
+            "/song/get_labels",
+            params: ["songid": String(songId)]
+        )
+        return response["labels"]?.arrayValue ?? []
     }
 
     /// 获取歌曲相关歌单
-    /// - Parameter songId: 歌曲 id
-    func relatedSonglist(songId: Int) async throws -> [JSON] {
-        try await requestWrapped("/song/get_related_songlist", params: ["songid": String(songId)])
+    /// - Parameters:
+    ///   - songId: 歌曲 id
+    ///   - last: 上次结果中的歌单 ID，用于换一批
+    func relatedSonglist(songId: Int, last: [Int]? = nil) async throws -> [JSON] {
+        var parameters: [String: Any] = ["songid": songId]
+        if let last { parameters["last"] = last }
+        return try await requestWrapped("/song/get_related_songlist", parameters: parameters)
     }
 
     /// 获取歌曲相关 MV
-    /// - Parameter songId: 歌曲 id
-    func relatedMV(songId: Int) async throws -> [JSON] {
-        try await requestWrapped("/song/get_related_mv", params: ["songid": String(songId)])
+    /// - Parameters:
+    ///   - songId: 歌曲 id
+    ///   - lastMVID: 下一页游标
+    func relatedMV(songId: Int, lastMVID: String? = nil) async throws -> [JSON] {
+        var params = ["songid": String(songId)]
+        if let lastMVID { params["last_mvid"] = lastMVID }
+        return try await requestWrapped("/song/get_related_mv", params: params)
     }
 
     /// 获取歌曲其他版本
@@ -151,15 +189,20 @@ public extension QQMusicClient {
     }
 
     /// 获取歌曲曲谱
-    /// - Parameter mid: 歌曲 mid
-    func songSheet(mid: String) async throws -> [JSON] {
-        try await requestWrapped("/song/get_sheet", params: ["mid": mid])
+    /// - Parameters:
+    ///   - mid: 歌曲 mid
+    ///   - type: 曲谱类型
+    func songSheet(mid: String, type: Int = 0) async throws -> [JSON] {
+        try await requestWrapped("/song/get_sheet", params: [
+            "mid": mid,
+            "ttype": String(type),
+        ])
     }
 
     /// 获取歌曲收藏数
     /// - Parameter songIds: 歌曲 id 列表，逗号分隔
     func songFavCount(songIds: String) async throws -> JSON {
-        try await requestWrapped("/song/get_fav_num", params: ["songid": songIds])
+        try await requestWrapped("/song/get_fav_num", params: ["song_ids": songIds])
     }
 
     /// 查询歌曲可用音质列表（专用路由，非通用路由）

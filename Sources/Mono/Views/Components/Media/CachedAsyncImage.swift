@@ -504,7 +504,8 @@ struct CachedAsyncImage<Placeholder: View>: View {
         transition: AnyTransition = .opacity.animation(.easeIn(duration: 0.2)),
         contentMode: SwiftUI.ContentMode = .fill,
         width: CGFloat? = nil,
-        height: CGFloat? = nil
+        height: CGFloat? = nil,
+        resizesArtworkURL: Bool = true
     ) {
         let normalizedMaxSize = ImageCacheConfig.normalizedMaxPointSize(width: width, height: height)
         let minimumPixelSize = Int(ceil(normalizedMaxSize * ImageCacheConfig.screenScale))
@@ -516,9 +517,14 @@ struct CachedAsyncImage<Placeholder: View>: View {
         if let requestURL, requestURL.scheme == "http",
            var components = URLComponents(url: requestURL, resolvingAgainstBaseURL: false) {
             components.scheme = "https"
-            self.url = (components.url ?? requestURL).artworkURL(atLeastPixelSize: minimumPixelSize)
+            let secureURL = components.url ?? requestURL
+            self.url = resizesArtworkURL
+                ? secureURL.artworkURL(atLeastPixelSize: minimumPixelSize)
+                : secureURL
         } else if let requestURL {
-            self.url = requestURL.artworkURL(atLeastPixelSize: minimumPixelSize)
+            self.url = resizesArtworkURL
+                ? requestURL.artworkURL(atLeastPixelSize: minimumPixelSize)
+                : requestURL
         } else {
             self.url = nil
         }
@@ -534,7 +540,8 @@ struct CachedAsyncImage<Placeholder: View>: View {
         height: CGFloat?,
         @ViewBuilder placeholder: () -> Placeholder,
         transition: AnyTransition = .opacity.animation(.easeIn(duration: 0.2)),
-        contentMode: SwiftUI.ContentMode = .fill
+        contentMode: SwiftUI.ContentMode = .fill,
+        resizesArtworkURL: Bool = true
     ) {
         self.init(
             url: url,
@@ -542,7 +549,8 @@ struct CachedAsyncImage<Placeholder: View>: View {
             transition: transition,
             contentMode: contentMode,
             width: width,
-            height: height
+            height: height,
+            resizesArtworkURL: resizesArtworkURL
         )
     }
     

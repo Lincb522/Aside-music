@@ -171,6 +171,8 @@ extension ProfileView {
 
     private var signalGuestHeader: some View {
         HStack(spacing: 12) {
+            SignalBreathingIndicator(size: 6)
+
             Text(String(localized: "tab_profile"))
                 .font(SignalStyle.titleFont(28, weight: .semibold))
                 .foregroundStyle(SignalStyle.ink)
@@ -186,17 +188,15 @@ extension ProfileView {
                     forceTemplateRendering: true
                 )
                 .frame(width: 42, height: 42)
-                .background(
-                    SignalSurfaceBackground(
-                        cornerRadius: 13,
-                        elevated: false,
-                        fill: SignalStyle.control
-                    )
-                )
-                .contentShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+                .contentShape(Rectangle())
             }
             .buttonStyle(MonoBouncingButtonStyle(scale: 0.94))
             .accessibilityLabel(String(localized: "profile_settings"))
+        }
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(SignalStyle.separator.opacity(0.62))
+                .frame(height: 0.65)
         }
         .monoPageHeaderCollapse()
     }
@@ -233,13 +233,6 @@ extension ProfileView {
             }
             .buttonStyle(MonoBouncingButtonStyle(scale: 0.98))
         }
-        .background(
-            SignalSurfaceBackground(
-                cornerRadius: 16,
-                elevated: false,
-                fill: SignalStyle.surface
-            )
-        )
     }
 
     private var signalGuestDivider: some View {
@@ -613,30 +606,33 @@ private struct SignalGuestIdentityPanel: View {
                 .padding(.horizontal, 17)
                 .frame(maxWidth: .infinity, minHeight: 50)
                 .background(
-                    RoundedRectangle(cornerRadius: 13, style: .continuous)
+                    RoundedRectangle(cornerRadius: SignalStyle.buttonRadius, style: .continuous)
                         .fill(SignalStyle.accent)
                 )
-                .contentShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: SignalStyle.buttonRadius, style: .continuous))
             }
             .buttonStyle(MonoBouncingButtonStyle(scale: 0.98))
         }
-        .padding(18)
-        .background(
-            SignalSurfaceBackground(
-                cornerRadius: 16,
-                elevated: true,
-                fill: SignalStyle.surfaceRaised
-            )
-        )
+        .padding(.vertical, 18)
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(SignalStyle.separator.opacity(0.68))
+                .frame(height: 0.65)
+        }
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(SignalStyle.separator.opacity(0.5))
+                .frame(height: 0.65)
+        }
     }
 
     private var guestAvatar: some View {
         ZStack(alignment: .bottomTrailing) {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: SignalStyle.cardRadius, style: .continuous)
                 .fill(SignalStyle.screen)
                 .frame(width: 64, height: 64)
                 .overlay {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    RoundedRectangle(cornerRadius: SignalStyle.cardRadius, style: .continuous)
                         .stroke(SignalStyle.separator.opacity(0.72), lineWidth: 0.7)
                 }
                 .overlay {
@@ -684,10 +680,6 @@ private struct SignalGuestMenuRow: View {
                 forceTemplateRendering: true
             )
             .frame(width: 36, height: 36)
-            .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(SignalStyle.control)
-            )
             .accessibilityHidden(true)
 
             Text(title)

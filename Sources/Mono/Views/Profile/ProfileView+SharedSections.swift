@@ -107,7 +107,11 @@ extension ProfileView {
                 )
             }
             .padding(.vertical, 14)
-            .background(SignalSurfaceBackground(cornerRadius: 16, elevated: true, fill: SignalStyle.device))
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(SignalStyle.separator.opacity(0.55))
+                    .frame(height: 0.65)
+            }
         } else if SequoiaStyle.isActive {
             HStack(spacing: 0) {
                 StatCell(

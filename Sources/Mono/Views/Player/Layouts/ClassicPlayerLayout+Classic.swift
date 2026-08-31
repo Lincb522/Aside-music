@@ -14,7 +14,7 @@ extension ClassicPlayerLayout {
                 .overlay(
                     // aside 编辑部风格：极细描边胶囊
                     RoundedRectangle(cornerRadius: isThemedClassic ? 5 : 20)
-                        .stroke(qualityBadgeStroke, lineWidth: MangaStyle.isActive ? 1.4 : 0.8)
+                        .stroke(qualityBadgeStroke, lineWidth: usesMangaStyle ? 1.4 : 0.8)
                 )
         }
         .buttonStyle(.plain)
@@ -23,28 +23,28 @@ extension ClassicPlayerLayout {
 
     @ViewBuilder
     var classicThemeBackdrop: some View {
-        if MinimalWhiteStyle.isActive {
+        if usesMinimalWhiteStyle {
             MinimalWhiteRootBackdrop()
                 .ignoresSafeArea()
-        } else if MangaStyle.isActive {
+        } else if usesMangaStyle {
             ZStack {
                 MangaRootBackdrop()
                 MangaDotsTexture(opacity: colorScheme == .dark ? 0.03 : 0.045, gap: 15)
             }
             .ignoresSafeArea()
-        } else if MujiStyle.isActive {
+        } else if usesMujiStyle {
             MujiRootBackdrop()
                 .ignoresSafeArea()
-        } else if NeumorphicStyle.isActive {
+        } else if usesNeumorphicStyle {
             ThemeRenderBackdrop(theme: .neumorphic)
                 .ignoresSafeArea()
-        } else if CapsuleStyle.isActive {
+        } else if usesCapsuleStyle {
             ThemeRenderBackdrop(theme: .capsule)
                 .ignoresSafeArea()
-        } else if SequoiaStyle.isActive {
+        } else if usesSequoiaStyle {
             ThemeRenderBackdrop(theme: .default)
                 .ignoresSafeArea()
-        } else if ClayStyle.isActive {
+        } else if usesClayStyle {
             ClayRootBackdrop()
                 .ignoresSafeArea()
         }
@@ -52,14 +52,13 @@ extension ClassicPlayerLayout {
 
     var headerView: some View {
         HStack {
-            MonoBackButton(style: .dismiss, isDarkBackground: false)
-                .contentShape(Circle())
+            classicDismissButton
 
             Spacer()
 
             VStack(spacing: 2) {
                 Text(LocalizedStringKey("player_now_playing"))
-                    .font(classicBodyFont(12, weight: MangaStyle.isActive ? .black : .medium))
+                    .font(classicBodyFont(12, weight: usesMangaStyle ? .black : .medium))
                     .foregroundColor(secondaryContentColor)
                     .tracking(1)
 
@@ -77,7 +76,7 @@ extension ClassicPlayerLayout {
 
                 if let info = player.streamInfo {
                     Text(streamInfoText(info))
-                        .font(.system(size: 9, weight: MangaStyle.isActive ? .black : .medium, design: .monospaced))
+                        .font(.system(size: 9, weight: usesMangaStyle ? .black : .medium, design: .monospaced))
                         .foregroundColor(secondaryContentColor.opacity(0.6))
                         .lineLimit(1)
                 }
@@ -88,12 +87,12 @@ extension ClassicPlayerLayout {
             // 三点菜单按钮
             Button(action: { withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) { showMoreMenu.toggle() } }) {
                 ZStack {
-                    if NeumorphicStyle.isActive {
+                    if usesNeumorphicStyle {
                         Circle()
                             .fill(Color.clear)
                             .frame(width: 44, height: 44)
                             .background(NeumorphicSurfaceBackground(cornerRadius: 22, elevated: true))
-                    } else if CapsuleStyle.isActive {
+                    } else if usesCapsuleStyle {
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
                             .fill(CapsuleStyle.surfaceRaised)
                             .frame(width: 44, height: 44)
@@ -102,21 +101,21 @@ extension ClassicPlayerLayout {
                                     .stroke(CapsuleStyle.hairline.opacity(0.7), lineWidth: 0.8)
                             )
                             .shadow(color: CapsuleStyle.accent.opacity(0.08), radius: 10, x: 0, y: 5)
-                    } else if MinimalWhiteStyle.isActive {
+                    } else if usesMinimalWhiteStyle {
                         MinimalWhiteCircleBackground(elevated: true)
                             .frame(width: 44, height: 44)
-                    } else if SequoiaStyle.isActive {
+                    } else if usesSequoiaStyle {
                         Circle()
                             .fill(SequoiaStyle.materialRaised.opacity(0.82))
                             .frame(width: 44, height: 44)
                             .background(.ultraThinMaterial, in: Circle())
                             .overlay(Circle().stroke(SequoiaStyle.separator.opacity(0.72), lineWidth: 0.55))
-                    } else if ClayStyle.isActive {
+                    } else if usesClayStyle {
                         Circle()
                             .fill(Color.clear)
                             .frame(width: 44, height: 44)
                             .background(ClaySurfaceBackground(cornerRadius: 22, tint: ClayStyle.cream, elevated: true, compact: true))
-                    } else if MujiStyle.isActive {
+                    } else if usesMujiStyle {
                         Circle()
                             .fill(MujiStyle.wash(MujiStyle.clay, strength: 1.1))
                             .frame(width: 44, height: 44)
@@ -154,7 +153,7 @@ extension ClassicPlayerLayout {
                         width: size,
                         height: size
                     ) {
-                            MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : (MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (CapsuleStyle.isActive ? CapsuleStyle.surfaceTint : (SequoiaStyle.isActive ? SequoiaStyle.materialPressed : (ClayStyle.isActive ? ClayStyle.creamPressed : Color.gray.opacity(0.2)))))))
+                            usesMinimalWhiteStyle ? MinimalWhiteStyle.controlGlassFill : (usesMangaStyle ? MangaStyle.paperCool : (usesMujiStyle ? MujiStyle.surfaceRaised : (usesNeumorphicStyle ? NeumorphicStyle.surfacePressed : (usesCapsuleStyle ? CapsuleStyle.surfaceTint : (usesSequoiaStyle ? SequoiaStyle.materialPressed : (usesClayStyle ? ClayStyle.creamPressed : Color.gray.opacity(0.2)))))))
                     }
                     .aspectRatio(contentMode: .fill)
                     .frame(width: size, height: size)
@@ -167,7 +166,7 @@ extension ClassicPlayerLayout {
                     }
                 } else {
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : (MangaStyle.isActive ? MangaStyle.paperCool : (MujiStyle.isActive ? MujiStyle.surfaceRaised : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : (CapsuleStyle.isActive ? CapsuleStyle.surfaceTint : (SequoiaStyle.isActive ? SequoiaStyle.materialPressed : (ClayStyle.isActive ? ClayStyle.creamPressed : Color.gray.opacity(0.1))))))))
+                        .fill(usesMinimalWhiteStyle ? MinimalWhiteStyle.controlGlassFill : (usesMangaStyle ? MangaStyle.paperCool : (usesMujiStyle ? MujiStyle.surfaceRaised : (usesNeumorphicStyle ? NeumorphicStyle.surfacePressed : (usesCapsuleStyle ? CapsuleStyle.surfaceTint : (usesSequoiaStyle ? SequoiaStyle.materialPressed : (usesClayStyle ? ClayStyle.creamPressed : Color.gray.opacity(0.1))))))))
                         .overlay(
                             MonoIcon(icon: .musicNoteList, size: 80, color: secondaryContentColor.opacity(0.32))
                         )
@@ -191,14 +190,14 @@ extension ClassicPlayerLayout {
 
     @ViewBuilder
     func classicArtworkFrame<Content: View>(_ content: Content, cornerRadius: CGFloat) -> some View {
-        if MinimalWhiteStyle.isActive {
+        if usesMinimalWhiteStyle {
             content
                 .overlay(
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                         .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
                 )
                 .shadow(color: MinimalWhiteStyle.ink.opacity(0.045), radius: 10, x: 0, y: 4)
-        } else if MangaStyle.isActive {
+        } else if usesMangaStyle {
             content
                 .overlay(
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -210,7 +209,7 @@ extension ClassicPlayerLayout {
                         .offset(x: 5, y: 5)
                 )
                 .rotationEffect(.degrees(-1.6))
-        } else if MujiStyle.isActive {
+        } else if usesMujiStyle {
             // Muji 手帖：杏色水洗底纸错位衬托 + 极柔投影，像贴在手帖上的照片
             content
                 .background(
@@ -219,7 +218,7 @@ extension ClassicPlayerLayout {
                         .offset(x: 12, y: 14)
                 )
                 .shadow(color: MujiStyle.ink.opacity(0.1), radius: 22, x: 0, y: 10)
-        } else if NeumorphicStyle.isActive {
+        } else if usesNeumorphicStyle {
             content
                 .padding(10)
                 .background(NeumorphicSurfaceBackground(cornerRadius: cornerRadius + 12, elevated: true, tint: NeumorphicStyle.surfaceRaised))
@@ -227,7 +226,7 @@ extension ClassicPlayerLayout {
                     RoundedRectangle(cornerRadius: cornerRadius + 12, style: .continuous)
                         .stroke(NeumorphicStyle.separator.opacity(0.32), lineWidth: 0.8)
                 )
-        } else if CapsuleStyle.isActive {
+        } else if usesCapsuleStyle {
             content
                 .padding(9)
                 .background(CapsuleSurfaceBackground(cornerRadius: cornerRadius + 12, elevated: true, tint: CapsuleStyle.surfaceRaised))
@@ -235,7 +234,7 @@ extension ClassicPlayerLayout {
                     RoundedRectangle(cornerRadius: cornerRadius + 12, style: .continuous)
                         .stroke(CapsuleStyle.accent.opacity(0.16), lineWidth: 0.9)
                 )
-        } else if SequoiaStyle.isActive {
+        } else if usesSequoiaStyle {
             content
                 .padding(9)
                 .background(SequoiaSurfaceBackground(cornerRadius: cornerRadius + 11, elevated: true, role: .chrome))
@@ -243,7 +242,7 @@ extension ClassicPlayerLayout {
                     RoundedRectangle(cornerRadius: cornerRadius + 11, style: .continuous)
                         .stroke(SequoiaStyle.luminousSeparator.opacity(0.52), lineWidth: 0.65)
                 )
-        } else if ClayStyle.isActive {
+        } else if usesClayStyle {
             content
                 .padding(10)
                 .background(ClaySurfaceBackground(cornerRadius: cornerRadius + 14, tint: ClayStyle.creamRaised, elevated: true))
@@ -309,7 +308,7 @@ extension ClassicPlayerLayout {
                     .overlay(
                         // aside 编辑部风格：极细描边胶囊
                         RoundedRectangle(cornerRadius: isThemedClassic ? 4 : 20)
-                            .stroke(qualityBadgeStroke, lineWidth: MangaStyle.isActive ? 1.4 : 0.8)
+                            .stroke(qualityBadgeStroke, lineWidth: usesMangaStyle ? 1.4 : 0.8)
                     )
             }
             .playerQualitySelectionAvailability()
@@ -329,15 +328,15 @@ extension ClassicPlayerLayout {
 
     @ViewBuilder
     var classicInfoBackground: some View {
-        if MangaStyle.isActive {
+        if usesMangaStyle {
             MangaCardBackground(cornerRadius: MangaStyle.cardRadius + 2, elevated: true, tint: MangaStyle.bubbleWhite)
-        } else if NeumorphicStyle.isActive {
+        } else if usesNeumorphicStyle {
             NeumorphicSurfaceBackground(cornerRadius: 18, elevated: true)
-        } else if CapsuleStyle.isActive {
+        } else if usesCapsuleStyle {
             CapsuleSurfaceBackground(cornerRadius: 20, elevated: true, tint: CapsuleStyle.surfaceRaised)
-        } else if SequoiaStyle.isActive {
+        } else if usesSequoiaStyle {
             SequoiaSurfaceBackground(cornerRadius: 18, elevated: true, role: .chrome)
-        } else if ClayStyle.isActive {
+        } else if usesClayStyle {
             ClaySurfaceBackground(cornerRadius: 18, tint: ClayStyle.cream.opacity(0.94), elevated: true, compact: true)
         } else {
             Color.clear
@@ -346,25 +345,25 @@ extension ClassicPlayerLayout {
 
     @ViewBuilder
     var qualityBadgeBackground: some View {
-        if MinimalWhiteStyle.isActive {
+        if usesMinimalWhiteStyle {
             RoundedRectangle(cornerRadius: 5, style: .continuous)
                 .fill(MinimalWhiteStyle.controlGlassFill)
-        } else if MangaStyle.isActive {
+        } else if usesMangaStyle {
             RoundedRectangle(cornerRadius: 4, style: .continuous)
                 .fill(MangaStyle.labelYellow)
-        } else if MujiStyle.isActive {
+        } else if usesMujiStyle {
             RoundedRectangle(cornerRadius: 7, style: .continuous)
                 .fill(MujiStyle.wash(MujiStyle.clay, strength: 1.2))
-        } else if NeumorphicStyle.isActive {
+        } else if usesNeumorphicStyle {
             RoundedRectangle(cornerRadius: 6, style: .continuous)
                 .fill(NeumorphicStyle.surfaceRaised)
-        } else if CapsuleStyle.isActive {
+        } else if usesCapsuleStyle {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(CapsuleStyle.surfaceRaised)
-        } else if SequoiaStyle.isActive {
+        } else if usesSequoiaStyle {
             RoundedRectangle(cornerRadius: 7, style: .continuous)
                 .fill(SequoiaStyle.selectedWash.opacity(0.86))
-        } else if ClayStyle.isActive {
+        } else if usesClayStyle {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(ClayStyle.butter.opacity(0.28))
         } else {
@@ -373,22 +372,22 @@ extension ClassicPlayerLayout {
     }
 
     var qualityBadgeStroke: Color {
-        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.hairline }
-        if MangaStyle.isActive { return MangaStyle.strokeInk }
-        if MujiStyle.isActive { return Color.clear }
-        if NeumorphicStyle.isActive { return NeumorphicStyle.separator }
-        if CapsuleStyle.isActive { return CapsuleStyle.accent.opacity(0.2) }
-        if SequoiaStyle.isActive { return SequoiaStyle.accent.opacity(0.24) }
-        if ClayStyle.isActive { return ClayStyle.accent.opacity(0.28) }
+        if usesMinimalWhiteStyle { return MinimalWhiteStyle.hairline }
+        if usesMangaStyle { return MangaStyle.strokeInk }
+        if usesMujiStyle { return Color.clear }
+        if usesNeumorphicStyle { return NeumorphicStyle.separator }
+        if usesCapsuleStyle { return CapsuleStyle.accent.opacity(0.2) }
+        if usesSequoiaStyle { return SequoiaStyle.accent.opacity(0.24) }
+        if usesClayStyle { return ClayStyle.accent.opacity(0.28) }
         return contentColor.opacity(0.34)
     }
 
     var qualityBadgeForeground: Color {
-        if MangaStyle.isActive { return MangaStyle.strokeInk }
-        if MujiStyle.isActive { return MujiStyle.clay }
-        if CapsuleStyle.isActive { return CapsuleStyle.accent }
-        if SequoiaStyle.isActive { return SequoiaStyle.accent }
-        if ClayStyle.isActive { return ClayStyle.accent }
+        if usesMangaStyle { return MangaStyle.strokeInk }
+        if usesMujiStyle { return MujiStyle.clay }
+        if usesCapsuleStyle { return CapsuleStyle.accent }
+        if usesSequoiaStyle { return SequoiaStyle.accent }
+        if usesClayStyle { return ClayStyle.accent }
         return contentColor
     }
 
@@ -472,11 +471,11 @@ extension ClassicPlayerLayout {
     var classicPlayButtonBackground: some View {
         let size = DeviceLayout.playerPlayButtonSize
 
-        if MinimalWhiteStyle.isActive {
+        if usesMinimalWhiteStyle {
             Circle()
                 .fill(MinimalWhiteStyle.accent)
                 .frame(width: size, height: size)
-        } else if MangaStyle.isActive {
+        } else if usesMangaStyle {
             Circle()
                 .fill(MangaStyle.labelYellow)
                 .frame(width: size, height: size)
@@ -486,22 +485,22 @@ extension ClassicPlayerLayout {
                         .fill(MangaStyle.strokeInk)
                         .offset(x: 3.5, y: 3.5)
                 )
-        } else if MujiStyle.isActive {
+        } else if usesMujiStyle {
             Circle()
                 .fill(MujiStyle.clay)
                 .frame(width: size, height: size)
                 .shadow(color: MujiStyle.clay.opacity(0.32), radius: 16, x: 0, y: 8)
-        } else if NeumorphicStyle.isActive {
+        } else if usesNeumorphicStyle {
             Circle()
                 .fill(Color.clear)
                 .frame(width: size, height: size)
                 .background(NeumorphicSurfaceBackground(cornerRadius: size / 2, elevated: true))
-        } else if CapsuleStyle.isActive {
+        } else if usesCapsuleStyle {
             RoundedRectangle(cornerRadius: size * 0.42, style: .continuous)
                 .fill(CapsuleStyle.accent)
                 .frame(width: size, height: size)
                 .shadow(color: CapsuleStyle.accent.opacity(0.24), radius: 12, x: 0, y: 7)
-        } else if SequoiaStyle.isActive {
+        } else if usesSequoiaStyle {
             Circle()
                 .fill(SequoiaStyle.accent)
                 .frame(width: size, height: size)
@@ -517,7 +516,7 @@ extension ClassicPlayerLayout {
                         .padding(1)
                 )
                 .shadow(color: SequoiaStyle.accent.opacity(0.22), radius: 12, x: 0, y: 6)
-        } else if ClayStyle.isActive {
+        } else if usesClayStyle {
             Circle()
                 .fill(Color.clear)
                 .frame(width: size, height: size)
@@ -532,14 +531,14 @@ extension ClassicPlayerLayout {
     }
 
     var classicPlayIconColor: Color {
-        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.onAccent }
-        if MangaStyle.isActive { return MangaStyle.strokeInk }
-        if MujiStyle.isActive { return MujiStyle.onTint }
-        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
-        if CapsuleStyle.isActive { return CapsuleStyle.onAccent }
-        if SequoiaStyle.isActive { return SequoiaStyle.onAccent }
-        if ClayStyle.isActive { return ClayStyle.accent }
-        return .monoTextPrimary
+        if usesMinimalWhiteStyle { return MinimalWhiteStyle.onAccent }
+        if usesMangaStyle { return MangaStyle.strokeInk }
+        if usesMujiStyle { return MujiStyle.onTint }
+        if usesNeumorphicStyle { return NeumorphicStyle.accent }
+        if usesCapsuleStyle { return CapsuleStyle.onAccent }
+        if usesSequoiaStyle { return SequoiaStyle.onAccent }
+        if usesClayStyle { return ClayStyle.accent }
+        return contentColor
     }
 
     /// 控制按钮 — 与原始完全一致

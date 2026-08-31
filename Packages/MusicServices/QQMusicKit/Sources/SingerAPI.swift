@@ -32,9 +32,29 @@ public extension QQMusicClient {
     /// 获取歌手简介
     ///
     /// 新版 API 返回 `{ singer_list: [...] }` 字典。
-    /// - Parameter mids: 歌手 mid 列表，逗号分隔
-    func singerDesc(mids: String) async throws -> JSON {
-        try await requestWrapped("/singer/get_desc", params: ["mids": mids])
+    /// - Parameters:
+    ///   - mids: 歌手 mid 列表，逗号分隔
+    ///   - extendedSinger: 是否返回扩展简介
+    ///   - wikiSinger: 是否返回百科内容
+    ///   - groupSinger: 是否返回组合成员
+    ///   - picture: 是否返回头像与立绘
+    ///   - photos: 是否返回相册大图
+    func singerDesc(
+        mids: String,
+        extendedSinger: Bool = true,
+        wikiSinger: Bool = true,
+        groupSinger: Bool = true,
+        picture: Bool = true,
+        photos: Bool = true
+    ) async throws -> JSON {
+        try await requestWrapped("/singer/get_desc", params: [
+            "mids": mids,
+            "ex_singer": String(extendedSinger),
+            "wiki_singer": String(wikiSinger),
+            "group_singer": String(groupSinger),
+            "pic": String(picture),
+            "photos": String(photos),
+        ])
     }
 
     /// 获取歌手歌曲列表
@@ -79,9 +99,14 @@ public extension QQMusicClient {
     /// 获取相似歌手
     ///
     /// 新版 API 返回 `{ singerlist: [...] }` 字典。
-    /// - Parameter mid: 歌手 mid
-    func similarSingers(mid: String) async throws -> JSON {
-        try await requestWrapped("/singer/get_similar", params: ["mid": mid])
+    /// - Parameters:
+    ///   - mid: 歌手 mid
+    ///   - number: 返回数量
+    func similarSingers(mid: String, number: Int = 10) async throws -> JSON {
+        try await requestWrapped("/singer/get_similar", params: [
+            "mid": mid,
+            "number": String(number),
+        ])
     }
 
     /// 获取歌手列表（按索引筛选）

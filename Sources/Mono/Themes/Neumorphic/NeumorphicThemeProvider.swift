@@ -65,7 +65,7 @@ struct NeumorphicThemeProvider: GlobalThemeProvider {
     }
 
     var suggestedPlayerTheme: PlayerTheme? {
-        .classic
+        .neumorphic
     }
 
     func makeHomeView() -> AnyView {

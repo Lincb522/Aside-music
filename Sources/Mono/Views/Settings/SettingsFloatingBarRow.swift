@@ -99,23 +99,50 @@ struct SettingsFloatingBarRow: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .signalHoverExpansionDisabled()
 
             SettingsHeaderReveal(isExpanded: isExpanded) {
-                LazyVGrid(columns: optionColumns, spacing: 8) {
-                    ForEach(FloatingBarStyle.allCases) { style in
-                        Button {
-                            selection = style
-                            isExpanded = false
-                        } label: {
-                            SettingsFloatingBarOptionCard(
-                                style: style,
-                                isSelected: selection == style
-                            )
+                Group {
+                    if SignalStyle.isActive {
+                        VStack(spacing: 0) {
+                            ForEach(FloatingBarStyle.allCases) { style in
+                                Button {
+                                    selection = style
+                                    isExpanded = false
+                                } label: {
+                                    SettingsFloatingBarOptionCard(
+                                        style: style,
+                                        isSelected: selection == style
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                                .signalHoverExpansionDisabled()
+                            }
                         }
-                        .buttonStyle(.plain)
+                        .overlay(alignment: .top) {
+                            Rectangle()
+                                .fill(SignalStyle.separator.opacity(0.74))
+                                .frame(height: 0.65)
+                        }
+                    } else {
+                        LazyVGrid(columns: optionColumns, spacing: 8) {
+                            ForEach(FloatingBarStyle.allCases) { style in
+                                Button {
+                                    selection = style
+                                    isExpanded = false
+                                } label: {
+                                    SettingsFloatingBarOptionCard(
+                                        style: style,
+                                        isSelected: selection == style
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                                .signalHoverExpansionDisabled()
+                            }
+                        }
                     }
                 }
-                .padding(.top, 12)
+                .padding(.top, SignalStyle.isActive ? 10 : 12)
             }
         }
         .padding(.horizontal, 16)
@@ -150,7 +177,7 @@ struct SettingsFloatingBarRow: View {
                 .fill(SequoiaStyle.selectedWash.opacity(0.86))
                 .overlay(Capsule().stroke(SequoiaStyle.accent.opacity(0.2), lineWidth: 0.55))
         } else if SignalStyle.isActive {
-            SignalSurfaceBackground(cornerRadius: 14, elevated: false, pressed: true, fill: SignalStyle.controlPressed)
+            Color.clear
         } else if BentoStyle.isActive {
             Capsule()
                 .fill(BentoStyle.tomato.opacity(0.14))
@@ -180,6 +207,14 @@ struct SettingsFloatingBarOptionCard: View {
     let isSelected: Bool
 
     var body: some View {
+        if SignalStyle.isActive {
+            signalOptionRow
+        } else {
+            optionCard
+        }
+    }
+
+    private var optionCard: some View {
         VStack(alignment: .leading, spacing: 9) {
             HStack(alignment: .top) {
                 iconBadge
@@ -204,6 +239,49 @@ struct SettingsFloatingBarOptionCard: View {
         .padding(.vertical, 11)
         .background(cardBackground)
         .contentShape(RoundedRectangle(cornerRadius: cardRadius, style: .continuous))
+    }
+
+    private var signalOptionRow: some View {
+        HStack(spacing: 12) {
+            MonoIcon(
+                icon: style.iconType,
+                size: 16,
+                color: isSelected ? SignalStyle.accent : SignalStyle.inkSoft,
+                lineWidth: 1.6
+            )
+            .frame(width: 28, height: 44)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(style.displayName)
+                    .font(SignalStyle.labelFont(13, weight: isSelected ? .semibold : .medium))
+                    .foregroundStyle(isSelected ? SignalStyle.ink : SignalStyle.inkSoft)
+                    .lineLimit(1)
+
+                Text(style.description)
+                    .font(SignalStyle.labelFont(10.5, weight: .regular))
+                    .foregroundStyle(SignalStyle.inkMuted)
+                    .lineLimit(2)
+            }
+
+            Spacer(minLength: 8)
+
+            Circle()
+                .fill(isSelected ? SignalStyle.accent : SignalStyle.separator)
+                .frame(width: isSelected ? 6 : 4, height: isSelected ? 6 : 4)
+                .padding(.trailing, 2)
+        }
+        .padding(.horizontal, 2)
+        .padding(.vertical, 8)
+        .background(
+            isSelected ? SignalStyle.accent.opacity(0.055) : Color.clear,
+            in: RoundedRectangle(cornerRadius: SignalStyle.compactRadius, style: .continuous)
+        )
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(SignalStyle.separator.opacity(0.52))
+                .frame(height: 0.65)
+        }
+        .contentShape(RoundedRectangle(cornerRadius: SignalStyle.compactRadius, style: .continuous))
     }
 
     private var cardRadius: CGFloat {

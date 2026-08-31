@@ -408,7 +408,7 @@ struct ListeningStatsView: View {
                 }
             }
             .padding(16)
-            .background(SignalSurfaceBackground(cornerRadius: 2, elevated: true))
+            .background(SignalSurfaceBackground(cornerRadius: SignalStyle.cardRadius, elevated: true))
         }
         .padding(.horizontal, 20)
         .padding(.top, 88)

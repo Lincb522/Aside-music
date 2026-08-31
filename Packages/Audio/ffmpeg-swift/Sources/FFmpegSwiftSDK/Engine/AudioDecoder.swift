@@ -38,6 +38,7 @@ protocol Decoder {
 /// Used by `AudioDecoder` to validate that a codec is supported
 /// before attempting to open a decoder.
 let supportedAudioCodecIDs: Set<UInt32> = [
+    AV_CODEC_ID_AV3A.rawValue,
     AV_CODEC_ID_AAC.rawValue,
     AV_CODEC_ID_MP3.rawValue,
     AV_CODEC_ID_FLAC.rawValue,
@@ -120,6 +121,12 @@ final class AudioDecoder: Decoder {
     /// The resampling context for converting decoded audio to Float32 PCM.
     private var resampleContext: OpaquePointer?
 
+    private let requestedOutputSampleRate: Int?
+    private let requestedOutputChannelCount: Int?
+    private var configuredInputSampleRate: Int32 = 0
+    private var configuredInputSampleFormat = AV_SAMPLE_FMT_NONE
+    private var configuredInputChannelLayout = AVChannelLayout()
+
     /// 实际输出采样率（保持与源一致，支持 Hi-Res 192kHz）
     private(set) var outputSampleRate: Int
 
@@ -146,6 +153,9 @@ final class AudioDecoder: Decoder {
         targetSampleRate: Int? = nil,
         targetChannelCount: Int? = nil
     ) throws {
+        requestedOutputSampleRate = targetSampleRate
+        requestedOutputChannelCount = targetChannelCount
+
         // Validate supported codec
         try validateCodecSupported(codecID, in: supportedAudioCodecIDs)
 
@@ -171,13 +181,30 @@ final class AudioDecoder: Decoder {
         // 如果指定了目标采样率就用它，否则保持源采样率
         outputSampleRate = targetSampleRate ?? inputRate
 
-        // Set up SwrContext for conversion to Float32 interleaved PCM
-        // 保持原始采样率，支持 Hi-Res 192kHz 母带音质
-        resampleContext = try AudioDecoder.createResampleContext(
-            codecContext: ctx,
-            outputSampleRate: Int32(outputSampleRate),
-            outputChannelCount: Int32(outputChannelCount)
-        )
+        if inputRate > 0,
+           inputChannelCount > 0,
+           ctx.pointee.sample_fmt != AV_SAMPLE_FMT_NONE {
+            var inputLayout = ctx.pointee.ch_layout
+            let initialContext = try AudioDecoder.createResampleContext(
+                inputChannelLayout: &inputLayout,
+                inputSampleFormat: ctx.pointee.sample_fmt,
+                inputSampleRate: ctx.pointee.sample_rate,
+                outputSampleRate: Int32(outputSampleRate),
+                outputChannelCount: Int32(outputChannelCount)
+            )
+            let copyResult = av_channel_layout_copy(
+                &configuredInputChannelLayout,
+                &inputLayout
+            )
+            guard copyResult >= 0 else {
+                var context: OpaquePointer? = initialContext
+                swr_free(&context)
+                throw FFmpegError.from(code: copyResult)
+            }
+            configuredInputSampleRate = ctx.pointee.sample_rate
+            configuredInputSampleFormat = ctx.pointee.sample_fmt
+            resampleContext = initialContext
+        }
     }
 
     // MARK: - Resampling Setup
@@ -187,28 +214,18 @@ final class AudioDecoder: Decoder {
     /// 保持原始采样率不变，仅做格式转换（planar → interleaved, 任意位深 → Float32）。
     /// 支持 Hi-Res 192kHz/24bit 母带音质。
     ///
-    /// - Parameter codecContext: The opened codec context with valid audio parameters.
     /// - Returns: An initialized SwrContext opaque pointer.
     /// - Throws: `FFmpegError.resourceAllocationFailed` if allocation or initialization fails.
     private static func createResampleContext(
-        codecContext ctx: UnsafeMutablePointer<AVCodecContext>,
+        inputChannelLayout: inout AVChannelLayout,
+        inputSampleFormat: AVSampleFormat,
+        inputSampleRate: Int32,
         outputSampleRate: Int32,
         outputChannelCount: Int32
     ) throws -> OpaquePointer {
-        // Allocate SwrContext
-        var swrCtx: OpaquePointer? = swr_alloc()
-        guard swrCtx != nil else {
-            throw FFmpegError.resourceAllocationFailed(resource: "SwrContext")
-        }
-
-        // Configure input channel layout from the codec context
-        var inLayout = ctx.pointee.ch_layout
         var outLayout = AVChannelLayout()
         av_channel_layout_default(&outLayout, outputChannelCount)
-
-        // Use swr_alloc_set_opts2 for modern FFmpeg API
-        // Free the previously allocated context since swr_alloc_set_opts2 allocates a new one
-        swr_free(&swrCtx)
+        defer { av_channel_layout_uninit(&outLayout) }
 
         var newSwrCtx: OpaquePointer?
         let ret = swr_alloc_set_opts2(
@@ -216,9 +233,9 @@ final class AudioDecoder: Decoder {
             &outLayout,                          // output channel layout
             AV_SAMPLE_FMT_FLT,                   // output sample format: Float32 interleaved
             outputSampleRate,                     // output sample rate（可能与输入不同）
-            &inLayout,                            // input channel layout
-            ctx.pointee.sample_fmt,               // input sample format
-            ctx.pointee.sample_rate,              // input sample rate
+            &inputChannelLayout,                  // input channel layout
+            inputSampleFormat,                    // input sample format
+            inputSampleRate,                      // input sample rate
             0,                                    // log offset
             nil                                   // log context
         )
@@ -239,6 +256,66 @@ final class AudioDecoder: Decoder {
         return finalCtx
     }
 
+    private func configuredResampleContext(
+        for frame: UnsafeMutablePointer<AVFrame>
+    ) throws -> OpaquePointer {
+        var inputLayout = frame.pointee.ch_layout
+        guard av_channel_layout_check(&inputLayout) != 0,
+              frame.pointee.sample_rate > 0,
+              frame.pointee.format != AV_SAMPLE_FMT_NONE.rawValue else {
+            throw FFmpegError.decodingFailed(code: -1, message: "Invalid decoded audio format")
+        }
+
+        let inputSampleRate = frame.pointee.sample_rate
+        let inputSampleFormat = AVSampleFormat(rawValue: frame.pointee.format)
+        let outputRate = requestedOutputSampleRate ?? Int(inputSampleRate)
+        let outputChannels = max(
+            1,
+            requestedOutputChannelCount ?? Int(inputLayout.nb_channels)
+        )
+        let layoutChanged = av_channel_layout_compare(
+            &configuredInputChannelLayout,
+            &inputLayout
+        ) != 0
+        let needsReconfiguration = resampleContext == nil
+            || configuredInputSampleRate != inputSampleRate
+            || configuredInputSampleFormat != inputSampleFormat
+            || outputSampleRate != outputRate
+            || outputChannelCount != outputChannels
+            || layoutChanged
+
+        if !needsReconfiguration, let resampleContext {
+            return resampleContext
+        }
+
+        let newContext = try AudioDecoder.createResampleContext(
+            inputChannelLayout: &inputLayout,
+            inputSampleFormat: inputSampleFormat,
+            inputSampleRate: inputSampleRate,
+            outputSampleRate: Int32(outputRate),
+            outputChannelCount: Int32(outputChannels)
+        )
+        var copiedLayout = AVChannelLayout()
+        let copyResult = av_channel_layout_copy(&copiedLayout, &inputLayout)
+        guard copyResult >= 0 else {
+            var context: OpaquePointer? = newContext
+            swr_free(&context)
+            throw FFmpegError.from(code: copyResult)
+        }
+
+        if resampleContext != nil {
+            swr_free(&resampleContext)
+        }
+        av_channel_layout_uninit(&configuredInputChannelLayout)
+        configuredInputChannelLayout = copiedLayout
+        configuredInputSampleRate = inputSampleRate
+        configuredInputSampleFormat = inputSampleFormat
+        outputSampleRate = outputRate
+        outputChannelCount = outputChannels
+        resampleContext = newContext
+        return newContext
+    }
+
     // MARK: - Decoding
 
     /// Decodes a compressed audio packet into one or more Float32 PCM `AudioBuffer`s.
@@ -253,9 +330,6 @@ final class AudioDecoder: Decoder {
     func decodeAll(packet: UnsafeMutablePointer<AVPacket>) throws -> [AudioBuffer] {
         guard let ctx = codecContext.rawPointer else {
             throw FFmpegError.resourceAllocationFailed(resource: "AVCodecContext (nil)")
-        }
-        guard let swrCtx = resampleContext else {
-            throw FFmpegError.resourceAllocationFailed(resource: "SwrContext (nil)")
         }
 
         // Send packet to decoder
@@ -288,7 +362,7 @@ final class AudioDecoder: Decoder {
                 throw FFmpegError.decodingFailed(code: recvRet, message: "avcodec_receive_frame failed")
             }
 
-            let buffer = try convertFrameToBuffer(frame: frame, swrCtx: swrCtx)
+            let buffer = try convertFrameToBuffer(frame: frame)
             buffers.append(buffer)
         }
 
@@ -306,9 +380,9 @@ final class AudioDecoder: Decoder {
 
     /// Converts a decoded AVFrame to a Float32 interleaved PCM AudioBuffer.
     private func convertFrameToBuffer(
-        frame: UnsafeMutablePointer<AVFrame>,
-        swrCtx: OpaquePointer
+        frame: UnsafeMutablePointer<AVFrame>
     ) throws -> AudioBuffer {
+        let swrCtx = try configuredResampleContext(for: frame)
         let frameCount = Int(frame.pointee.nb_samples)
         let channelCount = outputChannelCount
 
@@ -370,7 +444,6 @@ final class AudioDecoder: Decoder {
     /// Returns the final decoded audio buffers that were stuck in the decoder's pipeline.
     func drain() -> [AudioBuffer] {
         guard let ctx = codecContext.rawPointer else { return [] }
-        guard let swrCtx = resampleContext else { return [] }
 
         // Signal EOF to decoder
         avcodec_send_packet(ctx, nil)
@@ -385,12 +458,13 @@ final class AudioDecoder: Decoder {
         while true {
             let ret = avcodec_receive_frame(ctx, frame)
             if ret < 0 { break }
-            if let buffer = try? convertFrameToBuffer(frame: frame, swrCtx: swrCtx) {
+            if let buffer = try? convertFrameToBuffer(frame: frame) {
                 buffers.append(buffer)
             }
         }
 
         // Also flush any samples buffered inside SwrContext
+        guard let swrCtx = resampleContext else { return buffers }
         var outPtr: UnsafeMutablePointer<UInt8>?
         let maxFlush = 8192
         let flushBuf = UnsafeMutablePointer<Float>.allocate(capacity: maxFlush * outputChannelCount)
@@ -421,5 +495,6 @@ final class AudioDecoder: Decoder {
         if resampleContext != nil {
             swr_free(&resampleContext)
         }
+        av_channel_layout_uninit(&configuredInputChannelLayout)
     }
 }

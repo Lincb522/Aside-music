@@ -17,7 +17,7 @@ let package = Package(
         .package(path: "Packages/MusicServices/NeteaseCloudMusicAPI-Swift"),
         // FFmpegSwiftSDK - Mono播放引擎底层 FFmpeg 8.0 解码与流媒体 SDK
         .package(path: "Packages/Audio/ffmpeg-swift"),
-        // QQMusicKit - qcm API 封装库（本地包）
+        // QQMusicKit - qcm API 封装库（对齐后端 0.7.2）
         .package(path: "Packages/MusicServices/QQMusicKit"),
         // HiconIcons - Hicon 图标库（本地包，从 Figma 导出）
         .package(path: "Packages/Icons/HiconIcons"),

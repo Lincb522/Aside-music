@@ -1,8 +1,17 @@
 import SwiftUI
 import FFmpegSwiftSDK
 
+enum ClassicPlayerPresentation {
+    case aside
+    case muji
+    case capsule
+    case minimalWhite
+}
+
 /// 经典播放器布局 - 完全还原原始 FullScreenPlayerView 布局，仅增加主题切换按钮
 struct ClassicPlayerLayout: View {
+    let presentation: ClassicPlayerPresentation
+
     @Environment(\.dismiss) var dismiss
     @Environment(\.colorScheme) var colorScheme
     @Environment(\.accessibilityReduceMotion) var reduceMotion
@@ -24,29 +33,39 @@ struct ClassicPlayerLayout: View {
     @State var showArtistDetail = false
     @State var showDownloadSheet = false
 
+    init(presentation: ClassicPlayerPresentation = .aside) {
+        self.presentation = presentation
+    }
 
-    var isThemedClassic: Bool { ThemedPageStyle.isActive }
+    var usesMinimalWhiteStyle: Bool { presentation == .minimalWhite }
+    var usesMujiStyle: Bool { presentation == .muji }
+    var usesCapsuleStyle: Bool { presentation == .capsule }
+    var usesMangaStyle: Bool { false }
+    var usesNeumorphicStyle: Bool { false }
+    var usesSequoiaStyle: Bool { false }
+    var usesClayStyle: Bool { false }
+    var isThemedClassic: Bool { presentation != .aside }
 
     var contentColor: Color {
-        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
-        if MangaStyle.isActive { return MangaStyle.ink }
-        if MujiStyle.isActive { return MujiStyle.ink }
-        if NeumorphicStyle.isActive { return NeumorphicStyle.ink }
-        if CapsuleStyle.isActive { return CapsuleStyle.ink }
-        if SequoiaStyle.isActive { return SequoiaStyle.ink }
-        if ClayStyle.isActive { return ClayStyle.ink }
-        return .monoTextPrimary
+        if usesMinimalWhiteStyle { return MinimalWhiteStyle.ink }
+        if usesMangaStyle { return MangaStyle.ink }
+        if usesMujiStyle { return MujiStyle.ink }
+        if usesNeumorphicStyle { return NeumorphicStyle.ink }
+        if usesCapsuleStyle { return CapsuleStyle.ink }
+        if usesSequoiaStyle { return SequoiaStyle.ink }
+        if usesClayStyle { return ClayStyle.ink }
+        return .primary
     }
 
     var secondaryContentColor: Color {
-        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.inkMuted }
-        if MangaStyle.isActive { return MangaStyle.inkSub }
-        if MujiStyle.isActive { return MujiStyle.inkSoft }
-        if NeumorphicStyle.isActive { return NeumorphicStyle.inkSoft }
-        if CapsuleStyle.isActive { return CapsuleStyle.inkSoft }
-        if SequoiaStyle.isActive { return SequoiaStyle.inkSoft }
-        if ClayStyle.isActive { return ClayStyle.inkSoft }
-        return .monoTextSecondary
+        if usesMinimalWhiteStyle { return MinimalWhiteStyle.inkMuted }
+        if usesMangaStyle { return MangaStyle.inkSub }
+        if usesMujiStyle { return MujiStyle.inkSoft }
+        if usesNeumorphicStyle { return NeumorphicStyle.inkSoft }
+        if usesCapsuleStyle { return CapsuleStyle.inkSoft }
+        if usesSequoiaStyle { return SequoiaStyle.inkSoft }
+        if usesClayStyle { return ClayStyle.inkSoft }
+        return .secondary
     }
 
     var asideCoverAccent: Color {
@@ -63,46 +82,46 @@ struct ClassicPlayerLayout: View {
     }
 
     var progressColor: Color {
-        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.ink }
-        if MangaStyle.isActive { return MangaStyle.accentPink }
-        if MujiStyle.isActive { return MujiStyle.clay }
-        if NeumorphicStyle.isActive { return NeumorphicStyle.accent }
-        if CapsuleStyle.isActive { return CapsuleStyle.accent }
-        if SequoiaStyle.isActive { return SequoiaStyle.accent }
-        if ClayStyle.isActive { return ClayStyle.accent }
+        if usesMinimalWhiteStyle { return MinimalWhiteStyle.ink }
+        if usesMangaStyle { return MangaStyle.accentPink }
+        if usesMujiStyle { return MujiStyle.clay }
+        if usesNeumorphicStyle { return NeumorphicStyle.accent }
+        if usesCapsuleStyle { return CapsuleStyle.accent }
+        if usesSequoiaStyle { return SequoiaStyle.accent }
+        if usesClayStyle { return ClayStyle.accent }
         return contentColor.opacity(0.7)
     }
 
     var classicArtworkCornerRadius: CGFloat {
-        if MinimalWhiteStyle.isActive { return 12 }
-        if MangaStyle.isActive { return 12 }
-        if MujiStyle.isActive { return 22 }
-        if NeumorphicStyle.isActive { return 22 }
-        if CapsuleStyle.isActive { return 28 }
-        if SequoiaStyle.isActive { return 24 }
-        if ClayStyle.isActive { return 30 }
+        if usesMinimalWhiteStyle { return 12 }
+        if usesMangaStyle { return 12 }
+        if usesMujiStyle { return 22 }
+        if usesNeumorphicStyle { return 22 }
+        if usesCapsuleStyle { return 28 }
+        if usesSequoiaStyle { return 24 }
+        if usesClayStyle { return 30 }
         return isThemedClassic ? 24 : 14
     }
 
     func classicTitleFont(_ size: CGFloat, weight: Font.Weight = .bold) -> Font {
-        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.titleFont(size, weight: weight) }
-        if MangaStyle.isActive { return MangaStyle.titleFont(size, weight: .black) }
-        if MujiStyle.isActive { return MujiStyle.titleFont(size, weight: weight == .bold ? .medium : weight) }
-        if NeumorphicStyle.isActive { return NeumorphicStyle.titleFont(size, weight: weight == .bold ? .semibold : weight) }
-        if CapsuleStyle.isActive { return CapsuleStyle.titleFont(size, weight: weight == .bold ? .bold : weight) }
-        if SequoiaStyle.isActive { return SequoiaStyle.titleFont(size, weight: weight == .bold ? .semibold : weight) }
-        if ClayStyle.isActive { return ClayStyle.titleFont(size, weight: weight == .bold ? .bold : weight) }
+        if usesMinimalWhiteStyle { return MinimalWhiteStyle.titleFont(size, weight: weight) }
+        if usesMangaStyle { return MangaStyle.titleFont(size, weight: .black) }
+        if usesMujiStyle { return MujiStyle.titleFont(size, weight: weight == .bold ? .medium : weight) }
+        if usesNeumorphicStyle { return NeumorphicStyle.titleFont(size, weight: weight == .bold ? .semibold : weight) }
+        if usesCapsuleStyle { return CapsuleStyle.titleFont(size, weight: weight == .bold ? .bold : weight) }
+        if usesSequoiaStyle { return SequoiaStyle.titleFont(size, weight: weight == .bold ? .semibold : weight) }
+        if usesClayStyle { return ClayStyle.titleFont(size, weight: weight == .bold ? .bold : weight) }
         return .rounded(size: size, weight: weight)
     }
 
     func classicBodyFont(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
-        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.bodyFont(size, weight: weight) }
-        if MangaStyle.isActive { return MangaStyle.bodyFont(size, weight: weight == .regular ? .bold : weight) }
-        if MujiStyle.isActive { return MujiStyle.bodyFont(size, weight: weight == .bold ? .medium : weight) }
-        if NeumorphicStyle.isActive { return NeumorphicStyle.bodyFont(size, weight: weight) }
-        if CapsuleStyle.isActive { return CapsuleStyle.bodyFont(size, weight: weight) }
-        if SequoiaStyle.isActive { return SequoiaStyle.bodyFont(size, weight: weight == .bold ? .semibold : weight) }
-        if ClayStyle.isActive { return ClayStyle.bodyFont(size, weight: weight) }
+        if usesMinimalWhiteStyle { return MinimalWhiteStyle.bodyFont(size, weight: weight) }
+        if usesMangaStyle { return MangaStyle.bodyFont(size, weight: weight == .regular ? .bold : weight) }
+        if usesMujiStyle { return MujiStyle.bodyFont(size, weight: weight == .bold ? .medium : weight) }
+        if usesNeumorphicStyle { return NeumorphicStyle.bodyFont(size, weight: weight) }
+        if usesCapsuleStyle { return CapsuleStyle.bodyFont(size, weight: weight) }
+        if usesSequoiaStyle { return SequoiaStyle.bodyFont(size, weight: weight == .bold ? .semibold : weight) }
+        if usesClayStyle { return ClayStyle.bodyFont(size, weight: weight) }
         return .rounded(size: size, weight: weight)
     }
 
@@ -123,15 +142,15 @@ struct ClassicPlayerLayout: View {
                         .transition(.opacity)
                 }
 
-                if MangaStyle.isActive {
+                if usesMangaStyle {
                     mangaPlayerContent(geometry: geometry)
-                } else if MujiStyle.isActive {
+                } else if usesMujiStyle {
                     mujiPlayerContent(geometry: geometry)
-                } else if NeumorphicStyle.isActive {
+                } else if usesNeumorphicStyle {
                     neumorphicPlayerContent(geometry: geometry)
-                } else if CapsuleStyle.isActive {
+                } else if usesCapsuleStyle {
                     capsulePlayerContent(geometry: geometry)
-                } else if ClayStyle.isActive {
+                } else if usesClayStyle {
                     clayPlayerContent(geometry: geometry)
                 } else if isThemedClassic {
                     classicPlayerContent(geometry: geometry)

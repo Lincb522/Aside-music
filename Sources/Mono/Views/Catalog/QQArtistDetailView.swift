@@ -748,7 +748,7 @@ struct QQArtistDetailView: View {
                     .padding(.vertical, 10)
                     .background {
                         if selectedTab == index {
-                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            RoundedRectangle(cornerRadius: SignalStyle.compactRadius, style: .continuous)
                                 .fill(SignalStyle.accent)
                         }
                     }

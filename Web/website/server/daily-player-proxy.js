@@ -63,10 +63,6 @@ const playerToken = process.env.MONO_PLAYER_API_TOKEN
   || secrets.API_TOKEN
   || secrets.MONO_PLAYER_API_TOKEN
   || ''
-const vipCookie = process.env.VIP_COOKIE
-  || envFile.VIP_COOKIE
-  || secrets.VIP_COOKIE
-  || vipMusicUCookie(process.env.VIP_MUSIC_U || envFile.VIP_MUSIC_U || secrets.VIP_MUSIC_U)
 const shareStore = loadShareStore()
 const feedbackStore = loadFeedbackStore()
 const feedbackRateLimits = new Map()
@@ -335,7 +331,7 @@ async function fetchQQJson(pathname, params = {}) {
 }
 
 async function fetchMusicJson(pathname, params = {}) {
-  const url = new URL(`${musicBaseURL}${pathname}`)
+  const url = new URL(`${musicBaseURL}/_admin/api/account/ncm/pool${pathname}`)
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== '') {
       url.searchParams.set(key, String(value))
@@ -345,7 +341,6 @@ async function fetchMusicJson(pathname, params = {}) {
 
   const response = await fetch(url, {
     headers: {
-      Cookie: vipCookie,
       Accept: 'application/json',
     },
   })
@@ -849,7 +844,6 @@ async function readJsonBody(req) {
 }
 
 function assertConfigured() {
-  if (!vipCookie) throw new Error('播放器服务未配置')
   if (!playerToken) throw new Error('播放器服务未配置')
 }
 
@@ -926,10 +920,6 @@ function parseEnv(content) {
     result[match[1]] = match[2].trim().replace(/^['"]|['"]$/g, '')
     return result
   }, {})
-}
-
-function vipMusicUCookie(value) {
-  return value ? `MUSIC_U=${value}` : ''
 }
 
 function stripTrailingSlash(value) {

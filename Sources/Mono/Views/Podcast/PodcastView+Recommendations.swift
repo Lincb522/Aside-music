@@ -70,6 +70,9 @@ extension PodcastView {
         if PetWhiteStyle.isActive {
             return AnyView(petWhiteTodayPickCard(radio: radio))
         }
+        if SignalStyle.isActive {
+            return AnyView(signalTodayPickCard(radio: radio))
+        }
         if isAside {
             return AnyView(asideTodayPickCard(radio: radio))
         }
@@ -158,6 +161,49 @@ extension PodcastView {
         .background(cardFill)
         .clipShape(RoundedRectangle(cornerRadius: cr, style: .continuous))
         .themedPageSurface(cornerRadius: cr, elevated: false))
+    }
+
+    func signalTodayPickCard(radio: RadioStation) -> some View {
+        let cardWidth: CGFloat = DeviceLayout.isPad ? 340 : 286
+        let cardHeight: CGFloat = DeviceLayout.isPad ? 112 : 98
+
+        return HStack(spacing: 12) {
+            CachedAsyncImage(url: radio.coverUrl) {
+                SignalStyle.controlPressed
+            }
+            .aspectRatio(contentMode: .fill)
+            .frame(width: cardHeight - 16, height: cardHeight - 16)
+            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(radio.name)
+                    .font(SignalStyle.bodyFont(15, weight: .semibold))
+                    .foregroundStyle(SignalStyle.ink)
+                    .lineLimit(2)
+
+                Text(radio.dj?.nickname ?? radio.category ?? " ")
+                    .font(SignalStyle.labelFont(11, weight: .medium))
+                    .foregroundStyle(SignalStyle.inkSoft)
+                    .lineLimit(1)
+
+                Spacer(minLength: 0)
+
+                HStack(spacing: 7) {
+                    SignalLevelMeter(activeCount: 4, barCount: 7, tint: SignalStyle.inkSoft, height: 14)
+                    Spacer(minLength: 0)
+                    MonoIcon(icon: .play, size: 11, color: SignalStyle.onAccent, lineWidth: 1.9)
+                        .frame(width: 30, height: 30)
+                        .background(SignalStyle.accent, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                }
+            }
+            .padding(.vertical, 1)
+        }
+        .frame(width: cardWidth, height: cardHeight, alignment: .leading)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(SignalStyle.separator.opacity(0.55))
+                .frame(height: 0.65)
+        }
     }
 
     /// aside 今日优选卡：发丝描边横卡
@@ -366,6 +412,26 @@ extension PodcastView {
     func creativeCompactCard(creative: PodcastCreative, rank: Int? = nil) -> AnyView {
         if PetWhiteStyle.isActive {
             return AnyView(petWhiteCreativeCompactCard(creative: creative, rank: rank))
+        }
+        if SignalStyle.isActive {
+            let title = creative.uiElement?.mainTitle?.title ?? creative.creativeExtInfoVO?.djProgram?.name ?? "(无标题)"
+            let subtitle = creative.creativeExtInfoVO?.djProgram?.radio?.name ?? creative.creativeExtInfoVO?.djProgram?.dj?.nickname ?? " "
+            var coverURL: URL?
+            if let url = creative.uiElement?.image?.imageUrl {
+                coverURL = URL(string: url)
+            } else if let url = creative.creativeExtInfoVO?.djProgram?.coverUrl {
+                coverURL = URL(string: url)
+            } else {
+                coverURL = creative.creativeExtInfoVO?.djProgram?.mainSong?.coverUrl
+            }
+            return AnyView(
+                signalCompactCard(
+                    coverURL: coverURL,
+                    title: title,
+                    subtitle: subtitle,
+                    rank: rank
+                )
+            )
         }
         if isAside {
             let title = creative.uiElement?.mainTitle?.title ?? creative.creativeExtInfoVO?.djProgram?.name ?? "(无标题)"
@@ -629,6 +695,16 @@ extension PodcastView {
         if PetWhiteStyle.isActive {
             return AnyView(petWhiteRankedCompactCard(radio: radio, rank: rank))
         }
+        if SignalStyle.isActive {
+            return AnyView(
+                signalCompactCard(
+                    coverURL: radio.coverUrl,
+                    title: radio.name,
+                    subtitle: radio.dj?.nickname ?? radio.category ?? " ",
+                    rank: rank
+                )
+            )
+        }
         if isAside {
             return AnyView(asideCompactCard(coverUrl: radio.coverUrl, title: radio.name, subtitle: radio.dj?.nickname ?? radio.category ?? " ", rank: rank))
         }
@@ -697,6 +773,58 @@ extension PodcastView {
                 SequoiaSurfaceBackground(cornerRadius: 18, elevated: false, role: .list)
             }
         })
+    }
+
+    func signalCompactCard(
+        coverURL: URL?,
+        title: String,
+        subtitle: String,
+        rank: Int?
+    ) -> some View {
+        let size = compactCardSize
+
+        return VStack(alignment: .leading, spacing: 8) {
+            ZStack(alignment: .topLeading) {
+                CachedAsyncImage(url: coverURL) {
+                    SignalStyle.controlPressed
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: size, height: size)
+                .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .stroke(SignalStyle.separator.opacity(0.7), lineWidth: 0.8)
+                )
+
+                if let rank {
+                    Text(String(format: "%02d", rank))
+                        .font(SignalStyle.monoFont(10, weight: .bold))
+                        .foregroundStyle(rank <= 3 ? SignalStyle.onAccent : SignalStyle.ink)
+                        .monospacedDigit()
+                        .frame(width: 30, height: 24)
+                        .background(
+                            rank <= 3 ? SignalStyle.accent : SignalStyle.control,
+                            in: RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        )
+                        .padding(7)
+                }
+            }
+
+            Text(title)
+                .font(SignalStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .semibold))
+                .foregroundStyle(SignalStyle.ink)
+                .lineLimit(2)
+                .frame(width: size, height: 34, alignment: .topLeading)
+
+            Text(subtitle)
+                .font(SignalStyle.labelFont(DeviceLayout.isPad ? 12 : 11, weight: .medium))
+                .foregroundStyle(SignalStyle.inkSoft)
+                .lineLimit(1)
+                .frame(width: size, alignment: .leading)
+        }
+        .frame(width: size)
+        .padding(8)
+        .background(SignalSurfaceBackground(cornerRadius: 14, elevated: false, fill: SignalStyle.surface))
     }
 
     func petWhiteRankedCompactCard(radio: RadioStation, rank: Int) -> some View {

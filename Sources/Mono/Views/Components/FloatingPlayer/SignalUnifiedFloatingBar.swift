@@ -3,32 +3,29 @@ import SwiftUI
 struct SignalUnifiedFloatingBar: View {
     @Binding var currentTab: Tab
     @ObservedObject private var player = FloatingBarPlaybackModel.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 0) {
             if let song = player.currentSong {
                 SignalMiniPlayerStrip(song: song)
                     .swipeToSkip()
-                    .transition(.asymmetric(
-                        insertion: .opacity.combined(with: .scale(scale: 0.985, anchor: .bottom)),
-                        removal: .opacity.combined(with: .scale(scale: 0.985, anchor: .bottom))
-                    ))
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
 
-            SignalDedicatedTabBar(currentTab: $currentTab)
+            SignalUnifiedTabRail(currentTab: $currentTab)
                 .contentShape(Rectangle())
                 .simultaneousGesture(tabSwipeGesture)
         }
-        .padding(6)
-        .background(SignalSurfaceBackground(cornerRadius: 14, elevated: true, fill: SignalStyle.paper.opacity(0.98)))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(SignalStyle.separator.opacity(0.76), lineWidth: 0.8)
-                .padding(0.5)
-        )
-        .shadow(color: Color.black.opacity(0.3), radius: 18, x: 0, y: 7)
-        .animation(MonoAnimation.floatingBar, value: player.currentSong != nil)
-        .animation(MonoAnimation.tabSwitch, value: currentTab)
+        .background(SignalStyle.paper.opacity(0.985))
+        .overlay {
+            RoundedRectangle(cornerRadius: SignalStyle.cardRadius, style: .continuous)
+                .stroke(SignalStyle.separator.opacity(0.82), lineWidth: 0.7)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: SignalStyle.cardRadius, style: .continuous))
+        .shadow(color: SignalStyle.accent.opacity(0.045), radius: 18, x: 0, y: 2)
+        .shadow(color: Color.black.opacity(0.28), radius: 14, x: 0, y: 7)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: player.currentSong != nil)
         .themeRenderInteractiveLayer()
     }
 
@@ -36,12 +33,7 @@ struct SignalUnifiedFloatingBar: View {
         DragGesture(minimumDistance: 50, coordinateSpace: .local)
             .onEnded { value in
                 guard abs(value.translation.width) > abs(value.translation.height) else { return }
-
-                if value.translation.width < 0 {
-                    switchTab(direction: 1)
-                } else if value.translation.width > 0 {
-                    switchTab(direction: -1)
-                }
+                switchTab(direction: value.translation.width < 0 ? 1 : -1)
             }
     }
 
@@ -49,11 +41,564 @@ struct SignalUnifiedFloatingBar: View {
         let allTabs = Tab.allCases
         guard let currentIndex = allTabs.firstIndex(of: currentTab) else { return }
         let nextIndex = currentIndex + direction
+        guard allTabs.indices.contains(nextIndex) else { return }
 
-        if nextIndex >= 0, nextIndex < allTabs.count {
-            withAnimation(MonoAnimation.tabSwitch) {
-                currentTab = allTabs[nextIndex]
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+            currentTab = allTabs[nextIndex]
+        }
+    }
+}
+
+private struct SignalUnifiedTabRail: View {
+    @Binding var currentTab: Tab
+    @ObservedObject private var onlineAccess = OnlineAccessManager.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Namespace private var selectionHighlight
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(Tab.allCases, id: \.self) { tab in
+                let selected = currentTab == tab
+                let label = tabLabel(tab)
+
+                Button {
+                    HapticManager.shared.light()
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.24)) {
+                        currentTab = tab
+                    }
+                } label: {
+                    ZStack {
+                        if selected {
+                            RoundedRectangle(cornerRadius: SignalStyle.buttonRadius, style: .continuous)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            SignalStyle.accent.opacity(0.12),
+                                            SignalStyle.controlPressed,
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: SignalStyle.buttonRadius, style: .continuous)
+                                        .stroke(SignalStyle.accent.opacity(0.22), lineWidth: 0.75)
+                                }
+                                .matchedGeometryEffect(id: "signal-tab-selection", in: selectionHighlight)
+                        }
+
+                        VStack(spacing: 4) {
+                            MonoIcon(
+                                icon: selected ? tab.icon : tab.monoIcon,
+                                size: 15,
+                                color: selected ? SignalStyle.accent : SignalStyle.inkMuted,
+                                lineWidth: selected ? 1.85 : 1.5
+                            )
+
+                            Text(label)
+                                .font(SignalStyle.labelFont(9.5, weight: selected ? .semibold : .medium))
+                                .foregroundStyle(selected ? SignalStyle.ink : SignalStyle.inkMuted)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.72)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 46)
+                    .contentShape(RoundedRectangle(cornerRadius: SignalStyle.buttonRadius, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .signalHoverExpansionDisabled()
+                .accessibilityLabel(label)
+                .accessibilityAddTraits(selected ? .isSelected : [])
             }
+        }
+        .padding(.horizontal, 7)
+        .padding(.vertical, 6)
+        .frame(height: 58)
+    }
+
+    private func tabLabel(_ tab: Tab) -> String {
+        NSLocalizedString(tab.titleKey(isLocalMode: !onlineAccess.canUseOnlineFeatures), comment: "")
+    }
+}
+
+struct SignalClassicFloatingBar: View {
+    @Binding var currentTab: Tab
+    @ObservedObject private var player = FloatingBarPlaybackModel.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var safeBottomInset: CGFloat {
+        min(max(DeviceLayout.safeAreaBottom, 0) * 0.42, DeviceLayout.isPad ? 12 : 15)
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Spacer()
+
+            VStack(spacing: 0) {
+                if let song = player.currentSong {
+                    SignalMiniPlayerStrip(song: song)
+                        .swipeToSkip()
+                }
+
+                SignalClassicTabRail(currentTab: $currentTab)
+            }
+            .padding(.bottom, safeBottomInset)
+            .background(SignalStyle.paper.opacity(0.995))
+            .overlay(alignment: .top) {
+                Rectangle()
+                    .fill(SignalStyle.separator.opacity(0.94))
+                    .frame(height: 0.7)
+            }
+            .themeRenderInteractiveLayer()
+        }
+        .ignoresSafeArea(.container, edges: .bottom)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: player.currentSong != nil)
+    }
+}
+
+private struct SignalClassicTabRail: View {
+    @Binding var currentTab: Tab
+    @ObservedObject private var onlineAccess = OnlineAccessManager.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(Tab.allCases, id: \.self) { tab in
+                let selected = currentTab == tab
+                let label = tabLabel(tab)
+
+                Button {
+                    HapticManager.shared.light()
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {
+                        currentTab = tab
+                    }
+                } label: {
+                    VStack(spacing: 5) {
+                        ZStack {
+                            MonoIcon(
+                                icon: selected ? tab.icon : tab.monoIcon,
+                                size: 17,
+                                color: selected ? SignalStyle.accent : SignalStyle.inkMuted,
+                                lineWidth: selected ? 1.85 : 1.45
+                            )
+
+                            RoundedRectangle(cornerRadius: 1, style: .continuous)
+                                .fill(selected ? SignalStyle.accent : Color.clear)
+                                .frame(width: 4, height: 4)
+                                .rotationEffect(.degrees(45))
+                                .offset(y: -17)
+                        }
+                        .frame(height: 22)
+
+                        Text(label)
+                            .font(SignalStyle.labelFont(9.5, weight: selected ? .semibold : .medium))
+                            .foregroundStyle(selected ? SignalStyle.ink : SignalStyle.inkMuted)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.72)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 52)
+                    .background(
+                        selected ? SignalStyle.controlPressed.opacity(0.9) : Color.clear,
+                        in: RoundedRectangle(cornerRadius: SignalStyle.compactRadius, style: .continuous)
+                    )
+                    .contentShape(RoundedRectangle(cornerRadius: SignalStyle.compactRadius, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .signalHoverExpansionDisabled()
+                .accessibilityLabel(label)
+                .accessibilityAddTraits(selected ? .isSelected : [])
+            }
+        }
+        .padding(.horizontal, DeviceLayout.isPad ? 40 : 10)
+        .frame(height: 58)
+    }
+
+    private func tabLabel(_ tab: Tab) -> String {
+        NSLocalizedString(tab.titleKey(isLocalMode: !onlineAccess.canUseOnlineFeatures), comment: "")
+    }
+}
+
+struct SignalMinimalFloatingBar: View {
+    @Binding var currentTab: Tab
+    @ObservedObject private var player = FloatingBarPlaybackModel.shared
+    @ObservedObject private var onlineAccess = OnlineAccessManager.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var showsTabs = false
+    @State private var showsQueue = false
+
+    var body: some View {
+        VStack {
+            Spacer()
+
+            Group {
+                if showsTabs {
+                    tabChooser
+                } else if let song = player.currentSong {
+                    playerCommand(song: song)
+                } else {
+                    navigationCommand
+                }
+            }
+            .frame(height: 50)
+            .padding(.horizontal, 6)
+            .background(SignalStyle.paper.opacity(0.99))
+            .overlay(alignment: .top) {
+                Rectangle()
+                    .fill(SignalStyle.separator.opacity(0.9))
+                    .frame(height: 0.7)
+            }
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(SignalStyle.separator.opacity(0.48))
+                    .frame(height: 0.65)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: SignalStyle.cardRadius, style: .continuous))
+            .iPadContentWidth(600)
+            .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
+            .padding(.bottom, 8)
+            .themeRenderInteractiveLayer()
+        }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: showsTabs)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: player.currentSong != nil)
+        .monoSheet(isPresented: $showsQueue, preset: .standard) {
+            if player.isPlayingPodcast {
+                PodcastPlaylistPopupView()
+            } else {
+                PlaylistPopupView()
+            }
+        }
+    }
+
+    private var navigationCommand: some View {
+        HStack(spacing: 10) {
+            activeTabButton
+
+            Spacer(minLength: 8)
+
+            Button {
+                HapticManager.shared.light()
+                showsTabs = true
+            } label: {
+                MonoIcon(icon: .layers, size: 14, color: SignalStyle.accent, lineWidth: 1.7)
+                    .frame(width: 40, height: 40)
+            }
+            .buttonStyle(.plain)
+            .signalHoverExpansionDisabled()
+            .accessibilityLabel(NSLocalizedString("floating_bar_minimal", comment: ""))
+        }
+    }
+
+    private var activeTabButton: some View {
+        Button {
+            HapticManager.shared.light()
+            showsTabs = true
+        } label: {
+            HStack(spacing: 9) {
+                MonoIcon(icon: currentTab.icon, size: 16, color: SignalStyle.accent, lineWidth: 1.8)
+
+                Text(tabLabel(currentTab))
+                    .font(SignalStyle.monoFont(11, weight: .semibold))
+                    .foregroundStyle(SignalStyle.ink)
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 8)
+            .frame(height: 40)
+            .background(
+                SignalStyle.screen,
+                in: RoundedRectangle(cornerRadius: SignalStyle.compactRadius, style: .continuous)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: SignalStyle.compactRadius, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .signalHoverExpansionDisabled()
+    }
+
+    private var tabChooser: some View {
+        HStack(spacing: 2) {
+            ForEach(Tab.allCases, id: \.self) { tab in
+                let selected = currentTab == tab
+                let label = tabLabel(tab)
+
+                Button {
+                    HapticManager.shared.light()
+                    currentTab = tab
+                    showsTabs = false
+                } label: {
+                    HStack(spacing: 6) {
+                        MonoIcon(
+                            icon: selected ? tab.icon : tab.monoIcon,
+                            size: 15,
+                            color: selected ? SignalStyle.accent : SignalStyle.inkMuted,
+                            lineWidth: selected ? 1.8 : 1.45
+                        )
+
+                        if selected {
+                            Text(label)
+                                .font(SignalStyle.monoFont(9.5, weight: .semibold))
+                                .foregroundStyle(SignalStyle.ink)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.75)
+                        }
+                    }
+                    .frame(minWidth: selected ? 80 : 42, maxWidth: selected ? .infinity : 42, minHeight: 40)
+                    .background(
+                        selected ? SignalStyle.screen : Color.clear,
+                        in: RoundedRectangle(cornerRadius: SignalStyle.compactRadius, style: .continuous)
+                    )
+                    .contentShape(RoundedRectangle(cornerRadius: SignalStyle.compactRadius, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .signalHoverExpansionDisabled()
+                .accessibilityLabel(label)
+                .accessibilityAddTraits(selected ? .isSelected : [])
+            }
+        }
+    }
+
+    private func playerCommand(song: Song) -> some View {
+        HStack(spacing: 9) {
+            Button {
+                HapticManager.shared.light()
+                showsTabs = true
+            } label: {
+                ZStack(alignment: .bottomTrailing) {
+                    CachedAsyncImage(url: song.coverUrl, width: 34, height: 34) {
+                        SignalStyle.controlPressed
+                    }
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 34, height: 34)
+                    .clipShape(RoundedRectangle(cornerRadius: SignalStyle.compactRadius, style: .continuous))
+
+                    Circle()
+                        .fill(SignalStyle.accent)
+                        .frame(width: 5, height: 5)
+                        .overlay(Circle().stroke(SignalStyle.paper, lineWidth: 1))
+                        .offset(x: 2, y: 2)
+                }
+            }
+            .buttonStyle(.plain)
+            .signalHoverExpansionDisabled()
+            .accessibilityLabel(tabLabel(currentTab))
+
+            VStack(alignment: .leading, spacing: 2) {
+                MarqueeText(
+                    text: song.name,
+                    font: SignalStyle.labelFont(12.5, weight: .semibold),
+                    color: SignalStyle.ink,
+                    speed: 24
+                )
+                .frame(height: 15)
+
+                MarqueeText(
+                    text: player.lyricLineText ?? song.artistName,
+                    font: SignalStyle.labelFont(10, weight: .regular),
+                    color: SignalStyle.inkMuted,
+                    speed: 22
+                )
+                .frame(height: 13)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .swipeSkipTextMotion()
+            .contentShape(Rectangle())
+            .onTapWithHaptic { openPlayer() }
+
+            Button(action: { player.togglePlayPause() }) {
+                MonoIcon(
+                    icon: player.isPlaying ? .pause : .play,
+                    size: 14,
+                    color: SignalStyle.accent,
+                    lineWidth: 1.8
+                )
+                .frame(width: 34, height: 40)
+            }
+            .buttonStyle(.plain)
+            .signalHoverExpansionDisabled()
+
+            Button(action: { showsQueue = true }) {
+                MonoIcon(icon: .list, size: 13, color: SignalStyle.inkSoft, lineWidth: 1.6)
+                    .frame(width: 34, height: 40)
+            }
+            .buttonStyle(.plain)
+            .signalHoverExpansionDisabled()
+        }
+        .swipeToSkip()
+    }
+
+    private func tabLabel(_ tab: Tab) -> String {
+        NSLocalizedString(tab.titleKey(isLocalMode: !onlineAccess.canUseOnlineFeatures), comment: "")
+    }
+
+    private func openPlayer() {
+        guard player.currentSong != nil else { return }
+        switch player.playSource {
+        case .fm:
+            NotificationCenter.default.post(name: .init("OpenFMPlayer"), object: nil)
+        case let .podcast(radioId):
+            NotificationCenter.default.post(name: .init("OpenRadioPlayer"), object: radioId)
+        case .normal:
+            NotificationCenter.default.post(name: .init("OpenNormalPlayer"), object: nil)
+        }
+    }
+}
+
+struct SignalFloatingBallBar: View {
+    @Binding var currentTab: Tab
+    @ObservedObject private var player = FloatingBarPlaybackModel.shared
+    @ObservedObject private var onlineAccess = OnlineAccessManager.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isExpanded = false
+    @State private var pulse = false
+
+    var body: some View {
+        GeometryReader { _ in
+            VStack {
+                Spacer()
+
+                HStack(spacing: 10) {
+                    Spacer(minLength: 12)
+
+                    if isExpanded {
+                        satelliteRail
+                            .transition(.opacity.combined(with: .move(edge: .trailing)))
+                    }
+
+                    floatingNode
+                }
+                .padding(.trailing, DeviceLayout.isPad ? 40 : 18)
+                .padding(.bottom, max(18, DeviceLayout.safeAreaBottom + 8))
+            }
+        }
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 2.6).repeatForever(autoreverses: true)) {
+                pulse = true
+            }
+        }
+    }
+
+    private var floatingNode: some View {
+        Button {
+            HapticManager.shared.light()
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+                isExpanded.toggle()
+            }
+        } label: {
+            ZStack {
+                Circle()
+                    .stroke(SignalStyle.accent.opacity(pulse ? 0.08 : 0.34), lineWidth: 0.8)
+                    .scaleEffect(pulse ? 1.28 : 1.02)
+
+                Circle()
+                    .stroke(SignalStyle.accent.opacity(pulse ? 0.3 : 0.08), lineWidth: 0.7)
+                    .scaleEffect(pulse ? 1.12 : 0.92)
+
+                Circle()
+                    .fill(SignalStyle.paper.opacity(0.99))
+                    .overlay(Circle().stroke(SignalStyle.separator.opacity(0.9), lineWidth: 0.8))
+
+                if let song = player.currentSong {
+                    CachedAsyncImage(url: song.coverUrl, width: 42, height: 42) {
+                        SignalStyle.controlPressed
+                    }
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 42, height: 42)
+                    .clipShape(Circle())
+                    .opacity(isExpanded ? 0.26 : 0.88)
+                }
+
+                MonoIcon(
+                    icon: isExpanded ? .close : .layers,
+                    size: isExpanded ? 10 : 13,
+                    color: isExpanded ? SignalStyle.ink : SignalStyle.accent,
+                    lineWidth: 1.8
+                )
+                .frame(width: 25, height: 25)
+                .background(SignalStyle.paper.opacity(0.92), in: Circle())
+            }
+            .frame(width: 56, height: 56)
+            .shadow(color: Color.black.opacity(0.28), radius: 12, y: 5)
+        }
+        .buttonStyle(.plain)
+        .signalHoverExpansionDisabled()
+        .accessibilityLabel(NSLocalizedString("floating_bar_ball", comment: ""))
+        .onLongPressGesture(minimumDuration: 0.45) {
+            openPlayer()
+        }
+    }
+
+    private var satelliteRail: some View {
+        HStack(spacing: 9) {
+            ForEach(Tab.allCases, id: \.self) { tab in
+                satelliteButton(tab)
+            }
+
+            if player.currentSong != nil {
+                Button(action: { player.togglePlayPause() }) {
+                    MonoIcon(
+                        icon: player.isPlaying ? .pause : .play,
+                        size: 13,
+                        color: SignalStyle.accent,
+                        lineWidth: 1.8
+                    )
+                    .frame(width: 44, height: 44)
+                    .background(SignalStyle.paper.opacity(0.99), in: Circle())
+                    .overlay(Circle().stroke(SignalStyle.separator.opacity(0.84), lineWidth: 0.7))
+                }
+                .buttonStyle(.plain)
+                .signalHoverExpansionDisabled()
+            }
+        }
+        .themeRenderInteractiveLayer()
+    }
+
+    private func satelliteButton(_ tab: Tab) -> some View {
+        let selected = currentTab == tab
+        let label = NSLocalizedString(tab.titleKey(isLocalMode: !onlineAccess.canUseOnlineFeatures), comment: "")
+
+        return Button {
+            HapticManager.shared.light()
+            currentTab = tab
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {
+                isExpanded = false
+            }
+        } label: {
+            ZStack {
+                Circle()
+                    .fill(SignalStyle.paper.opacity(0.99))
+
+                Circle()
+                    .stroke(selected ? SignalStyle.accent : SignalStyle.separator.opacity(0.84), lineWidth: selected ? 1.2 : 0.7)
+
+                MonoIcon(
+                    icon: selected ? tab.icon : tab.monoIcon,
+                    size: 15,
+                    color: selected ? SignalStyle.accent : SignalStyle.inkMuted,
+                    lineWidth: selected ? 1.8 : 1.45
+                )
+
+                Circle()
+                    .fill(selected ? SignalStyle.accent : Color.clear)
+                    .frame(width: 4, height: 4)
+                    .offset(y: 14)
+            }
+            .frame(width: 44, height: 44)
+            .shadow(color: Color.black.opacity(0.2), radius: 8, y: 4)
+        }
+        .buttonStyle(.plain)
+        .signalHoverExpansionDisabled()
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    private func openPlayer() {
+        guard player.currentSong != nil else { return }
+        switch player.playSource {
+        case .fm:
+            NotificationCenter.default.post(name: .init("OpenFMPlayer"), object: nil)
+        case let .podcast(radioId):
+            NotificationCenter.default.post(name: .init("OpenRadioPlayer"), object: radioId)
+        case .normal:
+            NotificationCenter.default.post(name: .init("OpenNormalPlayer"), object: nil)
         }
     }
 }
@@ -64,26 +609,18 @@ struct SignalMiniPlayerStrip: View {
     @ObservedObject private var player = FloatingBarPlaybackModel.shared
 
     private var subtitleText: String {
-        if let text = player.lyricLineText {
-            return text
-        }
-        return song.artistName
+        player.lyricLineText ?? song.artistName
     }
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 5) {
             HStack(spacing: 10) {
                 CachedAsyncImage(url: song.coverUrl) {
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(SignalStyle.controlPressed)
+                    SignalStyle.controlPressed
                 }
                 .aspectRatio(contentMode: .fill)
                 .frame(width: 40, height: 40)
-                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .stroke(SignalStyle.separator.opacity(0.74), lineWidth: 0.7)
-                )
+                .clipShape(RoundedRectangle(cornerRadius: SignalStyle.compactRadius, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 3) {
                     MarqueeText(
@@ -101,7 +638,7 @@ struct SignalMiniPlayerStrip: View {
                         speed: 22
                     )
                     .frame(height: 14)
-                        .animation(.easeInOut(duration: 0.25), value: player.lyricLineText)
+                    .animation(.easeInOut(duration: 0.25), value: player.lyricLineText)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .swipeSkipTextMotion()
@@ -117,7 +654,7 @@ struct SignalMiniPlayerStrip: View {
 
                     if !player.isPlaying {
                         signalControl(icon: .close, tint: SignalStyle.inkMuted, size: 9) {
-                            withAnimation(MonoAnimation.floatingBar) {
+                            withAnimation(.easeOut(duration: 0.18)) {
                                 player.dismissMiniPlayerPreservingQueue()
                             }
                         }
@@ -125,8 +662,8 @@ struct SignalMiniPlayerStrip: View {
                     }
                 }
             }
-            .padding(.horizontal, 10)
-            .padding(.top, 8)
+            .padding(.horizontal, 12)
+            .padding(.top, 9)
             .background {
                 Color.clear
                     .contentShape(Rectangle())
@@ -136,9 +673,14 @@ struct SignalMiniPlayerStrip: View {
             ProgressBarView()
                 .frame(height: 2.3)
                 .padding(.horizontal, 12)
-                .padding(.bottom, 6)
+                .padding(.bottom, 8)
         }
-        .background(SignalSurfaceBackground(cornerRadius: 11, elevated: false, pressed: true, fill: SignalStyle.screen.opacity(0.9)))
+        .background(SignalStyle.screen.opacity(0.72))
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(SignalStyle.separator.opacity(0.62))
+                .frame(height: 0.65)
+        }
         .monoSheet(isPresented: $showPlaylist, preset: .standard) {
             if player.isPlayingPodcast {
                 PodcastPlaylistPopupView()
@@ -157,10 +699,14 @@ struct SignalMiniPlayerStrip: View {
         Button(action: action) {
             MonoIcon(icon: icon, size: size, color: tint, lineWidth: 1.75)
                 .frame(width: 32, height: 32)
-                .background(SignalSurfaceBackground(cornerRadius: 8, elevated: true, fill: SignalStyle.surfaceRaised))
-                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .background(
+                    SignalStyle.controlPressed,
+                    in: RoundedRectangle(cornerRadius: SignalStyle.compactRadius, style: .continuous)
+                )
+                .contentShape(RoundedRectangle(cornerRadius: SignalStyle.compactRadius, style: .continuous))
         }
         .buttonStyle(MonoBouncingButtonStyle(scale: 0.94))
+        .signalHoverExpansionDisabled()
     }
 
     private func openPlayer() {
@@ -177,70 +723,13 @@ struct SignalMiniPlayerStrip: View {
     }
 }
 
-struct SignalDedicatedTabBar: View {
-    @Binding var currentTab: Tab
-    @ObservedObject private var onlineAccess = OnlineAccessManager.shared
-    @Namespace private var selectionNS
-
-    private static let tabs: [(tab: Tab, outline: MonoIcon.IconType, filled: MonoIcon.IconType)] = [
-        (.home, .home, .homeFilled),
-        (.podcast, .podcast, .podcastFilled),
-        (.library, .library, .libraryFilled),
-        (.profile, .profile, .profileFilled),
-    ]
-
-    var body: some View {
-        HStack(spacing: 5) {
-            ForEach(0 ..< Self.tabs.count, id: \.self) { index in
-                let item = Self.tabs[index]
-                tabButton(tab: item.tab, outline: item.outline, filled: item.filled)
-            }
+extension View {
+    @ViewBuilder
+    func signalHoverExpansionDisabled() -> some View {
+        if #available(iOS 17.0, *) {
+            hoverEffectDisabled()
+        } else {
+            self
         }
-        .padding(.horizontal, 5)
-        .padding(.vertical, 5)
-        .frame(height: 48)
-        .background(SignalSurfaceBackground(cornerRadius: 11, elevated: false, pressed: true, fill: SignalStyle.controlPressed))
     }
-
-    private func tabButton(tab: Tab, outline: MonoIcon.IconType, filled: MonoIcon.IconType) -> some View {
-        let isSelected = currentTab == tab
-        let label = NSLocalizedString(tab.titleKey(isLocalMode: !onlineAccess.canUseOnlineFeatures), comment: "")
-        return Button {
-            HapticManager.shared.light()
-            withAnimation(MonoAnimation.tabSwitch) {
-                currentTab = tab
-            }
-        } label: {
-            HStack(spacing: isSelected ? 5 : 0) {
-                MonoIcon(
-                    icon: isSelected ? filled : outline,
-                    size: isSelected ? 16 : 18,
-                    color: isSelected ? SignalStyle.accent : SignalStyle.inkMuted,
-                    lineWidth: isSelected ? 1.9 : 1.55
-                )
-
-                if isSelected {
-                    Text(label)
-                        .font(SignalStyle.labelFont(9, weight: .semibold))
-                        .foregroundStyle(SignalStyle.accent)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.76)
-                }
-            }
-            .frame(maxWidth: .infinity, minHeight: 38)
-            .background {
-                if isSelected {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(SignalStyle.accent.opacity(0.12))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(SignalStyle.accent.opacity(0.18), lineWidth: 0.7)
-                        )
-                        .matchedGeometryEffect(id: "signal-tab", in: selectionNS)
-                }
-            }
-        }
-        .buttonStyle(.plain)
-    }
-
 }

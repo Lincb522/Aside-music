@@ -18,11 +18,7 @@ struct ConsolePlayerLayout: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let metrics = ConsolePlayerMetrics(
-                size: proxy.size,
-                safeArea: proxy.safeAreaInsets,
-                headerTopPadding: DeviceLayout.headerTopPadding
-            )
+            let metrics = ConsolePlayerMetrics(size: proxy.size)
 
             ZStack {
                 SignalRootBackdrop()
@@ -78,27 +74,23 @@ private extension ConsolePlayerLayout {
                 dismiss()
             }
 
-            HStack(spacing: 8) {
-                SignalBreathingIndicator(size: 7)
-
-                Text(queuePositionText)
-                    .font(SignalStyle.monoFont(10, weight: .bold))
-                    .foregroundStyle(SignalStyle.inkSoft)
-                    .monospacedDigit()
-            }
-
-            Spacer(minLength: 6)
+            Spacer(minLength: 10)
 
             Button {
                 showsQuality = true
             } label: {
-                Text(player.qualityButtonText)
-                    .font(SignalStyle.monoFont(10, weight: .bold))
-                    .foregroundStyle(SignalStyle.accent)
-                    .lineLimit(1)
-                    .padding(.horizontal, 10)
-                    .frame(height: 38)
-                    .background(SignalSurfaceBackground(cornerRadius: 9, elevated: false, pressed: true, fill: SignalStyle.control))
+                HStack(spacing: 7) {
+                    Circle()
+                        .fill(SignalStyle.accent)
+                        .frame(width: 4, height: 4)
+
+                    Text(player.qualityButtonText)
+                        .font(SignalStyle.monoFont(9, weight: .semibold))
+                        .foregroundStyle(SignalStyle.inkSoft)
+                        .lineLimit(1)
+                }
+                .frame(height: 44)
+                .contentShape(Rectangle())
             }
             .buttonStyle(ConsolePlayerPressStyle())
             .playerQualitySelectionAvailability()
@@ -107,11 +99,20 @@ private extension ConsolePlayerLayout {
                 showsMore = true
             }
         }
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(SignalStyle.separator.opacity(0.62))
+                .frame(height: 0.65)
+        }
     }
 
     func portraitContent(metrics: ConsolePlayerMetrics) -> some View {
         VStack(spacing: 0) {
-            playbackStage(size: metrics.stageSize)
+            playbackStatus
+                .padding(.top, metrics.isCompact ? 7 : 10)
+                .padding(.bottom, metrics.isCompact ? 7 : 10)
+
+            mediaPlane(size: metrics.artworkSize)
 
             songInformation(compact: metrics.isCompact)
                 .padding(.top, metrics.informationTopInset)
@@ -127,15 +128,19 @@ private extension ConsolePlayerLayout {
 
     func wideContent(metrics: ConsolePlayerMetrics) -> some View {
         HStack(spacing: metrics.wideGap) {
-            playbackStage(size: metrics.stageSize)
+            VStack(spacing: 0) {
+                playbackStatus
+                    .padding(.bottom, 10)
+                mediaPlane(size: metrics.artworkSize)
+            }
 
             VStack(alignment: .leading, spacing: 0) {
                 Spacer(minLength: 0)
                 songInformation(compact: false)
                 progressSection(compact: false)
-                    .padding(.top, 24)
+                    .padding(.top, 22)
                 transportControls(compact: false)
-                    .padding(.top, 30)
+                    .padding(.top, 28)
                 Spacer(minLength: 0)
             }
             .frame(maxWidth: 440)
@@ -145,15 +150,42 @@ private extension ConsolePlayerLayout {
 }
 
 private extension ConsolePlayerLayout {
-    func playbackStage(size: CGFloat) -> some View {
-        ZStack {
-            SignalScreenBackground(cornerRadius: 16)
+    var playbackStatus: some View {
+        HStack(spacing: 8) {
+            SignalBreathingIndicator(size: 6)
 
+            Text(player.isPlaying ? String(localized: "正在播放") : String(localized: "已暂停"))
+                .font(SignalStyle.monoFont(9, weight: .semibold))
+                .foregroundStyle(SignalStyle.inkSoft)
+                .lineLimit(1)
+
+            SignalLevelMeter(
+                activeCount: player.isPlaying ? 7 : 2,
+                barCount: 9,
+                tint: player.isPlaying ? SignalStyle.accent : SignalStyle.inkMuted,
+                height: 15
+            )
+
+            Spacer(minLength: 8)
+
+            Text(queuePositionText)
+                .font(SignalStyle.monoFont(9, weight: .semibold))
+                .foregroundStyle(SignalStyle.inkMuted)
+                .monospacedDigit()
+        }
+        .frame(height: 18)
+    }
+
+    @ViewBuilder
+    func mediaPlane(size: CGFloat) -> some View {
+        ZStack {
             if showsLyrics, let song = player.currentSong {
+                SignalStyle.screen
+
                 LyricsView(
                     song: song,
                     onBackgroundTap: {
-                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.22)) {
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                             showsLyrics = false
                         }
                     },
@@ -162,28 +194,24 @@ private extension ConsolePlayerLayout {
                     enforcesAdaptiveContrast: true
                 )
                 .environment(\.colorScheme, .dark)
-                .padding(10)
+                .padding(8)
             } else {
                 artwork(size: size)
                     .onTapWithHaptic {
                         guard player.currentSong != nil else { return }
-                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.22)) {
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                             showsLyrics = true
                         }
                     }
             }
         }
         .frame(width: size, height: size)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(SignalStyle.separator.opacity(0.78), lineWidth: 0.9)
+        .clipShape(RoundedRectangle(cornerRadius: SignalStyle.cardRadius, style: .continuous))
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(SignalStyle.separator.opacity(0.7))
+                .frame(height: 0.65)
         }
-        .overlay(alignment: .topLeading) {
-            playbackState
-                .padding(13)
-        }
-        .shadow(color: Color.black.opacity(0.3), radius: 22, y: 10)
     }
 
     func artwork(size: CGFloat) -> some View {
@@ -208,11 +236,10 @@ private extension ConsolePlayerLayout {
             }
 
             LinearGradient(
-                colors: [.clear, Color.black.opacity(0.08), Color.black.opacity(0.68)],
+                colors: [.clear, Color.black.opacity(0.04), Color.black.opacity(0.38)],
                 startPoint: .top,
                 endPoint: .bottom
             )
-
         }
         .frame(width: size, height: size)
         .clipped()
@@ -221,23 +248,8 @@ private extension ConsolePlayerLayout {
     var consoleArtworkPlaceholder: some View {
         ZStack {
             SignalStyle.screen
-            SignalIconBadge(icon: .musicNote, tint: SignalStyle.accent, size: 70)
+            MonoIcon(icon: .musicNote, size: 44, color: SignalStyle.accent, lineWidth: 1.5)
         }
-    }
-
-    var playbackState: some View {
-        HStack(spacing: 7) {
-            SignalBreathingIndicator(size: 7)
-
-            Text(player.isPlaying ? String(localized: "正在播放") : String(localized: "已暂停"))
-                .font(SignalStyle.labelFont(10, weight: .medium))
-                .foregroundStyle(SignalStyle.ink)
-                .lineLimit(1)
-        }
-        .padding(.horizontal, 9)
-        .frame(height: 27)
-        .background(SignalStyle.screen.opacity(0.82), in: Capsule())
-        .overlay(Capsule().stroke(SignalStyle.separator.opacity(0.76), lineWidth: 0.7))
     }
 }
 
@@ -246,13 +258,13 @@ private extension ConsolePlayerLayout {
         VStack(alignment: .leading, spacing: compact ? 4 : 7) {
             Text(player.currentSong?.name ?? String(localized: "暂无歌曲"))
                 .monoPlayerDisplayFont(
-                    size: compact ? 21 : 25,
-                    weight: .bold,
-                    fallback: SignalStyle.titleFont(compact ? 21 : 25, weight: .bold)
+                    size: compact ? 22 : 27,
+                    weight: .semibold,
+                    fallback: SignalStyle.titleFont(compact ? 22 : 27, weight: .semibold)
                 )
                 .foregroundStyle(SignalStyle.ink)
                 .lineLimit(1)
-                .minimumScaleFactor(0.72)
+                .minimumScaleFactor(0.7)
 
             HStack(spacing: 8) {
                 Text(player.currentSong?.artistName ?? "—")
@@ -266,7 +278,7 @@ private extension ConsolePlayerLayout {
                         .frame(width: 3, height: 3)
 
                     Text(album)
-                        .font(SignalStyle.labelFont(compact ? 10 : 12, weight: .medium))
+                        .font(SignalStyle.labelFont(compact ? 10 : 12, weight: .regular))
                         .foregroundStyle(SignalStyle.inkMuted)
                         .lineLimit(1)
                 }
@@ -276,8 +288,8 @@ private extension ConsolePlayerLayout {
     }
 
     func progressSection(compact: Bool) -> some View {
-        VStack(spacing: compact ? 6 : 9) {
-            ConsoleSegmentedProgress(
+        VStack(spacing: compact ? 5 : 7) {
+            ConsoleLinearProgress(
                 progress: displayProgress,
                 isEnabled: validDuration > 0,
                 onChanged: { ratio in
@@ -291,14 +303,14 @@ private extension ConsolePlayerLayout {
                     player.seek(to: target)
                 }
             )
-            .frame(height: compact ? 25 : 30)
+            .frame(height: compact ? 20 : 24)
 
             HStack {
                 Text(formatTime(isSeeking ? seekTime : validCurrentTime))
                 Spacer()
                 Text(formatTime(validDuration))
             }
-            .font(SignalStyle.monoFont(10, weight: .semibold))
+            .font(SignalStyle.monoFont(9, weight: .medium))
             .foregroundStyle(SignalStyle.inkMuted)
             .monospacedDigit()
         }
@@ -306,28 +318,37 @@ private extension ConsolePlayerLayout {
 
     func transportControls(compact: Bool) -> some View {
         let sideSize: CGFloat = compact ? 40 : 46
-        let playSize: CGFloat = compact ? 64 : 74
+        let playSize: CGFloat = compact ? 58 : 68
 
         return HStack(spacing: 0) {
-            transportButton(icon: player.mode.monoIcon, size: sideSize, iconSize: 16, label: player.mode.displayName) {
+            transportButton(icon: player.mode.monoIcon, size: sideSize, iconSize: 16, tint: SignalStyle.inkSoft, label: player.mode.displayName) {
                 player.switchMode()
             }
 
             Spacer(minLength: 7)
 
-            transportButton(icon: .previous, size: sideSize, iconSize: 22, label: String(localized: "上一首")) {
+            transportButton(icon: .previous, size: sideSize, iconSize: 22, tint: SignalStyle.ink, label: String(localized: "上一首")) {
                 player.previous()
             }
 
-            Spacer(minLength: 7)
+            Spacer(minLength: 9)
 
             Button {
                 player.togglePlayPause()
             } label: {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 13, style: .continuous)
+                    ConsolePlayerBreathingRing(
+                        isActive: player.isPlaying,
+                        diameter: playSize
+                    )
+
+                    Circle()
                         .fill(SignalStyle.accent)
-                        .shadow(color: Color.black.opacity(0.28), radius: 10, y: 5)
+                        .overlay {
+                            Circle()
+                                .stroke(Color.white.opacity(0.2), lineWidth: 0.7)
+                        }
+                        .shadow(color: SignalStyle.accent.opacity(player.isPlaying ? 0.24 : 0.12), radius: 14)
 
                     if player.isLoading {
                         ProgressView()
@@ -335,7 +356,7 @@ private extension ConsolePlayerLayout {
                     } else {
                         MonoIcon(
                             icon: player.isPlaying ? .pause : .play,
-                            size: compact ? 25 : 29,
+                            size: compact ? 23 : 27,
                             color: SignalStyle.onAccent,
                             lineWidth: 2
                         )
@@ -346,15 +367,15 @@ private extension ConsolePlayerLayout {
             .buttonStyle(ConsolePlayerPressStyle(scale: 0.9))
             .accessibilityLabel(player.isPlaying ? String(localized: "暂停") : String(localized: "播放"))
 
-            Spacer(minLength: 7)
+            Spacer(minLength: 9)
 
-            transportButton(icon: .next, size: sideSize, iconSize: 22, label: String(localized: "playback_next_track")) {
+            transportButton(icon: .next, size: sideSize, iconSize: 22, tint: SignalStyle.ink, label: String(localized: "playback_next_track")) {
                 player.next()
             }
 
             Spacer(minLength: 7)
 
-            transportButton(icon: .list, size: sideSize, iconSize: 17, label: String(localized: "player_queue")) {
+            transportButton(icon: .list, size: sideSize, iconSize: 17, tint: SignalStyle.inkSoft, label: String(localized: "player_queue")) {
                 showsQueue = true
             }
         }
@@ -365,15 +386,14 @@ private extension ConsolePlayerLayout {
         icon: MonoIcon.IconType,
         size: CGFloat,
         iconSize: CGFloat,
+        tint: Color,
         label: String,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            ZStack {
-                SignalSurfaceBackground(cornerRadius: 10, elevated: false, pressed: true, fill: SignalStyle.control)
-                MonoIcon(icon: icon, size: iconSize, color: SignalStyle.ink, lineWidth: 1.75)
-            }
-            .frame(width: size, height: size)
+            MonoIcon(icon: icon, size: iconSize, color: tint, lineWidth: 1.75)
+                .frame(width: size, height: size)
+                .contentShape(Rectangle())
         }
         .buttonStyle(ConsolePlayerPressStyle())
         .accessibilityLabel(label)
@@ -381,14 +401,49 @@ private extension ConsolePlayerLayout {
 
     func consoleButton(icon: MonoIcon.IconType, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            ZStack {
-                SignalSurfaceBackground(cornerRadius: 9, elevated: false, pressed: true, fill: SignalStyle.control)
-                MonoIcon(icon: icon, size: 17, color: SignalStyle.ink, lineWidth: 1.75)
-            }
-            .frame(width: 40, height: 40)
+            MonoIcon(icon: icon, size: 17, color: SignalStyle.ink, lineWidth: 1.75)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
         }
         .buttonStyle(ConsolePlayerPressStyle())
         .accessibilityLabel(label)
+    }
+}
+
+private struct ConsolePlayerBreathingRing: View {
+    let isActive: Bool
+    let diameter: CGFloat
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var expanded = false
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(SignalStyle.accent.opacity(expanded ? 0.08 : 0.44), lineWidth: 1.2)
+                .scaleEffect(expanded ? 1.28 : 1.03)
+
+            Circle()
+                .fill(SignalStyle.accent.opacity(expanded ? 0.018 : 0.1))
+                .blur(radius: expanded ? 13 : 5)
+                .scaleEffect(expanded ? 1.42 : 1.02)
+        }
+        .frame(width: diameter, height: diameter)
+        .opacity(isActive ? 1 : 0.24)
+        .animation(
+            isActive && !reduceMotion
+                ? .easeInOut(duration: 2.15).repeatForever(autoreverses: true)
+                : .easeOut(duration: 0.2),
+            value: expanded
+        )
+        .onAppear {
+            expanded = isActive && !reduceMotion
+        }
+        .onChange(of: isActive) { active in
+            expanded = active && !reduceMotion
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 
@@ -451,32 +506,30 @@ private extension ConsolePlayerLayout {
 
 private struct ConsolePlayerMetrics {
     let size: CGSize
-    let safeArea: EdgeInsets
-    let headerTopPadding: CGFloat
 
     var usesWideLayout: Bool { size.width >= 720 && size.width > size.height }
     var isCompact: Bool { !usesWideLayout && size.height < 730 }
     var maximumWidth: CGFloat { usesWideLayout ? min(size.width, 1120) : min(size.width, 560) }
     var horizontalInset: CGFloat { usesWideLayout ? 30 : (size.width < 380 ? 15 : 20) }
-    var topInset: CGFloat { max(safeArea.top + 5, headerTopPadding) }
-    var toolbarBottomInset: CGFloat { isCompact ? 7 : 12 }
-    var bottomInset: CGFloat { max(safeArea.bottom, isCompact ? 5 : 10) }
+    var topInset: CGFloat { isCompact ? 2 : 4 }
+    var toolbarBottomInset: CGFloat { isCompact ? 3 : 5 }
+    var bottomInset: CGFloat { isCompact ? 3 : 6 }
 
-    var stageSize: CGFloat {
+    var artworkSize: CGFloat {
         if usesWideLayout {
-            return min(size.height * 0.67, size.width * 0.43, 470)
+            return min(size.height * 0.64, size.width * 0.43, 470)
         }
         let widthLimit = size.width - horizontalInset * 2
-        return min(widthLimit, size.height * (isCompact ? 0.39 : 0.43), 390)
+        return min(widthLimit, size.height * (isCompact ? 0.36 : 0.42), 410)
     }
 
-    var informationTopInset: CGFloat { isCompact ? 10 : 18 }
-    var progressTopInset: CGFloat { isCompact ? 8 : 18 }
-    var minimumSpacer: CGFloat { isCompact ? 7 : 14 }
+    var informationTopInset: CGFloat { isCompact ? 10 : 16 }
+    var progressTopInset: CGFloat { isCompact ? 8 : 15 }
+    var minimumSpacer: CGFloat { isCompact ? 4 : 10 }
     var wideGap: CGFloat { min(max(size.width * 0.055, 30), 72) }
 }
 
-private struct ConsoleSegmentedProgress: View {
+private struct ConsoleLinearProgress: View {
     let progress: Double
     let isEnabled: Bool
     let onChanged: (Double) -> Void
@@ -487,20 +540,20 @@ private struct ConsoleSegmentedProgress: View {
             let ratio = min(max(progress, 0), 1)
 
             ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(SignalStyle.inkMuted.opacity(0.22))
+                Rectangle()
+                    .fill(SignalStyle.separator.opacity(0.74))
+                    .frame(height: 1)
 
-                Capsule()
+                Rectangle()
                     .fill(SignalStyle.accent)
-                    .frame(width: proxy.size.width * ratio)
+                    .frame(width: proxy.size.width * ratio, height: 1.5)
 
                 Circle()
                     .fill(SignalStyle.ink)
-                    .frame(width: 10, height: 10)
-                    .offset(x: max(0, min(proxy.size.width - 10, proxy.size.width * ratio - 5)))
+                    .frame(width: 7, height: 7)
+                    .offset(x: max(0, min(proxy.size.width - 7, proxy.size.width * ratio - 3.5)))
                     .opacity(isEnabled ? 1 : 0)
             }
-            .frame(height: 4)
             .frame(maxHeight: .infinity)
             .contentShape(Rectangle())
             .gesture(
@@ -524,7 +577,7 @@ private struct ConsolePlayerPressStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? scale : 1)
-            .opacity(configuration.isPressed ? 0.82 : 1)
+            .opacity(configuration.isPressed ? 0.78 : 1)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }

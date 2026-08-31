@@ -40,7 +40,7 @@ struct ClassicFloatingBar: View {
         case .capsule:
             return 30
         case .signal:
-            return 16
+            return 0
         case .clarity:
             return 34
         case .default:
@@ -75,7 +75,7 @@ struct ClassicFloatingBar: View {
         case .capsule:
             return CapsuleStyle.accent.opacity(colorScheme == .dark ? 0.18 : 0.13)
         case .signal:
-            return SignalStyle.accent.opacity(0.16)
+            return .clear
         case .clarity:
             return Color.black.opacity(colorScheme == .dark ? 0.28 : 0.10)
         case .default:
@@ -308,7 +308,7 @@ struct ClassicFloatingBar: View {
         case .capsule:
             return CapsuleStyle.hairline.opacity(colorScheme == .dark ? 0.52 : 0.66)
         case .signal:
-            return SignalStyle.accent.opacity(0.38)
+            return SignalStyle.separator.opacity(0.86)
         case .clarity:
             return ClarityStyle.edge.opacity(0.72)
         case .default:
@@ -401,7 +401,7 @@ struct ClassicFloatingBar: View {
         case .capsule:
             return 13
         case .signal:
-            return 14
+            return 0
         case .clarity:
             return 18
         default:

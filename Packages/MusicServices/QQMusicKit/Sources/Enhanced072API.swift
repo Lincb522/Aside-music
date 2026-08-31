@@ -1,6 +1,6 @@
 import Foundation
 
-// MARK: - QQMusicApi 0.6.9 APIs
+// MARK: - QQMusicApi 0.7.2 APIs
 
 public extension QQMusicClient {
 
@@ -27,11 +27,20 @@ public extension QQMusicClient {
     func postComment(
         songID: Int,
         content: String,
-        replyCommentID: String? = nil
+        replyCommentID: String? = nil,
+        bizType: CommentBizType = .song,
+        bizSubType: Int? = nil
     ) async throws -> JSON {
-        var parameters: [String: Any] = ["biz_id": songID, "content": content]
+        var parameters: [String: Any] = [
+            "biz_id": songID,
+            "content": content,
+            "biz_type": bizType.rawValue,
+        ]
         if let replyCommentID {
             parameters["reply_cmt_id"] = replyCommentID
+        }
+        if let bizSubType {
+            parameters["biz_sub_type"] = bizSubType
         }
         return try await module("comment", function: "add_comment", parameters: parameters)
     }

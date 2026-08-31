@@ -209,7 +209,5 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>VIP_COOKIE</key>
-	<string>$(VIP_COOKIE)</string>
 </dict>
 </plist>

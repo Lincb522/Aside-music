@@ -720,7 +720,7 @@
 "qr_error_validation_failed" = "登录凭证验证失败，请刷新二维码重试";
 "qr_error_timed_out" = "二维码已过期，请刷新后重试";
 "qr_status_unexpected" = "登录状态异常，请刷新二维码重试";
-"qr_status_retrying" = "网络连接不稳定，正在重试";
+"qr_status_retrying" = "暂时无法获取扫码状态，正在重试";
 "qr_refreshing" = "刷新二维码中...";
 "qr_refresh_action" = "刷新二维码";
 "platform_login_switch_accessibility" = "切换到 %@ 登录";
@@ -860,6 +860,7 @@
 "debug_no_matches" = "没有匹配的日志";
 "debug_export_filtered" = "导出筛选结果";
 "debug_export_all_json" = "导出全部 JSON";
+"debug_export_silence_diagnostics" = "导出无声状态日志";
 "debug_newest_first" = "最新日志在前";
 "debug_follow_latest" = "跟随最新日志";
 "debug_clear_confirm_title" = "清空日志";
@@ -1613,6 +1614,27 @@
 "developer_tools_section_testing" = "测试工具";
 "developer_tools_section_access" = "访问";
 "developer_platform_switching" = "平台切号管理";
+"ncm_vip_pool_title" = "NCM VIP 切号";
+"ncm_vip_pool_platform_value" = "VIP 账号池";
+"ncm_vip_pool_account_count" = "%ld 个账号";
+"ncm_vip_pool_add_section" = "添加账号";
+"ncm_vip_pool_add_account" = "扫码添加 NCM VIP 账号";
+"ncm_vip_pool_qr_accessibility" = "NCM 登录二维码";
+"ncm_vip_pool_qr_waiting" = "请使用网易云音乐扫码";
+"ncm_vip_pool_qr_authorizing" = "请在网易云音乐中确认登录";
+"ncm_vip_pool_qr_expired" = "二维码已过期";
+"ncm_vip_pool_accounts_section" = "VIP 账号池";
+"ncm_vip_pool_loading" = "正在加载";
+"ncm_vip_pool_empty" = "暂无账号";
+"ncm_vip_pool_refresh" = "刷新状态";
+"ncm_vip_pool_operation_failed" = "操作失败";
+"ncm_vip_pool_error_generic" = "NCM VIP 账号池请求失败";
+"ncm_vip_pool_membership_none" = "无会员";
+"ncm_vip_pool_membership_vip" = "黑胶 VIP";
+"ncm_vip_pool_health_available" = "可用";
+"ncm_vip_pool_health_expired" = "已失效";
+"ncm_vip_pool_health_unavailable" = "不可用";
+"ncm_vip_pool_health_unknown" = "未验证";
 "developer_audio_lab" = "实时音频实验台";
 "dev_popup_catalog_title" = "弹窗预览";
 "dev_popup_group_alerts" = "基础提示";
@@ -2424,10 +2446,6 @@
 "login_identity_active" = "正在使用";
 "login_identity_select" = "切换到此身份";
 "login_identity_sign_in" = "登录后可选择";
-"login_identity_none" = "尚未登录平台账号";
-"login_identity_not_signed_in_format" = "%@（未登录）";
-"login_identity_switch_accessibility" = "切换当前登录身份";
-"login_identity_switch_hint" = "只能选择已经登录的平台";
 "login_identity_qcm_profile" = "QCM 账号";
 "login_identity_kcm_profile" = "KCM 账号";
 "Mono 设计语言" = "Mono 设计语言";
@@ -2530,3 +2548,10 @@
 "封面加载中" = "封面加载中";
 "quality_vivid" = "臻音全景声";
 "quality_vivid_subtitle" = "全景空间音频";
+
+/* Apple Music 资料库 */
+"apple_music_category_playlists" = "歌单";
+"apple_music_category_songs" = "歌曲";
+"apple_music_category_albums" = "专辑";
+"apple_music_category_artists" = "艺人";
+"global_theme_minimal_white_description" = "克制的单色播放器，留白精准，控件轻盈。";

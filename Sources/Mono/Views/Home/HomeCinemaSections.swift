@@ -8,7 +8,7 @@ enum HomeCinemaStyle {
     static var posterWidth: CGFloat { DeviceLayout.isPad ? 172 : 140 }
     static var posterBlockHeight: CGFloat { DeviceLayout.isPad ? 82 : 66 }
     static var posterHeight: CGFloat { posterWidth + posterBlockHeight }
-    static var posterCorner: CGFloat { SignalStyle.isActive ? 8 : 14 }
+    static var posterCorner: CGFloat { SignalStyle.isActive ? SignalStyle.cardRadius : 14 }
     static var heroHeight: CGFloat { DeviceLayout.bannerHeight }
     static var ticketGold: Color { SignalStyle.isActive ? SignalStyle.accent : Color(hex: "E7B24C") }
 

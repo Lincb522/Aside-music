@@ -744,6 +744,11 @@ public final class StreamPlayer {
         return !hasAudio || audioRenderer.isOutputRunning
     }
 
+    /// Renderer evidence captured without touching the decode or realtime callback paths.
+    public var audioOutputDiagnostics: AudioOutputDiagnostics {
+        audioRenderer.outputDiagnostics()
+    }
+
     /// `true` after the input reached its natural end and while the renderer is
     /// finishing the queued tail or waiting for the final underrun callback.
     public var isDrainingEndOfStream: Bool {

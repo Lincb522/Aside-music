@@ -12,13 +12,15 @@ public extension QQMusicClient {
     ///   - page: 页码
     ///   - onlySong: 是否仅返回歌曲信息
     ///   - tag: 是否返回标签
+    ///   - userInfo: 是否返回用户信息
     func songlistDetail(
         songlistId: Int,
         dirid: Int = 0,
         num: Int = 10,
         page: Int = 1,
         onlySong: Bool = false,
-        tag: Bool = true
+        tag: Bool = true,
+        userInfo: Bool = true
     ) async throws -> JSON {
         try await requestWrapped("/songlist/get_detail", params: [
             "songlist_id": String(songlistId),
@@ -27,6 +29,7 @@ public extension QQMusicClient {
             "page": String(page),
             "onlysong": String(onlySong),
             "tag": String(tag),
+            "userinfo": String(userInfo),
         ])
     }
 
@@ -46,10 +49,12 @@ public extension QQMusicClient {
     /// - Parameters:
     ///   - dirid: 歌单 dirid
     ///   - songIds: 歌曲 ID 列表，逗号分隔
-    func addSongsToSonglist(dirid: Int, songIds: String) async throws -> JSON {
-        try await requestWrapped("/songlist/add_songs", params: [
-            "dirid": String(dirid),
-            "song_ids": songIds,
+    func addSongsToSonglist(dirid: Int, songIds: String, tid: Int = 0) async throws -> JSON {
+        let songInfo = songIds.split(separator: ",").compactMap { Int($0) }.map { [$0, 0] }
+        return try await requestWrapped("/songlist/add_songs", parameters: [
+            "dirid": dirid,
+            "song_info": songInfo,
+            "tid": tid,
         ])
     }
 
@@ -57,10 +62,12 @@ public extension QQMusicClient {
     /// - Parameters:
     ///   - dirid: 歌单 dirid
     ///   - songIds: 歌曲 ID 列表，逗号分隔
-    func deleteSongsFromSonglist(dirid: Int, songIds: String) async throws -> JSON {
-        try await requestWrapped("/songlist/del_songs", params: [
-            "dirid": String(dirid),
-            "song_ids": songIds,
+    func deleteSongsFromSonglist(dirid: Int, songIds: String, tid: Int = 0) async throws -> JSON {
+        let songInfo = songIds.split(separator: ",").compactMap { Int($0) }.map { [$0, 0] }
+        return try await requestWrapped("/songlist/del_songs", parameters: [
+            "dirid": dirid,
+            "song_info": songInfo,
+            "tid": tid,
         ])
     }
 }

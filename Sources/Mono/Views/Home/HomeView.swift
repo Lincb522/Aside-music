@@ -8,6 +8,7 @@ struct HomeView: View {
     @State private var navigationPath = NavigationPath()
     @State private var bannerWebURL: URL?
     @State private var appeared = false
+    @State private var didActivateHome = false
 
     enum HomeDestination: Hashable {
         case search, dailyRecommend, playlist(Playlist), bannerPlaylist(Playlist, String?), artist(Int), album(Int), mvDiscover, newSongExpress, qcmNewSongs, meditationMode
@@ -67,51 +68,53 @@ struct HomeView: View {
             }
             .task {
                 guard await MainTabActivationGate.waitUntilSettled(.home) else { return }
-                viewModel.ensureHomeDataLoaded(reason: "home appear")
-                if !appeared {
-                    withAnimation(.spring(response: 0.6, dampingFraction: 0.85).delay(0.05)) {
-                        appeared = true
-                    }
-                }
+                activateHomeIfNeeded(reason: "home appear", animatesAppearance: true)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .mainTabDidSettle)) { notification in
+                guard notification.object as? Tab == .home,
+                      MainTabActivationGate.isSettled(.home) else { return }
+                activateHomeIfNeeded(reason: "home selected", animatesAppearance: true)
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button(action: {
-                        NotificationCenter.default.post(name: .init("SwitchToProfile"), object: nil)
-                    }) {
-                        homeAvatarView
+                if !SignalStyle.isActive {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button(action: {
+                            NotificationCenter.default.post(name: .init("SwitchToProfile"), object: nil)
+                        }) {
+                            homeAvatarView
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    HStack(spacing: 12) {
-                        Button(action: {
-                            navigationPath.append(HomeDestination.meditationMode)
-                        }) {
-                            MonoIcon(icon: .moon, size: 15)
-                                .padding(3)
-                        }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        HStack(spacing: 12) {
+                            Button(action: {
+                                navigationPath.append(HomeDestination.meditationMode)
+                            }) {
+                                MonoIcon(icon: .moon, size: 15)
+                                    .padding(3)
+                            }
 
-                        Button(action: {
-                            showPersonalFM = true
-                        }) {
-                            MonoIcon(icon: .fm, size: 15)
-                                .padding(3)
-                        }
+                            Button(action: {
+                                showPersonalFM = true
+                            }) {
+                                MonoIcon(icon: .fm, size: 15)
+                                    .padding(3)
+                            }
 
-                        Button(action: {
-                            navigationPath.append(HomeDestination.search)
-                        }) {
-                            MonoIcon(icon: .search, size: 15)
-                                .padding(3)
+                            Button(action: {
+                                navigationPath.append(HomeDestination.search)
+                            }) {
+                                MonoIcon(icon: .search, size: 15)
+                                    .padding(3)
+                            }
                         }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .modifier(HomeToolbarCapsuleModifier())
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .modifier(HomeToolbarCapsuleModifier())
                 }
             }
             .navigationDestination(for: HomeDestination.self, destination: destinationView)
@@ -133,8 +136,12 @@ struct HomeView: View {
             }
             .task {
                 guard await MainTabActivationGate.waitUntilSettled(.home) else { return }
-                viewModel.ensureHomeDataLoaded(reason: "minimal white home appear")
-                appeared = true
+                activateHomeIfNeeded(reason: "minimal white home appear", animatesAppearance: false)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .mainTabDidSettle)) { notification in
+                guard notification.object as? Tab == .home,
+                      MainTabActivationGate.isSettled(.home) else { return }
+                activateHomeIfNeeded(reason: "minimal white home selected", animatesAppearance: false)
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
@@ -142,6 +149,21 @@ struct HomeView: View {
             .navigationDestination(for: HomeDestination.self, destination: destinationView)
             .fullScreenCover(isPresented: $showPersonalFM) { PersonalFMView() }
             .fullScreenCover(item: $bannerWebURL) { url in MonoWebView(url: url, title: nil) }
+        }
+    }
+
+    private func activateHomeIfNeeded(reason: String, animatesAppearance: Bool) {
+        guard !didActivateHome else { return }
+        didActivateHome = true
+        viewModel.ensureHomeDataLoaded(reason: reason)
+
+        guard !appeared else { return }
+        if animatesAppearance {
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.85).delay(0.05)) {
+                appeared = true
+            }
+        } else {
+            appeared = true
         }
     }
 
@@ -574,7 +596,121 @@ struct HomeView: View {
 
     // MARK: - Scroll Body (Now Showing cinema layout)
 
+    @ViewBuilder
     private var scrollBody: some View {
+        if SignalStyle.isActive {
+            signalScrollBody
+        } else {
+            cinemaScrollBody
+        }
+    }
+
+    private var signalScrollBody: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 32) {
+                consoleMasthead
+
+                if !viewModel.banners.isEmpty {
+                    SignalHomeHero(banners: viewModel.banners, onTap: handleBannerTap)
+                }
+
+                signalHomeQuickActions
+
+                if !viewModel.dailySongs.isEmpty {
+                    SignalHomeSongSection(
+                        title: String(localized: "made_for_you"),
+                        songs: viewModel.dailySongs,
+                        onViewAll: { navigationPath.append(HomeDestination.dailyRecommend) },
+                        onPlay: { song in PlayerManager.shared.play(song: song, in: viewModel.dailySongs) }
+                    )
+                }
+
+                if !viewModel.recommendPlaylists.isEmpty {
+                    SignalHomePlaylistSection(
+                        title: String(localized: "playlists_love"),
+                        playlists: viewModel.recommendPlaylists,
+                        onViewAll: { switchToLibrarySquare() },
+                        onTap: { playlist in navigationPath.append(HomeDestination.playlist(playlist)) }
+                    )
+                }
+
+                if !viewModel.qqRecommendPlaylists.isEmpty {
+                    SignalHomePlaylistSection(
+                        title: String(localized: "qq_recommend_playlists"),
+                        playlists: viewModel.qqRecommendPlaylists,
+                        onViewAll: { switchToLibrarySquare() },
+                        onTap: { playlist in navigationPath.append(HomeDestination.playlist(playlist)) }
+                    )
+                }
+
+                if !viewModel.kugouRecommendPlaylists.isEmpty {
+                    SignalHomePlaylistSection(
+                        title: "KCM 推荐歌单",
+                        playlists: viewModel.kugouRecommendPlaylists,
+                        onViewAll: { switchToLibrarySquare(source: .kugou) },
+                        onTap: { playlist in navigationPath.append(HomeDestination.playlist(playlist)) }
+                    )
+                }
+
+                if !viewModel.qqNewSongs.isEmpty {
+                    SignalHomeSongSection(
+                        title: String(localized: "qq_new_songs"),
+                        songs: viewModel.qqNewSongs,
+                        onViewAll: { navigationPath.append(HomeDestination.qcmNewSongs) },
+                        onPlay: { song in PlayerManager.shared.play(song: song, in: viewModel.qqNewSongs) }
+                    )
+                }
+
+                FloatingBarBottomSpacer()
+            }
+            .padding(.top, DeviceLayout.headerTopPadding + 2)
+            .padding(.bottom, 8)
+        }
+        .scrollIndicators(.hidden)
+        .themeRenderScrollLayer()
+        .refreshable { viewModel.retryHomeDataLoad(reason: "signal home refresh") }
+    }
+
+    private var signalHomeQuickActions: some View {
+        HStack(spacing: 0) {
+            signalHomeAction(icon: .musicNoteList, title: String(localized: "daily_recommend")) {
+                navigationPath.append(HomeDestination.dailyRecommend)
+            }
+
+            signalHomeAction(icon: .musicNote, title: String(localized: "new_song_express")) {
+                navigationPath.append(HomeDestination.newSongExpress)
+            }
+
+            signalHomeAction(icon: .mv, title: String(localized: "home_mv_zone")) {
+                navigationPath.append(HomeDestination.mvDiscover)
+            }
+        }
+        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+    }
+
+    private func signalHomeAction(
+        icon: MonoIcon.IconType,
+        title: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                MonoIcon(icon: icon, size: 17, color: SignalStyle.accent, lineWidth: 1.55)
+                    .frame(width: 34, height: 26)
+
+                Text(title)
+                    .font(SignalStyle.labelFont(10.5, weight: .medium))
+                    .foregroundStyle(SignalStyle.inkSoft)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var cinemaScrollBody: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
                 cinemaMasthead
@@ -706,7 +842,33 @@ struct HomeView: View {
     }
 
     private var consoleMasthead: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                SignalBreathingIndicator(size: 7)
+
+                Text(String(localized: "tabbar_home"))
+                    .font(SignalStyle.titleFont(27, weight: .semibold))
+                    .foregroundStyle(SignalStyle.ink)
+
+                Spacer(minLength: 8)
+
+                signalHomeHeaderButton(icon: .profile) {
+                    NotificationCenter.default.post(name: .init("SwitchToProfile"), object: nil)
+                }
+
+                signalHomeHeaderButton(icon: .moon) {
+                    navigationPath.append(HomeDestination.meditationMode)
+                }
+
+                signalHomeHeaderButton(icon: .fm) {
+                    showPersonalFM = true
+                }
+
+                signalHomeHeaderButton(icon: .search, tint: SignalStyle.accent) {
+                    navigationPath.append(HomeDestination.search)
+                }
+            }
+
             HStack(spacing: 8) {
                 Text(String(localized: LocalizedStringResource(stringLiteral: homeGreetingKey)))
                     .font(SignalStyle.labelFont(12, weight: .medium))
@@ -719,12 +881,6 @@ struct HomeView: View {
                     .foregroundStyle(SignalStyle.inkMuted)
             }
 
-            Text(viewModel.displayedIdentityProfile?.nickname ?? NSLocalizedString("default_nickname", comment: ""))
-                .font(SignalStyle.titleFont(27, weight: .semibold))
-                .foregroundStyle(SignalStyle.ink)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-
             if settings.hitokotoEnabled {
                 let text = viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                 cinemaTagline(text.isEmpty ? HitokotoFallbackSlogan.text : text)
@@ -732,6 +888,19 @@ struct HomeView: View {
         }
         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
         .monoPageHeaderCollapse()
+    }
+
+    private func signalHomeHeaderButton(
+        icon: MonoIcon.IconType,
+        tint: Color = SignalStyle.inkSoft,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            MonoIcon(icon: icon, size: 15, color: tint, lineWidth: 1.6)
+                .frame(width: 34, height: 40)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(MonoBouncingButtonStyle(scale: 0.94))
     }
 
     private var cinemaDateString: String {
@@ -827,7 +996,9 @@ struct HomeView: View {
 private struct HomeToolbarCapsuleModifier: ViewModifier {
     @ViewBuilder
     func body(content: Content) -> some View {
-        if ThemedPageStyle.isActive {
+        if SignalStyle.isActive {
+            content
+        } else if ThemedPageStyle.isActive {
             content.monoGlassCapsule()
         } else if #available(iOS 26, *) {
             // iOS 26 的 ToolbarItem 已自带系统胶囊，经典主题不再重复叠玻璃。

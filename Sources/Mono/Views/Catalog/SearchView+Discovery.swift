@@ -28,12 +28,10 @@ extension SearchView {
 
     var signalEmptySearchView: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 28) {
                 if !viewModel.searchHistory.isEmpty {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(spacing: 9) {
-                            SignalPulseDot(tint: SignalStyle.accent, size: 18)
-
                             Text(String(localized: "search_history"))
                                 .font(SignalStyle.titleFont(16, weight: .bold))
                                 .foregroundStyle(SignalStyle.ink)
@@ -47,7 +45,6 @@ extension SearchView {
                             } label: {
                                 MonoIcon(icon: .trash, size: 13, color: SignalStyle.inkSoft)
                                     .frame(width: 32, height: 32)
-                                    .background(SignalSurfaceBackground(cornerRadius: 9, elevated: false, pressed: true, fill: SignalStyle.control))
                             }
                             .buttonStyle(.plain)
                         }
@@ -71,20 +68,23 @@ extension SearchView {
                             }
                         }
                     }
-                    .padding(14)
-                    .background(SignalSurfaceBackground(cornerRadius: 14, elevated: true, fill: SignalStyle.surface))
+                    .padding(.bottom, 4)
+                    .overlay(alignment: .bottom) {
+                        Rectangle()
+                            .fill(SignalStyle.separator.opacity(0.58))
+                            .frame(height: 0.65)
+                    }
                 }
 
                 if !viewModel.hotSearchItems.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {
                         HStack(spacing: 9) {
-                            SignalPulseDot(tint: SignalStyle.mint, size: 18)
                             Text(String(localized: "search_hot"))
                                 .font(SignalStyle.titleFont(16, weight: .bold))
                                 .foregroundStyle(SignalStyle.ink)
                         }
 
-                        LazyVStack(spacing: 7) {
+                        LazyVStack(spacing: 0) {
                             ForEach(Array(viewModel.hotSearchItems.prefix(15).enumerated()), id: \.element.searchWord) { index, item in
                                 Button {
                                     viewModel.performSearch(keyword: item.searchWord)
@@ -106,16 +106,17 @@ extension SearchView {
 
                                         MonoIcon(icon: .chevronRight, size: 10, color: SignalStyle.inkMuted, lineWidth: 1.5)
                                     }
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 10)
-                                    .background(SignalSurfaceBackground(cornerRadius: 10, elevated: false, pressed: true, fill: SignalStyle.screen.opacity(0.88)))
+                                    .padding(.vertical, 12)
+                                    .overlay(alignment: .bottom) {
+                                        Rectangle()
+                                            .fill(SignalStyle.separator.opacity(0.42))
+                                            .frame(height: 0.65)
+                                    }
                                 }
                                 .buttonStyle(.plain)
                             }
                         }
                     }
-                    .padding(14)
-                    .background(SignalSurfaceBackground(cornerRadius: 14, elevated: true, fill: SignalStyle.surface))
                 }
             }
             .padding(.horizontal, DeviceLayout.viewHorizontalPadding)

@@ -185,7 +185,7 @@ private struct PlayerThemeStaticPreview: View {
 
     private var captionFont: Font {
         switch theme {
-        case .typewriter, .folk:
+        case .typewriter, .folk, .muji:
             return .system(size: 11.5, weight: .semibold, design: .serif)
         case .pixel, .motoPager, .dotMatrix, .console:
             return .system(size: 11, weight: .bold, design: .monospaced)
@@ -219,6 +219,10 @@ private struct PlayerThemeStaticPreview: View {
         case .clarity:        return Color(hex: "2478D8")
         case .dotMatrix:      return Color(hex: "68F8CF")
         case .console:        return SignalStyle.accent
+        case .muji:           return Color(hex: "A36D52")
+        case .capsule:        return Color(hex: "6D5CE8")
+        case .petWhite:       return Color(hex: "F28B54")
+        case .minimalWhite:   return Color(hex: "111318")
         }
     }
 
@@ -243,6 +247,14 @@ private struct PlayerThemeStaticPreview: View {
             return Color(hex: "D9FFF5")
         case .console:
             return SignalStyle.ink
+        case .muji:
+            return isDark ? Color(hex: "F0E7D8") : Color(hex: "3F3830")
+        case .capsule:
+            return isDark ? Color.white.opacity(0.94) : Color(hex: "24202D")
+        case .petWhite:
+            return Color(hex: "433A35")
+        case .minimalWhite:
+            return Color(hex: "111318")
         default:
             return ink
         }
@@ -275,6 +287,149 @@ private struct PlayerThemeStaticPreview: View {
         case .clarity: clarityMotif
         case .dotMatrix: dotMatrixMotif
         case .console: consoleMotif
+        case .muji: mujiMotif
+        case .capsule: capsuleMotif
+        case .petWhite: petWhiteMotif
+        case .minimalWhite: minimalWhiteMotif
+        }
+    }
+
+    private var mujiMotif: some View {
+        HStack(spacing: 10) {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [Color(hex: "CCD8C7"), Color(hex: "C89779")],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 62, height: 72)
+                .overlay(alignment: .bottomTrailing) {
+                    Circle()
+                        .fill(Color(hex: "F3EBDD"))
+                        .frame(width: 18, height: 18)
+                        .overlay(MonoIcon(icon: .play, size: 7, color: Color(hex: "51473D"), lineWidth: 1.6))
+                        .padding(7)
+                }
+                .shadow(color: Color.black.opacity(0.12), radius: 5, y: 3)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("SIDE A")
+                    .font(.system(size: 7, weight: .semibold, design: .serif))
+                    .tracking(1.4)
+                    .foregroundStyle(Color(hex: "A36D52"))
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Capsule().fill(Color(hex: "4C443C").opacity(0.82)).frame(width: 38, height: 3)
+                    Capsule().fill(Color(hex: "4C443C").opacity(0.3)).frame(width: 29, height: 2)
+                }
+
+                HStack(spacing: 4) {
+                    Circle().fill(Color(hex: "A36D52")).frame(width: 5, height: 5)
+                    Capsule().fill(Color(hex: "A36D52").opacity(0.28)).frame(width: 30, height: 2)
+                }
+            }
+        }
+    }
+
+    private var capsuleMotif: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 5) {
+                Capsule()
+                    .fill(Color.white.opacity(0.82))
+                    .frame(width: 23, height: 10)
+                Capsule()
+                    .fill(Color(hex: "6D5CE8"))
+                    .frame(width: 62, height: 10)
+            }
+
+            HStack(spacing: 8) {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color(hex: "FF9D7A"), Color(hex: "7D6EF0")],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 58, height: 58)
+
+                VStack(spacing: 6) {
+                    Circle()
+                        .fill(Color(hex: "24202D"))
+                        .frame(width: 29, height: 29)
+                        .overlay(MonoIcon(icon: .play, size: 10, color: .white, lineWidth: 1.8))
+                    HStack(spacing: 4) {
+                        Capsule().fill(Color(hex: "6D5CE8").opacity(0.28)).frame(width: 16, height: 7)
+                        Capsule().fill(Color(hex: "FF9D7A").opacity(0.42)).frame(width: 16, height: 7)
+                    }
+                }
+            }
+        }
+    }
+
+    private var petWhiteMotif: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color(hex: "FFF7ED"))
+                .frame(width: 100, height: 76)
+                .shadow(color: Color(hex: "8B6E5D").opacity(0.18), radius: 6, y: 4)
+
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [Color(hex: "B9E3D4"), Color(hex: "FFD58C")],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 53, height: 53)
+                .offset(x: -17)
+                .overlay(MonoIcon(icon: .catLife, size: 20, color: Color(hex: "55483F"), lineWidth: 1.7).offset(x: -17))
+
+            VStack(spacing: 6) {
+                Circle()
+                    .fill(Color(hex: "F28B54"))
+                    .frame(width: 25, height: 25)
+                    .overlay(MonoIcon(icon: .play, size: 8, color: .white, lineWidth: 1.8))
+                HStack(spacing: 4) {
+                    Circle().fill(Color(hex: "8CCBC2")).frame(width: 9, height: 9)
+                    Circle().fill(Color(hex: "F4C86A")).frame(width: 9, height: 9)
+                }
+            }
+            .offset(x: 35)
+        }
+    }
+
+    private var minimalWhiteMotif: some View {
+        VStack(spacing: 8) {
+            HStack(alignment: .bottom, spacing: 9) {
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color(hex: "E6E7E9"), Color(hex: "B9BDC4")],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 57, height: 57)
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Capsule().fill(Color(hex: "111318")).frame(width: 40, height: 3)
+                    Capsule().fill(Color(hex: "111318").opacity(0.26)).frame(width: 27, height: 2)
+                    Circle()
+                        .stroke(Color(hex: "111318"), lineWidth: 1.2)
+                        .frame(width: 22, height: 22)
+                        .overlay(MonoIcon(icon: .play, size: 7, color: Color(hex: "111318"), lineWidth: 1.7))
+                        .padding(.top, 2)
+                }
+            }
+
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color(hex: "111318").opacity(0.13)).frame(width: 106, height: 2)
+                Capsule().fill(Color(hex: "111318")).frame(width: 43, height: 2)
+            }
         }
     }
 
@@ -1009,17 +1164,7 @@ private struct PlayerThemeStaticPreview: View {
     private var previewBackground: some View {
         switch theme {
         case .classic:
-            if PetWhiteStyle.isActive {
-                pawcelainPreviewBackground
-            } else if NeumorphicStyle.isActive {
-                LinearGradient(
-                    colors: isDark ? [Color(hex: "252A30"), Color(hex: "1A1F24")] : [Color(hex: "EEF2F4"), Color(hex: "DDE5E9")],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            } else {
-                LinearGradient(colors: isDark ? [Color(hex: "1B1D24"), Color(hex: "101218")] : [Color(hex: "F7F7F4"), Color(hex: "E9ECEF")], startPoint: .topLeading, endPoint: .bottomTrailing)
-            }
+            LinearGradient(colors: isDark ? [Color(hex: "1B1D24"), Color(hex: "101218")] : [Color(hex: "F7F7F4"), Color(hex: "E9ECEF")], startPoint: .topLeading, endPoint: .bottomTrailing)
         case .vinyl:
             LinearGradient(colors: isDark ? [Color(hex: "15120F"), Color(hex: "2B241B")] : [Color(hex: "F4F1EA"), Color(hex: "D8D0C2")], startPoint: .top, endPoint: .bottom)
         case .lyricFocus:
@@ -1094,6 +1239,26 @@ private struct PlayerThemeStaticPreview: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
+        case .muji:
+            LinearGradient(
+                colors: isDark
+                    ? [Color(hex: "2C2925"), Color(hex: "1D1B19")]
+                    : [Color(hex: "F4EFE6"), Color(hex: "E7DDCE")],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        case .capsule:
+            LinearGradient(
+                colors: isDark
+                    ? [Color(hex: "211D2B"), Color(hex: "121017")]
+                    : [Color(hex: "F1EEFF"), Color(hex: "E8E3F3")],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        case .petWhite:
+            pawcelainPreviewBackground
+        case .minimalWhite:
+            Color(hex: "FAFAF9")
         }
     }
 

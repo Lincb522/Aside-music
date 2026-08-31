@@ -59,7 +59,8 @@ struct SettingsIconBadge: View {
         } else if NeumorphicStyle.isActive {
             NeumorphicIconBadge(icon: icon, tint: NeumorphicStyle.accent, size: 32)
         } else if SignalStyle.isActive {
-            SignalIconBadge(icon: icon, tint: SignalStyle.accent, size: 32)
+            MonoIcon(icon: icon, size: 15, color: SignalStyle.accent, lineWidth: 1.6)
+                .frame(width: 32, height: 32)
         } else if CapsuleStyle.isActive {
             CapsuleIconBadge(icon: icon, tint: CapsuleStyle.accent, size: 32)
         } else if PetWhiteStyle.isActive {
@@ -171,7 +172,7 @@ struct SettingsSection<Content: View>: View {
                         ? 0
                         : ((MinimalWhiteStyle.isActive || isAsideTheme) ? 0 : (MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive || BentoStyle.isActive ? 1.0 : 0.4)))
             }
-            .padding(.leading, developerDiagnosticStyle || isAsideTheme || ClarityStyle.isActive ? 0 : 16)
+            .padding(.leading, developerDiagnosticStyle || isAsideTheme || ClarityStyle.isActive || SignalStyle.isActive ? 0 : 16)
 
             VStack(spacing: 0) {
                 content
@@ -213,7 +214,15 @@ struct SettingsSection<Content: View>: View {
                 } else if SequoiaStyle.isActive {
                     SequoiaSurfaceBackground(cornerRadius: 18, elevated: false, role: .list)
                 } else if SignalStyle.isActive {
-                    SignalSurfaceBackground(cornerRadius: 16, elevated: true, fill: SignalStyle.device)
+                    VStack(spacing: 0) {
+                        Rectangle()
+                            .fill(SignalStyle.separator.opacity(0.76))
+                            .frame(height: 0.65)
+                        Spacer(minLength: 0)
+                        Rectangle()
+                            .fill(SignalStyle.separator.opacity(0.48))
+                            .frame(height: 0.65)
+                    }
                 } else if BentoStyle.isActive {
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
                         .fill(BentoStyle.surface)
@@ -345,7 +354,17 @@ extension View {
         } else if SequoiaStyle.isActive {
             background(SequoiaSurfaceBackground(cornerRadius: min(max(cornerRadius, 16), 24), elevated: true, role: .chrome))
         } else if SignalStyle.isActive {
-            background(SignalSurfaceBackground(cornerRadius: min(max(cornerRadius, 12), 18), elevated: true, fill: SignalStyle.device))
+            background {
+                VStack(spacing: 0) {
+                    Rectangle()
+                        .fill(SignalStyle.separator.opacity(0.76))
+                        .frame(height: 0.65)
+                    Spacer(minLength: 0)
+                    Rectangle()
+                        .fill(SignalStyle.separator.opacity(0.48))
+                        .frame(height: 0.65)
+                }
+            }
         } else if BentoStyle.isActive {
             background(
                 RoundedRectangle(cornerRadius: min(max(cornerRadius, 18), 26), style: .continuous)

@@ -7,6 +7,7 @@ struct ClarityHomeView: View {
     @State private var showFM = false
     @State private var bannerWebURL: URL?
     @State private var hitokotoRefreshRotation = 0.0
+    @State private var didActivateHome = false
 
     private enum Destination: Hashable {
         case search
@@ -36,15 +37,26 @@ struct ClarityHomeView: View {
         }
         .task {
             guard await MainTabActivationGate.waitUntilSettled(.home) else { return }
-            model.ensureHomeDataLoaded(reason: "clarity home appear")
-            if settings.hitokotoEnabled {
-                model.refreshHitokoto()
-            }
+            activateHomeIfNeeded(reason: "clarity home appear")
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .mainTabDidSettle)) { notification in
+            guard notification.object as? Tab == .home,
+                  MainTabActivationGate.isSettled(.home) else { return }
+            activateHomeIfNeeded(reason: "clarity home selected")
         }
         .onChange(of: settings.hitokotoEnabled) { _, enabled in
             if enabled, MainTabActivationGate.isSettled(.home) {
                 model.refreshHitokoto(force: true)
             }
+        }
+    }
+
+    private func activateHomeIfNeeded(reason: String) {
+        guard !didActivateHome else { return }
+        didActivateHome = true
+        model.ensureHomeDataLoaded(reason: reason)
+        if settings.hitokotoEnabled {
+            model.refreshHitokoto()
         }
     }
 
@@ -454,19 +466,23 @@ private struct ClarityWideBannerArtwork: View {
                     width: proxy.size.width,
                     height: proxy.size.height,
                     placeholder: { placeholder },
-                    contentMode: .fill
+                    contentMode: .fill,
+                    resizesArtworkURL: false
                 )
                 .blur(radius: 18)
                 .scaleEffect(1.08)
                 .opacity(0.34)
+                .frame(width: proxy.size.width, height: proxy.size.height)
 
                 CachedAsyncImage(
                     url: url,
                     width: proxy.size.width,
                     height: proxy.size.height,
                     placeholder: { placeholder },
-                    contentMode: .fit
+                    contentMode: .fit,
+                    resizesArtworkURL: false
                 )
+                .frame(width: proxy.size.width, height: proxy.size.height)
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
             .clipped()

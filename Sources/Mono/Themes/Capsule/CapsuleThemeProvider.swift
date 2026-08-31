@@ -62,7 +62,7 @@ struct CapsuleThemeProvider: GlobalThemeProvider {
     }
 
     var suggestedPlayerTheme: PlayerTheme? {
-        .classic
+        .capsule
     }
 
     func makeHomeView() -> AnyView {

@@ -130,11 +130,31 @@ extension ScrollableLibraryExperience {
     }
 
     var signalHeaderDeck: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(String(localized: "tabbar_library"))
-                .font(SignalStyle.titleFont(27, weight: .semibold))
-                .foregroundStyle(SignalStyle.ink)
-                .lineLimit(1)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                SignalIconBadge(icon: .libraryFilled, tint: SignalStyle.accent, size: 46)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(String(localized: "tabbar_library"))
+                        .font(SignalStyle.titleFont(25, weight: .semibold))
+                        .foregroundStyle(SignalStyle.ink)
+                        .lineLimit(1)
+
+                    Text(selectedTab.localizedKey)
+                        .font(SignalStyle.labelFont(11, weight: .medium))
+                        .foregroundStyle(SignalStyle.inkSoft)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 10)
+
+                SignalLevelMeter(
+                    activeCount: tabIndex + 3,
+                    barCount: 8,
+                    tint: SignalStyle.accent,
+                    height: 22
+                )
+            }
 
             tabStrip
         }
@@ -510,49 +530,50 @@ extension ScrollableLibraryExperience {
     }
 
     var signalTabDeck: some View {
-        HStack(spacing: 7) {
+        HStack(spacing: 0) {
             ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
                 signalTabButton(tab: tab, index: index)
             }
         }
-        .padding(5)
-        .background(SignalSurfaceBackground(cornerRadius: 22, elevated: true, fill: SignalStyle.device))
-        .animation(.spring(response: 0.32, dampingFraction: 0.88), value: tabIndex)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(SignalStyle.separator.opacity(0.58))
+                .frame(height: 0.65)
+        }
+        .animation(.easeOut(duration: 0.2), value: tabIndex)
     }
 
     func signalTabButton(tab: LibraryViewModel.LibraryTab, index: Int) -> some View {
         let selected = tabIndex == index
-        let tint = tint(for: tab)
+        let tint = SignalStyle.accent
 
         return Button {
             selectTab(tab, index: index)
         } label: {
-            HStack(spacing: 6) {
+            VStack(spacing: 5) {
                 MonoIcon(
                     icon: icon(for: tab),
                     size: 14,
-                    color: selected ? tint : SignalStyle.inkSoft,
+                    color: selected ? SignalStyle.accent : SignalStyle.inkMuted,
                     lineWidth: selected ? 1.9 : 1.55
                 )
 
                 Text(tab.localizedKey)
-                    .font(SignalStyle.labelFont(11.5, weight: selected ? .bold : .semibold))
-                    .foregroundStyle(selected ? SignalStyle.ink : SignalStyle.inkSoft)
+                    .font(SignalStyle.labelFont(10.5, weight: selected ? .semibold : .medium))
+                    .foregroundStyle(selected ? SignalStyle.ink : SignalStyle.inkMuted)
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
+
+                Circle()
+                    .fill(selected ? tint : Color.clear)
+                    .frame(width: 3.5, height: 3.5)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 40)
-            .background(
-                SignalSurfaceBackground(
-                    cornerRadius: 16,
-                    elevated: selected,
-                    pressed: !selected,
-                    fill: selected ? tint.opacity(0.16) : SignalStyle.control
-                )
-            )
+            .frame(height: 50)
+            .contentShape(Rectangle())
         }
         .buttonStyle(MonoBouncingButtonStyle(scale: 0.95))
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     var sequoiaTabDeck: some View {

@@ -49,6 +49,10 @@ final class AudioRenderer {
     /// the source node to actually ask for silence after queued PCM drains.
     private var renderObservationLock = os_unfair_lock_s()
     private var underrunSerial: UInt64 = 0
+    private var renderCallbackSerial: UInt64 = 0
+    private var lastRenderCallbackUptimeNanoseconds: UInt64 = 0
+    private var recentRealPCMFrameCount: Int = 0
+    private var recentOutputPeak: Float = 0
 
     /// Serializes start/stop lifecycle to prevent concurrent engine disposal.
     private let lifecycleLock = NSLock()
@@ -323,6 +327,36 @@ final class AudioRenderer {
         return serial
     }
 
+    func outputDiagnostics() -> AudioOutputDiagnostics {
+        let now = DispatchTime.now().uptimeNanoseconds
+        os_unfair_lock_lock(&renderObservationLock)
+        let callbackSerial = renderCallbackSerial
+        let callbackUptime = lastRenderCallbackUptimeNanoseconds
+        let realPCMFrameCount = recentRealPCMFrameCount
+        let outputPeak = recentOutputPeak
+        let currentUnderrunSerial = underrunSerial
+        os_unfair_lock_unlock(&renderObservationLock)
+
+        let callbackAge: TimeInterval?
+        if callbackUptime == 0 || now < callbackUptime {
+            callbackAge = nil
+        } else {
+            callbackAge = TimeInterval(now - callbackUptime) / 1_000_000_000
+        }
+
+        return AudioOutputDiagnostics(
+            isEngineRunning: isOutputRunning,
+            renderCallbackSerial: callbackSerial,
+            lastRenderCallbackAge: callbackAge,
+            recentRealPCMFrameCount: realPCMFrameCount,
+            recentOutputPeak: outputPeak,
+            underrunSerial: currentUnderrunSerial,
+            queuedBufferCount: queuedBufferCount,
+            queuedDuration: queuedDuration,
+            totalRealPCMOutputDuration: totalAudibleOutputDuration
+        )
+    }
+
     func hasObservedUnderrun(since serial: UInt64) -> Bool {
         os_unfair_lock_lock(&renderObservationLock)
         let observed = underrunSerial > serial
@@ -333,6 +367,29 @@ final class AudioRenderer {
     private func markUnderrunObserved() {
         os_unfair_lock_lock(&renderObservationLock)
         underrunSerial &+= 1
+        os_unfair_lock_unlock(&renderObservationLock)
+    }
+
+    private func recordRenderObservation(
+        output: UnsafePointer<Float>,
+        sampleCount: Int,
+        realPCMFrameCount: Int
+    ) {
+        var peak: Float = 0
+        if sampleCount > 0 {
+            let stride = max(1, sampleCount / 256)
+            var index = 0
+            while index < sampleCount {
+                peak = max(peak, abs(output[index]))
+                index += stride
+            }
+        }
+
+        os_unfair_lock_lock(&renderObservationLock)
+        renderCallbackSerial &+= 1
+        lastRenderCallbackUptimeNanoseconds = DispatchTime.now().uptimeNanoseconds
+        recentRealPCMFrameCount = realPCMFrameCount
+        recentOutputPeak = peak
         os_unfair_lock_unlock(&renderObservationLock)
     }
 
@@ -1161,6 +1218,11 @@ final class AudioRenderer {
 
         guard !isStopping else {
             output.update(repeating: 0, count: totalSamples)
+            recordRenderObservation(
+                output: UnsafePointer(output),
+                sampleCount: totalSamples,
+                realPCMFrameCount: 0
+            )
             return
         }
 
@@ -1177,6 +1239,11 @@ final class AudioRenderer {
             markUnderrunObserved()
             underrunCount += 1
             wasUnderrun = true
+            recordRenderObservation(
+                output: UnsafePointer(output),
+                sampleCount: totalSamples,
+                realPCMFrameCount: 0
+            )
             return
         }
         if isRebuffering {
@@ -1413,7 +1480,14 @@ final class AudioRenderer {
             underrunCount = 0
         }
 
-        guard samplesWritten > 0 else { return }
+        guard samplesWritten > 0 else {
+            recordRenderObservation(
+                output: UnsafePointer(output),
+                sampleCount: totalSamples,
+                realPCMFrameCount: audibleFramesWritten
+            )
+            return
+        }
 
         // Feed the dedicated measurement path before AudioFilterGraph, fixed EQ,
         // and repair processing. `SpectrumAnalyzer.feed` is try-lock based and
@@ -1503,5 +1577,11 @@ final class AudioRenderer {
         if protectionLevel < 2, let callback = onAudioData {
             callback(output, frameCount, channelCount, sampleRate)
         }
+
+        recordRenderObservation(
+            output: UnsafePointer(output),
+            sampleCount: totalSamples,
+            realPCMFrameCount: audibleFramesWritten
+        )
     }
 }

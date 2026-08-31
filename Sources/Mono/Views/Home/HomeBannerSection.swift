@@ -122,16 +122,36 @@ struct HomeBannerArtwork<Placeholder: View>: View {
 
     var body: some View {
         GeometryReader { proxy in
-            CachedAsyncImage(
-                url: url,
-                width: proxy.size.width,
-                height: proxy.size.height,
-                placeholder: {
-                    placeholder
-                        .frame(width: proxy.size.width, height: proxy.size.height)
-                },
-                contentMode: .fill
-            )
+            ZStack {
+                CachedAsyncImage(
+                    url: url,
+                    width: proxy.size.width,
+                    height: proxy.size.height,
+                    placeholder: {
+                        placeholder
+                            .frame(width: proxy.size.width, height: proxy.size.height)
+                    },
+                    contentMode: .fill,
+                    resizesArtworkURL: false
+                )
+                .blur(radius: 18)
+                .scaleEffect(1.08)
+                .opacity(0.34)
+                .frame(width: proxy.size.width, height: proxy.size.height)
+
+                CachedAsyncImage(
+                    url: url,
+                    width: proxy.size.width,
+                    height: proxy.size.height,
+                    placeholder: {
+                        placeholder
+                            .frame(width: proxy.size.width, height: proxy.size.height)
+                    },
+                    contentMode: .fit,
+                    resizesArtworkURL: false
+                )
+                .frame(width: proxy.size.width, height: proxy.size.height)
+            }
             .frame(width: proxy.size.width, height: proxy.size.height)
             .clipped()
         }

@@ -211,6 +211,7 @@ final class AudioSessionCoordinator {
 
     private func audioDiagnosticContext() -> [String: String] {
         let session = AVAudioSession.sharedInstance()
+        let outputDiagnostics = player.streamPlayer.audioOutputDiagnostics
         let outputPorts = session.currentRoute.outputs
             .map { $0.portType.rawValue }
             .sorted()
@@ -245,6 +246,15 @@ final class AudioSessionCoordinator {
             "audibleDuration": Self.diagnosticNumber(
                 player.streamPlayer.totalAudiblePlaybackDuration
             ),
+            "renderCallbackSerial": String(outputDiagnostics.renderCallbackSerial),
+            "renderCallbackAgeMs": outputDiagnostics.lastRenderCallbackAge.map {
+                Self.diagnosticNumber($0 * 1_000)
+            } ?? "none",
+            "recentRealPCMFrames": String(outputDiagnostics.recentRealPCMFrameCount),
+            "recentOutputPeak": Self.diagnosticNumber(outputDiagnostics.recentOutputPeak),
+            "rendererUnderrunSerial": String(outputDiagnostics.underrunSerial),
+            "queuedAudioBuffers": String(outputDiagnostics.queuedBufferCount),
+            "queuedAudioDuration": Self.diagnosticNumber(outputDiagnostics.queuedDuration),
             "mixerVolume": Self.diagnosticNumber(player.streamPlayer.outputVolume),
             "duckingVolume": Self.diagnosticNumber(player.streamPlayer.duckingVolume),
             "interrupted": String(isUnderInterruption),

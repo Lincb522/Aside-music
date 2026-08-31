@@ -8,6 +8,8 @@ extension PodcastView {
     func radioGridCard(radio: RadioStation) -> some View {
         if PetWhiteStyle.isActive {
             petWhiteRadioGridCard(radio: radio)
+        } else if SignalStyle.isActive {
+            signalRadioGridCard(radio: radio)
         } else if SequoiaStyle.isActive {
             sequoiaRadioGridCard(radio: radio)
         } else if NeumorphicStyle.isActive {
@@ -79,6 +81,59 @@ extension PodcastView {
                 }
             }
         }
+    }
+
+    func signalRadioGridCard(radio: RadioStation) -> some View {
+        let metadata = radio.dj?.nickname ?? radio.category ?? " "
+
+        return VStack(alignment: .leading, spacing: 9) {
+            ZStack(alignment: .bottomTrailing) {
+                CachedAsyncImage(url: radio.coverUrl) {
+                    SignalStyle.controlPressed
+                        .overlay(
+                            MonoIcon(icon: .podcast, size: 28, color: SignalStyle.inkMuted, lineWidth: 1.45)
+                        )
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .stroke(SignalStyle.separator.opacity(0.72), lineWidth: 0.8)
+                )
+
+                MonoIcon(icon: .play, size: 12, color: SignalStyle.onAccent, lineWidth: 1.9)
+                    .frame(width: 32, height: 32)
+                    .background(SignalStyle.accent, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    .padding(8)
+            }
+            .aspectRatio(1, contentMode: .fit)
+
+            Text(radio.name)
+                .font(SignalStyle.bodyFont(14, weight: .semibold))
+                .foregroundStyle(SignalStyle.ink)
+                .lineLimit(2, reservesSpace: true)
+                .frame(maxWidth: .infinity, minHeight: 36, alignment: .topLeading)
+
+            HStack(spacing: 6) {
+                SignalBreathingIndicator(size: 5)
+
+                Text(metadata)
+                    .font(SignalStyle.labelFont(11, weight: .medium))
+                    .foregroundStyle(SignalStyle.inkSoft)
+                    .lineLimit(1)
+
+                Spacer(minLength: 0)
+
+                if let count = radio.programCount, count > 0 {
+                    Text("\(count)")
+                        .font(SignalStyle.monoFont(10, weight: .semibold))
+                        .foregroundStyle(SignalStyle.inkMuted)
+                        .monospacedDigit()
+                }
+            }
+        }
+        .contentShape(Rectangle())
     }
 
     /// aside 网格卡：平铺封面 + 发丝描边 + 编辑部排印
@@ -335,6 +390,9 @@ extension PodcastView {
         if PetWhiteStyle.isActive {
             return AnyView(petWhiteRadioListRow(radio: radio))
         }
+        if SignalStyle.isActive {
+            return AnyView(signalRadioListRow(radio: radio))
+        }
         if isAside {
             return AnyView(asideRadioListRow(radio: radio))
         }
@@ -416,6 +474,51 @@ extension PodcastView {
         .padding(.horizontal, themedInset ? padH : 0)
         .padding(.vertical, themedInset ? 5 : 0)
         .contentShape(Rectangle()))
+    }
+
+    func signalRadioListRow(radio: RadioStation) -> some View {
+        HStack(spacing: 12) {
+            CachedAsyncImage(url: radio.coverUrl) {
+                SignalStyle.controlPressed
+            }
+            .aspectRatio(contentMode: .fill)
+            .frame(width: 58, height: 58)
+            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .stroke(SignalStyle.separator.opacity(0.7), lineWidth: 0.8)
+            )
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(radio.name)
+                    .font(SignalStyle.bodyFont(15, weight: .semibold))
+                    .foregroundStyle(SignalStyle.ink)
+                    .lineLimit(1)
+
+                Text(radio.dj?.nickname ?? radio.category ?? " ")
+                    .font(SignalStyle.labelFont(11, weight: .medium))
+                    .foregroundStyle(SignalStyle.inkSoft)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 8)
+
+            SignalLevelMeter(
+                activeCount: min(max((radio.programCount ?? 0) % 7 + 2, 2), 8),
+                barCount: 8,
+                tint: SignalStyle.inkSoft,
+                height: 19
+            )
+
+            MonoIcon(icon: .play, size: 12, color: SignalStyle.onAccent, lineWidth: 1.9)
+                .frame(width: 34, height: 34)
+                .background(SignalStyle.accent, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .padding(11)
+        .background(SignalSurfaceBackground(cornerRadius: 14, elevated: false, fill: SignalStyle.surface))
+        .padding(.horizontal, padH)
+        .padding(.vertical, 4)
+        .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     /// aside 精选电台行：发丝分隔列表行
@@ -527,6 +630,9 @@ extension PodcastView {
         if PetWhiteStyle.isActive {
             return AnyView(petWhiteProgramListRow(program: program, rank: rank))
         }
+        if SignalStyle.isActive {
+            return AnyView(signalProgramListRow(program: program, rank: rank))
+        }
         if isAside {
             return AnyView(asideProgramListRow(program: program, rank: rank))
         }
@@ -615,6 +721,57 @@ extension PodcastView {
         .padding(.horizontal, themedInset ? padH : 0)
         .padding(.vertical, themedInset ? 5 : 0)
         .contentShape(Rectangle()))
+    }
+
+    func signalProgramListRow(program: RadioProgram, rank: Int) -> some View {
+        let isTop3 = rank <= 3
+
+        return HStack(spacing: 12) {
+            Text(String(format: "%02d", rank))
+                .font(SignalStyle.monoFont(11, weight: .bold))
+                .foregroundStyle(isTop3 ? SignalStyle.accent : SignalStyle.inkMuted)
+                .monospacedDigit()
+                .frame(width: 26, alignment: .leading)
+
+            CachedAsyncImage(url: program.programCoverUrl) {
+                SignalStyle.controlPressed
+            }
+            .aspectRatio(contentMode: .fill)
+            .frame(width: 52, height: 52)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(program.name ?? "")
+                    .font(SignalStyle.bodyFont(14, weight: .semibold))
+                    .foregroundStyle(SignalStyle.ink)
+                    .lineLimit(1)
+
+                Text(program.radio?.name ?? " ")
+                    .font(SignalStyle.labelFont(11, weight: .medium))
+                    .foregroundStyle(SignalStyle.inkSoft)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 6)
+
+            if let count = program.listenerCount, count > 0 {
+                Text(formatCount(count))
+                    .font(SignalStyle.monoFont(10, weight: .semibold))
+                    .foregroundStyle(SignalStyle.inkMuted)
+                    .monospacedDigit()
+            }
+        }
+        .padding(11)
+        .background(
+            SignalSurfaceBackground(
+                cornerRadius: 13,
+                elevated: isTop3,
+                fill: isTop3 ? SignalStyle.surfaceRaised : SignalStyle.surface
+            )
+        )
+        .padding(.horizontal, padH)
+        .padding(.vertical, 4)
+        .contentShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
     }
 
     /// aside 节目榜行：期刊式序号 + 发丝封面

@@ -32,14 +32,30 @@ struct SubscribeButton: View {
             .buttonStyle(MonoBouncingButtonStyle(scale: 0.95))
         } else if SignalStyle.isActive {
             Button(action: action) {
-                SignalPill(
-                    text: isSubscribed ? label.subscribed : label.unsubscribed,
-                    tint: isSubscribed ? SignalStyle.rust : SignalStyle.accent,
-                    icon: isSubscribed ? .liked : .like,
-                    selected: true
+                HStack(spacing: 7) {
+                    MonoIcon(
+                        icon: isSubscribed ? .liked : .like,
+                        size: 13,
+                        color: isSubscribed ? SignalStyle.inkSoft : SignalStyle.accent,
+                        lineWidth: 1.6
+                    )
+                    Text(isSubscribed ? label.subscribed : label.unsubscribed)
+                        .font(SignalStyle.labelFont(12, weight: .semibold))
+                        .lineLimit(1)
+                }
+                .foregroundStyle(isSubscribed ? SignalStyle.inkSoft : SignalStyle.accent)
+                .padding(.horizontal, 14)
+                .frame(height: 44)
+                .background(
+                    SignalStyle.controlPressed,
+                    in: RoundedRectangle(cornerRadius: SignalStyle.buttonRadius, style: .continuous)
                 )
+                .overlay {
+                    RoundedRectangle(cornerRadius: SignalStyle.buttonRadius, style: .continuous)
+                        .stroke(SignalStyle.separator.opacity(0.78), lineWidth: 0.7)
+                }
             }
-            .buttonStyle(MonoBouncingButtonStyle(scale: 0.95))
+            .buttonStyle(MonoBouncingButtonStyle(scale: 0.96))
         } else if SequoiaStyle.isActive {
             Button(action: action) {
                 SequoiaPill(

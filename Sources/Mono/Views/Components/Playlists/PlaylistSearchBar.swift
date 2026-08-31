@@ -23,17 +23,213 @@ struct PlaylistSearchBar: View {
     var body: some View {
         let _ = settings.globalThemeRevision
 
-        HStack(spacing: 8) {
-            if selectMode {
-                batchSelectionBar
-            } else if isSearching {
-                searchBar
+        Group {
+            if SignalStyle.isActive {
+                signalBar
             } else {
-                normalBar
+                HStack(spacing: 8) {
+                    if selectMode {
+                        batchSelectionBar
+                    } else if isSearching {
+                        searchBar
+                    } else {
+                        normalBar
+                    }
+                }
+                .padding(.horizontal, CapsuleStyle.isActive ? DeviceLayout.viewHorizontalPadding - 4 : DeviceLayout.viewHorizontalPadding)
+                .padding(.vertical, MangaStyle.isActive ? (selectMode || isSearching ? 8 : 6) : (NeumorphicStyle.isActive ? (selectMode || isSearching ? 8 : 4) : (CapsuleStyle.isActive ? (selectMode || isSearching ? 8 : 4) : (SequoiaStyle.isActive ? (selectMode || isSearching ? 8 : 4) : (selectMode || isSearching ? 6 : 2)))))
             }
         }
-        .padding(.horizontal, CapsuleStyle.isActive ? DeviceLayout.viewHorizontalPadding - 4 : DeviceLayout.viewHorizontalPadding)
-        .padding(.vertical, MangaStyle.isActive ? (selectMode || isSearching ? 8 : 6) : (NeumorphicStyle.isActive ? (selectMode || isSearching ? 8 : 4) : (CapsuleStyle.isActive ? (selectMode || isSearching ? 8 : 4) : (SequoiaStyle.isActive ? (selectMode || isSearching ? 8 : 4) : (selectMode || isSearching ? 6 : 2)))))
+    }
+
+    @ViewBuilder
+    private var signalBar: some View {
+        Group {
+            if selectMode {
+                signalBatchSelectionBar
+            } else if isSearching {
+                signalSearchBar
+            } else {
+                signalNormalBar
+            }
+        }
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.vertical, 8)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(SignalStyle.separator.opacity(0.5))
+                .frame(height: 0.65)
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        }
+    }
+
+    private var signalSearchBar: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 9) {
+                MonoIcon(icon: .search, size: 14, color: SignalStyle.accent, lineWidth: 1.6)
+
+                TextField(String(localized: "mono_session_search"), text: $searchText)
+                    .font(SignalStyle.bodyFont(14, weight: .medium))
+                    .monoTextInputBehavior()
+                    .foregroundStyle(SignalStyle.ink)
+                    .focused($isFocused)
+                    .submitLabel(.search)
+                    .monoOnSubmit(text: $searchText) { _ in isFocused = false }
+
+                Button {
+                    if searchText.isEmpty {
+                        closeSearch()
+                    } else {
+                        searchText = ""
+                    }
+                } label: {
+                    MonoIcon(
+                        icon: searchText.isEmpty ? .close : .xmarkCircle,
+                        size: 14,
+                        color: SignalStyle.inkMuted,
+                        lineWidth: 1.5
+                    )
+                    .frame(width: 28, height: 28)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.leading, 12)
+            .padding(.trailing, 6)
+            .frame(height: 42)
+            .background(
+                SignalStyle.controlPressed,
+                in: RoundedRectangle(cornerRadius: SignalStyle.buttonRadius, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: SignalStyle.buttonRadius, style: .continuous)
+                    .stroke(SignalStyle.separator.opacity(0.72), lineWidth: 0.7)
+            }
+
+            Button(action: closeSearch) {
+                Text(String(localized: "cancel"))
+                    .font(SignalStyle.labelFont(12, weight: .semibold))
+                    .foregroundStyle(SignalStyle.inkSoft)
+                    .frame(height: 42)
+            }
+            .buttonStyle(.plain)
+        }
+        .transition(.opacity.combined(with: .move(edge: .trailing)))
+    }
+
+    private var signalNormalBar: some View {
+        HStack(spacing: 4) {
+            Text(String(localized: "songs_unit").uppercased())
+                .font(SignalStyle.monoFont(9, weight: .semibold))
+                .foregroundStyle(SignalStyle.inkMuted)
+
+            Spacer(minLength: 12)
+
+            if isSelectMode != nil && onBatchCollect != nil {
+                signalIconButton(icon: .like, tint: SignalStyle.inkSoft, label: String(localized: "收藏")) {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        isSelectMode?.wrappedValue = true
+                        selectedIds?.wrappedValue.removeAll()
+                    }
+                }
+            }
+
+            signalIconButton(icon: .search, tint: SignalStyle.accent, label: String(localized: "mono_session_search")) {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    isSearching = true
+                }
+                onSearchActivated?()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    isFocused = true
+                }
+            }
+
+            if isSelectMode != nil {
+                signalIconButton(icon: .checkmark, tint: SignalStyle.inkSoft, label: String(localized: "多选")) {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        isSelectMode?.wrappedValue = true
+                        selectedIds?.wrappedValue.removeAll()
+                    }
+                }
+            }
+        }
+        .frame(height: 38)
+    }
+
+    private var signalBatchSelectionBar: some View {
+        HStack(spacing: 7) {
+            Button {
+                guard let ids = selectedIds, let allSongs = songs else { return }
+                if ids.wrappedValue.count == allSongs.count {
+                    ids.wrappedValue.removeAll()
+                } else {
+                    ids.wrappedValue = Set(allSongs.map(\.id))
+                }
+            } label: {
+                Text(selectedIds?.wrappedValue.count == songs?.count ? String(localized: "取消全选") : String(localized: "全选"))
+                    .font(SignalStyle.labelFont(12, weight: .semibold))
+                    .foregroundStyle(SignalStyle.ink)
+            }
+            .buttonStyle(.plain)
+
+            Text(String(format: "%02d", selectedIds?.wrappedValue.count ?? 0))
+                .font(SignalStyle.monoFont(10, weight: .semibold))
+                .foregroundStyle(SignalStyle.accent)
+                .monospacedDigit()
+
+            Spacer(minLength: 6)
+
+            if !(selectedIds?.wrappedValue.isEmpty ?? true) {
+                if onBatchQueue != nil {
+                    signalIconButton(icon: .add, tint: SignalStyle.inkSoft, label: String(localized: "player_queue")) {
+                        onBatchQueue?()
+                    }
+                }
+                if onBatchCollect != nil {
+                    signalIconButton(icon: .like, tint: SignalStyle.inkSoft, label: String(localized: "收藏")) {
+                        onBatchCollect?()
+                    }
+                }
+                if AppConfig.Features.downloadEnabled {
+                    signalIconButton(icon: .download, tint: SignalStyle.inkSoft, label: String(localized: "download")) {
+                        onBatchDownload?()
+                    }
+                }
+                if onBatchRemove != nil {
+                    signalIconButton(icon: .trash, tint: SignalStyle.rust, label: String(localized: "lib_delete")) {
+                        onBatchRemove?()
+                    }
+                }
+            }
+
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    isSelectMode?.wrappedValue = false
+                    selectedIds?.wrappedValue.removeAll()
+                }
+            } label: {
+                Text(String(localized: "cancel"))
+                    .font(SignalStyle.labelFont(12, weight: .semibold))
+                    .foregroundStyle(SignalStyle.inkMuted)
+            }
+            .buttonStyle(.plain)
+        }
+        .frame(height: 38)
+        .transition(.opacity.combined(with: .move(edge: .trailing)))
+    }
+
+    private func signalIconButton(
+        icon: MonoIcon.IconType,
+        tint: Color,
+        label: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            MonoIcon(icon: icon, size: 14, color: tint, lineWidth: 1.6)
+                .frame(width: 38, height: 38)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(MonoBouncingButtonStyle(scale: 0.92))
+        .accessibilityLabel(label)
     }
     
     private var searchBar: some View {

@@ -77,6 +77,7 @@ struct WelcomeView: View {
     var body: some View {
         ZStack {
             welcomeBaseColor
+                .opacity(SignalStyle.isActive ? backgroundOpacity : 1)
                 .ignoresSafeArea()
 
             welcomeBackdrop
@@ -178,7 +179,6 @@ struct WelcomeView: View {
     private var welcomeDecor: some View {
         if SignalStyle.isActive {
             SignalWelcomeDecor(accentOpacity: accentOpacity)
-                .scaleEffect(plateScale)
         } else if ClarityStyle.isActive || MangaStyle.isActive || PetWhiteStyle.isActive || PureWhiteStyle.isActive {
             EmptyView()
         } else if NeumorphicStyle.isActive {
@@ -221,26 +221,24 @@ struct WelcomeView: View {
     }
 
     private var signalHeroSection: some View {
-        VStack(spacing: DeviceLayout.isPad ? 30 : 24) {
+        VStack(spacing: DeviceLayout.isPad ? 28 : 22) {
             ZStack {
-                SignalWelcomeTerminalStage(
+                SignalWelcomeResonanceStage(
                     accentOpacity: accentOpacity,
                     isAnimating: !isDismissing && !reduceMotion
                 )
 
-                welcomeLogoImage(size: logoSize * 0.86)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: logoSize * 0.19, style: .continuous)
-                            .stroke(SignalStyle.separator.opacity(0.72), lineWidth: 0.8)
-                    }
+                welcomeLogoImage(size: logoSize * 0.84)
+                    .blur(radius: reduceMotion ? 0 : max(0, (1 - plateScale) * 24))
             }
-            .frame(width: plateSize * 1.55, height: plateSize * 1.08)
+            .frame(width: plateSize * 2, height: plateSize * 1.2)
             .scaleEffect(plateScale)
             .opacity(plateOpacity)
             .offset(y: plateOffset)
 
             VStack(spacing: 12) {
                 MonoWordmarkImage(height: titleWordmarkHeight)
+                    .blur(radius: reduceMotion ? 0 : CGFloat(max(0, 1 - titleOpacity)) * 8)
                     .opacity(titleOpacity)
                     .offset(y: titleOffset)
 
@@ -250,12 +248,9 @@ struct WelcomeView: View {
                     tracking: 1.1,
                     shortColor: SignalStyle.accent.opacity(0.84)
                 )
+                .blur(radius: reduceMotion ? 0 : CGFloat(max(0, 1 - subtitleOpacity)) * 4)
                 .opacity(subtitleOpacity)
                 .offset(y: subtitleOffset)
-
-                SignalBreathingIndicator(size: 7)
-                .scaleEffect(accentScaleX)
-                .opacity(accentOpacity)
             }
         }
     }
@@ -971,12 +966,12 @@ struct WelcomeView: View {
         backgroundOpacity = 1
         backgroundScale = (reduceMotion || PetWhiteStyle.isActive || SignalStyle.isActive) ? 1 : 1.018
         plateOpacity = 1
-        plateScale = SignalStyle.isActive ? 0.86 : (MangaStyle.isActive ? 0.78 : (PureWhiteStyle.isActive ? 0.8 : (NeumorphicStyle.isActive ? 0.84 : (CapsuleStyle.isActive ? 0.8 : 0.82))))
-        plateOffset = SignalStyle.isActive ? 18 : (MujiStyle.isActive ? 18 : (PureWhiteStyle.isActive ? 24 : (NeumorphicStyle.isActive ? 22 : (CapsuleStyle.isActive ? 24 : 28))))
+        plateScale = SignalStyle.isActive ? 0.9 : (MangaStyle.isActive ? 0.78 : (PureWhiteStyle.isActive ? 0.8 : (NeumorphicStyle.isActive ? 0.84 : (CapsuleStyle.isActive ? 0.8 : 0.82))))
+        plateOffset = SignalStyle.isActive ? 8 : (MujiStyle.isActive ? 18 : (PureWhiteStyle.isActive ? 24 : (NeumorphicStyle.isActive ? 22 : (CapsuleStyle.isActive ? 24 : 28))))
         titleOpacity = reduceMotion ? 1 : 0
-        titleOffset = reduceMotion ? 0 : 12
+        titleOffset = reduceMotion ? 0 : (SignalStyle.isActive ? 8 : 12)
         subtitleOpacity = reduceMotion ? 1 : 0
-        subtitleOffset = reduceMotion ? 0 : 10
+        subtitleOffset = reduceMotion ? 0 : (SignalStyle.isActive ? 6 : 10)
         accentOpacity = reduceMotion ? 1 : 0
         accentScaleX = reduceMotion ? 1 : 0.18
         footerOpacity = reduceMotion ? 1 : 0
@@ -1012,20 +1007,20 @@ struct WelcomeView: View {
                     }
 
                     try await sleep(seconds: 0.02)
-                    withAnimation(heroSpring) {
+                    withAnimation(SignalStyle.isActive ? .easeOut(duration: 0.68) : heroSpring) {
                         plateOpacity = 1
                         plateScale = 1
                         plateOffset = 0
                     }
 
                     try await sleep(seconds: 0.13)
-                    withAnimation(.spring(response: 0.46, dampingFraction: 0.84)) {
+                    withAnimation(SignalStyle.isActive ? .easeOut(duration: 0.46) : .spring(response: 0.46, dampingFraction: 0.84)) {
                         titleOpacity = 1
                         titleOffset = 0
                     }
 
                     try await sleep(seconds: 0.1)
-                    withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
+                    withAnimation(SignalStyle.isActive ? .easeOut(duration: 0.4) : .spring(response: 0.42, dampingFraction: 0.86)) {
                         subtitleOpacity = 1
                         subtitleOffset = 0
                         accentOpacity = 1
@@ -1145,13 +1140,24 @@ struct WelcomeView: View {
         showsForceEntryButton = false
 
         let applyDismissState = {
-            sceneOffset = -(ScreenInfo.mainScreenSize.height + DeviceLayout.safeAreaTop + DeviceLayout.safeAreaBottom + 80)
-            sceneScale = reduceMotion ? 1 : 1.015
-            backgroundScale = 1.03
-            plateScale = MangaStyle.isActive ? 0.98 : (PureWhiteStyle.isActive ? 1.0 : (NeumorphicStyle.isActive ? 0.99 : (CapsuleStyle.isActive ? 1.0 : 1.02)))
-            plateOffset = -18
-            titleOffset = -14
-            subtitleOffset = -12
+            if SignalStyle.isActive {
+                backgroundOpacity = 0
+                sceneScale = reduceMotion ? 1 : 1.025
+                plateOpacity = 0
+                plateScale = reduceMotion ? 1 : 0.96
+                titleOpacity = 0
+                subtitleOpacity = 0
+                accentOpacity = 0
+                footerOpacity = 0
+            } else {
+                sceneOffset = -(ScreenInfo.mainScreenSize.height + DeviceLayout.safeAreaTop + DeviceLayout.safeAreaBottom + 80)
+                sceneScale = reduceMotion ? 1 : 1.015
+                backgroundScale = 1.03
+                plateScale = MangaStyle.isActive ? 0.98 : (PureWhiteStyle.isActive ? 1.0 : (NeumorphicStyle.isActive ? 0.99 : (CapsuleStyle.isActive ? 1.0 : 1.02)))
+                plateOffset = -18
+                titleOffset = -14
+                subtitleOffset = -12
+            }
         }
 
         if #available(iOS 17.0, *) {
@@ -1218,20 +1224,187 @@ private struct SignalWelcomeDecor: View {
     }
 }
 
-private struct SignalWelcomeTerminalStage: View {
+private struct SignalWelcomeResonanceStage: View {
+    let accentOpacity: Double
+    let isAnimating: Bool
+
+    @State private var isBlooming = false
+    @State private var revealProgress: CGFloat = 0
+    @State private var sheenAngle = 0.0
+
+    var body: some View {
+        GeometryReader { proxy in
+            let stageHeight = min(proxy.size.width, proxy.size.height)
+            let apertureSize = stageHeight * 0.62
+            let apertureRadius = apertureSize * 0.24
+            let effectiveReveal = isAnimating ? revealProgress : 1
+
+            ZStack {
+                Ellipse()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                SignalStyle.accent.opacity(0.11 * accentOpacity),
+                                SignalStyle.accent.opacity(0.025 * accentOpacity),
+                                .clear,
+                            ],
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: stageHeight * 0.62
+                        )
+                    )
+                    .frame(width: proxy.size.width * 0.76, height: stageHeight * 0.7)
+                    .blur(radius: stageHeight * 0.08)
+                    .scaleEffect(isBlooming ? 1.06 : 0.86)
+
+                SignalWelcomeWaveField(
+                    accentOpacity: accentOpacity,
+                    isAnimating: isAnimating
+                )
+                .frame(width: proxy.size.width * 0.94, height: stageHeight * 0.68)
+                .mask {
+                    Rectangle()
+                        .scaleEffect(x: effectiveReveal, y: 1, anchor: .center)
+                }
+
+                RoundedRectangle(cornerRadius: apertureRadius, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                SignalStyle.surfaceRaised.opacity(0.98),
+                                SignalStyle.paper,
+                                SignalStyle.controlPressed,
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: apertureSize, height: apertureSize)
+                    .shadow(color: Color.black.opacity(0.5), radius: 24, x: 0, y: 14)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: apertureRadius, style: .continuous)
+                            .stroke(SignalStyle.separator.opacity(0.68), lineWidth: 0.7)
+                    }
+
+                RoundedRectangle(cornerRadius: apertureRadius, style: .continuous)
+                    .stroke(
+                        AngularGradient(
+                            colors: [
+                                .clear,
+                                .clear,
+                                SignalStyle.accent.opacity(0.68 * accentOpacity),
+                                Color.white.opacity(0.34 * accentOpacity),
+                                .clear,
+                                .clear,
+                            ],
+                            center: .center,
+                            startAngle: .degrees(sheenAngle),
+                            endAngle: .degrees(sheenAngle + 360)
+                        ),
+                        lineWidth: 1.15
+                    )
+                    .frame(width: apertureSize, height: apertureSize)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .onAppear {
+            guard isAnimating else { return }
+
+            withAnimation(.easeOut(duration: 0.9).delay(0.06)) {
+                revealProgress = 1
+            }
+            withAnimation(.easeInOut(duration: 3.4).repeatForever(autoreverses: true)) {
+                isBlooming = true
+            }
+            withAnimation(.linear(duration: 7.6).repeatForever(autoreverses: false)) {
+                sheenAngle = 360
+            }
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+private struct SignalWelcomeWaveField: View {
     let accentOpacity: Double
     let isAnimating: Bool
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            SignalSurfaceBackground(cornerRadius: 18, elevated: true, fill: SignalStyle.surfaceRaised)
-            SignalAmbientTexture(opacity: 0.1 * accentOpacity)
-                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            SignalBreathingIndicator(size: 7)
-                .padding(15)
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !isAnimating)) { timeline in
+            let phase = isAnimating ? timeline.date.timeIntervalSinceReferenceDate : 0
+
+            Canvas(rendersAsynchronously: true) { context, size in
+                for index in 0 ..< 3 {
+                    let path = wavePath(in: size, index: index, phase: phase)
+                    let color: Color
+                    let lineWidth: CGFloat
+
+                    switch index {
+                    case 0:
+                        color = SignalStyle.accent.opacity(0.52 * accentOpacity)
+                        lineWidth = 1.25
+                    case 1:
+                        color = SignalStyle.inkSoft.opacity(0.2 * accentOpacity)
+                        lineWidth = 0.85
+                    default:
+                        color = SignalStyle.accent.opacity(0.15 * accentOpacity)
+                        lineWidth = 0.75
+                    }
+
+                    if index == 0 {
+                        var glowContext = context
+                        glowContext.addFilter(.blur(radius: 4))
+                        glowContext.stroke(
+                            path,
+                            with: .color(SignalStyle.accent.opacity(0.2 * accentOpacity)),
+                            style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round)
+                        )
+                    }
+
+                    context.stroke(
+                        path,
+                        with: .color(color),
+                        style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round)
+                    )
+                }
+            }
         }
-        .opacity(isAnimating ? 1 : 0.94)
         .accessibilityHidden(true)
+    }
+
+    private func wavePath(in size: CGSize, index: Int, phase: TimeInterval) -> Path {
+        var path = Path()
+        let width = max(size.width, 1)
+        let centerY = size.height * 0.5
+        let frequencies: [Double] = [3.1, 2.15, 4.4]
+        let amplitudes: [CGFloat] = [13, 8, 5]
+        let velocities: [Double] = [1.1, -0.72, 0.46]
+        let offsets: [Double] = [0, 1.8, 3.5]
+        var x: CGFloat = 0
+
+        while x <= width {
+            let progress = x / width
+            let centered = Double(progress * 2 - 1)
+            let envelope = pow(max(0, 1 - abs(centered)), 1.65)
+            let primary = sin(
+                Double(progress) * .pi * 2 * frequencies[index]
+                    + phase * velocities[index]
+                    + offsets[index]
+            )
+            let overtone = sin(
+                Double(progress) * .pi * 2 * (frequencies[index] * 1.82)
+                    - phase * velocities[index] * 0.38
+            ) * 0.28
+            let y = centerY + CGFloat(primary + overtone) * amplitudes[index] * CGFloat(envelope)
+
+            if x == 0 {
+                path.move(to: CGPoint(x: x, y: y))
+            } else {
+                path.addLine(to: CGPoint(x: x, y: y))
+            }
+            x += 2
+        }
+
+        return path
     }
 }
 

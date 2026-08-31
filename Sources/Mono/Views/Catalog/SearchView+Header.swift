@@ -71,14 +71,27 @@ extension SearchView {
     }
 
     var signalSearchHeader: some View {
-        SignalPageHeader(
-            eyebrow: "SEARCH",
-            title: String(localized: "action_search"),
-            subtitle: ""
-        ) {
-            SignalIconBadge(icon: .magnifyingGlass, tint: SignalStyle.accent, size: 46)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                SignalBreathingIndicator(size: 6)
+                Text("SEARCH")
+                    .font(SignalStyle.monoFont(9, weight: .semibold))
+                    .foregroundStyle(SignalStyle.inkMuted)
+                    .tracking(1.5)
+                Rectangle()
+                    .fill(SignalStyle.separator.opacity(0.72))
+                    .frame(height: 0.65)
+            }
+
+            Text(String(localized: "action_search"))
+                .font(SignalStyle.titleFont(30, weight: .semibold))
+                .foregroundStyle(SignalStyle.ink)
         }
-        .padding(.bottom, 2)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .padding(.top, DeviceLayout.headerTopPadding + 6)
+        .padding(.bottom, 10)
+        .monoPageHeaderCollapse()
     }
 
     var sequoiaSearchHeader: some View {
@@ -231,7 +244,7 @@ extension SearchView {
                     } else if NeumorphicStyle.isActive {
                         NeumorphicSurfaceBackground(cornerRadius: searchRadius, elevated: true)
                     } else if SignalStyle.isActive {
-                        SignalSurfaceBackground(cornerRadius: searchRadius, elevated: true, fill: SignalStyle.device)
+                        SignalSurfaceBackground(cornerRadius: searchRadius, elevated: false, fill: SignalStyle.screen)
                     } else if SequoiaStyle.isActive {
                         SequoiaSurfaceBackground(cornerRadius: searchRadius, elevated: true, fill: SequoiaStyle.materialChrome)
                     } else if PetWhiteStyle.isActive {
@@ -296,7 +309,7 @@ extension SearchView {
         if PetWhiteStyle.isActive { return showFullSearch ? 20 : 22 }
         if MujiStyle.isActive { return showFullSearch ? 20 : 22 }
         if NeumorphicStyle.isActive { return showFullSearch ? 18 : 20 }
-        if SignalStyle.isActive { return showFullSearch ? 20 : 22 }
+        if SignalStyle.isActive { return 6 }
         if SequoiaStyle.isActive { return showFullSearch ? 16 : 18 }
         if LiquidGlassStyle.isActive { return showFullSearch ? 20 : 24 }
         if CapsuleStyle.isActive { return showFullSearch ? 22 : 24 }
@@ -331,7 +344,7 @@ extension SearchView {
         if MinimalWhiteStyle.isActive { return 14 }
         if MangaStyle.isActive { return MangaStyle.buttonRadius }
         if NeumorphicStyle.isActive { return 16 }
-        if SignalStyle.isActive { return 17 }
+        if SignalStyle.isActive { return 4 }
         if SequoiaStyle.isActive { return 15 }
         if LiquidGlassStyle.isActive { return 17 }
         if CapsuleStyle.isActive { return 18 }
@@ -344,7 +357,7 @@ extension SearchView {
         if PetWhiteStyle.isActive { return PetWhiteStyle.surfaceRaised }
         if MujiStyle.isActive { return Color.clear }
         if NeumorphicStyle.isActive { return NeumorphicStyle.surfaceRaised }
-        if SignalStyle.isActive { return SignalStyle.control }
+        if SignalStyle.isActive { return Color.clear }
         if SequoiaStyle.isActive { return SequoiaStyle.materialRaised }
         if LiquidGlassStyle.isActive { return LiquidGlassStyle.glassList }
         if CapsuleStyle.isActive { return CapsuleStyle.surfaceRaised }
@@ -357,7 +370,7 @@ extension SearchView {
         if PetWhiteStyle.isActive { return PetWhiteStyle.stroke }
         if MujiStyle.isActive { return MujiStyle.hairline.opacity(0.75) }
         if NeumorphicStyle.isActive { return NeumorphicStyle.separator.opacity(0.4) }
-        if SignalStyle.isActive { return SignalStyle.separator.opacity(0.72) }
+        if SignalStyle.isActive { return Color.clear }
         if SequoiaStyle.isActive { return SequoiaStyle.separator }
         if LiquidGlassStyle.isActive { return LiquidGlassStyle.luminousEdge.opacity(0.48) }
         if CapsuleStyle.isActive { return CapsuleStyle.separator.opacity(0.58) }
@@ -576,7 +589,7 @@ extension SearchView {
 
     var signalSearchTabBar: some View {
         GeometryReader { proxy in
-            let spacing: CGFloat = viewModel.hasSearched ? 7 : 8
+            let spacing: CGFloat = 0
             let itemWidth = searchTabItemWidth(totalWidth: proxy.size.width, spacing: spacing)
 
             HStack(spacing: spacing) {
@@ -585,30 +598,25 @@ extension SearchView {
                         viewModel.switchTab(tab)
                     } label: {
                         let selected = viewModel.currentTab == tab
-                        HStack(spacing: viewModel.hasSearched ? 0 : 6) {
-                            if !viewModel.hasSearched {
-                                MonoIcon(
-                                    icon: searchTabIcon(tab),
-                                    size: 12,
-                                    color: selected ? SignalStyle.accent : SignalStyle.inkSoft,
-                                    lineWidth: 1.6
-                                )
-                            }
+                        VStack(spacing: 6) {
+                            MonoIcon(
+                                icon: searchTabIcon(tab),
+                                size: 12,
+                                color: selected ? SignalStyle.accent : SignalStyle.inkMuted,
+                                lineWidth: 1.6
+                            )
 
                             Text(tab.rawValue)
-                                .font(SignalStyle.labelFont(viewModel.hasSearched ? 11.5 : 12.5, weight: selected ? .bold : .semibold))
-                                .foregroundStyle(selected ? SignalStyle.ink : SignalStyle.inkSoft)
+                                .font(SignalStyle.labelFont(viewModel.hasSearched ? 10.5 : 11.5, weight: selected ? .semibold : .medium))
+                                .foregroundStyle(selected ? SignalStyle.ink : SignalStyle.inkMuted)
+
+                            Rectangle()
+                                .fill(selected ? SignalStyle.accent : Color.clear)
+                                .frame(width: 18, height: 1.5)
                         }
                         .frame(width: itemWidth)
-                        .padding(.vertical, viewModel.hasSearched ? 6 : 9)
-                        .background(
-                            SignalSurfaceBackground(
-                                cornerRadius: viewModel.hasSearched ? 13 : 16,
-                                elevated: selected,
-                                pressed: !selected,
-                                fill: selected ? SignalStyle.accent.opacity(0.14) : SignalStyle.control
-                            )
-                        )
+                        .padding(.vertical, viewModel.hasSearched ? 5 : 7)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                 }
@@ -616,7 +624,7 @@ extension SearchView {
             .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
             .padding(.vertical, viewModel.hasSearched ? 2 : 8)
         }
-        .frame(height: viewModel.hasSearched ? 40 : 52)
+        .frame(height: viewModel.hasSearched ? 48 : 58)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 

@@ -105,7 +105,7 @@ extension PlaylistDetailView {
                                     .lineLimit(1)
                                     .frame(width: 130, alignment: .leading)
                             }
-                            .padding(ThemedPageStyle.isActive && !MangaStyle.isActive ? 8 : 0)
+                            .padding(ThemedPageStyle.isActive && !MangaStyle.isActive && !SignalStyle.isActive ? 8 : 0)
                             .background {
                                 if MangaStyle.isActive {
                                     // 去卡片化：相关歌单直接排在纸上
@@ -113,7 +113,7 @@ extension PlaylistDetailView {
                                 } else if NeumorphicStyle.isActive {
                                     NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, lightweight: true)
                                 } else if SignalStyle.isActive {
-                                    SignalSurfaceBackground(cornerRadius: 22, elevated: false, fill: SignalStyle.paper)
+                                    EmptyView()
                                 } else if MinimalWhiteStyle.isActive {
                                     MinimalWhiteSurfaceBackground(
                                         cornerRadius: MinimalWhiteStyle.cardRadius,
@@ -138,7 +138,7 @@ extension PlaylistDetailView {
         if MangaStyle.isActive { return MangaStyle.cardRadius }
         if MujiStyle.isActive { return 8 }
         if NeumorphicStyle.isActive { return 16 }
-        if SignalStyle.isActive { return 18 }
+        if SignalStyle.isActive { return 6 }
         return 12
     }
 

@@ -5,9 +5,18 @@ import Foundation
 public extension QQMusicClient {
 
     /// 获取歌曲评论数量
-    /// - Parameter bizId: 歌曲 ID
-    func commentCount(bizId: String) async throws -> JSON {
-        try await requestWrapped("/comment/get_comment_count", params: ["biz_id": bizId])
+    /// - Parameters:
+    ///   - bizId: 业务对象 ID
+    ///   - bizType: 业务类型
+    ///   - bizSubType: 业务子类型
+    func commentCount(
+        bizId: String,
+        bizType: CommentBizType = .song,
+        bizSubType: Int? = nil
+    ) async throws -> JSON {
+        var params = ["biz_id": bizId, "biz_type": String(bizType.rawValue)]
+        if let bizSubType { params["biz_sub_type"] = String(bizSubType) }
+        return try await requestWrapped("/comment/get_comment_count", params: params)
     }
 
     /// 获取歌曲热评
@@ -20,14 +29,19 @@ public extension QQMusicClient {
         bizId: String,
         pageNum: Int = 1,
         pageSize: Int = 15,
-        lastSeqNo: String = ""
+        lastSeqNo: String = "",
+        bizType: CommentBizType = .song,
+        bizSubType: Int? = nil
     ) async throws -> JSON {
-        try await requestWrapped("/comment/get_hot_comments", params: [
+        var params = [
             "biz_id": bizId,
             "page_num": String(pageNum),
             "page_size": String(pageSize),
             "last_comment_seq_no": lastSeqNo,
-        ])
+            "biz_type": String(bizType.rawValue),
+        ]
+        if let bizSubType { params["biz_sub_type"] = String(bizSubType) }
+        return try await requestWrapped("/comment/get_hot_comments", params: params)
     }
 
     /// 获取歌曲最新评论
@@ -40,14 +54,19 @@ public extension QQMusicClient {
         bizId: String,
         pageNum: Int = 1,
         pageSize: Int = 15,
-        lastSeqNo: String = ""
+        lastSeqNo: String = "",
+        bizType: CommentBizType = .song,
+        bizSubType: Int? = nil
     ) async throws -> JSON {
-        try await requestWrapped("/comment/get_new_comments", params: [
+        var params = [
             "biz_id": bizId,
             "page_num": String(pageNum),
             "page_size": String(pageSize),
             "last_comment_seq_no": lastSeqNo,
-        ])
+            "biz_type": String(bizType.rawValue),
+        ]
+        if let bizSubType { params["biz_sub_type"] = String(bizSubType) }
+        return try await requestWrapped("/comment/get_new_comments", params: params)
     }
 
     /// 获取歌曲推荐评论
@@ -60,14 +79,19 @@ public extension QQMusicClient {
         bizId: String,
         pageNum: Int = 1,
         pageSize: Int = 15,
-        lastSeqNo: String = ""
+        lastSeqNo: String = "",
+        bizType: CommentBizType = .song,
+        bizSubType: Int? = nil
     ) async throws -> JSON {
-        try await requestWrapped("/comment/get_recommend_comments", params: [
+        var params = [
             "biz_id": bizId,
             "page_num": String(pageNum),
             "page_size": String(pageSize),
             "last_comment_seq_no": lastSeqNo,
-        ])
+            "biz_type": String(bizType.rawValue),
+        ]
+        if let bizSubType { params["biz_sub_type"] = String(bizSubType) }
+        return try await requestWrapped("/comment/get_recommend_comments", params: params)
     }
 
     /// 获取时刻评论
@@ -78,12 +102,17 @@ public extension QQMusicClient {
     func momentComments(
         bizId: String,
         pageSize: Int = 15,
-        lastSeqNo: String = ""
+        lastSeqNo: String = "",
+        bizType: CommentBizType = .song,
+        bizSubType: Int? = nil
     ) async throws -> JSON {
-        try await requestWrapped("/comment/get_moment_comments", params: [
+        var params = [
             "biz_id": bizId,
             "page_size": String(pageSize),
             "last_comment_seq_no": lastSeqNo,
-        ])
+            "biz_type": String(bizType.rawValue),
+        ]
+        if let bizSubType { params["biz_sub_type"] = String(bizSubType) }
+        return try await requestWrapped("/comment/get_moment_comments", params: params)
     }
 }

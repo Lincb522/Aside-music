@@ -262,9 +262,7 @@ extension SearchView {
     }
 
     var signalResultConsole: some View {
-        HStack(spacing: 12) {
-            SignalPulseDot(tint: SignalStyle.accent, size: 22)
-
+        HStack(alignment: .bottom, spacing: 12) {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 7) {
                     Text(platformTabName(viewModel.selectedPlatform).uppercased())
@@ -280,7 +278,6 @@ extension SearchView {
                     .lineLimit(1)
                     .minimumScaleFactor(0.82)
 
-                SignalSearchGroove(tint: viewModel.selectedPlatform.themedBadgeColor)
             }
 
             Spacer(minLength: 8)
@@ -297,15 +294,17 @@ extension SearchView {
                         .monospacedDigit()
                 }
             }
-            .frame(minWidth: 42, minHeight: 38)
-            .padding(.horizontal, 6)
-            .background(SignalSurfaceBackground(cornerRadius: 15, elevated: false, pressed: true, fill: SignalStyle.control))
+            .frame(minWidth: 42, minHeight: 28, alignment: .trailing)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 11)
-        .background(SignalSurfaceBackground(cornerRadius: 24, elevated: true, fill: SignalStyle.device))
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-        .padding(.bottom, 8)
+        .padding(.top, 8)
+        .padding(.bottom, 10)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(SignalStyle.separator.opacity(0.64))
+                .frame(height: 0.65)
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        }
     }
 
     func signalResultChip(text: String, tint: Color) -> some View {

@@ -61,6 +61,8 @@ struct MinimalWhiteThemeProvider: GlobalThemeProvider {
         )
     }
 
+    var suggestedPlayerTheme: PlayerTheme? { .minimalWhite }
+
     func makeHomeView() -> AnyView {
         AnyView(MinimalWhiteHomeView())
     }

@@ -212,51 +212,12 @@ class LoginViewModel: ObservableObject {
             try Task.checkCancellation()
             guard isCurrentSession(sessionID), qrKey == key else { return }
 
+            let response: QRCheckResponse
             do {
-                let response = try await apiService.checkQRStatus(
+                response = try await apiService.checkQRStatus(
                     key: key,
                     using: attempt
                 ).async()
-                try Task.checkCancellation()
-                guard isCurrentSession(sessionID), qrKey == key else { return }
-                consecutiveFailures = 0
-
-            #if DEBUG
-            print("[Login] QR 状态: code=\(response.code), message=\(response.message ?? "")")
-            #endif
-                switch response.code {
-                case 800:
-                    qrStatusMessage = NSLocalizedString("qr_expired", comment: "QR Code Expired")
-                    isQRExpired = true
-                    finishSession(sessionID)
-                    return
-                case 801:
-                    qrStatusMessage = NSLocalizedString("qr_waiting", comment: "Waiting for scan...")
-                case 802:
-                    qrStatusMessage = NSLocalizedString("qr_scanned", comment: "Scanned! Please confirm on phone.")
-                case 803:
-                    #if DEBUG
-                    print("[Login] 收到 803，cookie 长度: \(response.cookie?.count ?? 0)")
-                    #endif
-                    let completionID = beginLoginCompletion()
-                    guard await completeLogin(
-                        cookie: response.cookie,
-                        completionID: completionID,
-                        ncmSession: ncmSession
-                    ) else {
-                        throw NCMQRLoginError.loginValidationFailed
-                    }
-                    guard isCurrentSession(sessionID) else { return }
-                    qrStatusMessage = NSLocalizedString("login_success", comment: "Login Successful!")
-                    finishSession(sessionID)
-                    return
-                default:
-                    if let message = response.message, !message.isEmpty {
-                        qrStatusMessage = message
-                    } else {
-                        qrStatusMessage = String(localized: "qr_status_unexpected")
-                    }
-                }
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
@@ -264,8 +225,54 @@ class LoginViewModel: ObservableObject {
                     throw CancellationError()
                 }
                 consecutiveFailures += 1
+                let nsError = error as NSError
+                AppLogger.warning(
+                    "[NCM QR] check failed attempt=\(consecutiveFailures) "
+                        + "domain=\(nsError.domain) code=\(nsError.code)"
+                )
                 guard consecutiveFailures < 3 else { throw error }
                 qrStatusMessage = String(localized: "qr_status_retrying")
+                try await Task.sleep(nanoseconds: 2_000_000_000)
+                continue
+            }
+
+            try Task.checkCancellation()
+            guard isCurrentSession(sessionID), qrKey == key else { return }
+            consecutiveFailures = 0
+
+            #if DEBUG
+            print("[Login] QR 状态: code=\(response.code)")
+            #endif
+            switch response.code {
+            case 800:
+                qrStatusMessage = NSLocalizedString("qr_expired", comment: "QR Code Expired")
+                isQRExpired = true
+                finishSession(sessionID)
+                return
+            case 801:
+                qrStatusMessage = NSLocalizedString("qr_waiting", comment: "Waiting for scan...")
+            case 802:
+                qrStatusMessage = NSLocalizedString("qr_scanned", comment: "Scanned! Please confirm on phone.")
+            case 803:
+                let completionID = beginLoginCompletion()
+                guard await completeLogin(
+                    cookie: response.cookie,
+                    completionID: completionID,
+                    ncmSession: ncmSession,
+                    attempt: attempt
+                ) else {
+                    throw NCMQRLoginError.loginValidationFailed
+                }
+                guard isCurrentSession(sessionID) else { return }
+                qrStatusMessage = NSLocalizedString("login_success", comment: "Login Successful!")
+                finishSession(sessionID)
+                return
+            default:
+                if let message = response.message, !message.isEmpty {
+                    qrStatusMessage = message
+                } else {
+                    qrStatusMessage = String(localized: "qr_status_unexpected")
+                }
             }
 
             try await Task.sleep(nanoseconds: 2_000_000_000)
@@ -354,9 +361,7 @@ class LoginViewModel: ObservableObject {
         let phone = normalizedPhoneNumber
         let captcha = normalizedCaptcha
         let ncmSession = apiService.ncmSessionSnapshot
-        let attempt = apiService.makeLoginAttempt(
-            preservingCookiesFrom: phoneLoginAttempt
-        )
+        let attempt = phoneLoginAttempt ?? apiService.makeLoginAttempt()
         let requestID = UUID()
         phoneLoginAttempt = attempt
         phoneLoginRequestID = requestID
@@ -387,7 +392,8 @@ class LoginViewModel: ObservableObject {
                 guard await completeLogin(
                     cookie: response.cookie,
                     completionID: completionID,
-                    ncmSession: ncmSession
+                    ncmSession: ncmSession,
+                    attempt: attempt
                 ) else {
                     guard phoneLoginRequestID == requestID, !Task.isCancelled else { return }
                     phoneFeedback = .failure(String(localized: "login_phone_validation_failed"))
@@ -529,30 +535,26 @@ class LoginViewModel: ObservableObject {
     private func completeLogin(
         cookie: String?,
         completionID: UUID,
-        ncmSession: APIService.NCMSessionSnapshot
+        ncmSession: APIService.NCMSessionSnapshot,
+        attempt: NCMLoginAttempt
     ) async -> Bool {
         guard isActiveLoginCompletion(completionID) else { return false }
         guard let cookie = cookie?.trimmingCharacters(in: .whitespacesAndNewlines),
               !cookie.isEmpty else {
-            #if DEBUG
-            print("[Login] 803 但 cookie 为空，拒绝写入无效登录态")
-            #endif
+            AppLogger.warning("[NCM QR] completion failed stage=missing_cookie")
             failLoginCompletion(completionID)
             return false
         }
-
-        #if DEBUG
-        print("[Login] 开始验证登录状态...")
-        #endif
         
         // 获取登录状态
         do {
-            let status = try await apiService.validateLoginStatus(cookie: cookie).async()
+            let status = try await apiService.validateLoginStatus(
+                cookie: cookie,
+                using: attempt
+            ).async()
             guard isActiveLoginCompletion(completionID) else { return false }
-            #if DEBUG
-            print("[Login] fetchLoginStatus 成功，profile: \(status.data.profile?.nickname ?? "nil")")
-            #endif
             guard let profile = status.data.profile else {
+                AppLogger.warning("[NCM QR] completion failed stage=missing_profile")
                 failLoginCompletion(completionID)
                 return false
             }
@@ -561,6 +563,7 @@ class LoginViewModel: ObservableObject {
                 userID: profile.userId,
                 ifCurrentSession: ncmSession
             ) else {
+                AppLogger.warning("[NCM QR] completion failed stage=stale_session")
                 failLoginCompletion(completionID)
                 return false
             }
@@ -568,9 +571,11 @@ class LoginViewModel: ObservableObject {
             // currentUserId 的 didSet 已经发送了 .didLogin 通知，无需重复发送
             LikeManager.shared.refreshLikes()
         } catch {
-            #if DEBUG
-            print("[Login] fetchLoginStatus 失败: \(error)")
-            #endif
+            let nsError = error as NSError
+            AppLogger.warning(
+                "[NCM QR] completion failed stage=login_status "
+                    + "domain=\(nsError.domain) code=\(nsError.code)"
+            )
             failLoginCompletion(completionID)
             return false
         }

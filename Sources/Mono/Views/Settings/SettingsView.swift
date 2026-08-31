@@ -251,7 +251,7 @@ struct SettingsView: View {
             }
             // aside / muji：标题落在页面内容里（刊头版式），导航栏只留返回；其余主题维持内联标题
             .themedInlineNavigationTitle(
-                (settings.globalThemeId == .default || settings.globalThemeId == .muji || settings.globalThemeId == .clarity || settings.globalThemeId == .manga) ? "" : String(localized: "settings_title")
+                (settings.globalThemeId == .default || settings.globalThemeId == .signal || settings.globalThemeId == .muji || settings.globalThemeId == .clarity || settings.globalThemeId == .manga) ? "" : String(localized: "settings_title")
             )
             .toolbarBackground(.hidden, for: .navigationBar)
             .monoSheet(isPresented: $isShowingTokenAgreement, onDismiss: {

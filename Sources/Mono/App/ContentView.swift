@@ -835,7 +835,7 @@ private struct ContentViewFloatingBarContainer: View {
            !textInputActivity.isEditing
         {
             floatingBarView
-                .id("\(settings.globalThemeId.rawValue)-\(settings.globalThemeRevision)")
+                .id("\(settings.globalThemeId.rawValue)-\(settings.globalThemeRevision)-\(settings.floatingBarStyle.rawValue)")
                 .themeRenderInteractiveLayer()
                 .simultaneousGesture(floatingTabSwipeGesture)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -879,12 +879,54 @@ private struct ContentViewFloatingBarContainer: View {
     @ViewBuilder
     private var floatingBarView: some View {
         if settings.globalThemeId == .signal {
-            VStack {
-                Spacer()
-                SignalUnifiedFloatingBar(currentTab: $currentTab)
+            switch settings.floatingBarStyle {
+            case .unified:
+                VStack {
+                    Spacer()
+                    SignalUnifiedFloatingBar(currentTab: $currentTab)
+                        .iPadContentWidth(600)
+                        .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
+                        .padding(.bottom, 6)
+                }
+
+            case .classic:
+                SignalClassicFloatingBar(currentTab: $currentTab)
+
+            case .minimal:
+                SignalMinimalFloatingBar(currentTab: $currentTab)
+
+            case .floatingBall:
+                SignalFloatingBallBar(currentTab: $currentTab)
+
+            case .flux:
+                VStack {
+                    Spacer()
+                    FluxFloatingBar(currentTab: $currentTab)
+                        .iPadContentWidth(600)
+                        .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
+                        .padding(.bottom, 6)
+                }
+
+            case .liquid:
+                VStack {
+                    Spacer()
+                    LiquidFloatingBar(currentTab: $currentTab)
+                        .iPadContentWidth(600)
+                        .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
+                        .padding(.bottom, 6)
+                }
+
+            case .vinylNeedle, .cassette, .orbit, .waveform, .filmstrip, .studioMeter:
+                VStack {
+                    Spacer()
+                    SignatureFloatingBar(
+                        currentTab: $currentTab,
+                        kind: SignatureFloatingBarKind(style: settings.floatingBarStyle)
+                    )
                     .iPadContentWidth(600)
                     .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
                     .padding(.bottom, 6)
+                }
             }
         } else if settings.globalThemeId == .clarity {
             ClarityFloatingBarFamily(currentTab: $currentTab)
@@ -986,32 +1028,35 @@ private struct StableContentTabRoot: View, Equatable {
     var body: some View {
         let theme = GlobalThemeManager.shared.provider(for: themeId)
 
-        switch tab {
-        case .home:
-            if usesOnlineContent {
-                theme.makeHomeView()
-            } else {
-                theme.makeLocalHomeView()
-            }
-        case .podcast:
-            if usesOnlineContent {
-                theme.makePodcastView()
-            } else {
-                theme.makeLocalMusicView()
-            }
-        case .library:
-            if usesOnlineContent {
-                theme.makeLibraryView()
-            } else {
-                theme.makeLocalLibraryView()
-            }
-        case .profile:
-            if usesOnlineContent {
-                theme.makeProfileView()
-            } else {
-                theme.makeLocalProfileView()
+        Group {
+            switch tab {
+            case .home:
+                if usesOnlineContent {
+                    theme.makeHomeView()
+                } else {
+                    theme.makeLocalHomeView()
+                }
+            case .podcast:
+                if usesOnlineContent {
+                    theme.makePodcastView()
+                } else {
+                    theme.makeLocalMusicView()
+                }
+            case .library:
+                if usesOnlineContent {
+                    theme.makeLibraryView()
+                } else {
+                    theme.makeLocalLibraryView()
+                }
+            case .profile:
+                if usesOnlineContent {
+                    theme.makeProfileView()
+                } else {
+                    theme.makeLocalProfileView()
+                }
             }
         }
+        .id("\(themeId.rawValue)-\(usesOnlineContent)")
     }
 }
 

@@ -13,6 +13,7 @@ struct MujiHomeView: View {
     @State private var showPersonalFM = false
     @State private var bannerWebURL: URL?
     @State private var appeared = false
+    @State private var didActivateHome = false
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -43,18 +44,12 @@ struct MujiHomeView: View {
             }
             .task {
                 guard await MainTabActivationGate.waitUntilSettled(.home) else { return }
-                viewModel.ensureHomeDataLoaded(reason: "muji home appear")
-                if hitokotoEnabled,
-                   viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
-                    viewModel.refreshHitokoto()
-                }
-                if !appeared {
-                    if reduceMotion {
-                        appeared = true
-                    } else {
-                        withAnimation(.easeOut(duration: 0.8).delay(0.1)) { appeared = true }
-                    }
-                }
+                activateHomeIfNeeded(reason: "muji home appear")
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .mainTabDidSettle)) { notification in
+                guard notification.object as? Tab == .home,
+                      MainTabActivationGate.isSettled(.home) else { return }
+                activateHomeIfNeeded(reason: "muji home selected")
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
@@ -84,6 +79,22 @@ struct MujiHomeView: View {
             .fullScreenCover(item: $bannerWebURL) { url in MonoWebView(url: url, title: nil) }
         }
         .themeRenderSceneLayer()
+    }
+
+    private func activateHomeIfNeeded(reason: String) {
+        guard !didActivateHome else { return }
+        didActivateHome = true
+        viewModel.ensureHomeDataLoaded(reason: reason)
+        if hitokotoEnabled,
+           viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
+            viewModel.refreshHitokoto()
+        }
+        guard !appeared else { return }
+        if reduceMotion {
+            appeared = true
+        } else {
+            withAnimation(.easeOut(duration: 0.8).delay(0.1)) { appeared = true }
+        }
     }
 
     private func mujiToolbarButton(icon: MonoIcon.IconType, action: @escaping () -> Void) -> some View {

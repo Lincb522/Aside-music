@@ -186,19 +186,41 @@ extension ProfileView {
                 Spacer(minLength: 0)
             }
 
-            SignalProfilePulseStrip(tint: SignalStyle.accent)
+            HStack(spacing: 10) {
+                SignalLevelMeter(
+                    activeCount: min(max(playerManager.history.count / 3, 2), 9),
+                    barCount: 9,
+                    tint: SignalStyle.inkSoft,
+                    height: 19
+                )
+
+                Spacer(minLength: 8)
+
+                MonoIcon(icon: .clock, size: 12, color: SignalStyle.inkMuted, lineWidth: 1.5)
+
+                Text(String(format: String(localized: "profile_recent_count"), playerManager.history.count))
+                    .font(SignalStyle.monoFont(10, weight: .semibold))
+                    .foregroundStyle(SignalStyle.inkSoft)
+                    .monospacedDigit()
+            }
+            .padding(.horizontal, 11)
+            .frame(height: 38)
+            .background(SignalScreenBackground(cornerRadius: 10))
         }
-        .padding(16)
-        .background(SignalSurfaceBackground(cornerRadius: 30, elevated: true, fill: SignalStyle.device))
+        .padding(.vertical, 14)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(SignalStyle.separator.opacity(0.55))
+                .frame(height: 0.65)
+        }
     }
 
     @ViewBuilder
     func signalAvatar(profile: UserProfile?, size: CGFloat) -> some View {
         ZStack {
-            RoundedRectangle(cornerRadius: size * 0.32, style: .continuous)
+            RoundedRectangle(cornerRadius: min(size * 0.18, 8), style: .continuous)
                 .fill(SignalStyle.controlPressed)
                 .frame(width: size, height: size)
-                .background(SignalSurfaceBackground(cornerRadius: size * 0.32, elevated: true, fill: SignalStyle.deviceRaised))
 
             if let avatarUrl = profile?.avatarUrl, let url = URL(string: avatarUrl) {
                 CachedAsyncImage(url: url, width: size - 14, height: size - 14) {

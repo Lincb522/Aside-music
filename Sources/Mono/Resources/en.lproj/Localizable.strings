@@ -720,7 +720,7 @@
 "qr_error_validation_failed" = "Could not verify the sign-in. Refresh the QR code and try again.";
 "qr_error_timed_out" = "The QR code expired. Refresh it and try again.";
 "qr_status_unexpected" = "The sign-in status could not be read. Refresh the QR code and try again.";
-"qr_status_retrying" = "The connection is unstable. Retrying...";
+"qr_status_retrying" = "Couldn’t check the QR status. Retrying…";
 "qr_refreshing" = "Refreshing QR code...";
 "qr_refresh_action" = "Refresh QR Code";
 "platform_login_switch_accessibility" = "Switch to %@ sign in";
@@ -860,6 +860,7 @@
 "debug_no_matches" = "No matching logs";
 "debug_export_filtered" = "Export Filtered";
 "debug_export_all_json" = "Export All as JSON";
+"debug_export_silence_diagnostics" = "Export Silent Output Log";
 "debug_newest_first" = "Newest First";
 "debug_follow_latest" = "Follow Latest";
 "debug_clear_confirm_title" = "Clear Logs";
@@ -1614,6 +1615,27 @@
 "developer_tools_section_testing" = "Testing";
 "developer_tools_section_access" = "Access";
 "developer_platform_switching" = "Platform Account Switching";
+"ncm_vip_pool_title" = "NCM VIP Accounts";
+"ncm_vip_pool_platform_value" = "VIP Account Pool";
+"ncm_vip_pool_account_count" = "%ld accounts";
+"ncm_vip_pool_add_section" = "Add Account";
+"ncm_vip_pool_add_account" = "Add NCM VIP Account";
+"ncm_vip_pool_qr_accessibility" = "NCM login QR code";
+"ncm_vip_pool_qr_waiting" = "Scan with NetEase Cloud Music";
+"ncm_vip_pool_qr_authorizing" = "Confirm the login in NetEase Cloud Music";
+"ncm_vip_pool_qr_expired" = "The QR code has expired";
+"ncm_vip_pool_accounts_section" = "VIP Account Pool";
+"ncm_vip_pool_loading" = "Loading";
+"ncm_vip_pool_empty" = "No accounts";
+"ncm_vip_pool_refresh" = "Refresh Status";
+"ncm_vip_pool_operation_failed" = "Operation Failed";
+"ncm_vip_pool_error_generic" = "The NCM VIP account pool request failed";
+"ncm_vip_pool_membership_none" = "No Membership";
+"ncm_vip_pool_membership_vip" = "Vinyl VIP";
+"ncm_vip_pool_health_available" = "Available";
+"ncm_vip_pool_health_expired" = "Expired";
+"ncm_vip_pool_health_unavailable" = "Unavailable";
+"ncm_vip_pool_health_unknown" = "Not Verified";
 "developer_audio_lab" = "Live Audio Lab";
 "dev_popup_catalog_title" = "Popup Preview";
 "dev_popup_group_alerts" = "Alerts";
@@ -2425,10 +2447,6 @@
 "login_identity_active" = "In Use";
 "login_identity_select" = "Use This Identity";
 "login_identity_sign_in" = "Sign In to Select";
-"login_identity_none" = "No Platform Account Signed In";
-"login_identity_not_signed_in_format" = "%@ (Not Signed In)";
-"login_identity_switch_accessibility" = "Switch Current Sign-In Identity";
-"login_identity_switch_hint" = "Only signed-in platforms can be selected";
 "login_identity_qcm_profile" = "QCM Account";
 "login_identity_kcm_profile" = "KCM Account";
 "Mono 设计语言" = "Mono Design Language";
@@ -2531,3 +2549,10 @@
 "封面加载中" = "Loading artwork";
 "quality_vivid" = "Vivid Spatial Audio";
 "quality_vivid_subtitle" = "Panoramic spatial audio";
+
+/* Apple Music Library */
+"apple_music_category_playlists" = "Playlists";
+"apple_music_category_songs" = "Songs";
+"apple_music_category_albums" = "Albums";
+"apple_music_category_artists" = "Artists";
+"global_theme_minimal_white_description" = "A restrained monochrome player with precise spacing and lightweight controls.";

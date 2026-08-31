@@ -60,6 +60,8 @@ struct PetWhiteThemeProvider: GlobalThemeProvider {
         )
     }
 
+    var suggestedPlayerTheme: PlayerTheme? { .petWhite }
+
     func makeHomeView() -> AnyView {
         AnyView(PetWhiteHomeView())
     }

@@ -4,6 +4,16 @@ import FFmpegSwiftSDK
 extension ClassicPlayerLayout {
     // MARK: - 辅助方法
 
+    var classicDismissButton: some View {
+        Button(action: { dismiss() }) {
+            MonoIcon(icon: .chevronDown, size: 20, color: contentColor)
+                .frame(width: 40, height: 40)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(String(localized: "关闭"))
+    }
+
     func formatTime(_ seconds: Double) -> String {
         guard !seconds.isNaN && !seconds.isInfinite else { return "0:00" }
         let total = Int(seconds)

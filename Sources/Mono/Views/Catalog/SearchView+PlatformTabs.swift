@@ -147,7 +147,7 @@ extension SearchView {
     var signalPlatformTabBar: some View {
         let platforms = availableSearchPlatforms
 
-        return HStack(spacing: 7) {
+        return HStack(spacing: 0) {
             ForEach(platforms, id: \.self) { platform in
                 Button {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
@@ -156,21 +156,22 @@ extension SearchView {
                 } label: {
                     let tint = platform.themedBadgeColor
                     let selected = viewModel.selectedPlatform == platform
-                    Text(platformTabName(platform))
-                        .font(SignalStyle.labelFont(viewModel.hasSearched ? 10.5 : 11, weight: .bold))
-                        .foregroundStyle(selected ? tint : tint.opacity(0.72))
+                    VStack(spacing: 5) {
+                        Text(platformTabName(platform))
+                            .font(SignalStyle.labelFont(viewModel.hasSearched ? 10.5 : 11, weight: selected ? .semibold : .medium))
+                            .foregroundStyle(selected ? tint : SignalStyle.inkMuted)
+
+                        Circle()
+                            .fill(selected ? tint : Color.clear)
+                            .frame(width: 3.5, height: 3.5)
+                    }
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, viewModel.hasSearched ? 6 : 8)
-                        .background(
-                            RoundedRectangle(cornerRadius: viewModel.hasSearched ? 9 : 11, style: .continuous)
-                                .fill(selected ? tint.opacity(0.14) : Color.clear)
-                        )
+                        .padding(.vertical, viewModel.hasSearched ? 7 : 9)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(viewModel.hasSearched ? 4 : 5)
-        .background(SignalSurfaceBackground(cornerRadius: viewModel.hasSearched ? 14 : 16, elevated: false, pressed: true, fill: SignalStyle.controlPressed))
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
         .padding(.bottom, viewModel.hasSearched ? 2 : 8)
     }

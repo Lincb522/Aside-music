@@ -280,20 +280,4 @@ enum SecureConfig {
         }
     }
     
-    // MARK: - VIP Cookie
-    
-    /// 服务器 VIP 账号 Cookie（用于非会员用户的内容请求回退）
-    /// 配置方式：在 Secrets.xcconfig 中设置 VIP_COOKIE = MUSIC_U=xxx; __csrf=xxx
-    static var vipCookie: String? {
-        if let env = ProcessInfo.processInfo.environment["VIP_COOKIE"],
-           !env.isEmpty {
-            return env
-        }
-        if let plist = Bundle.main.object(forInfoDictionaryKey: "VIP_COOKIE") as? String,
-           !plist.isEmpty,
-           !plist.hasPrefix("$(") {
-            return plist
-        }
-        return nil
-    }
 }

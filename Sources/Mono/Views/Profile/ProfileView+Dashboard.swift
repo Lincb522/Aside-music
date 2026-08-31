@@ -12,10 +12,6 @@ extension ProfileView {
 
                 ScrollView {
                     LazyVStack(spacing: themedProfileSpacing) {
-                        LoginIdentitySwitcher()
-                            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-                            .padding(.top, 8)
-
                         loggedInDashboardContent
                         FloatingBarBottomSpacer()
                     }

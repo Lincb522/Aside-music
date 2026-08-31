@@ -577,6 +577,7 @@ final class Enhanced440ContractTests: XCTestCase {
         body = try formBody()
         XCTAssertEqual(body["key"], "qr-key")
         XCTAssertEqual(body["type"], "3")
+        XCTAssertEqual(body["noCookie"], "true")
         XCTAssertNotNil(body["timestamp"])
 
         let response = try await client.loginQrCheck(key: "qr-key")

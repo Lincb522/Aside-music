@@ -3,6 +3,7 @@
 
 import Foundation
 @preconcurrency import Combine
+import FFmpegSwiftSDK
 import NeteaseCloudMusicAPI
 import QQMusicKit
 
@@ -51,21 +52,26 @@ class APIService: @unchecked Sendable {
     /// ncm API 客户端（后端代理模式）— 用户自己的 Cookie
     let ncm: NCMClient
 
-    /// VIP 客户端 — 服务器 VIP 账号 Cookie（非会员用户的内容请求回退）
-    private(set) var ncmVIP: NCMClient?
+    /// 服务端 VIP 账号池客户端（非会员用户的内容请求回退）
+    let ncmVIP: NCMClient
     
     /// 当前用户是否为ncm会员（黑胶 VIP）
     @Published var isCurrentUserVIP: Bool = false
+    private var didResolveCurrentUserVIPStatus = false
     
     /// 内容请求使用的客户端（歌曲URL/歌词/详情等）
-    /// 已登录且有会员 → ncm（用户自己）；未登录或无会员 → ncmVIP（服务器 VIP）
+    /// 已登录且有会员 → ncm（用户自己）；未登录或无会员 → ncmVIP（服务端账号池）
     var contentClient: NCMClient {
-        if isCurrentUserVIP { return ncm }
-        return ncmVIP ?? ncm
+        if isCurrentUserVIP || (isLoggedIn && !didResolveCurrentUserVIPStatus) { return ncm }
+        return ncmVIP
     }
 
-    /// 是否配置了服务器 VIP Cookie
-    var hasVIPCookie: Bool { ncmVIP != nil && vipCookieHeader != nil }
+    var hasNCMVIPPoolAccess: Bool {
+        guard let token = SecureConfig.apiToken?.trimmingCharacters(in: .whitespacesAndNewlines) else {
+            return false
+        }
+        return !token.isEmpty
+    }
     
     private let cookieKey = "mono_music_cookie"
     private let userIdKey = "mono_music_uid"
@@ -123,6 +129,8 @@ class APIService: @unchecked Sendable {
 
             if currentCookie != normalized {
                 advanceNCMSessionRevision()
+                isCurrentUserVIP = false
+                didResolveCurrentUserVIPStatus = false
             }
 
             if let value = normalized {
@@ -159,8 +167,9 @@ class APIService: @unchecked Sendable {
         return normalized.isEmpty ? nil : normalized
     }
 
-    private var vipCookieHeader: String? {
-        Self.normalizedCookieHeader(SecureConfig.vipCookie)
+    private static func ncmVIPPoolServerURL(from serverURL: String) -> String {
+        let base = serverURL.hasSuffix("/") ? String(serverURL.dropLast()) : serverURL
+        return "\(base)/_admin/api/account/ncm/pool"
     }
 
     var isLoggedIn: Bool {
@@ -197,15 +206,12 @@ class APIService: @unchecked Sendable {
             cookie: savedCookie,
             serverUrl: serverUrl
         )
+        self.ncmVIP = NCMClient(
+            serverUrl: Self.ncmVIPPoolServerURL(from: SecureConfig.apiBaseURL(for: .primary))
+        )
+
         ncm.apiToken = SecureConfig.apiToken
-        
-        if let vipCookie = Self.normalizedCookieHeader(SecureConfig.vipCookie) {
-            self.ncmVIP = NCMClient(cookie: vipCookie, serverUrl: serverUrl)
-            ncmVIP?.apiToken = SecureConfig.apiToken
-            #if DEBUG
-            print("[APIService] VIP Cookie 已配置，NCM VIP 已初始化")
-            #endif
-        }
+        ncmVIP.apiToken = SecureConfig.apiToken
 
         // 直接赋值给底层存储，避免触发 didSet（didSet 中会重新写 Keychain）
         self.currentUserId = savedUid
@@ -404,19 +410,19 @@ class APIService: @unchecked Sendable {
 
         SecureConfig.apiToken = persistedToken
         ncm.apiToken = runtimeToken
-        ncmVIP?.apiToken = runtimeToken
+        ncmVIP.apiToken = runtimeToken
         qqClient.apiToken = runtimeToken
     }
 
     // MARK: - 线路切换
 
     /// 线路切换后重绑各网络客户端的服务器地址。
-    /// NCM 客户端的 serverUrl 是启动时捕获的，QQ 客户端是单例重建；
-    /// 汽水/云同步等直接读 SecureConfig 的路径会自动跟随当前线路。
+    /// 用户 NCM 客户端跟随所选线路；VIP 账号池由主服务器统一持有。
+    /// QQ 客户端是单例重建，汽水/云同步等直接读取当前线路配置。
     func rebindServerLine() {
         let serverUrl = SecureConfig.apiBaseURL
         ncm.serverUrl = serverUrl
-        ncmVIP?.serverUrl = serverUrl
+        ncmVIP.serverUrl = Self.ncmVIPPoolServerURL(from: SecureConfig.apiBaseURL(for: .primary))
 
         if let qqURL = URL(string: SecureConfig.qqMusicBaseURL) {
             QQMusicClient.configure(baseURL: qqURL, timeout: 30, maxRetries: 1)
@@ -433,6 +439,7 @@ class APIService: @unchecked Sendable {
     func checkUserVIPStatus() {
         guard isLoggedIn else {
             isCurrentUserVIP = false
+            didResolveCurrentUserVIPStatus = true
             return
         }
         let session = ncmSessionSnapshot
@@ -443,6 +450,7 @@ class APIService: @unchecked Sendable {
                 await MainActor.run {
                     guard self.isCurrentNCMSession(session) else { return }
                     self.isCurrentUserVIP = vipType > 0
+                    self.didResolveCurrentUserVIPStatus = true
                     #if DEBUG
                     print("[APIService] VIP 状态检测: vipType=\(vipType), isVIP=\(vipType > 0)")
                     #endif
@@ -451,6 +459,7 @@ class APIService: @unchecked Sendable {
                 await MainActor.run {
                     guard self.isCurrentNCMSession(session) else { return }
                     self.isCurrentUserVIP = false
+                    self.didResolveCurrentUserVIPStatus = false
                 }
                 #if DEBUG
                 print("[APIService] VIP 状态检测失败: \(error)")
@@ -473,6 +482,7 @@ class APIService: @unchecked Sendable {
         UserDefaults.standard.set(false, forKey: AppConfig.StorageKeys.isLoggedIn)
 
         isCurrentUserVIP = false
+        didResolveCurrentUserVIPStatus = true
         ncm.clearCookies()
         currentUserId = nil
 
@@ -519,14 +529,14 @@ class APIService: @unchecked Sendable {
         }
     }
 
-    func validateLoginStatus(cookie: String) -> AnyPublisher<LoginStatusResponse, Error> {
-        let authClient = NCMClient(
-            cookie: cookie,
-            serverUrl: ncm.serverUrl ?? SecureConfig.apiBaseURL
-        )
-        authClient.apiToken = SecureConfig.apiToken
-        return authClient.publisher {
-            let response = try await authClient.loginStatus()
+    func validateLoginStatus(
+        cookie: String,
+        using attempt: NCMLoginAttempt
+    ) -> AnyPublisher<LoginStatusResponse, Error> {
+        let client = attempt.client
+        client.setCookie(cookie)
+        return client.publisher {
+            let response = try await client.loginStatus()
             return try Self.parseLoginStatus(response.body)
         }
     }
@@ -569,21 +579,8 @@ class APIService: @unchecked Sendable {
         return true
     }
 
-    func makeLoginAttempt(
-        preservingCookiesFrom previousAttempt: NCMLoginAttempt? = nil
-    ) -> NCMLoginAttempt {
-        let cookie: String?
-        if let previousAttempt {
-            let pairs = previousAttempt.client.currentCookies
-                .sorted { $0.key < $1.key }
-                .map { "\($0.key)=\($0.value)" }
-            cookie = pairs.isEmpty ? nil : pairs.joined(separator: "; ")
-        } else {
-            cookie = nil
-        }
-
+    func makeLoginAttempt() -> NCMLoginAttempt {
         let client = NCMClient(
-            cookie: cookie,
             serverUrl: ncm.serverUrl ?? SecureConfig.apiBaseURL
         )
         client.apiToken = SecureConfig.apiToken
@@ -1163,18 +1160,15 @@ class APIService: @unchecked Sendable {
             clients.append(client)
         }
 
-        // 用户自己的会员账号始终优先；只有未识别为会员时才优先使用内置 VIP Cookie。
-        // 两条链路都保留另一端作为兜底，避免会员状态检测尚未完成或 Cookie 临时失效时
+        // 用户自己的会员账号始终优先；只有未识别为会员时才优先使用服务端 VIP 账号池。
+        // 两条链路都保留另一端作为兜底，避免会员状态检测尚未完成或服务端账号临时失效时
         // 被试听地址提前截断。
-        if isCurrentUserVIP {
+        let shouldPreferUser = isCurrentUserVIP || (isLoggedIn && !didResolveCurrentUserVIPStatus)
+        if shouldPreferUser {
             appendUnique(ncm)
-            if let ncmVIP {
-                appendUnique(ncmVIP)
-            }
+            appendUnique(ncmVIP)
         } else {
-            if let ncmVIP {
-                appendUnique(ncmVIP)
-            }
+            appendUnique(ncmVIP)
             appendUnique(ncm)
         }
 
@@ -1182,8 +1176,8 @@ class APIService: @unchecked Sendable {
     }
 
     private func contentClientLabel(_ client: NCMClient) -> String {
-        if let vipClient = ncmVIP, client === vipClient {
-            return "vip-cookie"
+        if client === ncmVIP {
+            return "server-vip-pool"
         }
         if client === ncm {
             return "user-cookie"
@@ -1459,6 +1453,13 @@ class APIService: @unchecked Sendable {
             let trialMode = first["trialMode"] as? Int ?? 0
             let isPreview = hasFreeTrialInfo || trialMode > 0
 
+            if !Self.isNeteasePlaybackFormatSupported(mediaType: first["type"] as? String) {
+                AppLogger.warning(
+                    "[Netease] \(actualQuality?.displayName ?? level) 返回当前内核无法解码的媒体格式，继续回退"
+                )
+                throw PlaybackError.unavailable
+            }
+
             if !acceptDowngrade,
                let requestedQuality,
                let actualQuality,
@@ -1516,6 +1517,11 @@ class APIService: @unchecked Sendable {
                 size: item["size"] as? Int ?? 0
             )
         }
+    }
+
+    private static func isNeteasePlaybackFormatSupported(mediaType: String?) -> Bool {
+        guard mediaType?.lowercased() == "av3a" else { return true }
+        return FFmpegRuntimeInspector.hasAudioDecoder(named: "av3a")
     }
     
     private func buildNeteasePlaybackCandidates(
@@ -1703,29 +1709,6 @@ class APIService: @unchecked Sendable {
             }
             return []
         }
-    }
-
-    private func cookieHeader(for client: NCMClient) -> String? {
-        let cookies = client.currentCookies
-        if !cookies.isEmpty {
-            let header = cookies.map { "\($0.key)=\($0.value)" }.joined(separator: "; ")
-            // NCMClient sessionManager 可能把 Set-Cookie 里的 Max-Age / Expires / Path 等属性
-            // 也当作 cookie,发出去会导致网易云判定未登录
-            let normalized = Self.normalizeCookieHeader(header)
-            if !normalized.isEmpty {
-                return normalized
-            }
-        }
-
-        if client === ncm {
-            return currentCookie
-        }
-
-        if let vipClient = ncmVIP, client === vipClient {
-            return vipCookieHeader
-        }
-
-        return currentCookie ?? vipCookieHeader
     }
 
     // MARK: - 听歌打卡（上报播放记录到ncm）

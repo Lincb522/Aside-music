@@ -25,13 +25,27 @@ public extension QQMusicClient {
     /// - Parameters:
     ///   - keyword: 关键词
     ///   - page: 页码，默认 1
+    ///   - num: 返回数量，默认 15
+    ///   - searchID: 延续搜索会话时使用的 ID
+    ///   - pageStart: 指定结果起始位置
     ///   - highlight: 是否高亮关键词
-    func generalSearch(keyword: String, page: Int = 1, highlight: Bool = true) async throws -> JSON {
-        try await requestWrapped("/search/general_search", params: [
+    func generalSearch(
+        keyword: String,
+        page: Int = 1,
+        num: Int = 15,
+        searchID: String? = nil,
+        pageStart: Int? = nil,
+        highlight: Bool = true
+    ) async throws -> JSON {
+        var params = [
             "keyword": keyword,
             "page": String(page),
+            "num": String(num),
             "highlight": String(highlight),
-        ])
+        ]
+        if let searchID { params["searchid"] = searchID }
+        if let pageStart { params["page_start"] = String(pageStart) }
+        return try await requestWrapped("/search/general_search", params: params)
     }
 
     /// 分类搜索
@@ -45,20 +59,31 @@ public extension QQMusicClient {
     ///   - type: 搜索类型
     ///   - num: 返回数量，默认 10
     ///   - page: 页码，默认 1
+    ///   - selectors: 搜索筛选器
+    ///   - searchID: 延续搜索会话时使用的 ID
     ///   - highlight: 是否高亮关键词
     func search(
         keyword: String,
         type: SearchType = .song,
         num: Int = 10,
         page: Int = 1,
+        selectors: [QQMusicSearchSelector]? = nil,
+        searchID: String? = nil,
         highlight: Bool = true
     ) async throws -> JSON {
-        try await requestWrapped("/search/search_by_type", params: [
+        var parameters: [String: Any] = [
             "keyword": keyword,
             "search_type": type.rawValue,
-            "num": String(num),
-            "page": String(page),
-            "highlight": String(highlight),
-        ])
+            "num": num,
+            "page": page,
+            "highlight": highlight,
+        ]
+        if let selectors {
+            parameters["selectors"] = selectors.map(\.parameters)
+        }
+        if let searchID {
+            parameters["searchid"] = searchID
+        }
+        return try await requestWrapped("/search/search_by_type", parameters: parameters)
     }
 }

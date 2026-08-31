@@ -51,6 +51,13 @@ extension PodcastView {
                             icon: .gridSquare,
                             selected: true
                         )
+                    } else if SignalStyle.isActive {
+                        SignalPill(
+                            text: String(localized: "podcast_all"),
+                            tint: SignalStyle.accent,
+                            icon: .gridSquare,
+                            selected: true
+                        )
                     } else if SequoiaStyle.isActive {
                         SequoiaPill(
                             text: String(localized: "podcast_all"),
@@ -119,6 +126,12 @@ extension PodcastView {
                         NeumorphicPill(
                             text: cat.name,
                             tint: NeumorphicStyle.sage,
+                            icon: cat.monoIconType
+                        )
+                    } else if SignalStyle.isActive {
+                        SignalPill(
+                            text: cat.name,
+                            tint: SignalStyle.olive,
                             icon: cat.monoIconType
                         )
                     } else if SequoiaStyle.isActive {

@@ -62,7 +62,11 @@ final class SettingsManager: ObservableObject {
     var floatingBarStyle: FloatingBarStyle {
         // 已下线的样式会自然回落到现有云雾样式，避免升级后突然切回默认悬浮栏。
         get { FloatingBarStyle(rawValue: floatingBarStyleRaw) ?? .flux }
-        set { floatingBarStyleRaw = newValue.rawValue }
+        set {
+            guard floatingBarStyleRaw != newValue.rawValue else { return }
+            objectWillChange.send()
+            floatingBarStyleRaw = newValue.rawValue
+        }
     }
 
     /// 默认主题下自定义 TabBar 是否使用液态玻璃；关闭时使用更稳定的毛玻璃底。

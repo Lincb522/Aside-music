@@ -10,12 +10,25 @@ struct PlatformAccountSwitchingView: View {
                 VStack(spacing: SettingsPageLayout.deepSectionSpacing) {
                     DeveloperDiagnosticHeader(
                         title: "平台切号管理",
-                        status: "QCM · KCM",
+                        status: "NCM · QCM · KCM",
                         icon: .personCircle,
                         tint: .cyan
                     )
 
                     SettingsSection(title: "平台") {
+                        NavigationLink {
+                            NCMVIPAccountSwitchingView()
+                        } label: {
+                            developerPlatformRow(
+                                source: .netease,
+                                title: "NCM",
+                                value: String(localized: "ncm_vip_pool_platform_value")
+                            )
+                        }
+                        .buttonStyle(.plain)
+
+                        developerDivider
+
                         NavigationLink {
                             QCMAccountSwitchingView()
                         } label: {
@@ -368,7 +381,7 @@ private struct KCMAccountSwitchingView: View {
     }
 }
 
-private struct DeveloperSwitchingAccountRow: View {
+struct DeveloperSwitchingAccountRow: View {
     let source: MusicSource
     let avatarURL: URL?
     let title: String
@@ -431,7 +444,7 @@ private struct DeveloperSwitchingAccountRow: View {
     }
 }
 
-private struct DeveloperSwitchingDivider: View {
+struct DeveloperSwitchingDivider: View {
     var body: some View {
         Divider()
             .overlay(Color.white.opacity(0.08))
@@ -439,7 +452,7 @@ private struct DeveloperSwitchingDivider: View {
     }
 }
 
-private struct DeveloperSwitchingStateSection: View {
+struct DeveloperSwitchingStateSection: View {
     let title: String
     let text: String
 

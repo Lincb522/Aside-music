@@ -5,7 +5,9 @@ extension PlaylistDetailView {
 
     @ViewBuilder
     var playlistHeaderContent: some View {
-        if MinimalWhiteStyle.isActive {
+        if SignalStyle.isActive {
+            signalPlaylistHeaderContent
+        } else if MinimalWhiteStyle.isActive {
             minimalWhitePlaylistHeaderContent
         } else if let bannerCoverURL {
             bannerPlaylistHeaderContent(bannerCoverURL)
@@ -15,8 +17,6 @@ extension PlaylistDetailView {
             mangaPlaylistHeaderContent
         } else if NeumorphicStyle.isActive {
             neumorphicPlaylistHeaderContent
-        } else if SignalStyle.isActive {
-            signalPlaylistHeaderContent
         } else if MujiStyle.isActive {
             mujiPlaylistHeaderContent
         } else if CapsuleStyle.isActive {

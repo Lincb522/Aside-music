@@ -297,21 +297,27 @@ enum AppLogger {
     }
 
     private static let maxLogs = 2_500
+    private static let maxPersistedLogs = 800
     private static let maximumMessageLength = 12_000
     private static let duplicateWindow: TimeInterval = 2.5
     private static let launchSessionID = String(UUID().uuidString.prefix(8)).uppercased()
     private static let stateLock = NSLock()
-    private nonisolated(unsafe) static var logs: [LogEntry] = []
+    private static let persistenceQueue = DispatchQueue(
+        label: "com.mono.runtime-log-persistence",
+        qos: .utility
+    )
+    private static let persistenceURL = diagnosticStorageURL("runtime-logs-v2.json")
+    private static let silenceIncidentURL = diagnosticStorageURL("audio-silence-latest-v1.json")
+    private nonisolated(unsafe) static var logs: [LogEntry] = loadPersistedEntries()
     private nonisolated(unsafe) static var droppedCount = 0
     private nonisolated(unsafe) static var coalescedCount = 0
     private nonisolated(unsafe) static var revision: UInt64 = 0
     private nonisolated(unsafe) static var changeNotificationPending = false
+    private nonisolated(unsafe) static var persistenceScheduled = false
     private nonisolated(unsafe) static var collectionEnabled: Bool = {
-        #if DEBUG
         if UserDefaults.standard.object(forKey: "log_collection_enabled") == nil {
             return true
         }
-        #endif
         return UserDefaults.standard.bool(forKey: "log_collection_enabled")
     }()
 
@@ -372,6 +378,7 @@ enum AppLogger {
         coalescedCount = 0
         revision &+= 1
         stateLock.unlock()
+        clearPersistedLogs()
         scheduleChangeNotification()
     }
 
@@ -394,6 +401,19 @@ enum AppLogger {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         guard let data = try? encoder.encode(archive) else { return nil }
         return String(data: data, encoding: .utf8)
+    }
+
+    static func silenceDiagnosticsJSON() -> String? {
+        persistenceQueue.sync {
+            guard let data = try? Data(contentsOf: silenceIncidentURL) else { return nil }
+            return String(data: data, encoding: .utf8)
+        }
+    }
+
+    static var hasSilenceDiagnostics: Bool {
+        persistenceQueue.sync {
+            FileManager.default.fileExists(atPath: silenceIncidentURL.path)
+        }
     }
 
     static func info(
@@ -639,7 +659,114 @@ enum AppLogger {
         }
         revision &+= 1
         stateLock.unlock()
+
+        let isSilenceIncident = entry.event.hasPrefix("audio.silence.")
+        if isSilenceIncident {
+            persistCurrentLogsSynchronously(includeSilenceIncident: true)
+        } else {
+            schedulePersistence()
+        }
         scheduleChangeNotification()
+    }
+
+    private static func schedulePersistence() {
+        stateLock.lock()
+        guard !persistenceScheduled else {
+            stateLock.unlock()
+            return
+        }
+        persistenceScheduled = true
+        stateLock.unlock()
+
+        persistenceQueue.asyncAfter(deadline: .now() + 0.75) {
+            drainPersistenceQueue()
+        }
+    }
+
+    private static func drainPersistenceQueue() {
+        let captured = persistenceSnapshot()
+        write(captured, to: persistenceURL)
+
+        stateLock.lock()
+        persistenceScheduled = false
+        let changedDuringWrite = revision != captured.revision
+        stateLock.unlock()
+        if changedDuringWrite {
+            schedulePersistence()
+        }
+    }
+
+    private static func persistCurrentLogsSynchronously(includeSilenceIncident: Bool) {
+        let captured = persistenceSnapshot()
+        persistenceQueue.sync {
+            write(captured, to: persistenceURL)
+            if includeSilenceIncident {
+                write(captured, to: silenceIncidentURL)
+            }
+        }
+    }
+
+    private static func persistenceSnapshot() -> AppLogSnapshot {
+        let current = snapshot()
+        guard current.entries.count > maxPersistedLogs else { return current }
+        return AppLogSnapshot(
+            entries: Array(current.entries.suffix(maxPersistedLogs)),
+            counts: current.counts,
+            categoryCounts: current.categoryCounts,
+            droppedCount: current.droppedCount,
+            coalescedCount: current.coalescedCount,
+            revision: current.revision
+        )
+    }
+
+    private static func write(_ snapshot: AppLogSnapshot, to url: URL) {
+        let archive = ExportArchive(
+            version: 2,
+            generatedAt: Date(),
+            sessionID: launchSessionID,
+            droppedCount: snapshot.droppedCount,
+            coalescedCount: snapshot.coalescedCount,
+            entries: snapshot.entries
+        )
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        guard let data = try? encoder.encode(archive) else { return }
+        try? data.write(
+            to: url,
+            options: [.atomic, .completeFileProtectionUnlessOpen]
+        )
+    }
+
+    private static func loadPersistedEntries() -> [LogEntry] {
+        guard let data = try? Data(contentsOf: persistenceURL) else { return [] }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        guard let archive = try? decoder.decode(ExportArchive.self, from: data) else { return [] }
+        return Array(archive.entries.sorted { $0.timestamp < $1.timestamp }.suffix(maxPersistedLogs))
+    }
+
+    private static func clearPersistedLogs() {
+        persistenceQueue.sync {
+            let fileManager = FileManager.default
+            try? fileManager.removeItem(at: persistenceURL)
+            try? fileManager.removeItem(at: silenceIncidentURL)
+        }
+    }
+
+    private static func diagnosticStorageURL(_ fileName: String) -> URL {
+        let baseURL = FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first ?? FileManager.default.temporaryDirectory
+        let directory = baseURL
+            .appendingPathComponent("Mono", isDirectory: true)
+            .appendingPathComponent("Diagnostics", isDirectory: true)
+        try? FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        return directory.appendingPathComponent(fileName, isDirectory: false)
     }
 
     private static func normalizedSourcePath(_ file: String) -> String {

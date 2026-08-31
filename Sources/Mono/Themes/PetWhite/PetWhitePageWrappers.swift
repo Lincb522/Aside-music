@@ -161,6 +161,7 @@ struct PetWhiteHomeView: View {
     @State private var renderedHitokotoText = ""
     @State private var hitokotoRefreshRotation: Double = 0
     @State private var didRunInitialRenderedHomeDataSync = false
+    @State private var didActivateHome = false
     private let maxEmptyHomeRecoveryAttempts = 8
 
     var body: some View {
@@ -180,18 +181,14 @@ struct PetWhiteHomeView: View {
                 .toolbarBackground(.hidden, for: .navigationBar)
                 .task {
                     guard await MainTabActivationGate.waitUntilSettled(.home) else { return }
-                    viewModel.reloadHomeCacheForVisibleHomeIfNeeded(reason: "pet white home task cache sync")
-                    syncPetWhiteHitokoto(reason: "pet white home task")
-                    syncRenderedHomeData(reason: "pet white home task")
-                    invalidateHomeRender()
-                    revealHomeContent()
-                    guard !didRunInitialRenderedHomeDataSync else { return }
-                    didRunInitialRenderedHomeDataSync = true
-                    refreshPetWhiteHitokotoIfNeeded(reason: "pet white home task")
-                    hydratePetWhiteHome(reason: "pet white home task")
-                    recoverEmptyHomeIfNeeded(reason: "pet white empty task")
-                    scheduleEmptyStateReveal(reason: "pet white home task")
-                    await runInitialRenderedHomeDataSync()
+                    await activateHomeIfNeeded(reason: "pet white home appear")
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .mainTabDidSettle)) { notification in
+                    guard notification.object as? Tab == .home,
+                          MainTabActivationGate.isSettled(.home) else { return }
+                    Task { @MainActor in
+                        await activateHomeIfNeeded(reason: "pet white home selected")
+                    }
                 }
                 .onChange(of: settings.globalThemeRevision) { _, _ in
                     guard MainTabActivationGate.isSettled(.home) else { return }
@@ -357,6 +354,23 @@ struct PetWhiteHomeView: View {
 
     private var homeRenderIdentity: String {
         "\(homeDataIdentity)|render-\(homeRenderRevision)"
+    }
+
+    private func activateHomeIfNeeded(reason: String) async {
+        guard !didActivateHome else { return }
+        didActivateHome = true
+        viewModel.reloadHomeCacheForVisibleHomeIfNeeded(reason: "\(reason) cache sync")
+        syncPetWhiteHitokoto(reason: reason)
+        syncRenderedHomeData(reason: reason)
+        invalidateHomeRender()
+        revealHomeContent()
+        guard !didRunInitialRenderedHomeDataSync else { return }
+        didRunInitialRenderedHomeDataSync = true
+        refreshPetWhiteHitokotoIfNeeded(reason: reason)
+        hydratePetWhiteHome(reason: reason)
+        recoverEmptyHomeIfNeeded(reason: "\(reason) empty")
+        scheduleEmptyStateReveal(reason: reason)
+        await runInitialRenderedHomeDataSync()
     }
 
     private func hydratePetWhiteHome(reason: String) {

@@ -212,7 +212,7 @@ struct DeveloperToolsView: View {
                                 SettingsRouteLinkRow(
                                     icon: .personCircle,
                                     title: String(localized: "developer_platform_switching"),
-                                    value: "QCM · KCM",
+                                    value: "NCM · QCM · KCM",
                                     destination: .platformAccountSwitching
                                 )
                             }

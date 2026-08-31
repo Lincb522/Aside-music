@@ -9,6 +9,7 @@ struct DefaultThemeProvider: GlobalThemeProvider {
     var shapeLanguage: GlobalShapeLanguage { .default }
     var iconStyle: GlobalIconStyle { .default }
     var animationStyle: GlobalAnimationStyle { .default }
+    var suggestedPlayerTheme: PlayerTheme? { .classic }
 
     // ── 布局：直接返回现有视图 ──
 

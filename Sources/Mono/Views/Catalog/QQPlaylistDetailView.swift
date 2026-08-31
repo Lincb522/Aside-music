@@ -184,7 +184,7 @@ struct QQPlaylistDetailView: View {
             VStack(spacing: 0) {
                 ScrollView {
                     VStack(spacing: 0) {
-                        if usesAsideHero {
+                        if usesAsideHero || SignalStyle.isActive {
                             headerSection
                         } else {
                             headerSection
@@ -213,7 +213,7 @@ struct QQPlaylistDetailView: View {
                 }
                 .scrollIndicators(.hidden)
                 .monoScrollOffset($scrollOffset)
-                .ignoresSafeArea(edges: usesAsideHero ? .top : [])
+                .ignoresSafeArea(edges: (usesAsideHero || SignalStyle.isActive) ? .top : [])
             .themeRenderScrollLayer()
             }
         }
@@ -283,86 +283,35 @@ struct QQPlaylistDetailView: View {
     }
 
     private var signalQQPlaylistHeaderSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top, spacing: 15) {
-                ZStack {
-                    SignalScreenBackground(cornerRadius: 11)
-
-                    if let url = displayCoverUrl {
-                        CachedAsyncImage(url: url) {
-                            SignalStyle.controlPressed
-                        }
-                        .aspectRatio(contentMode: .fill)
-                        .padding(8)
-                    } else {
-                        SignalIconBadge(icon: .musicNoteList, size: 58)
-                    }
-
-                }
-                .frame(width: DeviceLayout.isPad ? 154 : 118, height: DeviceLayout.isPad ? 154 : 118)
-                .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
-
-                VStack(alignment: .leading, spacing: 9) {
-                    HStack(spacing: 7) {
-                        SignalPill(text: "QCM", tint: SignalStyle.accent, selected: true, compact: true)
-                        SignalPill(text: "PLAYLIST", tint: SignalStyle.mint, compact: true)
-                    }
-
-                    Text(displayName)
-                        .font(SignalStyle.titleFont(22, weight: .bold))
-                        .foregroundStyle(SignalStyle.ink)
-                        .lineLimit(3)
-
-                    if let creatorName, !creatorName.isEmpty {
-                        Text(creatorName)
-                            .font(SignalStyle.labelFont(11, weight: .medium))
-                            .foregroundStyle(SignalStyle.inkSoft)
-                            .lineLimit(1)
-                    }
+        SignalPlaylistHero(
+            coverURL: displayCoverUrl,
+            title: displayName,
+            sourceLabel: "QCM",
+            subtitle: creatorName,
+            trackCount: viewModel.songs.count,
+            playDisabled: viewModel.songs.isEmpty,
+            onPlay: {
+                if let first = viewModel.songs.first {
+                    PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
+                    viewModel.loadAllSongs(appendToQueue: true)
                 }
             }
-
-            HStack(spacing: 10) {
-                Button {
-                    if let first = viewModel.songs.first {
-                        PlayerManager.shared.playReplacingContext(song: first, in: viewModel.songs)
-                        viewModel.loadAllSongs(appendToQueue: true)
-                    }
-                } label: {
-                    SignalPlayPill(title: String(localized: "play_now"))
-                }
-                .buttonStyle(.plain)
-                .disabled(viewModel.songs.isEmpty)
-
-                SubscribeButton(
-                    isSubscribed: isCollectedLocally,
-                    action: {
-                        guard !isCollectedLocally, !viewModel.songs.isEmpty else { return }
-                        Task {
-                            let allSongs = await viewModel.loadAllSongsAsync()
-                            LocalPlaylistManager.shared.importPlaylist(name: displayName, songs: allSongs)
+        ) {
+            SubscribeButton(
+                isSubscribed: isCollectedLocally,
+                action: {
+                    guard !isCollectedLocally, !viewModel.songs.isEmpty else { return }
+                    Task {
+                        let allSongs = await viewModel.loadAllSongsAsync()
+                        LocalPlaylistManager.shared.importPlaylist(name: displayName, songs: allSongs)
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                             isCollectedLocally = true
                         }
                     }
-                )
-                .disabled(isCollectedLocally || viewModel.songs.isEmpty)
-
-                Spacer(minLength: 0)
-
-                SignalPill(
-                    text: String(format: "%02d", viewModel.songs.count),
-                    tint: SignalStyle.inkSoft,
-                    icon: .musicNote,
-                    compact: true
-                )
-            }
+                }
+            )
+            .disabled(isCollectedLocally || viewModel.songs.isEmpty)
         }
-        .padding(16)
-        .background(SignalSurfaceBackground(cornerRadius: 14, elevated: true, fill: SignalStyle.surface))
-        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-        .padding(.top, DeviceLayout.headerTopPadding + 10)
-        .padding(.bottom, 16)
-        .iPadContentWidth(900)
     }
 
     private var minimalWhiteQQPlaylistHeaderSection: some View {

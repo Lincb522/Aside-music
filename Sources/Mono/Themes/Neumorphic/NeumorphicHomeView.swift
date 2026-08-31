@@ -42,6 +42,7 @@ struct NeumorphicHomeView: View {
     @State private var showPersonalFM = false
     @State private var bannerWebURL: URL?
     @State private var appeared = false
+    @State private var didActivateHome = false
     @State private var hitokotoRefreshRotation: Double = 0
     @State private var selectedModule: NeumorphicHomeModule = .playlists
     @State private var deckExpanded = false
@@ -67,17 +68,12 @@ struct NeumorphicHomeView: View {
             .toolbarBackground(.hidden, for: .navigationBar)
             .task {
                 guard await MainTabActivationGate.waitUntilSettled(.home) else { return }
-                viewModel.ensureHomeDataLoaded(reason: "neumorphic home appear")
-                if hitokotoEnabled,
-                   viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false
-                {
-                    viewModel.refreshHitokoto()
-                }
-                if !appeared {
-                    withAnimation(.spring(response: 0.58, dampingFraction: 0.86).delay(0.06)) {
-                        appeared = true
-                    }
-                }
+                activateHomeIfNeeded(reason: "neumorphic home appear")
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .mainTabDidSettle)) { notification in
+                guard notification.object as? Tab == .home,
+                      MainTabActivationGate.isSettled(.home) else { return }
+                activateHomeIfNeeded(reason: "neumorphic home selected")
             }
             .navigationDestination(for: HomeView.HomeDestination.self) { destination in
                 destinationView(for: destination)
@@ -88,6 +84,21 @@ struct NeumorphicHomeView: View {
             .fullScreenCover(item: $bannerWebURL) { url in
                 MonoWebView(url: url, title: nil)
             }
+        }
+    }
+
+    private func activateHomeIfNeeded(reason: String) {
+        guard !didActivateHome else { return }
+        didActivateHome = true
+        viewModel.ensureHomeDataLoaded(reason: reason)
+        if hitokotoEnabled,
+           viewModel.hitokoto?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false
+        {
+            viewModel.refreshHitokoto()
+        }
+        guard !appeared else { return }
+        withAnimation(.spring(response: 0.58, dampingFraction: 0.86).delay(0.06)) {
+            appeared = true
         }
     }
 

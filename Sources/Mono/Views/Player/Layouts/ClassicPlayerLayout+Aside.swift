@@ -82,8 +82,7 @@ extension ClassicPlayerLayout {
 
     var asideHeaderView: some View {
         HStack(spacing: 12) {
-            MonoBackButton(style: .dismiss, isDarkBackground: false)
-                .contentShape(Circle())
+            classicDismissButton
 
             Spacer(minLength: 0)
 

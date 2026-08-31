@@ -611,6 +611,16 @@ struct DebugLogView: View {
                     MonoMoreMenuDivider()
 
                     MonoMoreMenuRow(
+                        icon: .waveform,
+                        title: String(localized: "debug_export_silence_diagnostics"),
+                        isEnabled: model.hasSilenceDiagnostics
+                    ) {
+                        presentShare(model.silenceDiagnosticsExport())
+                    }
+
+                    MonoMoreMenuDivider()
+
+                    MonoMoreMenuRow(
                         icon: .trash,
                         title: String(localized: "debug_clear"),
                         isDestructive: true,

@@ -110,19 +110,19 @@ extension ClassicPlayerLayout {
                     showLyrics.toggle()
                 }
             })
-            .padding(.horizontal, MangaStyle.isActive ? 18 : 20)
-            .padding(.vertical, MangaStyle.isActive ? 14 : 18)
+            .padding(.horizontal, usesMangaStyle ? 18 : 20)
+            .padding(.vertical, usesMangaStyle ? 14 : 18)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background {
-                if MangaStyle.isActive {
+                if usesMangaStyle {
                     MangaCardBackground(cornerRadius: MangaStyle.cardRadius + 4, elevated: true, tint: MangaStyle.bubbleWhite)
-                } else if NeumorphicStyle.isActive {
+                } else if usesNeumorphicStyle {
                     NeumorphicSurfaceBackground(cornerRadius: 26, elevated: true, tint: NeumorphicStyle.surface)
-                } else if CapsuleStyle.isActive {
+                } else if usesCapsuleStyle {
                     CapsuleSurfaceBackground(cornerRadius: 28, elevated: true, tint: CapsuleStyle.surface.opacity(0.94))
-                } else if SequoiaStyle.isActive {
+                } else if usesSequoiaStyle {
                     SequoiaSurfaceBackground(cornerRadius: 26, elevated: true, role: .chrome)
-                } else if ClayStyle.isActive {
+                } else if usesClayStyle {
                     ClaySurfaceBackground(cornerRadius: 30, tint: ClayStyle.cream.opacity(0.96), elevated: true)
                 }
             }

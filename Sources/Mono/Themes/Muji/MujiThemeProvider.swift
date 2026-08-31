@@ -66,6 +66,8 @@ struct MujiThemeProvider: GlobalThemeProvider {
         )
     }
 
+    var suggestedPlayerTheme: PlayerTheme? { .muji }
+
     // ── 布局工厂 ──
 
     func makeHomeView() -> AnyView {

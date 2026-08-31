@@ -471,9 +471,8 @@ struct MVDiscoverView: View {
                 CachedAsyncImage(url: item.coverURL.flatMap(URL.init(string:))) {
                     Rectangle().fill(MVTheme.coverPlaceholder)
                 }
-                .aspectRatio(16 / 9, contentMode: .fill)
-                .frame(maxWidth: .infinity)
-                .frame(height: 220)
+                .aspectRatio(contentMode: .fill)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .clipped()
 
                 LinearGradient(colors: [.clear, .black.opacity(0.82)], startPoint: .center, endPoint: .bottom)
@@ -494,6 +493,8 @@ struct MVDiscoverView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(18)
             }
+            .frame(maxWidth: .infinity)
+            .aspectRatio(16 / 9, contentMode: .fit)
             .clipShape(RoundedRectangle(cornerRadius: SignalStyle.isActive ? 11 : 20, style: .continuous))
             .overlay {
                 if SignalStyle.isActive {
@@ -503,6 +504,7 @@ struct MVDiscoverView: View {
             }
         }
         .buttonStyle(MonoBouncingButtonStyle(scale: 0.98))
+        .frame(maxWidth: .infinity)
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
     }
 

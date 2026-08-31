@@ -10,7 +10,6 @@ struct ClarityProfileView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
                         titleBar
-                        LoginIdentitySwitcher()
                         identityPlane
                         destinationGrid
                         settingsPlane

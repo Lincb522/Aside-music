@@ -101,7 +101,7 @@ struct LocalPlaylistDetailView: View {
             }
             .scrollIndicators(.hidden)
             .monoScrollOffset($scrollOffset)
-            .ignoresSafeArea(edges: usesAsideHero ? .top : [])
+            .ignoresSafeArea(edges: (usesAsideHero || SignalStyle.isActive) ? .top : [])
             .themeRenderScrollLayer()
             .refreshable {
                 _ = try? await LocalPlaylistCloudSyncManager.shared.refreshAndSync()
@@ -188,7 +188,7 @@ struct LocalPlaylistDetailView: View {
     private func localPlaylistScrollableContent(includeHeader: Bool) -> some View {
         VStack(spacing: 0) {
             if includeHeader {
-                if usesAsideHero {
+                if usesAsideHero || SignalStyle.isActive {
                     headerView
                 } else {
                     headerView
@@ -916,124 +916,72 @@ struct LocalPlaylistDetailView: View {
     }
 
     private var signalHeaderView: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        Group {
             if let p = playlist {
-                HStack(alignment: .top, spacing: 16) {
-                    Group {
-                        if let url = playlistCoverUrl {
-                            CachedAsyncImage(url: url.sized(500)) {
-                                signalCoverPlaceholder
-                            }
-                            .aspectRatio(contentMode: .fill)
-                        } else {
-                            signalCoverPlaceholder
+                SignalPlaylistHero(
+                    coverURL: playlistCoverUrl,
+                    title: p.name,
+                    sourceLabel: String(localized: "local_playlist_label"),
+                    descriptionText: p.desc,
+                    trackCount: playlistTrackCount,
+                    playDisabled: playlistSongs.isEmpty,
+                    onPlay: {
+                        if let first = playlistSongs.first {
+                            PlayerManager.shared.playReplacingContext(song: first, in: playlistSongs)
                         }
                     }
-                    .frame(width: DeviceLayout.isPad ? 172 : 128, height: DeviceLayout.isPad ? 172 : 128)
-                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-                    .background(SignalSurfaceBackground(cornerRadius: 26, elevated: true, fill: SignalStyle.control))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 24, style: .continuous)
-                            .stroke(SignalStyle.separator.opacity(0.7), lineWidth: 0.8)
-                    )
-
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack(spacing: 7) {
-                            SignalPill(text: String(localized: "local_playlist_label"), tint: SignalStyle.accent, selected: true, compact: true)
-                            SignalPill(text: "\(playlistTrackCount) \(String(localized: "songs_unit"))", tint: SignalStyle.olive, compact: true)
-                        }
-
-                        Text(p.name)
-                            .font(SignalStyle.titleFont(DeviceLayout.isPad ? 28 : 24, weight: .bold))
-                            .foregroundStyle(SignalStyle.ink)
-                            .lineLimit(3)
-                            .fixedSize(horizontal: false, vertical: true)
-
-                        if let desc = p.desc, !desc.isEmpty {
-                            Text(desc)
-                                .font(SignalStyle.labelFont(12, weight: .medium))
-                                .foregroundStyle(SignalStyle.inkSoft)
-                                .lineLimit(2)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-
-                HStack(spacing: 10) {
-                    Button(action: {
-                        let songs = playlistSongs
-                        if let first = songs.first {
-                            PlayerManager.shared.playReplacingContext(song: first, in: songs)
-                        }
-                    }) {
-                        SignalPlayPill(title: String(localized: "play_now"))
-                    }
-                    .buttonStyle(MonoBouncingButtonStyle(scale: 0.95))
-                    .opacity(playlistSongs.isEmpty ? 0.55 : 1)
-                    .disabled(playlistSongs.isEmpty)
-
-                    if !p.isSystem {
-                        Button(action: {
-                            AlertManager.shared.showInput(
-                                title: NSLocalizedString("local_playlist_rename", comment: ""),
-                                message: "",
-                                placeholder: NSLocalizedString("local_playlist_name", comment: ""),
-                                primaryButtonTitle: NSLocalizedString("confirm", comment: ""),
-                                secondaryButtonTitle: NSLocalizedString("alert_cancel", comment: ""),
-                                onConfirm: { name in
-                                    if !name.isEmpty {
-                                        manager.renamePlaylist(p, name: name)
+                ) {
+                    HStack(spacing: 8) {
+                        if !p.isSystem {
+                            SignalPlaylistUtilityButton(
+                                icon: .settings,
+                                label: NSLocalizedString("local_playlist_rename", comment: "")
+                            ) {
+                                AlertManager.shared.showInput(
+                                    title: NSLocalizedString("local_playlist_rename", comment: ""),
+                                    message: "",
+                                    placeholder: NSLocalizedString("local_playlist_name", comment: ""),
+                                    primaryButtonTitle: NSLocalizedString("confirm", comment: ""),
+                                    secondaryButtonTitle: NSLocalizedString("alert_cancel", comment: ""),
+                                    onConfirm: { name in
+                                        if !name.isEmpty {
+                                            manager.renamePlaylist(p, name: name)
+                                        }
                                     }
-                                }
-                            )
-                            AlertManager.shared.inputText = p.name
-                        }) {
-                            signalHeaderIconButton(icon: .settings, tint: SignalStyle.olive)
+                                )
+                                AlertManager.shared.inputText = p.name
+                            }
                         }
-                        .buttonStyle(MonoBouncingButtonStyle(scale: 0.95))
-                    }
 
-                    Button(action: { exportPlaylist(p) }) {
-                        signalHeaderIconButton(icon: .download, tint: SignalStyle.amber)
-                    }
-                    .buttonStyle(MonoBouncingButtonStyle(scale: 0.95))
-
-                    if !p.isSystem {
-                        Button(action: {
-                            AlertManager.shared.show(
-                                title: NSLocalizedString("local_playlist_delete", comment: ""),
-                                message: String(format: NSLocalizedString("local_playlist_delete_confirm", comment: ""), p.name),
-                                primaryButtonTitle: NSLocalizedString("lib_delete", comment: ""),
-                                secondaryButtonTitle: NSLocalizedString("alert_cancel", comment: ""),
-                                primaryAction: {
-                                    manager.deletePlaylist(p)
-                                    dismissCurrentPresentation(systemDismiss: dismiss, monoSheetDismiss: monoSheetDismiss)
-                                }
-                            )
-                        }) {
-                            signalHeaderIconButton(icon: .trash, tint: SignalStyle.rust)
+                        SignalPlaylistUtilityButton(
+                            icon: .download,
+                            label: NSLocalizedString("local_playlist_export", comment: "")
+                        ) {
+                            exportPlaylist(p)
                         }
-                        .buttonStyle(MonoBouncingButtonStyle(scale: 0.95))
+
+                        if !p.isSystem {
+                            SignalPlaylistUtilityButton(
+                                icon: .trash,
+                                tint: SignalStyle.rust,
+                                label: NSLocalizedString("local_playlist_delete", comment: "")
+                            ) {
+                                AlertManager.shared.show(
+                                    title: NSLocalizedString("local_playlist_delete", comment: ""),
+                                    message: String(format: NSLocalizedString("local_playlist_delete_confirm", comment: ""), p.name),
+                                    primaryButtonTitle: NSLocalizedString("lib_delete", comment: ""),
+                                    secondaryButtonTitle: NSLocalizedString("alert_cancel", comment: ""),
+                                    primaryAction: {
+                                        manager.deletePlaylist(p)
+                                        dismissCurrentPresentation(systemDismiss: dismiss, monoSheetDismiss: monoSheetDismiss)
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
-        .padding(17)
-        .background(SignalSurfaceBackground(cornerRadius: 30, elevated: true, fill: SignalStyle.paper))
-        .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
-        .padding(.top, DeviceLayout.isPad ? 28 : 18)
-        .padding(.bottom, 12)
-        .iPadContentWidth(900)
-    }
-
-    private var signalCoverPlaceholder: some View {
-        LocalPlaylistPlaceholderArtwork()
-    }
-
-    private func signalHeaderIconButton(icon: MonoIcon.IconType, tint: Color) -> some View {
-        MonoIcon(icon: icon, size: 14, color: tint, lineWidth: 1.55)
-            .frame(width: 38, height: 38)
-            .background(SignalSurfaceBackground(cornerRadius: 14, elevated: true, fill: tint.opacity(0.12)))
     }
 
     /// Muji：杂志特辑页 —— 眉题行 + 跨页封面 + 衬线标题 + 图注简介

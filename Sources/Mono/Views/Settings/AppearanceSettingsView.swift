@@ -339,26 +339,8 @@ struct AppearanceSettingsView: View {
 
     private func applyGlobalTheme(_ themeId: GlobalThemeId) {
         settings.selectGlobalTheme(themeId)
-
-        if let suggestedPlayerTheme = suggestedPlayerTheme(for: themeId) {
-            PlayerThemeManager.shared.setTheme(suggestedPlayerTheme)
-        }
-    }
-
-    private func suggestedPlayerTheme(for themeId: GlobalThemeId) -> PlayerTheme? {
-        switch themeId {
-        case .neumorphic:
-            return .neumorphic
-        case .petWhite:
-            return .classic
-        case .capsule:
-            return .classic
-        case .signal:
-            return .console
-        case .clarity:
-            return .clarity
-        case .default, .muji, .manga, .minimalWhite:
-            return nil
+        if let playerTheme = GlobalThemeManager.shared.provider(for: themeId).suggestedPlayerTheme {
+            PlayerThemeManager.shared.setTheme(playerTheme)
         }
     }
 

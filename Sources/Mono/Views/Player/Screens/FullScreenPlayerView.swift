@@ -12,23 +12,13 @@ struct FullScreenPlayerView: View {
 
     var body: some View {
         ZStack {
-            Group {
-                if settings.usesPlayerCoverBackground && !MinimalWhiteStyle.isActive {
-                    PlaylistColorBackground(coverUrl: player.currentSong?.coverUrl?.sized(200))
-                } else {
-                    ThemedPageBackground()
-                }
-            }
+            playerBackground
             .ignoresSafeArea()
 
             Group {
                 switch themeManager.currentTheme {
                 case .classic:
-                    if PetWhiteStyle.isActive {
-                        PawcelainPlayerLayout()
-                    } else {
-                        ClassicPlayerLayout()
-                    }
+                    ClassicPlayerLayout(presentation: .aside)
                 case .vinyl:
                     VinylPlayerLayout()
                 case .lyricFocus:
@@ -73,6 +63,14 @@ struct FullScreenPlayerView: View {
                     DotMatrixPlayerLayout()
                 case .console:
                     ConsolePlayerLayout()
+                case .muji:
+                    ClassicPlayerLayout(presentation: .muji)
+                case .capsule:
+                    ClassicPlayerLayout(presentation: .capsule)
+                case .petWhite:
+                    PawcelainPlayerLayout()
+                case .minimalWhite:
+                    ClassicPlayerLayout(presentation: .minimalWhite)
                 }
             }
             .id(themeManager.currentTheme)
@@ -81,7 +79,7 @@ struct FullScreenPlayerView: View {
                     ? .opacity
                     : .opacity.combined(with: .scale(scale: 0.985))
             )
-            .environment(\.colorScheme, MinimalWhiteStyle.isActive ? settings.nativeColorScheme : (themeManager.currentTheme.hasCustomBackground ? settings.nativeColorScheme : envColorScheme))
+            .environment(\.colorScheme, playerColorScheme)
 
         }
         .compatFontDesign(nil)
@@ -93,6 +91,33 @@ struct FullScreenPlayerView: View {
         .fullScreenCover(isPresented: $immersiveController.isPresented) {
             AriaStageView()
         }
+    }
+
+    @ViewBuilder
+    private var playerBackground: some View {
+        switch themeManager.currentTheme {
+        case .classic:
+            if settings.usesPlayerCoverBackground {
+                PlaylistColorBackground(coverUrl: player.currentSong?.coverUrl?.sized(200))
+            } else {
+                ThemeRenderBackdrop(theme: .default)
+            }
+        case .muji, .capsule, .petWhite, .minimalWhite:
+            Color.clear
+        default:
+            if settings.usesPlayerCoverBackground && !MinimalWhiteStyle.isActive {
+                PlaylistColorBackground(coverUrl: player.currentSong?.coverUrl?.sized(200))
+            } else {
+                ThemedPageBackground()
+            }
+        }
+    }
+
+    private var playerColorScheme: ColorScheme {
+        if themeManager.currentTheme == .classic || themeManager.currentTheme.hasCustomBackground {
+            return settings.nativeColorScheme
+        }
+        return envColorScheme
     }
 
     // MARK: - 播放器进度条组件（供默认播放器及共享布局复用）

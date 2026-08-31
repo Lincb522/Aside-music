@@ -63,7 +63,7 @@ public enum QQMusicError: LocalizedError {
 /// QQMusicApi 后端版本信息。
 public enum QQMusicAPIVersion {
     /// 当前 SDK 对齐的服务端版本。
-    public static let backend = "0.6.9"
+    public static let backend = "0.7.2"
 }
 
 // MARK: - JSON 动态类型
@@ -327,10 +327,64 @@ public enum SearchType: String, Sendable {
     case lyric = "LYRIC"
     /// 用户 (8)
     case user = "USER"
+    /// 彩铃 (10)
+    case ringtone = "RINGTONE"
     /// 节目专辑 (15)
     case audioAlbum = "AUDIO_ALBUM"
     /// 节目 (18)
     case audio = "AUDIO"
+}
+
+/// 搜索筛选器。
+public struct QQMusicSearchSelector: Sendable, Equatable {
+    public let id: Int
+    public let name: String
+    public let type: Int
+
+    public init(id: Int, name: String, type: Int) {
+        self.id = id
+        self.name = name
+        self.type = type
+    }
+
+    var parameters: [String: Any] {
+        ["id": id, "name": name, "type": type]
+    }
+}
+
+/// 歌曲查询条件。每项必须且只能设置 `id` 或 `mid`。
+public struct QQMusicSongQuery: Sendable, Equatable {
+    public let id: Int?
+    public let mid: String?
+    public let songType: Int
+
+    public init(id: Int, songType: Int = 0) {
+        self.id = id
+        self.mid = nil
+        self.songType = songType
+    }
+
+    public init(mid: String, songType: Int = 0) {
+        self.id = nil
+        self.mid = mid
+        self.songType = songType
+    }
+
+    var parameters: [String: Any] {
+        var result: [String: Any] = ["song_type": songType]
+        if let id { result["id"] = id }
+        if let mid { result["mid"] = mid }
+        return result
+    }
+}
+
+/// 评论业务类型。
+public enum CommentBizType: Int, Sendable {
+    case song = 1
+    case album = 2
+    case playlist = 3
+    case mv = 4
+    case specialAudio = 15
 }
 
 /// 歌曲文件类型
@@ -446,6 +500,13 @@ public enum EncryptedSongFileType: String, Sendable, CaseIterable {
         case .ogg96:   return "OGG 96kbps 加密 (.mgg)"
         }
     }
+}
+
+/// 彩铃文件类型。
+public enum RingSongFileType: String, Sendable, CaseIterable {
+    case ring128 = "RING_128"
+    case ring96 = "RING_96"
+    case ring48 = "RING_48"
 }
 
 /// 加密歌曲 URL 结果
