@@ -8,155 +8,13 @@ extension PodcastView {
         ScrollView(.horizontal) {
             LazyHStack(spacing: 10) {
                 NavigationLink(value: PodcastDestination.categoryBrowse) {
-                    if MinimalWhiteStyle.isActive {
-                        minimalWhiteCategoryPill(
-                            title: String(localized: "podcast_all"),
-                            icon: .gridSquare,
-                            selected: true
-                        )
-                    } else if MangaStyle.isActive {
-                        HStack(spacing: 6) {
-                            MonoIcon(icon: .gridSquare, size: 15, color: MangaStyle.onStrokeInk, lineWidth: 1.8)
-                            Text(String(localized: "podcast_all"))
-                                .font(MangaStyle.labelFont(12, weight: .black))
-                                .tracking(0.6)
-                        }
-                        .foregroundStyle(MangaStyle.onStrokeInk)
-                        .padding(.horizontal, 13)
-                        .padding(.vertical, 10)
-                        .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(MangaStyle.strokeInk))
-                        .background(
-                            RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                .fill(MangaStyle.accentPink)
-                                .offset(x: 2.2, y: 2.2)
-                        )
-                    } else if PetWhiteStyle.isActive {
-                        petWhiteCategoryPill(
-                            title: String(localized: "podcast_all"),
-                            icon: .gridSquare,
-                            tint: PetWhiteStyle.dogOrange,
-                            selected: true
-                        )
-                    } else if MujiStyle.isActive {
-                        MujiActionPill(
-                            title: String(localized: "podcast_all"),
-                            icon: .gridSquare,
-                            selected: true,
-                            tint: MujiStyle.clay
-                        )
-                    } else if NeumorphicStyle.isActive {
-                        NeumorphicPill(
-                            text: String(localized: "podcast_all"),
-                            tint: NeumorphicStyle.accent,
-                            icon: .gridSquare,
-                            selected: true
-                        )
-                    } else if SignalStyle.isActive {
-                        SignalPill(
-                            text: String(localized: "podcast_all"),
-                            tint: SignalStyle.accent,
-                            icon: .gridSquare,
-                            selected: true
-                        )
-                    } else if SequoiaStyle.isActive {
-                        SequoiaPill(
-                            text: String(localized: "podcast_all"),
-                            icon: .gridSquare,
-                            tint: SequoiaStyle.accent,
-                            selected: true
-                        )
-                    } else if LiquidGlassStyle.isActive {
-                        LiquidGlassPill(
-                            text: String(localized: "podcast_all"),
-                            icon: .gridSquare,
-                            tint: LiquidGlassStyle.violet,
-                            selected: true
-                        )
-                    } else {
-                        HStack(spacing: 6) {
-                            MonoIcon(icon: .gridSquare, size: 14, color: .monoTextPrimary, lineWidth: 1.6)
-                            Text("podcast_all")
-                                .font(.rounded(size: 12.5, weight: .bold))
-                                .foregroundColor(.monoTextPrimary)
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 9)
-                        .overlay(Capsule().stroke(Color.monoTextPrimary.opacity(0.34), lineWidth: 0.9))
-                    }
+                    categoryBrowsePill
                 }
                 .buttonStyle(MonoBouncingButtonStyle())
 
                 ForEach(viewModel.categories) { cat in
                     NavigationLink(value: PodcastDestination.category(cat)) {
-                        if MinimalWhiteStyle.isActive {
-                            minimalWhiteCategoryPill(
-                                title: cat.name,
-                                icon: cat.monoIconType
-                            )
-                        } else if MangaStyle.isActive {
-                            HStack(spacing: 6) {
-                                MonoIcon(icon: cat.monoIconType, size: 16, color: MangaStyle.ink, lineWidth: 1.8)
-                                Text(cat.name)
-                                    .font(MangaStyle.labelFont(12, weight: .bold))
-                            }
-                            .foregroundStyle(MangaStyle.ink)
-                            .padding(.horizontal, 13)
-                            .padding(.vertical, 10)
-                            .background(
-                                RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
-                                    .fill(MangaStyle.bubbleWhite)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
-                                    .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth)
-                            )
-                        } else if PetWhiteStyle.isActive {
-                            petWhiteCategoryPill(
-                                title: cat.name,
-                                icon: cat.monoIconType,
-                                tint: PetWhiteStyle.mint
-                            )
-                        } else if MujiStyle.isActive {
-                            MujiActionPill(
-                                title: cat.name,
-                                icon: cat.monoIconType,
-                                tint: MujiStyle.tea
-                            )
-                        } else if NeumorphicStyle.isActive {
-                        NeumorphicPill(
-                            text: cat.name,
-                            tint: NeumorphicStyle.sage,
-                            icon: cat.monoIconType
-                        )
-                    } else if SignalStyle.isActive {
-                        SignalPill(
-                            text: cat.name,
-                            tint: SignalStyle.olive,
-                            icon: cat.monoIconType
-                        )
-                    } else if SequoiaStyle.isActive {
-                        SequoiaPill(
-                            text: cat.name,
-                            icon: cat.monoIconType,
-                            tint: SequoiaStyle.aqua
-                        )
-                    } else if LiquidGlassStyle.isActive {
-                        LiquidGlassPill(
-                            text: cat.name,
-                            icon: cat.monoIconType,
-                            tint: LiquidGlassStyle.cyan
-                        )
-                    } else {
-                        HStack(spacing: 6) {
-                            MonoIcon(icon: cat.monoIconType, size: 14, color: .monoTextSecondary.opacity(0.9), lineWidth: 1.5)
-                                Text(cat.name)
-                                    .font(.rounded(size: 12.5, weight: .semibold))
-                                    .foregroundColor(.monoTextPrimary.opacity(0.85))
-                            }
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 9)
-                            .overlay(Capsule().stroke(Color.monoSeparator.opacity(0.95), lineWidth: 0.8))
-                        }
+                        categoryPill(for: cat)
                     }
                     .buttonStyle(MonoBouncingButtonStyle())
                     .compatScrollTransition(animation: .spring(response: 0.35)) { content, phase in
@@ -171,7 +29,207 @@ extension PodcastView {
         }
         .compatViewAlignedScrollBehavior(limitNever: true)
         .scrollIndicators(.hidden)
-            .themeRenderScrollLayer()
+        .themeRenderScrollLayer()
+    }
+
+    private var categoryBrowsePill: AnyView {
+        let title = String(localized: "podcast_all")
+
+        if MinimalWhiteStyle.isActive {
+            return AnyView(
+                minimalWhiteCategoryPill(
+                    title: title,
+                    icon: .gridSquare,
+                    selected: true
+                )
+            )
+        }
+        if MangaStyle.isActive {
+            return AnyView(
+                HStack(spacing: 6) {
+                    MonoIcon(icon: .gridSquare, size: 15, color: MangaStyle.onStrokeInk, lineWidth: 1.8)
+                    Text(title)
+                        .font(MangaStyle.labelFont(12, weight: .black))
+                        .tracking(0.6)
+                }
+                .foregroundStyle(MangaStyle.onStrokeInk)
+                .padding(.horizontal, 13)
+                .padding(.vertical, 10)
+                .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(MangaStyle.strokeInk))
+                .background(
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .fill(MangaStyle.accentPink)
+                        .offset(x: 2.2, y: 2.2)
+                )
+            )
+        }
+        if PetWhiteStyle.isActive {
+            return AnyView(
+                petWhiteCategoryPill(
+                    title: title,
+                    icon: .gridSquare,
+                    tint: PetWhiteStyle.dogOrange,
+                    selected: true
+                )
+            )
+        }
+        if MujiStyle.isActive {
+            return AnyView(
+                MujiActionPill(
+                    title: title,
+                    icon: .gridSquare,
+                    selected: true,
+                    tint: MujiStyle.clay
+                )
+            )
+        }
+        if NeumorphicStyle.isActive {
+            return AnyView(
+                NeumorphicPill(
+                    text: title,
+                    tint: NeumorphicStyle.accent,
+                    icon: .gridSquare,
+                    selected: true
+                )
+            )
+        }
+        if SignalStyle.isActive {
+            return AnyView(
+                SignalPill(
+                    text: title,
+                    tint: SignalStyle.accent,
+                    icon: .gridSquare,
+                    selected: true
+                )
+            )
+        }
+        if SequoiaStyle.isActive {
+            return AnyView(
+                SequoiaPill(
+                    text: title,
+                    icon: .gridSquare,
+                    tint: SequoiaStyle.accent,
+                    selected: true
+                )
+            )
+        }
+        if LiquidGlassStyle.isActive {
+            return AnyView(
+                LiquidGlassPill(
+                    text: title,
+                    icon: .gridSquare,
+                    tint: LiquidGlassStyle.violet,
+                    selected: true
+                )
+            )
+        }
+        return AnyView(
+            HStack(spacing: 6) {
+                MonoIcon(icon: .gridSquare, size: 14, color: .monoTextPrimary, lineWidth: 1.6)
+                Text("podcast_all")
+                    .font(.rounded(size: 12.5, weight: .bold))
+                    .foregroundColor(.monoTextPrimary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .overlay(Capsule().stroke(Color.monoTextPrimary.opacity(0.34), lineWidth: 0.9))
+        )
+    }
+
+    private func categoryPill(for category: RadioCategory) -> AnyView {
+        if MinimalWhiteStyle.isActive {
+            return AnyView(
+                minimalWhiteCategoryPill(
+                    title: category.name,
+                    icon: category.monoIconType
+                )
+            )
+        }
+        if MangaStyle.isActive {
+            return AnyView(
+                HStack(spacing: 6) {
+                    MonoIcon(icon: category.monoIconType, size: 16, color: MangaStyle.ink, lineWidth: 1.8)
+                    Text(category.name)
+                        .font(MangaStyle.labelFont(12, weight: .bold))
+                }
+                .foregroundStyle(MangaStyle.ink)
+                .padding(.horizontal, 13)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
+                        .fill(MangaStyle.bubbleWhite)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
+                        .stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.fineStrokeWidth)
+                )
+            )
+        }
+        if PetWhiteStyle.isActive {
+            return AnyView(
+                petWhiteCategoryPill(
+                    title: category.name,
+                    icon: category.monoIconType,
+                    tint: PetWhiteStyle.mint
+                )
+            )
+        }
+        if MujiStyle.isActive {
+            return AnyView(
+                MujiActionPill(
+                    title: category.name,
+                    icon: category.monoIconType,
+                    tint: MujiStyle.tea
+                )
+            )
+        }
+        if NeumorphicStyle.isActive {
+            return AnyView(
+                NeumorphicPill(
+                    text: category.name,
+                    tint: NeumorphicStyle.sage,
+                    icon: category.monoIconType
+                )
+            )
+        }
+        if SignalStyle.isActive {
+            return AnyView(
+                SignalPill(
+                    text: category.name,
+                    tint: SignalStyle.olive,
+                    icon: category.monoIconType
+                )
+            )
+        }
+        if SequoiaStyle.isActive {
+            return AnyView(
+                SequoiaPill(
+                    text: category.name,
+                    icon: category.monoIconType,
+                    tint: SequoiaStyle.aqua
+                )
+            )
+        }
+        if LiquidGlassStyle.isActive {
+            return AnyView(
+                LiquidGlassPill(
+                    text: category.name,
+                    icon: category.monoIconType,
+                    tint: LiquidGlassStyle.cyan
+                )
+            )
+        }
+        return AnyView(
+            HStack(spacing: 6) {
+                MonoIcon(icon: category.monoIconType, size: 14, color: .monoTextSecondary.opacity(0.9), lineWidth: 1.5)
+                Text(category.name)
+                    .font(.rounded(size: 12.5, weight: .semibold))
+                    .foregroundColor(.monoTextPrimary.opacity(0.85))
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .overlay(Capsule().stroke(Color.monoSeparator.opacity(0.95), lineWidth: 0.8))
+        )
     }
 
     func minimalWhiteCategoryPill(
@@ -234,11 +292,11 @@ extension PodcastView {
     }
 
     var compactCardSize: CGFloat {
-        DeviceLayout.isPad ? 170 : 130
+        DeviceLayout.usesExpandedLayout ? 170 : 130
     }
 
     var broadcastCardSize: CGFloat {
-        DeviceLayout.isPad ? 160 : 120
+        DeviceLayout.usesExpandedLayout ? 160 : 120
     }
 
 }

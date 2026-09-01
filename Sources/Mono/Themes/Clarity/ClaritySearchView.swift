@@ -208,7 +208,7 @@ struct ClaritySearchView: View {
     }
 
     private var playlistResults: some View {
-        LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)], spacing: 18) {
+        LazyVGrid(columns: clarityMediaGridColumns, spacing: 18) {
             ForEach(playlists) { playlist in
                 NavigationLink {
                     PlaylistDetailView(playlist: playlist)
@@ -252,7 +252,7 @@ struct ClaritySearchView: View {
     }
 
     private var mvResults: some View {
-        LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)], spacing: 18) {
+        LazyVGrid(columns: clarityMediaGridColumns, spacing: 18) {
             if model.selectedPlatform == .netease {
                 ForEach(model.neteaseMVResults) { mv in
                     clarityMVCard(name: mv.displayName, artist: mv.artistName ?? "", cover: mv.coverUrl.flatMap(URL.init(string:))) {
@@ -294,6 +294,13 @@ struct ClaritySearchView: View {
             }
         }
         .buttonStyle(ClarityPressStyle())
+    }
+
+    private var clarityMediaGridColumns: [GridItem] {
+        Array(
+            repeating: GridItem(.flexible(), spacing: 14),
+            count: DeviceLayout.usesExpandedLayout ? 3 : 2
+        )
     }
 
     private var discovery: some View {

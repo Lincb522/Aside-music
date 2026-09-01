@@ -500,142 +500,189 @@ struct LocalMusicView: View {
     var body: some View {
         let _ = settings.globalThemeRevision
 
-        NavigationStack {
+        importConfiguredContent
+            .task {
+                guard await MainTabActivationGate.waitUntilSettled(.podcast) else { return }
+                refreshRecentSongs()
+            }
+            .onReceive(playerManager.$currentSong.dropFirst()) { _ in
+                guard MainTabActivationGate.isSettled(.podcast) else { return }
+                refreshRecentSongs()
+            }
+    }
+
+    private var navigationContent: AnyView {
+        AnyView(
+            NavigationStack {
+                pageContent
+                    .navigationTitle("")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbarBackground(.hidden, for: .navigationBar)
+                    .searchable(text: $searchText, prompt: localModeText("local_music_search_prompt"))
+                    .monoNavigationBackButton()
+                    .toolbar {
+                        toolbarContent
+                    }
+            }
+        )
+    }
+
+    private var pageContent: AnyView {
+        AnyView(
             ZStack {
                 ThemedPageBackground(useRenderLayer: true)
                     .ignoresSafeArea()
 
-                VStack(alignment: .leading, spacing: 0) {
-                    masthead
+                musicContent
+            }
+        )
+    }
+
+    private var musicContent: AnyView {
+        AnyView(
+            VStack(alignment: .leading, spacing: 0) {
+                masthead
+                    .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                    .padding(.top, 12)
+
+                filterBar
+                    .padding(.top, 18)
+
+                if let progress = localLibrary.importProgress {
+                    LocalImportProgressPanel(progress: progress)
                         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-                        .padding(.top, 12)
-
-                    filterBar
-                        .padding(.top, 18)
-
-                    if let progress = localLibrary.importProgress {
-                        LocalImportProgressPanel(progress: progress)
-                            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-                            .padding(.top, 14)
-                    }
-
-                    if filteredSongs.isEmpty {
-                        ScrollView {
-                            Group {
-                                if localLibrary.songs.isEmpty && selectedFilter == .all
-                                    && searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                    // 空库：给完整的起步引导，而不是一句话孤零零挂着
-                                    LocalStarterPanel(onImport: { showImporter = true })
-                                } else {
-                                    LocalEmptyStateView(
-                                        title: emptyTitle,
-                                        subtitle: emptySubtitle
-                                    )
-                                }
-                            }
-                            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-                            .padding(.top, 26)
-                        }
-                        .scrollIndicators(.hidden)
-                    } else {
-                        List {
-                            ForEach(Array(filteredSongs.enumerated()), id: \.element.id) { index, song in
-                                SongListRow(
-                                    song: song,
-                                    index: index,
-                                    onTap: {
-                                        playerManager.play(song: song, in: filteredSongs)
-                                    }
-                                )
-                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                    Button(role: .destructive) {
-                                        deleteLocalEntry(song)
-                                    } label: {
-                                        Label(localModeText("local_action_delete_local_song"), systemImage: "trash")
-                                    }
-                                }
-                                .contextMenu {
-                                    Button(role: .destructive) {
-                                        deleteLocalEntry(song)
-                                    } label: {
-                                        Label(localModeText("local_action_delete_local_song"), systemImage: "trash")
-                                    }
-                                }
-                                .listRowBackground(Color.clear)
-                                .listRowSeparator(.hidden)
-                                .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
-                            }
-
-                            Color.clear
-                                .frame(height: 110)
-                                .listRowBackground(Color.clear)
-                                .listRowSeparator(.hidden)
-                        }
-                        .listStyle(.plain)
-                        .scrollContentBackground(.hidden)
-                    }
+                        .padding(.top, 14)
                 }
-            }
-            .navigationTitle("")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
-            .searchable(text: $searchText, prompt: localModeText("local_music_search_prompt"))
-            .monoNavigationBackButton()
-            .toolbar {
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    Menu {
-                        ForEach(LocalMusicSort.allCases) { mode in
-                            Button {
-                                sortMode = mode
-                            } label: {
-                                if sortMode == mode {
-                                    Label(localModeText(mode.titleKey), systemImage: "checkmark")
-                                } else {
-                                    Text(localModeText(mode.titleKey))
-                                }
-                            }
-                        }
-                    } label: {
-                        MonoIcon(icon: .filter, size: 16, color: .monoTextPrimary)
-                    }
 
+                songCollection
+            }
+        )
+    }
+
+    private var songCollection: AnyView {
+        if filteredSongs.isEmpty {
+            return AnyView(
+                ScrollView {
+                    Group {
+                        if localLibrary.songs.isEmpty && selectedFilter == .all
+                            && searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            // 空库：给完整的起步引导，而不是一句话孤零零挂着
+                            LocalStarterPanel(onImport: { showImporter = true })
+                        } else {
+                            LocalEmptyStateView(
+                                title: emptyTitle,
+                                subtitle: emptySubtitle
+                            )
+                        }
+                    }
+                    .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                    .padding(.top, 26)
+                }
+                .scrollIndicators(.hidden)
+            )
+        }
+
+        return AnyView(
+            List {
+                ForEach(Array(filteredSongs.enumerated()), id: \.element.id) { index, song in
+                    SongListRow(
+                        song: song,
+                        index: index,
+                        onTap: {
+                            playerManager.play(song: song, in: filteredSongs)
+                        }
+                    )
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button(role: .destructive) {
+                            deleteLocalEntry(song)
+                        } label: {
+                            Label(localModeText("local_action_delete_local_song"), systemImage: "trash")
+                        }
+                    }
+                    .contextMenu {
+                        Button(role: .destructive) {
+                            deleteLocalEntry(song)
+                        } label: {
+                            Label(localModeText("local_action_delete_local_song"), systemImage: "trash")
+                        }
+                    }
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+                }
+
+                Color.clear
+                    .frame(height: 110)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+        )
+    }
+
+    private var toolbarContent: some ToolbarContent {
+        ToolbarItemGroup(placement: .topBarTrailing) {
+            sortMenu
+            importButton
+        }
+    }
+
+    private var sortMenu: AnyView {
+        AnyView(
+            Menu {
+                ForEach(LocalMusicSort.allCases) { mode in
                     Button {
-                        showImporter = true
+                        sortMode = mode
                     } label: {
-                        MonoIcon(icon: .download, size: 16, color: .monoTextPrimary)
+                        if sortMode == mode {
+                            Label(localModeText(mode.titleKey), systemImage: "checkmark")
+                        } else {
+                            Text(localModeText(mode.titleKey))
+                        }
                     }
                 }
+            } label: {
+                MonoIcon(icon: .filter, size: 16, color: .monoTextPrimary)
             }
-        }
-        .fileImporter(
-            isPresented: $showImporter,
-            allowedContentTypes: LocalMusicLibraryManager.importableContentTypes,
-            allowsMultipleSelection: true
-        ) { result in
-            switch result {
-            case .success(let urls):
-                guard !urls.isEmpty else { return }
-                Task {
-                    _ = await localLibrary.importItems(from: urls)
-                    refreshRecentSongs()
+        )
+    }
+
+    private var importButton: AnyView {
+        AnyView(
+            Button {
+                showImporter = true
+            } label: {
+                MonoIcon(icon: .download, size: 16, color: .monoTextPrimary)
+            }
+        )
+    }
+
+    private var importConfiguredContent: AnyView {
+        AnyView(
+            navigationContent
+                .fileImporter(
+                    isPresented: $showImporter,
+                    allowedContentTypes: LocalMusicLibraryManager.importableContentTypes,
+                    allowsMultipleSelection: true
+                ) { result in
+                    switch result {
+                    case .success(let urls):
+                        guard !urls.isEmpty else { return }
+                        Task {
+                            _ = await localLibrary.importItems(from: urls)
+                            refreshRecentSongs()
+                        }
+                    case .failure(let error):
+                        AlertManager.shared.show(
+                            title: localModeText("local_import_failed_title"),
+                            message: error.localizedDescription,
+                            primaryButtonTitle: localModeText("common_ok"),
+                            primaryAction: {}
+                        )
+                    }
                 }
-            case .failure(let error):
-                AlertManager.shared.show(
-                    title: localModeText("local_import_failed_title"),
-                    message: error.localizedDescription,
-                    primaryButtonTitle: localModeText("common_ok"),
-                    primaryAction: {}
-                )
-            }
-        }
-        .task {
-            guard await MainTabActivationGate.waitUntilSettled(.podcast) else { return }
-            refreshRecentSongs()
-        }
-        .onReceive(playerManager.$currentSong.dropFirst()) { _ in
-            guard MainTabActivationGate.isSettled(.podcast) else { return }
-            refreshRecentSongs()
-        }
+        )
     }
 
     /// 删除本地条目：导入的本地文件走曲库删除，下载的歌曲连记录带文件一起删
@@ -939,7 +986,11 @@ struct LocalLibraryView: View {
                         Button {
                             renamePlaylist(playlist)
                         } label: {
-                            Label(localModeText("local_playlist_rename"), systemImage: "pencil")
+                            Label {
+                                Text(localModeText("local_playlist_rename"))
+                            } icon: {
+                                MonoSemanticIcon(semantic: .rename, fallback: .save)
+                            }
                         }
 
                         Button(role: .destructive) {

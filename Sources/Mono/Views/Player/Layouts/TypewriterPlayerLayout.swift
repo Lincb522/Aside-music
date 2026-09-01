@@ -412,16 +412,16 @@ struct TypewriterPlayerLayout: View {
     }
 
     private func metrics(for proxy: GeometryProxy) -> M {
-        let landscape = !DeviceLayout.isPad && proxy.size.width > proxy.size.height
-        let baseW: CGFloat = DeviceLayout.isPad ? 480 : (landscape ? 340 : 370)
-        let paperH: CGFloat = DeviceLayout.isPad ? 360 : (landscape ? 180 : 340)
-        let deckH: CGFloat = DeviceLayout.isPad ? 190 : (landscape ? 130 : 170)
+        let landscape = !DeviceLayout.usesExpandedLayout && proxy.size.width > proxy.size.height
+        let baseW: CGFloat = DeviceLayout.usesExpandedLayout ? 480 : (landscape ? 340 : 370)
+        let paperH: CGFloat = DeviceLayout.usesExpandedLayout ? 360 : (landscape ? 180 : 340)
+        let deckH: CGFloat = DeviceLayout.usesExpandedLayout ? 190 : (landscape ? 130 : 170)
         let baseH = paperH + deckH + 20
 
-        let hPad: CGFloat = DeviceLayout.isPad ? 40 : (landscape ? 20 : 18)
+        let hPad: CGFloat = DeviceLayout.usesExpandedLayout ? 40 : (landscape ? 20 : 18)
         let availW = max(240, proxy.size.width - hPad * 2)
         let availH = max(260, proxy.size.height - DeviceLayout.headerTopPadding - DeviceLayout.playerBottomPadding - 80)
-        let s = min(max(min(availW / baseW, availH / baseH), 0.72), DeviceLayout.isPad ? 1.5 : (landscape ? 1.0 : 1.1))
+        let s = min(max(min(availW / baseW, availH / baseH), 0.72), DeviceLayout.usesExpandedLayout ? 1.5 : (landscape ? 1.0 : 1.1))
 
         return M(
             baseW: baseW, baseH: baseH, paperH: paperH,
@@ -707,7 +707,7 @@ struct TypewriterPlayerLayout: View {
             }
             .padding(.horizontal, 6)
 
-            HStack(spacing: DeviceLayout.isPad ? 14 : 10) {
+            HStack(spacing: DeviceLayout.usesExpandedLayout ? 14 : 10) {
                 roundKey(icon: player.mode.monoIcon, size: 40) {
                     HapticManager.shared.light()
                     player.switchMode()
@@ -942,7 +942,7 @@ struct TypewriterPlayerLayout: View {
             }
             .buttonStyle(MonoBouncingButtonStyle())
         }
-        .padding(.horizontal, DeviceLayout.isPad ? 28 : 20)
+        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 28 : 20)
     }
 
     // MARK: - Desk Background

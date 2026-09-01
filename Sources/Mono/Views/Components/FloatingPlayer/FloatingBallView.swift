@@ -502,7 +502,8 @@ struct FloatingBallView: View {
                             icon: selected ? tab.icon : tab.monoIcon,
                             size: 17,
                             color: selected ? .monoAccentForeground : .monoTextSecondary.opacity(0.62),
-                            lineWidth: 1.7
+                            lineWidth: 1.7,
+                            artworkContrastBackground: selected ? .monoAccent : nil
                         )
                         .frame(width: 36, height: 36)
                         .background {
@@ -868,7 +869,10 @@ struct FloatingBallView: View {
                         icon: isSelected ? item.filled : item.outline,
                         size: 18,
                         color: tabForeground(item.tab, isSelected: isSelected),
-                        lineWidth: 1.7
+                        lineWidth: 1.7,
+                        artworkContrastBackground: isSelected
+                            ? tabArtworkContrastBackground(item.tab)
+                            : nil
                     )
                     .frame(width: 36, height: 36)
                     .contentShape(Circle())
@@ -934,12 +938,43 @@ struct FloatingBallView: View {
     }
 
     @ViewBuilder
-    private func floatingBallIcon(icon: MonoIcon.IconType, size: CGFloat, color: Color, lineWidth: CGFloat) -> some View {
+    private func floatingBallIcon(
+        icon: MonoIcon.IconType,
+        size: CGFloat,
+        color: Color,
+        lineWidth: CGFloat,
+        artworkContrastBackground: Color? = nil
+    ) -> some View {
         if PetWhiteStyle.isActive {
-            PetWhitePackIcon(icon: icon, size: max(size + 6, 20), visualScale: 1.04, fallbackColor: color, lineWidth: lineWidth)
+            PetWhitePackIcon(
+                icon: icon,
+                size: max(size + 6, 20),
+                visualScale: 1.04,
+                fallbackColor: color,
+                lineWidth: lineWidth,
+                artworkContrastBackground: artworkContrastBackground
+            )
         } else {
-            MonoIcon(icon: icon, size: size, color: color, lineWidth: lineWidth)
+            MonoIcon(
+                icon: icon,
+                size: size,
+                color: color,
+                lineWidth: lineWidth,
+                artworkContrastBackground: artworkContrastBackground
+            )
         }
+    }
+
+    private func tabArtworkContrastBackground(_ tab: Tab) -> Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.selectedFill }
+        if MangaStyle.isActive { return mangaTabTint(tab) }
+        if PetWhiteStyle.isActive { return petWhiteTabTint(tab) }
+        if BentoStyle.isActive { return bentoTabTint(tab) }
+        if CapsuleStyle.isActive { return capsuleTabTint(tab) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfaceRaised }
+        if SequoiaStyle.isActive { return SequoiaStyle.materialRaised }
+        if MujiStyle.isActive { return MujiStyle.surfaceRaised }
+        return Color.monoFloatingBarFill
     }
 
     private var panelScrimColor: Color {

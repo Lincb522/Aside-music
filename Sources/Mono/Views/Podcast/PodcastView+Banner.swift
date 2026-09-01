@@ -298,214 +298,237 @@ extension PodcastView {
         .background(LiquidGlassSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, role: .list))
     }
 
-    @ViewBuilder
     func podcastSectionHeader(
         title: String,
         detail: String? = nil,
         destination: PodcastDestination? = nil
-    ) -> some View {
+    ) -> AnyView {
         if MinimalWhiteStyle.isActive {
-            MinimalWhiteSectionTitle(title: title) {
-                if let destination {
-                    NavigationLink(value: destination) {
-                        MinimalWhiteDisclosureGlyph()
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, padH)
-        } else if MangaStyle.isActive {
-            HStack(alignment: .center, spacing: 12) {
-                MangaSectionMark(kind: .star, tint: MangaStyle.labelYellow)
-
-                Text(title)
-                    .font(MangaStyle.titleFont(18, weight: .black))
-                    .foregroundStyle(MangaStyle.ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.82)
-
-                Spacer(minLength: 0)
-
-                if let destination {
-                    NavigationLink(value: destination) {
-                        MangaLabel(text: String(localized: "view_all"), tint: MangaStyle.decoBlue, small: true)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, padH)
-        } else if PetWhiteStyle.isActive {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(title)
-                        .font(PetWhiteStyle.titleFont(20, weight: .bold))
-                        .foregroundStyle(PetWhiteStyle.ink)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.82)
-
-                    if let detail, !detail.isEmpty {
-                        Text(detail)
-                            .font(PetWhiteStyle.labelFont(11))
-                            .foregroundStyle(PetWhiteStyle.inkMuted)
-                            .lineLimit(1)
-                    }
-                }
-
-                Spacer(minLength: 8)
-
-                if let destination {
-                    NavigationLink(value: destination) {
-                        HStack(spacing: 3) {
-                            Text(String(localized: "view_all"))
-                                .font(PetWhiteStyle.labelFont(12, weight: .semibold))
-                            PetWhitePackIcon(icon: .chevronRight, size: 12, visualScale: 1, fallbackColor: PetWhiteStyle.dogEar)
+            return AnyView(
+                MinimalWhiteSectionTitle(title: title) {
+                    if let destination {
+                        NavigationLink(value: destination) {
+                            MinimalWhiteDisclosureGlyph()
                         }
-                        .foregroundStyle(PetWhiteStyle.dogEar)
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
-            }
-            .padding(.horizontal, padH)
-        } else if MujiStyle.isActive {
-            HStack(alignment: .bottom, spacing: 14) {
-                MujiSectionTitle(title: title, detail: detail)
+                .padding(.horizontal, padH)
+            )
+        }
+        if MangaStyle.isActive {
+            return AnyView(
+                HStack(alignment: .center, spacing: 12) {
+                    MangaSectionMark(kind: .star, tint: MangaStyle.labelYellow)
 
-                Spacer(minLength: 0)
-
-                if let destination {
-                    NavigationLink(value: destination) {
-                        MujiPill(text: String(localized: "view_all"), tint: MujiStyle.tea)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, padH)
-        } else if NeumorphicStyle.isActive {
-            HStack(alignment: .center, spacing: 12) {
-                NeumorphicIconBadge(icon: .podcast, tint: NeumorphicStyle.warm, size: 34)
-
-                VStack(alignment: .leading, spacing: 3) {
                     Text(title)
-                        .font(NeumorphicStyle.titleFont(18, weight: .semibold))
-                        .foregroundStyle(NeumorphicStyle.ink)
+                        .font(MangaStyle.titleFont(18, weight: .black))
+                        .foregroundStyle(MangaStyle.ink)
                         .lineLimit(1)
                         .minimumScaleFactor(0.82)
 
-                    if let detail, !detail.isEmpty {
-                        Text(detail)
-                            .font(NeumorphicStyle.labelFont(11, weight: .medium))
-                            .foregroundStyle(NeumorphicStyle.inkMuted)
+                    Spacer(minLength: 0)
+
+                    if let destination {
+                        NavigationLink(value: destination) {
+                            MangaLabel(text: String(localized: "view_all"), tint: MangaStyle.decoBlue, small: true)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, padH)
+            )
+        }
+        if PetWhiteStyle.isActive {
+            return AnyView(
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(title)
+                            .font(PetWhiteStyle.titleFont(20, weight: .bold))
+                            .foregroundStyle(PetWhiteStyle.ink)
                             .lineLimit(1)
+                            .minimumScaleFactor(0.82)
+
+                        if let detail, !detail.isEmpty {
+                            Text(detail)
+                                .font(PetWhiteStyle.labelFont(11))
+                                .foregroundStyle(PetWhiteStyle.inkMuted)
+                                .lineLimit(1)
+                        }
+                    }
+
+                    Spacer(minLength: 8)
+
+                    if let destination {
+                        NavigationLink(value: destination) {
+                            HStack(spacing: 3) {
+                                Text(String(localized: "view_all"))
+                                    .font(PetWhiteStyle.labelFont(12, weight: .semibold))
+                                PetWhitePackIcon(icon: .chevronRight, size: 12, visualScale: 1, fallbackColor: PetWhiteStyle.dogEar)
+                            }
+                            .foregroundStyle(PetWhiteStyle.dogEar)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
+                .padding(.horizontal, padH)
+            )
+        }
+        if MujiStyle.isActive {
+            return AnyView(
+                HStack(alignment: .bottom, spacing: 14) {
+                    MujiSectionTitle(title: title, detail: detail)
 
-                Spacer(minLength: 8)
+                    Spacer(minLength: 0)
 
-                if let destination {
-                    NavigationLink(value: destination) {
-                        NeumorphicPill(text: String(localized: "view_all"), tint: NeumorphicStyle.accent, icon: .chevronRight, selected: true, compact: true)
+                    if let destination {
+                        NavigationLink(value: destination) {
+                            MujiPill(text: String(localized: "view_all"), tint: MujiStyle.tea)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
-            }
-            .padding(.horizontal, padH)
-        } else if SignalStyle.isActive {
-            HStack(alignment: .center, spacing: 12) {
-                VStack(alignment: .leading, spacing: 3) {
+                .padding(.horizontal, padH)
+            )
+        }
+        if NeumorphicStyle.isActive {
+            return AnyView(
+                HStack(alignment: .center, spacing: 12) {
+                    NeumorphicIconBadge(icon: .podcast, tint: NeumorphicStyle.warm, size: 34)
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(title)
+                            .font(NeumorphicStyle.titleFont(18, weight: .semibold))
+                            .foregroundStyle(NeumorphicStyle.ink)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.82)
+
+                        if let detail, !detail.isEmpty {
+                            Text(detail)
+                                .font(NeumorphicStyle.labelFont(11, weight: .medium))
+                                .foregroundStyle(NeumorphicStyle.inkMuted)
+                                .lineLimit(1)
+                        }
+                    }
+
+                    Spacer(minLength: 8)
+
+                    if let destination {
+                        NavigationLink(value: destination) {
+                            NeumorphicPill(text: String(localized: "view_all"), tint: NeumorphicStyle.accent, icon: .chevronRight, selected: true, compact: true)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, padH)
+            )
+        }
+        if SignalStyle.isActive {
+            return AnyView(
+                HStack(alignment: .center, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(title)
+                            .font(SignalStyle.titleFont(18, weight: .semibold))
+                            .foregroundStyle(SignalStyle.ink)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.82)
+
+                        if let detail, !detail.isEmpty {
+                            Text(detail)
+                                .font(SignalStyle.labelFont(11, weight: .medium))
+                                .foregroundStyle(SignalStyle.inkMuted)
+                                .lineLimit(1)
+                        }
+                    }
+
+                    Spacer(minLength: 8)
+
+                    if let destination {
+                        NavigationLink(value: destination) {
+                            SignalPill(
+                                text: String(localized: "view_all"),
+                                tint: SignalStyle.accent,
+                                icon: .chevronRight,
+                                compact: true
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, padH)
+            )
+        }
+        if SequoiaStyle.isActive {
+            return AnyView(
+                HStack(alignment: .center, spacing: 10) {
+                    SequoiaIconBadge(icon: .podcast, tint: SequoiaStyle.aqua, size: 32)
+
                     Text(title)
-                        .font(SignalStyle.titleFont(18, weight: .semibold))
-                        .foregroundStyle(SignalStyle.ink)
+                        .font(SequoiaStyle.titleFont(17, weight: .semibold))
+                        .foregroundStyle(SequoiaStyle.ink)
                         .lineLimit(1)
                         .minimumScaleFactor(0.82)
+                        .layoutPriority(1)
 
-                    if let detail, !detail.isEmpty {
-                        Text(detail)
-                            .font(SignalStyle.labelFont(11, weight: .medium))
-                            .foregroundStyle(SignalStyle.inkMuted)
+                    Spacer(minLength: 8)
+
+                    if let destination {
+                        NavigationLink(value: destination) {
+                            SequoiaPill(
+                                text: String(localized: "view_all"),
+                                icon: .chevronRight,
+                                tint: SequoiaStyle.accent,
+                                selected: true,
+                                compact: true
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, padH)
+            )
+        }
+        if LiquidGlassStyle.isActive {
+            return AnyView(
+                HStack(alignment: .center, spacing: 10) {
+                    LiquidGlassDropletMark(tint: LiquidGlassStyle.violet)
+                        .frame(width: 22, height: 22)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(title)
+                            .font(LiquidGlassStyle.titleFont(18, weight: .semibold))
+                            .foregroundStyle(LiquidGlassStyle.ink)
                             .lineLimit(1)
+                            .minimumScaleFactor(0.82)
+
+                        if let detail, !detail.isEmpty {
+                            Text(detail)
+                                .font(LiquidGlassStyle.labelFont(11, weight: .regular))
+                                .foregroundStyle(LiquidGlassStyle.inkMuted)
+                                .lineLimit(1)
+                        }
                     }
-                }
-
-                Spacer(minLength: 8)
-
-                if let destination {
-                    NavigationLink(value: destination) {
-                        SignalPill(
-                            text: String(localized: "view_all"),
-                            tint: SignalStyle.accent,
-                            icon: .chevronRight,
-                            compact: true
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, padH)
-        } else if SequoiaStyle.isActive {
-            HStack(alignment: .center, spacing: 10) {
-                SequoiaIconBadge(icon: .podcast, tint: SequoiaStyle.aqua, size: 32)
-
-                Text(title)
-                    .font(SequoiaStyle.titleFont(17, weight: .semibold))
-                    .foregroundStyle(SequoiaStyle.ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.82)
                     .layoutPriority(1)
 
-                Spacer(minLength: 8)
+                    Spacer(minLength: 8)
 
-                if let destination {
-                    NavigationLink(value: destination) {
-                        SequoiaPill(
-                            text: String(localized: "view_all"),
-                            icon: .chevronRight,
-                            tint: SequoiaStyle.accent,
-                            selected: true,
-                            compact: true
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, padH)
-        } else if LiquidGlassStyle.isActive {
-            HStack(alignment: .center, spacing: 10) {
-                LiquidGlassDropletMark(tint: LiquidGlassStyle.violet)
-                    .frame(width: 22, height: 22)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(LiquidGlassStyle.titleFont(18, weight: .semibold))
-                        .foregroundStyle(LiquidGlassStyle.ink)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.82)
-
-                    if let detail, !detail.isEmpty {
-                        Text(detail)
-                            .font(LiquidGlassStyle.labelFont(11, weight: .regular))
-                            .foregroundStyle(LiquidGlassStyle.inkMuted)
-                            .lineLimit(1)
+                    if let destination {
+                        NavigationLink(value: destination) {
+                            LiquidGlassPill(
+                                text: String(localized: "view_all"),
+                                icon: .chevronRight,
+                                tint: LiquidGlassStyle.violet,
+                                selected: true,
+                                compact: true
+                            )
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
-                .layoutPriority(1)
-
-                Spacer(minLength: 8)
-
-                if let destination {
-                    NavigationLink(value: destination) {
-                        LiquidGlassPill(
-                            text: String(localized: "view_all"),
-                            icon: .chevronRight,
-                            tint: LiquidGlassStyle.violet,
-                            selected: true,
-                            compact: true
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, padH)
-        } else {
+                .padding(.horizontal, padH)
+            )
+        }
+        return AnyView(
             HStack(alignment: .center, spacing: 8) {
                 Capsule()
                     .fill(Color.monoAccent)
@@ -535,7 +558,7 @@ extension PodcastView {
                 }
             }
             .padding(.horizontal, padH)
-        }
+        )
     }
 
     var bannerSection: some View {

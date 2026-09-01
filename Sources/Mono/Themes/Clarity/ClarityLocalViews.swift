@@ -18,7 +18,7 @@ struct ClarityLocalHomeView: View {
                         }
                         .frame(maxWidth: 680)
                         .frame(maxWidth: .infinity)
-                        .padding(.horizontal, DeviceLayout.isPad ? 28 : 14)
+                        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 28 : 14)
                         .padding(.top, 8)
                     }
                     .scrollIndicators(.hidden)
@@ -57,7 +57,7 @@ struct ClarityLocalHomeView: View {
     }
 
     private func homeShell(in proxy: GeometryProxy) -> some View {
-        ClarityShell(cornerRadius: DeviceLayout.isPad ? 38 : 32) {
+        ClarityShell(cornerRadius: DeviceLayout.usesExpandedLayout ? 38 : 32) {
             VStack(spacing: 0) {
                 localBanner(width: min(proxy.size.width - 28, 680))
                 quickAccess
@@ -365,7 +365,7 @@ private struct ClarityLocalScene<Content: View>: View {
                 .frame(maxWidth: 680)
                 .frame(maxWidth: .infinity)
                 .padding(.top, DeviceLayout.headerTopPadding + 4)
-                .padding(.horizontal, DeviceLayout.isPad ? 28 : 16)
+                .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 28 : 16)
             }
             .scrollIndicators(.hidden)
             .themeRenderScrollLayer()

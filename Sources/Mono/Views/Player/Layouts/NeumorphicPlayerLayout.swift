@@ -51,7 +51,7 @@ struct NeumorphicPlayerLayout: View {
 
     var body: some View {
         GeometryReader { geo in
-            let coverSize = min(geo.size.width * 0.65, DeviceLayout.isPad ? 380 : 280)
+            let coverSize = min(geo.size.width * 0.65, DeviceLayout.usesExpandedLayout ? 380 : 280)
             
             ZStack {
                 neuBg.ignoresSafeArea()
@@ -97,7 +97,7 @@ struct NeumorphicPlayerLayout: View {
                         controlsSection
                         additionalButtons
                     }
-                    .padding(.horizontal, DeviceLayout.isPad ? 36 : 28)
+                    .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 36 : 28)
                     .padding(.top, 16)
                     .padding(.bottom, DeviceLayout.playerBottomPadding)
                 }

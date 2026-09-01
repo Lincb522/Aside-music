@@ -94,7 +94,7 @@ private extension LiquidGlassPlayerLayout {
         let horizontalPadding: CGFloat = compact ? 16 : 20
         let availableWidth = geometry.size.width - horizontalPadding * 2
         let artworkHeightLimit = geometry.size.height * (compact ? 0.34 : 0.39)
-        let artworkSize = min(DeviceLayout.isPad ? 430 : 370, availableWidth, artworkHeightLimit)
+        let artworkSize = min(DeviceLayout.usesExpandedLayout ? 430 : 370, availableWidth, artworkHeightLimit)
 
         return VStack(spacing: 0) {
             header

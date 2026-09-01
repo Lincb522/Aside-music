@@ -18,11 +18,11 @@ struct ClassicFloatingBar: View {
     private var dockBottomSafeAreaPadding: CGFloat {
         let safeArea = max(DeviceLayout.safeAreaBottom, 0)
         guard safeArea > 0 else { return 0 }
-        return min(safeArea * 0.46, DeviceLayout.isPad ? 14 : 16)
+        return min(safeArea * 0.46, DeviceLayout.usesExpandedLayout ? 14 : 16)
     }
 
     private var miniPlayerHorizontalPadding: CGFloat {
-        DeviceLayout.isPad ? 38 : 16
+        DeviceLayout.usesExpandedLayout ? 38 : 16
     }
 
     private var dockCornerRadius: CGFloat {
@@ -139,7 +139,7 @@ struct ClassicFloatingBar: View {
 
                     ProgressBarView()
                         .frame(height: 2)
-                        .padding(.horizontal, DeviceLayout.isPad ? 26 : 17)
+                        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 26 : 17)
                         .padding(.bottom, 4)
                         .opacity(progressOpacity)
                         .transition(.opacity)
@@ -147,7 +147,7 @@ struct ClassicFloatingBar: View {
                     Capsule(style: .continuous)
                         .fill(internalSeparatorColor)
                         .frame(height: 0.7)
-                        .padding(.horizontal, DeviceLayout.isPad ? 26 : 17)
+                        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 26 : 17)
                 }
 
                 ClassicTabBarSection(currentTab: $currentTab)
@@ -420,7 +420,7 @@ private struct MinimalWhiteClassicDock: View {
 
     private var bottomInset: CGFloat {
         let safeArea = max(DeviceLayout.safeAreaBottom, 0)
-        return min(safeArea * 0.42, DeviceLayout.isPad ? 12 : 15)
+        return min(safeArea * 0.42, DeviceLayout.usesExpandedLayout ? 12 : 15)
     }
 
     var body: some View {
@@ -431,7 +431,7 @@ private struct MinimalWhiteClassicDock: View {
                 if let song = player.currentSong {
                     MinimalWhiteClassicNowPlaying(song: song)
                         .swipeToSkip()
-                        .padding(.horizontal, DeviceLayout.isPad ? 36 : 16)
+                        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 36 : 16)
                         .transition(.asymmetric(
                             insertion: .opacity.combined(with: .move(edge: .bottom)),
                             removal: .opacity.combined(with: .move(edge: .bottom))
@@ -439,7 +439,7 @@ private struct MinimalWhiteClassicDock: View {
                 }
 
                 MinimalWhiteClassicTabRail(currentTab: $currentTab)
-                    .padding(.horizontal, DeviceLayout.isPad ? 38 : 18)
+                    .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 38 : 18)
             }
             .padding(.top, player.currentSong == nil ? 10 : 11)
             .padding(.bottom, 10 + bottomInset)
@@ -582,7 +582,8 @@ private struct MinimalWhiteClassicTabRail: View {
                             icon: selected ? tab.icon : tab.monoIcon,
                             size: 18,
                             color: selected ? MinimalWhiteStyle.ink : MinimalWhiteStyle.inkMuted,
-                            lineWidth: 1.7
+                            lineWidth: 1.7,
+                            artworkContrastBackground: selected ? MinimalWhiteStyle.glassStrongFill : nil
                         )
 
                         Text(NSLocalizedString(tab.titleKey(isLocalMode: !onlineAccess.canUseOnlineFeatures), comment: ""))
@@ -605,7 +606,7 @@ private struct PetWhiteClassicCushionDock: View {
     @ObservedObject private var player = FloatingBarPlaybackModel.shared
 
     private var bottomInset: CGFloat {
-        min(max(DeviceLayout.safeAreaBottom, 0) * 0.38, DeviceLayout.isPad ? 12 : 14)
+        min(max(DeviceLayout.safeAreaBottom, 0) * 0.38, DeviceLayout.usesExpandedLayout ? 12 : 14)
     }
 
     var body: some View {
@@ -616,7 +617,7 @@ private struct PetWhiteClassicCushionDock: View {
                 if let song = player.currentSong {
                     PetWhiteClassicNowPlayingChip(song: song)
                         .swipeToSkip()
-                        .padding(.horizontal, DeviceLayout.isPad ? 28 : 14)
+                        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 28 : 14)
                         .transition(.asymmetric(
                             insertion: .opacity.combined(with: .move(edge: .bottom)),
                             removal: .opacity.combined(with: .scale(scale: 0.94, anchor: .bottom))
@@ -624,7 +625,7 @@ private struct PetWhiteClassicCushionDock: View {
                 }
 
                 PetWhiteClassicTabRail(currentTab: $currentTab)
-                    .padding(.horizontal, DeviceLayout.isPad ? 30 : 16)
+                    .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 30 : 16)
             }
             .padding(.top, 10)
             .padding(.bottom, 10 + bottomInset)
@@ -801,7 +802,8 @@ private struct PetWhiteClassicTabRail: View {
                             size: selected ? 18 : 16,
                             visualScale: 1,
                             fallbackColor: selected ? PetWhiteStyle.ink : PetWhiteStyle.inkMuted,
-                            lineWidth: 1.45
+                            lineWidth: 1.45,
+                            artworkContrastBackground: selected ? tabTint(tab) : nil
                         )
 
                         if selected {
@@ -899,8 +901,8 @@ private struct ClassicMiniPlayerSection: View {
     }
 
     private var sectionHorizontalPadding: CGFloat {
-        if CapsuleStyle.isActive { return DeviceLayout.isPad ? 24 : 16 }
-        return (SequoiaStyle.isActive || LiquidGlassStyle.isActive) ? (DeviceLayout.isPad ? 24 : 16) : (DeviceLayout.isPad ? 22 : 15)
+        if CapsuleStyle.isActive { return DeviceLayout.usesExpandedLayout ? 24 : 16 }
+        return (SequoiaStyle.isActive || LiquidGlassStyle.isActive) ? (DeviceLayout.usesExpandedLayout ? 24 : 16) : (DeviceLayout.usesExpandedLayout ? 22 : 15)
     }
 
     private var miniPillCornerRadius: CGFloat {
@@ -1429,7 +1431,7 @@ private struct ClassicTabBarSection: View {
     }
 
     private var tabItemMinHeight: CGFloat {
-        DeviceLayout.isPad ? 43 : 39
+        DeviceLayout.usesExpandedLayout ? 43 : 39
     }
 
     private var tabItemVerticalPadding: CGFloat {
@@ -1458,7 +1460,11 @@ private struct ClassicTabBarSection: View {
                         classicTabIcon(
                             icon: isSelected ? icons.filled : icons.outline,
                             size: tabIconSize,
-                            color: tabForeground(index, isSelected: isSelected)
+                            color: tabForeground(index, isSelected: isSelected),
+                            artworkContrastBackground: tabArtworkContrastBackground(
+                                index,
+                                isSelected: isSelected
+                            )
                         )
                         .contentTransition(.interpolate)
                         .scaleEffect(isSelected ? 1.04 : 0.96)
@@ -1672,12 +1678,46 @@ private struct ClassicTabBarSection: View {
     }
 
     @ViewBuilder
-    private func classicTabIcon(icon: MonoIcon.IconType, size: CGFloat, color: Color) -> some View {
+    private func classicTabIcon(
+        icon: MonoIcon.IconType,
+        size: CGFloat,
+        color: Color,
+        artworkContrastBackground: Color?
+    ) -> some View {
         if PetWhiteStyle.isActive {
-            PetWhitePackIcon(icon: icon, size: 16, visualScale: 1, fallbackColor: color, lineWidth: 1.45)
+            PetWhitePackIcon(
+                icon: icon,
+                size: 16,
+                visualScale: 1,
+                fallbackColor: color,
+                lineWidth: 1.45,
+                artworkContrastBackground: artworkContrastBackground
+            )
         } else {
-            MonoIcon(icon: icon, size: size, color: color)
+            MonoIcon(
+                icon: icon,
+                size: size,
+                color: color,
+                artworkContrastBackground: artworkContrastBackground
+            )
         }
+    }
+
+    private func tabArtworkContrastBackground(_ index: Int, isSelected: Bool) -> Color? {
+        guard isSelected else { return nil }
+        if MangaStyle.isActive { return mangaTabTint(index) }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.surfaceRaised }
+        if PetWhiteStyle.isActive { return petWhiteTabTint(index) }
+        if MujiStyle.isActive { return MujiStyle.surfaceRaised }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfacePressed }
+        if SequoiaStyle.isActive { return SequoiaStyle.materialPressed }
+        if LiquidGlassStyle.isActive { return LiquidGlassStyle.glassPressed }
+        if CapsuleStyle.isActive { return capsuleTabTint(index) }
+        if ClayStyle.isActive { return ClayStyle.creamPressed }
+        if BentoStyle.isActive { return bentoTabTint(index) }
+        if SignalStyle.isActive { return SignalStyle.controlPressed }
+        if ClarityStyle.isActive { return ClarityStyle.surfaceRaised }
+        return Color.monoFloatingBarFill
     }
 
     private func petWhiteTabTint(_ index: Int) -> Color {
@@ -1751,7 +1791,7 @@ private struct AsideClassicDock: View {
     private var bottomInset: CGFloat {
         let safeArea = max(DeviceLayout.safeAreaBottom, 0)
         guard safeArea > 0 else { return 0 }
-        return min(safeArea * 0.46, DeviceLayout.isPad ? 14 : 16)
+        return min(safeArea * 0.46, DeviceLayout.usesExpandedLayout ? 14 : 16)
     }
 
     private var dockShape: UnevenRoundedRectangle {
@@ -1782,7 +1822,7 @@ private struct AsideClassicDock: View {
                 if let song = player.currentSong {
                     AsideClassicNowPlayingRow(song: song)
                         .swipeToSkip()
-                        .padding(.horizontal, DeviceLayout.isPad ? 34 : 18)
+                        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 34 : 18)
                         .padding(.top, 6)
                         .padding(.bottom, 9)
                         .transition(.asymmetric(
@@ -1793,11 +1833,11 @@ private struct AsideClassicDock: View {
                     Rectangle()
                         .fill(Color.monoTextPrimary.opacity(0.07))
                         .frame(height: 0.7)
-                        .padding(.horizontal, DeviceLayout.isPad ? 30 : 16)
+                        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 30 : 16)
                 }
 
                 AsideClassicTabRail(currentTab: $currentTab)
-                    .padding(.horizontal, DeviceLayout.isPad ? 26 : 10)
+                    .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 26 : 10)
                     .padding(.top, player.currentSong == nil ? 9 : 4)
             }
             .padding(.bottom, 2 + bottomInset)
@@ -2021,7 +2061,8 @@ private struct AsideClassicTabRail: View {
                     icon: selected ? icons.filled : icons.outline,
                     size: 18,
                     color: selected ? .monoTextPrimary : .monoTextSecondary.opacity(0.55),
-                    lineWidth: 1.7
+                    lineWidth: 1.7,
+                    artworkContrastBackground: selected ? Color.monoFloatingBarFill : nil
                 )
                 .scaleEffect(selected ? 1.05 : 1.0)
 
@@ -2042,7 +2083,7 @@ private struct AsideClassicTabRail: View {
                     }
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: DeviceLayout.isPad ? 48 : 44)
+            .frame(maxWidth: .infinity, minHeight: DeviceLayout.usesExpandedLayout ? 48 : 44)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

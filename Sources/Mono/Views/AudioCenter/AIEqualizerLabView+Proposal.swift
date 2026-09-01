@@ -160,6 +160,7 @@ extension AIEqualizerLabView {
 
                 Button(action: agent.analyzeCurrentSong) {
                     MonoIcon(icon: .refresh, size: 17, color: .white.opacity(0.86))
+                        .monoIconArtwork(MonoGlyphSemantic.agentReanalyze.rawValue)
                         .frame(width: 48, height: 48)
                         .background(RoundedRectangle(cornerRadius: 14).fill(Color.white.opacity(0.06)))
                         .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.08)))

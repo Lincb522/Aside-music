@@ -356,7 +356,7 @@ struct QQLoginView: View {
                         .resizable()
                         .interpolation(.none)
                         .scaledToFit()
-                        .frame(width: DeviceLayout.isPad ? 220 : 180, height: DeviceLayout.isPad ? 220 : 180)
+                        .frame(width: DeviceLayout.usesExpandedLayout ? 220 : 180, height: DeviceLayout.usesExpandedLayout ? 220 : 180)
                         .cornerRadius(12)
                 } else {
                     VStack(spacing: 16) {
@@ -394,7 +394,7 @@ struct QQLoginView: View {
                     .cornerRadius(24)
                 }
             }
-            .frame(width: DeviceLayout.isPad ? 300 : 240, height: DeviceLayout.isPad ? 300 : 240)
+            .frame(width: DeviceLayout.usesExpandedLayout ? 300 : 240, height: DeviceLayout.usesExpandedLayout ? 300 : 240)
             .themedPageSurface(cornerRadius: MangaStyle.isActive ? 22 : 24, elevated: true, mangaTint: MangaStyle.bubbleWhite)
 
             HStack(spacing: 16) {

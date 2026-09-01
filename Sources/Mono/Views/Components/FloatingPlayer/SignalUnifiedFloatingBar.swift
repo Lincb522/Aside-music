@@ -92,7 +92,8 @@ private struct SignalUnifiedTabRail: View {
                                 icon: selected ? tab.icon : tab.monoIcon,
                                 size: 15,
                                 color: selected ? SignalStyle.accent : SignalStyle.inkMuted,
-                                lineWidth: selected ? 1.85 : 1.5
+                                lineWidth: selected ? 1.85 : 1.5,
+                                artworkContrastBackground: selected ? SignalStyle.controlPressed : nil
                             )
 
                             Text(label)
@@ -127,7 +128,7 @@ struct SignalClassicFloatingBar: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var safeBottomInset: CGFloat {
-        min(max(DeviceLayout.safeAreaBottom, 0) * 0.42, DeviceLayout.isPad ? 12 : 15)
+        min(max(DeviceLayout.safeAreaBottom, 0) * 0.42, DeviceLayout.usesExpandedLayout ? 12 : 15)
     }
 
     var body: some View {
@@ -179,7 +180,8 @@ private struct SignalClassicTabRail: View {
                                 icon: selected ? tab.icon : tab.monoIcon,
                                 size: 17,
                                 color: selected ? SignalStyle.accent : SignalStyle.inkMuted,
-                                lineWidth: selected ? 1.85 : 1.45
+                                lineWidth: selected ? 1.85 : 1.45,
+                                artworkContrastBackground: selected ? SignalStyle.controlPressed : nil
                             )
 
                             RoundedRectangle(cornerRadius: 1, style: .continuous)
@@ -209,7 +211,7 @@ private struct SignalClassicTabRail: View {
                 .accessibilityAddTraits(selected ? .isSelected : [])
             }
         }
-        .padding(.horizontal, DeviceLayout.isPad ? 40 : 10)
+        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 40 : 10)
         .frame(height: 58)
     }
 
@@ -254,7 +256,7 @@ struct SignalMinimalFloatingBar: View {
             }
             .clipShape(RoundedRectangle(cornerRadius: SignalStyle.cardRadius, style: .continuous))
             .iPadContentWidth(600)
-            .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
+            .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 40 : 20)
             .padding(.bottom, 8)
             .themeRenderInteractiveLayer()
         }
@@ -294,7 +296,13 @@ struct SignalMinimalFloatingBar: View {
             showsTabs = true
         } label: {
             HStack(spacing: 9) {
-                MonoIcon(icon: currentTab.icon, size: 16, color: SignalStyle.accent, lineWidth: 1.8)
+                MonoIcon(
+                    icon: currentTab.icon,
+                    size: 16,
+                    color: SignalStyle.accent,
+                    lineWidth: 1.8,
+                    artworkContrastBackground: SignalStyle.screen
+                )
 
                 Text(tabLabel(currentTab))
                     .font(SignalStyle.monoFont(11, weight: .semibold))
@@ -329,7 +337,8 @@ struct SignalMinimalFloatingBar: View {
                             icon: selected ? tab.icon : tab.monoIcon,
                             size: 15,
                             color: selected ? SignalStyle.accent : SignalStyle.inkMuted,
-                            lineWidth: selected ? 1.8 : 1.45
+                            lineWidth: selected ? 1.8 : 1.45,
+                            artworkContrastBackground: selected ? SignalStyle.screen : nil
                         )
 
                         if selected {
@@ -464,7 +473,7 @@ struct SignalFloatingBallBar: View {
 
                     floatingNode
                 }
-                .padding(.trailing, DeviceLayout.isPad ? 40 : 18)
+                .padding(.trailing, DeviceLayout.usesExpandedLayout ? 40 : 18)
                 .padding(.bottom, max(18, DeviceLayout.safeAreaBottom + 8))
             }
         }
@@ -573,7 +582,8 @@ struct SignalFloatingBallBar: View {
                     icon: selected ? tab.icon : tab.monoIcon,
                     size: 15,
                     color: selected ? SignalStyle.accent : SignalStyle.inkMuted,
-                    lineWidth: selected ? 1.8 : 1.45
+                    lineWidth: selected ? 1.8 : 1.45,
+                    artworkContrastBackground: selected ? SignalStyle.paper : nil
                 )
 
                 Circle()

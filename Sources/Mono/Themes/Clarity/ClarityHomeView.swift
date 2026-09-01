@@ -93,7 +93,7 @@ struct ClarityHomeView: View {
                 }
                 .frame(maxWidth: 720)
                 .frame(maxWidth: .infinity)
-                .padding(.horizontal, DeviceLayout.isPad ? 28 : 14)
+                .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 28 : 14)
                 .padding(.top, 8)
                 .padding(.bottom, 10)
             }
@@ -144,7 +144,7 @@ struct ClarityHomeView: View {
     }
 
     private func primaryShell(in proxy: GeometryProxy) -> some View {
-        ClarityShell(cornerRadius: DeviceLayout.isPad ? 38 : 32) {
+        ClarityShell(cornerRadius: DeviceLayout.usesExpandedLayout ? 38 : 32) {
             VStack(spacing: 0) {
                 if !model.banners.isEmpty {
                     ClarityBannerCarousel(banners: Array(model.banners.prefix(6)), action: handleBannerTap)
@@ -296,7 +296,7 @@ struct ClarityHomeView: View {
                     ForEach(Array(playlists.prefix(12))) { playlist in
                         Button { path.append(Destination.playlist(playlist)) } label: {
                             VStack(alignment: .leading, spacing: 8) {
-                                ClarityArtwork(url: playlist.coverUrl, size: DeviceLayout.isPad ? 150 : 124, radius: 22)
+                                ClarityArtwork(url: playlist.coverUrl, size: DeviceLayout.usesExpandedLayout ? 150 : 124, radius: 22)
                                 Text(playlist.name)
                                     .font(ClarityStyle.body(12.5, weight: .semibold))
                                     .foregroundStyle(ClarityStyle.ink)
@@ -305,7 +305,7 @@ struct ClarityHomeView: View {
                                     .font(ClarityStyle.body(10))
                                     .foregroundStyle(ClarityStyle.inkFaint)
                             }
-                            .frame(width: DeviceLayout.isPad ? 150 : 124, alignment: .leading)
+                            .frame(width: DeviceLayout.usesExpandedLayout ? 150 : 124, alignment: .leading)
                         }
                         .buttonStyle(ClarityPressStyle())
                     }

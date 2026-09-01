@@ -20,7 +20,7 @@ struct ThemeColorCustomizationSection: View {
                 } label: {
                     HStack(spacing: 12) {
                         SettingsIconBadge(icon: .sparkle)
-                            .monoIconPulseBloomArtwork("colorEngine")
+                            .monoIconArtwork("colorEngine")
 
                         VStack(alignment: .leading, spacing: 3) {
                             Text(String(localized: "自定义配色"))

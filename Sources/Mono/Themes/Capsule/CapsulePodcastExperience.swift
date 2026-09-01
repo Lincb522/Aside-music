@@ -113,6 +113,7 @@ struct CapsulePodcastExperience: View {
 
                 FloatingBarBottomSpacer()
             }
+            .iPadContentWidth(1180)
             .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
             .padding(.top, DeviceLayout.headerTopPadding + 8)
         }
@@ -359,7 +360,7 @@ struct CapsulePodcastExperience: View {
                 .buttonStyle(.plain)
             }
 
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+            LazyVGrid(columns: hotPodcastColumns, spacing: 12) {
                 ForEach(radios.prefix(4)) { radio in
                     compactRadioCard(radio: radio, tint: CapsuleStyle.amber)
                 }
@@ -367,6 +368,13 @@ struct CapsulePodcastExperience: View {
         }
         .padding(16)
         .background(CapsuleSurfaceBackground(cornerRadius: 32, elevated: true, tint: CapsuleStyle.surface.opacity(0.9)))
+    }
+
+    private var hotPodcastColumns: [GridItem] {
+        Array(
+            repeating: GridItem(.flexible(), spacing: 12),
+            count: DeviceLayout.usesExpandedLayout ? 4 : 2
+        )
     }
 
     private func radioRail(

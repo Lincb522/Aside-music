@@ -683,7 +683,7 @@ struct StyleSelectionMorphView: View {
     }
 
     private var gridHeight: CGFloat {
-        DeviceLayout.isPad ? 310 : 246
+        DeviceLayout.usesExpandedLayout ? 310 : 246
     }
 
     private var indicatorHeight: CGFloat {

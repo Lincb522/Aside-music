@@ -95,6 +95,7 @@ struct AriaStageView: View {
     @AppStorage("ariaLyricParticleSize") private var particleSize = 1.15
     @AppStorage("ariaLyricParticleMotion") private var particleMotion = true
     @AppStorage("ariaLyricGlassIntensity") private var glassIntensity = 0.64
+    @AppStorage("ariaVideoAdaptiveLyricGlass") private var videoAdaptiveLyricGlass = true
     @AppStorage("ariaCustomLyricFontID") private var customFontID = ""
     @AppStorage("ariaForeignLyricFont") private var foreignLyricFontRaw = MonoPlayerFont.followThemeRawValue
     @AppStorage("ariaForeignCustomLyricFontID") private var foreignCustomFontID = ""
@@ -134,6 +135,7 @@ struct AriaStageView: View {
     /// 拖动进度/远程 seek 改变时间时靠它触发一次重渲染
     @State private var pausedSeekRefresh = 0
     @State private var showGestureGuide = false
+    @State private var videoBackgroundIsBright: Bool?
 
     private let idleTicker = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     /// folia：播放中悬浮胶囊静置后收起为一条细进度
@@ -177,18 +179,6 @@ struct AriaStageView: View {
 
     private var lyricMaterialStyle: AriaLyricMaterialStyle {
         AriaLyricMaterialStyle.resolveStored(lyricMaterialStyleRaw)
-    }
-
-    private var lyricTypography: AriaLyricTypographyConfiguration {
-        AriaLyricTypographyConfiguration(
-            style: lyricMaterialStyle,
-            opacity: lyricOpacity,
-            glowStrength: lyricGlowStrength,
-            particleDensity: particleDensity,
-            particleSize: particleSize,
-            particleMotion: particleMotion,
-            glassIntensity: glassIntensity
-        )
     }
 
     /// 自定义字幕色（自动取色关闭时生效）
@@ -262,10 +252,10 @@ struct AriaStageView: View {
 
     /// 歌词包含逐字颜色、位移和光效，必须跟随显示刷新节奏推进；
     /// 性能降档由统一渲染引擎处理，常态不再用 30fps 人为制造顿挫。
-    private var lyricFPS: Int {
+    private func lyricFPS(material: AriaLyricMaterialStyle) -> Int {
         AriaLyricRenderEngine.framesPerSecond(
             effect: lyricEffect,
-            material: lyricMaterialStyle,
+            material: material,
             tier: perf.tier,
             isPlaying: player.isPlaying,
             enabledStageEffectCount: enabledStageEffectCount
@@ -275,10 +265,23 @@ struct AriaStageView: View {
     var body: some View {
         // 帧闭包外提：这些值与帧无关，避免 60fps 逐帧重算（调色板派生含多次 UIColor 转换）
         let palette = self.palette
-        let lyricPalette = self.lyricPalette
         let lyricEffect = self.lyricEffect
         let lyricLines = lyricStore.lines
         let lyricLanguage = lyricStore.language
+        let videoURL = self.videoURL
+        let videoBackgroundActive = videoURL != nil
+        let usesAdaptiveVideoGlass = videoAdaptiveLyricGlass && videoBackgroundActive
+        let glassUsesDarkInk = usesAdaptiveVideoGlass && videoBackgroundIsBright == true
+        let lyricPalette: AriaPalette = {
+            var resolved = self.lyricPalette
+            guard usesAdaptiveVideoGlass else { return resolved }
+            let glassInk = glassUsesDarkInk ? Color.black : Color.white
+            resolved.primary = glassInk.opacity(0.9)
+            resolved.secondary = glassInk.opacity(0.62)
+            resolved.accent = glassInk.opacity(0.86)
+            resolved.accentCycle = []
+            return resolved
+        }()
         // 翻译字体先于外语字体覆盖解析：确保 .custom 绑定的是主字体的导入 ID
         let translationFont: Font = {
             AriaLyricFontChoice.customFontIDOverride = nil
@@ -288,9 +291,21 @@ struct AriaStageView: View {
             )
         }()
         let lyricFont = effectiveLyricFont(for: lyricLanguage)
-        let lyricTypography = self.lyricTypography
-        let lyricMaterialStyle = self.lyricMaterialStyle
+        let lyricMaterialStyle: AriaLyricMaterialStyle = usesAdaptiveVideoGlass
+            ? .glass
+            : self.lyricMaterialStyle
+        let lyricTypography = AriaLyricTypographyConfiguration(
+            style: lyricMaterialStyle,
+            opacity: usesAdaptiveVideoGlass ? min(lyricOpacity, 0.82) : lyricOpacity,
+            glowStrength: lyricGlowStrength,
+            particleDensity: particleDensity,
+            particleSize: particleSize,
+            particleMotion: particleMotion,
+            glassIntensity: usesAdaptiveVideoGlass ? max(glassIntensity, 0.72) : glassIntensity,
+            glassUsesDarkInk: glassUsesDarkInk
+        )
         let lyricDepthAmount = pow(min(max(lyricDepthIntensity, 0), 1), 0.72)
+        let videoGlassAnalysisIdentity = "\(videoURL?.path ?? "none")|\(videoAdaptiveLyricGlass)"
 
         GeometryReader { geo in
             ZStack {
@@ -315,7 +330,7 @@ struct AriaStageView: View {
                         emptyLyricsState
                     } else {
                         TimelineView(AppFrameRate.throttledTimeline(
-                            maximumFramesPerSecond: lyricFPS,
+                            maximumFramesPerSecond: lyricFPS(material: lyricMaterialStyle),
                             paused: lyricTimelinePaused
                         )) { _ in
                             // 暂停态 seek 后靠此状态失效重渲染一帧
@@ -753,6 +768,16 @@ struct AriaStageView: View {
         .task(id: player.currentSong?.coverUrl?.absoluteString) {
             stageColors.extract(from: player.currentSong?.coverUrl?.sized(200).absoluteString)
         }
+        .task(id: videoGlassAnalysisIdentity) {
+            guard videoAdaptiveLyricGlass, let videoURL else {
+                videoBackgroundIsBright = nil
+                return
+            }
+            videoBackgroundIsBright = nil
+            let isBright = await ImmersiveVideoBrightnessAnalyzer.shared.isBright(videoURL)
+            guard !Task.isCancelled else { return }
+            videoBackgroundIsBright = isBright
+        }
     }
 
     private func updateStageRuntimeActivity() {
@@ -1037,17 +1062,20 @@ private struct AriaGestureGuideOverlay: View {
 
                 HStack(spacing: 0) {
                     gestureItem(
-                        symbol: "arrow.left.and.right",
+                        semantic: .gestureSwipeHorizontal,
+                        fallback: .layers,
                         text: String(localized: "immersive_gesture_switch_track")
                     )
                     guideDivider
                     gestureItem(
-                        symbol: "speaker.wave.2.fill",
+                        semantic: .volumeMedium,
+                        fallback: .soundQuality,
                         text: String(localized: "immersive_gesture_volume")
                     )
                     guideDivider
                     gestureItem(
-                        symbol: "hand.tap.fill",
+                        semantic: .gestureTap,
+                        fallback: .haptic,
                         text: String(localized: "immersive_gesture_pause")
                     )
                 }
@@ -1101,12 +1129,18 @@ private struct AriaGestureGuideOverlay: View {
         }
     }
 
-    private func gestureItem(symbol: String, text: String) -> some View {
+    private func gestureItem(
+        semantic: MonoGlyphSemantic,
+        fallback: MonoIcon.IconType,
+        text: String
+    ) -> some View {
         VStack(spacing: 8) {
-            Image(systemName: symbol)
-                .font(.system(size: 20, weight: .semibold))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(palette.accent, .white)
+            MonoSemanticIcon(
+                semantic: semantic,
+                fallback: fallback,
+                size: 20,
+                color: palette.accent
+            )
                 .frame(height: 23)
 
             Text(text)
@@ -1553,10 +1587,12 @@ private struct AriaImmersiveGestureHUD: View {
 
     private var volumeHUD: some View {
         VStack(spacing: 10) {
-            Image(systemName: volumeSymbol)
-                .font(.system(size: 17, weight: .semibold))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(.white)
+            MonoSemanticIcon(
+                semantic: volumeSemantic,
+                fallback: .soundQuality,
+                size: 17,
+                color: .white
+            )
 
             GeometryReader { geometry in
                 ZStack(alignment: .bottom) {
@@ -1607,11 +1643,11 @@ private struct AriaImmersiveGestureHUD: View {
         .animation(.easeOut(duration: 0.14), value: showsTrack)
     }
 
-    private var volumeSymbol: String {
-        if volume <= 0.001 { return "speaker.slash.fill" }
-        if volume < 0.34 { return "speaker.wave.1.fill" }
-        if volume < 0.68 { return "speaker.wave.2.fill" }
-        return "speaker.wave.3.fill"
+    private var volumeSemantic: MonoGlyphSemantic {
+        if volume <= 0.001 { return .volumeMute }
+        if volume < 0.34 { return .volumeLow }
+        if volume < 0.68 { return .volumeMedium }
+        return .volumeHigh
     }
 
     private func hudGlass<S: InsettableShape>(shape: S) -> some View {

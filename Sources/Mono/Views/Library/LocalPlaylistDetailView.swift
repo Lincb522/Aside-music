@@ -69,7 +69,7 @@ struct LocalPlaylistDetailView: View {
     typealias Theme = PlaylistDetailView.Theme
 
     private var petWhiteDetailHorizontalPadding: CGFloat {
-        DeviceLayout.isPad ? 8 : 4
+        DeviceLayout.usesExpandedLayout ? 8 : 4
     }
 
     var body: some View {
@@ -390,7 +390,7 @@ struct LocalPlaylistDetailView: View {
                     .buttonStyle(MonoBouncingButtonStyle(scale: 0.95))
                 }
             }
-            .padding(.bottom, DeviceLayout.isPad ? 20 : 12)
+            .padding(.bottom, DeviceLayout.usesExpandedLayout ? 20 : 12)
             .iPadContentWidth(900)
         }
     }
@@ -409,7 +409,7 @@ struct LocalPlaylistDetailView: View {
                             sequoiaCoverPlaceholder
                         }
                     }
-                    .frame(width: DeviceLayout.isPad ? 168 : 126, height: DeviceLayout.isPad ? 168 : 126)
+                    .frame(width: DeviceLayout.usesExpandedLayout ? 168 : 126, height: DeviceLayout.usesExpandedLayout ? 168 : 126)
                     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 22, style: .continuous)
@@ -424,7 +424,7 @@ struct LocalPlaylistDetailView: View {
                         }
 
                         Text(p.name)
-                            .font(SequoiaStyle.titleFont(DeviceLayout.isPad ? 28 : 23, weight: .semibold))
+                            .font(SequoiaStyle.titleFont(DeviceLayout.usesExpandedLayout ? 28 : 23, weight: .semibold))
                             .foregroundStyle(SequoiaStyle.ink)
                             .lineLimit(3)
                             .fixedSize(horizontal: false, vertical: true)
@@ -512,8 +512,8 @@ struct LocalPlaylistDetailView: View {
         }
         .padding(16)
         .background(SequoiaGlassBand(tint: SequoiaStyle.green, cornerRadius: 26))
-        .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
-        .padding(.top, DeviceLayout.isPad ? 28 : 18)
+        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 40 : 20)
+        .padding(.top, DeviceLayout.usesExpandedLayout ? 28 : 18)
         .padding(.bottom, 12)
         .iPadContentWidth(900)
     }
@@ -532,7 +532,7 @@ struct LocalPlaylistDetailView: View {
                             LocalPlaylistPlaceholderArtwork()
                         }
                     }
-                    .frame(width: DeviceLayout.isPad ? 168 : 124, height: DeviceLayout.isPad ? 168 : 124)
+                    .frame(width: DeviceLayout.usesExpandedLayout ? 168 : 124, height: DeviceLayout.usesExpandedLayout ? 168 : 124)
                     .clipShape(RoundedRectangle(cornerRadius: PetWhiteStyle.cardRadius, style: .continuous))
                     .petWhiteClayShadow()
 
@@ -550,7 +550,7 @@ struct LocalPlaylistDetailView: View {
                         .lineLimit(1)
 
                         Text(p.name)
-                            .font(PetWhiteStyle.titleFont(DeviceLayout.isPad ? 28 : 23, weight: .bold))
+                            .font(PetWhiteStyle.titleFont(DeviceLayout.usesExpandedLayout ? 28 : 23, weight: .bold))
                             .foregroundStyle(PetWhiteStyle.ink)
                             .lineLimit(3)
                             .fixedSize(horizontal: false, vertical: true)
@@ -665,7 +665,7 @@ struct LocalPlaylistDetailView: View {
                             mangaCoverPlaceholder
                         }
                     }
-                    .frame(width: DeviceLayout.isPad ? 170 : 124, height: DeviceLayout.isPad ? 170 : 124)
+                    .frame(width: DeviceLayout.usesExpandedLayout ? 170 : 124, height: DeviceLayout.usesExpandedLayout ? 170 : 124)
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: MangaStyle.cardRadius, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
                     .background(RoundedRectangle(cornerRadius: MangaStyle.cardRadius, style: .continuous).fill(MangaStyle.strokeInk).offset(x: 3, y: 3))
@@ -677,7 +677,7 @@ struct LocalPlaylistDetailView: View {
                             MangaLabel(text: String(localized: "local_playlist_label"), tint: MangaStyle.labelYellow, small: true)
                         }
 
-                        MangaMisprintTitle(text: p.name, size: DeviceLayout.isPad ? 26 : 22)
+                        MangaMisprintTitle(text: p.name, size: DeviceLayout.usesExpandedLayout ? 26 : 22)
                             .fixedSize(horizontal: false, vertical: true)
 
                         if let desc = p.desc, !desc.isEmpty {
@@ -770,8 +770,8 @@ struct LocalPlaylistDetailView: View {
             // 本地歌单详情页唯一焦点分格：保留厚墨框错版投影
             MangaCardBackground(cornerRadius: MangaStyle.cardRadius + 4, elevated: true, tint: MangaStyle.bubbleWhite, poster: true)
         )
-        .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
-        .padding(.top, DeviceLayout.isPad ? 28 : 18)
+        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 40 : 20)
+        .padding(.top, DeviceLayout.usesExpandedLayout ? 28 : 18)
         .padding(.bottom, 12)
         .iPadContentWidth(900)
     }
@@ -802,7 +802,7 @@ struct LocalPlaylistDetailView: View {
                             neumorphicCoverPlaceholder
                         }
                     }
-                    .frame(width: DeviceLayout.isPad ? 172 : 128, height: DeviceLayout.isPad ? 172 : 128)
+                    .frame(width: DeviceLayout.usesExpandedLayout ? 172 : 128, height: DeviceLayout.usesExpandedLayout ? 172 : 128)
                     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                     .background(NeumorphicSurfaceBackground(cornerRadius: 24, elevated: true))
                     .overlay(
@@ -817,7 +817,7 @@ struct LocalPlaylistDetailView: View {
                         }
 
                         Text(p.name)
-                            .font(NeumorphicStyle.titleFont(DeviceLayout.isPad ? 28 : 23, weight: .semibold))
+                            .font(NeumorphicStyle.titleFont(DeviceLayout.usesExpandedLayout ? 28 : 23, weight: .semibold))
                             .foregroundStyle(NeumorphicStyle.ink)
                             .lineLimit(3)
                             .fixedSize(horizontal: false, vertical: true)
@@ -893,8 +893,8 @@ struct LocalPlaylistDetailView: View {
         }
         .padding(17)
         .background(NeumorphicSurfaceBackground(cornerRadius: 26, elevated: true))
-        .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
-        .padding(.top, DeviceLayout.isPad ? 28 : 18)
+        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 40 : 20)
+        .padding(.top, DeviceLayout.usesExpandedLayout ? 28 : 18)
         .padding(.bottom, 12)
         .iPadContentWidth(900)
     }
@@ -1018,7 +1018,7 @@ struct LocalPlaylistDetailView: View {
                     }
                 }
                 .frame(maxWidth: .infinity)
-                .frame(height: DeviceLayout.isPad ? 300 : 216)
+                .frame(height: DeviceLayout.usesExpandedLayout ? 300 : 216)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .shadow(color: MujiStyle.ink.opacity(0.08), radius: 12, x: 0, y: 6)
                 .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
@@ -1026,7 +1026,7 @@ struct LocalPlaylistDetailView: View {
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text(p.name)
-                        .font(MujiStyle.titleFont(DeviceLayout.isPad ? 30 : 26, weight: .regular))
+                        .font(MujiStyle.titleFont(DeviceLayout.usesExpandedLayout ? 30 : 26, weight: .regular))
                         .foregroundStyle(MujiStyle.ink)
                         .lineSpacing(4)
                         .lineLimit(3)
@@ -1117,7 +1117,7 @@ struct LocalPlaylistDetailView: View {
                     .padding(.top, 18)
             }
         }
-        .padding(.top, DeviceLayout.isPad ? 24 : 14)
+        .padding(.top, DeviceLayout.usesExpandedLayout ? 24 : 14)
         .padding(.bottom, 12)
         .iPadContentWidth(900)
     }

@@ -249,7 +249,8 @@ struct MujiDedicatedTabBar: View {
                     icon: isSelected ? filled : outline,
                     size: 18,
                     color: isSelected ? MujiStyle.clay : MujiStyle.inkMuted,
-                    lineWidth: isSelected ? 1.8 : 1.55
+                    lineWidth: isSelected ? 1.8 : 1.55,
+                    artworkContrastBackground: isSelected ? MujiStyle.surfaceRaised : nil
                 )
                 .frame(width: 28, height: 22)
 

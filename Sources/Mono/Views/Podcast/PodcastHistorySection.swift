@@ -68,102 +68,113 @@ struct PodcastHistorySection: View {
         }
     }
 
-    @ViewBuilder
-    private var historyHeader: some View {
+    private var historyHeader: AnyView {
         if MujiStyle.isActive {
-            HStack(alignment: .bottom, spacing: 14) {
-                MujiSectionTitle(title: String(localized: "profile_recently_played"))
+            return AnyView(
+                HStack(alignment: .bottom, spacing: 14) {
+                    MujiSectionTitle(title: String(localized: "profile_recently_played"))
 
-                Spacer(minLength: 0)
+                    Spacer(minLength: 0)
 
-                Button(action: clearHistory) {
-                    MujiPill(text: String(localized: "storage_clear"), tint: MujiStyle.red)
+                    Button(action: clearHistory) {
+                        MujiPill(text: String(localized: "storage_clear"), tint: MujiStyle.red)
+                    }
+                    .buttonStyle(.plain)
+
+                    NavigationLink(destination: RecentPlayHistoryView(songs: history)) {
+                        MujiPill(text: String(localized: "view_all"), tint: MujiStyle.tea)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
+                .padding(.horizontal, padH)
+            )
+        }
+        if NeumorphicStyle.isActive {
+            return AnyView(
+                HStack(alignment: .center, spacing: 14) {
+                    NeumorphicSectionTitle(title: String(localized: "profile_recently_played"))
 
-                NavigationLink(destination: RecentPlayHistoryView(songs: history)) {
-                    MujiPill(text: String(localized: "view_all"), tint: MujiStyle.tea)
+                    Spacer(minLength: 0)
+
+                    Button(action: clearHistory) {
+                        NeumorphicPill(text: String(localized: "storage_clear"), tint: NeumorphicStyle.red, icon: .trash, compact: true)
+                    }
+                    .buttonStyle(.plain)
+
+                    NavigationLink(destination: RecentPlayHistoryView(songs: history)) {
+                        NeumorphicPill(text: String(localized: "view_all"), tint: NeumorphicStyle.accent, icon: .chevronRight, selected: true, compact: true)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, padH)
-        } else if NeumorphicStyle.isActive {
-            HStack(alignment: .center, spacing: 14) {
-                NeumorphicSectionTitle(title: String(localized: "profile_recently_played"))
+                .padding(.horizontal, padH)
+            )
+        }
+        if SequoiaStyle.isActive {
+            return AnyView(
+                HStack(alignment: .center, spacing: 10) {
+                    SequoiaIconBadge(icon: .history, tint: SequoiaStyle.green, size: 32)
 
-                Spacer(minLength: 0)
+                    Text(LocalizedStringKey("profile_recently_played"))
+                        .font(SequoiaStyle.titleFont(17, weight: .semibold))
+                        .foregroundStyle(SequoiaStyle.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.82)
 
-                Button(action: clearHistory) {
-                    NeumorphicPill(text: String(localized: "storage_clear"), tint: NeumorphicStyle.red, icon: .trash, compact: true)
+                    Spacer(minLength: 8)
+
+                    Button(action: clearHistory) {
+                        SequoiaPill(text: String(localized: "storage_clear"), icon: .trash, tint: SequoiaStyle.red, compact: true)
+                    }
+                    .buttonStyle(.plain)
+
+                    NavigationLink(destination: RecentPlayHistoryView(songs: history)) {
+                        SequoiaPill(text: String(localized: "view_all"), icon: .chevronRight, tint: SequoiaStyle.accent, selected: true, compact: true)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
+                .padding(.horizontal, padH)
+            )
+        }
+        if !ThemedPageStyle.isActive {
+            return AnyView(
+                HStack(alignment: .center, spacing: 8) {
+                    Capsule()
+                        .fill(Color.monoAccent)
+                        .frame(width: 3, height: 13)
 
-                NavigationLink(destination: RecentPlayHistoryView(songs: history)) {
-                    NeumorphicPill(text: String(localized: "view_all"), tint: NeumorphicStyle.accent, icon: .chevronRight, selected: true, compact: true)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, padH)
-        } else if SequoiaStyle.isActive {
-            HStack(alignment: .center, spacing: 10) {
-                SequoiaIconBadge(icon: .history, tint: SequoiaStyle.green, size: 32)
+                    Text(LocalizedStringKey("profile_recently_played"))
+                        .font(.rounded(size: 15.5, weight: .bold))
+                        .foregroundColor(.monoTextPrimary)
+                        .lineLimit(1)
+                        .fixedSize()
 
-                Text(LocalizedStringKey("profile_recently_played"))
-                    .font(SequoiaStyle.titleFont(17, weight: .semibold))
-                    .foregroundStyle(SequoiaStyle.ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.82)
+                    Rectangle()
+                        .fill(Color.monoSeparator.opacity(0.5))
+                        .frame(height: 0.5)
 
-                Spacer(minLength: 8)
+                    Button(action: clearHistory) {
+                        Text(LocalizedStringKey("storage_clear"))
+                            .font(.rounded(size: 12, weight: .semibold))
+                            .foregroundColor(.monoTextSecondary.opacity(0.85))
+                            .fixedSize()
+                    }
+                    .buttonStyle(.plain)
 
-                Button(action: clearHistory) {
-                    SequoiaPill(text: String(localized: "storage_clear"), icon: .trash, tint: SequoiaStyle.red, compact: true)
-                }
-                .buttonStyle(.plain)
-
-                NavigationLink(destination: RecentPlayHistoryView(songs: history)) {
-                    SequoiaPill(text: String(localized: "view_all"), icon: .chevronRight, tint: SequoiaStyle.accent, selected: true, compact: true)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, padH)
-        } else if !ThemedPageStyle.isActive {
-            HStack(alignment: .center, spacing: 8) {
-                Capsule()
-                    .fill(Color.monoAccent)
-                    .frame(width: 3, height: 13)
-
-                Text(LocalizedStringKey("profile_recently_played"))
-                    .font(.rounded(size: 15.5, weight: .bold))
-                    .foregroundColor(.monoTextPrimary)
-                    .lineLimit(1)
-                    .fixedSize()
-
-                Rectangle()
-                    .fill(Color.monoSeparator.opacity(0.5))
-                    .frame(height: 0.5)
-
-                Button(action: clearHistory) {
-                    Text(LocalizedStringKey("storage_clear"))
-                        .font(.rounded(size: 12, weight: .semibold))
+                    NavigationLink(destination: RecentPlayHistoryView(songs: history)) {
+                        HStack(spacing: 3) {
+                            Text(LocalizedStringKey("view_all"))
+                                .font(.rounded(size: 12, weight: .semibold))
+                            MonoIcon(icon: .chevronRight, size: 10, color: .monoTextSecondary.opacity(0.8), lineWidth: 1.7)
+                        }
                         .foregroundColor(.monoTextSecondary.opacity(0.85))
                         .fixedSize()
-                }
-                .buttonStyle(.plain)
-
-                NavigationLink(destination: RecentPlayHistoryView(songs: history)) {
-                    HStack(spacing: 3) {
-                        Text(LocalizedStringKey("view_all"))
-                            .font(.rounded(size: 12, weight: .semibold))
-                        MonoIcon(icon: .chevronRight, size: 10, color: .monoTextSecondary.opacity(0.8), lineWidth: 1.7)
                     }
-                    .foregroundColor(.monoTextSecondary.opacity(0.85))
-                    .fixedSize()
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, padH)
-        } else {
+                .padding(.horizontal, padH)
+            )
+        }
+        return AnyView(
             HStack {
                 Text(LocalizedStringKey("profile_recently_played"))
                     .font(.system(size: 20, weight: .bold, design: .rounded))
@@ -194,7 +205,7 @@ struct PodcastHistorySection: View {
                 }
             }
             .padding(.horizontal, padH)
-        }
+        )
     }
 
     @ViewBuilder
@@ -208,8 +219,8 @@ struct PodcastHistorySection: View {
 
     /// aside 最近播放卡：发丝描边横卡
     private func asideHistoryCard(song: Song) -> some View {
-        let cardWidth: CGFloat = DeviceLayout.isPad ? 220 : 184
-        let coverSide: CGFloat = DeviceLayout.isPad ? 46 : 42
+        let cardWidth: CGFloat = DeviceLayout.usesExpandedLayout ? 220 : 184
+        let coverSide: CGFloat = DeviceLayout.usesExpandedLayout ? 46 : 42
         let isCurrent = currentSongID == song.id
 
         return Button {
@@ -277,8 +288,8 @@ struct PodcastHistorySection: View {
     }
 
     private func themedHistoryCard(song: Song) -> some View {
-        let cardWidth: CGFloat = DeviceLayout.isPad ? 220 : 180
-        let cardHeight: CGFloat = DeviceLayout.isPad ? 64 : 56
+        let cardWidth: CGFloat = DeviceLayout.usesExpandedLayout ? 220 : 180
+        let cardHeight: CGFloat = DeviceLayout.usesExpandedLayout ? 64 : 56
         let cr: CGFloat = MujiStyle.isActive ? 8 : ((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 16 : 12)
         let isCurrent = currentSongID == song.id
         let placeholderFill: Color = SequoiaStyle.isActive ? SequoiaStyle.materialList : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monoGlassTint)

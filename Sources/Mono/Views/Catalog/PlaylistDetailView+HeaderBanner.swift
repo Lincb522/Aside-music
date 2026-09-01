@@ -124,7 +124,7 @@ extension PlaylistDetailView {
             bannerHeaderBorder
         }
         .padding(.horizontal, bannerHeaderHorizontalPadding)
-        .padding(.top, DeviceLayout.isPad ? 28 : 18)
+        .padding(.top, DeviceLayout.usesExpandedLayout ? 28 : 18)
         .padding(.bottom, 12)
         .iPadContentWidth(900)
         .confirmationDialog(String(localized: "playlist_collect"), isPresented: $showCollectOptions, titleVisibility: .visible) {
@@ -301,8 +301,8 @@ extension PlaylistDetailView {
     }
 
     var bannerArtworkHeight: CGFloat {
-        if SignalStyle.isActive { return DeviceLayout.isPad ? 230 : 160 }
-        return DeviceLayout.isPad ? 220 : 148
+        if SignalStyle.isActive { return DeviceLayout.usesExpandedLayout ? 230 : 160 }
+        return DeviceLayout.usesExpandedLayout ? 220 : 148
     }
 
     var bannerArtworkRadius: CGFloat {
@@ -333,18 +333,18 @@ extension PlaylistDetailView {
     }
 
     var bannerHeaderHorizontalPadding: CGFloat {
-        if SignalStyle.isActive { return DeviceLayout.isPad ? 36 : 14 }
-        if SequoiaStyle.isActive { return DeviceLayout.isPad ? 40 : 20 }
-        return DeviceLayout.isPad ? 40 : 20
+        if SignalStyle.isActive { return DeviceLayout.usesExpandedLayout ? 36 : 14 }
+        if SequoiaStyle.isActive { return DeviceLayout.usesExpandedLayout ? 40 : 20 }
+        return DeviceLayout.usesExpandedLayout ? 40 : 20
     }
 
     var bannerHeaderTitleFont: Font {
-        if MangaStyle.isActive { return MangaStyle.titleFont(DeviceLayout.isPad ? 27 : 23, weight: .black) }
-        if MujiStyle.isActive { return MujiStyle.titleFont(DeviceLayout.isPad ? 32 : 28, weight: .regular) }
-        if NeumorphicStyle.isActive { return NeumorphicStyle.titleFont(DeviceLayout.isPad ? 28 : 23, weight: .semibold) }
-        if SignalStyle.isActive { return SignalStyle.titleFont(DeviceLayout.isPad ? 30 : 24, weight: .bold) }
-        if SequoiaStyle.isActive { return SequoiaStyle.titleFont(DeviceLayout.isPad ? 28 : 23, weight: .semibold) }
-        return .system(size: DeviceLayout.isPad ? 28 : 22, weight: .bold, design: .rounded)
+        if MangaStyle.isActive { return MangaStyle.titleFont(DeviceLayout.usesExpandedLayout ? 27 : 23, weight: .black) }
+        if MujiStyle.isActive { return MujiStyle.titleFont(DeviceLayout.usesExpandedLayout ? 32 : 28, weight: .regular) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.titleFont(DeviceLayout.usesExpandedLayout ? 28 : 23, weight: .semibold) }
+        if SignalStyle.isActive { return SignalStyle.titleFont(DeviceLayout.usesExpandedLayout ? 30 : 24, weight: .bold) }
+        if SequoiaStyle.isActive { return SequoiaStyle.titleFont(DeviceLayout.usesExpandedLayout ? 28 : 23, weight: .semibold) }
+        return .system(size: DeviceLayout.usesExpandedLayout ? 28 : 22, weight: .bold, design: .rounded)
     }
 
     var bannerHeaderMetaFont: Font {

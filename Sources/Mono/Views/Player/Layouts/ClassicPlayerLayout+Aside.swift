@@ -8,7 +8,7 @@ extension ClassicPlayerLayout {
     func asideDefaultPlayerContent(geometry: GeometryProxy) -> some View {
         let usesWideLayout = geometry.size.width >= 560 && geometry.size.width > geometry.size.height
 
-        if (DeviceLayout.isPad && geometry.size.width >= 760) || usesWideLayout {
+        if (DeviceLayout.usesExpandedLayout && geometry.size.width >= 760) || usesWideLayout {
             asideWidePlayerContent(geometry: geometry)
         } else {
             asidePhonePlayerContent(geometry: geometry)
@@ -20,7 +20,7 @@ extension ClassicPlayerLayout {
         let horizontalPadding: CGFloat = compactHeight ? 22 : 24
         let widthBound = max(190, geometry.size.width - horizontalPadding * 2)
         let heightBound = geometry.size.height * (compactHeight ? 0.35 : 0.41)
-        let asideArtworkMaxSize: CGFloat = DeviceLayout.isPad ? 480 : 380
+        let asideArtworkMaxSize: CGFloat = DeviceLayout.usesExpandedLayout ? 480 : 380
         let artworkSize = min(asideArtworkMaxSize, min(widthBound, heightBound))
         let sectionSpacing: CGFloat = compactHeight ? 12 : 18
 
@@ -46,7 +46,7 @@ extension ClassicPlayerLayout {
     }
 
     func asideWidePlayerContent(geometry: GeometryProxy) -> some View {
-        let isCompactWide = !DeviceLayout.isPad
+        let isCompactWide = !DeviceLayout.usesExpandedLayout
         let horizontalPadding: CGFloat = isCompactWide ? 28 : 54
         let columnSpacing: CGFloat = isCompactWide ? 28 : 52
         let artworkSize = min(
@@ -340,7 +340,7 @@ extension ClassicPlayerLayout {
     }
 
     var asideTransportBar: some View {
-        let playButtonSize: CGFloat = DeviceLayout.isPad ? 72 : 68
+        let playButtonSize: CGFloat = DeviceLayout.usesExpandedLayout ? 72 : 68
 
         return HStack(spacing: 0) {
             asideTransportIconButton(

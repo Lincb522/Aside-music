@@ -54,7 +54,7 @@ struct MinimalPlayerLayout: View {
         let _ = settings.globalThemeRevision
 
         GeometryReader { geo in
-            let coverH = geo.size.width * 1.05
+            let coverH = min(geo.size.width * 1.05, geo.size.height * 0.64)
             let sw = geo.size.width
             ZStack(alignment: .topLeading) {
                 blurredBackground(screenWidth: sw)
@@ -170,7 +170,7 @@ extension MinimalPlayerLayout {
                 .monoGlassButtonStyle()
                 .compatCircleButtonBorderShape()
             }
-            .padding(.horizontal, DeviceLayout.isPad ? 28 : 20)
+            .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 28 : 20)
         }
     }
 }
@@ -453,7 +453,7 @@ extension MinimalPlayerLayout {
 
                             Color.clear.frame(height: 80)
                         }
-                        .padding(.horizontal, DeviceLayout.isPad ? 36 : 28)
+                        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 36 : 28)
                     }
                     .scrollIndicators(.hidden)
                     .simultaneousGesture(

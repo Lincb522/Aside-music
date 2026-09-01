@@ -90,7 +90,8 @@ struct TopRadioListView: View {
                     .padding(.bottom, 120)
                 }
                 .scrollIndicators(.hidden)
-            .themeRenderScrollLayer()
+                .themeRenderScrollLayer()
+                .iPadContentWidth(900)
             }
         }
         .themedNavigationChrome(title: SignalStyle.isActive ? "" : title, eyebrow: "RANK", icon: .chart)

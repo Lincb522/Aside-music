@@ -4,14 +4,14 @@ import SwiftUI
 
 private struct NeumorphicThemeRoot<Content: View>: View {
     let content: () -> Content
-    @ObservedObject private var settings = SettingsManager.shared
+    @Environment(\.themeCustomizationRevision) private var themeRevision
 
     init(@ViewBuilder content: @escaping () -> Content) {
         self.content = content
     }
 
     var body: some View {
-        let _ = settings.globalThemeRevision
+        let _ = themeRevision
 
         content()
             .tint(NeumorphicStyle.accent)

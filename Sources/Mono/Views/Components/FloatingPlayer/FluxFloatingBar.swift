@@ -102,9 +102,9 @@ struct FluxFloatingBar: View {
 
     private var fluidSecondaryColor: Color { coverColors.secondaryContentColor }
 
-    private var usesPulseBloomArtwork: Bool {
+    private var usesAdaptiveOriginalArtwork: Bool {
         _ = iconSetRaw
-        return AppInterfaceIconSet.selectedFromDefaults == .pulseBloom
+        return [.pulseBloom, .monoGlyph].contains(AppInterfaceIconSet.selectedFromDefaults)
     }
 
     /// 仅用于圆形专辑图的装饰环，不参与悬浮栏外圈播放进度。
@@ -145,8 +145,10 @@ struct FluxFloatingBar: View {
                         currentTab: currentTab,
                         panelPrimaryColor: Color.monoTextPrimary,
                         panelSecondaryColor: Color.monoTextPrimary.opacity(0.78),
+                        panelBackgroundColor: Color.monoStructuralBackground,
                         fluidPrimaryColor: fluidPrimaryColor,
                         fluidSecondaryColor: fluidPrimaryColor.opacity(0.82),
+                        fluidBackgroundColor: palette.first ?? Color.monoAccent,
                         fluidProgress: fluidProgress
                     ) { tab in
                         selectTab(tab)
@@ -485,7 +487,7 @@ struct FluxFloatingBar: View {
         lineWidth: CGFloat,
         coverage: Double
     ) -> some View {
-        if usesPulseBloomArtwork {
+        if usesAdaptiveOriginalArtwork {
             MonoIcon(
                 icon: icon,
                 size: size,
@@ -668,8 +670,10 @@ private struct FluxTabContent: View {
     let currentTab: Tab
     let panelPrimaryColor: Color
     let panelSecondaryColor: Color
+    let panelBackgroundColor: Color
     let fluidPrimaryColor: Color
     let fluidSecondaryColor: Color
+    let fluidBackgroundColor: Color
     let fluidProgress: Double
     let onSelect: (Tab) -> Void
 
@@ -678,9 +682,9 @@ private struct FluxTabContent: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Namespace private var selectionNamespace
 
-    private var usesPulseBloomArtwork: Bool {
+    private var usesAdaptiveOriginalArtwork: Bool {
         _ = iconSetRaw
-        return AppInterfaceIconSet.selectedFromDefaults == .pulseBloom
+        return [.pulseBloom, .monoGlyph].contains(AppInterfaceIconSet.selectedFromDefaults)
     }
 
     var body: some View {
@@ -726,7 +730,10 @@ private struct FluxTabContent: View {
                     panelColor: selected ? panelPrimaryColor : panelSecondaryColor,
                     fluidColor: selected ? fluidPrimaryColor : fluidSecondaryColor,
                     lineWidth: selected ? 1.9 : 1.6,
-                    coverage: iconCoverage
+                    coverage: iconCoverage,
+                    artworkContrastBackground: iconCoverage >= 0.5
+                        ? fluidBackgroundColor
+                        : panelBackgroundColor
                 )
                 .frame(width: iconFrame, height: iconFrame)
 
@@ -794,15 +801,17 @@ private struct FluxTabContent: View {
         panelColor: Color,
         fluidColor: Color,
         lineWidth: CGFloat,
-        coverage: Double
+        coverage: Double,
+        artworkContrastBackground: Color
     ) -> some View {
-        if usesPulseBloomArtwork {
+        if usesAdaptiveOriginalArtwork {
             MonoIcon(
                 icon: icon,
                 size: size,
                 color: panelColor,
                 lineWidth: lineWidth,
-                normalizesBitmapScale: true
+                normalizesBitmapScale: true,
+                artworkContrastBackground: artworkContrastBackground
             )
                 .frame(width: size, height: size)
         } else {

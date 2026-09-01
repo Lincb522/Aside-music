@@ -194,7 +194,7 @@ extension PosterPlayerLayout {
                 .buttonStyle(MonoBouncingButtonStyle())
             }
         }
-        .padding(.horizontal, DeviceLayout.isPad ? 24 : 16)
+        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 24 : 16)
         .padding(.bottom, 8)
     }
 }
@@ -282,7 +282,7 @@ extension PosterPlayerLayout {
                     withAnimation(.easeInOut(duration: 0.15)) { showLyrics = true }
                 }
         }
-        .padding(.horizontal, DeviceLayout.isPad ? 24 : 16)
+        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 24 : 16)
     }
 }
 
@@ -338,7 +338,7 @@ extension PosterPlayerLayout {
             .buttonStyle(MonoBouncingButtonStyle())
         }
         .frame(height: 48)
-        .padding(.horizontal, DeviceLayout.isPad ? 24 : 16)
+        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 24 : 16)
         .padding(.bottom, 8)
     }
 }
@@ -377,7 +377,7 @@ extension PosterPlayerLayout {
             )
         }
         .frame(height: 6)
-        .padding(.horizontal, DeviceLayout.isPad ? 24 : 16)
+        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 24 : 16)
     }
 }
 
@@ -421,7 +421,7 @@ extension PosterPlayerLayout {
             }
             .buttonStyle(MonoBouncingButtonStyle())
         }
-        .padding(.horizontal, DeviceLayout.isPad ? 24 : 16)
+        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 24 : 16)
         .padding(.bottom, 8)
     }
     

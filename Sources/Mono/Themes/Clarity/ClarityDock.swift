@@ -21,7 +21,7 @@ struct ClarityDock: View {
                 )
             }
             .frame(maxWidth: 680)
-            .padding(.horizontal, DeviceLayout.isPad ? 28 : 14)
+            .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 28 : 14)
             .padding(.bottom, 5)
         }
         .monoSheet(isPresented: $showsQueue, preset: .standard) {
@@ -86,7 +86,8 @@ struct ClarityDock: View {
                             icon: tab.icon,
                             size: 17,
                             color: currentTab == tab ? ClarityStyle.ink : ClarityStyle.inkFaint,
-                            lineWidth: currentTab == tab ? 1.9 : 1.45
+                            lineWidth: currentTab == tab ? 1.9 : 1.45,
+                            artworkContrastBackground: currentTab == tab ? .white : nil
                         )
                         Text(String(localized: String.LocalizationValue(tab.titleKey())))
                             .font(ClarityStyle.body(9, weight: currentTab == tab ? .semibold : .regular))

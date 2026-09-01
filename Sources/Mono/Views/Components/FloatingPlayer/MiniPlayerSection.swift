@@ -233,7 +233,7 @@ struct MiniPlayerSection: View {
                 }
                 .zIndex(1)
             }
-            .padding(.horizontal, DeviceLayout.isPad ? 20 : 14)
+            .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 20 : 14)
             .padding(.top, 10)
             .padding(.bottom, 6)
             .background {
@@ -255,7 +255,7 @@ struct MiniPlayerSection: View {
 
             ProgressBarView()
                 .frame(height: 2.5)
-                .padding(.horizontal, DeviceLayout.isPad ? 20 : 14)
+                .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 20 : 14)
                 .padding(.bottom, 4)
         }
             }
@@ -359,7 +359,7 @@ struct MiniPlayerSection: View {
                 .padding(.leading, 60)
                 .padding(.trailing, 2)
         }
-        .padding(.horizontal, DeviceLayout.isPad ? 18 : 12)
+        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 18 : 12)
         .padding(.top, 11)
         .padding(.bottom, 10)
         .background {
@@ -505,7 +505,7 @@ struct MiniPlayerSection: View {
                 .padding(.leading, 58)
                 .padding(.trailing, 2)
         }
-        .padding(.horizontal, DeviceLayout.isPad ? 12 : 6)
+        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 12 : 6)
         .padding(.top, 11)
         .padding(.bottom, 8)
     }

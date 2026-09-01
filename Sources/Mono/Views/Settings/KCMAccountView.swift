@@ -52,7 +52,11 @@ struct KCMAccountView: View {
                         claimDailyVIP()
                     } label: {
                         HStack {
-                            Label("领取今日会员", systemImage: "gift")
+                            Label {
+                                Text("领取今日会员")
+                            } icon: {
+                                MonoSemanticIcon(semantic: .gift, fallback: .sparkle)
+                            }
                             Spacer()
                             if isProcessingVIP {
                                 ProgressView()

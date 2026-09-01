@@ -38,6 +38,7 @@ struct AriaLyricTypographyConfiguration: Equatable {
     var particleSize: Double
     var particleMotion: Bool
     var glassIntensity: Double
+    var glassUsesDarkInk: Bool = false
 
     static let standard = AriaLyricTypographyConfiguration(
         style: .solid,
@@ -145,6 +146,7 @@ private struct AriaLyricTypographyModifier: ViewModifier {
 
         case .glass:
             let intensity = min(max(configuration.glassIntensity, 0), 1)
+            let glassInk = configuration.glassUsesDarkInk ? Color.black : Color.white
 
             ZStack {
                 content
@@ -159,7 +161,7 @@ private struct AriaLyricTypographyModifier: ViewModifier {
 
                 LinearGradient(
                     colors: [
-                        .white.opacity(0.82),
+                        glassInk.opacity(0.82),
                         palette.primary.opacity(0.3),
                         palette.accent.opacity(0.54)
                     ],
@@ -170,7 +172,7 @@ private struct AriaLyricTypographyModifier: ViewModifier {
                 .mask {
                     content
                 }
-                .blendMode(.screen)
+                .blendMode(configuration.glassUsesDarkInk ? .multiply : .screen)
 
                 content
                     .opacity(0.08 + intensity * 0.12)
@@ -178,7 +180,7 @@ private struct AriaLyricTypographyModifier: ViewModifier {
             }
             .drawingGroup(opaque: false, colorMode: .nonLinear)
             .shadow(
-                color: .white.opacity(0.12 + intensity * 0.16),
+                color: glassInk.opacity(0.12 + intensity * 0.16),
                 radius: 2 + CGFloat(intensity) * 5,
                 y: -1
             )

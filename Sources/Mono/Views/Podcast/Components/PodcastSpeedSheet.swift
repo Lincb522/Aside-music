@@ -64,7 +64,7 @@ struct PodcastSpeedSheet: View {
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, DeviceLayout.isPad ? 24 : 16)
+            .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 24 : 16)
 
             Spacer()
         }

@@ -47,7 +47,7 @@ struct PlaylistDetailView: View {
     }
 
     var petWhiteDetailHorizontalPadding: CGFloat {
-        DeviceLayout.isPad ? 8 : 4
+        DeviceLayout.usesExpandedLayout ? 8 : 4
     }
 
     /// aside(default) 及无独立分支主题走歌手页式 Hero 头部
@@ -115,6 +115,7 @@ struct PlaylistDetailView: View {
                     songListSection
                         .padding(.bottom, 100)
                 }
+                .iPadContentWidth(1000)
             }
             .scrollIndicators(.hidden)
             .themeRenderScrollLayer()

@@ -41,9 +41,9 @@ private struct MonoEdgeSwipeDismissModifier: ViewModifier {
 
     private func shouldTrack(_ value: DragGesture.Value) -> Bool {
         guard isEnabled else { return false }
-        let screenWidth = UIScreen.main.bounds.width
+        let viewportWidth = DeviceLayout.viewportWidth
         let startsAtBackEdge = layoutDirection == .rightToLeft
-            ? value.startLocation.x >= screenWidth - edgeWidth
+            ? value.startLocation.x >= viewportWidth - edgeWidth
             : value.startLocation.x <= edgeWidth
         guard startsAtBackEdge else { return false }
         let horizontal = directional(value.translation.width)

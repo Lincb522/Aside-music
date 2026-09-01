@@ -45,6 +45,7 @@ struct PodcastSearchView: View {
                     searchResultsList
                 }
             }
+            .iPadContentWidth(900)
         }
         .themedNavigationChrome(title: SignalStyle.isActive ? "" : String(localized: "podcast_title"), eyebrow: "PODCAST", icon: .magnifyingGlass)
         .navigationBarTitleDisplayMode(.inline)

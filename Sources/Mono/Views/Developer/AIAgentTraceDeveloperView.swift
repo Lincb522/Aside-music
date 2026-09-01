@@ -16,7 +16,8 @@ struct AIAgentTraceDeveloperView: View {
                         title: String(localized: "agent_trace_title"),
                         status: String(format: String(localized: "agent_trace_session_count"), store.sessions.count),
                         icon: .history,
-                        tint: .purple
+                        tint: .purple,
+                        artwork: .agentTraceRoot
                     )
 
                     traceLegend
@@ -98,7 +99,12 @@ struct AIAgentTraceDeveloperView: View {
 
     private var emptyState: some View {
         VStack(spacing: 12) {
-            MonoIcon(icon: .sparkle, size: 28, color: .purple.opacity(0.9))
+            MonoSemanticIcon(
+                semantic: .agentTraceRoot,
+                fallback: .sparkle,
+                size: 28,
+                color: .purple.opacity(0.9)
+            )
             Text(String(localized: "agent_trace_empty_title"))
                 .font(.system(size: 16, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
@@ -118,7 +124,12 @@ struct AIAgentTraceDeveloperView: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 13, style: .continuous)
                     .fill(session.status.tint.opacity(0.12))
-                MonoIcon(icon: .sparkle, size: 16, color: session.status.tint)
+                MonoSemanticIcon(
+                    semantic: .agentTraceRoot,
+                    fallback: .sparkle,
+                    size: 16,
+                    color: session.status.tint
+                )
             }
             .frame(width: 44, height: 44)
 
@@ -194,7 +205,8 @@ private struct AIAgentTraceDetailView: View {
                             title: session.agentName,
                             status: session.subject,
                             icon: .sparkle,
-                            tint: session.status.tint
+                            tint: session.status.tint,
+                            artwork: .agentTraceRoot
                         )
 
                         overviewSection(session)
@@ -229,7 +241,8 @@ private struct AIAgentTraceDetailView: View {
         traceSection(
             title: String(localized: "agent_trace_overview"),
             icon: .infoCircle,
-            tint: session.status.tint
+            tint: session.status.tint,
+            artwork: .agentTraceOverview
         ) {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .center, spacing: 10) {
@@ -278,7 +291,8 @@ private struct AIAgentTraceDetailView: View {
         return traceSection(
             title: String(localized: "agent_trace_execution_chain"),
             icon: .layers,
-            tint: .cyan
+            tint: .cyan,
+            artwork: .agentExecutionChain
         ) {
             if events.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
@@ -313,6 +327,7 @@ private struct AIAgentTraceDetailView: View {
                         size: 13,
                         color: event.stage?.tint ?? event.level.tint
                     )
+                    .monoIconArtwork(event.stage?.monoGlyphSemantic.rawValue)
                 }
                 .frame(width: 32, height: 32)
 
@@ -372,7 +387,8 @@ private struct AIAgentTraceDetailView: View {
         return traceSection(
             title: String(localized: "agent_trace_current_skills"),
             icon: .sparkle,
-            tint: .purple
+            tint: .purple,
+            artwork: .agentCurrentSkills
         ) {
             VStack(alignment: .leading, spacing: 0) {
                 if builtInIDs.isEmpty && customSkills.isEmpty {
@@ -448,7 +464,8 @@ private struct AIAgentTraceDetailView: View {
         return traceSection(
             title: String(localized: "agent_trace_tool_contract"),
             icon: .equalizer,
-            tint: .orange
+            tint: .orange,
+            artwork: .agentToolContract
         ) {
             VStack(spacing: 9) {
                 summaryLine(
@@ -513,7 +530,8 @@ private struct AIAgentTraceDetailView: View {
         return traceSection(
             title: String(localized: "agent_trace_runtime_and_result"),
             icon: .audioWave,
-            tint: .green
+            tint: .green,
+            artwork: .agentRuntimeResult
         ) {
             VStack(alignment: .leading, spacing: 14) {
                 labeledValues(
@@ -545,7 +563,8 @@ private struct AIAgentTraceDetailView: View {
         return traceSection(
             title: String(localized: "agent_trace_runtime_identity"),
             icon: .logDebug,
-            tint: .cyan
+            tint: .cyan,
+            artwork: .agentRuntimeIdentity
         ) {
             labeledValues(title: nil, rows: rows)
         }
@@ -558,7 +577,8 @@ private struct AIAgentTraceDetailView: View {
         return traceSection(
             title: String(localized: "agent_trace_raw_records"),
             icon: .history,
-            tint: category.tint
+            tint: category.tint,
+            artwork: .agentRawRecords
         ) {
             VStack(alignment: .leading, spacing: 12) {
                 categoryPicker(session)
@@ -645,11 +665,13 @@ private struct AIAgentTraceDetailView: View {
         title: String,
         icon: MonoIcon.IconType,
         tint: Color,
+        artwork: MonoGlyphSemantic? = nil,
         @ViewBuilder content: () -> Content
     ) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 9) {
                 MonoIcon(icon: icon, size: 14, color: tint)
+                    .monoIconArtwork(artwork?.rawValue)
                     .frame(width: 28, height: 28)
                     .background(tint.opacity(0.11))
                     .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
@@ -753,7 +775,12 @@ private struct AIAgentTraceDetailView: View {
                     UIPasteboard.general.string = event.detail
                     HapticManager.shared.success()
                 } label: {
-                    MonoIcon(icon: .save, size: 12, color: .white.opacity(0.42))
+                    MonoSemanticIcon(
+                        semantic: .copy,
+                        fallback: .save,
+                        size: 12,
+                        color: .white.opacity(0.42)
+                    )
                         .frame(width: 44, height: 44)
                 }
                 .buttonStyle(.plain)
@@ -901,6 +928,21 @@ private extension AIAgentTraceCategory {
 }
 
 private extension AIAgentTraceStage {
+    var monoGlyphSemantic: MonoGlyphSemantic {
+        switch self {
+        case .configuration: return .agentTraceStageConfiguration
+        case .skills: return .agentTraceStageSkills
+        case .measurement: return .agentTraceStageMeasurement
+        case .model: return .agentTraceStageModel
+        case .tool: return .agentTraceStageTool
+        case .validation: return .agentTraceStageValidation
+        case .compilation: return .agentTraceStageCompilation
+        case .application: return .agentTraceStageApplication
+        case .fallback: return .agentTraceStageFallback
+        case .completion: return .agentTraceStageCompletion
+        }
+    }
+
     var localizedTitle: String {
         switch self {
         case .configuration: return String(localized: "agent_trace_stage_configuration")

@@ -364,7 +364,7 @@ struct MVDiscoverView: View {
         GeometryReader { viewport in
             let contentWidth = min(
                 max(viewport.size.width, 1),
-                DeviceLayout.isPad ? 1_040 : max(viewport.size.width, 1)
+                DeviceLayout.usesExpandedLayout ? 1_040 : max(viewport.size.width, 1)
             )
 
             ZStack {
@@ -528,10 +528,7 @@ struct MVDiscoverView: View {
                 platformState(source: source)
             } else {
                 let visible = expanded ? items : Array(items.prefix(6))
-                LazyVGrid(
-                    columns: [GridItem(.flexible(), spacing: 18), GridItem(.flexible(), spacing: 18)],
-                    spacing: 22
-                ) {
+                LazyVGrid(columns: platformGridColumns, spacing: 22) {
                     ForEach(visible) { item in
                         unifiedCard(item)
                     }
@@ -582,6 +579,13 @@ struct MVDiscoverView: View {
         }
         .buttonStyle(MonoBouncingButtonStyle(scale: 0.97))
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var platformGridColumns: [GridItem] {
+        Array(
+            repeating: GridItem(.flexible(), spacing: 18),
+            count: DeviceLayout.usesExpandedLayout ? 3 : 2
+        )
     }
 
     private func platformState(source: MusicSource) -> some View {

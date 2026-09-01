@@ -43,6 +43,7 @@ struct DailyRecommendView: View {
             }
 
             mainContent
+                .iPadContentWidth(1000)
         }
         .monoSheet(isPresented: $viewModel.showHistorySheet, preset: .standard) {
             DailyHistoryView(dates: viewModel.historyDates)
@@ -1261,7 +1262,7 @@ struct DailyRecommendView: View {
                 .padding(.vertical, 12)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(PetWhiteSurfaceBackground(cornerRadius: PetWhiteStyle.cardRadius, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.butter))
-                .padding(.horizontal, DeviceLayout.isPad ? 8 : 4)
+                .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 8 : 4)
             }
             .padding(.bottom, 120)
             .animation(.spring(response: 0.34, dampingFraction: 0.9), value: viewModel.showStyleMenu)

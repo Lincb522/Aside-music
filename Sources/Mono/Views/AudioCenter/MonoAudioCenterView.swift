@@ -65,6 +65,15 @@ struct MonoAudioCenterView: View {
             case .output: return .headphones
             }
         }
+
+        var monoGlyphSemantic: MonoGlyphSemantic {
+            switch self {
+            case .ai: return .soundWorkspaceAI
+            case .custom: return .soundWorkspaceCustomEQ
+            case .enhancement: return .soundWorkspaceEnhancement
+            case .output: return .soundWorkspaceOutput
+            }
+        }
     }
 
     @ObservedObject private var player = PlayerManager.shared
@@ -265,6 +274,7 @@ struct MonoAudioCenterView: View {
                 size: layout.isCompactHeight ? 14 : 16,
                 color: accent
             )
+            .monoIconArtwork(workspace.monoGlyphSemantic.rawValue)
             if !layout.isCompactWidth {
                 Text(workspace.title)
                     .font(.system(size: 9.5, weight: .bold, design: .rounded))
@@ -290,6 +300,7 @@ struct MonoAudioCenterView: View {
                             size: layout.isCompactWidth ? 11 : 12,
                             color: workspace == item ? accentForeground : .white.opacity(0.5)
                         )
+                        .monoIconArtwork(item.monoGlyphSemantic.rawValue)
                         Text(item.title)
                             .font(.system(size: layout.isCompactWidth ? 9.5 : 11, weight: .bold, design: .rounded))
                             .foregroundStyle(workspace == item ? accentForeground : .white.opacity(0.58))

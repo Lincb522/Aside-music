@@ -205,6 +205,7 @@ struct MujiHomeView: View {
 
                 FloatingBarBottomSpacer()
             }
+            .iPadContentWidth(1080)
         }
         .scrollIndicators(.hidden)
         .themeRenderScrollLayer()
@@ -682,7 +683,7 @@ private struct MujiHomeBannerSection: View {
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .frame(maxWidth: .infinity)
-            .frame(height: DeviceLayout.isPad ? 222 : 166)
+            .frame(height: DeviceLayout.usesExpandedLayout ? 222 : 166)
             .onReceive(timer) { _ in
                 guard MainTabActivationGate.isSettled(.home) else { return }
                 guard banners.count > 1 else { return }
@@ -715,7 +716,7 @@ private struct MujiHomeBannerCard: View {
     private let cornerRadius: CGFloat = 16
 
     private var cardHeight: CGFloat {
-        DeviceLayout.isPad ? 192 : 136
+        DeviceLayout.usesExpandedLayout ? 192 : 136
     }
 
     private var cardShape: RoundedRectangle {

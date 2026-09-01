@@ -3,13 +3,13 @@ import HiconIcons
 import ZappiconIcons
 import LucideIcons
 import SolarIcons
-import IconExportIcons
 import BlobIcons
 import doodlePop
 import PawPrintIcons
 import DotDogSnakeIcons
 import MinimalWhiteIcons
 import PulseBloomIcons
+import MonoGlyphIcons
 
 // MARK: - 统一图标系统
 
@@ -17,7 +17,7 @@ private struct MonoIconDarkArtworkSurfaceKey: EnvironmentKey {
     static let defaultValue = false
 }
 
-private struct MonoIconPulseBloomArtworkKey: EnvironmentKey {
+private struct MonoIconArtworkKey: EnvironmentKey {
     static let defaultValue: String? = nil
 }
 
@@ -27,9 +27,9 @@ extension EnvironmentValues {
         set { self[MonoIconDarkArtworkSurfaceKey.self] = newValue }
     }
 
-    fileprivate var monoIconPulseBloomArtwork: String? {
-        get { self[MonoIconPulseBloomArtworkKey.self] }
-        set { self[MonoIconPulseBloomArtworkKey.self] = newValue }
+    fileprivate var monoIconArtwork: String? {
+        get { self[MonoIconArtworkKey.self] }
+        set { self[MonoIconArtworkKey.self] = newValue }
     }
 }
 
@@ -40,10 +40,132 @@ extension View {
         environment(\.monoIconDarkArtworkSurface, enabled)
     }
 
-    /// Pulse Bloom 为外观设置提供了更精确的专属语义图标。其他图标包会继续使用
-    /// `MonoIcon.IconType` 的通用语义，不受这个覆盖值影响。
-    func monoIconPulseBloomArtwork(_ assetId: String?) -> some View {
-        environment(\.monoIconPulseBloomArtwork, assetId)
+    func monoIconArtwork(_ assetId: String?) -> some View {
+        environment(\.monoIconArtwork, assetId)
+    }
+}
+
+enum MonoGlyphSemantic: String {
+    case copy
+    case rename
+    case link
+    case gift
+    case trendUp
+    case trendDown
+    case volumeMute
+    case volumeLow
+    case volumeMedium
+    case volumeHigh
+    case gestureSwipeHorizontal
+    case gestureTap
+    case maintenance
+    case policyDocument
+    case quote
+    case selectionCircle
+    case instrumentalLyrics
+    case gameMode
+    case gameModePower
+    case gamePresetFPS
+    case gamePresetRPG
+    case gamePresetRhythm
+    case gameVoicePriority
+    case gameLowerQuality
+    case gameAutoExit
+    case gameSilentNowPlaying
+    case gameMinimalNowPlaying
+    case gamePreferredQuality
+    case gameAutoPlaylist
+    case soundCenter
+    case soundWorkspaceAI
+    case soundWorkspaceCustomEQ
+    case soundWorkspaceEnhancement
+    case soundWorkspaceOutput
+    case audioAgent
+    case agentAutoTuning
+    case agentAdaptiveLearning
+    case agentPlayerStatus
+    case agentSkillMeasurement
+    case agentSkillDeviceCoordination
+    case agentSkillHeadroomGuard
+    case agentSkillPhaseGuard
+    case agentSkillOutputValidation
+    case agentSkillArtistReference
+    case agentSkillVocalReference
+    case agentCustomSkill
+    case agentManagedSkill
+    case agentAddCustomSkill
+    case agentEditCustomSkill
+    case aiTuningWorkspace
+    case aiMeasurementWorkspace
+    case aiResultWorkspace
+    case aiHistoryWorkspace
+    case agentAnalyze
+    case agentStopAnalysis
+    case agentReanalyze
+    case agentApplySavedProposal
+    case learningEnabled
+    case learningStrength
+    case learningRetention
+    case learningSourceFeedback
+    case learningSourceListening
+    case learningSourceAdjustments
+    case learningLocalStorage
+    case learningFeedbackPositive
+    case learningFeedbackNegative
+    case learningFeedbackRetained
+    case learningFeedbackReset
+    case learningFeedbackRegenerated
+    case learningFeedbackManualEQ
+    case agentTraceRoot
+    case agentTraceOverview
+    case agentExecutionChain
+    case agentCurrentSkills
+    case agentToolContract
+    case agentRuntimeResult
+    case agentRuntimeIdentity
+    case agentRawRecords
+    case agentTraceStageConfiguration
+    case agentTraceStageSkills
+    case agentTraceStageMeasurement
+    case agentTraceStageModel
+    case agentTraceStageTool
+    case agentTraceStageValidation
+    case agentTraceStageCompilation
+    case agentTraceStageApplication
+    case agentTraceStageFallback
+    case agentTraceStageCompletion
+}
+
+enum MonoIconArtworkContrast {
+    static func prefersLightArtwork(
+        on background: Color,
+        colorScheme: ColorScheme
+    ) -> Bool {
+        let interfaceStyle: UIUserInterfaceStyle = colorScheme == .dark ? .dark : .light
+        let lightContrast = ThemeColorCustomization.contrastRatio(
+            between: .white,
+            and: background,
+            interfaceStyle: interfaceStyle
+        )
+        let darkContrast = ThemeColorCustomization.contrastRatio(
+            between: .black,
+            and: background,
+            interfaceStyle: interfaceStyle
+        )
+        return lightContrast >= darkContrast
+    }
+}
+
+struct MonoSemanticIcon: View {
+    let semantic: MonoGlyphSemantic
+    let fallback: MonoIcon.IconType
+    var size: CGFloat = 24
+    var color: Color = .primary
+    var lineWidth: CGFloat? = nil
+
+    var body: some View {
+        MonoIcon(icon: fallback, size: size, color: color, lineWidth: lineWidth)
+            .monoIconArtwork(semantic.rawValue)
     }
 }
 
@@ -205,9 +327,12 @@ struct MonoIcon: View {
     /// 需要参与渐变遮罩或动态前景色计算时，强制把彩色图标包按模板渲染。
     /// 默认关闭，避免改变其他页面原有的彩色图标外观。
     var forceTemplateRendering: Bool = false
+    /// Tab 等带选中底色的控件传入实际底色后，支持明暗资源的图标包会按
+    /// 对比度选黑图或白图，而不是跟随 App 的明暗外观。
+    var artworkContrastBackground: Color? = nil
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.monoIconDarkArtworkSurface) private var isDarkArtworkSurface
-    @Environment(\.monoIconPulseBloomArtwork) private var pulseBloomArtworkId
+    @Environment(\.monoIconArtwork) private var artworkId
     @AppStorage(AppConfig.StorageKeys.interfaceIconSet) private var iconSetRaw: String = AppInterfaceIconSet.hicon.rawValue
     @AppStorage(AppInterfaceIconSet.zappiconStyleKey) private var zappiconStyleRaw: String = ZappiconIconStyle.light.rawValue
     @AppStorage(AppInterfaceIconSet.solarStyleKey) private var solarStyleRaw: String = SolarIconStyle.line.rawValue
@@ -244,8 +369,6 @@ struct MonoIcon: View {
         case .solar:
             let style = SolarIconStyle(rawValue: solarStyleRaw) ?? .line
             return icon.solarImage(style: style)
-        case .iconExport:
-            return icon.iconExportImage
         case .blobIcons:
             return icon.blobIconImage
         case .doodlePop:
@@ -258,7 +381,12 @@ struct MonoIcon: View {
             return icon.minimalWhiteIconImage(prefersLightOutline: usesLightAdaptiveOutline)
         case .pulseBloom:
             return icon.pulseBloomImage(
-                assetId: pulseBloomArtworkId,
+                assetId: artworkId,
+                prefersLightOutline: usesLightAdaptiveOutline
+            )
+        case .monoGlyph:
+            return icon.monoGlyphImage(
+                assetId: artworkId,
                 prefersLightOutline: usesLightAdaptiveOutline
             )
         }
@@ -271,24 +399,21 @@ struct MonoIcon: View {
     private var rendersOriginalArtwork: Bool {
         guard usesOriginalArtwork else { return false }
 
-        // Pulse Bloom adapts by selecting its light/dark artwork variant. It must
-        // stay in original mode so the accent layers survive; template rendering
-        // would flatten the tab and playback artwork to pure black or pure white.
-        if iconSet == .pulseBloom {
+        if iconSet == .pulseBloom || iconSet == .monoGlyph {
             return true
         }
         return !forceTemplateRendering
     }
 
     private var usesBitmapVisualScale: Bool {
-        iconSet == .iconExport || iconSet == .blobIcons || iconSet == .doodlePop || iconSet == .pawPrint || iconSet == .dotDogSnake || iconSet == .minimalWhiteIcons || iconSet == .pulseBloom
+        iconSet == .blobIcons || iconSet == .doodlePop || iconSet == .pawPrint || iconSet == .dotDogSnake || iconSet == .minimalWhiteIcons || iconSet == .pulseBloom || iconSet == .monoGlyph
     }
 
     private var bitmapIconVisualScale: CGFloat {
         switch iconSet {
         case .minimalWhiteIcons:
             return 1.18
-        case .pulseBloom:
+        case .pulseBloom, .monoGlyph:
             return 1.08
         case .doodlePop, .pawPrint, .dotDogSnake:
             switch icon {
@@ -299,8 +424,6 @@ struct MonoIcon: View {
             default:
                 return 1.45
             }
-        case .iconExport:
-            return 1.36
         case .blobIcons:
             return 1.36
         default:
@@ -314,20 +437,35 @@ struct MonoIcon: View {
     }
 
     private var usesLightAdaptiveOutline: Bool {
-        if iconSet == .pulseBloom {
-            // Pulse Bloom 的明暗资源首先跟随真实界面外观，而不是图标 tint。
-            // 深色模式固定使用白色结构线，避免语义色解析成深色后误选黑图。
-            if isDarkArtworkSurface || colorScheme == .dark { return true }
+        if let artworkContrastBackground {
+            return MonoIconArtworkContrast.prefersLightArtwork(
+                on: artworkContrastBackground,
+                colorScheme: colorScheme
+            )
+        }
 
-            // 主导航位于随系统外观变化的 Tab 表面。浅色模式必须使用黑色
-            // 结构线，不能再根据强调色亮度误选白色版本。
+        if isDarkArtworkSurface { return true }
+
+        // Tab controls already resolve their foreground against the actual
+        // selected fill. Honor that black/white result before the app-wide
+        // appearance so a white accent in dark mode receives the dark asset.
+        if isPrimaryTabNavigationIcon,
+           let requestedVariant = requestedNeutralArtworkVariant {
+            return requestedVariant
+        }
+
+        if iconSet == .monoGlyph {
+            if colorScheme == .dark { return true }
             if isPrimaryTabNavigationIcon { return false }
+            return requestedNeutralArtworkVariant ?? false
+        }
 
-            // 浅色模式中的封面舞台、视频等局部深色表面仍可通过明确的白色
-            // 前景色自动选中白边资源；显式 surface 修饰器的优先级更高。
+        if iconSet == .pulseBloom {
+            if colorScheme == .dark { return true }
+            if isPrimaryTabNavigationIcon { return false }
             return requestedColorPrefersLightArtwork
         }
-        if isDarkArtworkSurface { return true }
+
         return colorScheme == .dark
     }
 
@@ -344,8 +482,8 @@ struct MonoIcon: View {
         }
     }
 
-    /// Pulse Bloom is monochrome at its structural edge, so the requested
-    /// foreground color is also a useful signal for cover-driven surfaces. A
+    /// For monochrome artwork, the requested foreground color also signals the
+    /// expected contrast on cover-driven surfaces. A
     /// light foreground means the surface behind it is expected to be dark and
     /// therefore selects the white-outline artwork even while the app itself is
     /// still in light mode.
@@ -369,6 +507,35 @@ struct MonoIcon: View {
         }
 
         return colorScheme == .dark
+    }
+
+    /// `true` selects the light artwork, `false` the dark artwork, and `nil`
+    /// leaves colored/non-neutral foregrounds to the normal surface rules.
+    private var requestedNeutralArtworkVariant: Bool? {
+        let interfaceStyle: UIUserInterfaceStyle = colorScheme == .dark ? .dark : .light
+        let traits = UITraitCollection(userInterfaceStyle: interfaceStyle)
+        let resolvedColor = UIColor(color).resolvedColor(with: traits)
+
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        if resolvedColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha) {
+            let luminance = (0.2126 * red) + (0.7152 * green) + (0.0722 * blue)
+            let chroma = max(red, max(green, blue)) - min(red, min(green, blue))
+            guard chroma <= 0.14 else { return nil }
+            if luminance >= 0.64 { return true }
+            if luminance <= 0.36 { return false }
+            return nil
+        }
+
+        var white: CGFloat = 0
+        if resolvedColor.getWhite(&white, alpha: &alpha) {
+            if white >= 0.64 { return true }
+            if white <= 0.36 { return false }
+        }
+
+        return nil
     }
 
     private var iconImage: some View {
@@ -764,20 +931,20 @@ extension AppInterfaceIconSet {
             return icon.lucideImage
         case .solar:
             return icon.solarImage(style: AppInterfaceIconSet.selectedSolarStyle)
-        case .iconExport:
-            return icon.iconExportImage
         case .blobIcons:
             return icon.blobIconImage
         case .doodlePop:
-            return icon.doodlePopImage
+            return icon.doodlePopImage(prefersLightOutline: prefersLightOutline)
         case .pawPrint:
-            return icon.pawPrintImage
+            return icon.pawPrintImage(prefersLightOutline: prefersLightOutline)
         case .dotDogSnake:
-            return icon.dotDogSnakeImage
+            return icon.dotDogSnakeImage(prefersLightOutline: prefersLightOutline)
         case .minimalWhiteIcons:
-            return icon.minimalWhiteIconImage
+            return icon.minimalWhiteIconImage(prefersLightOutline: prefersLightOutline)
         case .pulseBloom:
             return icon.pulseBloomImage(prefersLightOutline: prefersLightOutline)
+        case .monoGlyph:
+            return icon.monoGlyphImage(prefersLightOutline: prefersLightOutline)
         }
     }
 }
@@ -961,7 +1128,7 @@ extension MonoIcon.IconType {
     }
 }
 
-// MARK: - IconType → Icon Export Mapping
+// MARK: - IconType → Bitmap Icon Mapping
 
 extension MonoIcon.IconType {
     /// 位图图标包的资源 id。
@@ -971,10 +1138,6 @@ extension MonoIcon.IconType {
         case .immersive: return "mv"
         default: return String(describing: self)
         }
-    }
-
-    var iconExportImage: UIImage {
-        UIImage(iconExportId: bitmapIconId) ?? hiconImage
     }
 
     var blobIconImage: UIImage {
@@ -987,8 +1150,8 @@ extension MonoIcon.IconType {
 
     func doodlePopImage(prefersLightOutline: Bool) -> UIImage {
         let image = doodlePopImage
-        guard prefersLightOutline else { return image }
-        return UIImage(doodlePopIconId: bitmapIconId, userInterfaceStyle: .dark) ?? image
+        let style: UIUserInterfaceStyle = prefersLightOutline ? .dark : .light
+        return UIImage(doodlePopIconId: bitmapIconId, userInterfaceStyle: style) ?? image
     }
 
     var pawPrintImage: UIImage {
@@ -997,8 +1160,8 @@ extension MonoIcon.IconType {
 
     func pawPrintImage(prefersLightOutline: Bool) -> UIImage {
         let image = pawPrintImage
-        guard prefersLightOutline else { return image }
-        return UIImage(pawPrintIconId: bitmapIconId, userInterfaceStyle: .dark) ?? image
+        let style: UIUserInterfaceStyle = prefersLightOutline ? .dark : .light
+        return UIImage(pawPrintIconId: bitmapIconId, userInterfaceStyle: style) ?? image
     }
 
     var dotDogSnakeImage: UIImage {
@@ -1007,8 +1170,8 @@ extension MonoIcon.IconType {
 
     func dotDogSnakeImage(prefersLightOutline: Bool) -> UIImage {
         let image = dotDogSnakeImage
-        guard prefersLightOutline else { return image }
-        return UIImage(dotDogSnakeIconId: bitmapIconId, userInterfaceStyle: .dark) ?? image
+        let style: UIUserInterfaceStyle = prefersLightOutline ? .dark : .light
+        return UIImage(dotDogSnakeIconId: bitmapIconId, userInterfaceStyle: style) ?? image
     }
 
     var minimalWhiteIconImage: UIImage {
@@ -1017,8 +1180,8 @@ extension MonoIcon.IconType {
 
     func minimalWhiteIconImage(prefersLightOutline: Bool) -> UIImage {
         let image = minimalWhiteIconImage
-        guard prefersLightOutline else { return image }
-        return UIImage(minimalWhiteIconId: bitmapIconId, userInterfaceStyle: .dark) ?? image
+        let style: UIUserInterfaceStyle = prefersLightOutline ? .dark : .light
+        return UIImage(minimalWhiteIconId: bitmapIconId, userInterfaceStyle: style) ?? image
     }
 
     var pulseBloomImage: UIImage {
@@ -1035,15 +1198,36 @@ extension MonoIcon.IconType {
         let resolvedAssetId = assetId ?? bitmapIconId
         let requestedStyle: UIUserInterfaceStyle = prefersLightOutline ? .dark : .light
 
-        // The asset catalog contains luminosity variants. Always resolve the
-        // requested variant explicitly; a nil-compatible image can switch back
-        // to the system appearance later when UIKit renders the tab.
         return UIImage(
             pulseBloomIconId: resolvedAssetId,
             userInterfaceStyle: requestedStyle
         ) ?? UIImage(
             pulseBloomIconId: resolvedAssetId,
             userInterfaceStyle: .light
+        ) ?? UIImage(
+            pulseBloomIconId: bitmapIconId,
+            userInterfaceStyle: requestedStyle
+        ) ?? hiconImage
+    }
+
+    var monoGlyphImage: UIImage {
+        UIImage(monoGlyphIconId: bitmapIconId, userInterfaceStyle: .light) ?? hiconImage
+    }
+
+    func monoGlyphImage(prefersLightOutline: Bool) -> UIImage {
+        monoGlyphImage(assetId: nil, prefersLightOutline: prefersLightOutline)
+    }
+
+    func monoGlyphImage(assetId: String?, prefersLightOutline: Bool) -> UIImage {
+        let resolvedAssetId = assetId ?? bitmapIconId
+        let requestedStyle: UIUserInterfaceStyle = prefersLightOutline ? .dark : .light
+
+        return UIImage(
+            monoGlyphIconId: resolvedAssetId,
+            userInterfaceStyle: requestedStyle
+        ) ?? UIImage(
+            monoGlyphIconId: bitmapIconId,
+            userInterfaceStyle: requestedStyle
         ) ?? hiconImage
     }
 

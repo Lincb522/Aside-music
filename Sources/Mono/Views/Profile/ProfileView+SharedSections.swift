@@ -436,189 +436,273 @@ extension ProfileView {
 
     // MARK: - Not Logged In
 
-    @ViewBuilder
-    var notLoggedInContent: some View {
+    var notLoggedInContent: AnyView {
         if MinimalWhiteStyle.isActive {
-            minimalWhiteNotLoggedInContent
-        } else if SignalStyle.isActive {
-            signalNotLoggedInContent
-        } else if MangaStyle.isActive {
-            mangaNotLoggedInContent
-        } else if PetWhiteStyle.isActive {
-            petWhiteNotLoggedInContent
-        } else if MujiStyle.isActive {
-            mujiNotLoggedInContent
-        } else if NeumorphicStyle.isActive {
-            neumorphicNotLoggedInContent
-        } else if CapsuleStyle.isActive {
-            capsuleNotLoggedInContent
-        } else if LiquidGlassStyle.isActive {
-            liquidGlassNotLoggedInContent
-        } else if !ThemedPageStyle.isActive {
-            asideNotLoggedInContent
-        } else {
+            return AnyView(minimalWhiteNotLoggedInContent)
+        }
+        if SignalStyle.isActive {
+            return AnyView(signalNotLoggedInContent)
+        }
+        if MangaStyle.isActive {
+            return AnyView(mangaNotLoggedInContent)
+        }
+        if PetWhiteStyle.isActive {
+            return AnyView(petWhiteNotLoggedInContent)
+        }
+        if MujiStyle.isActive {
+            return AnyView(mujiNotLoggedInContent)
+        }
+        if NeumorphicStyle.isActive {
+            return AnyView(neumorphicNotLoggedInContent)
+        }
+        if CapsuleStyle.isActive {
+            return AnyView(capsuleNotLoggedInContent)
+        }
+        if LiquidGlassStyle.isActive {
+            return AnyView(liquidGlassNotLoggedInContent)
+        }
+        if !ThemedPageStyle.isActive {
+            return AnyView(asideNotLoggedInContent)
+        }
+        return fallbackNotLoggedInContent
+    }
+
+    private var fallbackNotLoggedInContent: AnyView {
+        AnyView(
             NavigationStack(path: $navigationPath) {
                 ZStack {
                     ThemedProfileBackground()
-
-                    VStack(spacing: 0) {
-                        if MangaStyle.isActive {
-                            mangaProfileHeader
-                        } else if NeumorphicStyle.isActive {
-                            neumorphicProfileHeader
-                        } else if CapsuleStyle.isActive {
-                            capsuleProfileHeader
-                        } else if SignalStyle.isActive {
-                            signalProfileHeaderBar
-                        } else if MujiStyle.isActive {
-                            mujiProfileHeader
-                        } else if SequoiaStyle.isActive {
-                            sequoiaProfileHeaderBar
-                        }
-
-                        Spacer()
-
-                        VStack(spacing: 28) {
-                            ZStack {
-                                Circle()
-                                    .fill(Color.monoGlassTint)
-                                    .monoGlassCircle()
-                                    .frame(width: 100, height: 100)
-
-                                MonoIcon(icon: .profile, size: 40, color: .monoTextSecondary.opacity(0.3))
-                            }
-
-                            VStack(spacing: 10) {
-                                Text(LocalizedStringKey("profile_not_logged_in"))
-                                    .font(MangaStyle.isActive ? MangaStyle.titleFont(26, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(26, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(26, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.titleFont(25, weight: .bold) : (SequoiaStyle.isActive ? SequoiaStyle.titleFont(25, weight: .semibold) : .system(size: 26, weight: .bold, design: .rounded))))))
-                                    .foregroundColor(.monoTextPrimary)
-
-                                Text(LocalizedStringKey("profile_login_hint"))
-                                    .font(MangaStyle.isActive ? MangaStyle.comicFont(14, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(14, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .regular) : (SignalStyle.isActive ? SignalStyle.labelFont(14, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(14, weight: .regular) : .system(size: 14, weight: .medium, design: .rounded))))))
-                                    .foregroundColor(.monoTextSecondary)
-                            }
-
-                            Button(action: { navigationPath.append(ProfileNavigationDestination.loginNCM) }) {
-                                Text(LocalizedStringKey("profile_login_button"))
-                                    .font(MangaStyle.isActive ? MangaStyle.bodyFont(16, weight: .black) : (MujiStyle.isActive ? MujiStyle.labelFont(16, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.labelFont(16, weight: .bold) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(16, weight: .semibold) : .system(size: 16, weight: .bold, design: .rounded)))))
-                                    .foregroundColor(MangaStyle.isActive ? ThemeColorCustomization.readableForegroundColor(on: MangaStyle.labelYellow, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk) : (MujiStyle.isActive ? MujiStyle.onTint : (NeumorphicStyle.isActive ? Color(light: .white, dark: .black) : (SignalStyle.isActive ? SignalStyle.onAccent : .monoIconForeground))))
-                                    .frame(width: 200)
-                                    .padding(.vertical, 15)
-                                    .background {
-                                        if MangaStyle.isActive {
-                                            RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
-                                                .fill(MangaStyle.labelYellow)
-                                        } else if NeumorphicStyle.isActive {
-                                            Capsule()
-                                                .fill(NeumorphicStyle.accent)
-                                        } else if SignalStyle.isActive {
-                                            Capsule()
-                                                .fill(SignalStyle.accent)
-                                        } else if MujiStyle.isActive {
-                                            Capsule()
-                                                .fill(MujiStyle.clay)
-                                        } else if SequoiaStyle.isActive {
-                                            Capsule()
-                                                .fill(SequoiaStyle.accentGradient)
-                                        } else {
-                                            Capsule()
-                                                .fill(Color.monoIconBackground)
-                                        }
-                                    }
-                            }
-                            .buttonStyle(MonoBouncingButtonStyle())
-                        }
-                        .padding(ThemedPageStyle.isActive ? 24 : 0)
-                        .background {
-                            if MangaStyle.isActive {
-                                MangaCardBackground(cornerRadius: MangaStyle.cardRadius, elevated: true)
-                            } else if NeumorphicStyle.isActive {
-                                NeumorphicSurfaceBackground(cornerRadius: 24, elevated: true, lightweight: true)
-                            } else if SignalStyle.isActive {
-                                SignalSurfaceBackground(cornerRadius: 16, elevated: true, fill: SignalStyle.device)
-                            } else if MujiStyle.isActive {
-                                // Muji：清新水洗底
-                                RoundedRectangle(cornerRadius: MujiStyle.cardRadius, style: .continuous)
-                                    .fill(MujiStyle.wash(MujiStyle.clay, strength: 0.7))
-                            } else if SequoiaStyle.isActive {
-                                SequoiaSurfaceBackground(cornerRadius: 18, elevated: true, fill: SequoiaStyle.material)
-                            }
-                        }
-                        .padding(.horizontal, ThemedPageStyle.isActive ? DeviceLayout.homeHorizontalPadding : 0)
-
-                        Spacer()
-
-                        VStack(spacing: 0) {
-                            Button(action: { navigationPath.append(ProfileNavigationDestination.platformAccounts) }) {
-                                ProfileMenuRow(
-                                    icon: .musicNote,
-                    title: "平台账号管理",
-                                    trailingText: "4 个平台"
-                                )
-                            }
-                            .buttonStyle(MonoBouncingButtonStyle(scale: 0.98))
-
-                            // 保留下载入口结构，由功能开关统一控制。
-                            if AppConfig.Features.downloadEnabled {
-                                Divider().padding(.leading, 56)
-
-                                NavigationLink(
-                                    destination: DownloadManageView()
-                                ) {
-                                    ProfileMenuRow(
-                                        icon: .download,
-                                        title: NSLocalizedString("profile_downloads", comment: ""),
-                                        trailingText: String(format: String(localized: "profile_recent_count"), downloadedSongCount)
-                                    )
-                                }
-                                .buttonStyle(MonoBouncingButtonStyle(scale: 0.98))
-                            }
-
-                            Divider().padding(.leading, 56)
-
-                            NavigationLink(
-                                destination: ListeningStatsView()
-                            ) {
-                                ProfileMenuRow(
-                                    icon: .sparkle,
-                                    title: String(localized: "cloud_sync_listening_stats")
-                                )
-                            }
-                            .buttonStyle(MonoBouncingButtonStyle(scale: 0.98))
-
-                            Divider().padding(.leading, 56)
-
-                            NavigationLink(
-                                destination: StorageManageView()
-                            ) {
-                                ProfileMenuRow(
-                                    icon: .storage,
-                                    title: String(localized: "profile_cache_manage")
-                                )
-                            }
-                            .buttonStyle(MonoBouncingButtonStyle(scale: 0.98))
-
-                            Divider().padding(.leading, 56)
-
-                            NavigationLink(value: ProfileNavigationDestination.settings) {
-                                ProfileMenuRow(
-                                    icon: .settings,
-                                    title: NSLocalizedString("profile_settings", comment: "")
-                                )
-                            }
-                            .buttonStyle(MonoBouncingButtonStyle(scale: 0.98))
-                        }
-                        .themedProfileSurface(cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 12 : (NeumorphicStyle.isActive ? 20 : (SignalStyle.isActive ? 16 : (SequoiaStyle.isActive ? 16 : 20)))), mangaTint: MangaStyle.bubbleWhite)
-                        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-                        .padding(.bottom, 140)
-                    }
+                    fallbackGuestContent
                 }
                 .navigationTitle(ThemedPageStyle.isActive ? "" : String(localized: "tab_profile"))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbarBackground(.hidden, for: .navigationBar)
                 .profileNavigationDestinations()
             }
+        )
+    }
+
+    private var fallbackGuestContent: AnyView {
+        AnyView(
+            VStack(spacing: 0) {
+                fallbackGuestHeader
+                Spacer()
+                fallbackGuestIdentityCard
+                Spacer()
+                fallbackGuestMenu
+            }
+        )
+    }
+
+    private var fallbackGuestHeader: AnyView {
+        if MangaStyle.isActive {
+            return AnyView(mangaProfileHeader)
         }
+        if NeumorphicStyle.isActive {
+            return AnyView(neumorphicProfileHeader)
+        }
+        if CapsuleStyle.isActive {
+            return AnyView(capsuleProfileHeader)
+        }
+        if SignalStyle.isActive {
+            return AnyView(signalProfileHeaderBar)
+        }
+        if MujiStyle.isActive {
+            return AnyView(mujiProfileHeader)
+        }
+        if SequoiaStyle.isActive {
+            return AnyView(sequoiaProfileHeaderBar)
+        }
+        return AnyView(EmptyView())
+    }
+
+    private var fallbackGuestIdentityCard: AnyView {
+        AnyView(
+            VStack(spacing: 28) {
+                fallbackGuestAvatar
+                fallbackGuestCopy
+                fallbackGuestLoginButton
+            }
+            .padding(ThemedPageStyle.isActive ? 24 : 0)
+            .background { fallbackGuestCardBackground }
+            .padding(.horizontal, ThemedPageStyle.isActive ? DeviceLayout.homeHorizontalPadding : 0)
+        )
+    }
+
+    private var fallbackGuestAvatar: AnyView {
+        AnyView(
+            ZStack {
+                Circle()
+                    .fill(Color.monoGlassTint)
+                    .monoGlassCircle()
+                    .frame(width: 100, height: 100)
+
+                MonoIcon(icon: .profile, size: 40, color: .monoTextSecondary.opacity(0.3))
+            }
+        )
+    }
+
+    private var fallbackGuestCopy: AnyView {
+        AnyView(
+            VStack(spacing: 10) {
+                Text(LocalizedStringKey("profile_not_logged_in"))
+                    .font(MangaStyle.isActive ? MangaStyle.titleFont(26, weight: .black) : (MujiStyle.isActive ? MujiStyle.titleFont(26, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.titleFont(26, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.titleFont(25, weight: .bold) : (SequoiaStyle.isActive ? SequoiaStyle.titleFont(25, weight: .semibold) : .system(size: 26, weight: .bold, design: .rounded))))))
+                    .foregroundColor(.monoTextPrimary)
+
+                Text(LocalizedStringKey("profile_login_hint"))
+                    .font(MangaStyle.isActive ? MangaStyle.comicFont(14, weight: .medium) : (MujiStyle.isActive ? MujiStyle.labelFont(14, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.labelFont(14, weight: .regular) : (SignalStyle.isActive ? SignalStyle.labelFont(14, weight: .semibold) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(14, weight: .regular) : .system(size: 14, weight: .medium, design: .rounded))))))
+                    .foregroundColor(.monoTextSecondary)
+            }
+        )
+    }
+
+    private var fallbackGuestLoginButton: AnyView {
+        AnyView(
+            Button(action: { navigationPath.append(ProfileNavigationDestination.loginNCM) }) {
+                Text(LocalizedStringKey("profile_login_button"))
+                    .font(MangaStyle.isActive ? MangaStyle.bodyFont(16, weight: .black) : (MujiStyle.isActive ? MujiStyle.labelFont(16, weight: .semibold) : (SignalStyle.isActive ? SignalStyle.labelFont(16, weight: .bold) : (SequoiaStyle.isActive ? SequoiaStyle.labelFont(16, weight: .semibold) : .system(size: 16, weight: .bold, design: .rounded)))))
+                    .foregroundColor(MangaStyle.isActive ? ThemeColorCustomization.readableForegroundColor(on: MangaStyle.labelYellow, light: MangaStyle.strokeInk, dark: MangaStyle.onStrokeInk) : (MujiStyle.isActive ? MujiStyle.onTint : (NeumorphicStyle.isActive ? Color(light: .white, dark: .black) : (SignalStyle.isActive ? SignalStyle.onAccent : .monoIconForeground))))
+                    .frame(width: 200)
+                    .padding(.vertical, 15)
+                    .background { fallbackGuestLoginButtonBackground }
+            }
+            .buttonStyle(MonoBouncingButtonStyle())
+        )
+    }
+
+    private var fallbackGuestLoginButtonBackground: AnyView {
+        if MangaStyle.isActive {
+            return AnyView(
+                RoundedRectangle(cornerRadius: MangaStyle.buttonRadius, style: .continuous)
+                    .fill(MangaStyle.labelYellow)
+            )
+        }
+        if NeumorphicStyle.isActive {
+            return AnyView(Capsule().fill(NeumorphicStyle.accent))
+        }
+        if SignalStyle.isActive {
+            return AnyView(Capsule().fill(SignalStyle.accent))
+        }
+        if MujiStyle.isActive {
+            return AnyView(Capsule().fill(MujiStyle.clay))
+        }
+        if SequoiaStyle.isActive {
+            return AnyView(Capsule().fill(SequoiaStyle.accentGradient))
+        }
+        return AnyView(Capsule().fill(Color.monoIconBackground))
+    }
+
+    private var fallbackGuestCardBackground: AnyView {
+        if MangaStyle.isActive {
+            return AnyView(MangaCardBackground(cornerRadius: MangaStyle.cardRadius, elevated: true))
+        }
+        if NeumorphicStyle.isActive {
+            return AnyView(NeumorphicSurfaceBackground(cornerRadius: 24, elevated: true, lightweight: true))
+        }
+        if SignalStyle.isActive {
+            return AnyView(SignalSurfaceBackground(cornerRadius: 16, elevated: true, fill: SignalStyle.device))
+        }
+        if MujiStyle.isActive {
+            // Muji：清新水洗底
+            return AnyView(
+                RoundedRectangle(cornerRadius: MujiStyle.cardRadius, style: .continuous)
+                    .fill(MujiStyle.wash(MujiStyle.clay, strength: 0.7))
+            )
+        }
+        if SequoiaStyle.isActive {
+            return AnyView(SequoiaSurfaceBackground(cornerRadius: 18, elevated: true, fill: SequoiaStyle.material))
+        }
+        return AnyView(EmptyView())
+    }
+
+    private var fallbackGuestMenu: AnyView {
+        AnyView(
+            VStack(spacing: 0) {
+                fallbackGuestPlatformAccountsRow
+
+                // 保留下载入口结构，由功能开关统一控制。
+                if AppConfig.Features.downloadEnabled {
+                    fallbackGuestDivider
+                    fallbackGuestDownloadsRow
+                }
+
+                fallbackGuestDivider
+                fallbackGuestListeningStatsRow
+                fallbackGuestDivider
+                fallbackGuestStorageRow
+                fallbackGuestDivider
+                fallbackGuestSettingsRow
+            }
+            .themedProfileSurface(cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 12 : (NeumorphicStyle.isActive ? 20 : (SignalStyle.isActive ? 16 : (SequoiaStyle.isActive ? 16 : 20)))), mangaTint: MangaStyle.bubbleWhite)
+            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+            .padding(.bottom, 140)
+        )
+    }
+
+    private var fallbackGuestDivider: AnyView {
+        AnyView(Divider().padding(.leading, 56))
+    }
+
+    private var fallbackGuestPlatformAccountsRow: AnyView {
+        AnyView(
+            Button(action: { navigationPath.append(ProfileNavigationDestination.platformAccounts) }) {
+                ProfileMenuRow(
+                    icon: .musicNote,
+                    title: "平台账号管理",
+                    trailingText: "4 个平台"
+                )
+            }
+            .buttonStyle(MonoBouncingButtonStyle(scale: 0.98))
+        )
+    }
+
+    private var fallbackGuestDownloadsRow: AnyView {
+        AnyView(
+            NavigationLink(destination: DownloadManageView()) {
+                ProfileMenuRow(
+                    icon: .download,
+                    title: NSLocalizedString("profile_downloads", comment: ""),
+                    trailingText: String(format: String(localized: "profile_recent_count"), downloadedSongCount)
+                )
+            }
+            .buttonStyle(MonoBouncingButtonStyle(scale: 0.98))
+        )
+    }
+
+    private var fallbackGuestListeningStatsRow: AnyView {
+        AnyView(
+            NavigationLink(destination: ListeningStatsView()) {
+                ProfileMenuRow(
+                    icon: .sparkle,
+                    title: String(localized: "cloud_sync_listening_stats")
+                )
+            }
+            .buttonStyle(MonoBouncingButtonStyle(scale: 0.98))
+        )
+    }
+
+    private var fallbackGuestStorageRow: AnyView {
+        AnyView(
+            NavigationLink(destination: StorageManageView()) {
+                ProfileMenuRow(
+                    icon: .storage,
+                    title: String(localized: "profile_cache_manage")
+                )
+            }
+            .buttonStyle(MonoBouncingButtonStyle(scale: 0.98))
+        )
+    }
+
+    private var fallbackGuestSettingsRow: AnyView {
+        AnyView(
+            NavigationLink(value: ProfileNavigationDestination.settings) {
+                ProfileMenuRow(
+                    icon: .settings,
+                    title: NSLocalizedString("profile_settings", comment: "")
+                )
+            }
+            .buttonStyle(MonoBouncingButtonStyle(scale: 0.98))
+        )
     }
 
 }

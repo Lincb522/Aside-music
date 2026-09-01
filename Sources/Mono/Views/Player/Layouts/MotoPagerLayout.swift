@@ -784,7 +784,7 @@ extension MotoPagerLayout {
                 }
                 .buttonStyle(MonoBouncingButtonStyle())
             }
-            .padding(.horizontal, DeviceLayout.isPad ? 38 : 30)
+            .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 38 : 30)
             
             Spacer()
         }

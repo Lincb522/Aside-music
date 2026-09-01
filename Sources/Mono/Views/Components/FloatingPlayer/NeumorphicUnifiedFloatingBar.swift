@@ -1,13 +1,15 @@
+import Combine
 import SwiftUI
 
 struct NeumorphicUnifiedFloatingBar: View {
     @Binding var currentTab: Tab
-    @ObservedObject private var player = FloatingBarPlaybackModel.shared
+    @State private var currentSong = FloatingBarPlaybackModel.shared.currentSong
+    private let player = FloatingBarPlaybackModel.shared
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(spacing: 0) {
-            if let song = player.currentSong {
+            if let song = currentSong {
                 NeumorphicMiniPlayerStrip(song: song)
                     .swipeToSkip()
                     .transition(.asymmetric(
@@ -33,10 +35,12 @@ struct NeumorphicUnifiedFloatingBar: View {
                 )
                 .padding(0.5)
         )
-        .shadow(color: NeumorphicStyle.darkShadow(colorScheme, intensity: colorScheme == .dark ? 0.60 : 0.42), radius: 22, x: 0, y: 12)
-        .animation(MonoAnimation.floatingBar, value: player.currentSong != nil)
+        .animation(MonoAnimation.floatingBar, value: currentSong != nil)
         .animation(MonoAnimation.tabSwitch, value: currentTab)
         .themeRenderInteractiveLayer()
+        .onReceive(player.$currentSong.removeDuplicates()) { song in
+            currentSong = song
+        }
     }
 
     private var tabSwipeGesture: some Gesture {
@@ -69,14 +73,8 @@ struct NeumorphicUnifiedFloatingBar: View {
 struct NeumorphicMiniPlayerStrip: View {
     let song: Song
     @State private var showPlaylist = false
-    @ObservedObject private var player = FloatingBarPlaybackModel.shared
-
-    private var subtitleText: String {
-        if let text = player.lyricLineText {
-            return text
-        }
-        return song.artistName
-    }
+    @State private var isPlaying = FloatingBarPlaybackModel.shared.isPlaying
+    private let player = FloatingBarPlaybackModel.shared
 
     var body: some View {
         VStack(spacing: 0) {
@@ -91,7 +89,7 @@ struct NeumorphicMiniPlayerStrip: View {
                 .background(NeumorphicSurfaceBackground(cornerRadius: 12, elevated: true))
                 .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color.white.opacity(0.65), lineWidth: 0.8))
                 .overlay(alignment: .bottomTrailing) {
-                    if player.isPlaying {
+                    if isPlaying {
                         PlayingVisualizerView(isAnimating: true, color: NeumorphicStyle.accent)
                             .frame(width: 14, height: 10)
                             .padding(3)
@@ -99,29 +97,12 @@ struct NeumorphicMiniPlayerStrip: View {
                     }
                 }
 
-                VStack(alignment: .leading, spacing: 3) {
-                    MarqueeText(
-                        text: song.name,
-                        font: NeumorphicStyle.labelFont(13, weight: .semibold),
-                        color: NeumorphicStyle.ink,
-                        speed: 25
-                    )
-                    .frame(height: 16)
-
-                    MarqueeText(
-                        text: subtitleText,
-                        font: NeumorphicStyle.labelFont(11, weight: .regular),
-                        color: NeumorphicStyle.inkSoft,
-                        speed: 22
-                    )
-                    .frame(height: 14)
-                        .animation(.easeInOut(duration: 0.25), value: player.lyricLineText)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .swipeSkipTextMotion()
+                NeumorphicMiniPlayerCopy(song: song)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .swipeSkipTextMotion()
 
                 HStack(spacing: 7) {
-                    neumorphicControl(icon: player.isPlaying ? .pause : .play, tint: .white, filled: true) {
+                    neumorphicControl(icon: isPlaying ? .pause : .play, tint: .white, filled: true) {
                         player.togglePlayPause()
                     }
 
@@ -129,7 +110,7 @@ struct NeumorphicMiniPlayerStrip: View {
                         showPlaylist.toggle()
                     }
 
-                    if !player.isPlaying {
+                    if !isPlaying {
                         neumorphicControl(icon: .close, tint: NeumorphicStyle.inkMuted, size: 9) {
                             withAnimation(MonoAnimation.floatingBar) {
                                 player.dismissMiniPlayerPreservingQueue()
@@ -167,6 +148,9 @@ struct NeumorphicMiniPlayerStrip: View {
                 .stroke(Color.white.opacity(0.44), lineWidth: 0.7)
         )
         .padding(.bottom, 7)
+        .onReceive(player.$isPlaying.removeDuplicates()) { playing in
+            isPlaying = playing
+        }
         .monoSheet(isPresented: $showPlaylist, preset: .standard) {
             if player.isPlayingPodcast {
                 PodcastPlaylistPopupView()
@@ -198,7 +182,7 @@ struct NeumorphicMiniPlayerStrip: View {
                 }
                 .contentShape(Circle())
         }
-        .buttonStyle(MonoBouncingButtonStyle(scale: 0.94))
+        .buttonStyle(NeumorphicTactileButtonStyle(scale: 0.94))
     }
 
     private func openPlayer() {
@@ -211,6 +195,37 @@ struct NeumorphicMiniPlayerStrip: View {
             case .normal:
                 NotificationCenter.default.post(name: .init("OpenNormalPlayer"), object: nil)
             }
+        }
+    }
+}
+
+private struct NeumorphicMiniPlayerCopy: View {
+    let song: Song
+
+    @State private var lyricLineText = FloatingBarPlaybackModel.shared.lyricLineText
+    private let player = FloatingBarPlaybackModel.shared
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            MarqueeText(
+                text: song.name,
+                font: NeumorphicStyle.labelFont(13, weight: .semibold),
+                color: NeumorphicStyle.ink,
+                speed: 25
+            )
+            .frame(height: 16)
+
+            MarqueeText(
+                text: lyricLineText ?? song.artistName,
+                font: NeumorphicStyle.labelFont(11, weight: .regular),
+                color: NeumorphicStyle.inkSoft,
+                speed: 22
+            )
+            .frame(height: 14)
+            .animation(.easeInOut(duration: 0.25), value: lyricLineText)
+        }
+        .onReceive(player.$lyricLineText.removeDuplicates()) { text in
+            lyricLineText = text
         }
     }
 }
@@ -252,13 +267,23 @@ struct NeumorphicDedicatedTabBar: View {
             }
         } label: {
             VStack(spacing: 4) {
-                MonoIcon(
-                    icon: isSelected ? filled : outline,
-                    size: isSelected ? 19 : 18,
-                    color: isSelected ? tint : NeumorphicStyle.inkMuted,
-                    lineWidth: isSelected ? 1.8 : 1.5
-                )
-                .frame(width: 24, height: 22)
+                ZStack {
+                    if isSelected {
+                        Circle()
+                            .fill(tint.opacity(0.13))
+                            .overlay(Circle().stroke(tint.opacity(0.2), lineWidth: 0.7))
+                            .frame(width: 30, height: 30)
+                    }
+
+                    MonoIcon(
+                        icon: isSelected ? filled : outline,
+                        size: isSelected ? 17 : 18,
+                        color: isSelected ? tint : NeumorphicStyle.inkMuted,
+                        lineWidth: isSelected ? 1.8 : 1.5,
+                        artworkContrastBackground: isSelected ? NeumorphicStyle.surfaceRaised : nil
+                    )
+                }
+                .frame(width: 30, height: 26)
 
                 Text(label)
                     .font(NeumorphicStyle.labelFont(10, weight: isSelected ? .semibold : .medium))
@@ -269,16 +294,18 @@ struct NeumorphicDedicatedTabBar: View {
             .frame(maxWidth: .infinity, minHeight: 48)
             .background {
                 if isSelected {
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .fill(tint.opacity(0.12))
-                        .background(NeumorphicSurfaceBackground(cornerRadius: 22, elevated: true, tint: NeumorphicStyle.surfaceRaised.opacity(0.86), lightweight: true))
-                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                    NeumorphicSurfaceBackground(
+                        cornerRadius: 22,
+                        elevated: true,
+                        tint: tint.opacity(0.1),
+                        lightweight: true
+                    )
                         .matchedGeometryEffect(id: "neumorphicTabSelection", in: selectionNS)
                 }
             }
             .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(NeumorphicTactileButtonStyle(scale: 0.96))
     }
 
     private func tabTint(_ index: Int) -> Color {

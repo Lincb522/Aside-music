@@ -277,7 +277,7 @@ struct QQPlaylistDetailView: View {
                 )
                 .disabled(isCollectedLocally || viewModel.songs.isEmpty)
             }
-            .padding(.bottom, DeviceLayout.isPad ? 20 : 12)
+            .padding(.bottom, DeviceLayout.usesExpandedLayout ? 20 : 12)
             .iPadContentWidth(900)
         }
     }
@@ -331,7 +331,7 @@ struct QQPlaylistDetailView: View {
                             .overlay(MonoIcon(icon: .musicNote, size: 34, color: MinimalWhiteStyle.inkMuted, lineWidth: 1.6))
                     }
                 }
-                .frame(width: DeviceLayout.isPad ? 150 : 118, height: DeviceLayout.isPad ? 150 : 118)
+                .frame(width: DeviceLayout.usesExpandedLayout ? 150 : 118, height: DeviceLayout.usesExpandedLayout ? 150 : 118)
                 .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 24, style: .continuous)

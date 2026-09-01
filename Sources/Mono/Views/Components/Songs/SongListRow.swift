@@ -355,11 +355,20 @@ struct SongListRow: View {
                 HStack(spacing: 10) {
                     ZStack {
                         if isSelecting {
-                            MonoSymbolIcon(
-                                name: isSelected ? "checkmark.circle.fill" : "circle",
-                                size: 18,
-                                color: isSelected ? CapsuleStyle.accent : CapsuleStyle.inkMuted.opacity(0.46)
-                            )
+                            if isSelected {
+                                MonoSymbolIcon(
+                                    name: "checkmark.circle.fill",
+                                    size: 18,
+                                    color: CapsuleStyle.accent
+                                )
+                            } else {
+                                MonoSemanticIcon(
+                                    semantic: .selectionCircle,
+                                    fallback: .xmarkCircle,
+                                    size: 18,
+                                    color: CapsuleStyle.inkMuted.opacity(0.46)
+                                )
+                            }
                         } else if isLoadingPlayback {
                             SongRowLoadingIndicator(color: CapsuleStyle.accent)
                         } else {
@@ -480,11 +489,20 @@ struct SongListRow: View {
                         HStack(spacing: rowContentSpacing) {
                             ZStack {
                                 if isSelecting {
-                                    MonoSymbolIcon(
-                                        name: isSelected ? "checkmark.circle.fill" : "circle",
-                                        size: 18,
-                                        color: isSelected ? Theme.accent : Theme.secondaryText.opacity(0.4)
-                                    )
+                                    if isSelected {
+                                        MonoSymbolIcon(
+                                            name: "checkmark.circle.fill",
+                                            size: 18,
+                                            color: Theme.accent
+                                        )
+                                    } else {
+                                        MonoSemanticIcon(
+                                            semantic: .selectionCircle,
+                                            fallback: .xmarkCircle,
+                                            size: 18,
+                                            color: Theme.secondaryText.opacity(0.4)
+                                        )
+                                    }
                                 } else if isAsideTheme && isLoadingPlayback {
                                     SongRowLoadingIndicator(color: .monoAccent)
                                         .frame(width: 16, height: 16)
@@ -719,7 +737,11 @@ struct SongListRow: View {
                 Button {
                     copyShortPlayLink()
                 } label: {
-                    Label(String(localized: "song_copy_link"), systemImage: "link")
+                    Label {
+                        Text(String(localized: "song_copy_link"))
+                    } icon: {
+                        MonoSemanticIcon(semantic: .link, fallback: .share)
+                    }
                 }
             }
         }

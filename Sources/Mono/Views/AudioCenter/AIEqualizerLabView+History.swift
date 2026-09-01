@@ -55,6 +55,7 @@ extension AIEqualizerLabView {
                     agent.applySavedProposal(saved)
                 } label: {
                     MonoIcon(icon: .play, size: 13, color: canApply ? .white.opacity(0.86) : .white.opacity(0.28))
+                        .monoIconArtwork(MonoGlyphSemantic.agentApplySavedProposal.rawValue)
                         .frame(width: 30, height: 30)
                         .background(Circle().fill(Color.white.opacity(0.07)))
                 }

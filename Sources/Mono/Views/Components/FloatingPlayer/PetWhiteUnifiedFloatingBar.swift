@@ -198,7 +198,8 @@ struct PetWhiteUnifiedTabPawDock: View {
                             size: selected ? 18 : 16,
                             visualScale: 1,
                             fallbackColor: selected ? PetWhiteStyle.ink : PetWhiteStyle.inkMuted,
-                            lineWidth: 1.45
+                            lineWidth: 1.45,
+                            artworkContrastBackground: selected ? tabTint(tab) : nil
                         )
 
                         Text(NSLocalizedString(tab.titleKey(isLocalMode: !onlineAccess.canUseOnlineFeatures), comment: ""))

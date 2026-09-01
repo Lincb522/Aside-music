@@ -81,7 +81,7 @@ struct LibraryLoadingStateView: View {
     var minHeight: CGFloat? = nil
 
     var body: some View {
-        let resolvedMinHeight = minHeight ?? (DeviceLayout.isPad ? 420 : 320)
+        let resolvedMinHeight = minHeight ?? (DeviceLayout.usesExpandedLayout ? 420 : 320)
         let resolvedPadding = horizontalPadding ?? DeviceLayout.libraryHorizontalPadding
 
         if PetWhiteStyle.isActive {

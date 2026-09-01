@@ -246,7 +246,8 @@ struct SignatureFloatingBar: View {
                             size: compact ? 16 : 15,
                             color: selected ? Color.monoTextPrimary : Color.monoTextSecondary,
                             lineWidth: selected ? 1.9 : 1.5,
-                            forceTemplateRendering: true
+                            forceTemplateRendering: true,
+                            artworkContrastBackground: selected ? vinylSurface : nil
                         )
                         Circle()
                             .fill(selected ? palette[0] : Color.clear)
@@ -321,7 +322,8 @@ struct SignatureFloatingBar: View {
                             size: 13,
                             color: selected ? cassetteInk : cassetteInk.opacity(0.52),
                             lineWidth: selected ? 1.9 : 1.5,
-                            forceTemplateRendering: true
+                            forceTemplateRendering: true,
+                            artworkContrastBackground: selected ? cassetteSurface : nil
                         )
                         Capsule()
                             .fill(selected ? palette[0].opacity(0.82) : Color.clear)
@@ -411,7 +413,10 @@ struct SignatureFloatingBar: View {
                             size: selected ? 15 : 14,
                             color: selected ? orbitSelectedInk : orbitInk.opacity(0.55),
                             lineWidth: selected ? 1.9 : 1.45,
-                            forceTemplateRendering: true
+                            forceTemplateRendering: true,
+                            artworkContrastBackground: selected
+                                ? palette[index % palette.count]
+                                : nil
                         )
                     }
                     .frame(width: selected ? 37 : 33, height: selected ? 37 : 33)
@@ -502,7 +507,8 @@ struct SignatureFloatingBar: View {
                         size: 16,
                         color: selected ? waveformSelectedInk : Color.monoTextSecondary,
                         lineWidth: selected ? 1.9 : 1.45,
-                        forceTemplateRendering: true
+                        forceTemplateRendering: true,
+                        artworkContrastBackground: selected ? palette[0] : nil
                     )
                     .frame(maxWidth: .infinity, minHeight: 46)
                     .background {
@@ -527,7 +533,8 @@ struct SignatureFloatingBar: View {
                             size: 14,
                             color: selected ? waveformSelectedInk : Color.monoTextSecondary,
                             lineWidth: selected ? 1.9 : 1.45,
-                            forceTemplateRendering: true
+                            forceTemplateRendering: true,
+                            artworkContrastBackground: selected ? palette[0] : nil
                         )
                         if selected {
                             WaveformSelectionGlyph(color: waveformSelectedInk)
@@ -602,7 +609,8 @@ struct SignatureFloatingBar: View {
                             size: 13,
                             color: selected ? filmSelectedInk : filmInk.opacity(0.52),
                             lineWidth: selected ? 1.9 : 1.45,
-                            forceTemplateRendering: true
+                            forceTemplateRendering: true,
+                            artworkContrastBackground: selected ? filmInk : nil
                         )
                         if selected {
                             Text(String(localized: String.LocalizationValue(tab.titleKey())))
@@ -676,7 +684,8 @@ struct SignatureFloatingBar: View {
                         size: 16,
                         color: selected ? meterSelectedInk : meterInk.opacity(0.55),
                         lineWidth: selected ? 1.9 : 1.45,
-                        forceTemplateRendering: true
+                        forceTemplateRendering: true,
+                        artworkContrastBackground: selected ? palette[0] : nil
                     )
                     .frame(maxWidth: .infinity, minHeight: 46)
                     .background {
@@ -700,7 +709,8 @@ struct SignatureFloatingBar: View {
                         size: 14,
                         color: selected ? meterSelectedInk : meterInk.opacity(0.55),
                         lineWidth: selected ? 1.9 : 1.45,
-                        forceTemplateRendering: true
+                        forceTemplateRendering: true,
+                        artworkContrastBackground: selected ? palette[0] : nil
                     )
                     .frame(maxWidth: .infinity, minHeight: 34)
                     .background {

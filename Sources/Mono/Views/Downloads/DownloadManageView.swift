@@ -36,13 +36,7 @@ private enum DownloadCenterPalette {
 
 @MainActor
 private func downloadCenterVisibleWidth(proxyWidth: CGFloat) -> CGFloat {
-    let normalizedProxyWidth = max(1, proxyWidth)
-#if canImport(UIKit)
-    let screenWidth = max(1, UIScreen.main.bounds.width)
-    return min(normalizedProxyWidth, screenWidth)
-#else
-    return normalizedProxyWidth
-#endif
+    max(1, proxyWidth)
 }
 
 private struct DownloadProgressGlyph: View {

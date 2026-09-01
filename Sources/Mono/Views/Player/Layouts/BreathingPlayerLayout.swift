@@ -905,7 +905,7 @@ extension BreathingPlayerLayout {
         let isLandscape = size.width > size.height
         let isCompactHeight = size.height < 430
         let shortestSide = min(size.width, size.height)
-        let horizontalPadding = DeviceLayout.isPad ? 40.0 : (isLandscape ? 20.0 : DeviceLayout.viewHorizontalPadding)
+        let horizontalPadding = DeviceLayout.usesExpandedLayout ? 40.0 : (isLandscape ? 20.0 : DeviceLayout.viewHorizontalPadding)
         let stageTopPadding = safeAreaInsets.top + (isLandscape ? 16.0 : 24.0)
         let stageBottomPadding = safeAreaInsets.bottom + (isCompactHeight ? 12.0 : 18.0)
         let availableWidth = max(size.width - horizontalPadding * 2, 260)
@@ -917,27 +917,27 @@ extension BreathingPlayerLayout {
             availableWidth * (isLandscape ? 0.34 : 0.48),
             availableHeight * (isLandscape ? 0.52 : 0.32),
             maxCoreFootprintWidth / coreFootprintWidthFactor,
-            shortestSide * (DeviceLayout.isPad ? 0.40 : (isLandscape ? 0.44 : 0.52)),
-            DeviceLayout.isPad ? 400.0 : 240.0
+            shortestSide * (DeviceLayout.usesExpandedLayout ? 0.40 : (isLandscape ? 0.44 : 0.52)),
+            DeviceLayout.usesExpandedLayout ? 400.0 : 240.0
         )
         let coreFootprintWidth = min(coreSize * coreFootprintWidthFactor, maxCoreFootprintWidth)
         let coreFootprintHeight = coreSize * coreFootprintHeightFactor
-        let metadataRowWidth = min(availableWidth * 0.92, DeviceLayout.isPad ? 520.0 : (isLandscape ? 320.0 : availableWidth * 0.88))
+        let metadataRowWidth = min(availableWidth * 0.92, DeviceLayout.usesExpandedLayout ? 520.0 : (isLandscape ? 320.0 : availableWidth * 0.88))
         let titleWidth = min(
             availableWidth * (isLandscape ? 0.34 : 0.72),
-            DeviceLayout.isPad ? 400.0 : 300.0
+            DeviceLayout.usesExpandedLayout ? 400.0 : 300.0
         )
         let titleFont = min(
             shortestSide * (isLandscape ? 0.060 : 0.088),
             coreSize * (isLandscape ? 0.26 : 0.24),
-            DeviceLayout.isPad ? 54.0 : 40.0
+            DeviceLayout.usesExpandedLayout ? 54.0 : 40.0
         )
         let artistCapsuleWidth = min(
             max(metadataRowWidth * (isLandscape ? 0.42 : 0.38), 120),
-            DeviceLayout.isPad ? 300.0 : 220.0
+            DeviceLayout.usesExpandedLayout ? 300.0 : 220.0
         )
-        let titleBlockWidth = min(max(titleWidth, coreSize * 0.92), availableWidth * 0.88, DeviceLayout.isPad ? 440.0 : 320.0)
-        let textColumnWidth = min(max(availableWidth - coreFootprintWidth - 28.0, 180.0), DeviceLayout.isPad ? 360.0 : 280.0)
+        let titleBlockWidth = min(max(titleWidth, coreSize * 0.92), availableWidth * 0.88, DeviceLayout.usesExpandedLayout ? 440.0 : 320.0)
+        let textColumnWidth = min(max(availableWidth - coreFootprintWidth - 28.0, 180.0), DeviceLayout.usesExpandedLayout ? 360.0 : 280.0)
         let landscapeClusterWidth = min(availableWidth * 0.96, textColumnWidth + coreFootprintWidth + 28.0)
 
         return BreathingLayoutMetrics(
@@ -954,25 +954,25 @@ extension BreathingPlayerLayout {
             coreFootprintWidth: coreFootprintWidth,
             coreFootprintHeight: coreFootprintHeight,
             metadataRowWidth: metadataRowWidth,
-            streamTagMaxWidth: min(metadataRowWidth * 0.56, DeviceLayout.isPad ? 240.0 : 180.0),
+            streamTagMaxWidth: min(metadataRowWidth * 0.56, DeviceLayout.usesExpandedLayout ? 240.0 : 180.0),
             titleFont: titleFont,
             titleWidth: titleWidth,
             titleBlockWidth: titleBlockWidth,
-            artistFont: DeviceLayout.isPad ? 12 : (isCompactHeight ? 10 : 11),
+            artistFont: DeviceLayout.usesExpandedLayout ? 12 : (isCompactHeight ? 10 : 11),
             artistCapsuleWidth: artistCapsuleWidth,
-            artistCapsuleHeight: DeviceLayout.isPad ? 40 : 36,
-            streamInfoFont: DeviceLayout.isPad ? 11 : (isCompactHeight ? 9.5 : 10),
-            primaryTimeFont: DeviceLayout.isPad ? 18 : (isCompactHeight ? 15 : 16),
-            secondaryTimeFont: DeviceLayout.isPad ? 14 : 13,
-            timeRowWidth: min(titleBlockWidth, availableWidth * 0.80, DeviceLayout.isPad ? 360.0 : 280.0),
+            artistCapsuleHeight: DeviceLayout.usesExpandedLayout ? 40 : 36,
+            streamInfoFont: DeviceLayout.usesExpandedLayout ? 11 : (isCompactHeight ? 9.5 : 10),
+            primaryTimeFont: DeviceLayout.usesExpandedLayout ? 18 : (isCompactHeight ? 15 : 16),
+            secondaryTimeFont: DeviceLayout.usesExpandedLayout ? 14 : 13,
+            timeRowWidth: min(titleBlockWidth, availableWidth * 0.80, DeviceLayout.usesExpandedLayout ? 360.0 : 280.0),
             textColumnWidth: textColumnWidth,
             landscapeClusterWidth: landscapeClusterWidth,
             landscapeSpacing: isCompactHeight ? 20 : 28,
-            legendTitleFont: DeviceLayout.isPad ? 13 : (isCompactHeight ? 11 : 12),
-            legendBodyFont: DeviceLayout.isPad ? 12 : (isCompactHeight ? 10 : 11),
-            legendWidth: min(availableWidth * 0.88, DeviceLayout.isPad ? 460.0 : (isLandscape ? 360.0 : 320.0)),
+            legendTitleFont: DeviceLayout.usesExpandedLayout ? 13 : (isCompactHeight ? 11 : 12),
+            legendBodyFont: DeviceLayout.usesExpandedLayout ? 12 : (isCompactHeight ? 10 : 11),
+            legendWidth: min(availableWidth * 0.88, DeviceLayout.usesExpandedLayout ? 460.0 : (isLandscape ? 360.0 : 320.0)),
             feedbackOffsetY: -coreFootprintHeight * (isLandscape ? 0.42 : 0.72),
-            emptyStateFont: min(shortestSide * 0.09, DeviceLayout.isPad ? 48.0 : 38.0)
+            emptyStateFont: min(shortestSide * 0.09, DeviceLayout.usesExpandedLayout ? 48.0 : 38.0)
         )
     }
 }

@@ -192,7 +192,15 @@ extension CardPlayerLayout {
 extension CardPlayerLayout {
     @ViewBuilder
     func visualCard(geo: GeometryProxy) -> some View {
-        let width = geo.size.width - 40
+        let availableHeight = max(
+            220,
+            geo.size.height - DeviceLayout.safeAreaTop - DeviceLayout.safeAreaBottom - 410
+        )
+        let widthLimit = min(
+            max(220, geo.size.width - 40),
+            DeviceLayout.usesExpandedLayout ? 460 : 420
+        )
+        let width = min(widthLimit, availableHeight / 1.1)
         let height = width * 1.1
         
         ZStack {
@@ -413,7 +421,7 @@ extension CardPlayerLayout {
             }
         }
         .padding(24)
-        .frame(width: geo.size.width - 64)
+        .frame(width: min(geo.size.width - 64, 600))
         .monoGlass(cornerRadius: 24)
         .shadow(color: Color.black.opacity(0.1), radius: 15, x: 0, y: 8)
     }
@@ -525,7 +533,7 @@ extension CardPlayerLayout {
         .padding(.horizontal, 16)
         .padding(.top, 24) // Extra padding for overlap
         .padding(.bottom, 16)
-        .frame(width: geo.size.width - 80)
+        .frame(width: min(geo.size.width - 80, 600))
         .monoGlass(cornerRadius: 24)
         .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
     }

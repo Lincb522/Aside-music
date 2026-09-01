@@ -98,17 +98,17 @@ struct VinylPlayerLayout: View {
 
                     // 歌曲信息 — 左对齐
                     songInfoSection
-                        .padding(.horizontal, DeviceLayout.isPad ? 36 : 28)
+                        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 36 : 28)
                         .padding(.bottom, 12)
 
                     // 进度条
                     progressSection
-                        .padding(.horizontal, DeviceLayout.isPad ? 36 : 28)
+                        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 36 : 28)
                         .padding(.bottom, 20)
 
                     // 底部控制按钮 — 圆角矩形风格
                     controlsSection
-                        .padding(.horizontal, DeviceLayout.isPad ? 36 : 28)
+                        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 36 : 28)
                         .padding(.bottom, DeviceLayout.playerBottomPadding)
                 }
 
@@ -211,7 +211,7 @@ extension VinylPlayerLayout {
             }
             .buttonStyle(MonoBouncingButtonStyle())
         }
-        .padding(.horizontal, DeviceLayout.isPad ? 28 : 20)
+        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 28 : 20)
         .zIndex(1)
     }
 }

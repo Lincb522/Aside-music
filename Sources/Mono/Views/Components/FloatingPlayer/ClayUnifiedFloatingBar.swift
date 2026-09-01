@@ -76,7 +76,7 @@ struct ClayMiniPlayerStrip: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            HStack(spacing: DeviceLayout.isPad ? 10 : 6) {
+            HStack(spacing: DeviceLayout.usesExpandedLayout ? 10 : 6) {
                 CachedAsyncImage(url: song.coverUrl, width: 40, height: 40) {
                     RoundedRectangle(cornerRadius: 15, style: .continuous)
                         .fill(ClayStyle.creamPressed)
@@ -206,7 +206,8 @@ struct ClayDedicatedTabBar: View {
                     icon: tab.icon,
                     size: isSelected ? 16 : 18,
                     color: isSelected ? ClayStyle.ink : ClayStyle.inkMuted,
-                    lineWidth: isSelected ? 1.85 : 1.55
+                    lineWidth: isSelected ? 1.85 : 1.55,
+                    artworkContrastBackground: isSelected ? tint : nil
                 )
 
                 if isSelected {

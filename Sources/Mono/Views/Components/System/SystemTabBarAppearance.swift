@@ -134,12 +134,14 @@ final class SystemTabBarAppearanceController: UIViewController {
         tabBar.isTranslucent = true
 
         if #unavailable(iOS 26.0) {
-            if UIDevice.current.userInterfaceIdiom == .pad {
+            if tabBar.bounds.width >= 600 {
                 tabBar.itemPositioning = .centered
                 tabBar.itemWidth = 76
                 tabBar.itemSpacing = 18
             } else {
                 tabBar.itemPositioning = .fill
+                tabBar.itemWidth = 0
+                tabBar.itemSpacing = 0
             }
         }
 

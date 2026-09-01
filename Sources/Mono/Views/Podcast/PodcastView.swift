@@ -41,6 +41,23 @@ struct PodcastView: View {
         }
     }
 
+    private enum FeedSection: Hashable {
+        case header
+        case headerSupplement
+        case history
+        case banner
+        case categories
+        case personalized
+        case todayPreferred
+        case recommended
+        case newcomer
+        case newest
+        case chart
+        case programToplist
+        case broadcast
+        case bottomSpacer
+    }
+
     var body: some View {
         let _ = settings.globalThemeRevision
 
@@ -55,83 +72,13 @@ struct PodcastView: View {
                         minimalWhitePodcastScroll
                     } else {
                         ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 28) {
-                            if MangaStyle.isActive {
-                                mangaPodcastHeader
-                            } else if PetWhiteStyle.isActive {
-                                petWhitePodcastHeader
-                                petWhitePodcastSummary
-                            } else if MujiStyle.isActive {
-                                mujiPodcastHeader
-                                mujiPodcastSummary
-                            } else if NeumorphicStyle.isActive {
-                                neumorphicPodcastHeader
-                                neumorphicPodcastSummary
-                            } else if SignalStyle.isActive {
-                                signalPodcastHeader
-                            } else if SequoiaStyle.isActive {
-                                sequoiaPodcastHeader
-                                sequoiaPodcastSummary
-                            } else if LiquidGlassStyle.isActive {
-                                liquidGlassPodcastHeader
-                                liquidGlassPodcastConstellation
-                            } else if !ThemedPageStyle.isActive {
-                                asidePodcastHeader
+                            LazyVStack(alignment: .leading, spacing: 28) {
+                                ForEach(standardFeedSections, id: \.self) { section in
+                                    feedView(for: section)
+                                }
                             }
-
-                            PodcastHistorySection(onOpenRadio: openRadioPlayer)
-
-                            // DJ Banner 轮播
-                            if !viewModel.djBanners.isEmpty {
-                                bannerSection
-                            }
-
-                            // 分类标签（横向滚动胶囊）
-                            if !viewModel.categories.isEmpty {
-                                categoriesSection
-                            }
-
-                            // 为你推荐（大卡片，2列网格）
-                            if !viewModel.personalizedRadios.isEmpty {
-                                personalizedSection
-                            }
-
-                            // 今日优选
-                            if !viewModel.todayPerfered.isEmpty {
-                                todayPerferedSection
-                            }
-
-                            // 精选电台（列表样式）
-                            if !viewModel.recommendRadios.isEmpty {
-                                recommendSection
-                            }
-
-                            // 新人电台榜
-                            if !viewModel.newcomerRadios.isEmpty {
-                                newcomerSection
-                            }
-
-                            // 上新佳作
-                            if !viewModel.newestPrograms.isEmpty {
-                                newestSection
-                            }
-
-                            // 音乐播客榜
-                            if !viewModel.chartPrograms.isEmpty {
-                                chartSection
-                            }
-
-                            // 节目榜
-                            if !viewModel.programToplist.isEmpty {
-                                programToplistSection
-                            }
-
-                            // 广播电台（地区 FM）
-                            if !viewModel.broadcastChannels.isEmpty {
-                                broadcastSection
-                            }
-                        }
-                        .padding(.bottom, 120)
+                            .padding(.bottom, 120)
+                            .iPadContentWidth(1180)
                         }
                         .scrollIndicators(.hidden)
                         .themeRenderScrollLayer()
@@ -170,6 +117,183 @@ struct PodcastView: View {
         }
     }
 
+    private var standardFeedSections: [FeedSection] {
+        var sections: [FeedSection] = []
+
+        sections.append(contentsOf: standardFeedHeaderSections)
+        sections.append(.history)
+        if !viewModel.djBanners.isEmpty {
+            sections.append(.banner)
+        }
+        if !viewModel.categories.isEmpty {
+            sections.append(.categories)
+        }
+        if !viewModel.personalizedRadios.isEmpty {
+            sections.append(.personalized)
+        }
+        if !viewModel.todayPerfered.isEmpty {
+            sections.append(.todayPreferred)
+        }
+        if !viewModel.recommendRadios.isEmpty {
+            sections.append(.recommended)
+        }
+        if !viewModel.newcomerRadios.isEmpty {
+            sections.append(.newcomer)
+        }
+        if !viewModel.newestPrograms.isEmpty {
+            sections.append(.newest)
+        }
+        if !viewModel.chartPrograms.isEmpty {
+            sections.append(.chart)
+        }
+        if !viewModel.programToplist.isEmpty {
+            sections.append(.programToplist)
+        }
+        if !viewModel.broadcastChannels.isEmpty {
+            sections.append(.broadcast)
+        }
+
+        return sections
+    }
+
+    private var minimalWhiteFeedSections: [FeedSection] {
+        var sections: [FeedSection] = [.header]
+
+        if !viewModel.categories.isEmpty {
+            sections.append(.categories)
+        }
+        sections.append(.history)
+        if !viewModel.personalizedRadios.isEmpty {
+            sections.append(.personalized)
+        }
+        if !viewModel.todayPerfered.isEmpty {
+            sections.append(.todayPreferred)
+        }
+        if !viewModel.recommendRadios.isEmpty {
+            sections.append(.recommended)
+        }
+        if !viewModel.newestPrograms.isEmpty {
+            sections.append(.newest)
+        }
+        if !viewModel.chartPrograms.isEmpty {
+            sections.append(.chart)
+        }
+        if !viewModel.programToplist.isEmpty {
+            sections.append(.programToplist)
+        }
+        if !viewModel.broadcastChannels.isEmpty {
+            sections.append(.broadcast)
+        }
+        if !viewModel.djBanners.isEmpty {
+            sections.append(.banner)
+        }
+        sections.append(.bottomSpacer)
+
+        return sections
+    }
+
+    private var standardFeedHeaderSections: [FeedSection] {
+        if MangaStyle.isActive {
+            return [.header]
+        }
+        if PetWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive {
+            return [.header, .headerSupplement]
+        }
+        if SignalStyle.isActive {
+            return [.header]
+        }
+        if SequoiaStyle.isActive || LiquidGlassStyle.isActive {
+            return [.header, .headerSupplement]
+        }
+        if !ThemedPageStyle.isActive {
+            return [.header]
+        }
+        return []
+    }
+
+    private func feedView(for section: FeedSection) -> AnyView {
+        switch section {
+        case .header:
+            return feedHeader
+        case .headerSupplement:
+            return feedHeaderSupplement
+        case .history:
+            return AnyView(PodcastHistorySection(onOpenRadio: openRadioPlayer))
+        case .banner:
+            return AnyView(bannerSection)
+        case .categories:
+            return AnyView(categoriesSection)
+        case .personalized:
+            return AnyView(personalizedSection)
+        case .todayPreferred:
+            return AnyView(todayPerferedSection)
+        case .recommended:
+            return AnyView(recommendSection)
+        case .newcomer:
+            return AnyView(newcomerSection)
+        case .newest:
+            return AnyView(newestSection)
+        case .chart:
+            return AnyView(chartSection)
+        case .programToplist:
+            return AnyView(programToplistSection)
+        case .broadcast:
+            return AnyView(broadcastSection)
+        case .bottomSpacer:
+            return AnyView(FloatingBarBottomSpacer())
+        }
+    }
+
+    private var feedHeader: AnyView {
+        if MinimalWhiteStyle.isActive {
+            return AnyView(minimalWhitePodcastHeader)
+        }
+        if MangaStyle.isActive {
+            return AnyView(mangaPodcastHeader)
+        }
+        if PetWhiteStyle.isActive {
+            return AnyView(petWhitePodcastHeader)
+        }
+        if MujiStyle.isActive {
+            return AnyView(mujiPodcastHeader)
+        }
+        if NeumorphicStyle.isActive {
+            return AnyView(neumorphicPodcastHeader)
+        }
+        if SignalStyle.isActive {
+            return AnyView(signalPodcastHeader)
+        }
+        if SequoiaStyle.isActive {
+            return AnyView(sequoiaPodcastHeader)
+        }
+        if LiquidGlassStyle.isActive {
+            return AnyView(liquidGlassPodcastHeader)
+        }
+        if !ThemedPageStyle.isActive {
+            return AnyView(asidePodcastHeader)
+        }
+        return AnyView(EmptyView())
+    }
+
+    private var feedHeaderSupplement: AnyView {
+        if PetWhiteStyle.isActive {
+            return AnyView(petWhitePodcastSummary)
+        }
+        if MujiStyle.isActive {
+            return AnyView(mujiPodcastSummary)
+        }
+        if NeumorphicStyle.isActive {
+            return AnyView(neumorphicPodcastSummary)
+        }
+        if SequoiaStyle.isActive {
+            return AnyView(sequoiaPodcastSummary)
+        }
+        if LiquidGlassStyle.isActive {
+            return AnyView(liquidGlassPodcastConstellation)
+        }
+        return AnyView(EmptyView())
+    }
+
     func openRadioPlayer(_ radioId: Int) {
         guard radioId > 0 else { return }
         radioIdToOpen = radioId
@@ -179,49 +303,12 @@ struct PodcastView: View {
     var minimalWhitePodcastScroll: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 30) {
-                minimalWhitePodcastHeader
-
-                if !viewModel.categories.isEmpty {
-                    categoriesSection
+                ForEach(minimalWhiteFeedSections, id: \.self) { section in
+                    feedView(for: section)
                 }
-
-                PodcastHistorySection(onOpenRadio: openRadioPlayer)
-
-                if !viewModel.personalizedRadios.isEmpty {
-                    personalizedSection
-                }
-
-                if !viewModel.todayPerfered.isEmpty {
-                    todayPerferedSection
-                }
-
-                if !viewModel.recommendRadios.isEmpty {
-                    recommendSection
-                }
-
-                if !viewModel.newestPrograms.isEmpty {
-                    newestSection
-                }
-
-                if !viewModel.chartPrograms.isEmpty {
-                    chartSection
-                }
-
-                if !viewModel.programToplist.isEmpty {
-                    programToplistSection
-                }
-
-                if !viewModel.broadcastChannels.isEmpty {
-                    broadcastSection
-                }
-
-                if !viewModel.djBanners.isEmpty {
-                    bannerSection
-                }
-
-                FloatingBarBottomSpacer()
             }
             .padding(.top, DeviceLayout.headerTopPadding + 8)
+            .iPadContentWidth(1180)
         }
         .scrollIndicators(.hidden)
         .themeRenderScrollLayer()
@@ -295,21 +382,20 @@ struct PodcastView: View {
         .monoPageHeaderCollapse()
     }
 
-    @ViewBuilder
-    func podcastDestinationView(for destination: PodcastDestination) -> some View {
+    func podcastDestinationView(for destination: PodcastDestination) -> AnyView {
         switch destination {
         case let .category(cat):
-            CategoryRadioView(category: cat)
+            return AnyView(CategoryRadioView(category: cat))
         case let .radioDetail(radioId):
-            RadioDetailView(radioId: radioId)
+            return AnyView(RadioDetailView(radioId: radioId))
         case .search:
-            PodcastSearchView()
+            return AnyView(PodcastSearchView())
         case let .topList(title, listType):
-            TopRadioListView(title: title, listType: listType)
+            return AnyView(TopRadioListView(title: title, listType: listType))
         case .categoryBrowse:
-            RadioCategoryBrowseView()
+            return AnyView(RadioCategoryBrowseView())
         case .broadcastList:
-            BroadcastListView()
+            return AnyView(BroadcastListView())
         }
     }
 

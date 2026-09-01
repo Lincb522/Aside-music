@@ -74,6 +74,7 @@ struct BroadcastListView: View {
             .themeRenderScrollLayer()
                 }
             }
+            .iPadContentWidth(900)
         }
         .themedNavigationChrome(title: SignalStyle.isActive ? "" : NSLocalizedString("broadcast_title", comment: ""), eyebrow: "RADIO", icon: .radio)
         .navigationBarTitleDisplayMode(.inline)

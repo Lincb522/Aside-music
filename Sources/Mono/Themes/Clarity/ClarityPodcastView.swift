@@ -50,6 +50,23 @@ struct ClarityPodcastView: View {
         }
     }
 
+    private enum FeedSection: Hashable {
+        case header
+        case feature
+        case history
+        case forYou
+        case today
+        case featured
+        case latest
+        case chart
+        case newcomer
+        case programToplist
+        case premium
+        case banner
+        case broadcast
+        case bottomSpacer
+    }
+
     var body: some View {
         GeometryReader { geometry in
             let metrics = LayoutMetrics(width: geometry.size.width, height: geometry.size.height)
@@ -63,59 +80,9 @@ struct ClarityPodcastView: View {
                     } else {
                         ScrollView {
                             LazyVStack(alignment: .leading, spacing: metrics.sectionSpacing) {
-                                header(metrics: metrics)
-
-                                if let lead = leadRadio {
-                                    featureShell(lead, metrics: metrics)
+                                ForEach(feedSections, id: \.self) { section in
+                                    feedView(for: section, metrics: metrics)
                                 }
-
-                                historySection(metrics: metrics)
-
-                                if !model.rcmdPrograms.isEmpty {
-                                    creativeRail(
-                                        title: String(localized: "podcast_for_you"),
-                                        items: model.rcmdPrograms,
-                                        metrics: metrics
-                                    )
-                                } else {
-                                    radioRail(
-                                        title: String(localized: "podcast_for_you"),
-                                        radios: model.personalizedRadios,
-                                        metrics: metrics
-                                    )
-                                }
-
-                                radioRail(
-                                    title: String(localized: "podcast_today_pick"),
-                                    radios: model.todayPerfered,
-                                    metrics: metrics
-                                )
-
-                                radioRail(
-                                    title: String(localized: "podcast_featured"),
-                                    radios: model.recommendRadios,
-                                    metrics: metrics
-                                )
-
-                                creativeRail(
-                                    title: String(localized: "podcast_latest_voices"),
-                                    items: model.newestPrograms,
-                                    metrics: metrics
-                                )
-
-                                creativeChart(metrics: metrics)
-                                newcomerSection(metrics: metrics)
-                                programToplist(metrics: metrics)
-
-                                radioRail(
-                                    title: String(localized: "podcast_premium"),
-                                    radios: model.paygiftRadios,
-                                    metrics: metrics
-                                )
-
-                                bannerRail(metrics: metrics)
-                                broadcastSection(metrics: metrics)
-                                FloatingBarBottomSpacer()
                             }
                             .frame(maxWidth: metrics.maximumContentWidth)
                             .frame(maxWidth: .infinity)
@@ -190,6 +157,101 @@ struct ClarityPodcastView: View {
             ?? model.personalizedRadios.first
             ?? model.hotRadios.first
             ?? model.recommendRadios.first
+    }
+
+    private var feedSections: [FeedSection] {
+        var sections: [FeedSection] = [.header]
+        if leadRadio != nil {
+            sections.append(.feature)
+        }
+        sections.append(contentsOf: [
+            .history,
+            .forYou,
+            .today,
+            .featured,
+            .latest,
+            .chart,
+            .newcomer,
+            .programToplist,
+            .premium,
+            .banner,
+            .broadcast,
+            .bottomSpacer,
+        ])
+        return sections
+    }
+
+    private func feedView(for section: FeedSection, metrics: LayoutMetrics) -> AnyView {
+        switch section {
+        case .header:
+            return AnyView(header(metrics: metrics))
+        case .feature:
+            guard let leadRadio else { return AnyView(EmptyView()) }
+            return AnyView(featureShell(leadRadio, metrics: metrics))
+        case .history:
+            return AnyView(historySection(metrics: metrics))
+        case .forYou:
+            if !model.rcmdPrograms.isEmpty {
+                return AnyView(
+                    creativeRail(
+                        title: String(localized: "podcast_for_you"),
+                        items: model.rcmdPrograms,
+                        metrics: metrics
+                    )
+                )
+            }
+            return AnyView(
+                radioRail(
+                    title: String(localized: "podcast_for_you"),
+                    radios: model.personalizedRadios,
+                    metrics: metrics
+                )
+            )
+        case .today:
+            return AnyView(
+                radioRail(
+                    title: String(localized: "podcast_today_pick"),
+                    radios: model.todayPerfered,
+                    metrics: metrics
+                )
+            )
+        case .featured:
+            return AnyView(
+                radioRail(
+                    title: String(localized: "podcast_featured"),
+                    radios: model.recommendRadios,
+                    metrics: metrics
+                )
+            )
+        case .latest:
+            return AnyView(
+                creativeRail(
+                    title: String(localized: "podcast_latest_voices"),
+                    items: model.newestPrograms,
+                    metrics: metrics
+                )
+            )
+        case .chart:
+            return AnyView(creativeChart(metrics: metrics))
+        case .newcomer:
+            return AnyView(newcomerSection(metrics: metrics))
+        case .programToplist:
+            return AnyView(programToplist(metrics: metrics))
+        case .premium:
+            return AnyView(
+                radioRail(
+                    title: String(localized: "podcast_premium"),
+                    radios: model.paygiftRadios,
+                    metrics: metrics
+                )
+            )
+        case .banner:
+            return AnyView(bannerRail(metrics: metrics))
+        case .broadcast:
+            return AnyView(broadcastSection(metrics: metrics))
+        case .bottomSpacer:
+            return AnyView(FloatingBarBottomSpacer())
+        }
     }
 
     private func featureShell(_ radio: RadioStation, metrics: LayoutMetrics) -> some View {

@@ -4,50 +4,52 @@ import SwiftUI
 
 struct SettingsIconBadge: View {
     let icon: MonoIcon.IconType
+    var artwork: MonoGlyphSemantic? = nil
     @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.developerDiagnosticStyle) private var developerDiagnosticStyle
 
     var body: some View {
         let _ = settings.globalThemeRevision
-        if developerDiagnosticStyle {
-            MonoIcon(
+        Group {
+            if developerDiagnosticStyle {
+                MonoIcon(
                 icon: icon,
                 size: 14,
                 color: .cyan,
                 lineWidth: 1.6
-            )
-            .frame(width: 32, height: 32)
-            .background(Color.cyan.opacity(0.1))
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(Color.white.opacity(0.06), lineWidth: 0.7)
-            }
-        } else if ClarityStyle.isActive {
-            MonoIcon(
+                )
+                .frame(width: 32, height: 32)
+                .background(Color.cyan.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(Color.white.opacity(0.06), lineWidth: 0.7)
+                }
+            } else if ClarityStyle.isActive {
+                MonoIcon(
                 icon: icon,
                 size: 15,
                 color: ClarityStyle.ink,
                 lineWidth: 1.5
-            )
-            .frame(width: 34, height: 34)
-            .background(ClarityMembrane(shape: Circle(), strength: .quiet))
-        } else if MinimalWhiteStyle.isActive {
-            MonoIcon(
+                )
+                .frame(width: 34, height: 34)
+                .background(ClarityMembrane(shape: Circle(), strength: .quiet))
+            } else if MinimalWhiteStyle.isActive {
+                MonoIcon(
                 icon: icon,
                 size: 14,
                 color: MinimalWhiteStyle.inkSoft,
                 lineWidth: 1.55
-            )
-            .frame(width: 32, height: 32)
-            .background(
-                MinimalWhiteSurfaceBackground(
-                    cornerRadius: MinimalWhiteStyle.compactRadius,
-                    elevated: false,
-                    tint: MinimalWhiteStyle.controlGlassFill
                 )
-            )
-        } else if MangaStyle.isActive {
+                .frame(width: 32, height: 32)
+                .background(
+                    MinimalWhiteSurfaceBackground(
+                        cornerRadius: MinimalWhiteStyle.compactRadius,
+                        elevated: false,
+                        tint: MinimalWhiteStyle.controlGlassFill
+                    )
+                )
+            } else if MangaStyle.isActive {
             // 周刊印刷：单色墨线图标，不再上彩色底章
             MonoIcon(
                 icon: icon,
@@ -56,16 +58,16 @@ struct SettingsIconBadge: View {
                 lineWidth: 1.8
             )
             .frame(width: 32, height: 32)
-        } else if NeumorphicStyle.isActive {
+            } else if NeumorphicStyle.isActive {
             NeumorphicIconBadge(icon: icon, tint: NeumorphicStyle.accent, size: 32)
-        } else if SignalStyle.isActive {
+            } else if SignalStyle.isActive {
             MonoIcon(icon: icon, size: 15, color: SignalStyle.accent, lineWidth: 1.6)
                 .frame(width: 32, height: 32)
-        } else if CapsuleStyle.isActive {
+            } else if CapsuleStyle.isActive {
             CapsuleIconBadge(icon: icon, tint: CapsuleStyle.accent, size: 32)
-        } else if PetWhiteStyle.isActive {
+            } else if PetWhiteStyle.isActive {
             PetWhiteIconBadge(icon: icon, tint: petWhiteSettingsIconTint, size: 36)
-        } else if BentoStyle.isActive {
+            } else if BentoStyle.isActive {
             RoundedRectangle(cornerRadius: 11, style: .continuous)
                 .fill(BentoStyle.tomato.opacity(0.14))
                 .frame(width: 32, height: 32)
@@ -76,9 +78,9 @@ struct SettingsIconBadge: View {
                     RoundedRectangle(cornerRadius: 11, style: .continuous)
                         .stroke(BentoStyle.hairline.opacity(0.58), lineWidth: 0.65)
                 )
-        } else if SequoiaStyle.isActive {
+            } else if SequoiaStyle.isActive {
             SequoiaIconBadge(icon: icon, tint: SequoiaStyle.accent, size: 32)
-        } else if MujiStyle.isActive {
+            } else if MujiStyle.isActive {
             Circle()
                 .fill(MujiStyle.wash(MujiStyle.clay, strength: 1.25))
                 .frame(width: 31, height: 31)
@@ -90,7 +92,7 @@ struct SettingsIconBadge: View {
                         lineWidth: 1.5
                     )
                 )
-        } else if GlobalThemeId.persistedOrDefault == .default {
+            } else if GlobalThemeId.persistedOrDefault == .default {
             ZStack {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(Color.monoAccent.opacity(0.1))
@@ -107,7 +109,7 @@ struct SettingsIconBadge: View {
                 )
             }
             .frame(width: 34, height: 34)
-        } else {
+            } else {
             ZStack {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(Color.monoAccent.opacity(0.14))
@@ -122,7 +124,9 @@ struct SettingsIconBadge: View {
                     lineWidth: 1.6
                 )
             }
+            }
         }
+        .monoIconArtwork(artwork?.rawValue)
     }
 
     private var petWhiteSettingsIconTint: Color {
@@ -487,6 +491,7 @@ struct SettingsSwitchToggleStyle: ToggleStyle {
 
 struct SettingsToggleRow: View {
     let icon: MonoIcon.IconType
+    var artwork: MonoGlyphSemantic? = nil
     let title: String
     let subtitle: String?
     @Binding var isOn: Bool
@@ -506,7 +511,7 @@ struct SettingsToggleRow: View {
 
     private var rowLabel: some View {
         HStack(spacing: 12) {
-            SettingsIconBadge(icon: icon)
+            SettingsIconBadge(icon: icon, artwork: artwork)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
@@ -548,6 +553,7 @@ struct SettingsToggleRow: View {
 
 struct SettingsNavigationRow: View {
     let icon: MonoIcon.IconType
+    var artwork: MonoGlyphSemantic?
     let title: String
     var subtitle: String?
     var subtitleColor: Color?
@@ -555,15 +561,17 @@ struct SettingsNavigationRow: View {
     let action: () -> Void
     @Environment(\.developerDiagnosticStyle) private var developerDiagnosticStyle
 
-    init(icon: MonoIcon.IconType, title: String, value: String, action: @escaping () -> Void) {
+    init(icon: MonoIcon.IconType, artwork: MonoGlyphSemantic? = nil, title: String, value: String, action: @escaping () -> Void) {
         self.icon = icon
+        self.artwork = artwork
         self.title = title
         self.value = value
         self.action = action
     }
 
-    init(icon: MonoIcon.IconType, title: String, subtitle: String? = nil, subtitleColor: Color? = nil, action: @escaping () -> Void) {
+    init(icon: MonoIcon.IconType, artwork: MonoGlyphSemantic? = nil, title: String, subtitle: String? = nil, subtitleColor: Color? = nil, action: @escaping () -> Void) {
         self.icon = icon
+        self.artwork = artwork
         self.title = title
         self.subtitle = subtitle
         self.subtitleColor = subtitleColor
@@ -573,7 +581,7 @@ struct SettingsNavigationRow: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 12) {
-                SettingsIconBadge(icon: icon)
+                SettingsIconBadge(icon: icon, artwork: artwork)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
@@ -623,6 +631,7 @@ struct SettingsNavigationRow: View {
 
 struct SettingsRouteLinkRow: View {
     let icon: MonoIcon.IconType
+    var artwork: MonoGlyphSemantic? = nil
     let title: String
     var subtitle: String? = nil
     var value: String? = nil
@@ -636,7 +645,7 @@ struct SettingsRouteLinkRow: View {
             destination.view
         } label: {
             HStack(spacing: 12) {
-                SettingsIconBadge(icon: icon)
+                SettingsIconBadge(icon: icon, artwork: artwork)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
@@ -680,6 +689,7 @@ struct SettingsRouteLinkRow: View {
 
 struct SettingsLinkRow<Destination: View>: View {
     let icon: MonoIcon.IconType
+    var artwork: MonoGlyphSemantic? = nil
     let title: String
     var subtitle: String? = nil
     var value: String? = nil
@@ -692,7 +702,7 @@ struct SettingsLinkRow<Destination: View>: View {
             destination: destination
         ) {
             HStack(spacing: 12) {
-                SettingsIconBadge(icon: icon)
+                SettingsIconBadge(icon: icon, artwork: artwork)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)

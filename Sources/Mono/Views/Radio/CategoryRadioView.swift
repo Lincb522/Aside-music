@@ -87,7 +87,8 @@ struct CategoryRadioView: View {
                     .padding(.bottom, 120)
                 }
                 .scrollIndicators(.hidden)
-            .themeRenderScrollLayer()
+                .themeRenderScrollLayer()
+                .iPadContentWidth(900)
             }
         }
         .themedNavigationChrome(title: SignalStyle.isActive ? "" : category.name, eyebrow: "RADIO", icon: .radio)

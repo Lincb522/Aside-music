@@ -19,16 +19,16 @@ extension ClassicPlayerLayout {
             .animation(.spring(response: 0.42, dampingFraction: 0.86), value: showLyrics)
 
             neumorphicTransportConsole
-                .padding(.horizontal, DeviceLayout.isPad ? DeviceLayout.playerHorizontalPadding : 14)
+                .padding(.horizontal, DeviceLayout.usesExpandedLayout ? DeviceLayout.playerHorizontalPadding : 14)
                 .padding(.bottom, DeviceLayout.playerBottomSafePadding)
         }
         .themeRenderSceneLayer()
     }
 
     func neumorphicListeningConsole(geometry: GeometryProxy) -> some View {
-        let horizontalPadding = DeviceLayout.isPad ? DeviceLayout.playerHorizontalPadding : 18
+        let horizontalPadding = DeviceLayout.usesExpandedLayout ? DeviceLayout.playerHorizontalPadding : 18
         let availableWidth = geometry.size.width - horizontalPadding * 2
-        let artSize = min(DeviceLayout.isPad ? 220 : 168, max(132, availableWidth * 0.42))
+        let artSize = min(DeviceLayout.usesExpandedLayout ? 220 : 168, max(132, availableWidth * 0.42))
 
         return VStack(spacing: 12) {
             neumorphicArtworkStage(artSize: artSize)

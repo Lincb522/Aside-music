@@ -1,0 +1,59 @@
+#!/bin/sh
+set -eu
+
+root="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+catalog="$root/Sources/MonoGlyphIcons/icons.xcassets"
+sets="$(find "$catalog" -maxdepth 1 -type d -name '*.imageset' | wc -l | tr -d ' ')"
+pngs="$(find "$catalog" -type f -name '*.png' | wc -l | tr -d ' ')"
+
+[ "$sets" = 233 ]
+[ "$pngs" = 466 ]
+[ -f "$catalog/Contents.json" ]
+
+python="${MONO_GLYPH_PYTHON:-$HOME/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3}"
+[ -x "$python" ] || python=/usr/bin/python3
+
+"$python" - "$catalog" "$root/../../../Design/IconSystems/MonoGlyph/slicing-report.json" <<'PY'
+import json
+import pathlib
+import sys
+
+from PIL import Image
+
+catalog = pathlib.Path(sys.argv[1])
+report_path = pathlib.Path(sys.argv[2]).resolve()
+report = json.loads(report_path.read_text())
+assert report["semanticCount"] == 233
+assert report["assetCount"] == 466
+
+seen = set()
+for image_set in catalog.glob("*.imageset"):
+    semantic = image_set.stem
+    contents = json.loads((image_set / "Contents.json").read_text())
+    images = contents["images"]
+    light = next(image for image in images if image.get("filename") == f"{semantic}.png")
+    dark = next(image for image in images if image.get("filename") == f"{semantic}_dark.png")
+    assert light.get("appearances") is None
+    assert dark.get("appearances") == [{"appearance": "luminosity", "value": "dark"}]
+    for filename in (f"{semantic}.png", f"{semantic}_dark.png"):
+        image = Image.open(image_set / filename).convert("RGBA")
+        assert image.size == (128, 128)
+        bbox = image.getchannel("A").point(lambda value: 255 if value > 8 else 0).getbbox()
+        assert bbox is not None
+        left, top, right, bottom = bbox
+        assert min(left, top, 128 - right, 128 - bottom) >= 8
+        assert max(right - left, bottom - top) >= 102
+        assert max(right - left, bottom - top) <= 110
+        assert abs((left + right) / 2 - 64) <= 1.5
+        assert abs((top + bottom) / 2 - 64) <= 1.5
+        seen.add((semantic, filename))
+
+assert len(seen) == 466
+PY
+
+find "$catalog" -type f -name '*.png' -print0 | xargs -0 file | awk '
+/PNG image data, 128 x 128,/ { valid++ }
+END { if (valid != 466) exit 1 }
+'
+
+printf 'MonoGlyphIcons: %s semantics, %s PNG variants\n' "$sets" "$pngs"

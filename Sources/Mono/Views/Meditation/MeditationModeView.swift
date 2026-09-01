@@ -20,6 +20,7 @@ struct MeditationModeView: View {
                 }
                 .padding(.top, PetWhiteStyle.isActive || ThemedPageStyle.isActive ? 0 : 12)
                 .padding(.bottom, 20)
+                .iPadContentWidth(1000)
             }
             .scrollIndicators(.hidden)
             .themeRenderScrollLayer()

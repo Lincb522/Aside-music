@@ -8,7 +8,7 @@ extension PlaylistDetailView {
                     NeumorphicStyle.surfacePressed
                 }
                 .aspectRatio(contentMode: .fill)
-                .frame(width: DeviceLayout.isPad ? 172 : 128, height: DeviceLayout.isPad ? 172 : 128)
+                .frame(width: DeviceLayout.usesExpandedLayout ? 172 : 128, height: DeviceLayout.usesExpandedLayout ? 172 : 128)
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .background(NeumorphicSurfaceBackground(cornerRadius: 24, elevated: true))
                 .overlay(
@@ -25,7 +25,7 @@ extension PlaylistDetailView {
                     }
 
                     Text(viewModel.playlistDetail?.name ?? playlist.name)
-                        .font(NeumorphicStyle.titleFont(DeviceLayout.isPad ? 28 : 23, weight: .semibold))
+                        .font(NeumorphicStyle.titleFont(DeviceLayout.usesExpandedLayout ? 28 : 23, weight: .semibold))
                         .foregroundColor(NeumorphicStyle.ink)
                         .lineLimit(3)
                         .fixedSize(horizontal: false, vertical: true)
@@ -88,8 +88,8 @@ extension PlaylistDetailView {
         }
         .padding(17)
         .background(NeumorphicSurfaceBackground(cornerRadius: 26, elevated: true))
-        .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
-        .padding(.top, DeviceLayout.isPad ? 28 : 18)
+        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 40 : 20)
+        .padding(.top, DeviceLayout.usesExpandedLayout ? 28 : 18)
         .padding(.bottom, 12)
         .iPadContentWidth(900)
         .confirmationDialog(String(localized: "playlist_collect"), isPresented: $showCollectOptions, titleVisibility: .visible) {
@@ -181,7 +181,7 @@ extension PlaylistDetailView {
             }
             .aspectRatio(contentMode: .fill)
             .frame(maxWidth: .infinity)
-            .frame(height: DeviceLayout.isPad ? 300 : 216)
+            .frame(height: DeviceLayout.usesExpandedLayout ? 300 : 216)
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .shadow(color: MujiStyle.ink.opacity(0.08), radius: 12, x: 0, y: 6)
             .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
@@ -190,7 +190,7 @@ extension PlaylistDetailView {
             // 标题与署名
             VStack(alignment: .leading, spacing: 8) {
                 Text(viewModel.playlistDetail?.name ?? playlist.name)
-                    .font(MujiStyle.titleFont(DeviceLayout.isPad ? 30 : 26, weight: .regular))
+                    .font(MujiStyle.titleFont(DeviceLayout.usesExpandedLayout ? 30 : 26, weight: .regular))
                     .foregroundStyle(MujiStyle.ink)
                     .lineSpacing(4)
                     .lineLimit(3)
@@ -300,7 +300,7 @@ extension PlaylistDetailView {
                 .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                 .padding(.top, 18)
         }
-        .padding(.top, DeviceLayout.isPad ? 24 : 14)
+        .padding(.top, DeviceLayout.usesExpandedLayout ? 24 : 14)
         .padding(.bottom, 12)
         .iPadContentWidth(900)
         .confirmationDialog(String(localized: "playlist_collect"), isPresented: $showCollectOptions, titleVisibility: .visible) {

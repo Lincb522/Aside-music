@@ -26,6 +26,15 @@ enum AIEqualizerWorkspace: String, CaseIterable, Identifiable {
         case .history: return .history
         }
     }
+
+    var monoGlyphSemantic: MonoGlyphSemantic {
+        switch self {
+        case .tuning: return .aiTuningWorkspace
+        case .measurement: return .aiMeasurementWorkspace
+        case .result: return .aiResultWorkspace
+        case .history: return .aiHistoryWorkspace
+        }
+    }
 }
 
 struct AIEqualizerComparisonChange: Identifiable {

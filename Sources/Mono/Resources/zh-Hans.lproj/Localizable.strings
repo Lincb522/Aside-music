@@ -166,6 +166,7 @@
 "player_theme_console_name" = "控制台";
 "player_theme_console_description" = "黑绿终端界面、分段进度与实时信号";
 "immersive_bg_title" = "视频背景";
+"immersive_bg_adaptive_glass_lyrics" = "视频背景自适应玻璃字幕";
 "immersive_bg_import_failed" = "导入失败";
 "immersive_bg_bind_target" = "绑定到";
 "immersive_bg_target_song" = "当前歌曲";

@@ -85,7 +85,7 @@ struct DotMatrixPlayerLayout: View {
             let metrics = DotMatrixMetrics(
                 size: proxy.size,
                 headerTopPadding: DeviceLayout.headerTopPadding,
-                isPad: DeviceLayout.isPad
+                isPad: DeviceLayout.usesExpandedLayout
             )
 
             ZStack {

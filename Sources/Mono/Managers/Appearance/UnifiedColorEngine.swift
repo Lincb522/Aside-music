@@ -423,27 +423,32 @@ struct UnifiedColorAmbientLayer: View {
 
     @ViewBuilder
     var body: some View {
-        let paletteLayer = DynamicCoverPaletteLayer(
-            colors: engine.ambientColors,
-            opacity: resolvedOpacity
-        )
-
-        if appliesAdditionalBlur {
-            paletteLayer
-                .blur(radius: engine.hasArtworkPalette ? 34 : 52)
-                .saturation(engine.mode == .artwork ? 1.06 : 0.9)
-                .animation(.easeOut(duration: 0.5), value: engine.revision)
+        if resolvedOpacity <= 0 {
+            Color.clear
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
         } else {
-            // DynamicCoverPaletteLayer already uses feathered radial gradients.
-            // Clarity renders those gradients directly to avoid a second
-            // viewport-sized blur texture while retaining the complete palette.
-            paletteLayer
-                .saturation(engine.mode == .artwork ? 1.06 : 0.9)
-                .animation(.easeOut(duration: 0.5), value: engine.revision)
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
+            let paletteLayer = DynamicCoverPaletteLayer(
+                colors: engine.ambientColors,
+                opacity: resolvedOpacity
+            )
+
+            if appliesAdditionalBlur {
+                paletteLayer
+                    .blur(radius: engine.hasArtworkPalette ? 34 : 52)
+                    .saturation(engine.mode == .artwork ? 1.06 : 0.9)
+                    .animation(.easeOut(duration: 0.5), value: engine.revision)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            } else {
+                // DynamicCoverPaletteLayer already feathers its radial gradients;
+                // opted-out themes avoid a second viewport-sized blur texture.
+                paletteLayer
+                    .saturation(engine.mode == .artwork ? 1.06 : 0.9)
+                    .animation(.easeOut(duration: 0.5), value: engine.revision)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
         }
     }
 

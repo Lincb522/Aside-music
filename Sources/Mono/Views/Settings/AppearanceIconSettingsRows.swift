@@ -20,7 +20,7 @@ struct SettingsAppBrandRow: View {
             } label: {
                 HStack(spacing: 12) {
                     SettingsIconBadge(icon: .sparkle)
-                        .monoIconPulseBloomArtwork("appBrand")
+                        .monoIconArtwork("appBrand")
 
                     VStack(alignment: .leading, spacing: 3) {
                         Text(title)
@@ -127,7 +127,7 @@ struct SettingsInterfaceIconSetRow: View {
             } label: {
                 HStack(spacing: 12) {
                     SettingsIconBadge(icon: .gridSquare)
-                        .monoIconPulseBloomArtwork("interfaceIconSet")
+                        .monoIconArtwork("interfaceIconSet")
 
                     VStack(alignment: .leading, spacing: 3) {
                         Text(title)
@@ -336,7 +336,7 @@ struct InterfaceIconSetOptionCard: View {
 
     private var previewIconSize: CGFloat {
         switch iconSet {
-        case .iconExport, .doodlePop, .pawPrint, .dotDogSnake, .minimalWhiteIcons, .pulseBloom:
+        case .doodlePop, .pawPrint, .dotDogSnake, .minimalWhiteIcons, .pulseBloom, .monoGlyph:
             return 18
         case .blobIcons:
             return 17
@@ -349,7 +349,7 @@ struct InterfaceIconSetOptionCard: View {
         switch iconSet {
         case .minimalWhiteIcons:
             return 1.02
-        case .pulseBloom:
+        case .pulseBloom, .monoGlyph:
             return 1
         case .doodlePop, .pawPrint, .dotDogSnake:
             switch icon {
@@ -360,8 +360,6 @@ struct InterfaceIconSetOptionCard: View {
             default:
                 return 1.08
             }
-        case .iconExport:
-            return 1.08
         case .hicon, .sfSymbols, .zappicon, .lucide, .solar, .blobIcons:
             return 1
         }

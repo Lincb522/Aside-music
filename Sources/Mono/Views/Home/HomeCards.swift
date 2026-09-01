@@ -157,7 +157,7 @@ struct SongCard: View {
                             .fill(Color.monoSeparator)
                     }
                     .aspectRatio(contentMode: .fill)
-                    .frame(width: DeviceLayout.isPad ? 180 : 140, height: DeviceLayout.isPad ? 180 : 140)
+                    .frame(width: DeviceLayout.usesExpandedLayout ? 180 : 140, height: DeviceLayout.usesExpandedLayout ? 180 : 140)
                     .clipShape(RoundedRectangle(cornerRadius: MujiStyle.isActive ? 6 : 18, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: MujiStyle.isActive ? 6 : 18, style: .continuous).stroke(MujiStyle.isActive ? MujiStyle.hairline.opacity(0.45) : Color.clear, lineWidth: 0.6))
 
@@ -169,7 +169,7 @@ struct SongCard: View {
                             .padding(6)
                     }
                 }
-                .frame(width: DeviceLayout.isPad ? 180 : 140, height: DeviceLayout.isPad ? 180 : 140)
+                .frame(width: DeviceLayout.usesExpandedLayout ? 180 : 140, height: DeviceLayout.usesExpandedLayout ? 180 : 140)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(song.name)
@@ -182,7 +182,7 @@ struct SongCard: View {
                         .lineLimit(1)
                 }
             }
-            .frame(width: DeviceLayout.isPad ? 180 : 140)
+            .frame(width: DeviceLayout.usesExpandedLayout ? 180 : 140)
         }
         .buttonStyle(MonoBouncingButtonStyle())
     }
@@ -201,7 +201,7 @@ struct PlaylistVerticalCard: View {
                         .fill(Color.monoSeparator)
                 }
                 .aspectRatio(contentMode: .fill)
-                .frame(width: DeviceLayout.isPad ? 190 : 150, height: DeviceLayout.isPad ? 190 : 150)
+                .frame(width: DeviceLayout.usesExpandedLayout ? 190 : 150, height: DeviceLayout.usesExpandedLayout ? 190 : 150)
                 .clipped()
                 .clipShape(RoundedRectangle(cornerRadius: MujiStyle.isActive ? 6 : 18, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: MujiStyle.isActive ? 6 : 18, style: .continuous).stroke(MujiStyle.isActive ? MujiStyle.hairline.opacity(0.45) : Color.clear, lineWidth: 0.6))
@@ -220,14 +220,14 @@ struct PlaylistVerticalCard: View {
                     .padding(8)
                 }
             }
-            .frame(width: DeviceLayout.isPad ? 190 : 150, height: DeviceLayout.isPad ? 190 : 150)
+            .frame(width: DeviceLayout.usesExpandedLayout ? 190 : 150, height: DeviceLayout.usesExpandedLayout ? 190 : 150)
 
             Text(playlist.name)
                 .font(MujiStyle.isActive ? MujiStyle.bodyFont(13, weight: .regular) : .system(size: 13, weight: .semibold, design: .rounded))
                 .foregroundColor(.monoTextPrimary)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
-                .frame(width: DeviceLayout.isPad ? 190 : 150, alignment: .leading)
+                .frame(width: DeviceLayout.usesExpandedLayout ? 190 : 150, alignment: .leading)
                 .frame(height: 34, alignment: .top)
         }
     }

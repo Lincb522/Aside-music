@@ -5,8 +5,8 @@ import SwiftUI
 
 @MainActor
 enum HomeCinemaStyle {
-    static var posterWidth: CGFloat { DeviceLayout.isPad ? 172 : 140 }
-    static var posterBlockHeight: CGFloat { DeviceLayout.isPad ? 82 : 66 }
+    static var posterWidth: CGFloat { DeviceLayout.usesExpandedLayout ? 172 : 140 }
+    static var posterBlockHeight: CGFloat { DeviceLayout.usesExpandedLayout ? 82 : 66 }
     static var posterHeight: CGFloat { posterWidth + posterBlockHeight }
     static var posterCorner: CGFloat { SignalStyle.isActive ? SignalStyle.cardRadius : 14 }
     static var heroHeight: CGFloat { DeviceLayout.bannerHeight }
@@ -313,7 +313,7 @@ struct CinemaHeroCarousel: View {
     }
 
     private func heroCard(_ banner: Banner) -> some View {
-        let corner: CGFloat = DeviceLayout.isPad ? 22 : 18
+        let corner: CGFloat = DeviceLayout.usesExpandedLayout ? 22 : 18
 
         return ZStack(alignment: .topLeading) {
             // Wide banner shown in full at its natural height — no side cropping

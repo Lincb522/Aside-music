@@ -261,6 +261,8 @@ Packages/Audio/ffmpeg-swift/scripts/*
 *.pdf
 *.json
 !Sources/Mono/Resources/mono_audio_tuning_knowledge.json
+!Packages/Icons/MonoGlyphIcons/**/*.json
+!Design/IconSystems/MonoGlyph/manifest.json
 /artifacts/web-reverse
 __pycache__/
 *.pyc

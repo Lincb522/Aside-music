@@ -231,11 +231,7 @@ extension SearchView {
     }
 
     func mvsResultList(mvs: [MV]) -> some View {
-        let columns = [
-            GridItem(.flexible(), spacing: 14),
-            GridItem(.flexible(), spacing: 14),
-        ]
-        return LazyVGrid(columns: columns, spacing: 16) {
+        LazyVGrid(columns: searchMediaGridColumns, spacing: 16) {
             ForEach(mvs.prefix(4)) { mv in
                 MVGridCard(mv: mv) {
                     selectedMVId = MVIdItem(id: mv.id)
@@ -250,11 +246,7 @@ extension SearchView {
     // MARK: - QQ MV 结果列表
 
     func qqMVsResultList(mvs: [QQMV]) -> some View {
-        let columns = [
-            GridItem(.flexible(), spacing: 14),
-            GridItem(.flexible(), spacing: 14),
-        ]
-        return LazyVGrid(columns: columns, spacing: 16) {
+        LazyVGrid(columns: searchMediaGridColumns, spacing: 16) {
             ForEach(mvs.prefix(4)) { mv in
                 qqMVGridCard(mv: mv)
             }
@@ -390,11 +382,7 @@ extension SearchView {
     // MARK: - 展开 QQ MV 列表
 
     var expandedQQMVsList: some View {
-        let columns = [
-            GridItem(.flexible(), spacing: 18),
-            GridItem(.flexible(), spacing: 18),
-        ]
-        return LazyVGrid(columns: columns, spacing: 22) {
+        LazyVGrid(columns: searchMediaGridColumns, spacing: 22) {
             ForEach(Array(viewModel.qqMVResults.enumerated()), id: \.element.id) { index, mv in
                 qqMVGridCard(mv: mv)
                     .onAppear {

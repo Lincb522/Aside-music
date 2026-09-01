@@ -314,7 +314,8 @@ struct AsideInkPillTabBar: View {
                     icon: selected ? tab.icon : tab.monoIcon,
                     size: 18,
                     color: selected ? .monoAccentForeground : .monoTextSecondary.opacity(0.62),
-                    lineWidth: 1.7
+                    lineWidth: 1.7,
+                    artworkContrastBackground: selected ? .monoAccent : nil
                 )
 
                 if selected {

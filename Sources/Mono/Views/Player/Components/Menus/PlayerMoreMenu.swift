@@ -314,6 +314,7 @@ struct PlayerMoreMenu: View {
 
             landscapeQuickAction(
                 icon: .audioWave,
+                artwork: .soundCenter,
                 title: String(localized: "mono_audio_center_title"),
                 status: soundCenterStatusText
             ) {
@@ -364,6 +365,7 @@ struct PlayerMoreMenu: View {
 
     private func landscapeQuickAction(
         icon: MonoIcon.IconType,
+        artwork: MonoGlyphSemantic? = nil,
         title: String,
         status: String?,
         isEnabled: Bool = true,
@@ -372,6 +374,7 @@ struct PlayerMoreMenu: View {
         Button(action: action) {
             VStack(spacing: 5) {
                 MonoIcon(icon: icon, size: 16, color: isEnabled ? .monoAccent : textColor.opacity(0.34))
+                    .monoIconArtwork(artwork?.rawValue)
                 Text(title)
                     .font(.system(size: 10.5, weight: .semibold, design: .rounded))
                     .foregroundColor(textColor.opacity(isEnabled ? 0.92 : 0.34))
@@ -693,6 +696,7 @@ struct PlayerMoreMenu: View {
 
             quickAction(
                 icon: .audioWave,
+                artwork: .soundCenter,
                 title: String(localized: "mono_audio_center_title"),
                 status: soundCenterStatusText
             ) {
@@ -906,6 +910,7 @@ struct PlayerMoreMenu: View {
 
     private func quickAction(
         icon: MonoIcon.IconType,
+        artwork: MonoGlyphSemantic? = nil,
         title: String,
         status: String? = nil,
         isEnabled: Bool = true,
@@ -918,6 +923,7 @@ struct PlayerMoreMenu: View {
                     size: 16,
                     color: textColor.opacity(isEnabled ? 0.9 : 0.34)
                 )
+                .monoIconArtwork(artwork?.rawValue)
 
                 Text(title)
                     .font(.system(size: 10.5, weight: .semibold, design: .rounded))

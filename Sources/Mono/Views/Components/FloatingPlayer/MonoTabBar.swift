@@ -99,15 +99,28 @@ struct MonoTabBar: View {
                 icon: icon,
                 size: 24,
                 visualScale: isSelected ? 1.08 : 0.98,
-                fallbackColor: isSelected ? selectedColor : idleColor
+                fallbackColor: isSelected ? selectedColor : idleColor,
+                artworkContrastBackground: isSelected ? selectedContrastBackground : nil
             )
         } else {
             MonoIcon(
                 icon: icon,
                 size: 20,
-                color: isSelected ? selectedColor : idleColor
+                color: isSelected ? selectedColor : idleColor,
+                artworkContrastBackground: isSelected ? selectedContrastBackground : nil
             )
         }
+    }
+
+    private var selectedContrastBackground: Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.selectedFill }
+        if PetWhiteStyle.isActive { return PetWhiteStyle.surfaceRaised }
+        if PureWhiteStyle.isActive { return PureWhiteStyle.surfaceRaised }
+        if MujiStyle.isActive { return MujiStyle.surfaceRaised }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfaceRaised }
+        if SequoiaStyle.isActive { return SequoiaStyle.materialRaised }
+        if LiquidGlassStyle.isActive { return LiquidGlassStyle.glassRaised }
+        return Color.monoFloatingBarFill
     }
 
     private func mangaOrMujiTabFont(isSelected: Bool) -> Font {

@@ -13,7 +13,6 @@
 		BB100003BB100003BB100003 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F40957812F4E8A7E006EA119 /* WidgetKit.framework */; };
 		BB100004BB100004BB100004 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F40957832F4E8A7E006EA119 /* SwiftUI.framework */; };
 		BB100005BB100005BB100005 /* musicExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = BB100011BB100011BB100011 /* musicExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		C0DE10000000000000000001 /* IconExportIcons in Frameworks */ = {isa = PBXBuildFile; productRef = C0DE10000000000000000003 /* IconExportIcons */; };
 		C0DE20000000000000000001 /* BlobIcons in Frameworks */ = {isa = PBXBuildFile; productRef = C0DE20000000000000000003 /* BlobIcons */; };
 		C0DE30000000000000000001 /* doodlePop in Frameworks */ = {isa = PBXBuildFile; productRef = C0DE30000000000000000003 /* doodlePop */; };
 		C0DE40000000000000000001 /* PawPrintIcons in Frameworks */ = {isa = PBXBuildFile; productRef = C0DE40000000000000000003 /* PawPrintIcons */; };
@@ -22,6 +21,7 @@
 		C0DE70000000000000000001 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = C0DE70000000000000000003 /* ZIPFoundation */; };
 		C0DE80000000000000000001 /* SwiftPixelGrid in Frameworks */ = {isa = PBXBuildFile; productRef = C0DE80000000000000000003 /* SwiftPixelGrid */; };
 		C0DEA0000000000000000001 /* PulseBloomIcons in Frameworks */ = {isa = PBXBuildFile; productRef = C0DEA0000000000000000003 /* PulseBloomIcons */; };
+		C0DEB0000000000000000001 /* MonoGlyphIcons in Frameworks */ = {isa = PBXBuildFile; productRef = C0DEB0000000000000000003 /* MonoGlyphIcons */; };
 		DD300001DD300001DD300001 /* HiconIcons in Frameworks */ = {isa = PBXBuildFile; productRef = DD300002DD300002DD300002 /* HiconIcons */; };
 		F4087C202F543A24006005CB /* HiconIcons in Frameworks */ = {isa = PBXBuildFile; productRef = F4087C1F2F543A24006005CB /* HiconIcons */; };
 		F41CFD832F6C1576006ACEF7 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F40957812F4E8A7E006EA119 /* WidgetKit.framework */; };
@@ -131,7 +131,6 @@
 				1685389CC11345E0B0C7AF90 /* ZappiconIcons in Frameworks */,
 				7899861A953747A7896D387C /* LucideIcons in Frameworks */,
 				A1B2C3D4E5F6A7B8C9D0E1F2 /* SolarIcons in Frameworks */,
-				C0DE10000000000000000001 /* IconExportIcons in Frameworks */,
 				C0DE20000000000000000001 /* BlobIcons in Frameworks */,
 				C0DE30000000000000000001 /* doodlePop in Frameworks */,
 				C0DE40000000000000000001 /* PawPrintIcons in Frameworks */,
@@ -140,6 +139,7 @@
 				C0DE70000000000000000001 /* ZIPFoundation in Frameworks */,
 				C0DE80000000000000000001 /* SwiftPixelGrid in Frameworks */,
 				C0DEA0000000000000000001 /* PulseBloomIcons in Frameworks */,
+				C0DEB0000000000000000001 /* MonoGlyphIcons in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -232,7 +232,6 @@
 				B6C6DF8C628840ABA8D68950 /* ZappiconIcons */,
 				138061FE3E0D4FB49D5E933B /* LucideIcons */,
 				F1E2D3C4B5A6978869504132 /* SolarIcons */,
-				C0DE10000000000000000003 /* IconExportIcons */,
 				C0DE20000000000000000003 /* BlobIcons */,
 				C0DE30000000000000000003 /* doodlePop */,
 				C0DE40000000000000000003 /* PawPrintIcons */,
@@ -241,6 +240,7 @@
 				C0DE70000000000000000003 /* ZIPFoundation */,
 				C0DE80000000000000000003 /* SwiftPixelGrid */,
 				C0DEA0000000000000000003 /* PulseBloomIcons */,
+				C0DEB0000000000000000003 /* MonoGlyphIcons */,
 			);
 			productName = Mono;
 			productReference = F4CCFD782F320B5900FC36CA /* Mono.app */;
@@ -282,7 +282,6 @@
 				1B8793A2EBAA41FFB9F5D519 /* XCLocalSwiftPackageReference "Packages/Icons/ZappiconIcons" */,
 				96FB55B756AB4F8CAB80801E /* XCLocalSwiftPackageReference "Packages/Icons/LucideIcons" */,
 				D4E5F6A7B8C9D0E1F2A3B4C5 /* XCLocalSwiftPackageReference "Packages/Icons/SolarIcons" */,
-				C0DE10000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/IconExportIcons" */,
 				C0DE20000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/BlobIcons" */,
 				C0DE30000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/doodlePop" */,
 				C0DE40000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/PawPrintIcons" */,
@@ -291,6 +290,7 @@
 				C0DE70000000000000000002 /* XCRemoteSwiftPackageReference "ZIPFoundation" */,
 				C0DE80000000000000000002 /* XCLocalSwiftPackageReference "Packages/UI/SwiftPixelGrid" */,
 				C0DEA0000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/PulseBloomIcons" */,
+				C0DEB0000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/MonoGlyphIcons" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = F4CCFD792F320B5900FC36CA /* Products */;
@@ -354,7 +354,7 @@
 				CODE_SIGN_ENTITLEMENTS = musicExtensionDebug.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 83;
+				CURRENT_PROJECT_VERSION = 84;
 				DEVELOPMENT_TEAM = 7VJKFX4HF8;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = music/Info.plist;
@@ -390,7 +390,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 83;
+				CURRENT_PROJECT_VERSION = 84;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEPLOYMENT_POSTPROCESSING = YES;
@@ -568,7 +568,7 @@
 				CODE_SIGN_ENTITLEMENTS = MonoDebug.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 82;
+				CURRENT_PROJECT_VERSION = 84;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = 7VJKFX4HF8;
 				ENABLE_PREVIEWS = YES;
@@ -619,7 +619,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 82;
+				CURRENT_PROJECT_VERSION = 84;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEPLOYMENT_POSTPROCESSING = YES;
@@ -703,10 +703,6 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/Icons/LucideIcons;
 		};
-		C0DE10000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/IconExportIcons" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = Packages/Icons/IconExportIcons;
-		};
 		C0DE20000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/BlobIcons" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/Icons/BlobIcons;
@@ -734,6 +730,10 @@
 		C0DEA0000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/PulseBloomIcons" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/Icons/PulseBloomIcons;
+		};
+		C0DEB0000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/MonoGlyphIcons" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/Icons/MonoGlyphIcons;
 		};
 		D4E5F6A7B8C9D0E1F2A3B4C5 /* XCLocalSwiftPackageReference "Packages/Icons/SolarIcons" */ = {
 			isa = XCLocalSwiftPackageReference;
@@ -779,11 +779,6 @@
 			package = 1B8793A2EBAA41FFB9F5D519 /* XCLocalSwiftPackageReference "Packages/Icons/ZappiconIcons" */;
 			productName = ZappiconIcons;
 		};
-		C0DE10000000000000000003 /* IconExportIcons */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = C0DE10000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/IconExportIcons" */;
-			productName = IconExportIcons;
-		};
 		C0DE20000000000000000003 /* BlobIcons */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = C0DE20000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/BlobIcons" */;
@@ -823,6 +818,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = C0DEA0000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/PulseBloomIcons" */;
 			productName = PulseBloomIcons;
+		};
+		C0DEB0000000000000000003 /* MonoGlyphIcons */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0DEB0000000000000000002 /* XCLocalSwiftPackageReference "Packages/Icons/MonoGlyphIcons" */;
+			productName = MonoGlyphIcons;
 		};
 		DD300002DD300002DD300002 /* HiconIcons */ = {
 			isa = XCSwiftPackageProductDependency;

@@ -1,6 +1,20 @@
 import SwiftUI
 import UIKit
 
+private extension MonoAudioAgentBuiltInSkill {
+    var monoGlyphSemantic: MonoGlyphSemantic {
+        switch self {
+        case .measurementEvidence: return .agentSkillMeasurement
+        case .deviceCoordination: return .agentSkillDeviceCoordination
+        case .headroomGuard: return .agentSkillHeadroomGuard
+        case .phaseGuard: return .agentSkillPhaseGuard
+        case .outputValidation: return .agentSkillOutputValidation
+        case .artistReference: return .agentSkillArtistReference
+        case .vocalReference: return .agentSkillVocalReference
+        }
+    }
+}
+
 @MainActor
 struct MonoAudioAgentSettingsView: View {
     @ObservedObject private var player = PlayerManager.shared
@@ -90,6 +104,7 @@ struct MonoAudioAgentSettingsView: View {
                     size: layout.isCompactHeight ? 19 : 22,
                     color: accent
                 )
+                .monoIconArtwork(MonoGlyphSemantic.audioAgent.rawValue)
             }
             .frame(width: layout.coverSize, height: layout.coverSize)
             .overlay {
@@ -158,6 +173,7 @@ struct MonoAudioAgentSettingsView: View {
         settingsSection(title: String(localized: "audio_agent_behavior"), layout: layout) {
             toggleRow(
                 icon: .sparkle,
+                artwork: .agentAutoTuning,
                 title: String(localized: "ai_auto_tuning"),
                 detail: String(localized: "audio_agent_auto_detail"),
                 isOn: $agent.automaticConfigurationEnabled,
@@ -169,6 +185,7 @@ struct MonoAudioAgentSettingsView: View {
             } label: {
                 navigationRow(
                     icon: .history,
+                    artwork: .agentAdaptiveLearning,
                     title: String(localized: "ai_learning_title"),
                     detail: String(localized: "audio_agent_learning_detail"),
                     value: learningStatusText,
@@ -179,6 +196,7 @@ struct MonoAudioAgentSettingsView: View {
             rowDivider
             toggleRow(
                 icon: .info,
+                artwork: .agentPlayerStatus,
                 title: String(localized: "audio_agent_player_status"),
                 detail: String(localized: "audio_agent_player_status_detail"),
                 isOn: $agent.showsPlayerTuningStatus,
@@ -219,7 +237,7 @@ struct MonoAudioAgentSettingsView: View {
             VStack(spacing: 0) {
                 if skills.resolvedCustomSkills.isEmpty {
                     HStack(spacing: 12) {
-                        MonoIcon(icon: .equalizer, size: 18, color: accent)
+                        MonoSemanticIcon(semantic: .agentCustomSkill, fallback: .equalizer, size: 18, color: accent)
                         Text(String(localized: "audio_agent_custom_empty"))
                             .font(.system(size: 13, weight: .medium, design: .rounded))
                             .foregroundStyle(.white.opacity(0.56))
@@ -238,7 +256,7 @@ struct MonoAudioAgentSettingsView: View {
                     MonoAudioCustomSkillEditorView(skill: nil, accent: accent)
                 } label: {
                     HStack(spacing: 12) {
-                        MonoIcon(icon: .add, size: 17, color: accent)
+                        MonoSemanticIcon(semantic: .agentAddCustomSkill, fallback: .add, size: 17, color: accent)
                         Text(String(localized: "audio_agent_add_custom_skill"))
                             .font(.system(size: 14, weight: .bold, design: .rounded))
                             .foregroundStyle(.white.opacity(0.9))
@@ -313,6 +331,7 @@ struct MonoAudioAgentSettingsView: View {
                 size: 17,
                 color: skill.isRequired ? .white.opacity(0.52) : accent
             )
+            .monoIconArtwork(skill.monoGlyphSemantic.rawValue)
             .frame(width: 22)
 
             VStack(alignment: .leading, spacing: 3) {
@@ -364,7 +383,7 @@ struct MonoAudioAgentSettingsView: View {
                     MonoAudioCustomSkillEditorView(skill: localSkill, accent: accent)
                 } label: {
                     HStack(spacing: 12) {
-                        MonoIcon(icon: .equalizer, size: 17, color: accent)
+                        MonoSemanticIcon(semantic: .agentEditCustomSkill, fallback: .equalizer, size: 17, color: accent)
                             .frame(width: 22)
                         skillDescription(skill, sourceKey: "audio_agent_source_device")
                         Spacer(minLength: 8)
@@ -383,7 +402,7 @@ struct MonoAudioAgentSettingsView: View {
             .padding(.vertical, layout.isCompactHeight ? 11 : 13)
         } else {
             HStack(spacing: 12) {
-                MonoIcon(icon: .lock, size: 17, color: accent)
+                MonoSemanticIcon(semantic: .agentManagedSkill, fallback: .lock, size: 17, color: accent)
                     .frame(width: 22)
                 skillDescription(skill, sourceKey: "audio_agent_source_server")
                 Spacer(minLength: 8)
@@ -425,13 +444,16 @@ struct MonoAudioAgentSettingsView: View {
 
     private func toggleRow(
         icon: MonoIcon.IconType,
+        artwork: MonoGlyphSemantic? = nil,
         title: String,
         detail: String,
         isOn: Binding<Bool>,
         layout: MonoSoundCenterLayout
     ) -> some View {
         HStack(spacing: 12) {
-            MonoIcon(icon: icon, size: 17, color: accent).frame(width: 22)
+            MonoIcon(icon: icon, size: 17, color: accent)
+                .monoIconArtwork(artwork?.rawValue)
+                .frame(width: 22)
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
@@ -468,13 +490,16 @@ struct MonoAudioAgentSettingsView: View {
 
     private func navigationRow(
         icon: MonoIcon.IconType,
+        artwork: MonoGlyphSemantic? = nil,
         title: String,
         detail: String,
         value: String,
         layout: MonoSoundCenterLayout
     ) -> some View {
         HStack(spacing: 12) {
-            MonoIcon(icon: icon, size: 17, color: accent).frame(width: 22)
+            MonoIcon(icon: icon, size: 17, color: accent)
+                .monoIconArtwork(artwork?.rawValue)
+                .frame(width: 22)
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
@@ -638,7 +663,7 @@ private struct MonoAudioCustomSkillEditorView: View {
                         }
 
                         HStack(spacing: 12) {
-                            MonoIcon(icon: .equalizer, size: 17, color: accent)
+                            MonoSemanticIcon(semantic: .agentEditCustomSkill, fallback: .equalizer, size: 17, color: accent)
                                 .frame(width: 22)
                             Text(String(localized: "audio_agent_skill_enabled"))
                                 .font(.system(size: 14, weight: .semibold, design: .rounded))

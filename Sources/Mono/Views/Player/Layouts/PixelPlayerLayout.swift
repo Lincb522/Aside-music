@@ -47,11 +47,11 @@ struct PixelPlayerLayout: View {
                 VStack(spacing: 0) {
                     topBar.padding(.top, DeviceLayout.headerTopPadding)
                     crtScreen(geo: geo)
-                        .padding(.horizontal, DeviceLayout.isPad ? 20 : 12)
+                        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 20 : 12)
                         .padding(.top, 6)
                     Spacer(minLength: 4)
                     controlPad
-                        .padding(.horizontal, DeviceLayout.isPad ? 20 : 12)
+                        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 20 : 12)
                         .padding(.bottom, DeviceLayout.playerBottomPadding)
                 }
                 
@@ -198,7 +198,7 @@ extension PixelPlayerLayout {
             }
             .buttonStyle(MonoBouncingButtonStyle())
         }
-        .padding(.horizontal, DeviceLayout.isPad ? 24 : 16)
+        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 24 : 16)
         .padding(.bottom, 4)
     }
     
@@ -362,7 +362,7 @@ extension PixelPlayerLayout {
     
     /// 像素化封面 + RGB 子像素偏移
     private func pixelArtwork(width: CGFloat) -> some View {
-        let artSize = min(width - 40, DeviceLayout.isPad ? 300.0 : 200.0)
+        let artSize = min(width - 40, DeviceLayout.usesExpandedLayout ? 300.0 : 200.0)
         
         return ZStack {
             if let url = player.currentSong?.coverUrl {

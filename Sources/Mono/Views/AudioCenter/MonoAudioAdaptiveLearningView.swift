@@ -89,6 +89,7 @@ struct MonoAudioAdaptiveLearningView: View {
     private func header(layout: MonoSoundCenterLayout) -> some View {
         HStack(spacing: 14) {
             MonoIcon(icon: .history, size: 22, color: accent)
+                .monoIconArtwork(MonoGlyphSemantic.agentAdaptiveLearning.rawValue)
                 .frame(width: 48, height: 48)
                 .background(accent.opacity(0.12))
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -128,6 +129,7 @@ struct MonoAudioAdaptiveLearningView: View {
         ) {
             toggleRow(
                 icon: .sparkle,
+                artwork: .learningEnabled,
                 title: String(localized: "ai_learning_enabled"),
                 detail: String(localized: "audio_agent_learning_enabled_detail"),
                 isOn: $agent.adaptiveLearningEnabled,
@@ -138,6 +140,7 @@ struct MonoAudioAdaptiveLearningView: View {
 
             menuRow(
                 icon: .equalizer,
+                artwork: .learningStrength,
                 title: String(localized: "audio_agent_learning_strength"),
                 detail: String(localized: "audio_agent_learning_strength_detail"),
                 value: agent.learningStrength.localizedTitle,
@@ -162,6 +165,7 @@ struct MonoAudioAdaptiveLearningView: View {
 
             menuRow(
                 icon: .clock,
+                artwork: .learningRetention,
                 title: String(localized: "audio_agent_learning_retention"),
                 detail: String(localized: "audio_agent_learning_retention_detail"),
                 value: agent.learningRetention.localizedTitle,
@@ -189,6 +193,7 @@ struct MonoAudioAdaptiveLearningView: View {
         ) {
             toggleRow(
                 icon: .checkmark,
+                artwork: .learningSourceFeedback,
                 title: String(localized: "audio_agent_learning_source_feedback"),
                 detail: String(localized: "audio_agent_learning_source_feedback_detail"),
                 isOn: $agent.learnsFromExplicitFeedback,
@@ -197,6 +202,7 @@ struct MonoAudioAdaptiveLearningView: View {
             rowDivider
             toggleRow(
                 icon: .playCircle,
+                artwork: .learningSourceListening,
                 title: String(localized: "audio_agent_learning_source_listening"),
                 detail: String(localized: "audio_agent_learning_source_listening_detail"),
                 isOn: $agent.learnsFromListeningBehavior,
@@ -205,6 +211,7 @@ struct MonoAudioAdaptiveLearningView: View {
             rowDivider
             toggleRow(
                 icon: .refresh,
+                artwork: .learningSourceAdjustments,
                 title: String(localized: "audio_agent_learning_source_adjustments"),
                 detail: String(localized: "audio_agent_learning_source_adjustments_detail"),
                 isOn: $agent.learnsFromAdjustmentActions,
@@ -218,6 +225,7 @@ struct MonoAudioAdaptiveLearningView: View {
     private var storageNotice: some View {
         HStack(alignment: .top, spacing: 11) {
             MonoIcon(icon: .storage, size: 16, color: accent)
+                .monoIconArtwork(MonoGlyphSemantic.learningLocalStorage.rawValue)
                 .frame(width: 22)
             Text(String(localized: "audio_agent_learning_storage_notice"))
                 .font(.system(.caption, design: .rounded, weight: .medium))
@@ -396,6 +404,7 @@ struct MonoAudioAdaptiveLearningView: View {
     ) -> some View {
         HStack(spacing: 12) {
             MonoIcon(icon: record.feedback.icon, size: 16, color: record.feedback.tint)
+                .monoIconArtwork(record.feedback.monoGlyphSemantic.rawValue)
                 .frame(width: 40, height: 40)
                 .background(record.feedback.tint.opacity(0.1))
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -434,13 +443,16 @@ struct MonoAudioAdaptiveLearningView: View {
 
     private func toggleRow(
         icon: MonoIcon.IconType,
+        artwork: MonoGlyphSemantic? = nil,
         title: String,
         detail: String,
         isOn: Binding<Bool>,
         layout: MonoSoundCenterLayout
     ) -> some View {
         HStack(spacing: 12) {
-            MonoIcon(icon: icon, size: 17, color: accent).frame(width: 22)
+            MonoIcon(icon: icon, size: 17, color: accent)
+                .monoIconArtwork(artwork?.rawValue)
+                .frame(width: 22)
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(.system(.subheadline, design: .rounded, weight: .semibold))
@@ -460,6 +472,7 @@ struct MonoAudioAdaptiveLearningView: View {
 
     private func menuRow<MenuContent: View>(
         icon: MonoIcon.IconType,
+        artwork: MonoGlyphSemantic? = nil,
         title: String,
         detail: String,
         value: String,
@@ -468,7 +481,9 @@ struct MonoAudioAdaptiveLearningView: View {
     ) -> some View {
         Menu(content: menuContent) {
             HStack(spacing: 12) {
-                MonoIcon(icon: icon, size: 17, color: accent).frame(width: 22)
+                MonoIcon(icon: icon, size: 17, color: accent)
+                    .monoIconArtwork(artwork?.rawValue)
+                    .frame(width: 22)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
                         .font(.system(.subheadline, design: .rounded, weight: .semibold))
@@ -662,6 +677,7 @@ private struct MonoAudioLearningRecordDetailView: View {
     private func detailHeader(_ record: AIEqualizerLearningRecord) -> some View {
         HStack(spacing: 14) {
             MonoIcon(icon: record.feedback.icon, size: 20, color: record.feedback.tint)
+                .monoIconArtwork(record.feedback.monoGlyphSemantic.rawValue)
                 .frame(width: 48, height: 48)
                 .background(record.feedback.tint.opacity(0.12))
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -961,6 +977,17 @@ private extension AIEqualizerLearningFeedback {
         case .reset: return .refresh
         case .regenerated: return .sparkle
         case .manualEqualizer: return .equalizer
+        }
+    }
+
+    var monoGlyphSemantic: MonoGlyphSemantic {
+        switch self {
+        case .positive: return .learningFeedbackPositive
+        case .negative: return .learningFeedbackNegative
+        case .retained: return .learningFeedbackRetained
+        case .reset: return .learningFeedbackReset
+        case .regenerated: return .learningFeedbackRegenerated
+        case .manualEqualizer: return .learningFeedbackManualEQ
         }
     }
 }

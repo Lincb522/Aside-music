@@ -253,7 +253,8 @@ private struct CapsuleDockTabBar: View {
                     icon: isSelected ? filled : outline,
                     size: isSelected ? 17 : 16,
                     color: isSelected ? CapsuleStyle.readableLabel(on: tint) : CapsuleStyle.inkMuted,
-                    lineWidth: isSelected ? 1.9 : 1.6
+                    lineWidth: isSelected ? 1.9 : 1.6,
+                    artworkContrastBackground: isSelected ? tint : nil
                 )
                 .frame(width: 24, height: 24)
 

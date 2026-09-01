@@ -57,7 +57,8 @@ private struct ClarityGalleryDeck: View {
                                     icon: tab.icon,
                                     size: 14,
                                     color: selected ? ClarityStyle.onSelection : ClarityStyle.inkFaint,
-                                    lineWidth: selected ? 1.8 : 1.35
+                                    lineWidth: selected ? 1.8 : 1.35,
+                                    artworkContrastBackground: selected ? ClarityStyle.selection : nil
                                 )
                                 Text(clarityTabTitle(tab))
                                     .font(ClarityStyle.body(8.5, weight: selected ? .semibold : .medium))
@@ -90,7 +91,7 @@ private struct ClarityGalleryDeck: View {
                 )
             }
             .frame(maxWidth: 690)
-            .padding(.horizontal, DeviceLayout.isPad ? 30 : 13)
+            .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 30 : 13)
             .padding(.bottom, 6)
         }
         .monoSheet(isPresented: $showsQueue, preset: .standard) {
@@ -197,7 +198,7 @@ private struct ClarityHorizonRail: View {
                     .buttonStyle(.plain)
 
                     ClarityLinearProgress()
-                        .frame(width: DeviceLayout.isPad ? 120 : 58)
+                        .frame(width: DeviceLayout.usesExpandedLayout ? 120 : 58)
 
                     Button { showsQueue = true } label: {
                         MonoIcon(icon: .list, size: 14, color: ClarityStyle.inkSoft, lineWidth: 1.45)
@@ -223,7 +224,7 @@ private struct ClarityHorizonRail: View {
                 .padding(.vertical, 8)
                 .background(ClarityPrismaticDockSurface(shape: Capsule(style: .continuous)))
                 .frame(maxWidth: 620)
-                .padding(.horizontal, DeviceLayout.isPad ? 34 : 15)
+                .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 34 : 15)
                 .padding(.bottom, 8)
                 .swipeToSkip()
             }
@@ -241,7 +242,8 @@ private struct ClarityHorizonRail: View {
                                 icon: tab.icon,
                                 size: selected ? 16 : 15,
                                 color: selected ? ClarityStyle.onSelection : ClarityStyle.inkFaint,
-                                lineWidth: selected ? 1.85 : 1.3
+                                lineWidth: selected ? 1.85 : 1.3,
+                                artworkContrastBackground: selected ? ClarityStyle.selection : nil
                             )
                             if selected {
                                 Text(clarityTabTitle(tab))
@@ -359,7 +361,8 @@ private struct ClarityLensStrip: View {
                                 icon: tab.icon,
                                 size: selected ? 16 : 15,
                                 color: selected ? ClarityStyle.onSelection : ClarityStyle.inkSoft,
-                                lineWidth: selected ? 1.85 : 1.35
+                                lineWidth: selected ? 1.85 : 1.35,
+                                artworkContrastBackground: selected ? ClarityStyle.selection : nil
                             )
                         }
                         .frame(maxWidth: .infinity)
@@ -378,7 +381,7 @@ private struct ClarityLensStrip: View {
         }
         .frame(maxWidth: 690)
         .frame(maxWidth: .infinity, alignment: .center)
-        .padding(.horizontal, DeviceLayout.isPad ? 34 : 15)
+        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 34 : 15)
         .padding(.bottom, 9)
     }
 }
@@ -457,7 +460,7 @@ private struct ClarityCornerBloom: View {
                 }
             }
             .frame(maxWidth: 690)
-            .padding(.horizontal, DeviceLayout.isPad ? 34 : 14)
+            .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 34 : 14)
             .padding(.bottom, 8)
         }
         .onChange(of: currentTab) { _, _ in
@@ -524,7 +527,8 @@ private struct ClarityCornerBloom: View {
                                 icon: tab.icon,
                                 size: 14,
                                 color: selected ? ClarityStyle.onSelection : ClarityStyle.inkFaint,
-                                lineWidth: selected ? 1.8 : 1.3
+                                lineWidth: selected ? 1.8 : 1.3,
+                                artworkContrastBackground: selected ? ClarityStyle.selection : nil
                             )
                             Text(clarityTabTitle(tab))
                                 .font(ClarityStyle.body(8, weight: selected ? .semibold : .medium))
@@ -548,7 +552,7 @@ private struct ClarityCornerBloom: View {
             }
         }
         .padding(9)
-        .frame(width: DeviceLayout.isPad ? 340 : 282)
+        .frame(width: DeviceLayout.usesExpandedLayout ? 340 : 282)
         .background {
             ClarityPrismaticDockSurface(
                 shape: RoundedRectangle(cornerRadius: 27, style: .continuous)

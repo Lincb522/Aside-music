@@ -27,12 +27,12 @@ struct MinimalMiniPlayer: View {
 
     private var shellHorizontalPadding: CGFloat {
         if MinimalWhiteStyle.isActive { return 10 }
-        if MangaStyle.isActive { return DeviceLayout.isPad ? 16 : 10 }
-        if PetWhiteStyle.isActive { return DeviceLayout.isPad ? 18 : 12 }
-        if SequoiaStyle.isActive { return DeviceLayout.isPad ? 20 : 12 }
-        if LiquidGlassStyle.isActive { return DeviceLayout.isPad ? 20 : 12 }
-        if CapsuleStyle.isActive { return DeviceLayout.isPad ? 18 : 12 }
-        return DeviceLayout.isPad ? 20 : 14
+        if MangaStyle.isActive { return DeviceLayout.usesExpandedLayout ? 16 : 10 }
+        if PetWhiteStyle.isActive { return DeviceLayout.usesExpandedLayout ? 18 : 12 }
+        if SequoiaStyle.isActive { return DeviceLayout.usesExpandedLayout ? 20 : 12 }
+        if LiquidGlassStyle.isActive { return DeviceLayout.usesExpandedLayout ? 20 : 12 }
+        if CapsuleStyle.isActive { return DeviceLayout.usesExpandedLayout ? 18 : 12 }
+        return DeviceLayout.usesExpandedLayout ? 20 : 14
     }
 
     private var shellVerticalPadding: CGFloat {
@@ -313,7 +313,8 @@ struct MinimalMiniPlayer: View {
                             icon: selected ? tab.icon : tab.monoIcon,
                             size: 17,
                             color: selected ? .monoAccentForeground : .monoTextSecondary.opacity(0.62),
-                            lineWidth: 1.7
+                            lineWidth: 1.7,
+                            artworkContrastBackground: selected ? .monoAccent : nil
                         )
 
                         if selected {
@@ -486,7 +487,8 @@ struct MinimalMiniPlayer: View {
                         icon: selected ? tab.icon : tab.monoIcon,
                         size: 17,
                         color: selected ? MinimalWhiteStyle.ink : MinimalWhiteStyle.inkMuted,
-                        lineWidth: 1.7
+                        lineWidth: 1.7,
+                        artworkContrastBackground: selected ? MinimalWhiteStyle.selectedFill : nil
                     )
                     .frame(maxWidth: .infinity)
                     .frame(height: 38)
@@ -1003,14 +1005,16 @@ struct MinimalMiniPlayer: View {
                 size: selected ? 16 : 15,
                 visualScale: 1,
                 fallbackColor: color,
-                lineWidth: 1.45
+                lineWidth: 1.45,
+                artworkContrastBackground: selected ? tabArtworkContrastBackground(tab) : nil
             )
         } else {
             miniPlayerIcon(
                 icon: icon,
                 size: MangaStyle.isActive ? 16 : 18,
                 color: color,
-                lineWidth: 1.7
+                lineWidth: 1.7,
+                artworkContrastBackground: selected ? tabArtworkContrastBackground(tab) : nil
             )
         }
     }
@@ -1043,12 +1047,44 @@ struct MinimalMiniPlayer: View {
     }
 
     @ViewBuilder
-    private func miniPlayerIcon(icon: MonoIcon.IconType, size: CGFloat, color: Color, lineWidth: CGFloat) -> some View {
+    private func miniPlayerIcon(
+        icon: MonoIcon.IconType,
+        size: CGFloat,
+        color: Color,
+        lineWidth: CGFloat,
+        artworkContrastBackground: Color? = nil
+    ) -> some View {
         if PetWhiteStyle.isActive {
-            PetWhitePackIcon(icon: icon, size: max(size + 6, 18), visualScale: 1.05, fallbackColor: color, lineWidth: lineWidth)
+            PetWhitePackIcon(
+                icon: icon,
+                size: max(size + 6, 18),
+                visualScale: 1.05,
+                fallbackColor: color,
+                lineWidth: lineWidth,
+                artworkContrastBackground: artworkContrastBackground
+            )
         } else {
-            MonoIcon(icon: icon, size: size, color: color, lineWidth: lineWidth)
+            MonoIcon(
+                icon: icon,
+                size: size,
+                color: color,
+                lineWidth: lineWidth,
+                artworkContrastBackground: artworkContrastBackground
+            )
         }
+    }
+
+    private func tabArtworkContrastBackground(_ tab: Tab) -> Color {
+        if MinimalWhiteStyle.isActive { return MinimalWhiteStyle.selectedFill }
+        if MangaStyle.isActive { return mangaTabTint(tab) }
+        if PetWhiteStyle.isActive { return petWhiteTabTint(tab) }
+        if BentoStyle.isActive { return bentoTabTint(tab) }
+        if CapsuleStyle.isActive { return capsuleTabTint(tab) }
+        if NeumorphicStyle.isActive { return NeumorphicStyle.surfaceRaised }
+        if SequoiaStyle.isActive { return SequoiaStyle.materialRaised }
+        if LiquidGlassStyle.isActive { return LiquidGlassStyle.glassRaised }
+        if MujiStyle.isActive { return MujiStyle.surfaceRaised }
+        return Color.monoFloatingBarFill
     }
 
     private var titleFont: Font {
@@ -1563,7 +1599,7 @@ private struct PetWhiteMinimalBowPlayer: View {
             }
             .buttonStyle(MonoBouncingButtonStyle(scale: 0.94))
         }
-        .frame(maxWidth: DeviceLayout.isPad ? 440 : 320)
+        .frame(maxWidth: DeviceLayout.usesExpandedLayout ? 440 : 320)
         .overlay(alignment: .bottomLeading) {
             ProgressBarView(height: 4, minFillWidth: 7)
                 .frame(height: 4)
@@ -1588,7 +1624,8 @@ private struct PetWhiteMinimalBowPlayer: View {
                             size: selected ? 18 : 16,
                             visualScale: 1,
                             fallbackColor: selected ? PetWhiteStyle.ink : PetWhiteStyle.inkMuted,
-                            lineWidth: 1.45
+                            lineWidth: 1.45,
+                            artworkContrastBackground: selected ? tabTint(tab) : nil
                         )
 
                         if selected {

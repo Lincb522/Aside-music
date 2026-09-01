@@ -31,6 +31,7 @@ struct AriaSettingsPage: View {
     @AppStorage("ariaLyricParticleSize") private var particleSize = 1.15
     @AppStorage("ariaLyricParticleMotion") private var particleMotion = true
     @AppStorage("ariaLyricGlassIntensity") private var glassIntensity = 0.64
+    @AppStorage("ariaVideoAdaptiveLyricGlass") private var videoAdaptiveLyricGlass = true
     @AppStorage("lyricsForceUppercaseEnglish") private var forceUppercaseEnglish = false
 
     @State private var showVideoSheet = false
@@ -488,6 +489,13 @@ struct AriaSettingsPage: View {
 
     private var videoSection: some View {
         section(title: String(localized: "视频背景")) {
+            Toggle(isOn: $videoAdaptiveLyricGlass) {
+                rowLabel(String(localized: "immersive_bg_adaptive_glass_lyrics"))
+            }
+            .tint(settingsAccent)
+            .padding(14)
+            .background(cardBackground)
+
             Button {
                 showVideoSheet = true
             } label: {

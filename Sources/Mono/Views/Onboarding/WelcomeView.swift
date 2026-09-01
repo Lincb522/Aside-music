@@ -47,15 +47,15 @@ struct WelcomeView: View {
     }
 
     private var plateSize: CGFloat {
-        DeviceLayout.isPad ? 198 : 160
+        DeviceLayout.usesExpandedLayout ? 198 : 160
     }
 
     private var logoSize: CGFloat {
-        DeviceLayout.isPad ? 122 : 100
+        DeviceLayout.usesExpandedLayout ? 122 : 100
     }
 
     private var titleWordmarkHeight: CGFloat {
-        DeviceLayout.isPad ? 46 : 38
+        DeviceLayout.usesExpandedLayout ? 46 : 38
     }
 
     private var heroSpring: Animation {
@@ -98,7 +98,7 @@ struct WelcomeView: View {
                 Text("© 2026 ZIJIU STUDIO")
                     .font(footerFont)
                     .foregroundColor(footerColor)
-                    .padding(.bottom, DeviceLayout.isPad ? 48 : 36)
+                    .padding(.bottom, DeviceLayout.usesExpandedLayout ? 48 : 36)
                     .opacity(footerOpacity)
             }
             .padding(.horizontal, 28)
@@ -123,7 +123,7 @@ struct WelcomeView: View {
                     .frame(maxWidth: 340)
                 }
                 .padding(.horizontal, 28)
-                .padding(.bottom, DeviceLayout.isPad ? 92 : 76)
+                .padding(.bottom, DeviceLayout.usesExpandedLayout ? 92 : 76)
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
                 .zIndex(2)
             }
@@ -221,7 +221,7 @@ struct WelcomeView: View {
     }
 
     private var signalHeroSection: some View {
-        VStack(spacing: DeviceLayout.isPad ? 28 : 22) {
+        VStack(spacing: DeviceLayout.usesExpandedLayout ? 28 : 22) {
             ZStack {
                 SignalWelcomeResonanceStage(
                     accentOpacity: accentOpacity,
@@ -243,7 +243,7 @@ struct WelcomeView: View {
                     .offset(y: titleOffset)
 
                 welcomeSloganBlock(
-                    font: SignalStyle.labelFont(DeviceLayout.isPad ? 13 : 12, weight: .medium),
+                    font: SignalStyle.labelFont(DeviceLayout.usesExpandedLayout ? 13 : 12, weight: .medium),
                     color: SignalStyle.inkSoft,
                     tracking: 1.1,
                     shortColor: SignalStyle.accent.opacity(0.84)
@@ -256,7 +256,7 @@ struct WelcomeView: View {
     }
 
     private var defaultHeroSection: some View {
-        VStack(spacing: DeviceLayout.isPad ? 34 : 28) {
+        VStack(spacing: DeviceLayout.usesExpandedLayout ? 34 : 28) {
             // Logo 区域 — 缩放 + 模糊渐清 + 弹簧回弹
             ZStack {
                 DefaultWelcomeLogoStage(
@@ -285,9 +285,9 @@ struct WelcomeView: View {
                     .offset(y: titleOffset)
 
                 welcomeSloganBlock(
-                    font: .system(size: DeviceLayout.isPad ? 14 : 13, weight: .medium, design: .rounded),
+                    font: .system(size: DeviceLayout.usesExpandedLayout ? 14 : 13, weight: .medium, design: .rounded),
                     color: .monoTextSecondary,
-                    tracking: DeviceLayout.isPad ? 1.8 : 1.35
+                    tracking: DeviceLayout.usesExpandedLayout ? 1.8 : 1.35
                 )
                     .scaleEffect(subtitleOpacity > 0.5 ? 1.0 : 0.92)
                     .blur(radius: subtitleOpacity > 0.5 ? 0 : 8)
@@ -298,7 +298,7 @@ struct WelcomeView: View {
                     accent: defaultAccent,
                     isAnimating: !isDismissing && !reduceMotion
                 )
-                .frame(width: DeviceLayout.isPad ? 132 : 112, height: 22)
+                .frame(width: DeviceLayout.usesExpandedLayout ? 132 : 112, height: 22)
                 .scaleEffect(x: accentScaleX, y: 1, anchor: .center)
                 .opacity(accentOpacity)
                 .padding(.top, 2)
@@ -307,7 +307,7 @@ struct WelcomeView: View {
     }
 
     private var clarityHeroSection: some View {
-        VStack(spacing: DeviceLayout.isPad ? 34 : 28) {
+        VStack(spacing: DeviceLayout.usesExpandedLayout ? 34 : 28) {
             ZStack {
                 ClarityWelcomeRefractionStage(
                     accentOpacity: accentOpacity,
@@ -359,7 +359,7 @@ struct WelcomeView: View {
     }
 
     private var mujiHeroSection: some View {
-        VStack(spacing: DeviceLayout.isPad ? 28 : 22) {
+        VStack(spacing: DeviceLayout.usesExpandedLayout ? 28 : 22) {
             ZStack {
                 RoundedRectangle(cornerRadius: 26, style: .continuous)
                     .fill(MujiStyle.wash(MujiStyle.tea, strength: colorScheme == .dark ? 1.2 : 1.5))
@@ -389,7 +389,7 @@ struct WelcomeView: View {
     }
 
     private var mangaHeroSection: some View {
-        VStack(spacing: DeviceLayout.isPad ? 28 : 22) {
+        VStack(spacing: DeviceLayout.usesExpandedLayout ? 28 : 22) {
             ZStack {
                 // 硬印刷投影：先网点灰错版，再墨版
                 RoundedRectangle(cornerRadius: plateSize * 0.1, style: .continuous)
@@ -457,7 +457,7 @@ struct WelcomeView: View {
     }
 
     private var petWhiteHeroSection: some View {
-        VStack(spacing: DeviceLayout.isPad ? 28 : 22) {
+        VStack(spacing: DeviceLayout.usesExpandedLayout ? 28 : 22) {
             ZStack {
                 PetWhiteClayPuck(
                     shape: RoundedRectangle(cornerRadius: plateSize * 0.24, style: .continuous),
@@ -486,7 +486,7 @@ struct WelcomeView: View {
     }
 
     private var neumorphicHeroSection: some View {
-        VStack(spacing: DeviceLayout.isPad ? 30 : 24) {
+        VStack(spacing: DeviceLayout.usesExpandedLayout ? 30 : 24) {
             ZStack {
                 RoundedRectangle(cornerRadius: plateSize * 0.22, style: .continuous)
                     .fill(Color.clear)
@@ -511,7 +511,7 @@ struct WelcomeView: View {
     }
 
     private var pureWhiteHeroSection: some View {
-        VStack(spacing: DeviceLayout.isPad ? 30 : 24) {
+        VStack(spacing: DeviceLayout.usesExpandedLayout ? 30 : 24) {
             ZStack {
                 PureWhiteSurfaceBackground(cornerRadius: plateSize * 0.24, elevated: true, tint: PureWhiteStyle.surfaceRaised)
                     .frame(width: plateSize * 1.02, height: plateSize * 0.9)
@@ -572,7 +572,7 @@ struct WelcomeView: View {
     }
 
     private var capsuleHeroSection: some View {
-        VStack(spacing: DeviceLayout.isPad ? 30 : 24) {
+        VStack(spacing: DeviceLayout.usesExpandedLayout ? 30 : 24) {
             ZStack {
                 RoundedRectangle(cornerRadius: plateSize * 0.28, style: .continuous)
                     .fill(CapsuleStyle.surface.opacity(colorScheme == .dark ? 0.78 : 0.84))
@@ -629,9 +629,9 @@ struct WelcomeView: View {
                 .offset(y: titleOffset)
 
             welcomeSloganBlock(
-                font: .system(size: DeviceLayout.isPad ? 14 : 13, weight: .medium, design: .rounded),
+                font: .system(size: DeviceLayout.usesExpandedLayout ? 14 : 13, weight: .medium, design: .rounded),
                 color: .monoTextSecondary,
-                tracking: DeviceLayout.isPad ? 1.8 : 1.35
+                tracking: DeviceLayout.usesExpandedLayout ? 1.8 : 1.35
             )
                 .opacity(subtitleOpacity)
                 .offset(y: subtitleOffset)
@@ -640,7 +640,7 @@ struct WelcomeView: View {
                 accent: defaultAccent,
                 isAnimating: !isDismissing && !reduceMotion
             )
-            .frame(width: DeviceLayout.isPad ? 132 : 112, height: 22)
+            .frame(width: DeviceLayout.usesExpandedLayout ? 132 : 112, height: 22)
             .scaleEffect(x: accentScaleX, y: 1, anchor: .center)
             .opacity(accentOpacity)
             .padding(.top, 2)
@@ -654,9 +654,9 @@ struct WelcomeView: View {
                 .offset(y: titleOffset)
 
             welcomeSloganBlock(
-                font: ClarityStyle.body(DeviceLayout.isPad ? 14 : 13, weight: .medium),
+                font: ClarityStyle.body(DeviceLayout.usesExpandedLayout ? 14 : 13, weight: .medium),
                 color: ClarityStyle.inkSoft,
-                tracking: DeviceLayout.isPad ? 1.35 : 0.95,
+                tracking: DeviceLayout.usesExpandedLayout ? 1.35 : 0.95,
                 shortColor: ClarityStyle.accent.opacity(0.82)
             )
             .opacity(subtitleOpacity)
@@ -667,7 +667,7 @@ struct WelcomeView: View {
                 startPoint: .leading,
                 endPoint: .trailing
             )
-            .frame(width: DeviceLayout.isPad ? 148 : 124, height: 1)
+            .frame(width: DeviceLayout.usesExpandedLayout ? 148 : 124, height: 1)
             .scaleEffect(x: accentScaleX, y: 1)
             .opacity(accentOpacity)
         }
@@ -680,7 +680,7 @@ struct WelcomeView: View {
                 .offset(y: titleOffset)
 
             welcomeSloganBlock(
-                font: MujiStyle.labelFont(DeviceLayout.isPad ? 13 : 12, weight: .regular),
+                font: MujiStyle.labelFont(DeviceLayout.usesExpandedLayout ? 13 : 12, weight: .regular),
                 color: MujiStyle.inkSoft,
                 tracking: 1.2
             )
@@ -696,7 +696,7 @@ struct WelcomeView: View {
                 .offset(y: titleOffset)
 
             welcomeSloganBlock(
-                font: MangaStyle.labelFont(DeviceLayout.isPad ? 13 : 12, weight: .bold),
+                font: MangaStyle.labelFont(DeviceLayout.usesExpandedLayout ? 13 : 12, weight: .bold),
                 color: MangaStyle.inkSub,
                 minimumScaleFactor: 0.8,
                 shortColor: MangaStyle.accentPink.opacity(0.82)
@@ -722,7 +722,7 @@ struct WelcomeView: View {
                 .offset(y: titleOffset)
 
             welcomeSloganBlock(
-                font: PetWhiteStyle.labelFont(DeviceLayout.isPad ? 13 : 12, weight: .black),
+                font: PetWhiteStyle.labelFont(DeviceLayout.usesExpandedLayout ? 13 : 12, weight: .black),
                 color: PetWhiteStyle.inkSoft,
                 tracking: 0.9,
                 shortColor: PetWhiteStyle.dogOrange.opacity(0.82)
@@ -760,7 +760,7 @@ struct WelcomeView: View {
                 .offset(y: titleOffset)
 
             welcomeSloganBlock(
-                font: PureWhiteStyle.labelFont(DeviceLayout.isPad ? 13 : 12, weight: .bold),
+                font: PureWhiteStyle.labelFont(DeviceLayout.usesExpandedLayout ? 13 : 12, weight: .bold),
                 color: PureWhiteStyle.inkSoft,
                 shortColor: PureWhiteStyle.accent.opacity(0.8)
             )
@@ -785,7 +785,7 @@ struct WelcomeView: View {
                 .offset(y: titleOffset)
 
             welcomeSloganBlock(
-                font: NeumorphicStyle.labelFont(DeviceLayout.isPad ? 13 : 12, weight: .medium),
+                font: NeumorphicStyle.labelFont(DeviceLayout.usesExpandedLayout ? 13 : 12, weight: .medium),
                 color: NeumorphicStyle.inkSoft,
                 tracking: 1.0,
                 shortColor: NeumorphicStyle.accent.opacity(0.78)
@@ -814,7 +814,7 @@ struct WelcomeView: View {
                 .offset(y: titleOffset)
 
             welcomeSloganBlock(
-                font: CapsuleStyle.labelFont(DeviceLayout.isPad ? 13 : 12, weight: .semibold),
+                font: CapsuleStyle.labelFont(DeviceLayout.usesExpandedLayout ? 13 : 12, weight: .semibold),
                 color: CapsuleStyle.inkSoft,
                 tracking: 0.8,
                 shortColor: CapsuleStyle.accent.opacity(0.78)
@@ -842,7 +842,7 @@ struct WelcomeView: View {
         shortColor: Color? = nil,
         shortTracking: CGFloat = 1.4
     ) -> some View {
-        VStack(spacing: DeviceLayout.isPad ? 7 : 5) {
+        VStack(spacing: DeviceLayout.usesExpandedLayout ? 7 : 5) {
             Text(LocalizedStringKey("welcome_slogan"))
                 .font(font)
                 .foregroundColor(color)
@@ -852,7 +852,7 @@ struct WelcomeView: View {
                 .minimumScaleFactor(minimumScaleFactor)
 
             Text(LocalizedStringKey("welcome_slogan_short"))
-                .font(.system(size: DeviceLayout.isPad ? 10 : 9, weight: .semibold, design: .rounded))
+                .font(.system(size: DeviceLayout.usesExpandedLayout ? 10 : 9, weight: .semibold, design: .rounded))
                 .foregroundColor((shortColor ?? color).opacity(0.72))
                 .tracking(shortTracking)
                 .multilineTextAlignment(.center)
@@ -1150,7 +1150,7 @@ struct WelcomeView: View {
                 accentOpacity = 0
                 footerOpacity = 0
             } else {
-                sceneOffset = -(ScreenInfo.mainScreenSize.height + DeviceLayout.safeAreaTop + DeviceLayout.safeAreaBottom + 80)
+                sceneOffset = -(DeviceLayout.viewportHeight + DeviceLayout.safeAreaTop + DeviceLayout.safeAreaBottom + 80)
                 sceneScale = reduceMotion ? 1 : 1.015
                 backgroundScale = 1.03
                 plateScale = MangaStyle.isActive ? 0.98 : (PureWhiteStyle.isActive ? 1.0 : (NeumorphicStyle.isActive ? 0.99 : (CapsuleStyle.isActive ? 1.0 : 1.02)))
@@ -1803,7 +1803,7 @@ private struct NeumorphicWelcomeBackdrop: View {
                     startPoint: .top,
                     endPoint: .bottom
                 )
-                .frame(height: DeviceLayout.isPad ? 360 : 280)
+                .frame(height: DeviceLayout.usesExpandedLayout ? 360 : 280)
 
                 Spacer(minLength: 0)
             }
@@ -1812,7 +1812,7 @@ private struct NeumorphicWelcomeBackdrop: View {
                 Spacer()
 
                 NeumorphicWelcomeFloor()
-                    .frame(height: DeviceLayout.isPad ? 260 : 210)
+                    .frame(height: DeviceLayout.usesExpandedLayout ? 260 : 210)
                     .opacity(colorScheme == .dark ? 0.52 : 0.74)
             }
             .ignoresSafeArea()
@@ -1824,23 +1824,23 @@ private struct NeumorphicWelcomeBackdrop: View {
 private struct NeumorphicWelcomeDecor: View {
     var body: some View {
         ZStack {
-            NeumorphicWelcomeSoftPill(width: DeviceLayout.isPad ? 126 : 96, height: 18, tint: NeumorphicStyle.accent.opacity(0.34))
+            NeumorphicWelcomeSoftPill(width: DeviceLayout.usesExpandedLayout ? 126 : 96, height: 18, tint: NeumorphicStyle.accent.opacity(0.34))
                 .rotationEffect(.degrees(-10))
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .padding(.leading, DeviceLayout.isPad ? 100 : 34)
-                .padding(.top, DeviceLayout.isPad ? 170 : 128)
+                .padding(.leading, DeviceLayout.usesExpandedLayout ? 100 : 34)
+                .padding(.top, DeviceLayout.usesExpandedLayout ? 170 : 128)
 
-            NeumorphicWelcomeSoftPill(width: DeviceLayout.isPad ? 92 : 72, height: 16, tint: NeumorphicStyle.warm.opacity(0.3))
+            NeumorphicWelcomeSoftPill(width: DeviceLayout.usesExpandedLayout ? 92 : 72, height: 16, tint: NeumorphicStyle.warm.opacity(0.3))
                 .rotationEffect(.degrees(12))
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                .padding(.trailing, DeviceLayout.isPad ? 112 : 36)
-                .padding(.top, DeviceLayout.isPad ? 214 : 168)
+                .padding(.trailing, DeviceLayout.usesExpandedLayout ? 112 : 36)
+                .padding(.top, DeviceLayout.usesExpandedLayout ? 214 : 168)
 
-            NeumorphicWelcomeSoftPill(width: DeviceLayout.isPad ? 116 : 88, height: 18, tint: NeumorphicStyle.sage.opacity(0.28))
+            NeumorphicWelcomeSoftPill(width: DeviceLayout.usesExpandedLayout ? 116 : 88, height: 18, tint: NeumorphicStyle.sage.opacity(0.28))
                 .rotationEffect(.degrees(9))
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                .padding(.trailing, DeviceLayout.isPad ? 116 : 42)
-                .padding(.bottom, DeviceLayout.isPad ? 190 : 146)
+                .padding(.trailing, DeviceLayout.usesExpandedLayout ? 116 : 42)
+                .padding(.bottom, DeviceLayout.usesExpandedLayout ? 190 : 146)
         }
         .ignoresSafeArea()
     }
@@ -1904,7 +1904,7 @@ private struct CapsuleWelcomeBackdrop: View {
                 Spacer()
 
                 CapsuleWelcomeFloor()
-                    .frame(height: DeviceLayout.isPad ? 250 : 206)
+                    .frame(height: DeviceLayout.usesExpandedLayout ? 250 : 206)
                     .opacity(colorScheme == .dark ? 0.34 : 0.48)
             }
             .ignoresSafeArea()
@@ -1916,23 +1916,23 @@ private struct CapsuleWelcomeBackdrop: View {
 private struct CapsuleWelcomeDecor: View {
     var body: some View {
         ZStack {
-            CapsuleWelcomePill(width: DeviceLayout.isPad ? 132 : 104, height: 18, tint: CapsuleStyle.cyan)
+            CapsuleWelcomePill(width: DeviceLayout.usesExpandedLayout ? 132 : 104, height: 18, tint: CapsuleStyle.cyan)
                 .rotationEffect(.degrees(-14))
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .padding(.leading, DeviceLayout.isPad ? 92 : 28)
-                .padding(.top, DeviceLayout.isPad ? 152 : 118)
+                .padding(.leading, DeviceLayout.usesExpandedLayout ? 92 : 28)
+                .padding(.top, DeviceLayout.usesExpandedLayout ? 152 : 118)
 
-            CapsuleWelcomePill(width: DeviceLayout.isPad ? 108 : 82, height: 16, tint: CapsuleStyle.violet)
+            CapsuleWelcomePill(width: DeviceLayout.usesExpandedLayout ? 108 : 82, height: 16, tint: CapsuleStyle.violet)
                 .rotationEffect(.degrees(15))
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                .padding(.trailing, DeviceLayout.isPad ? 112 : 38)
-                .padding(.top, DeviceLayout.isPad ? 206 : 158)
+                .padding(.trailing, DeviceLayout.usesExpandedLayout ? 112 : 38)
+                .padding(.top, DeviceLayout.usesExpandedLayout ? 206 : 158)
 
-            CapsuleWelcomePill(width: DeviceLayout.isPad ? 120 : 94, height: 17, tint: CapsuleStyle.mint)
+            CapsuleWelcomePill(width: DeviceLayout.usesExpandedLayout ? 120 : 94, height: 17, tint: CapsuleStyle.mint)
                 .rotationEffect(.degrees(11))
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                .padding(.trailing, DeviceLayout.isPad ? 116 : 40)
-                .padding(.bottom, DeviceLayout.isPad ? 184 : 138)
+                .padding(.trailing, DeviceLayout.usesExpandedLayout ? 116 : 40)
+                .padding(.bottom, DeviceLayout.usesExpandedLayout ? 184 : 138)
         }
         .ignoresSafeArea()
     }

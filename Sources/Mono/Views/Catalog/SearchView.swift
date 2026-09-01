@@ -32,6 +32,13 @@ struct SearchView: View {
     @State var isSearchFiltering = false
     @Namespace var sequoiaSearchNamespace
 
+    var searchMediaGridColumns: [GridItem] {
+        Array(
+            repeating: GridItem(.flexible(), spacing: 14),
+            count: DeviceLayout.usesExpandedLayout ? 3 : 2
+        )
+    }
+
     var body: some View {
         let _ = settings.globalThemeRevision
 
@@ -40,7 +47,7 @@ struct SearchView: View {
                 .ignoresSafeArea()
 
             searchRootContent
-                .iPadContentWidth()
+                .iPadContentWidth(1000)
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)

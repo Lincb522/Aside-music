@@ -27,8 +27,6 @@ let package = Package(
         .package(path: "Packages/Icons/LucideIcons"),
         // SolarIcons - Solar 图标库（本地包）
         .package(path: "Packages/Icons/SolarIcons"),
-        // IconExportIcons - 新导入的 PNG 图标包
-        .package(path: "Packages/Icons/IconExportIcons"),
         // BlobIcons - Blob 风格 PNG 图标包
         .package(path: "Packages/Icons/BlobIcons"),
         // doodlePop - 配套 PNG 图标包
@@ -39,6 +37,10 @@ let package = Package(
         .package(path: "Packages/Icons/DotDogSnakeIcons"),
         // MinimalWhiteIcons - 纯白主题配套 PNG 图标包
         .package(path: "Packages/Icons/MinimalWhiteIcons"),
+        // PulseBloomIcons - Pulse Bloom 图标包
+        .package(path: "Packages/Icons/PulseBloomIcons"),
+        // MonoGlyphIcons - MONO 原创图标包
+        .package(path: "Packages/Icons/MonoGlyphIcons"),
         // ZIPFoundation - 用户字体 ZIP 压缩包导入
         .package(url: "https://github.com/weichsel/ZIPFoundation.git", from: "0.9.20"),
     ],
@@ -53,12 +55,13 @@ let package = Package(
                 "ZappiconIcons",
                 "LucideIcons",
                 "SolarIcons",
-                "IconExportIcons",
                 "BlobIcons",
                 "doodlePop",
                 "PawPrintIcons",
                 "DotDogSnakeIcons",
                 "MinimalWhiteIcons",
+                "PulseBloomIcons",
+                "MonoGlyphIcons",
                 .product(name: "ZIPFoundation", package: "ZIPFoundation"),
             ],
             resources: [

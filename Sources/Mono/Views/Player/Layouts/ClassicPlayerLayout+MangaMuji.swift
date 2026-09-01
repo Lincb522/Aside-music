@@ -75,7 +75,7 @@ extension ClassicPlayerLayout {
             .animation(.spring(response: 0.42, dampingFraction: 0.82), value: showLyrics)
 
             mangaTransportPanel
-                .padding(.horizontal, DeviceLayout.isPad ? DeviceLayout.playerHorizontalPadding : 16)
+                .padding(.horizontal, DeviceLayout.usesExpandedLayout ? DeviceLayout.playerHorizontalPadding : 16)
                 .padding(.bottom, DeviceLayout.playerBottomSafePadding)
         }
     }
@@ -97,7 +97,7 @@ extension ClassicPlayerLayout {
             .animation(.easeInOut(duration: 0.28), value: showLyrics)
 
             mujiTransportPanel
-                .padding(.horizontal, DeviceLayout.isPad ? DeviceLayout.playerHorizontalPadding : 20)
+                .padding(.horizontal, DeviceLayout.usesExpandedLayout ? DeviceLayout.playerHorizontalPadding : 20)
                 .padding(.bottom, DeviceLayout.playerBottomSafePadding)
         }
     }
@@ -126,7 +126,7 @@ extension ClassicPlayerLayout {
                     ClaySurfaceBackground(cornerRadius: 30, tint: ClayStyle.cream.opacity(0.96), elevated: true)
                 }
             }
-            .padding(.horizontal, DeviceLayout.isPad ? DeviceLayout.playerHorizontalPadding : 18)
+            .padding(.horizontal, DeviceLayout.usesExpandedLayout ? DeviceLayout.playerHorizontalPadding : 18)
             .padding(.vertical, 8)
         } else {
             Color.clear
@@ -134,7 +134,7 @@ extension ClassicPlayerLayout {
     }
 
     func mangaNowPlayingPanel(geometry: GeometryProxy) -> some View {
-        let artSize = min(DeviceLayout.isPad ? 220 : 172, max(132, geometry.size.width * 0.42))
+        let artSize = min(DeviceLayout.usesExpandedLayout ? 220 : 172, max(132, geometry.size.width * 0.42))
 
         return VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .center, spacing: 16) {
@@ -181,7 +181,7 @@ extension ClassicPlayerLayout {
                 .padding(10)
                 .rotationEffect(.degrees(8))
         }
-        .padding(.horizontal, DeviceLayout.isPad ? DeviceLayout.playerHorizontalPadding : 18)
+        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? DeviceLayout.playerHorizontalPadding : 18)
     }
 
     var mangaTitleBlock: some View {
@@ -232,7 +232,7 @@ extension ClassicPlayerLayout {
     }
 
     func mujiListeningTray(geometry: GeometryProxy) -> some View {
-        let artSize = min(DeviceLayout.isPad ? 300 : 246, max(190, geometry.size.width - 112))
+        let artSize = min(DeviceLayout.usesExpandedLayout ? 300 : 246, max(190, geometry.size.width - 112))
 
         return VStack(spacing: 24) {
             artworkTile(size: artSize)
@@ -245,7 +245,7 @@ extension ClassicPlayerLayout {
 
             mujiTrackLabel
         }
-        .padding(.horizontal, DeviceLayout.isPad ? DeviceLayout.playerHorizontalPadding : 28)
+        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? DeviceLayout.playerHorizontalPadding : 28)
     }
 
     var mujiTrackLabel: some View {

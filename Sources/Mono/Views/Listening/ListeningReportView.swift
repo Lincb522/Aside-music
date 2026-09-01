@@ -406,8 +406,11 @@ struct ListeningReportView: View {
 
     private func comparisonLabel(_ change: Int) -> some View {
         HStack(spacing: 5) {
-            Image(systemName: change >= 0 ? "arrow.up.right" : "arrow.down.right")
-                .font(.system(size: 9, weight: .heavy))
+            MonoSemanticIcon(
+                semantic: change >= 0 ? .trendUp : .trendDown,
+                fallback: .chart,
+                size: 10
+            )
             Text("\(kind.comparisonLabel) \(change >= 0 ? "+" : "")\(change)%")
                 .monospacedDigit()
         }

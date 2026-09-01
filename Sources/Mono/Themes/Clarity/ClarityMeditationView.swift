@@ -44,7 +44,7 @@ struct ClarityMeditationView: View {
     }
 
     private var horizontalPadding: CGFloat {
-        DeviceLayout.isPad ? 28 : 14
+        DeviceLayout.usesExpandedLayout ? 28 : 14
     }
 
     private var header: some View {

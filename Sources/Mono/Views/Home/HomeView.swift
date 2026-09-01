@@ -212,6 +212,7 @@ struct HomeView: View {
             }
             .padding(.top, DeviceLayout.headerTopPadding + 8)
             .padding(.bottom, 8)
+            .iPadContentWidth(1180)
         }
         .scrollIndicators(.hidden)
         .themeRenderScrollLayer()
@@ -537,7 +538,12 @@ struct HomeView: View {
 
     private var hitokotoFallbackCard: some View {
         HStack(alignment: .center, spacing: 12) {
-            MonoSymbolIcon(name: "quote.opening", size: 17, color: .monoTextPrimary.opacity(0.42))
+            MonoSemanticIcon(
+                semantic: .quote,
+                fallback: .hitokoto,
+                size: 17,
+                color: .monoTextPrimary.opacity(0.42)
+            )
 
             Text(HitokotoFallbackSlogan.text)
                 .font(.system(size: 14, weight: .medium, design: .serif))
@@ -563,7 +569,12 @@ struct HomeView: View {
 
     private func hitokotoCard(_ text: String) -> some View {
         HStack(alignment: .top, spacing: 12) {
-            MonoSymbolIcon(name: "quote.opening", size: 17, color: .monoTextPrimary.opacity(0.42))
+            MonoSemanticIcon(
+                semantic: .quote,
+                fallback: .hitokoto,
+                size: 17,
+                color: .monoTextPrimary.opacity(0.42)
+            )
                 .padding(.top, 2)
 
             Text(text)
@@ -665,6 +676,7 @@ struct HomeView: View {
             }
             .padding(.top, DeviceLayout.headerTopPadding + 2)
             .padding(.bottom, 8)
+            .iPadContentWidth(1180)
         }
         .scrollIndicators(.hidden)
         .themeRenderScrollLayer()
@@ -797,6 +809,7 @@ struct HomeView: View {
                 FloatingBarBottomSpacer()
             }
             .padding(.top, 4)
+            .iPadContentWidth(1180)
         }
         .scrollIndicators(.hidden)
         .themeRenderScrollLayer()

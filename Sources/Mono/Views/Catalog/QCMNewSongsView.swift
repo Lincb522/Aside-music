@@ -215,7 +215,7 @@ struct QCMNewSongsView: View {
                 .padding(.vertical, 12)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(PetWhiteSurfaceBackground(cornerRadius: PetWhiteStyle.cardRadius, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.sky))
-                .padding(.horizontal, DeviceLayout.isPad ? 8 : 4)
+                .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 8 : 4)
             } else if MinimalWhiteStyle.isActive {
                 VStack(alignment: .leading, spacing: 12) {
                     toolbar

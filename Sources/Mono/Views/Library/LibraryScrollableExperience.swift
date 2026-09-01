@@ -50,9 +50,15 @@ struct ScrollableLibraryExperience: View {
     @Namespace var sequoiaLibraryNamespace
 
     let tabs = LibraryViewModel.LibraryTab.allCases
-    let twoColumns = [GridItem(.flexible(), spacing: 13), GridItem(.flexible(), spacing: 13)]
     let actionColumns = [GridItem(.flexible(), spacing: 9), GridItem(.flexible(), spacing: 9)]
     let artistColumns = Array(repeating: GridItem(.flexible(), spacing: 14), count: DeviceLayout.artistGridColumns)
+
+    var playlistColumns: [GridItem] {
+        if DeviceLayout.usesExpandedLayout {
+            return [GridItem(.adaptive(minimum: 180, maximum: 240), spacing: 13)]
+        }
+        return [GridItem(.flexible(), spacing: 13), GridItem(.flexible(), spacing: 13)]
+    }
 
     var selectedTab: LibraryViewModel.LibraryTab {
         tabs[min(max(tabIndex, 0), tabs.count - 1)]
@@ -82,7 +88,7 @@ struct ScrollableLibraryExperience: View {
 
     var contentHorizontalPadding: CGFloat {
         if MinimalWhiteStyle.isActive { return DeviceLayout.libraryHorizontalPadding }
-        return PetWhiteStyle.isActive ? (DeviceLayout.isPad ? 16 : 10) : DeviceLayout.libraryHorizontalPadding
+        return PetWhiteStyle.isActive ? (DeviceLayout.usesExpandedLayout ? 16 : 10) : DeviceLayout.libraryHorizontalPadding
     }
 
     var body: some View {
@@ -98,6 +104,7 @@ struct ScrollableLibraryExperience: View {
                     tabContent
                 }
                 .padding(.bottom, 128)
+                .iPadContentWidth(1100)
             }
             .scrollIndicators(.hidden)
             .themeRenderScrollLayer()

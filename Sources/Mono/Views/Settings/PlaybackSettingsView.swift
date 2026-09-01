@@ -236,6 +236,7 @@ struct PlaybackSettingsView: View {
             VStack(spacing: 0) {
                 SettingsLinkRow(
                     icon: .waveform,
+                    artwork: .gameMode,
                     title: String(localized: "game_mode_settings_entry"),
                     subtitle: gameModeSubtitle,
                     destination: GameModeSettingsView()

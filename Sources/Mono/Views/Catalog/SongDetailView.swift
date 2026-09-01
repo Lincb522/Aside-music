@@ -271,9 +271,9 @@ struct SongDetailView: View {
     }
 
     private func resolvedHeroHeight(contentWidth: CGFloat, viewportHeight: CGFloat) -> CGFloat {
-        let aspectHeight = contentWidth / (DeviceLayout.isPad ? 1.08 : 0.86)
-        let viewportLimit = viewportHeight * (DeviceLayout.isPad ? 0.58 : 0.56)
-        let absoluteLimit: CGFloat = DeviceLayout.isPad ? 520 : 480
+        let aspectHeight = contentWidth / (DeviceLayout.usesExpandedLayout ? 1.08 : 0.86)
+        let viewportLimit = viewportHeight * (DeviceLayout.usesExpandedLayout ? 0.58 : 0.56)
+        let absoluteLimit: CGFloat = DeviceLayout.usesExpandedLayout ? 520 : 480
         return max(280, min(aspectHeight, viewportLimit, absoluteLimit))
     }
 

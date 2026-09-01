@@ -232,8 +232,7 @@ extension SearchView {
                     }
             }
         case .mvs:
-            let columns = [GridItem(.flexible(), spacing: 18), GridItem(.flexible(), spacing: 18)]
-            LazyVGrid(columns: columns, spacing: 22) {
+            LazyVGrid(columns: searchMediaGridColumns, spacing: 22) {
                 ForEach(Array(viewModel.neteaseMVResults.enumerated()), id: \.element.id) { index, mv in
                     MVGridCard(mv: mv) {
                         selectedMVId = MVIdItem(id: mv.id)
@@ -284,8 +283,7 @@ extension SearchView {
                     }
             }
         case .mvs:
-            let columns = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
-            LazyVGrid(columns: columns, spacing: 16) {
+            LazyVGrid(columns: searchMediaGridColumns, spacing: 16) {
                 ForEach(Array(viewModel.qqMVResults.enumerated()), id: \.element.id) { index, mv in
                     qqMVGridCard(mv: mv)
                         .onAppear {
@@ -321,8 +319,7 @@ extension SearchView {
         case .albums:
             platformRows(viewModel.kugouAlbumResults, source: .kugou) { albumRow(album: $0) }
         case .mvs:
-            let columns = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
-            LazyVGrid(columns: columns, spacing: 16) {
+            LazyVGrid(columns: searchMediaGridColumns, spacing: 16) {
                 ForEach(Array(viewModel.kugouMVResults.enumerated()), id: \.element.id) { index, mv in
                     kcmMVGridCard(mv: mv)
                         .onAppear {

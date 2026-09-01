@@ -46,7 +46,7 @@ struct AppearanceSettingsView: View {
                         icon: .playerTheme,
                         signalModule: .appearance
                     )
-                    .monoIconPulseBloomArtwork("themeStyle")
+                    .monoIconArtwork("themeStyle")
 
                     LazyVStack(spacing: SettingsPageLayout.sectionSpacing) {
                         globalThemeSection
@@ -131,7 +131,7 @@ struct AppearanceSettingsView: View {
                     subtitle: nil,
                     isOn: $settings.useSystemTabBar
                 )
-                .monoIconPulseBloomArtwork("systemTabBar")
+                .monoIconArtwork("systemTabBar")
 
                 if !settings.useSystemTabBar {
                     Divider()
@@ -145,7 +145,7 @@ struct AppearanceSettingsView: View {
                             set: { settings.floatingBarStyle = $0 }
                         )
                     )
-                    .monoIconPulseBloomArtwork("floatingBarStyle")
+                    .monoIconArtwork("floatingBarStyle")
 
                     if settings.globalThemeId == .default {
                         Divider()
@@ -157,7 +157,7 @@ struct AppearanceSettingsView: View {
                             subtitle: nil,
                             isOn: $settings.defaultThemeUsesLiquidGlassTabBar
                         )
-                        .monoIconPulseBloomArtwork("liquidGlass")
+                        .monoIconArtwork("liquidGlass")
                     }
                 }
             }
@@ -211,7 +211,7 @@ struct AppearanceSettingsView: View {
                         subtitle: String(localized: "settings_aside_fluid_background_desc"),
                         isOn: $settings.asideMusicFluidBackgroundEnabled
                     )
-                    .monoIconPulseBloomArtwork("fluidBackground")
+                    .monoIconArtwork("fluidBackground")
 
                     Divider()
                         .opacity(0.4)
@@ -225,7 +225,7 @@ struct AppearanceSettingsView: View {
                     isOn: $settings.coverBgGlobal,
                     isEnabled: !settings.locksCoverBackgroundSettings
                 )
-                .monoIconPulseBloomArtwork("backgroundGlobal")
+                .monoIconArtwork("backgroundGlobal")
 
                 Divider()
                     .opacity(0.4)
@@ -238,7 +238,7 @@ struct AppearanceSettingsView: View {
                     isOn: $settings.coverBgPlaylist,
                     isEnabled: !settings.locksCoverBackgroundSettings
                 )
-                .monoIconPulseBloomArtwork("backgroundPlaylist")
+                .monoIconArtwork("backgroundPlaylist")
 
                 Divider()
                     .opacity(0.4)
@@ -251,7 +251,7 @@ struct AppearanceSettingsView: View {
                     isOn: $settings.coverBgPlayer,
                     isEnabled: !settings.locksCoverBackgroundSettings
                 )
-                .monoIconPulseBloomArtwork("backgroundPlayer")
+                .monoIconArtwork("backgroundPlayer")
 
                 Divider()
                     .opacity(0.4)
@@ -260,7 +260,7 @@ struct AppearanceSettingsView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 10) {
                         SettingsIconBadge(icon: .sparkle)
-                            .monoIconPulseBloomArtwork("colorEngine")
+                            .monoIconArtwork("colorEngine")
 
                         Text(String(localized: "color_engine_title"))
                             .font(appearanceSettingsFont(14, weight: .semibold))
@@ -280,7 +280,7 @@ struct AppearanceSettingsView: View {
     private var globalThemePreviewColumns: [GridItem] {
         [
             GridItem(
-                .adaptive(minimum: DeviceLayout.isPad ? 176 : 148, maximum: DeviceLayout.isPad ? 218 : 186),
+                .adaptive(minimum: DeviceLayout.usesExpandedLayout ? 176 : 148, maximum: DeviceLayout.usesExpandedLayout ? 218 : 186),
                 spacing: 12
             ),
         ]
@@ -294,7 +294,7 @@ struct AppearanceSettingsView: View {
                 } label: {
                     HStack(spacing: 12) {
                         SettingsIconBadge(icon: .playerTheme)
-                            .monoIconPulseBloomArtwork("themeStyle")
+                            .monoIconArtwork("themeStyle")
 
                         VStack(alignment: .leading, spacing: 3) {
                             Text(String(localized: "settings_appearance_theme_style"))

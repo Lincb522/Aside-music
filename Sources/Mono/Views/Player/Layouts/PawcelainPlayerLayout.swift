@@ -32,48 +32,18 @@ struct PawcelainPlayerLayout: View {
             PetWhiteRootBackdrop()
                 .ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                headerBar
-                    .padding(.top, DeviceLayout.headerTopPadding)
-                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+            GeometryReader { proxy in
+                VStack(spacing: 0) {
+                    headerBar
+                        .padding(.top, DeviceLayout.headerTopPadding)
+                        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
 
-                if showLyrics {
-                    lyricsStage
-                        .padding(.horizontal, DeviceLayout.playerHorizontalPadding)
-                        .padding(.top, 12)
-                        .transition(.opacity.combined(with: .scale(scale: 0.99, anchor: .center)))
-                } else {
-                    coverStage
-                        .transition(.opacity.combined(with: .scale(scale: 0.99, anchor: .center)))
+                    if usesWideLayout(in: proxy.size) {
+                        widePlayerContent(in: proxy.size)
+                    } else {
+                        compactPlayerContent
+                    }
                 }
-
-                songInfoSection
-                    .padding(.horizontal, DeviceLayout.playerHorizontalPadding + 6)
-                    .padding(.top, showLyrics ? 14 : 0)
-
-                Spacer(minLength: 10)
-
-                progressSection
-                    .padding(.horizontal, DeviceLayout.playerHorizontalPadding + 4)
-
-                PlayerControlsBar(
-                    contentColor: usesIllustratedBackground ? illustratedPrimaryText : PetWhiteStyle.ink,
-                    secondaryColor: usesIllustratedBackground ? illustratedSecondaryText : PetWhiteStyle.inkSoft,
-                    showSecondaryRow: true,
-                    onShowPlaylist: { showPlaylist = true },
-                    onShowComments: { showComments = true },
-                    onShowEQ: { showEQSettings = true }
-                )
-                .padding(.horizontal, usesIllustratedBackground ? 14 : DeviceLayout.playerHorizontalPadding)
-                .padding(.vertical, usesIllustratedBackground ? 10 : 0)
-                .background {
-                    playerReadabilityBackground(cornerRadius: PetWhiteStyle.cardRadius, opacity: 0.64)
-                }
-                .padding(.horizontal, usesIllustratedBackground ? DeviceLayout.playerHorizontalPadding : 0)
-                .padding(.top, 16)
-
-                Spacer(minLength: 0)
-                    .frame(height: pawPlayerBottomPadding)
             }
 
             if showMoreMenu {
@@ -209,7 +179,7 @@ struct PawcelainPlayerLayout: View {
 
     // MARK: - Cover stage
 
-    private var coverStage: some View {
+    private func coverStage(side: CGFloat) -> some View {
         VStack(spacing: 0) {
             Spacer(minLength: 12)
 
@@ -219,17 +189,17 @@ struct PawcelainPlayerLayout: View {
 
                 if let song = player.currentSong {
                     CachedAsyncImage(url: song.coverUrl?.sized(800)) {
-                        PetWhiteMascotMark(kind: .pair, size: coverSide * 0.34)
+                        PetWhiteMascotMark(kind: .pair, size: side * 0.34)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                     .aspectRatio(contentMode: .fill)
-                    .frame(width: coverSide, height: coverSide)
+                    .frame(width: side, height: side)
                     .clipped()
                 } else {
-                    PetWhiteMascotMark(kind: .pair, size: coverSide * 0.38)
+                    PetWhiteMascotMark(kind: .pair, size: side * 0.38)
                 }
             }
-            .frame(width: coverSide, height: coverSide)
+            .frame(width: side, height: side)
             .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
             .overlay(
                 // 黏土受光面：顶部柔白反光，让封面像嵌进黏土块里
@@ -449,12 +419,97 @@ struct PawcelainPlayerLayout: View {
 
     // MARK: - Layout metrics
 
-    private var coverSide: CGFloat {
-        if DeviceLayout.isPad {
-            return min(430, DeviceLayout.screenHeight * 0.4)
+    private var compactPlayerContent: some View {
+        VStack(spacing: 0) {
+            if showLyrics {
+                lyricsStage
+                    .padding(.horizontal, DeviceLayout.playerHorizontalPadding)
+                    .padding(.top, 12)
+                    .transition(.opacity.combined(with: .scale(scale: 0.99, anchor: .center)))
+            } else {
+                coverStage(side: coverSide)
+                    .transition(.opacity.combined(with: .scale(scale: 0.99, anchor: .center)))
+            }
+
+            songInfoSection
+                .padding(.horizontal, DeviceLayout.playerHorizontalPadding + 6)
+                .padding(.top, showLyrics ? 14 : 0)
+
+            Spacer(minLength: 10)
+
+            progressSection
+                .padding(.horizontal, DeviceLayout.playerHorizontalPadding + 4)
+
+            playbackControlsSection
+
+            Spacer(minLength: 0)
+                .frame(height: pawPlayerBottomPadding)
         }
-        let widthBound = DeviceLayout.screenWidth - DeviceLayout.playerHorizontalPadding * 2 - 12
-        let heightBound = DeviceLayout.screenHeight * 0.4
+    }
+
+    private func widePlayerContent(in size: CGSize) -> some View {
+        let artworkSize = min(430, min(size.width * 0.4, size.height * 0.58))
+
+        return HStack(spacing: 52) {
+            Group {
+                if showLyrics {
+                    lyricsStage
+                        .padding(.vertical, 18)
+                        .transition(.opacity.combined(with: .scale(scale: 0.99, anchor: .center)))
+                } else {
+                    coverStage(side: artworkSize)
+                        .transition(.opacity.combined(with: .scale(scale: 0.99, anchor: .center)))
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            VStack(spacing: 0) {
+                Spacer(minLength: 20)
+
+                songInfoSection
+
+                Spacer(minLength: 28)
+
+                progressSection
+
+                playbackControlsSection
+
+                Spacer(minLength: max(DeviceLayout.safeAreaBottom + 18, 28))
+            }
+            .frame(maxWidth: 460)
+        }
+        .frame(maxWidth: 1080, maxHeight: .infinity)
+        .padding(.horizontal, 54)
+    }
+
+    private var playbackControlsSection: some View {
+        PlayerControlsBar(
+            contentColor: usesIllustratedBackground ? illustratedPrimaryText : PetWhiteStyle.ink,
+            secondaryColor: usesIllustratedBackground ? illustratedSecondaryText : PetWhiteStyle.inkSoft,
+            showSecondaryRow: true,
+            onShowPlaylist: { showPlaylist = true },
+            onShowComments: { showComments = true },
+            onShowEQ: { showEQSettings = true }
+        )
+        .padding(.horizontal, usesIllustratedBackground ? 14 : DeviceLayout.playerHorizontalPadding)
+        .padding(.vertical, usesIllustratedBackground ? 10 : 0)
+        .background {
+            playerReadabilityBackground(cornerRadius: PetWhiteStyle.cardRadius, opacity: 0.64)
+        }
+        .padding(.horizontal, usesIllustratedBackground ? DeviceLayout.playerHorizontalPadding : 0)
+        .padding(.top, 16)
+    }
+
+    private func usesWideLayout(in size: CGSize) -> Bool {
+        size.width >= 760 && size.width > size.height
+    }
+
+    private var coverSide: CGFloat {
+        if DeviceLayout.usesExpandedLayout {
+            return min(430, DeviceLayout.viewportHeight * 0.4)
+        }
+        let widthBound = DeviceLayout.viewportWidth - DeviceLayout.playerHorizontalPadding * 2 - 12
+        let heightBound = DeviceLayout.viewportHeight * 0.4
         return min(widthBound, heightBound)
     }
 

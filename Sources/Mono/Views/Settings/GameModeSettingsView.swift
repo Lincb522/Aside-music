@@ -27,6 +27,7 @@ struct GameModeSettingsView: View {
                         title: String(localized: "game_mode_settings_title"),
                         eyebrow: String(localized: "settings_eyebrow_game_mode"),
                         icon: .playCircle,
+                        artwork: .gameMode,
                         signalModule: .game
                     )
 
@@ -203,8 +204,9 @@ struct GameModeSettingsView: View {
                             )
                             .frame(width: 62, height: 62)
 
-                        MonoSymbolIcon(
-                            name: "power",
+                        MonoSemanticIcon(
+                            semantic: .gameModePower,
+                            fallback: .playCircle,
                             size: 23,
                             color: gameMode.isActive ? gameModeAccentText : gameModeSecondaryText
                         )
@@ -296,8 +298,9 @@ struct GameModeSettingsView: View {
         } label: {
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
-                    MonoSymbolIcon(
-                        name: preset.systemIconName,
+                    MonoSemanticIcon(
+                        semantic: preset.monoGlyphSemantic,
+                        fallback: preset.fallbackIcon,
                         size: 17,
                         color: isSelected ? gameModeAccentText : gameModePrimaryText.opacity(0.8)
                     )
@@ -354,6 +357,7 @@ struct GameModeSettingsView: View {
         VStack(spacing: 0) {
             SettingsToggleRow(
                 icon: .audioWave,
+                artwork: .gameVoicePriority,
                 title: String(localized: "game_mode_option_ducking_title"),
                 subtitle: String(localized: "game_mode_option_ducking_subtitle"),
                 isOn: Binding(
@@ -375,6 +379,7 @@ struct GameModeSettingsView: View {
 
             SettingsToggleRow(
                 icon: .soundQuality,
+                artwork: .gameLowerQuality,
                 title: String(localized: "game_mode_option_quality_title"),
                 subtitle: String(localized: "game_mode_option_quality_subtitle"),
                 isOn: Binding(
@@ -393,6 +398,7 @@ struct GameModeSettingsView: View {
 
             SettingsToggleRow(
                 icon: .close,
+                artwork: .gameAutoExit,
                 title: String(localized: "game_mode_option_auto_exit_title"),
                 subtitle: String(localized: "game_mode_option_auto_exit_subtitle"),
                 isOn: Binding(
@@ -413,6 +419,7 @@ struct GameModeSettingsView: View {
 
             SettingsToggleRow(
                 icon: .lock,
+                artwork: .gameSilentNowPlaying,
                 title: String(localized: "game_mode_option_silent_np_title"),
                 subtitle: String(localized: "game_mode_option_silent_np_subtitle"),
                 isOn: Binding(
@@ -434,6 +441,7 @@ struct GameModeSettingsView: View {
 
                 SettingsToggleRow(
                     icon: .list,
+                    artwork: .gameMinimalNowPlaying,
                     title: String(localized: "game_mode_option_minimal_np_title"),
                     subtitle: String(localized: "game_mode_option_minimal_np_subtitle"),
                     isOn: Binding(
@@ -462,7 +470,7 @@ struct GameModeSettingsView: View {
                 showQualityDialog = true
             } label: {
                 HStack(spacing: 12) {
-                    SettingsIconBadge(icon: .soundQuality)
+                    SettingsIconBadge(icon: .soundQuality, artwork: .gamePreferredQuality)
                     VStack(alignment: .leading, spacing: 3) {
                         Text(String(localized: "game_mode_preferred_quality_entry_title"))
                             .font(.system(size: 15, weight: .medium, design: .rounded))
@@ -491,7 +499,7 @@ struct GameModeSettingsView: View {
                 showPlaylistDialog = true
             } label: {
                 HStack(spacing: 12) {
-                    SettingsIconBadge(icon: .list)
+                    SettingsIconBadge(icon: .list, artwork: .gameAutoPlaylist)
                     VStack(alignment: .leading, spacing: 3) {
                         Text(String(localized: "game_mode_preset_playlist_entry_title"))
                             .font(.system(size: 15, weight: .medium, design: .rounded))
@@ -589,5 +597,23 @@ struct GameModeSettingsView: View {
 
     private var gameModeDivider: Color {
         return NeumorphicStyle.isActive ? NeumorphicStyle.separator.opacity(0.65) : .monoSeparator
+    }
+}
+
+private extension GameModeScenarioPreset {
+    var monoGlyphSemantic: MonoGlyphSemantic {
+        switch self {
+        case .fps: return .gamePresetFPS
+        case .rpg: return .gamePresetRPG
+        case .rhythm: return .gamePresetRhythm
+        }
+    }
+
+    var fallbackIcon: MonoIcon.IconType {
+        switch self {
+        case .fps: return .fullscreen
+        case .rpg: return .catStory
+        case .rhythm: return .musicNote
+        }
     }
 }

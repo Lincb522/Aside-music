@@ -550,7 +550,11 @@ struct DebugLogView: View {
                                 UIPasteboard.general.string = log.exportText
                                 HapticManager.shared.success()
                             } label: {
-                                Label(String(localized: "debug_copy_log"), systemImage: "doc.on.doc")
+                                Label {
+                                    Text(String(localized: "debug_copy_log"))
+                                } icon: {
+                                    MonoSemanticIcon(semantic: .copy, fallback: .save)
+                                }
                             }
                         }
                     }
@@ -1333,6 +1337,7 @@ private struct DebugLogDetailView: View {
                 size: 13,
                 color: copiedTarget == target ? .green : .white.opacity(0.72)
             )
+            .monoIconArtwork(copiedTarget == target ? nil : MonoGlyphSemantic.copy.rawValue)
             .frame(width: 36, height: 36)
             .background(Color.white.opacity(0.055))
             .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
@@ -1478,6 +1483,7 @@ private struct DebugLogDetailView: View {
                     size: 14,
                     color: isPrimary ? .black : .white.opacity(0.78)
                 )
+                .monoIconArtwork(MonoGlyphSemantic.copy.rawValue)
 
                 Text(title)
                     .font(.system(size: 13, weight: .semibold, design: .rounded))

@@ -36,22 +36,24 @@ private enum NeumorphicHomeModule: String, CaseIterable, Identifiable {
 /// Neumorphic 主题首页：以拟物软塑风格展示精选旋钮、每日推荐、新歌、歌单等模块，数据来自 `HomeViewModel`。
 struct NeumorphicHomeView: View {
     @ObservedObject private var viewModel = HomeViewModel.shared
-    @ObservedObject private var settings = SettingsManager.shared
     @AppStorage("hitokotoEnabled") private var hitokotoEnabled = true
     @State private var navigationPath = NavigationPath()
     @State private var showPersonalFM = false
     @State private var bannerWebURL: URL?
     @State private var appeared = false
     @State private var didActivateHome = false
+    @State private var isHomeActive = false
     @State private var hitokotoRefreshRotation: Double = 0
     @State private var selectedModule: NeumorphicHomeModule = .playlists
     @State private var deckExpanded = false
     @State private var bannerIndex = 0
     @Namespace private var moduleNamespace
-    private let bannerTimer = Timer.publish(every: 5.0, on: .main, in: .common).autoconnect()
+    @Environment(\.themeCustomizationRevision) private var themeRevision
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        let _ = settings.globalThemeRevision
+        let _ = themeRevision
 
         NavigationStack(path: $navigationPath) {
             ZStack {
@@ -68,12 +70,18 @@ struct NeumorphicHomeView: View {
             .toolbarBackground(.hidden, for: .navigationBar)
             .task {
                 guard await MainTabActivationGate.waitUntilSettled(.home) else { return }
+                isHomeActive = true
                 activateHomeIfNeeded(reason: "neumorphic home appear")
             }
             .onReceive(NotificationCenter.default.publisher(for: .mainTabDidSettle)) { notification in
-                guard notification.object as? Tab == .home,
+                guard let tab = notification.object as? Tab else { return }
+                isHomeActive = tab == .home
+                guard tab == .home,
                       MainTabActivationGate.isSettled(.home) else { return }
                 activateHomeIfNeeded(reason: "neumorphic home selected")
+            }
+            .onDisappear {
+                isHomeActive = false
             }
             .navigationDestination(for: HomeView.HomeDestination.self) { destination in
                 destinationView(for: destination)
@@ -104,7 +112,7 @@ struct NeumorphicHomeView: View {
 
     private var scrollBody: some View {
         ScrollView {
-            LazyVStack(spacing: 24) {
+            LazyVStack(spacing: 28) {
                 topConsole
                     .monoPageHeaderCollapse()
                     .neumorphicStagger(appeared, order: 0)
@@ -133,6 +141,7 @@ struct NeumorphicHomeView: View {
                 FloatingBarBottomSpacer()
             }
             .padding(.top, DeviceLayout.headerTopPadding + 8)
+            .iPadContentWidth(980)
         }
         .scrollIndicators(.hidden)
         .themeRenderScrollLayer()
@@ -145,24 +154,63 @@ struct NeumorphicHomeView: View {
     }
 
     private var loadingView: some View {
-        VStack(spacing: 18) {
-            NeumorphicIconBadge(icon: .layers, tint: NeumorphicStyle.accent, size: 58)
+        VStack(spacing: 16) {
+            ZStack {
+                Circle()
+                    .fill(NeumorphicStyle.accent.opacity(0.08))
+                    .frame(width: 84, height: 84)
 
-            Text("LOADING")
+                NeumorphicIconBadge(icon: .layers, tint: NeumorphicStyle.accent, size: 58)
+
+                ProgressView()
+                    .tint(NeumorphicStyle.accent)
+                    .scaleEffect(0.72)
+                    .offset(y: 43)
+            }
+
+            Text(String(localized: "正在加载"))
                 .font(NeumorphicStyle.labelFont(12, weight: .semibold))
                 .foregroundStyle(NeumorphicStyle.inkMuted)
-                .tracking(1.4)
         }
     }
 
     private var topConsole: some View {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 12) {
+                    homeIdentity
+                    topConsoleActions
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+            } else {
+                HStack(spacing: 12) {
+                    homeIdentity
+                    Spacer(minLength: 8)
+                    topConsoleActions
+                }
+            }
+        }
+        .padding(10)
+        .background(
+            NeumorphicSurfaceBackground(
+                cornerRadius: 22,
+                elevated: false,
+                pressed: true,
+                tint: NeumorphicStyle.surface.opacity(0.76)
+            )
+        )
+        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+    }
+
+    private var homeIdentity: some View {
         HStack(spacing: 12) {
             Button {
                 NotificationCenter.default.post(name: .init("SwitchToProfile"), object: nil)
             } label: {
                 avatarView
             }
-            .buttonStyle(.plain)
+            .buttonStyle(NeumorphicTactileButtonStyle(scale: 0.94))
+            .accessibilityLabel(String(localized: "profile_title"))
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(String(localized: LocalizedStringResource(stringLiteral: MonoTimeGreeting.localizedKey)))
@@ -176,18 +224,21 @@ struct NeumorphicHomeView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.78)
             }
+        }
+    }
 
-            Spacer(minLength: 8)
-
+    private var topConsoleActions: some View {
+        HStack(spacing: 10) {
             NeumorphicActionButton(size: 42, action: { showPersonalFM = true }) {
                 MonoIcon(icon: .radio, size: 17, color: NeumorphicStyle.sage, lineWidth: 1.6)
             }
+            .accessibilityLabel(String(localized: "personal_fm"))
 
             NeumorphicActionButton(size: 42, action: { navigationPath.append(HomeView.HomeDestination.search) }) {
                 MonoIcon(icon: .magnifyingGlass, size: 17, color: NeumorphicStyle.accent, lineWidth: 1.6)
             }
+            .accessibilityLabel(String(localized: "search"))
         }
-        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
     }
 
     @ViewBuilder
@@ -213,67 +264,83 @@ struct NeumorphicHomeView: View {
 
     private var tactileStage: some View {
         VStack(spacing: 18) {
-            HStack(alignment: .top, spacing: 16) {
-                VStack(alignment: .leading, spacing: 14) {
-                    HStack(spacing: 8) {
-                        Capsule()
-                            .fill(NeumorphicStyle.accent)
-                            .frame(width: 7, height: 7)
-
-                        Text(hitokotoLabel)
-                            .font(NeumorphicStyle.labelFont(11, weight: .semibold))
-                            .foregroundStyle(NeumorphicStyle.accent)
-                            .tracking(1.0)
-                    }
-
-                    if usesHitokotoFallback {
-                        Text(HitokotoFallbackSlogan.text)
-                            .font(NeumorphicStyle.bodyFont(18, weight: .medium))
-                            .foregroundStyle(NeumorphicStyle.ink)
-                            .lineSpacing(5)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                    } else {
-                        Text(hitokotoText)
-                            .font(NeumorphicStyle.bodyFont(18, weight: .medium))
-                            .foregroundStyle(NeumorphicStyle.ink)
-                            .lineSpacing(5)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-
-                    if hitokotoEnabled {
-                        HStack(spacing: 9) {
-                            Button {
-                                refreshHitokotoWithFeedback()
-                            } label: {
-                                NeumorphicPill(
-                                    text: String(localized: "刷新"),
-                                    tint: NeumorphicStyle.warm,
-                                    icon: .refresh,
-                                    selected: false,
-                                    iconRotation: hitokotoRefreshRotation
-                                )
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 18) {
+                    hitokotoPanel
+                    NeumorphicFeaturedDial(dailySongs: viewModel.dailySongs, isActive: isHomeActive)
+                        .frame(maxWidth: .infinity)
                 }
-
-                NeumorphicFeaturedDial(dailySongs: viewModel.dailySongs)
-                    .frame(width: DeviceLayout.isPad ? 168 : 132)
+            } else {
+                HStack(alignment: .top, spacing: 16) {
+                    hitokotoPanel
+                    NeumorphicFeaturedDial(dailySongs: viewModel.dailySongs, isActive: isHomeActive)
+                        .frame(width: DeviceLayout.usesExpandedLayout ? 174 : 132)
+                }
             }
 
-            NeumorphicFeaturedSongButton(dailySongs: viewModel.dailySongs)
+            NeumorphicFeaturedSongButton(dailySongs: viewModel.dailySongs, isActive: isHomeActive)
         }
-        .padding(18)
-        .background(NeumorphicSurfaceBackground(cornerRadius: 30, elevated: true))
+        .padding(DeviceLayout.usesExpandedLayout ? 22 : 18)
+        .background(NeumorphicSurfaceBackground(cornerRadius: NeumorphicStyle.heroRadius, elevated: true))
+    }
+
+    private var hitokotoPanel: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(NeumorphicStyle.accent)
+                    .frame(width: 7, height: 7)
+                    .shadow(color: NeumorphicStyle.accent.opacity(0.32), radius: 5, x: 1, y: 2)
+
+                Text(hitokotoLabel)
+                    .font(NeumorphicStyle.labelFont(11, weight: .semibold))
+                    .foregroundStyle(NeumorphicStyle.accent)
+            }
+
+            Text(usesHitokotoFallback ? HitokotoFallbackSlogan.text : hitokotoText)
+                .font(NeumorphicStyle.bodyFont(dynamicTypeSize.isAccessibilitySize ? 20 : 18, weight: .medium))
+                .foregroundStyle(NeumorphicStyle.ink)
+                .lineSpacing(5)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+
+            if hitokotoEnabled {
+                Button {
+                    refreshHitokotoWithFeedback()
+                } label: {
+                    NeumorphicPill(
+                        text: String(localized: "刷新"),
+                        tint: NeumorphicStyle.warm,
+                        icon: .refresh,
+                        selected: false,
+                        iconRotation: hitokotoRefreshRotation
+                    )
+                }
+                .buttonStyle(NeumorphicTactileButtonStyle(scale: 0.96))
+            }
+        }
     }
 
     private var neumorphicShortcutGrid: some View {
-        VStack(spacing: 12) {
-            ncmNewSongExpressShortcut
-            meditationModeShortcut
+        LazyVGrid(
+            columns: [GridItem(.adaptive(minimum: 154), spacing: 12)],
+            spacing: 12
+        ) {
+            neumorphicShortcut(
+                icon: .musicNoteList,
+                title: "NCM · \(String(localized: "新歌速递"))",
+                subtitle: "NEW RELEASES",
+                tint: MusicSource.netease.themedBadgeColor,
+                action: { navigationPath.append(HomeView.HomeDestination.newSongExpress) }
+            )
+
+            neumorphicShortcut(
+                icon: .moon,
+                title: String(localized: "meditation_mode_title"),
+                subtitle: String(localized: "meditation_mode_eyebrow"),
+                tint: NeumorphicStyle.sage,
+                action: { navigationPath.append(HomeView.HomeDestination.meditationMode) }
+            )
         }
     }
 
@@ -313,10 +380,10 @@ struct NeumorphicHomeView: View {
                 }
             }
             .padding(13)
-            .frame(maxWidth: .infinity, minHeight: 112, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: 118, alignment: .leading)
             .background(NeumorphicSurfaceBackground(cornerRadius: 24, elevated: true, tint: tint.opacity(0.08)))
         }
-        .buttonStyle(MonoBouncingButtonStyle(scale: 0.97))
+        .buttonStyle(NeumorphicTactileButtonStyle(scale: 0.97))
     }
 
     private var signalBannerRail: some View {
@@ -330,34 +397,49 @@ struct NeumorphicHomeView: View {
             )
             .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
 
-            TabView(selection: $bannerIndex) {
-                ForEach(Array(banners.enumerated()), id: \.element.id) { index, banner in
-                    GeometryReader { proxy in
+            GeometryReader { proxy in
+                let horizontalInset = DeviceLayout.homeHorizontalPadding
+                let bannerWidth = max(proxy.size.width - horizontalInset * 2, 1)
+
+                TabView(selection: $bannerIndex) {
+                    ForEach(Array(banners.enumerated()), id: \.element.id) { index, banner in
                         Button {
                             handleBannerTap(banner)
                         } label: {
                             NeumorphicSignalBannerCard(
                                 banner: banner,
-                                width: max(proxy.size.width, 260)
+                                width: bannerWidth,
+                                height: homeBannerHeight
                             )
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                         }
-                        .buttonStyle(MonoBouncingButtonStyle(scale: 0.98))
+                        .buttonStyle(NeumorphicTactileButtonStyle(scale: 0.985))
+                        .padding(.horizontal, horizontalInset)
+                        .tag(index)
                     }
-                    .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-                    .tag(index)
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+            }
+            .frame(height: homeBannerHeight)
+            .task(id: bannerRotationTaskID(count: banners.count)) {
+                guard isHomeActive, !reduceMotion, banners.count > 1 else { return }
+
+                while !Task.isCancelled {
+                    do {
+                        try await Task.sleep(nanoseconds: 5_000_000_000)
+                    } catch {
+                        return
+                    }
+                    guard isHomeActive,
+                          !reduceMotion,
+                          MainTabActivationGate.isSettled(.home),
+                          banners.count > 1 else { return }
+                    withAnimation(.spring(response: 0.55, dampingFraction: 0.88)) {
+                        bannerIndex = (bannerIndex + 1) % banners.count
+                    }
                 }
             }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 164)
-            .onReceive(bannerTimer) { _ in
-                guard MainTabActivationGate.isSettled(.home) else { return }
-                guard banners.count > 1 else { return }
-                withAnimation(.spring(response: 0.55, dampingFraction: 0.88)) {
-                    bannerIndex = (bannerIndex + 1) % banners.count
-                }
-            }
-            .onChange(of: viewModel.banners.count) { _, _ in
+            .onChange(of: banners.count) { _, _ in
                 guard MainTabActivationGate.isSettled(.home) else { return }
                 if bannerIndex >= banners.count {
                     bannerIndex = 0
@@ -403,7 +485,9 @@ struct NeumorphicHomeView: View {
     }
 
     private var moduleDeck: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        let playlists = mergedPlaylists
+
+        return VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 12) {
                 NeumorphicIconBadge(icon: selectedModule.icon, tint: NeumorphicStyle.accent, size: 38)
 
@@ -412,7 +496,7 @@ struct NeumorphicHomeView: View {
                         .font(NeumorphicStyle.titleFont(18, weight: .semibold))
                         .foregroundStyle(NeumorphicStyle.ink)
 
-                    Text(moduleSubtitle)
+                    Text(moduleSubtitle(playlistCount: playlists.count))
                         .font(NeumorphicStyle.labelFont(11, weight: .medium))
                         .foregroundStyle(NeumorphicStyle.inkMuted)
                         .lineLimit(1)
@@ -434,7 +518,7 @@ struct NeumorphicHomeView: View {
                             compact: true
                         )
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(NeumorphicTactileButtonStyle(scale: 0.96))
                     .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .trailing)))
                 }
             }
@@ -448,7 +532,7 @@ struct NeumorphicHomeView: View {
                 case .newSongs:
                     newSongsDrawer
                 case .playlists:
-                    playlistsDrawer
+                    playlistsDrawer(playlists)
                 case .discover:
                     discoverDrawer
                 }
@@ -471,83 +555,29 @@ struct NeumorphicHomeView: View {
                 icon: .sparkle
             )
 
-            VStack(spacing: 9) {
-                ForEach(Array(viewModel.dailySongs.prefix(4).enumerated()), id: \.element.id) { index, song in
-                    NeumorphicHomeSongRow(
-                        song: song,
-                        index: index + 1,
-                        action: { PlayerManager.shared.play(song: song, in: viewModel.dailySongs) }
-                    )
+            ScrollView(.horizontal) {
+                LazyHStack(spacing: 14) {
+                    ForEach(Array(viewModel.dailySongs.prefix(4).enumerated()), id: \.element.id) { index, song in
+                        Button {
+                            PlayerManager.shared.play(song: song, in: viewModel.dailySongs)
+                        } label: {
+                            NeumorphicDailySongCard(song: song, index: index + 1, isActive: isHomeActive)
+                        }
+                        .buttonStyle(NeumorphicTactileButtonStyle(scale: 0.975))
+                    }
                 }
-
-                Button {
-                    navigationPath.append(HomeView.HomeDestination.dailyRecommend)
-                } label: {
-                    drawerFooter(title: String(localized: "view_all"), icon: .chevronRight)
-                }
-                .buttonStyle(.plain)
+                .padding(.vertical, 8)
             }
-        }
-        .padding(16)
-        .background(NeumorphicSurfaceBackground(cornerRadius: 28, elevated: true))
-    }
+            .scrollIndicators(.hidden)
+            .themeRenderScrollLayer()
 
-    private var ncmNewSongExpressShortcut: some View {
-        Button {
-            navigationPath.append(HomeView.HomeDestination.newSongExpress)
-        } label: {
-            HStack(spacing: 13) {
-                NeumorphicIconBadge(icon: .musicNoteList, tint: MusicSource.netease.themedBadgeColor, size: 40)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("NCM · \(String(localized: "新歌速递"))")
-                        .font(NeumorphicStyle.titleFont(17, weight: .semibold))
-                        .foregroundStyle(NeumorphicStyle.ink)
-
-                    Text("NEW RELEASES")
-                        .font(NeumorphicStyle.labelFont(11, weight: .medium))
-                        .foregroundStyle(NeumorphicStyle.inkMuted)
-                }
-
-                Spacer(minLength: 8)
-
-                MonoIcon(icon: .chevronRight, size: 13, color: MusicSource.netease.themedBadgeColor, lineWidth: 1.7)
-                    .frame(width: 34, height: 34)
-                    .background(NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true, lightweight: true))
+            Button {
+                navigationPath.append(HomeView.HomeDestination.dailyRecommend)
+            } label: {
+                drawerFooter(title: String(localized: "view_all"), icon: .chevronRight)
             }
-            .padding(14)
-            .background(NeumorphicSurfaceBackground(cornerRadius: 24, elevated: true, tint: MusicSource.netease.themedBadgeColor.opacity(0.08)))
+            .buttonStyle(NeumorphicTactileButtonStyle(scale: 0.985))
         }
-        .buttonStyle(MonoBouncingButtonStyle(scale: 0.97))
-    }
-
-    private var meditationModeShortcut: some View {
-        Button {
-            navigationPath.append(HomeView.HomeDestination.meditationMode)
-        } label: {
-            HStack(spacing: 13) {
-                NeumorphicIconBadge(icon: .moon, tint: NeumorphicStyle.sage, size: 40)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(String(localized: "meditation_mode_title"))
-                        .font(NeumorphicStyle.titleFont(17, weight: .semibold))
-                        .foregroundStyle(NeumorphicStyle.ink)
-
-                    Text(String(localized: "meditation_mode_eyebrow"))
-                        .font(NeumorphicStyle.labelFont(11, weight: .medium))
-                        .foregroundStyle(NeumorphicStyle.inkMuted)
-                }
-
-                Spacer(minLength: 8)
-
-                MonoIcon(icon: .chevronRight, size: 13, color: NeumorphicStyle.sage, lineWidth: 1.7)
-                    .frame(width: 34, height: 34)
-                    .background(NeumorphicSurfaceBackground(cornerRadius: 13, elevated: false, pressed: true, lightweight: true))
-            }
-            .padding(14)
-            .background(NeumorphicSurfaceBackground(cornerRadius: 24, elevated: true, tint: NeumorphicStyle.sage.opacity(0.08)))
-        }
-        .buttonStyle(MonoBouncingButtonStyle(scale: 0.97))
     }
 
     private var moduleSelector: some View {
@@ -577,15 +607,25 @@ struct NeumorphicHomeView: View {
                     .padding(.vertical, 10)
                     .background {
                         if selectedModule == module {
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .fill(NeumorphicStyle.surfaceRaised)
+                            NeumorphicSurfaceBackground(
+                                cornerRadius: 16,
+                                elevated: true,
+                                tint: NeumorphicStyle.accent.opacity(0.1),
+                                lightweight: true
+                            )
                                 .matchedGeometryEffect(id: "selected-module", in: moduleNamespace)
-                                .shadow(color: Color.black.opacity(0.12), radius: 8, x: 4, y: 5)
-                                .shadow(color: Color.white.opacity(0.38), radius: 8, x: -4, y: -4)
+                        }
+                    }
+                    .overlay(alignment: .bottom) {
+                        if selectedModule == module {
+                            Capsule()
+                                .fill(NeumorphicStyle.accent)
+                                .frame(width: 18, height: 2.5)
+                                .offset(y: -3)
                         }
                     }
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(NeumorphicTactileButtonStyle(scale: 0.97))
             }
         }
         .padding(5)
@@ -599,6 +639,7 @@ struct NeumorphicHomeView: View {
                 NeumorphicHomeSongRow(
                     song: song,
                     index: index + 1,
+                    isActive: isHomeActive,
                     action: { PlayerManager.shared.play(song: song, in: viewModel.dailySongs) }
                 )
             }
@@ -608,7 +649,7 @@ struct NeumorphicHomeView: View {
             } label: {
                 drawerFooter(title: String(localized: "view_all"), icon: .chevronRight)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(NeumorphicTactileButtonStyle(scale: 0.985))
         }
     }
 
@@ -622,7 +663,7 @@ struct NeumorphicHomeView: View {
                         } label: {
                             NeumorphicNewSongCard(song: song)
                         }
-                        .buttonStyle(MonoBouncingButtonStyle(scale: 0.97))
+                        .buttonStyle(NeumorphicTactileButtonStyle(scale: 0.97))
                     }
                 }
                 .padding(.vertical, 6)
@@ -635,20 +676,23 @@ struct NeumorphicHomeView: View {
             } label: {
                 drawerFooter(title: String(localized: "view_all"), icon: .chevronRight)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(NeumorphicTactileButtonStyle(scale: 0.985))
         }
     }
 
-    private var playlistsDrawer: some View {
+    private func playlistsDrawer(_ playlists: [Playlist]) -> some View {
         VStack(spacing: 12) {
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                ForEach(visibleMergedPlaylists, id: \.neumorphicHomePlaylistKey) { playlist in
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: DeviceLayout.usesExpandedLayout ? 168 : 138), spacing: 12)],
+                spacing: 12
+            ) {
+                ForEach(visibleMergedPlaylists(from: playlists), id: \.neumorphicHomePlaylistKey) { playlist in
                     Button {
                         navigationPath.append(HomeView.HomeDestination.playlist(playlist))
                     } label: {
                         NeumorphicMiniPlaylistCard(playlist: playlist)
                     }
-                    .buttonStyle(MonoBouncingButtonStyle(scale: 0.97))
+                    .buttonStyle(NeumorphicTactileButtonStyle(scale: 0.97))
                 }
             }
 
@@ -657,13 +701,16 @@ struct NeumorphicHomeView: View {
             } label: {
                 drawerFooter(title: String(localized: "common_view_more"), icon: .chevronRight)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(NeumorphicTactileButtonStyle(scale: 0.985))
         }
     }
 
     private var discoverDrawer: some View {
         VStack(spacing: 12) {
-            HStack(spacing: 12) {
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 118), spacing: 12)],
+                spacing: 12
+            ) {
                 NeumorphicHomeDiscoveryTile(
                     title: String(localized: "MV"),
                     subtitle: String(localized: "VIDEO"),
@@ -704,14 +751,14 @@ struct NeumorphicHomeView: View {
         .background(NeumorphicSurfaceBackground(cornerRadius: 18, elevated: false, pressed: true, lightweight: true))
     }
 
-    private var moduleSubtitle: String {
+    private func moduleSubtitle(playlistCount: Int) -> String {
         switch selectedModule {
         case .daily:
             return "\(viewModel.dailySongs.count) \(String(localized: "songs_unit"))"
         case .newSongs:
             return "QCM · \(viewModel.qqNewSongs.count)"
         case .playlists:
-            return "\(mergedPlaylists.count) \(String(localized: "张"))"
+            return "\(playlistCount) \(String(localized: "张"))"
         case .discover:
             return String(localized: "MV · ARTISTS · PLAYLIST")
         }
@@ -746,12 +793,20 @@ struct NeumorphicHomeView: View {
         }
     }
 
-    private var visibleMergedPlaylists: [Playlist] {
-        deckExpanded ? mergedPlaylists : Array(mergedPlaylists.prefix(4))
+    private func visibleMergedPlaylists(from playlists: [Playlist]) -> [Playlist] {
+        deckExpanded ? playlists : Array(playlists.prefix(4))
     }
 
     private var visibleQQNewSongs: [Song] {
         Array(viewModel.qqNewSongs.prefix(8))
+    }
+
+    private var homeBannerHeight: CGFloat {
+        DeviceLayout.usesExpandedLayout ? 184 : 146
+    }
+
+    private func bannerRotationTaskID(count: Int) -> String {
+        "\(isHomeActive)-\(reduceMotion)-\(count)"
     }
 
     private func openLibrarySquare() {
@@ -836,27 +891,44 @@ struct NeumorphicHomeView: View {
 /// 精选入口：旋转封面拨盘。
 private struct NeumorphicFeaturedDial: View {
     let dailySongs: [Song]
+    let isActive: Bool
 
     @State private var currentSong = PlayerManager.shared.currentSong
     @State private var historyFirstSong = PlayerManager.shared.history.first
     @State private var isPlaying = PlayerManager.shared.isPlaying
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
+        let dialSize: CGFloat = DeviceLayout.usesExpandedLayout ? 148 : 124
+        let grooveSize = dialSize * 0.84
+        let coverSize = dialSize * 0.69
+
         ZStack {
             Circle()
                 .fill(NeumorphicStyle.surfacePressed)
-                .frame(width: 124, height: 124)
-                .shadow(color: Color.black.opacity(0.16), radius: 16, x: 7, y: 8)
-                .shadow(color: Color.white.opacity(0.34), radius: 14, x: -7, y: -7)
+                .frame(width: dialSize, height: dialSize)
+                .shadow(
+                    color: NeumorphicStyle.lightShadow(colorScheme, intensity: colorScheme == .dark ? 0.58 : 0.88),
+                    radius: 14,
+                    x: -7,
+                    y: -7
+                )
+                .shadow(
+                    color: NeumorphicStyle.darkShadow(colorScheme, intensity: 0.5),
+                    radius: 16,
+                    x: 7,
+                    y: 8
+                )
 
             Circle()
                 .stroke(NeumorphicStyle.separator.opacity(0.55), lineWidth: 1)
-                .frame(width: 104, height: 104)
+                .frame(width: grooveSize, height: grooveSize)
 
             if let song = featuredSong {
                 NeumorphicHomeSpinningCover(
                     coverUrl: song.coverUrl,
-                    isPlaying: currentSong?.id == song.id && isPlaying
+                    isPlaying: isActive && currentSong?.id == song.id && isPlaying,
+                    size: coverSize
                 )
             } else {
                 MonoIcon(icon: .musicNote, size: 30, color: NeumorphicStyle.inkMuted, lineWidth: 1.5)
@@ -867,7 +939,7 @@ private struct NeumorphicFeaturedDial: View {
                 .frame(width: 20, height: 20)
                 .overlay(Circle().fill(NeumorphicStyle.inkMuted.opacity(0.18)).frame(width: 7, height: 7))
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, minHeight: dialSize)
         .task {
             guard await MainTabActivationGate.waitUntilSettled(.home) else { return }
             currentSong = PlayerManager.shared.currentSong
@@ -895,6 +967,7 @@ private struct NeumorphicFeaturedDial: View {
 
 private struct NeumorphicFeaturedSongButton: View {
     let dailySongs: [Song]
+    let isActive: Bool
 
     @State private var currentSong = PlayerManager.shared.currentSong
     @State private var historyFirstSong = PlayerManager.shared.history.first
@@ -932,7 +1005,7 @@ private struct NeumorphicFeaturedSongButton: View {
                                 .frame(width: 42, height: 42)
 
                             if currentSong?.id == song.id && isPlaying {
-                                PlayingVisualizerView(isAnimating: true, color: NeumorphicStyle.accent)
+                                PlayingVisualizerView(isAnimating: isActive, color: NeumorphicStyle.accent)
                                     .frame(width: 20, height: 16)
                             } else {
                                 MonoIcon(icon: .play, size: 14, color: NeumorphicStyle.accent, lineWidth: 1.8)
@@ -943,7 +1016,7 @@ private struct NeumorphicFeaturedSongButton: View {
                     .padding(.vertical, 13)
                     .background(NeumorphicSurfaceBackground(cornerRadius: 20, elevated: false, pressed: true, lightweight: true))
                 }
-                .buttonStyle(MonoBouncingButtonStyle(scale: 0.97))
+                .buttonStyle(NeumorphicTactileButtonStyle(scale: 0.97))
             }
         }
         .task {
@@ -995,9 +1068,11 @@ private struct NeumorphicFeaturedSongButton: View {
 private struct NeumorphicHomeSpinningCover: View {
     let coverUrl: URL?
     let isPlaying: Bool
+    let size: CGFloat
 
     @State private var storedAngle: Double = 0
     @State private var anchorDate: Date?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let degreesPerSecond: Double = 10
 
@@ -1005,16 +1080,16 @@ private struct NeumorphicHomeSpinningCover: View {
         TimelineView(
             AppFrameRate.animationTimeline(
                 maximumFramesPerSecond: 30,
-                paused: !isPlaying
+                paused: !rotationActive
             )
         ) { timeline in
             let displayedAngle = currentAngle(at: timeline.date)
 
-            CachedAsyncImage(url: coverUrl, width: 86, height: 86) {
+            CachedAsyncImage(url: coverUrl, width: size, height: size) {
                 Circle().fill(NeumorphicStyle.surface)
             }
             .aspectRatio(contentMode: .fill)
-            .frame(width: 86, height: 86)
+            .frame(width: size, height: size)
             .clipShape(Circle())
             .rotationEffect(.degrees(displayedAngle))
             .transaction { transaction in
@@ -1022,33 +1097,41 @@ private struct NeumorphicHomeSpinningCover: View {
             }
         }
         .onAppear {
-            if isPlaying && anchorDate == nil {
-                anchorDate = Date()
-            }
+            synchronizeRotation(isActive: rotationActive)
         }
-        .onChange(of: isPlaying) { _, isPlaying in
-            let now = Date()
-            if isPlaying {
-                anchorDate = now
-            } else {
-                storedAngle = currentAngle(at: now).truncatingRemainder(dividingBy: 360)
-                anchorDate = nil
-            }
+        .onChange(of: rotationActive) { _, isActive in
+            synchronizeRotation(isActive: isActive)
         }
     }
 
+    private var rotationActive: Bool {
+        isPlaying && !reduceMotion
+    }
+
     private func currentAngle(at date: Date) -> Double {
-        guard isPlaying, let anchorDate else {
+        guard let anchorDate else {
             return storedAngle
         }
         let elapsed = max(0, date.timeIntervalSince(anchorDate))
         return storedAngle + elapsed * degreesPerSecond
+    }
+
+    private func synchronizeRotation(isActive: Bool) {
+        let now = Date()
+        if isActive {
+            guard anchorDate == nil else { return }
+            anchorDate = now
+        } else if anchorDate != nil {
+            storedAngle = currentAngle(at: now).truncatingRemainder(dividingBy: 360)
+            anchorDate = nil
+        }
     }
 }
 
 private struct NeumorphicSignalBannerCard: View {
     let banner: Banner
     let width: CGFloat
+    let height: CGFloat
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
@@ -1057,7 +1140,7 @@ private struct NeumorphicSignalBannerCard: View {
                     .fill(NeumorphicStyle.surfacePressed)
                     .overlay(MonoIcon(icon: .radio, size: 28, color: NeumorphicStyle.inkMuted.opacity(0.45)))
             }
-            .frame(width: width, height: 142)
+            .frame(width: width, height: height)
 
             LinearGradient(
                 colors: [.black.opacity(0), .black.opacity(0.28)],
@@ -1079,14 +1162,108 @@ private struct NeumorphicSignalBannerCard: View {
             .background(.black.opacity(0.22), in: Capsule())
             .padding(12)
         }
-        .frame(width: width, height: 142)
+        .frame(width: width, height: height)
         .background(NeumorphicSurfaceBackground(cornerRadius: 28, elevated: true))
+    }
+}
+
+private struct NeumorphicDailySongCard: View {
+    let song: Song
+    let index: Int
+    let isActive: Bool
+
+    @State private var currentSongID = PlayerManager.shared.currentSong?.id
+    @State private var playerIsPlaying = PlayerManager.shared.isPlaying
+
+    var body: some View {
+        let width: CGFloat = DeviceLayout.usesExpandedLayout ? 174 : 152
+        let artworkSize = width - 20
+
+        VStack(alignment: .leading, spacing: 10) {
+            ZStack(alignment: .topLeading) {
+                CachedAsyncImage(url: song.coverUrl, width: artworkSize, height: artworkSize) {
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .fill(NeumorphicStyle.surfacePressed)
+                        .overlay(MonoIcon(icon: .musicNote, size: 24, color: NeumorphicStyle.inkMuted.opacity(0.5)))
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: artworkSize, height: artworkSize)
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .stroke(Color.white.opacity(0.18), lineWidth: 0.8)
+                }
+
+                Text(String(format: "%02d", index))
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Color.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(.black.opacity(0.28), in: Capsule())
+                    .padding(9)
+
+                ZStack {
+                    Circle()
+                        .fill(.ultraThinMaterial)
+                    Circle()
+                        .fill(NeumorphicStyle.surface.opacity(0.62))
+
+                    if isPlaying {
+                        PlayingVisualizerView(isAnimating: true, color: NeumorphicStyle.accent)
+                            .frame(width: 18, height: 14)
+                    } else {
+                        MonoIcon(icon: .play, size: 11, color: NeumorphicStyle.ink, lineWidth: 1.7)
+                    }
+                }
+                .frame(width: 34, height: 34)
+                .padding(9)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+            }
+            .frame(width: artworkSize, height: artworkSize)
+
+            Text(song.name)
+                .font(NeumorphicStyle.labelFont(14, weight: .semibold))
+                .foregroundStyle(NeumorphicStyle.ink)
+                .lineLimit(1)
+
+            Text(song.artistName)
+                .font(NeumorphicStyle.labelFont(11))
+                .foregroundStyle(NeumorphicStyle.inkSoft)
+                .lineLimit(1)
+        }
+        .padding(10)
+        .frame(width: width, alignment: .leading)
+        .background(
+            NeumorphicSurfaceBackground(
+                cornerRadius: 26,
+                elevated: true,
+                tint: isPlaying ? NeumorphicStyle.accent.opacity(0.11) : nil
+            )
+        )
+        .task {
+            guard await MainTabActivationGate.waitUntilSettled(.home) else { return }
+            currentSongID = PlayerManager.shared.currentSong?.id
+            playerIsPlaying = PlayerManager.shared.isPlaying
+        }
+        .onReceive(PlayerManager.shared.$currentSong.map { $0?.id }.removeDuplicates()) { songID in
+            guard MainTabActivationGate.isSettled(.home) else { return }
+            currentSongID = songID
+        }
+        .onReceive(PlayerManager.shared.$isPlaying.removeDuplicates()) { isPlaying in
+            guard MainTabActivationGate.isSettled(.home) else { return }
+            playerIsPlaying = isPlaying
+        }
+    }
+
+    private var isPlaying: Bool {
+        isActive && currentSongID == song.id && playerIsPlaying
     }
 }
 
 private struct NeumorphicHomeSongRow: View {
     let song: Song
     let index: Int
+    let isActive: Bool
     let action: () -> Void
 
     @State private var currentSongID = PlayerManager.shared.currentSong?.id
@@ -1134,7 +1311,7 @@ private struct NeumorphicHomeSongRow: View {
             .padding(10)
             .background(NeumorphicSurfaceBackground(cornerRadius: 19, elevated: false, pressed: !isPlaying, tint: isPlaying ? NeumorphicStyle.accent.opacity(0.16) : NeumorphicStyle.surface, lightweight: true))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(NeumorphicTactileButtonStyle(scale: 0.985))
         .task {
             guard await MainTabActivationGate.waitUntilSettled(.home) else { return }
             currentSongID = PlayerManager.shared.currentSong?.id
@@ -1151,7 +1328,7 @@ private struct NeumorphicHomeSongRow: View {
     }
 
     private var isPlaying: Bool {
-        currentSongID == song.id && playerIsPlaying
+        isActive && currentSongID == song.id && playerIsPlaying
     }
 }
 
@@ -1188,31 +1365,44 @@ private struct NeumorphicMiniPlaylistCard: View {
     let playlist: Playlist
 
     var body: some View {
-        HStack(spacing: 10) {
-            CachedAsyncImage(url: playlist.coverUrl, width: 48, height: 48) {
-                RoundedRectangle(cornerRadius: 13, style: .continuous)
-                    .fill(NeumorphicStyle.surfacePressed)
-            }
-            .aspectRatio(contentMode: .fill)
-            .frame(width: 48, height: 48)
-            .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+        VStack(alignment: .leading, spacing: 10) {
+            ZStack(alignment: .bottomLeading) {
+                CachedAsyncImage(url: playlist.coverUrl, width: 220, height: 180) {
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(NeumorphicStyle.surfacePressed)
+                        .overlay(MonoIcon(icon: .musicNoteList, size: 24, color: NeumorphicStyle.inkMuted.opacity(0.5)))
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(maxWidth: .infinity)
+                .frame(height: DeviceLayout.usesExpandedLayout ? 146 : 116)
+                .clipped()
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(playlist.name)
-                    .font(NeumorphicStyle.labelFont(13, weight: .semibold))
-                    .foregroundStyle(NeumorphicStyle.ink)
-                    .lineLimit(2)
+                LinearGradient(
+                    colors: [.clear, .black.opacity(0.32)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
 
                 Text(playlist.source == .qqmusic ? "QCM" : "NCM")
                     .font(NeumorphicStyle.labelFont(10, weight: .semibold))
-                    .foregroundStyle(playlist.source == .qqmusic ? MusicSource.qqmusic.themedBadgeColor : MusicSource.netease.themedBadgeColor)
+                    .foregroundStyle(Color.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(.black.opacity(0.26), in: Capsule())
+                    .padding(9)
             }
 
-            Spacer(minLength: 0)
+            Text(playlist.name)
+                .font(NeumorphicStyle.labelFont(13, weight: .semibold))
+                .foregroundStyle(NeumorphicStyle.ink)
+                .lineLimit(2)
+                .frame(maxWidth: .infinity, minHeight: 34, alignment: .topLeading)
         }
         .padding(10)
-        .frame(minHeight: 74)
-        .background(NeumorphicSurfaceBackground(cornerRadius: 19, elevated: false, pressed: true, lightweight: true))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(NeumorphicSurfaceBackground(cornerRadius: 24, elevated: true))
     }
 }
 
@@ -1243,9 +1433,10 @@ private struct NeumorphicHomeDiscoveryTile: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(13)
+            .frame(minHeight: 112)
             .background(NeumorphicSurfaceBackground(cornerRadius: 20, elevated: true, tint: tint.opacity(0.1)))
         }
-        .buttonStyle(MonoBouncingButtonStyle(scale: 0.96))
+        .buttonStyle(NeumorphicTactileButtonStyle(scale: 0.96))
     }
 }
 

@@ -279,6 +279,11 @@ extension AIEqualizerLabView {
                     size: 16,
                     color: accentForeground
                 )
+                .monoIconArtwork(
+                    (agent.phase.isWorking
+                        ? MonoGlyphSemantic.agentStopAnalysis
+                        : MonoGlyphSemantic.agentAnalyze).rawValue
+                )
             }
             .frame(width: 48, height: 48)
             .contentShape(Circle())

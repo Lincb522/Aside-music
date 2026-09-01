@@ -166,6 +166,7 @@
 "player_theme_console_name" = "Console";
 "player_theme_console_description" = "Black-and-green terminal controls with segmented progress and live signal status.";
 "immersive_bg_title" = "Video Background";
+"immersive_bg_adaptive_glass_lyrics" = "Adaptive Glass Lyrics";
 "immersive_bg_import_failed" = "Import failed";
 "immersive_bg_bind_target" = "Bind To";
 "immersive_bg_target_song" = "Current Song";

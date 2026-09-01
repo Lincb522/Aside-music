@@ -28,7 +28,7 @@ extension SettingsView {
     }
 
     var headerActionButtonWidth: CGFloat {
-        DeviceLayout.isPad ? 96 : 90
+        DeviceLayout.usesExpandedLayout ? 96 : 90
     }
 
     var headerFooterText: String {

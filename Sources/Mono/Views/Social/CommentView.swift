@@ -761,7 +761,7 @@ struct CommentRow: View {
                 }
             }
         }
-        .padding(.horizontal, isThemedSurface ? (DeviceLayout.isPad ? 20 : 14) : 4)
+        .padding(.horizontal, isThemedSurface ? (DeviceLayout.usesExpandedLayout ? 20 : 14) : 4)
         .padding(.vertical, 13)
         .background {
             if NeumorphicStyle.isActive {

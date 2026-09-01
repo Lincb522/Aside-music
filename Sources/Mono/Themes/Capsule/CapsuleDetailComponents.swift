@@ -68,7 +68,7 @@ struct CapsuleDetailHeader<Actions: View>: View {
             .padding(16)
         }
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-        .padding(.top, DeviceLayout.isPad ? 24 : 16)
+        .padding(.top, DeviceLayout.usesExpandedLayout ? 24 : 16)
         .padding(.bottom, 12)
         .iPadContentWidth(900)
     }
@@ -108,7 +108,7 @@ struct CapsuleDetailHeader<Actions: View>: View {
             }
 
             Text(title)
-                .font(CapsuleStyle.titleFont(DeviceLayout.isPad ? 29 : 24, weight: .bold))
+                .font(CapsuleStyle.titleFont(DeviceLayout.usesExpandedLayout ? 29 : 24, weight: .bold))
                 .foregroundStyle(CapsuleStyle.ink)
                 .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
@@ -125,7 +125,7 @@ struct CapsuleDetailHeader<Actions: View>: View {
     }
 
     private var artworkSize: CGSize {
-        CGSize(width: DeviceLayout.isPad ? 158 : 124, height: DeviceLayout.isPad ? 158 : 124)
+        CGSize(width: DeviceLayout.usesExpandedLayout ? 158 : 124, height: DeviceLayout.usesExpandedLayout ? 158 : 124)
     }
 }
 
@@ -303,7 +303,7 @@ struct CapsuleDetailSection<Content: View>: View {
                 tint: CapsuleStyle.surface.opacity(elevated ? 0.9 : 0.76)
             )
         )
-        .padding(.horizontal, DeviceLayout.isPad ? 32 : max(DeviceLayout.viewHorizontalPadding - 8, 10))
+        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 32 : max(DeviceLayout.viewHorizontalPadding - 8, 10))
         .iPadContentWidth(960)
     }
 }

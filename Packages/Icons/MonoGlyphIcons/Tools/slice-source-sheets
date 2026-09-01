@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+
+script_dir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+bundled_python="$HOME/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3"
+
+if [ -n "${MONO_GLYPH_PYTHON:-}" ]; then
+    python="$MONO_GLYPH_PYTHON"
+elif [ -x "$bundled_python" ]; then
+    python="$bundled_python"
+else
+    python="python3"
+fi
+
+exec "$python" "$script_dir/slice_source_sheets.py" "$@"

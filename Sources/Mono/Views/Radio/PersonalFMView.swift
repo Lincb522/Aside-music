@@ -156,12 +156,12 @@ struct PersonalFMView: View {
                                     )
                                 }
                                 .aspectRatio(contentMode: .fill)
-                                .frame(width: DeviceLayout.isPad ? 400 : 300, height: DeviceLayout.isPad ? 400 : 300)
+                                .frame(width: DeviceLayout.usesExpandedLayout ? 400 : 300, height: DeviceLayout.usesExpandedLayout ? 400 : 300)
                                 .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
                                 .opacity(isFlipped ? 0 : 1)
                                 
                                 fmLyricsBackView(song: song)
-                                    .frame(width: DeviceLayout.isPad ? 400 : 300, height: DeviceLayout.isPad ? 400 : 300)
+                                    .frame(width: DeviceLayout.usesExpandedLayout ? 400 : 300, height: DeviceLayout.usesExpandedLayout ? 400 : 300)
                                     .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
                                     .rotation3DEffect(.degrees(180), axis: (x: 0, y: 1, z: 0))
                                     .opacity(isFlipped ? 1 : 0)
@@ -197,7 +197,7 @@ struct PersonalFMView: View {
                                     .multilineTextAlignment(.center)
                                     .lineLimit(2)
                                     .minimumScaleFactor(0.82)
-                                    .padding(.horizontal, DeviceLayout.isPad ? 60 : 40)
+                                    .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 60 : 40)
                                     .id("title-\(song.id)")
                                     .transition(.opacity.combined(with: .scale(scale: 0.95)))
 
@@ -206,7 +206,7 @@ struct PersonalFMView: View {
                                     .foregroundColor(Theme.secondaryText)
                                     .lineLimit(1)
                                     .minimumScaleFactor(0.84)
-                                    .padding(.horizontal, DeviceLayout.isPad ? 60 : 40)
+                                    .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 60 : 40)
                                     .id("artist-\(song.id)")
                                     .transition(.opacity.combined(with: .scale(scale: 0.95)))
                             }
@@ -408,7 +408,7 @@ struct PersonalFMView: View {
                     }
                 }
             )
-            .frame(width: DeviceLayout.isPad ? 320 : 260)
+            .frame(width: DeviceLayout.usesExpandedLayout ? 320 : 260)
             .opacity(isOwnFMContent ? 1 : 0.45)
         } else {
             WaveformProgressBar(
@@ -427,7 +427,7 @@ struct PersonalFMView: View {
                     }
                 }
             )
-            .frame(width: DeviceLayout.isPad ? 300 : 246, height: 30)
+            .frame(width: DeviceLayout.usesExpandedLayout ? 300 : 246, height: 30)
         }
     }
 

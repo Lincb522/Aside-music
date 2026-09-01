@@ -57,7 +57,7 @@ private struct AnnouncementPopupCard: View {
                 .padding(.top, bannerHasImage ? 16 : 20)
                 .padding(.bottom, 18)
             }
-            .frame(maxHeight: min(430, UIScreen.main.bounds.height * 0.48))
+            .frame(maxHeight: min(430, DeviceLayout.viewportHeight * 0.48))
 
             actions
         }
@@ -106,7 +106,15 @@ private struct AnnouncementPopupCard: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .center, spacing: 8) {
-                Label(announcement.category.title, systemImage: announcement.category.symbol)
+                Label {
+                    Text(announcement.category.title)
+                } icon: {
+                    if let semantic = announcement.category.monoGlyphSemantic {
+                        MonoSemanticIcon(semantic: semantic, fallback: announcement.category.fallbackIcon)
+                    } else {
+                        Image(systemName: announcement.category.symbol)
+                    }
+                }
                     .font(.caption.weight(.bold))
                     .foregroundStyle(Color.monoAccent)
 
@@ -198,4 +206,25 @@ private struct AnnouncementPopupCard: View {
     }
 
     private var bannerHasImage: Bool { imageURL != nil }
+}
+
+private extension AppAnnouncementCategory {
+    var monoGlyphSemantic: MonoGlyphSemantic? {
+        switch self {
+        case .maintenance: return .maintenance
+        case .policy: return .policyDocument
+        case .general, .activity, .important, .update: return nil
+        }
+    }
+
+    var fallbackIcon: MonoIcon.IconType {
+        switch self {
+        case .maintenance: return .settings
+        case .policy: return .info
+        case .general: return .bell
+        case .activity: return .sparkle
+        case .important: return .warning
+        case .update: return .download
+        }
+    }
 }

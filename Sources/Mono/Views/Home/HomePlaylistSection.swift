@@ -46,7 +46,7 @@ struct HomeNCMPlaylistSection: View {
     private var cardSize: CGFloat { DeviceLayout.playlistCardSize }
 
     private func playlistCard(_ playlist: Playlist, index: Int) -> some View {
-        let radius: CGFloat = MinimalWhiteStyle.isActive ? 12 : (DeviceLayout.isPad ? 24 : 20)
+        let radius: CGFloat = MinimalWhiteStyle.isActive ? 12 : (DeviceLayout.usesExpandedLayout ? 24 : 20)
 
         return VStack(alignment: .leading, spacing: 0) {
             ZStack(alignment: .topLeading) {
@@ -76,14 +76,14 @@ struct HomeNCMPlaylistSection: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(playlist.name)
-                    .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.bodyFont(DeviceLayout.isPad ? 15 : 13, weight: .medium) : .system(size: DeviceLayout.isPad ? 15 : 13, weight: .semibold, design: .rounded))
+                    .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.bodyFont(DeviceLayout.usesExpandedLayout ? 15 : 13, weight: .medium) : .system(size: DeviceLayout.usesExpandedLayout ? 15 : 13, weight: .semibold, design: .rounded))
                     .foregroundColor(.monoTextPrimary)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
-                    .frame(height: DeviceLayout.isPad ? 42 : 36, alignment: .top)
+                    .frame(height: DeviceLayout.usesExpandedLayout ? 42 : 36, alignment: .top)
 
                 Text(playlist.trackCount.map { "\($0) " + NSLocalizedString("songs_unit", comment: "") } ?? " ")
-                    .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(DeviceLayout.isPad ? 12 : 11, weight: .regular) : .system(size: DeviceLayout.isPad ? 12 : 11, weight: .medium, design: .rounded))
+                    .font(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.labelFont(DeviceLayout.usesExpandedLayout ? 12 : 11, weight: .regular) : .system(size: DeviceLayout.usesExpandedLayout ? 12 : 11, weight: .medium, design: .rounded))
                     .foregroundColor(.monoTextSecondary)
             }
             .padding(.horizontal, 12)

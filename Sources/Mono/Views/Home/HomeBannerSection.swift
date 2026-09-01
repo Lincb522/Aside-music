@@ -10,13 +10,13 @@ struct HomeBannerSection: View {
     private let timer = Timer.publish(every: 5.0, on: .main, in: .common).autoconnect()
     private var bannerRadius: CGFloat {
         if MinimalWhiteStyle.isActive { return 14 }
-        if NeumorphicStyle.isActive { return DeviceLayout.isPad ? 30 : 26 }
-        if MujiStyle.isActive { return DeviceLayout.isPad ? 26 : 20 }
-        return DeviceLayout.isPad ? 28 : 22
+        if NeumorphicStyle.isActive { return DeviceLayout.usesExpandedLayout ? 30 : 26 }
+        if MujiStyle.isActive { return DeviceLayout.usesExpandedLayout ? 26 : 20 }
+        return DeviceLayout.usesExpandedLayout ? 28 : 22
     }
     private var sideInset: CGFloat {
         if MinimalWhiteStyle.isActive { return DeviceLayout.homeHorizontalPadding }
-        return DeviceLayout.homeHorizontalPadding + (DeviceLayout.isPad ? 12 : 8)
+        return DeviceLayout.homeHorizontalPadding + (DeviceLayout.usesExpandedLayout ? 12 : 8)
     }
 
     var body: some View {

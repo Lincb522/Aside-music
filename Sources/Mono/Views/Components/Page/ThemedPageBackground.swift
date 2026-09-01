@@ -7,7 +7,7 @@ private struct MonoPageHeaderCollapseModifier: ViewModifier {
     @ViewBuilder
     func body(content: Content) -> some View {
         if #available(iOS 17.0, *), !reduceMotion {
-            if renderContext.theme == .clarity {
+            if renderContext.theme == .clarity || renderContext.theme == .neumorphic {
                 // An animated spring is restarted as the scroll phase changes,
                 // which creates main-thread animation work on every gesture
                 // frame. The interactive curve preserves the same collapse,
@@ -371,6 +371,7 @@ struct SettingsScrollablePageHeader: View {
     let eyebrow: String
     let subtitle: String
     let icon: MonoIcon.IconType
+    let artwork: MonoGlyphSemantic?
     let signalModule: SignalConsoleModule
 
     init(
@@ -378,17 +379,20 @@ struct SettingsScrollablePageHeader: View {
         eyebrow: String,
         subtitle: String = "",
         icon: MonoIcon.IconType = .sparkle,
+        artwork: MonoGlyphSemantic? = nil,
         signalModule: SignalConsoleModule = .system
     ) {
         self.title = title
         self.eyebrow = eyebrow
         self.subtitle = subtitle
         self.icon = icon
+        self.artwork = artwork
         self.signalModule = signalModule
     }
 
     var body: some View {
-        if SignalStyle.isActive {
+        Group {
+            if SignalStyle.isActive {
             SignalNestedPageHeader(
                 title: title,
                 eyebrow: eyebrow,
@@ -396,7 +400,7 @@ struct SettingsScrollablePageHeader: View {
                 module: signalModule
             )
             .padding(.horizontal, settingsHeaderHorizontalInset)
-        } else if ClarityStyle.isActive {
+            } else if ClarityStyle.isActive {
             ZStack(alignment: .trailing) {
                 HStack(alignment: .center, spacing: 14) {
                     VStack(alignment: .leading, spacing: 5) {
@@ -442,7 +446,7 @@ struct SettingsScrollablePageHeader: View {
             .padding(.bottom, 5)
             .iPadContentWidth(700)
             .monoPageHeaderCollapse()
-        } else if ThemedPageStyle.isActive {
+            } else if ThemedPageStyle.isActive {
             ThemedPageHeader(
                 eyebrow: eyebrow,
                 title: title,
@@ -451,7 +455,7 @@ struct SettingsScrollablePageHeader: View {
             )
             .padding(.horizontal, settingsHeaderHorizontalInset)
             .padding(.bottom, -2)
-        } else {
+            } else {
             HStack(alignment: .center, spacing: 14) {
                 ZStack {
                     Circle()
@@ -484,7 +488,9 @@ struct SettingsScrollablePageHeader: View {
             .padding(.bottom, 4)
             .iPadContentWidth(700)
             .monoPageHeaderCollapse()
+            }
         }
+        .monoIconArtwork(artwork?.rawValue)
     }
 
     private var settingsHeaderHorizontalInset: CGFloat {

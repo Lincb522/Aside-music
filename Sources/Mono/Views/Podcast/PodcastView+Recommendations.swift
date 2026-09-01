@@ -11,11 +11,11 @@ extension PodcastView {
                 destination: PodcastDestination.topList(String(localized: "podcast_hot_radios"), .hot)
             )
 
-            let columns: [GridItem] = DeviceLayout.isPad
+            let columns: [GridItem] = DeviceLayout.usesExpandedLayout
                 ? Array(repeating: GridItem(.flexible(), spacing: 16), count: 3)
                 : [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
 
-            LazyVGrid(columns: columns, spacing: DeviceLayout.isPad ? 16 : 14) {
+            LazyVGrid(columns: columns, spacing: DeviceLayout.usesExpandedLayout ? 16 : 14) {
                 ForEach(viewModel.personalizedRadios) { radio in
                     Button {
                         HapticStyle.light.trigger()
@@ -77,9 +77,9 @@ extension PodcastView {
             return AnyView(asideTodayPickCard(radio: radio))
         }
 
-        let cardWidth: CGFloat = DeviceLayout.isPad ? 340 : 280
-        let cardHeight: CGFloat = DeviceLayout.isPad ? 110 : 96
-        let cr: CGFloat = MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 10 : ((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 18 : (DeviceLayout.isPad ? 18 : 16)))
+        let cardWidth: CGFloat = DeviceLayout.usesExpandedLayout ? 340 : 280
+        let cardHeight: CGFloat = DeviceLayout.usesExpandedLayout ? 110 : 96
+        let cr: CGFloat = MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 10 : ((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 18 : (DeviceLayout.usesExpandedLayout ? 18 : 16)))
         let titleFont: Font
         if MangaStyle.isActive {
             titleFont = MangaStyle.bodyFont(15, weight: .black)
@@ -164,8 +164,8 @@ extension PodcastView {
     }
 
     func signalTodayPickCard(radio: RadioStation) -> some View {
-        let cardWidth: CGFloat = DeviceLayout.isPad ? 340 : 286
-        let cardHeight: CGFloat = DeviceLayout.isPad ? 112 : 98
+        let cardWidth: CGFloat = DeviceLayout.usesExpandedLayout ? 340 : 286
+        let cardHeight: CGFloat = DeviceLayout.usesExpandedLayout ? 112 : 98
 
         return HStack(spacing: 12) {
             CachedAsyncImage(url: radio.coverUrl) {
@@ -208,8 +208,8 @@ extension PodcastView {
 
     /// aside 今日优选卡：发丝描边横卡
     func asideTodayPickCard(radio: RadioStation) -> some View {
-        let cardWidth: CGFloat = DeviceLayout.isPad ? 340 : 280
-        let coverSide: CGFloat = DeviceLayout.isPad ? 80 : 70
+        let cardWidth: CGFloat = DeviceLayout.usesExpandedLayout ? 340 : 280
+        let coverSide: CGFloat = DeviceLayout.usesExpandedLayout ? 80 : 70
 
         return HStack(spacing: 13) {
             CachedAsyncImage(url: radio.coverUrl) {
@@ -275,7 +275,7 @@ extension PodcastView {
                     .background(PetWhiteStyle.surfacePressed)
             }
             .aspectRatio(contentMode: .fill)
-            .frame(width: DeviceLayout.isPad ? 92 : 82, height: DeviceLayout.isPad ? 92 : 82)
+            .frame(width: DeviceLayout.usesExpandedLayout ? 92 : 82, height: DeviceLayout.usesExpandedLayout ? 92 : 82)
             .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
@@ -305,7 +305,7 @@ extension PodcastView {
                 .overlay(Circle().stroke(PetWhiteStyle.stroke, lineWidth: 1))
         }
         .padding(12)
-        .frame(width: DeviceLayout.isPad ? 348 : 292, height: DeviceLayout.isPad ? 116 : 106)
+        .frame(width: DeviceLayout.usesExpandedLayout ? 348 : 292, height: DeviceLayout.usesExpandedLayout ? 116 : 106)
         .background(PetWhiteSurfaceBackground(cornerRadius: PetWhiteStyle.cardRadius, elevated: true, tint: PetWhiteStyle.surfaceRaised, accent: PetWhiteStyle.butter))
     }
 
@@ -331,7 +331,7 @@ extension PodcastView {
                     if index < viewModel.recommendRadios.count - 1 {
                         Divider()
                             .foregroundColor(.monoSeparator)
-                            .padding(.leading, padH + (DeviceLayout.isPad ? 86 : 76))
+                            .padding(.leading, padH + (DeviceLayout.usesExpandedLayout ? 86 : 76))
                             .padding(.trailing, padH)
                     }
                 }
@@ -448,7 +448,7 @@ extension PodcastView {
         }
 
         let s = compactCardSize
-        let cr: CGFloat = MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 8 : ((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 16 : (DeviceLayout.isPad ? 18 : 16)))
+        let cr: CGFloat = MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 8 : ((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 16 : (DeviceLayout.usesExpandedLayout ? 18 : 16)))
 
         let title = creative.uiElement?.mainTitle?.title ?? creative.creativeExtInfoVO?.djProgram?.name ?? "(无标题)"
         let subTitle = creative.creativeExtInfoVO?.djProgram?.radio?.name ?? creative.creativeExtInfoVO?.djProgram?.dj?.nickname ?? " "
@@ -464,27 +464,27 @@ extension PodcastView {
         let placeholderFill: Color = SequoiaStyle.isActive ? SequoiaStyle.materialList : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monoGlassTint)
         let titleFont: Font
         if MangaStyle.isActive {
-            titleFont = MangaStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .black)
+            titleFont = MangaStyle.bodyFont(DeviceLayout.usesExpandedLayout ? 14 : 13, weight: .black)
         } else if MujiStyle.isActive {
-            titleFont = MujiStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .regular)
+            titleFont = MujiStyle.bodyFont(DeviceLayout.usesExpandedLayout ? 14 : 13, weight: .regular)
         } else if NeumorphicStyle.isActive {
-            titleFont = NeumorphicStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .semibold)
+            titleFont = NeumorphicStyle.bodyFont(DeviceLayout.usesExpandedLayout ? 14 : 13, weight: .semibold)
         } else if SequoiaStyle.isActive {
-            titleFont = SequoiaStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .semibold)
+            titleFont = SequoiaStyle.bodyFont(DeviceLayout.usesExpandedLayout ? 14 : 13, weight: .semibold)
         } else {
-            titleFont = .system(size: DeviceLayout.isPad ? 14 : 13, weight: .medium, design: .rounded)
+            titleFont = .system(size: DeviceLayout.usesExpandedLayout ? 14 : 13, weight: .medium, design: .rounded)
         }
         let subtitleFont: Font
         if MangaStyle.isActive {
-            subtitleFont = MangaStyle.bodyFont(DeviceLayout.isPad ? 12 : 11, weight: .bold)
+            subtitleFont = MangaStyle.bodyFont(DeviceLayout.usesExpandedLayout ? 12 : 11, weight: .bold)
         } else if MujiStyle.isActive {
-            subtitleFont = MujiStyle.labelFont(DeviceLayout.isPad ? 12 : 11, weight: .regular)
+            subtitleFont = MujiStyle.labelFont(DeviceLayout.usesExpandedLayout ? 12 : 11, weight: .regular)
         } else if NeumorphicStyle.isActive {
-            subtitleFont = NeumorphicStyle.labelFont(DeviceLayout.isPad ? 12 : 11, weight: .medium)
+            subtitleFont = NeumorphicStyle.labelFont(DeviceLayout.usesExpandedLayout ? 12 : 11, weight: .medium)
         } else if SequoiaStyle.isActive {
-            subtitleFont = SequoiaStyle.labelFont(DeviceLayout.isPad ? 12 : 11, weight: .regular)
+            subtitleFont = SequoiaStyle.labelFont(DeviceLayout.usesExpandedLayout ? 12 : 11, weight: .regular)
         } else {
-            subtitleFont = .system(size: DeviceLayout.isPad ? 12 : 11, design: .rounded)
+            subtitleFont = .system(size: DeviceLayout.usesExpandedLayout ? 12 : 11, design: .rounded)
         }
         let titleColor: Color = SequoiaStyle.isActive ? SequoiaStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monoTextPrimary)
         let subtitleColor: Color = SequoiaStyle.isActive ? SequoiaStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monoTextSecondary)
@@ -639,7 +639,7 @@ extension PodcastView {
             }
 
             Text(title)
-                .font(PetWhiteStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .black))
+                .font(PetWhiteStyle.bodyFont(DeviceLayout.usesExpandedLayout ? 14 : 13, weight: .black))
                 .foregroundStyle(PetWhiteStyle.ink)
                 .lineLimit(2)
                 .frame(width: s, height: 34, alignment: .topLeading)
@@ -710,14 +710,14 @@ extension PodcastView {
         }
 
         let s = compactCardSize
-        let cr: CGFloat = MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 8 : ((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 16 : (DeviceLayout.isPad ? 18 : 16)))
+        let cr: CGFloat = MangaStyle.isActive ? MangaStyle.cardRadius : (MujiStyle.isActive ? 8 : ((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 16 : (DeviceLayout.usesExpandedLayout ? 18 : 16)))
         let placeholderFill: Color = SequoiaStyle.isActive ? SequoiaStyle.materialList : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monoGlassTint)
         let titleFont: Font = SequoiaStyle.isActive
-            ? SequoiaStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .semibold)
-            : (MangaStyle.isActive ? MangaStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .black) : (MujiStyle.isActive ? MujiStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .semibold) : .system(size: DeviceLayout.isPad ? 14 : 13, weight: .medium, design: .rounded))))
+            ? SequoiaStyle.bodyFont(DeviceLayout.usesExpandedLayout ? 14 : 13, weight: .semibold)
+            : (MangaStyle.isActive ? MangaStyle.bodyFont(DeviceLayout.usesExpandedLayout ? 14 : 13, weight: .black) : (MujiStyle.isActive ? MujiStyle.bodyFont(DeviceLayout.usesExpandedLayout ? 14 : 13, weight: .regular) : (NeumorphicStyle.isActive ? NeumorphicStyle.bodyFont(DeviceLayout.usesExpandedLayout ? 14 : 13, weight: .semibold) : .system(size: DeviceLayout.usesExpandedLayout ? 14 : 13, weight: .medium, design: .rounded))))
         let subtitleFont: Font = SequoiaStyle.isActive
-            ? SequoiaStyle.labelFont(DeviceLayout.isPad ? 12 : 11, weight: .regular)
-            : (MangaStyle.isActive ? MangaStyle.bodyFont(DeviceLayout.isPad ? 12 : 11, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(DeviceLayout.isPad ? 12 : 11, weight: .regular) : .system(size: DeviceLayout.isPad ? 12 : 11, design: .rounded)))
+            ? SequoiaStyle.labelFont(DeviceLayout.usesExpandedLayout ? 12 : 11, weight: .regular)
+            : (MangaStyle.isActive ? MangaStyle.bodyFont(DeviceLayout.usesExpandedLayout ? 12 : 11, weight: .bold) : (MujiStyle.isActive ? MujiStyle.labelFont(DeviceLayout.usesExpandedLayout ? 12 : 11, weight: .regular) : .system(size: DeviceLayout.usesExpandedLayout ? 12 : 11, design: .rounded)))
         let titleColor: Color = SequoiaStyle.isActive ? SequoiaStyle.ink : (NeumorphicStyle.isActive ? NeumorphicStyle.ink : .monoTextPrimary)
         let subtitleColor: Color = SequoiaStyle.isActive ? SequoiaStyle.inkSoft : (NeumorphicStyle.isActive ? NeumorphicStyle.inkSoft : .monoTextSecondary)
         let rankForeground: Color = SequoiaStyle.isActive ? (rank <= 3 ? SequoiaStyle.onAccent : SequoiaStyle.ink) : (rank <= 3 ? .monoIconForeground : .monoTextPrimary)
@@ -811,13 +811,13 @@ extension PodcastView {
             }
 
             Text(title)
-                .font(SignalStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .semibold))
+                .font(SignalStyle.bodyFont(DeviceLayout.usesExpandedLayout ? 14 : 13, weight: .semibold))
                 .foregroundStyle(SignalStyle.ink)
                 .lineLimit(2)
                 .frame(width: size, height: 34, alignment: .topLeading)
 
             Text(subtitle)
-                .font(SignalStyle.labelFont(DeviceLayout.isPad ? 12 : 11, weight: .medium))
+                .font(SignalStyle.labelFont(DeviceLayout.usesExpandedLayout ? 12 : 11, weight: .medium))
                 .foregroundStyle(SignalStyle.inkSoft)
                 .lineLimit(1)
                 .frame(width: size, alignment: .leading)
@@ -855,7 +855,7 @@ extension PodcastView {
             }
 
             Text(radio.name)
-                .font(PetWhiteStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .black))
+                .font(PetWhiteStyle.bodyFont(DeviceLayout.usesExpandedLayout ? 14 : 13, weight: .black))
                 .foregroundStyle(PetWhiteStyle.ink)
                 .lineLimit(2)
                 .frame(width: size, height: 36, alignment: .topLeading)
@@ -895,7 +895,7 @@ extension PodcastView {
                     if index < viewModel.programToplist.count - 1 {
                         Divider()
                             .foregroundColor(.monoSeparator)
-                            .padding(.leading, padH + 28 + 14 + (DeviceLayout.isPad ? 60 : 50))
+                            .padding(.leading, padH + 28 + 14 + (DeviceLayout.usesExpandedLayout ? 60 : 50))
                             .padding(.trailing, padH)
                     }
                 }

@@ -199,8 +199,8 @@ extension ArtistDetailView {
 
     private var minimalWhiteArtistImmersiveHeader: some View {
         let coverURL = viewModel.artist?.coverUrl?.sized(900)
-        let portraitSize: CGFloat = DeviceLayout.isPad ? 168 : 136
-        let heroHeight: CGFloat = DeviceLayout.isPad ? 478 : 426
+        let portraitSize: CGFloat = DeviceLayout.usesExpandedLayout ? 168 : 136
+        let heroHeight: CGFloat = DeviceLayout.usesExpandedLayout ? 478 : 426
 
         return ZStack(alignment: .bottom) {
             CachedAsyncImage(url: coverURL) {
@@ -240,7 +240,7 @@ extension ArtistDetailView {
                 .shadow(color: MinimalWhiteStyle.ink.opacity(0.10), radius: 22, x: 0, y: 12)
 
                 Text(viewModel.artist?.name ?? "")
-                    .font(MinimalWhiteStyle.titleFont(DeviceLayout.isPad ? 36 : 31, weight: .semibold))
+                    .font(MinimalWhiteStyle.titleFont(DeviceLayout.usesExpandedLayout ? 36 : 31, weight: .semibold))
                     .foregroundStyle(MinimalWhiteStyle.ink)
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
@@ -350,7 +350,7 @@ extension ArtistDetailView {
             ViewThatFits(in: .horizontal) {
                 HStack(alignment: .top, spacing: 15) {
                     neumorphicArtistCoverStack
-                        .frame(width: DeviceLayout.isPad ? 150 : 124)
+                        .frame(width: DeviceLayout.usesExpandedLayout ? 150 : 124)
 
                     neumorphicArtistIdentityBlock
                 }
@@ -381,7 +381,7 @@ extension ArtistDetailView {
         ZStack(alignment: .bottomTrailing) {
             RoundedRectangle(cornerRadius: 30, style: .continuous)
                 .fill(NeumorphicStyle.surfacePressed)
-                .frame(width: DeviceLayout.isPad ? 150 : 124, height: DeviceLayout.isPad ? 168 : 146)
+                .frame(width: DeviceLayout.usesExpandedLayout ? 150 : 124, height: DeviceLayout.usesExpandedLayout ? 168 : 146)
                 .overlay(alignment: .topLeading) {
                     VStack(spacing: 7) {
                         Capsule().fill(NeumorphicStyle.accent.opacity(0.45)).frame(width: 26, height: 5)
@@ -404,7 +404,7 @@ extension ArtistDetailView {
                     .overlay(MonoIcon(icon: .personCircle, size: 34, color: NeumorphicStyle.inkMuted.opacity(0.5), lineWidth: 1.8))
             }
             .aspectRatio(contentMode: .fill)
-            .frame(width: DeviceLayout.isPad ? 132 : 108, height: DeviceLayout.isPad ? 132 : 108)
+            .frame(width: DeviceLayout.usesExpandedLayout ? 132 : 108, height: DeviceLayout.usesExpandedLayout ? 132 : 108)
             .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
@@ -425,7 +425,7 @@ extension ArtistDetailView {
                 )
                 .offset(x: 7, y: 7)
         }
-        .frame(height: DeviceLayout.isPad ? 178 : 154)
+        .frame(height: DeviceLayout.usesExpandedLayout ? 178 : 154)
     }
 
     private var neumorphicArtistIdentityBlock: some View {
@@ -436,7 +436,7 @@ extension ArtistDetailView {
             }
 
             Text(viewModel.artist?.name ?? String(localized: "lib_tab_artists"))
-                .font(NeumorphicStyle.titleFont(DeviceLayout.isPad ? 34 : 29, weight: .semibold))
+                .font(NeumorphicStyle.titleFont(DeviceLayout.usesExpandedLayout ? 34 : 29, weight: .semibold))
                 .foregroundStyle(NeumorphicStyle.ink)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -662,7 +662,7 @@ extension ArtistDetailView {
                 .overlay(MonoIcon(icon: .profile, size: 46, color: MinimalWhiteStyle.inkMuted, lineWidth: 1.5))
         }
         .aspectRatio(contentMode: .fill)
-        .frame(height: DeviceLayout.isPad ? 290 : 220)
+        .frame(height: DeviceLayout.usesExpandedLayout ? 290 : 220)
         .frame(maxWidth: .infinity)
         .clipped()
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -688,7 +688,7 @@ extension ArtistDetailView {
                 MangaStyle.paperCool
             }
             .aspectRatio(contentMode: .fill)
-            .frame(height: DeviceLayout.isPad ? 300 : 240)
+            .frame(height: DeviceLayout.usesExpandedLayout ? 300 : 240)
             .frame(maxWidth: .infinity)
             .clipped()
             .clipShape(RoundedRectangle(cornerRadius: MangaStyle.cardRadius + 2, style: .continuous))
@@ -740,7 +740,7 @@ extension ArtistDetailView {
             }
             .aspectRatio(contentMode: .fill)
             .frame(maxWidth: .infinity)
-            .frame(height: DeviceLayout.isPad ? 320 : 236)
+            .frame(height: DeviceLayout.usesExpandedLayout ? 320 : 236)
             .clipped()
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .shadow(color: MujiStyle.ink.opacity(0.08), radius: 12, x: 0, y: 6)
@@ -756,7 +756,7 @@ extension ArtistDetailView {
             NeumorphicStyle.surfacePressed
         }
         .aspectRatio(contentMode: .fill)
-        .frame(width: DeviceLayout.isPad ? 260 : 210, height: DeviceLayout.isPad ? 260 : 210)
+        .frame(width: DeviceLayout.usesExpandedLayout ? 260 : 210, height: DeviceLayout.usesExpandedLayout ? 260 : 210)
         .clipped()
         .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
         .background(NeumorphicSurfaceBackground(cornerRadius: 30, elevated: true))
@@ -774,7 +774,7 @@ extension ArtistDetailView {
             SignalStyle.controlPressed
         }
         .aspectRatio(contentMode: .fill)
-        .frame(width: DeviceLayout.isPad ? 260 : 210, height: DeviceLayout.isPad ? 260 : 210)
+        .frame(width: DeviceLayout.usesExpandedLayout ? 260 : 210, height: DeviceLayout.usesExpandedLayout ? 260 : 210)
         .clipped()
         .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
         .background(SignalSurfaceBackground(cornerRadius: 32, elevated: true, fill: SignalStyle.control))
@@ -794,7 +794,7 @@ extension ArtistDetailView {
                     .fill(SequoiaStyle.materialList)
             }
             .aspectRatio(contentMode: .fill)
-            .frame(height: DeviceLayout.isPad ? 300 : 238)
+            .frame(height: DeviceLayout.usesExpandedLayout ? 300 : 238)
             .frame(maxWidth: .infinity)
             .clipped()
             .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
@@ -834,7 +834,7 @@ extension ArtistDetailView {
                         .overlay(BentoIconBadge(icon: .profile, foreground: BentoStyle.tomato, size: 58))
                 }
                 .aspectRatio(contentMode: .fill)
-                .frame(height: DeviceLayout.isPad ? 286 : 220)
+                .frame(height: DeviceLayout.usesExpandedLayout ? 286 : 220)
                 .frame(maxWidth: .infinity)
                 .clipped()
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -962,7 +962,7 @@ extension ArtistDetailView {
             }
 
             Text(viewModel.artist?.name ?? "")
-                .font(MinimalWhiteStyle.titleFont(DeviceLayout.isPad ? 34 : 30, weight: .semibold))
+                .font(MinimalWhiteStyle.titleFont(DeviceLayout.usesExpandedLayout ? 34 : 30, weight: .semibold))
                 .foregroundStyle(MinimalWhiteStyle.ink)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -1097,7 +1097,7 @@ extension ArtistDetailView {
             .disabled(viewModel.songs.isEmpty)
         }
         .padding(16)
-        .frame(maxWidth: .infinity, minHeight: DeviceLayout.isPad ? 238 : 218, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: DeviceLayout.usesExpandedLayout ? 238 : 218, alignment: .topLeading)
         .background(
             // 歌手详情页唯一焦点分格：保留厚墨框错版投影
             MangaCardBackground(cornerRadius: MangaStyle.cardRadius + 4, elevated: true, tint: MangaStyle.bubbleWhite, poster: true)
@@ -1116,7 +1116,7 @@ extension ArtistDetailView {
                     }
 
                     Text(viewModel.artist?.name ?? "")
-                        .font(NeumorphicStyle.titleFont(DeviceLayout.isPad ? 34 : 30, weight: .semibold))
+                        .font(NeumorphicStyle.titleFont(DeviceLayout.usesExpandedLayout ? 34 : 30, weight: .semibold))
                         .foregroundColor(NeumorphicStyle.ink)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
@@ -1167,7 +1167,7 @@ extension ArtistDetailView {
             }
         }
         .padding(18)
-        .frame(maxWidth: .infinity, minHeight: DeviceLayout.isPad ? 246 : 228, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: DeviceLayout.usesExpandedLayout ? 246 : 228, alignment: .topLeading)
         .background(NeumorphicSurfaceBackground(cornerRadius: 28, elevated: true))
     }
 
@@ -1209,7 +1209,7 @@ extension ArtistDetailView {
             }
 
             Text(viewModel.artist?.name ?? "")
-                .font(SignalStyle.titleFont(DeviceLayout.isPad ? 34 : 30, weight: .bold))
+                .font(SignalStyle.titleFont(DeviceLayout.usesExpandedLayout ? 34 : 30, weight: .bold))
                 .foregroundStyle(SignalStyle.ink)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -1252,7 +1252,7 @@ extension ArtistDetailView {
             .disabled(viewModel.songs.isEmpty)
         }
         .padding(17)
-        .frame(maxWidth: .infinity, minHeight: DeviceLayout.isPad ? 240 : 220, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: DeviceLayout.usesExpandedLayout ? 240 : 220, alignment: .topLeading)
         .background(SignalSurfaceBackground(cornerRadius: 30, elevated: true, fill: SignalStyle.paper))
     }
 
@@ -1266,7 +1266,7 @@ extension ArtistDetailView {
             }
 
             Text(viewModel.artist?.name ?? "")
-                .font(SequoiaStyle.titleFont(DeviceLayout.isPad ? 34 : 30, weight: .semibold))
+                .font(SequoiaStyle.titleFont(DeviceLayout.usesExpandedLayout ? 34 : 30, weight: .semibold))
                 .foregroundStyle(SequoiaStyle.ink)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -1318,7 +1318,7 @@ extension ArtistDetailView {
             .disabled(viewModel.songs.isEmpty)
         }
         .padding(17)
-        .frame(maxWidth: .infinity, minHeight: DeviceLayout.isPad ? 240 : 220, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: DeviceLayout.usesExpandedLayout ? 240 : 220, alignment: .topLeading)
         .background(SequoiaGlassBand(tint: SequoiaStyle.violet, cornerRadius: 26))
     }
 
@@ -1326,7 +1326,7 @@ extension ArtistDetailView {
     private var mujiInfoSection: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(viewModel.artist?.name ?? "")
-                .font(MujiStyle.titleFont(DeviceLayout.isPad ? 34 : 30, weight: .regular))
+                .font(MujiStyle.titleFont(DeviceLayout.usesExpandedLayout ? 34 : 30, weight: .regular))
                 .foregroundStyle(MujiStyle.ink)
                 .lineSpacing(4)
                 .lineLimit(2)
@@ -1405,7 +1405,7 @@ extension ArtistDetailView {
         BentoBlock(fill: BentoStyle.surfaceRaised, radius: BentoStyle.blockRadiusLarge, padding: 16, stroked: true) {
             VStack(alignment: .leading, spacing: 13) {
                 Text(viewModel.artist?.name ?? "")
-                    .font(BentoStyle.displayFont(DeviceLayout.isPad ? 34 : 30, weight: .black))
+                    .font(BentoStyle.displayFont(DeviceLayout.usesExpandedLayout ? 34 : 30, weight: .black))
                     .foregroundStyle(BentoStyle.ink)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)

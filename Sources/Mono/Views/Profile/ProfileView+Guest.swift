@@ -404,101 +404,13 @@ extension ProfileView {
             ZStack {
                 ThemedProfileBackground()
 
-                ScrollView {
-                    VStack(spacing: 16) {
-                        capsuleProfileHeader
-
-                        VStack(spacing: 18) {
-                            CapsuleIconBadge(icon: .profileFilled, tint: CapsuleStyle.accent, size: 78)
-
-                            VStack(spacing: 8) {
-                                Text(LocalizedStringKey("profile_not_logged_in"))
-                                    .font(CapsuleStyle.titleFont(25, weight: .bold))
-                                    .foregroundStyle(CapsuleStyle.ink)
-
-                                Text(LocalizedStringKey("profile_login_hint"))
-                                    .font(CapsuleStyle.bodyFont(13, weight: .medium))
-                                    .foregroundStyle(CapsuleStyle.inkSoft)
-                                    .multilineTextAlignment(.center)
-                                    .lineLimit(2)
-                            }
-
-                            Button(action: { navigationPath.append(ProfileNavigationDestination.loginNCM) }) {
-                                Text(LocalizedStringKey("profile_login_button"))
-                                    .font(CapsuleStyle.labelFont(16, weight: .bold))
-                                    .foregroundStyle(CapsuleStyle.readableLabel(on: CapsuleStyle.accent))
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 50)
-                                    .background(
-                                        Capsule()
-                                            .fill(CapsuleStyle.accent)
-                                            .shadow(color: CapsuleStyle.accent.opacity(0.22), radius: 12, x: 0, y: 7)
-                                    )
-                            }
-                            .buttonStyle(CapsulePressStyle())
-                        }
-                        .padding(22)
-                        .background(CapsuleSurfaceBackground(cornerRadius: 34, elevated: true, tint: CapsuleStyle.surface.opacity(0.95)))
-                        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-
-                        VStack(alignment: .leading, spacing: 12) {
-                            CapsuleSectionTitle(title: String(localized: "profile_settings"), tint: CapsuleStyle.violet)
-
-                            VStack(spacing: 10) {
-                                Button(action: { navigationPath.append(ProfileNavigationDestination.platformAccounts) }) {
-                                    ProfileMenuRow(
-                                        icon: .musicNote,
-                    title: "平台账号管理",
-                                        trailingText: "4 个平台"
-                                    )
-                                }
-                                .buttonStyle(CapsulePressStyle())
-
-                                // 保留下载入口结构，由功能开关统一控制。
-                                if AppConfig.Features.downloadEnabled {
-                                    NavigationLink(destination: DownloadManageView()) {
-                                        ProfileMenuRow(
-                                            icon: .download,
-                                            title: NSLocalizedString("profile_downloads", comment: ""),
-                                            trailingText: String(format: String(localized: "profile_recent_count"), downloadedSongCount)
-                                        )
-                                    }
-                                    .buttonStyle(CapsulePressStyle())
-                                }
-
-                                NavigationLink(destination: ListeningStatsView()) {
-                                    ProfileMenuRow(
-                                        icon: .sparkle,
-                                        title: String(localized: "cloud_sync_listening_stats")
-                                    )
-                                }
-                                .buttonStyle(CapsulePressStyle())
-
-                                NavigationLink(destination: StorageManageView()) {
-                                    ProfileMenuRow(
-                                        icon: .storage,
-                                        title: String(localized: "profile_cache_manage")
-                                    )
-                                }
-                                .buttonStyle(CapsulePressStyle())
-
-                                NavigationLink(value: ProfileNavigationDestination.settings) {
-                                    ProfileMenuRow(
-                                        icon: .settings,
-                                        title: NSLocalizedString("profile_settings", comment: "")
-                                    )
-                                }
-                                .buttonStyle(CapsulePressStyle())
-                            }
-                        }
-                        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-
-                        FloatingBarBottomSpacer()
+                AnyView(
+                    ScrollView {
+                        capsuleGuestContent
                     }
-                    .iPadContentWidth(700)
-                }
-                .scrollIndicators(.hidden)
-                .themeRenderScrollLayer()
+                    .scrollIndicators(.hidden)
+                    .themeRenderScrollLayer()
+                )
             }
             .navigationTitle("")
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -506,13 +418,147 @@ extension ProfileView {
         }
     }
 
+    private var capsuleGuestContent: AnyView {
+        AnyView(
+            VStack(spacing: 16) {
+                capsuleProfileHeader
+                capsuleGuestIdentityCard
+                capsuleGuestMenuSection
+                FloatingBarBottomSpacer()
+            }
+            .iPadContentWidth(700)
+        )
+    }
+
+    private var capsuleGuestIdentityCard: AnyView {
+        AnyView(
+            VStack(spacing: 18) {
+                CapsuleIconBadge(icon: .profileFilled, tint: CapsuleStyle.accent, size: 78)
+
+                VStack(spacing: 8) {
+                    Text(LocalizedStringKey("profile_not_logged_in"))
+                        .font(CapsuleStyle.titleFont(25, weight: .bold))
+                        .foregroundStyle(CapsuleStyle.ink)
+
+                    Text(LocalizedStringKey("profile_login_hint"))
+                        .font(CapsuleStyle.bodyFont(13, weight: .medium))
+                        .foregroundStyle(CapsuleStyle.inkSoft)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                }
+
+                Button(action: { navigationPath.append(ProfileNavigationDestination.loginNCM) }) {
+                    Text(LocalizedStringKey("profile_login_button"))
+                        .font(CapsuleStyle.labelFont(16, weight: .bold))
+                        .foregroundStyle(CapsuleStyle.readableLabel(on: CapsuleStyle.accent))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background(
+                            Capsule()
+                                .fill(CapsuleStyle.accent)
+                                .shadow(color: CapsuleStyle.accent.opacity(0.22), radius: 12, x: 0, y: 7)
+                        )
+                }
+                .buttonStyle(CapsulePressStyle())
+            }
+            .padding(22)
+            .background(CapsuleSurfaceBackground(cornerRadius: 34, elevated: true, tint: CapsuleStyle.surface.opacity(0.95)))
+            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+        )
+    }
+
+    private var capsuleGuestMenuSection: AnyView {
+        AnyView(
+            VStack(alignment: .leading, spacing: 12) {
+                CapsuleSectionTitle(title: String(localized: "profile_settings"), tint: CapsuleStyle.violet)
+
+                VStack(spacing: 10) {
+                    capsuleGuestPlatformAccountsRow
+
+                    // 保留下载入口结构，由功能开关统一控制。
+                    if AppConfig.Features.downloadEnabled {
+                        capsuleGuestDownloadsRow
+                    }
+
+                    capsuleGuestListeningStatsRow
+                    capsuleGuestStorageRow
+                    capsuleGuestSettingsRow
+                }
+            }
+            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+        )
+    }
+
+    private var capsuleGuestPlatformAccountsRow: AnyView {
+        AnyView(
+            Button(action: { navigationPath.append(ProfileNavigationDestination.platformAccounts) }) {
+                ProfileMenuRow(
+                    icon: .musicNote,
+                    title: "平台账号管理",
+                    trailingText: "4 个平台"
+                )
+            }
+            .buttonStyle(CapsulePressStyle())
+        )
+    }
+
+    private var capsuleGuestDownloadsRow: AnyView {
+        AnyView(
+            NavigationLink(destination: DownloadManageView()) {
+                ProfileMenuRow(
+                    icon: .download,
+                    title: NSLocalizedString("profile_downloads", comment: ""),
+                    trailingText: String(format: String(localized: "profile_recent_count"), downloadedSongCount)
+                )
+            }
+            .buttonStyle(CapsulePressStyle())
+        )
+    }
+
+    private var capsuleGuestListeningStatsRow: AnyView {
+        AnyView(
+            NavigationLink(destination: ListeningStatsView()) {
+                ProfileMenuRow(
+                    icon: .sparkle,
+                    title: String(localized: "cloud_sync_listening_stats")
+                )
+            }
+            .buttonStyle(CapsulePressStyle())
+        )
+    }
+
+    private var capsuleGuestStorageRow: AnyView {
+        AnyView(
+            NavigationLink(destination: StorageManageView()) {
+                ProfileMenuRow(
+                    icon: .storage,
+                    title: String(localized: "profile_cache_manage")
+                )
+            }
+            .buttonStyle(CapsulePressStyle())
+        )
+    }
+
+    private var capsuleGuestSettingsRow: AnyView {
+        AnyView(
+            NavigationLink(value: ProfileNavigationDestination.settings) {
+                ProfileMenuRow(
+                    icon: .settings,
+                    title: NSLocalizedString("profile_settings", comment: "")
+                )
+            }
+            .buttonStyle(CapsulePressStyle())
+        )
+    }
+
     var liquidGlassNotLoggedInContent: some View {
         NavigationStack(path: $navigationPath) {
             ZStack {
                 ThemedProfileBackground()
 
-                ScrollView {
-                    VStack(spacing: 16) {
+                AnyView(
+                    ScrollView {
+                        VStack(spacing: 16) {
                         liquidGlassProfileHeaderBar
 
                         VStack(alignment: .leading, spacing: 18) {
@@ -557,6 +603,7 @@ extension ProfileView {
                 }
                 .scrollIndicators(.hidden)
                 .themeRenderScrollLayer()
+                )
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)

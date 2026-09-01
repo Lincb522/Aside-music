@@ -140,7 +140,8 @@ struct MinimalWhiteUnifiedDock: View {
                             icon: selected ? tab.icon : tab.monoIcon,
                             size: selected ? 17 : 16,
                             color: selected ? MinimalWhiteStyle.ink : MinimalWhiteStyle.inkMuted,
-                            lineWidth: 1.7
+                            lineWidth: 1.7,
+                            artworkContrastBackground: selected ? MinimalWhiteStyle.selectedFill : nil
                         )
 
                         if selected {

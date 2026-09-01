@@ -13,7 +13,7 @@ extension PlaylistDetailView {
                                 .fill(BentoStyle.buckwheat.opacity(0.5))
                         }
                         .aspectRatio(contentMode: .fill)
-                        .frame(width: DeviceLayout.isPad ? 160 : 120, height: DeviceLayout.isPad ? 160 : 120)
+                        .frame(width: DeviceLayout.usesExpandedLayout ? 160 : 120, height: DeviceLayout.usesExpandedLayout ? 160 : 120)
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
                         VStack(alignment: .leading, spacing: 8) {
@@ -142,7 +142,7 @@ extension PlaylistDetailView {
                     MangaStyle.paperCool
                 }
                 .aspectRatio(contentMode: .fill)
-                .frame(width: DeviceLayout.isPad ? 170 : 124, height: DeviceLayout.isPad ? 170 : 124)
+                .frame(width: DeviceLayout.usesExpandedLayout ? 170 : 124, height: DeviceLayout.usesExpandedLayout ? 170 : 124)
                 .clipShape(RoundedRectangle(cornerRadius: MangaStyle.cardRadius, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: MangaStyle.cardRadius, style: .continuous)
@@ -161,7 +161,7 @@ extension PlaylistDetailView {
                         MangaLabel(text: "PLAYLIST", tint: MangaStyle.labelYellow, small: true)
                     }
 
-                    MangaMisprintTitle(text: viewModel.playlistDetail?.name ?? playlist.name, size: DeviceLayout.isPad ? 26 : 22)
+                    MangaMisprintTitle(text: viewModel.playlistDetail?.name ?? playlist.name, size: DeviceLayout.usesExpandedLayout ? 26 : 22)
                         .fixedSize(horizontal: false, vertical: true)
 
                     if let creator = viewModel.playlistDetail?.creator?.nickname ?? playlist.creator?.nickname {
@@ -237,8 +237,8 @@ extension PlaylistDetailView {
             // 歌单详情页唯一焦点分格：保留厚墨框错版投影
             MangaCardBackground(cornerRadius: MangaStyle.cardRadius + 4, elevated: true, tint: MangaStyle.bubbleWhite, poster: true)
         )
-        .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
-        .padding(.top, DeviceLayout.isPad ? 28 : 18)
+        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 40 : 20)
+        .padding(.top, DeviceLayout.usesExpandedLayout ? 28 : 18)
         .padding(.bottom, 12)
         .iPadContentWidth(900)
         .confirmationDialog(String(localized: "playlist_collect"), isPresented: $showCollectOptions, titleVisibility: .visible) {

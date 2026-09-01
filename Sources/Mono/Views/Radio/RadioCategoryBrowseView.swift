@@ -91,6 +91,7 @@ struct RadioCategoryBrowseView: View {
             .themeRenderScrollLayer()
                 }
             }
+            .iPadContentWidth(900)
         }
         .themedNavigationChrome(title: SignalStyle.isActive ? "" : String(localized: "radio_category_browse"), eyebrow: "RADIO", icon: .gridSquare)
         .navigationBarTitleDisplayMode(.inline)

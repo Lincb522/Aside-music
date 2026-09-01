@@ -85,7 +85,7 @@ struct CassettePlayerLayout: View {
                     Spacer().frame(height: 16)
 
                     // 磁带机体
-                    cassetteBody(width: geo.size.width - (DeviceLayout.isPad ? 64 : 48))
+                    cassetteBody(width: geo.size.width - (DeviceLayout.usesExpandedLayout ? 64 : 48))
                         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
 
                     Spacer().frame(height: 20)
@@ -485,7 +485,7 @@ extension CassettePlayerLayout {
             }
             .buttonStyle(MonoBouncingButtonStyle())
         }
-        .padding(.horizontal, DeviceLayout.isPad ? 28 : 20)
+        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 28 : 20)
         .padding(.bottom, 8)
     }
 }
@@ -667,7 +667,7 @@ extension CassettePlayerLayout {
             }
             .buttonStyle(MonoBouncingButtonStyle())
         }
-        .padding(.horizontal, DeviceLayout.isPad ? 36 : 28)
+        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 36 : 28)
     }
 }
 

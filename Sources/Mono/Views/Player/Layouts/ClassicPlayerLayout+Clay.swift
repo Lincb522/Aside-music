@@ -19,13 +19,13 @@ extension ClassicPlayerLayout {
             .animation(.spring(response: 0.48, dampingFraction: 0.86), value: showLyrics)
 
             clayTransportTray
-                .padding(.horizontal, DeviceLayout.isPad ? DeviceLayout.playerHorizontalPadding : 18)
+                .padding(.horizontal, DeviceLayout.usesExpandedLayout ? DeviceLayout.playerHorizontalPadding : 18)
                 .padding(.bottom, DeviceLayout.playerBottomSafePadding)
         }
     }
 
     func clayListeningPod(geometry: GeometryProxy) -> some View {
-        let artSize = min(DeviceLayout.isPad ? 286 : 224, max(174, geometry.size.width - 142))
+        let artSize = min(DeviceLayout.usesExpandedLayout ? 286 : 224, max(174, geometry.size.width - 142))
 
         return VStack(spacing: 18) {
             ZStack {
@@ -61,9 +61,9 @@ extension ClassicPlayerLayout {
             }
 
             clayTrackCapsule
-                .padding(.horizontal, DeviceLayout.isPad ? DeviceLayout.playerHorizontalPadding : 24)
+                .padding(.horizontal, DeviceLayout.usesExpandedLayout ? DeviceLayout.playerHorizontalPadding : 24)
         }
-        .padding(.horizontal, DeviceLayout.isPad ? DeviceLayout.playerHorizontalPadding : 18)
+        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? DeviceLayout.playerHorizontalPadding : 18)
     }
 
     var clayTrackCapsule: some View {

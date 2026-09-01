@@ -26,8 +26,10 @@ struct ThemeRenderContext: Equatable {
     }
 
     var providesGlobalBackdrop: Bool {
-        // Animated full-screen fields stay below the TabView instead of being
-        // duplicated inside every tab and pushed destination.
+        // High-cost full-screen fields stay below the TabView instead of being
+        // duplicated inside every retained tab and pushed destination.
+        // Neumorphic stays page-local because NavigationStack's light system
+        // background is opaque and would otherwise hide a host-level backdrop.
         isHosted && (theme == .clarity || theme == .signal)
     }
 
@@ -157,16 +159,14 @@ struct ThemeRenderHost<Content: View>: View {
 struct ThemeRenderUnderlay: View {
     let theme: GlobalThemeId
     var revision: Int = 0
-    @ObservedObject private var settings = SettingsManager.shared
     @ObservedObject private var colorEngine = UnifiedColorEngine.shared
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         let _ = revision
-        let _ = settings.globalThemeRevision
 
-        if theme == .clarity || theme == .signal {
+        if theme == .clarity || theme == .signal || theme == .neumorphic {
             baseColor
                 .transaction { transaction in
                     transaction.animation = nil
@@ -176,12 +176,14 @@ struct ThemeRenderUnderlay: View {
             ZStack {
                 baseColor
 
-                DynamicCoverPaletteLayer(
-                    colors: colorEngine.ambientColors,
-                    opacity: ambientOpacity
-                )
-                .blur(radius: colorEngine.hasArtworkPalette ? 34 : 52)
-                .saturation(colorEngine.mode == .artwork ? 1.04 : 0.88)
+                if ambientOpacity > 0 {
+                    DynamicCoverPaletteLayer(
+                        colors: colorEngine.ambientColors,
+                        opacity: ambientOpacity
+                    )
+                    .blur(radius: colorEngine.hasArtworkPalette ? 34 : 52)
+                    .saturation(colorEngine.mode == .artwork ? 1.04 : 0.88)
+                }
 
                 LinearGradient(
                     colors: [
@@ -204,7 +206,7 @@ struct ThemeRenderUnderlay: View {
         if theme == .signal {
             return SignalStyle.base
         }
-        if colorEngine.isStarted {
+        if colorEngine.isStarted, colorEngine.snapshot.themeId == theme {
             return colorEngine.colors.background
         }
         switch theme {
@@ -221,7 +223,9 @@ struct ThemeRenderUnderlay: View {
     }
 
     private var ambientOpacity: Double {
-        guard !reduceTransparency, colorScheme != .dark else { return 0 }
+        guard !reduceTransparency,
+              colorScheme != .dark,
+              colorEngine.snapshot.themeId == theme else { return 0 }
         switch colorEngine.mode {
         case .theme: return 0
         case .fusion: return colorEngine.hasArtworkPalette ? 0.70 : 0.30
@@ -296,12 +300,12 @@ private struct ThemeRenderLayerModifier: ViewModifier {
         switch role {
         case .scene:
             if renderContext.stabilizesSceneRendering {
-                content
-                    .transaction { transaction in
-                        if renderContext.theme == .neumorphic {
-                            transaction.animation = transaction.animation
-                        }
-                    }
+                if renderContext.theme == .neumorphic {
+                    content
+                } else {
+                    content
+                        .transaction { _ in }
+                }
             } else {
                 content
             }
@@ -347,12 +351,12 @@ private struct ThemeRenderLayerModifier: ViewModifier {
 
         case .interactive:
             if renderContext.isolatesInteractiveSurfaces {
-                content
-                    .transaction { transaction in
-                        if renderContext.theme == .neumorphic {
-                            transaction.animation = transaction.animation
-                        }
-                    }
+                if renderContext.theme == .neumorphic {
+                    content
+                } else {
+                    content
+                        .transaction { _ in }
+                }
             } else {
                 content
             }

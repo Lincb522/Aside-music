@@ -150,6 +150,7 @@ struct CapsuleHomeView: View {
 
                 FloatingBarBottomSpacer()
             }
+            .iPadContentWidth(1180)
             .padding(.top, DeviceLayout.headerTopPadding + 10)
         }
         .scrollIndicators(.hidden)
@@ -352,7 +353,7 @@ struct CapsuleHomeView: View {
                         handleBannerTap(banner)
                     }
                     .tag(index)
-                    .padding(.horizontal, DeviceLayout.homeHorizontalPadding + (DeviceLayout.isPad ? 12 : 8))
+                    .padding(.horizontal, DeviceLayout.homeHorizontalPadding + (DeviceLayout.usesExpandedLayout ? 12 : 8))
                     .padding(.vertical, 5)
                 }
             }
@@ -442,7 +443,7 @@ struct CapsuleHomeView: View {
                 .buttonStyle(.plain)
             }
 
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+            LazyVGrid(columns: playlistGridColumns, spacing: 12) {
                 ForEach(Array(playlistPool.prefix(6).enumerated()), id: \.element.id) { index, playlist in
                     CapsulePlaylistTile(playlist: playlist, tint: playlistTints[index % playlistTints.count]) {
                         navigationPath.append(HomeView.HomeDestination.playlist(playlist))
@@ -454,6 +455,13 @@ struct CapsuleHomeView: View {
 
     private var playlistPool: [Playlist] {
         viewModel.recommendPlaylists + viewModel.qqRecommendPlaylists
+    }
+
+    private var playlistGridColumns: [GridItem] {
+        Array(
+            repeating: GridItem(.flexible(), spacing: 12),
+            count: DeviceLayout.usesExpandedLayout ? 3 : 2
+        )
     }
 
     private var playlistTints: [Color] {

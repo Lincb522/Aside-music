@@ -9,9 +9,9 @@ struct HomeNewSongsSection: View {
     @ObservedObject private var playback = SongRowPlaybackModel.shared
     @State private var shimmerPhase: CGFloat = -1
     private var cardCornerRadius: CGFloat {
-        if NeumorphicStyle.isActive { return DeviceLayout.isPad ? 26 : 22 }
+        if NeumorphicStyle.isActive { return DeviceLayout.usesExpandedLayout ? 26 : 22 }
         if MujiStyle.isActive { return 16 }
-        return DeviceLayout.isPad ? 24 : 20
+        return DeviceLayout.usesExpandedLayout ? 24 : 20
     }
 
     var body: some View {

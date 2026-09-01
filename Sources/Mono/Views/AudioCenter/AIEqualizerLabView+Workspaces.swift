@@ -19,6 +19,7 @@ extension AIEqualizerLabView {
                                 size: centerLayout.isCompactWidth ? 10.5 : 12,
                                 color: selectedWorkspace == workspace ? accent : .white.opacity(0.38)
                             )
+                            .monoIconArtwork(workspace.monoGlyphSemantic.rawValue)
                             Text(workspace.title)
                                 .font(.system(size: centerLayout.isCompactWidth ? 10 : 11.5, weight: .bold))
                                 .foregroundStyle(

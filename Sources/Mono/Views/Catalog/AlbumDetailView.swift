@@ -212,7 +212,7 @@ struct AlbumDetailView: View {
                 )
                 .disabled(viewModel.isTogglingSubscription)
             }
-            .padding(.bottom, DeviceLayout.isPad ? 20 : 12)
+            .padding(.bottom, DeviceLayout.usesExpandedLayout ? 20 : 12)
             .iPadContentWidth(900)
         }
     }
@@ -232,8 +232,8 @@ struct AlbumDetailView: View {
     private var minimalWhiteAlbumHeaderContent: some View {
         let album = viewModel.albumInfo
         let coverURL = album?.coverUrl?.sized(900) ?? albumCoverUrl?.sized(900)
-        let coverSize: CGFloat = DeviceLayout.isPad ? 190 : 146
-        let heroHeight: CGFloat = DeviceLayout.isPad ? 414 : 358
+        let coverSize: CGFloat = DeviceLayout.usesExpandedLayout ? 190 : 146
+        let heroHeight: CGFloat = DeviceLayout.usesExpandedLayout ? 414 : 358
 
         return ZStack(alignment: .bottomLeading) {
             CachedAsyncImage(url: coverURL) {
@@ -275,7 +275,7 @@ struct AlbumDetailView: View {
 
                     VStack(alignment: .leading, spacing: 10) {
                         Text(album?.name ?? albumName ?? "")
-                            .font(MinimalWhiteStyle.titleFont(DeviceLayout.isPad ? 34 : 27, weight: .semibold))
+                            .font(MinimalWhiteStyle.titleFont(DeviceLayout.usesExpandedLayout ? 34 : 27, weight: .semibold))
                             .foregroundStyle(MinimalWhiteStyle.ink)
                             .lineLimit(3)
                             .fixedSize(horizontal: false, vertical: true)
@@ -399,7 +399,7 @@ struct AlbumDetailView: View {
                                 .overlay(MonoIcon(icon: .album, size: 28, color: BentoStyle.inkMuted, lineWidth: 1.8))
                         }
                         .aspectRatio(contentMode: .fill)
-                        .frame(width: DeviceLayout.isPad ? 160 : 120, height: DeviceLayout.isPad ? 160 : 120)
+                        .frame(width: DeviceLayout.usesExpandedLayout ? 160 : 120, height: DeviceLayout.usesExpandedLayout ? 160 : 120)
                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
 
                         VStack(alignment: .leading, spacing: 8) {
@@ -547,7 +547,7 @@ struct AlbumDetailView: View {
                     sequoiaAlbumCoverPlaceholder
                 }
                 .aspectRatio(contentMode: .fill)
-                .frame(width: DeviceLayout.isPad ? 168 : 126, height: DeviceLayout.isPad ? 168 : 126)
+                .frame(width: DeviceLayout.usesExpandedLayout ? 168 : 126, height: DeviceLayout.usesExpandedLayout ? 168 : 126)
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
@@ -564,7 +564,7 @@ struct AlbumDetailView: View {
                     }
 
                     Text(viewModel.albumInfo?.name ?? albumName ?? "")
-                        .font(SequoiaStyle.titleFont(DeviceLayout.isPad ? 28 : 23, weight: .semibold))
+                        .font(SequoiaStyle.titleFont(DeviceLayout.usesExpandedLayout ? 28 : 23, weight: .semibold))
                         .foregroundStyle(SequoiaStyle.ink)
                         .lineLimit(3)
                         .fixedSize(horizontal: false, vertical: true)
@@ -594,7 +594,7 @@ struct AlbumDetailView: View {
                     }
                     .frame(maxWidth: .infinity, minHeight: 30, alignment: .leading)
                 }
-                .frame(maxWidth: .infinity, minHeight: DeviceLayout.isPad ? 168 : 126, alignment: .topLeading)
+                .frame(maxWidth: .infinity, minHeight: DeviceLayout.usesExpandedLayout ? 168 : 126, alignment: .topLeading)
             }
 
             HStack(spacing: 10) {
@@ -626,7 +626,7 @@ struct AlbumDetailView: View {
             }
         }
         .padding(16)
-        .frame(maxWidth: .infinity, minHeight: DeviceLayout.isPad ? 264 : 232, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: DeviceLayout.usesExpandedLayout ? 264 : 232, alignment: .topLeading)
         .background(SequoiaGlassBand(tint: SequoiaStyle.violet, cornerRadius: 26))
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
         .padding(.top, 18)
@@ -646,7 +646,7 @@ struct AlbumDetailView: View {
                     MangaStyle.paperCool
                 }
                 .aspectRatio(contentMode: .fill)
-                .frame(width: DeviceLayout.isPad ? 170 : 124, height: DeviceLayout.isPad ? 170 : 124)
+                .frame(width: DeviceLayout.usesExpandedLayout ? 170 : 124, height: DeviceLayout.usesExpandedLayout ? 170 : 124)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: MangaStyle.cardRadius, style: .continuous).stroke(MangaStyle.strokeInk, lineWidth: MangaStyle.strokeWidth))
                 .background(RoundedRectangle(cornerRadius: MangaStyle.cardRadius, style: .continuous).fill(MangaStyle.strokeInk).offset(x: 3, y: 3))
@@ -658,7 +658,7 @@ struct AlbumDetailView: View {
                         MangaLabel(text: "ALBUM", tint: MangaStyle.bubbleBlue, small: true, foreground: MangaStyle.ink)
                     }
 
-                    MangaMisprintTitle(text: viewModel.albumInfo?.name ?? albumName ?? "", size: DeviceLayout.isPad ? 26 : 22)
+                    MangaMisprintTitle(text: viewModel.albumInfo?.name ?? albumName ?? "", size: DeviceLayout.usesExpandedLayout ? 26 : 22)
                         .fixedSize(horizontal: false, vertical: true)
 
                     if let artistName = viewModel.albumInfo?.artistName, !artistName.isEmpty {
@@ -686,7 +686,7 @@ struct AlbumDetailView: View {
                     }
                     .frame(maxWidth: .infinity, minHeight: 30, alignment: .leading)
                 }
-                .frame(maxWidth: .infinity, minHeight: DeviceLayout.isPad ? 170 : 124, alignment: .topLeading)
+                .frame(maxWidth: .infinity, minHeight: DeviceLayout.usesExpandedLayout ? 170 : 124, alignment: .topLeading)
             }
 
             HStack(spacing: 10) {
@@ -723,7 +723,7 @@ struct AlbumDetailView: View {
             }
         }
         .padding(16)
-        .frame(maxWidth: .infinity, minHeight: DeviceLayout.isPad ? 266 : 232, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: DeviceLayout.usesExpandedLayout ? 266 : 232, alignment: .topLeading)
         .background(
             // 专辑详情页唯一焦点分格：保留厚墨框错版投影
             MangaCardBackground(cornerRadius: MangaStyle.cardRadius + 4, elevated: true, tint: MangaStyle.bubbleWhite, poster: true)
@@ -740,7 +740,7 @@ struct AlbumDetailView: View {
                     SignalStyle.controlPressed
                 }
                 .aspectRatio(contentMode: .fill)
-                .frame(width: DeviceLayout.isPad ? 170 : 128, height: DeviceLayout.isPad ? 170 : 128)
+                .frame(width: DeviceLayout.usesExpandedLayout ? 170 : 128, height: DeviceLayout.usesExpandedLayout ? 170 : 128)
                 .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
                 .background(SignalSurfaceBackground(cornerRadius: 26, elevated: true, fill: SignalStyle.control))
                 .overlay(
@@ -757,7 +757,7 @@ struct AlbumDetailView: View {
                     }
 
                     Text(viewModel.albumInfo?.name ?? albumName ?? "")
-                        .font(SignalStyle.titleFont(DeviceLayout.isPad ? 28 : 23, weight: .bold))
+                        .font(SignalStyle.titleFont(DeviceLayout.usesExpandedLayout ? 28 : 23, weight: .bold))
                         .foregroundStyle(SignalStyle.ink)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
@@ -789,7 +789,7 @@ struct AlbumDetailView: View {
 
                     Spacer(minLength: 0)
                 }
-                .frame(maxWidth: .infinity, minHeight: DeviceLayout.isPad ? 170 : 128, alignment: .topLeading)
+                .frame(maxWidth: .infinity, minHeight: DeviceLayout.usesExpandedLayout ? 170 : 128, alignment: .topLeading)
             }
 
             HStack(spacing: 10) {
@@ -812,7 +812,7 @@ struct AlbumDetailView: View {
             }
         }
         .padding(17)
-        .frame(maxWidth: .infinity, minHeight: DeviceLayout.isPad ? 270 : 238, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: DeviceLayout.usesExpandedLayout ? 270 : 238, alignment: .topLeading)
         .background(SignalSurfaceBackground(cornerRadius: 30, elevated: true, fill: SignalStyle.paper))
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
         .padding(.top, 18)
@@ -820,7 +820,7 @@ struct AlbumDetailView: View {
     }
 
     private var neumorphicAlbumHeaderContent: some View {
-        let coverSize: CGFloat = DeviceLayout.isPad ? 174 : 130
+        let coverSize: CGFloat = DeviceLayout.usesExpandedLayout ? 174 : 130
 
         return VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top, spacing: 16) {
@@ -845,7 +845,7 @@ struct AlbumDetailView: View {
                     }
 
                     Text(viewModel.albumInfo?.name ?? albumName ?? "")
-                        .font(NeumorphicStyle.titleFont(DeviceLayout.isPad ? 28 : 23, weight: .semibold))
+                        .font(NeumorphicStyle.titleFont(DeviceLayout.usesExpandedLayout ? 28 : 23, weight: .semibold))
                         .foregroundStyle(NeumorphicStyle.ink)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
@@ -877,7 +877,7 @@ struct AlbumDetailView: View {
             }
         }
         .padding(18)
-        .frame(maxWidth: .infinity, minHeight: DeviceLayout.isPad ? 270 : 238, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: DeviceLayout.usesExpandedLayout ? 270 : 238, alignment: .topLeading)
         .background(NeumorphicSurfaceBackground(cornerRadius: 28, elevated: true))
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
         .padding(.top, 18)
@@ -972,7 +972,7 @@ struct AlbumDetailView: View {
             }
             .aspectRatio(contentMode: .fill)
             .frame(maxWidth: .infinity)
-            .frame(height: DeviceLayout.isPad ? 300 : 216)
+            .frame(height: DeviceLayout.usesExpandedLayout ? 300 : 216)
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .shadow(color: MujiStyle.ink.opacity(0.08), radius: 12, x: 0, y: 6)
             .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
@@ -981,7 +981,7 @@ struct AlbumDetailView: View {
             // 标题与署名
             VStack(alignment: .leading, spacing: 8) {
                 Text(viewModel.albumInfo?.name ?? albumName ?? "")
-                    .font(MujiStyle.titleFont(DeviceLayout.isPad ? 30 : 26, weight: .regular))
+                    .font(MujiStyle.titleFont(DeviceLayout.usesExpandedLayout ? 30 : 26, weight: .regular))
                     .foregroundStyle(MujiStyle.ink)
                     .lineSpacing(4)
                     .lineLimit(3)

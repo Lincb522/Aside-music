@@ -162,7 +162,7 @@ struct QQArtistDetailView: View {
                         .overlay(MonoIcon(icon: .profile, size: 38, color: MinimalWhiteStyle.inkMuted, lineWidth: 1.6))
                 }
                 .aspectRatio(contentMode: .fill)
-                .frame(width: DeviceLayout.isPad ? 168 : 132, height: DeviceLayout.isPad ? 168 : 132)
+                .frame(width: DeviceLayout.usesExpandedLayout ? 168 : 132, height: DeviceLayout.usesExpandedLayout ? 168 : 132)
                 .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 28, style: .continuous)
@@ -173,7 +173,7 @@ struct QQArtistDetailView: View {
                     PlatformBadgeLabel(text: "QCM", source: .qqmusic, fontSize: 10)
 
                     Text(displayName)
-                        .font(MinimalWhiteStyle.titleFont(DeviceLayout.isPad ? 30 : 26, weight: .semibold))
+                        .font(MinimalWhiteStyle.titleFont(DeviceLayout.usesExpandedLayout ? 30 : 26, weight: .semibold))
                         .foregroundStyle(MinimalWhiteStyle.ink)
                         .lineLimit(2)
                         .minimumScaleFactor(0.86)
@@ -265,7 +265,7 @@ struct QQArtistDetailView: View {
                 HStack(alignment: .top, spacing: 16) {
                     signalQQArtistIdentity
                     signalQQArtistPortrait
-                        .frame(width: DeviceLayout.isPad ? 154 : 124)
+                        .frame(width: DeviceLayout.usesExpandedLayout ? 154 : 124)
                 }
 
                 VStack(alignment: .leading, spacing: 14) {
@@ -310,7 +310,7 @@ struct QQArtistDetailView: View {
             }
 
             Text(displayName)
-                .font(SignalStyle.titleFont(DeviceLayout.isPad ? 31 : 26, weight: .bold))
+                .font(SignalStyle.titleFont(DeviceLayout.usesExpandedLayout ? 31 : 26, weight: .bold))
                 .foregroundStyle(SignalStyle.ink)
                 .lineLimit(3)
 
@@ -369,7 +369,7 @@ struct QQArtistDetailView: View {
                 HStack(alignment: .top, spacing: 15) {
                     neumorphicQQArtistIdentityBlock
                     neumorphicQQArtistPortrait
-                        .frame(width: DeviceLayout.isPad ? 150 : 122)
+                        .frame(width: DeviceLayout.usesExpandedLayout ? 150 : 122)
                 }
 
                 VStack(alignment: .leading, spacing: 14) {
@@ -401,7 +401,7 @@ struct QQArtistDetailView: View {
             }
 
             Text(displayName)
-                .font(NeumorphicStyle.titleFont(DeviceLayout.isPad ? 34 : 29, weight: .semibold))
+                .font(NeumorphicStyle.titleFont(DeviceLayout.usesExpandedLayout ? 34 : 29, weight: .semibold))
                 .foregroundStyle(NeumorphicStyle.ink)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -452,10 +452,10 @@ struct QQArtistDetailView: View {
         ZStack(alignment: .bottomTrailing) {
             Circle()
                 .fill(NeumorphicStyle.surfacePressed)
-                .frame(width: DeviceLayout.isPad ? 150 : 122, height: DeviceLayout.isPad ? 150 : 122)
+                .frame(width: DeviceLayout.usesExpandedLayout ? 150 : 122, height: DeviceLayout.usesExpandedLayout ? 150 : 122)
                 .background(
                     NeumorphicSurfaceBackground(
-                        cornerRadius: DeviceLayout.isPad ? 75 : 61,
+                        cornerRadius: DeviceLayout.usesExpandedLayout ? 75 : 61,
                         elevated: true,
                         tint: NeumorphicStyle.surfaceRaised,
                         lightweight: true
@@ -468,7 +468,7 @@ struct QQArtistDetailView: View {
                     .overlay(MonoIcon(icon: .personCircle, size: 32, color: NeumorphicStyle.inkMuted.opacity(0.5), lineWidth: 1.8))
             }
             .aspectRatio(contentMode: .fill)
-            .frame(width: DeviceLayout.isPad ? 132 : 106, height: DeviceLayout.isPad ? 132 : 106)
+            .frame(width: DeviceLayout.usesExpandedLayout ? 132 : 106, height: DeviceLayout.usesExpandedLayout ? 132 : 106)
             .clipShape(Circle())
             .overlay(Circle().stroke(NeumorphicStyle.separator.opacity(0.36), lineWidth: 0.7))
 
@@ -488,7 +488,7 @@ struct QQArtistDetailView: View {
             )
             .offset(x: 4, y: 3)
         }
-        .frame(height: DeviceLayout.isPad ? 160 : 132)
+        .frame(height: DeviceLayout.usesExpandedLayout ? 160 : 132)
     }
 
     private var neumorphicQQArtistMetricGrid: some View {

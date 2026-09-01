@@ -4,22 +4,27 @@ import SwiftUI
 extension PodcastView {
     // MARK: - 网格卡片
 
-    @ViewBuilder
-    func radioGridCard(radio: RadioStation) -> some View {
+    func radioGridCard(radio: RadioStation) -> AnyView {
         if PetWhiteStyle.isActive {
-            petWhiteRadioGridCard(radio: radio)
-        } else if SignalStyle.isActive {
-            signalRadioGridCard(radio: radio)
-        } else if SequoiaStyle.isActive {
-            sequoiaRadioGridCard(radio: radio)
-        } else if NeumorphicStyle.isActive {
-            neumorphicRadioGridCard(radio: radio)
-        } else if isAside {
-            asideRadioGridCard(radio: radio)
-        } else {
-            let cr: CGFloat = MinimalWhiteStyle.isActive ? 12 : (MujiStyle.isActive ? 8 : (DeviceLayout.isPad ? 18 : 16))
-            let cardPadding: CGFloat = (MinimalWhiteStyle.isActive || MujiStyle.isActive) ? 9 : 0
+            return AnyView(petWhiteRadioGridCard(radio: radio))
+        }
+        if SignalStyle.isActive {
+            return AnyView(signalRadioGridCard(radio: radio))
+        }
+        if SequoiaStyle.isActive {
+            return AnyView(sequoiaRadioGridCard(radio: radio))
+        }
+        if NeumorphicStyle.isActive {
+            return AnyView(neumorphicRadioGridCard(radio: radio))
+        }
+        if isAside {
+            return AnyView(asideRadioGridCard(radio: radio))
+        }
 
+        let cr: CGFloat = MinimalWhiteStyle.isActive ? 12 : (MujiStyle.isActive ? 8 : (DeviceLayout.usesExpandedLayout ? 18 : 16))
+        let cardPadding: CGFloat = (MinimalWhiteStyle.isActive || MujiStyle.isActive) ? 9 : 0
+
+        return AnyView(
             VStack(alignment: .leading, spacing: 0) {
                 GeometryReader { _ in
                     CachedAsyncImage(url: radio.coverUrl) {
@@ -80,7 +85,7 @@ extension PodcastView {
                     )
                 }
             }
-        }
+        )
     }
 
     func signalRadioGridCard(radio: RadioStation) -> some View {
@@ -181,7 +186,7 @@ extension PodcastView {
     }
 
     func petWhiteRadioGridCard(radio: RadioStation) -> some View {
-        let coverRadius: CGFloat = DeviceLayout.isPad ? 24 : 22
+        let coverRadius: CGFloat = DeviceLayout.usesExpandedLayout ? 24 : 22
         let metadata = radio.dj?.nickname ?? radio.category ?? " "
 
         return VStack(alignment: .leading, spacing: 9) {
@@ -209,7 +214,7 @@ extension PodcastView {
 
             VStack(alignment: .leading, spacing: 5) {
                 Text(radio.name)
-                    .font(PetWhiteStyle.bodyFont(DeviceLayout.isPad ? 15 : 14, weight: .black))
+                    .font(PetWhiteStyle.bodyFont(DeviceLayout.usesExpandedLayout ? 15 : 14, weight: .black))
                     .foregroundStyle(PetWhiteStyle.ink)
                     .lineLimit(2, reservesSpace: true)
                     .minimumScaleFactor(0.82)
@@ -225,9 +230,9 @@ extension PodcastView {
     }
 
     func sequoiaRadioGridCard(radio: RadioStation) -> some View {
-        let outerRadius: CGFloat = DeviceLayout.isPad ? 20 : 18
-        let coverRadius: CGFloat = DeviceLayout.isPad ? 16 : 14
-        let titleHeight: CGFloat = DeviceLayout.isPad ? 38 : 36
+        let outerRadius: CGFloat = DeviceLayout.usesExpandedLayout ? 20 : 18
+        let coverRadius: CGFloat = DeviceLayout.usesExpandedLayout ? 16 : 14
+        let titleHeight: CGFloat = DeviceLayout.usesExpandedLayout ? 38 : 36
         let metadata = radio.dj?.nickname ?? radio.category ?? " "
 
         return VStack(alignment: .leading, spacing: 8) {
@@ -264,7 +269,7 @@ extension PodcastView {
 
             VStack(alignment: .leading, spacing: 5) {
                 Text(radio.name)
-                    .font(SequoiaStyle.bodyFont(DeviceLayout.isPad ? 15 : 14, weight: .semibold))
+                    .font(SequoiaStyle.bodyFont(DeviceLayout.usesExpandedLayout ? 15 : 14, weight: .semibold))
                     .foregroundStyle(SequoiaStyle.ink)
                     .lineLimit(2, reservesSpace: true)
                     .minimumScaleFactor(0.82)
@@ -294,9 +299,9 @@ extension PodcastView {
     }
 
     func neumorphicRadioGridCard(radio: RadioStation) -> some View {
-        let outerRadius: CGFloat = DeviceLayout.isPad ? 20 : 18
-        let coverRadius: CGFloat = DeviceLayout.isPad ? 16 : 14
-        let titleHeight: CGFloat = DeviceLayout.isPad ? 45 : 43
+        let outerRadius: CGFloat = DeviceLayout.usesExpandedLayout ? 20 : 18
+        let coverRadius: CGFloat = DeviceLayout.usesExpandedLayout ? 16 : 14
+        let titleHeight: CGFloat = DeviceLayout.usesExpandedLayout ? 45 : 43
         let metadata = radio.dj?.nickname ?? radio.category ?? " "
 
         return VStack(alignment: .leading, spacing: 7) {
@@ -350,7 +355,7 @@ extension PodcastView {
 
             VStack(alignment: .leading, spacing: 5) {
                 Text(radio.name)
-                    .font(NeumorphicStyle.bodyFont(DeviceLayout.isPad ? 14 : 13, weight: .semibold))
+                    .font(NeumorphicStyle.bodyFont(DeviceLayout.usesExpandedLayout ? 14 : 13, weight: .semibold))
                     .foregroundStyle(NeumorphicStyle.ink)
                     .lineLimit(2)
                     .minimumScaleFactor(0.74)
@@ -397,7 +402,7 @@ extension PodcastView {
             return AnyView(asideRadioListRow(radio: radio))
         }
 
-        let rowImg: CGFloat = DeviceLayout.isPad ? 72 : 60
+        let rowImg: CGFloat = DeviceLayout.usesExpandedLayout ? 72 : 60
         let themedInset = MinimalWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive
         let cr: CGFloat = MinimalWhiteStyle.isActive ? 12 : (MujiStyle.isActive ? 8 : ((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 16 : 16))
         let placeholderFill: Color = MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : (SequoiaStyle.isActive ? SequoiaStyle.materialList : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monoGlassTint))
@@ -523,7 +528,7 @@ extension PodcastView {
 
     /// aside 精选电台行：发丝分隔列表行
     func asideRadioListRow(radio: RadioStation) -> some View {
-        let rowImg: CGFloat = DeviceLayout.isPad ? 66 : 56
+        let rowImg: CGFloat = DeviceLayout.usesExpandedLayout ? 66 : 56
 
         return HStack(spacing: 13) {
             CachedAsyncImage(url: radio.coverUrl) {
@@ -583,7 +588,7 @@ extension PodcastView {
                     .background(PetWhiteStyle.surfacePressed)
             }
             .aspectRatio(contentMode: .fill)
-            .frame(width: DeviceLayout.isPad ? 66 : 58, height: DeviceLayout.isPad ? 66 : 58)
+            .frame(width: DeviceLayout.usesExpandedLayout ? 66 : 58, height: DeviceLayout.usesExpandedLayout ? 66 : 58)
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -638,7 +643,7 @@ extension PodcastView {
         }
 
         let isTop3 = rank <= 3
-        let coverSize: CGFloat = DeviceLayout.isPad ? 60 : 50
+        let coverSize: CGFloat = DeviceLayout.usesExpandedLayout ? 60 : 50
         let themedInset = MinimalWhiteStyle.isActive || MujiStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive
         let cr: CGFloat = MinimalWhiteStyle.isActive ? 12 : (MujiStyle.isActive ? 8 : ((NeumorphicStyle.isActive || SequoiaStyle.isActive) ? 15 : 14))
         let placeholderFill: Color = MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : (SequoiaStyle.isActive ? SequoiaStyle.materialList : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monoGlassTint))
@@ -777,7 +782,7 @@ extension PodcastView {
     /// aside 节目榜行：期刊式序号 + 发丝封面
     func asideProgramListRow(program: RadioProgram, rank: Int) -> some View {
         let isTop3 = rank <= 3
-        let coverSize: CGFloat = DeviceLayout.isPad ? 56 : 48
+        let coverSize: CGFloat = DeviceLayout.usesExpandedLayout ? 56 : 48
 
         return HStack(spacing: 13) {
             Text(String(format: "%02d", rank))

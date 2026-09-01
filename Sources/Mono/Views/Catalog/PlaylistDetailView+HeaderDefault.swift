@@ -85,7 +85,7 @@ extension PlaylistDetailView {
                     }
                 }
             }
-            .padding(.bottom, DeviceLayout.isPad ? 20 : 12)
+            .padding(.bottom, DeviceLayout.usesExpandedLayout ? 20 : 12)
             .iPadContentWidth(900)
         }
     }
@@ -111,7 +111,7 @@ extension PlaylistDetailView {
                         .overlay(MonoIcon(icon: .musicNoteList, size: 26, color: MinimalWhiteStyle.inkMuted, lineWidth: 1.55))
                 }
                 .aspectRatio(contentMode: .fill)
-                .frame(width: DeviceLayout.isPad ? 156 : 118, height: DeviceLayout.isPad ? 156 : 118)
+                .frame(width: DeviceLayout.usesExpandedLayout ? 156 : 118, height: DeviceLayout.usesExpandedLayout ? 156 : 118)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -127,7 +127,7 @@ extension PlaylistDetailView {
                     }
 
                     Text(viewModel.playlistDetail?.name ?? playlist.name)
-                        .font(MinimalWhiteStyle.titleFont(DeviceLayout.isPad ? 28 : 22, weight: .semibold))
+                        .font(MinimalWhiteStyle.titleFont(DeviceLayout.usesExpandedLayout ? 28 : 22, weight: .semibold))
                         .foregroundStyle(MinimalWhiteStyle.ink)
                         .lineLimit(3)
                         .fixedSize(horizontal: false, vertical: true)
@@ -211,7 +211,7 @@ extension PlaylistDetailView {
                     PetWhiteStyle.mint.opacity(0.30)
                 }
                 .aspectRatio(contentMode: .fill)
-                .frame(width: DeviceLayout.isPad ? 168 : 124, height: DeviceLayout.isPad ? 168 : 124)
+                .frame(width: DeviceLayout.usesExpandedLayout ? 168 : 124, height: DeviceLayout.usesExpandedLayout ? 168 : 124)
                 .clipShape(RoundedRectangle(cornerRadius: PetWhiteStyle.cardRadius, style: .continuous))
                 .petWhiteClayShadow()
 
@@ -231,7 +231,7 @@ extension PlaylistDetailView {
                     .lineLimit(1)
 
                     Text(viewModel.playlistDetail?.name ?? playlist.name)
-                        .font(PetWhiteStyle.titleFont(DeviceLayout.isPad ? 28 : 23, weight: .bold))
+                        .font(PetWhiteStyle.titleFont(DeviceLayout.usesExpandedLayout ? 28 : 23, weight: .bold))
                         .foregroundStyle(PetWhiteStyle.ink)
                         .lineLimit(3)
                         .fixedSize(horizontal: false, vertical: true)
@@ -331,7 +331,7 @@ extension PlaylistDetailView {
                     sequoiaPlaylistCoverPlaceholder
                 }
                 .aspectRatio(contentMode: .fill)
-                .frame(width: DeviceLayout.isPad ? 168 : 126, height: DeviceLayout.isPad ? 168 : 126)
+                .frame(width: DeviceLayout.usesExpandedLayout ? 168 : 126, height: DeviceLayout.usesExpandedLayout ? 168 : 126)
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
@@ -348,7 +348,7 @@ extension PlaylistDetailView {
                     }
 
                     Text(viewModel.playlistDetail?.name ?? playlist.name)
-                        .font(SequoiaStyle.titleFont(DeviceLayout.isPad ? 28 : 23, weight: .semibold))
+                        .font(SequoiaStyle.titleFont(DeviceLayout.usesExpandedLayout ? 28 : 23, weight: .semibold))
                         .foregroundStyle(SequoiaStyle.ink)
                         .lineLimit(3)
                         .fixedSize(horizontal: false, vertical: true)
@@ -408,8 +408,8 @@ extension PlaylistDetailView {
         }
         .padding(16)
         .background(SequoiaGlassBand(tint: (playlist.source ?? .netease).themedBadgeColor, cornerRadius: 26))
-        .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
-        .padding(.top, DeviceLayout.isPad ? 28 : 18)
+        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 40 : 20)
+        .padding(.top, DeviceLayout.usesExpandedLayout ? 28 : 18)
         .padding(.bottom, 12)
         .iPadContentWidth(900)
         .confirmationDialog(String(localized: "playlist_collect"), isPresented: $showCollectOptions, titleVisibility: .visible) {

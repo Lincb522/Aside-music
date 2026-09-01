@@ -65,7 +65,7 @@ struct SignalHomeHero: View {
         }
         .padding(
             .horizontal,
-            DeviceLayout.homeHorizontalPadding + (DeviceLayout.isPad ? 12 : 8)
+            DeviceLayout.homeHorizontalPadding + (DeviceLayout.usesExpandedLayout ? 12 : 8)
         )
     }
 }

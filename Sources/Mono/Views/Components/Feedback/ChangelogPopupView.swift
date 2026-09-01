@@ -62,7 +62,7 @@ private struct ChangelogPopupCard: View {
                 .padding(.top, 4)
                 .padding(.bottom, 18)
             }
-            .frame(maxHeight: min(420, UIScreen.main.bounds.height * 0.46))
+            .frame(maxHeight: min(420, DeviceLayout.viewportHeight * 0.46))
             .mask(
                 VStack(spacing: 0) {
                     Rectangle()

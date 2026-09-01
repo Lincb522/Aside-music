@@ -26,6 +26,7 @@ struct AriaLandscapeSettingsView: View {
     @AppStorage("ariaLyricParticleSize") private var particleSize = 1.15
     @AppStorage("ariaLyricParticleMotion") private var particleMotion = true
     @AppStorage("ariaLyricGlassIntensity") private var glassIntensity = 0.64
+    @AppStorage("ariaVideoAdaptiveLyricGlass") private var videoAdaptiveLyricGlass = true
     @AppStorage("lyricsForceUppercaseEnglish") private var forceUppercaseEnglish = false
     @AppStorage("immersivePersistent") private var immersivePersistent = false
     @AppStorage("ariaLyricEmboss") private var lyricEmbossEnabled = true
@@ -462,6 +463,10 @@ struct AriaLandscapeSettingsView: View {
                     if #available(iOS 17.0, *) {
                         landscapeToggle(String(localized: "GPU 着色器舞台"), isOn: $gpuStageEnabled)
                     }
+                    landscapeToggle(
+                        String(localized: "immersive_bg_adaptive_glass_lyrics"),
+                        isOn: $videoAdaptiveLyricGlass
+                    )
                     videoButton
                 }
             }

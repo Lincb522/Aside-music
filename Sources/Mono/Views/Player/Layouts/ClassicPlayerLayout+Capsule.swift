@@ -10,7 +10,7 @@ extension ClassicPlayerLayout {
     //   · 5 枚等距小胶囊控件(质量/收藏/歌词/评论/下载)
     //   · 底部单一 Control Capsule(循环 / 上一首 / 大播放键 / 下一首 / 队列)
     func capsulePlayerContent(geometry: GeometryProxy) -> some View {
-        let horizontalPadding = DeviceLayout.isPad ? DeviceLayout.playerHorizontalPadding : 18
+        let horizontalPadding = DeviceLayout.usesExpandedLayout ? DeviceLayout.playerHorizontalPadding : 18
 
         return VStack(spacing: 0) {
             capsulePlayerTopBar
@@ -106,10 +106,10 @@ extension ClassicPlayerLayout {
     // MARK: - 播放阶段(封面 + 歌曲信息 + 快捷操作)
 
     func capsulePlaybackStage(geometry: GeometryProxy) -> some View {
-        let horizontalPadding = DeviceLayout.isPad ? DeviceLayout.playerHorizontalPadding : 18
+        let horizontalPadding = DeviceLayout.usesExpandedLayout ? DeviceLayout.playerHorizontalPadding : 18
         let availableWidth = geometry.size.width - horizontalPadding * 2
         // 单焦点:封面占据主要视觉重量
-        let artSize = min(DeviceLayout.isPad ? 340 : 300, max(220, availableWidth * 0.78))
+        let artSize = min(DeviceLayout.usesExpandedLayout ? 340 : 300, max(220, availableWidth * 0.78))
 
         return VStack(spacing: 22) {
             capsuleCleanArtwork(size: artSize)
@@ -327,8 +327,8 @@ extension ClassicPlayerLayout {
     // MARK: - 歌词阶段
 
     func capsuleLyricsStage(geometry: GeometryProxy) -> some View {
-        let horizontalPadding = DeviceLayout.isPad ? DeviceLayout.playerHorizontalPadding : 18
-        let maxWidth = min(geometry.size.width - horizontalPadding * 2, DeviceLayout.isPad ? 660 : 480)
+        let horizontalPadding = DeviceLayout.usesExpandedLayout ? DeviceLayout.playerHorizontalPadding : 18
+        let maxWidth = min(geometry.size.width - horizontalPadding * 2, DeviceLayout.usesExpandedLayout ? 660 : 480)
 
         return VStack(spacing: 12) {
             HStack(spacing: 8) {

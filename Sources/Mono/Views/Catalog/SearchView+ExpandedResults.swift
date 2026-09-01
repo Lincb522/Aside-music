@@ -304,11 +304,7 @@ extension SearchView {
     // MARK: - 展开 MV 列表（仅ncm）
 
     var expandedMVsList: some View {
-        let columns = [
-            GridItem(.flexible(), spacing: 18),
-            GridItem(.flexible(), spacing: 18),
-        ]
-        return LazyVGrid(columns: columns, spacing: 22) {
+        LazyVGrid(columns: searchMediaGridColumns, spacing: 22) {
             ForEach(Array(viewModel.neteaseMVResults.enumerated()), id: \.element.id) { index, mv in
                 MVGridCard(mv: mv) {
                     selectedMVId = MVIdItem(id: mv.id)

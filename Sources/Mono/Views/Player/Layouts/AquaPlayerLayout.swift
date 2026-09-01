@@ -357,7 +357,7 @@ extension AquaPlayerLayout {
             }
             .buttonStyle(MonoBouncingButtonStyle())
         }
-        .padding(.horizontal, DeviceLayout.isPad ? 24 : 16)
+        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 24 : 16)
         .padding(.bottom, 12)
     }
 }

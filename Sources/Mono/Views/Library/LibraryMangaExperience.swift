@@ -177,7 +177,7 @@ struct MangaLibraryExperience: View {
                 VStack(alignment: .leading, spacing: 6) {
                     MangaLabel(text: "LIBRARY", tint: MangaStyle.labelYellow, small: true)
 
-                    MangaMisprintTitle(text: String(localized: "tabbar_library"), size: DeviceLayout.isPad ? 30 : 26)
+                    MangaMisprintTitle(text: String(localized: "tabbar_library"), size: DeviceLayout.usesExpandedLayout ? 30 : 26)
                 }
 
                 Spacer(minLength: 0)

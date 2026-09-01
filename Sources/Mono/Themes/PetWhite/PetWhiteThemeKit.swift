@@ -499,13 +499,15 @@ struct PetWhitePackIcon: View {
     var visualScale: CGFloat = 1
     var fallbackColor: Color = PetWhiteStyle.ink
     var lineWidth: CGFloat?
+    var artworkContrastBackground: Color? = nil
 
     var body: some View {
         MonoIcon(
             icon: icon,
             size: size,
             color: fallbackColor,
-            lineWidth: lineWidth ?? max(1.5, size * 0.042)
+            lineWidth: lineWidth ?? max(1.5, size * 0.042),
+            artworkContrastBackground: artworkContrastBackground
         )
         .scaleEffect(visualScale)
         .accessibilityHidden(true)

@@ -91,7 +91,7 @@ private struct PetWhitePageChrome: View {
 
                 PetWhiteCornerTag(page: page)
                     .padding(.top, max(proxy.safeAreaInsets.top + 12, 22))
-                    .padding(.trailing, DeviceLayout.isPad ? 30 : 16)
+                    .padding(.trailing, DeviceLayout.usesExpandedLayout ? 30 : 16)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
@@ -169,16 +169,29 @@ struct PetWhiteHomeView: View {
 
         PetWhiteThemeRoot(page: .home) {
             NavigationStack(path: $navigationPath) {
-                ZStack {
-                    PetWhiteRootBackdrop()
-                        .ignoresSafeArea()
+                presentedContent
+            }
+        }
+    }
 
-                    scrollBody
-                        .zIndex(1)
-                }
-                .navigationTitle("")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbarBackground(.hidden, for: .navigationBar)
+    private var navigationContent: AnyView {
+        AnyView(
+            ZStack {
+                PetWhiteRootBackdrop()
+                    .ignoresSafeArea()
+
+                scrollBody
+                    .zIndex(1)
+            }
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+        )
+    }
+
+    private var activationObservedContent: AnyView {
+        AnyView(
+            navigationContent
                 .task {
                     guard await MainTabActivationGate.waitUntilSettled(.home) else { return }
                     await activateHomeIfNeeded(reason: "pet white home appear")
@@ -239,6 +252,12 @@ struct PetWhiteHomeView: View {
                     }
                     invalidateHomeRender()
                 }
+        )
+    }
+
+    private var dataObservedContent: AnyView {
+        AnyView(
+            activationObservedContent
                 .onReceive(viewModel.$homeContentRevision) { _ in
                     guard MainTabActivationGate.isSettled(.home) else { return }
                     syncRenderedHomeData(reason: "pet white content revision")
@@ -269,6 +288,12 @@ struct PetWhiteHomeView: View {
                     }
                     invalidateHomeRender()
                 }
+        )
+    }
+
+    private var presentedContent: AnyView {
+        AnyView(
+            dataObservedContent
                 .onChange(of: cacheManager.isPreloading) { _, isPreloading in
                     guard !isPreloading,
                           MainTabActivationGate.isSettled(.home) else { return }
@@ -323,8 +348,7 @@ struct PetWhiteHomeView: View {
                 .fullScreenCover(item: $bannerWebURL) { url in
                     MonoWebView(url: url.url, title: nil)
                 }
-            }
-        }
+        )
     }
 
     private var isInitialHomeLoading: Bool {
@@ -667,8 +691,8 @@ struct PetWhiteHomeView: View {
     }
 
     private var petPetHeroWidth: CGFloat {
-        if DeviceLayout.isPad { return 144 }
-        return DeviceLayout.screenWidth < 360 ? 104 : 118
+        if DeviceLayout.usesExpandedLayout { return 144 }
+        return DeviceLayout.viewportWidth < 360 ? 104 : 118
     }
 
     private func refreshPetWhiteHitokotoWithFeedback() {
@@ -980,13 +1004,13 @@ private struct PetWhiteBannerCarousel: View {
                         PetWhiteBannerCard(banner: banner)
                     }
                     .buttonStyle(PetWhiteSquishyButtonStyle(scale: 0.965))
-                    .padding(.horizontal, DeviceLayout.isPad ? 12 : 8)
+                    .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 12 : 8)
                     .padding(.vertical, 5)
                     .tag(index)
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: DeviceLayout.isPad ? 206 : 176)
+            .frame(height: DeviceLayout.usesExpandedLayout ? 206 : 176)
             .onReceive(timer) { _ in
                 guard MainTabActivationGate.isSettled(.home) else { return }
                 guard banners.count > 1 else { return }
@@ -1038,7 +1062,7 @@ private struct PetWhiteBannerCard: View {
                     .padding(.bottom, 12)
             }
         }
-        .frame(height: DeviceLayout.isPad ? 176 : 146)
+        .frame(height: DeviceLayout.usesExpandedLayout ? 176 : 146)
         .compositingGroup()
         .clipShape(RoundedRectangle(cornerRadius: PetWhiteStyle.cardRadius, style: .continuous))
         .petWhiteClayShadow()
@@ -1094,7 +1118,7 @@ private struct PetWhitePlaylistCard: View {
     let tint: Color
 
     private var cardWidth: CGFloat {
-        DeviceLayout.isPad ? 168 : 136
+        DeviceLayout.usesExpandedLayout ? 168 : 136
     }
 
     var body: some View {

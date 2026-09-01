@@ -260,6 +260,7 @@ struct LibraryView: View {
                 .indexViewStyle(.page(backgroundDisplayMode: .never))
                 .simultaneousGesture(libraryHeaderScrollGesture)
             }
+            .iPadContentWidth(1100)
         }
         .onPreferenceChange(LibraryHeaderHeightPreferenceKey.self) { height in
             if height > libraryHeaderHeight {
@@ -561,7 +562,7 @@ struct LibraryView: View {
                     )
             }
         }
-        .padding(.horizontal, DeviceLayout.isPad ? 24 : 16)
+        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 24 : 16)
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: tabIndex)
     }
 

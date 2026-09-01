@@ -96,11 +96,17 @@ struct NeumorphicLibraryWorkspace: View {
 
     private let tabs = LibraryViewModel.LibraryTab.allCases
     private let controlColumns = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
-    private let playlistColumns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
     private let artistColumns = Array(repeating: GridItem(.flexible(), spacing: 12), count: DeviceLayout.artistGridColumns)
 
+    private var playlistColumns: [GridItem] {
+        if DeviceLayout.usesExpandedLayout {
+            return [GridItem(.adaptive(minimum: 180, maximum: 240), spacing: 12)]
+        }
+        return [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
+    }
+
     private var deckOuterPadding: CGFloat {
-        DeviceLayout.isPad ? DeviceLayout.libraryHorizontalPadding : 10
+        DeviceLayout.usesExpandedLayout ? DeviceLayout.libraryHorizontalPadding : 10
     }
 
     private var selectedTab: LibraryViewModel.LibraryTab {
@@ -120,6 +126,7 @@ struct NeumorphicLibraryWorkspace: View {
                     pageContent
                 }
                 .padding(.bottom, 128)
+                .iPadContentWidth(1100)
             }
             .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
@@ -909,7 +916,7 @@ struct NeumorphicLibraryWorkspace: View {
                 ForEach(lists) { list in
                     NavigationLink(value: chartDestination(list)) {
                         NeumorphicChartTile(list: list, tint: NeumorphicStyle.red)
-                            .frame(width: DeviceLayout.isPad ? 180 : 148)
+                            .frame(width: DeviceLayout.usesExpandedLayout ? 180 : 148)
                     }
                     .buttonStyle(.plain)
                 }

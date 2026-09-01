@@ -178,7 +178,7 @@ extension ScrollableLibraryExperience {
                 ThemedLibraryEmptyState(icon: .list, title: emptyTitle, tint: defaultAccent)
                     .padding(.horizontal, contentHorizontalPadding)
             } else {
-                LazyVGrid(columns: twoColumns, spacing: 14) {
+                LazyVGrid(columns: playlistColumns, spacing: 14) {
                     ForEach(playlists) { playlist in
                         NavigationLink(value: LibraryViewModel.NavigationDestination.playlist(playlist)) {
                             if NeumorphicStyle.isActive {

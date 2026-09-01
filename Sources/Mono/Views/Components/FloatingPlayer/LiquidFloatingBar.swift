@@ -85,9 +85,9 @@ struct LiquidFloatingBar: View {
         hasResolvedPalette ? coverColors.secondaryContentColor : .white.opacity(0.72)
     }
 
-    private var usesPulseBloomArtwork: Bool {
+    private var usesAdaptiveOriginalArtwork: Bool {
         _ = iconSetRaw
-        return AppInterfaceIconSet.selectedFromDefaults == .pulseBloom
+        return [.pulseBloom, .monoGlyph].contains(AppInterfaceIconSet.selectedFromDefaults)
     }
 
     var body: some View {
@@ -115,8 +115,10 @@ struct LiquidFloatingBar: View {
                         currentTab: currentTab,
                         panelPrimaryColor: .monoTextPrimary,
                         panelSecondaryColor: Color.monoTextPrimary.opacity(0.78),
+                        panelBackgroundColor: .monoStructuralBackground,
                         liquidPrimaryColor: liquidPrimaryColor,
                         liquidSecondaryColor: liquidPrimaryColor.opacity(0.82),
+                        liquidBackgroundColor: liquidColors.first ?? Color.monoAccent,
                         liquidProgress: progress,
                         onSelect: selectTab
                     )
@@ -383,7 +385,7 @@ struct LiquidFloatingBar: View {
         liquidColor: Color,
         coverage: Double
     ) -> some View {
-        if usesPulseBloomArtwork {
+        if usesAdaptiveOriginalArtwork {
             MonoIcon(
                 icon: icon,
                 size: 15,
@@ -558,8 +560,10 @@ private struct LiquidTabContent: View {
     let currentTab: Tab
     let panelPrimaryColor: Color
     let panelSecondaryColor: Color
+    let panelBackgroundColor: Color
     let liquidPrimaryColor: Color
     let liquidSecondaryColor: Color
+    let liquidBackgroundColor: Color
     let liquidProgress: Double
     let onSelect: (Tab) -> Void
 
@@ -568,9 +572,9 @@ private struct LiquidTabContent: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Namespace private var selectionNamespace
 
-    private var usesPulseBloomArtwork: Bool {
+    private var usesAdaptiveOriginalArtwork: Bool {
         _ = iconSetRaw
-        return AppInterfaceIconSet.selectedFromDefaults == .pulseBloom
+        return [.pulseBloom, .monoGlyph].contains(AppInterfaceIconSet.selectedFromDefaults)
     }
 
     var body: some View {
@@ -650,13 +654,16 @@ private struct LiquidTabContent: View {
         let icon = icon(for: tab, selected: selected)
         let iconFrame: CGFloat = 28
         let iconSize: CGFloat = 21
-        if usesPulseBloomArtwork {
+        if usesAdaptiveOriginalArtwork {
             MonoIcon(
                 icon: icon,
                 size: iconSize,
                 color: selected ? panelPrimaryColor : panelSecondaryColor,
                 lineWidth: selected ? 1.9 : 1.6,
-                normalizesBitmapScale: true
+                normalizesBitmapScale: true,
+                artworkContrastBackground: coverage >= 0.5
+                    ? liquidBackgroundColor
+                    : panelBackgroundColor
             )
             .frame(width: iconFrame, height: iconFrame)
         } else {

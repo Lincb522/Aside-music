@@ -106,7 +106,7 @@ public struct ContentView: View {
             scheduleMainContentMountAfterWelcomeFirstFrame()
             deliverPendingDeepLinkIfReady()
         }
-        .onChange(of: settings.globalThemeRevision) { _, _ in
+        .onChange(of: settings.globalThemeApplicationRevision) { _, _ in
             refreshHomeStateForThemeChange()
         }
         .onChange(of: onlineAccess.canUseOnlineFeatures) { _, canUseOnlineFeatures in
@@ -267,6 +267,7 @@ public struct ContentView: View {
 
     private var tabViewCore: some View {
         let _ = settings.globalThemeRevision
+        let _ = settings.globalThemeApplicationRevision
 
         return TabView(selection: tabSelectionBinding) {
             tabRootView(for: .home)
@@ -334,12 +335,17 @@ public struct ContentView: View {
     }
 
     private func tabRootView(for tab: Tab) -> some View {
-        StableContentTabRoot(
+        let themeId = settings.globalThemeId
+        let applicationRevision = settings.globalThemeApplicationRevision
+
+        return StableContentTabRoot(
             tab: tab,
-            themeId: settings.globalThemeId,
+            themeId: themeId,
+            themeApplicationRevision: applicationRevision,
             usesOnlineContent: displayedOnlineContent
         )
         .equatable()
+        .id("\(tab.rawValue)-\(themeId.rawValue)-\(applicationRevision)-\(displayedOnlineContent)")
     }
 
     private func refreshHomeStateForThemeChange() {
@@ -460,7 +466,14 @@ public struct ContentView: View {
         iconSet: AppInterfaceIconSet,
         visualSize: CGFloat
     ) -> some View {
-        Image(uiImage: originalArtworkImage(for: icon, iconSet: iconSet))
+        let artwork = originalArtworkImage(for: icon, iconSet: iconSet)
+        let tabArtwork = systemTabArtworkImage(
+            artwork,
+            iconSet: iconSet,
+            visualSize: visualSize
+        )
+
+        return Image(uiImage: tabArtwork)
             .resizable()
             .interpolation(.high)
             .antialiased(true)
@@ -469,18 +482,38 @@ public struct ContentView: View {
             .frame(width: tabIconFrameSize, height: tabIconFrameSize)
     }
 
+    private func systemTabArtworkImage(
+        _ image: UIImage,
+        iconSet: AppInterfaceIconSet,
+        visualSize: CGFloat
+    ) -> UIImage {
+        guard iconSet == .monoGlyph else { return image }
+
+        // 系统 TabBar 使用 UIImage 的逻辑尺寸；MonoGlyph 原图是 128pt，
+        // SwiftUI 外层 frame 不会缩小系统提取后的 Tab 图标。
+        let targetSize = CGSize(width: visualSize, height: visualSize)
+        let format = UIGraphicsImageRendererFormat.preferred()
+        format.opaque = false
+        return UIGraphicsImageRenderer(size: targetSize, format: format)
+            .image { _ in
+                image.draw(in: CGRect(origin: .zero, size: targetSize))
+            }
+            .withRenderingMode(.alwaysOriginal)
+    }
+
     private func originalArtworkImage(
         for icon: MonoIcon.IconType,
         iconSet: AppInterfaceIconSet
     ) -> UIImage {
-        guard iconSet == .pulseBloom else {
-            return iconSet.image(for: icon).withRenderingMode(.alwaysOriginal)
-        }
-
-        // Pulse Bloom 的结构线版本跟随 TabBar 所在界面的真实明暗外观，
-        // 不再用强调色亮度反推，避免深色界面拿到黑图、浅色界面拿到白图。
-        return icon.pulseBloomImage(
-            prefersLightOutline: settings.activeColorScheme == .dark
+        // `tabItem` 不读取 currentTab，保持系统 Tab 项身份稳定；明暗资源只
+        // 根据系统 TabBar 当前稳定的选中强调色选取。
+        let prefersLightOutline = MonoIconArtworkContrast.prefersLightArtwork(
+            on: tabBarTint,
+            colorScheme: settings.activeColorScheme
+        )
+        return iconSet.image(
+            for: icon,
+            prefersLightOutline: prefersLightOutline
         )
         .withRenderingMode(.alwaysOriginal)
     }
@@ -526,7 +559,7 @@ public struct ContentView: View {
         switch iconSet {
         case .doodlePop:
             return 16.5
-        case .blobIcons, .iconExport, .dotDogSnake, .minimalWhiteIcons, .pulseBloom:
+        case .blobIcons, .dotDogSnake, .minimalWhiteIcons, .pulseBloom, .monoGlyph:
             return 17
         case .pawPrint:
             return 18
@@ -768,7 +801,7 @@ public struct ContentView: View {
     private func isFloatingBarGestureArea(_ location: CGPoint) -> Bool {
         let exclusionHeight = floatingBarGestureExclusionHeight
         guard exclusionHeight > 0 else { return false }
-        return location.y >= UIScreen.main.bounds.height - exclusionHeight
+        return location.y >= DeviceLayout.viewportHeight - exclusionHeight
     }
 
     private func startsInsideHorizontalScrollRegion(_ location: CGPoint) -> Bool {
@@ -822,6 +855,7 @@ private struct ContentViewFloatingBarContainer: View {
     @ObservedObject var settings: SettingsManager
     @ObservedObject private var player = FloatingBarPlaybackModel.shared
     @ObservedObject private var textInputActivity = MonoTextInputActivity.shared
+    @ObservedObject private var colorEngine = UnifiedColorEngine.shared
 
     private var usesSystemTabBarAtRuntime: Bool {
         settings.useSystemTabBar
@@ -830,6 +864,8 @@ private struct ContentViewFloatingBarContainer: View {
     }
 
     var body: some View {
+        let _ = colorEngine.revision
+
         if (!usesSystemTabBarAtRuntime || settings.globalThemeId == .manga),
            !player.isTabBarHidden,
            !textInputActivity.isEditing
@@ -850,7 +886,7 @@ private struct ContentViewFloatingBarContainer: View {
     private var floatingTabSwipeGesture: some Gesture {
         DragGesture(minimumDistance: 18, coordinateSpace: .global)
             .onEnded { value in
-                guard value.startLocation.y >= UIScreen.main.bounds.height - 70 else { return }
+                guard value.startLocation.y >= DeviceLayout.viewportHeight - 70 else { return }
 
                 let translation = value.translation
                 let projected = value.predictedEndTranslation
@@ -885,7 +921,7 @@ private struct ContentViewFloatingBarContainer: View {
                     Spacer()
                     SignalUnifiedFloatingBar(currentTab: $currentTab)
                         .iPadContentWidth(600)
-                        .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
+                        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 40 : 20)
                         .padding(.bottom, 6)
                 }
 
@@ -903,7 +939,7 @@ private struct ContentViewFloatingBarContainer: View {
                     Spacer()
                     FluxFloatingBar(currentTab: $currentTab)
                         .iPadContentWidth(600)
-                        .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
+                        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 40 : 20)
                         .padding(.bottom, 6)
                 }
 
@@ -912,7 +948,7 @@ private struct ContentViewFloatingBarContainer: View {
                     Spacer()
                     LiquidFloatingBar(currentTab: $currentTab)
                         .iPadContentWidth(600)
-                        .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
+                        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 40 : 20)
                         .padding(.bottom, 6)
                 }
 
@@ -924,7 +960,7 @@ private struct ContentViewFloatingBarContainer: View {
                         kind: SignatureFloatingBarKind(style: settings.floatingBarStyle)
                     )
                     .iPadContentWidth(600)
-                    .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
+                    .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 40 : 20)
                     .padding(.bottom, 6)
                 }
             }
@@ -945,7 +981,7 @@ private struct ContentViewFloatingBarContainer: View {
                     Spacer()
                     UnifiedFloatingBar(currentTab: $currentTab)
                         .iPadContentWidth(600)
-                        .padding(.horizontal, DeviceLayout.isPad ? 40 : 24)
+                        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 40 : 24)
                         .padding(.bottom, 0)
                 }
 
@@ -957,7 +993,7 @@ private struct ContentViewFloatingBarContainer: View {
                     Spacer()
                     MinimalMiniPlayer(currentTab: $currentTab)
                         .iPadContentWidth(600)
-                        .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
+                        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 40 : 20)
                         .padding(.bottom, 8)
                 }
 
@@ -969,7 +1005,7 @@ private struct ContentViewFloatingBarContainer: View {
                     Spacer()
                     FluxFloatingBar(currentTab: $currentTab)
                         .iPadContentWidth(600)
-                        .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
+                        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 40 : 20)
                         .padding(.bottom, 6)
                 }
 
@@ -978,7 +1014,7 @@ private struct ContentViewFloatingBarContainer: View {
                     Spacer()
                     LiquidFloatingBar(currentTab: $currentTab)
                         .iPadContentWidth(600)
-                        .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
+                        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 40 : 20)
                         .padding(.bottom, 6)
                 }
 
@@ -990,7 +1026,7 @@ private struct ContentViewFloatingBarContainer: View {
                         kind: SignatureFloatingBarKind(style: settings.floatingBarStyle)
                     )
                     .iPadContentWidth(600)
-                    .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
+                    .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 40 : 20)
                     .padding(.bottom, 6)
                 }
 
@@ -1009,18 +1045,20 @@ private struct ContentViewFloatingBarContainer: View {
 /// 类型擦除容器；这与 `UITabBarController` 正在切换子控制器重叠时，iOS 26
 /// 会尝试把同一个导航项重新挂到新的 `UINavigationBar`，最终在布局阶段断言。
 ///
-/// 把主题 ID、在线模式和 Tab 作为唯一相等性输入后，普通的 Tab 选择变化不会
-/// 再求值内部工厂；真正改变页面根类型时才重建对应内容。
+/// 把主题应用版本、主题 ID、在线模式和 Tab 作为唯一相等性输入后，普通的
+/// Tab 选择变化不会再求值内部工厂；用户应用新主题时则明确替换根宿主。
 @available(iOS 16.0, *)
 @MainActor
 private struct StableContentTabRoot: View, Equatable {
     let tab: Tab
     let themeId: GlobalThemeId
+    let themeApplicationRevision: Int
     let usesOnlineContent: Bool
 
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.tab == rhs.tab
             && lhs.themeId == rhs.themeId
+            && lhs.themeApplicationRevision == rhs.themeApplicationRevision
             && lhs.usesOnlineContent == rhs.usesOnlineContent
     }
 
@@ -1056,7 +1094,6 @@ private struct StableContentTabRoot: View, Equatable {
                 }
             }
         }
-        .id("\(themeId.rawValue)-\(usesOnlineContent)")
     }
 }
 
@@ -1127,8 +1164,8 @@ private struct ContentViewCompactPlayerContainer: View {
                     .themeRenderInteractiveLayer()
                     .id("compact-mini-\(settings.globalThemeId.rawValue)-\(settings.globalThemeRevision)")
                     .iPadContentWidth(600)
-                    .padding(.horizontal, DeviceLayout.isPad ? 40 : 20)
-                    .padding(.bottom, DeviceLayout.isPad ? 72 : 62)
+                    .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 40 : 20)
+                    .padding(.bottom, DeviceLayout.usesExpandedLayout ? 72 : 62)
             }
             .transition(.move(edge: .bottom).combined(with: .opacity))
             .zIndex(9)

@@ -86,6 +86,7 @@ struct DeveloperDiagnosticHeader: View {
     let status: String
     let icon: MonoIcon.IconType
     var tint: Color = .cyan
+    var artwork: MonoGlyphSemantic? = nil
 
     var body: some View {
         HStack(spacing: 12) {
@@ -103,6 +104,7 @@ struct DeveloperDiagnosticHeader: View {
             Spacer(minLength: 0)
 
             MonoIcon(icon: icon, size: 17, color: tint)
+                .monoIconArtwork(artwork?.rawValue)
                 .frame(width: 42, height: 42)
                 .background(tint.opacity(0.1))
                 .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
