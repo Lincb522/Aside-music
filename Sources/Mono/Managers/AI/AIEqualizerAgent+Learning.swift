@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 @preconcurrency import Combine
 import FFmpegSwiftSDK
 import UIKit
@@ -192,6 +193,11 @@ extension AIEqualizerAgent {
         session: AIEqualizerActiveLearningSession
     ) {
         learningStore.record(feedback: feedback, session: session)
+        proposalCache.recordTrainingOutcome(
+            proposalID: session.proposal.id,
+            feedback: feedback,
+            listenedSeconds: session.listenedSeconds
+        )
         refreshLearningRecords()
         let listenedText = String(format: "%.1f", session.listenedSeconds)
         AppLogger.info(
@@ -247,10 +253,23 @@ extension AIEqualizerAgent {
         let baseIdentity = manager.currentOutputName.isEmpty
             ? manager.currentOutputKind.rawValue
             : "\(manager.currentOutputKind.rawValue):\(manager.currentOutputName)"
-        guard let target = AirPodsExperienceManager.currentAITuningTargetSnapshot() else {
-            return baseIdentity
-        }
-        return "\(baseIdentity)|\(target.identifier)"
+        let profileIdentity = manager.resolvedHeadphoneProfile?.id ?? "none"
+        let calibrationIdentity = manager.isOutputCalibrationEnabled ? "on" : "off"
+        let target = AirPodsExperienceManager.currentAITuningTargetSnapshot()
+        let targetIdentity = target?.identifier ?? "none"
+        let context = manager.aiEqualizerDeviceTrainingContext(deviceTuningTarget: target)
+        let curveIdentity = context.effectiveGainsDB
+            .map { String(format: "%.3f", $0) }
+            .joined(separator: ",")
+        let filterIdentity = context.acousticFilters.map {
+            "\($0.kind):\(String(format: "%.2f", $0.frequencyHz)):\(String(format: "%.3f", $0.gainDB)):\(String(format: "%.3f", $0.q)):\(String(format: "%.2f", $0.slopeDBPerOctave))"
+        }.joined(separator: "|")
+        let fingerprintData = Data("\(curveIdentity)|\(context.profilePreampDB)|\(filterIdentity)".utf8)
+        let deviceFingerprint = SHA256.hash(data: fingerprintData)
+            .prefix(8)
+            .map { String(format: "%02x", $0) }
+            .joined()
+        return "\(baseIdentity)|calibration:\(calibrationIdentity)|profile:\(profileIdentity)|target:\(targetIdentity)|device:\(deviceFingerprint)"
     }
 
     /// Binds the model context, remote policy, bundled knowledge, and local

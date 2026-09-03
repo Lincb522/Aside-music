@@ -127,7 +127,7 @@ extension ImmersiveLyricPlayerLayout {
 
         VStack(spacing: 0) {
             grabHandle
-                .padding(.top, 10)
+                .padding(.top, DeviceLayout.playerHeaderTopPadding)
 
             Spacer(minLength: 12)
 
@@ -247,14 +247,12 @@ extension ImmersiveLyricPlayerLayout {
         }
     }
 
-    /// 底部功能排：歌词 / 评论 / 沉浸 / 队列（对应 AM 底部的歌词·AirPlay·队列排）
+    /// 底部功能排：歌词 / 评论 / 队列
     var utilityRow: some View {
         HStack {
             utilityButton(icon: .musicNoteList, active: showLyrics) { toggleLyrics() }
             Spacer()
             utilityButton(icon: .comment) { showComments = true }
-            Spacer()
-            utilityButton(icon: .immersive) { ImmersiveModeController.shared.present() }
             Spacer()
             utilityButton(icon: .list) { showPlaylist = true }
         }
@@ -281,7 +279,7 @@ extension ImmersiveLyricPlayerLayout {
             // 顶部小封面信息栏（点歌词整体收起后隐藏，歌词铺满全屏）
             if isChromeVisible {
                 lyricTopBar
-                    .padding(.top, DeviceLayout.headerTopPadding)
+                    .padding(.top, DeviceLayout.playerHeaderTopPadding)
                     .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
                     .padding(.bottom, 10)
                     .transition(.move(edge: .top).combined(with: .opacity))
@@ -352,7 +350,7 @@ extension ImmersiveLyricPlayerLayout {
     /// 切换时封面在「舞台中央 ⇄ 顶栏角落」之间真实飞行缩放。
     @ViewBuilder
     func coverArtwork(size: CGFloat, cornerRadius: CGFloat) -> some View {
-        Group {
+        ZStack {
             if let song = player.currentSong, let url = song.coverUrl?.sized(size > 100 ? 500 : 100) {
                 CachedAsyncImage(url: url) {
                     Rectangle().fill(Color.gray.opacity(0.2))
@@ -365,6 +363,8 @@ extension ImmersiveLyricPlayerLayout {
                         MonoIcon(icon: .musicNote, size: size * 0.24, color: .white.opacity(0.7))
                     )
             }
+
+            DynamicArtworkOverlay(cornerRadius: cornerRadius)
         }
         .frame(width: size, height: size)
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))

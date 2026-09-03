@@ -20,6 +20,7 @@ public struct ContentView: View {
     @ObservedObject private var announcementCenter = AnnouncementCenter.shared
     @ObservedObject private var themeManager = GlobalThemeManager.shared
     @ObservedObject private var textInputActivity = MonoTextInputActivity.shared
+    @ObservedObject private var deviceLayoutMetrics = DeviceLayoutMetricsStore.shared
     @Environment(\.colorScheme) private var systemColorScheme
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -41,6 +42,8 @@ public struct ContentView: View {
     }
 
     public var body: some View {
+        let _ = deviceLayoutMetrics.revision
+
         ThemeRenderHost {
             ZStack {
                 if canMountMainContent || !showWelcome {
@@ -74,6 +77,7 @@ public struct ContentView: View {
                 }
             }
         }
+        .background(DeviceLayoutMetricsProbe())
         .animation(.spring(response: 0.4, dampingFraction: 0.82), value: settings.floatingBarStyle)
         .onChange(of: showNormalPlayer) { _, show in
             withAnimation(MonoAnimation.playerTransition) {
@@ -487,17 +491,23 @@ public struct ContentView: View {
         iconSet: AppInterfaceIconSet,
         visualSize: CGFloat
     ) -> UIImage {
-        guard iconSet == .monoGlyph else { return image }
+        guard iconSet == .monoGlyph,
+              visualSize > 0,
+              let cgImage = image.cgImage else {
+            return image
+        }
 
         // 系统 TabBar 使用 UIImage 的逻辑尺寸；MonoGlyph 原图是 128pt，
-        // SwiftUI 外层 frame 不会缩小系统提取后的 Tab 图标。
-        let targetSize = CGSize(width: visualSize, height: visualSize)
-        let format = UIGraphicsImageRendererFormat.preferred()
-        format.opaque = false
-        return UIGraphicsImageRenderer(size: targetSize, format: format)
-            .image { _ in
-                image.draw(in: CGRect(origin: .zero, size: targetSize))
-            }
+        // SwiftUI 外层 frame 不会缩小系统提取后的 Tab 图标。调整 UIImage
+        // 的逻辑 scale 即可，无需在主线程再次栅格化同一份像素。
+        let pixelExtent = max(CGFloat(cgImage.width), CGFloat(cgImage.height))
+        guard pixelExtent > 0 else { return image }
+
+        return UIImage(
+            cgImage: cgImage,
+            scale: pixelExtent / visualSize,
+            orientation: image.imageOrientation
+        )
             .withRenderingMode(.alwaysOriginal)
     }
 

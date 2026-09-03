@@ -86,6 +86,7 @@ enum SettingsNavigationDestination: Hashable {
     case crashDiagnostics
     case agentTrace
     case aiProviderSettings
+    case audioTraining
     case ffmpegCapabilityTest
     case platformAccountSwitching
 
@@ -122,6 +123,12 @@ enum SettingsNavigationDestination: Hashable {
         case .aiProviderSettings:
             if AppConfig.DeveloperAccess.hasFullTools {
                 AIProviderDeveloperSettingsView()
+            } else {
+                DeveloperToolsView()
+            }
+        case .audioTraining:
+            if AppConfig.DeveloperAccess.hasFullTools {
+                AudioTrainingDeveloperView()
             } else {
                 DeveloperToolsView()
             }

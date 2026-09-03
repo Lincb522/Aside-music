@@ -120,6 +120,7 @@ final class AIAgentTraceStore: ObservableObject {
     private static let maximumSessions = 60
     private static let maximumEventsPerSession = 160
     private static let maximumDetailCharacters = 18_000
+    private static let maximumModelDetailCharacters = 160_000
     private let storageURL: URL?
     private let persistence = AIAgentTracePersistence()
     private var persistenceTask: Task<Void, Never>?
@@ -191,6 +192,9 @@ final class AIAgentTraceStore: ObservableObject {
         let safeMetadata = metadata.reduce(into: [String: String]()) { result, item in
             result[Self.sanitized(item.key, maximumLength: 80)] = Self.sanitized(item.value, maximumLength: 500)
         }
+        let detailLimit = metadata["recordType"] == nil
+            ? Self.maximumDetailCharacters
+            : Self.maximumModelDetailCharacters
         sessions[index].events.append(
             AIAgentTraceEvent(
                 category: category,
@@ -200,7 +204,7 @@ final class AIAgentTraceStore: ObservableObject {
                 },
                 level: level,
                 title: Self.sanitized(title, maximumLength: 120),
-                detail: Self.sanitized(detail),
+                detail: Self.sanitized(detail, maximumLength: detailLimit),
                 metadata: safeMetadata
             )
         )

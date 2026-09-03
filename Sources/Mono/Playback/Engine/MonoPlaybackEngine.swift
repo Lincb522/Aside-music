@@ -302,6 +302,9 @@ class PlayerManager: ObservableObject {
     
     /// 当前歌曲动态封面 URL
     @Published var dynamicCoverUrl: String?
+    var dynamicCoverTask: Task<Void, Never>?
+    var dynamicCoverTaskIdentity: String?
+    var dynamicCoverResolvedIdentity: String?
     
     /// 预加载的下一首歌曲信息（等待当前歌曲真正结束后再更新 UI）
     var pendingNextSong: Song? = nil
@@ -658,6 +661,7 @@ class PlayerManager: ObservableObject {
             qualitySwitchPollWorkItem?.cancel()
             qualitySwitchTimeoutTask?.cancel()
             manualSwitchPreparationTask?.cancel()
+            dynamicCoverTask?.cancel()
             mediaResolver.cancelAll()
             continuity.cancelAllWork()
             widgetSync.cancelPendingWork()

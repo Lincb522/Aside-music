@@ -41,15 +41,25 @@ struct IPodPlayerLayout: View {
 
     var body: some View {
         GeometryReader { geometry in
+            let toolbarTopInset = DeviceLayout.playerHeaderTopPadding
+            let bottomInset = max(DeviceLayout.safeAreaBottom + 8, 16)
             let deviceWidth = min(geometry.size.width - 30, 410)
-            let deviceHeight = min(geometry.size.height - 24, 760)
+            let deviceHeight = min(
+                max(320, geometry.size.height - toolbarTopInset - bottomInset),
+                760
+            )
 
             ZStack {
                 deviceBackground
                     .ignoresSafeArea()
 
-                iPodBody
-                    .frame(width: deviceWidth, height: deviceHeight)
+                VStack(spacing: 0) {
+                    iPodBody
+                        .frame(width: deviceWidth, height: deviceHeight)
+                    Spacer(minLength: 0)
+                }
+                .padding(.top, toolbarTopInset)
+                .padding(.bottom, bottomInset)
 
                 if showMoreMenu {
                     PlayerMoreMenu(
@@ -134,7 +144,7 @@ struct IPodPlayerLayout: View {
         VStack(spacing: 0) {
             topHardware
                 .padding(.horizontal, 24)
-                .padding(.top, 18)
+                .padding(.top, 12)
                 .padding(.bottom, 14)
 
             screenBezel
@@ -335,13 +345,17 @@ struct IPodPlayerLayout: View {
 
     private var trackInfoView: some View {
         HStack(spacing: 12) {
-            CachedAsyncImage(url: player.currentSong?.coverUrl?.sized(500)) {
-                ZStack {
-                    Color.black.opacity(0.05)
-                    sfIcon("music.note", size: 24, color: screenMutedInk.opacity(0.7))
+            ZStack {
+                CachedAsyncImage(url: player.currentSong?.coverUrl?.sized(500)) {
+                    ZStack {
+                        Color.black.opacity(0.05)
+                        sfIcon("music.note", size: 24, color: screenMutedInk.opacity(0.7))
+                    }
                 }
+                .aspectRatio(1, contentMode: .fill)
+
+                DynamicArtworkOverlay(cornerRadius: 2)
             }
-            .aspectRatio(1, contentMode: .fill)
             .frame(width: 106, height: 106)
             .clipShape(RoundedRectangle(cornerRadius: 2, style: .continuous))
             .overlay(

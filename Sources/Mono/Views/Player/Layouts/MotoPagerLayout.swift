@@ -157,7 +157,7 @@ struct MotoPagerLayout: View {
             // 4. 顶部导航 (悬浮)
             topBar
                 .zIndex(30)
-                .padding(.top, DeviceLayout.headerTopPadding)
+                .padding(.top, DeviceLayout.playerHeaderTopPadding)
             
             // 5. 更多菜单
             if showMoreMenu {
@@ -405,6 +405,14 @@ extension MotoPagerLayout {
                 RoundedRectangle(cornerRadius: 15)
                     .fill(screenBgColor)
                     .shadow(color: .black.opacity(0.5), radius: 5, x: 0, y: 2)
+
+                if player.dynamicCoverUrl?.isEmpty == false {
+                    DynamicArtworkOverlay(cornerRadius: 13)
+                        .opacity(0.34)
+                    RoundedRectangle(cornerRadius: 13, style: .continuous)
+                        .fill(Color.black.opacity(0.48))
+                        .allowsHitTesting(false)
+                }
                 
                 RoundedRectangle(cornerRadius: 15)
                     .strokeBorder(
@@ -768,14 +776,6 @@ extension MotoPagerLayout {
                 
                 Spacer()
                 
-                Button(action: { ImmersiveModeController.shared.present() }) {
-                    MonoIcon(icon: .immersive, size: 21, color: topBtnFgColor, lineWidth: 1.5)
-                        .frame(width: 44, height: 44)
-                        .monoGlassCircle()
-                        .contentShape(Circle())
-                }
-                .buttonStyle(MonoBouncingButtonStyle())
-
                 Button(action: { showMoreMenu = true }) {
                     MonoIcon(icon: .more, size: 23, color: topBtnFgColor, lineWidth: 1.5)
                         .frame(width: 44, height: 44)

@@ -80,7 +80,7 @@ struct MinimalPlayerLayout: View {
 
                 VStack {
                     headerBar
-                        .padding(.top, DeviceLayout.headerTopPadding)
+                        .padding(.top, DeviceLayout.playerHeaderTopPadding)
                         .opacity(isCoverBright && colorScheme == .light ? 0.85 : 1.0)
                     Spacer()
                 }
@@ -257,28 +257,25 @@ extension MinimalPlayerLayout {
 
     @ViewBuilder
     private func coverContent(screenWidth: CGFloat, coverHeight: CGFloat) -> some View {
-        if let song = player.currentSong, let url = song.coverUrl?.sized(800) {
-            ZStack {
+        ZStack {
+            if let song = player.currentSong, let url = song.coverUrl?.sized(800) {
                 CachedAsyncImage(url: url) {
                     Rectangle()
                         .fill(Color.monoTextSecondary.opacity(0.08))
                 }
                 .aspectRatio(contentMode: .fill)
-                
-                if let dynamicUrl = player.dynamicCoverUrl, !dynamicUrl.isEmpty {
-                    DynamicCoverView(urlString: dynamicUrl, cornerRadius: 0)
-                }
+            } else {
+                Rectangle()
+                    .fill(Color.monoTextSecondary.opacity(0.08))
+                    .overlay(
+                        MonoIcon(icon: .musicNote, size: 60, color: .monoTextSecondary.opacity(0.2), lineWidth: 1.2)
+                    )
             }
-            .frame(width: screenWidth, height: coverHeight)
-            .clipped()
-        } else {
-            Rectangle()
-                .fill(Color.monoTextSecondary.opacity(0.08))
-                .frame(width: screenWidth, height: coverHeight)
-                .overlay(
-                    MonoIcon(icon: .musicNote, size: 60, color: .monoTextSecondary.opacity(0.2), lineWidth: 1.2)
-                )
+
+            DynamicArtworkOverlay(cornerRadius: 0)
         }
+        .frame(width: screenWidth, height: coverHeight)
+        .clipped()
     }
 }
 

@@ -1,11 +1,111 @@
-import UIKit
+import Combine
 import SwiftUI
+import UIKit
+
+struct DeviceLayoutMetrics: Equatable {
+    let viewportSize: CGSize
+    let screenSize: CGSize
+    let safeAreaInsets: UIEdgeInsets
+
+    static var fallback: Self {
+        let size = CGSize(width: 375, height: 812)
+        return Self(viewportSize: size, screenSize: size, safeAreaInsets: .zero)
+    }
+}
+
+@MainActor
+final class DeviceLayoutMetricsStore: ObservableObject {
+    static let shared = DeviceLayoutMetricsStore()
+
+    @Published private(set) var revision = 0
+
+    private var metricsBySceneID: [String: DeviceLayoutMetrics] = [:]
+
+    private init() {}
+
+    func metrics(for window: UIWindow?) -> DeviceLayoutMetrics {
+        guard let sceneID = window?.windowScene?.session.persistentIdentifier else {
+            return .fallback
+        }
+        return metricsBySceneID[sceneID] ?? .fallback
+    }
+
+    func update(_ metrics: DeviceLayoutMetrics, for window: UIWindow) {
+        guard let sceneID = window.windowScene?.session.persistentIdentifier,
+              metricsBySceneID[sceneID] != metrics else {
+            return
+        }
+        metricsBySceneID[sceneID] = metrics
+        revision &+= 1
+    }
+}
+
+/// Reads geometry only after the current SwiftUI update has unwound, then
+/// publishes an immutable snapshot for view-body calculations.
+struct DeviceLayoutMetricsProbe: UIViewRepresentable {
+    func makeUIView(context: Context) -> UIView {
+        DeviceLayoutMetricsProbeView()
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {}
+}
+
+private final class DeviceLayoutMetricsProbeView: UIView {
+    private var isUpdateScheduled = false
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isUserInteractionEnabled = false
+        accessibilityElementsHidden = true
+        backgroundColor = .clear
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        scheduleMetricsUpdate()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        scheduleMetricsUpdate()
+    }
+
+    override func safeAreaInsetsDidChange() {
+        super.safeAreaInsetsDidChange()
+        scheduleMetricsUpdate()
+    }
+
+    private func scheduleMetricsUpdate() {
+        guard window != nil, !isUpdateScheduled else { return }
+        isUpdateScheduled = true
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.isUpdateScheduled = false
+            guard let window = self.window,
+                  let windowScene = window.windowScene else { return }
+
+            DeviceLayoutMetricsStore.shared.update(
+                DeviceLayoutMetrics(
+                    viewportSize: window.bounds.size,
+                    screenSize: windowScene.screen.bounds.size,
+                    // These insets are already expressed in the probe's local
+                    // space, so UIKit does not need a cross-screen conversion.
+                    safeAreaInsets: self.safeAreaInsets
+                ),
+                for: window
+            )
+        }
+    }
+}
 
 @MainActor
 struct DeviceLayout {
-    private static var cachedSafeAreaInsets: [ObjectIdentifier: UIEdgeInsets] = [:]
-    private static var resolvingSafeAreaWindows = Set<ObjectIdentifier>()
-
     private static var layoutWindow: UIWindow? {
         let scenes = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
@@ -20,29 +120,18 @@ struct DeviceLayout {
             ?? windows.first(where: \.isKeyWindow)
     }
 
-    private static var safeAreaInsets: UIEdgeInsets {
-        guard let window = layoutWindow else { return .zero }
-        let windowID = ObjectIdentifier(window)
-
-        // UIKit can re-enter SwiftUI status-bar evaluation while resolving window insets.
-        guard resolvingSafeAreaWindows.insert(windowID).inserted else {
-            return cachedSafeAreaInsets[windowID] ?? .zero
-        }
-        defer { resolvingSafeAreaWindows.remove(windowID) }
-
-        let insets = window.safeAreaInsets
-        cachedSafeAreaInsets[windowID] = insets
-        return insets
+    private static var metrics: DeviceLayoutMetrics {
+        DeviceLayoutMetricsStore.shared.metrics(for: layoutWindow)
     }
 
     /// 获取当前设备的顶部安全区域高度
     static var safeAreaTop: CGFloat {
-        safeAreaInsets.top
+        metrics.safeAreaInsets.top
     }
     
     /// 获取当前设备的底部安全区域高度
     static var safeAreaBottom: CGFloat {
-        safeAreaInsets.bottom
+        metrics.safeAreaInsets.bottom
     }
     
     /// 是否为刘海屏设备
@@ -54,21 +143,21 @@ struct DeviceLayout {
     
     /// 当前屏幕宽度
     static var screenWidth: CGFloat {
-        layoutWindow?.screen.bounds.width ?? 375
+        metrics.screenSize.width
     }
 
     /// 当前应用窗口宽度，iPad 分屏和窗口化时随窗口变化
     static var viewportWidth: CGFloat {
-        max(1, layoutWindow?.bounds.width ?? screenWidth)
+        max(1, metrics.viewportSize.width)
     }
 
     static var screenHeight: CGFloat {
-        layoutWindow?.screen.bounds.height ?? 812
+        metrics.screenSize.height
     }
 
     /// 当前应用窗口高度，随旋转、Split View 和 Stage Manager 变化。
     static var viewportHeight: CGFloat {
-        max(1, layoutWindow?.bounds.height ?? screenHeight)
+        max(1, metrics.viewportSize.height)
     }
 
     /// 当前窗口是否有足够空间采用 iPad 展开布局。
@@ -76,10 +165,16 @@ struct DeviceLayout {
         isPadDevice && viewportWidth >= 680 && viewportHeight >= 600
     }
     
-    /// 动态计算顶部 Padding
+    /// 普通页面内容沿用的顶部间距。
     static var headerTopPadding: CGFloat {
         if isPadDevice { return 12 }
         return hasNotch ? 8 : 50
+    }
+
+    /// 全屏播放器由外层容器负责系统安全区，这里只保留视觉间距。
+    /// 不依赖异步窗口探针，避免播放器首次出现时因安全区尚未上报而误取 50pt。
+    static var playerHeaderTopPadding: CGFloat {
+        isPadDevice ? 12 : 8
     }
     
     /// 播放器底部 Padding（考虑安全区域）

@@ -22,27 +22,16 @@ public extension UIImage {
             return nil
         }
 
-        // Detach the chosen luminosity variant from UIImageAsset. SwiftUI's
-        // Image and UIKit's TabBar may otherwise resolve the asset again using
-        // the host appearance after this initializer returns.
-        let format = UIGraphicsImageRendererFormat.preferred()
-        format.scale = max(resolvedImage.scale, 3)
-        format.opaque = false
-        let renderer = UIGraphicsImageRenderer(size: resolvedImage.size, format: format)
-        var fixedImage: UIImage?
-        traits.performAsCurrent {
-            fixedImage = renderer.image { _ in
-                resolvedImage.draw(in: CGRect(origin: .zero, size: resolvedImage.size))
-            }
-        }
-        guard let fixedImage, let cgImage = fixedImage.cgImage else {
+        // Copying the selected raster detaches it from UIImageAsset without
+        // synchronously running ColorSync during SwiftUI scene updates.
+        guard let cgImage = resolvedImage.cgImage else {
             return nil
         }
 
         self.init(
             cgImage: cgImage,
-            scale: fixedImage.scale,
-            orientation: fixedImage.imageOrientation
+            scale: resolvedImage.scale,
+            orientation: resolvedImage.imageOrientation
         )
     }
 }

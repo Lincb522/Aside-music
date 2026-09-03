@@ -59,7 +59,7 @@ struct NeumorphicPlayerLayout: View {
                 VStack(spacing: 0) {
                     // 顶部导航
                     headerBar
-                        .padding(.top, DeviceLayout.headerTopPadding)
+                        .padding(.top, DeviceLayout.playerHeaderTopPadding)
                         .padding(.bottom, 24)
                     
                     // 中间区域
@@ -467,7 +467,7 @@ extension NeumorphicPlayerLayout {
         .buttonStyle(NeumorphicButtonStyle(bgColor: raisedColor, darkShadow: darkShadow, lightShadow: lightShadow))
     }
     
-    // MARK: - 附加按钮 — 评论 + 下载
+    // MARK: - 附加按钮
     private var additionalButtons: some View {
         HStack(spacing: 0) {
             if let song = player.currentSong {
@@ -475,14 +475,6 @@ extension NeumorphicPlayerLayout {
                     .frame(width: 44)
             } else {
                 Color.clear.frame(width: 44)
-            }
-            
-            Spacer()
-            
-            neumorphicButton(size: 40) {
-                showComments = true
-            } content: {
-                MonoIcon(icon: .comment, size: 18, color: secondaryTextColor, lineWidth: 1.4)
             }
             
             Spacer()
@@ -502,19 +494,19 @@ extension NeumorphicPlayerLayout {
                         )
                     }
                     .disabled(downloadManager.isDownloaded(songId: song.id))
-                } else {
-                    // 沉浸模式按钮 — 占用原下载按钮的位置
-                    neumorphicButton(size: 40) {
-                        ImmersiveModeController.shared.present()
-                    } content: {
-                        MonoIcon(icon: .immersive, size: 18, color: secondaryTextColor, lineWidth: 1.4)
-                    }
                 }
             }
-            
-            Spacer()
-            
-            Color.clear.frame(width: 44)
+
+            if AppConfig.Features.downloadEnabled {
+                Spacer()
+            }
+
+            neumorphicButton(size: 40) {
+                showComments = true
+            } content: {
+                MonoIcon(icon: .comment, size: 18, color: secondaryTextColor, lineWidth: 1.4)
+            }
+            .frame(width: 44)
         }
     }
     

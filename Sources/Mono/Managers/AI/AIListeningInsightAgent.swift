@@ -166,6 +166,8 @@ final class AIListeningInsightAgent: ObservableObject {
         let systemPrompt = managedAgent?.systemPrompt(fallback: AIListeningInsightPrompt.system)
             ?? AIListeningInsightPrompt.system
         let userPrompt = managedAgent?.userPrompt(fallback: bundledUserPrompt) ?? bundledUserPrompt
+        let generationOptions = managedAgent?.generationOptions ?? .standard
+        let minimumTimeout = managedAgent?.resolvedMinimumTimeoutSeconds ?? 0
         let traceID = AIAgentTraceStore.shared.begin(
             agentID: "listening-insight",
             agentName: "听歌洞察",
@@ -179,7 +181,13 @@ final class AIListeningInsightAgent: ObservableObject {
             stage: .configuration,
             title: "System",
             detail: systemPrompt,
-            metadata: ["role": "system", "characters": String(systemPrompt.count)]
+            metadata: [
+                "recordType": "remote-model-input-system",
+                "role": "system",
+                "provider": configuration.wireProtocol.rawValue,
+                "model": configuration.resolvedModel,
+                "characters": String(systemPrompt.count)
+            ]
         )
         AIAgentTraceStore.shared.append(
             traceID,
@@ -187,7 +195,13 @@ final class AIListeningInsightAgent: ObservableObject {
             stage: .configuration,
             title: "User",
             detail: userPrompt,
-            metadata: ["role": "user", "characters": String(userPrompt.count)]
+            metadata: [
+                "recordType": "remote-model-input-user",
+                "role": "user",
+                "provider": configuration.wireProtocol.rawValue,
+                "model": configuration.resolvedModel,
+                "characters": String(userPrompt.count)
+            ]
         )
         AIAgentTraceStore.shared.append(
             traceID,
@@ -217,15 +231,23 @@ final class AIListeningInsightAgent: ObservableObject {
                     stage: .model,
                     title: "请求模型",
                     detail: "发送第 \(attempt) 次听歌洞察请求。",
-                    metadata: ["attempt": "\(attempt)/\(maximumAttempts)"]
+                    metadata: [
+                        "recordType": "remote-model-request",
+                        "provider": configuration.wireProtocol.rawValue,
+                        "model": configuration.resolvedModel,
+                        "attempt": "\(attempt)/\(maximumAttempts)",
+                        "temperature": String(format: "%.3f", generationOptions.normalizedTemperature),
+                        "maxOutputTokens": String(generationOptions.normalizedMaxOutputTokens),
+                        "minimumTimeoutSeconds": String(format: "%.1f", minimumTimeout)
+                    ]
                 )
                 let response = try await client.generate(
                     systemPrompt: systemPrompt,
                     userPrompt: userPrompt,
                     configuration: configuration,
                     apiKey: providerStore.requestAPIKey,
-                    minimumTimeout: managedAgent?.resolvedMinimumTimeoutSeconds ?? 0,
-                    options: managedAgent?.generationOptions ?? .standard
+                    minimumTimeout: minimumTimeout,
+                    options: generationOptions
                 )
                 try Task.checkCancellation()
                 AIAgentTraceStore.shared.append(
@@ -236,11 +258,48 @@ final class AIListeningInsightAgent: ObservableObject {
                     title: "Assistant",
                     detail: response,
                     durationSeconds: Date().timeIntervalSince(attemptStartedAt),
-                    metadata: ["role": "assistant", "attempt": String(attempt)]
+                    metadata: [
+                        "recordType": "remote-model-output-raw",
+                        "role": "assistant",
+                        "provider": configuration.wireProtocol.rawValue,
+                        "model": configuration.resolvedModel,
+                        "attempt": String(attempt),
+                        "characters": String(response.count)
+                    ]
                 )
                 let validationStartedAt = Date()
                 let output = try decodeOutput(from: response)
+                AIAgentTraceStore.shared.append(
+                    traceID,
+                    category: .conversation,
+                    level: .success,
+                    stage: .validation,
+                    title: "模型解码结果",
+                    detail: traceJSON(output),
+                    durationSeconds: Date().timeIntervalSince(validationStartedAt),
+                    metadata: [
+                        "recordType": "remote-model-output-decoded",
+                        "provider": configuration.wireProtocol.rawValue,
+                        "model": configuration.resolvedModel,
+                        "attempt": String(attempt)
+                    ]
+                )
                 if let result = validatedResult(output: output, input: input) {
+                    AIAgentTraceStore.shared.append(
+                        traceID,
+                        category: .skill,
+                        level: .success,
+                        stage: .validation,
+                        title: "本地校验后的最终结果",
+                        detail: traceJSON(result),
+                        durationSeconds: Date().timeIntervalSince(validationStartedAt),
+                        metadata: [
+                            "recordType": "local-validation-result",
+                            "modelSource": "local-validator",
+                            "provider": configuration.wireProtocol.rawValue,
+                            "model": configuration.resolvedModel
+                        ]
+                    )
                     AIAgentTraceStore.shared.append(
                         traceID,
                         category: .skill,
@@ -279,8 +338,26 @@ final class AIListeningInsightAgent: ObservableObject {
                 if let reservation, AIUsageLimiter.shouldRefundReservation(for: error) {
                     usageLimiter.releaseReservation(reservation)
                 }
-                guard attempt < maximumAttempts,
-                      AIAgentRuntimePolicy.shouldRetry(error) else {
+                let willRetry = attempt < maximumAttempts
+                    && AIAgentRuntimePolicy.shouldRetry(error)
+                AIAgentTraceStore.shared.append(
+                    traceID,
+                    category: .reasoning,
+                    level: willRetry ? .warning : .error,
+                    stage: .model,
+                    title: "模型请求失败",
+                    detail: error.localizedDescription,
+                    durationSeconds: Date().timeIntervalSince(attemptStartedAt),
+                    metadata: [
+                        "recordType": "remote-model-failure",
+                        "provider": configuration.wireProtocol.rawValue,
+                        "model": configuration.resolvedModel,
+                        "attempt": String(attempt),
+                        "willRetry": willRetry ? "true" : "false",
+                        "errorType": String(reflecting: type(of: error))
+                    ]
+                )
+                guard willRetry else {
                     if let aiError = error as? AIEqualizerError,
                        case .invalidResponse = aiError {
                         let fallbackStartedAt = Date()
@@ -291,8 +368,12 @@ final class AIListeningInsightAgent: ObservableObject {
                             level: .warning,
                             stage: .fallback,
                             title: "使用本地结果",
-                            detail: "模型结果连续未通过校验，已改用基于真实统计的本地洞察文案。",
-                            durationSeconds: Date().timeIntervalSince(fallbackStartedAt)
+                            detail: "模型结果连续未通过校验，已改用基于真实统计的本地洞察文案。\n\n\(traceJSON(result))",
+                            durationSeconds: Date().timeIntervalSince(fallbackStartedAt),
+                            metadata: [
+                                "recordType": "local-fallback-result",
+                                "modelSource": "local-statistics"
+                            ]
                         )
                         AIAgentTraceStore.shared.finish(traceID, status: .completed)
                         return result
@@ -355,11 +436,26 @@ final class AIListeningInsightAgent: ObservableObject {
             level: .warning,
             stage: .fallback,
             title: "使用本地结果",
-            detail: "没有获得可用的模型结果，已生成基于真实统计的本地洞察文案。",
-            durationSeconds: Date().timeIntervalSince(fallbackStartedAt)
+            detail: "没有获得可用的模型结果，已生成基于真实统计的本地洞察文案。\n\n\(traceJSON(result))",
+            durationSeconds: Date().timeIntervalSince(fallbackStartedAt),
+            metadata: [
+                "recordType": "local-fallback-result",
+                "modelSource": "local-statistics"
+            ]
         )
         AIAgentTraceStore.shared.finish(traceID, status: .completed)
         return result
+    }
+
+    private func traceJSON<Value: Encodable>(_ value: Value) -> String {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        guard let data = try? encoder.encode(value),
+              let text = String(data: data, encoding: .utf8) else {
+            return "无法序列化详细记录"
+        }
+        return text
     }
 
     /// 后台自动分析入口：频率受限时等待后重试一次，仍失败则静默降级到本地文案，不抛错。

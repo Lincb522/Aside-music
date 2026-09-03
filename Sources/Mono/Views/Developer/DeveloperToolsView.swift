@@ -231,6 +231,16 @@ struct DeveloperToolsView: View {
                                     .padding(.leading, 58)
 
                                 SettingsRouteLinkRow(
+                                    icon: .chart,
+                                    title: String(localized: "audio_training_title"),
+                                    value: String(localized: "audio_training_scope_value"),
+                                    destination: .audioTraining
+                                )
+
+                                Divider()
+                                    .padding(.leading, 58)
+
+                                SettingsRouteLinkRow(
                                     icon: .waveform,
                                     title: String(localized: "developer_audio_lab"),
                                     value: "FFmpeg",

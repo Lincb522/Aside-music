@@ -293,12 +293,18 @@ final class MonoNextSuiteManager: ObservableObject {
         guard let spatialBase else { return }
         let resolved = resolvedSpatial(from: spatialBase)
         player.audioEffects.applyMonoTuning(
-            EQManager.shared.monoEffectTuning,
+            EQManager.shared.effectiveMonoEffectTuningForCurrentOutput(),
             bassGain: player.audioEffects.bassGain,
             trebleGain: player.audioEffects.trebleGain,
             surroundLevel: resolved.surroundLevel,
             reverbLevel: resolved.reverbLevel,
             stereoWidth: resolved.stereoWidth
+        )
+        AppLogger.debug(
+            "[MonoSpatial] DSP committed mode=\(spatialConfiguration.mode.rawValue) requestedWidth=\(String(format: "%.3f", spatialConfiguration.stageWidth)) requestedDepth=\(String(format: "%.3f", spatialConfiguration.stageDepth)) committedSurround=\(String(format: "%.3f", player.audioEffects.surroundLevel)) committedReverb=\(String(format: "%.3f", player.audioEffects.reverbLevel)) committedWidth=\(String(format: "%.3f", player.audioEffects.stereoWidth))",
+            step: "mono-spatial.dsp-commit",
+            category: .audio,
+            event: "mono-spatial.dsp-commit"
         )
     }
 
@@ -340,7 +346,7 @@ final class MonoNextSuiteManager: ObservableObject {
         player.streamPlayer.outputPan = 0
         guard let spatialBase else { return }
         player.audioEffects.applyMonoTuning(
-            EQManager.shared.monoEffectTuning,
+            EQManager.shared.effectiveMonoEffectTuningForCurrentOutput(),
             bassGain: player.audioEffects.bassGain,
             trebleGain: player.audioEffects.trebleGain,
             surroundLevel: spatialBase.surroundLevel,

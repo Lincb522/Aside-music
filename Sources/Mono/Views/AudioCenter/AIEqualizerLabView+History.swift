@@ -217,28 +217,30 @@ extension AIEqualizerLabView {
         HStack(spacing: 0) {
             tuningTimingMetric(
                 String(localized: "ai_tuning_sampling_time"),
-                duration: timing.sampling
+                value: timing.samplingReused == true
+                    ? String(localized: "ai_tuning_measurement_reused")
+                    : tuningDurationText(timing.sampling)
             )
             Rectangle().fill(Color.white.opacity(0.07)).frame(width: 1, height: 24)
             tuningTimingMetric(
                 String(localized: "ai_tuning_generation_time"),
-                duration: timing.generation
+                value: tuningDurationText(timing.generation)
             )
             Rectangle().fill(Color.white.opacity(0.07)).frame(width: 1, height: 24)
             tuningTimingMetric(
                 String(localized: "ai_tuning_applying_time"),
-                duration: timing.applying
+                value: tuningDurationText(timing.applying)
             )
         }
         .padding(.vertical, 2)
     }
 
-    func tuningTimingMetric(_ title: String, duration: TimeInterval) -> some View {
+    func tuningTimingMetric(_ title: String, value: String) -> some View {
         VStack(spacing: 3) {
             Text(title)
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.52))
-            Text(tuningDurationText(duration))
+            Text(value)
                 .font(.system(size: 11.5, weight: .bold, design: .monospaced))
                 .foregroundStyle(.white.opacity(0.88))
                 .lineLimit(1)

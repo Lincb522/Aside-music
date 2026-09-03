@@ -350,8 +350,18 @@ private actor AIEqualizerSpectrumAccumulator {
         let bands = absoluteBandLevels.map {
             min(0, max(-60, $0 - bandReference))
         }
+        let bandEnergySpreadDB = bandDBFrames.map { frames -> Float in
+            let sorted = frames.sorted()
+            return min(40, max(0, Self.percentile(sorted, 0.90) - Self.percentile(sorted, 0.10)))
+        }
+        let sectionBandEnergyDB = Self.sectionBandProfiles(
+            bandFrames: bandDBFrames,
+            fallback: bands,
+            sectionCount: 3
+        )
         let sortedRMS = rmsDBFrames.sorted()
         let p10 = Self.percentile(sortedRMS, 0.10)
+        let p50 = Self.percentile(sortedRMS, 0.50)
         let p90 = Self.percentile(sortedRMS, 0.90)
         let rmsMean = Self.trimmedMean(rmsDBFrames, trimFraction: 0.10)
         let flatness = min(1, max(0, Self.trimmedMean(flatnessFrames, trimFraction: 0.12)))
@@ -378,6 +388,9 @@ private actor AIEqualizerSpectrumAccumulator {
         let chroma = Self.normalizedChroma(accumulatedChroma)
         let key = Self.keyEstimate(chroma: chroma)
         let spectralFlux = Self.trimmedMean(spectralFluxFrames, trimFraction: 0.1)
+        let sortedCentroids = centroidFrames.sorted()
+        let sortedRolloffs = rolloffFrames.sorted()
+        let sortedFlux = spectralFluxFrames.sorted()
         let activeDuration: TimeInterval
         if let first = samplingTimestamps.first, let last = samplingTimestamps.last, last > first {
             activeDuration = last - first
@@ -398,7 +411,7 @@ private actor AIEqualizerSpectrumAccumulator {
             dynamicSpread: dynamicSpread,
             melody: melody
         )
-        let instrumentHints = Self.instrumentHints(
+        let instrumentScores = Self.instrumentScores(
             lowRatio: lowRatio,
             midRatio: midRatio,
             highRatio: highRatio,
@@ -408,7 +421,12 @@ private actor AIEqualizerSpectrumAccumulator {
             transientDensity: transientDensity,
             melodicActivity: melody.activity
         )
-        let genreHints = Self.genreHints(
+        let instrumentHints = Self.rankedHints(
+            instrumentScores.map { (name: $0.key, score: $0.value) },
+            threshold: 0.61,
+            limit: 4
+        )
+        let genreScores = Self.genreScores(
             bpm: tempo.bpm,
             tempoConfidence: tempo.confidence,
             tempoStability: tempo.stability,
@@ -420,6 +438,11 @@ private actor AIEqualizerSpectrumAccumulator {
             dynamicSpread: dynamicSpread,
             transientDensity: transientDensity,
             melodicActivity: melody.activity
+        )
+        let genreHints = Self.rankedHints(
+            genreScores.map { (name: $0.key, score: $0.value) },
+            threshold: 0.60,
+            limit: 3
         )
 
         return AIEqualizerAudioFeatures(
@@ -435,8 +458,14 @@ private actor AIEqualizerSpectrumAccumulator {
             graphicEQMode: mode,
             bandFrequenciesHz: centers,
             bandEnergyDB: bands,
+            bandEnergySpreadDB: bandEnergySpreadDB,
+            sectionBandEnergyDB: sectionBandEnergyDB,
             spectralCentroidHz: centroid,
             spectralRolloffHz: Self.trimmedMean(rolloffFrames, trimFraction: 0.12),
+            spectralCentroidP10Hz: Self.percentile(sortedCentroids, 0.10),
+            spectralCentroidP90Hz: Self.percentile(sortedCentroids, 0.90),
+            spectralRolloffP10Hz: Self.percentile(sortedRolloffs, 0.10),
+            spectralRolloffP90Hz: Self.percentile(sortedRolloffs, 0.90),
             rmsDBFS: rmsMean,
             dynamicSpreadDB: dynamicSpread,
             integratedLUFS: pcm.integratedLUFS,
@@ -454,6 +483,7 @@ private actor AIEqualizerSpectrumAccumulator {
             spectralFlatness: flatness,
             spectralBandwidthHz: Self.trimmedMean(bandwidthFrames, trimFraction: 0.12),
             spectralFlux: spectralFlux,
+            spectralFluxP90: Self.percentile(sortedFlux, 0.90),
             lowEnergyRatio: lowRatio,
             midEnergyRatio: midRatio,
             highEnergyRatio: highRatio,
@@ -470,6 +500,11 @@ private actor AIEqualizerSpectrumAccumulator {
             chroma: chroma,
             genreHints: genreHints,
             instrumentHints: instrumentHints,
+            genreScores: genreScores,
+            instrumentScores: instrumentScores,
+            rmsP10DBFS: p10,
+            rmsP50DBFS: p50,
+            rmsP90DBFS: p90,
             vocalReference: vocalReference,
             currentBassGain: currentBassGain,
             currentTrebleGain: currentTrebleGain,
@@ -894,7 +929,7 @@ private actor AIEqualizerSpectrumAccumulator {
         return denominator > 0 ? numerator / denominator : 0
     }
 
-    private static func instrumentHints(
+    private static func instrumentScores(
         lowRatio: Float,
         midRatio: Float,
         highRatio: Float,
@@ -903,7 +938,7 @@ private actor AIEqualizerSpectrumAccumulator {
         dynamicSpread: Float,
         transientDensity: Float,
         melodicActivity: Float
-    ) -> [String] {
+    ) -> [String: Float] {
         let transient = normalizedEvidence(transientDensity, lower: 0.18, upper: 1.15)
         let low = normalizedEvidence(lowRatio, lower: 0.14, upper: 0.38)
         let mid = normalizedEvidence(midRatio, lower: 0.30, upper: 0.62)
@@ -914,7 +949,7 @@ private actor AIEqualizerSpectrumAccumulator {
         let dynamics = normalizedEvidence(dynamicSpread, lower: 5, upper: 15)
         let melody = normalizedEvidence(melodicActivity, lower: 0.035, upper: 0.36)
 
-        return rankedHints([
+        return Dictionary(uniqueKeysWithValues: [
             ("drums", transient * 0.62 + high * 0.20 + noisiness * 0.18),
             ("bass", low * 0.72 + tonality * 0.18 + (1 - brightness) * 0.10),
             ("vocals", mid * 0.38 + melody * 0.32 + tonality * 0.20 + dynamics * 0.10),
@@ -922,7 +957,7 @@ private actor AIEqualizerSpectrumAccumulator {
             ("guitar", brightness * 0.32 + transient * 0.25 + tonality * 0.25 + mid * 0.18),
             ("piano", dynamics * 0.34 + transient * 0.28 + melody * 0.25 + tonality * 0.13),
             ("strings", mid * 0.38 + melody * 0.30 + (1 - transient) * 0.20 + tonality * 0.12)
-        ], threshold: 0.61, limit: 4)
+        ].map { ($0.0, min(1, max(0, $0.1))) })
     }
 
     private static func vocalReference(
@@ -986,7 +1021,7 @@ private actor AIEqualizerSpectrumAccumulator {
         )
     }
 
-    private static func genreHints(
+    private static func genreScores(
         bpm: Float,
         tempoConfidence: Float,
         tempoStability: Float,
@@ -998,7 +1033,7 @@ private actor AIEqualizerSpectrumAccumulator {
         dynamicSpread: Float,
         transientDensity: Float,
         melodicActivity: Float
-    ) -> [String] {
+    ) -> [String: Float] {
         let reliableTempo = min(1, max(0, tempoConfidence * 0.65 + tempoStability * 0.35))
         let danceTempo = bpm >= 108 && bpm <= 155 ? reliableTempo : 0
         let hiphopTempo = bpm >= 68 && bpm <= 112 ? reliableTempo : 0
@@ -1014,14 +1049,14 @@ private actor AIEqualizerSpectrumAccumulator {
         let melody = normalizedEvidence(melodicActivity, lower: 0.035, upper: 0.36)
         let spectralBalance = 1 - min(1, abs(lowRatio - 0.23) * 2 + abs(highRatio - 0.10) * 2.5)
 
-        return rankedHints([
+        return Dictionary(uniqueKeysWithValues: [
             ("electronic", danceTempo * 0.35 + noisiness * 0.25 + transient * 0.22 + low * 0.18),
             ("hiphop", hiphopTempo * 0.34 + low * 0.34 + transient * 0.20 + (1 - high) * 0.12),
             ("rock", brightness * 0.28 + transient * 0.30 + tonality * 0.20 + dynamics * 0.22),
             ("acoustic", dynamics * 0.34 + tonality * 0.32 + (1 - noisiness) * 0.18 + (1 - low) * 0.16),
             ("ballad", slowTempo * 0.34 + melody * 0.28 + dynamics * 0.20 + (1 - transient) * 0.18),
             ("pop", mid * 0.28 + melody * 0.24 + reliableTempo * 0.18 + spectralBalance * 0.30)
-        ], threshold: 0.60, limit: 3)
+        ].map { ($0.0, min(1, max(0, $0.1))) })
     }
 
     private static func normalizedEvidence(_ value: Float, lower: Float, upper: Float) -> Float {
@@ -1039,6 +1074,29 @@ private actor AIEqualizerSpectrumAccumulator {
             .sorted { $0.score > $1.score }
             .prefix(limit)
             .map(\.name)
+    }
+
+    private static func sectionBandProfiles(
+        bandFrames: [[Float]],
+        fallback: [Float],
+        sectionCount: Int
+    ) -> [[Float]] {
+        guard sectionCount > 0,
+              !bandFrames.isEmpty,
+              let frameCount = bandFrames.map(\.count).min(),
+              frameCount >= sectionCount else {
+            return Array(repeating: fallback, count: max(0, sectionCount))
+        }
+        return (0..<sectionCount).map { section in
+            let lower = frameCount * section / sectionCount
+            let upper = max(lower + 1, frameCount * (section + 1) / sectionCount)
+            let measured = bandFrames.map { frames in
+                trimmedMean(Array(frames[lower..<min(upper, frames.count)]), trimFraction: 0.1)
+            }
+            let filled = fillingUnresolvedEdgeBands(measured)
+            let reference = filled.max() ?? 0
+            return filled.map { min(0, max(-60, $0 - reference)) }
+        }
     }
 
     private static func percentile(_ values: [Float], _ percentile: Float) -> Float {

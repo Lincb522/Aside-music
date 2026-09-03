@@ -3,6 +3,29 @@ import Combine
 import UIKit
 import CryptoKit
 
+private enum LocalPlaylistCloudSyncError: LocalizedError {
+    case incompleteAIUpload(
+        localPlans: Int,
+        remotePlans: Int,
+        localSamples: Int,
+        remoteSamples: Int
+    )
+
+    var errorDescription: String? {
+        switch self {
+        case let .incompleteAIUpload(localPlans, remotePlans, localSamples, remoteSamples):
+            return String(
+                format: String(localized: "playlist_sync_ai_incomplete_format"),
+                locale: Locale.current,
+                remotePlans,
+                localPlans,
+                remoteSamples,
+                localSamples
+            )
+        }
+    }
+}
+
 struct CloudSyncContentSummary: Equatable {
     var playlists = 0
     var playlistSongs = 0
@@ -190,11 +213,32 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
         let snapshot = makeLocalSnapshot()
         localContentSummary = Self.contentSummary(for: snapshot)
         let response = try await APIService.shared.uploadCloudPlaylistSnapshot(snapshot)
+        let localAIPlanCount = localContentSummary.aiTuningPlans
+        let localTrainingSampleCount = snapshot.aiEqualizer?.trainingSamples?.count ?? 0
+        let remoteAIPlanCount = response.aiTuningPlanCount ?? localAIPlanCount
+        let remoteTrainingSampleCount = response.aiTrainingSampleCount ?? localTrainingSampleCount
+        guard remoteAIPlanCount >= localAIPlanCount,
+              remoteTrainingSampleCount >= localTrainingSampleCount else {
+            throw LocalPlaylistCloudSyncError.incompleteAIUpload(
+                localPlans: localAIPlanCount,
+                remotePlans: remoteAIPlanCount,
+                localSamples: localTrainingSampleCount,
+                remoteSamples: remoteTrainingSampleCount
+            )
+        }
         // 只把本次实际上传的内容记为同步基线。网络请求期间若本地又有
         // 变化，后续比较仍能发现差异并补传，不会误判为已经上云。
         lastObservedDigest = Self.digest(for: snapshot)
         persistSyncState(date: response.updatedAt)
         persistRemoteRevision(response.revision)
+
+        // The training dashboard is a privileged live view of the cloud
+        // dataset. Refresh it after this account contributes a snapshot so a
+        // full-access developer does not keep seeing the pre-upload count.
+        // Regular users never initialize or call the protected training API.
+        if AppConfig.DeveloperAccess.hasFullTools {
+            await AudioTrainingAdminStore.shared.refresh()
+        }
 
         if showStatus {
             persistStatus(NSLocalizedString("playlist_sync_upload_success", comment: ""))

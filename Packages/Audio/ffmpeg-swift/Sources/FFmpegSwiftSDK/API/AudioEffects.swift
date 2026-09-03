@@ -242,11 +242,11 @@ public final class AudioEffects {
     ) {
         filterGraph.applyMonoTuning(
             configuration.realtimePlaybackSafe,
-            bassGain: 0,
-            trebleGain: 0,
+            bassGain: bassGain,
+            trebleGain: trebleGain,
             surroundLevel: surroundLevel,
             reverbLevel: reverbLevel,
-            stereoWidth: 1
+            stereoWidth: stereoWidth
         )
     }
 
@@ -376,23 +376,23 @@ public final class AudioEffects {
     /// 设置低音增益（dB）。
     /// - Parameter db: 增益值，范围 [-12, +12]。0 = 不变。
     public func setBassGain(_ db: Float) {
-        filterGraph.setBassGain(0)
+        filterGraph.setBassGain(db)
     }
 
     /// 当前低音增益（dB）
     public var bassGain: Float {
-        0
+        filterGraph.bassGain
     }
 
     /// 设置高音增益（dB）。
     /// - Parameter db: 增益值，范围 [-12, +12]。0 = 不变。
     public func setTrebleGain(_ db: Float) {
-        filterGraph.setTrebleGain(0)
+        filterGraph.setTrebleGain(db)
     }
 
     /// 当前高音增益（dB）
     public var trebleGain: Float {
-        0
+        filterGraph.trebleGain
     }
 
     /// 启用/禁用超低音增强。增强 100Hz 以下的超低频。
@@ -476,12 +476,12 @@ public final class AudioEffects {
     /// 设置立体声宽度。
     /// - Parameter width: 宽度 0~2。0 = 单声道，1.0 = 原始，2.0 = 最宽。
     public func setStereoWidth(_ width: Float) {
-        filterGraph.setStereoWidth(1)
+        filterGraph.setStereoWidth(width)
     }
 
     /// 当前立体声宽度
     public var stereoWidth: Float {
-        1
+        filterGraph.stereoWidth
     }
 
     /// 设置声道平衡。

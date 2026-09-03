@@ -99,6 +99,8 @@ final class AppleMusicService: ObservableObject {
 
     private var songCache: [String: MusicKit.Song] = [:]
     private var artworkURLCache: [String: URL] = [:]
+    private var animatedArtworkURLCache: [String: URL] = [:]
+    private var unavailableAnimatedArtworkIDs = Set<String>()
     private var libraryAlbumArtworkCache: [String: URL] = [:]
     private var preparedLibraryAlbumArtwork = false
     private var playlistCache: [String: MusicKit.Playlist] = [:]
@@ -151,12 +153,16 @@ final class AppleMusicService: ObservableObject {
         case .background:
             Self.trim(&songCache, count: max(32, catalogEntryLimit / 3), preserving: currentCatalogID)
             Self.trim(&artworkURLCache, count: max(48, catalogEntryLimit / 2), preserving: currentCatalogID)
+            Self.trim(&animatedArtworkURLCache, count: max(24, catalogEntryLimit / 4))
+            Self.trim(&unavailableAnimatedArtworkIDs, count: max(24, catalogEntryLimit / 4))
             Self.trim(&libraryAlbumArtworkCache, count: max(64, catalogEntryLimit / 2))
             Self.trim(&playlistCache, count: 24)
             Self.trim(&playlistTrackCache, count: 4)
         case .warning, .critical:
             Self.trim(&songCache, count: currentCatalogID == nil ? 0 : 1, preserving: currentCatalogID)
             Self.trim(&artworkURLCache, count: currentCatalogID == nil ? 0 : 2, preserving: currentCatalogID)
+            animatedArtworkURLCache.removeAll(keepingCapacity: false)
+            unavailableAnimatedArtworkIDs.removeAll(keepingCapacity: false)
             libraryAlbumArtworkCache.removeAll(keepingCapacity: false)
             playlistCache.removeAll(keepingCapacity: false)
             playlistTrackCache.removeAll(keepingCapacity: false)
@@ -175,6 +181,8 @@ final class AppleMusicService: ObservableObject {
     private var memoryCacheEntryCount: Int {
         songCache.count
             + artworkURLCache.count
+            + animatedArtworkURLCache.count
+            + unavailableAnimatedArtworkIDs.count
             + libraryAlbumArtworkCache.count
             + playlistCache.count
             + playlistTrackCache.count
@@ -183,6 +191,8 @@ final class AppleMusicService: ObservableObject {
     private func enforceMemoryLimits() {
         Self.trim(&songCache, count: catalogEntryLimit, preserving: PlayerManager.shared.currentSong?.appleMusicCatalogID)
         Self.trim(&artworkURLCache, count: catalogEntryLimit * 2)
+        Self.trim(&animatedArtworkURLCache, count: max(32, catalogEntryLimit / 2))
+        Self.trim(&unavailableAnimatedArtworkIDs, count: max(32, catalogEntryLimit / 2))
         Self.trim(&libraryAlbumArtworkCache, count: catalogEntryLimit * 2)
         Self.trim(&playlistCache, count: max(32, catalogEntryLimit / 2))
         Self.trim(&playlistTrackCache, count: playlistTrackEntryLimit)
@@ -193,6 +203,8 @@ final class AppleMusicService: ObservableObject {
     private func enforceMemoryLimitsIfNeeded() {
         guard songCache.count > catalogEntryLimit + 32
             || artworkURLCache.count > catalogEntryLimit * 2 + 32
+            || animatedArtworkURLCache.count > max(32, catalogEntryLimit / 2) + 8
+            || unavailableAnimatedArtworkIDs.count > max(32, catalogEntryLimit / 2) + 8
             || libraryAlbumArtworkCache.count > catalogEntryLimit * 2 + 32
             || playlistCache.count > max(32, catalogEntryLimit / 2) + 8
             || playlistTrackCache.count > playlistTrackEntryLimit + 2 else {
@@ -220,6 +232,16 @@ final class AppleMusicService: ObservableObject {
                 .prefix(removalCount)
         )
         for key in keys { source.removeValue(forKey: key) }
+    }
+
+    private static func trim(
+        _ source: inout Set<String>,
+        count: Int
+    ) {
+        let limit = max(0, count)
+        guard source.count > limit else { return }
+        let removals = Array(source.prefix(source.count - limit))
+        source.subtract(removals)
     }
 
     var isAuthorized: Bool {
@@ -1118,6 +1140,402 @@ final class AppleMusicService: ObservableObject {
         return nil
     }
 
+    /// 返回当前歌曲可用的 Apple Music 动态专辑封面。
+    /// Apple Music 歌曲直接使用目录 ID；其他平台先严格匹配目录歌曲，
+    /// 避免只按同名歌曲误用其他专辑的动态封面。
+    func animatedArtworkURL(matching song: Song) async -> URL? {
+        if song.isAppleMusic {
+            return await animatedArtworkURL(for: song)
+        }
+
+        let cacheKey = Self.animatedArtworkMatchCacheKey(for: song)
+        if let cached = animatedArtworkURLCache[cacheKey] {
+            AppLogger.debug(
+                "[AppleMusicDynamicArtwork] 命中跨平台动态封面缓存",
+                step: "apple-music.animated-artwork.match",
+                category: .appleMusic,
+                event: "match_cache_hit",
+                context: [
+                    "songSource": song.musicSource.rawValue,
+                    "assetHost": cached.host ?? "unknown",
+                ]
+            )
+            return cached
+        }
+        if unavailableAnimatedArtworkIDs.contains(cacheKey) {
+            return nil
+        }
+
+        let query = [song.name, song.artistName, song.al?.name ?? ""]
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        guard !query.isEmpty else { return nil }
+
+        AppLogger.debug(
+            "[AppleMusicDynamicArtwork] 开始为其他平台歌曲匹配 Apple Music 动态封面",
+            step: "apple-music.animated-artwork.match",
+            category: .appleMusic,
+            event: "cross_source_match_started",
+            context: ["songSource": song.musicSource.rawValue]
+        )
+
+        do {
+            var request = MusicCatalogSearchRequest(
+                term: query,
+                types: [MusicKit.Song.self]
+            )
+            request.limit = 8
+            let response = try await Self.performMusicKitRequest {
+                try await request.response()
+            }
+            guard let match = response.songs.max(by: {
+                Self.artworkMatchScore($0, target: song)
+                    < Self.artworkMatchScore($1, target: song)
+            }) else {
+                unavailableAnimatedArtworkIDs.insert(cacheKey)
+                enforceMemoryLimitsIfNeeded()
+                return nil
+            }
+
+            let score = Self.artworkMatchScore(match, target: song)
+            guard score >= 0.86, let matchedSong = Self.convert(match) else {
+                unavailableAnimatedArtworkIDs.insert(cacheKey)
+                enforceMemoryLimitsIfNeeded()
+                AppLogger.info(
+                    "[AppleMusicDynamicArtwork] 未找到可靠的 Apple Music 目录匹配",
+                    step: "apple-music.animated-artwork.match",
+                    category: .appleMusic,
+                    event: "cross_source_match_rejected",
+                    context: [
+                        "songSource": song.musicSource.rawValue,
+                        "matchScore": String(format: "%.3f", score),
+                    ]
+                )
+                return nil
+            }
+
+            songCache[match.id.rawValue] = match
+            guard let videoURL = await animatedArtworkURL(for: matchedSong) else {
+                return nil
+            }
+            animatedArtworkURLCache[cacheKey] = videoURL
+            enforceMemoryLimitsIfNeeded()
+            AppLogger.success(
+                "[AppleMusicDynamicArtwork] 跨平台动态封面匹配成功",
+                step: "apple-music.animated-artwork.match",
+                category: .appleMusic,
+                event: "cross_source_match_resolved",
+                context: [
+                    "songSource": song.musicSource.rawValue,
+                    "catalogID": match.id.rawValue,
+                    "matchScore": String(format: "%.3f", score),
+                    "assetHost": videoURL.host ?? "unknown",
+                ]
+            )
+            return videoURL
+        } catch is CancellationError {
+            return nil
+        } catch {
+            AppLogger.warning(
+                "[AppleMusicDynamicArtwork] 跨平台目录匹配失败：\(error.localizedDescription)",
+                step: "apple-music.animated-artwork.match",
+                category: .appleMusic,
+                event: "cross_source_match_failed",
+                context: ["songSource": song.musicSource.rawValue]
+            )
+            return nil
+        }
+    }
+
+    func animatedArtworkURL(for song: Song) async -> URL? {
+        guard let catalogID = song.appleMusicCatalogID, !catalogID.isEmpty else {
+            AppLogger.debug(
+                "[AppleMusicDynamicArtwork] 跳过：歌曲缺少目录 ID",
+                step: "apple-music.animated-artwork",
+                category: .appleMusic,
+                event: "lookup_skipped_missing_catalog_id"
+            )
+            return nil
+        }
+
+        AppLogger.debug(
+            "[AppleMusicDynamicArtwork] 开始解析动态专辑封面",
+            step: "apple-music.animated-artwork",
+            category: .appleMusic,
+            event: "lookup_started",
+            context: ["catalogID": catalogID]
+        )
+
+        var catalogSong = songCache[catalogID]
+        let songCacheHit = catalogSong != nil
+        if catalogSong == nil || catalogSong?.url == nil {
+            var request = MusicCatalogResourceRequest<MusicKit.Song>(
+                matching: \.id,
+                equalTo: MusicItemID(catalogID)
+            )
+            request.limit = 1
+            request.properties = [.albums]
+            catalogSong = try? await Self.performMusicKitRequest {
+                try await request.response().items.first
+            }
+        }
+
+        var albumID = Self.albumID(fromAppleMusicURL: catalogSong?.url)
+        if albumID == nil,
+           catalogSong?.albums?.first?.url == nil,
+           let source = catalogSong {
+            AppLogger.debug(
+                "[AppleMusicDynamicArtwork] 补充读取歌曲的专辑关系",
+                step: "apple-music.animated-artwork",
+                category: .appleMusic,
+                event: "album_relationship_hydration_started",
+                context: [
+                    "catalogID": catalogID,
+                    "songCacheHit": String(songCacheHit),
+                ]
+            )
+            catalogSong = try? await Self.performMusicKitRequest {
+                try await source.with(.albums)
+            }
+        }
+        if albumID == nil {
+            albumID = Self.albumID(
+                fromAppleMusicURL: catalogSong?.albums?.first?.url
+            )
+        }
+
+        guard let catalogSong, let albumID, !albumID.isEmpty else {
+            AppLogger.warning(
+                "[AppleMusicDynamicArtwork] 无法取得歌曲对应的 Apple Music 专辑",
+                step: "apple-music.animated-artwork",
+                category: .appleMusic,
+                event: "album_resolution_failed",
+                context: [
+                    "catalogID": catalogID,
+                    "songCacheHit": String(songCacheHit),
+                ]
+            )
+            return nil
+        }
+        songCache[catalogID] = catalogSong
+
+        if let cached = animatedArtworkURLCache[albumID] {
+            AppLogger.debug(
+                "[AppleMusicDynamicArtwork] 命中动态封面缓存",
+                step: "apple-music.animated-artwork",
+                category: .appleMusic,
+                event: "cache_hit",
+                context: [
+                    "albumID": albumID,
+                    "assetHost": cached.host ?? "unknown",
+                ]
+            )
+            return cached
+        }
+        if unavailableAnimatedArtworkIDs.contains(albumID) {
+            AppLogger.debug(
+                "[AppleMusicDynamicArtwork] 命中无动态封面缓存，继续使用静态封面",
+                step: "apple-music.animated-artwork",
+                category: .appleMusic,
+                event: "negative_cache_hit",
+                context: ["albumID": albumID]
+            )
+            return nil
+        }
+
+        do {
+            let currentCountryCode = try await MusicDataRequest.currentCountryCode
+            let countryCode = currentCountryCode.lowercased()
+            var components = URLComponents()
+            components.scheme = "https"
+            components.host = "api.music.apple.com"
+            components.path = "/v1/catalog/\(countryCode)/albums/\(albumID)"
+            components.queryItems = [
+                URLQueryItem(
+                    name: "extend",
+                    value: "editorialVideo,extendedAssetUrls"
+                )
+            ]
+            guard let url = components.url else { return nil }
+
+            AppLogger.network(
+                "[AppleMusicDynamicArtwork] 请求专辑 editorialVideo",
+                step: "apple-music.animated-artwork",
+                category: .appleMusic,
+                event: "catalog_request_started",
+                context: [
+                    "albumID": albumID,
+                    "storefront": countryCode,
+                ]
+            )
+            let response = try await Self.performMusicKitRequest {
+                try await MusicDataRequest(
+                    urlRequest: URLRequest(url: url)
+                ).response()
+            }
+            AppLogger.network(
+                "[AppleMusicDynamicArtwork] 收到专辑扩展数据",
+                step: "apple-music.animated-artwork",
+                category: .appleMusic,
+                event: "catalog_response_received",
+                context: [
+                    "albumID": albumID,
+                    "responseBytes": String(response.data.count),
+                ]
+            )
+            guard let videoURL = AppleMusicEditorialVideoParser.videoURL(
+                from: response.data
+            ) else {
+                let diagnostic = AppleMusicEditorialVideoParser.diagnosticSummary(
+                    from: response.data
+                )
+                if let webVideoURL = try await webAnimatedArtworkURL(
+                    albumID: albumID,
+                    storefront: countryCode
+                ) {
+                    animatedArtworkURLCache[albumID] = webVideoURL
+                    enforceMemoryLimitsIfNeeded()
+                    AppLogger.success(
+                        "[AppleMusicDynamicArtwork] 已从 Apple Music 官方专辑页解析动态封面",
+                        step: "apple-music.animated-artwork",
+                        category: .appleMusic,
+                        event: "web_asset_resolved",
+                        context: [
+                            "albumID": albumID,
+                            "assetHost": webVideoURL.host ?? "unknown",
+                            "assetType": webVideoURL.pathExtension.lowercased(),
+                            "catalogDiagnostic": diagnostic,
+                        ]
+                    )
+                    return webVideoURL
+                }
+                unavailableAnimatedArtworkIDs.insert(albumID)
+                enforceMemoryLimitsIfNeeded()
+                AppLogger.info(
+                    "[AppleMusicDynamicArtwork] 未解析到方形动态封面 albumID=\(albumID) \(diagnostic)",
+                    step: "apple-music.animated-artwork",
+                    category: .appleMusic,
+                    event: "asset_unavailable",
+                    context: [
+                        "albumID": albumID,
+                        "responseBytes": String(response.data.count),
+                    ]
+                )
+                return nil
+            }
+
+            animatedArtworkURLCache[albumID] = videoURL
+            enforceMemoryLimitsIfNeeded()
+            AppLogger.success(
+                "[AppleMusicDynamicArtwork] 已解析动态封面资源",
+                step: "apple-music.animated-artwork",
+                category: .appleMusic,
+                event: "asset_resolved",
+                context: [
+                    "albumID": albumID,
+                    "assetHost": videoURL.host ?? "unknown",
+                    "assetType": videoURL.pathExtension.lowercased(),
+                ]
+            )
+            return videoURL
+        } catch is CancellationError {
+            AppLogger.debug(
+                "[AppleMusicDynamicArtwork] 读取任务已取消",
+                step: "apple-music.animated-artwork",
+                category: .appleMusic,
+                event: "lookup_cancelled",
+                context: ["albumID": albumID]
+            )
+            return nil
+        } catch {
+            AppLogger.warning(
+                "[AppleMusicDynamicArtwork] 动态封面读取失败：\(error.localizedDescription)",
+                step: "apple-music.animated-artwork",
+                category: .appleMusic,
+                event: "lookup_failed",
+                context: ["albumID": albumID]
+            )
+            return nil
+        }
+    }
+
+    private func webAnimatedArtworkURL(
+        albumID: String,
+        storefront: String
+    ) async throws -> URL? {
+        var components = URLComponents()
+        components.scheme = "https"
+        components.host = "music.apple.com"
+        components.path = "/\(storefront)/album/\(albumID)"
+        guard let url = components.url else { return nil }
+
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 15
+        request.setValue("text/html", forHTTPHeaderField: "Accept")
+        AppLogger.network(
+            "[AppleMusicDynamicArtwork] 目录接口未返回动态资源，读取 Apple Music 官方专辑页",
+            step: "apple-music.animated-artwork",
+            category: .appleMusic,
+            event: "web_fallback_started",
+            context: [
+                "albumID": albumID,
+                "storefront": storefront,
+            ]
+        )
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse,
+                  (200..<300).contains(http.statusCode),
+                  http.url?.host?.lowercased() == "music.apple.com" else {
+                AppLogger.warning(
+                    "[AppleMusicDynamicArtwork] Apple Music 专辑页响应无效",
+                    step: "apple-music.animated-artwork",
+                    category: .appleMusic,
+                    event: "web_fallback_invalid_response",
+                    context: [
+                        "albumID": albumID,
+                        "statusCode": String((response as? HTTPURLResponse)?.statusCode ?? 0),
+                    ]
+                )
+                return nil
+            }
+
+            let videoURL = AppleMusicEditorialVideoParser.videoURL(
+                fromAppleMusicWebPage: data
+            )
+            AppLogger.network(
+                "[AppleMusicDynamicArtwork] Apple Music 专辑页读取完成",
+                step: "apple-music.animated-artwork",
+                category: .appleMusic,
+                event: "web_fallback_received",
+                context: [
+                    "albumID": albumID,
+                    "responseBytes": String(data.count),
+                    "hasSquareVideo": String(videoURL != nil),
+                ]
+            )
+            return videoURL
+        } catch let error as URLError where error.code == .cancelled {
+            throw CancellationError()
+        }
+    }
+
+    private static func albumID(fromAppleMusicURL url: URL?) -> String? {
+        guard let url else { return nil }
+        let components = url.pathComponents.filter { $0 != "/" }
+        guard let albumIndex = components.firstIndex(of: "album"),
+              albumIndex + 1 < components.count else {
+            return nil
+        }
+        return components[(albumIndex + 1)...]
+            .reversed()
+            .first { component in
+                !component.isEmpty && component.allSatisfy { $0.isNumber }
+            }
+    }
+
     func playableSong(for song: Song) async throws -> MusicKit.Song {
         guard await requestAuthorizationIfNeeded() else {
             throw AppleMusicServiceError.authorizationDenied
@@ -1455,6 +1873,14 @@ final class AppleMusicService: ObservableObject {
             .joined()
     }
 
+    private nonisolated static func animatedArtworkMatchCacheKey(for song: Song) -> String {
+        let title = normalizedArtworkMatchText(song.name)
+        let artist = normalizedArtworkMatchText(song.artistName)
+        let album = normalizedArtworkMatchText(song.al?.name ?? "")
+        let durationBucket = (song.dt ?? 0) / 5_000
+        return "match|\(song.musicSource.rawValue)|\(title)|\(artist)|\(album)|\(durationBucket)"
+    }
+
     /// MusicKit 资料库对象可能返回 `musicKit://artwork/...`，该地址只供
     /// Apple 内部渲染，URLSession/CachedAsyncImage 无法读取。
     private nonisolated static func renderableArtworkURL(_ url: URL?) -> URL? {
@@ -1695,8 +2121,7 @@ final class AppleMusicService: ObservableObject {
         let numericID = Int(catalogID) ?? stableNumericID(for: catalogID)
         let artworkURL = firstRenderableArtworkURL(
             resolvedArtworkURL,
-            source.artwork?.url(width: 1200, height: 1200),
-            source.albums?.first?.artwork?.url(width: 1200, height: 1200)
+            source.artwork?.url(width: 1200, height: 1200)
         )?.absoluteString
         let durationMilliseconds = source.duration.map {
             Int(($0 * 1_000).rounded())

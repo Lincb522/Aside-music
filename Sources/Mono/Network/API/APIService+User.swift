@@ -614,14 +614,111 @@ extension APIService {
 
     // MARK: - 歌曲动态封面
 
-    func fetchSongDynamicCover(id: Int) -> AnyPublisher<String?, Error> {
-        ncm.publisher { [ncm] in
-            let response = try await ncm.songDynamicCover(id: id)
-            if let dataDict = response.body["data"] as? [String: Any],
-               let url = dataDict["url"] as? String, !url.isEmpty {
-                return url
-            }
+    func songDynamicCoverURL(id: Int) async throws -> URL? {
+        AppLogger.network(
+            "[NCMDynamicArtwork] 请求 NCM 歌曲动态封面",
+            step: "ncm.dynamic-artwork",
+            category: .network,
+            event: "request_started",
+            context: ["songID": String(id)]
+        )
+        let response = try await ncm.songDynamicCover(id: id)
+        let body = response.body
+        let bodyKeys = body.keys.sorted().joined(separator: ",")
+        let dataKeys = (body["data"] as? [String: Any])?
+            .keys.sorted().joined(separator: ",") ?? "none"
+
+        guard let url = Self.preferredDynamicCoverURL(in: body) else {
+            AppLogger.info(
+                "[NCMDynamicArtwork] NCM 响应中没有可播放的动态封面",
+                step: "ncm.dynamic-artwork",
+                category: .network,
+                event: "asset_unavailable",
+                context: [
+                    "songID": String(id),
+                    "responseCode": Self.responseCodeDescription(body["code"]),
+                    "bodyKeys": bodyKeys,
+                    "dataKeys": dataKeys,
+                ]
+            )
             return nil
+        }
+
+        AppLogger.success(
+            "[NCMDynamicArtwork] 已解析 NCM 动态封面",
+            step: "ncm.dynamic-artwork",
+            category: .network,
+            event: "asset_resolved",
+            context: [
+                "songID": String(id),
+                "assetHost": url.host ?? "unknown",
+                "assetType": url.pathExtension.lowercased(),
+                "dataKeys": dataKeys,
+            ]
+        )
+        return url
+    }
+
+    private static func preferredDynamicCoverURL(in value: Any) -> URL? {
+        struct Candidate {
+            let url: URL
+            let score: Int
+        }
+
+        let imageExtensions: Set<String> = ["jpg", "jpeg", "png", "webp", "heic", "avif"]
+        var candidates: [Candidate] = []
+
+        func visit(_ node: Any, keyPath: [String]) {
+            if let dictionary = node as? [String: Any] {
+                for (key, nestedValue) in dictionary {
+                    visit(nestedValue, keyPath: keyPath + [key.lowercased()])
+                }
+                return
+            }
+            if let array = node as? [Any] {
+                for nestedValue in array {
+                    visit(nestedValue, keyPath: keyPath)
+                }
+                return
+            }
+            guard let rawValue = node as? String,
+                  let url = URL(string: rawValue),
+                  let scheme = url.scheme?.lowercased(),
+                  scheme == "https" || scheme == "http" else {
+                return
+            }
+
+            let pathExtension = url.pathExtension.lowercased()
+            guard !imageExtensions.contains(pathExtension) else { return }
+            let semanticPath = keyPath.joined(separator: ".")
+            var score = 0
+            if semanticPath.contains("dynamic") { score += 45 }
+            if semanticPath.contains("video") { score += 40 }
+            if semanticPath.contains("play") { score += 24 }
+            if keyPath.last == "url" { score += 10 }
+            switch pathExtension {
+            case "m3u8": score += 90
+            case "mp4", "mov", "m4v": score += 80
+            default: break
+            }
+            if url.path.lowercased().contains("video") { score += 15 }
+            candidates.append(Candidate(url: url, score: score))
+        }
+
+        visit(value, keyPath: [])
+        guard let best = candidates.max(by: { lhs, rhs in lhs.score < rhs.score }),
+              best.score >= 10 else {
+            return nil
+        }
+        return best.url
+    }
+
+    private static func responseCodeDescription(_ value: Any?) -> String {
+        switch value {
+        case let value as Int: return String(value)
+        case let value as NSNumber: return value.stringValue
+        case let value as String: return value
+        default: return "unknown"
         }
     }
 

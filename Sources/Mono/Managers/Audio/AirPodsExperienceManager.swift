@@ -379,7 +379,24 @@ final class AirPodsExperienceManager: ObservableObject {
     }
 
     private func applyCurrentExperience(reason: String) {
-        guard isEnabled, connection.isConnected else { return }
+        guard isEnabled else {
+            AppLogger.debug(
+                "[AirPodsExperience] Apply skipped because experience is disabled reason=\(reason)",
+                step: "airpods.apply-skipped",
+                category: .audio,
+                event: "airpods.apply-skipped"
+            )
+            return
+        }
+        guard connection.isConnected else {
+            AppLogger.debug(
+                "[AirPodsExperience] Apply skipped because AirPods route is not connected reason=\(reason)",
+                step: "airpods.apply-skipped",
+                category: .audio,
+                event: "airpods.apply-skipped"
+            )
+            return
+        }
 
         let suite = MonoNextSuiteManager.shared
         if !experienceApplied {
@@ -398,9 +415,12 @@ final class AirPodsExperienceManager: ObservableObject {
 
         suite.setEnabled(.spatialLive, enabled: true)
         suite.setSpatialConfiguration(configuration)
+        let effects = PlayerManager.shared.audioEffects
         AppLogger.info(
-            "[AirPodsExperience] applied model=\(selectedDeviceModel.rawValue) profile=\(selectedProfile.rawValue) motion=\(motionState.rawValue) mode=\(configuration.mode.rawValue) reason=\(reason)",
-            step: "airpods.profile"
+            "[AirPodsExperience] applied model=\(selectedDeviceModel.rawValue) profile=\(selectedProfile.rawValue) motion=\(motionState.rawValue) mode=\(configuration.mode.rawValue) requestedWidth=\(String(format: "%.3f", configuration.stageWidth)) requestedDepth=\(String(format: "%.3f", configuration.stageDepth)) committedSurround=\(String(format: "%.3f", effects.surroundLevel)) committedReverb=\(String(format: "%.3f", effects.reverbLevel)) committedWidth=\(String(format: "%.3f", effects.stereoWidth)) reason=\(reason)",
+            step: "airpods.profile",
+            category: .audio,
+            event: "airpods.profile"
         )
     }
 

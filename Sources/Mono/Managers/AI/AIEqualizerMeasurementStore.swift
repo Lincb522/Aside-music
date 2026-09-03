@@ -24,8 +24,8 @@ struct AIEqualizerMeasuredFeatureRecord: Codable, Sendable {
 
 @MainActor
 final class AIEqualizerMeasurementStore {
-    private static let schemaVersion = 3
-    private static let fileName = "AIEqualizerMeasurements-v3.json"
+    private static let schemaVersion = 4
+    private static let fileName = "AIEqualizerMeasurements-v4.json"
     private static let maximumEntries = 2_048
 
     private let storageURL: URL?

@@ -332,7 +332,7 @@ struct TypewriterPlayerLayout: View {
 
                 VStack(spacing: 0) {
                     topBar
-                        .padding(.top, DeviceLayout.headerTopPadding)
+                        .padding(.top, DeviceLayout.playerHeaderTopPadding)
 
                     Spacer(minLength: m.topGap)
 
@@ -420,7 +420,7 @@ struct TypewriterPlayerLayout: View {
 
         let hPad: CGFloat = DeviceLayout.usesExpandedLayout ? 40 : (landscape ? 20 : 18)
         let availW = max(240, proxy.size.width - hPad * 2)
-        let availH = max(260, proxy.size.height - DeviceLayout.headerTopPadding - DeviceLayout.playerBottomPadding - 80)
+        let availH = max(260, proxy.size.height - DeviceLayout.playerHeaderTopPadding - DeviceLayout.playerBottomPadding - 80)
         let s = min(max(min(availW / baseW, availH / baseH), 0.72), DeviceLayout.usesExpandedLayout ? 1.5 : (landscape ? 1.0 : 1.1))
 
         return M(
@@ -631,14 +631,18 @@ struct TypewriterPlayerLayout: View {
                 )
                 .frame(width: 52, height: 52)
 
-            if let url = player.currentSong?.coverUrl?.sized(300) {
-                CachedAsyncImage(url: url) { Color.black.opacity(0.06) }
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: 44, height: 44)
-                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-            } else {
-                MonoIcon(icon: .musicNote, size: 20, color: ink.opacity(0.4))
+            ZStack {
+                if let url = player.currentSong?.coverUrl?.sized(300) {
+                    CachedAsyncImage(url: url) { Color.black.opacity(0.06) }
+                        .aspectRatio(contentMode: .fill)
+                } else {
+                    MonoIcon(icon: .musicNote, size: 20, color: ink.opacity(0.4))
+                }
+
+                DynamicArtworkOverlay(cornerRadius: 4)
             }
+            .frame(width: 44, height: 44)
+            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
         }
         .overlay(
             RoundedRectangle(cornerRadius: 6, style: .continuous)
@@ -748,12 +752,6 @@ struct TypewriterPlayerLayout: View {
                                 HapticManager.shared.light()
                                 showDownloadSheet = true
                             }
-                        }
-                    } else {
-                        // 沉浸模式按键 — 占用原下载按键的位置
-                        labelKey(text: "CINEMA", icon: .immersive) {
-                            HapticManager.shared.light()
-                            ImmersiveModeController.shared.present()
                         }
                     }
 

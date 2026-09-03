@@ -56,10 +56,7 @@ struct AppearanceSettingsView: View {
                         appIconSection
                         layoutSection
                         contentExperienceSection
-                        if settings.globalThemeId.supportsArtworkColoring
-                            || settings.globalThemeId.supportsCoverBackgrounds {
-                            dynamicBackgroundSection
-                        }
+                        dynamicBackgroundSection
                         FloatingBarBottomSpacer()
                     }
                     .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
@@ -204,75 +201,103 @@ struct AppearanceSettingsView: View {
 
         return SettingsSection(title: String(localized: "settings_appearance_dynamic_background_section")) {
             VStack(spacing: 0) {
-                if settings.globalThemeId == .default {
-                    SettingsToggleRow(
-                        icon: .sparkle,
-                        title: String(localized: "settings_aside_fluid_background"),
-                        subtitle: String(localized: "settings_aside_fluid_background_desc"),
-                        isOn: $settings.asideMusicFluidBackgroundEnabled
-                    )
-                    .monoIconArtwork("fluidBackground")
+                SettingsToggleRow(
+                    icon: .playerTheme,
+                    title: String(localized: "settings_dynamic_artwork"),
+                    subtitle: String(localized: "settings_dynamic_artwork_desc"),
+                    isOn: animatedArtworkBinding
+                )
+                .monoIconArtwork("dynamicArtwork")
+
+                if settings.globalThemeId.supportsArtworkColoring
+                    || settings.globalThemeId.supportsCoverBackgrounds {
 
                     Divider()
                         .opacity(0.4)
                         .padding(.leading, 62)
-                }
 
-                SettingsToggleRow(
-                    icon: .layers,
-                    title: String(localized: "settings_cover_bg_global"),
-                    subtitle: String(localized: "settings_cover_bg_global_desc"),
-                    isOn: $settings.coverBgGlobal,
-                    isEnabled: !settings.locksCoverBackgroundSettings
-                )
-                .monoIconArtwork("backgroundGlobal")
+                    if settings.globalThemeId == .default {
+                        SettingsToggleRow(
+                            icon: .sparkle,
+                            title: String(localized: "settings_aside_fluid_background"),
+                            subtitle: String(localized: "settings_aside_fluid_background_desc"),
+                            isOn: $settings.asideMusicFluidBackgroundEnabled
+                        )
+                        .monoIconArtwork("fluidBackground")
 
-                Divider()
-                    .opacity(0.4)
-                    .padding(.leading, 62)
-
-                SettingsToggleRow(
-                    icon: .layers,
-                    title: String(localized: "settings_cover_bg_playlist"),
-                    subtitle: String(localized: "settings_cover_bg_playlist_desc"),
-                    isOn: $settings.coverBgPlaylist,
-                    isEnabled: !settings.locksCoverBackgroundSettings
-                )
-                .monoIconArtwork("backgroundPlaylist")
-
-                Divider()
-                    .opacity(0.4)
-                    .padding(.leading, 62)
-
-                SettingsToggleRow(
-                    icon: .layers,
-                    title: String(localized: "settings_cover_bg_player"),
-                    subtitle: String(localized: "settings_cover_bg_player_desc"),
-                    isOn: $settings.coverBgPlayer,
-                    isEnabled: !settings.locksCoverBackgroundSettings
-                )
-                .monoIconArtwork("backgroundPlayer")
-
-                Divider()
-                    .opacity(0.4)
-                    .padding(.leading, 62)
-
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 10) {
-                        SettingsIconBadge(icon: .sparkle)
-                            .monoIconArtwork("colorEngine")
-
-                        Text(String(localized: "color_engine_title"))
-                            .font(appearanceSettingsFont(14, weight: .semibold))
-                            .foregroundStyle(Color.monoTextPrimary)
+                        Divider()
+                            .opacity(0.4)
+                            .padding(.leading, 62)
                     }
 
-                    UnifiedColorEngineSettingsControls(accent: paletteAccent)
+                    SettingsToggleRow(
+                        icon: .layers,
+                        title: String(localized: "settings_cover_bg_global"),
+                        subtitle: String(localized: "settings_cover_bg_global_desc"),
+                        isOn: $settings.coverBgGlobal,
+                        isEnabled: !settings.locksCoverBackgroundSettings
+                    )
+                    .monoIconArtwork("backgroundGlobal")
+
+                    Divider()
+                        .opacity(0.4)
+                        .padding(.leading, 62)
+
+                    SettingsToggleRow(
+                        icon: .layers,
+                        title: String(localized: "settings_cover_bg_playlist"),
+                        subtitle: String(localized: "settings_cover_bg_playlist_desc"),
+                        isOn: $settings.coverBgPlaylist,
+                        isEnabled: !settings.locksCoverBackgroundSettings
+                    )
+                    .monoIconArtwork("backgroundPlaylist")
+
+                    Divider()
+                        .opacity(0.4)
+                        .padding(.leading, 62)
+
+                    SettingsToggleRow(
+                        icon: .layers,
+                        title: String(localized: "settings_cover_bg_player"),
+                        subtitle: String(localized: "settings_cover_bg_player_desc"),
+                        isOn: $settings.coverBgPlayer,
+                        isEnabled: !settings.locksCoverBackgroundSettings
+                    )
+                    .monoIconArtwork("backgroundPlayer")
+
+                    if settings.globalThemeId.supportsArtworkColoring {
+                        Divider()
+                            .opacity(0.4)
+                            .padding(.leading, 62)
+
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack(spacing: 10) {
+                                SettingsIconBadge(icon: .sparkle)
+                                    .monoIconArtwork("colorEngine")
+
+                                Text(String(localized: "color_engine_title"))
+                                    .font(appearanceSettingsFont(14, weight: .semibold))
+                                    .foregroundStyle(Color.monoTextPrimary)
+                            }
+
+                            UnifiedColorEngineSettingsControls(accent: paletteAccent)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                    }
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
             }
         }
+    }
+
+    private var animatedArtworkBinding: Binding<Bool> {
+        Binding(
+            get: { settings.animatedArtworkEnabled },
+            set: { isEnabled in
+                settings.animatedArtworkEnabled = isEnabled
+                PlayerManager.shared.refreshDynamicArtworkPreference()
+            }
+        )
     }
 
     // MARK: - 全局主题

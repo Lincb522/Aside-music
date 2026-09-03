@@ -183,6 +183,41 @@ struct AIEqualizerDeviceTuningTarget: Codable, Equatable, Sendable {
     }
 }
 
+/// Numeric output-device evidence supplied to the training model. This
+/// describes the baseline that Mono applies locally; it is never itself a
+/// per-track correction target.
+struct AIEqualizerDeviceAcousticFilterContext: Codable, Equatable, Sendable {
+    let kind: String
+    let frequencyHz: Float
+    let gainDB: Float
+    let q: Float
+    let slopeDBPerOctave: Float
+}
+
+struct AIEqualizerDeviceTrainingContext: Codable, Equatable, Sendable {
+    static let currentSchemaVersion = 1
+
+    let detailSchemaVersion: Int
+    let identifier: String
+    let outputKind: String
+    let profileSource: String
+    let calibrationEnabled: Bool
+    let profileActive: Bool
+    let profileIsCustom: Bool
+    let outputSampleRate: Double
+    let outputChannelCount: Int
+    let outputLatencyMS: Double
+    let ioBufferDurationMS: Double
+    let routeDefaultGainsDB: [Float]
+    let profileGainsDB: [Float]
+    let referenceGainsDB: [Float]
+    let effectiveGainsDB: [Float]
+    let profilePreampDB: Float
+    let acousticFilters: [AIEqualizerDeviceAcousticFilterContext]
+    let fitDescription: String
+    let spatialGuidance: String
+}
+
 /// 一次 AI 调音请求的音频测量、输出设备与当前处理状态快照。
 struct AIEqualizerAudioFeatures: Codable, Equatable, Sendable {
     let songID: Int
@@ -197,8 +232,16 @@ struct AIEqualizerAudioFeatures: Codable, Equatable, Sendable {
     let graphicEQMode: GraphicEQMode
     let bandFrequenciesHz: [Float]
     let bandEnergyDB: [Float]
+    /// Per-band temporal variation and three chronological section profiles.
+    /// These distinguish tracks that share a style without retaining raw audio.
+    let bandEnergySpreadDB: [Float]?
+    let sectionBandEnergyDB: [[Float]]?
     let spectralCentroidHz: Float
     let spectralRolloffHz: Float
+    let spectralCentroidP10Hz: Float?
+    let spectralCentroidP90Hz: Float?
+    let spectralRolloffP10Hz: Float?
+    let spectralRolloffP90Hz: Float?
     let rmsDBFS: Float
     let dynamicSpreadDB: Float
     let integratedLUFS: Float
@@ -216,6 +259,7 @@ struct AIEqualizerAudioFeatures: Codable, Equatable, Sendable {
     let spectralFlatness: Float
     let spectralBandwidthHz: Float
     let spectralFlux: Float
+    let spectralFluxP90: Float?
     let lowEnergyRatio: Float
     let midEnergyRatio: Float
     let highEnergyRatio: Float
@@ -232,6 +276,12 @@ struct AIEqualizerAudioFeatures: Codable, Equatable, Sendable {
     let chroma: [Float]
     let genreHints: [String]
     let instrumentHints: [String]
+    /// Bounded continuous evidence, not mutually exclusive preset labels.
+    let genreScores: [String: Float]?
+    let instrumentScores: [String: Float]?
+    let rmsP10DBFS: Float?
+    let rmsP50DBFS: Float?
+    let rmsP90DBFS: Float?
     let vocalReference: AIEqualizerVocalReferenceFeatures?
     let currentBassGain: Float
     let currentTrebleGain: Float
@@ -471,6 +521,7 @@ enum AIEqualizerTuningProfile: String, CaseIterable, Codable, Identifiable, Send
 struct AIEqualizerTiming: Codable, Equatable, Sendable {
     let total: TimeInterval
     let sampling: TimeInterval
+    let samplingReused: Bool?
     let generation: TimeInterval
     let applying: TimeInterval
     let completedAt: Date
@@ -553,7 +604,7 @@ struct AIEqualizerLearningContext: Codable, Equatable, Sendable {
     }
 }
 
-struct AIEqualizerModelOutput: Decodable, Equatable, Sendable {
+struct AIEqualizerModelOutput: Codable, Equatable, Sendable {
     let profileName: String
     let gains: [Float]
     let preampDB: Float
@@ -582,6 +633,36 @@ struct AIEqualizerModelOutput: Decodable, Equatable, Sendable {
         case summary
         case artistStyleReference
         case vocalCharacterReference
+    }
+
+    init(
+        profileName: String,
+        gains: [Float],
+        preampDB: Float,
+        tone: AIEqualizerToneConfiguration?,
+        spatial: AIEqualizerSpatialConfiguration?,
+        enhance: MonoEnhanceConfiguration?,
+        calibration: AIEqualizerCalibrationConfiguration?,
+        professional: AIEqualizerProfessionalConfiguration?,
+        effects: MonoEffectTuningConfiguration?,
+        confidence: Float,
+        summary: String,
+        artistStyleReference: String = "",
+        vocalCharacterReference: String = ""
+    ) {
+        self.profileName = profileName
+        self.gains = gains
+        self.preampDB = preampDB
+        self.tone = tone
+        self.spatial = spatial
+        self.enhance = enhance
+        self.calibration = calibration
+        self.professional = professional
+        self.effects = effects
+        self.confidence = confidence
+        self.summary = summary
+        self.artistStyleReference = artistStyleReference
+        self.vocalCharacterReference = vocalCharacterReference
     }
 
     init(from decoder: Decoder) throws {
@@ -614,6 +695,7 @@ struct AIEqualizerSkillCompliance: Codable, Equatable, Sendable {
         case requiredModelTool
         case modelPromptFallback
         case appleIntelligenceLocalCompiler
+        case trainedCoreMLModel
     }
 
     let accepted: Bool
@@ -796,16 +878,18 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
         tuningProfile: AIEqualizerTuningProfile = .standard,
         avoidingProfileNames: Set<String> = [],
         learningContext: AIEqualizerLearningContext? = nil,
+        applyLearningAdjustments: Bool = true,
         deviceTuningTarget: AIEqualizerDeviceTuningTarget? = nil
     ) {
+        let effectiveLearningContext = applyLearningAdjustments ? learningContext : nil
         let baseGains = Self.validatedGains(
             output.gains,
             mode: features.graphicEQMode,
             intensity: tuningIntensity
         )
-        let learnedBandAdjustments = learningContext?.isActive == true
+        let learnedBandAdjustments = effectiveLearningContext?.isActive == true
             ? features.graphicEQMode.normalizedGains(
-                learningContext?.bandAdjustments ?? [],
+                effectiveLearningContext?.bandAdjustments ?? [],
                 limit: 1.25
             )
             : Array(repeating: 0, count: features.graphicEQMode.bandCount)
@@ -822,8 +906,8 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
         let baseTone = Self.validatedTone(output.tone, intensity: tuningIntensity)
         let resolvedTone = Self.validatedTone(
             AIEqualizerToneConfiguration(
-                bassGain: baseTone.bassGain + (learningContext?.bassAdjustment ?? 0),
-                trebleGain: baseTone.trebleGain + (learningContext?.trebleAdjustment ?? 0)
+                bassGain: baseTone.bassGain + (effectiveLearningContext?.bassAdjustment ?? 0),
+                trebleGain: baseTone.trebleGain + (effectiveLearningContext?.trebleAdjustment ?? 0)
             ),
             intensity: tuningIntensity
         )
@@ -835,9 +919,12 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
         )
         let resolvedSpatial = Self.validatedSpatial(
             AIEqualizerSpatialConfiguration(
-                surroundLevel: baseSpatial.surroundLevel + (learningContext?.surroundAdjustment ?? 0),
-                reverbLevel: baseSpatial.reverbLevel + (learningContext?.reverbAdjustment ?? 0),
-                stereoWidth: baseSpatial.stereoWidth + (learningContext?.stereoWidthAdjustment ?? 0)
+                surroundLevel: baseSpatial.surroundLevel
+                    + (effectiveLearningContext?.surroundAdjustment ?? 0),
+                reverbLevel: baseSpatial.reverbLevel
+                    + (effectiveLearningContext?.reverbAdjustment ?? 0),
+                stereoWidth: baseSpatial.stereoWidth
+                    + (effectiveLearningContext?.stereoWidthAdjustment ?? 0)
             ),
             features: features,
             intensity: tuningIntensity,
@@ -860,7 +947,7 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
                 max(
                     tuningIntensity.processingIntensityRange.lowerBound,
                     baseProfessional.processingIntensity
-                        + (learningContext?.processingIntensityAdjustment ?? 0)
+                        + (effectiveLearningContext?.processingIntensityAdjustment ?? 0)
                 )
             ),
             dynamicEQ: baseProfessional.dynamicEQ,

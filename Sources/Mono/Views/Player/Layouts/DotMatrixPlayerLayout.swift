@@ -84,7 +84,7 @@ struct DotMatrixPlayerLayout: View {
         GeometryReader { proxy in
             let metrics = DotMatrixMetrics(
                 size: proxy.size,
-                headerTopPadding: DeviceLayout.headerTopPadding,
+                headerTopPadding: DeviceLayout.playerHeaderTopPadding,
                 isPad: DeviceLayout.usesExpandedLayout
             )
 
@@ -595,7 +595,7 @@ private struct DotMatrixMetrics {
     }
 
     var headerTopInset: CGFloat {
-        max(headerTopPadding, usesWideLayout ? 12 : 8)
+        max(headerTopPadding, 8)
     }
 
     var headerBottomInset: CGFloat {

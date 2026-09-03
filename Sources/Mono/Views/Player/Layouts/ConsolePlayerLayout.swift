@@ -25,7 +25,7 @@ struct ConsolePlayerLayout: View {
 
                 VStack(spacing: 0) {
                     toolbar
-                        .padding(.top, metrics.topInset)
+                        .padding(.top, DeviceLayout.playerHeaderTopPadding)
                         .padding(.bottom, metrics.toolbarBottomInset)
 
                     if metrics.usesWideLayout {
@@ -511,7 +511,6 @@ private struct ConsolePlayerMetrics {
     var isCompact: Bool { !usesWideLayout && size.height < 730 }
     var maximumWidth: CGFloat { usesWideLayout ? min(size.width, 1120) : min(size.width, 560) }
     var horizontalInset: CGFloat { usesWideLayout ? 30 : (size.width < 380 ? 15 : 20) }
-    var topInset: CGFloat { isCompact ? 2 : 4 }
     var toolbarBottomInset: CGFloat { isCompact ? 3 : 5 }
     var bottomInset: CGFloat { isCompact ? 3 : 6 }
 

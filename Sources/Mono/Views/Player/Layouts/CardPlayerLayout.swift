@@ -43,7 +43,7 @@ struct CardPlayerLayout: View {
                     topBar
                         .frame(height: 60)
                         .zIndex(10)
-                        .padding(.top, DeviceLayout.safeAreaTop)
+                        .padding(.top, DeviceLayout.playerHeaderTopPadding)
                     
                     Spacer()
                     
@@ -74,7 +74,7 @@ struct CardPlayerLayout: View {
             }
             .opacity(isAppeared ? 1 : 0)
         }
-        .ignoresSafeArea()
+        .ignoresSafeArea(edges: .bottom)
         .onAppear {
             setupLifecycle()
         }
@@ -279,23 +279,19 @@ extension CardPlayerLayout {
     
     @ViewBuilder
     func artworkView(size: CGSize) -> some View {
-        if let url = player.currentSong?.coverUrl?.sized(800) {
-            ZStack {
+        ZStack {
+            if let url = player.currentSong?.coverUrl?.sized(800) {
                 CachedAsyncImage(url: url) { Color.gray.opacity(0.1) }
                     .aspectRatio(contentMode: .fill)
-                
-                if let dynamicUrl = player.dynamicCoverUrl, !dynamicUrl.isEmpty {
-                    DynamicCoverView(urlString: dynamicUrl, cornerRadius: 0)
-                }
-            }
-            .frame(width: size.width, height: size.height)
-            .clipped()
-        } else {
-            ZStack {
+            } else {
                 Color.gray.opacity(0.1)
                 MonoIcon(icon: .musicNote, size: 80, color: .secondary.opacity(0.3), lineWidth: 1.5)
             }
+
+            DynamicArtworkOverlay(cornerRadius: 0)
         }
+        .frame(width: size.width, height: size.height)
+        .clipped()
     }
     
     var lyricsView: some View {
@@ -516,16 +512,7 @@ extension CardPlayerLayout {
                         .disabled(downloadManager.isDownloaded(songId: song.id))
                         .frame(width: 44)
                     } else {
-                        // 沉浸模式按钮 — 占用原下载按钮的位置
-                        Button {
-                            ImmersiveModeController.shared.present()
-                        } label: {
-                            MonoIcon(icon: .immersive, size: 22, color: .secondary, lineWidth: 1.4)
-                                .frame(width: 44, height: 44)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(MonoBouncingButtonStyle())
-                        .frame(width: 44)
+                        Color.clear.frame(width: 44, height: 44)
                     }
                 }
             }

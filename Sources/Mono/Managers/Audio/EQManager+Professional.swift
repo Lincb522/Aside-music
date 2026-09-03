@@ -6,6 +6,85 @@ import FFmpegSwiftSDK
 extension EQManager {
     // MARK: - Mono 专业校准
 
+    func aiEqualizerDeviceTrainingContext(
+        deviceTuningTarget: AIEqualizerDeviceTuningTarget?
+    ) -> AIEqualizerDeviceTrainingContext {
+        let session = AVAudioSession.sharedInstance()
+        let profile = resolvedHeadphoneProfile
+        let routeDefault = currentOutputKind.defaultCalibration
+        let profileMode: GraphicEQMode = profile?.gains.count == GraphicEQMode.thirtyTwoBand.bandCount
+            ? .thirtyTwoBand
+            : .tenBand
+        let profileGains = profile.map {
+            GraphicEQMode.thirtyTwoBand.resampledGains($0.gains, from: profileMode)
+        } ?? Array(repeating: 0, count: GraphicEQMode.thirtyTwoBand.bandCount)
+        let routeGains = GraphicEQMode.thirtyTwoBand.resampledGains(
+            isOutputCalibrationEnabled ? routeDefault : Array(repeating: 0, count: routeDefault.count),
+            from: .tenBand
+        )
+        let selectedCalibration = zip(routeGains, profileGains).map {
+            min(6, max(-6, $0 + $1))
+        }
+        let referenceGains = deviceTuningTarget?.referenceGainsDB ?? []
+        let reference32 = referenceGains.isEmpty
+            ? Array(repeating: 0, count: GraphicEQMode.thirtyTwoBand.bandCount)
+            : GraphicEQMode.thirtyTwoBand.resampledGains(referenceGains, from: .tenBand)
+        let effectiveGains = zip(selectedCalibration, reference32).map {
+            min(9, max(-9, $0 + $1))
+        }
+        let profileSource: String
+        if profile != nil, deviceTuningTarget != nil {
+            profileSource = "mixed"
+        } else if deviceTuningTarget != nil {
+            profileSource = "airPods"
+        } else if profile?.sourceName?.caseInsensitiveCompare("OPRA") == .orderedSame {
+            profileSource = "opra"
+        } else if profile?.isCustom == true {
+            profileSource = "custom"
+        } else if profile != nil {
+            profileSource = "profile"
+        } else if isOutputCalibrationEnabled && routeDefault.contains(where: { abs($0) > 0.001 }) {
+            profileSource = "routeDefault"
+        } else {
+            profileSource = "none"
+        }
+        let acousticFilters = (profile?.acousticFilters ?? []).prefix(12).map {
+            AIEqualizerDeviceAcousticFilterContext(
+                kind: $0.kind.rawValue,
+                frequencyHz: $0.frequency,
+                gainDB: $0.gainDB,
+                q: $0.q,
+                slopeDBPerOctave: $0.slope ?? 0
+            )
+        }
+        let identityParts = [
+            "route:\(currentOutputKind.rawValue)",
+            profile.map { "profile:\($0.id)" },
+            deviceTuningTarget.map { "target:\($0.identifier)" }
+        ].compactMap { $0 }
+        return AIEqualizerDeviceTrainingContext(
+            detailSchemaVersion: AIEqualizerDeviceTrainingContext.currentSchemaVersion,
+            identifier: identityParts.joined(separator: "|"),
+            outputKind: currentOutputKind.rawValue,
+            profileSource: profileSource,
+            calibrationEnabled: isOutputCalibrationEnabled,
+            profileActive: profile != nil,
+            profileIsCustom: profile?.isCustom == true,
+            outputSampleRate: session.sampleRate,
+            outputChannelCount: session.outputNumberOfChannels,
+            outputLatencyMS: session.outputLatency * 1_000,
+            ioBufferDurationMS: session.ioBufferDuration * 1_000,
+            routeDefaultGainsDB: routeDefault,
+            profileGainsDB: profileGains,
+            referenceGainsDB: referenceGains,
+            effectiveGainsDB: effectiveGains,
+            profilePreampDB: profile?.preampDB ?? 0,
+            acousticFilters: acousticFilters,
+            fitDescription: deviceTuningTarget?.fitDescription ?? "",
+            spatialGuidance: deviceTuningTarget?.spatialGuidance ?? ""
+        )
+    }
+
     func handleAudioRouteChanged() {
         let output = AVAudioSession.sharedInstance().currentRoute.outputs.first
         currentOutputName = output?.portName ?? String(localized: "eq_current_device")

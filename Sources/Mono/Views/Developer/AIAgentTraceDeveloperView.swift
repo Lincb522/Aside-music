@@ -220,6 +220,7 @@ private struct AIAgentTraceDetailView: View {
                             genericRuntimeSection(session)
                         }
 
+                        modelRecordsSection(session)
                         rawTraceSection(session)
 
                         FloatingBarBottomSpacer()
@@ -570,9 +571,82 @@ private struct AIAgentTraceDetailView: View {
         }
     }
 
+    @ViewBuilder
+    private func modelRecordsSection(_ session: AIAgentTraceSession) -> some View {
+        let records = session.events.filter { event in
+            event.metadata["recordType"]?.isEmpty == false
+        }
+        if !records.isEmpty {
+            traceSection(
+                title: String(localized: "agent_trace_model_records"),
+                icon: .logDebug,
+                tint: .indigo,
+                artwork: .agentRuntimeIdentity
+            ) {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(records) { event in
+                        NavigationLink {
+                            AIAgentTraceModelRecordView(event: event)
+                        } label: {
+                            modelRecordRow(event)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+
+    private func modelRecordRow(_ event: AIAgentTraceEvent) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .fill(event.level.tint.opacity(0.13))
+                MonoIcon(icon: .logDebug, size: 14, color: event.level.tint)
+            }
+            .frame(width: 38, height: 38)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(event.title)
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .lineLimit(2)
+
+                Text([
+                    event.metadata["modelSource"],
+                    event.metadata["provider"],
+                    event.metadata["model"]
+                ].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "))
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.white.opacity(0.42))
+                    .lineLimit(2)
+
+                if let inputCount = event.metadata["inputCount"],
+                   let outputCount = event.metadata["outputCount"] {
+                    Text("\(inputCount) → \(outputCount)")
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.white.opacity(0.34))
+                }
+            }
+
+            Spacer(minLength: 4)
+
+            Text(event.timestamp.agentTraceTimeText)
+                .font(.caption2.monospacedDigit())
+                .foregroundStyle(.white.opacity(0.3))
+
+            MonoIcon(icon: .chevronRight, size: 10, color: .white.opacity(0.28))
+        }
+        .padding(13)
+        .background(Color.white.opacity(0.04))
+        .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+    }
+
     private func rawTraceSection(_ session: AIAgentTraceSession) -> some View {
         let category = effectiveCategory(for: session)
-        let events = session.events.filter { $0.category == category }
+        let events = session.events.filter {
+            $0.category == category && shouldShowInRawTrace($0)
+        }
 
         return traceSection(
             title: String(localized: "agent_trace_raw_records"),
@@ -715,11 +789,15 @@ private struct AIAgentTraceDetailView: View {
 
     private func effectiveCategory(for session: AIAgentTraceSession) -> AIAgentTraceCategory {
         if let selectedCategory,
-           session.events.contains(where: { $0.category == selectedCategory }) {
+           session.events.contains(where: {
+               $0.category == selectedCategory && shouldShowInRawTrace($0)
+           }) {
             return selectedCategory
         }
         return AIAgentTraceCategory.allCases.first(where: { category in
-            session.events.contains(where: { $0.category == category })
+            session.events.contains(where: {
+                $0.category == category && shouldShowInRawTrace($0)
+            })
         }) ?? .conversation
     }
 
@@ -728,7 +806,9 @@ private struct AIAgentTraceDetailView: View {
         return ScrollView(.horizontal) {
             HStack(spacing: 8) {
                 ForEach(AIAgentTraceCategory.allCases, id: \.self) { category in
-                    let count = session.events.lazy.filter { $0.category == category }.count
+                    let count = session.events.lazy.filter {
+                        $0.category == category && shouldShowInRawTrace($0)
+                    }.count
                     Button {
                         selectedCategory = category
                         HapticManager.shared.light()
@@ -752,6 +832,15 @@ private struct AIAgentTraceDetailView: View {
             }
         }
         .scrollIndicators(.hidden)
+    }
+
+    private func shouldShowInRawTrace(_ event: AIAgentTraceEvent) -> Bool {
+        switch event.metadata["recordType"] {
+        case "local-coreml-inference", "local-tuning-result", "cached-tuning-result":
+            return false
+        default:
+            return true
+        }
     }
 
     private func eventRow(_ event: AIAgentTraceEvent) -> some View {
@@ -905,6 +994,105 @@ private struct AIAgentTraceDetailView: View {
             return String(localized: "audio_agent_skill_vocal")
         default:
             return skillID.replacingOccurrences(of: "custom.", with: "")
+        }
+    }
+}
+
+@MainActor
+private struct AIAgentTraceModelRecordView: View {
+    let event: AIAgentTraceEvent
+
+    private var statusText: String {
+        [event.metadata["modelSource"], event.metadata["provider"], event.metadata["model"]]
+            .compactMap { $0 }
+            .filter { !$0.isEmpty }
+            .joined(separator: " · ")
+    }
+
+    var body: some View {
+        ZStack {
+            DeveloperDiagnosticBackdrop()
+
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 16) {
+                    DeveloperDiagnosticHeader(
+                        title: event.title,
+                        status: statusText,
+                        icon: .logDebug,
+                        tint: event.level.tint,
+                        artwork: .agentRuntimeIdentity
+                    )
+
+                    if !event.metadata.isEmpty {
+                        detailSection(title: String(localized: "agent_trace_model_record_metadata")) {
+                            VStack(alignment: .leading, spacing: 6) {
+                                ForEach(event.metadata.keys.sorted(), id: \.self) { key in
+                                    if let value = event.metadata[key] {
+                                        Text("\(key) = \(value)")
+                                            .font(.caption.monospaced())
+                                            .foregroundStyle(.white.opacity(0.52))
+                                            .textSelection(.enabled)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    detailSection(title: String(localized: "agent_trace_model_record_payload")) {
+                        Text(event.detail)
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.white.opacity(0.72))
+                            .textSelection(.enabled)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    FloatingBarBottomSpacer()
+                }
+                .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
+                .padding(.top, 8)
+                .iPadContentWidth(SettingsPageLayout.contentWidth)
+            }
+            .scrollIndicators(.hidden)
+        }
+        .developerDiagnosticPageChrome()
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    UIPasteboard.general.string = event.detail
+                    HapticManager.shared.success()
+                } label: {
+                    MonoSemanticIcon(
+                        semantic: .copy,
+                        fallback: .save,
+                        size: 14,
+                        color: .white.opacity(0.7)
+                    )
+                    .frame(width: 44, height: 44)
+                }
+                .accessibilityLabel(String(localized: "agent_trace_copy_event"))
+            }
+        }
+    }
+
+    private func detailSection<Content: View>(
+        title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(.headline.weight(.bold))
+                .foregroundStyle(.white.opacity(0.94))
+
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(15)
+        .background(Color.white.opacity(0.04))
+        .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 17, style: .continuous)
+                .stroke(Color.white.opacity(0.065), lineWidth: 0.7)
         }
     }
 }

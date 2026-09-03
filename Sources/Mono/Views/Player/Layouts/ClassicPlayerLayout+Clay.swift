@@ -5,7 +5,7 @@ extension ClassicPlayerLayout {
     func clayPlayerContent(geometry: GeometryProxy) -> some View {
         VStack(spacing: 0) {
             headerView
-                .padding(.top, DeviceLayout.headerTopPadding)
+                .padding(.top, DeviceLayout.playerHeaderTopPadding)
                 .padding(.bottom, 12)
 
             Group {

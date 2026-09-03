@@ -19,15 +19,19 @@ struct LossyDecodable<Value: Decodable>: Decodable {
 final class AIEqualizerProposalCacheStore {
     private static let storageKey = "ai.eq.agent.proposal-cache.v1"
     private static let historyStorageKey = "ai.eq.agent.proposal-history.v1"
+    private static let trainingSampleFileName = "AIEqualizerTrainingSamples-v2.json"
     private static let maximumAge: TimeInterval = 45 * 24 * 60 * 60
 
     private var values: [String: AIEqualizerProposal]
     private var histories: [String: [AIEqualizerSavedProposal]]
+    private var trainingSamples: [String: CloudAIEqualizerTrainingSample]
 
     init() {
         values = Self.restoreCachedProposals()
         histories = Self.restoreSavedProposalHistory()
+        trainingSamples = Self.restoreTrainingSamples()
         removeExpiredEntries()
+        pruneTrainingSamples()
     }
 
     func value(
@@ -77,6 +81,40 @@ final class AIEqualizerProposalCacheStore {
         persistHistory()
     }
 
+    func recordTrainingSample(
+        proposal: AIEqualizerProposal,
+        features: AIEqualizerAudioFeatures,
+        songIdentifier: String,
+        deviceTuningTarget: AIEqualizerDeviceTuningTarget?,
+        deviceTrainingContext: AIEqualizerDeviceTrainingContext? = nil,
+        populationTarget: AIEqualizerProposal? = nil,
+        learningContext: AIEqualizerLearningContext? = nil,
+        personalizedTarget: AIEqualizerProposal? = nil
+    ) {
+        guard histories[songIdentifier, default: []].contains(where: {
+            $0.proposal.id == proposal.id
+        }) else {
+            return
+        }
+        guard proposal.skillCompliance?.accepted == true,
+              proposal.skillCompliance?.localValidationApplied == true else {
+            return
+        }
+        let sample = CloudAIEqualizerTrainingSample(
+            proposal: proposal,
+            features: features,
+            songIdentifier: songIdentifier,
+            deviceTuningTarget: deviceTuningTarget,
+            deviceTrainingContext: deviceTrainingContext,
+            populationTarget: populationTarget,
+            learningContext: learningContext,
+            personalizedTarget: personalizedTarget
+        )
+        trainingSamples[proposal.id.uuidString.lowercased()] = sample
+        pruneTrainingSamples()
+        persistTrainingSamples()
+    }
+
     func shouldRecord(
         _ proposal: AIEqualizerProposal,
         songIdentifier: String,
@@ -101,6 +139,21 @@ final class AIEqualizerProposalCacheStore {
         return Self.hasMeaningfulDifference(proposal, previous.proposal)
     }
 
+    func recordTrainingOutcome(
+        proposalID: UUID,
+        feedback: AIEqualizerLearningFeedback,
+        listenedSeconds: TimeInterval,
+        now: Date = Date()
+    ) {
+        let key = proposalID.uuidString.lowercased()
+        guard var sample = trainingSamples[key] else { return }
+        sample.feedback = feedback
+        sample.listenedSeconds = max(0, listenedSeconds)
+        sample.outcomeUpdatedAt = now
+        trainingSamples[key] = sample
+        persistTrainingSamples()
+    }
+
     func history(for songIdentifier: String, now: Date = Date()) -> [AIEqualizerSavedProposal] {
         removeExpiredEntries(now: now)
         return histories[songIdentifier, default: []]
@@ -113,16 +166,20 @@ final class AIEqualizerProposalCacheStore {
             histories.removeValue(forKey: songIdentifier)
         }
         values = values.filter { $0.value.id != entry.id }
+        trainingSamples.removeValue(forKey: entry.id.uuidString.lowercased())
         persist()
         persistHistory()
+        persistTrainingSamples()
     }
 
     func deleteAll(for songIdentifier: String) {
         let ids = Set(histories[songIdentifier, default: []].map(\.id))
         histories.removeValue(forKey: songIdentifier)
         values = values.filter { !ids.contains($0.value.id) }
+        trainingSamples = trainingSamples.filter { !ids.contains($0.value.id) }
         persist()
         persistHistory()
+        persistTrainingSamples()
     }
 
     var hasStoredProposals: Bool {
@@ -132,16 +189,19 @@ final class AIEqualizerProposalCacheStore {
     func deleteAll() {
         values.removeAll()
         histories.removeAll()
+        trainingSamples.removeAll()
         persist()
         persistHistory()
+        persistTrainingSamples()
     }
 
     func makeCloudSnapshot() -> CloudAIEqualizerSnapshot? {
         removeExpiredEntries()
-        guard !values.isEmpty || !histories.isEmpty else { return nil }
+        guard !values.isEmpty || !histories.isEmpty || !trainingSamples.isEmpty else { return nil }
         return CloudAIEqualizerSnapshot(
             cachedProposals: values,
-            savedProposals: histories
+            savedProposals: histories,
+            trainingSamples: trainingSamples.isEmpty ? nil : trainingSamples
         )
     }
 
@@ -166,9 +226,36 @@ final class AIEqualizerProposalCacheStore {
             }
         }
 
+        for (key, sample) in snapshot.trainingSamples ?? [:] {
+            guard Self.isSupportedTrainingSampleVersion(sample.schemaVersion) else {
+                continue
+            }
+            let normalizedKey = sample.id.uuidString.lowercased()
+            let local = trainingSamples[normalizedKey] ?? trainingSamples[key]
+            let remoteFreshness = sample.outcomeUpdatedAt ?? sample.capturedAt
+            let localFreshness = local.map { $0.outcomeUpdatedAt ?? $0.capturedAt }
+            if let localFreshness, localFreshness >= remoteFreshness {
+                continue
+            }
+            trainingSamples[normalizedKey] = sample
+        }
+
         removeExpiredEntries()
+        pruneTrainingSamples()
         persist()
         persistHistory()
+        persistTrainingSamples()
+    }
+
+    private func pruneTrainingSamples() {
+        trainingSamples = trainingSamples.filter {
+            Self.isSupportedTrainingSampleVersion($0.value.schemaVersion)
+                && $0.value.target.id == $0.value.id
+        }
+    }
+
+    private static func isSupportedTrainingSampleVersion(_ version: Int) -> Bool {
+        (1...CloudAIEqualizerTrainingSample.currentSchemaVersion).contains(version)
     }
 
     private func removeExpiredEntries(now: Date = Date()) {
@@ -263,6 +350,9 @@ final class AIEqualizerProposalCacheStore {
         case .appleIntelligenceLocalCompiler:
             return proposal.provider == .appleIntelligence
                 && compliance.modelToolInvocationCount == 1
+        case .trainedCoreMLModel:
+            return proposal.provider == .appleIntelligence
+                && compliance.modelToolInvocationCount == 1
         }
     }
 
@@ -324,6 +414,26 @@ final class AIEqualizerProposalCacheStore {
         }
     }
 
+    private static func restoreTrainingSamples() -> [String: CloudAIEqualizerTrainingSample] {
+        guard let storageURL = trainingSampleStorageURL,
+              let data = try? Data(contentsOf: storageURL) else {
+            return [:]
+        }
+        do {
+            let decoded = try JSONDecoder().decode(
+                [String: LossyDecodable<CloudAIEqualizerTrainingSample>].self,
+                from: data
+            )
+            return decoded.compactMapValues(\.value)
+        } catch {
+            AppLogger.error(
+                "[AIEqualizerAgent] Training sample archive could not be decoded; original data was left untouched error=\(error.localizedDescription)",
+                step: "ai-tuning.training-sample-restore-failed"
+            )
+            return [:]
+        }
+    }
+
     private func persist() {
         guard let data = try? JSONEncoder().encode(values) else { return }
         UserDefaults.standard.set(data, forKey: Self.storageKey)
@@ -332,5 +442,41 @@ final class AIEqualizerProposalCacheStore {
     private func persistHistory() {
         guard let data = try? JSONEncoder().encode(histories) else { return }
         UserDefaults.standard.set(data, forKey: Self.historyStorageKey)
+    }
+
+    private func persistTrainingSamples() {
+        guard let storageURL = Self.trainingSampleStorageURL else { return }
+        do {
+            let data = try JSONEncoder().encode(trainingSamples)
+            try data.write(to: storageURL, options: .atomic)
+        } catch {
+            AppLogger.error(
+                "[AIEqualizerAgent] Training sample persistence failed entries=\(trainingSamples.count) error=\(error.localizedDescription)",
+                step: "ai-tuning.training-sample-save-failed"
+            )
+        }
+    }
+
+    private static var trainingSampleStorageURL: URL? {
+        guard let applicationSupport = FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first else {
+            return nil
+        }
+        let directory = applicationSupport.appendingPathComponent("Mono", isDirectory: true)
+        do {
+            try FileManager.default.createDirectory(
+                at: directory,
+                withIntermediateDirectories: true
+            )
+            return directory.appendingPathComponent(trainingSampleFileName, isDirectory: false)
+        } catch {
+            AppLogger.error(
+                "[AIEqualizerAgent] Training sample storage directory unavailable error=\(error.localizedDescription)",
+                step: "ai-tuning.training-sample-storage-failed"
+            )
+            return nil
+        }
     }
 }

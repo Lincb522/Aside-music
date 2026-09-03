@@ -802,6 +802,8 @@ private extension LogEntry.Category {
         case .appleMusic: return String(localized: "debug_category_appleMusic")
         case .lyrics: return String(localized: "debug_category_lyrics")
         case .ai: return String(localized: "debug_category_ai")
+        case .modelTraining: return String(localized: "debug_category_model_training")
+        case .localModel: return String(localized: "debug_category_local_model")
         case .cloud: return String(localized: "debug_category_cloud")
         case .database: return String(localized: "debug_category_database")
         case .download: return String(localized: "debug_category_download")
@@ -820,6 +822,8 @@ private extension LogEntry.Category {
         case .appleMusic: return .pink
         case .lyrics: return .purple
         case .ai: return .blue
+        case .modelTraining: return .orange
+        case .localModel: return .indigo
         case .cloud: return .teal
         case .database: return .brown
         case .download: return .orange

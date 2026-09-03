@@ -5,7 +5,7 @@ extension ClassicPlayerLayout {
     func neumorphicPlayerContent(geometry: GeometryProxy) -> some View {
         VStack(spacing: 0) {
             headerView
-                .padding(.top, DeviceLayout.headerTopPadding)
+                .padding(.top, DeviceLayout.playerHeaderTopPadding)
                 .padding(.bottom, 8)
 
             Group {
@@ -436,11 +436,6 @@ extension ClassicPlayerLayout {
             if AppConfig.Features.downloadEnabled {
                 // 下载按钮（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
                 neumorphicDownloadButton(song: song)
-            } else {
-                // 沉浸模式按钮 — 占用原下载按钮的位置
-                neumorphicUtilityButton(icon: .immersive, tint: NeumorphicStyle.warm) {
-                    ImmersiveModeController.shared.present()
-                }
             }
         }
         .padding(.horizontal, 12)

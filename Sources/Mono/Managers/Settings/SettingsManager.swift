@@ -382,6 +382,10 @@ final class SettingsManager: ObservableObject {
 
     // MARK: - 封面背景设置
 
+    /// 播放器动态专辑封面。优先使用歌曲所属平台的资源，
+    /// 并允许其他平台的歌曲匹配 Apple Music 动态封面。
+    @AppStorage("animatedArtworkEnabled") var animatedArtworkEnabled: Bool = true
+
     /// 全局动态封面背景（首页/资料库/搜索等跟随当前播放歌曲封面）
     @AppStorage("coverBgGlobal") var coverBgGlobal: Bool = false
 

@@ -77,7 +77,7 @@ struct TornPaperPlayerLayout: View {
 
                 VStack(spacing: 0) {
                     header
-                        .padding(.top, proxy.safeAreaInsets.top > 0 ? 4 : 10)
+                        .padding(.top, DeviceLayout.playerHeaderTopPadding)
                         .padding(.horizontal, 18)
 
                     artworkStage(height: artworkHeight(for: proxy.size))
@@ -300,6 +300,14 @@ private extension TornPaperPlayerLayout {
                     .frame(height: height * 0.71)
                     .offset(y: 8)
             }
+
+            DynamicArtworkOverlay(cornerRadius: 0)
+                .frame(maxWidth: .infinity)
+                .frame(height: height * 0.71)
+                .clipShape(TornPaperShape(variant: 1))
+                .rotationEffect(.degrees(-1.4))
+                .padding(.horizontal, 30)
+                .offset(y: 8)
 
             if let cutoutImage {
                 Image(uiImage: cutoutImage)

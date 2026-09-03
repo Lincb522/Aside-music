@@ -201,7 +201,7 @@ struct Game2048PlayerLayout: View {
                 VStack(spacing: 0) {
                     scoreHeader(cell: cell)
                         .padding(.horizontal, hPad)
-                        .padding(.top, geo.safeAreaInsets.top > 0 ? 4 : 12)
+                        .padding(.top, DeviceLayout.playerHeaderTopPadding)
 
                     Spacer(minLength: 10)
 
@@ -466,6 +466,10 @@ extension Game2048PlayerLayout {
                     .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
             }
 
+            DynamicArtworkOverlay(cornerRadius: 4)
+                .frame(width: size - 8, height: size - 8)
+                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+
             // 半透明播放/暂停按钮
             MonoIcon(icon: player.isPlaying ? .pause : .play, size: 27, color: .white.opacity(0.85), lineWidth: 2)
                 .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
@@ -693,9 +697,6 @@ extension Game2048PlayerLayout {
                     let done = downloadManager.isDownloaded(songId: s.id)
                     bottomBtn(icon: done ? "checkmark.circle.fill" : "arrow.down.circle",
                               label: "64", dim: done) { if !done { showDownloadSheet = true } }.disabled(done)
-                } else {
-                    // 沉浸模式按钮 — 占用原下载按钮的位置
-                    bottomBtn(icon: "tv", label: "64") { ImmersiveModeController.shared.present() }
                 }
             }
             bottomBtn(icon: "list.bullet", label: "32") { showPlaylist = true }

@@ -42,7 +42,7 @@ struct FolkPlayerLayout: View {
                 VStack(spacing: 0) {
                     // 顶栏（类似信纸顶部）
                     topBar
-                        .padding(.top, 12)
+                        .padding(.top, DeviceLayout.playerHeaderTopPadding)
                         .padding(.horizontal, 24)
                         .padding(.bottom, 16)
 
@@ -200,12 +200,13 @@ extension FolkPlayerLayout {
             // 左侧：相片夹带（专辑封面）
             FolkAdaptiveCover(
                 url: player.currentSong?.coverUrl?.sized(200),
+                dynamicURL: player.dynamicCoverUrl,
                 placeholderColor: paperBg,
                 placeholderIconColor: inkFaded.opacity(0.3),
                 tapeColor: tapeColor,
                 shadowColor: inkDark.opacity(0.1)
             )
-            .id(player.currentSong?.coverUrl?.absoluteString)
+            .id("\(player.currentSong?.coverUrl?.absoluteString ?? "")|\(player.dynamicCoverUrl ?? "")")
 
             // 右侧：打字机标签信息
             VStack(alignment: .leading, spacing: 6) {
@@ -406,14 +407,6 @@ extension FolkPlayerLayout {
                                     .frame(width: 36, height: 36)
                             }
                             .disabled(downloadManager.isDownloaded(songId: song.id))
-                        } else {
-                            // 沉浸模式按钮 — 占用原下载按钮的位置
-                            Button {
-                                ImmersiveModeController.shared.present()
-                            } label: {
-                                MonoIcon(icon: .immersive, size: 16, color: inkFaded)
-                                    .frame(width: 36, height: 36)
-                            }
                         }
                     }
                 }
@@ -543,6 +536,7 @@ extension FolkPlayerLayout {
 /// 信笺相框以封面真实比例排版，横图、竖图都不会被塞进固定正方形外壳。
 private struct FolkAdaptiveCover: View {
     let url: URL?
+    let dynamicURL: String?
     let placeholderColor: Color
     let placeholderIconColor: Color
     let tapeColor: Color
@@ -567,16 +561,22 @@ private struct FolkAdaptiveCover: View {
     }
 
     var body: some View {
-        Group {
-            if let image = loader.image {
-                Image(uiImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-            } else {
-                ZStack {
-                    placeholderColor
-                    MonoIcon(icon: .musicNote, size: 24, color: placeholderIconColor)
+        ZStack {
+            Group {
+                if let image = loader.image {
+                    Image(uiImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                } else {
+                    ZStack {
+                        placeholderColor
+                        MonoIcon(icon: .musicNote, size: 24, color: placeholderIconColor)
+                    }
                 }
+            }
+
+            if let dynamicURL, !dynamicURL.isEmpty {
+                DynamicCoverView(urlString: dynamicURL, cornerRadius: 0)
             }
         }
         .frame(width: artworkSize.width, height: artworkSize.height)

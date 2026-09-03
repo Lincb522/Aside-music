@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import UIKit
 
 /// 现役 Aria 沉浸舞台使用的全屏循环静音视频背景。
 /// 进入舞台时播放，退到后台或被设置页遮挡时暂停；离开舞台后释放播放队列。
@@ -13,8 +14,7 @@ struct ImmersiveVideoBackground: View {
     @State private var isVisible = false
 
     var body: some View {
-        // 复用 DynamicCoverView.swift 中的 AVPlayerLayer 包装（videoGravity = .resizeAspectFill）
-        PlayerVideoView(player: model.player)
+        ImmersiveAVPlayerView(player: model.player)
             .allowsHitTesting(false)
             .onAppear {
                 isVisible = true
@@ -25,14 +25,14 @@ struct ImmersiveVideoBackground: View {
                 isVisible = false
                 model.teardown()
             }
-            .onChange(of: url) { _, newURL in
+            .onChange(of: url) { newURL in
                 model.configure(url: newURL)
                 updatePlaybackState()
             }
-            .onChange(of: isActive) { _, _ in
+            .onChange(of: isActive) { _ in
                 updatePlaybackState()
             }
-            .onChange(of: scenePhase) { _, _ in
+            .onChange(of: scenePhase) { _ in
                 updatePlaybackState()
             }
     }
@@ -46,11 +46,41 @@ struct ImmersiveVideoBackground: View {
     }
 }
 
+/// The immersive background deliberately keeps its own AVPlayer surface.
+/// Dynamic artwork uses the separate FFmpeg video-only pipeline instead.
+private struct ImmersiveAVPlayerView: UIViewRepresentable {
+    let player: AVPlayer
+
+    func makeUIView(context: Context) -> ImmersiveAVPlayerUIView {
+        let view = ImmersiveAVPlayerUIView()
+        view.playerLayer.videoGravity = .resizeAspectFill
+        view.playerLayer.player = player
+        view.backgroundColor = .clear
+        return view
+    }
+
+    func updateUIView(_ uiView: ImmersiveAVPlayerUIView, context: Context) {
+        guard uiView.playerLayer.player !== player else { return }
+        uiView.playerLayer.player = player
+    }
+
+    static func dismantleUIView(_ uiView: ImmersiveAVPlayerUIView, coordinator: Void) {
+        uiView.playerLayer.player = nil
+    }
+}
+
+private final class ImmersiveAVPlayerUIView: UIView {
+    override class var layerClass: AnyClass { AVPlayerLayer.self }
+    var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
+}
+
 @MainActor
 final class ImmersiveVideoBackgroundModel: ObservableObject {
     let player = AVQueuePlayer()
     private var looper: AVPlayerLooper?
     private var currentURL: URL?
+    private var preparationTask: Task<Void, Never>?
+    private var wantsPlayback = false
 
     init() {
         player.isMuted = true
@@ -61,22 +91,71 @@ final class ImmersiveVideoBackgroundModel: ObservableObject {
 
     func configure(url: URL) {
         guard url != currentURL else { return }
+        preparationTask?.cancel()
+        preparationTask = nil
         player.pause()
         releaseCurrentItem()
         currentURL = url
 
-        // 用 AVPlayerLooper 实现无缝循环
-        let item = AVPlayerItem(url: url)
-        looper = AVPlayerLooper(player: player, templateItem: item)
-        player.isMuted = true
+        AppLogger.debug(
+            "[ImmersiveVideo] 开始准备无音轨视频背景",
+            step: "player.immersive-video",
+            category: .playback,
+            event: "video_only_preparation_started",
+            context: Self.assetContext(for: url)
+        )
+
+        preparationTask = Task { @MainActor [weak self] in
+            do {
+                let item = try await Self.makeVideoOnlyPlayerItem(url: url)
+                try Task.checkCancellation()
+                guard let self, self.currentURL == url else { return }
+
+                self.preparationTask = nil
+                self.looper = AVPlayerLooper(player: self.player, templateItem: item)
+                self.player.isMuted = true
+                if self.wantsPlayback {
+                    self.player.play()
+                }
+                AppLogger.success(
+                    "[ImmersiveVideo] 纯视频背景已就绪",
+                    step: "player.immersive-video",
+                    category: .playback,
+                    event: "video_only_ready",
+                    context: Self.assetContext(for: url)
+                )
+            } catch is CancellationError {
+                return
+            } catch {
+                guard let self, self.currentURL == url else { return }
+                self.preparationTask = nil
+                AppLogger.error(
+                    "[ImmersiveVideo] 无法建立纯视频背景：\(error.localizedDescription)",
+                    step: "player.immersive-video",
+                    category: .playback,
+                    event: "video_only_preparation_failed",
+                    context: Self.assetContext(for: url)
+                )
+            }
+        }
     }
 
-    func play() { player.play() }
+    func play() {
+        wantsPlayback = true
+        guard looper != nil else { return }
+        player.play()
+    }
 
-    func pause() { player.pause() }
+    func pause() {
+        wantsPlayback = false
+        player.pause()
+    }
 
     func teardown() {
-        pause()
+        preparationTask?.cancel()
+        preparationTask = nil
+        wantsPlayback = false
+        player.pause()
         releaseCurrentItem()
         currentURL = nil
     }
@@ -85,6 +164,69 @@ final class ImmersiveVideoBackgroundModel: ObservableObject {
         looper?.disableLooping()
         looper = nil
         player.removeAllItems()
+    }
+
+    /// Build an AVComposition that contains only the source video track. Muting
+    /// an AVPlayer is insufficient because an attached audio track can still
+    /// activate the app audio session and interrupt MusicKit or Mono playback.
+    private static func makeVideoOnlyPlayerItem(url: URL) async throws -> AVPlayerItem {
+        let asset = AVURLAsset(url: url)
+        guard let sourceVideoTrack = try await asset.loadTracks(withMediaType: .video).first else {
+            throw ImmersiveVideoBackgroundError.missingVideoTrack
+        }
+
+        let sourceTimeRange = try await sourceVideoTrack.load(.timeRange)
+        guard sourceTimeRange.duration.isNumeric,
+              sourceTimeRange.duration > .zero else {
+            throw ImmersiveVideoBackgroundError.invalidVideoDuration
+        }
+
+        let composition = AVMutableComposition()
+        guard let videoTrack = composition.addMutableTrack(
+            withMediaType: .video,
+            preferredTrackID: kCMPersistentTrackID_Invalid
+        ) else {
+            throw ImmersiveVideoBackgroundError.cannotCreateVideoTrack
+        }
+
+        try videoTrack.insertTimeRange(
+            sourceTimeRange,
+            of: sourceVideoTrack,
+            at: .zero
+        )
+        videoTrack.preferredTransform = try await sourceVideoTrack.load(.preferredTransform)
+
+        // The composition deliberately has no audio track. Keep isMuted as a
+        // defensive invariant, but audio-session isolation comes from removal.
+        return AVPlayerItem(asset: composition)
+    }
+
+    private static func assetContext(for url: URL) -> [String: String] {
+        [
+            "assetType": url.pathExtension.lowercased(),
+            "isLocalFile": String(url.isFileURL),
+        ]
+    }
+
+    deinit {
+        preparationTask?.cancel()
+    }
+}
+
+private enum ImmersiveVideoBackgroundError: LocalizedError {
+    case missingVideoTrack
+    case invalidVideoDuration
+    case cannotCreateVideoTrack
+
+    var errorDescription: String? {
+        switch self {
+        case .missingVideoTrack:
+            return "The background asset does not contain a video track"
+        case .invalidVideoDuration:
+            return "The background video duration is invalid"
+        case .cannotCreateVideoTrack:
+            return "The video-only composition could not create a video track"
+        }
     }
 }
 

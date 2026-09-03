@@ -16,6 +16,8 @@ struct LogEntry: Identifiable, Hashable, Codable, Sendable {
         case appleMusic
         case lyrics
         case ai
+        case modelTraining
+        case localModel
         case cloud
         case database
         case download
@@ -831,6 +833,18 @@ enum AppLogger {
         }
         if source.contains("lyrics") || source.contains("lyric") || content.contains("歌词") {
             return .lyrics
+        }
+        if source.contains("audiotrainingadmin")
+            || content.contains("[modeltraining]")
+            || content.contains("model-training.")
+        {
+            return .modelTraining
+        }
+        if source.contains("audiotrainingondevicemodel")
+            || content.contains("[localmodel]")
+            || content.contains("local-model.")
+        {
+            return .localModel
         }
         if source.contains("aiequalizer")
             || source.contains("aiprovider")

@@ -131,16 +131,35 @@ extension AIEqualizerAgent {
         let requestedProfile = tuningProfile
         let graphicEQMode = EQManager.shared.graphicEQMode
         let deviceTuningTarget = AirPodsExperienceManager.currentAITuningTargetSnapshot()
+        let deviceTrainingContext = EQManager.shared.aiEqualizerDeviceTrainingContext(
+            deviceTuningTarget: deviceTuningTarget
+        )
         let outputIdentity = currentOutputIdentity()
+        let onDeviceModelIdentity: String?
+        if AppConfig.DeveloperAccess.hasFullTools {
+            onDeviceModelIdentity = await AudioTrainingOnDeviceModelStore.shared.activeIdentity()
+        } else {
+            onDeviceModelIdentity = nil
+        }
 
         let configuration: AIProviderConfiguration
         do {
             configuration = try await resolvedProviderConfiguration()
         } catch {
-            if isCurrentSong(song) {
-                phase = .failed(error.localizedDescription)
+            guard let onDeviceModelIdentity else {
+                if isCurrentSong(song) {
+                    phase = .failed(error.localizedDescription)
+                }
+                return
             }
-            return
+            configuration = AIProviderConfiguration(
+                wireProtocol: .appleIntelligence,
+                baseURL: "",
+                model: onDeviceModelIdentity,
+                modelDiscoveryURL: "",
+                timeout: 120,
+                customHeadersJSON: "{}"
+            )
         }
         guard isCurrentSong(song) else { return }
         let runStartedAt = Date()
@@ -235,7 +254,7 @@ extension AIEqualizerAgent {
             ]
         )
         let toolPolicyRevision = skillExecution.policy.revision ?? "bundled-v1"
-        let cacheKey = "\(currentAgentVersion)|\(MonoAudioTuningTool.version)|mono-agent-v6|learning:\(learningRevision)|learningStrength:\(learningStrength.rawValue)|skillFingerprint:\(skillExecution.fingerprint)|skillRevision:\(skillExecution.runtime.revision)|toolPolicy:\(toolPolicyRevision)|\(graphicEQMode.rawValue)|\(song.musicSource.rawValue)|\(song.id)|\(audioVariant)|\(configuration.wireProtocol.rawValue)|\(configuration.resolvedModel)|\(outputIdentity)|\(deviceTuningIdentity)|\(samplingMode.rawValue)|\(Int(samplingDuration.rounded()))|\(requestedIntensity.rawValue)|\(requestedProfile.rawValue)"
+        let cacheKey = "\(currentAgentVersion)|\(MonoAudioTuningTool.version)|mono-agent-v6|learning:\(learningRevision)|learningStrength:\(learningStrength.rawValue)|skillFingerprint:\(skillExecution.fingerprint)|skillRevision:\(skillExecution.runtime.revision)|toolPolicy:\(toolPolicyRevision)|trainedCoreML:\(onDeviceModelIdentity ?? "none")|\(graphicEQMode.rawValue)|\(song.musicSource.rawValue)|\(song.id)|\(audioVariant)|\(configuration.wireProtocol.rawValue)|\(configuration.resolvedModel)|\(outputIdentity)|\(deviceTuningIdentity)|\(samplingMode.rawValue)|\(Int(samplingDuration.rounded()))|\(requestedIntensity.rawValue)|\(requestedProfile.rawValue)"
         if !forceRegeneration,
            let cached = proposalCache.value(
                for: cacheKey,
@@ -272,10 +291,16 @@ extension AIEqualizerAgent {
                 level: didApply ? .success : .warning,
                 stage: .application,
                 title: "复用已验证方案",
-                detail: didApply
+                detail: (didApply
                     ? "当前歌曲、音源版本、输出设备、调音模式和技能版本均与缓存一致，已直接写入播放 DSP。"
-                    : "缓存方案本身有效，但播放目标或均衡器模式已变化，因此没有写入当前 DSP。",
+                    : "缓存方案本身有效，但播放目标或均衡器模式已变化，因此没有写入当前 DSP。")
+                    + "\n\n"
+                    + traceJSON(cached),
                 metadata: [
+                    "recordType": "cached-tuning-result",
+                    "modelSource": "validated-cache",
+                    "provider": cached.provider.rawValue,
+                    "model": cached.model,
                     "result": didApply ? "applied" : "skipped-context-changed",
                     "cacheReused": "true",
                     "proposalID": cached.id.uuidString,
@@ -397,9 +422,11 @@ extension AIEqualizerAgent {
                 song: song,
                 learningContext: learningContext,
                 deviceTuningTarget: deviceTuningTarget,
+                deviceTrainingContext: deviceTrainingContext,
                 managedAgent: managedAgent,
                 skillRuntime: skillExecution.runtime,
                 toolPolicy: skillExecution.policy,
+                onDeviceModelIdentity: onDeviceModelIdentity,
                 traceID: traceID
             )
             let output = generation.output
@@ -410,8 +437,8 @@ extension AIEqualizerAgent {
                 songID: song.id,
                 output: output,
                 features: features,
-                provider: configuration.wireProtocol,
-                model: configuration.resolvedModel,
+                provider: generation.provider,
+                model: generation.model,
                 agentVersion: currentAgentVersion,
                 skillFingerprint: skillExecution.fingerprint,
                 skillRevision: skillExecution.runtime.revision,
@@ -422,7 +449,47 @@ extension AIEqualizerAgent {
                 tuningProfile: requestedProfile,
                 avoidingProfileNames: Set(recentProfileNames),
                 learningContext: learningContext,
+                applyLearningAdjustments: !generation.embedsLearningContext,
                 deviceTuningTarget: deviceTuningTarget
+            )
+            // Keep both a neutral population target and a learned-personalized
+            // target. Neither includes the output-device correction.
+            let populationTrainingTarget = try? MonoAudioTuningTool.compileProposal(
+                songID: song.id,
+                output: generation.populationOutput ?? output,
+                features: features,
+                provider: generation.provider,
+                model: generation.model,
+                agentVersion: currentAgentVersion,
+                skillFingerprint: skillExecution.fingerprint,
+                skillRevision: skillExecution.runtime.revision,
+                executionMode: generation.executionMode,
+                modelToolInvocationCount: generation.modelToolInvocationCount,
+                skillRuntime: skillExecution.runtime,
+                tuningIntensity: requestedIntensity,
+                tuningProfile: requestedProfile,
+                avoidingProfileNames: Set(recentProfileNames),
+                learningContext: nil,
+                deviceTuningTarget: nil
+            )
+            let personalizedTrainingTarget = try? MonoAudioTuningTool.compileProposal(
+                songID: song.id,
+                output: output,
+                features: features,
+                provider: generation.provider,
+                model: generation.model,
+                agentVersion: currentAgentVersion,
+                skillFingerprint: skillExecution.fingerprint,
+                skillRevision: skillExecution.runtime.revision,
+                executionMode: generation.executionMode,
+                modelToolInvocationCount: generation.modelToolInvocationCount,
+                skillRuntime: skillExecution.runtime,
+                tuningIntensity: requestedIntensity,
+                tuningProfile: requestedProfile,
+                avoidingProfileNames: Set(recentProfileNames),
+                learningContext: learningContext,
+                applyLearningAdjustments: !generation.embedsLearningContext,
+                deviceTuningTarget: nil
             )
             let compilationElapsed = Date().timeIntervalSince(compilationStartedAt)
             let compliance = result.skillCompliance
@@ -470,6 +537,7 @@ extension AIEqualizerAgent {
             let timing = AIEqualizerTiming(
                 total: Date().timeIntervalSince(runStartedAt),
                 sampling: samplingElapsed,
+                samplingReused: reusableMeasuredFeatures != nil,
                 generation: generationElapsed,
                 applying: applyingElapsed,
                 completedAt: Date()
@@ -481,11 +549,17 @@ extension AIEqualizerAgent {
                 level: didApply ? .success : .warning,
                 stage: .application,
                 title: didApply ? "DSP 应用完成" : "DSP 未应用",
-                detail: didApply
+                detail: (didApply
                     ? "编译后的均衡、动态、空间与保护参数已提交到当前播放 DSP。"
-                    : "生成与编译已经完成，但播放目标或均衡器模式发生变化，因此没有修改当前 DSP。",
+                    : "生成与编译已经完成，但播放目标或均衡器模式发生变化，因此没有修改当前 DSP。")
+                    + "\n\n"
+                    + traceJSON(result),
                 durationSeconds: applyingElapsed,
                 metadata: [
+                    "recordType": "local-tuning-result",
+                    "modelSource": "local-safety-compiler",
+                    "provider": generation.provider.rawValue,
+                    "model": generation.model,
                     "result": didApply ? "applied" : "skipped-context-changed",
                     "cacheReused": "false",
                     "proposalID": result.id.uuidString,
@@ -516,6 +590,16 @@ extension AIEqualizerAgent {
                     step: "ai-tuning.saved-skip"
                 )
             }
+            proposalCache.recordTrainingSample(
+                proposal: result,
+                features: features,
+                songIdentifier: identifier,
+                deviceTuningTarget: deviceTuningTarget,
+                deviceTrainingContext: deviceTrainingContext,
+                populationTarget: populationTrainingTarget,
+                learningContext: learningContext,
+                personalizedTarget: personalizedTrainingTarget
+            )
             savedProposals = proposalCache.history(for: identifier)
             samplingRetryCount[identifier] = nil
             AppLogger.success(
@@ -687,15 +771,21 @@ extension AIEqualizerAgent {
         song: Song,
         learningContext: AIEqualizerLearningContext?,
         deviceTuningTarget: AIEqualizerDeviceTuningTarget?,
+        deviceTrainingContext: AIEqualizerDeviceTrainingContext,
         managedAgent: AppAgentConfiguration?,
         skillRuntime: MonoAudioAgentRuntimeSkillConfiguration,
         toolPolicy: AppAgentToolPolicyConfiguration,
+        onDeviceModelIdentity: String?,
         traceID: UUID
     ) async throws -> (
         output: AIEqualizerModelOutput,
+        populationOutput: AIEqualizerModelOutput?,
+        embedsLearningContext: Bool,
         elapsed: TimeInterval,
         executionMode: AIEqualizerSkillCompliance.ExecutionMode,
-        modelToolInvocationCount: Int
+        modelToolInvocationCount: Int,
+        provider: AIWireProtocol,
+        model: String
     ) {
         let startedAt = Date()
         generationStartedAt = startedAt
@@ -713,6 +803,123 @@ extension AIEqualizerAgent {
             )
             throw AIEqualizerError.invalidResponse
         }
+        let toolContext = MonoAudioTuningTool.prepareInvocation(
+            features: features,
+            tuningProfile: requestedProfile,
+            deviceTuningTarget: deviceTuningTarget,
+            skillRuntime: skillRuntime
+        )
+        if onDeviceModelIdentity != nil, AppConfig.DeveloperAccess.hasFullTools {
+            do {
+                generationStage = .generating
+                phase = .requesting
+                let prediction = try await AudioTrainingOnDeviceModelStore.shared.predict(
+                    features: features,
+                    deviceTuningTarget: deviceTuningTarget,
+                    tuningIntensity: requestedIntensity,
+                    tuningProfile: requestedProfile,
+                    learningContext: learningContext,
+                    deviceTrainingContext: deviceTrainingContext
+                )
+                try Task.checkCancellation()
+                guard isCurrentSong(song), EQManager.shared.graphicEQMode == graphicEQMode else {
+                    throw AIEqualizerError.noSong
+                }
+                generationStage = .validating
+                let review = MonoAudioTuningTool.review(
+                    output: prediction.output,
+                    features: features,
+                    context: toolContext
+                )
+                AIAgentTraceStore.shared.append(
+                    traceID,
+                    category: .conversation,
+                    level: review.isAccepted ? .success : .error,
+                    stage: .model,
+                    title: "本地 Core ML 模型详细记录",
+                    detail: localModelTrace(
+                        prediction: prediction,
+                        review: review
+                    ),
+                    durationSeconds: prediction.inference.latencyMilliseconds / 1_000,
+                    metadata: [
+                        "recordType": "local-coreml-inference",
+                        "modelSource": "on-device-coreml",
+                        "model": prediction.modelVersion,
+                        "featureSchemaVersion": String(prediction.featureSchemaVersion),
+                        "targetSchemaVersion": String(prediction.targetSchemaVersion),
+                        "eqMode": prediction.graphicEQMode.rawValue,
+                        "inputCount": String(prediction.inference.input.count),
+                        "outputCount": String(prediction.inference.rawOutput.count),
+                        "computeMode": prediction.computeMode.rawValue,
+                        "learningContextEmbedded": prediction.embedsLearningContext ? "true" : "false",
+                        "deviceContextEmbedded": prediction.embedsDetailedDeviceContext ? "true" : "false",
+                        "populationPass": prediction.populationInference == nil ? "false" : "true",
+                        "validationAccepted": review.isAccepted ? "true" : "false"
+                    ]
+                )
+                guard review.isAccepted else {
+                    throw AIEqualizerError.invalidResponse
+                }
+                AIAgentTraceStore.shared.append(
+                    traceID,
+                    category: .skill,
+                    level: review.issues.isEmpty ? .success : .warning,
+                    stage: .validation,
+                    title: "Core ML · mono_audio_tuning",
+                    detail: review.issues.isEmpty
+                        ? "手机模型推理结果已通过本地调音工具校验。"
+                        : review.issues.map { "\($0.code)：\($0.detail)" }.joined(separator: "\n"),
+                    durationSeconds: Date().timeIntervalSince(startedAt),
+                    metadata: [
+                        "model": prediction.modelVersion,
+                        "inputCount": String(prediction.inference.input.count),
+                        "outputCount": String(prediction.inference.rawOutput.count),
+                        "localValidationRequired": "true"
+                    ]
+                )
+                return (
+                    prediction.output,
+                    prediction.populationOutput,
+                    prediction.embedsLearningContext,
+                    Date().timeIntervalSince(startedAt),
+                    .trainedCoreMLModel,
+                    1,
+                    .appleIntelligence,
+                    prediction.modelVersion
+                )
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                AIAgentTraceStore.shared.append(
+                    traceID,
+                    category: .reasoning,
+                    level: .warning,
+                    stage: .fallback,
+                    title: "本地模型回退",
+                    detail: error.localizedDescription,
+                    metadata: [
+                        "recordType": "local-coreml-fallback",
+                        "modelSource": "on-device-coreml",
+                        "model": onDeviceModelIdentity ?? "unknown",
+                        "fallbackProvider": configuration.wireProtocol.rawValue,
+                        "fallbackModel": configuration.resolvedModel,
+                        "errorType": String(reflecting: type(of: error))
+                    ]
+                )
+                AppLogger.warning(
+                    "[AIEqualizerAgent] On-device trained model unavailable; using configured model error=\(error.localizedDescription)",
+                    step: "local-model.inference-fallback",
+                    category: .localModel,
+                    event: "local-model.inference-fallback",
+                    context: [
+                        "model": onDeviceModelIdentity ?? "unknown",
+                        "fallbackProvider": configuration.wireProtocol.rawValue,
+                        "fallbackModel": configuration.resolvedModel
+                    ]
+                )
+            }
+        }
         let bundledUserPrompt = try AIEqualizerPrompt.userPrompt(
             features: features,
             tuningIntensity: requestedIntensity,
@@ -725,15 +932,13 @@ extension AIEqualizerAgent {
             deviceTuningTarget,
             to: configuredUserPrompt
         )
-        let userPrompt = AIEqualizerPrompt.appendingAgentSkillContext(
-            skillRuntime.modelContext,
+        let promptWithDeviceContext = try AIEqualizerPrompt.appendingDeviceTrainingContext(
+            deviceTrainingContext,
             to: promptWithDeviceTarget
         )
-        let toolContext = MonoAudioTuningTool.prepareInvocation(
-            features: features,
-            tuningProfile: requestedProfile,
-            deviceTuningTarget: deviceTuningTarget,
-            skillRuntime: skillRuntime
+        let userPrompt = AIEqualizerPrompt.appendingAgentSkillContext(
+            skillRuntime.modelContext,
+            to: promptWithDeviceContext
         )
         let bundledSystemPrompt = AIEqualizerPrompt.system(for: graphicEQMode)
         let configuredSystemPrompt = managedAgent?.systemPrompt(
@@ -747,6 +952,8 @@ extension AIEqualizerAgent {
         let maximumAttempts = managedAgent?.resolvedMaxAttempts(
             fallback: Self.maxGenerationRetryAttempts
         ) ?? Self.maxGenerationRetryAttempts
+        let generationOptions = managedAgent?.generationOptions ?? .standard
+        let minimumTimeout = max(120, managedAgent?.resolvedMinimumTimeoutSeconds ?? 0)
 
         AIAgentTraceStore.shared.append(
             traceID,
@@ -754,7 +961,13 @@ extension AIEqualizerAgent {
             stage: .configuration,
             title: "System",
             detail: systemPrompt,
-            metadata: ["role": "system", "characters": String(systemPrompt.count)]
+            metadata: [
+                "recordType": "remote-model-input-system",
+                "role": "system",
+                "provider": configuration.wireProtocol.rawValue,
+                "model": configuration.resolvedModel,
+                "characters": String(systemPrompt.count)
+            ]
         )
         AIAgentTraceStore.shared.append(
             traceID,
@@ -762,7 +975,13 @@ extension AIEqualizerAgent {
             stage: .configuration,
             title: "User",
             detail: userPrompt,
-            metadata: ["role": "user", "characters": String(userPrompt.count)]
+            metadata: [
+                "recordType": "remote-model-input-user",
+                "role": "user",
+                "provider": configuration.wireProtocol.rawValue,
+                "model": configuration.resolvedModel,
+                "characters": String(userPrompt.count)
+            ]
         )
         AIAgentTraceStore.shared.append(
             traceID,
@@ -801,9 +1020,14 @@ extension AIEqualizerAgent {
                     title: "请求模型",
                     detail: "发送第 \(attempt) 次请求。模型只需返回一次完整结果，不增加额外往返。",
                     metadata: [
+                        "recordType": "remote-model-request",
                         "attempt": "\(attempt)/\(maximumAttempts)",
                         "protocol": configuration.wireProtocol.rawValue,
-                        "model": configuration.resolvedModel
+                        "provider": configuration.wireProtocol.rawValue,
+                        "model": configuration.resolvedModel,
+                        "temperature": String(format: "%.3f", generationOptions.normalizedTemperature),
+                        "maxOutputTokens": String(generationOptions.normalizedMaxOutputTokens),
+                        "minimumTimeoutSeconds": String(format: "%.1f", minimumTimeout)
                     ]
                 )
                 let toolResponse = try await client.generateRequiringTool(
@@ -812,8 +1036,8 @@ extension AIEqualizerAgent {
                     tool: requiredModelTool,
                     configuration: configuration,
                     apiKey: providerStore.requestAPIKey,
-                    minimumTimeout: max(120, managedAgent?.resolvedMinimumTimeoutSeconds ?? 0),
-                    options: managedAgent?.generationOptions ?? .standard,
+                    minimumTimeout: minimumTimeout,
+                    options: generationOptions,
                     allowContentFallback: toolPolicy.allowPromptFallback ?? false,
                     requireExactlyOnce: toolPolicy.requireExactlyOnce ?? true
                 )
@@ -846,10 +1070,13 @@ extension AIEqualizerAgent {
                     detail: response,
                     durationSeconds: Date().timeIntervalSince(attemptStartedAt),
                     metadata: [
+                        "recordType": "remote-model-tool-invocation",
                         "caller": configuration.wireProtocol == .appleIntelligence
                             ? "foundation-models-tool"
                             : "model",
                         "toolName": requiredModelTool.name,
+                        "provider": configuration.wireProtocol.rawValue,
+                        "model": configuration.resolvedModel,
                         "invocationMode": toolPolicy.invocationMode ?? "required",
                         "requireExactlyOnce": (toolPolicy.requireExactlyOnce ?? true) ? "true" : "false",
                         "localValidationRequired": (toolPolicy.localValidationRequired ?? true) ? "true" : "false",
@@ -876,7 +1103,13 @@ extension AIEqualizerAgent {
                     stage: .tool,
                     title: "Assistant · Tool Arguments",
                     detail: response,
-                    metadata: ["role": "assistant", "attempt": String(attempt)]
+                    metadata: [
+                        "role": "assistant",
+                        "provider": configuration.wireProtocol.rawValue,
+                        "model": configuration.resolvedModel,
+                        "attempt": String(attempt),
+                        "characters": String(response.count)
+                    ]
                 )
                 generationStage = .validating
                 let validationStartedAt = Date()
@@ -885,6 +1118,25 @@ extension AIEqualizerAgent {
                     output: output,
                     features: features,
                     context: toolContext
+                )
+                AIAgentTraceStore.shared.append(
+                    traceID,
+                    category: .conversation,
+                    level: review.isAccepted ? .success : .error,
+                    stage: .validation,
+                    title: "远端模型解码结果",
+                    detail: traceJSON(output),
+                    durationSeconds: Date().timeIntervalSince(validationStartedAt),
+                    metadata: [
+                        "recordType": "remote-model-output-decoded",
+                        "provider": configuration.wireProtocol.rawValue,
+                        "model": configuration.resolvedModel,
+                        "attempt": String(attempt),
+                        "eqMode": graphicEQMode.rawValue,
+                        "bandCount": String(output.gains.count),
+                        "validationAccepted": review.isAccepted ? "true" : "false",
+                        "validationSummary": review.summary
+                    ]
                 )
                 guard review.isAccepted else {
                     AIAgentTraceStore.shared.append(
@@ -917,9 +1169,13 @@ extension AIEqualizerAgent {
                 )
                 return (
                     output,
+                    nil,
+                    false,
                     Date().timeIntervalSince(startedAt),
                     executionMode,
-                    modelToolInvocationCount
+                    modelToolInvocationCount,
+                    configuration.wireProtocol,
+                    configuration.resolvedModel
                 )
             } catch is CancellationError {
                 throw CancellationError()
@@ -927,8 +1183,26 @@ extension AIEqualizerAgent {
                 if let reservation, AIUsageLimiter.shouldRefundReservation(for: error) {
                     usageLimiter.releaseReservation(reservation)
                 }
-                guard attempt < maximumAttempts,
-                      AIAgentRuntimePolicy.shouldRetry(error) else {
+                let willRetry = attempt < maximumAttempts
+                    && AIAgentRuntimePolicy.shouldRetry(error)
+                AIAgentTraceStore.shared.append(
+                    traceID,
+                    category: .reasoning,
+                    level: willRetry ? .warning : .error,
+                    stage: .model,
+                    title: "模型请求失败",
+                    detail: error.localizedDescription,
+                    durationSeconds: Date().timeIntervalSince(attemptStartedAt),
+                    metadata: [
+                        "recordType": "remote-model-failure",
+                        "provider": configuration.wireProtocol.rawValue,
+                        "model": configuration.resolvedModel,
+                        "attempt": String(attempt),
+                        "willRetry": willRetry ? "true" : "false",
+                        "errorType": String(reflecting: type(of: error))
+                    ]
+                )
+                guard willRetry else {
                     throw error
                 }
                 let delay = generationRetryDelay(
@@ -971,6 +1245,71 @@ extension AIEqualizerAgent {
             after: attempt,
             minimumRequestInterval: minimumRequestInterval
         )
+    }
+
+    private func localModelTrace(
+        prediction: AudioTrainingOnDevicePrediction,
+        review: MonoAudioTuningTool.Review
+    ) -> String {
+        var sections = [
+            "模型来源 = 手机端 Core ML",
+            "模型版本 = \(prediction.modelVersion)",
+            "特征 schema = \(prediction.featureSchemaVersion)",
+            "目标 schema = \(prediction.targetSchemaVersion)",
+            "均衡器模式 = \(prediction.graphicEQMode.rawValue)",
+            "计算策略 = \(prediction.computeMode.rawValue)",
+            "模型内学习参数 = \(prediction.embedsLearningContext ? "是" : "否")",
+            "模型内设备参数 = \(prediction.embedsDetailedDeviceContext ? "是" : "否")",
+            "主推理耗时 = \(String(format: "%.3f", prediction.inference.latencyMilliseconds)) ms",
+            "",
+            tensorTrace(title: "完整模型输入", values: prediction.inference.input),
+            "",
+            tensorTrace(title: "完整模型原始输出", values: prediction.inference.rawOutput),
+            "",
+            "模型解码输出",
+            traceJSON(prediction.output)
+        ]
+        if let populationInference = prediction.populationInference,
+           let populationOutput = prediction.populationOutput {
+            sections.append(contentsOf: [
+                "",
+                "群体基线推理耗时 = \(String(format: "%.3f", populationInference.latencyMilliseconds)) ms",
+                "",
+                tensorTrace(title: "群体基线完整输入", values: populationInference.input),
+                "",
+                tensorTrace(title: "群体基线完整原始输出", values: populationInference.rawOutput),
+                "",
+                "群体基线解码输出",
+                traceJSON(populationOutput)
+            ])
+        }
+        sections.append(contentsOf: [
+            "",
+            "本地工具校验 = \(review.isAccepted ? "通过" : "未通过")",
+            "校验摘要 = \(review.summary)",
+            "校验问题 = \(review.issues.isEmpty ? "无" : review.issues.map { "\($0.code)：\($0.detail)" }.joined(separator: "；"))"
+        ])
+        return sections.joined(separator: "\n")
+    }
+
+    private func tensorTrace(
+        title: String,
+        values: [AudioTrainingTensorValue]
+    ) -> String {
+        (["\(title)（\(values.count) 项）"] + values.map { item in
+            "[\(item.index)] \(item.name) = \(String(format: "%.9g", Double(item.value)))"
+        }).joined(separator: "\n")
+    }
+
+    private func traceJSON<Value: Encodable>(_ value: Value) -> String {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        guard let data = try? encoder.encode(value),
+              let text = String(data: data, encoding: .utf8) else {
+            return "无法序列化详细记录"
+        }
+        return text
     }
 
 }

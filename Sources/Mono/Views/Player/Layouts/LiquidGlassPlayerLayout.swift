@@ -98,7 +98,7 @@ private extension LiquidGlassPlayerLayout {
 
         return VStack(spacing: 0) {
             header
-                .padding(.top, DeviceLayout.headerTopPadding)
+                .padding(.top, DeviceLayout.playerHeaderTopPadding)
 
             Spacer(minLength: compact ? 8 : 16)
 
@@ -115,14 +115,14 @@ private extension LiquidGlassPlayerLayout {
 
     func wideContent(in geometry: GeometryProxy) -> some View {
         let artworkSize = min(
-            geometry.size.height - DeviceLayout.headerTopPadding - 92,
+            geometry.size.height - DeviceLayout.playerHeaderTopPadding - 92,
             geometry.size.width * 0.38,
             500
         )
 
         return VStack(spacing: 0) {
             header
-                .padding(.top, DeviceLayout.headerTopPadding)
+                .padding(.top, DeviceLayout.playerHeaderTopPadding)
 
             HStack(spacing: 42) {
                 playbackStage(size: artworkSize)

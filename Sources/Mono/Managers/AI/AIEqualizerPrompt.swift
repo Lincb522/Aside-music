@@ -102,6 +102,25 @@ enum AIEqualizerPrompt {
         """
     }
 
+    static func appendingDeviceTrainingContext(
+        _ context: AIEqualizerDeviceTrainingContext,
+        to prompt: String
+    ) throws -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let data = try encoder.encode(context)
+        guard let json = String(data: data, encoding: .utf8) else {
+            throw AIEqualizerError.invalidResponse
+        }
+        return """
+        \(prompt)
+
+        Detailed numeric output-device context for this request:
+        \(json)
+        Mono applies routeDefaultGainsDB, profileGainsDB, referenceGainsDB, profilePreampDB, and the selected acoustic filters locally. Use their combined shape, output format, latency, channel count, fit, and spatial guidance only to choose a compatible per-track correction. Do not copy, invert, cancel, or regenerate any device curve or acoustic filter. The device context may change the safe balance, headroom, dynamics, or spatial decision for this track, but it must never appear in profileName or summary.
+        """
+    }
+
     static func appendingAgentSkillContext(_ context: String, to prompt: String) -> String {
         """
         \(prompt)

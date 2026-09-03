@@ -26,7 +26,7 @@ extension ClassicPlayerLayout {
 
         return VStack(spacing: 0) {
             asideHeaderView
-                .padding(.top, DeviceLayout.headerTopPadding)
+                .padding(.top, DeviceLayout.playerHeaderTopPadding)
 
             Spacer(minLength: compactHeight ? 6 : 14)
 
@@ -59,7 +59,7 @@ extension ClassicPlayerLayout {
 
         return VStack(spacing: 0) {
             asideHeaderView
-                .padding(.top, DeviceLayout.headerTopPadding)
+                .padding(.top, DeviceLayout.playerHeaderTopPadding)
 
             HStack(spacing: columnSpacing) {
                 asidePlaybackStage(size: artworkSize)

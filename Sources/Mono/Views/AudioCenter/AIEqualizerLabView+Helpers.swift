@@ -64,6 +64,16 @@ extension AIEqualizerLabView {
     }
 
     func tuningDurationText(_ duration: TimeInterval) -> String {
+        guard duration > 0 else { return "—" }
+        if duration < 0.001 {
+            return String(localized: "ai_tuning_less_than_millisecond")
+        }
+        if duration < 1 {
+            return String(
+                format: String(localized: "ai_tuning_milliseconds_format"),
+                Int(ceil(duration * 1_000))
+            )
+        }
         let totalSeconds = max(0, Int(duration.rounded()))
         guard totalSeconds >= 60 else {
             return String(

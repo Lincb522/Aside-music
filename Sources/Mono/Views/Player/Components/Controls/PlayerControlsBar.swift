@@ -107,13 +107,7 @@ struct PlayerControlsBar: View {
                         .disabled(downloadManager.isDownloaded(songId: song.id, isQQ: song.isQQMusic))
                         .frame(width: 44)
                     } else {
-                        // 沉浸模式按钮 — 下载隐藏期间占用原下载按钮的位置
-                        Button {
-                            ImmersiveModeController.shared.present()
-                        } label: {
-                            MonoIcon(icon: .immersive, size: 22, color: secondaryColor, lineWidth: 1.4)
-                        }
-                        .frame(width: 44)
+                        Color.clear.frame(width: 44, height: 44)
                     }
                 }
             }

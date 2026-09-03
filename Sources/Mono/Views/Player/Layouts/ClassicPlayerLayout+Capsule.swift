@@ -14,7 +14,7 @@ extension ClassicPlayerLayout {
 
         return VStack(spacing: 0) {
             capsulePlayerTopBar
-                .padding(.top, DeviceLayout.headerTopPadding)
+                .padding(.top, DeviceLayout.playerHeaderTopPadding)
                 .padding(.horizontal, horizontalPadding)
                 .padding(.bottom, 14)
 
@@ -201,24 +201,8 @@ extension ClassicPlayerLayout {
             if AppConfig.Features.downloadEnabled {
                 // 下载按钮（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
                 capsuleDownloadQuick
-            } else {
-                // 沉浸模式按钮 — 占用原下载按钮的位置
-                capsuleImmersiveQuick
             }
         }
-    }
-
-    var capsuleImmersiveQuick: some View {
-        Button {
-            ImmersiveModeController.shared.present()
-        } label: {
-            MonoIcon(icon: .immersive, size: 16, color: CapsuleStyle.mint, lineWidth: 1.6)
-                .frame(width: 36, height: 36)
-                .background(capsulePillBackground(tint: CapsuleStyle.surfaceRaised.opacity(0.78)))
-        }
-        .buttonStyle(CapsulePressStyle())
-        .disabled(player.currentSong == nil)
-        .opacity(player.currentSong == nil ? 0.4 : 1)
     }
 
     var capsuleQualityChip: some View {

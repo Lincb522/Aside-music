@@ -15,6 +15,10 @@ const {
   installSongContentConfigRoutes
 } = require(`${songContentRoot}/song-content-config`)
 const { createAnnouncementService, installAnnouncementRoutes } = require('./announcement-service')
+const {
+  createAudioTuningTrainingService,
+  installAudioTuningTrainingRoutes
+} = require(`${songContentRoot}/audio-tuning-training`)
 
 /**
  * Mounts the song-content API on the existing token Express application.
@@ -138,6 +142,22 @@ function installTokenSongContent({
     logger
   })
 
+  const audioTrainingService = createAudioTuningTrainingService({
+    directory: path.join(dataDirectory, 'audio-training'),
+    cloudDatabasePath: path.join(dataDirectory, 'cloud-storage.sqlite'),
+    coreMLPythonPath: process.env.AUDIO_TRAINING_PYTHON
+      || path.join(dataDirectory, 'audio-training-runtime', 'bin', 'python'),
+    logger
+  })
+  installAudioTuningTrainingRoutes({
+    app,
+    service: audioTrainingService,
+    authMiddleware,
+    authorize: resolvedAuthorize,
+    audit: (entry) => service.store.appendAudit(entry),
+    logger
+  })
+
   if (adminUIRoot) {
     app.get(['/agents', '/agent-management'], (_req, res) => {
       res.sendFile(path.resolve(adminUIRoot, 'song-content.html'))
@@ -150,7 +170,9 @@ function installTokenSongContent({
   const closeService = service.close.bind(service)
   service.configStore = configStore
   service.announcementService = announcementService
+  service.audioTrainingService = audioTrainingService
   service.close = () => {
+    audioTrainingService.close()
     announcementService.close()
     configStore.close()
     closeService()

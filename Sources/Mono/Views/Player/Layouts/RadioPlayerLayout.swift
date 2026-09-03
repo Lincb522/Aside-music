@@ -69,20 +69,23 @@ struct RadioPlayerLayout: View {
             let safeL = geo.safeAreaInsets.leading
             let hPad: CGFloat = isLand ? max(safeL, 4) + 4 : 6
             let cardW = geo.size.width - hPad * 2
+            let toolbarTopInset = DeviceLayout.playerHeaderTopPadding
+            let bottomInset = max(DeviceLayout.safeAreaBottom + 8, DeviceLayout.playerBottomPadding)
             let cardH = isLand
-                ? geo.size.height - 16
-                : geo.size.height - DeviceLayout.headerTopPadding - DeviceLayout.playerBottomPadding - 20
+                ? geo.size.height - toolbarTopInset - 12
+                : geo.size.height - toolbarTopInset - bottomInset
 
             ZStack {
                 LinearGradient(colors: [bgTop, bgBot], startPoint: .topLeading, endPoint: .bottomTrailing)
                     .ignoresSafeArea()
 
                 VStack(spacing: 0) {
-                    Spacer(minLength: 0)
                     radioCard(cardW: cardW, cardH: cardH, isLand: isLand)
                     Spacer(minLength: 0)
                 }
                 .padding(.horizontal, hPad)
+                .padding(.top, toolbarTopInset)
+                .padding(.bottom, bottomInset)
 
                 if showMoreMenu {
                     PlayerMoreMenu(
@@ -164,9 +167,6 @@ struct RadioPlayerLayout: View {
             HStack(spacing: 8) {
                 skeuBtn(icon: .close, size: 32) { dismiss() }
                 ledBanner.frame(maxWidth: .infinity)
-                skeuBtn(icon: .immersive, size: 32) {
-                    ImmersiveModeController.shared.present()
-                }
                 skeuBtn(icon: .more, size: 32) {
                     withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) { showMoreMenu.toggle() }
                 }
@@ -335,11 +335,20 @@ struct RadioPlayerLayout: View {
         let cr: CGFloat = 20
         return VStack(alignment: .leading, spacing: isLand ? 10 : 8) {
             HStack(spacing: 10) {
-                if let url = player.currentSong?.coverUrl?.sized(200) {
-                    CachedAsyncImage(url: url) {
-                        RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.08))
+                if player.currentSong != nil {
+                    ZStack {
+                        if let url = player.currentSong?.coverUrl?.sized(200) {
+                            CachedAsyncImage(url: url) {
+                                RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.08))
+                            }
+                            .aspectRatio(contentMode: .fill)
+                        } else {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.white.opacity(0.08))
+                        }
+
+                        DynamicArtworkOverlay(cornerRadius: 8)
                     }
-                    .aspectRatio(contentMode: .fill)
                     .frame(width: isLand ? 52 : 48, height: isLand ? 52 : 48)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                     .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 2)

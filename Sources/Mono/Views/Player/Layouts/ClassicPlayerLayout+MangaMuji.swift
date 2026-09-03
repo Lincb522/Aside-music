@@ -5,7 +5,7 @@ extension ClassicPlayerLayout {
     func classicPlayerContent(geometry: GeometryProxy) -> some View {
         VStack(spacing: 0) {
             headerView
-                .padding(.top, DeviceLayout.headerTopPadding)
+                .padding(.top, DeviceLayout.playerHeaderTopPadding)
                 .padding(.bottom, 20)
 
             ZStack {
@@ -61,7 +61,7 @@ extension ClassicPlayerLayout {
     func mangaPlayerContent(geometry: GeometryProxy) -> some View {
         VStack(spacing: 0) {
             headerView
-                .padding(.top, DeviceLayout.headerTopPadding)
+                .padding(.top, DeviceLayout.playerHeaderTopPadding)
                 .padding(.bottom, 14)
 
             Group {
@@ -83,7 +83,7 @@ extension ClassicPlayerLayout {
     func mujiPlayerContent(geometry: GeometryProxy) -> some View {
         VStack(spacing: 0) {
             headerView
-                .padding(.top, DeviceLayout.headerTopPadding)
+                .padding(.top, DeviceLayout.playerHeaderTopPadding)
                 .padding(.bottom, 18)
 
             Group {

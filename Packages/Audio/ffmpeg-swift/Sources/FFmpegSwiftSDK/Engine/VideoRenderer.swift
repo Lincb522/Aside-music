@@ -41,13 +41,32 @@ final class VideoRenderer {
 
     /// Renders a decoded video frame.
     func render(_ frame: VideoFrame) {
+        enqueue(frame, displayImmediately: false)
+    }
+
+    /// Renders a frame whose pacing is controlled by the caller.
+    ///
+    /// This is used by the silent video pipeline. Its wall clock is independent
+    /// from the app's audio renderer, so the sample must not wait on an audio
+    /// timebase inside `AVSampleBufferDisplayLayer`.
+    func renderImmediately(_ frame: VideoFrame) {
+        enqueue(frame, displayImmediately: true)
+    }
+
+    private func enqueue(_ frame: VideoFrame, displayImmediately: Bool) {
         guard let sampleBuffer = createSampleBuffer(from: frame) else { return }
+        if displayImmediately {
+            markForImmediateDisplay(sampleBuffer)
+        }
 
         let layer = sampleBufferDisplayLayer
         let buffer = sampleBuffer
         renderQueue.async { [weak self] in
             guard let self, !self.isCleared else { return }
             DispatchQueue.main.async {
+                if layer.status == .failed {
+                    layer.flush()
+                }
                 layer.enqueue(buffer)
             }
         }
@@ -100,5 +119,24 @@ final class VideoRenderer {
         guard createStatus == noErr else { return nil }
 
         return sampleBuffer
+    }
+
+    private func markForImmediateDisplay(_ sampleBuffer: CMSampleBuffer) {
+        guard let attachments = CMSampleBufferGetSampleAttachmentsArray(
+            sampleBuffer,
+            createIfNecessary: true
+        ), CFArrayGetCount(attachments) > 0 else {
+            return
+        }
+
+        let attachment = unsafeBitCast(
+            CFArrayGetValueAtIndex(attachments, 0),
+            to: CFMutableDictionary.self
+        )
+        CFDictionarySetValue(
+            attachment,
+            Unmanaged.passUnretained(kCMSampleAttachmentKey_DisplayImmediately).toOpaque(),
+            Unmanaged.passUnretained(kCFBooleanTrue).toOpaque()
+        )
     }
 }

@@ -45,7 +45,7 @@ struct PosterPlayerLayout: View {
                     // 歌词模式 — 点击返回大字报
                     VStack(spacing: 0) {
                         lyricsTopBar
-                            .padding(.top, DeviceLayout.headerTopPadding)
+                            .padding(.top, DeviceLayout.playerHeaderTopPadding)
                             .zIndex(1)
                         
                         lyricsBody
@@ -59,7 +59,7 @@ struct PosterPlayerLayout: View {
                     // 大字报主体
                     VStack(spacing: 0) {
                         posterTopBar
-                            .padding(.top, DeviceLayout.headerTopPadding)
+                            .padding(.top, DeviceLayout.playerHeaderTopPadding)
                             .zIndex(1)
                         
                         bigTitleArea(geo: geo)
@@ -173,15 +173,6 @@ extension PosterPlayerLayout {
                 
                 Spacer()
                 
-                Button(action: { ImmersiveModeController.shared.present() }) {
-                    Text("沉浸")
-                        .font(.custom(posterFont, size: 16))
-                        .foregroundColor(fg)
-                        .frame(minWidth: 44, minHeight: 44)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(MonoBouncingButtonStyle())
-
                 Button(action: {
                     withAnimation(.easeInOut(duration: 0.1)) { showMoreMenu.toggle() }
                 }) {
@@ -283,6 +274,17 @@ extension PosterPlayerLayout {
                 }
         }
         .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 24 : 16)
+        .background {
+            if player.dynamicCoverUrl?.isEmpty == false {
+                ZStack {
+                    DynamicArtworkOverlay(cornerRadius: 0)
+                        .opacity(colorScheme == .dark ? 0.28 : 0.16)
+                    bg.opacity(colorScheme == .dark ? 0.58 : 0.72)
+                }
+                .clipped()
+                .allowsHitTesting(false)
+            }
+        }
     }
 }
 

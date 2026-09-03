@@ -288,6 +288,7 @@ enum MonoAudioTuningTool {
         tuningProfile: AIEqualizerTuningProfile,
         avoidingProfileNames: Set<String>,
         learningContext: AIEqualizerLearningContext?,
+        applyLearningAdjustments: Bool = true,
         deviceTuningTarget: AIEqualizerDeviceTuningTarget?
     ) throws -> AIEqualizerProposal {
         let enabledSkillIDs = Set(skillRuntime.enabledSkillIDs)
@@ -304,7 +305,7 @@ enum MonoAudioTuningTool {
             throw AIEqualizerError.invalidResponse
         }
         switch executionMode {
-        case .requiredModelTool, .appleIntelligenceLocalCompiler:
+        case .requiredModelTool, .appleIntelligenceLocalCompiler, .trainedCoreMLModel:
             guard modelToolInvocationCount == 1 else {
                 AppLogger.error(
                     "[MonoAudioTuningTool] Required model tool invocation count is invalid mode=\(executionMode.rawValue) count=\(modelToolInvocationCount)",
@@ -370,6 +371,7 @@ enum MonoAudioTuningTool {
             tuningProfile: tuningProfile,
             avoidingProfileNames: avoidingProfileNames,
             learningContext: learningContext,
+            applyLearningAdjustments: applyLearningAdjustments,
             deviceTuningTarget: deviceTuningTarget
         )
         let compiledReview = reviewCompiledProposal(proposal, features: features)

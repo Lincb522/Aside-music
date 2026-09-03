@@ -24,6 +24,7 @@ struct ClarityPlayerLayout: View {
 
                 VStack(spacing: 0) {
                     toolbar
+                        .padding(.top, DeviceLayout.headerTopPadding)
 
                     if metrics.usesWideLayout {
                         wideContent(metrics: metrics)
@@ -123,6 +124,10 @@ struct ClarityPlayerLayout: View {
             size: size,
             radius: min(38, size * 0.12)
         )
+        .overlay {
+            DynamicArtworkOverlay(cornerRadius: min(38, size * 0.12))
+                .frame(width: size, height: size)
+        }
         .overlay {
             RoundedRectangle(cornerRadius: min(38, size * 0.12), style: .continuous)
                 .stroke(Color.white.opacity(0.62), lineWidth: 1.1)
@@ -298,7 +303,8 @@ struct ClarityPlayerLayout: View {
             }
             .frame(maxWidth: metrics.maximumContentWidth)
             .padding(.horizontal, metrics.horizontalInset)
-            .padding(.vertical, 10)
+            .padding(.top, DeviceLayout.headerTopPadding)
+            .padding(.bottom, 10)
         }
     }
 

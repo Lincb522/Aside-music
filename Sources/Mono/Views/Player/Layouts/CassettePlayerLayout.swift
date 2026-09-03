@@ -80,7 +80,7 @@ struct CassettePlayerLayout: View {
 
                 VStack(spacing: 0) {
                     topBar
-                        .padding(.top, DeviceLayout.headerTopPadding)
+                        .padding(.top, DeviceLayout.playerHeaderTopPadding)
 
                     Spacer().frame(height: 16)
 
@@ -176,37 +176,43 @@ extension CassettePlayerLayout {
     private func cassetteBody(width: CGFloat) -> some View {
         let height = width * 0.58
 
-        return TimelineView(
-            AppFrameRate.animationTimeline(
-                maximumFramesPerSecond: 30,
-                paused: !player.isPlaying
-            )
-        ) { timeline in
-            let t = timeline.date.timeIntervalSinceReferenceDate
-            let isPlaying = player.isPlaying
+        return ZStack {
+            TimelineView(
+                AppFrameRate.animationTimeline(
+                    maximumFramesPerSecond: 30,
+                    paused: !player.isPlaying
+                )
+            ) { timeline in
+                let t = timeline.date.timeIntervalSinceReferenceDate
+                let isPlaying = player.isPlaying
 
-            Canvas { ctx, size in
-                let w = size.width
-                let h = size.height
+                Canvas { ctx, size in
+                    let w = size.width
+                    let h = size.height
 
-                // ── 1. 外壳 ──
-                drawShell(ctx: &ctx, w: w, h: h)
+                    // ── 1. 外壳 ──
+                    drawShell(ctx: &ctx, w: w, h: h)
 
-                // ── 2. 贴纸区域 ──
-                let labelRect = drawLabel(ctx: &ctx, w: w, h: h)
+                    // ── 2. 贴纸区域 ──
+                    let labelRect = drawLabel(ctx: &ctx, w: w, h: h)
 
-                // ── 3. 观景窗 ──
-                let winRect = drawWindow(ctx: &ctx, w: w, h: h, labelRect: labelRect)
+                    // ── 3. 观景窗 ──
+                    let winRect = drawWindow(ctx: &ctx, w: w, h: h, labelRect: labelRect)
 
-                // ── 4. 磁带卷轴 + 齿轮 ──
-                drawReels(ctx: &ctx, winRect: winRect, t: t, isPlaying: isPlaying)
+                    // ── 4. 磁带卷轴 + 齿轮 ──
+                    drawReels(ctx: &ctx, winRect: winRect, t: t, isPlaying: isPlaying)
 
-                // ── 5. 底部导带槽 ──
-                drawGuideSlot(ctx: &ctx, w: w, h: h)
+                    // ── 5. 底部导带槽 ──
+                    drawGuideSlot(ctx: &ctx, w: w, h: h)
+                }
             }
+            .drawingGroup()
+
+            DynamicArtworkOverlay(cornerRadius: 4)
+                .frame(width: height * 0.25, height: height * 0.25)
+                .offset(x: -width * 0.27, y: -height * 0.12)
         }
-        .frame(height: height)
-        .drawingGroup()
+        .frame(width: width, height: height)
     }
 
     /// 外壳：圆角矩形 + 底部梯形凸起 + 螺丝
@@ -462,16 +468,6 @@ extension CassettePlayerLayout {
             }
 
             Spacer()
-
-            Button(action: { ImmersiveModeController.shared.present() }) {
-                MonoIcon(icon: .immersive, size: 20, color: textPrimary)
-                    .frame(width: 44, height: 44)
-                    .background(shellColor)
-                    .clipShape(Circle())
-                    .overlay(Circle().stroke(strokeColor, lineWidth: 1))
-                    .contentShape(Circle())
-            }
-            .buttonStyle(MonoBouncingButtonStyle())
 
             Button(action: {
                 withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) { showMoreMenu.toggle() }

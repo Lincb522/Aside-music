@@ -60,22 +60,149 @@ extension PlayerManager {
         return song.maxQuality
     }
 
-    /// 根据歌曲来源加载动态封面（仅ncm）
+    /// 根据歌曲来源加载动态封面
     func loadSongExtras(for song: Song) {
+        let requestedIdentity = playbackIdentityKey(for: song)
+        guard SettingsManager.shared.animatedArtworkEnabled,
+              song.podcastRadioId == nil else {
+            dynamicCoverTask?.cancel()
+            dynamicCoverTask = nil
+            dynamicCoverTaskIdentity = nil
+            dynamicCoverResolvedIdentity = nil
+            dynamicCoverUrl = nil
+            return
+        }
+
+        if dynamicCoverTask != nil,
+           dynamicCoverTaskIdentity == requestedIdentity {
+            AppLogger.debug(
+                "[DynamicArtwork] 合并同一首歌曲的重复读取",
+                step: "player.dynamic-artwork",
+                category: .playback,
+                event: "duplicate_lookup_coalesced",
+                context: ["playbackIdentity": requestedIdentity]
+            )
+            return
+        }
+        if dynamicCoverResolvedIdentity == requestedIdentity {
+            return
+        }
+
+        dynamicCoverTask?.cancel()
+        dynamicCoverTask = nil
+        dynamicCoverTaskIdentity = nil
+        dynamicCoverResolvedIdentity = nil
         dynamicCoverUrl = nil
-        if !song.isQQMusic && !song.isQishui && !song.isKugou && !song.isAppleMusic {
-            loadDynamicCover(songId: song.id)
+        let identity = requestedIdentity
+        AppLogger.debug(
+            "[DynamicArtwork] 已为当前歌曲安排动态封面读取",
+            step: "player.dynamic-artwork",
+            category: .playback,
+            event: "playback_lookup_scheduled",
+            context: [
+                "playbackIdentity": identity,
+                "songSource": song.musicSource.rawValue,
+            ]
+        )
+        dynamicCoverTaskIdentity = identity
+        dynamicCoverTask = Task { @MainActor [weak self] in
+            var resolvedURL: URL?
+            var resolver = "appleMusic"
+
+            if song.musicSource == .netease {
+                do {
+                    resolvedURL = try await APIService.shared.songDynamicCoverURL(id: song.id)
+                    if resolvedURL != nil { resolver = "netease" }
+                } catch is CancellationError {
+                    return
+                } catch {
+                    AppLogger.warning(
+                        "[NCMDynamicArtwork] NCM 动态封面读取失败，继续匹配 Apple Music：\(error.localizedDescription)",
+                        step: "ncm.dynamic-artwork",
+                        category: .playback,
+                        event: "native_lookup_failed",
+                        context: ["playbackIdentity": identity]
+                    )
+                }
+            }
+
+            if resolvedURL == nil, !Task.isCancelled {
+                resolvedURL = await AppleMusicService.shared.animatedArtworkURL(matching: song)
+                resolver = "appleMusic"
+            }
+
+            guard !Task.isCancelled else {
+                AppLogger.debug(
+                    "[DynamicArtwork] 播放事务已取消动态封面结果",
+                    step: "player.dynamic-artwork",
+                    category: .playback,
+                    event: "playback_result_cancelled",
+                    context: ["playbackIdentity": identity]
+                )
+                if self?.dynamicCoverTaskIdentity == identity {
+                    self?.dynamicCoverTask = nil
+                    self?.dynamicCoverTaskIdentity = nil
+                }
+                return
+            }
+            guard let self else { return }
+            guard SettingsManager.shared.animatedArtworkEnabled,
+                  let currentSong = self.currentSong,
+                  self.playbackIdentityKey(for: currentSong) == identity else {
+                AppLogger.debug(
+                    "[DynamicArtwork] 当前歌曲或设置已变化，丢弃过期结果",
+                    step: "player.dynamic-artwork",
+                    category: .playback,
+                    event: "stale_result_discarded",
+                    context: ["playbackIdentity": identity]
+                )
+                if self.dynamicCoverTaskIdentity == identity {
+                    self.dynamicCoverTask = nil
+                    self.dynamicCoverTaskIdentity = nil
+                }
+                return
+            }
+
+            self.dynamicCoverUrl = resolvedURL?.absoluteString
+            self.dynamicCoverResolvedIdentity = identity
+            self.dynamicCoverTask = nil
+            self.dynamicCoverTaskIdentity = nil
+            if let resolvedURL {
+                AppLogger.success(
+                    "[DynamicArtwork] 动态封面已提交到播放器",
+                    step: "player.dynamic-artwork",
+                    category: .playback,
+                    event: "player_asset_applied",
+                    context: [
+                        "playbackIdentity": identity,
+                        "resolver": resolver,
+                        "assetHost": resolvedURL.host ?? "unknown",
+                    ]
+                )
+            } else {
+                AppLogger.info(
+                    "[DynamicArtwork] 当前歌曲使用静态封面",
+                    step: "player.dynamic-artwork",
+                    category: .playback,
+                    event: "player_static_fallback",
+                    context: [
+                        "playbackIdentity": identity,
+                        "songSource": song.musicSource.rawValue,
+                    ]
+                )
+            }
         }
     }
 
-    private func loadDynamicCover(songId: Int) {
-        APIService.shared.fetchSongDynamicCover(id: songId)
-            .receive(on: DispatchQueue.main)
-            .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] url in
-                guard let self = self, self.currentSong?.id == songId else { return }
-                self.dynamicCoverUrl = url
-            })
-            .store(in: &cancellables)
+    func refreshDynamicArtworkPreference() {
+        dynamicCoverTask?.cancel()
+        dynamicCoverTask = nil
+        dynamicCoverTaskIdentity = nil
+        dynamicCoverResolvedIdentity = nil
+        dynamicCoverUrl = nil
+        guard SettingsManager.shared.animatedArtworkEnabled,
+              let currentSong else { return }
+        loadSongExtras(for: currentSong)
     }
 
     // MARK: - 队列导航
@@ -659,6 +786,10 @@ extension PlayerManager {
         qualitySwitchCancellable = nil
         manualSwitchPreparationTask?.cancel()
         manualSwitchPreparationTask = nil
+        dynamicCoverTask?.cancel()
+        dynamicCoverTask = nil
+        dynamicCoverTaskIdentity = nil
+        dynamicCoverResolvedIdentity = nil
         manualPreparedSwitchSessionId = nil
         qualitySwitchPollWorkItem?.cancel()
         qualitySwitchPollWorkItem = nil

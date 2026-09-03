@@ -627,16 +627,7 @@ extension ClassicPlayerLayout {
                         .disabled(downloadManager.isDownloaded(songId: song.id))
                         .frame(width: 44)
                     } else {
-                        // 沉浸模式按钮 — 占用原下载按钮的位置
-                        Button {
-                            ImmersiveModeController.shared.present()
-                        } label: {
-                            MonoIcon(icon: .immersive, size: 22, color: secondaryContentColor, lineWidth: 1.4)
-                                .frame(width: 44, height: 44)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(MonoBouncingButtonStyle())
-                        .frame(width: 44)
+                        Color.clear.frame(width: 44, height: 44)
                     }
                 }
             }

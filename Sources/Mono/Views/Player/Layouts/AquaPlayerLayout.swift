@@ -76,6 +76,14 @@ struct AquaPlayerLayout: View {
                 // 1. 全屏卡通背景层
                 ZStack {
                     bgColor
+
+                    if player.dynamicCoverUrl?.isEmpty == false {
+                        DynamicArtworkOverlay(cornerRadius: 0)
+                            .opacity(colorScheme == .dark ? 0.24 : 0.16)
+                        bgColor.opacity(colorScheme == .dark ? 0.42 : 0.58)
+                            .allowsHitTesting(false)
+                    }
+
                     cartoonWater(waterRatio: ratio)
                         .allowsHitTesting(false)
                     
@@ -86,7 +94,7 @@ struct AquaPlayerLayout: View {
 
                 // 2. 界面内容层 (受制于安全区)
                 VStack(spacing: 0) {
-                    topBar.padding(.top, DeviceLayout.headerTopPadding)
+                    topBar.padding(.top, DeviceLayout.playerHeaderTopPadding)
 
                     // 歌曲信息和歌词完全整合在中间
                     VStack(spacing: 16) {
@@ -338,14 +346,6 @@ extension AquaPlayerLayout {
             }
 
             Spacer()
-
-            Button(action: { ImmersiveModeController.shared.present() }) {
-                MonoIcon(icon: .immersive, size: 20, color: textPrimary)
-                    .frame(width: 40, height: 40)
-                    .monoGlassCircle()
-                    .contentShape(Circle())
-            }
-            .buttonStyle(MonoBouncingButtonStyle())
 
             Button(action: {
                 withAnimation(.easeInOut(duration: 0.1)) { showMoreMenu.toggle() }

@@ -57,7 +57,7 @@ struct VinylPlayerLayout: View {
                 VStack(spacing: 0) {
                     // 顶栏（极简）
                     headerBar
-                        .padding(.top, DeviceLayout.headerTopPadding)
+                        .padding(.top, DeviceLayout.playerHeaderTopPadding)
                         .padding(.bottom, 4)
 
                     // 唱片 + 唱臂 / 歌词 切换区域
@@ -732,16 +732,7 @@ extension VinylPlayerLayout {
                         .disabled(downloadManager.isDownloaded(songId: song.id))
                         .frame(width: 44)
                     } else {
-                        // 沉浸模式按钮 — 占用原下载按钮的位置
-                        Button {
-                            ImmersiveModeController.shared.present()
-                        } label: {
-                            MonoIcon(icon: .immersive, size: 22, color: secondaryColor, lineWidth: 1.4)
-                                .frame(width: 44, height: 44)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(MonoBouncingButtonStyle())
-                        .frame(width: 44)
+                        Color.clear.frame(width: 44, height: 44)
                     }
                 } else {
                     Color.clear

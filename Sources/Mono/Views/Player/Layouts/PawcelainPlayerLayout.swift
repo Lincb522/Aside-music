@@ -35,7 +35,7 @@ struct PawcelainPlayerLayout: View {
             GeometryReader { proxy in
                 VStack(spacing: 0) {
                     headerBar
-                        .padding(.top, DeviceLayout.headerTopPadding)
+                        .padding(.top, DeviceLayout.playerHeaderTopPadding)
                         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
 
                     if usesWideLayout(in: proxy.size) {
@@ -198,6 +198,9 @@ struct PawcelainPlayerLayout: View {
                 } else {
                     PetWhiteMascotMark(kind: .pair, size: side * 0.38)
                 }
+
+                DynamicArtworkOverlay(cornerRadius: 34)
+                    .frame(width: side, height: side)
             }
             .frame(width: side, height: side)
             .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))

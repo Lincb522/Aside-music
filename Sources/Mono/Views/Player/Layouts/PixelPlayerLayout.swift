@@ -45,7 +45,7 @@ struct PixelPlayerLayout: View {
         GeometryReader { geo in
             ZStack {
                 VStack(spacing: 0) {
-                    topBar.padding(.top, DeviceLayout.headerTopPadding)
+                    topBar.padding(.top, DeviceLayout.playerHeaderTopPadding)
                     crtScreen(geo: geo)
                         .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 20 : 12)
                         .padding(.top, 6)
@@ -374,6 +374,9 @@ extension PixelPlayerLayout {
             } else {
                 pixelPlaceholder(size: artSize)
             }
+
+            DynamicArtworkOverlay(cornerRadius: 0)
+                .frame(width: artSize, height: artSize)
             
             // 像素网格叠加
             pixelGrid(size: artSize)
@@ -744,11 +747,6 @@ extension PixelPlayerLayout {
                             if !downloadManager.isDownloaded(songId: song.id) {
                                 showDownloadSheet = true
                             }
-                        }
-                    } else {
-                        // 沉浸模式按钮 — 占用原下载按钮的位置
-                        funcButton(icon: .immersive) {
-                            ImmersiveModeController.shared.present()
                         }
                     }
                 }

@@ -1,4 +1,5 @@
 const path = require('path')
+const { mergePlaylistSnapshotCompatibility } = require('./playlist-snapshot-compat')
 
 function createCloudSnapshotStore({ directory, cacheEntries = 8, logger = console }) {
   const { DatabaseSync } = require('node:sqlite')
@@ -95,16 +96,20 @@ function createCloudSnapshotStore({ directory, cacheEntries = 8, logger = consol
       return
     }
 
-    const payload = JSON.stringify(snapshot)
+    const compatibleSnapshot = mergePlaylistSnapshotCompatibility(
+      snapshot,
+      readSnapshot(tokenId)
+    )
+    const payload = JSON.stringify(compatibleSnapshot)
     upsertSnapshot.run(
       tokenId,
       payload,
-      snapshot.revision || null,
-      Number.isInteger(snapshot.version) ? snapshot.version : null,
-      snapshot.updatedAt || null,
+      compatibleSnapshot.revision || null,
+      Number.isInteger(compatibleSnapshot.version) ? compatibleSnapshot.version : null,
+      compatibleSnapshot.updatedAt || null,
       new Date().toISOString()
     )
-    cacheSnapshot(tokenId, snapshot)
+    cacheSnapshot(tokenId, compatibleSnapshot)
   }
 
   function attachToken(token) {

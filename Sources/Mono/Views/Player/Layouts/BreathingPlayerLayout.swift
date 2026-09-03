@@ -473,6 +473,7 @@ extension BreathingPlayerLayout {
                 subduedTextColor: subduedTextColor,
                 colorScheme: colorScheme,
                 coverURL: player.currentSong?.coverUrl?.sized(800),
+                dynamicCoverURL: player.dynamicCoverUrl,
                 isPlaying: player.isPlaying
             )
             .offset(x: dragTranslation.width * 0.18, y: dragTranslation.height * 0.12)
@@ -529,6 +530,7 @@ private struct BreathingOrbVisual: View {
     let subduedTextColor: Color
     let colorScheme: ColorScheme
     let coverURL: URL?
+    let dynamicCoverURL: String?
     let isPlaying: Bool
 
     var body: some View {
@@ -609,21 +611,26 @@ private struct BreathingOrbVisual: View {
             twist: drift * 0.25
         )
 
-        if let coverURL {
-            CachedAsyncImage(url: coverURL) {
-                Rectangle()
-                    .fill(textColor.opacity(0.08))
+        ZStack {
+            if let coverURL {
+                CachedAsyncImage(url: coverURL) {
+                    Rectangle()
+                        .fill(textColor.opacity(0.08))
+                }
+                .aspectRatio(contentMode: .fill)
+                .saturation(colorScheme == .dark ? 0.95 : 1.10)
+                .contrast(colorScheme == .dark ? 1.05 : 1.12)
+            } else {
+                innerShape
+                    .fill(textColor.opacity(colorScheme == .dark ? 0.10 : 0.08))
             }
-            .aspectRatio(contentMode: .fill)
-            .frame(width: coreSize * 0.92, height: coreSize * 0.92)
-            .saturation(colorScheme == .dark ? 0.95 : 1.10)
-            .contrast(colorScheme == .dark ? 1.05 : 1.12)
-            .clipShape(innerShape)
-        } else {
-            innerShape
-                .fill(textColor.opacity(colorScheme == .dark ? 0.10 : 0.08))
-                .padding(coreSize * 0.12)
+
+            if let dynamicCoverURL, !dynamicCoverURL.isEmpty {
+                DynamicCoverView(urlString: dynamicCoverURL, cornerRadius: 0)
+            }
         }
+            .frame(width: coreSize * 0.92, height: coreSize * 0.92)
+            .clipShape(innerShape)
     }
 
     private var highlightOverlay: some View {
@@ -696,22 +703,6 @@ extension BreathingPlayerLayout {
                 .buttonStyle(MonoBouncingButtonStyle(scale: 0.94))
 
                 Spacer()
-
-                Button {
-                    ImmersiveModeController.shared.present()
-                } label: {
-                    MonoIcon(icon: .immersive, size: 17, color: textColor.opacity(0.92), lineWidth: 1.5)
-                        .frame(width: 42, height: 42)
-                        .background(
-                            Circle()
-                                .fill(.ultraThinMaterial.opacity(colorScheme == .dark ? 0.76 : 0.94))
-                        )
-                        .overlay(
-                            Circle()
-                                .stroke(textColor.opacity(0.06), lineWidth: 1)
-                        )
-                }
-                .buttonStyle(MonoBouncingButtonStyle(scale: 0.94))
 
                 Button {
                     withAnimation(.spring(response: 0.25, dampingFraction: 0.86)) {
