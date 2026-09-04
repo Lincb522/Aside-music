@@ -116,6 +116,18 @@ extension AIEqualizerAgent {
         guard let pending = pendingManualEqualizerLearning else { return }
         pendingManualEqualizerLearning = nil
         guard learningStore.recordManualEqualizerAdjustment(pending) else { return }
+        // The cloud sample for the proposal the listener was hearing gets the
+        // curve they settled on; the trainer turns it into a delta label.
+        if let heard = activeLearningSession?.proposal ?? proposal,
+           heard.graphicEQMode == pending.graphicEQMode,
+           heard.gains.count == pending.adjustedGains.count {
+            proposalCache.recordTrainingOutcome(
+                proposalID: heard.id,
+                feedback: .manualEqualizer,
+                listenedSeconds: activeLearningSession?.listenedSeconds ?? 0,
+                manualGainsDB: pending.adjustedGains
+            )
+        }
         refreshLearningRecords()
         let maximumDelta = zip(pending.previousGains, pending.adjustedGains)
             .map { abs($0 - $1) }

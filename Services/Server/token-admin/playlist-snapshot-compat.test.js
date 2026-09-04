@@ -33,8 +33,8 @@ const skills = {
   }]
 }
 
-test('v5 is the current cloud snapshot protocol', () => {
-  assert.equal(CLOUD_SNAPSHOT_VERSION, 5)
+test('v6 is the current cloud snapshot protocol', () => {
+  assert.equal(CLOUD_SNAPSHOT_VERSION, 6)
   assert.equal(AI_TRAINING_SAMPLES_VERSION, 5)
 })
 
@@ -102,6 +102,21 @@ test('compatibility merge preserves v5 samples while accepting an old client pay
   )
   assert.deepEqual(merged.aiEqualizer.trainingSamples, samples)
   assert.deepEqual(merged.aiEqualizer.savedProposals, {})
+})
+
+test('v6 clients upload samples through the dedicated intake, so an omitted field keeps embedded v5 samples', () => {
+  const samples = { proposal: { schemaVersion: 4 } }
+  const merged = mergePlaylistSnapshotCompatibility(
+    { version: 6, playlists: [], aiEqualizer: { cachedProposals: {}, savedProposals: {} } },
+    { version: 5, aiEqualizer: { trainingSamples: samples } }
+  )
+  assert.deepEqual(merged.aiEqualizer.trainingSamples, samples)
+  // A v5 client that explicitly sends an empty object still clears them.
+  const cleared = mergePlaylistSnapshotCompatibility(
+    { version: 5, playlists: [], aiEqualizer: { cachedProposals: {}, savedProposals: {}, trainingSamples: {} } },
+    { version: 5, aiEqualizer: { trainingSamples: samples } }
+  )
+  assert.deepEqual(cleared.aiEqualizer.trainingSamples, {})
 })
 
 test('summary counts explicit built-in overrides and custom skills', () => {

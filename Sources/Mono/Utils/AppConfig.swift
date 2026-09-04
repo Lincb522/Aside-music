@@ -121,6 +121,8 @@ enum AppConfig {
         static let playlistSyncLastRemoteRevision = "mono_playlist_sync_last_remote_revision"
         static let playlistSyncLastTokenFingerprint = "mono_playlist_sync_last_token_fingerprint"
         static let playlistSyncLastAutomaticUploadSlot = "mono_playlist_sync_last_automatic_upload_slot"
+        static let trainingSampleUploadPending = "mono_training_sample_upload_pending_v1"
+        static let trainingSampleUploadStamps = "mono_training_sample_upload_stamps_v1"
         static let playlistSyncLastAutomaticRefreshSlot = "mono_playlist_sync_last_automatic_refresh_slot"
         static let playlistSyncAutoEnabled = "mono_playlist_sync_auto_enabled"
         static let playlistSyncDeleteCloudSnapshot = "mono_playlist_sync_delete_cloud_snapshot"

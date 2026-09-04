@@ -269,3 +269,6 @@ __pycache__/
 DesignAssets/AsideIconSystem/aside-design-dna.md
 *.mov
 /artifacts/
+/DesignAssets/Branding/GitHubCatPawStyle/GitHubCatPawStyle-1024.png
+/DesignAssets/Branding/GitHubCatPawStyle/GitHubCatPawStyle-source.png
+/DesignAssets/Branding/GitHubCatPawStyle/GitHubCatPawStyle.svg

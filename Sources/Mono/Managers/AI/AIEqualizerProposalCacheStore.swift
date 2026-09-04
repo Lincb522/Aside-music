@@ -32,6 +32,33 @@ final class AIEqualizerProposalCacheStore {
         trainingSamples = Self.restoreTrainingSamples()
         removeExpiredEntries()
         pruneTrainingSamples()
+        AITrainingSampleUploader.shared.attach(sampleSource: self)
+    }
+
+    func trainingSamples(withIDs ids: Set<String>) -> [String: CloudAIEqualizerTrainingSample] {
+        var result: [String: CloudAIEqualizerTrainingSample] = [:]
+        for id in ids {
+            if let sample = trainingSamples[id] {
+                result[id] = sample
+            }
+        }
+        return result
+    }
+
+    /// Keeps the newest `limit` samples plus anything still waiting for upload;
+    /// everything older has already reached the cloud and is not needed locally.
+    func pruneUploadedTrainingSamples(keeping limit: Int, protecting pendingIDs: Set<String>) {
+        guard trainingSamples.count > limit else { return }
+        let ordered = trainingSamples.values.sorted {
+            ($0.outcomeUpdatedAt ?? $0.capturedAt) > ($1.outcomeUpdatedAt ?? $1.capturedAt)
+        }
+        var keep = Set(ordered.prefix(limit).map { $0.id.uuidString.lowercased() })
+        keep.formUnion(pendingIDs)
+        let before = trainingSamples.count
+        trainingSamples = trainingSamples.filter { keep.contains($0.key) }
+        if trainingSamples.count != before {
+            persistTrainingSamples()
+        }
     }
 
     func value(
@@ -100,6 +127,15 @@ final class AIEqualizerProposalCacheStore {
               proposal.skillCompliance?.localValidationApplied == true else {
             return
         }
+        // Output of the on-device model (or the local heuristic compiler) is not
+        // supervision; uploading it would train the next model on itself.
+        guard !Self.isSelfGenerated(proposal) else {
+            AppLogger.info(
+                "[AIEqualizerAgent] Skipped training sample for self-generated proposal song=\(songIdentifier) mode=\(proposal.skillCompliance?.executionMode.rawValue ?? "unknown")",
+                step: "ai-tuning.training-sample-skipped"
+            )
+            return
+        }
         let sample = CloudAIEqualizerTrainingSample(
             proposal: proposal,
             features: features,
@@ -113,6 +149,7 @@ final class AIEqualizerProposalCacheStore {
         trainingSamples[proposal.id.uuidString.lowercased()] = sample
         pruneTrainingSamples()
         persistTrainingSamples()
+        AITrainingSampleUploader.shared.enqueue(sampleID: proposal.id)
     }
 
     func shouldRecord(
@@ -143,6 +180,7 @@ final class AIEqualizerProposalCacheStore {
         proposalID: UUID,
         feedback: AIEqualizerLearningFeedback,
         listenedSeconds: TimeInterval,
+        manualGainsDB: [Float]? = nil,
         now: Date = Date()
     ) {
         let key = proposalID.uuidString.lowercased()
@@ -150,8 +188,28 @@ final class AIEqualizerProposalCacheStore {
         sample.feedback = feedback
         sample.listenedSeconds = max(0, listenedSeconds)
         sample.outcomeUpdatedAt = now
+        // The listener's final curve is the label a manual edit actually
+        // carries; the trainer uses it as a delta against the heard proposal.
+        if feedback == .manualEqualizer,
+           let manualGainsDB,
+           manualGainsDB.count == sample.target.gains.count,
+           manualGainsDB.allSatisfy(\.isFinite) {
+            sample.manualGainsDB = manualGainsDB
+        } else if feedback != .manualEqualizer {
+            sample.manualGainsDB = nil
+        }
         trainingSamples[key] = sample
         persistTrainingSamples()
+        AITrainingSampleUploader.shared.enqueue(sampleID: proposalID)
+    }
+
+    static func isSelfGenerated(_ proposal: AIEqualizerProposal) -> Bool {
+        switch proposal.skillCompliance?.executionMode {
+        case .trainedCoreMLModel, .appleIntelligenceLocalCompiler:
+            return true
+        case .requiredModelTool, .modelPromptFallback, .none:
+            return proposal.provider == .appleIntelligence
+        }
     }
 
     func history(for songIdentifier: String, now: Date = Date()) -> [AIEqualizerSavedProposal] {
@@ -167,6 +225,7 @@ final class AIEqualizerProposalCacheStore {
         }
         values = values.filter { $0.value.id != entry.id }
         trainingSamples.removeValue(forKey: entry.id.uuidString.lowercased())
+        AITrainingSampleUploader.shared.forget(sampleIDs: [entry.id])
         persist()
         persistHistory()
         persistTrainingSamples()
@@ -177,6 +236,7 @@ final class AIEqualizerProposalCacheStore {
         histories.removeValue(forKey: songIdentifier)
         values = values.filter { !ids.contains($0.value.id) }
         trainingSamples = trainingSamples.filter { !ids.contains($0.value.id) }
+        AITrainingSampleUploader.shared.forget(sampleIDs: Array(ids))
         persist()
         persistHistory()
         persistTrainingSamples()
@@ -190,18 +250,22 @@ final class AIEqualizerProposalCacheStore {
         values.removeAll()
         histories.removeAll()
         trainingSamples.removeAll()
+        AITrainingSampleUploader.shared.forgetAll()
         persist()
         persistHistory()
         persistTrainingSamples()
     }
 
+    /// Protocol v6: complete samples travel through the dedicated training
+    /// intake, so the snapshot only carries proposals. Samples embedded by older
+    /// clients are preserved server-side and still merged on restore.
     func makeCloudSnapshot() -> CloudAIEqualizerSnapshot? {
         removeExpiredEntries()
-        guard !values.isEmpty || !histories.isEmpty || !trainingSamples.isEmpty else { return nil }
+        guard !values.isEmpty || !histories.isEmpty else { return nil }
         return CloudAIEqualizerSnapshot(
             cachedProposals: values,
             savedProposals: histories,
-            trainingSamples: trainingSamples.isEmpty ? nil : trainingSamples
+            trainingSamples: nil
         )
     }
 

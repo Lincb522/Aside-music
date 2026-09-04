@@ -19,6 +19,10 @@ const {
   createAudioTuningTrainingService,
   installAudioTuningTrainingRoutes
 } = require(`${songContentRoot}/audio-tuning-training`)
+const {
+  createTrainingSampleStore,
+  installTrainingSampleRoutes
+} = require(`${songContentRoot}/audio-training-samples`)
 
 /**
  * Mounts the song-content API on the existing token Express application.
@@ -142,9 +146,21 @@ function installTokenSongContent({
     logger
   })
 
+  // Complete tuning samples arrive through their own bounded intake instead of
+  // riding inside the full playlist snapshot.
+  const trainingSampleStore = createTrainingSampleStore({ directory: dataDirectory, logger })
+  installTrainingSampleRoutes({
+    app,
+    store: trainingSampleStore,
+    publicAccessMiddleware,
+    publicRateLimit,
+    logger
+  })
+
   const audioTrainingService = createAudioTuningTrainingService({
     directory: path.join(dataDirectory, 'audio-training'),
     cloudDatabasePath: path.join(dataDirectory, 'cloud-storage.sqlite'),
+    trainingSampleDatabasePath: trainingSampleStore.databasePath,
     coreMLPythonPath: process.env.AUDIO_TRAINING_PYTHON
       || path.join(dataDirectory, 'audio-training-runtime', 'bin', 'python'),
     logger
@@ -171,8 +187,10 @@ function installTokenSongContent({
   service.configStore = configStore
   service.announcementService = announcementService
   service.audioTrainingService = audioTrainingService
+  service.trainingSampleStore = trainingSampleStore
   service.close = () => {
     audioTrainingService.close()
+    trainingSampleStore.close()
     announcementService.close()
     configStore.close()
     closeService()

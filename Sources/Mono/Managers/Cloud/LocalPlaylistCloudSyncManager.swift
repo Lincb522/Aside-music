@@ -187,6 +187,9 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
         defer { isSyncing = false }
 
         let response = try await APIService.shared.deleteCloudPlaylistSnapshot()
+        // Clearing cloud data also removes this account's training samples.
+        try? await APIService.shared.deleteTrainingSamples()
+        AITrainingSampleUploader.shared.forgetAll()
         persistRemoteRevision(nil)
         persistSyncState(date: response.updatedAt)
 
@@ -214,6 +217,8 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
         localContentSummary = Self.contentSummary(for: snapshot)
         let response = try await APIService.shared.uploadCloudPlaylistSnapshot(snapshot)
         let localAIPlanCount = localContentSummary.aiTuningPlans
+        // Complete samples no longer travel in the snapshot (protocol v6); the
+        // dedicated uploader verifies them per batch instead.
         let localTrainingSampleCount = snapshot.aiEqualizer?.trainingSamples?.count ?? 0
         let remoteAIPlanCount = response.aiTuningPlanCount ?? localAIPlanCount
         let remoteTrainingSampleCount = response.aiTrainingSampleCount ?? localTrainingSampleCount
@@ -226,6 +231,7 @@ final class LocalPlaylistCloudSyncManager: ObservableObject {
                 remoteSamples: remoteTrainingSampleCount
             )
         }
+        await AITrainingSampleUploader.shared.flush()
         // 只把本次实际上传的内容记为同步基线。网络请求期间若本地又有
         // 变化，后续比较仍能发现差异并补传，不会误判为已经上云。
         lastObservedDigest = Self.digest(for: snapshot)

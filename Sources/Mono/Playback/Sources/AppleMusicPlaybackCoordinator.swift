@@ -20,7 +20,14 @@ final class AppleMusicPlaybackCoordinator {
 
     unowned let player: PlayerManager
 
-    private let musicPlayer: ApplicationMusicPlayer
+    /// `ApplicationMusicPlayer.shared` 一旦被访问就会常驻：MusicKit 会在内部
+    /// 创建 MPMusicPlayerApplicationController 并开始监听 media server 的
+    /// 播放状态通知；之后每次回前台、每次系统播放状态变化，MusicKit 都会在
+    /// 主线程同步读取 `playbackState`（同步 XPC）。这条路径不经过 Mono 代码，
+    /// media server 一旦无响应就直接触发 scene-update 0x8BADF00D。
+    /// 因此只有真正开始播放 Apple Music 时才创建它；从未使用 Apple Music 的
+    /// 用户永远不会碰到这条 XPC 链路。
+    private var musicPlayer: ApplicationMusicPlayer?
     private var activeCatalogID: String?
     private var activeRequestedIdentity: String?
     private var lastPlaybackTime: TimeInterval = 0
@@ -54,7 +61,20 @@ final class AppleMusicPlaybackCoordinator {
 
     init(player: PlayerManager) {
         self.player = player
-        self.musicPlayer = ApplicationMusicPlayer.shared
+    }
+
+    /// 是否已经实例化过 MusicKit 播放器。用于诊断和避免无意义的 stop() 调用。
+    var hasInstantiatedMusicPlayer: Bool { musicPlayer != nil }
+
+    private func resolvedMusicPlayer() -> ApplicationMusicPlayer {
+        if let musicPlayer { return musicPlayer }
+        AppLogger.info(
+            "[AppleMusic] 首次创建 ApplicationMusicPlayer.shared",
+            step: "apple-music.player"
+        )
+        let created = ApplicationMusicPlayer.shared
+        musicPlayer = created
+        return created
     }
 
     func start(
@@ -76,6 +96,7 @@ final class AppleMusicPlaybackCoordinator {
         // 不在主线程读取或修改 MusicKit `state`。该对象会隐式请求
         // playbackState 快照，在 Scene 创建阶段可能同步阻塞 MediaPlayer。
         // Mono 使用单项 MusicKit 队列并在本地时钟到达结尾时主动切歌。
+        let musicPlayer = resolvedMusicPlayer()
         musicPlayer.queue = ApplicationMusicPlayer.Queue(
             for: [catalogSong],
             startingAt: catalogSong
@@ -150,7 +171,7 @@ final class AppleMusicPlaybackCoordinator {
 
     @discardableResult
     func resume() async throws -> Bool {
-        guard isActive else { return false }
+        guard isActive, let musicPlayer else { return false }
         try await musicPlayer.play()
         let playbackTime = resolvedLocalPlaybackTime()
         updateLocalPlaybackClock(position: playbackTime, isPlaying: true)
@@ -172,7 +193,7 @@ final class AppleMusicPlaybackCoordinator {
 
     @discardableResult
     func pause() -> Bool {
-        guard isActive else { return false }
+        guard isActive, let musicPlayer else { return false }
         let playbackTime = resolvedLocalPlaybackTime()
         musicPlayer.pause()
         lastPlaybackTime = playbackTime
@@ -194,7 +215,7 @@ final class AppleMusicPlaybackCoordinator {
 
     @discardableResult
     func seek(to time: TimeInterval) -> Bool {
-        guard isActive else { return false }
+        guard isActive, let musicPlayer else { return false }
         let duration = player.effectivePlaybackDuration
         let target = duration > 0
             ? min(max(time, 0), duration)
@@ -291,10 +312,13 @@ final class AppleMusicPlaybackCoordinator {
         activeCatalogID = nil
         activeRequestedIdentity = nil
         activeArtworkURL = nil
-        musicPlayer.stop()
+        musicPlayer?.stop()
     }
 
     func stopAndReset() {
+        // 该方法在“停止并清空”“收起迷你播放器”等通用路径上被调用，
+        // 绝大多数时候当前根本不是 Apple Music 播放。从未播过 Apple Music
+        // 的会话里绝不能在这里顺手创建 MusicKit 播放器。
         stopLocalPlaybackClock()
         artworkResolutionTask?.cancel()
         artworkResolutionTask = nil
@@ -305,7 +329,7 @@ final class AppleMusicPlaybackCoordinator {
         activeRequestedIdentity = nil
         activeArtworkURL = nil
         lastPlaybackTime = 0
-        musicPlayer.stop()
+        musicPlayer?.stop()
     }
 
     private func resetLocalPlaybackClock(

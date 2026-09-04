@@ -2,7 +2,11 @@
 
 const AUDIO_AGENT_SKILLS_VERSION = 4
 const AI_TRAINING_SAMPLES_VERSION = 5
-const CLOUD_SNAPSHOT_VERSION = 5
+// From v6 the App uploads complete samples through the dedicated
+// training-sample intake and omits them from the snapshot. Samples embedded
+// by older clients are preserved untouched (never grown, never erased).
+const DEDICATED_TRAINING_SAMPLES_VERSION = 6
+const CLOUD_SNAPSHOT_VERSION = 6
 const MAX_CLOUD_AI_CACHE_ENTRIES = 1_024
 const MAX_CLOUD_AI_HISTORY_ENTRIES = 2_000
 const MAX_CLOUD_AI_HISTORY_PER_SONG = 50
@@ -68,7 +72,7 @@ function normalizeAIEqualizerSnapshot(value, {
   const proposalMetadata = Object.fromEntries(metadataEntries)
 
   const trainingValue = value.trainingSamples === undefined
-    && clientVersion < AI_TRAINING_SAMPLES_VERSION
+    && clientDoesNotOwnEmbeddedSamples(clientVersion)
     ? previousValue?.trainingSamples
     : value.trainingSamples
   const trainingEntries = isPlainObject(trainingValue)
@@ -91,8 +95,13 @@ function normalizeAIEqualizerSnapshot(value, {
     : null
 }
 
+function clientDoesNotOwnEmbeddedSamples(clientVersion) {
+  return clientVersion < AI_TRAINING_SAMPLES_VERSION
+    || clientVersion >= DEDICATED_TRAINING_SAMPLES_VERSION
+}
+
 function resolveAITrainingSamples(value, previousValue, clientVersion) {
-  if (value === undefined && clientVersion < AI_TRAINING_SAMPLES_VERSION) {
+  if (value === undefined && clientDoesNotOwnEmbeddedSamples(clientVersion)) {
     return normalizeAITrainingSamples(previousValue)
   }
   return normalizeAITrainingSamples(value)

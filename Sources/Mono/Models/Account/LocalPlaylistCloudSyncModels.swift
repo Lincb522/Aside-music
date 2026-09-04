@@ -401,6 +401,9 @@ struct CloudAIEqualizerTrainingSample: Codable, Equatable, Sendable {
     var feedback: AIEqualizerLearningFeedback?
     var listenedSeconds: TimeInterval?
     var outcomeUpdatedAt: Date?
+    /// The graphic-EQ curve the listener settled on after a manual edit, in the
+    /// same band layout as `target.gains`. Only present for `manualEqualizer`.
+    var manualGainsDB: [Float]?
 
     init(
         proposal: AIEqualizerProposal,
@@ -426,6 +429,7 @@ struct CloudAIEqualizerTrainingSample: Codable, Equatable, Sendable {
         feedback = nil
         listenedSeconds = nil
         outcomeUpdatedAt = nil
+        manualGainsDB = nil
     }
 }
 
@@ -441,7 +445,8 @@ struct CloudAIEqualizerSnapshot: Codable {
 
 struct LocalPlaylistCloudSnapshot: Codable {
     /// 云端协议版本；服务端据此区分旧客户端未上传字段与新版主动清空。
-    var version: Int = 5
+    /// v6 起完整训练样本改走独立上传接口，不再嵌入快照。
+    var version: Int = 6
     var updatedAt: Date
     var deviceId: String
     var deviceName: String

@@ -855,6 +855,8 @@ extension AIEqualizerAgent {
                         "learningContextEmbedded": prediction.embedsLearningContext ? "true" : "false",
                         "deviceContextEmbedded": prediction.embedsDetailedDeviceContext ? "true" : "false",
                         "populationPass": prediction.populationInference == nil ? "false" : "true",
+                        "trackCorrectionStrength": String(format: "%.2f", prediction.trackCorrectionStrength),
+                        "fallbackOutputCount": String(prediction.fallbackOutputCount),
                         "validationAccepted": review.isAccepted ? "true" : "false"
                     ]
                 )
