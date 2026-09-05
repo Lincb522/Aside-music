@@ -748,6 +748,14 @@ struct AIEqualizerProposal: Identifiable, Codable, Equatable, Sendable {
     let tuningProfile: AIEqualizerTuningProfile?
     var timing: AIEqualizerTiming?
 
+    var confidenceDisplayText: String {
+        if skillCompliance?.executionMode == .trainedCoreMLModel
+            || model.hasPrefix("mono-resonance-") || model.hasPrefix("mono-audio-") {
+            return String(localized: "audio_training_confidence_uncalibrated")
+        }
+        return "\(Int(confidence * 100))%"
+    }
+
     var resolvedTuningProfile: AIEqualizerTuningProfile {
         tuningProfile ?? .standard
     }

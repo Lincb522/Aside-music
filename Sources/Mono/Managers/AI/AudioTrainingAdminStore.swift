@@ -190,6 +190,7 @@ final class AudioTrainingAdminStore: ObservableObject {
                 deviceConditionedSampleCount: Self.deviceConditionedSampleCount(model),
                 completeAccountCount: model.metrics.completeAccountCount ?? 0,
                 completeBranchSampleCounts: Self.completeBranchSampleCounts(model),
+                completeBranchAccountCounts: model.metrics.completeBranchAccounts ?? [:],
                 qualityWarnings: model.metrics.qualityWarnings ?? []
             )
             let installed = try await AudioTrainingOnDeviceModelStore.shared.install(
@@ -325,23 +326,18 @@ final class AudioTrainingAdminStore: ObservableObject {
                       forFeatureSchemaVersion: active.featureSchemaVersion,
                       graphicEQMode: mode
                   ),
-                  inference.rawOutput.count == (active.featureSchemaVersion >= 6 ? 92 : 60) else {
+                  inference.rawOutput.count == AudioTrainingOnDeviceModelStore.outputWidth(
+                    forFeatureSchemaVersion: active.featureSchemaVersion
+                  ) else {
                 throw AudioTrainingAdminError.tuningTestFailed(
                     String(localized: "audio_training_error_tuning_test_sampling")
                 )
             }
-            let isTrackConditioned = active.completeSampleCount > 0
-            let modelOutputStrength: Double
-            if !isTrackConditioned {
-                modelOutputStrength = onDeviceSettings.legacyPriorStrength
-            } else if active.featureSchemaVersion >= 2 {
-                modelOutputStrength = 1
-            } else {
-                modelOutputStrength = min(
-                    1,
-                    max(0.35, Double(active.completeSampleCount) / 128)
-                )
-            }
+            let isTrackConditioned = inference.trackCorrectionStrength > 0
+            let modelOutputStrength = Double(inference.trackCorrectionStrength)
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            let appliedDSPData = try encoder.encode(EQManager.shared.currentDSPDiagnosticSnapshot())
             tuningTestResult = AudioTrainingTuningTestResult(
                 version: active.version,
                 profileName: proposal.profileName,
@@ -354,7 +350,6 @@ final class AudioTrainingAdminStore: ObservableObject {
                 deviceConditionedSampleCount: active.deviceConditionedSampleCount ?? 0,
                 isTrackConditioned: isTrackConditioned,
                 modelOutputStrength: modelOutputStrength,
-                confidence: proposal.confidence,
                 samplingElapsedMilliseconds: timing.sampling * 1_000,
                 generationElapsedMilliseconds: timing.generation * 1_000,
                 applyingElapsedMilliseconds: timing.applying * 1_000,
@@ -363,7 +358,8 @@ final class AudioTrainingAdminStore: ObservableObject {
                 sampleRate: features.sampleRate,
                 frameCount: features.frameCount,
                 inference: inference,
-                finalProposal: proposal
+                finalProposal: proposal,
+                appliedDSPJSON: String(decoding: appliedDSPData, as: UTF8.self)
             )
             errorMessage = nil
             AppLogger.success(

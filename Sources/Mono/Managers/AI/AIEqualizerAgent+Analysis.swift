@@ -295,7 +295,8 @@ extension AIEqualizerAgent {
                     ? "当前歌曲、音源版本、输出设备、调音模式和技能版本均与缓存一致，已直接写入播放 DSP。"
                     : "缓存方案本身有效，但播放目标或均衡器模式已变化，因此没有写入当前 DSP。")
                     + "\n\n"
-                    + traceJSON(cached),
+                    + traceJSON(cached)
+                    + (didApply ? "\n\nDSP 参数与 SDK 回读\n" + traceJSON(EQManager.shared.currentDSPDiagnosticSnapshot()) : ""),
                 metadata: [
                     "recordType": "cached-tuning-result",
                     "modelSource": "validated-cache",
@@ -307,7 +308,7 @@ extension AIEqualizerAgent {
                     "profile": cached.profileName,
                     "bands": String(cached.gains.count),
                     "preampDB": String(format: "%.2f", cached.preampDB),
-                    "confidence": String(format: "%.3f", cached.confidence),
+                    "confidence": cached.confidenceDisplayText,
                     "knowledgeVersion": cached.skillCompliance?.knowledgeVersion ?? "",
                     "toolVersion": cached.skillCompliance?.toolVersion ?? "",
                     "checkedRuleCount": String(cached.skillCompliance?.checkedRuleCount ?? 0),
@@ -513,7 +514,7 @@ extension AIEqualizerAgent {
                     "profile": result.profileName,
                     "bands": String(result.gains.count),
                     "preampDB": String(format: "%.2f", result.preampDB),
-                    "confidence": String(format: "%.3f", result.confidence),
+                    "confidence": result.confidenceDisplayText,
                     "adaptiveLearningApplied": result.learningRevision == nil ? "false" : "true",
                     "learningRevision": String(result.learningRevision ?? 0),
                     "learningEvidence": String(result.learningEvidenceCount ?? 0),
@@ -553,7 +554,8 @@ extension AIEqualizerAgent {
                     ? "编译后的均衡、动态、空间与保护参数已提交到当前播放 DSP。"
                     : "生成与编译已经完成，但播放目标或均衡器模式发生变化，因此没有修改当前 DSP。")
                     + "\n\n"
-                    + traceJSON(result),
+                    + traceJSON(result)
+                    + (didApply ? "\n\nDSP 参数与 SDK 回读\n" + traceJSON(EQManager.shared.currentDSPDiagnosticSnapshot()) : ""),
                 durationSeconds: applyingElapsed,
                 metadata: [
                     "recordType": "local-tuning-result",
@@ -1268,6 +1270,12 @@ extension AIEqualizerAgent {
             "",
             tensorTrace(title: "完整模型原始输出", values: prediction.inference.rawOutput),
             "",
+            "歌曲修正系数 = \(prediction.inference.trackCorrectionStrength)",
+            tensorTrace(title: "群体先验输入", values: prediction.inference.priorInput),
+            tensorTrace(title: "群体先验原始输出", values: prediction.inference.priorOutput),
+            tensorTrace(title: "混合后输出", values: prediction.inference.blendedOutput),
+            "预测置信度 = 未校准",
+            "",
             "模型解码输出",
             traceJSON(prediction.output)
         ]
@@ -1280,6 +1288,8 @@ extension AIEqualizerAgent {
                 tensorTrace(title: "群体基线完整输入", values: populationInference.input),
                 "",
                 tensorTrace(title: "群体基线完整原始输出", values: populationInference.rawOutput),
+                "",
+                tensorTrace(title: "群体基线混合后输出", values: populationInference.blendedOutput),
                 "",
                 "群体基线解码输出",
                 traceJSON(populationOutput)

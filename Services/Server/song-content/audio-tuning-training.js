@@ -3,27 +3,22 @@ const { spawn } = require('node:child_process')
 const fs = require('node:fs')
 const path = require('node:path')
 const { Worker, isMainThread, parentPort, workerData } = require('node:worker_threads')
+const { isSelfGeneratedProposal, manualGainDelta, hasHumanCorrection } = require('./audio-training-samples')
 
 const ACTIVE_STATES = new Set(['queued', 'collecting', 'training', 'validating'])
-const FEATURE_SCHEMA_VERSION = 6
-const TARGET_SCHEMA_VERSION = 3
+const FEATURE_SCHEMA_VERSION = 7
+const TARGET_SCHEMA_VERSION = 4
 const MODEL_FAMILY = 'Mono Resonance'
-const MODEL_NAME = 'Mono Resonance S1'
-const MODEL_VERSION_PREFIX = `mono-resonance-s1-schema${FEATURE_SCHEMA_VERSION}`
+const MODEL_NAME = 'Mono Resonance S2'
+const MODEL_VERSION_PREFIX = `mono-resonance-s2-schema${FEATURE_SCHEMA_VERSION}`
+const MODEL_ARCHITECTURE = 'residual-conditional-mlp'
 const CORE_ML_ARTIFACT_FORMAT = 'coreml-neuralnetwork-v2'
 const TRACK_SECTION_COUNT = 3
 const TRACK_BAND_COUNT = 10
 const DEVICE_CURVE_BAND_COUNT = 32
 const DEVICE_FILTER_SLOT_COUNT = 12
 const SUPPORTED_SAMPLE_SCHEMA_VERSIONS = new Set([1, 2, 3, 4])
-const TARGET_MODES = new Set(['population', 'personalized'])
-// Proposals produced by the on-device model (or the local heuristic compiler)
-// are model output, not supervision. Feeding them back would train the model
-// on itself.
-const SELF_GENERATED_EXECUTION_MODES = new Set([
-  'trainedCoreMLModel', 'appleIntelligenceLocalCompiler'
-])
-const SELF_GENERATED_MODEL_PREFIXES = ['mono-audio-', 'mono-resonance-']
+const TARGET_MODES = new Set(['population', 'personalized', 'joint'])
 const MINIMUM_NORMALIZATION_SAMPLES = 8
 const MINIMUM_SELECTION_VALIDATION_SAMPLES = 16
 const MANUAL_GAIN_DELTA_LIMIT_DB = 12
@@ -97,6 +92,23 @@ const effectBooleanTargetNames = [
   'loudnessNormalizationEnabled', 'compressorEnabled', 'subboostEnabled',
   'bs2bEnabled', 'crossfeedEnabled', 'haasEnabled', 'virtualBassEnabled',
   'exciterEnabled', 'softclipEnabled', 'finalLimiterEnabled'
+]
+
+const dynamicBandFields = ['frequency', 'q', 'thresholdDB', 'ratio', 'maxReductionDB', 'attackMS', 'releaseMS']
+const parametricTypes = ['peak', 'lowShelf', 'highShelf', 'lowPass', 'highPass', 'notch']
+const professionalTargetNames = [
+  ...Array.from({ length: 4 }, (_, slot) => [
+    `professional.dynamicEQ.bands.${slot}.active`,
+    ...dynamicBandFields.map((field) => `professional.dynamicEQ.bands.${slot}.${field}`)
+  ]).flat(),
+  ...Array.from({ length: 6 }, (_, slot) => [
+    `professional.parametricEQ.bands.${slot}.active`,
+    ...parametricTypes.map((type) => `professional.parametricEQ.bands.${slot}.type.${type}`),
+    ...['frequency', 'gainDB', 'q'].map((field) => `professional.parametricEQ.bands.${slot}.${field}`)
+  ]).flat(),
+  ...['lowCrossoverHz', 'highCrossoverHz', 'attackMS', 'releaseMS'].map((field) => `professional.multiband.${field}`),
+  ...['thresholdsDB', 'ratios', 'maxReductionDB'].flatMap((field) =>
+    Array.from({ length: 3 }, (_, slot) => `professional.multiband.${field}.${slot}`))
 ]
 
 function bandCountForMode(mode) {
@@ -205,8 +217,29 @@ const targetNames = [
   'professional.processingIntensity', 'professional.dynamicEQ.enabled',
   'professional.multiband.enabled', 'professional.parametricEQ.enabled',
   ...effectTargetNames.map((name) => `effects.${name}`),
-  ...effectBooleanTargetNames.map((name) => `effects.${name}`)
+  ...effectBooleanTargetNames.map((name) => `effects.${name}`),
+  ...professionalTargetNames
 ]
+
+function targetFamily(name) {
+  if (/^(tenBand|thirtyTwoBand)\.gains\./.test(name)) return 'graphicEQ'
+  if (name.startsWith('professional.')) return name.split('.').slice(0, 2).join('.')
+  return name.split('.')[0]
+}
+
+// Equal family mass keeps detailed filter slots from overwhelming a native EQ
+// curve. Preserve the total active-target mass and never supervise masked slots.
+function targetLossWeights(mask) {
+  const counts = new Map()
+  mask.forEach((active, index) => {
+    if (active) {
+      const family = targetFamily(targetNames[index])
+      counts.set(family, (counts.get(family) || 0) + 1)
+    }
+  })
+  const mass = [...counts.values()].reduce((sum, value) => sum + value, 0) / Math.max(1, counts.size)
+  return mask.map((active, index) => active ? mass / counts.get(targetFamily(targetNames[index])) : 0)
+}
 
 function createAudioTuningTrainingService({
   directory,
@@ -537,9 +570,19 @@ function createAudioTuningTrainingService({
         trainingLoss: trained.trainingLoss,
         validationLoss: trained.validationLoss,
         trainingLossImprovement: trained.initialTrainingLoss - trained.trainingLoss,
-        validationLossImprovement: trained.initialValidationLoss - trained.validationLoss,
+        validationLossImprovement: trained.initialValidationLoss === null || trained.validationLoss === null
+          ? null : trained.initialValidationLoss - trained.validationLoss,
         supervisedTrainingLoss: trained.supervisedTrainingLoss,
         legacyTrainingLoss: trained.legacyTrainingLoss,
+        preferenceTrainingPairs: trained.preferenceTraining.count,
+        preferenceValidationPairs: trained.preferenceValidation.count,
+        preferenceTrainingAccuracy: trained.preferenceTraining.accuracy,
+        preferenceValidationAccuracy: trained.preferenceValidation.accuracy,
+        branchValidation: trained.branchValidation,
+        conditionValidation: trained.conditionValidation,
+        architecture: MODEL_ARCHITECTURE,
+        selectionValidationTracks: trained.selectionValidationTracks,
+        selectionSource: trained.selectionSource,
         bestEpoch: trained.bestEpoch,
         epochsRun: trained.epochsRun,
         earlyStopped: trained.earlyStopped,
@@ -673,8 +716,8 @@ function createAudioTuningTrainingService({
         schemaVersion: 1,
         modelFamily: MODEL_FAMILY,
         modelName: MODEL_NAME,
-        architecture: 'tiny-mlp-regression',
-        trainingStrategy: `joint-dual-band-profile-conditioned-masked-track-style-detailed-device-conditioned-${configuration.targetMode}-target-account-damped-legacy-prior-low-rank-intent`,
+        architecture: MODEL_ARCHITECTURE,
+        trainingStrategy: `joint-dual-band-profile-conditioned-family-balanced-${configuration.targetMode}-target-account-damped-legacy-prior-human-preference-residual-nonlinear-intent`,
         graphicEQModes: ['tenBand', 'thirtyTwoBand'],
         bandCounts: [10, 32],
         legacyPriorWeight: configuration.priorWeight,
@@ -689,13 +732,13 @@ function createAudioTuningTrainingService({
         hiddenActivation: 'tanh',
         hiddenWeights: trained.hiddenWeights,
         hiddenBias: trained.hiddenBias,
-        // The runtime contract stays hidden -> output. When an intent bottleneck
-        // was trained, outputWeights/outputBias are the folded low-rank product
-        // and the unfolded factors are retained for audit.
-        outputWeights: trained.outputWeights,
-        outputBias: trained.outputBias,
+        residualWeights: trained.residualWeights,
+        residualBias: trained.residualBias,
+        residualScale: Math.SQRT1_2,
+        intentActivation: 'tanh',
         intentWeights: trained.intentWeights,
         intentBias: trained.intentBias,
+        outputSkipWeights: trained.outputSkipWeights,
         outputHeadWeights: trained.outputHeadWeights,
         outputHeadBias: trained.outputHeadBias
       }
@@ -964,7 +1007,8 @@ function collectDataset(cloudDatabasePath, {
     for (const sample of accountSampleMap.values()) {
       const sampleMode = sampleGraphicEQMode(sample)
       const proposalId = String(sample?.id || sample?.target?.id || '').toLowerCase()
-      if (isSelfGeneratedProposal(sample?.target)) {
+      if (isSelfGeneratedProposal(sample?.target)
+        && !hasHumanCorrection(sample, bandCountForMode(sampleMode))) {
         selfGeneratedSamples += 1
         if (proposalId) handledPlanIds.add(proposalId)
         continue
@@ -1027,7 +1071,12 @@ function collectDataset(cloudDatabasePath, {
           sampleWeight: vector.sampleWeight,
           x: vector.x,
           y: vector.y,
-          targetMask: vector.targetMask
+          targetMask: vector.targetMask,
+          rejectedY: vector.rejectedY,
+          preferenceMask: vector.preferenceMask,
+          populationPair: resolvedTargetMode === 'joint' && vector.learningConditioned
+            && !isSelfGeneratedProposal(sample.target)
+            ? trainingVectors({ ...sample, feedback: null, manualGainsDB: null }, { targetMode: 'population' }) : null
         })
       }
     }
@@ -1135,17 +1184,6 @@ function sampleFreshness(sample) {
   return String(sample?.outcomeUpdatedAt || sample?.capturedAt || '')
 }
 
-function isSelfGeneratedProposal(proposal) {
-  if (!proposal || typeof proposal !== 'object') return false
-  const executionMode = String(proposal.skillCompliance?.executionMode || '')
-  if (SELF_GENERATED_EXECUTION_MODES.has(executionMode)) return true
-  const model = String(proposal.model || '').toLowerCase()
-  if (SELF_GENERATED_MODEL_PREFIXES.some((prefix) => model.startsWith(prefix))) return true
-  // Apple Intelligence never called the tuning tool remotely; every proposal
-  // with that provider was produced by an on-device path.
-  return String(proposal.provider || '') === 'appleIntelligence'
-}
-
 function trainingVectors(sample, { targetMode = 'population' } = {}) {
   const features = sample?.features
   const target = sample?.target
@@ -1155,6 +1193,8 @@ function trainingVectors(sample, { targetMode = 'population' } = {}) {
 
   const sampleMode = sampleGraphicEQMode(sample)
   const bandCount = bandCountForMode(sampleMode)
+  const selfGenerated = isSelfGeneratedProposal(target)
+  if (selfGenerated && !hasHumanCorrection(sample, bandCount)) return null
   const genreVector = confidenceVector(
     features.genreScores,
     features.genreHints,
@@ -1185,7 +1225,7 @@ function trainingVectors(sample, { targetMode = 'population' } = {}) {
   // Population mode trains the shared model on the learning-free population
   // target so one account's private preference cannot become everyone's prior;
   // the on-device Agent keeps applying personal residuals afterwards.
-  const personalizedMode = targetMode === 'personalized'
+  const personalizedMode = targetMode === 'personalized' || targetMode === 'joint'
   const hasPersonalizedTarget = Boolean(sample.personalizedTarget)
   const learningConditioned = personalizedMode
     && hasPersonalizedTarget
@@ -1245,6 +1285,10 @@ function trainingVectors(sample, { targetMode = 'population' } = {}) {
   // correction out of the label.
   const manualDelta = manualGainDelta(sample, bandCount)
   const manualCorrected = manualDelta !== null
+  const rejectedY = manualCorrected ? [...y] : null
+  const preferenceMask = y.map((_, index) => manualDelta
+    && index >= gainOffset && index < gainOffset + bandCount
+    && Math.abs(manualDelta[index - gainOffset]) > 0.05 ? 1 : 0)
   if (manualCorrected) {
     for (let index = 0; index < bandCount; index += 1) {
       y[gainOffset + index] = clamp(
@@ -1260,31 +1304,21 @@ function trainingVectors(sample, { targetMode = 'population' } = {}) {
     graphicEQMode: sampleMode,
     tuningProfile: proposalTuningProfile(target),
     tuningIntensity: proposalTuningIntensity(target),
-    targetMask: targetVector.targetMask,
+    // A graphic-EQ edit does not endorse the model's other DSP predictions.
+    targetMask: selfGenerated
+      ? targetVector.targetMask.map((value, index) => index < 42 ? value : 0)
+      : targetVector.targetMask,
     styleConditioned: genreVector.some(Boolean) || instrumentVector.some(Boolean),
     temporallyConditioned: hasTemporalTrackEvidence(features),
     learningConditioned,
     deviceConditioned,
     manualCorrected,
+    rejectedY,
+    preferenceMask,
     sampleWeight: trainingOutcomeWeight(sample, manualCorrected),
     outcomeConfirmed: ['positive', 'retained'].includes(String(sample.feedback || ''))
       || manualCorrected
   }
-}
-
-function manualGainDelta(sample, bandCount) {
-  if (String(sample?.feedback || '') !== 'manualEqualizer') return null
-  const manual = sample.manualGainsDB
-  const heard = sample.target?.gains
-  if (!Array.isArray(manual) || !Array.isArray(heard)) return null
-  if (manual.length !== bandCount || heard.length !== bandCount) return null
-  if (!manual.every((value) => Number.isFinite(Number(value)))) return null
-  const delta = manual.map((value, index) => clamp(
-    Number(value) - finite(heard[index]),
-    -MANUAL_GAIN_DELTA_LIMIT_DB,
-    MANUAL_GAIN_DELTA_LIMIT_DB
-  ))
-  return delta.some((value) => Math.abs(value) > 0.05) ? delta : null
 }
 
 function proposalTargetVector(target, { requireCompliance = false } = {}) {
@@ -1321,17 +1355,57 @@ function proposalTargetVector(target, { requireCompliance = false } = {}) {
     ...effectTargetNames.map((name) => finite(target.effects?.[name])),
     ...effectBooleanTargetNames.map((name) => target.effects?.[name] === true ? 1 : 0)
   ]
-  if (y.length !== targetNames.length || !y.every(Number.isFinite)) return null
   const targetMask = [
     ...Array(10).fill(tenBandActive ? 1 : 0),
     ...Array(32).fill(tenBandActive ? 0 : 1),
     ...Array(50).fill(1)
   ]
+  const details = professionalTargetVector(target.professional, targetMode)
+  y.push(...details.values)
+  targetMask.push(...details.mask)
+  if (y.length !== targetNames.length || !y.every(Number.isFinite)) return null
   return {
     mode: targetMode,
     y,
     targetMask
   }
+}
+
+function professionalTargetVector(professional, mode) {
+  const values = []
+  const mask = []
+  const append = (value, known) => {
+    values.push(known ? value : 0)
+    mask.push(known ? 1 : 0)
+  }
+  for (const [kind, slots, fields] of [
+    ['dynamicEQ', 4, dynamicBandFields], ['parametricEQ', 6, ['frequency', 'gainDB', 'q']]
+  ]) {
+    const stage = professional?.[kind]
+    const bands = Array.isArray(stage?.bands)
+      ? [...stage.bands].sort((a, b) => finite(a?.frequency) - finite(b?.frequency)) : []
+    for (let slot = 0; slot < slots; slot += 1) {
+      const inBranch = mode !== 'thirtyTwoBand' || slot < 3
+      const band = inBranch ? bands[slot] : null
+      const valid = Boolean(band && fields.every((field) => Number.isFinite(band[field]))
+        && (kind !== 'parametricEQ' || parametricTypes.includes(band.type)))
+      append(valid ? 1 : 0, inBranch && (Array.isArray(stage?.bands) || stage?.enabled === false))
+      if (kind === 'parametricEQ') {
+        for (const type of parametricTypes) append(band?.type === type ? 1 : 0, valid)
+      }
+      for (const field of fields) append(band?.[field], valid)
+    }
+  }
+  const multiband = professional?.multiband
+  for (const field of ['lowCrossoverHz', 'highCrossoverHz', 'attackMS', 'releaseMS']) {
+    append(multiband?.[field], Number.isFinite(multiband?.[field]))
+  }
+  for (const field of ['thresholdsDB', 'ratios', 'maxReductionDB']) {
+    for (let slot = 0; slot < 3; slot += 1) {
+      append(multiband?.[field]?.[slot], Number.isFinite(multiband?.[field]?.[slot]))
+    }
+  }
+  return { values, mask }
 }
 
 function trainingBranchKey(item) {
@@ -1405,8 +1479,12 @@ function qualityWarnings(metrics) {
     if ((metrics.completeBranchValidationSamples?.[branch] || 0) === 0) {
       warnings.push(`NO_HELD_OUT_COMPLETE_SAMPLES:${branch}`)
     }
+    if (metrics.branchValidation?.[branch]?.improvesPrior === false) {
+      warnings.push(`NO_IMPROVEMENT_OVER_PRIOR:${branch}`)
+    }
   }
-  if ((metrics.validationSamples || 0) < 16) warnings.push('SMALL_VALIDATION_SET')
+  if (!metrics.preferenceValidationPairs) warnings.push('NO_HELD_OUT_HUMAN_PREFERENCE_PAIRS')
+  if ((metrics.distinctValidationTracks || 0) < 16) warnings.push('SMALL_VALIDATION_SET')
   if (metrics.earlyStopped === false && (metrics.epochsRun || 0) >= 8) {
     warnings.push('NO_EARLY_STOP_TRIGGERED')
   }
@@ -1414,6 +1492,14 @@ function qualityWarnings(metrics) {
 }
 
 function prepareTrainingSet({ training, validation, settings }) {
+  // Split by track before expanding the paired targets. One recording has one
+  // statistical vote, with and without personal context, in the same model.
+  const expand = (items) => items.flatMap((item) => item.populationPair ? [
+    item,
+    { ...item, ...item.populationPair, populationPair: null, sampleWeight: item.sampleWeight }
+  ] : [item])
+  training = expand(training)
+  validation = expand(validation)
   const supervised = training.filter((item) => item.x !== null)
   const legacy = training.filter((item) => item.x === null)
   const inputNormalization = normalization(supervised)
@@ -1432,7 +1518,9 @@ function prepareTrainingSet({ training, validation, settings }) {
     const key = item.trackGroup || `proposal:${item.id}`
     trackExampleCounts.set(key, (trackExampleCounts.get(key) || 0) + 1)
     const account = item.accountId || 'unknown'
-    supervisedAccountCounts.set(account, (supervisedAccountCounts.get(account) || 0) + 1)
+    const recordings = supervisedAccountCounts.get(account) || new Set()
+    recordings.add(item.id || key)
+    supervisedAccountCounts.set(account, recordings)
   }
   const legacyBranchCounts = new Map()
   const legacyAccountBranchCounts = new Map()
@@ -1447,8 +1535,18 @@ function prepareTrainingSet({ training, validation, settings }) {
   // account so a single prolific account cannot define the population.
   const rawSupervisedWeights = supervised.map((item) => {
     const track = trackExampleCounts.get(item.trackGroup || `proposal:${item.id}`) || 1
-    const account = supervisedAccountCounts.get(item.accountId || 'unknown') || 1
+    const account = supervisedAccountCounts.get(item.accountId || 'unknown')?.size || 1
     return finite(item.sampleWeight, 0.45) / track / Math.sqrt(account)
+  })
+  const supervisedBranchMass = new Map()
+  supervised.forEach((item, index) => {
+    const branch = trainingBranchKey(item)
+    supervisedBranchMass.set(branch, (supervisedBranchMass.get(branch) || 0) + rawSupervisedWeights[index])
+  })
+  // Balance observed branches after track/account damping. An absent branch
+  // receives no invented measured examples and remains a population prior.
+  supervised.forEach((item, index) => {
+    rawSupervisedWeights[index] /= Math.sqrt(supervisedBranchMass.get(trainingBranchKey(item)) || 1)
   })
   const rawLegacyWeights = legacy.map((item) => {
     const branch = trainingBranchKey(item)
@@ -1473,6 +1571,8 @@ function prepareTrainingSet({ training, validation, settings }) {
     x: normalizeVector(item.x, inputNormalization),
     y: normalizeVector(item.y, outputNormalization),
     targetMask: item.targetMask || Array(targetNames.length).fill(1),
+    rejectedY: item.rejectedY ? normalizeVector(item.rejectedY, outputNormalization) : null,
+    preferenceMask: item.preferenceMask,
     sampleWeight: rawSupervisedWeights[index] * supervisedScale,
     isLegacy: false
   }))
@@ -1489,9 +1589,12 @@ function prepareTrainingSet({ training, validation, settings }) {
       : normalizeVector(item.x, inputNormalization),
     y: normalizeVector(item.y, outputNormalization),
     targetMask: item.targetMask || Array(targetNames.length).fill(1),
+    rejectedY: item.rejectedY ? normalizeVector(item.rejectedY, outputNormalization) : null,
+    preferenceMask: item.preferenceMask,
     sampleWeight: 1,
     isLegacy: item.x === null
   }))
+  for (const item of [...train, ...validate]) item.lossWeights = targetLossWeights(item.targetMask)
   return {
     train,
     validate,
@@ -1521,15 +1624,19 @@ function initializeParameters(settings, random) {
   const parameters = {
     hiddenWeights: matrix(hiddenUnits, inputWidth, uniform(inputWidth, hiddenUnits)),
     hiddenBias: Array(hiddenUnits).fill(0),
+    residualWeights: matrix(hiddenUnits, hiddenUnits, uniform(hiddenUnits, hiddenUnits)),
+    residualBias: Array(hiddenUnits).fill(0),
     intentWeights: null,
     intentBias: null,
     outputHeadWeights: null,
+    outputSkipWeights: null,
     outputHeadBias: Array(outputWidth).fill(0)
   }
   if (intentUnits > 0) {
     parameters.intentWeights = matrix(intentUnits, hiddenUnits, uniform(hiddenUnits, intentUnits))
     parameters.intentBias = Array(intentUnits).fill(0)
     parameters.outputHeadWeights = matrix(outputWidth, intentUnits, uniform(intentUnits, outputWidth))
+    parameters.outputSkipWeights = matrix(outputWidth, hiddenUnits, uniform(hiddenUnits, outputWidth))
   } else {
     parameters.outputHeadWeights = matrix(outputWidth, hiddenUnits, uniform(hiddenUnits, outputWidth))
   }
@@ -1537,14 +1644,18 @@ function initializeParameters(settings, random) {
 }
 
 function forward(parameters, x) {
-  const hidden = parameters.hiddenWeights.map((weights, index) =>
+  const firstHidden = parameters.hiddenWeights.map((weights, index) =>
     Math.tanh(parameters.hiddenBias[index] + dot(weights, x)))
+  const residual = parameters.residualWeights.map((weights, index) =>
+    Math.tanh(parameters.residualBias[index] + dot(weights, firstHidden)))
+  const hidden = firstHidden.map((value, index) => (value + residual[index]) * Math.SQRT1_2)
   const intent = parameters.intentWeights
-    ? parameters.intentWeights.map((weights, index) => parameters.intentBias[index] + dot(weights, hidden))
+    ? parameters.intentWeights.map((weights, index) => Math.tanh(parameters.intentBias[index] + dot(weights, hidden)))
     : hidden
   const prediction = parameters.outputHeadWeights.map((weights, index) =>
-    parameters.outputHeadBias[index] + dot(weights, intent))
-  return { hidden, intent, prediction }
+    parameters.outputHeadBias[index] + dot(weights, intent)
+      + (parameters.outputSkipWeights ? dot(parameters.outputSkipWeights[index], hidden) : 0))
+  return { firstHidden, residual, hidden, intent, prediction }
 }
 
 function zeroLike(parameters) {
@@ -1554,33 +1665,46 @@ function zeroLike(parameters) {
   return {
     hiddenWeights: zeros(parameters.hiddenWeights),
     hiddenBias: zeros(parameters.hiddenBias),
+    residualWeights: zeros(parameters.residualWeights),
+    residualBias: zeros(parameters.residualBias),
     intentWeights: parameters.intentWeights ? zeros(parameters.intentWeights) : null,
     intentBias: parameters.intentBias ? zeros(parameters.intentBias) : null,
     outputHeadWeights: zeros(parameters.outputHeadWeights),
+    outputSkipWeights: parameters.outputSkipWeights ? zeros(parameters.outputSkipWeights) : null,
     outputHeadBias: zeros(parameters.outputHeadBias)
   }
 }
 
 function accumulateGradients(parameters, gradients, item, batchSize) {
-  const { hidden, intent, prediction } = forward(parameters, item.x)
+  const { firstHidden, residual, hidden, intent, prediction } = forward(parameters, item.x)
   const scale = item.sampleWeight / batchSize
-  const outputGradient = prediction.map((value, index) =>
-    item.targetMask[index] === 0 ? 0 : 2 * (value - item.y[index]) * scale)
+  const preference = preferenceComparison(prediction, item)
+  const outputGradient = prediction.map((value, index) => {
+    if (item.targetMask[index] === 0) return 0
+    const rankingGradient = preference?.violated && item.preferenceMask?.[index]
+      ? 0.2 * 2 * (item.rejectedY[index] - item.y[index]) : 0
+    return (2 * (value - item.y[index]) + rankingGradient) * scale * (item.lossWeights?.[index] ?? 1)
+  })
   for (let output = 0; output < outputGradient.length; output += 1) {
     const gradient = outputGradient[output]
     if (gradient === 0) continue
     const row = gradients.outputHeadWeights[output]
     for (let index = 0; index < intent.length; index += 1) row[index] += gradient * intent[index]
+    if (gradients.outputSkipWeights) {
+      for (let index = 0; index < hidden.length; index += 1) {
+        gradients.outputSkipWeights[output][index] += gradient * hidden[index]
+      }
+    }
     gradients.outputHeadBias[output] += gradient
   }
   let intentGradient = intent.map((_, index) => {
-      let downstream = 0
+    let downstream = 0
     for (let output = 0; output < outputGradient.length; output += 1) {
       if (outputGradient[output] !== 0) {
         downstream += outputGradient[output] * parameters.outputHeadWeights[output][index]
       }
     }
-    return downstream
+    return parameters.intentWeights ? downstream * (1 - intent[index] ** 2) : downstream
   })
   if (parameters.intentWeights) {
     for (let unit = 0; unit < intentGradient.length; unit += 1) {
@@ -1598,8 +1722,23 @@ function accumulateGradients(parameters, gradients, item, batchSize) {
       return downstream
     })
   }
+  const hiddenGradient = intentGradient.map((value, index) => {
+    if (!parameters.outputSkipWeights) return value
+    return value + outputGradient.reduce((sum, gradient, output) =>
+      sum + gradient * parameters.outputSkipWeights[output][index], 0)
+  })
+  const residualGradient = hiddenGradient.map((value, index) =>
+    value * Math.SQRT1_2 * (1 - residual[index] ** 2))
+  for (let unit = 0; unit < residual.length; unit += 1) {
+    for (let index = 0; index < firstHidden.length; index += 1) {
+      gradients.residualWeights[unit][index] += residualGradient[unit] * firstHidden[index]
+    }
+    gradients.residualBias[unit] += residualGradient[unit]
+  }
   for (let unit = 0; unit < hidden.length; unit += 1) {
-    const gradient = intentGradient[unit] * (1 - hidden[unit] * hidden[unit])
+    const upstream = hiddenGradient[unit] * Math.SQRT1_2 + residualGradient.reduce((sum, value, index) =>
+      sum + value * parameters.residualWeights[index][unit], 0)
+    const gradient = upstream * (1 - firstHidden[unit] ** 2)
     if (gradient === 0) continue
     const row = gradients.hiddenWeights[unit]
     const x = item.x
@@ -1639,31 +1778,17 @@ function applyGradients(parameters, gradients, velocity, settings) {
   }
   update('hiddenWeights', true)
   update('hiddenBias', false)
+  update('residualWeights', true)
+  update('residualBias', false)
   update('intentWeights', true)
   update('intentBias', false)
   update('outputHeadWeights', true)
+  update('outputSkipWeights', true)
   update('outputHeadBias', false)
 }
 
 function cloneParameters(parameters) {
   return JSON.parse(JSON.stringify(parameters))
-}
-
-function foldOutputHead(parameters) {
-  if (!parameters.intentWeights) {
-    return { outputWeights: parameters.outputHeadWeights, outputBias: parameters.outputHeadBias }
-  }
-  const outputWeights = parameters.outputHeadWeights.map((headRow) =>
-    parameters.intentWeights[0].map((_, hiddenIndex) => {
-      let sum = 0
-      for (let unit = 0; unit < headRow.length; unit += 1) {
-        sum += headRow[unit] * parameters.intentWeights[unit][hiddenIndex]
-      }
-      return sum
-    }))
-  const outputBias = parameters.outputHeadWeights.map((headRow, output) =>
-    parameters.outputHeadBias[output] + dot(headRow, parameters.intentBias))
-  return { outputWeights, outputBias }
 }
 
 function parameterLoss(examples, parameters, filter) {
@@ -1676,11 +1801,104 @@ function parameterLoss(examples, parameters, filter) {
     for (let index = 0; index < prediction.length; index += 1) {
       if (item.targetMask[index] === 0) continue
       const delta = prediction[index] - item.y[index]
-      total += delta * delta
-      targetCount += 1
+      const weight = item.lossWeights?.[index] ?? 1
+      total += delta * delta * weight
+      targetCount += weight
     }
   }
   return total / Math.max(1, targetCount)
+}
+
+function preferenceComparison(prediction, item) {
+  if (!item.rejectedY) return null
+  let preferred = 0
+  let rejected = 0
+  let separation = 0
+  let count = 0
+  for (let index = 0; index < prediction.length; index += 1) {
+    if (!item.preferenceMask?.[index] || !item.targetMask[index]) continue
+    const weight = item.lossWeights?.[index] ?? 1
+    preferred += (prediction[index] - item.y[index]) ** 2 * weight
+    rejected += (prediction[index] - item.rejectedY[index]) ** 2 * weight
+    separation += (item.y[index] - item.rejectedY[index]) ** 2 * weight
+    count += 1
+  }
+  return count ? { preferred: preferred < rejected, violated: preferred + separation * 0.1 > rejected } : null
+}
+
+function preferenceMetrics(examples, parameters) {
+  const pairs = examples.map((item) => preferenceComparison(forward(parameters, item.x).prediction, item))
+    .filter(Boolean)
+  return { count: pairs.length, accuracy: pairs.length ? pairs.filter((item) => item.preferred).length / pairs.length : null }
+}
+
+// Real held-out curves in dB, compared with this model's own population prior.
+// No validation recordings means unknown, not a successful sensitivity test.
+function evaluateGroups(examples, parameters, prepared, groups, belongs) {
+  return Object.fromEntries(groups.map((group) => {
+    const items = examples.filter((item) => item.x !== null && belongs(item, group))
+    let error = 0
+    let priorError = 0
+    let count = 0
+    const tracks = new Map()
+    const families = new Map()
+    for (const item of items) {
+      const prediction = forward(parameters, normalizeVector(item.x, prepared.inputNormalization)).prediction
+      const prior = forward(parameters, legacyConditioningVector(item, prepared.inputNormalization)).prediction
+      const track = tracks.get(item.trackGroup || item.id) || { error: 0, count: 0 }
+      for (let index = 0; index < targetNames.length; index += 1) {
+        if (!item.targetMask[index]) continue
+        const scale = prepared.outputNormalization.standardDeviation[index]
+        const mean = prepared.outputNormalization.mean[index]
+        const delta = prediction[index] * scale + mean - item.y[index]
+        const family = targetFamily(targetNames[index])
+        const score = families.get(family) || { squaredError: 0, targets: 0 }
+        score.squaredError += (delta / scale) ** 2
+        score.targets += 1
+        families.set(family, score)
+        if (index < 42) {
+          error += Math.abs(delta)
+          priorError += Math.abs(prior[index] * scale + mean - item.y[index])
+          count += 1
+          track.error += Math.abs(delta)
+          track.count += 1
+        }
+      }
+      if (track.count) tracks.set(item.trackGroup || item.id, track)
+    }
+    const trackErrors = [...tracks.values()].map((track) => track.error / track.count).sort((a, b) => a - b)
+    return [group, {
+      samples: items.length,
+      tracks: tracks.size,
+      eqMAEDB: count ? error / count : null,
+      priorEQMAEDB: count ? priorError / count : null,
+      improvesPrior: count ? error < priorError : null,
+      // Empirical held-out error, not a per-song confidence or coverage promise.
+      trackEQMAEP90DB: tracks.size >= MINIMUM_SELECTION_VALIDATION_SAMPLES
+        ? trackErrors[Math.ceil(trackErrors.length * 0.9) - 1] : null,
+      targetFamilyMSE: Object.fromEntries([...families.entries()].map(([name, score]) =>
+        [name, score.squaredError / score.targets]))
+    }]
+  }))
+}
+
+function evaluateBranches(examples, parameters, prepared) {
+  return evaluateGroups(examples, parameters, prepared, REQUIRED_TRAINING_BRANCHES,
+    (item, branch) => trainingBranchKey(item) === branch)
+}
+
+function evaluateConditions(examples, parameters, prepared) {
+  const styles = genreFeatureValues.map((name) => `genreScore.${name}`)
+  const devices = outputKindFeatureValues.map((name) => `outputKind.${name}`)
+  return evaluateGroups(examples, parameters, prepared, [...styles, ...devices], (item, group) => {
+    const names = group.startsWith('genreScore.') ? styles : devices
+    if (!item.x) return false
+    const values = names.map((name) => item.x[featureNames.indexOf(name)])
+    const largest = Math.max(...values)
+    // Ambiguous/tied style scores do not establish a measured genre label.
+    return largest > 0 && values.filter((value) => value === largest).length === 1
+      && item.x[featureNames.indexOf(group)] === largest
+  })
 }
 
 // Synchronous core used by the worker thread (and by tests through the
@@ -1691,16 +1909,23 @@ function trainTinyModelSync({ training, validation, settings, progress }) {
   const { train, validate } = prepared
   const random = seededRandom(0x4d4f4e4f)
   let parameters = initializeParameters(settings, random)
+  for (let index = 0; index < targetNames.length; index += 1) {
+    if (!train.some((item) => item.targetMask[index])) {
+      parameters.outputHeadWeights[index].fill(0)
+      parameters.outputSkipWeights?.[index].fill(0)
+      parameters.outputHeadBias[index] = 0
+    }
+  }
   const velocity = zeroLike(parameters)
-  const evaluation = validate.length ? validate : train
   const supervisedFilter = (item) => !item.isLegacy
   const legacyFilter = (item) => item.isLegacy
   const initialTrainingLoss = parameterLoss(train, parameters) ?? 0
-  const initialValidationLoss = parameterLoss(evaluation, parameters) ?? 0
+  const initialValidationLoss = parameterLoss(validate, parameters)
   // Early stopping tracks held-out complete samples once there are enough of
   // them to be a signal; a handful of validation tracks would otherwise stop
   // the population prior long before it converges.
-  const supervisedValidationCount = validate.filter(supervisedFilter).length
+  const supervisedValidationCount = new Set(validation.filter((item) => item.x !== null)
+    .map((item) => item.trackGroup || item.id)).size
   const selectionLoss = () => {
     if (supervisedValidationCount >= MINIMUM_SELECTION_VALIDATION_SAMPLES) {
       return parameterLoss(validate, parameters, supervisedFilter) ?? 0
@@ -1746,7 +1971,7 @@ function trainTinyModelSync({ training, validation, settings, progress }) {
     return items
   }
   deterministicShuffle(supervisedTrain, random)
-    deterministicShuffle(legacyTrain, random)
+  deterministicShuffle(legacyTrain, random)
   for (let epoch = 1; epoch <= settings.epochs; epoch += 1) {
     for (let step = 0; step < stepsPerEpoch; step += 1) {
       const gradients = zeroLike(parameters)
@@ -1763,7 +1988,7 @@ function trainTinyModelSync({ training, validation, settings, progress }) {
     }
     epochsRun = epoch
     const trainingLoss = parameterLoss(train, parameters) ?? 0
-    const validationLoss = parameterLoss(evaluation, parameters) ?? 0
+    const validationLoss = parameterLoss(validate, parameters)
     const current = selectionLoss()
     if (current < best.loss - 1e-6) {
       best = { loss: current, epoch, parameters: cloneParameters(parameters) }
@@ -1780,33 +2005,34 @@ function trainTinyModelSync({ training, validation, settings, progress }) {
     }
   }
   parameters = best.parameters
-  const folded = foldOutputHead(parameters)
   return {
-    hiddenWeights: parameters.hiddenWeights,
-    hiddenBias: parameters.hiddenBias,
-    intentWeights: parameters.intentWeights,
-    intentBias: parameters.intentBias,
-    outputHeadWeights: parameters.outputHeadWeights,
-    outputHeadBias: parameters.outputHeadBias,
-    outputWeights: folded.outputWeights,
-    outputBias: folded.outputBias,
+    ...parameters,
+    architecture: MODEL_ARCHITECTURE,
+    residualScale: Math.SQRT1_2,
+    intentActivation: 'tanh',
     inputNormalization: prepared.inputNormalization,
     outputNormalization: prepared.outputNormalization,
     initialTrainingLoss,
     initialValidationLoss,
     trainingLoss: parameterLoss(train, parameters) ?? 0,
-    validationLoss: parameterLoss(evaluation, parameters) ?? 0,
+    validationLoss: parameterLoss(validate, parameters),
     supervisedTrainingLoss: parameterLoss(train, parameters, supervisedFilter),
     legacyTrainingLoss: parameterLoss(train, parameters, legacyFilter),
     bestEpoch: best.epoch,
     epochsRun,
     earlyStopped,
+    selectionValidationTracks: supervisedValidationCount,
+    selectionSource: supervisedValidationCount >= MINIMUM_SELECTION_VALIDATION_SAMPLES ? 'heldOutTracks' : 'trainingLoss',
     optimizationSteps,
     supervisedTotalWeight: prepared.supervisedTotalWeight,
     legacyTotalWeight: prepared.legacyTotalWeight,
     legacyPerSampleWeight: prepared.legacyPerSampleWeight,
     legacyPriorBranches: prepared.legacyPriorBranches,
-    minimumTrackSampleWeight: prepared.minimumTrackSampleWeight
+    minimumTrackSampleWeight: prepared.minimumTrackSampleWeight,
+    preferenceTraining: preferenceMetrics(train, parameters),
+    preferenceValidation: preferenceMetrics(validate, parameters),
+    branchValidation: evaluateBranches(validation, parameters, prepared),
+    conditionValidation: evaluateConditions(validation, parameters, prepared)
   }
 }
 
@@ -2131,7 +2357,7 @@ function hydrateSettings(row) {
 function normalizeSettings(raw) {
   return {
     epochs: integer(raw.epochs, 1, 200, 40),
-    hiddenUnits: integer(raw.hiddenUnits, 4, 64, 16),
+    hiddenUnits: integer(raw.hiddenUnits, 4, 128, 64),
     learningRate: clamp(finite(raw.learningRate, 0.01), 0.0001, 0.1),
     validationPercent: integer(raw.validationPercent, 10, 40, 20),
     minimumSamples: integer(raw.minimumSamples, 4, 100_000, 32),
@@ -2139,9 +2365,9 @@ function normalizeSettings(raw) {
     priorWeight: clamp(finite(raw.priorWeight, 1), 0.05, 4),
     weightDecay: clamp(finite(raw.weightDecay, 0.0001), 0, 0.01),
     earlyStoppingPatience: integer(raw.earlyStoppingPatience, 0, 50, 8),
-    // Low-rank intent bottleneck between hidden and output; 0 disables it.
-    intentUnits: integer(raw.intentUnits, 0, 32, 8),
-    targetMode: TARGET_MODES.has(raw.targetMode) ? raw.targetMode : 'population',
+    // Nonlinear intent path supplements the full-width residual output path.
+    intentUnits: integer(raw.intentUnits, 0, 64, 32),
+    targetMode: TARGET_MODES.has(raw.targetMode) ? raw.targetMode : 'joint',
     batchSize: 64
   }
 }
@@ -2717,6 +2943,7 @@ module.exports = {
   MODEL_FAMILY,
   MODEL_NAME,
   MODEL_VERSION_PREFIX,
+  MODEL_ARCHITECTURE,
   TARGET_SCHEMA_VERSION,
   collectDataset,
   createAudioTuningTrainingService,
@@ -2727,5 +2954,11 @@ module.exports = {
   splitExamples,
   targetNames,
   trainTinyModelSync,
+  forward,
+  initializeParameters,
+  zeroLike,
+  accumulateGradients,
+  targetLossWeights,
+  prepareTrainingSet,
   trainingVectors
 }

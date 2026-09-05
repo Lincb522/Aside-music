@@ -118,7 +118,7 @@ final class AIEqualizerProposalCacheStore {
         learningContext: AIEqualizerLearningContext? = nil,
         personalizedTarget: AIEqualizerProposal? = nil
     ) {
-        guard histories[songIdentifier, default: []].contains(where: {
+        guard Self.isSelfGenerated(proposal) || histories[songIdentifier, default: []].contains(where: {
             $0.proposal.id == proposal.id
         }) else {
             return
@@ -127,15 +127,8 @@ final class AIEqualizerProposalCacheStore {
               proposal.skillCompliance?.localValidationApplied == true else {
             return
         }
-        // Output of the on-device model (or the local heuristic compiler) is not
-        // supervision; uploading it would train the next model on itself.
-        guard !Self.isSelfGenerated(proposal) else {
-            AppLogger.info(
-                "[AIEqualizerAgent] Skipped training sample for self-generated proposal song=\(songIdentifier) mode=\(proposal.skillCompliance?.executionMode.rawValue ?? "unknown")",
-                step: "ai-tuning.training-sample-skipped"
-            )
-            return
-        }
+        // Retain the measurement locally so a later human edit can be paired
+        // with what was heard. Unreviewed local predictions are not uploaded.
         let sample = CloudAIEqualizerTrainingSample(
             proposal: proposal,
             features: features,
@@ -149,7 +142,9 @@ final class AIEqualizerProposalCacheStore {
         trainingSamples[proposal.id.uuidString.lowercased()] = sample
         pruneTrainingSamples()
         persistTrainingSamples()
-        AITrainingSampleUploader.shared.enqueue(sampleID: proposal.id)
+        if Self.isUploadEligible(sample) {
+            AITrainingSampleUploader.shared.enqueue(sampleID: proposal.id)
+        }
     }
 
     func shouldRecord(
@@ -185,6 +180,10 @@ final class AIEqualizerProposalCacheStore {
     ) {
         let key = proposalID.uuidString.lowercased()
         guard var sample = trainingSamples[key] else { return }
+        if sample.feedback == .manualEqualizer, sample.manualGainsDB != nil,
+           feedback == .positive || feedback == .retained {
+            return
+        }
         sample.feedback = feedback
         sample.listenedSeconds = max(0, listenedSeconds)
         sample.outcomeUpdatedAt = now
@@ -195,15 +194,32 @@ final class AIEqualizerProposalCacheStore {
            manualGainsDB.count == sample.target.gains.count,
            manualGainsDB.allSatisfy(\.isFinite) {
             sample.manualGainsDB = manualGainsDB
-        } else if feedback != .manualEqualizer {
+        } else if feedback != .manualEqualizer && feedback != .negative
+                    && feedback != .reset && feedback != .regenerated {
             sample.manualGainsDB = nil
         }
         trainingSamples[key] = sample
         persistTrainingSamples()
-        AITrainingSampleUploader.shared.enqueue(sampleID: proposalID)
+        if Self.isUploadEligible(sample) {
+            AITrainingSampleUploader.shared.enqueue(sampleID: proposalID)
+        }
+    }
+
+    static func isUploadEligible(_ sample: CloudAIEqualizerTrainingSample) -> Bool {
+        guard isSelfGenerated(sample.target) else { return true }
+        guard sample.feedback == .manualEqualizer || sample.feedback == .negative
+                || sample.feedback == .reset || sample.feedback == .regenerated,
+              let gains = sample.manualGainsDB,
+              gains.count == sample.target.gains.count,
+              gains.allSatisfy(\.isFinite),
+              sample.target.gains.allSatisfy(\.isFinite) else { return false }
+        return zip(gains, sample.target.gains).contains { abs($0 - $1) > 0.05 }
     }
 
     static func isSelfGenerated(_ proposal: AIEqualizerProposal) -> Bool {
+        if proposal.model.hasPrefix("mono-resonance-") || proposal.model.hasPrefix("mono-audio-") {
+            return true
+        }
         switch proposal.skillCompliance?.executionMode {
         case .trainedCoreMLModel, .appleIntelligenceLocalCompiler:
             return true
@@ -315,6 +331,12 @@ final class AIEqualizerProposalCacheStore {
         trainingSamples = trainingSamples.filter {
             Self.isSupportedTrainingSampleVersion($0.value.schemaVersion)
                 && $0.value.target.id == $0.value.id
+        }
+        let pendingReview = trainingSamples.values.filter {
+            Self.isSelfGenerated($0.target) && !Self.isUploadEligible($0)
+        }.sorted { $0.capturedAt > $1.capturedAt }
+        for sample in pendingReview.dropFirst(200) {
+            trainingSamples.removeValue(forKey: sample.id.uuidString.lowercased())
         }
     }
 

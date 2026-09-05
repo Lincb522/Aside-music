@@ -126,7 +126,7 @@ final class AITrainingSampleUploader {
                     pendingIDs.remove(id)
                     continue
                 }
-                if AIEqualizerProposalCacheStore.isSelfGenerated(sample.target) {
+                if !AIEqualizerProposalCacheStore.isUploadEligible(sample) {
                     pendingIDs.remove(id)
                     continue
                 }
@@ -141,9 +141,13 @@ final class AITrainingSampleUploader {
                 let response = try await APIService.shared.uploadTrainingSamples(toSend)
                 for accepted in response.accepted {
                     let key = accepted.id.lowercased()
-                    pendingIDs.remove(key)
                     if let sample = candidates[key] {
                         uploadedStamps[key] = Self.stamp(for: sample)
+                        // An edit may arrive while this request is in flight.
+                        let current = sampleSource.trainingSamples(withIDs: [key])[key]
+                        if current.map(Self.stamp) == Self.stamp(for: sample) {
+                            pendingIDs.remove(key)
+                        }
                     }
                 }
                 var rateLimited = 0
@@ -199,7 +203,8 @@ final class AITrainingSampleUploader {
 
     private static func stamp(for sample: CloudAIEqualizerTrainingSample) -> String {
         let date = sample.outcomeUpdatedAt ?? sample.capturedAt
-        return "\(ISO8601DateFormatter().string(from: date))|\(sample.feedback?.rawValue ?? "")|\(sample.manualGainsDB?.count ?? 0)"
+        let gains = sample.manualGainsDB?.map { String($0.bitPattern) }.joined(separator: ",") ?? ""
+        return "\(date.timeIntervalSince1970)|\(sample.feedback?.rawValue ?? "")|\(gains)"
     }
 
     private func persistState() {

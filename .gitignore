@@ -147,7 +147,10 @@ test_layout.swift
 /Services/Server/token-admin-ui/original/assets/*
 !/Services/Server/token-admin-ui/original/assets/admin-core.js
 *.py
+!/Services/Server/song-content/scripts/export-audio-training-coreml.py
+!/Services/Server/song-content/scripts/test_audio_training_coreml.py
 *.txt
+!/Services/Server/song-content/requirements-audio-training.txt
 /ExternalSources
 /mineradio-vue
 

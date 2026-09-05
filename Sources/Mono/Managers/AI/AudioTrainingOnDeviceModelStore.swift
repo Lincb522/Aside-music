@@ -75,7 +75,9 @@ actor AudioTrainingOnDeviceModelStore {
         featureNames(forFeatureSchemaVersion: version)?.count
     }
 
-    private static let fullCoverageBranchSamples = 64
+    static func outputWidth(forFeatureSchemaVersion version: Int) -> Int {
+        targetNames(forFeatureSchemaVersion: version).count
+    }
 
     private var loadedModel: MLModel?
     private var loadedIdentity: String?
@@ -184,9 +186,10 @@ actor AudioTrainingOnDeviceModelStore {
               let inputWidth = Self.inputWidth(
                   forFeatureSchemaVersion: descriptor.featureSchemaVersion
               ),
-              (1...3).contains(descriptor.targetSchemaVersion),
-              descriptor.featureSchemaVersion < 6
-                || descriptor.targetSchemaVersion == 3 else {
+              (1...4).contains(descriptor.targetSchemaVersion),
+              (descriptor.featureSchemaVersion < 6 && descriptor.targetSchemaVersion <= 3)
+                || (descriptor.featureSchemaVersion == 6 && descriptor.targetSchemaVersion == 3)
+                || (descriptor.featureSchemaVersion == 7 && descriptor.targetSchemaVersion == 4) else {
             throw AudioTrainingOnDeviceModelError.unsupportedSchema
         }
         let digest = Self.sha256(modelData)
@@ -230,6 +233,9 @@ actor AudioTrainingOnDeviceModelStore {
                 completeBranchSampleCounts: descriptor.completeBranchSampleCounts.isEmpty
                     ? nil
                     : descriptor.completeBranchSampleCounts,
+                completeBranchAccountCounts: descriptor.completeBranchAccountCounts.isEmpty
+                    ? nil
+                    : descriptor.completeBranchAccountCounts,
                 qualityWarnings: descriptor.qualityWarnings.isEmpty ? nil : descriptor.qualityWarnings,
                 installedAt: Date(),
                 sourceModelFileName: sourceModelFileName
@@ -410,8 +416,10 @@ actor AudioTrainingOnDeviceModelStore {
         // from independent accounts. A branch the model has barely seen plays
         // the prior; a well-covered branch plays the full prediction.
         let branchKey = "\(mode.rawValue):\(tuningProfile.rawValue)"
-        let trackCorrectionStrength = Self.trackCorrectionStrength(status: status, branch: branchKey)
+        let trackCorrectionStrength = status.trackCorrectionStrength(forBranch: branchKey)
         var values = rawValues
+        var priorInputValues: [Float] = []
+        var priorOutputValues: [Float] = []
         if trackCorrectionStrength < 1,
            let priorInput = Self.priorConditioningVector(
                mean: loadedInputMean,
@@ -429,13 +437,19 @@ actor AudioTrainingOnDeviceModelStore {
             values = zip(priorValues, rawValues).map { prior, full in
                 prior + (full - prior) * trackCorrectionStrength
             }
+            priorInputValues = priorInput
+            priorOutputValues = priorValues
         }
         let inference = Self.inferenceTrace(
             version: status.version,
             input: input,
-            output: values,
+            output: rawValues,
             featureSchemaVersion: status.featureSchemaVersion,
-            latencyMilliseconds: (ProcessInfo.processInfo.systemUptime - startedAt) * 1_000
+            latencyMilliseconds: (ProcessInfo.processInfo.systemUptime - startedAt) * 1_000,
+            priorInput: priorInputValues,
+            priorOutput: priorOutputValues,
+            blendedOutput: values,
+            trackCorrectionStrength: trackCorrectionStrength
         )
         latestInferenceTrace = inference
         let (output, fallbackOutputCount) = Self.modelOutput(
@@ -468,6 +482,10 @@ actor AudioTrainingOnDeviceModelStore {
                     forFeatureSchemaVersion: status.featureSchemaVersion
                 ).count
             )
+            let populationBlended = priorOutputValues.isEmpty ? populationValues
+                : zip(priorOutputValues, populationValues).map { prior, full in
+                    prior + (full - prior) * trackCorrectionStrength
+                }
             populationInference = Self.inferenceTrace(
                 version: status.version,
                 input: populationInput,
@@ -475,10 +493,14 @@ actor AudioTrainingOnDeviceModelStore {
                 featureSchemaVersion: status.featureSchemaVersion,
                 latencyMilliseconds: (
                     ProcessInfo.processInfo.systemUptime - populationStartedAt
-                ) * 1_000
+                ) * 1_000,
+                priorInput: priorInputValues,
+                priorOutput: priorOutputValues,
+                blendedOutput: populationBlended,
+                trackCorrectionStrength: trackCorrectionStrength
             )
             populationOutput = Self.modelOutput(
-                populationValues,
+                populationBlended,
                 status: status,
                 features: features,
                 deviceTuningTarget: deviceTuningTarget,
@@ -518,28 +540,6 @@ actor AudioTrainingOnDeviceModelStore {
             inference: inference,
             populationInference: populationInference
         )
-    }
-
-    /// How much of the track-specific correction a branch has earned. Coverage
-    /// grows with complete samples for that branch and is discounted while all
-    /// of them come from one or two accounts. Models installed without branch
-    /// metadata keep the previous full-strength behaviour.
-    private static func trackCorrectionStrength(
-        status: AudioTrainingInstalledModelStatus,
-        branch: String
-    ) -> Float {
-        guard status.completeSampleCount > 0 else { return 0 }
-        guard status.completeBranchSampleCounts != nil else { return 1 }
-        let branchSamples = status.completeSampleCount(forBranch: branch)
-        guard branchSamples > 0 else { return 0 }
-        let sampleFactor = min(1, Float(branchSamples) / Float(fullCoverageBranchSamples))
-        let accountFactor: Float
-        switch status.completeAccountCount ?? 1 {
-        case ..<2: accountFactor = 0.6
-        case 2: accountFactor = 0.8
-        default: accountFactor = 1
-        }
-        return min(1, max(0, sampleFactor * accountFactor))
     }
 
     /// Mirrors the trainer's legacy conditioning input: population mean for every
@@ -1305,7 +1305,48 @@ actor AudioTrainingOnDeviceModelStore {
         }
         let spatialWidth = 1 + (bounded(value(5), 0.65, 1.75, fallback: 1) - 1) * strength
         let canUseLearnedStages = supervised
-            && status.completeSampleCount >= settings.advancedStageMinimumSamples
+            && status.completeSampleCount(forBranch: "\(mode.rawValue):\(tuningProfile.rawValue)")
+                >= settings.advancedStageMinimumSamples
+        let usesDetailedOutputs = status.featureSchemaVersion >= 7
+        let detailed = usesDetailedOutputs
+            ? Dictionary(uniqueKeysWithValues: zip(Self.professionalTargetNames, values.dropFirst(92)))
+            : [:]
+        func detail(_ name: String, _ minimum: Float, _ maximum: Float, _ fallback: Float) -> Float {
+            bounded(detailed["professional." + name] ?? fallback, minimum, maximum, fallback: fallback)
+        }
+        var dynamicBands: [AIEqualizerDynamicBandConfiguration] = []
+        var parametricBands: [AIEqualizerParametricBandConfiguration] = []
+        if usesDetailedOutputs && canUseLearnedStages {
+            for slot in 0..<(mode == .thirtyTwoBand ? 3 : 4) {
+                let key = "dynamicEQ.bands.\(slot)."
+                guard boolean(detailed["professional." + key + "active"] ?? 0),
+                      let frequency = detailed["professional." + key + "frequency"],
+                      frequency.isFinite, (20...20_000).contains(frequency) else { continue }
+                dynamicBands.append(AIEqualizerDynamicBandConfiguration(
+                    frequency: frequency, q: detail(key + "q", 0.15, 12, 1),
+                    thresholdDB: detail(key + "thresholdDB", -60, 0, -18),
+                    ratio: detail(key + "ratio", 1, 8, 1),
+                    maxReductionDB: detail(key + "maxReductionDB", 0, 12, 0),
+                    attackMS: detail(key + "attackMS", 0.5, 200, 20),
+                    releaseMS: detail(key + "releaseMS", 15, 1_000, 180)
+                ))
+            }
+            for slot in 0..<(mode == .thirtyTwoBand ? 3 : 6) {
+                let key = "parametricEQ.bands.\(slot)."
+                guard boolean(detailed["professional." + key + "active"] ?? 0),
+                      let frequency = detailed["professional." + key + "frequency"],
+                      frequency.isFinite, (20...20_000).contains(frequency) else { continue }
+                let type = Self.parametricTypes.max {
+                    (detailed["professional." + key + "type." + $0] ?? 0)
+                        < (detailed["professional." + key + "type." + $1] ?? 0)
+                } ?? "peak"
+                parametricBands.append(AIEqualizerParametricBandConfiguration(
+                    type: type, frequency: frequency,
+                    gainDB: detail(key + "gainDB", -12, 12, 0),
+                    q: detail(key + "q", 0.1, 12, 1)
+                ))
+            }
+        }
 
         let enhance = MonoEnhanceConfiguration(
             isEnabled: canUseLearnedStages && boolean(value(15)),
@@ -1320,20 +1361,24 @@ actor AudioTrainingOnDeviceModelStore {
             lowLevelCompensation: unit(value(14) * strength)
         )
         let multibandEnabled = canUseLearnedStages && boolean(value(21))
+        let dynamicEnabled = !dynamicBands.isEmpty && boolean(value(20))
+            && (!multibandEnabled || value(20) >= value(21))
         let professional = AIEqualizerProfessionalConfiguration(
             processingIntensity: bounded(value(19) * strength, 0, 2.1, fallback: 0),
-            dynamicEQ: AIEqualizerDynamicEQConfiguration(enabled: false, bands: []),
+            dynamicEQ: AIEqualizerDynamicEQConfiguration(enabled: dynamicEnabled, bands: dynamicBands),
             multiband: AIEqualizerMultibandConfiguration(
-                enabled: multibandEnabled,
-                lowCrossoverHz: 180,
-                highCrossoverHz: 3_800,
-                thresholdsDB: [-13, -11, -15],
-                ratios: [1.45, 1.28, 1.5],
-                maxReductionDB: [2.2, 1.8, 2.4],
-                attackMS: 24,
-                releaseMS: 190
+                enabled: multibandEnabled && !dynamicEnabled,
+                lowCrossoverHz: detail("multiband.lowCrossoverHz", 60, 600, 180),
+                highCrossoverHz: detail("multiband.highCrossoverHz", 1_200, 10_000, 3_800),
+                thresholdsDB: (0..<3).map { detail("multiband.thresholdsDB.\($0)", -36, -4, [-13, -11, -15][$0]) },
+                ratios: (0..<3).map { detail("multiband.ratios.\($0)", 1, 6, [1.45, 1.28, 1.5][$0]) },
+                maxReductionDB: (0..<3).map { detail("multiband.maxReductionDB.\($0)", 0, 12, [2.2, 1.8, 2.4][$0]) },
+                attackMS: detail("multiband.attackMS", 0.5, 200, 24),
+                releaseMS: detail("multiband.releaseMS", 15, 1_000, 190)
             ),
-            parametricEQ: AIEqualizerParametricEQConfiguration(enabled: false, bands: [])
+            parametricEQ: AIEqualizerParametricEQConfiguration(
+                enabled: !parametricBands.isEmpty && boolean(value(22)), bands: parametricBands
+            )
         )
         let haasEnabled = canUseLearnedStages
             && tuningProfile == .monoSpatialEnhancement
@@ -1342,31 +1387,31 @@ actor AudioTrainingOnDeviceModelStore {
             ? String(localized: "audio_training_generated_summary")
             : String(localized: "audio_training_generated_prior_summary")
         let effects = MonoEffectTuningConfiguration(
-            loudnessNormalizationEnabled: false,
+            loudnessNormalizationEnabled: usesDetailedOutputs && canUseLearnedStages && boolean(value(40)),
             targetLUFS: bounded(value(23), -30, -8, fallback: -14),
             targetLRA: bounded(value(24), 1, 20, fallback: 9),
             truePeakCeilingDB: bounded(value(25), -6, -0.5, fallback: -1),
-            compressorEnabled: false,
+            compressorEnabled: usesDetailedOutputs && canUseLearnedStages && boolean(value(41)),
             compressorThresholdDB: bounded(value(26), -60, -2, fallback: -18),
             compressorRatio: bounded(value(27), 1, 8, fallback: 2),
             compressorAttackMS: bounded(value(28), 1, 500, fallback: 18),
             compressorReleaseMS: bounded(value(29), 10, 2_000, fallback: 180),
             compressorMakeupDB: bounded(value(30), -6, 6, fallback: 0),
-            subboostEnabled: false,
+            subboostEnabled: usesDetailedOutputs && canUseLearnedStages && boolean(value(42)),
             subboostGainDB: bounded(value(31), -6, 6, fallback: 0),
             subboostCutoffHz: bounded(value(32), 30, 220, fallback: 90),
-            bs2bEnabled: false,
-            crossfeedEnabled: false,
+            bs2bEnabled: usesDetailedOutputs && canUseLearnedStages && boolean(value(43)),
+            crossfeedEnabled: usesDetailedOutputs && canUseLearnedStages && boolean(value(44)),
             crossfeedStrength: unit(value(33)),
             haasEnabled: haasEnabled,
             haasDelayMS: bounded(value(34), 1, 30, fallback: 12),
-            virtualBassEnabled: false,
+            virtualBassEnabled: usesDetailedOutputs && canUseLearnedStages && boolean(value(46)),
             virtualBassCutoffHz: bounded(value(35), 40, 320, fallback: 180),
             virtualBassStrength: unit(value(36)),
-            exciterEnabled: false,
+            exciterEnabled: usesDetailedOutputs && canUseLearnedStages && boolean(value(47)),
             exciterAmountDB: bounded(value(37), 0, 6, fallback: 0),
             exciterFrequencyHz: bounded(value(38), 2_000, 16_000, fallback: 7_500),
-            softclipEnabled: false,
+            softclipEnabled: usesDetailedOutputs && canUseLearnedStages && boolean(value(48)),
             finalLimiterEnabled: true,
             finalLimiterCeilingDB: bounded(value(39), -6, -0.8, fallback: -1)
         )
@@ -1391,9 +1436,9 @@ actor AudioTrainingOnDeviceModelStore {
             ),
             professional: professional,
             effects: effects,
-            confidence: supervised
-                ? min(0.92, 0.45 + Float(status.completeSampleCount) / 256)
-                : 0.25,
+            // The regressor has no calibrated uncertainty head. Zero remains
+            // the wire-compatible placeholder; local-model UI shows uncalibrated.
+            confidence: 0,
             summary: summary
         )
         return (output, fallbackCount)
@@ -1456,12 +1501,16 @@ actor AudioTrainingOnDeviceModelStore {
         return decoded.map(Float.init)
     }
 
-    private static func inferenceTrace(
+    static func inferenceTrace(
         version: String,
         input: [Float],
         output: [Float],
         featureSchemaVersion: Int,
-        latencyMilliseconds: Double
+        latencyMilliseconds: Double,
+        priorInput: [Float] = [],
+        priorOutput: [Float] = [],
+        blendedOutput: [Float]? = nil,
+        trackCorrectionStrength: Float = 1
     ) -> AudioTrainingInferenceTrace {
         let names = featureNames(forFeatureSchemaVersion: featureSchemaVersion) ?? []
         return AudioTrainingInferenceTrace(
@@ -1472,7 +1521,16 @@ actor AudioTrainingOnDeviceModelStore {
                 values: output
             ),
             latencyMilliseconds: latencyMilliseconds,
-            capturedAt: Date()
+            capturedAt: Date(),
+            priorInput: tensorValues(names: names, values: priorInput),
+            priorOutput: tensorValues(
+                names: targetNames(forFeatureSchemaVersion: featureSchemaVersion), values: priorOutput
+            ),
+            blendedOutput: tensorValues(
+                names: targetNames(forFeatureSchemaVersion: featureSchemaVersion),
+                values: blendedOutput ?? output
+            ),
+            trackCorrectionStrength: trackCorrectionStrength
         )
     }
 
@@ -1785,7 +1843,7 @@ actor AudioTrainingOnDeviceModelStore {
         case 5:
             return legacyFeatureNames + trackConditionedFeatureNames(for: trackBandCount)
                 + learningConditionedFeatureNames(for: trackBandCount) + detailedDeviceFeatureNames
-        case 6:
+        case 6, 7:
             let modeLegacyFeatureNames = bandBranchFeatureNames("bandEnergyDB")
                 + Array(legacyFeatureNames[10..<73])
                 + bandBranchFeatureNames("deviceReferenceGainsDB")
@@ -1843,8 +1901,35 @@ actor AudioTrainingOnDeviceModelStore {
 
     private static func targetNames(forFeatureSchemaVersion version: Int) -> [String] {
         guard version >= 6 else { return legacyTargetNames }
-        return (0..<10).map { "tenBand.gains.\($0)" }
+        let shared = (0..<10).map { "tenBand.gains.\($0)" }
             + (0..<32).map { "thirtyTwoBand.gains.\($0)" }
             + Array(legacyTargetNames.dropFirst(10))
+        return version >= 7 ? shared + professionalTargetNames : shared
     }
+
+    private static let dynamicBandFields = [
+        "frequency", "q", "thresholdDB", "ratio", "maxReductionDB", "attackMS", "releaseMS"
+    ]
+    private static let parametricTypes = ["peak", "lowShelf", "highShelf", "lowPass", "highPass", "notch"]
+    private static let professionalTargetNames: [String] = {
+        var result: [String] = []
+        for slot in 0..<4 {
+            let prefix = "professional.dynamicEQ.bands.\(slot)."
+            result.append(prefix + "active")
+            result.append(contentsOf: dynamicBandFields.map { prefix + $0 })
+        }
+        for slot in 0..<6 {
+            let prefix = "professional.parametricEQ.bands.\(slot)."
+            result.append(prefix + "active")
+            result.append(contentsOf: parametricTypes.map { prefix + "type." + $0 })
+            result.append(contentsOf: ["frequency", "gainDB", "q"].map { prefix + $0 })
+        }
+        result.append(contentsOf: ["lowCrossoverHz", "highCrossoverHz", "attackMS", "releaseMS"].map {
+            "professional.multiband." + $0
+        })
+        for field in ["thresholdsDB", "ratios", "maxReductionDB"] {
+            result.append(contentsOf: (0..<3).map { "professional.multiband.\(field).\($0)" })
+        }
+        return result
+    }()
 }

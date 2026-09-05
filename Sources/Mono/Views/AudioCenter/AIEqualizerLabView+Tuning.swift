@@ -108,7 +108,7 @@ extension AIEqualizerLabView {
                 }
             }
         } else if let proposal = agent.proposal {
-            Text("\(Int(proposal.confidence * 100))%")
+            Text(proposal.confidenceDisplayText)
                 .font(.system(size: 16, weight: .bold, design: .monospaced))
                 .foregroundStyle(accent)
         }

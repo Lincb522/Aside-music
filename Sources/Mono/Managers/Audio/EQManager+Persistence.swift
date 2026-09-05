@@ -85,8 +85,16 @@ extension EQManager {
 
     func captureProcessingBeforeAIIfNeeded() {
         guard preAIProcessingSnapshot == nil, !isAIManagedPresetActive else { return }
+        let snapshot = currentAIProcessingSnapshot()
+        preAIProcessingSnapshot = snapshot
+        if let data = try? JSONEncoder().encode(snapshot) {
+            UserDefaults.standard.set(data, forKey: Self.aiProcessingSnapshotKey)
+        }
+    }
+
+    func currentAIProcessingSnapshot() -> AIProcessingSnapshot {
         let effects = PlayerManager.shared.audioEffects
-        let snapshot = AIProcessingSnapshot(
+        return AIProcessingSnapshot(
             isEnabled: isEnabled,
             currentPreset: currentPreset,
             customGains: customGains,
@@ -112,10 +120,29 @@ extension EQManager {
             reverbLevel: effects.reverbLevel,
             stereoWidth: effects.stereoWidth
         )
-        preAIProcessingSnapshot = snapshot
-        if let data = try? JSONEncoder().encode(snapshot) {
-            UserDefaults.standard.set(data, forKey: Self.aiProcessingSnapshotKey)
-        }
+    }
+
+    struct DSPDiagnosticSnapshot: Encodable {
+        let configured: AIProcessingSnapshot
+        let sdkGraphicMode: String
+        let sdkGraphicGains: [Float]
+        let sdkProcessingEnabled: Bool
+        let sdkEnhance: MonoEnhanceConfiguration
+        let outputGainDB: Float
+        let perceptualMakeupDB: Float
+    }
+
+    func currentDSPDiagnosticSnapshot() -> DSPDiagnosticSnapshot {
+        let player = PlayerManager.shared
+        return DSPDiagnosticSnapshot(
+            configured: currentAIProcessingSnapshot(),
+            sdkGraphicMode: player.equalizer.graphicMode.rawValue,
+            sdkGraphicGains: player.equalizer.graphicGains,
+            sdkProcessingEnabled: player.equalizer.isProcessingEnabled,
+            sdkEnhance: player.equalizer.monoEnhanceConfiguration,
+            outputGainDB: player.audioRepair.outputGainDB,
+            perceptualMakeupDB: player.audioRepair.perceptualMakeupDB
+        )
     }
 
     func restoreAIProcessingSnapshot() {

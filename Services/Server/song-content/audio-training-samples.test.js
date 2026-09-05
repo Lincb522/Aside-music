@@ -94,6 +94,44 @@ test('normalizeSample keeps only whitelisted keys and rejects self-generated tar
   assert.equal(normalizeSample({ id: 'not-a-uuid' }).error, 'INVALID_ID')
 })
 
+test('human corrections to local predictions are accepted without accepting unreviewed output', () => {
+  for (const mode of ['tenBand', 'thirtyTwoBand']) {
+    const value = sample(10, mode)
+    value.target.provider = 'appleIntelligence'
+    value.target.skillCompliance.executionMode = 'trainedCoreMLModel'
+    value.feedback = 'manualEqualizer'
+    value.manualGainsDB = value.target.gains.map((gain) => gain + 1)
+    assert.ok(normalizeSample(value).sample)
+    value.manualGainsDB = [...value.target.gains]
+    assert.equal(normalizeSample(value).error, 'SELF_GENERATED')
+    value.manualGainsDB[0] = NaN
+    assert.ok(normalizeSample(value).error)
+    value.feedback = 'positive'
+    delete value.manualGainsDB
+    assert.equal(normalizeSample(value).error, 'SELF_GENERATED')
+  }
+})
+
+test('rejecting an uploaded human edit withdraws it from training instead of leaving a stale label', () => {
+  withStore((store) => {
+    const value = sample(12)
+    value.target.model = 'mono-resonance-s1-test'
+    value.feedback = 'manualEqualizer'
+    value.manualGainsDB = value.target.gains.map((gain) => gain + 1)
+    value.outcomeUpdatedAt = '2026-09-05T12:00:00.000Z'
+    assert.equal(store.ingest('token-a', [value]).stored, 1)
+    const options = { includeVectors: true, trainingSampleDatabasePath: store.databasePath }
+    assert.equal(collectDataset(null, options).stats.manualCorrectedSamples, 1)
+    value.feedback = 'negative'
+    value.outcomeUpdatedAt = '2026-09-05T12:00:01.000Z'
+    assert.equal(store.ingest('token-a', [value]).updated, 1)
+    const collected = collectDataset(null, options)
+    assert.equal(collected.stats.trainableSamples, 0)
+    assert.equal(collected.stats.excludedOutcomeSamples, 1)
+    assert.equal(collected.stats.legacyPlans, 0)
+  })
+})
+
 test('ingest stores, updates by freshness and enforces per-request and per-account caps', () => {
   withStore((store) => {
     const first = store.ingest('token-a', [sample(1), sample(2)])

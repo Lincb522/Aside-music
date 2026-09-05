@@ -6,15 +6,15 @@ struct AudioTrainingDeveloperView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var epochs = 40
-    @State private var hiddenUnits = 16
+    @State private var hiddenUnits = 64
     @State private var learningRate = 0.01
     @State private var validationPercent = 20
     @State private var minimumSamples = 32
     @State private var priorWeight = 1.0
     @State private var weightDecay = 0.0001
     @State private var earlyStoppingPatience = 8
-    @State private var intentUnits = 8
-    @State private var targetMode = AudioTrainingTargetMode.population
+    @State private var intentUnits = 32
+    @State private var targetMode = AudioTrainingTargetMode.joint
     @State private var modelEnabled = true
     @State private var computeMode = AudioTrainingComputeMode.all
     @State private var legacyPriorStrength: Double = 1
@@ -140,7 +140,7 @@ struct AudioTrainingDeveloperView: View {
                     integerSettingRow(
                         title: String(localized: "audio_training_hidden_units"),
                         value: $hiddenUnits,
-                        range: 4...64,
+                        range: 4...128,
                         step: 4
                     )
                     divider
@@ -208,7 +208,7 @@ struct AudioTrainingDeveloperView: View {
                     integerSettingRow(
                         title: String(localized: "audio_training_intent_units"),
                         value: $intentUnits,
-                        range: 0...32,
+                        range: 0...64,
                         step: 2
                     )
                     divider
@@ -831,6 +831,22 @@ struct AudioTrainingDeveloperView: View {
                     text: tensorText(result.inference.rawOutput)
                 )
 
+                if !result.inference.priorInput.isEmpty {
+                    divider
+                    AudioTrainingDiagnosticDisclosure(
+                        title: String(localized: "audio_training_prior_pass"),
+                        subtitle: String(format: "%.1f%%", result.inference.trackCorrectionStrength * 100),
+                        text: tensorText(result.inference.priorInput) + "\n\n"
+                            + tensorText(result.inference.priorOutput)
+                    )
+                }
+                divider
+                AudioTrainingDiagnosticDisclosure(
+                    title: String(localized: "audio_training_blended_output"),
+                    subtitle: String(format: "%.1f%%", result.inference.trackCorrectionStrength * 100),
+                    text: tensorText(result.inference.blendedOutput)
+                )
+
                 divider
                 AudioTrainingDiagnosticDisclosure(
                     title: String(localized: "audio_training_final_compiled_result"),
@@ -839,6 +855,12 @@ struct AudioTrainingDeveloperView: View {
                         result.bandCount
                     ),
                     text: proposalJSON(result.finalProposal)
+                )
+                divider
+                AudioTrainingDiagnosticDisclosure(
+                    title: String(localized: "audio_training_applied_dsp"),
+                    subtitle: result.profileName,
+                    text: result.appliedDSPJSON
                 )
             }
             }
@@ -1092,6 +1114,13 @@ struct AudioTrainingDeveloperView: View {
             metrics?.bestEpoch.map { "\($0) / \(epochsRun)" }
         }
         append("bestEpoch", icon: .chart, title: String(localized: "audio_training_best_epoch"), value: bestEpoch)
+        append("architecture", icon: .chart, title: String(localized: "audio_training_architecture"), value: metrics?.architecture)
+        if let source = metrics?.selectionSource {
+            let selection = source == "heldOutTracks"
+                ? String(localized: "audio_training_selection_held_out")
+                : String(localized: "audio_training_selection_training")
+            append("selectionSource", icon: .chart, title: String(localized: "audio_training_selection_source"), value: selection, usesExpandedLayout: true)
+        }
         append("accounts", icon: .chart, title: String(localized: "audio_training_model_complete_accounts"), value: metrics?.completeAccountCount.map(String.init))
 
         let excludedSamples = metrics?.selfGeneratedSamplesExcluded.flatMap { samples in
@@ -1099,6 +1128,42 @@ struct AudioTrainingDeveloperView: View {
         }
         append("excludedSamples", icon: .stop, title: String(localized: "audio_training_model_self_generated_excluded"), value: excludedSamples)
         append("targetMode", icon: .chart, title: String(localized: "audio_training_target_mode"), value: metrics?.targetMode.map(targetModeTitle))
+        if let validation = metrics?.branchValidation {
+            let text = validation.keys.sorted().map { branch in
+                guard let result = validation[branch],
+                      let error = result.eqMAEDB, let prior = result.priorEQMAEDB else {
+                    return String(format: String(localized: "audio_training_branch_unvalidated_format"), branch)
+                }
+                return String(
+                    format: String(localized: "audio_training_branch_validation_format"),
+                    branch, result.samples, error, prior
+                )
+            }.joined(separator: "\n")
+            append("branchValidation", icon: .chart, title: String(localized: "audio_training_branch_validation"), value: text, usesExpandedLayout: true)
+            let errors = validation.keys.sorted().compactMap { branch -> String? in
+                guard let result = validation[branch], let p90 = result.trackEQMAEP90DB else { return nil }
+                return String(format: String(localized: "audio_training_track_error_format"), branch, result.tracks ?? 0, p90)
+            }.joined(separator: "\n")
+            if !errors.isEmpty {
+                append("trackErrors", icon: .chart, title: String(localized: "audio_training_track_error"), value: errors, usesExpandedLayout: true)
+            }
+        }
+        if let validation = metrics?.conditionValidation {
+            let text = validation.keys.sorted().compactMap { condition -> String? in
+                guard let result = validation[condition], let error = result.eqMAEDB,
+                      let prior = result.priorEQMAEDB else { return nil }
+                return String(format: String(localized: "audio_training_branch_validation_format"), condition, result.samples, error, prior)
+            }.joined(separator: "\n")
+            if !text.isEmpty {
+                append("conditionValidation", icon: .chart, title: String(localized: "audio_training_condition_validation"), value: text, usesExpandedLayout: true)
+            }
+        }
+        if let pairs = metrics?.preferenceValidationPairs, pairs > 0,
+           let accuracy = metrics?.preferenceValidationAccuracy {
+            append("preferenceValidation", icon: .chart, title: String(localized: "audio_training_preference_validation"), value: String(
+                format: String(localized: "audio_training_preference_validation_format"), pairs, accuracy * 100
+            ), usesExpandedLayout: true)
+        }
 
         if let branches = metrics?.completeBranchTrainingSamples {
             append(
@@ -1262,14 +1327,15 @@ struct AudioTrainingDeveloperView: View {
         priorWeight = settings.priorWeight ?? 1
         weightDecay = settings.weightDecay ?? 0.0001
         earlyStoppingPatience = settings.earlyStoppingPatience ?? 8
-        intentUnits = settings.intentUnits ?? 8
-        targetMode = settings.targetMode ?? .population
+        intentUnits = settings.intentUnits ?? 32
+        targetMode = settings.targetMode ?? .joint
     }
 
     private func targetModeTitle(_ mode: AudioTrainingTargetMode) -> String {
         switch mode {
         case .population: return String(localized: "audio_training_target_mode_population")
         case .personalized: return String(localized: "audio_training_target_mode_personalized")
+        case .joint: return String(localized: "audio_training_target_mode_joint")
         }
     }
 
@@ -1312,7 +1378,7 @@ struct AudioTrainingDeveloperView: View {
             result.profileName,
             result.bandCount,
             modelMode,
-            result.confidence * 100,
+            String(localized: "audio_training_confidence_uncalibrated"),
             result.modelOutputStrength * 100,
             result.preampDB,
             result.elapsedMilliseconds,

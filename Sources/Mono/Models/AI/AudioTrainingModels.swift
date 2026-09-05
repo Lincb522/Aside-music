@@ -35,6 +35,8 @@ enum AudioTrainingTargetMode: String, CaseIterable, Codable, Identifiable, Senda
     case population
     /// Learn the Agent-personalised target with the learning context as input.
     case personalized
+    /// Learn population and contextual personal targets as paired observations.
+    case joint
 
     var id: String { rawValue }
 }
@@ -91,6 +93,24 @@ struct AudioTrainingJobStatus: Codable, Equatable, Sendable {
 
 struct AudioTrainingModelStatus: Codable, Equatable, Sendable {
     struct Metrics: Codable, Equatable, Sendable {
+        struct BranchValidation: Codable, Equatable, Sendable {
+            var samples: Int
+            var tracks: Int?
+            var eqMAEDB: Double?
+            var priorEQMAEDB: Double?
+            var improvesPrior: Bool?
+            var trackEQMAEP90DB: Double?
+            var targetFamilyMSE: [String: Double]?
+        }
+        var branchValidation: [String: BranchValidation]?
+        var conditionValidation: [String: BranchValidation]?
+        var architecture: String?
+        var selectionValidationTracks: Int?
+        var selectionSource: String?
+        var preferenceTrainingPairs: Int?
+        var preferenceValidationPairs: Int?
+        var preferenceTrainingAccuracy: Double?
+        var preferenceValidationAccuracy: Double?
         var initialTrainingLoss: Double?
         var initialValidationLoss: Double?
         var trainingLoss: Double?
@@ -188,6 +208,7 @@ struct AudioTrainingInstalledModelStatus: Codable, Equatable, Sendable {
     var deviceConditionedSampleCount: Int? = nil
     var completeAccountCount: Int? = nil
     var completeBranchSampleCounts: [String: Int]? = nil
+    var completeBranchAccountCounts: [String: Int]? = nil
     var qualityWarnings: [String]? = nil
     var installedAt: Date
     var sourceModelFileName: String? = nil
@@ -206,6 +227,19 @@ struct AudioTrainingInstalledModelStatus: Codable, Equatable, Sendable {
         guard let completeBranchSampleCounts else { return completeSampleCount }
         return completeBranchSampleCounts[branch] ?? 0
     }
+
+    func trackCorrectionStrength(forBranch branch: String) -> Float {
+        guard completeSampleCount > 0 else { return 0 }
+        guard completeBranchSampleCounts != nil else { return 1 }
+        let samples = completeSampleCount(forBranch: branch)
+        guard samples > 0 else { return 0 }
+        // Preserve installed legacy behaviour until a download supplies the
+        // per-branch metadata. New manifests must not use global coverage.
+        let accounts = completeBranchAccountCounts.map { $0[branch] ?? 0 }
+            ?? completeAccountCount ?? 1
+        let accountFactor: Float = accounts < 2 ? 0.6 : (accounts == 2 ? 0.8 : 1)
+        return min(1, Float(samples) / 64) * accountFactor
+    }
 }
 
 struct AudioTrainingModelInstallDescriptor: Sendable {
@@ -221,6 +255,7 @@ struct AudioTrainingModelInstallDescriptor: Sendable {
     var deviceConditionedSampleCount: Int
     var completeAccountCount: Int = 0
     var completeBranchSampleCounts: [String: Int] = [:]
+    var completeBranchAccountCounts: [String: Int] = [:]
     var qualityWarnings: [String] = []
 }
 
@@ -268,6 +303,10 @@ struct AudioTrainingInferenceTrace: Equatable, Sendable {
     var rawOutput: [AudioTrainingTensorValue]
     var latencyMilliseconds: Double
     var capturedAt: Date
+    var priorInput: [AudioTrainingTensorValue] = []
+    var priorOutput: [AudioTrainingTensorValue] = []
+    var blendedOutput: [AudioTrainingTensorValue] = []
+    var trackCorrectionStrength: Float = 1
 }
 
 struct AudioTrainingModelTestCaseResult: Identifiable, Equatable, Sendable {
@@ -313,7 +352,6 @@ struct AudioTrainingTuningTestResult: Equatable, Sendable {
     var deviceConditionedSampleCount: Int
     var isTrackConditioned: Bool
     var modelOutputStrength: Double
-    var confidence: Float
     var samplingElapsedMilliseconds: Double
     var generationElapsedMilliseconds: Double
     var applyingElapsedMilliseconds: Double
@@ -323,6 +361,7 @@ struct AudioTrainingTuningTestResult: Equatable, Sendable {
     var frameCount: Int
     var inference: AudioTrainingInferenceTrace
     var finalProposal: AIEqualizerProposal
+    var appliedDSPJSON: String = ""
 }
 
 struct AudioTrainingStatusResponse: Decodable, Sendable {

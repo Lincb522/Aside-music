@@ -253,7 +253,9 @@ function normalizeSample(raw) {
   if (target.skillCompliance?.accepted !== true || target.skillCompliance?.localValidationApplied !== true) {
     return { id, error: 'TARGET_NOT_VALIDATED' }
   }
-  if (isSelfGeneratedProposal(target)) return { id, error: 'SELF_GENERATED' }
+  if (isSelfGeneratedProposal(target) && !hasHumanCorrection(raw, bandCount)) {
+    return { id, error: 'SELF_GENERATED' }
+  }
   for (const key of ['populationTarget', 'personalizedTarget']) {
     if (raw[key] !== undefined && raw[key] !== null) {
       if (!isObject(raw[key]) || !isFiniteArray(raw[key].gains, bandCount)) return { id, error: `INVALID_${key.toUpperCase()}` }
@@ -287,6 +289,27 @@ function isSelfGeneratedProposal(proposal) {
   const model = String(proposal.model || '').toLowerCase()
   if (SELF_GENERATED_MODEL_PREFIXES.some((prefix) => model.startsWith(prefix))) return true
   return String(proposal.provider || '') === 'appleIntelligence'
+}
+
+// Only an actual listener edit supplies new supervision for a local model.
+// Positive/retained feedback alone must not turn its prediction into a label.
+function manualGainDelta(sample, bandCount) {
+  if (sample?.feedback !== 'manualEqualizer') return null
+  return editedGainDelta(sample, bandCount)
+}
+
+function hasHumanCorrection(sample, bandCount) {
+  // A later rejection must be able to withdraw a previously uploaded edit.
+  return ['manualEqualizer', 'negative', 'reset', 'regenerated'].includes(sample?.feedback)
+    && editedGainDelta(sample, bandCount) !== null
+}
+
+function editedGainDelta(sample, bandCount) {
+  const manual = sample.manualGainsDB
+  const heard = sample.target?.gains
+  if (!isFiniteArray(manual, bandCount) || !isFiniteArray(heard, bandCount)) return null
+  const delta = manual.map((value, index) => Math.max(-12, Math.min(12, value - heard[index])))
+  return delta.some((value) => Math.abs(value) > 0.05) ? delta : null
 }
 
 function installTrainingSampleRoutes({ app, store, publicAccessMiddleware, publicRateLimit, logger = console }) {
@@ -360,5 +383,7 @@ module.exports = {
   createTrainingSampleStore,
   installTrainingSampleRoutes,
   isSelfGeneratedProposal,
+  manualGainDelta,
+  hasHumanCorrection,
   normalizeSample
 }

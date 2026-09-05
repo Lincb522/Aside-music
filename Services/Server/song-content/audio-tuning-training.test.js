@@ -11,14 +11,22 @@ const {
   MODEL_FAMILY,
   MODEL_NAME,
   MODEL_VERSION_PREFIX,
+  MODEL_ARCHITECTURE,
   collectDataset,
   createAudioTuningTrainingService,
   featureNames,
   installAudioTuningTrainingRoutes,
   isSelfGeneratedProposal,
+  normalizeSettings,
   splitExamples,
   targetNames,
   trainTinyModelSync,
+  forward,
+  initializeParameters,
+  zeroLike,
+  accumulateGradients,
+  targetLossWeights,
+  prepareTrainingSet,
   trainingVectors
 } = require('./audio-tuning-training')
 
@@ -173,13 +181,7 @@ function artifactPrediction(artifact, input) {
     (value - artifact.inputNormalization.mean[index])
       / artifact.inputNormalization.standardDeviation[index]
   )))
-  const hidden = artifact.hiddenWeights.map((weights, hiddenIndex) => Math.tanh(
-    artifact.hiddenBias[hiddenIndex]
-      + weights.reduce((sum, weight, index) => sum + weight * normalized[index], 0)
-  ))
-  return artifact.outputWeights.map((weights, outputIndex) => {
-    const value = artifact.outputBias[outputIndex]
-      + weights.reduce((sum, weight, index) => sum + weight * hidden[index], 0)
+  return forward(artifact, normalized).prediction.map((value, outputIndex) => {
     return value * artifact.outputNormalization.standardDeviation[outputIndex]
       + artifact.outputNormalization.mean[outputIndex]
   })
@@ -196,7 +198,7 @@ test('complete samples produce fixed trainable vectors', () => {
   assert.ok(vector.y.every(Number.isFinite))
   assert.equal(vector.y[0], -0.25)
   assert.equal(vector.y[9], 0.65)
-  assert.equal(FEATURE_SCHEMA_VERSION, 6)
+  assert.equal(FEATURE_SCHEMA_VERSION, 7)
   assert.equal(vector.x.length, 636)
   assert.equal(vector.x[featureNames.indexOf('genreScore.pop')], 0.72)
   assert.equal(vector.x[featureNames.indexOf('genreScore.rock')], 0.24)
@@ -216,6 +218,76 @@ test('complete samples produce fixed trainable vectors', () => {
   assert.equal(vector.temporallyConditioned, true)
 })
 
+test('residual and nonlinear intent gradients match finite differences with native target masks', () => {
+  for (const intentUnits of [0, 3]) {
+    let seed = 137
+    const random = () => ((seed = (1664525 * seed + 1013904223) >>> 0) / 2 ** 32)
+    const parameters = initializeParameters(normalizeSettings({ hiddenUnits: 4, intentUnits }), random)
+    const targetMask = targetNames.map((_, index) => index < 10 || index === 42 ? 1 : 0)
+    const item = {
+      x: featureNames.map((_, index) => index < 8 ? random() - 0.5 : 0),
+      y: targetNames.map(() => random() - 0.5),
+      targetMask, lossWeights: targetLossWeights(targetMask), sampleWeight: 0.7
+    }
+    const gradients = zeroLike(parameters)
+    accumulateGradients(parameters, gradients, item, 2)
+    const objective = () => forward(parameters, item.x).prediction.reduce((sum, value, index) =>
+      sum + item.lossWeights[index] * (value - item.y[index]) ** 2 * item.sampleWeight / 2, 0)
+    for (const key of Object.keys(parameters)) {
+      if (!parameters[key]) continue
+      const isMatrix = Array.isArray(parameters[key][0])
+      const row = isMatrix ? parameters[key][0] : parameters[key]
+      const analytic = isMatrix ? gradients[key][0][0] : gradients[key][0]
+      const original = row[0]
+      row[0] = original + 1e-5
+      const plus = objective()
+      row[0] = original - 1e-5
+      const minus = objective()
+      row[0] = original
+      const numerical = (plus - minus) / 2e-5
+      assert.ok(Math.abs(analytic - numerical) < 1e-6, `${intentUnits}/${key}: ${analytic} vs ${numerical}`)
+    }
+    assert.ok(gradients.outputHeadWeights[10].every((value) => value === 0))
+    if (intentUnits) assert.ok(gradients.outputSkipWeights[10].every((value) => value === 0))
+  }
+})
+
+test('target families receive equal loss mass and masked detailed slots stay inactive', () => {
+  const mask = targetNames.map((name) => /^(tenBand|professional.parametricEQ)/.test(name) ? 1 : 0)
+  const weights = targetLossWeights(mask)
+  const eqMass = weights.slice(0, 10).reduce((sum, value) => sum + value, 0)
+  const peqMass = weights.reduce((sum, value, index) =>
+    sum + (targetNames[index].startsWith('professional.parametricEQ') ? value : 0), 0)
+  assert.ok(Math.abs(eqMass - peqMass) < 1e-9)
+  assert.ok(weights.slice(10, 42).every((value) => value === 0))
+  assert.deepEqual(targetLossWeights(Array(targetNames.length).fill(0)), Array(targetNames.length).fill(0))
+})
+
+test('missing held-out tracks do not report training loss as validation evidence', () => {
+  const value = sample('no-validation')
+  const trained = trainTinyModelSync({
+    training: [{ ...trainingVectors(value), id: value.id, trackGroup: 'one-track', accountId: 'one-account' }],
+    validation: [], settings: normalizeSettings({ epochs: 1, hiddenUnits: 4, intentUnits: 0 })
+  })
+  assert.equal(trained.initialValidationLoss, null)
+  assert.equal(trained.validationLoss, null)
+  assert.equal(trained.selectionSource, 'trainingLoss')
+})
+
+test('measured branch balancing reduces population imbalance without fabricating missing branches', () => {
+  const training = Array.from({ length: 40 }, (_, index) => {
+    const value = sample(`branch-balance-${index}`)
+    value.target.tuningProfile = index === 39 ? 'monoSpatialEnhancement' : 'standard'
+    return { ...trainingVectors(value), id: value.id, accountId: 'one-account', trackGroup: value.songIdentifier }
+  })
+  const prepared = prepareTrainingSet({ training, validation: [], settings: normalizeSettings({}) })
+  const standardMass = prepared.train.slice(0, 39).reduce((sum, item) => sum + item.sampleWeight, 0)
+  const spatialMass = prepared.train[39].sampleWeight
+  assert.ok(Math.abs(standardMass / spatialMass - Math.sqrt(39)) < 1e-8)
+  assert.equal(prepared.train.length, 40)
+  assert.ok(prepared.train.every((item) => item.targetMask.slice(10, 42).every((value) => value === 0)))
+})
+
 test('32-band samples preserve native input and target resolution', () => {
   const value = sample('native-32', 'thirtyTwoBand')
   value.features.bandEnergyDB = Array.from({ length: 32 }, (_, index) => -32 + index)
@@ -227,7 +299,7 @@ test('32-band samples preserve native input and target resolution', () => {
   assert.ok(vector)
   assert.equal(vector.graphicEQMode, 'thirtyTwoBand')
   assert.equal(vector.x.length, 636)
-  assert.equal(vector.y.length, 92)
+  assert.equal(vector.y.length, 197)
   assert.equal(vector.x[featureNames.indexOf('thirtyTwoBand.bandEnergyDB.31')], -1)
   assert.equal(vector.x[featureNames.indexOf('tenBand.bandEnergyDB.0')], 0)
   assert.equal(vector.x[featureNames.indexOf('thirtyTwoBand.sectionBandEnergyDB.2.31')], 231)
@@ -488,7 +560,7 @@ test('rejected complete samples are excluded instead of becoming legacy priors',
   }
 })
 
-test('training service persists a completed tiny model', async () => {
+test('training service persists a completed residual model', async () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'mono-audio-training-service-'))
   try {
     const snapshots = Array.from({ length: 6 }, (_, index) => {
@@ -513,7 +585,7 @@ test('training service persists a completed tiny model', async () => {
       coreMLExporter: fakeCoreMLExporter,
       logger: { error() {} }
     })
-    service.updateSettings({ epochs: 2, hiddenUnits: 4, minimumSamples: 4 })
+    service.updateSettings({ epochs: 2, hiddenUnits: 4, minimumSamples: 4, targetMode: 'population' })
     service.startTraining('full-admin')
     let state = service.status()
     for (let attempt = 0; attempt < 200 && state.currentJob?.isActive; attempt += 1) {
@@ -524,20 +596,20 @@ test('training service persists a completed tiny model', async () => {
     assert.equal(state.currentJob.progress, 1)
     assert.ok(state.currentModel)
     assert.equal(state.currentModel.sampleCount, 6)
-    assert.equal(state.currentModel.targetSchemaVersion, 3)
+    assert.equal(state.currentModel.targetSchemaVersion, 4)
     assert.equal(state.currentModel.coreMLArtifact.byteCount, 512)
     assert.equal(state.currentModel.coreMLArtifact.format, 'coreml-neuralnetwork-v2')
     const model = service.modelArtifact(state.currentModel.id)
-    assert.equal(model.artifact.architecture, 'tiny-mlp-regression')
+    assert.equal(model.artifact.architecture, MODEL_ARCHITECTURE)
     assert.equal(MODEL_FAMILY, 'Mono Resonance')
-    assert.equal(MODEL_NAME, 'Mono Resonance S1')
-    assert.equal(MODEL_VERSION_PREFIX, 'mono-resonance-s1-schema6')
+    assert.equal(MODEL_NAME, 'Mono Resonance S2')
+    assert.equal(MODEL_VERSION_PREFIX, 'mono-resonance-s2-schema7')
     assert.equal(model.artifact.modelFamily, MODEL_FAMILY)
     assert.equal(model.artifact.modelName, MODEL_NAME)
-    assert.equal(model.featureSchemaVersion, 6)
+    assert.equal(model.featureSchemaVersion, 7)
     assert.deepEqual(model.artifact.graphicEQModes, ['tenBand', 'thirtyTwoBand'])
-    assert.equal(model.artifact.targetNames.length, 92)
-    assert.match(model.version, /^mono-resonance-s1-schema6-/)
+    assert.equal(model.artifact.targetNames.length, 197)
+    assert.match(model.version, /^mono-resonance-s2-schema7-/)
     assert.equal(
       (model.metrics.tenBandTrainingSamples || 0)
         + (model.metrics.tenBandValidationSamples || 0),
@@ -554,7 +626,8 @@ test('training service persists a completed tiny model', async () => {
       + model.metrics.standardProfileValidationSamples, 3)
     assert.equal(model.metrics.spatialProfileTrainingSamples
       + model.metrics.spatialProfileValidationSamples, 3)
-    assert.ok(model.artifact.outputWeights.flat().some((value) => Math.abs(value) > 0.0001))
+    assert.ok(model.artifact.outputHeadWeights.flat().some((value) => Math.abs(value) > 0.0001))
+    assert.equal(model.artifact.outputWeights, undefined)
     assert.ok(model.metrics.initialTrainingLoss > model.metrics.trainingLoss)
     assert.ok(model.metrics.optimizationSteps > 0)
 
@@ -1190,7 +1263,7 @@ test('training service can train a population prior from legacy-only plans', asy
       coreMLExporter: fakeCoreMLExporter,
       logger: { error() {} }
     })
-    service.updateSettings({ epochs: 2, hiddenUnits: 4, minimumSamples: 4 })
+    service.updateSettings({ epochs: 2, hiddenUnits: 4, minimumSamples: 4, targetMode: 'population' })
     service.startTraining('full-admin')
     let state = service.status()
     for (let attempt = 0; attempt < 200 && state.currentJob?.isActive; attempt += 1) {
@@ -1205,12 +1278,14 @@ test('training service can train a population prior from legacy-only plans', asy
     assert.equal(model.artifact.targetMode, 'population')
     assert.equal(model.artifact.inputNormalization.mean.length, featureNames.length)
     assert.ok(model.artifact.hiddenWeights.flat().some((value) => Math.abs(value) > 0.0001))
-    assert.ok(model.artifact.outputWeights.flat().some((value) => Math.abs(value) > 0.0001))
-    assert.ok(model.artifact.outputBias.some((value) => Math.abs(value) > 0.0001))
+    assert.ok(model.artifact.outputHeadWeights.flat().some((value) => Math.abs(value) > 0.0001))
+    assert.ok(model.artifact.outputHeadBias.some((value) => Math.abs(value) > 0.0001))
     assert.ok(model.metrics.initialTrainingLoss > model.metrics.trainingLoss)
-    assert.ok(model.metrics.initialValidationLoss > model.metrics.validationLoss)
+    assert.equal(model.metrics.validationSamples, 0)
+    assert.equal(model.metrics.initialValidationLoss, null)
+    assert.equal(model.metrics.validationLoss, null)
     assert.ok(model.metrics.trainingLossImprovement > 0)
-    assert.ok(model.metrics.validationLossImprovement > 0)
+    assert.equal(model.metrics.validationLossImprovement, null)
     // Tiny datasets fall back to single-example batches, so every plan is one step.
     assert.equal(
       model.metrics.optimizationSteps,
@@ -1225,6 +1300,172 @@ test('training service can train a population prior from legacy-only plans', asy
   } finally {
     fs.rmSync(directory, { recursive: true, force: true })
   }
+})
+
+test('local-model human corrections supervise only native EQ and retain the rejected curve', () => {
+  for (const mode of ['tenBand', 'thirtyTwoBand']) {
+    const value = sample(`manual-local-${mode}`, mode)
+    const bands = mode === 'tenBand' ? 10 : 32
+    const offset = mode === 'tenBand' ? 0 : 10
+    value.target.model = 'mono-resonance-s1-test'
+    value.target.skillCompliance.executionMode = 'trainedCoreMLModel'
+    value.feedback = 'manualEqualizer'
+    value.manualGainsDB = value.target.gains.map((gain) => gain + 1)
+    const vector = trainingVectors(value)
+    assert.ok(vector)
+    assert.equal(vector.targetMask.reduce((a, b) => a + b, 0), bands)
+    assert.equal(vector.preferenceMask.reduce((a, b) => a + b, 0), bands)
+    assert.equal(vector.y[offset], vector.rejectedY[offset] + 1)
+    assert.ok(vector.targetMask.slice(42).every((mask) => mask === 0))
+    value.feedback = 'retained'
+    assert.equal(trainingVectors(value), null)
+  }
+})
+
+test('professional targets preserve detailed parameters with missing and inactive slots masked', () => {
+  for (const mode of ['tenBand', 'thirtyTwoBand']) {
+    const value = sample(`professional-${mode}`, mode)
+    value.target.professional.dynamicEQ = { enabled: true, bands: [
+      { frequency: 6200, q: 1.8, thresholdDB: -21, ratio: 2.4, maxReductionDB: 3.2, attackMS: 7, releaseMS: 140 },
+      { frequency: 180, q: 0.8, thresholdDB: -25, ratio: 1.8, maxReductionDB: 2.1, attackMS: 26, releaseMS: 210 }
+    ] }
+    value.target.professional.parametricEQ = { enabled: true, bands: [
+      { type: 'highShelf', frequency: 7300, gainDB: -2.5, q: 0.7 }
+    ] }
+    value.target.professional.multiband = {
+      enabled: false, lowCrossoverHz: 230, highCrossoverHz: 4200,
+      thresholdsDB: [-20, -18, -21], ratios: [2.3, 1.7, 2.1], maxReductionDB: [3, 2, 4],
+      attackMS: 17, releaseMS: 230
+    }
+    const vector = trainingVectors(value)
+    const at = (name) => vector.y[targetNames.indexOf(`professional.${name}`)]
+    const mask = (name) => vector.targetMask[targetNames.indexOf(`professional.${name}`)]
+    assert.equal(at('dynamicEQ.bands.0.frequency'), 180)
+    assert.equal(at('dynamicEQ.bands.1.thresholdDB'), -21)
+    assert.equal(at('parametricEQ.bands.0.type.highShelf'), 1)
+    assert.equal(at('parametricEQ.bands.0.gainDB'), -2.5)
+    assert.equal(at('multiband.ratios.0'), 2.3)
+    assert.equal(at('multiband.highCrossoverHz'), 4200)
+    assert.equal(mask('dynamicEQ.bands.2.frequency'), 0)
+    assert.equal(mask('parametricEQ.bands.3.active'), mode === 'tenBand' ? 1 : 0)
+    assert.equal(vector.y.length, 197)
+  }
+  const missing = trainingVectors(sample('missing-professional'))
+  assert.ok(missing.targetMask.slice(92).every((value) => value === 0))
+})
+
+test('joint collection pairs population and personal context without duplicating recordings or self-labels', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'mono-joint-training-'))
+  try {
+    const value = sample('joint-recording')
+    value.learningContext = { confidence: 0.8, evidenceCount: 12, bandAdjustments: Array(10).fill(1) }
+    value.populationTarget = proposal('joint-population')
+    value.populationTarget.gains = Array(10).fill(0)
+    value.personalizedTarget = proposal('joint-personal')
+    value.personalizedTarget.gains = Array(10).fill(2)
+    value.feedback = 'manualEqualizer'
+    value.manualGainsDB = value.target.gains.map((gain) => gain + 1)
+    const local = structuredClone(value)
+    local.id = local.target.id = 'joint-local'
+    local.target.model = 'mono-resonance-s1-test'
+    const cloudDatabasePath = createCloudDatabase(directory, [{ aiEqualizer: {
+      cachedProposals: { remote: value.target, local: local.target },
+      trainingSamples: { remote: value, local }
+    } }])
+    const collected = collectDataset(cloudDatabasePath, { includeVectors: true, targetMode: 'joint' })
+    assert.equal(collected.stats.completeSamples, 2)
+    assert.equal(collected.stats.learningConditionedSamples, 2)
+    const pair = collected.examples.find((item) => item.id === value.id)
+    assert.equal(pair.x[featureNames.indexOf('learning.active')], 1)
+    assert.equal(pair.y[0], 3)
+    assert.equal(pair.populationPair.y[0], 0)
+    assert.equal(pair.populationPair.x[featureNames.indexOf('learning.active')], 0)
+    assert.equal(collected.examples.find((item) => item.id === local.id).populationPair, null)
+    assert.equal(normalizeSettings({}).targetMode, 'joint')
+    assert.equal(normalizeSettings({ targetMode: 'population' }).targetMode, 'population')
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('training learns manual preference pairs and reports unknown validation branches honestly', () => {
+  const examples = Array.from({ length: 24 }, (_, index) => {
+    const value = sample(`preference-${index}`)
+    value.target.model = 'mono-resonance-s1-test'
+    value.target.gains = Array(10).fill(-2)
+    value.feedback = 'manualEqualizer'
+    value.manualGainsDB = Array(10).fill(2)
+    return { ...trainingVectors(value), id: value.id, accountId: `account-${index % 4}`,
+      trackGroup: value.songIdentifier, source: 'complete' }
+  })
+  const settings = normalizeSettings({ epochs: 35, hiddenUnits: 8, intentUnits: 4, earlyStoppingPatience: 0 })
+  const trained = trainTinyModelSync({ training: examples.slice(0, 20), validation: examples.slice(20), settings })
+  assert.equal(trained.preferenceTraining.count, 20)
+  assert.equal(trained.preferenceValidation.count, 4)
+  assert.equal(trained.preferenceValidation.accuracy, 1)
+  assert.ok(artifactPrediction(trained, examples[0].x)[0] > 1)
+  assert.equal(trained.branchValidation['thirtyTwoBand:standard'].eqMAEDB, null)
+  assert.equal(trained.branchValidation['thirtyTwoBand:standard'].improvesPrior, null)
+  assert.ok(Number.isFinite(trained.branchValidation['tenBand:monoSpatialEnhancement'].eqMAEDB))
+  const unknown = targetNames.indexOf('professional.parametricEQ.bands.0.frequency')
+  assert.equal(artifactPrediction(trained, examples[0].x)[unknown], 0)
+})
+
+test('one joint model learns a population baseline and opposite personal preferences for the same song features', () => {
+  const examples = Array.from({ length: 40 }, (_, index) => {
+    const value = sample(`joint-learn-${index}`)
+    const adjustment = index % 2 ? 2 : -2
+    value.learningContext = { confidence: 0.8, evidenceCount: 12, bandAdjustments: Array(10).fill(adjustment) }
+    value.populationTarget = proposal('base')
+    value.populationTarget.gains = Array(10).fill(0)
+    value.personalizedTarget = proposal('personal')
+    value.personalizedTarget.gains = Array(10).fill(adjustment)
+    return { ...trainingVectors(value, { targetMode: 'joint' }),
+      id: value.id, trackGroup: value.songIdentifier, accountId: `account-${index % 4}`, source: 'complete',
+      populationPair: trainingVectors(value, { targetMode: 'population' }) }
+  })
+  const trained = trainTinyModelSync({
+    training: examples.slice(0, 32), validation: examples.slice(32),
+    settings: normalizeSettings({ epochs: 70, hiddenUnits: 12, intentUnits: 8, earlyStoppingPatience: 0 })
+  })
+  const cool = artifactPrediction(trained, examples[0].x)[0]
+  const warm = artifactPrediction(trained, examples[1].x)[0]
+  const baseline = artifactPrediction(trained, examples[0].populationPair.x)[0]
+  assert.ok(cool < -1, `cool=${cool}`)
+  assert.ok(warm > 1, `warm=${warm}`)
+  assert.ok(Math.abs(baseline) < 0.6, `baseline=${baseline}`)
+  assert.equal(trained.selectionValidationTracks, 8)
+  assert.equal(trained.selectionSource, 'trainingLoss')
+  assert.equal(trained.branchValidation['tenBand:monoSpatialEnhancement'].trackEQMAEP90DB, null)
+})
+
+test('residual model learns interacting style and device conditions, not only additive offsets', () => {
+  const examples = Array.from({ length: 48 }, (_, index) => {
+    const a = index % 2
+    const b = Math.floor(index / 2) % 2
+    const x = Array(featureNames.length).fill(0)
+    x[featureNames.indexOf('genreScore.rock')] = a
+    x[featureNames.indexOf('genreScore.acoustic')] = 1 - a
+    x[featureNames.indexOf('outputKind.wired')] = b
+    x[featureNames.indexOf('outputKind.bluetooth')] = 1 - b
+    return { id: String(index), trackGroup: String(index), accountId: String(index % 3),
+      graphicEQMode: 'tenBand', tuningProfile: 'standard', sampleWeight: 1,
+      x, y: targetNames.map((_, slot) => slot < 10 ? (a === b ? 2 : -2) : 0),
+      targetMask: targetNames.map((_, slot) => slot < 10 ? 1 : 0) }
+  })
+  const trained = trainTinyModelSync({ training: examples.slice(0, 32), validation: examples.slice(32),
+    settings: normalizeSettings({ epochs: 60, hiddenUnits: 12, intentUnits: 4, earlyStoppingPatience: 0 }) })
+  for (const example of examples.slice(32, 36)) {
+    const predicted = artifactPrediction(trained, example.x)[0]
+    assert.ok(Math.abs(predicted - example.y[0]) < 0.5, `${predicted} vs ${example.y[0]}`)
+  }
+  const branch = trained.branchValidation['tenBand:standard']
+  assert.equal(branch.tracks, 16)
+  assert.ok(branch.trackEQMAEP90DB < 0.5)
+  assert.ok(branch.targetFamilyMSE.graphicEQ < 0.1)
+  assert.equal(trained.conditionValidation['genreScore.rock'].samples, 8)
+  assert.equal(trained.conditionValidation['genreScore.pop'].eqMAEDB, null)
+  assert.equal(trained.selectionSource, 'heldOutTracks')
 })
 
 function productionShapedExamples({ completeCount, legacyPerBranch, completeAccount = 'dev' }) {

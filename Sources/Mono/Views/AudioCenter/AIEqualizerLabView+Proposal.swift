@@ -26,7 +26,7 @@ extension AIEqualizerLabView {
                             }
                             Spacer(minLength: 12)
                             VStack(alignment: .trailing, spacing: 4) {
-                                Text("\(Int(proposal.confidence * 100))%")
+                                Text(proposal.confidenceDisplayText)
                                     .font(.system(size: 14, weight: .bold, design: .monospaced))
                                     .foregroundStyle(accent)
                                 if let timing = proposal.timing {
