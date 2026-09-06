@@ -1,4 +1,5 @@
 import crypto from 'node:crypto'
+import { fetchQQMedia } from './qq-media-download.js'
 import http from 'node:http'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
@@ -185,7 +186,7 @@ const server = http.createServer(async (req, res) => {
 })
 
 server.listen(port, '127.0.0.1', () => {
-  console.log(`Mono daily player proxy listening on 127.0.0.1:${port}`)
+  console.log(`Mono daily player proxy listening on 127.0.0.1:${server.address().port}`)
 })
 
 async function fetchDailyTracks() {
@@ -222,7 +223,6 @@ async function resolveDownloadUrl(record) {
   if (record.source === 'qishui') {
     return fetchQishuiDownloadUrl(record)
   }
-  if (record.playUrl) return record.playUrl
   if (record.songId) return fetchPlayableUrl(record.songId)
   throw new Error('下载链接不可用')
 }
@@ -244,16 +244,12 @@ async function fetchQQDownloadUrl(record) {
     } catch {}
   }
 
-  if (record.playUrl) return record.playUrl
   throw new Error('QCM 下载链接不可用')
 }
 
 async function sendQQDecryptedDownload(res, record) {
   const download = await fetchQQDownloadInfo(record)
-  const response = await fetch(download.url)
-  if (!response.ok) throw new Error('QCM 文件下载失败')
-
-  const encrypted = Buffer.from(await response.arrayBuffer())
+  const encrypted = await fetchQQMedia(download.url)
   const output = download.ekey
     ? qmcDecryptData(encrypted, download.ekey)
     : encrypted
@@ -292,13 +288,6 @@ async function fetchQQDownloadInfo(record) {
     } catch {}
   }
 
-  if (record.playUrl) {
-    return {
-      url: record.playUrl,
-      ekey: '',
-      fileType: record.qqQualityRaw || '',
-    }
-  }
   throw new Error('QCM 下载链接不可用')
 }
 
@@ -322,7 +311,7 @@ async function fetchQQJson(pathname, params = {}) {
   })
   if (playerToken) url.searchParams.set('token', playerToken)
 
-  const response = await fetch(url, { headers: { Accept: 'application/json' } })
+  const response = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(10_000) })
   const payload = await response.json()
   if (!response.ok || (payload.code && payload.code !== 200)) {
     throw new Error(payload.message || payload.msg || 'QCM 服务请求失败')
@@ -369,14 +358,16 @@ function normalizeSong(song) {
 }
 
 function createShareRecord(payload) {
-  const playUrl = sanitizeString(payload.url || payload.playUrl)
+  const playUrl = normalizeHttpsURL(payload.url || payload.playUrl)
   const source = normalizeSource(payload.source)
   const songId = optionalNumber(payload.songId)
   const qqMid = sanitizeString(payload.qqMid)
   const qishuiTrackId = optionalNumber(payload.qishuiTrackId)
 
-  if (!playUrl && !songId && !qqMid && !qishuiTrackId) {
-    throw new Error('缺少播放信息')
+  if ((source === 'qqmusic' && !/^[A-Za-z0-9]{1,128}$/.test(qqMid))
+    || (source === 'qishui' && (!Number.isSafeInteger(qishuiTrackId) || qishuiTrackId <= 0))
+    || (source === 'netease' && (!Number.isSafeInteger(songId) || songId <= 0))) {
+    throw httpError(400, '缺少有效的歌曲标识')
   }
 
   const now = new Date().toISOString()

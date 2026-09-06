@@ -24,6 +24,10 @@ final class CachedSong {
     var qishuiTrackId: Int?
     var appleMusicID: String?
     var appleMusicISRC: String?
+    var songData: Data?
+    var kugouAlbumAudioID: Int?
+    var kugouAlbumID: Int?
+    var kugouHash: String?
     
     init(
         id: Int,
@@ -39,6 +43,10 @@ final class CachedSong {
         qqMid: String? = nil,
         qishuiTrackId: Int? = nil,
         appleMusicID: String? = nil,
+        kugouHash: String? = nil,
+        kugouAlbumID: Int? = nil,
+        kugouAlbumAudioID: Int? = nil,
+        songData: Data? = nil,
         appleMusicISRC: String? = nil
     ) {
         self.id = id
@@ -58,6 +66,10 @@ final class CachedSong {
         self.qishuiTrackId = qishuiTrackId
         self.appleMusicID = appleMusicID
         self.appleMusicISRC = appleMusicISRC
+        self.songData = songData
+        self.kugouAlbumAudioID = kugouAlbumAudioID
+        self.kugouAlbumID = kugouAlbumID
+        self.kugouHash = kugouHash
     }
     
     /// 从 Song 模型创建
@@ -72,16 +84,21 @@ final class CachedSong {
             maxBitrate: nil,
             fee: song.fee,
             canPlay: true,
-            sourceRaw: song.source?.rawValue,
+            sourceRaw: song.musicSource.rawValue,
             qqMid: song.qqMid,
             qishuiTrackId: song.qishuiTrackId,
             appleMusicID: song.appleMusicID,
+            kugouHash: song.kugouHash,
+            kugouAlbumID: song.kugouAlbumID,
+            kugouAlbumAudioID: song.kugouAlbumAudioID,
+            songData: try? JSONEncoder().encode(song),
             appleMusicISRC: song.appleMusicISRC
         )
     }
     
     /// 转换为 Song 模型
     func toSong() -> Song {
+        if let songData, let song = try? JSONDecoder().decode(Song.self, from: songData) { return song }
         var song = Song(
             id: id,
             name: name,
@@ -105,9 +122,31 @@ final class CachedSong {
         song.qishuiTrackId = qishuiTrackId
         song.appleMusicID = appleMusicID
         song.appleMusicISRC = appleMusicISRC
+        song.kugouAlbumAudioID = kugouAlbumAudioID
+        song.kugouAlbumID = kugouAlbumID
+        song.kugouHash = kugouHash
         return song
     }
     
+    func update(from song: Song) {
+        name = song.name
+        artistName = song.artistName
+        albumName = song.al?.name
+        coverUrl = song.coverUrl?.absoluteString
+        duration = song.dt
+        fee = song.fee
+        sourceRaw = song.musicSource.rawValue
+        qqMid = song.qqMid
+        qishuiTrackId = song.qishuiTrackId
+        kugouHash = song.kugouHash
+        kugouAlbumID = song.kugouAlbumID
+        kugouAlbumAudioID = song.kugouAlbumAudioID
+        appleMusicID = song.appleMusicID
+        appleMusicISRC = song.appleMusicISRC
+        songData = try? JSONEncoder().encode(song)
+        cachedAt = Date()
+    }
+
     /// 更新播放记录
     func recordPlay() {
         lastPlayedAt = Date()
@@ -125,10 +164,17 @@ extension CachedSong: MonoEntity {
         .init("cachedAt", .date), .init("lastPlayedAt", .date), .init("playCount", .int),
         .init("maxBitrate", .int), .init("fee", .int), .init("canPlay", .bool),
         .init("sourceRaw", .string), .init("qqMid", .string), .init("qishuiTrackId", .int),
+        .init("kugouHash", .string),
+        .init("kugouAlbumID", .int),
+        .init("kugouAlbumAudioID", .int),
+        .init("songData", .data),
         .init("appleMusicID", .string), .init("appleMusicISRC", .string)
     ]
 
-    var monoUniqueKey: String { String(id) }
+    var monoUniqueKey: String {
+        if let sourceRaw { return "\(sourceRaw):\(id)" }
+        return toSong().identityKey
+    }
 
     func monoSnapshot() -> [String: Any?] {
         [
@@ -137,6 +183,8 @@ extension CachedSong: MonoEntity {
             "lastPlayedAt": lastPlayedAt, "playCount": playCount, "maxBitrate": maxBitrate,
             "fee": fee, "canPlay": canPlay, "sourceRaw": sourceRaw, "qqMid": qqMid,
             "qishuiTrackId": qishuiTrackId, "appleMusicID": appleMusicID,
+            "kugouHash": kugouHash, "kugouAlbumID": kugouAlbumID,
+            "kugouAlbumAudioID": kugouAlbumAudioID, "songData": songData,
             "appleMusicISRC": appleMusicISRC
         ]
     }
@@ -156,6 +204,10 @@ extension CachedSong: MonoEntity {
             qqMid: MonoSnapshotValue.stringOpt(s, "qqMid"),
             qishuiTrackId: MonoSnapshotValue.intOpt(s, "qishuiTrackId"),
             appleMusicID: MonoSnapshotValue.stringOpt(s, "appleMusicID"),
+            kugouHash: MonoSnapshotValue.stringOpt(s, "kugouHash"),
+            kugouAlbumID: MonoSnapshotValue.intOpt(s, "kugouAlbumID"),
+            kugouAlbumAudioID: MonoSnapshotValue.intOpt(s, "kugouAlbumAudioID"),
+            songData: MonoSnapshotValue.dataOpt(s, "songData"),
             appleMusicISRC: MonoSnapshotValue.stringOpt(s, "appleMusicISRC")
         )
         obj.cachedAt = MonoSnapshotValue.date(s, "cachedAt")

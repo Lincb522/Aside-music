@@ -8,7 +8,6 @@ struct CassettePlayerLayout: View {
     @Environment(\.colorScheme) var colorScheme
     @ObservedObject var player = PlayerManager.shared
     @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
-    @ObservedObject var lyricVM = LyricViewModel.shared
 
     @State private var showPlaylist = false
     @State private var showMoreMenu = false
@@ -107,11 +106,12 @@ struct CassettePlayerLayout: View {
                     controls
                         .padding(.bottom, DeviceLayout.playerBottomPadding + 16)
                 }
-
-                // 更多菜单
+            }
+            .playerMoreMenuOverlay { anchorFrame in
                 if showMoreMenu {
                     PlayerMoreMenu(
                         isPresented: $showMoreMenu,
+                        anchorFrame: anchorFrame,
                         isDarkBackground: colorScheme == .dark,
                         onEQ: { showEQSettings = true },
                         onTheme: { showThemePicker = true }
@@ -480,6 +480,7 @@ extension CassettePlayerLayout {
                     .contentShape(Circle())
             }
             .buttonStyle(MonoBouncingButtonStyle())
+            .playerMoreMenuAnchor()
         }
         .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 28 : 20)
         .padding(.bottom, 8)

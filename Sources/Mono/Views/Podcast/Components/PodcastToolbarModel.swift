@@ -17,7 +17,7 @@ final class PodcastToolbarModel: ObservableObject {
         speedText = Self.formatSpeed(player.playbackSpeed)
         timerText = Self.formatTimer(
             pendingStopAfterCurrentTrack: player.pendingSleepStopAfterCurrentTrack,
-            remaining: player.sleepTimerRemaining
+            remaining: player.sleepAndFade.remaining
         )
 
         player.$playbackSpeed
@@ -33,7 +33,7 @@ final class PodcastToolbarModel: ObservableObject {
 
         Publishers.CombineLatest(
             player.$pendingSleepStopAfterCurrentTrack.removeDuplicates(),
-            player.$sleepTimerRemaining.removeDuplicates()
+            player.sleepAndFade.$remaining.removeDuplicates()
         )
         .map(Self.formatTimer)
         .removeDuplicates()

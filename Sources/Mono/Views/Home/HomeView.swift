@@ -3,7 +3,6 @@ import SwiftUI
 struct HomeView: View {
     @ObservedObject private var viewModel = HomeViewModel.shared
     @ObservedObject private var settings = SettingsManager.shared
-    @ObservedObject private var playback = SongRowPlaybackModel.shared
     @State private var showPersonalFM = false
     @State private var navigationPath = NavigationPath()
     @State private var bannerWebURL: URL?
@@ -335,11 +334,11 @@ struct HomeView: View {
                 action: { navigationPath.append(HomeDestination.dailyRecommend) }
             )
 
-            ForEach(Array(viewModel.dailySongs.prefix(4).enumerated()), id: \.element.id) { index, song in
+            ForEach(Array(viewModel.dailySongs.prefix(4).enumerated()), id: \.element.identityKey) { index, song in
                 Button {
                     PlayerManager.shared.play(song: song, in: viewModel.dailySongs)
                 } label: {
-                    minimalWhiteBoardSongRow(song, index: index + 1)
+                    MinimalWhiteHomeSongRow(song: song, index: index + 1)
                 }
                 .buttonStyle(.plain)
             }
@@ -355,11 +354,11 @@ struct HomeView: View {
                 action: { navigationPath.append(HomeDestination.qcmNewSongs) }
             )
 
-            ForEach(Array(viewModel.qqNewSongs.prefix(4).enumerated()), id: \.element.id) { index, song in
+            ForEach(Array(viewModel.qqNewSongs.prefix(4).enumerated()), id: \.element.identityKey) { index, song in
                 Button {
                     PlayerManager.shared.play(song: song, in: viewModel.qqNewSongs)
                 } label: {
-                    minimalWhiteBoardSongRow(song, index: index + 1)
+                    MinimalWhiteHomeSongRow(song: song, index: index + 1)
                 }
                 .buttonStyle(.plain)
             }
@@ -386,53 +385,6 @@ struct HomeView: View {
         }
     }
 
-    private func minimalWhiteBoardSongRow(_ song: Song, index: Int) -> some View {
-        let isCurrent = playback.currentSongId == song.id
-
-        return HStack(spacing: 11) {
-            Text(String(format: "%02d", index))
-                .font(MinimalWhiteStyle.labelFont(11, weight: .regular))
-                .foregroundStyle(MinimalWhiteStyle.inkMuted)
-                .frame(width: 24, alignment: .leading)
-
-            CachedAsyncImage(url: song.coverUrl, width: 44, height: 44) {
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(MinimalWhiteStyle.controlGlassFill)
-            }
-            .aspectRatio(contentMode: .fill)
-            .frame(width: 44, height: 44)
-            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
-            )
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(song.name)
-                    .font(MinimalWhiteStyle.bodyFont(14, weight: isCurrent ? .semibold : .medium))
-                    .foregroundStyle(MinimalWhiteStyle.ink)
-                    .lineLimit(1)
-
-                Text(song.artistName)
-                    .font(MinimalWhiteStyle.labelFont(12, weight: .regular))
-                    .foregroundStyle(MinimalWhiteStyle.inkMuted)
-                    .lineLimit(1)
-            }
-
-            Spacer(minLength: 8)
-
-            if isCurrent {
-                PlayingVisualizerView(isAnimating: playback.isPlaying, color: MinimalWhiteStyle.ink)
-                    .frame(width: 18, height: 14)
-            } else {
-                MonoIcon(icon: .play, size: 11, color: MinimalWhiteStyle.inkMuted, lineWidth: 1.6)
-                    .frame(width: 24, height: 24)
-                    .background(MinimalWhiteCircleBackground())
-            }
-        }
-        .padding(.vertical, 6)
-        .contentShape(Rectangle())
-    }
 
     private func minimalWhiteHeaderButton(
         icon: MonoIcon.IconType,
@@ -1034,4 +986,59 @@ private extension View {
                 value: appeared
             )
     }
+}
+
+private struct MinimalWhiteHomeSongRow: View {
+    let song: Song
+    let index: Int
+    @ObservedObject private var playback = SongRowPlaybackModel.shared
+
+    var body: some View {
+        let isCurrent = playback.currentSongId == song.id
+
+        return HStack(spacing: 11) {
+            Text(String(format: "%02d", index))
+                .font(MinimalWhiteStyle.labelFont(11, weight: .regular))
+                .foregroundStyle(MinimalWhiteStyle.inkMuted)
+                .frame(width: 24, alignment: .leading)
+
+            CachedAsyncImage(url: song.coverUrl, width: 44, height: 44) {
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(MinimalWhiteStyle.controlGlassFill)
+            }
+            .aspectRatio(contentMode: .fill)
+            .frame(width: 44, height: 44)
+            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .stroke(MinimalWhiteStyle.hairline, lineWidth: MinimalWhiteStyle.strokeWidth)
+            )
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(song.name)
+                    .font(MinimalWhiteStyle.bodyFont(14, weight: isCurrent ? .semibold : .medium))
+                    .foregroundStyle(MinimalWhiteStyle.ink)
+                    .lineLimit(1)
+
+                Text(song.artistName)
+                    .font(MinimalWhiteStyle.labelFont(12, weight: .regular))
+                    .foregroundStyle(MinimalWhiteStyle.inkMuted)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 8)
+
+            if isCurrent {
+                PlayingVisualizerView(isAnimating: playback.isPlaying, color: MinimalWhiteStyle.ink)
+                    .frame(width: 18, height: 14)
+            } else {
+                MonoIcon(icon: .play, size: 11, color: MinimalWhiteStyle.inkMuted, lineWidth: 1.6)
+                    .frame(width: 24, height: 24)
+                    .background(MinimalWhiteCircleBackground())
+            }
+        }
+        .padding(.vertical, 6)
+        .contentShape(Rectangle())
+    }
+
 }

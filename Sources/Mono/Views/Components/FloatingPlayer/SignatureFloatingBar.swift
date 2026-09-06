@@ -39,11 +39,14 @@ struct SignatureFloatingBar: View {
     @Binding var currentTab: Tab
     let kind: SignatureFloatingBarKind
 
-    @ObservedObject private var player = FloatingBarPlaybackModel.shared
-    @ObservedObject private var playbackTime = PlaybackTimePublisher.shared
+    private let player = FloatingBarPlaybackModel.shared
+    @State private var currentSong = FloatingBarPlaybackModel.shared.currentSong
+    @State private var isPlaying = FloatingBarPlaybackModel.shared.isPlaying
+    @State private var isLoading = FloatingBarPlaybackModel.shared.isLoading
+    private let playbackTime = PlaybackTimePublisher.shared
     @ObservedObject private var settings = SettingsManager.shared
     @StateObject private var coverColors = CoverColorExtractor(minimumColorCount: 6)
-    @StateObject private var spectrum = SignatureSpectrumModel()
+    @State private var spectrum = SignatureSpectrumModel()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.scenePhase) private var scenePhase
@@ -54,9 +57,10 @@ struct SignatureFloatingBar: View {
     @State private var scrubDisplay = 0.0
     @State private var holdsSeek = false
     @State private var scrubGeneration = 0
+    @State private var isVisible = false
 
     private var artworkURL: String? {
-        player.currentSong?.coverUrl?.sized(360).absoluteString
+        currentSong?.coverUrl?.sized(360).absoluteString
     }
 
     private var palette: [Color] {
@@ -78,23 +82,23 @@ struct SignatureFloatingBar: View {
         return min(max(playbackTime.currentTime / playbackTime.duration, 0), 1)
     }
 
-    private var displayedProgress: Double {
-        (isScrubbing || holdsSeek) ? scrubDisplay : liveProgress
+    private var scrubProgressOverride: Double? {
+        (isScrubbing || holdsSeek) ? scrubDisplay : nil
     }
 
     private var isAnimating: Bool {
-        player.isPlaying && !reduceMotion && scenePhase == .active && !isScrubbing
+        isVisible && isPlaying && !reduceMotion && scenePhase == .active && !isScrubbing
     }
 
     private var seed: Double {
-        guard let song = player.currentSong else { return 0.41 }
+        guard let song = currentSong else { return 0.41 }
         let folded = abs(song.id &* 31 &+ song.name.hashValue &* 7)
         return Double(folded % 997) / 997.0
     }
 
     var body: some View {
         Group {
-            if let song = player.currentSong {
+            if let song = currentSong {
                 activeDock(song)
                     .frame(height: kind.activeHeight)
                     .transition(.opacity.combined(with: .scale(scale: 0.985)))
@@ -104,8 +108,12 @@ struct SignatureFloatingBar: View {
                     .transition(.opacity)
             }
         }
-        .animation(reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.88), value: player.currentSong?.id)
+        .animation(reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.88), value: currentSong?.id)
+        .onReceive(player.$currentSong) { currentSong = $0 }
+        .onReceive(player.$isPlaying.removeDuplicates()) { isPlaying = $0 }
+        .onReceive(player.$isLoading.removeDuplicates()) { isLoading = $0 }
         .onAppear {
+            isVisible = true
             coverColors.extract(from: artworkURL)
             updateSpectrumSampling()
         }
@@ -113,16 +121,18 @@ struct SignatureFloatingBar: View {
             cancelScrub()
             coverColors.extract(from: url)
         }
-        .onChange(of: player.isPlaying) { _, _ in updateSpectrumSampling() }
+        .onChange(of: isPlaying) { _, _ in updateSpectrumSampling() }
         .onChange(of: reduceMotion) { _, _ in updateSpectrumSampling() }
         .onChange(of: kind) { _, _ in updateSpectrumSampling() }
-        .onChange(of: playbackTime.currentTime) { _, time in
+        .onChange(of: scenePhase) { _, _ in updateSpectrumSampling() }
+        .onReceive(playbackTime.$currentTime.removeDuplicates()) { time in
             guard holdsSeek, playbackTime.duration > 0 else { return }
             if abs(time / playbackTime.duration - scrubDisplay) < 0.014 {
                 holdsSeek = false
             }
         }
         .onDisappear {
+            isVisible = false
             cancelScrub()
             spectrum.stop()
         }
@@ -194,12 +204,14 @@ struct SignatureFloatingBar: View {
 
     private func vinylDock(_ song: Song) -> some View {
         HStack(spacing: 0) {
-            VinylRecord(
-                song: song,
-                progress: displayedProgress,
-                isPlaying: isAnimating,
-                reduceMotion: reduceMotion
-            )
+            FloatingBarProgressReader(progressOverride: scrubProgressOverride) { progress, _, _ in
+                VinylRecord(
+                    song: song,
+                    progress: progress,
+                    isPlaying: isAnimating,
+                    reduceMotion: reduceMotion
+                )
+            }
             .frame(width: 108, height: 108)
             .offset(x: -5)
             .contentShape(Circle())
@@ -208,16 +220,18 @@ struct SignatureFloatingBar: View {
             VStack(alignment: .leading, spacing: 7) {
                 HStack(spacing: 8) {
                     songIdentity(song, titleSize: 14, subtitleSize: 10.5)
-                    transportButton(icon: player.isPlaying ? .pause : .play, diameter: 34) {
+                    transportButton(icon: isPlaying ? .pause : .play, diameter: 34) {
                         player.togglePlayPause()
                     }
                     queueButton(diameter: 30)
                 }
 
                 GeometryReader { proxy in
-                    VinylGrooveProgress(progress: displayedProgress, accent: palette[0])
-                        .contentShape(Rectangle())
-                        .gesture(scrubGesture(width: proxy.size.width))
+                    FloatingBarProgressReader(progressOverride: scrubProgressOverride) { progress, _, _ in
+                        VinylGrooveProgress(progress: progress, accent: palette[0])
+                    }
+                    .contentShape(Rectangle())
+                    .gesture(scrubGesture(width: proxy.size.width))
                 }
                 .frame(height: 12)
 
@@ -228,9 +242,11 @@ struct SignatureFloatingBar: View {
         }
         .background(surface(VinylConsoleShape(), fill: vinylSurface))
         .overlay {
-            VinylTonearm(progress: displayedProgress)
-                .padding(.leading, 84)
-                .allowsHitTesting(false)
+            FloatingBarProgressReader(progressOverride: scrubProgressOverride) { progress, _, _ in
+                VinylTonearm(progress: progress)
+            }
+            .padding(.leading, 84)
+            .allowsHitTesting(false)
         }
         .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.34 : 0.18), radius: 8, y: 6)
     }
@@ -272,13 +288,15 @@ struct SignatureFloatingBar: View {
     private func cassetteDock(_ song: Song) -> some View {
         VStack(spacing: 4) {
             HStack(spacing: 8) {
-                CassetteWindow(
-                    song: song,
-                    progress: displayedProgress,
-                    isPlaying: isAnimating,
-                    reduceMotion: reduceMotion,
-                    accent: palette[0]
-                )
+                FloatingBarProgressReader(progressOverride: scrubProgressOverride) { progress, _, _ in
+                    CassetteWindow(
+                        song: song,
+                        progress: progress,
+                        isPlaying: isAnimating,
+                        reduceMotion: reduceMotion,
+                        accent: palette[0]
+                    )
+                }
                 .frame(width: 78, height: 46)
                 .contentShape(Rectangle())
                 .onTapWithHaptic { openPlayer() }
@@ -286,15 +304,17 @@ struct SignatureFloatingBar: View {
                 VStack(alignment: .leading, spacing: 4) {
                     songIdentity(song, titleSize: 13, subtitleSize: 9.5, color: cassetteInk)
                     GeometryReader { proxy in
-                        CassetteCounterProgress(progress: displayedProgress, accent: palette[0])
-                            .contentShape(Rectangle())
-                            .gesture(scrubGesture(width: proxy.size.width))
+                        FloatingBarProgressReader(progressOverride: scrubProgressOverride) { progress, _, _ in
+                            CassetteCounterProgress(progress: progress, accent: palette[0])
+                        }
+                        .contentShape(Rectangle())
+                        .gesture(scrubGesture(width: proxy.size.width))
                     }
                     .frame(height: 9)
                 }
 
                 HStack(spacing: 3) {
-                    transportButton(icon: player.isPlaying ? .pause : .play, diameter: 30, ink: cassetteInk) {
+                    transportButton(icon: isPlaying ? .pause : .play, diameter: 30, ink: cassetteInk) {
                         player.togglePlayPause()
                     }
                     queueButton(diameter: 25, ink: cassetteInk)
@@ -352,24 +372,28 @@ struct SignatureFloatingBar: View {
     private func orbitDock(_ song: Song) -> some View {
         VStack(spacing: 5) {
             HStack(spacing: 7) {
-                OrbitArtwork(
-                    song: song,
-                    progress: displayedProgress,
-                    palette: palette,
-                    isPlaying: isAnimating,
-                    reduceMotion: reduceMotion
-                )
-                    .frame(width: 62, height: 62)
-                    .contentShape(Circle())
-                    .onTapWithHaptic { openPlayer() }
-                    .shadow(color: palette[0].opacity(0.28), radius: 6, y: 3)
+                FloatingBarProgressReader(progressOverride: scrubProgressOverride) { progress, _, _ in
+                    OrbitArtwork(
+                        song: song,
+                        progress: progress,
+                        palette: palette,
+                        isPlaying: isAnimating,
+                        reduceMotion: reduceMotion
+                    )
+                }
+                .frame(width: 62, height: 62)
+                .contentShape(Circle())
+                .onTapWithHaptic { openPlayer() }
+                .shadow(color: palette[0].opacity(0.28), radius: 6, y: 3)
 
                 VStack(alignment: .leading, spacing: 5) {
                     songIdentity(song, titleSize: 13.5, subtitleSize: 10, color: orbitInk)
                     GeometryReader { proxy in
-                        OrbitArcProgress(progress: displayedProgress, accent: palette[0])
-                            .contentShape(Rectangle())
-                            .gesture(scrubGesture(width: proxy.size.width))
+                        FloatingBarProgressReader(progressOverride: scrubProgressOverride) { progress, _, _ in
+                            OrbitArcProgress(progress: progress, accent: palette[0])
+                        }
+                        .contentShape(Rectangle())
+                        .gesture(scrubGesture(width: proxy.size.width))
                     }
                     .frame(height: 12)
                 }
@@ -379,7 +403,7 @@ struct SignatureFloatingBar: View {
                 .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.22 : 0.10), radius: 6, y: 3)
 
                 VStack(spacing: 2) {
-                    transportButton(icon: player.isPlaying ? .pause : .play, diameter: 34, ink: orbitInk) {
+                    transportButton(icon: isPlaying ? .pause : .play, diameter: 34, ink: orbitInk) {
                         player.togglePlayPause()
                     }
                     queueButton(diameter: 26, ink: orbitInk)
@@ -461,19 +485,23 @@ struct SignatureFloatingBar: View {
             VStack(alignment: .leading, spacing: 7) {
                 HStack(spacing: 10) {
                     songIdentity(song, titleSize: 14, subtitleSize: 10.5)
-                    transportButton(icon: player.isPlaying ? .pause : .play, diameter: 34) { player.togglePlayPause() }
+                    transportButton(icon: isPlaying ? .pause : .play, diameter: 34) { player.togglePlayPause() }
                     queueButton(diameter: 29)
                 }
 
                 GeometryReader { proxy in
-                    OscilloscopeDisplay(
-                        bands: spectrum.bands,
-                        progress: displayedProgress,
-                        palette: palette,
-                        seed: seed,
-                        isPlaying: isAnimating,
-                        reduceMotion: reduceMotion
-                    )
+                    SignatureSpectrumReader(model: spectrum) { bands, _ in
+                        FloatingBarProgressReader(progressOverride: scrubProgressOverride) { progress, _, _ in
+                            OscilloscopeDisplay(
+                                bands: bands,
+                                progress: progress,
+                                palette: palette,
+                                seed: seed,
+                                isPlaying: isAnimating,
+                                reduceMotion: reduceMotion
+                            )
+                        }
+                    }
                     .contentShape(Rectangle())
                     .gesture(scrubGesture(width: proxy.size.width))
                 }
@@ -565,24 +593,28 @@ struct SignatureFloatingBar: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     songIdentity(song, titleSize: 14, subtitleSize: 10.5, color: filmInk)
-                    HStack(spacing: 6) {
-                        Text(timecode(playbackTime.currentTime))
-                        Rectangle().fill(filmInk.opacity(0.16)).frame(height: 1)
-                        Text("−\(timecode(max(playbackTime.duration - playbackTime.currentTime, 0)))")
+                    FloatingBarProgressReader { _, time, duration in
+                        HStack(spacing: 6) {
+                            Text(timecode(time))
+                            Rectangle().fill(filmInk.opacity(0.16)).frame(height: 1)
+                            Text("−\(timecode(max(duration - time, 0)))")
+                        }
+                        .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(filmInk.opacity(0.64))
                     }
-                    .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(filmInk.opacity(0.64))
 
                     GeometryReader { proxy in
-                        FilmTimeline(progress: displayedProgress, accent: palette[0])
-                            .contentShape(Rectangle())
-                            .gesture(scrubGesture(width: proxy.size.width))
+                        FloatingBarProgressReader(progressOverride: scrubProgressOverride) { progress, _, _ in
+                            FilmTimeline(progress: progress, accent: palette[0])
+                        }
+                        .contentShape(Rectangle())
+                        .gesture(scrubGesture(width: proxy.size.width))
                     }
                     .frame(height: 11)
                 }
 
                 VStack(spacing: 6) {
-                    transportButton(icon: player.isPlaying ? .pause : .play, diameter: 34, ink: filmInk) { player.togglePlayPause() }
+                    transportButton(icon: isPlaying ? .pause : .play, diameter: 34, ink: filmInk) { player.togglePlayPause() }
                     queueButton(diameter: 29, ink: filmInk)
                 }
             }
@@ -637,20 +669,26 @@ struct SignatureFloatingBar: View {
             VStack(alignment: .leading, spacing: 7) {
                 HStack(spacing: 8) {
                     songIdentity(song, titleSize: 13.5, subtitleSize: 9.5, color: meterInk, design: .monospaced)
-                    Text(timecode(playbackTime.currentTime))
-                        .font(.system(size: 9.5, weight: .bold, design: .monospaced))
-                        .foregroundStyle(meterInk.opacity(0.64))
+                    FloatingBarProgressReader { _, time, _ in
+                        Text(timecode(time))
+                            .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+                            .foregroundStyle(meterInk.opacity(0.64))
+                    }
                 }
 
                 GeometryReader { proxy in
-                    DualVUMeter(
-                        energy: spectrum.energy,
-                        progress: displayedProgress,
-                        accent: palette[0],
-                        ink: meterInk,
-                        isPlaying: isAnimating,
-                        reduceMotion: reduceMotion
-                    )
+                    SignatureSpectrumReader(model: spectrum) { _, energy in
+                        FloatingBarProgressReader(progressOverride: scrubProgressOverride) { progress, _, _ in
+                            DualVUMeter(
+                                energy: energy,
+                                progress: progress,
+                                accent: palette[0],
+                                ink: meterInk,
+                                isPlaying: isAnimating,
+                                reduceMotion: reduceMotion
+                            )
+                        }
+                    }
                     .contentShape(Rectangle())
                     .gesture(scrubGesture(width: proxy.size.width))
                 }
@@ -660,7 +698,7 @@ struct SignatureFloatingBar: View {
 
             VStack(spacing: 7) {
                 HStack(spacing: 6) {
-                    transportButton(icon: player.isPlaying ? .pause : .play, diameter: 34, ink: meterInk) { player.togglePlayPause() }
+                    transportButton(icon: isPlaying ? .pause : .play, diameter: 34, ink: meterInk) { player.togglePlayPause() }
                     queueButton(diameter: 29, ink: meterInk)
                 }
                 meterTabs
@@ -745,13 +783,15 @@ struct SignatureFloatingBar: View {
                 color: color,
                 speed: 24
             )
-            MarqueeText(
-                text: player.lyricLineText ?? song.artistName,
-                font: .system(size: subtitleSize, weight: .medium, design: design),
-                color: color.opacity(0.58),
-                speed: 22
-            )
-            .contentTransition(.interpolate)
+            FloatingBarLyricReader { lineText in
+                MarqueeText(
+                    text: lineText ?? song.artistName,
+                    font: .system(size: subtitleSize, weight: .medium, design: design),
+                    color: color.opacity(0.58),
+                    speed: 22
+                )
+                .contentTransition(.interpolate)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .swipeSkipTextMotion()
@@ -771,7 +811,7 @@ struct SignatureFloatingBar: View {
             action()
         } label: {
             Group {
-                if (icon == .play || icon == .pause), player.isLoading {
+                if (icon == .play || icon == .pause), isLoading {
                     ProgressView().tint(ink).scaleEffect(0.68)
                 } else {
                     MonoIcon(
@@ -889,7 +929,9 @@ struct SignatureFloatingBar: View {
 
     private func updateSpectrumSampling() {
         let needsSpectrum = (kind == .waveform || kind == .studioMeter)
-            && player.isPlaying
+            && isVisible
+            && scenePhase == .active
+            && isPlaying
             && !reduceMotion
         needsSpectrum ? spectrum.start() : spectrum.stop()
     }
@@ -1362,6 +1404,15 @@ private struct SignaturePressStyle: ButtonStyle {
             .offset(y: configuration.isPressed ? yOffset : 0)
             .opacity(configuration.isPressed ? 0.78 : 1)
             .animation(.spring(response: 0.20, dampingFraction: 0.86), value: configuration.isPressed)
+    }
+}
+
+private struct SignatureSpectrumReader<Content: View>: View {
+    @ObservedObject var model: SignatureSpectrumModel
+    @ViewBuilder var content: ([Double], Double) -> Content
+
+    var body: some View {
+        content(model.bands, model.energy)
     }
 }
 

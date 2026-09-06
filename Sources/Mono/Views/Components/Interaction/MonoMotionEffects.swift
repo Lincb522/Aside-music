@@ -16,7 +16,7 @@ private struct MonoCompletionValues {
 }
 
 @available(iOS 17.0, *)
-private struct MonoCompletionKeyframeModifier<Trigger: Equatable>: ViewModifier {
+private struct MonoCompletionKeyframeModifier<Trigger: Equatable & SendableMetatype>: ViewModifier {
     let trigger: Trigger
 
     func body(content: Content) -> some View {
@@ -78,7 +78,7 @@ private struct MonoCompletionFallbackModifier<Trigger: Equatable>: ViewModifier 
 extension View {
     /// 收藏、加入歌单、Agent 完成等一次性状态变化使用同一套物理节奏。
     @ViewBuilder
-    func monoCompletionMotion<Trigger: Equatable>(
+    func monoCompletionMotion<Trigger: Equatable & SendableMetatype>(
         trigger: Trigger,
         reduceMotion: Bool = false
     ) -> some View {

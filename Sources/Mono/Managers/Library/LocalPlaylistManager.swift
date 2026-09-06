@@ -68,7 +68,7 @@ class LocalPlaylistManager: ObservableObject {
     private let store: MonoStore
     private var downloadSyncCancellable: AnyCancellable?
     private var summaryCache: [String: (signature: LocalPlaylistCacheSignature, summary: LocalPlaylistSummary)] = [:]
-    private var songCache: [String: (signature: LocalPlaylistCacheSignature, songs: [Song], ids: Set<Int>)] = [:]
+    private var songCache: [String: (signature: LocalPlaylistCacheSignature, songs: [Song], ids: Set<String>)] = [:]
     
     private init() {
         self.store = DatabaseManager.shared.store
@@ -184,9 +184,9 @@ class LocalPlaylistManager: ObservableObject {
     }
     
     /// 检查歌曲是否在「我喜欢」歌单中
-    func isFavorite(songId: Int) -> Bool {
+    func isFavorite(songId: Int, source: MusicSource = .netease) -> Bool {
         guard let favoritePlaylist else { return false }
-        return songIds(for: favoritePlaylist).contains(songId)
+        return songIds(for: favoritePlaylist).contains("\(source.rawValue):\(songId)")
     }
 
     func summary(for playlist: LocalPlaylist) -> LocalPlaylistSummary {
@@ -208,30 +208,30 @@ class LocalPlaylistManager: ObservableObject {
         }
 
         let songs = playlist.songs
-        songCache[playlist.id] = (signature, songs, Set(songs.map(\.id)))
+        songCache[playlist.id] = (signature, songs, Set(songs.map(\.identityKey)))
         return songs
     }
 
-    func songIds(for playlist: LocalPlaylist) -> Set<Int> {
+    func songIds(for playlist: LocalPlaylist) -> Set<String> {
         let signature = LocalPlaylistCacheSignature(playlist: playlist)
         if let cached = songCache[playlist.id], cached.signature == signature {
             return cached.ids
         }
 
         let songs = playlist.songs
-        let ids = Set(songs.map(\.id))
+        let ids = Set(songs.map(\.identityKey))
         songCache[playlist.id] = (signature, songs, ids)
         return ids
     }
 
-    func contains(songId: Int, in playlist: LocalPlaylist) -> Bool {
-        songIds(for: playlist).contains(songId)
+    func contains(songId: Int, source: MusicSource = .netease, in playlist: LocalPlaylist) -> Bool {
+        songIds(for: playlist).contains("\(source.rawValue):\(songId)")
     }
 
     func addableSongCount(_ songs: [Song], for playlist: LocalPlaylist) -> Int {
         let existingIds = songIds(for: playlist)
         return songs.reduce(0) { partial, song in
-            partial + (existingIds.contains(song.id) ? 0 : 1)
+            partial + (existingIds.contains(song.identityKey) ? 0 : 1)
         }
     }
     
@@ -242,9 +242,9 @@ class LocalPlaylistManager: ObservableObject {
     }
     
     /// 从「我喜欢」移除
-    func removeFromFavorite(songId: Int) {
+    func removeFromFavorite(songId: Int, source: MusicSource = .netease) {
         guard let fav = favoritePlaylist else { return }
-        removeSong(id: songId, from: fav)
+        removeSong(id: songId, source: source, from: fav)
     }
     
     // MARK: - 下载 / 本地音乐同步（下载内容并入本地音乐展示）
@@ -281,13 +281,13 @@ class LocalPlaylistManager: ObservableObject {
         // 下载功能开启时才兼容旧「下载」歌单；关闭期间不让缺失文件的历史条目重新进入本地音乐。
         let legacyArchived: [Song] = AppConfig.Features.restrictedDownloadEnabled
             ? (downloadPlaylist.map { songs(for: $0) } ?? [])
-                .filter { !DownloadTombstoneStore.shared.isTombstoned(songId: $0.id) }
+                .filter { !DownloadTombstoneStore.shared.isTombstoned(song: $0) }
             : []
 
-        var seen = Set<Int>()
+        var seen = Set<String>()
         var merged: [Song] = []
         for song in imported + downloads + legacyArchived {
-            guard seen.insert(song.id).inserted else { continue }
+            guard seen.insert(song.identityKey).inserted else { continue }
             merged.append(song)
         }
 
@@ -305,7 +305,7 @@ class LocalPlaylistManager: ObservableObject {
         if let archive = downloadPlaylist {
             var current = songs(for: archive)
             let originalCount = current.count
-            current.removeAll { $0.id == song.id }
+            current.removeAll { $0 == song }
             if current.count != originalCount {
                 archive.songs = current
                 store.save()
@@ -322,7 +322,7 @@ class LocalPlaylistManager: ObservableObject {
             return
         }
         // 本地明确删除过的条目不再从云端并回（删除墓碑权威）
-        let cloudSongs = cloudSongs.filter { !DownloadTombstoneStore.shared.isTombstoned(songId: $0.id) }
+        let cloudSongs = cloudSongs.filter { !DownloadTombstoneStore.shared.isTombstoned(song: $0) }
 
         let target: LocalPlaylist
         if let existing = downloadPlaylist {
@@ -338,7 +338,7 @@ class LocalPlaylistManager: ObservableObject {
         }
 
         let existingIds = songIds(for: target)
-        let newSongs = cloudSongs.filter { !existingIds.contains($0.id) }
+        let newSongs = cloudSongs.filter { !existingIds.contains($0.identityKey) }
         if !newSongs.isEmpty {
             var current = songs(for: target)
             current.append(contentsOf: newSongs)
@@ -595,16 +595,16 @@ class LocalPlaylistManager: ObservableObject {
         }
 
         var current = self.songs(for: target)
-        var existingIds = Set(current.map(\.id))
+        var existingIds = Set(current.map(\.identityKey))
         var songsToInsert: [Song] = []
 
-        for song in songs where !existingIds.contains(song.id) {
+        for song in songs where !existingIds.contains(song.identityKey) {
             var normalizedSong = song
             if normalizedSong.source == nil {
                 normalizedSong.source = normalizedSong.musicSource
             }
             songsToInsert.append(normalizedSong)
-            existingIds.insert(normalizedSong.id)
+            existingIds.insert(normalizedSong.identityKey)
         }
 
         guard !songsToInsert.isEmpty else { return 0 }
@@ -619,11 +619,11 @@ class LocalPlaylistManager: ObservableObject {
         return songsToInsert.count
     }
     
-    func removeSong(id: Int, from playlist: LocalPlaylist) {
-        removeSongs(ids: [id], from: playlist)
+    func removeSong(id: Int, source: MusicSource = .netease, from playlist: LocalPlaylist) {
+        removeSongs(ids: ["\(source.rawValue):\(id)"], from: playlist)
     }
 
-    func removeSongs(ids: Set<Int>, from playlist: LocalPlaylist) {
+    func removeSongs(ids: Set<String>, from playlist: LocalPlaylist) {
         guard !ids.isEmpty else { return }
 
         let targetId = playlist.id
@@ -631,7 +631,7 @@ class LocalPlaylistManager: ObservableObject {
 
         var current = songs(for: target)
         let originalCount = current.count
-        current.removeAll { ids.contains($0.id) }
+        current.removeAll { ids.contains($0.identityKey) }
         guard current.count != originalCount else { return }
         target.songs = current
         store.save()

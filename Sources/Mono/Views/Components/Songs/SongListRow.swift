@@ -49,6 +49,7 @@ struct SongListRow: View {
     var onAlbumTap: ((Int) -> Void)? = nil
     var onTap: (() -> Void)? = nil
     var horizontalPadding: CGFloat? = nil
+    var usesArtistStyle = false
     
     @State private var showAddToPlaylist = false
     @State private var activeQuickAction: QuickAction?
@@ -152,7 +153,7 @@ struct SongListRow: View {
     }
 
     private var isLiked: Bool {
-        likeManager.isLiked(id: song.id, isQQMusic: song.isQQMusic)
+        likeManager.isLiked(id: song.id, source: song.musicSource)
     }
 
     private var isLocalSong: Bool {
@@ -479,7 +480,9 @@ struct SongListRow: View {
         let coverSize = rowCoverSize
 
         Group {
-            if CapsuleStyle.isActive {
+            if usesArtistStyle {
+                artistRow
+            } else if CapsuleStyle.isActive {
                 capsuleSongResultRow(coverSize: coverSize)
             } else {
                 HStack(spacing: PetWhiteStyle.isActive ? 6 : 12) {
@@ -633,6 +636,94 @@ struct SongListRow: View {
             SongArtworkFallbackRegistry.shared.register([song])
         }
         .contextMenu {
+            rowMenu
+        }
+        .themeRenderRowLayer()
+        .monoSheet(isPresented: $showAddToPlaylist, preset: .standard){
+            AddToPlaylistSheet(song: song)
+        }
+        .monoSheet(isPresented: likePlaylistPickerBinding, preset: .standard) {
+            if let pendingSong = likeManager.pendingLikeSong {
+                AddToPlaylistSheet(song: pendingSong)
+            }
+        }
+        .monoSheet(isPresented: $showQQArtistDetail, preset: .detail){
+            if let artistMid = song.qqArtistMid, let artistName = song.ar?.first?.name {
+                NavigationStack {
+                    QQMusicDetailView(detailType: .artist(mid: artistMid, name: artistName, coverUrl: nil))
+                }
+            }
+        }
+        .monoSheet(isPresented: $showQQAlbumDetail, preset: .detail){
+            if let albumMid = song.qqAlbumMid {
+                NavigationStack {
+                    QQMusicDetailView(detailType: .album(
+                        mid: albumMid, name: song.al?.name ?? "", coverUrl: song.al?.picUrl, artistName: song.artistName
+                    ))
+                }
+            }
+        }
+    }
+
+    private var artistRow: some View {
+        HStack(spacing: 0) {
+            Button { onTap?() } label: {
+                HStack(spacing: 10) {
+                    if isSelecting {
+                        Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                            .frame(width: 24)
+                    } else if isLoadingPlayback {
+                        SongRowLoadingIndicator(color: .white)
+                    } else if isCurrent {
+                        PlayingVisualizerView(isAnimating: playback.isPlaying, color: .white)
+                            .frame(width: 16, height: 16)
+                    }
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(song.name)
+                            .font(.body.weight(isCurrent ? .semibold : .regular))
+                            .lineLimit(2)
+                        Text(songArtistAlbumText)
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.85))
+                            .lineLimit(1)
+                        songBadgeRail
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .opacity(isGrayed ? 0.45 : 1)
+                }
+                .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .disabled(onTap == nil)
+            .buttonStyle(.plain)
+
+            if !isSelecting {
+                Button {
+                    likeManager.toggleLike(songId: song.id, isQQMusic: song.isQQMusic, song: song)
+                } label: {
+                    Image(systemName: isLiked ? "heart.fill" : "heart")
+                        .font(.title3)
+                        .frame(width: 44, height: 44)
+                }
+                .accessibilityLabel(String(localized: "喜欢"))
+                .accessibilityAddTraits(isLiked ? .isSelected : [])
+                Menu { rowMenu } label: {
+                    Image(systemName: "ellipsis")
+                        .rotationEffect(.degrees(90))
+                        .frame(width: 44, height: 44)
+                }
+                .accessibilityLabel(String(localized: "更多"))
+            }
+        }
+        .foregroundStyle(.white)
+        .tint(.white)
+        .padding(.vertical, 5)
+        .padding(.leading, 24)
+        .padding(.trailing, 12)
+    }
+
+    @ViewBuilder
+    private var rowMenu: some View {
             Button {
                 playback.playNext(song: song)
             } label: {
@@ -651,7 +742,7 @@ struct SongListRow: View {
             if AppConfig.Features.downloadEnabled,
                !isLocalSong,
                !song.isAppleMusic {
-                if rowDownloads.isDownloaded(songId: song.id) {
+                if rowDownloads.isDownloaded(song: song) {
                     Button(role: .destructive) {
                         rowDownloads.deleteDownload(song: song)
                     } label: {
@@ -744,41 +835,6 @@ struct SongListRow: View {
                     }
                 }
             }
-        }
-        .themeRenderRowLayer()
-        .monoSheet(isPresented: $showAddToPlaylist, preset: .standard){
-            AddToPlaylistSheet(song: song)
-        }
-        .monoSheet(isPresented: likePlaylistPickerBinding, preset: .standard) {
-            if let pendingSong = likeManager.pendingLikeSong {
-                AddToPlaylistSheet(song: pendingSong)
-            }
-        }
-        // qcm歌手详情页（使用 sheet 避免 lazy 容器中 navigationDestination 警告）
-        .monoSheet(isPresented: $showQQArtistDetail, preset: .detail){
-            if let artistMid = song.qqArtistMid, let artistName = song.ar?.first?.name {
-                NavigationStack {
-                    QQMusicDetailView(detailType: .artist(
-                        mid: artistMid,
-                        name: artistName,
-                        coverUrl: nil
-                    ))
-                }
-            }
-        }
-        // qcm专辑详情页
-        .monoSheet(isPresented: $showQQAlbumDetail, preset: .detail){
-            if let albumMid = song.qqAlbumMid {
-                NavigationStack {
-                    QQMusicDetailView(detailType: .album(
-                        mid: albumMid,
-                        name: song.al?.name ?? "",
-                        coverUrl: song.al?.picUrl,
-                        artistName: song.artistName
-                    ))
-                }
-            }
-        }
     }
 
     @ViewBuilder

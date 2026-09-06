@@ -13,129 +13,46 @@ struct AppleMusicArtistSongsView: View {
 
     private let pageSize = 25
 
+    @State private var selectedTab = 0
+    @State private var showAddToPlaylist = false
+
     var body: some View {
-        ZStack {
-            ThemedPageBackground(useRenderLayer: true)
-                .ignoresSafeArea()
-
-            ScrollView {
-                LazyVStack(spacing: 14) {
-                    header
-                        .monoPageHeaderCollapse()
-
-                    if isLoading, songs.isEmpty {
-                        LibraryLoadingStateView(horizontalPadding: DeviceLayout.viewHorizontalPadding)
-                    } else if songs.isEmpty {
-                        ThemedLibraryEmptyState(
-                            icon: .musicNote,
-                            title: errorMessage ?? String(localized: "empty_no_songs"),
-                            tint: MusicSource.appleMusic.themedBadgeColor
-                        )
-                        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-                    } else {
-                        LazyVStack(spacing: 0) {
-                            ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
-                                SongListRow(
-                                    song: song,
-                                    index: index,
-                                    onTap: {
-                                        PlayerManager.shared.play(
-                                            song: song,
-                                            in: songs
-                                        )
-                                    }
-                                )
-                                .onAppear {
-                                    if index == songs.count - 1 {
-                                        loadMoreIfNeeded()
-                                    }
-                                }
-                            }
-                        }
-                        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-
-                        if isLoadingMore {
-                            LibraryInlineLoadingView()
+        ArtistDetailPage(
+            identity: ArtistNameArtworkIdentity(name: artist.name, aliases: artist.alias ?? [], qqMid: artist.qqMid),
+            coverURL: artist.coverUrl?.sized(1000),
+            source: MusicSource.appleMusic.shortName,
+            tabs: [ArtistDetailTab(id: 0, title: String(localized: "artist_tab_songs"))],
+            selectedTab: $selectedTab,
+            canPlay: !songs.isEmpty,
+            play: {
+                if let first = songs.first {
+                    PlayerManager.shared.playReplacingContext(song: first, in: songs)
+                }
+            },
+            secondaryAction: { showAddToPlaylist = true }
+        ) {
+            if isLoading && songs.isEmpty {
+                ArtistContentState(isLoading: true, text: "")
+            } else if songs.isEmpty {
+                ArtistContentState(text: errorMessage ?? String(localized: "empty_no_songs"))
+            } else {
+                LazyVStack(spacing: 0) {
+                    ForEach(Array(songs.enumerated()), id: \.element.identityKey) { index, song in
+                        SongListRow(song: song, index: index, onTap: {
+                            PlayerManager.shared.play(song: song, in: songs)
+                        }, usesArtistStyle: true)
+                        .onAppear {
+                            if index == songs.count - 1 { loadMoreIfNeeded() }
                         }
                     }
-
-                    FloatingBarBottomSpacer()
+                    if isLoadingMore { ProgressView().tint(.white).padding() }
                 }
             }
-            .scrollIndicators(.hidden)
-            .themeRenderScrollLayer()
         }
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.hidden, for: .navigationBar)
-        .monoNavigationBackButton()
-        .task {
-            await load(reset: true)
+        .monoSheet(isPresented: $showAddToPlaylist, preset: .standard) {
+            BatchAddToPlaylistSheet(songs: songs)
         }
-    }
-
-    @ViewBuilder
-    private var header: some View {
-        if SignalStyle.isActive {
-            HStack(spacing: 15) {
-                ZStack {
-                    SignalScreenBackground(cornerRadius: 9)
-                    CachedAsyncImage(url: artist.coverUrl?.sized(600)) {
-                        SignalStyle.controlPressed
-                    }
-                    .aspectRatio(contentMode: .fill)
-                    .padding(7)
-                }
-                .frame(width: 86, height: 86)
-                .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 7) {
-                        SignalPill(text: MusicSource.appleMusic.shortName, tint: SignalStyle.accent, selected: true, compact: true)
-                        SignalPill(text: "ARTIST TRACKS", tint: SignalStyle.mint, compact: true)
-                    }
-
-                    Text(artist.name)
-                        .font(SignalStyle.titleFont(23, weight: .bold))
-                        .foregroundStyle(SignalStyle.ink)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.75)
-                }
-
-                Spacer(minLength: 0)
-            }
-            .padding(15)
-            .background(SignalSurfaceBackground(cornerRadius: 13, elevated: true, fill: SignalStyle.surface))
-            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-            .padding(.top, 12)
-        } else {
-            HStack(spacing: 16) {
-                CachedAsyncImage(url: artist.coverUrl?.sized(600)) {
-                    Color.monoSeparator.opacity(0.22)
-                }
-                .aspectRatio(contentMode: .fill)
-                .frame(width: 82, height: 82)
-                .clipShape(Circle())
-
-                VStack(alignment: .leading, spacing: 7) {
-                    PlatformBadgeLabel(
-                        text: MusicSource.appleMusic.shortName,
-                        source: .appleMusic,
-                        fontSize: 11
-                    )
-
-                    Text(artist.name)
-                        .font(.rounded(size: 27, weight: .heavy))
-                        .foregroundStyle(Color.monoTextPrimary)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.75)
-                }
-
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-            .padding(.top, 16)
-        }
+        .task { await load(reset: true) }
     }
 
     private func loadMoreIfNeeded() {

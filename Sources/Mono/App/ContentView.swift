@@ -863,7 +863,8 @@ public struct ContentView: View {
 private struct ContentViewFloatingBarContainer: View {
     @Binding var currentTab: Tab
     @ObservedObject var settings: SettingsManager
-    @ObservedObject private var player = FloatingBarPlaybackModel.shared
+    @State private var isTabBarHidden = FloatingBarPlaybackModel.shared.isTabBarHidden
+    private let player = FloatingBarPlaybackModel.shared
     @ObservedObject private var textInputActivity = MonoTextInputActivity.shared
     @ObservedObject private var colorEngine = UnifiedColorEngine.shared
 
@@ -876,18 +877,23 @@ private struct ContentViewFloatingBarContainer: View {
     var body: some View {
         let _ = colorEngine.revision
 
-        if (!usesSystemTabBarAtRuntime || settings.globalThemeId == .manga),
-           !player.isTabBarHidden,
-           !textInputActivity.isEditing
-        {
-            floatingBarView
-                .id("\(settings.globalThemeId.rawValue)-\(settings.globalThemeRevision)-\(settings.floatingBarStyle.rawValue)")
-                .themeRenderInteractiveLayer()
-                .simultaneousGesture(floatingTabSwipeGesture)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-                .zIndex(10)
-                .animation(.spring(response: 0.35, dampingFraction: 0.82), value: player.isTabBarHidden)
-                .animation(MonoAnimation.floatingBar, value: settings.globalThemeRevision)
+        Group {
+            if (!usesSystemTabBarAtRuntime || settings.globalThemeId == .manga),
+               !isTabBarHidden,
+               !textInputActivity.isEditing
+            {
+                floatingBarView
+                    .id("\(settings.globalThemeId.rawValue)-\(settings.globalThemeRevision)-\(settings.floatingBarStyle.rawValue)")
+                    .themeRenderInteractiveLayer()
+                    .simultaneousGesture(floatingTabSwipeGesture)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .zIndex(10)
+                    .animation(.spring(response: 0.35, dampingFraction: 0.82), value: isTabBarHidden)
+                    .animation(MonoAnimation.floatingBar, value: settings.globalThemeRevision)
+            }
+        }
+        .onReceive(player.$isTabBarHidden.removeDuplicates()) { isHidden in
+            isTabBarHidden = isHidden
         }
     }
 
@@ -1146,7 +1152,9 @@ private enum SystemTabBarRuntimePolicy {
 @MainActor
 private struct ContentViewCompactPlayerContainer: View {
     @ObservedObject var settings: SettingsManager
-    @ObservedObject private var player = FloatingBarPlaybackModel.shared
+    @State private var isTabBarHidden = FloatingBarPlaybackModel.shared.isTabBarHidden
+    @State private var currentSong = FloatingBarPlaybackModel.shared.currentSong
+    private let player = FloatingBarPlaybackModel.shared
     @ObservedObject private var textInputActivity = MonoTextInputActivity.shared
 
     /// iOS 26+ 时改用 `.tabViewBottomAccessory` 原生嵌入，这里跳过避免重复显示
@@ -1160,27 +1168,35 @@ private struct ContentViewCompactPlayerContainer: View {
     }
 
     var body: some View {
-        if !shouldUseNativeBottomAccessory,
-           settings.useSystemTabBar
-            && !SystemTabBarRuntimePolicy.requiresStableAccessoryFallback
-            && settings.globalThemeId != .manga
-            && !player.isTabBarHidden,
-           !textInputActivity.isEditing,
-           let song = player.currentSong
-        {
-            VStack {
-                Spacer()
-                CompactMiniPlayerView(song: song)
-                    .themeRenderInteractiveLayer()
-                    .id("compact-mini-\(settings.globalThemeId.rawValue)-\(settings.globalThemeRevision)")
-                    .iPadContentWidth(600)
-                    .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 40 : 20)
-                    .padding(.bottom, DeviceLayout.usesExpandedLayout ? 72 : 62)
+        Group {
+            if !shouldUseNativeBottomAccessory,
+               settings.useSystemTabBar
+                && !SystemTabBarRuntimePolicy.requiresStableAccessoryFallback
+                && settings.globalThemeId != .manga
+                && !isTabBarHidden,
+               !textInputActivity.isEditing,
+               let song = currentSong
+            {
+                VStack {
+                    Spacer()
+                    CompactMiniPlayerView(song: song)
+                        .themeRenderInteractiveLayer()
+                        .id("compact-mini-\(settings.globalThemeId.rawValue)-\(settings.globalThemeRevision)")
+                        .iPadContentWidth(600)
+                        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 40 : 20)
+                        .padding(.bottom, DeviceLayout.usesExpandedLayout ? 72 : 62)
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .zIndex(9)
+                .animation(.spring(response: 0.35, dampingFraction: 0.82), value: isTabBarHidden)
+                .animation(MonoAnimation.floatingBar, value: settings.globalThemeRevision)
             }
-            .transition(.move(edge: .bottom).combined(with: .opacity))
-            .zIndex(9)
-            .animation(.spring(response: 0.35, dampingFraction: 0.82), value: player.isTabBarHidden)
-            .animation(MonoAnimation.floatingBar, value: settings.globalThemeRevision)
+        }
+        .onReceive(player.$isTabBarHidden.removeDuplicates()) { isHidden in
+            isTabBarHidden = isHidden
+        }
+        .onReceive(player.$currentSong.removeDuplicates()) { song in
+            currentSong = song
         }
     }
 }

@@ -221,7 +221,6 @@ extension View {
 }
 
 struct SettingsView: View {
-    @Environment(\.dismiss) var dismiss
     @ObservedObject var settings = SettingsManager.shared
     @ObservedObject var onlineAccess = OnlineAccessManager.shared
     @ObservedObject var playlistCloudSync = LocalPlaylistCloudSyncManager.shared

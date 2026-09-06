@@ -153,8 +153,8 @@ final class OptimizedCacheManager: ObservableObject {
     }
 
     private func trimMemory(_ context: MonoMemoryEngine.TrimContext) -> MonoMemoryEngine.TrimResult {
-        let currentSongID = PlayerManager.shared.currentSong?.id
-        let preservedKeys = Set([currentSongID.map { "song_\($0)" }].compactMap { $0 })
+        let currentSong = PlayerManager.shared.currentSong
+        let preservedKeys = Set([currentSong.map { "song_\($0.identityKey)" }].compactMap { $0 })
         let targetBytes: Int
         switch context.level {
         case .routine:
@@ -184,10 +184,10 @@ final class OptimizedCacheManager: ObservableObject {
 
         // 当前播放歌曲即使被 NSCache 自行淘汰，也从数据库轻量回填，确保回收
         // 不改变播放控制和 Now Playing 所依赖的歌曲模型。
-        if let currentSongID,
-           memoryObject(forKey: "song_\(currentSongID)" as NSString) == nil,
-           let dbSong = songRepo.getSong(id: currentSongID) {
-            storeInMemory(dbSong.toSong() as AnyObject, forKey: "song_\(currentSongID)" as NSString)
+        if let currentSong,
+           memoryObject(forKey: "song_\(currentSong.identityKey)" as NSString) == nil,
+           let dbSong = songRepo.getSong(id: currentSong.id, source: currentSong.musicSource) {
+            storeInMemory(dbSong.toSong() as AnyObject, forKey: "song_\(currentSong.identityKey)" as NSString)
         }
 
         return .init(
@@ -356,7 +356,7 @@ final class OptimizedCacheManager: ObservableObject {
         let candidates = songRepo.getWarmupCandidates(limit: 40)
         for dbSong in candidates {
             let song = dbSong.toSong()
-            let cacheKey = "song_\(song.id)" as NSString
+            let cacheKey = "song_\(song.identityKey)" as NSString
             storeInMemory(song as AnyObject, forKey: cacheKey)
         }
         
@@ -405,8 +405,8 @@ final class OptimizedCacheManager: ObservableObject {
     }
 
     private func mergeSongs(_ songs: [Song]) -> [Song] {
-        var seen = Set<Int>()
-        return songs.filter { seen.insert($0.id).inserted }
+        var seen = Set<String>()
+        return songs.filter { seen.insert($0.identityKey).inserted }
     }
 
     private func mergedDiskPlaylistCache() -> [Playlist] {
@@ -429,7 +429,7 @@ final class OptimizedCacheManager: ObservableObject {
 
     private func warmSongsInMemory(_ songs: [Song]) {
         for song in songs {
-            storeInMemory(song as AnyObject, forKey: "song_\(song.id)" as NSString)
+            storeInMemory(song as AnyObject, forKey: "song_\(song.identityKey)" as NSString)
         }
     }
 
@@ -604,8 +604,8 @@ final class OptimizedCacheManager: ObservableObject {
     // MARK: - 歌曲缓存（增强版）
     
     /// 获取歌曲（优先内存 -> 数据库）
-    func getSong(id: Int) -> Song? {
-        let cacheKey = "song_\(id)" as NSString
+    func getSong(id: Int, source: MusicSource = .netease) -> Song? {
+        let cacheKey = "song_\(source.rawValue):\(id)" as NSString
         
         // L1: 内存缓存
         if let cached = memoryObject(forKey: cacheKey) as? Song {
@@ -613,7 +613,7 @@ final class OptimizedCacheManager: ObservableObject {
         }
         
         // L2: 数据库
-        if let dbSong = songRepo.getSong(id: id) {
+        if let dbSong = songRepo.getSong(id: id, source: source) {
             let song = dbSong.toSong()
             storeInMemory(song as AnyObject, forKey: cacheKey)
             return song
@@ -623,13 +623,13 @@ final class OptimizedCacheManager: ObservableObject {
     }
     
     /// 批量获取歌曲（优化版）
-    func getSongs(ids: [Int]) -> [Song] {
+    func getSongs(ids: [Int], source: MusicSource = .netease) -> [Song] {
         var result: [Song] = []
         var missedIds: [Int] = []
         
         // 先从内存获取
         for id in ids {
-            let cacheKey = "song_\(id)" as NSString
+            let cacheKey = "song_\(source.rawValue):\(id)" as NSString
             if let cached = memoryObject(forKey: cacheKey) as? Song {
                 result.append(cached)
             } else {
@@ -639,10 +639,10 @@ final class OptimizedCacheManager: ObservableObject {
         
         // 从数据库批量获取缺失的
         if !missedIds.isEmpty {
-            let dbSongs = songRepo.getSongs(ids: missedIds)
+            let dbSongs = songRepo.getSongs(ids: missedIds, source: source)
             for dbSong in dbSongs {
                 let song = dbSong.toSong()
-                let cacheKey = "song_\(song.id)" as NSString
+                let cacheKey = "song_\(song.identityKey)" as NSString
                 storeInMemory(song as AnyObject, forKey: cacheKey)
                 result.append(song)
             }
@@ -653,7 +653,7 @@ final class OptimizedCacheManager: ObservableObject {
     
     /// 缓存歌曲
     func cacheSong(_ song: Song) {
-        let cacheKey = "song_\(song.id)" as NSString
+        let cacheKey = "song_\(song.identityKey)" as NSString
         storeInMemory(song as AnyObject, forKey: cacheKey)
         
         Task.detached { @MainActor in
@@ -665,7 +665,7 @@ final class OptimizedCacheManager: ObservableObject {
     func cacheSongs(_ songs: [Song]) {
         // 先更新内存缓存
         for song in songs {
-            let cacheKey = "song_\(song.id)" as NSString
+            let cacheKey = "song_\(song.identityKey)" as NSString
             storeInMemory(song as AnyObject, forKey: cacheKey)
         }
         
@@ -686,7 +686,7 @@ final class OptimizedCacheManager: ObservableObject {
         // 兼容离线批量导入调用，但仍使用统一有效播放阈值。
         songRepo.save(song: song)
         if effective {
-            songRepo.recordPlay(songId: song.id)
+            songRepo.recordPlay(song: song)
         }
         let record = historyRepo.addPlayHistory(
             song: song,
@@ -783,19 +783,19 @@ final class OptimizedCacheManager: ObservableObject {
     
     // MARK: - 歌词缓存
     
-    func getLyrics(songId: Int) -> (lyrics: String, translated: String?)? {
-        if let cached = historyRepo.getLyrics(songId: songId) {
+    func getLyrics(songId: Int, source: MusicSource = .netease) -> (lyrics: String, translated: String?)? {
+        if let cached = historyRepo.getLyrics(songId: songId, source: source) {
             return (cached.lyrics, cached.translatedLyrics)
         }
         return nil
     }
     
-    func cacheLyrics(songId: Int, lyrics: String, translated: String? = nil) {
-        historyRepo.saveLyrics(songId: songId, lyrics: lyrics, translated: translated)
+    func cacheLyrics(songId: Int, source: MusicSource = .netease, lyrics: String, translated: String? = nil) {
+        historyRepo.saveLyrics(songId: songId, source: source, lyrics: lyrics, translated: translated)
     }
 
-    func removeLyrics(songId: Int) {
-        historyRepo.deleteLyrics(songId: songId)
+    func removeLyrics(songId: Int, source: MusicSource = .netease) {
+        historyRepo.deleteLyrics(songId: songId, source: source)
     }
     
     // MARK: - 通用对象缓存（兼容旧 API）
@@ -891,7 +891,7 @@ final class OptimizedCacheManager: ObservableObject {
         
         // 预加载到内存缓存
         for song in upcoming {
-            let cacheKey = "song_\(song.id)" as NSString
+            let cacheKey = "song_\(song.identityKey)" as NSString
             if memoryObject(forKey: cacheKey) == nil {
                 storeInMemory(song as AnyObject, forKey: cacheKey)
             }

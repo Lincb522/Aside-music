@@ -550,7 +550,7 @@ final class LocalMusicLibraryManager: ObservableObject {
                 try? FileManager.default.removeItem(at: artworkURL)
             }
 
-            OptimizedCacheManager.shared.removeLyrics(songId: song.id)
+            OptimizedCacheManager.shared.removeLyrics(songId: song.id, source: .local)
             removedIds.insert(song.id)
         }
 
@@ -614,7 +614,7 @@ final class LocalMusicLibraryManager: ObservableObject {
         for playlist in manager.playlists {
             let missingLocalSongIds = Set(manager.songs(for: playlist).filter {
                 $0.musicSource == .local && !validSongIDs.contains($0.id)
-            }.map(\.id))
+            }.map(\.identityKey))
 
             manager.removeSongs(ids: missingLocalSongIds, from: playlist)
         }
@@ -1117,7 +1117,7 @@ final class LocalMusicLibraryManager: ObservableObject {
             )
         }
         if !prefetchedLyrics, primarySelection == nil, embeddedLyrics == nil {
-            OptimizedCacheManager.shared.removeLyrics(songId: enrichedSong.id)
+            OptimizedCacheManager.shared.removeLyrics(songId: enrichedSong.id, source: .local)
         }
 
         return LocalSongImportPayload(
@@ -1377,7 +1377,7 @@ final class LocalMusicLibraryManager: ObservableObject {
     private static func cacheNeteaseLyrics(_ response: LyricResponse, localSongId: Int) -> Bool {
         guard let lyric = firstNonEmpty(response.yrc?.lyric, response.lrc?.lyric) else { return false }
         OptimizedCacheManager.shared.cacheLyrics(
-            songId: localSongId,
+            songId: localSongId, source: .local,
             lyrics: lyric,
             translated: firstNonEmpty(response.tlyric?.lyric)
         )
@@ -1387,7 +1387,7 @@ final class LocalMusicLibraryManager: ObservableObject {
     private static func cacheQQLyrics(_ response: QQLyricResponse, localSongId: Int) -> Bool {
         guard let lyric = firstNonEmpty(response.qrc, response.lyric) else { return false }
         OptimizedCacheManager.shared.cacheLyrics(
-            songId: localSongId,
+            songId: localSongId, source: .local,
             lyrics: lyric,
             translated: firstNonEmpty(response.trans, response.roma)
         )
@@ -1397,17 +1397,17 @@ final class LocalMusicLibraryManager: ObservableObject {
     private static func cacheQishuiLyrics(_ content: String, localSongId: Int) -> Bool {
         let lyric = content.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !lyric.isEmpty else { return false }
-        OptimizedCacheManager.shared.cacheLyrics(songId: localSongId, lyrics: lyric)
+        OptimizedCacheManager.shared.cacheLyrics(songId: localSongId, source: .local, lyrics: lyric)
         return true
     }
 
     private static func cacheEmbeddedLyrics(_ lyrics: String?, localSongId: Int, overwrite: Bool = false) -> Bool {
-        guard (overwrite || OptimizedCacheManager.shared.getLyrics(songId: localSongId) == nil),
+        guard (overwrite || OptimizedCacheManager.shared.getLyrics(songId: localSongId, source: .local) == nil),
               let lyrics,
               !lyrics.isEmpty else {
             return false
         }
-        OptimizedCacheManager.shared.cacheLyrics(songId: localSongId, lyrics: lyrics)
+        OptimizedCacheManager.shared.cacheLyrics(songId: localSongId, source: .local, lyrics: lyrics)
         return true
     }
 

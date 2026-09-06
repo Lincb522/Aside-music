@@ -38,6 +38,7 @@ struct MonoApp: App {
     @StateObject private var settings = SettingsManager.shared
     
     init() {
+        if ProcessInfo.processInfo.environment["MONO_UNIT_TESTS"] == "1" { return }
         FFmpegDiagnosticLog.setHandler { event in
             switch event.level {
             case .debug:
@@ -143,10 +144,15 @@ struct MonoApp: App {
 
     var body: some Scene {
         WindowGroup {
+            if ProcessInfo.processInfo.environment["MONO_UNIT_TESTS"] == "1" {
+                Color.clear
+            } else {
+            DatabaseRootView {
             ContentView()
                 .compatFontDesign(.rounded)
                 .preferredColorScheme(effectiveColorScheme)
                 .onAppear {
+                    guard DatabaseManager.shared.store.isAvailable else { return }
                     CrashDiagnosticsStore.shared.start()
                     AppFrameRate.lockConnectedScenesToPreferredFrameRate(reason: "app root appear")
                     if UIApplication.shared.applicationState == .active {
@@ -229,6 +235,7 @@ struct MonoApp: App {
                     }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                    guard DatabaseManager.shared.store.isAvailable else { return }
                     AppFrameRate.lockConnectedScenesToPreferredFrameRate(reason: "application did become active")
                     MonoNextSuiteManager.shared.activateHeadTrackingRuntimeIfNeeded()
                     AirPodsExperienceManager.shared.activateRuntimeIfNeeded()
@@ -259,6 +266,8 @@ struct MonoApp: App {
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
                     Self.persistStateForSuspension()
                 }
+            }
+            }
         }
     }
     
@@ -270,6 +279,7 @@ struct MonoApp: App {
         final class TaskHandle: @unchecked Sendable {
             var id: UIBackgroundTaskIdentifier = .invalid
         }
+        guard DatabaseManager.shared.store.isAvailable else { return }
         let application = UIApplication.shared
         let handle = TaskHandle()
         handle.id = application.beginBackgroundTask(withName: "Mono.PersistOnBackground") {

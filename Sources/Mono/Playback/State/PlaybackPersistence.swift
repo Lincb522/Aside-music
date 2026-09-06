@@ -528,7 +528,7 @@ final class PlaybackPersistence {
         // 导致冷启动预加载查询不到任何“最近播放”的歌曲。
         let songRepository = SongRepository()
         songRepository.save(song: song)
-        songRepository.recordPlay(songId: song.id)
+        songRepository.recordPlay(song: song)
         saveState()
 
         if !song.isQQMusic && !song.isQishui && !song.isKugou && !song.isAppleMusic {

@@ -6,7 +6,9 @@ import SwiftUI
 struct LiquidFloatingBar: View {
     @Binding var currentTab: Tab
 
-    @ObservedObject private var player = FloatingBarPlaybackModel.shared
+    private let player = FloatingBarPlaybackModel.shared
+    @State private var currentSong = FloatingBarPlaybackModel.shared.currentSong
+    @State private var isPlaying = FloatingBarPlaybackModel.shared.isPlaying
     @ObservedObject private var playbackTime = PlaybackTimePublisher.shared
     @ObservedObject private var settings = SettingsManager.shared
     @StateObject private var coverColors = CoverColorExtractor(minimumColorCount: 3)
@@ -30,13 +32,14 @@ struct LiquidFloatingBar: View {
     @State private var isScrubbing = false
     @State private var isHoldingCommittedSeek = false
     @State private var scrubGeneration = 0
+    @State private var isVisible = false
 
     private var displaysTabs: Bool {
-        showingTabs || player.currentSong == nil
+        showingTabs || currentSong == nil
     }
 
     private var artworkURL: String? {
-        player.currentSong?.coverUrl?.sized(220).absoluteString
+        currentSong?.coverUrl?.sized(220).absoluteString
     }
 
     private var hasResolvedPalette: Bool {
@@ -63,7 +66,7 @@ struct LiquidFloatingBar: View {
     }
 
     private var motionSeed: CGFloat {
-        liquidMotionSeed(for: player.currentSong)
+        liquidMotionSeed(for: currentSong)
     }
 
     private var liquidColors: [Color] {
@@ -91,16 +94,18 @@ struct LiquidFloatingBar: View {
     }
 
     var body: some View {
-        ZStack {
-            shellBackground
+        let _ = settings.globalThemeRevision
 
-            if player.currentSong != nil, playbackTime.duration > 0 {
+        ZStack {
+            FluidFloatingBarShell()
+
+            if currentSong != nil, playbackTime.duration > 0 {
                 LiquidPlaybackProgress(
                     colors: liquidColors,
                     anchorTime: presentedAnchorTime,
                     anchorDate: anchorDate,
                     duration: playbackTime.duration,
-                    isPlaying: player.isPlaying && !usesScrubProgress,
+                    isPlaying: isVisible && isPlaying && !usesScrubProgress,
                     isPaused: reduceMotion || scenePhase != .active || usesScrubProgress,
                     scrubFlow: scrubFlow,
                     motionSeed: motionSeed
@@ -123,7 +128,7 @@ struct LiquidFloatingBar: View {
                         onSelect: selectTab
                     )
                     .transition(.opacity.combined(with: .scale(scale: 0.97)))
-                } else if let song = player.currentSong {
+                } else if let song = currentSong {
                     miniPlayer(song: song)
                         .transition(.opacity.combined(with: .move(edge: .leading)))
                 }
@@ -150,7 +155,7 @@ struct LiquidFloatingBar: View {
         }
         .overlay(alignment: .bottom) {
             if !displaysTabs,
-               player.currentSong != nil,
+               currentSong != nil,
                playbackTime.duration.isFinite,
                playbackTime.duration > 0 {
                 Color.clear
@@ -177,7 +182,10 @@ struct LiquidFloatingBar: View {
             }
         }
         .animation(reduceMotion ? nil : .easeOut(duration: 0.24), value: displaysTabs)
+        .onReceive(player.$currentSong) { currentSong = $0 }
+        .onReceive(player.$isPlaying.removeDuplicates()) { isPlaying = $0 }
         .onAppear {
+            isVisible = true
             synchronizePlaybackAnchor()
             coverColors.extract(from: artworkURL)
             synchronizeWorkload()
@@ -197,7 +205,7 @@ struct LiquidFloatingBar: View {
             anchorTime = sanitizedTime(newTime)
             anchorDate = Date()
         }
-        .onChange(of: player.isPlaying) { _, _ in
+        .onChange(of: isPlaying) { _, _ in
             synchronizePlaybackAnchor()
             synchronizeWorkload()
         }
@@ -208,6 +216,7 @@ struct LiquidFloatingBar: View {
             synchronizeWorkload()
         }
         .onDisappear {
+            isVisible = false
             cancelScrubPreview()
             if let computeWorkloadToken {
                 MonoComputeEngine.shared.endWorkload(computeWorkloadToken)
@@ -220,20 +229,6 @@ struct LiquidFloatingBar: View {
             } else {
                 PlaylistPopupView()
             }
-        }
-    }
-
-    @ViewBuilder
-    private var shellBackground: some View {
-        let shape = Capsule(style: .continuous)
-
-        if settings.defaultThemeUsesLiquidGlassTabBar {
-            shape
-                .fill(Color.monoFloatingBarFill)
-                .monoGlassCapsule()
-        } else {
-            shape
-                .fill(Color.monoStructuralBackground)
         }
     }
 
@@ -252,15 +247,17 @@ struct LiquidFloatingBar: View {
                         speed: 24
                     )
 
-                    splitMarqueeText(
-                        text: player.lyricLineText ?? song.artistName,
-                        font: .system(size: 11, weight: .medium, design: .rounded),
-                        panelColor: .monoTextSecondary,
-                        liquidColor: liquidSecondaryColor,
-                        coverage: liquidCoverage(progress: progress, start: 0.14, end: 0.65),
-                        speed: 22
-                    )
-                        .contentTransition(.interpolate)
+                    FloatingBarLyricReader { lineText in
+                        splitMarqueeText(
+                            text: lineText ?? song.artistName,
+                            font: .system(size: 11, weight: .medium, design: .rounded),
+                            panelColor: .monoTextSecondary,
+                            liquidColor: liquidSecondaryColor,
+                            coverage: liquidCoverage(progress: progress, start: 0.14, end: 0.65),
+                            speed: 22
+                        )
+                            .contentTransition(.interpolate)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .swipeSkipTextMotion()
@@ -270,7 +267,7 @@ struct LiquidFloatingBar: View {
             .swipeToSkip()
 
             liquidButton(
-                icon: player.isPlaying ? .pause : .play,
+                icon: isPlaying ? .pause : .play,
                 start: 0.68,
                 end: 0.78,
                 primary: true
@@ -342,7 +339,7 @@ struct LiquidFloatingBar: View {
         .frame(width: 46, height: 46)
         .shadow(color: (liquidColors.first ?? Color.monoAccent).opacity(0.28), radius: 5)
         .animation(
-            player.isPlaying && !reduceMotion ? .linear(duration: 0.28) : nil,
+            isPlaying && !reduceMotion ? .linear(duration: 0.28) : nil,
             value: playbackTime.currentTime
         )
     }
@@ -429,7 +426,7 @@ struct LiquidFloatingBar: View {
             currentTab = tab
             return
         }
-        guard player.currentSong != nil else { return }
+        guard currentSong != nil else { return }
         HapticManager.shared.light()
         showingTabs = false
     }
@@ -453,8 +450,9 @@ struct LiquidFloatingBar: View {
     }
 
     private func synchronizeWorkload() {
-        let shouldRun = player.currentSong != nil
-            && player.isPlaying
+        let shouldRun = currentSong != nil
+            && isVisible
+            && isPlaying
             && scenePhase == .active
             && !reduceMotion
         if shouldRun, computeWorkloadToken == nil {
@@ -472,7 +470,7 @@ struct LiquidFloatingBar: View {
     private var scrubGesture: some Gesture {
         DragGesture(minimumDistance: 7, coordinateSpace: .local)
             .onChanged { value in
-                guard player.currentSong != nil,
+                guard currentSong != nil,
                       playbackTime.duration.isFinite,
                       playbackTime.duration > 0,
                       barWidth > 1 else { return }

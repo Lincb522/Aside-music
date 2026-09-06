@@ -180,6 +180,15 @@ actor ImageLoadCoordinator {
         inFlightTasks.values.forEach { $0.cancel() }
         inFlightTasks.removeAll(keepingCapacity: false)
     }
+
+    func cacheImageToDisk(_ image: UIImage, forKey key: String) {
+        // JPEG encoding must stay off the UI actor, including cache misses
+        // completed while a grid or list is scrolling.
+        autoreleasepool {
+            guard let data = image.jpegData(compressionQuality: 0.92) else { return }
+            CacheManager.shared.setImageData(data, forKey: key)
+        }
+    }
     
     func loadImage(url: URL, maxSize: CGFloat = ImageCacheConfig.defaultMaxPointSize) async -> UIImage? {
         let normalizedMaxSize = ImageCacheConfig.normalizedMaxPointSize(maxSize)
@@ -436,12 +445,7 @@ class ImageLoader: ObservableObject {
                 let cost = image.cgImage.map { $0.bytesPerRow * $0.height } ?? 0
                 ArtworkMemoryCache.shared.insert(image, forKey: key as NSString, cost: cost)
                 
-                let jpegData = image.jpegData(compressionQuality: 0.92)
-                if let jpegData {
-                    Task.detached(priority: .background) {
-                        CacheManager.shared.setImageData(jpegData, forKey: key)
-                    }
-                }
+                await ImageLoadCoordinator.shared.cacheImageToDisk(image, forKey: key)
             }
         }
     }

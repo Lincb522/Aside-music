@@ -10,7 +10,7 @@ struct Game2048PlayerLayout: View {
     @ObservedObject var player = PlayerManager.shared
     @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
     @ObservedObject var lyricVM = LyricViewModel.shared
-    @ObservedObject var downloadManager = DownloadManager.shared
+    @ObservedObject var downloadStatus = DownloadedSongStatusModel.shared
 
     // MARK: - State
 
@@ -228,13 +228,19 @@ struct Game2048PlayerLayout: View {
                         .padding(.bottom, geo.safeAreaInsets.bottom > 0 ? 4 : 16)
                 }
 
-                if showMoreMenu {
-                    PlayerMoreMenu(isPresented: $showMoreMenu, isDarkBackground: colorScheme == .dark,
-                                   onEQ: { showEQSettings = true }, onTheme: { showThemePicker = true })
-                }
-
                 if showLyrics, let song = player.currentSong {
                     lyricsOverlay(song: song, geo: geo)
+                }
+            }
+            .playerMoreMenuOverlay { anchorFrame in
+                if showMoreMenu {
+                    PlayerMoreMenu(
+                        isPresented: $showMoreMenu,
+                        anchorFrame: anchorFrame,
+                        isDarkBackground: colorScheme == .dark,
+                        onEQ: { showEQSettings = true },
+                        onTheme: { showThemePicker = true }
+                    )
                 }
             }
         }
@@ -335,6 +341,7 @@ extension Game2048PlayerLayout {
                     .frame(width: 32, height: 32)
                     .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(gridBg.opacity(0.5)))
             }.buttonStyle(MonoBouncingButtonStyle())
+            .playerMoreMenuAnchor()
         }
     }
 
@@ -558,7 +565,7 @@ extension Game2048PlayerLayout {
     // ─── 收藏 4 ───
     private func likeTile(cell: CGFloat) -> some View {
         let isLiked = player.currentSong.map {
-            LikeManager.shared.isLiked(id: $0.id, isQQMusic: $0.isQQMusic)
+            LikeManager.shared.isLiked(id: $0.id, source: $0.musicSource)
         } ?? false
         return Button {
             guard let s = player.currentSong else { return }
@@ -694,7 +701,7 @@ extension Game2048PlayerLayout {
             if let s = player.currentSong {
                 if AppConfig.Features.downloadEnabled {
                     // 下载按钮（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
-                    let done = downloadManager.isDownloaded(songId: s.id)
+                    let done = downloadStatus.isDownloaded(song: s)
                     bottomBtn(icon: done ? "checkmark.circle.fill" : "arrow.down.circle",
                               label: "64", dim: done) { if !done { showDownloadSheet = true } }.disabled(done)
                 }

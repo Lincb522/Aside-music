@@ -63,10 +63,12 @@ struct ImmersiveLyricPlayerLayout: View {
                 } else {
                     playerStage(size: geo.size)
                 }
-
+            }
+            .playerMoreMenuOverlay { anchorFrame in
                 if showMoreMenu {
                     PlayerMoreMenu(
                         isPresented: $showMoreMenu,
+                        anchorFrame: anchorFrame,
                         onQuality: { showQualitySheet = true },
                         onEQ: { showEQSettings = true },
                         onTheme: { showThemePicker = true }
@@ -211,6 +213,7 @@ extension ImmersiveLyricPlayerLayout {
                     .background(Circle().fill(Color.white.opacity(0.14)))
             }
             .buttonStyle(MonoBouncingButtonStyle())
+            .playerMoreMenuAnchor()
         }
     }
 

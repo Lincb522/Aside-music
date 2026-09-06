@@ -21,8 +21,8 @@ class LikeManager: ObservableObject {
     // MARK: - 统一查询
     
     /// 是否已喜欢（统一查本地「我喜欢」歌单）
-    func isLiked(id: Int, isQQMusic: Bool = false) -> Bool {
-        LocalPlaylistManager.shared.isFavorite(songId: id)
+    func isLiked(id: Int, source: MusicSource = .netease) -> Bool {
+        LocalPlaylistManager.shared.isFavorite(songId: id, source: source)
     }
     
     // MARK: - 统一切换喜欢
@@ -35,10 +35,11 @@ class LikeManager: ObservableObject {
     /// 如果是ncm歌曲且开启了同步开关，同时调用ncm API
     func toggleLike(songId: Int, isQQMusic: Bool = false, song: Song? = nil) {
         let manager = LocalPlaylistManager.shared
-        let currentlyLiked = manager.isFavorite(songId: songId)
+        let source = song?.musicSource ?? (isQQMusic ? .qqmusic : .netease)
+        let currentlyLiked = manager.isFavorite(songId: songId, source: source)
         
         if currentlyLiked {
-            manager.removeFromFavorite(songId: songId)
+            manager.removeFromFavorite(songId: songId, source: source)
         } else if let song = song {
             if SettingsManager.shared.likeToChoosePlaylist {
                 pendingLikeSong = song
@@ -51,7 +52,6 @@ class LikeManager: ObservableObject {
         
         objectWillChange.send()
         
-        let source = song?.musicSource ?? (isQQMusic ? .qqmusic : .netease)
         if source == .netease,
            SettingsManager.shared.syncLikeToNetease {
             syncToNetease(songId: songId, like: !currentlyLiked)

@@ -421,7 +421,7 @@ struct SongDetailView: View {
 
                 ScrollView(.horizontal) {
                     HStack(spacing: 14) {
-                        ForEach(viewModel.simiSongs.prefix(10)) { simiSong in
+                        ForEach(viewModel.simiSongs.prefix(10), id: \.identityKey) { simiSong in
                             Button {
                                 PlayerManager.shared.play(song: simiSong, in: viewModel.simiSongs)
                                 selectedSongForDetail = simiSong
@@ -475,7 +475,7 @@ struct SongDetailView: View {
                 )
 
                 LazyVStack(spacing: 0) {
-                    ForEach(Array(viewModel.relatedSongs.enumerated()), id: \.element.id) { index, relatedSong in
+                    ForEach(Array(viewModel.relatedSongs.enumerated()), id: \.element.identityKey) { index, relatedSong in
                         SongListRow(
                             song: relatedSong,
                             index: index,
@@ -660,7 +660,7 @@ private struct SongDetailHeroActions: View {
     }
 
     private var isLiked: Bool {
-        likeManager.isLiked(id: song.id, isQQMusic: song.isQQMusic)
+        likeManager.isLiked(id: song.id, source: song.musicSource)
     }
 
     private var isCurrentSongPlaying: Bool {

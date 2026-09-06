@@ -2,14 +2,14 @@ import SwiftUI
 
 /// AsideMusic 默认主题的全屏流体背景。
 ///
-/// 只在根主题宿主中挂载一次；封面变化时重新提取调色板，播放时流动，
-/// 暂停、切到后台或开启“减弱动态效果”时冻结当前画面。
+/// 封面变化时重新提取调色板，播放时流动；离开页面、暂停、
+/// 切到后台或开启“减弱动态效果”时冻结当前画面。
 @MainActor
 struct AsideMusicFluidBackground: View {
     let artworkURL: String
     var onBrightnessChanged: ((Bool) -> Void)?
 
-    @ObservedObject private var player = FloatingBarPlaybackModel.shared
+    @State private var isPlaying = FloatingBarPlaybackModel.shared.isPlaying
     // FLUX 原版使用三种独立颜料。这里固定至少提取五色，再从首、中、尾
     // 选出跨度最大的三色，避免全局取色数量设为 2 时退化成双色渐变。
     @StateObject private var coverColors = CoverColorExtractor(minimumColorCount: 5)
@@ -21,6 +21,7 @@ struct AsideMusicFluidBackground: View {
     @State private var accumulatedMotionTime: TimeInterval = 0
     @State private var motionAnchorDate = Date()
     @State private var motionIsRunning = false
+    @State private var isVisible = false
     @State private var computeWorkloadToken: UUID?
 
     private var palette: [Color] {
@@ -41,7 +42,7 @@ struct AsideMusicFluidBackground: View {
     }
 
     private var shouldRunMotion: Bool {
-        player.isPlaying
+        isVisible && isPlaying
             && scenePhase == .active
             && !reduceMotion
     }
@@ -92,6 +93,7 @@ struct AsideMusicFluidBackground: View {
         .allowsHitTesting(false)
         .accessibilityHidden(true)
         .onAppear {
+            isVisible = true
             coverColors.extract(from: artworkURL)
             synchronizeMotionClock()
         }
@@ -99,7 +101,9 @@ struct AsideMusicFluidBackground: View {
             coverColors.extract(from: newURL)
             synchronizeMotionClock(reset: true)
         }
-        .onChange(of: player.isPlaying) { _, _ in
+        .onReceive(FloatingBarPlaybackModel.shared.$isPlaying.removeDuplicates()) { playing in
+            guard isPlaying != playing else { return }
+            isPlaying = playing
             synchronizeMotionClock()
         }
         .onChange(of: scenePhase) { _, _ in
@@ -117,10 +121,8 @@ struct AsideMusicFluidBackground: View {
             synchronizeComputeWorkload()
         }
         .onDisappear {
-            if let computeWorkloadToken {
-                MonoComputeEngine.shared.endWorkload(computeWorkloadToken)
-                self.computeWorkloadToken = nil
-            }
+            isVisible = false
+            synchronizeMotionClock()
         }
     }
 
@@ -139,9 +141,7 @@ struct AsideMusicFluidBackground: View {
     }
 
     private func synchronizeComputeWorkload() {
-        let shouldObserve = player.isPlaying
-            && scenePhase == .active
-            && !reduceMotion
+        let shouldObserve = shouldRunMotion
             && coverColors.resolvedURL == artworkURL
         if shouldObserve, computeWorkloadToken == nil {
             computeWorkloadToken = MonoComputeEngine.shared.beginWorkload(.fluidBackground)

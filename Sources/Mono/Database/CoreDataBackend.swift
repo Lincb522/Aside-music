@@ -26,16 +26,9 @@ final class CoreDataBackend: MonoStoreBackend {
         FileManager.default.fileExists(atPath: storeURL.path)
     }
 
-    static func destroyStore() {
-        let base = storeURL
-        try? FileManager.default.removeItem(at: base)
-        try? FileManager.default.removeItem(at: URL(fileURLWithPath: base.path + "-wal"))
-        try? FileManager.default.removeItem(at: URL(fileURLWithPath: base.path + "-shm"))
-    }
-
     private let registeredTypes: [String: any MonoEntity.Type]
 
-    init(entityTypes: [any MonoEntity.Type]) {
+    init(entityTypes: [any MonoEntity.Type], storeURL: URL = CoreDataBackend.storeURL) throws {
         var types: [String: any MonoEntity.Type] = [:]
         for type in entityTypes {
             types[type.monoEntityName] = type
@@ -45,7 +38,7 @@ final class CoreDataBackend: MonoStoreBackend {
         let model = Self.makeModel(entityTypes: entityTypes)
         container = NSPersistentContainer(name: "MonoLocal", managedObjectModel: model)
 
-        let description = NSPersistentStoreDescription(url: Self.storeURL)
+        let description = NSPersistentStoreDescription(url: storeURL)
         description.shouldMigrateStoreAutomatically = true
         description.shouldInferMappingModelAutomatically = true
         container.persistentStoreDescriptions = [description]
@@ -55,32 +48,25 @@ final class CoreDataBackend: MonoStoreBackend {
             loadError = error
         }
 
-        if loadError != nil {
-            AppLogger.error("Core Data 初始化失败: \(String(describing: loadError))，尝试重建数据库")
-            Self.destroyStore()
-            var retryError: Error?
-            container.loadPersistentStores { _, error in
-                retryError = error
-            }
-            if retryError != nil {
-                AppLogger.error("Core Data 重建失败: \(String(describing: retryError))，降级为内存数据库")
-                let memDescription = NSPersistentStoreDescription()
-                memDescription.type = NSInMemoryStoreType
-                container.persistentStoreDescriptions = [memDescription]
-                container.loadPersistentStores { _, error in
-                    if let error {
-                        preconditionFailure("Core Data 完全不可用: \(error)")
-                    }
-                }
-            } else {
-                AppLogger.success("Core Data 重建成功")
-            }
-        } else {
-            AppLogger.success("Core Data 初始化成功")
-        }
+        if let loadError { throw loadError }
 
         context = container.viewContext
         context.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
+        // Load every table before making the store available; a read failure
+        // must not be interpreted as an empty user library.
+        for type in entityTypes {
+            let name = type.monoEntityName
+            let objects = try context.fetch(NSFetchRequest<NSManagedObject>(entityName: name))
+            var index: [String: NSManagedObject] = [:]
+            for object in objects {
+                let key = type.monoMake(from: snapshot(from: object, type: type)).monoUniqueKey
+                object.setValue(key, forKey: Self.uniqueKeyField)
+                index[key] = object
+            }
+            indices[name] = index
+        }
+        try flush()
+
     }
 
     // MARK: - 模型构建
@@ -171,13 +157,8 @@ final class CoreDataBackend: MonoStoreBackend {
         indices[entityName] = [:]
     }
 
-    func flush() {
-        guard context.hasChanges else { return }
-        do {
-            try context.save()
-        } catch {
-            AppLogger.error("Core Data 保存失败: \(error)")
-        }
+    func flush() throws {
+        if context.hasChanges { try context.save() }
     }
 
     func storeSizeBytes() -> Int64 {
@@ -195,16 +176,7 @@ final class CoreDataBackend: MonoStoreBackend {
         if let cached = indices[entityName] {
             return cached
         }
-        let request = NSFetchRequest<NSManagedObject>(entityName: entityName)
-        let all = (try? context.fetch(request)) ?? []
-        var idx: [String: NSManagedObject] = [:]
-        for object in all {
-            if let key = object.value(forKey: Self.uniqueKeyField) as? String {
-                idx[key] = object
-            }
-        }
-        indices[entityName] = idx
-        return idx
+        return [:]
     }
 
     private func snapshot(from object: NSManagedObject, type: any MonoEntity.Type) -> [String: Any?] {

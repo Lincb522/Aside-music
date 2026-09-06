@@ -3,6 +3,9 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "ws": "^8.18.3"
+    "ws": "^8.21.3"
+  },
+  "scripts": {
+    "test": "node --test *.test.js"
   }
 }

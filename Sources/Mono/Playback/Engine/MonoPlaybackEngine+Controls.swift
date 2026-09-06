@@ -38,6 +38,10 @@ extension PlayerManager {
             }
             return currentSong != nil
         }
+        if !isPlaying {
+            audioSessionCoordinator.prepareForExplicitPlayback()
+        }
+        let playbackToken = audioSessionCoordinator.playbackWorkToken
         if let song = currentSong, song.isAppleMusic {
             if isPlaying, appleMusicPlayback.matches(song) {
                 return true
@@ -53,10 +57,11 @@ extension PlayerManager {
             }
             if appleMusicPlayback.matches(song) {
                 Task { @MainActor [weak self] in
-                    guard let self else { return }
+                    guard let self, audioSessionCoordinator.isPlaybackWorkCurrent(playbackToken) else { return }
                     do {
                         _ = try await appleMusicPlayback.resume()
                     } catch {
+                        guard audioSessionCoordinator.isPlaybackWorkCurrent(playbackToken) else { return }
                         showPlaybackError(song: song, error: error)
                     }
                 }
@@ -75,7 +80,7 @@ extension PlayerManager {
                 return currentSong != nil
             }
             Task { @MainActor [weak self] in
-                guard let self else { return }
+                guard let self, self.audioSessionCoordinator.isPlaybackWorkCurrent(playbackToken) else { return }
                 _ = await self.recoverUnavailableAudioOutput(reason: "explicit play command")
             }
             return currentSong != nil
@@ -113,7 +118,7 @@ extension PlayerManager {
             isUnderInterruption = false
             // 立即尝试一次；若失败则启动阶梯重试，确保用户连点不会卡死
             Task { @MainActor [weak self] in
-                guard let self else { return }
+                guard let self, self.audioSessionCoordinator.isPlaybackWorkCurrent(playbackToken) else { return }
                 if !(await self.resumeAfterInterruption(reason: "manual playback command")) {
                     self.scheduleInterruptionResumeRetry(reason: "manual playback command")
                 }
@@ -130,10 +135,12 @@ extension PlayerManager {
             refreshPlaybackSurfaceState()
             let expectedSessionId = playbackSessionId
             Task { @MainActor [weak self] in
-                guard let self else { return }
+                guard let self, self.audioSessionCoordinator.isPlaybackWorkCurrent(playbackToken) else { return }
                 guard await self.activateAudioSessionForPlaybackChecked(
                     reason: "playPlayback recover active stream"
                 ) else {
+                    guard self.audioSessionCoordinator.isPlaybackWorkCurrent(playbackToken),
+                          self.playbackSessionId == expectedSessionId else { return }
                     self.isPlaying = false
                     self.isLoading = false
                     self.refreshPlaybackSurfaceState()
@@ -187,8 +194,10 @@ extension PlayerManager {
             refreshPlaybackSurfaceState()
             let expectedSessionId = playbackSessionId
             Task { @MainActor [weak self] in
-                guard let self else { return }
+                guard let self, self.audioSessionCoordinator.isPlaybackWorkCurrent(playbackToken) else { return }
                 guard await self.activateAudioSessionForPlaybackChecked(reason: "playPlayback resume") else {
+                    guard self.audioSessionCoordinator.isPlaybackWorkCurrent(playbackToken),
+                          self.playbackSessionId == expectedSessionId else { return }
                     self.isPlaying = false
                     self.isLoading = false
                     self.refreshPlaybackSurfaceState()
@@ -270,7 +279,6 @@ extension PlayerManager {
         }
 
         wasPlayingBeforeInterruption = false
-        isUnderInterruption = false
         cancelInterruptionResumeRetry()
         cancelInterruptionWatchdog()
         endTransitionKeepAlive()
@@ -313,7 +321,12 @@ extension PlayerManager {
         return true
     }
     
-    func next() {
+    func next(userInitiated: Bool = true) {
+        if userInitiated {
+            audioSessionCoordinator.prepareForExplicitPlayback(replacingCurrentSong: true)
+        } else {
+            guard audioSessionCoordinator.isPlaybackWorkCurrent(audioSessionCoordinator.playbackWorkToken) else { return }
+        }
         guard let nextSong = upcomingPlaybackSong() else {
             stopAfterQueueExhausted()
             return
@@ -356,6 +369,7 @@ extension PlayerManager {
     }
     
     func previous() {
+        audioSessionCoordinator.prepareForExplicitPlayback(replacingCurrentSong: true)
         let list = currentContextList
         guard !list.isEmpty, let current = currentSong else { return }
 

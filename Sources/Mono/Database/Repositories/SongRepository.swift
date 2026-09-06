@@ -13,14 +13,14 @@ final class SongRepository {
     // MARK: - 查询
 
     /// 根据 ID 获取歌曲
-    func getSong(id: Int) -> CachedSong? {
-        store.first(CachedSong.self) { $0.id == id }
+    func getSong(id: Int, source: MusicSource = .netease) -> CachedSong? {
+        store.first(CachedSong.self) { $0.monoUniqueKey == "\(source.rawValue):\(id)" }
     }
 
     /// 批量获取歌曲
-    func getSongs(ids: [Int]) -> [CachedSong] {
+    func getSongs(ids: [Int], source: MusicSource = .netease) -> [CachedSong] {
         let idSet = Set(ids)
-        return store.fetch(CachedSong.self, where: { idSet.contains($0.id) })
+        return store.fetch(CachedSong.self, where: { idSet.contains($0.id) && $0.toSong().musicSource == source })
     }
 
     /// 获取最近播放的歌曲
@@ -68,52 +68,30 @@ final class SongRepository {
 
     /// 保存单首歌曲
     func save(song: Song) {
-        if let existing = getSong(id: song.id) {
-            // 更新现有记录
-            existing.name = song.name
-            existing.artistName = song.artistName
-            existing.albumName = song.al?.name
-            existing.coverUrl = song.coverUrl?.absoluteString
-            existing.duration = song.dt
-            existing.cachedAt = Date()
-        } else {
-            // 创建新记录
-            store.insert(CachedSong(from: song))
-        }
-
-        store.save()
+        save(songs: [song])
     }
 
-    /// 批量保存歌曲
     func save(songs: [Song]) {
         guard !songs.isEmpty else { return }
-
-        let ids = Set(songs.map { $0.id })
-        let existingMap: [Int: CachedSong] = {
-            let results = store.fetch(CachedSong.self, where: { ids.contains($0.id) })
-            return Dictionary(uniqueKeysWithValues: results.map { ($0.id, $0) })
-        }()
-
+        let keys = Set(songs.map(\.identityKey))
+        var existing = Dictionary(uniqueKeysWithValues: store.fetch(CachedSong.self, where: {
+            keys.contains($0.monoUniqueKey)
+        }).map { ($0.monoUniqueKey, $0) })
         for song in songs {
-            if let existing = existingMap[song.id] {
-                existing.name = song.name
-                existing.artistName = song.artistName
-                existing.albumName = song.al?.name
-                existing.coverUrl = song.coverUrl?.absoluteString
-                existing.duration = song.dt
-                existing.cachedAt = Date()
+            if let cached = existing[song.identityKey] {
+                cached.update(from: song)
             } else {
-                store.insert(CachedSong(from: song))
+                let cached = CachedSong(from: song)
+                store.insert(cached)
+                existing[song.identityKey] = cached
             }
         }
-
         store.save()
     }
 
-    /// 记录播放
-    func recordPlay(songId: Int) {
-        if let song = getSong(id: songId) {
-            song.recordPlay()
+    func recordPlay(song: Song) {
+        if let cached = getSong(id: song.id, source: song.musicSource) {
+            cached.recordPlay()
             store.save()
         }
     }
@@ -121,8 +99,8 @@ final class SongRepository {
     // MARK: - 删除
 
     /// 删除歌曲
-    func delete(id: Int) {
-        if let song = getSong(id: id) {
+    func delete(id: Int, source: MusicSource = .netease) {
+        if let song = getSong(id: id, source: source) {
             store.delete(song)
             store.save()
         }

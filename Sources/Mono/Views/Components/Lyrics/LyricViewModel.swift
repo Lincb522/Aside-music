@@ -236,7 +236,7 @@ class LyricViewModel: ObservableObject {
            hasLyrics || isLoading {
             return true
         }
-        guard let cached = OptimizedCacheManager.shared.getLyrics(songId: song.id) else { return false }
+        guard let cached = OptimizedCacheManager.shared.getLyrics(songId: song.id, source: song.musicSource) else { return false }
 
         lyricSessionId += 1
         currentSongId = song.id
@@ -356,6 +356,7 @@ class LyricViewModel: ObservableObject {
         activeSource = .kugou
         OptimizedCacheManager.shared.cacheLyrics(
             songId: songId,
+            source: .kugou,
             lyrics: content,
             translated: nil
         )

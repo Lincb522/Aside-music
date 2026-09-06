@@ -45,17 +45,18 @@ struct PawcelainPlayerLayout: View {
                     }
                 }
             }
-
+        }
+        .playerMoreMenuOverlay { anchorFrame in
             if showMoreMenu {
                 PlayerMoreMenu(
                     isPresented: $showMoreMenu,
+                    anchorFrame: anchorFrame,
                     isDarkBackground: false,
                     onQuality: { showQualitySheet = true },
                     onEQ: { showEQSettings = true },
                     onTheme: { showThemePicker = true }
                 )
                 .transition(.opacity)
-                .zIndex(20)
             }
         }
         .monoEdgeSwipeToDismiss()
@@ -149,6 +150,7 @@ struct PawcelainPlayerLayout: View {
                     showMoreMenu.toggle()
                 }
             }
+            .playerMoreMenuAnchor()
         }
     }
 
@@ -351,7 +353,7 @@ struct PawcelainPlayerLayout: View {
     }
 
     private func pawLikeButton(song: Song) -> some View {
-        let isLiked = likeManager.isLiked(id: song.id, isQQMusic: song.isQQMusic)
+        let isLiked = likeManager.isLiked(id: song.id, source: song.musicSource)
 
         return Button {
             let generator = UIImpactFeedbackGenerator(style: .medium)

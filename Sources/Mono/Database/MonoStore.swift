@@ -2,10 +2,14 @@
 // save() 时通过快照 diff 找出变更并写入后端（SwiftData 或 Core Data）。
 
 import Foundation
+import Combine
 
 @MainActor
-final class MonoStore {
-    private let backend: MonoStoreBackend
+final class MonoStore: ObservableObject {
+    private var backend: MonoStoreBackend?
+    @Published private(set) var saveError: String?
+
+    var isAvailable: Bool { backend != nil }
 
     /// 每个实体一张表：uniqueKey -> (规范对象, 上次持久化的快照)
     private final class Row {
@@ -24,13 +28,19 @@ final class MonoStore {
     private var batchDepth = 0
     private var deferredSaveRequested = false
 
-    init(backend: MonoStoreBackend) {
+    init(backend: MonoStoreBackend? = nil) {
+        self.backend = backend
+    }
+
+    func open(backend: MonoStoreBackend) {
+        precondition(self.backend == nil)
         self.backend = backend
     }
 
     // MARK: - 加载
 
     private func ensureLoaded<T: MonoEntity>(_ type: T.Type) {
+        guard let backend else { return }
         let name = T.monoEntityName
         guard !loadedEntities.contains(name) else { return }
         loadedEntities.insert(name)
@@ -88,6 +98,7 @@ final class MonoStore {
     // MARK: - 写入
 
     func insert<T: MonoEntity>(_ object: T) {
+        guard isAvailable else { return }
         ensureLoaded(T.self)
         let name = T.monoEntityName
         var table = tables[name] ?? [:]
@@ -97,6 +108,7 @@ final class MonoStore {
     }
 
     func delete<T: MonoEntity>(_ object: T) {
+        guard let backend else { return }
         ensureLoaded(T.self)
         let name = T.monoEntityName
         guard var table = tables[name] else { return }
@@ -109,6 +121,7 @@ final class MonoStore {
     }
 
     func deleteAll<T: MonoEntity>(_ type: T.Type, where predicate: ((T) -> Bool)? = nil) {
+        guard let backend else { return }
         ensureLoaded(type)
         let name = T.monoEntityName
 
@@ -133,38 +146,53 @@ final class MonoStore {
     // MARK: - 保存
 
     /// 将所有内存变更（新增 / 属性修改 / 删除）落盘
-    func save() {
+    @discardableResult
+    func save() -> Bool {
+        guard let backend else { return false }
         if batchDepth > 0 {
             deferredSaveRequested = true
-            return
+            return false
         }
 
         var didChange = hasPendingDeletes
+        var committedSnapshots: [(Row, NSDictionary)] = []
         for name in loadedEntities {
             guard var table = tables[name] else { continue }
             for (key, row) in table {
                 guard let entity = row.object as? any MonoEntity else { continue }
                 let snapshot = entity.monoSnapshot()
                 let bridged = Self.bridge(snapshot)
-                if row.lastSnapshot == nil || !bridged.isEqual(row.lastSnapshot) {
-                    backend.upsert(entityName: name, uniqueKey: key, snapshot: snapshot)
-                    row.lastSnapshot = bridged
+                let currentKey = entity.monoUniqueKey
+                if row.lastSnapshot == nil || !bridged.isEqual(row.lastSnapshot) || currentKey != key {
+                    backend.upsert(entityName: name, uniqueKey: currentKey, snapshot: snapshot)
+                    committedSnapshots.append((row, bridged))
                     didChange = true
                 }
                 // uniqueKey 属性本身被修改的场景：重新挂到新 key 下
-                let currentKey = entity.monoUniqueKey
                 if currentKey != key {
                     table.removeValue(forKey: key)
                     table[currentKey] = row
                     backend.delete(entityName: name, uniqueKey: key)
+                    hasPendingDeletes = true
                 }
             }
             tables[name] = table
         }
         if didChange {
-            backend.flush()
+            do {
+                try backend.flush()
+            } catch {
+                saveError = error.localizedDescription
+                AppLogger.error("Database commit failed: \(error.localizedDescription)")
+                return false
+            }
+            for (row, snapshot) in committedSnapshots {
+                row.lastSnapshot = snapshot
+            }
             hasPendingDeletes = false
         }
+        saveError = nil
+        return true
     }
 
     /// 将一组写入合并为一次底层 flush。即使旧业务代码在闭包内部调用 save，
@@ -203,7 +231,7 @@ final class MonoStore {
     // MARK: - 其他
 
     func storeSizeBytes() -> Int64 {
-        backend.storeSizeBytes()
+        backend?.storeSizeBytes() ?? 0
     }
 
     /// 快照桥接为 NSDictionary（nil -> NSNull），用于变更对比

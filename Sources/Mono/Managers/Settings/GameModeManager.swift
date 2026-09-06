@@ -31,43 +31,16 @@ final class GameModeManager: ObservableObject {
     private var secondaryHintObserver: NSObjectProtocol?
     /// 检测到「其他媒体 App 停止」后的延时退出任务（避免偶发跳出误判）
     private var autoExitDelayTask: Task<Void, Never>?
+    private var lastObservedOtherAudio: Bool?
     /// 自动退出判定延时（秒）
     private static let autoExitDelay: TimeInterval = 12
 
     private init() {
-        // 启动时恢复持久化状态
-        // 数据源以 AppGroup 为准（控制中心 Widget 可能在 App 退出时改过)
-        let appGroupValue = UserDefaults(suiteName: "group.zijiu.Monologue.com")?
-            .bool(forKey: "mono_game_mode_enabled") ?? false
-        let legacyValue = settings.gameModeEnabled
-        let wasActive = appGroupValue || legacyValue
-
-        // 若 AppGroup 与 standard 不一致，向 AppGroup 看齐（控制中心优先)
-        if appGroupValue != legacyValue {
-            settings.gameModeEnabled = appGroupValue
-        }
-
-        // ⚠️ 冷启动重入保护：
-        // 本 init 可能发生在 PlayerManager.init → setupAudioSession → 访问
-        // `GameModeManager.shared` 的同步路径中。若此处同步调用
-        // `syncToAppGroup` / `applyEnter` 会反向访问 `PlayerManager.shared`
-        // / `ControlCenter.shared.reloadControls` / Darwin broadcast，造成：
-        //   - 单例循环初始化（EXC_BREAKPOINT brk 1）
-        //   - SwiftUI 首帧 dispatchActions 期间 @Published 状态突变
-        //
-        // 所有有"反向访问其他单例 / 全局副作用"的工作都必须 defer 到下一轮
-        // run loop，确保 `PlayerManager.shared` 初始化已完成。
+        // Defer effects until PlayerManager has finished singleton initialization.
+        // Re-read the shared value on execution: Control Center may change it
+        // between constructing this manager and running the restoration.
         DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            if wasActive {
-                // 先置位再 apply：PlayerManager.audioSessionOptions 会读 isActive
-                self.isActive = true
-                self.applyEnter(persist: false)
-                self.syncToAppGroup(active: true)
-            } else {
-                // 兜底：确保 AppGroup 状态写一次，避免控制中心 Widget 胶囊 isOn 漂移
-                self.syncToAppGroup(active: false)
-            }
+            self?.restoreSharedState()
         }
 
         // 监听回到前台，同步控制中心改动
@@ -152,54 +125,48 @@ final class GameModeManager: ObservableObject {
     }
 
     /// 从 App Group 读取控制中心的改动，必要时 enter/exit
+    private var sharedEnabled: Bool {
+        let shared = UserDefaults(suiteName: "group.zijiu.Monologue.com")?
+            .object(forKey: "mono_game_mode_enabled") as? Bool
+        return shared ?? settings.gameModeEnabled
+    }
+
+    private func restoreSharedState() {
+        transition(to: sharedEnabled, restoring: true)
+    }
+
     private func syncFromAppGroup() {
-        let appGroupValue = UserDefaults(suiteName: "group.zijiu.Monologue.com")?
-            .bool(forKey: "mono_game_mode_enabled") ?? false
+        transition(to: sharedEnabled)
+    }
 
-        if appGroupValue && !isActive {
-            // 控制中心开了，但 App 里还没开 → 进入
-            isActive = true
-            applyEnter(persist: true)
-            AppLogger.info("游戏模式已从控制中心开启（前台同步）")
-        } else if !appGroupValue && isActive {
-            // 控制中心关了，但 App 里还开着 → 退出
-            isActive = false
+    // All entry points apply the same session, volume and UI side effects.
+    private func transition(to active: Bool, restoring: Bool = false) {
+        guard active != isActive || restoring else { return }
+        let hasSavedPolicy = UserDefaults.standard.object(
+            forKey: AppConfig.StorageKeys.gameModeSavedBackgroundPolicy
+        ) != nil
+        isActive = active
+        settings.gameModeEnabled = active
+        if active {
+            applyEnter(persist: !restoring || !hasSavedPolicy)
+        } else if !restoring || hasSavedPolicy {
+            // An explicit shared false also restores the saved policy on cold start.
             applyExit(persist: true)
-            AppLogger.info("游戏模式已从控制中心关闭（前台同步）")
         }
+        syncToAppGroup(active: active)
+        PlayerManager.shared.handleGameModeDuckingChanged()
     }
 
-    // MARK: - 开关
-
-    /// 切换游戏模式（UI 层直接调用）
     func toggle() {
-        if isActive {
-            exit()
-        } else {
-            enter()
-        }
+        transition(to: !isActive)
     }
 
-    /// 手动进入游戏模式
     func enter() {
-        guard !isActive else { return }
-        // 先置位再 apply：PlayerManager.audioSessionOptions 会读 isActive
-        isActive = true
-        applyEnter(persist: true)
-        syncToAppGroup(active: true)
-        PlayerManager.shared.handleGameModeDuckingChanged()
-        AppLogger.info("游戏模式已开启")
+        transition(to: true)
     }
 
-    /// 手动退出游戏模式
     func exit() {
-        guard isActive else { return }
-        // 先置位为 false 再 apply：PlayerManager.audioSessionOptions 会读 isActive
-        isActive = false
-        applyExit(persist: true)
-        syncToAppGroup(active: false)
-        PlayerManager.shared.handleGameModeDuckingChanged()
-        AppLogger.info("游戏模式已关闭")
+        transition(to: false)
     }
 
     // MARK: - App Group 同步（控制中心 Widget 读取用）
@@ -279,7 +246,7 @@ final class GameModeManager: ObservableObject {
         // 5. 刷新一次 NowPlayingInfo（让「隐藏锁屏信息」开关立即生效）
         PlayerManager.shared.updateNowPlayingInfo()
 
-        // 6. 若用户开启「检测到游戏关闭时自动退出」，注册 secondary hint 监听
+        // Observe external audio while the app is running; this does not detect game lifecycle.
         if settings.gameModeAutoExit {
             registerAutoExitObserver()
         }
@@ -290,6 +257,7 @@ final class GameModeManager: ObservableObject {
     /// - 已在播（有 currentSong 且 isPlaying）→ 不打断，仅记录日志
     /// - 空闲（没有 currentSong，或暂停中且无当前歌曲）→ 自动开始播
     private func switchToAutoPlaylistIfAvailable() {
+        guard !PlayerManager.shared.isUnderInterruption else { return }
         let targetId = settings.gameModeAutoPlaylistLocalId
         let playlistManager = LocalPlaylistManager.shared
         guard let playlist = playlistManager.playlists.first(where: { $0.id == targetId }) else {
@@ -376,30 +344,32 @@ final class GameModeManager: ObservableObject {
 
     private func registerAutoExitObserver() {
         unregisterAutoExitObserver()
+        lastObservedOtherAudio = nil
+        autoExitDelayTask?.cancel()
+        autoExitDelayTask = nil
         secondaryHintObserver = NotificationCenter.default.addObserver(
             forName: AVAudioSession.silenceSecondaryAudioHintNotification,
             object: nil,
             queue: .main
-        ) { [weak self] notification in
-            guard let self else { return }
-            guard let info = notification.userInfo,
-                  let typeValue = info[AVAudioSessionSilenceSecondaryAudioHintTypeKey] as? UInt,
-                  let hintType = AVAudioSession.SilenceSecondaryAudioHintType(rawValue: typeValue)
-            else { return }
+        ) { [weak self] _ in
             Task { @MainActor [weak self] in
-                guard let self else { return }
-                switch hintType {
-                case .begin:
-                    // 其他主媒体 App 开始播（可能是游戏重新进入前台），取消待定的退出
-                    self.autoExitDelayTask?.cancel()
-                    self.autoExitDelayTask = nil
-                case .end:
-                    // 其他主媒体 App 停止 → 延时判定是否真的游戏已结束
-                    self.scheduleAutoExitCheck()
-                @unknown default:
-                    break
-                }
+                self?.observeOtherAudio(isPlaying: AVAudioSession.sharedInstance().isOtherAudioPlaying)
             }
+        }
+        observeOtherAudio(isPlaying: AVAudioSession.sharedInstance().isOtherAudioPlaying)
+    }
+
+    /// The playback heartbeat also samples in background; notifications alone
+    /// are only delivered to foreground apps with an active audio session.
+    func observeOtherAudio(isPlaying: Bool) {
+        guard isActive, settings.gameModeAutoExit else { return }
+        let previous = lastObservedOtherAudio
+        lastObservedOtherAudio = isPlaying
+        if isPlaying {
+            autoExitDelayTask?.cancel()
+            autoExitDelayTask = nil
+        } else if previous == true {
+            scheduleAutoExitCheck()
         }
     }
 
@@ -410,14 +380,14 @@ final class GameModeManager: ObservableObject {
         }
     }
 
-    /// 延时 N 秒，若届时仍然没有其他音频（即游戏真的退出了），执行 exit()
+    /// Exit only after observed external audio stops and stays stopped for 12 seconds.
     private func scheduleAutoExitCheck() {
         autoExitDelayTask?.cancel()
         autoExitDelayTask = Task { @MainActor [weak self] in
             let delay = Self.autoExitDelay
             try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             guard !Task.isCancelled else { return }
-            guard let self, self.isActive else { return }
+            guard let self, self.isActive, self.settings.gameModeAutoExit else { return }
             // 二次确认：此刻系统仍报告没有其他音频在播
             let stillNoOther = !AVAudioSession.sharedInstance().isOtherAudioPlaying
             guard stillNoOther else { return }

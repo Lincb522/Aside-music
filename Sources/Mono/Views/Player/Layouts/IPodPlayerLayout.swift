@@ -60,10 +60,12 @@ struct IPodPlayerLayout: View {
                 }
                 .padding(.top, toolbarTopInset)
                 .padding(.bottom, bottomInset)
-
+            }
+            .playerMoreMenuOverlay { anchorFrame in
                 if showMoreMenu {
                     PlayerMoreMenu(
                         isPresented: $showMoreMenu,
+                        anchorFrame: anchorFrame,
                         onQuality: { showQualitySheet = true },
                         onEQ: { showEQSettings = true },
                         onTheme: { showThemePicker = true }
@@ -210,6 +212,7 @@ struct IPodPlayerLayout: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(String(localized: "player_more_title"))
+            .playerMoreMenuAnchor()
         }
     }
 

@@ -102,21 +102,16 @@ struct TornPaperPlayerLayout: View {
                         .padding(.bottom, max(16, proxy.safeAreaInsets.bottom + 8))
                 }
                 .frame(width: proxy.size.width, height: proxy.size.height)
-
+            }
+            .playerMoreMenuOverlay { anchorFrame in
                 if showMoreMenu {
                     PlayerMoreMenu(
                         isPresented: $showMoreMenu,
-                        anchorFrame: moreMenuAnchorFrame(in: proxy),
+                        anchorFrame: anchorFrame,
                         isDarkBackground: colorScheme == .dark,
                         onEQ: { showEQSettings = true },
                         onTheme: { showThemePicker = true }
                     )
-                    .frame(
-                        width: proxy.size.width,
-                        height: proxy.size.height,
-                        alignment: .topLeading
-                    )
-                    .zIndex(30)
                 }
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
@@ -228,19 +223,8 @@ private extension TornPaperPlayerLayout {
             paperIconButton(icon: .more, accessibilityLabel: String(localized: "更多")) {
                 showMoreMenu.toggle()
             }
+            .playerMoreMenuAnchor()
         }
-    }
-
-    func moreMenuAnchorFrame(in proxy: GeometryProxy) -> CGRect {
-        let buttonWidth: CGFloat = 43
-        let buttonHeight: CGFloat = 41
-        let topPadding: CGFloat = proxy.safeAreaInsets.top > 0 ? 4 : 10
-        return CGRect(
-            x: max(12, proxy.size.width - 18 - buttonWidth),
-            y: topPadding,
-            width: buttonWidth,
-            height: buttonHeight
-        )
     }
 
     func artworkHeight(for size: CGSize) -> CGFloat {
@@ -538,7 +522,7 @@ private extension TornPaperPlayerLayout {
 
     var isCurrentSongLiked: Bool {
         guard let song = player.currentSong else { return false }
-        return likeManager.isLiked(id: song.id, isQQMusic: song.isQQMusic)
+        return likeManager.isLiked(id: song.id, source: song.musicSource)
     }
 
     func toggleLike() {

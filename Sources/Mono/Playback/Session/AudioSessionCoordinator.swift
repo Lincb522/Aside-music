@@ -20,10 +20,11 @@ private final class AudioSessionMutationExecutor: @unchecked Sendable {
 
     private init() {}
 
-    func configurePlayback(optionsRawValue: UInt, activate: Bool) async throws {
+    func configurePlayback(optionsRawValue: UInt, activate: Bool, authorization: AudioSessionWorkToken) async throws {
         try await withCheckedThrowingContinuation { continuation in
             queue.async {
                 do {
+                    try authorization.checkCancellation()
                     let session = AVAudioSession.sharedInstance()
                     let options = AVAudioSession.CategoryOptions(rawValue: optionsRawValue)
                     if session.category != .playback
@@ -32,6 +33,7 @@ private final class AudioSessionMutationExecutor: @unchecked Sendable {
                         try session.setCategory(.playback, mode: .default, options: options)
                     }
                     if activate {
+                        try authorization.checkCancellation()
                         try session.setActive(true)
                     }
                     continuation.resume()
@@ -107,7 +109,27 @@ final class AudioSessionCoordinator {
     // MARK: - 状态
 
     /// 音频中断进行中（如微信录音）
-    var isUnderInterruption: Bool = false
+    var isUnderInterruption: Bool = false {
+        didSet {
+            if isUnderInterruption { cancelScheduledAutoResumeWork() }
+        }
+    }
+    private(set) var playbackWorkToken = AudioSessionWorkToken()
+    private var interruptionEndedResumeTask: Task<Void, Never>?
+
+    func isPlaybackWorkCurrent(_ token: AudioSessionWorkToken) -> Bool {
+        !Task.isCancelled && !isUnderInterruption
+            && player.userPausedPlaybackSessionId != player.playbackSessionId
+            && token === playbackWorkToken && !token.isCancelled
+    }
+
+    /// Only a new user play command may supersede a system interruption.
+    func prepareForExplicitPlayback(replacingCurrentSong: Bool = false) {
+        cancelScheduledAutoResumeWork()
+        isUnderInterruption = false
+        player.userPausedPlaybackSessionId = nil
+        if replacingCurrentSong { wasPlayingBeforeInterruption = false }
+    }
     /// 音频中断前是否正在播放（用于中断恢复）
     var wasPlayingBeforeInterruption: Bool = false
     /// 最近一次实际应用到 AVAudioSession 的 options，避免重复 setActive
@@ -129,6 +151,7 @@ final class AudioSessionCoordinator {
     /// 游戏模式只用系统主音频提示调低本 App 渲染音量，不修改会话类别。
     private var gameVoiceHintObserver: Any?
     private var gameVoiceDuckingTask: Task<Void, Never>?
+    private var gameVoiceDuckingTarget: Float = 1
     /// 音频路由变化（其他 App 释放会话等）时用于延迟尝试恢复播放
     private var routeChangeObserver: Any?
     private var routeChangeResumeWorkItem: DispatchWorkItem?
@@ -360,8 +383,8 @@ final class AudioSessionCoordinator {
 
     /// 自动恢复前的统一判定：无其他音频，或当前策略允许共存。
     func isAutoResumePermittedNow() -> Bool {
-        !AVAudioSession.sharedInstance().secondaryAudioShouldBeSilencedHint
-            || canAutoResumeWithOtherAudio
+        !isUnderInterruption && (!AVAudioSession.sharedInstance().secondaryAudioShouldBeSilencedHint
+            || canAutoResumeWithOtherAudio)
     }
 
     /// 供 GameModeManager 调用：立即应用共存策略，并按当前主音频状态
@@ -373,10 +396,18 @@ final class AudioSessionCoordinator {
         )
     }
 
+    func sampleOtherAudioState() {
+        let session = AVAudioSession.sharedInstance()
+        updateGameModeVoiceDucking(primaryAudioActive: session.secondaryAudioShouldBeSilencedHint)
+        if isGameModeEnabledWithoutInitializingManager {
+            GameModeManager.shared.observeOtherAudio(isPlaying: session.isOtherAudioPlaying)
+        }
+    }
+
     private var isGameModeEnabledWithoutInitializingManager: Bool {
         let appGroupEnabled = UserDefaults(suiteName: "group.zijiu.Monologue.com")?
-            .bool(forKey: "mono_game_mode_enabled") ?? false
-        return SettingsManager.shared.gameModeEnabled || appGroupEnabled
+            .object(forKey: "mono_game_mode_enabled") as? Bool
+        return appGroupEnabled ?? SettingsManager.shared.gameModeEnabled
     }
 
     /// Apple 的 `interruptSpokenAudioAndMixWithOthers` 会暂停其他 App 的语音，
@@ -389,9 +420,12 @@ final class AudioSessionCoordinator {
             && !player.appleMusicPlayback.isActive
         let target: Float = shouldDuck ? 0.32 : 1.0
         let start = player.streamPlayer.duckingVolume
-        guard abs(start - target) > 0.001 else { return }
-
+        guard target != gameVoiceDuckingTarget
+            || (gameVoiceDuckingTask == nil && abs(start - target) > 0.001) else { return }
+        gameVoiceDuckingTarget = target
         gameVoiceDuckingTask?.cancel()
+        gameVoiceDuckingTask = nil
+        guard abs(start - target) > 0.001 else { return }
         gameVoiceDuckingTask = Task { @MainActor [weak self] in
             guard let self else { return }
             let steps = 10
@@ -410,58 +444,18 @@ final class AudioSessionCoordinator {
         }
     }
 
-    /// 根据当前策略和“其他非混音主音频是否存在”的系统提示，
-    /// 按需配置 session options。
-    /// 仅在 options 真的发生变化时重写 session，避免无意义的 setActive。
-    ///
-    /// ⚠️ 懒激活策略：
-    ///   - 只有真实播放、加载开播或 MusicKit 正在输出时才激活 session；
-    ///   - 仅恢复歌曲信息、预加载或浏览设置时只更新 category，
-    ///     避免空闲状态下主动抢占其他 App 的音频。
+    /// Apply game-mode overrides only to audible playback. Paused sessions
+    /// retain the selected policy until the next explicit play or authorized resume.
     func reapplyAudioSessionOptions(reason: String) {
-        let session = AVAudioSession.sharedInstance()
-        let desired = audioSessionOptions(
-            primaryAudioActive: session.secondaryAudioShouldBeSilencedHint
-        )
+        guard !isUnderInterruption,
+              player.isPlaying || (!player.appleMusicPlayback.isActive && player.streamPlayer.state == .playing)
+        else { return }
+        let desired = audioSessionOptions()
         guard desired != lastAppliedAudioSessionOptions else { return }
-        let shouldActivate = player.isPlaying
-            || player.streamPlayer.state == .playing
-            || player.appleMusicPlayback.isActive
-        markSelfManagedSessionMutation()
+        let token = playbackWorkToken
         Task { @MainActor [weak self] in
-            guard let self else { return }
-            do {
-                try await AudioSessionMutationExecutor.shared.configurePlayback(
-                    optionsRawValue: desired.rawValue,
-                    activate: shouldActivate
-                )
-                self.lastAppliedAudioSessionOptions = desired
-                if shouldActivate {
-                    self.recordAudioDiagnostic(
-                        "音频会话已重新配置并激活",
-                        level: .info,
-                        event: "audio.session.reapplied",
-                        context: ["reason": reason]
-                    )
-                    self.player.updateNowPlayingInfo()
-                    self.player.updateNowPlayingArtwork(for: self.player.currentSong)
-                } else {
-                    self.recordAudioDiagnostic(
-                        "音频会话类别已更新，保持未激活",
-                        level: .debug,
-                        event: "audio.session.category-updated",
-                        context: ["reason": reason]
-                    )
-                }
-            } catch {
-                self.lastAppliedAudioSessionOptions = nil
-                self.recordAudioDiagnostic(
-                    "应用后台音频策略失败: \(error.localizedDescription)",
-                    level: .error,
-                    event: "audio.session.reapply-failed",
-                    context: ["reason": reason]
-                )
-            }
+            guard let self, self.isPlaybackWorkCurrent(token) else { return }
+            _ = await self.activateAudioSessionForPlaybackChecked(reason: reason)
         }
     }
 
@@ -482,6 +476,9 @@ final class AudioSessionCoordinator {
     /// 用于中断恢复路径，让上层根据结果决定是否重试。
     @discardableResult
     func activateAudioSessionForPlaybackChecked(reason: String) async -> Bool {
+        let token = playbackWorkToken
+        let sessionID = player.playbackSessionId
+        guard isPlaybackWorkCurrent(token) else { return false }
         let session = AVAudioSession.sharedInstance()
         let desired = audioSessionOptions(
             primaryAudioActive: session.secondaryAudioShouldBeSilencedHint
@@ -491,8 +488,10 @@ final class AudioSessionCoordinator {
             markSelfManagedSessionMutation()
             try await AudioSessionMutationExecutor.shared.configurePlayback(
                 optionsRawValue: desired.rawValue,
-                activate: true
+                activate: true,
+                authorization: token
             )
+            guard isPlaybackWorkCurrent(token), player.playbackSessionId == sessionID else { return false }
             lastAppliedAudioSessionOptions = desired
             updateGameModeVoiceDucking(
                 primaryAudioActive: session.secondaryAudioShouldBeSilencedHint
@@ -505,6 +504,7 @@ final class AudioSessionCoordinator {
             )
             return true
         } catch {
+            guard isPlaybackWorkCurrent(token), player.playbackSessionId == sessionID else { return false }
             // 激活失败时清缓存，下次重试一定会重写 category
             lastAppliedAudioSessionOptions = nil
             recordAudioDiagnostic(
@@ -598,6 +598,7 @@ final class AudioSessionCoordinator {
         let session = AVAudioSession.sharedInstance()
         let primaryAudioActive = session.secondaryAudioShouldBeSilencedHint
         let opts = audioSessionOptions(primaryAudioActive: primaryAudioActive)
+        let token = playbackWorkToken
         lastKnownAudioOutputPortTypes = Set(
             session.currentRoute.outputs.map { $0.portType.rawValue }
         )
@@ -607,8 +608,10 @@ final class AudioSessionCoordinator {
             do {
                 try await AudioSessionMutationExecutor.shared.configurePlayback(
                     optionsRawValue: opts.rawValue,
-                    activate: false
+                    activate: false,
+                    authorization: token
                 )
+                guard self.isPlaybackWorkCurrent(token) else { return }
                 self.lastAppliedAudioSessionOptions = opts
                 self.recordAudioDiagnostic(
                     "启动时音频会话类别已配置",
@@ -619,6 +622,7 @@ final class AudioSessionCoordinator {
                     AppLogger.info("启动时检测到其他主音频，预设为共存模式（未激活）")
                 }
             } catch {
+                guard self.isPlaybackWorkCurrent(token) else { return }
                 self.lastAppliedAudioSessionOptions = nil
                 AppLogger.error("AVAudioSession 配置失败: \(error)")
             }
@@ -719,15 +723,22 @@ final class AudioSessionCoordinator {
                     self.cancelInterruptionResumeRetry()
                     let wasActivePlayback = self.player.isPlaying
                         || self.player.streamPlayer.state == .playing
-                        || self.player.appleMusicPlayback.isActive
+                        || self.player.isLoading
                     if wasActivePlayback, self.player.currentSong != nil {
                         // 接管进行中的软暂停淡出，避免其收尾回调与中断路径竞争
                         self.player.cancelPlaybackFade(restoreVolume: false)
+                        self.player.invalidateInFlightPlaybackWork(reason: "audio interruption")
+                        self.player.endTransitionKeepAlive()
                         self.wasPlayingBeforeInterruption = true
                         if self.player.appleMusicPlayback.isActive {
                             _ = self.player.appleMusicPlayback.pause()
                         } else {
-                            self.player.streamPlayer.pause()
+                            if self.player.streamPlayer.state == .connecting {
+                                self.player.suppressStopHandlingUntil = Date().addingTimeInterval(1)
+                                self.player.streamPlayer.stop()
+                            } else {
+                                self.player.streamPlayer.pause()
+                            }
                             self.player.streamPlayer.outputVolume = 1.0
                         }
                         self.player.isPlaying = false
@@ -752,9 +763,12 @@ final class AudioSessionCoordinator {
                     if shouldResume {
                         // 系统明确建议恢复 — 直接恢复，不走重试链
                         // 延迟 0.3s 让系统音频路由稳定
-                        Task { @MainActor [weak self] in
-                            try? await Task.sleep(nanoseconds: 300_000_000)
-                            guard let self, self.wasPlayingBeforeInterruption, !self.player.isPlaying else { return }
+                        let token = self.playbackWorkToken
+                        self.interruptionEndedResumeTask?.cancel()
+                        self.interruptionEndedResumeTask = Task { @MainActor [weak self] in
+                            do { try await Task.sleep(nanoseconds: 300_000_000) } catch { return }
+                            guard let self, self.isPlaybackWorkCurrent(token),
+                                  self.wasPlayingBeforeInterruption, !self.player.isPlaying else { return }
                             if !(await self.resumeAfterInterruption(reason: "interruption ended (shouldResume)")) {
                                 // 极少数情况下 setActive 失败，启动兜底重试
                                 self.scheduleInterruptionResumeRetry(reason: "interruption ended fallback")
@@ -817,6 +831,7 @@ final class AudioSessionCoordinator {
         foregroundObserver = NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self else { return }
+                self.sampleOtherAudioState()
                 self.backgroundDiagnosticTask?.cancel()
                 self.backgroundDiagnosticTask = nil
                 self.recordAudioDiagnostic(
@@ -833,10 +848,10 @@ final class AudioSessionCoordinator {
                       self.wasPlayingBeforeInterruption,
                       !self.player.isPlaying,
                       self.player.currentSong != nil else { return }
+                let token = self.playbackWorkToken
                 // App 回前台 — 等 0.5s 让系统状态稳定，然后检查是否可以恢复
                 try? await Task.sleep(nanoseconds: 500_000_000)
-                guard !Task.isCancelled,
-                      !self.isUnderInterruption,
+                guard self.isPlaybackWorkCurrent(token),
                       self.wasPlayingBeforeInterruption,
                       !self.player.isPlaying else { return }
                 // 标准模式不主动抢占；智能/始终共存会按最新状态混音恢复。
@@ -917,13 +932,16 @@ final class AudioSessionCoordinator {
                     return
                 }
 
+                let token = self.playbackWorkToken
+                guard self.isPlaybackWorkCurrent(token) else { return }
                 switch reason {
                 case .newDeviceAvailable:
                     AppLogger.info("新音频设备连接，重新确认音频会话与输出引擎")
                     let expectedToPlay = self.player.isPlaying || self.player.streamPlayer.state == .playing
                     self.lastAppliedAudioSessionOptions = nil
                     if expectedToPlay {
-                        _ = await self.activateAudioSessionForPlaybackChecked(reason: "new audio device")
+                        guard await self.activateAudioSessionForPlaybackChecked(reason: "new audio device"),
+                              self.isPlaybackWorkCurrent(token) else { return }
                     }
                     _ = self.player.streamPlayer.handleAudioRouteChange()
                     if expectedToPlay {
@@ -937,7 +955,8 @@ final class AudioSessionCoordinator {
                     let session = AVAudioSession.sharedInstance()
                     if expectedToPlay,
                        (!outputIsRunning || session.category != .playback) {
-                        _ = await self.activateAudioSessionForPlaybackChecked(reason: "audio category change")
+                        guard await self.activateAudioSessionForPlaybackChecked(reason: "audio category change"),
+                              self.isPlaybackWorkCurrent(token) else { return }
                     }
                     if !outputIsRunning {
                         _ = self.player.streamPlayer.handleAudioRouteChange()
@@ -950,7 +969,8 @@ final class AudioSessionCoordinator {
                     let expectedToPlay = self.player.isPlaying || self.player.streamPlayer.state == .playing
                     if expectedToPlay && !self.player.streamPlayer.isAudioOutputRunning {
                         self.lastAppliedAudioSessionOptions = nil
-                        _ = await self.activateAudioSessionForPlaybackChecked(reason: "audio route configuration change")
+                        guard await self.activateAudioSessionForPlaybackChecked(reason: "audio route configuration change"),
+                              self.isPlaybackWorkCurrent(token) else { return }
                     }
                     _ = self.player.streamPlayer.handleAudioRouteChange()
                     if expectedToPlay && !self.player.streamPlayer.isAudioOutputRunning {
@@ -1025,6 +1045,7 @@ final class AudioSessionCoordinator {
     /// Stop immediately so no tail can escape through the built-in speaker.
     func pauseForDisconnectedAudioOutput(reason: String) {
         AppLogger.info("外接音频输出已断开，立即暂停: \(reason)")
+        cancelScheduledAutoResumeWork()
         player.rollbackPendingPlaybackQueueMutationIfNeeded()
         player.invalidateInFlightPlaybackWork(reason: "audio output disconnected: \(reason)")
         audioOutputRecoveryTask?.cancel()
@@ -1075,10 +1096,12 @@ final class AudioSessionCoordinator {
         guard wasPlayingBeforeInterruption, player.currentSong != nil, !player.isPlaying else { return }
         // 延迟 1s 检查，避免路由切换瞬间的误判
         routeChangeResumeWorkItem?.cancel()
+        let token = playbackWorkToken
         let work = DispatchWorkItem { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                guard self.wasPlayingBeforeInterruption, !self.player.isPlaying, self.player.currentSong != nil else { return }
+                guard self.isPlaybackWorkCurrent(token), self.wasPlayingBeforeInterruption,
+                      !self.player.isPlaying, self.player.currentSong != nil else { return }
                 guard self.isAutoResumePermittedNow() else {
                     AppLogger.debug("路由变化后仍有其他音频，不恢复")
                     return
@@ -1093,6 +1116,11 @@ final class AudioSessionCoordinator {
 
     /// 取消路由变化触发的延迟恢复 + 假播放输出巡检（用户显式暂停/停止时调用）
     func cancelScheduledAutoResumeWork() {
+        playbackWorkToken.cancel()
+        playbackWorkToken = AudioSessionWorkToken()
+        interruptionEndedResumeTask?.cancel()
+        interruptionEndedResumeTask = nil
+        cancelInterruptionResumeRetry()
         routeChangeResumeWorkItem?.cancel()
         routeChangeResumeWorkItem = nil
         audioOutputRecoveryTask?.cancel()
@@ -1108,6 +1136,8 @@ final class AudioSessionCoordinator {
     /// actual AVAudioEngine output. A stale `.playing` value must never be allowed
     /// to strand the UI or make the play button a no-op.
     func scheduleAudioOutputRecoveryIfNeeded(reason: String) {
+        let token = playbackWorkToken
+        guard isPlaybackWorkCurrent(token) else { return }
         guard !player.appleMusicPlayback.isActive else { return }
         guard player.currentSong != nil else { return }
         guard player.isPlaying || player.streamPlayer.state == .playing else { return }
@@ -1125,8 +1155,10 @@ final class AudioSessionCoordinator {
         audioOutputRecoveryTask = Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 450_000_000)
             guard !Task.isCancelled, let self else { return }
-            defer { self.audioOutputRecoveryTask = nil }
-            guard self.player.playbackSessionId == expectedSessionId,
+            defer {
+                if self.playbackWorkToken === token { self.audioOutputRecoveryTask = nil }
+            }
+            guard self.isPlaybackWorkCurrent(token), self.player.playbackSessionId == expectedSessionId,
                   self.player.currentSong != nil,
                   self.player.isPlaying || self.player.streamPlayer.state == .playing else { return }
             guard !self.player.streamPlayer.isAudioOutputRunning else {
@@ -1140,7 +1172,8 @@ final class AudioSessionCoordinator {
             // 再确认一次，避免把瞬态当成故障而重建正在播放的输出。
             try? await Task.sleep(nanoseconds: 220_000_000)
             guard !Task.isCancelled else { return }
-            guard self.player.playbackSessionId == expectedSessionId,
+            guard self.isPlaybackWorkCurrent(token), self.player.playbackSessionId == expectedSessionId,
+                  self.player.isPlaying || self.player.streamPlayer.state == .playing,
                   !self.player.streamPlayer.isAudioOutputRunning else { return }
             _ = await self.recoverUnavailableAudioOutput(reason: reason)
         }
@@ -1210,9 +1243,12 @@ final class AudioSessionCoordinator {
               stalledOutputRecoveryTask == nil else { return }
 
         let expectedSong = player.currentSong
+        let token = playbackWorkToken
         stalledOutputRecoveryTask = Task { @MainActor [weak self] in
-            guard let self, let expectedSong else { return }
-            defer { self.stalledOutputRecoveryTask = nil }
+            guard let self, let expectedSong, self.isPlaybackWorkCurrent(token) else { return }
+            defer {
+                if self.playbackWorkToken === token { self.stalledOutputRecoveryTask = nil }
+            }
             await self.recoverStalledAudioOutput(song: expectedSong)
         }
     }
@@ -1225,6 +1261,8 @@ final class AudioSessionCoordinator {
     }
 
     private func recoverStalledAudioOutput(song: Song) async {
+        let token = playbackWorkToken
+        guard isPlaybackWorkCurrent(token), player.isPlaying else { return }
         let initialSessionID = player.playbackSessionId
         let initialAudibleDuration = player.streamPlayer.totalAudiblePlaybackDuration
         recordAudioDiagnostic(
@@ -1241,10 +1279,11 @@ final class AudioSessionCoordinator {
         player.cancelPlaybackFade(restoreVolume: true)
         lastAppliedAudioSessionOptions = nil
         guard await activateAudioSessionForPlaybackChecked(reason: "recover audible stall") else {
+            guard isPlaybackWorkCurrent(token), player.playbackSessionId == initialSessionID else { return }
             pauseAndReleaseStalledPlayback(song: song, reason: "audio session activation failed")
             return
         }
-        guard player.playbackSessionId == initialSessionID,
+        guard isPlaybackWorkCurrent(token), player.playbackSessionId == initialSessionID,
               player.matchesPlaybackTarget(player.currentSong, expected: song),
               player.isPlaying else { return }
 
@@ -1259,7 +1298,7 @@ final class AudioSessionCoordinator {
         } catch {
             return
         }
-        guard !Task.isCancelled,
+        guard isPlaybackWorkCurrent(token), player.playbackSessionId == initialSessionID,
               player.matchesPlaybackTarget(player.currentSong, expected: song),
               player.isPlaying else { return }
         if player.streamPlayer.totalAudiblePlaybackDuration >= initialAudibleDuration + 0.3 {
@@ -1288,7 +1327,7 @@ final class AudioSessionCoordinator {
         } catch {
             return
         }
-        guard !Task.isCancelled,
+        guard isPlaybackWorkCurrent(token),
               player.playbackSessionId == rebuildSessionID,
               player.matchesPlaybackTarget(player.currentSong, expected: song),
               player.isPlaying || player.isLoading else { return }
@@ -1330,6 +1369,8 @@ final class AudioSessionCoordinator {
     /// existing renderer, fall back to a fresh pipeline at the audible position.
     @discardableResult
     func recoverUnavailableAudioOutput(reason: String) async -> Bool {
+        let token = playbackWorkToken
+        guard isPlaybackWorkCurrent(token), player.isPlaying || player.isLoading else { return false }
         guard let song = player.currentSong else { return false }
         let expectedSessionId = player.playbackSessionId
         if song.isAppleMusic {
@@ -1350,6 +1391,7 @@ final class AudioSessionCoordinator {
         player.cancelPlaybackFade(restoreVolume: false)
         lastAppliedAudioSessionOptions = nil
         guard await activateAudioSessionForPlaybackChecked(reason: "recover dead output: \(reason)") else {
+            guard isPlaybackWorkCurrent(token), player.playbackSessionId == expectedSessionId else { return false }
             player.isPlaying = false
             player.isLoading = false
             wasPlayingBeforeInterruption = true
@@ -1357,7 +1399,7 @@ final class AudioSessionCoordinator {
             scheduleInterruptionResumeRetry(reason: "recover dead output: \(reason)")
             return false
         }
-        guard player.playbackSessionId == expectedSessionId,
+        guard isPlaybackWorkCurrent(token), player.playbackSessionId == expectedSessionId,
               player.matchesPlaybackTarget(player.currentSong, expected: song) else {
             return false
         }
@@ -1405,6 +1447,8 @@ final class AudioSessionCoordinator {
     /// - **失败时不会清空 `wasPlayingBeforeInterruption`**，方便上层重试。
     @discardableResult
     func resumeAfterInterruption(reason: String = "interruption resume") async -> Bool {
+        let token = playbackWorkToken
+        guard isPlaybackWorkCurrent(token), wasPlayingBeforeInterruption else { return false }
         guard let song = player.currentSong else { return false }
         let expectedSessionId = player.playbackSessionId
         if song.isAppleMusic {
@@ -1415,6 +1459,7 @@ final class AudioSessionCoordinator {
                         return false
                     }
                 } catch {
+                    guard isPlaybackWorkCurrent(token), player.playbackSessionId == expectedSessionId else { return false }
                     player.showPlaybackError(song: song, error: error)
                     return false
                 }
@@ -1425,7 +1470,7 @@ final class AudioSessionCoordinator {
                 )
             }
 
-            guard player.playbackSessionId == expectedSessionId,
+            guard isPlaybackWorkCurrent(token), player.playbackSessionId == expectedSessionId,
                   player.matchesPlaybackTarget(player.currentSong, expected: song) else {
                 return false
             }
@@ -1448,7 +1493,7 @@ final class AudioSessionCoordinator {
             AppLogger.warning("中断恢复时音频会话激活失败 reason=\(reason)，保留中断标志等待重试")
             return false
         }
-        guard player.playbackSessionId == expectedSessionId,
+        guard isPlaybackWorkCurrent(token), player.playbackSessionId == expectedSessionId,
               player.matchesPlaybackTarget(player.currentSong, expected: song),
               wasPlayingBeforeInterruption else {
             return false
@@ -1532,11 +1577,14 @@ final class AudioSessionCoordinator {
     /// 立即尝试一次中断恢复；失败则启动阶梯重试。
     /// 推荐外部调用此方法而非直接调 `resumeAfterInterruption`。
     func attemptInterruptionResume(reason: String) {
+        let token = playbackWorkToken
+        guard isPlaybackWorkCurrent(token) else { return }
         guard player.currentSong != nil else { return }
         guard wasPlayingBeforeInterruption else { return }
         guard !player.isPlaying else { return }
         Task { @MainActor [weak self] in
             guard let self else { return }
+            guard self.isPlaybackWorkCurrent(token) else { return }
             if await self.resumeAfterInterruption(reason: reason) {
                 return
             }
@@ -1547,6 +1595,8 @@ final class AudioSessionCoordinator {
     /// 启动（或重启）阶梯重试任务。每一档都会尝试一次 `resumeAfterInterruption`，
     /// 任何一档成功即整条链路结束。
     func scheduleInterruptionResumeRetry(reason: String) {
+        let token = playbackWorkToken
+        guard isPlaybackWorkCurrent(token), wasPlayingBeforeInterruption else { return }
         cancelInterruptionResumeRetry()
         // 中断结束后音频尚未出声，App 可能随时被挂起；
         // 保活到重试链结束（成功恢复后由 .playing 状态回调释放）。
@@ -1558,7 +1608,7 @@ final class AudioSessionCoordinator {
                 try? await Task.sleep(nanoseconds: nanos)
                 guard !Task.isCancelled else { return }
                 guard let self else { return }
-                guard self.wasPlayingBeforeInterruption,
+                guard self.isPlaybackWorkCurrent(token), self.wasPlayingBeforeInterruption,
                       self.player.currentSong != nil,
                       !self.player.isPlaying else {
                     self.player.endTransitionKeepAlive()

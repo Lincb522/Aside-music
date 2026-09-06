@@ -1,11 +1,12 @@
 // 睡眠定时器（倒计时 / 播完本首再停 / ~3s 长淡出送走音乐）
 // 与音量包络（软暂停淡出、恢复淡入、启动淡入请求）。
-// 由 PlayerManager 强持有；@Published 的睡眠状态仍留在 PlayerManager 上供 UI 观察。
+// 由 PlayerManager 强持有；倒计时单独发布，避免每秒刷新所有播放器观察者。
 
+import Combine
 import Foundation
 
 @MainActor
-final class SleepAndFadeController {
+final class SleepAndFadeController: ObservableObject {
 
     unowned let player: PlayerManager
 
@@ -15,6 +16,7 @@ final class SleepAndFadeController {
 
     // MARK: - 睡眠定时器状态
 
+    @Published private(set) var remaining: TimeInterval?
     private var sleepTimerDeadline: Date?
     private var lastSleepUpdate: TimeInterval = 0
 
@@ -37,13 +39,13 @@ final class SleepAndFadeController {
         cancelSleepTimer()
         let total = TimeInterval(minutes * 60)
         sleepTimerDeadline = Date().addingTimeInterval(total)
-        player.sleepTimerRemaining = total
+        remaining = total
         player.sleepTimerConfiguredMinutes = minutes
     }
 
     func cancelSleepTimer() {
         sleepTimerDeadline = nil
-        player.sleepTimerRemaining = nil
+        remaining = nil
         player.sleepTimerConfiguredMinutes = nil
         player.pendingSleepStopAfterCurrentTrack = false
         lastSleepUpdate = 0
@@ -51,7 +53,7 @@ final class SleepAndFadeController {
 
     func activateSleepStopAfterCurrentTrack() {
         sleepTimerDeadline = nil
-        player.sleepTimerRemaining = nil
+        remaining = nil
         player.sleepTimerConfiguredMinutes = nil
         lastSleepUpdate = 0
         player.pendingSleepStopAfterCurrentTrack = true
@@ -81,7 +83,7 @@ final class SleepAndFadeController {
             let rounded = remaining.rounded()
             if rounded != lastSleepUpdate {
                 lastSleepUpdate = rounded
-                player.sleepTimerRemaining = remaining
+                self.remaining = remaining
             }
         }
     }

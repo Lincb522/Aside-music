@@ -54,7 +54,7 @@ struct AddToPlaylistSheet: View {
     }
 
     private var isFavorite: Bool {
-        manager.isFavorite(songId: song.id)
+        manager.isFavorite(songId: song.id, source: song.musicSource)
     }
 
     private var localPlaylists: [LocalPlaylist] {
@@ -280,7 +280,7 @@ struct AddToPlaylistSheet: View {
             } else {
                 ForEach(localPlaylists, id: \.id) { playlist in
                     let summary = manager.summary(for: playlist)
-                    let contains = manager.contains(songId: song.id, in: playlist)
+                    let contains = manager.contains(songId: song.id, source: song.musicSource, in: playlist)
 
                     PlaylistPickerPlaylistRow(
                         title: summary.name,
@@ -361,7 +361,7 @@ struct AddToPlaylistSheet: View {
 
     @MainActor
     private func addToLocalPlaylist(_ playlist: LocalPlaylist) async {
-        guard !manager.contains(songId: song.id, in: playlist) else { return }
+        guard !manager.contains(songId: song.id, source: song.musicSource, in: playlist) else { return }
 
         activeOperationID = OperationKey.localPlaylist(playlist.id)
         defer { activeOperationID = nil }

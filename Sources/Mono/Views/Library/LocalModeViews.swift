@@ -70,7 +70,7 @@ private func offlinePlayableSongs(from songs: [Song], using downloadManager: Dow
     var seen = Set<Int>()
 
     return songs.filter { song in
-        let isPlayable = song.isLocal || downloadManager.isDownloaded(songId: song.id, isQQ: song.isQQMusic)
+        let isPlayable = song.isLocal || downloadManager.isDownloaded(song: song)
         guard isPlayable, !seen.contains(song.id) else { return false }
         seen.insert(song.id)
         return true
@@ -85,7 +85,7 @@ private func recentOfflineSongs(limit: Int, using downloadManager: DownloadManag
 
     for item in history {
         let song = item.toSong()
-        let isPlayable = song.isLocal || downloadManager.isDownloaded(songId: song.id, isQQ: song.isQQMusic)
+        let isPlayable = song.isLocal || downloadManager.isDownloaded(song: song)
         guard isPlayable, !seen.contains(song.id) else { continue }
         seen.insert(song.id)
         songs.append(song)
@@ -341,7 +341,7 @@ struct LocalModeHomeView: View {
 
             ScrollView(.horizontal) {
                 HStack(spacing: 14) {
-                    ForEach(songs.prefix(10)) { song in
+                    ForEach(songs.prefix(10), id: \.identityKey) { song in
                         SongCard(song: song) {
                             PlayerManager.shared.play(song: song, in: songs)
                         }
@@ -584,7 +584,7 @@ struct LocalMusicView: View {
 
         return AnyView(
             List {
-                ForEach(Array(filteredSongs.enumerated()), id: \.element.id) { index, song in
+                ForEach(Array(filteredSongs.enumerated()), id: \.element.identityKey) { index, song in
                     SongListRow(
                         song: song,
                         index: index,
@@ -1267,7 +1267,7 @@ struct LocalModeProfileView: View {
 
             ScrollView(.horizontal) {
                 HStack(spacing: 14) {
-                    ForEach(recentSongs.prefix(10)) { song in
+                    ForEach(recentSongs.prefix(10), id: \.identityKey) { song in
                         SongCard(song: song) {
                             playerManager.play(song: song, in: recentSongs)
                         }

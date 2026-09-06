@@ -110,6 +110,7 @@ extension ClassicPlayerLayout {
                     showMoreMenu.toggle()
                 }
             }
+            .playerMoreMenuAnchor()
         }
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
     }
@@ -208,7 +209,7 @@ extension ClassicPlayerLayout {
                 }
 
                 if AppConfig.Features.downloadEnabled, let song = player.currentSong {
-                    let isDownloaded = downloadManager.isDownloaded(songId: song.id)
+                    let isDownloaded = downloadStatus.isDownloaded(song: song)
 
                     asideInlineIconButton(
                         icon: .playerDownload,

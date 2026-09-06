@@ -13,7 +13,7 @@ extension SearchView {
                     selectedIds: $searchSelectedIds,
                     songs: expandedFilteredSongs(source: source),
                     onBatchQueue: {
-                        let selected = expandedFilteredSongs(source: source).filter { searchSelectedIds.contains($0.id) }
+                        let selected = expandedFilteredSongs(source: source).filter { searchSelectedIds.contains($0.identityKey) }
                         SongBatchActionHelper.addToQueue(selected) {
                             isSearchSelectMode = false
                             searchSelectedIds.removeAll()
@@ -160,8 +160,8 @@ extension SearchView {
         }()
         let songs = expandedFilteredSongs(source: source)
         return Group {
-            ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
-                SongListRow(song: song, index: index, isSelecting: isSearchSelectMode, isSelected: searchSelectedIds.contains(song.id), onArtistTap: { artistId in
+            ForEach(Array(songs.enumerated()), id: \.element.identityKey) { index, song in
+                SongListRow(song: song, index: index, isSelecting: isSearchSelectMode, isSelected: searchSelectedIds.contains(song.identityKey), onArtistTap: { artistId in
                     selectedArtistId = artistId
                     showArtistDetail = true
                 }, onDetailTap: { detailSong in
@@ -172,10 +172,10 @@ extension SearchView {
                     showAlbumDetail = true
                 }, onTap: {
                     if isSearchSelectMode {
-                        if searchSelectedIds.contains(song.id) {
-                            searchSelectedIds.remove(song.id)
+                        if searchSelectedIds.contains(song.identityKey) {
+                            searchSelectedIds.remove(song.identityKey)
                         } else {
-                            searchSelectedIds.insert(song.id)
+                            searchSelectedIds.insert(song.identityKey)
                         }
                     } else {
                         PlayerManager.shared.play(song: song, in: songs)
@@ -197,7 +197,7 @@ extension SearchView {
             }
         }
         .monoSheet(isPresented: $showSearchBatchPlaylist, preset: .standard) {
-            BatchAddToPlaylistSheet(songs: songs.filter { searchSelectedIds.contains($0.id) })
+            BatchAddToPlaylistSheet(songs: songs.filter { searchSelectedIds.contains($0.identityKey) })
         }
     }
 
@@ -247,7 +247,7 @@ extension SearchView {
             return
         }
         let songs = expandedFilteredSongs(source: source)
-        let selected = songs.filter { searchSelectedIds.contains($0.id) }
+        let selected = songs.filter { searchSelectedIds.contains($0.identityKey) }
         for song in selected {
             if song.isQQMusic {
                 DownloadManager.shared.downloadQQ(song: song, quality: DownloadManager.defaultQQDownloadQuality)

@@ -32,7 +32,6 @@ jobs:
 
           tracked_local_content="$({
             git ls-files '.codex/**'
-            git ls-files 'docs/**'
             git ls-files 'Secrets.xcconfig'
             git ls-files | grep -E '(^|/)(\.DS_Store|xcuserdata)(/|$)' || true
           } | sed '/^$/d')"
@@ -48,18 +47,35 @@ jobs:
         run: |
           set -euo pipefail
 
-          legacy_matches="$(git grep -n -I -E 'Monologue|AsideMusic' -- . \
-            ':(exclude).github/workflows/ios-ci.yml' \
-            ':(exclude)Packages/**' \
-            ':(exclude)DesignAssets/**' || true)"
+          # Audit current application branding, retaining compatibility IDs and the named fluid-background feature.
+          legacy_matches="$(git grep -n -I -E 'Monologue|AsideMusic' -- \
+            README.md Sources/Mono music Mono.xcodeproj Package.swift || true)"
           unexpected_matches="$(printf '%s\n' "$legacy_matches" | grep -v -E \
-            'zijiu\.Monologue\.com|group\.zijiu\.Monologue\.com|com\.monologue\.images|<string>monologue</string>' || true)"
+            'zijiu\.Monologue\.com|group\.zijiu\.Monologue\.com|com\.monologue\.images|<string>monologue</string>|zijiu\.Monologue\.color-engine-configuration-did-change|AsideMusicFluid(Background|MetalSurface)|AsideMusic 默认主题|"settings_aside_fluid_background"[[:space:]]*=' || true)"
 
           if [[ -n "$unexpected_matches" ]]; then
             echo "$unexpected_matches"
             echo "Legacy product naming remains in application-owned files."
             exit 1
           fi
+
+  server-and-web-tests:
+    name: Server and website regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - run: npm ci --prefix Services/Server/mono-session
+      - run: npm ci --prefix Web/website
+      - run: node --test Services/Server/song-content/*.test.js Services/Server/token-admin/*.test.js
+      - run: npm test --prefix Services/Server/mono-session
+      - run: npm test --prefix Web/website
+      - run: npm run build --prefix Web/website
+      - run: npm audit --prefix Services/Server/mono-session --audit-level=moderate
+      - run: npm audit --prefix Web/website --audit-level=moderate
 
   ios-build:
     name: iOS simulator build
@@ -155,6 +171,33 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             COMPILER_INDEX_STORE_ENABLE=NO \
             build 2>&1 | tee "${RUNNER_TEMP}/mono-xcodebuild.log"
+
+      - name: Run background audio regressions
+        run: python3 Scripts/Tests/background_audio_regressions.py
+
+      - name: Run music service tests
+        run: |
+          swift test --package-path Packages/MusicServices/QQMusicKit
+          swift test --package-path Packages/MusicServices/NeteaseCloudMusicAPI-Swift
+
+      - name: Run iOS regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          device_id="$(xcrun simctl create Mono-CI com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro)"
+          trap 'xcrun simctl delete "$device_id"' EXIT
+          xcodebuild -project Mono.xcodeproj -scheme Mono -configuration Debug \
+            -destination "platform=iOS Simulator,id=$device_id" \
+            -derivedDataPath "${RUNNER_TEMP}/MonoDerivedData" \
+            -clonedSourcePackagesDirPath "${RUNNER_TEMP}/MonoSourcePackages" \
+            -resultBundlePath "${RUNNER_TEMP}/MonoTests.xcresult" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO test
+          cd Packages/Audio/ffmpeg-swift
+          xcodebuild -scheme FFmpegSwiftSDK -configuration Debug \
+            -destination "platform=iOS Simulator,id=$device_id" \
+            -derivedDataPath "${RUNNER_TEMP}/FFmpegTestsDerivedData" \
+            -resultBundlePath "${RUNNER_TEMP}/FFmpegTests.xcresult" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO test
 
       - name: Upload build log on failure
         if: failure()

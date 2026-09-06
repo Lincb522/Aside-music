@@ -12,8 +12,12 @@ struct ThemeBackgroundImagePickerLabel: View {
     }
 
     var body: some View {
-        let image = ThemeColorCustomization.backgroundImage(for: theme, dark: dark)
+        ThemeBackgroundImageReader(theme: theme, dark: dark) { image in
+            label(image: image)
+        }
+    }
 
+    private func label(image: UIImage?) -> some View {
         HStack(spacing: 10) {
             Group {
                 if let image {

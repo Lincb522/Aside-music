@@ -78,6 +78,7 @@ extension ClassicPlayerLayout {
                     showMoreMenu.toggle()
                 }
             }
+            .playerMoreMenuAnchor()
         }
     }
 
@@ -281,7 +282,7 @@ extension ClassicPlayerLayout {
     @ViewBuilder
     var capsuleDownloadQuick: some View {
         if let song = player.currentSong {
-            let isDownloaded = downloadManager.isDownloaded(songId: song.id)
+            let isDownloaded = downloadStatus.isDownloaded(song: song)
 
             Button {
                 if !isDownloaded {

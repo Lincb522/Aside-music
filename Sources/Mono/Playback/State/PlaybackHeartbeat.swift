@@ -56,6 +56,10 @@ final class PlaybackHeartbeat {
             backgroundTickSkipCounter = 0
         }
 
+        // Hint notifications are foreground-only; sample the same public state
+        // while the existing playback heartbeat is running in the background.
+        player.audioSessionCoordinator.sampleOtherAudioState()
+
         // Apple Music 使用 MusicKit 的受保护播放管线。它仍然复用 Mono 的
         // 页面、队列、歌词和系统媒体信息，但不能读取 FFmpeg 的旧时钟，
         // 也不能触发 FFmpeg 输出恢复或无缝预装。

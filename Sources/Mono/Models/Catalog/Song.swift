@@ -5,10 +5,12 @@ import Foundation
 /// 跨音乐平台共用的歌曲模型。
 ///
 /// ncm 字段作为基础结构，qcm、qsm、Apple Music、本地文件与播客信息
-/// 通过扩展字段补齐；相等性和哈希仅使用统一歌曲 ID。
+/// Platform identity keeps numeric catalog IDs in their own namespaces.
 struct Song: Identifiable, Codable, Hashable, Equatable {
-    static func == (lhs: Song, rhs: Song) -> Bool { lhs.id == rhs.id }
-    func hash(into hasher: inout Hasher) { hasher.combine(id) }
+    static func == (lhs: Song, rhs: Song) -> Bool { lhs.identityKey == rhs.identityKey }
+    func hash(into hasher: inout Hasher) { hasher.combine(identityKey) }
+
+    var identityKey: String { "\(musicSource.rawValue):\(id)" }
     
     let id: Int
     let name: String

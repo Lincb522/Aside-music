@@ -11,8 +11,6 @@ struct PosterPlayerLayout: View {
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject var player = PlayerManager.shared
     @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
-    @ObservedObject var downloadManager = DownloadManager.shared
-    @ObservedObject var lyricVM = LyricViewModel.shared
     
     @State private var isDragging = false
     @State private var dragValue: Double = 0
@@ -74,10 +72,12 @@ struct PosterPlayerLayout: View {
                     .frame(width: geo.size.width, alignment: .center)
                     .transition(.opacity)
                 }
-                
+            }
+            .playerMoreMenuOverlay { anchorFrame in
                 if showMoreMenu {
                     PlayerMoreMenu(
                         isPresented: $showMoreMenu,
+                        anchorFrame: anchorFrame,
                         onEQ: { showEQSettings = true },
                         onTheme: { showThemePicker = true }
                     )
@@ -183,6 +183,7 @@ extension PosterPlayerLayout {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(MonoBouncingButtonStyle())
+                .playerMoreMenuAnchor()
             }
         }
         .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 24 : 16)
@@ -422,6 +423,7 @@ extension PosterPlayerLayout {
                     .contentShape(Rectangle())
             }
             .buttonStyle(MonoBouncingButtonStyle())
+            .playerMoreMenuAnchor()
         }
         .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 24 : 16)
         .padding(.bottom, 8)

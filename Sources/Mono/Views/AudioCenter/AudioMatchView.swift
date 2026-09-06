@@ -596,7 +596,7 @@ struct AudioMatchView: View {
                 .padding(.horizontal, 24)
 
             LazyVStack(spacing: ThemedPageStyle.listSpacing) {
-                ForEach(Array(viewModel.matchedSongs.enumerated()), id: \.element.id) { index, song in
+                ForEach(Array(viewModel.matchedSongs.enumerated()), id: \.element.identityKey) { index, song in
                     matchResultRow(song: song, index: index)
                 }
             }

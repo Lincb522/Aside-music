@@ -1,5 +1,26 @@
 import Foundation
 
+public struct SingerNameSpecialDisplay: Decodable, Sendable {
+    public let displayType: Int
+    public let picFile: String
+    public let signatureNameOverlapRatio: Double
+    public let name: String
+
+    public var imageURL: URL? {
+        guard displayType == 2,
+              let url = URL(string: picFile),
+              url.scheme == "https", url.host != nil else { return nil }
+        return url
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case displayType = "display_type"
+        case picFile = "pic_file"
+        case signatureNameOverlapRatio = "signature_name_overlap_ratio"
+        case name
+    }
+}
+
 // MARK: - 歌手相关 API
 
 public extension QQMusicClient {
@@ -27,6 +48,11 @@ public extension QQMusicClient {
     /// - Parameter mid: 歌手 mid
     func singerInfo(mid: String) async throws -> JSON {
         try await requestWrapped("/singer/get_info", params: ["mid": mid])
+    }
+
+    /// Fetch the artist's transparent name artwork; artists without artwork return an empty URL.
+    func singerNameSpecialDisplay(mid: String) async throws -> SingerNameSpecialDisplay {
+        try await requestWrapped("/singer/get_name_special_display", params: ["mid": mid])
     }
 
     /// 获取歌手简介

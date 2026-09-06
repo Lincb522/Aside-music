@@ -218,7 +218,7 @@ struct ClarityLocalHomeView: View {
     private var recentSongs: some View {
         VStack(alignment: .leading, spacing: 7) {
             ClaritySectionHeading(title: String(localized: "clarity_recent_added"))
-            ForEach(Array(library.songs.prefix(4).enumerated()), id: \.element.id) { index, song in
+            ForEach(Array(library.songs.prefix(4).enumerated()), id: \.element.identityKey) { index, song in
                 claritySongRow(index: index, song: song, songs: library.songs)
             }
         }
@@ -391,7 +391,7 @@ private struct ClarityLocalSongList: View {
                     .foregroundStyle(ClarityStyle.inkSoft)
                     .frame(maxWidth: .infinity, minHeight: 110)
             } else {
-                ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+                ForEach(Array(songs.enumerated()), id: \.element.identityKey) { index, song in
                     claritySongRow(index: index, song: song, songs: songs)
                 }
             }

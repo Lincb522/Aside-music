@@ -1,305 +1,125 @@
 {
   "family": "MONO Glyph",
-  "canvasURL": "https://canvas.best/canvas/dO_VRMwrGIsTE-1x610lz",
-  "model": "default::gpt-image-2",
+  "method": "approved PNG artwork extraction",
   "semanticCount": 233,
   "assetCount": 466,
-  "grid": {
-    "columns": 5,
-    "rows": 4
-  },
+  "designManifest": "Design/IconSystems/MonoGlyph/BitmapRedesign/manifest.json",
   "output": {
     "width": 128,
     "height": 128,
     "format": "png",
-    "background": "transparent"
+    "background": "transparent",
+    "lightAppearanceInk": "#202020",
+    "darkAppearanceInk": "#F5F5F3"
   },
   "sources": [
     {
       "sheet": "01",
-      "lightNodeId": "D1jzUeDl0MXSRapvxgBpM",
-      "lightConfigNodeId": "config-18ff1bd8-cd66-42d1-9e19-6b0f71ba1c1c",
-      "darkDerivedFromLightNodeId": "D1jzUeDl0MXSRapvxgBpM",
-      "outputs": {
-        "light": {
-          "path": "Design/IconSystems/MonoGlyph/Sources/01-light.png",
-          "sha256": "7db8938fd5147cc44b03af4140459ab5bcdd6102c3c033f92f3195738ce93474",
-          "bytes": 951435,
-          "width": 1662,
-          "height": 946
-        },
-        "dark": {
-          "path": "Design/IconSystems/MonoGlyph/Sources/01-dark.png",
-          "sha256": "483b48671fb67f3046448cfc2fdd562e53de41f07c5b41b7d158397cdbce0085",
-          "bytes": 101206,
-          "width": 1662,
-          "height": 946
-        }
-      }
+      "path": "Design/IconSystems/MonoGlyph/BitmapRedesign/sheet-01.png",
+      "sha256": "076025563b901e5148799e6c057e080a1984f3bec6b90d7de1249d943068215a",
+      "width": 1254,
+      "height": 1254,
+      "columns": 5,
+      "rows": 4
     },
     {
       "sheet": "02",
-      "lightNodeId": "zjvqWIgl_KRHv1FQoN30k",
-      "lightConfigNodeId": "config-ce19db05-59c9-4144-92c5-df1317e6b01e",
-      "darkDerivedFromLightNodeId": "zjvqWIgl_KRHv1FQoN30k",
-      "outputs": {
-        "light": {
-          "path": "Design/IconSystems/MonoGlyph/Sources/02-light.png",
-          "sha256": "1ed15b74bfcddb4e506cc28f46160a97f279c9946dc6a82ebd82013df0fdc5e6",
-          "bytes": 923142,
-          "width": 1662,
-          "height": 946
-        },
-        "dark": {
-          "path": "Design/IconSystems/MonoGlyph/Sources/02-dark.png",
-          "sha256": "de32156e9d7e3bf6154964257f14461afb00d98089d187a0bcf4262c657475e5",
-          "bytes": 79675,
-          "width": 1662,
-          "height": 946
-        }
-      }
+      "path": "Design/IconSystems/MonoGlyph/BitmapRedesign/sheet-02.png",
+      "sha256": "275e303146e4e2183592cbee9d6e5ed44221e66d96cb7657cb1d938fceb4cc2b",
+      "width": 1254,
+      "height": 1254,
+      "columns": 5,
+      "rows": 4
     },
     {
       "sheet": "03",
-      "lightNodeId": "mz6Jl_ImZV4V9hS9bwANl",
-      "lightConfigNodeId": "config-cab4bde1-78f8-47f4-888c-053d529467f1",
-      "darkDerivedFromLightNodeId": "mz6Jl_ImZV4V9hS9bwANl",
-      "outputs": {
-        "light": {
-          "path": "Design/IconSystems/MonoGlyph/Sources/03-light.png",
-          "sha256": "8b1e1c72a10f959c70d3a8db1b2ebbb1f94853ecb3573a6fba44024caa072069",
-          "bytes": 929394,
-          "width": 1662,
-          "height": 946
-        },
-        "dark": {
-          "path": "Design/IconSystems/MonoGlyph/Sources/03-dark.png",
-          "sha256": "d5b086c6ccd6f421a3349e54b7331470a2aaa407da78da37a06f6f22db63a06b",
-          "bytes": 97496,
-          "width": 1662,
-          "height": 946
-        }
-      }
+      "path": "Design/IconSystems/MonoGlyph/BitmapRedesign/sheet-03.png",
+      "sha256": "bf3aee80baa3fb885bf84ca51732165efd3de3920ba700003edda44520926304",
+      "width": 1254,
+      "height": 1254,
+      "columns": 5,
+      "rows": 4
     },
     {
       "sheet": "04",
-      "lightNodeId": "laNxZ6rJbl1E2TmkHtPoO",
-      "lightConfigNodeId": "config-d2407112-d9bb-4d09-b5ae-4ba8ab90058b",
-      "darkDerivedFromLightNodeId": "laNxZ6rJbl1E2TmkHtPoO",
-      "outputs": {
-        "light": {
-          "path": "Design/IconSystems/MonoGlyph/Sources/04-light.png",
-          "sha256": "aecdce0f3293a979256a45c807026768b4daaeaad64920c39538be4ef577b2e5",
-          "bytes": 954202,
-          "width": 1662,
-          "height": 946
-        },
-        "dark": {
-          "path": "Design/IconSystems/MonoGlyph/Sources/04-dark.png",
-          "sha256": "15cde90306916022c8df1d2091858b286934746fb031c57337ffcecb965b9373",
-          "bytes": 115854,
-          "width": 1662,
-          "height": 946
-        }
-      }
+      "path": "Design/IconSystems/MonoGlyph/BitmapRedesign/sheet-04.png",
+      "sha256": "0d779918160d903ef7166b76a6beed5fdeccfe6424437bec1a494dc616667c74",
+      "width": 1254,
+      "height": 1254,
+      "columns": 5,
+      "rows": 4
     },
     {
       "sheet": "05",
-      "lightNodeId": "qa_IidHcsy-0d7fOpNzbN",
-      "lightConfigNodeId": "config-18263ecd-5c3a-4914-8386-b02d5bc8f4a0",
-      "darkDerivedFromLightNodeId": "qa_IidHcsy-0d7fOpNzbN",
-      "outputs": {
-        "light": {
-          "path": "Design/IconSystems/MonoGlyph/Sources/05-light.png",
-          "sha256": "d9a068cf43c845bf7658e1365c0e3f441640aac174e48bfb73d3153c4694cce9",
-          "bytes": 986846,
-          "width": 1662,
-          "height": 946
-        },
-        "dark": {
-          "path": "Design/IconSystems/MonoGlyph/Sources/05-dark.png",
-          "sha256": "d9e333258fce647fc4657f1714416e234e69c73c04e1a90d9e52153f54f59bc0",
-          "bytes": 122792,
-          "width": 1662,
-          "height": 946
-        }
-      }
+      "path": "Design/IconSystems/MonoGlyph/BitmapRedesign/sheet-05.png",
+      "sha256": "f0d331a9526a69430b3007a817ef151ef905d62512c6c0c259211ffe96b0c6a8",
+      "width": 1254,
+      "height": 1254,
+      "columns": 5,
+      "rows": 4
     },
     {
       "sheet": "06",
-      "lightNodeId": "W9owxKR4vQAiKaVA1Xjo3",
-      "lightConfigNodeId": "config-75ad66be-003d-404a-8514-5a6671a935d5",
-      "darkDerivedFromLightNodeId": "W9owxKR4vQAiKaVA1Xjo3",
-      "outputs": {
-        "light": {
-          "path": "Design/IconSystems/MonoGlyph/Sources/06-light.png",
-          "sha256": "630db671329924013c17331cf781ee8d0df10d51f7de297df4400e8b95087ed8",
-          "bytes": 921785,
-          "width": 1662,
-          "height": 946
-        },
-        "dark": {
-          "path": "Design/IconSystems/MonoGlyph/Sources/06-dark.png",
-          "sha256": "b273ab1c632df3aa29de86597c39f63cbd1094cc9295efce112245ffa30c6ab8",
-          "bytes": 117240,
-          "width": 1662,
-          "height": 946
-        }
-      }
+      "path": "Design/IconSystems/MonoGlyph/BitmapRedesign/sheet-06.png",
+      "sha256": "1fe5d438d7df9afe9c1a4b382d90f3301058cef14ad7f975dba0b7fee7ae38ee",
+      "width": 1254,
+      "height": 1254,
+      "columns": 5,
+      "rows": 4
     },
     {
       "sheet": "07",
-      "lightNodeId": "dTRUtPM3sQqXZl9rexE01",
-      "lightConfigNodeId": "config-a17b0992-72e4-4793-9bcb-0dca1db8337b",
-      "darkDerivedFromLightNodeId": "dTRUtPM3sQqXZl9rexE01",
-      "outputs": {
-        "light": {
-          "path": "Design/IconSystems/MonoGlyph/Sources/07-light.png",
-          "sha256": "1613b3d1d40b4d009eb435fd0bad8f0e0a7867a94daa198ace6a00ed1f1bc311",
-          "bytes": 924216,
-          "width": 1662,
-          "height": 946
-        },
-        "dark": {
-          "path": "Design/IconSystems/MonoGlyph/Sources/07-dark.png",
-          "sha256": "b4b21d242aad33a9235eb9ea39ae7e3400a4dcca54e39484d51dbf13f686456b",
-          "bytes": 90690,
-          "width": 1662,
-          "height": 946
-        }
-      }
+      "path": "Design/IconSystems/MonoGlyph/BitmapRedesign/sheet-07.png",
+      "sha256": "50e79bccba0f3d9f49bac1d8e50cb6d2f8030af4e0a48fdca4a91233cf2034ec",
+      "width": 1254,
+      "height": 1254,
+      "columns": 5,
+      "rows": 4
     },
     {
       "sheet": "08",
-      "lightNodeId": "JezhCEzVSiGSEUu-4D5M2",
-      "lightConfigNodeId": "config-a7c6432c-d7eb-42f7-bdfc-0dad562f2757",
-      "darkDerivedFromLightNodeId": "JezhCEzVSiGSEUu-4D5M2",
-      "outputs": {
-        "light": {
-          "path": "Design/IconSystems/MonoGlyph/Sources/08-light.png",
-          "sha256": "2b87977457c82cd57d56dd3d970b65c8d96423e6db1c2ecde23d123c762b9582",
-          "bytes": 799730,
-          "width": 1662,
-          "height": 946
-        },
-        "dark": {
-          "path": "Design/IconSystems/MonoGlyph/Sources/08-dark.png",
-          "sha256": "02cce7eb94d35deff10dbad726b3a3548cbf510cbe8bf68127080211e24525f2",
-          "bytes": 36463,
-          "width": 1662,
-          "height": 946
-        }
-      }
+      "path": "Design/IconSystems/MonoGlyph/BitmapRedesign/sheet-08.png",
+      "sha256": "6520951d1841a3cd18868ee056d2f47bb2b0038b22e2bcfa2b7fbe946a92bd68",
+      "width": 1254,
+      "height": 1254,
+      "columns": 5,
+      "rows": 4
     },
     {
       "sheet": "09",
-      "lightNodeId": "-Ef1u659B8ORUs2af8YhA",
-      "lightConfigNodeId": "config-203871fc-30d2-4c16-a29d-6691afb1486c",
-      "darkDerivedFromLightNodeId": "-Ef1u659B8ORUs2af8YhA",
-      "outputs": {
-        "light": {
-          "path": "Design/IconSystems/MonoGlyph/Sources/09-light.png",
-          "sha256": "5cdbf65a438f26a9314cd5a631177d4969e127fddc06edb2356ed1e078faae1a",
-          "bytes": 917712,
-          "width": 1662,
-          "height": 946
-        },
-        "dark": {
-          "path": "Design/IconSystems/MonoGlyph/Sources/09-dark.png",
-          "sha256": "1eef8dc1aa60297eaccaff9977883deeaf034536558c393bccc743df33440c2f",
-          "bytes": 88740,
-          "width": 1662,
-          "height": 946
-        }
-      }
+      "path": "Design/IconSystems/MonoGlyph/BitmapRedesign/sheet-09.png",
+      "sha256": "f394a6080dc7e896918808b142b812c9f34abfef578f9f502e2e295929555884",
+      "width": 1254,
+      "height": 1254,
+      "columns": 5,
+      "rows": 4
     },
     {
       "sheet": "10",
-      "lightNodeId": "10s7Fj4yqlZOqlXvhDPRN",
-      "lightConfigNodeId": "config-8a4b9de7-738a-4114-a1de-8323a07b8b01",
-      "darkDerivedFromLightNodeId": "10s7Fj4yqlZOqlXvhDPRN",
-      "outputs": {
-        "light": {
-          "path": "Design/IconSystems/MonoGlyph/Sources/10-light.png",
-          "sha256": "d61e9e27b00f93ad54c4774975608446a569f0959e70fa67cc64f6f615842c6a",
-          "bytes": 917167,
-          "width": 1662,
-          "height": 946
-        },
-        "dark": {
-          "path": "Design/IconSystems/MonoGlyph/Sources/10-dark.png",
-          "sha256": "9400ed3b5555c4062f8de07e1c9258d9c75a000794b32170bdeaf84afc488f8e",
-          "bytes": 91904,
-          "width": 1662,
-          "height": 946
-        }
-      }
+      "path": "Design/IconSystems/MonoGlyph/BitmapRedesign/sheet-10.png",
+      "sha256": "c40599f8fe1b6c07cac7b21226b51852ebffa7685a11171a940fea43c9b7a44c",
+      "width": 1254,
+      "height": 1254,
+      "columns": 5,
+      "rows": 4
     },
     {
       "sheet": "11",
-      "lightNodeId": "zv3O-RY8qjxremQHfEmTY",
-      "lightConfigNodeId": "config-49b32ca3-7cb0-4527-8128-683284d77a2a",
-      "darkDerivedFromLightNodeId": "zv3O-RY8qjxremQHfEmTY",
-      "outputs": {
-        "light": {
-          "path": "Design/IconSystems/MonoGlyph/Sources/11-light.png",
-          "sha256": "817954d4e1957b765892b397f7e03bdd7dde36d44d6e5302f7c695de3165bfe8",
-          "bytes": 916865,
-          "width": 1662,
-          "height": 946
-        },
-        "dark": {
-          "path": "Design/IconSystems/MonoGlyph/Sources/11-dark.png",
-          "sha256": "48831152473b6c3e418e6e8327f9fefb25e2122a752a18f6b7c6c64cc7926b74",
-          "bytes": 151721,
-          "width": 1662,
-          "height": 946
-        }
-      }
+      "path": "Design/IconSystems/MonoGlyph/BitmapRedesign/sheet-11.png",
+      "sha256": "6235ca7b187e958f2783888e97fef1d9089c30df8363a6ceff130c7ca8f36362",
+      "width": 1254,
+      "height": 1254,
+      "columns": 5,
+      "rows": 4
     },
     {
       "sheet": "12",
-      "lightNodeId": "TuuvxZepYi6BsCmOLYaJL",
-      "lightConfigNodeId": "config-76274e26-e68d-4162-b716-b68293df7754",
-      "darkDerivedFromLightNodeId": "TuuvxZepYi6BsCmOLYaJL",
-      "outputs": {
-        "light": {
-          "path": "Design/IconSystems/MonoGlyph/Sources/12-light.png",
-          "sha256": "1648fe4135679a72e2b88cac09ac25be670c77ac673ec4b415622e23f25e9dc4",
-          "bytes": 920034,
-          "width": 1662,
-          "height": 946
-        },
-        "dark": {
-          "path": "Design/IconSystems/MonoGlyph/Sources/12-dark.png",
-          "sha256": "dc19479e781f46959de355b16aef54b8dc885ea15f3463e7c45b4fea9c029a82",
-          "bytes": 166191,
-          "width": 1662,
-          "height": 946
-        }
-      }
-    },
-    {
-      "sheet": "13",
-      "lightNodeId": "mJE432mxEdUOdTY60f5eP",
-      "lightConfigNodeId": "config-5bc94ad8-663b-4945-b764-d607c25233fd",
-      "darkDerivedFromLightNodeId": "mJE432mxEdUOdTY60f5eP",
-      "outputs": {
-        "light": {
-          "path": "Design/IconSystems/MonoGlyph/Sources/13-light.png",
-          "sha256": "424f0dccb1d22a44e3eedac0a3d264f6888b9c61b5339d047c6c74de9a8ea825",
-          "bytes": 868946,
-          "width": 1662,
-          "height": 946
-        },
-        "dark": {
-          "path": "Design/IconSystems/MonoGlyph/Sources/13-dark.png",
-          "sha256": "8f7ab65a54ecfb1a4d29f55d7133ad6d2ae9fe2ae90b56bedeb021b39cb26453",
-          "bytes": 134214,
-          "width": 1662,
-          "height": 946
-        }
-      }
+      "path": "Design/IconSystems/MonoGlyph/BitmapRedesign/sheet-12.png",
+      "sha256": "3db54ce7658cea3dc453f21d32a611de7e61a03f1e88ec7b405520c9aab7e78e",
+      "width": 1774,
+      "height": 887,
+      "columns": 5,
+      "rows": 3
     }
   ],
   "slots": [
@@ -339,67 +159,67 @@
       "dark": "profile.imageset/profile_dark.png"
     },
     {
-      "semantic": "play",
+      "semantic": "homeFilled",
       "sheet": "01",
       "cell": 6,
+      "light": "homeFilled.imageset/homeFilled.png",
+      "dark": "homeFilled.imageset/homeFilled_dark.png"
+    },
+    {
+      "semantic": "podcastFilled",
+      "sheet": "01",
+      "cell": 7,
+      "light": "podcastFilled.imageset/podcastFilled.png",
+      "dark": "podcastFilled.imageset/podcastFilled_dark.png"
+    },
+    {
+      "semantic": "libraryFilled",
+      "sheet": "01",
+      "cell": 8,
+      "light": "libraryFilled.imageset/libraryFilled.png",
+      "dark": "libraryFilled.imageset/libraryFilled_dark.png"
+    },
+    {
+      "semantic": "profileFilled",
+      "sheet": "01",
+      "cell": 9,
+      "light": "profileFilled.imageset/profileFilled.png",
+      "dark": "profileFilled.imageset/profileFilled_dark.png"
+    },
+    {
+      "semantic": "play",
+      "sheet": "01",
+      "cell": 10,
       "light": "play.imageset/play.png",
       "dark": "play.imageset/play_dark.png"
     },
     {
       "semantic": "pause",
       "sheet": "01",
-      "cell": 7,
+      "cell": 11,
       "light": "pause.imageset/pause.png",
       "dark": "pause.imageset/pause_dark.png"
     },
     {
-      "semantic": "previous",
-      "sheet": "01",
-      "cell": 8,
-      "light": "previous.imageset/previous.png",
-      "dark": "previous.imageset/previous_dark.png"
-    },
-    {
       "semantic": "next",
       "sheet": "01",
-      "cell": 9,
+      "cell": 12,
       "light": "next.imageset/next.png",
       "dark": "next.imageset/next_dark.png"
     },
     {
-      "semantic": "stop",
-      "sheet": "01",
-      "cell": 10,
-      "light": "stop.imageset/stop.png",
-      "dark": "stop.imageset/stop_dark.png"
-    },
-    {
-      "semantic": "repeatMode",
-      "sheet": "01",
-      "cell": 11,
-      "light": "repeatMode.imageset/repeatMode.png",
-      "dark": "repeatMode.imageset/repeatMode_dark.png"
-    },
-    {
-      "semantic": "repeatOne",
-      "sheet": "01",
-      "cell": 12,
-      "light": "repeatOne.imageset/repeatOne.png",
-      "dark": "repeatOne.imageset/repeatOne_dark.png"
-    },
-    {
-      "semantic": "shuffle",
+      "semantic": "previous",
       "sheet": "01",
       "cell": 13,
-      "light": "shuffle.imageset/shuffle.png",
-      "dark": "shuffle.imageset/shuffle_dark.png"
+      "light": "previous.imageset/previous.png",
+      "dark": "previous.imageset/previous_dark.png"
     },
     {
-      "semantic": "list",
+      "semantic": "stop",
       "sheet": "01",
       "cell": 14,
-      "light": "list.imageset/list.png",
-      "dark": "list.imageset/list_dark.png"
+      "light": "stop.imageset/stop.png",
+      "dark": "stop.imageset/stop_dark.png"
     },
     {
       "semantic": "like",
@@ -409,697 +229,697 @@
       "dark": "like.imageset/like_dark.png"
     },
     {
-      "semantic": "download",
+      "semantic": "liked",
       "sheet": "01",
       "cell": 16,
-      "light": "download.imageset/download.png",
-      "dark": "download.imageset/download_dark.png"
+      "light": "liked.imageset/liked.png",
+      "dark": "liked.imageset/liked_dark.png"
     },
     {
-      "semantic": "waveform",
+      "semantic": "repeatMode",
       "sheet": "01",
       "cell": 17,
-      "light": "waveform.imageset/waveform.png",
-      "dark": "waveform.imageset/waveform_dark.png"
+      "light": "repeatMode.imageset/repeatMode.png",
+      "dark": "repeatMode.imageset/repeatMode_dark.png"
     },
     {
-      "semantic": "immersive",
+      "semantic": "repeatOne",
       "sheet": "01",
       "cell": 18,
-      "light": "immersive.imageset/immersive.png",
-      "dark": "immersive.imageset/immersive_dark.png"
+      "light": "repeatOne.imageset/repeatOne.png",
+      "dark": "repeatOne.imageset/repeatOne_dark.png"
     },
     {
-      "semantic": "mv",
+      "semantic": "shuffle",
       "sheet": "01",
       "cell": 19,
-      "light": "mv.imageset/mv.png",
-      "dark": "mv.imageset/mv_dark.png"
-    },
-    {
-      "semantic": "settings",
-      "sheet": "01",
-      "cell": 20,
-      "light": "settings.imageset/settings.png",
-      "dark": "settings.imageset/settings_dark.png"
+      "light": "shuffle.imageset/shuffle.png",
+      "dark": "shuffle.imageset/shuffle_dark.png"
     },
     {
       "semantic": "refresh",
-      "sheet": "02",
-      "cell": 1,
+      "sheet": "01",
+      "cell": 20,
       "light": "refresh.imageset/refresh.png",
       "dark": "refresh.imageset/refresh_dark.png"
     },
     {
-      "semantic": "back",
-      "sheet": "02",
-      "cell": 2,
-      "light": "back.imageset/back.png",
-      "dark": "back.imageset/back_dark.png"
-    },
-    {
-      "semantic": "more",
-      "sheet": "02",
-      "cell": 3,
-      "light": "more.imageset/more.png",
-      "dark": "more.imageset/more_dark.png"
-    },
-    {
-      "semantic": "close",
-      "sheet": "02",
-      "cell": 4,
-      "light": "close.imageset/close.png",
-      "dark": "close.imageset/close_dark.png"
-    },
-    {
-      "semantic": "trash",
-      "sheet": "02",
-      "cell": 5,
-      "light": "trash.imageset/trash.png",
-      "dark": "trash.imageset/trash_dark.png"
-    },
-    {
-      "semantic": "fm",
-      "sheet": "02",
-      "cell": 6,
-      "light": "fm.imageset/fm.png",
-      "dark": "fm.imageset/fm_dark.png"
-    },
-    {
-      "semantic": "bell",
-      "sheet": "02",
-      "cell": 7,
-      "light": "bell.imageset/bell.png",
-      "dark": "bell.imageset/bell_dark.png"
-    },
-    {
-      "semantic": "cloud",
-      "sheet": "02",
-      "cell": 8,
-      "light": "cloud.imageset/cloud.png",
-      "dark": "cloud.imageset/cloud_dark.png"
-    },
-    {
-      "semantic": "chevronRight",
-      "sheet": "02",
-      "cell": 9,
-      "light": "chevronRight.imageset/chevronRight.png",
-      "dark": "chevronRight.imageset/chevronRight_dark.png"
-    },
-    {
-      "semantic": "chevronLeft",
-      "sheet": "02",
-      "cell": 10,
-      "light": "chevronLeft.imageset/chevronLeft.png",
-      "dark": "chevronLeft.imageset/chevronLeft_dark.png"
-    },
-    {
-      "semantic": "chevronDown",
-      "sheet": "02",
-      "cell": 11,
-      "light": "chevronDown.imageset/chevronDown.png",
-      "dark": "chevronDown.imageset/chevronDown_dark.png"
-    },
-    {
-      "semantic": "chevronUp",
-      "sheet": "02",
-      "cell": 12,
-      "light": "chevronUp.imageset/chevronUp.png",
-      "dark": "chevronUp.imageset/chevronUp_dark.png"
-    },
-    {
-      "semantic": "xmark",
-      "sheet": "02",
-      "cell": 13,
-      "light": "xmark.imageset/xmark.png",
-      "dark": "xmark.imageset/xmark_dark.png"
-    },
-    {
-      "semantic": "fullscreen",
-      "sheet": "02",
-      "cell": 14,
-      "light": "fullscreen.imageset/fullscreen.png",
-      "dark": "fullscreen.imageset/fullscreen_dark.png"
-    },
-    {
-      "semantic": "sparkle",
-      "sheet": "02",
-      "cell": 15,
-      "light": "sparkle.imageset/sparkle.png",
-      "dark": "sparkle.imageset/sparkle_dark.png"
-    },
-    {
-      "semantic": "soundQuality",
-      "sheet": "02",
-      "cell": 16,
-      "light": "soundQuality.imageset/soundQuality.png",
-      "dark": "soundQuality.imageset/soundQuality_dark.png"
-    },
-    {
-      "semantic": "storage",
-      "sheet": "02",
-      "cell": 17,
-      "light": "storage.imageset/storage.png",
-      "dark": "storage.imageset/storage_dark.png"
-    },
-    {
-      "semantic": "haptic",
-      "sheet": "02",
-      "cell": 18,
-      "light": "haptic.imageset/haptic.png",
-      "dark": "haptic.imageset/haptic_dark.png"
-    },
-    {
-      "semantic": "info",
-      "sheet": "02",
-      "cell": 19,
-      "light": "info.imageset/info.png",
-      "dark": "info.imageset/info_dark.png"
-    },
-    {
-      "semantic": "magnifyingGlass",
-      "sheet": "02",
-      "cell": 20,
-      "light": "magnifyingGlass.imageset/magnifyingGlass.png",
-      "dark": "magnifyingGlass.imageset/magnifyingGlass_dark.png"
-    },
-    {
-      "semantic": "clock",
-      "sheet": "03",
-      "cell": 1,
-      "light": "clock.imageset/clock.png",
-      "dark": "clock.imageset/clock_dark.png"
-    },
-    {
-      "semantic": "musicNoteList",
-      "sheet": "03",
-      "cell": 2,
-      "light": "musicNoteList.imageset/musicNoteList.png",
-      "dark": "musicNoteList.imageset/musicNoteList_dark.png"
-    },
-    {
-      "semantic": "chart",
-      "sheet": "03",
-      "cell": 3,
-      "light": "chart.imageset/chart.png",
-      "dark": "chart.imageset/chart_dark.png"
-    },
-    {
-      "semantic": "translate",
-      "sheet": "03",
-      "cell": 4,
-      "light": "translate.imageset/translate.png",
-      "dark": "translate.imageset/translate_dark.png"
-    },
-    {
-      "semantic": "karaoke",
-      "sheet": "03",
-      "cell": 5,
-      "light": "karaoke.imageset/karaoke.png",
-      "dark": "karaoke.imageset/karaoke_dark.png"
-    },
-    {
-      "semantic": "lock",
-      "sheet": "03",
-      "cell": 6,
-      "light": "lock.imageset/lock.png",
-      "dark": "lock.imageset/lock_dark.png"
-    },
-    {
-      "semantic": "unlock",
-      "sheet": "03",
-      "cell": 7,
-      "light": "unlock.imageset/unlock.png",
-      "dark": "unlock.imageset/unlock_dark.png"
-    },
-    {
-      "semantic": "qr",
-      "sheet": "03",
-      "cell": 8,
-      "light": "qr.imageset/qr.png",
-      "dark": "qr.imageset/qr_dark.png"
-    },
-    {
-      "semantic": "phone",
-      "sheet": "03",
-      "cell": 9,
-      "light": "phone.imageset/phone.png",
-      "dark": "phone.imageset/phone_dark.png"
-    },
-    {
-      "semantic": "send",
-      "sheet": "03",
-      "cell": 10,
-      "light": "send.imageset/send.png",
-      "dark": "send.imageset/send_dark.png"
-    },
-    {
-      "semantic": "musicNote",
-      "sheet": "03",
-      "cell": 11,
-      "light": "musicNote.imageset/musicNote.png",
-      "dark": "musicNote.imageset/musicNote_dark.png"
-    },
-    {
-      "semantic": "save",
-      "sheet": "03",
-      "cell": 12,
-      "light": "save.imageset/save.png",
-      "dark": "save.imageset/save_dark.png"
-    },
-    {
-      "semantic": "comment",
-      "sheet": "03",
-      "cell": 13,
-      "light": "comment.imageset/comment.png",
-      "dark": "comment.imageset/comment_dark.png"
-    },
-    {
-      "semantic": "history",
-      "sheet": "03",
-      "cell": 14,
-      "light": "history.imageset/history.png",
-      "dark": "history.imageset/history_dark.png"
-    },
-    {
       "semantic": "playCircle",
-      "sheet": "03",
-      "cell": 15,
+      "sheet": "02",
+      "cell": 1,
       "light": "playCircle.imageset/playCircle.png",
       "dark": "playCircle.imageset/playCircle_dark.png"
     },
     {
-      "semantic": "warning",
-      "sheet": "03",
-      "cell": 16,
-      "light": "warning.imageset/warning.png",
-      "dark": "warning.imageset/warning_dark.png"
-    },
-    {
-      "semantic": "personEmpty",
-      "sheet": "03",
-      "cell": 17,
-      "light": "personEmpty.imageset/personEmpty.png",
-      "dark": "personEmpty.imageset/personEmpty_dark.png"
+      "semantic": "playCircleFill",
+      "sheet": "02",
+      "cell": 2,
+      "light": "playCircleFill.imageset/playCircleFill.png",
+      "dark": "playCircleFill.imageset/playCircleFill_dark.png"
     },
     {
       "semantic": "playNext",
-      "sheet": "03",
-      "cell": 18,
+      "sheet": "02",
+      "cell": 3,
       "light": "playNext.imageset/playNext.png",
       "dark": "playNext.imageset/playNext_dark.png"
     },
     {
-      "semantic": "add",
-      "sheet": "03",
-      "cell": 19,
-      "light": "add.imageset/add.png",
-      "dark": "add.imageset/add_dark.png"
-    },
-    {
       "semantic": "addToQueue",
-      "sheet": "03",
-      "cell": 20,
+      "sheet": "02",
+      "cell": 4,
       "light": "addToQueue.imageset/addToQueue.png",
       "dark": "addToQueue.imageset/addToQueue_dark.png"
     },
     {
-      "semantic": "radio",
-      "sheet": "04",
-      "cell": 1,
-      "light": "radio.imageset/radio.png",
-      "dark": "radio.imageset/radio_dark.png"
-    },
-    {
-      "semantic": "micSlash",
-      "sheet": "04",
-      "cell": 2,
-      "light": "micSlash.imageset/micSlash.png",
-      "dark": "micSlash.imageset/micSlash_dark.png"
-    },
-    {
-      "semantic": "skipBack",
-      "sheet": "04",
-      "cell": 3,
-      "light": "skipBack.imageset/skipBack.png",
-      "dark": "skipBack.imageset/skipBack_dark.png"
-    },
-    {
-      "semantic": "skipForward",
-      "sheet": "04",
-      "cell": 4,
-      "light": "skipForward.imageset/skipForward.png",
-      "dark": "skipForward.imageset/skipForward_dark.png"
-    },
-    {
       "semantic": "rewind15",
-      "sheet": "04",
+      "sheet": "02",
       "cell": 5,
       "light": "rewind15.imageset/rewind15.png",
       "dark": "rewind15.imageset/rewind15_dark.png"
     },
     {
       "semantic": "forward15",
-      "sheet": "04",
+      "sheet": "02",
       "cell": 6,
       "light": "forward15.imageset/forward15.png",
       "dark": "forward15.imageset/forward15_dark.png"
     },
     {
-      "semantic": "xmarkCircle",
-      "sheet": "04",
+      "semantic": "skipBack",
+      "sheet": "02",
       "cell": 7,
-      "light": "xmarkCircle.imageset/xmarkCircle.png",
-      "dark": "xmarkCircle.imageset/xmarkCircle_dark.png"
+      "light": "skipBack.imageset/skipBack.png",
+      "dark": "skipBack.imageset/skipBack_dark.png"
     },
     {
-      "semantic": "gridSquare",
-      "sheet": "04",
+      "semantic": "skipForward",
+      "sheet": "02",
       "cell": 8,
-      "light": "gridSquare.imageset/gridSquare.png",
-      "dark": "gridSquare.imageset/gridSquare_dark.png"
+      "light": "skipForward.imageset/skipForward.png",
+      "dark": "skipForward.imageset/skipForward_dark.png"
+    },
+    {
+      "semantic": "add",
+      "sheet": "02",
+      "cell": 9,
+      "light": "add.imageset/add.png",
+      "dark": "add.imageset/add_dark.png"
+    },
+    {
+      "semantic": "close",
+      "sheet": "02",
+      "cell": 10,
+      "light": "close.imageset/close.png",
+      "dark": "close.imageset/close_dark.png"
+    },
+    {
+      "semantic": "xmark",
+      "sheet": "02",
+      "cell": 11,
+      "light": "xmark.imageset/xmark.png",
+      "dark": "xmark.imageset/xmark_dark.png"
     },
     {
       "semantic": "checkmark",
-      "sheet": "04",
-      "cell": 9,
+      "sheet": "02",
+      "cell": 12,
       "light": "checkmark.imageset/checkmark.png",
       "dark": "checkmark.imageset/checkmark_dark.png"
     },
     {
-      "semantic": "shrinkScreen",
-      "sheet": "04",
-      "cell": 10,
-      "light": "shrinkScreen.imageset/shrinkScreen.png",
-      "dark": "shrinkScreen.imageset/shrinkScreen_dark.png"
-    },
-    {
-      "semantic": "expandScreen",
-      "sheet": "04",
-      "cell": 11,
-      "light": "expandScreen.imageset/expandScreen.png",
-      "dark": "expandScreen.imageset/expandScreen_dark.png"
-    },
-    {
-      "semantic": "headphones",
-      "sheet": "04",
-      "cell": 12,
-      "light": "headphones.imageset/headphones.png",
-      "dark": "headphones.imageset/headphones_dark.png"
-    },
-    {
-      "semantic": "heartSlash",
-      "sheet": "04",
+      "semantic": "more",
+      "sheet": "02",
       "cell": 13,
-      "light": "heartSlash.imageset/heartSlash.png",
-      "dark": "heartSlash.imageset/heartSlash_dark.png"
+      "light": "more.imageset/more.png",
+      "dark": "more.imageset/more_dark.png"
     },
     {
-      "semantic": "personCircle",
-      "sheet": "04",
+      "semantic": "back",
+      "sheet": "02",
       "cell": 14,
-      "light": "personCircle.imageset/personCircle.png",
-      "dark": "personCircle.imageset/personCircle_dark.png"
+      "light": "back.imageset/back.png",
+      "dark": "back.imageset/back_dark.png"
     },
     {
-      "semantic": "album",
-      "sheet": "04",
+      "semantic": "chevronRight",
+      "sheet": "02",
       "cell": 15,
-      "light": "album.imageset/album.png",
-      "dark": "album.imageset/album_dark.png"
+      "light": "chevronRight.imageset/chevronRight.png",
+      "dark": "chevronRight.imageset/chevronRight_dark.png"
+    },
+    {
+      "semantic": "chevronLeft",
+      "sheet": "02",
+      "cell": 16,
+      "light": "chevronLeft.imageset/chevronLeft.png",
+      "dark": "chevronLeft.imageset/chevronLeft_dark.png"
+    },
+    {
+      "semantic": "chevronDown",
+      "sheet": "02",
+      "cell": 17,
+      "light": "chevronDown.imageset/chevronDown.png",
+      "dark": "chevronDown.imageset/chevronDown_dark.png"
+    },
+    {
+      "semantic": "chevronUp",
+      "sheet": "02",
+      "cell": 18,
+      "light": "chevronUp.imageset/chevronUp.png",
+      "dark": "chevronUp.imageset/chevronUp_dark.png"
+    },
+    {
+      "semantic": "magnifyingGlass",
+      "sheet": "02",
+      "cell": 19,
+      "light": "magnifyingGlass.imageset/magnifyingGlass.png",
+      "dark": "magnifyingGlass.imageset/magnifyingGlass_dark.png"
+    },
+    {
+      "semantic": "list",
+      "sheet": "02",
+      "cell": 20,
+      "light": "list.imageset/list.png",
+      "dark": "list.imageset/list_dark.png"
+    },
+    {
+      "semantic": "trash",
+      "sheet": "03",
+      "cell": 1,
+      "light": "trash.imageset/trash.png",
+      "dark": "trash.imageset/trash_dark.png"
+    },
+    {
+      "semantic": "download",
+      "sheet": "03",
+      "cell": 2,
+      "light": "download.imageset/download.png",
+      "dark": "download.imageset/download_dark.png"
+    },
+    {
+      "semantic": "playerDownload",
+      "sheet": "03",
+      "cell": 3,
+      "light": "playerDownload.imageset/playerDownload.png",
+      "dark": "playerDownload.imageset/playerDownload_dark.png"
+    },
+    {
+      "semantic": "arrowDownToLine",
+      "sheet": "03",
+      "cell": 4,
+      "light": "arrowDownToLine.imageset/arrowDownToLine.png",
+      "dark": "arrowDownToLine.imageset/arrowDownToLine_dark.png"
     },
     {
       "semantic": "arrowDownCircle",
-      "sheet": "04",
-      "cell": 16,
+      "sheet": "03",
+      "cell": 5,
       "light": "arrowDownCircle.imageset/arrowDownCircle.png",
       "dark": "arrowDownCircle.imageset/arrowDownCircle_dark.png"
     },
     {
-      "semantic": "sun",
+      "semantic": "share",
+      "sheet": "03",
+      "cell": 6,
+      "light": "share.imageset/share.png",
+      "dark": "share.imageset/share_dark.png"
+    },
+    {
+      "semantic": "send",
+      "sheet": "03",
+      "cell": 7,
+      "light": "send.imageset/send.png",
+      "dark": "send.imageset/send_dark.png"
+    },
+    {
+      "semantic": "copy",
+      "sheet": "03",
+      "cell": 8,
+      "light": "copy.imageset/copy.png",
+      "dark": "copy.imageset/copy_dark.png"
+    },
+    {
+      "semantic": "rename",
+      "sheet": "03",
+      "cell": 9,
+      "light": "rename.imageset/rename.png",
+      "dark": "rename.imageset/rename_dark.png"
+    },
+    {
+      "semantic": "link",
+      "sheet": "03",
+      "cell": 10,
+      "light": "link.imageset/link.png",
+      "dark": "link.imageset/link_dark.png"
+    },
+    {
+      "semantic": "filter",
+      "sheet": "03",
+      "cell": 11,
+      "light": "filter.imageset/filter.png",
+      "dark": "filter.imageset/filter_dark.png"
+    },
+    {
+      "semantic": "fullscreen",
+      "sheet": "03",
+      "cell": 12,
+      "light": "fullscreen.imageset/fullscreen.png",
+      "dark": "fullscreen.imageset/fullscreen_dark.png"
+    },
+    {
+      "semantic": "expandScreen",
+      "sheet": "03",
+      "cell": 13,
+      "light": "expandScreen.imageset/expandScreen.png",
+      "dark": "expandScreen.imageset/expandScreen_dark.png"
+    },
+    {
+      "semantic": "shrinkScreen",
+      "sheet": "03",
+      "cell": 14,
+      "light": "shrinkScreen.imageset/shrinkScreen.png",
+      "dark": "shrinkScreen.imageset/shrinkScreen_dark.png"
+    },
+    {
+      "semantic": "xmarkCircle",
+      "sheet": "03",
+      "cell": 15,
+      "light": "xmarkCircle.imageset/xmarkCircle.png",
+      "dark": "xmarkCircle.imageset/xmarkCircle_dark.png"
+    },
+    {
+      "semantic": "selectionCircle",
+      "sheet": "03",
+      "cell": 16,
+      "light": "selectionCircle.imageset/selectionCircle.png",
+      "dark": "selectionCircle.imageset/selectionCircle_dark.png"
+    },
+    {
+      "semantic": "heartSlash",
+      "sheet": "03",
+      "cell": 17,
+      "light": "heartSlash.imageset/heartSlash.png",
+      "dark": "heartSlash.imageset/heartSlash_dark.png"
+    },
+    {
+      "semantic": "musicNote",
+      "sheet": "03",
+      "cell": 18,
+      "light": "musicNote.imageset/musicNote.png",
+      "dark": "musicNote.imageset/musicNote_dark.png"
+    },
+    {
+      "semantic": "musicNoteList",
+      "sheet": "03",
+      "cell": 19,
+      "light": "musicNoteList.imageset/musicNoteList.png",
+      "dark": "musicNoteList.imageset/musicNoteList_dark.png"
+    },
+    {
+      "semantic": "album",
+      "sheet": "03",
+      "cell": 20,
+      "light": "album.imageset/album.png",
+      "dark": "album.imageset/album_dark.png"
+    },
+    {
+      "semantic": "headphones",
+      "sheet": "04",
+      "cell": 1,
+      "light": "headphones.imageset/headphones.png",
+      "dark": "headphones.imageset/headphones_dark.png"
+    },
+    {
+      "semantic": "microphone",
+      "sheet": "04",
+      "cell": 2,
+      "light": "microphone.imageset/microphone.png",
+      "dark": "microphone.imageset/microphone_dark.png"
+    },
+    {
+      "semantic": "micSlash",
+      "sheet": "04",
+      "cell": 3,
+      "light": "micSlash.imageset/micSlash.png",
+      "dark": "micSlash.imageset/micSlash_dark.png"
+    },
+    {
+      "semantic": "karaoke",
+      "sheet": "04",
+      "cell": 4,
+      "light": "karaoke.imageset/karaoke.png",
+      "dark": "karaoke.imageset/karaoke_dark.png"
+    },
+    {
+      "semantic": "translate",
+      "sheet": "04",
+      "cell": 5,
+      "light": "translate.imageset/translate.png",
+      "dark": "translate.imageset/translate_dark.png"
+    },
+    {
+      "semantic": "comment",
+      "sheet": "04",
+      "cell": 6,
+      "light": "comment.imageset/comment.png",
+      "dark": "comment.imageset/comment_dark.png"
+    },
+    {
+      "semantic": "quote",
+      "sheet": "04",
+      "cell": 7,
+      "light": "quote.imageset/quote.png",
+      "dark": "quote.imageset/quote_dark.png"
+    },
+    {
+      "semantic": "hitokoto",
+      "sheet": "04",
+      "cell": 8,
+      "light": "hitokoto.imageset/hitokoto.png",
+      "dark": "hitokoto.imageset/hitokoto_dark.png"
+    },
+    {
+      "semantic": "radio",
+      "sheet": "04",
+      "cell": 9,
+      "light": "radio.imageset/radio.png",
+      "dark": "radio.imageset/radio_dark.png"
+    },
+    {
+      "semantic": "fm",
+      "sheet": "04",
+      "cell": 10,
+      "light": "fm.imageset/fm.png",
+      "dark": "fm.imageset/fm_dark.png"
+    },
+    {
+      "semantic": "fmMode",
+      "sheet": "04",
+      "cell": 11,
+      "light": "fmMode.imageset/fmMode.png",
+      "dark": "fmMode.imageset/fmMode_dark.png"
+    },
+    {
+      "semantic": "waveform",
+      "sheet": "04",
+      "cell": 12,
+      "light": "waveform.imageset/waveform.png",
+      "dark": "waveform.imageset/waveform_dark.png"
+    },
+    {
+      "semantic": "audioWave",
+      "sheet": "04",
+      "cell": 13,
+      "light": "audioWave.imageset/audioWave.png",
+      "dark": "audioWave.imageset/audioWave_dark.png"
+    },
+    {
+      "semantic": "mv",
+      "sheet": "04",
+      "cell": 14,
+      "light": "mv.imageset/mv.png",
+      "dark": "mv.imageset/mv_dark.png"
+    },
+    {
+      "semantic": "immersive",
+      "sheet": "04",
+      "cell": 15,
+      "light": "immersive.imageset/immersive.png",
+      "dark": "immersive.imageset/immersive_dark.png"
+    },
+    {
+      "semantic": "instrumentalLyrics",
+      "sheet": "04",
+      "cell": 16,
+      "light": "instrumentalLyrics.imageset/instrumentalLyrics.png",
+      "dark": "instrumentalLyrics.imageset/instrumentalLyrics_dark.png"
+    },
+    {
+      "semantic": "chart",
       "sheet": "04",
       "cell": 17,
+      "light": "chart.imageset/chart.png",
+      "dark": "chart.imageset/chart_dark.png"
+    },
+    {
+      "semantic": "emoji",
+      "sheet": "04",
+      "cell": 18,
+      "light": "emoji.imageset/emoji.png",
+      "dark": "emoji.imageset/emoji_dark.png"
+    },
+    {
+      "semantic": "personEmpty",
+      "sheet": "04",
+      "cell": 19,
+      "light": "personEmpty.imageset/personEmpty.png",
+      "dark": "personEmpty.imageset/personEmpty_dark.png"
+    },
+    {
+      "semantic": "personCircle",
+      "sheet": "04",
+      "cell": 20,
+      "light": "personCircle.imageset/personCircle.png",
+      "dark": "personCircle.imageset/personCircle_dark.png"
+    },
+    {
+      "semantic": "settings",
+      "sheet": "05",
+      "cell": 1,
+      "light": "settings.imageset/settings.png",
+      "dark": "settings.imageset/settings_dark.png"
+    },
+    {
+      "semantic": "equalizer",
+      "sheet": "05",
+      "cell": 2,
+      "light": "equalizer.imageset/equalizer.png",
+      "dark": "equalizer.imageset/equalizer_dark.png"
+    },
+    {
+      "semantic": "soundQuality",
+      "sheet": "05",
+      "cell": 3,
+      "light": "soundQuality.imageset/soundQuality.png",
+      "dark": "soundQuality.imageset/soundQuality_dark.png"
+    },
+    {
+      "semantic": "cloud",
+      "sheet": "05",
+      "cell": 4,
+      "light": "cloud.imageset/cloud.png",
+      "dark": "cloud.imageset/cloud_dark.png"
+    },
+    {
+      "semantic": "storage",
+      "sheet": "05",
+      "cell": 5,
+      "light": "storage.imageset/storage.png",
+      "dark": "storage.imageset/storage_dark.png"
+    },
+    {
+      "semantic": "save",
+      "sheet": "05",
+      "cell": 6,
+      "light": "save.imageset/save.png",
+      "dark": "save.imageset/save_dark.png"
+    },
+    {
+      "semantic": "clock",
+      "sheet": "05",
+      "cell": 7,
+      "light": "clock.imageset/clock.png",
+      "dark": "clock.imageset/clock_dark.png"
+    },
+    {
+      "semantic": "history",
+      "sheet": "05",
+      "cell": 8,
+      "light": "history.imageset/history.png",
+      "dark": "history.imageset/history_dark.png"
+    },
+    {
+      "semantic": "bell",
+      "sheet": "05",
+      "cell": 9,
+      "light": "bell.imageset/bell.png",
+      "dark": "bell.imageset/bell_dark.png"
+    },
+    {
+      "semantic": "info",
+      "sheet": "05",
+      "cell": 10,
+      "light": "info.imageset/info.png",
+      "dark": "info.imageset/info_dark.png"
+    },
+    {
+      "semantic": "infoCircle",
+      "sheet": "05",
+      "cell": 11,
+      "light": "infoCircle.imageset/infoCircle.png",
+      "dark": "infoCircle.imageset/infoCircle_dark.png"
+    },
+    {
+      "semantic": "warning",
+      "sheet": "05",
+      "cell": 12,
+      "light": "warning.imageset/warning.png",
+      "dark": "warning.imageset/warning_dark.png"
+    },
+    {
+      "semantic": "lock",
+      "sheet": "05",
+      "cell": 13,
+      "light": "lock.imageset/lock.png",
+      "dark": "lock.imageset/lock_dark.png"
+    },
+    {
+      "semantic": "unlock",
+      "sheet": "05",
+      "cell": 14,
+      "light": "unlock.imageset/unlock.png",
+      "dark": "unlock.imageset/unlock_dark.png"
+    },
+    {
+      "semantic": "phone",
+      "sheet": "05",
+      "cell": 15,
+      "light": "phone.imageset/phone.png",
+      "dark": "phone.imageset/phone_dark.png"
+    },
+    {
+      "semantic": "qr",
+      "sheet": "05",
+      "cell": 16,
+      "light": "qr.imageset/qr.png",
+      "dark": "qr.imageset/qr_dark.png"
+    },
+    {
+      "semantic": "haptic",
+      "sheet": "05",
+      "cell": 17,
+      "light": "haptic.imageset/haptic.png",
+      "dark": "haptic.imageset/haptic_dark.png"
+    },
+    {
+      "semantic": "sparkle",
+      "sheet": "05",
+      "cell": 18,
+      "light": "sparkle.imageset/sparkle.png",
+      "dark": "sparkle.imageset/sparkle_dark.png"
+    },
+    {
+      "semantic": "sun",
+      "sheet": "05",
+      "cell": 19,
       "light": "sun.imageset/sun.png",
       "dark": "sun.imageset/sun_dark.png"
     },
     {
       "semantic": "moon",
-      "sheet": "04",
-      "cell": 18,
+      "sheet": "05",
+      "cell": 20,
       "light": "moon.imageset/moon.png",
       "dark": "moon.imageset/moon_dark.png"
     },
     {
       "semantic": "halfCircle",
-      "sheet": "04",
-      "cell": 19,
+      "sheet": "06",
+      "cell": 1,
       "light": "halfCircle.imageset/halfCircle.png",
       "dark": "halfCircle.imageset/halfCircle_dark.png"
     },
     {
-      "semantic": "equalizer",
-      "sheet": "04",
-      "cell": 20,
-      "light": "equalizer.imageset/equalizer.png",
-      "dark": "equalizer.imageset/equalizer_dark.png"
-    },
-    {
-      "semantic": "catMusic",
-      "sheet": "05",
-      "cell": 1,
-      "light": "catMusic.imageset/catMusic.png",
-      "dark": "catMusic.imageset/catMusic_dark.png"
-    },
-    {
-      "semantic": "catLife",
-      "sheet": "05",
-      "cell": 2,
-      "light": "catLife.imageset/catLife.png",
-      "dark": "catLife.imageset/catLife_dark.png"
-    },
-    {
-      "semantic": "catEmotion",
-      "sheet": "05",
-      "cell": 3,
-      "light": "catEmotion.imageset/catEmotion.png",
-      "dark": "catEmotion.imageset/catEmotion_dark.png"
-    },
-    {
-      "semantic": "catCreate",
-      "sheet": "05",
-      "cell": 4,
-      "light": "catCreate.imageset/catCreate.png",
-      "dark": "catCreate.imageset/catCreate_dark.png"
-    },
-    {
-      "semantic": "catAcg",
-      "sheet": "05",
-      "cell": 5,
-      "light": "catAcg.imageset/catAcg.png",
-      "dark": "catAcg.imageset/catAcg_dark.png"
-    },
-    {
-      "semantic": "catEntertain",
-      "sheet": "05",
-      "cell": 6,
-      "light": "catEntertain.imageset/catEntertain.png",
-      "dark": "catEntertain.imageset/catEntertain_dark.png"
-    },
-    {
-      "semantic": "catTalkshow",
-      "sheet": "05",
-      "cell": 7,
-      "light": "catTalkshow.imageset/catTalkshow.png",
-      "dark": "catTalkshow.imageset/catTalkshow_dark.png"
-    },
-    {
-      "semantic": "catBook",
-      "sheet": "05",
-      "cell": 8,
-      "light": "catBook.imageset/catBook.png",
-      "dark": "catBook.imageset/catBook_dark.png"
-    },
-    {
-      "semantic": "catKnowledge",
-      "sheet": "05",
-      "cell": 9,
-      "light": "catKnowledge.imageset/catKnowledge.png",
-      "dark": "catKnowledge.imageset/catKnowledge_dark.png"
-    },
-    {
-      "semantic": "catBusiness",
-      "sheet": "05",
-      "cell": 10,
-      "light": "catBusiness.imageset/catBusiness.png",
-      "dark": "catBusiness.imageset/catBusiness_dark.png"
-    },
-    {
-      "semantic": "catHistory",
-      "sheet": "05",
-      "cell": 11,
-      "light": "catHistory.imageset/catHistory.png",
-      "dark": "catHistory.imageset/catHistory_dark.png"
-    },
-    {
-      "semantic": "catNews",
-      "sheet": "05",
-      "cell": 12,
-      "light": "catNews.imageset/catNews.png",
-      "dark": "catNews.imageset/catNews_dark.png"
-    },
-    {
-      "semantic": "catParenting",
-      "sheet": "05",
-      "cell": 13,
-      "light": "catParenting.imageset/catParenting.png",
-      "dark": "catParenting.imageset/catParenting_dark.png"
-    },
-    {
-      "semantic": "catTravel",
-      "sheet": "05",
-      "cell": 14,
-      "light": "catTravel.imageset/catTravel.png",
-      "dark": "catTravel.imageset/catTravel_dark.png"
-    },
-    {
-      "semantic": "catCrosstalk",
-      "sheet": "05",
-      "cell": 15,
-      "light": "catCrosstalk.imageset/catCrosstalk.png",
-      "dark": "catCrosstalk.imageset/catCrosstalk_dark.png"
-    },
-    {
-      "semantic": "catFood",
-      "sheet": "05",
-      "cell": 16,
-      "light": "catFood.imageset/catFood.png",
-      "dark": "catFood.imageset/catFood_dark.png"
-    },
-    {
-      "semantic": "catTech",
-      "sheet": "05",
-      "cell": 17,
-      "light": "catTech.imageset/catTech.png",
-      "dark": "catTech.imageset/catTech_dark.png"
-    },
-    {
-      "semantic": "catDefault",
-      "sheet": "05",
-      "cell": 18,
-      "light": "catDefault.imageset/catDefault.png",
-      "dark": "catDefault.imageset/catDefault_dark.png"
-    },
-    {
-      "semantic": "catPodcast",
-      "sheet": "05",
-      "cell": 19,
-      "light": "catPodcast.imageset/catPodcast.png",
-      "dark": "catPodcast.imageset/catPodcast_dark.png"
-    },
-    {
-      "semantic": "catElectronic",
-      "sheet": "05",
-      "cell": 20,
-      "light": "catElectronic.imageset/catElectronic.png",
-      "dark": "catElectronic.imageset/catElectronic_dark.png"
-    },
-    {
-      "semantic": "catStar",
-      "sheet": "06",
-      "cell": 1,
-      "light": "catStar.imageset/catStar.png",
-      "dark": "catStar.imageset/catStar_dark.png"
-    },
-    {
-      "semantic": "catDrama",
+      "semantic": "gift",
       "sheet": "06",
       "cell": 2,
-      "light": "catDrama.imageset/catDrama.png",
-      "dark": "catDrama.imageset/catDrama_dark.png"
+      "light": "gift.imageset/gift.png",
+      "dark": "gift.imageset/gift_dark.png"
     },
     {
-      "semantic": "catStory",
+      "semantic": "maintenance",
       "sheet": "06",
       "cell": 3,
-      "light": "catStory.imageset/catStory.png",
-      "dark": "catStory.imageset/catStory_dark.png"
+      "light": "maintenance.imageset/maintenance.png",
+      "dark": "maintenance.imageset/maintenance_dark.png"
     },
     {
-      "semantic": "catOther",
+      "semantic": "policyDocument",
       "sheet": "06",
       "cell": 4,
-      "light": "catOther.imageset/catOther.png",
-      "dark": "catOther.imageset/catOther_dark.png"
+      "light": "policyDocument.imageset/policyDocument.png",
+      "dark": "policyDocument.imageset/policyDocument_dark.png"
     },
     {
-      "semantic": "catPublish",
+      "semantic": "trendUp",
       "sheet": "06",
       "cell": 5,
-      "light": "catPublish.imageset/catPublish.png",
-      "dark": "catPublish.imageset/catPublish_dark.png"
+      "light": "trendUp.imageset/trendUp.png",
+      "dark": "trendUp.imageset/trendUp_dark.png"
     },
     {
-      "semantic": "emoji",
+      "semantic": "trendDown",
       "sheet": "06",
       "cell": 6,
-      "light": "emoji.imageset/emoji.png",
-      "dark": "emoji.imageset/emoji_dark.png"
-    },
-    {
-      "semantic": "share",
-      "sheet": "06",
-      "cell": 7,
-      "light": "share.imageset/share.png",
-      "dark": "share.imageset/share_dark.png"
+      "light": "trendDown.imageset/trendDown.png",
+      "dark": "trendDown.imageset/trendDown_dark.png"
     },
     {
       "semantic": "logInfo",
       "sheet": "06",
-      "cell": 8,
+      "cell": 7,
       "light": "logInfo.imageset/logInfo.png",
       "dark": "logInfo.imageset/logInfo_dark.png"
     },
     {
       "semantic": "logDebug",
       "sheet": "06",
-      "cell": 9,
+      "cell": 8,
       "light": "logDebug.imageset/logDebug.png",
       "dark": "logDebug.imageset/logDebug_dark.png"
     },
     {
       "semantic": "logError",
       "sheet": "06",
-      "cell": 10,
+      "cell": 9,
       "light": "logError.imageset/logError.png",
       "dark": "logError.imageset/logError_dark.png"
     },
     {
       "semantic": "logNetwork",
       "sheet": "06",
-      "cell": 11,
+      "cell": 10,
       "light": "logNetwork.imageset/logNetwork.png",
       "dark": "logNetwork.imageset/logNetwork_dark.png"
     },
     {
       "semantic": "logSuccess",
       "sheet": "06",
-      "cell": 12,
+      "cell": 11,
       "light": "logSuccess.imageset/logSuccess.png",
       "dark": "logSuccess.imageset/logSuccess_dark.png"
     },
     {
-      "semantic": "filter",
+      "semantic": "gestureTap",
       "sheet": "06",
-      "cell": 13,
-      "light": "filter.imageset/filter.png",
-      "dark": "filter.imageset/filter_dark.png"
+      "cell": 12,
+      "light": "gestureTap.imageset/gestureTap.png",
+      "dark": "gestureTap.imageset/gestureTap_dark.png"
     },
     {
-      "semantic": "microphone",
+      "semantic": "gestureSwipeHorizontal",
+      "sheet": "06",
+      "cell": 13,
+      "light": "gestureSwipeHorizontal.imageset/gestureSwipeHorizontal.png",
+      "dark": "gestureSwipeHorizontal.imageset/gestureSwipeHorizontal_dark.png"
+    },
+    {
+      "semantic": "gridSquare",
       "sheet": "06",
       "cell": 14,
-      "light": "microphone.imageset/microphone.png",
-      "dark": "microphone.imageset/microphone_dark.png"
+      "light": "gridSquare.imageset/gridSquare.png",
+      "dark": "gridSquare.imageset/gridSquare_dark.png"
     },
     {
       "semantic": "layers",
@@ -1109,11 +929,11 @@
       "dark": "layers.imageset/layers_dark.png"
     },
     {
-      "semantic": "hitokoto",
+      "semantic": "playerTheme",
       "sheet": "06",
       "cell": 16,
-      "light": "hitokoto.imageset/hitokoto.png",
-      "dark": "hitokoto.imageset/hitokoto_dark.png"
+      "light": "playerTheme.imageset/playerTheme.png",
+      "dark": "playerTheme.imageset/playerTheme_dark.png"
     },
     {
       "semantic": "tabBar",
@@ -1123,852 +943,816 @@
       "dark": "tabBar.imageset/tabBar_dark.png"
     },
     {
-      "semantic": "minimalBar",
+      "semantic": "systemTabBar",
       "sheet": "06",
       "cell": 18,
+      "light": "systemTabBar.imageset/systemTabBar.png",
+      "dark": "systemTabBar.imageset/systemTabBar_dark.png"
+    },
+    {
+      "semantic": "minimalBar",
+      "sheet": "06",
+      "cell": 19,
       "light": "minimalBar.imageset/minimalBar.png",
       "dark": "minimalBar.imageset/minimalBar_dark.png"
     },
     {
       "semantic": "floatingBall",
       "sheet": "06",
-      "cell": 19,
+      "cell": 20,
       "light": "floatingBall.imageset/floatingBall.png",
       "dark": "floatingBall.imageset/floatingBall_dark.png"
     },
     {
-      "semantic": "playerTheme",
-      "sheet": "06",
-      "cell": 20,
-      "light": "playerTheme.imageset/playerTheme.png",
-      "dark": "playerTheme.imageset/playerTheme_dark.png"
-    },
-    {
-      "semantic": "infoCircle",
-      "sheet": "07",
-      "cell": 1,
-      "light": "infoCircle.imageset/infoCircle.png",
-      "dark": "infoCircle.imageset/infoCircle_dark.png"
-    },
-    {
-      "semantic": "playerDownload",
-      "sheet": "07",
-      "cell": 2,
-      "light": "playerDownload.imageset/playerDownload.png",
-      "dark": "playerDownload.imageset/playerDownload_dark.png"
-    },
-    {
-      "semantic": "arrowDownToLine",
-      "sheet": "07",
-      "cell": 3,
-      "light": "arrowDownToLine.imageset/arrowDownToLine.png",
-      "dark": "arrowDownToLine.imageset/arrowDownToLine_dark.png"
-    },
-    {
-      "semantic": "fmMode",
-      "sheet": "07",
-      "cell": 4,
-      "light": "fmMode.imageset/fmMode.png",
-      "dark": "fmMode.imageset/fmMode_dark.png"
-    },
-    {
-      "semantic": "audioWave",
-      "sheet": "07",
-      "cell": 5,
-      "light": "audioWave.imageset/audioWave.png",
-      "dark": "audioWave.imageset/audioWave_dark.png"
-    },
-    {
-      "semantic": "themeStyle",
-      "sheet": "07",
-      "cell": 6,
-      "light": "themeStyle.imageset/themeStyle.png",
-      "dark": "themeStyle.imageset/themeStyle_dark.png"
-    },
-    {
-      "semantic": "appBrand",
-      "sheet": "07",
-      "cell": 7,
-      "light": "appBrand.imageset/appBrand.png",
-      "dark": "appBrand.imageset/appBrand_dark.png"
-    },
-    {
-      "semantic": "interfaceIconSet",
-      "sheet": "07",
-      "cell": 8,
-      "light": "interfaceIconSet.imageset/interfaceIconSet.png",
-      "dark": "interfaceIconSet.imageset/interfaceIconSet_dark.png"
-    },
-    {
-      "semantic": "systemTabBar",
-      "sheet": "07",
-      "cell": 9,
-      "light": "systemTabBar.imageset/systemTabBar.png",
-      "dark": "systemTabBar.imageset/systemTabBar_dark.png"
-    },
-    {
       "semantic": "floatingBarStyle",
       "sheet": "07",
-      "cell": 10,
+      "cell": 1,
       "light": "floatingBarStyle.imageset/floatingBarStyle.png",
       "dark": "floatingBarStyle.imageset/floatingBarStyle_dark.png"
     },
     {
-      "semantic": "liquidGlass",
+      "semantic": "interfaceIconSet",
       "sheet": "07",
-      "cell": 11,
-      "light": "liquidGlass.imageset/liquidGlass.png",
-      "dark": "liquidGlass.imageset/liquidGlass_dark.png"
-    },
-    {
-      "semantic": "fluidBackground",
-      "sheet": "07",
-      "cell": 12,
-      "light": "fluidBackground.imageset/fluidBackground.png",
-      "dark": "fluidBackground.imageset/fluidBackground_dark.png"
-    },
-    {
-      "semantic": "backgroundGlobal",
-      "sheet": "07",
-      "cell": 13,
-      "light": "backgroundGlobal.imageset/backgroundGlobal.png",
-      "dark": "backgroundGlobal.imageset/backgroundGlobal_dark.png"
-    },
-    {
-      "semantic": "homeFilled",
-      "sheet": "07",
-      "cell": 14,
-      "light": "homeFilled.imageset/homeFilled.png",
-      "dark": "homeFilled.imageset/homeFilled_dark.png"
-    },
-    {
-      "semantic": "podcastFilled",
-      "sheet": "07",
-      "cell": 15,
-      "light": "podcastFilled.imageset/podcastFilled.png",
-      "dark": "podcastFilled.imageset/podcastFilled_dark.png"
-    },
-    {
-      "semantic": "libraryFilled",
-      "sheet": "07",
-      "cell": 16,
-      "light": "libraryFilled.imageset/libraryFilled.png",
-      "dark": "libraryFilled.imageset/libraryFilled_dark.png"
-    },
-    {
-      "semantic": "profileFilled",
-      "sheet": "07",
-      "cell": 17,
-      "light": "profileFilled.imageset/profileFilled.png",
-      "dark": "profileFilled.imageset/profileFilled_dark.png"
-    },
-    {
-      "semantic": "liked",
-      "sheet": "07",
-      "cell": 18,
-      "light": "liked.imageset/liked.png",
-      "dark": "liked.imageset/liked_dark.png"
-    },
-    {
-      "semantic": "playCircleFill",
-      "sheet": "07",
-      "cell": 19,
-      "light": "playCircleFill.imageset/playCircleFill.png",
-      "dark": "playCircleFill.imageset/playCircleFill_dark.png"
-    },
-    {
-      "semantic": "backgroundPlaylist",
-      "sheet": "08",
-      "cell": 1,
-      "light": "backgroundPlaylist.imageset/backgroundPlaylist.png",
-      "dark": "backgroundPlaylist.imageset/backgroundPlaylist_dark.png"
-    },
-    {
-      "semantic": "backgroundPlayer",
-      "sheet": "08",
       "cell": 2,
-      "light": "backgroundPlayer.imageset/backgroundPlayer.png",
-      "dark": "backgroundPlayer.imageset/backgroundPlayer_dark.png"
+      "light": "interfaceIconSet.imageset/interfaceIconSet.png",
+      "dark": "interfaceIconSet.imageset/interfaceIconSet_dark.png"
     },
     {
-      "semantic": "colorEngine",
-      "sheet": "08",
+      "semantic": "themeStyle",
+      "sheet": "07",
       "cell": 3,
-      "light": "colorEngine.imageset/colorEngine.png",
-      "dark": "colorEngine.imageset/colorEngine_dark.png"
-    },
-    {
-      "semantic": "backgroundImage",
-      "sheet": "08",
-      "cell": 4,
-      "light": "backgroundImage.imageset/backgroundImage.png",
-      "dark": "backgroundImage.imageset/backgroundImage_dark.png"
-    },
-    {
-      "semantic": "gradientStyle",
-      "sheet": "08",
-      "cell": 5,
-      "light": "gradientStyle.imageset/gradientStyle.png",
-      "dark": "gradientStyle.imageset/gradientStyle_dark.png"
+      "light": "themeStyle.imageset/themeStyle.png",
+      "dark": "themeStyle.imageset/themeStyle_dark.png"
     },
     {
       "semantic": "appearanceMode",
-      "sheet": "08",
-      "cell": 6,
+      "sheet": "07",
+      "cell": 4,
       "light": "appearanceMode.imageset/appearanceMode.png",
       "dark": "appearanceMode.imageset/appearanceMode_dark.png"
     },
     {
-      "semantic": "copy",
-      "sheet": "09",
-      "cell": 1,
-      "light": "copy.imageset/copy.png",
-      "dark": "copy.imageset/copy_dark.png"
-    },
-    {
-      "semantic": "rename",
-      "sheet": "09",
-      "cell": 2,
-      "light": "rename.imageset/rename.png",
-      "dark": "rename.imageset/rename_dark.png"
-    },
-    {
-      "semantic": "link",
-      "sheet": "09",
-      "cell": 3,
-      "light": "link.imageset/link.png",
-      "dark": "link.imageset/link_dark.png"
-    },
-    {
-      "semantic": "gift",
-      "sheet": "09",
-      "cell": 4,
-      "light": "gift.imageset/gift.png",
-      "dark": "gift.imageset/gift_dark.png"
-    },
-    {
-      "semantic": "trendUp",
-      "sheet": "09",
+      "semantic": "colorEngine",
+      "sheet": "07",
       "cell": 5,
-      "light": "trendUp.imageset/trendUp.png",
-      "dark": "trendUp.imageset/trendUp_dark.png"
+      "light": "colorEngine.imageset/colorEngine.png",
+      "dark": "colorEngine.imageset/colorEngine_dark.png"
     },
     {
-      "semantic": "trendDown",
-      "sheet": "09",
+      "semantic": "gradientStyle",
+      "sheet": "07",
       "cell": 6,
-      "light": "trendDown.imageset/trendDown.png",
-      "dark": "trendDown.imageset/trendDown_dark.png"
+      "light": "gradientStyle.imageset/gradientStyle.png",
+      "dark": "gradientStyle.imageset/gradientStyle_dark.png"
+    },
+    {
+      "semantic": "backgroundImage",
+      "sheet": "07",
+      "cell": 7,
+      "light": "backgroundImage.imageset/backgroundImage.png",
+      "dark": "backgroundImage.imageset/backgroundImage_dark.png"
+    },
+    {
+      "semantic": "backgroundGlobal",
+      "sheet": "07",
+      "cell": 8,
+      "light": "backgroundGlobal.imageset/backgroundGlobal.png",
+      "dark": "backgroundGlobal.imageset/backgroundGlobal_dark.png"
+    },
+    {
+      "semantic": "backgroundPlayer",
+      "sheet": "07",
+      "cell": 9,
+      "light": "backgroundPlayer.imageset/backgroundPlayer.png",
+      "dark": "backgroundPlayer.imageset/backgroundPlayer_dark.png"
+    },
+    {
+      "semantic": "backgroundPlaylist",
+      "sheet": "07",
+      "cell": 10,
+      "light": "backgroundPlaylist.imageset/backgroundPlaylist.png",
+      "dark": "backgroundPlaylist.imageset/backgroundPlaylist_dark.png"
+    },
+    {
+      "semantic": "fluidBackground",
+      "sheet": "07",
+      "cell": 11,
+      "light": "fluidBackground.imageset/fluidBackground.png",
+      "dark": "fluidBackground.imageset/fluidBackground_dark.png"
+    },
+    {
+      "semantic": "liquidGlass",
+      "sheet": "07",
+      "cell": 12,
+      "light": "liquidGlass.imageset/liquidGlass.png",
+      "dark": "liquidGlass.imageset/liquidGlass_dark.png"
+    },
+    {
+      "semantic": "appBrand",
+      "sheet": "07",
+      "cell": 13,
+      "light": "appBrand.imageset/appBrand.png",
+      "dark": "appBrand.imageset/appBrand_dark.png"
+    },
+    {
+      "semantic": "catMusic",
+      "sheet": "07",
+      "cell": 14,
+      "light": "catMusic.imageset/catMusic.png",
+      "dark": "catMusic.imageset/catMusic_dark.png"
+    },
+    {
+      "semantic": "catLife",
+      "sheet": "07",
+      "cell": 15,
+      "light": "catLife.imageset/catLife.png",
+      "dark": "catLife.imageset/catLife_dark.png"
+    },
+    {
+      "semantic": "catEmotion",
+      "sheet": "07",
+      "cell": 16,
+      "light": "catEmotion.imageset/catEmotion.png",
+      "dark": "catEmotion.imageset/catEmotion_dark.png"
+    },
+    {
+      "semantic": "catCreate",
+      "sheet": "07",
+      "cell": 17,
+      "light": "catCreate.imageset/catCreate.png",
+      "dark": "catCreate.imageset/catCreate_dark.png"
+    },
+    {
+      "semantic": "catAcg",
+      "sheet": "07",
+      "cell": 18,
+      "light": "catAcg.imageset/catAcg.png",
+      "dark": "catAcg.imageset/catAcg_dark.png"
+    },
+    {
+      "semantic": "catEntertain",
+      "sheet": "07",
+      "cell": 19,
+      "light": "catEntertain.imageset/catEntertain.png",
+      "dark": "catEntertain.imageset/catEntertain_dark.png"
+    },
+    {
+      "semantic": "catTalkshow",
+      "sheet": "07",
+      "cell": 20,
+      "light": "catTalkshow.imageset/catTalkshow.png",
+      "dark": "catTalkshow.imageset/catTalkshow_dark.png"
+    },
+    {
+      "semantic": "catBook",
+      "sheet": "08",
+      "cell": 1,
+      "light": "catBook.imageset/catBook.png",
+      "dark": "catBook.imageset/catBook_dark.png"
+    },
+    {
+      "semantic": "catKnowledge",
+      "sheet": "08",
+      "cell": 2,
+      "light": "catKnowledge.imageset/catKnowledge.png",
+      "dark": "catKnowledge.imageset/catKnowledge_dark.png"
+    },
+    {
+      "semantic": "catBusiness",
+      "sheet": "08",
+      "cell": 3,
+      "light": "catBusiness.imageset/catBusiness.png",
+      "dark": "catBusiness.imageset/catBusiness_dark.png"
+    },
+    {
+      "semantic": "catHistory",
+      "sheet": "08",
+      "cell": 4,
+      "light": "catHistory.imageset/catHistory.png",
+      "dark": "catHistory.imageset/catHistory_dark.png"
+    },
+    {
+      "semantic": "catNews",
+      "sheet": "08",
+      "cell": 5,
+      "light": "catNews.imageset/catNews.png",
+      "dark": "catNews.imageset/catNews_dark.png"
+    },
+    {
+      "semantic": "catParenting",
+      "sheet": "08",
+      "cell": 6,
+      "light": "catParenting.imageset/catParenting.png",
+      "dark": "catParenting.imageset/catParenting_dark.png"
+    },
+    {
+      "semantic": "catTravel",
+      "sheet": "08",
+      "cell": 7,
+      "light": "catTravel.imageset/catTravel.png",
+      "dark": "catTravel.imageset/catTravel_dark.png"
+    },
+    {
+      "semantic": "catCrosstalk",
+      "sheet": "08",
+      "cell": 8,
+      "light": "catCrosstalk.imageset/catCrosstalk.png",
+      "dark": "catCrosstalk.imageset/catCrosstalk_dark.png"
+    },
+    {
+      "semantic": "catFood",
+      "sheet": "08",
+      "cell": 9,
+      "light": "catFood.imageset/catFood.png",
+      "dark": "catFood.imageset/catFood_dark.png"
+    },
+    {
+      "semantic": "catTech",
+      "sheet": "08",
+      "cell": 10,
+      "light": "catTech.imageset/catTech.png",
+      "dark": "catTech.imageset/catTech_dark.png"
+    },
+    {
+      "semantic": "catDefault",
+      "sheet": "08",
+      "cell": 11,
+      "light": "catDefault.imageset/catDefault.png",
+      "dark": "catDefault.imageset/catDefault_dark.png"
+    },
+    {
+      "semantic": "catPodcast",
+      "sheet": "08",
+      "cell": 12,
+      "light": "catPodcast.imageset/catPodcast.png",
+      "dark": "catPodcast.imageset/catPodcast_dark.png"
+    },
+    {
+      "semantic": "catElectronic",
+      "sheet": "08",
+      "cell": 13,
+      "light": "catElectronic.imageset/catElectronic.png",
+      "dark": "catElectronic.imageset/catElectronic_dark.png"
+    },
+    {
+      "semantic": "catStar",
+      "sheet": "08",
+      "cell": 14,
+      "light": "catStar.imageset/catStar.png",
+      "dark": "catStar.imageset/catStar_dark.png"
+    },
+    {
+      "semantic": "catDrama",
+      "sheet": "08",
+      "cell": 15,
+      "light": "catDrama.imageset/catDrama.png",
+      "dark": "catDrama.imageset/catDrama_dark.png"
+    },
+    {
+      "semantic": "catStory",
+      "sheet": "08",
+      "cell": 16,
+      "light": "catStory.imageset/catStory.png",
+      "dark": "catStory.imageset/catStory_dark.png"
+    },
+    {
+      "semantic": "catOther",
+      "sheet": "08",
+      "cell": 17,
+      "light": "catOther.imageset/catOther.png",
+      "dark": "catOther.imageset/catOther_dark.png"
+    },
+    {
+      "semantic": "catPublish",
+      "sheet": "08",
+      "cell": 18,
+      "light": "catPublish.imageset/catPublish.png",
+      "dark": "catPublish.imageset/catPublish_dark.png"
     },
     {
       "semantic": "volumeMute",
-      "sheet": "09",
-      "cell": 7,
+      "sheet": "08",
+      "cell": 19,
       "light": "volumeMute.imageset/volumeMute.png",
       "dark": "volumeMute.imageset/volumeMute_dark.png"
     },
     {
       "semantic": "volumeLow",
-      "sheet": "09",
-      "cell": 8,
+      "sheet": "08",
+      "cell": 20,
       "light": "volumeLow.imageset/volumeLow.png",
       "dark": "volumeLow.imageset/volumeLow_dark.png"
     },
     {
       "semantic": "volumeMedium",
       "sheet": "09",
-      "cell": 9,
+      "cell": 1,
       "light": "volumeMedium.imageset/volumeMedium.png",
       "dark": "volumeMedium.imageset/volumeMedium_dark.png"
     },
     {
       "semantic": "volumeHigh",
       "sheet": "09",
-      "cell": 10,
+      "cell": 2,
       "light": "volumeHigh.imageset/volumeHigh.png",
       "dark": "volumeHigh.imageset/volumeHigh_dark.png"
     },
     {
-      "semantic": "gestureSwipeHorizontal",
-      "sheet": "09",
-      "cell": 11,
-      "light": "gestureSwipeHorizontal.imageset/gestureSwipeHorizontal.png",
-      "dark": "gestureSwipeHorizontal.imageset/gestureSwipeHorizontal_dark.png"
-    },
-    {
-      "semantic": "gestureTap",
-      "sheet": "09",
-      "cell": 12,
-      "light": "gestureTap.imageset/gestureTap.png",
-      "dark": "gestureTap.imageset/gestureTap_dark.png"
-    },
-    {
-      "semantic": "maintenance",
-      "sheet": "09",
-      "cell": 13,
-      "light": "maintenance.imageset/maintenance.png",
-      "dark": "maintenance.imageset/maintenance_dark.png"
-    },
-    {
-      "semantic": "policyDocument",
-      "sheet": "09",
-      "cell": 14,
-      "light": "policyDocument.imageset/policyDocument.png",
-      "dark": "policyDocument.imageset/policyDocument_dark.png"
-    },
-    {
-      "semantic": "quote",
-      "sheet": "09",
-      "cell": 15,
-      "light": "quote.imageset/quote.png",
-      "dark": "quote.imageset/quote_dark.png"
-    },
-    {
-      "semantic": "selectionCircle",
-      "sheet": "09",
-      "cell": 16,
-      "light": "selectionCircle.imageset/selectionCircle.png",
-      "dark": "selectionCircle.imageset/selectionCircle_dark.png"
-    },
-    {
-      "semantic": "instrumentalLyrics",
-      "sheet": "09",
-      "cell": 17,
-      "light": "instrumentalLyrics.imageset/instrumentalLyrics.png",
-      "dark": "instrumentalLyrics.imageset/instrumentalLyrics_dark.png"
-    },
-    {
-      "semantic": "gameMode",
-      "sheet": "10",
-      "cell": 1,
-      "light": "gameMode.imageset/gameMode.png",
-      "dark": "gameMode.imageset/gameMode_dark.png"
-    },
-    {
-      "semantic": "gameModePower",
-      "sheet": "10",
-      "cell": 2,
-      "light": "gameModePower.imageset/gameModePower.png",
-      "dark": "gameModePower.imageset/gameModePower_dark.png"
-    },
-    {
-      "semantic": "gamePresetFPS",
-      "sheet": "10",
-      "cell": 3,
-      "light": "gamePresetFPS.imageset/gamePresetFPS.png",
-      "dark": "gamePresetFPS.imageset/gamePresetFPS_dark.png"
-    },
-    {
-      "semantic": "gamePresetRPG",
-      "sheet": "10",
-      "cell": 4,
-      "light": "gamePresetRPG.imageset/gamePresetRPG.png",
-      "dark": "gamePresetRPG.imageset/gamePresetRPG_dark.png"
-    },
-    {
-      "semantic": "gamePresetRhythm",
-      "sheet": "10",
-      "cell": 5,
-      "light": "gamePresetRhythm.imageset/gamePresetRhythm.png",
-      "dark": "gamePresetRhythm.imageset/gamePresetRhythm_dark.png"
-    },
-    {
-      "semantic": "gameVoicePriority",
-      "sheet": "10",
-      "cell": 6,
-      "light": "gameVoicePriority.imageset/gameVoicePriority.png",
-      "dark": "gameVoicePriority.imageset/gameVoicePriority_dark.png"
-    },
-    {
-      "semantic": "gameLowerQuality",
-      "sheet": "10",
-      "cell": 7,
-      "light": "gameLowerQuality.imageset/gameLowerQuality.png",
-      "dark": "gameLowerQuality.imageset/gameLowerQuality_dark.png"
-    },
-    {
-      "semantic": "gameAutoExit",
-      "sheet": "10",
-      "cell": 8,
-      "light": "gameAutoExit.imageset/gameAutoExit.png",
-      "dark": "gameAutoExit.imageset/gameAutoExit_dark.png"
-    },
-    {
-      "semantic": "gameSilentNowPlaying",
-      "sheet": "10",
-      "cell": 9,
-      "light": "gameSilentNowPlaying.imageset/gameSilentNowPlaying.png",
-      "dark": "gameSilentNowPlaying.imageset/gameSilentNowPlaying_dark.png"
-    },
-    {
-      "semantic": "gameMinimalNowPlaying",
-      "sheet": "10",
-      "cell": 10,
-      "light": "gameMinimalNowPlaying.imageset/gameMinimalNowPlaying.png",
-      "dark": "gameMinimalNowPlaying.imageset/gameMinimalNowPlaying_dark.png"
-    },
-    {
-      "semantic": "gamePreferredQuality",
-      "sheet": "10",
-      "cell": 11,
-      "light": "gamePreferredQuality.imageset/gamePreferredQuality.png",
-      "dark": "gamePreferredQuality.imageset/gamePreferredQuality_dark.png"
-    },
-    {
-      "semantic": "gameAutoPlaylist",
-      "sheet": "10",
-      "cell": 12,
-      "light": "gameAutoPlaylist.imageset/gameAutoPlaylist.png",
-      "dark": "gameAutoPlaylist.imageset/gameAutoPlaylist_dark.png"
-    },
-    {
       "semantic": "soundCenter",
-      "sheet": "11",
-      "cell": 1,
+      "sheet": "09",
+      "cell": 3,
       "light": "soundCenter.imageset/soundCenter.png",
       "dark": "soundCenter.imageset/soundCenter_dark.png"
     },
     {
       "semantic": "soundWorkspaceAI",
-      "sheet": "11",
-      "cell": 2,
+      "sheet": "09",
+      "cell": 4,
       "light": "soundWorkspaceAI.imageset/soundWorkspaceAI.png",
       "dark": "soundWorkspaceAI.imageset/soundWorkspaceAI_dark.png"
     },
     {
       "semantic": "soundWorkspaceCustomEQ",
-      "sheet": "11",
-      "cell": 3,
+      "sheet": "09",
+      "cell": 5,
       "light": "soundWorkspaceCustomEQ.imageset/soundWorkspaceCustomEQ.png",
       "dark": "soundWorkspaceCustomEQ.imageset/soundWorkspaceCustomEQ_dark.png"
     },
     {
       "semantic": "soundWorkspaceEnhancement",
-      "sheet": "11",
-      "cell": 4,
+      "sheet": "09",
+      "cell": 6,
       "light": "soundWorkspaceEnhancement.imageset/soundWorkspaceEnhancement.png",
       "dark": "soundWorkspaceEnhancement.imageset/soundWorkspaceEnhancement_dark.png"
     },
     {
       "semantic": "soundWorkspaceOutput",
-      "sheet": "11",
-      "cell": 5,
+      "sheet": "09",
+      "cell": 7,
       "light": "soundWorkspaceOutput.imageset/soundWorkspaceOutput.png",
       "dark": "soundWorkspaceOutput.imageset/soundWorkspaceOutput_dark.png"
     },
     {
+      "semantic": "gameMode",
+      "sheet": "09",
+      "cell": 8,
+      "light": "gameMode.imageset/gameMode.png",
+      "dark": "gameMode.imageset/gameMode_dark.png"
+    },
+    {
+      "semantic": "gameModePower",
+      "sheet": "09",
+      "cell": 9,
+      "light": "gameModePower.imageset/gameModePower.png",
+      "dark": "gameModePower.imageset/gameModePower_dark.png"
+    },
+    {
+      "semantic": "gamePresetFPS",
+      "sheet": "09",
+      "cell": 10,
+      "light": "gamePresetFPS.imageset/gamePresetFPS.png",
+      "dark": "gamePresetFPS.imageset/gamePresetFPS_dark.png"
+    },
+    {
+      "semantic": "gamePresetRPG",
+      "sheet": "09",
+      "cell": 11,
+      "light": "gamePresetRPG.imageset/gamePresetRPG.png",
+      "dark": "gamePresetRPG.imageset/gamePresetRPG_dark.png"
+    },
+    {
+      "semantic": "gamePresetRhythm",
+      "sheet": "09",
+      "cell": 12,
+      "light": "gamePresetRhythm.imageset/gamePresetRhythm.png",
+      "dark": "gamePresetRhythm.imageset/gamePresetRhythm_dark.png"
+    },
+    {
+      "semantic": "gameVoicePriority",
+      "sheet": "09",
+      "cell": 13,
+      "light": "gameVoicePriority.imageset/gameVoicePriority.png",
+      "dark": "gameVoicePriority.imageset/gameVoicePriority_dark.png"
+    },
+    {
+      "semantic": "gameLowerQuality",
+      "sheet": "09",
+      "cell": 14,
+      "light": "gameLowerQuality.imageset/gameLowerQuality.png",
+      "dark": "gameLowerQuality.imageset/gameLowerQuality_dark.png"
+    },
+    {
+      "semantic": "gameAutoExit",
+      "sheet": "09",
+      "cell": 15,
+      "light": "gameAutoExit.imageset/gameAutoExit.png",
+      "dark": "gameAutoExit.imageset/gameAutoExit_dark.png"
+    },
+    {
+      "semantic": "gameSilentNowPlaying",
+      "sheet": "09",
+      "cell": 16,
+      "light": "gameSilentNowPlaying.imageset/gameSilentNowPlaying.png",
+      "dark": "gameSilentNowPlaying.imageset/gameSilentNowPlaying_dark.png"
+    },
+    {
+      "semantic": "gameMinimalNowPlaying",
+      "sheet": "09",
+      "cell": 17,
+      "light": "gameMinimalNowPlaying.imageset/gameMinimalNowPlaying.png",
+      "dark": "gameMinimalNowPlaying.imageset/gameMinimalNowPlaying_dark.png"
+    },
+    {
+      "semantic": "gamePreferredQuality",
+      "sheet": "09",
+      "cell": 18,
+      "light": "gamePreferredQuality.imageset/gamePreferredQuality.png",
+      "dark": "gamePreferredQuality.imageset/gamePreferredQuality_dark.png"
+    },
+    {
+      "semantic": "gameAutoPlaylist",
+      "sheet": "09",
+      "cell": 19,
+      "light": "gameAutoPlaylist.imageset/gameAutoPlaylist.png",
+      "dark": "gameAutoPlaylist.imageset/gameAutoPlaylist_dark.png"
+    },
+    {
       "semantic": "audioAgent",
-      "sheet": "11",
-      "cell": 6,
+      "sheet": "09",
+      "cell": 20,
       "light": "audioAgent.imageset/audioAgent.png",
       "dark": "audioAgent.imageset/audioAgent_dark.png"
     },
     {
       "semantic": "agentAutoTuning",
-      "sheet": "11",
-      "cell": 7,
+      "sheet": "10",
+      "cell": 1,
       "light": "agentAutoTuning.imageset/agentAutoTuning.png",
       "dark": "agentAutoTuning.imageset/agentAutoTuning_dark.png"
     },
     {
       "semantic": "agentAdaptiveLearning",
-      "sheet": "11",
-      "cell": 8,
+      "sheet": "10",
+      "cell": 2,
       "light": "agentAdaptiveLearning.imageset/agentAdaptiveLearning.png",
       "dark": "agentAdaptiveLearning.imageset/agentAdaptiveLearning_dark.png"
     },
     {
       "semantic": "agentPlayerStatus",
-      "sheet": "11",
-      "cell": 9,
+      "sheet": "10",
+      "cell": 3,
       "light": "agentPlayerStatus.imageset/agentPlayerStatus.png",
       "dark": "agentPlayerStatus.imageset/agentPlayerStatus_dark.png"
     },
     {
       "semantic": "agentSkillMeasurement",
-      "sheet": "11",
-      "cell": 10,
+      "sheet": "10",
+      "cell": 4,
       "light": "agentSkillMeasurement.imageset/agentSkillMeasurement.png",
       "dark": "agentSkillMeasurement.imageset/agentSkillMeasurement_dark.png"
     },
     {
       "semantic": "agentSkillDeviceCoordination",
-      "sheet": "11",
-      "cell": 11,
+      "sheet": "10",
+      "cell": 5,
       "light": "agentSkillDeviceCoordination.imageset/agentSkillDeviceCoordination.png",
       "dark": "agentSkillDeviceCoordination.imageset/agentSkillDeviceCoordination_dark.png"
     },
     {
       "semantic": "agentSkillHeadroomGuard",
-      "sheet": "11",
-      "cell": 12,
+      "sheet": "10",
+      "cell": 6,
       "light": "agentSkillHeadroomGuard.imageset/agentSkillHeadroomGuard.png",
       "dark": "agentSkillHeadroomGuard.imageset/agentSkillHeadroomGuard_dark.png"
     },
     {
       "semantic": "agentSkillPhaseGuard",
-      "sheet": "11",
-      "cell": 13,
+      "sheet": "10",
+      "cell": 7,
       "light": "agentSkillPhaseGuard.imageset/agentSkillPhaseGuard.png",
       "dark": "agentSkillPhaseGuard.imageset/agentSkillPhaseGuard_dark.png"
     },
     {
       "semantic": "agentSkillOutputValidation",
-      "sheet": "11",
-      "cell": 14,
+      "sheet": "10",
+      "cell": 8,
       "light": "agentSkillOutputValidation.imageset/agentSkillOutputValidation.png",
       "dark": "agentSkillOutputValidation.imageset/agentSkillOutputValidation_dark.png"
     },
     {
       "semantic": "agentSkillArtistReference",
-      "sheet": "11",
-      "cell": 15,
+      "sheet": "10",
+      "cell": 9,
       "light": "agentSkillArtistReference.imageset/agentSkillArtistReference.png",
       "dark": "agentSkillArtistReference.imageset/agentSkillArtistReference_dark.png"
     },
     {
       "semantic": "agentSkillVocalReference",
-      "sheet": "11",
-      "cell": 16,
+      "sheet": "10",
+      "cell": 10,
       "light": "agentSkillVocalReference.imageset/agentSkillVocalReference.png",
       "dark": "agentSkillVocalReference.imageset/agentSkillVocalReference_dark.png"
     },
     {
       "semantic": "agentCustomSkill",
-      "sheet": "11",
-      "cell": 17,
+      "sheet": "10",
+      "cell": 11,
       "light": "agentCustomSkill.imageset/agentCustomSkill.png",
       "dark": "agentCustomSkill.imageset/agentCustomSkill_dark.png"
     },
     {
       "semantic": "agentManagedSkill",
-      "sheet": "11",
-      "cell": 18,
+      "sheet": "10",
+      "cell": 12,
       "light": "agentManagedSkill.imageset/agentManagedSkill.png",
       "dark": "agentManagedSkill.imageset/agentManagedSkill_dark.png"
     },
     {
       "semantic": "agentAddCustomSkill",
-      "sheet": "11",
-      "cell": 19,
+      "sheet": "10",
+      "cell": 13,
       "light": "agentAddCustomSkill.imageset/agentAddCustomSkill.png",
       "dark": "agentAddCustomSkill.imageset/agentAddCustomSkill_dark.png"
     },
     {
       "semantic": "agentEditCustomSkill",
-      "sheet": "11",
-      "cell": 20,
+      "sheet": "10",
+      "cell": 14,
       "light": "agentEditCustomSkill.imageset/agentEditCustomSkill.png",
       "dark": "agentEditCustomSkill.imageset/agentEditCustomSkill_dark.png"
     },
     {
       "semantic": "aiTuningWorkspace",
-      "sheet": "12",
-      "cell": 1,
+      "sheet": "10",
+      "cell": 15,
       "light": "aiTuningWorkspace.imageset/aiTuningWorkspace.png",
       "dark": "aiTuningWorkspace.imageset/aiTuningWorkspace_dark.png"
     },
     {
       "semantic": "aiMeasurementWorkspace",
-      "sheet": "12",
-      "cell": 2,
+      "sheet": "10",
+      "cell": 16,
       "light": "aiMeasurementWorkspace.imageset/aiMeasurementWorkspace.png",
       "dark": "aiMeasurementWorkspace.imageset/aiMeasurementWorkspace_dark.png"
     },
     {
       "semantic": "aiResultWorkspace",
-      "sheet": "12",
-      "cell": 3,
+      "sheet": "10",
+      "cell": 17,
       "light": "aiResultWorkspace.imageset/aiResultWorkspace.png",
       "dark": "aiResultWorkspace.imageset/aiResultWorkspace_dark.png"
     },
     {
       "semantic": "aiHistoryWorkspace",
-      "sheet": "12",
-      "cell": 4,
+      "sheet": "10",
+      "cell": 18,
       "light": "aiHistoryWorkspace.imageset/aiHistoryWorkspace.png",
       "dark": "aiHistoryWorkspace.imageset/aiHistoryWorkspace_dark.png"
     },
     {
       "semantic": "agentAnalyze",
-      "sheet": "12",
-      "cell": 5,
+      "sheet": "10",
+      "cell": 19,
       "light": "agentAnalyze.imageset/agentAnalyze.png",
       "dark": "agentAnalyze.imageset/agentAnalyze_dark.png"
     },
     {
       "semantic": "agentStopAnalysis",
-      "sheet": "12",
-      "cell": 6,
+      "sheet": "10",
+      "cell": 20,
       "light": "agentStopAnalysis.imageset/agentStopAnalysis.png",
       "dark": "agentStopAnalysis.imageset/agentStopAnalysis_dark.png"
     },
     {
       "semantic": "agentReanalyze",
-      "sheet": "12",
-      "cell": 7,
+      "sheet": "11",
+      "cell": 1,
       "light": "agentReanalyze.imageset/agentReanalyze.png",
       "dark": "agentReanalyze.imageset/agentReanalyze_dark.png"
     },
     {
       "semantic": "agentApplySavedProposal",
-      "sheet": "12",
-      "cell": 8,
+      "sheet": "11",
+      "cell": 2,
       "light": "agentApplySavedProposal.imageset/agentApplySavedProposal.png",
       "dark": "agentApplySavedProposal.imageset/agentApplySavedProposal_dark.png"
     },
     {
       "semantic": "learningEnabled",
-      "sheet": "12",
-      "cell": 9,
+      "sheet": "11",
+      "cell": 3,
       "light": "learningEnabled.imageset/learningEnabled.png",
       "dark": "learningEnabled.imageset/learningEnabled_dark.png"
     },
     {
       "semantic": "learningStrength",
-      "sheet": "12",
-      "cell": 10,
+      "sheet": "11",
+      "cell": 4,
       "light": "learningStrength.imageset/learningStrength.png",
       "dark": "learningStrength.imageset/learningStrength_dark.png"
     },
     {
       "semantic": "learningRetention",
-      "sheet": "12",
-      "cell": 11,
+      "sheet": "11",
+      "cell": 5,
       "light": "learningRetention.imageset/learningRetention.png",
       "dark": "learningRetention.imageset/learningRetention_dark.png"
     },
     {
       "semantic": "learningSourceFeedback",
-      "sheet": "12",
-      "cell": 12,
+      "sheet": "11",
+      "cell": 6,
       "light": "learningSourceFeedback.imageset/learningSourceFeedback.png",
       "dark": "learningSourceFeedback.imageset/learningSourceFeedback_dark.png"
     },
     {
       "semantic": "learningSourceListening",
-      "sheet": "12",
-      "cell": 13,
+      "sheet": "11",
+      "cell": 7,
       "light": "learningSourceListening.imageset/learningSourceListening.png",
       "dark": "learningSourceListening.imageset/learningSourceListening_dark.png"
     },
     {
       "semantic": "learningSourceAdjustments",
-      "sheet": "12",
-      "cell": 14,
+      "sheet": "11",
+      "cell": 8,
       "light": "learningSourceAdjustments.imageset/learningSourceAdjustments.png",
       "dark": "learningSourceAdjustments.imageset/learningSourceAdjustments_dark.png"
     },
     {
       "semantic": "learningLocalStorage",
-      "sheet": "12",
-      "cell": 15,
+      "sheet": "11",
+      "cell": 9,
       "light": "learningLocalStorage.imageset/learningLocalStorage.png",
       "dark": "learningLocalStorage.imageset/learningLocalStorage_dark.png"
     },
     {
       "semantic": "learningFeedbackPositive",
-      "sheet": "12",
-      "cell": 16,
+      "sheet": "11",
+      "cell": 10,
       "light": "learningFeedbackPositive.imageset/learningFeedbackPositive.png",
       "dark": "learningFeedbackPositive.imageset/learningFeedbackPositive_dark.png"
     },
     {
       "semantic": "learningFeedbackNegative",
-      "sheet": "12",
-      "cell": 17,
+      "sheet": "11",
+      "cell": 11,
       "light": "learningFeedbackNegative.imageset/learningFeedbackNegative.png",
       "dark": "learningFeedbackNegative.imageset/learningFeedbackNegative_dark.png"
     },
     {
       "semantic": "learningFeedbackRetained",
-      "sheet": "12",
-      "cell": 18,
+      "sheet": "11",
+      "cell": 12,
       "light": "learningFeedbackRetained.imageset/learningFeedbackRetained.png",
       "dark": "learningFeedbackRetained.imageset/learningFeedbackRetained_dark.png"
     },
     {
       "semantic": "learningFeedbackReset",
-      "sheet": "12",
-      "cell": 19,
+      "sheet": "11",
+      "cell": 13,
       "light": "learningFeedbackReset.imageset/learningFeedbackReset.png",
       "dark": "learningFeedbackReset.imageset/learningFeedbackReset_dark.png"
     },
     {
       "semantic": "learningFeedbackRegenerated",
-      "sheet": "12",
-      "cell": 20,
+      "sheet": "11",
+      "cell": 14,
       "light": "learningFeedbackRegenerated.imageset/learningFeedbackRegenerated.png",
       "dark": "learningFeedbackRegenerated.imageset/learningFeedbackRegenerated_dark.png"
     },
     {
       "semantic": "learningFeedbackManualEQ",
-      "sheet": "13",
-      "cell": 1,
+      "sheet": "11",
+      "cell": 15,
       "light": "learningFeedbackManualEQ.imageset/learningFeedbackManualEQ.png",
       "dark": "learningFeedbackManualEQ.imageset/learningFeedbackManualEQ_dark.png"
     },
     {
       "semantic": "agentTraceRoot",
-      "sheet": "13",
-      "cell": 2,
+      "sheet": "11",
+      "cell": 16,
       "light": "agentTraceRoot.imageset/agentTraceRoot.png",
       "dark": "agentTraceRoot.imageset/agentTraceRoot_dark.png"
     },
     {
       "semantic": "agentTraceOverview",
-      "sheet": "13",
-      "cell": 3,
+      "sheet": "11",
+      "cell": 17,
       "light": "agentTraceOverview.imageset/agentTraceOverview.png",
       "dark": "agentTraceOverview.imageset/agentTraceOverview_dark.png"
     },
     {
       "semantic": "agentExecutionChain",
-      "sheet": "13",
-      "cell": 4,
+      "sheet": "11",
+      "cell": 18,
       "light": "agentExecutionChain.imageset/agentExecutionChain.png",
       "dark": "agentExecutionChain.imageset/agentExecutionChain_dark.png"
     },
     {
       "semantic": "agentCurrentSkills",
-      "sheet": "13",
-      "cell": 5,
+      "sheet": "11",
+      "cell": 19,
       "light": "agentCurrentSkills.imageset/agentCurrentSkills.png",
       "dark": "agentCurrentSkills.imageset/agentCurrentSkills_dark.png"
     },
     {
       "semantic": "agentToolContract",
-      "sheet": "13",
-      "cell": 6,
+      "sheet": "11",
+      "cell": 20,
       "light": "agentToolContract.imageset/agentToolContract.png",
       "dark": "agentToolContract.imageset/agentToolContract_dark.png"
     },
     {
       "semantic": "agentRuntimeResult",
-      "sheet": "13",
-      "cell": 7,
+      "sheet": "12",
+      "cell": 1,
       "light": "agentRuntimeResult.imageset/agentRuntimeResult.png",
       "dark": "agentRuntimeResult.imageset/agentRuntimeResult_dark.png"
     },
     {
       "semantic": "agentRuntimeIdentity",
-      "sheet": "13",
-      "cell": 8,
+      "sheet": "12",
+      "cell": 2,
       "light": "agentRuntimeIdentity.imageset/agentRuntimeIdentity.png",
       "dark": "agentRuntimeIdentity.imageset/agentRuntimeIdentity_dark.png"
     },
     {
       "semantic": "agentRawRecords",
-      "sheet": "13",
-      "cell": 9,
+      "sheet": "12",
+      "cell": 3,
       "light": "agentRawRecords.imageset/agentRawRecords.png",
       "dark": "agentRawRecords.imageset/agentRawRecords_dark.png"
     },
     {
       "semantic": "agentTraceStageConfiguration",
-      "sheet": "13",
-      "cell": 10,
+      "sheet": "12",
+      "cell": 4,
       "light": "agentTraceStageConfiguration.imageset/agentTraceStageConfiguration.png",
       "dark": "agentTraceStageConfiguration.imageset/agentTraceStageConfiguration_dark.png"
     },
     {
       "semantic": "agentTraceStageSkills",
-      "sheet": "13",
-      "cell": 11,
+      "sheet": "12",
+      "cell": 5,
       "light": "agentTraceStageSkills.imageset/agentTraceStageSkills.png",
       "dark": "agentTraceStageSkills.imageset/agentTraceStageSkills_dark.png"
     },
     {
       "semantic": "agentTraceStageMeasurement",
-      "sheet": "13",
-      "cell": 12,
+      "sheet": "12",
+      "cell": 6,
       "light": "agentTraceStageMeasurement.imageset/agentTraceStageMeasurement.png",
       "dark": "agentTraceStageMeasurement.imageset/agentTraceStageMeasurement_dark.png"
     },
     {
       "semantic": "agentTraceStageModel",
-      "sheet": "13",
-      "cell": 13,
+      "sheet": "12",
+      "cell": 7,
       "light": "agentTraceStageModel.imageset/agentTraceStageModel.png",
       "dark": "agentTraceStageModel.imageset/agentTraceStageModel_dark.png"
     },
     {
       "semantic": "agentTraceStageTool",
-      "sheet": "13",
-      "cell": 14,
+      "sheet": "12",
+      "cell": 8,
       "light": "agentTraceStageTool.imageset/agentTraceStageTool.png",
       "dark": "agentTraceStageTool.imageset/agentTraceStageTool_dark.png"
     },
     {
       "semantic": "agentTraceStageValidation",
-      "sheet": "13",
-      "cell": 15,
+      "sheet": "12",
+      "cell": 9,
       "light": "agentTraceStageValidation.imageset/agentTraceStageValidation.png",
       "dark": "agentTraceStageValidation.imageset/agentTraceStageValidation_dark.png"
     },
     {
-      "semantic": "agentTraceStageCompilation",
-      "sheet": "13",
-      "cell": 16,
-      "light": "agentTraceStageCompilation.imageset/agentTraceStageCompilation.png",
-      "dark": "agentTraceStageCompilation.imageset/agentTraceStageCompilation_dark.png"
-    },
-    {
       "semantic": "agentTraceStageApplication",
-      "sheet": "13",
-      "cell": 17,
+      "sheet": "12",
+      "cell": 10,
       "light": "agentTraceStageApplication.imageset/agentTraceStageApplication.png",
       "dark": "agentTraceStageApplication.imageset/agentTraceStageApplication_dark.png"
     },
     {
+      "semantic": "agentTraceStageCompilation",
+      "sheet": "12",
+      "cell": 11,
+      "light": "agentTraceStageCompilation.imageset/agentTraceStageCompilation.png",
+      "dark": "agentTraceStageCompilation.imageset/agentTraceStageCompilation_dark.png"
+    },
+    {
       "semantic": "agentTraceStageFallback",
-      "sheet": "13",
-      "cell": 18,
+      "sheet": "12",
+      "cell": 12,
       "light": "agentTraceStageFallback.imageset/agentTraceStageFallback.png",
       "dark": "agentTraceStageFallback.imageset/agentTraceStageFallback_dark.png"
     },
     {
       "semantic": "agentTraceStageCompletion",
-      "sheet": "13",
-      "cell": 19,
+      "sheet": "12",
+      "cell": 13,
       "light": "agentTraceStageCompletion.imageset/agentTraceStageCompletion.png",
       "dark": "agentTraceStageCompletion.imageset/agentTraceStageCompletion_dark.png"
     }
-  ],
-  "version": 5,
-  "style": {
-    "keyline": "24 px",
-    "activeArea": "compact 18 px optical area",
-    "construction": "regular monoline, round-square terminals, controlled corner radii, 2–4 paths when semantics allow",
-    "accentRule": "#B7FF2A only for explicit selected, active, success, warning, or live states; otherwise monochrome",
-    "excludedDirections": [
-      "retro",
-      "terminal",
-      "cyberpunk",
-      "Y2K",
-      "arcade",
-      "neon",
-      "skeuomorphic hardware",
-      "radio or cassette device metaphors",
-      "decorative dots"
-    ]
-  },
-  "darkVariant": {
-    "method": "shared-geometry recolor from the approved Image 2 light source",
-    "background": "#000000",
-    "stroke": "#F8F8F6",
-    "accent": "#B7FF2A"
-  },
-  "subsystemCalibration": {
-    "scope": [
-      "soundCenter",
-      "audioAgent",
-      "agentLearning",
-      "agentTrace"
-    ],
-    "nodeId": "-EG29EthhXtlSU8Ymh39S",
-    "configNodeId": "config-09b1ea33-09dd-48e0-a5a9-a724f39b5779",
-    "appearance": "light",
-    "recognitionRule": "familiar toolbar metaphor first; each semantic keeps an independent primary silhouette"
-  }
+  ]
 }

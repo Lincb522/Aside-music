@@ -21,6 +21,9 @@ final class PlayHistory {
     var qishuiTrackId: Int?
     var appleMusicID: String?
     var appleMusicISRC: String?
+    var kugouAlbumAudioID: Int?
+    var kugouAlbumID: Int?
+    var kugouHash: String?
     
     init(
         songId: Int,
@@ -37,6 +40,9 @@ final class PlayHistory {
         qqAlbumMid: String? = nil,
         qishuiTrackId: Int? = nil,
         appleMusicID: String? = nil,
+        kugouHash: String? = nil,
+        kugouAlbumID: Int? = nil,
+        kugouAlbumAudioID: Int? = nil,
         appleMusicISRC: String? = nil
     ) {
         self.id = UUID()
@@ -56,6 +62,9 @@ final class PlayHistory {
         self.qishuiTrackId = qishuiTrackId
         self.appleMusicID = appleMusicID
         self.appleMusicISRC = appleMusicISRC
+        self.kugouAlbumAudioID = kugouAlbumAudioID
+        self.kugouAlbumID = kugouAlbumID
+        self.kugouHash = kugouHash
     }
     
     /// 从 Song 创建
@@ -68,11 +77,14 @@ final class PlayHistory {
             playDuration: duration,
             completed: completed,
             trackDuration: max(0, (song.dt ?? 0) / 1_000),
-            sourceRaw: song.source?.rawValue,
+            sourceRaw: song.musicSource.rawValue,
             qqMid: song.qqMid,
             qqAlbumMid: song.qqAlbumMid,
             qishuiTrackId: song.qishuiTrackId,
             appleMusicID: song.appleMusicID,
+            kugouHash: song.kugouHash,
+            kugouAlbumID: song.kugouAlbumID,
+            kugouAlbumAudioID: song.kugouAlbumAudioID,
             appleMusicISRC: song.appleMusicISRC
         )
     }
@@ -105,6 +117,9 @@ final class PlayHistory {
         song.qishuiTrackId = qishuiTrackId
         song.appleMusicID = appleMusicID
         song.appleMusicISRC = appleMusicISRC
+        song.kugouAlbumAudioID = kugouAlbumAudioID
+        song.kugouAlbumID = kugouAlbumID
+        song.kugouHash = kugouHash
         return song
     }
 }
@@ -135,6 +150,9 @@ extension PlayHistory: MonoEntity {
         .init("trackDuration", .int), .init("effectivePlay", .bool),
         .init("qualificationVersion", .int), .init("sourceRaw", .string),
         .init("qqMid", .string), .init("qqAlbumMid", .string), .init("qishuiTrackId", .int),
+        .init("kugouHash", .string),
+        .init("kugouAlbumID", .int),
+        .init("kugouAlbumAudioID", .int),
         .init("appleMusicID", .string), .init("appleMusicISRC", .string)
     ]
 
@@ -148,6 +166,9 @@ extension PlayHistory: MonoEntity {
             "effectivePlay": effectivePlay, "qualificationVersion": qualificationVersion,
             "sourceRaw": sourceRaw, "qqMid": qqMid,
             "qqAlbumMid": qqAlbumMid, "qishuiTrackId": qishuiTrackId,
+            "kugouHash": kugouHash,
+            "kugouAlbumID": kugouAlbumID,
+            "kugouAlbumAudioID": kugouAlbumAudioID,
             "appleMusicID": appleMusicID, "appleMusicISRC": appleMusicISRC
         ]
     }
@@ -168,6 +189,9 @@ extension PlayHistory: MonoEntity {
             qqAlbumMid: MonoSnapshotValue.stringOpt(s, "qqAlbumMid"),
             qishuiTrackId: MonoSnapshotValue.intOpt(s, "qishuiTrackId"),
             appleMusicID: MonoSnapshotValue.stringOpt(s, "appleMusicID"),
+            kugouHash: MonoSnapshotValue.stringOpt(s, "kugouHash"),
+            kugouAlbumID: MonoSnapshotValue.intOpt(s, "kugouAlbumID"),
+            kugouAlbumAudioID: MonoSnapshotValue.intOpt(s, "kugouAlbumAudioID"),
             appleMusicISRC: MonoSnapshotValue.stringOpt(s, "appleMusicISRC")
         )
         obj.id = MonoSnapshotValue.uuid(s, "id")
@@ -203,19 +227,21 @@ extension SearchHistory: MonoEntity {
 extension CachedLyrics: MonoEntity {
     static let monoEntityName = "CachedLyrics"
     static let monoAttributes: [MonoAttribute] = [
-        .init("songId", .int), .init("lyrics", .string),
+        .init("songId", .int), .init("sourceRaw", .string), .init("lyrics", .string),
         .init("translatedLyrics", .string), .init("cachedAt", .date)
     ]
 
-    var monoUniqueKey: String { String(songId) }
+    var monoUniqueKey: String { "\(sourceRaw ?? MusicSource.netease.rawValue):\(songId)" }
+    var musicSource: MusicSource { sourceRaw.flatMap(MusicSource.init(rawValue:)) ?? .netease }
 
     func monoSnapshot() -> [String: Any?] {
-        ["songId": songId, "lyrics": lyrics, "translatedLyrics": translatedLyrics, "cachedAt": cachedAt]
+        ["songId": songId, "sourceRaw": sourceRaw, "lyrics": lyrics, "translatedLyrics": translatedLyrics, "cachedAt": cachedAt]
     }
 
     static func monoMake(from s: [String: Any?]) -> Self {
         let obj = CachedLyrics(
             songId: MonoSnapshotValue.int(s, "songId"),
+            source: MonoSnapshotValue.stringOpt(s, "sourceRaw").flatMap(MusicSource.init(rawValue:)) ?? .netease,
             lyrics: MonoSnapshotValue.string(s, "lyrics"),
             translatedLyrics: MonoSnapshotValue.stringOpt(s, "translatedLyrics")
         )
@@ -227,12 +253,14 @@ extension CachedLyrics: MonoEntity {
 /// 缓存的歌词
 final class CachedLyrics {
     var songId: Int
+    var sourceRaw: String?
     var lyrics: String // 原始歌词
     var translatedLyrics: String? // 翻译歌词
     var cachedAt: Date
     
-    init(songId: Int, lyrics: String, translatedLyrics: String? = nil) {
+    init(songId: Int, source: MusicSource = .netease, lyrics: String, translatedLyrics: String? = nil) {
         self.songId = songId
+        self.sourceRaw = source.rawValue
         self.lyrics = lyrics
         self.translatedLyrics = translatedLyrics
         self.cachedAt = Date()

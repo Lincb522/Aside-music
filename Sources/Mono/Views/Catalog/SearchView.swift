@@ -26,7 +26,7 @@ struct SearchView: View {
     @State var selectedQQMV: QQMVVidItem?
     @State var selectedKCMMV: KCMMV?
     @State var isSearchSelectMode = false
-    @State var searchSelectedIds: Set<Int> = []
+    @State var searchSelectedIds: Set<String> = []
     @State var showSearchBatchPlaylist = false
     @State var searchFilterText = ""
     @State var isSearchFiltering = false

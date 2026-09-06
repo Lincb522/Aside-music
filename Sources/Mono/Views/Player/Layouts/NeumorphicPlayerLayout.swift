@@ -8,12 +8,8 @@ struct NeumorphicPlayerLayout: View {
     @Environment(\.dismiss) var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject var player = PlayerManager.shared
-    @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
-    @ObservedObject var downloadManager = DownloadManager.shared
-    @ObservedObject var lyricVM = LyricViewModel.shared
+    @ObservedObject var downloadStatus = DownloadedSongStatusModel.shared
     
-    @State private var isDragging = false
-    @State private var dragValue: Double = 0
     @State private var showPlaylist = false
     @State private var showQualitySheet = false
     @State private var showLyrics = false
@@ -93,7 +89,13 @@ struct NeumorphicPlayerLayout: View {
                     
                     // 底部控制区域
                     VStack(spacing: 24) {
-                        neumorphicProgressBar
+                        NeumorphicPlayerProgressBar(
+                            textColor: textColor,
+                            secondaryTextColor: secondaryTextColor,
+                            darkShadow: darkShadow,
+                            lightShadow: lightShadow,
+                            onSeek: { player.seek(to: $0) }
+                        )
                         controlsSection
                         additionalButtons
                     }
@@ -101,10 +103,12 @@ struct NeumorphicPlayerLayout: View {
                     .padding(.top, 16)
                     .padding(.bottom, DeviceLayout.playerBottomPadding)
                 }
-                
+            }
+            .playerMoreMenuOverlay { anchorFrame in
                 if showMoreMenu {
                     PlayerMoreMenu(
                         isPresented: $showMoreMenu,
+                        anchorFrame: anchorFrame,
                         onEQ: { showEQSettings = true },
                         onTheme: { showThemePicker = true }
                     )
@@ -203,6 +207,7 @@ extension NeumorphicPlayerLayout {
             } content: {
                 MonoIcon(icon: .more, size: 22, color: secondaryTextColor)
             }
+            .playerMoreMenuAnchor()
         }
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
     }
@@ -305,88 +310,6 @@ extension NeumorphicPlayerLayout {
         .padding(.horizontal, DeviceLayout.playerHorizontalPadding)
     }
     
-    // MARK: - 凹陷进度条
-    private var neumorphicProgressBar: some View {
-        VStack(spacing: 8) {
-            GeometryReader { geo in
-                let progress = timePublisher.duration > 0
-                    ? (isDragging ? dragValue : timePublisher.currentTime) / timePublisher.duration
-                    : 0
-                
-                ZStack(alignment: .leading) {
-                    // 凹陷轨道 — 半透明
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(Color.clear)
-                        .monoGlass(cornerRadius: 6)
-                        .frame(height: 12)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 6)
-                                .stroke(
-                                    LinearGradient(
-                                        colors: colorScheme == .dark
-                                            ? [Color.black.opacity(0.4), Color.white.opacity(0.04)]
-                                            : [Color.black.opacity(0.08), Color.white.opacity(0.5)],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    ),
-                                    lineWidth: 1
-                                )
-                        )
-                    
-                    // 进度填充
-                    RoundedRectangle(cornerRadius: 5)
-                        .fill(
-                            LinearGradient(
-                                colors: [textColor.opacity(0.35), textColor.opacity(0.15)],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .frame(width: max(12, geo.size.width * CGFloat(min(max(progress, 0), 1))), height: 10)
-                        .padding(.horizontal, 1)
-                    
-                    // 拖动手柄（凸起）
-                    Circle()
-                        .fill(Color.clear)
-                        .monoGlassCircle()
-                        .frame(width: 20, height: 20)
-                        .overlay(
-                            Circle().stroke(
-                                colorScheme == .dark
-                                    ? Color.white.opacity(0.1)
-                                    : Color.white.opacity(0.8),
-                                lineWidth: 0.5
-                            )
-                        )
-                        .shadow(color: darkShadow, radius: 4, x: 3, y: 3)
-                        .shadow(color: lightShadow, radius: 4, x: -3, y: -3)
-                        .offset(x: max(0, min(geo.size.width - 20, geo.size.width * CGFloat(progress) - 10)))
-                }
-                .contentShape(Rectangle())
-                .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { value in
-                            isDragging = true
-                            dragValue = min(max(value.location.x / geo.size.width, 0), 1) * timePublisher.duration
-                        }
-                        .onEnded { value in
-                            isDragging = false
-                            player.seek(to: min(max(value.location.x / geo.size.width, 0), 1) * timePublisher.duration)
-                        }
-                )
-            }
-            .frame(height: 20)
-            
-            HStack {
-                Text(formatTime(isDragging ? dragValue : timePublisher.currentTime))
-                Spacer()
-                Text(formatTime(timePublisher.duration))
-            }
-            .font(.system(size: 11, weight: .medium, design: .monospaced))
-            .foregroundColor(secondaryTextColor)
-        }
-    }
-    
     // MARK: - 控制按钮
     private var controlsSection: some View {
         HStack(spacing: 0) {
@@ -483,17 +406,17 @@ extension NeumorphicPlayerLayout {
                 if AppConfig.Features.downloadEnabled {
                     // 下载按钮（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
                     neumorphicButton(size: 40) {
-                        if !downloadManager.isDownloaded(songId: song.id) {
+                        if !downloadStatus.isDownloaded(song: song) {
                             showDownloadSheet = true
                         }
                     } content: {
                         MonoIcon(
                             icon: .playerDownload, size: 18,
-                            color: downloadManager.isDownloaded(songId: song.id) ? textColor : secondaryTextColor,
+                            color: downloadStatus.isDownloaded(song: song) ? textColor : secondaryTextColor,
                             lineWidth: 1.4
                         )
                     }
-                    .disabled(downloadManager.isDownloaded(songId: song.id))
+                    .disabled(downloadStatus.isDownloaded(song: song))
                 }
             }
 
@@ -544,12 +467,6 @@ extension NeumorphicPlayerLayout {
 // MARK: - 辅助方法
 extension NeumorphicPlayerLayout {
     
-    private func formatTime(_ seconds: Double) -> String {
-        guard !seconds.isNaN && !seconds.isInfinite else { return "0:00" }
-        let total = Int(seconds)
-        return String(format: "%d:%02d", total / 60, total % 60)
-    }
-    
     private func streamInfoText(_ info: StreamInfo) -> String {
         var parts: [String] = []
         if let codec = info.audioCodec { parts.append(codec.uppercased()) }
@@ -578,4 +495,107 @@ struct NeumorphicButtonStyle: ButtonStyle {
             .opacity(configuration.isPressed ? 0.85 : 1.0)
             .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
     }
+}
+
+// Playback and scrub updates are owned by the progress control so the
+// artwork, shadows and transport controls retain their existing view inputs.
+private struct NeumorphicPlayerProgressBar: View {
+    let textColor: Color
+    let secondaryTextColor: Color
+    let darkShadow: Color
+    let lightShadow: Color
+    let onSeek: (Double) -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+    @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
+    @State private var isDragging = false
+    @State private var dragValue: Double = 0
+
+    var body: some View {
+        VStack(spacing: 8) {
+            GeometryReader { geo in
+                let progress = timePublisher.duration > 0
+                    ? (isDragging ? dragValue : timePublisher.currentTime) / timePublisher.duration
+                    : 0
+
+                ZStack(alignment: .leading) {
+                    // 凹陷轨道 — 半透明
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.clear)
+                        .monoGlass(cornerRadius: 6)
+                        .frame(height: 12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(
+                                    LinearGradient(
+                                        colors: colorScheme == .dark
+                                            ? [Color.black.opacity(0.4), Color.white.opacity(0.04)]
+                                            : [Color.black.opacity(0.08), Color.white.opacity(0.5)],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    ),
+                                    lineWidth: 1
+                                )
+                        )
+
+                    // 进度填充
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(
+                            LinearGradient(
+                                colors: [textColor.opacity(0.35), textColor.opacity(0.15)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: max(12, geo.size.width * CGFloat(min(max(progress, 0), 1))), height: 10)
+                        .padding(.horizontal, 1)
+
+                    // 拖动手柄（凸起）
+                    Circle()
+                        .fill(Color.clear)
+                        .monoGlassCircle()
+                        .frame(width: 20, height: 20)
+                        .overlay(
+                            Circle().stroke(
+                                colorScheme == .dark
+                                    ? Color.white.opacity(0.1)
+                                    : Color.white.opacity(0.8),
+                                lineWidth: 0.5
+                            )
+                        )
+                        .shadow(color: darkShadow, radius: 4, x: 3, y: 3)
+                        .shadow(color: lightShadow, radius: 4, x: -3, y: -3)
+                        .offset(x: max(0, min(geo.size.width - 20, geo.size.width * CGFloat(progress) - 10)))
+                }
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            isDragging = true
+                            dragValue = min(max(value.location.x / geo.size.width, 0), 1) * timePublisher.duration
+                        }
+                        .onEnded { value in
+                            isDragging = false
+                            onSeek(min(max(value.location.x / geo.size.width, 0), 1) * timePublisher.duration)
+                        }
+                )
+            }
+            .frame(height: 20)
+
+            HStack {
+                Text(formatTime(isDragging ? dragValue : timePublisher.currentTime))
+                Spacer()
+                Text(formatTime(timePublisher.duration))
+            }
+            .font(.system(size: 11, weight: .medium, design: .monospaced))
+            .foregroundColor(secondaryTextColor)
+        }
+    }
+
+    private func formatTime(_ seconds: Double) -> String {
+        guard !seconds.isNaN && !seconds.isInfinite else { return "0:00" }
+        let total = Int(seconds)
+        return String(format: "%d:%02d", total / 60, total % 60)
+    }
+
 }

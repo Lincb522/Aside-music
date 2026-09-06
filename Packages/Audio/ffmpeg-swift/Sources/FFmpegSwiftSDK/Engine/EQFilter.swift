@@ -9,7 +9,7 @@ import Foundation
 
 // MARK: - Biquad
 
-struct BiquadCoefficients {
+struct BiquadCoefficients: Equatable {
     var b0: Float
     var b1: Float
     var b2: Float
@@ -152,36 +152,67 @@ struct BiquadCoefficients {
 }
 
 struct BiquadState {
-    var z1: Float = 0
-    var z2: Float = 0
+    // Input/output history remains meaningful when coefficients change.
+    // Transposed delay values embed the old coefficients and inject an impulse
+    // if reused unchanged with the next control update.
+    private var x1: Double = 0
+    private var x2: Double = 0
+    private var y1: Double = 0
+    private var y2: Double = 0
 
     mutating func reset() {
-        z1 = 0
-        z2 = 0
+        self = BiquadState()
     }
 
-    mutating func softReset(factor: Float = 0.9) {
-        z1 *= factor
-        z2 *= factor
+    @inline(__always)
+    mutating func process(_ input: Float, coefficients c: BiquadCoefficients) -> Float {
+        let x = Double(input)
+        let y = Double(c.b0) * x + Double(c.b1) * x1 + Double(c.b2) * x2
+            - Double(c.a1) * y1 - Double(c.a2) * y2
+        x2 = x1
+        x1 = x
+        y2 = y1
+        y1 = y
+        return Float(y)
     }
 }
 
-private struct ParametricRuntimeBand {
+private final class ParametricRuntimeBand {
     var configuration: ParametricEQBand
     var coefficients: BiquadCoefficients = .unity
     var targetCoefficients: BiquadCoefficients = .unity
     var targetCoefficientSampleRate: Float = 0
-    var states: [BiquadState] = []
+    var states = Array(repeating: BiquadState(), count: 2)
+
+    init(configuration: ParametricEQBand) { self.configuration = configuration }
+
+    func reset() {
+        coefficients = .unity
+        targetCoefficients = .unity
+        targetCoefficientSampleRate = 0
+        for index in states.indices { states[index].reset() }
+    }
 }
 
-private struct DynamicRuntimeBand {
+private final class DynamicRuntimeBand {
     var configuration: DynamicEQBand
     var detectorCoefficients: BiquadCoefficients = .unity
     var detectorCoefficientSampleRate: Float = 0
-    var detectorStates: [BiquadState] = []
+    var detectorStates = Array(repeating: BiquadState(), count: 2)
     var processingCoefficients: BiquadCoefficients = .unity
-    var processingStates: [BiquadState] = []
+    var processingStates = Array(repeating: BiquadState(), count: 2)
     var reductionDB: Float = 0
+
+    init(configuration: DynamicEQBand) { self.configuration = configuration }
+
+    func reset() {
+        detectorCoefficients = .unity
+        detectorCoefficientSampleRate = 0
+        processingCoefficients = .unity
+        reductionDB = 0
+        for index in detectorStates.indices { detectorStates[index].reset() }
+        for index in processingStates.indices { processingStates[index].reset() }
+    }
 }
 
 private struct MultibandChannelState {
@@ -228,7 +259,245 @@ private struct MonoEnhanceCoefficients {
 // MARK: - EQFilter
 
 public final class EQFilter {
-    private let lock = NSLock()
+    private struct Configuration: Equatable {
+        var enabled = true
+        var mode = GraphicEQMode.tenBand
+        var gains = Array(repeating: Float(0), count: 10)
+        var calibration = Array(repeating: Float(0), count: 10)
+        var adaptive = Array(repeating: Float(0), count: 10)
+        var hearingLeft = Array(repeating: Float(0), count: 10)
+        var hearingRight = Array(repeating: Float(0), count: 10)
+        var preampDB: Float = 0
+        var parametric: [ParametricEQBand] = []
+        var dynamicEnabled = false
+        var dynamic: [DynamicEQBand] = []
+        var multiband = MultibandDynamicsConfiguration()
+        var enhance = MonoEnhanceConfiguration.neutral
+        var resetSerial: UInt64 = 0
+    }
+
+    private let configuration = RealtimeAudioConfiguration(Configuration())
+    // Filter histories and ramps belong exclusively to the audio consumer.
+    private var processor = EQFilterProcessor()
+    private var standbyProcessor = EQFilterProcessor()
+    private var applied = Configuration()
+    private var desired = Configuration()
+    private var standbyApplied = Configuration()
+    private var transitionFramesRemaining = 0
+    private var transitionFrameCount = 0
+    private let transitionCapacity = 65_536
+    private let transitionScratch = UnsafeMutablePointer<Float>.allocate(capacity: 65_536)
+
+    public init() {}
+
+    deinit { transitionScratch.deallocate() }
+
+    public func setProcessingEnabled(_ enabled: Bool) {
+        configuration.update { $0.enabled = enabled }
+    }
+
+    public func processingEnabled() -> Bool { configuration.read { $0.enabled } }
+    public func currentGraphicMode() -> GraphicEQMode { configuration.read { $0.mode } }
+    public func currentGraphicGains() -> [Float] { configuration.read { $0.gains } }
+
+    public func setGraphicMode(_ mode: GraphicEQMode, gains: [Float]? = nil) {
+        configuration.update { state in
+            let previousMode = state.mode
+            if mode != previousMode {
+                state.calibration = mode.resampledGains(state.calibration, from: previousMode)
+                state.adaptive = mode.resampledGains(state.adaptive, from: previousMode)
+                state.hearingLeft = mode.resampledGains(state.hearingLeft, from: previousMode)
+                state.hearingRight = mode.resampledGains(state.hearingRight, from: previousMode)
+                state.gains = mode.resampledGains(state.gains, from: previousMode)
+                state.mode = mode
+            }
+            if let gains {
+                state.gains = Self.normalized(gains, mode: mode, limit: EQBandGain.maxGain)
+            }
+        }
+    }
+
+    @discardableResult
+    public func setGraphicGain(_ gain: Float, at index: Int) -> Float? {
+        configuration.update { state in
+            guard state.gains.indices.contains(index) else { return nil }
+            let clamped = EQBandGain.clamped(gain)
+            state.gains[index] = clamped
+            return clamped
+        }
+    }
+
+    @discardableResult
+    public func setGain(_ gain: Float, for band: EQBand) -> Float {
+        configuration.update { state in
+            let clamped = EQBandGain.clamped(gain)
+            state.gains[Self.index(for: band, mode: state.mode)] = clamped
+            return clamped
+        }
+    }
+
+    public func gain(for band: EQBand) -> Float {
+        configuration.read { $0.gains[Self.index(for: band, mode: $0.mode)] }
+    }
+
+    public func setCalibrationGains(_ gains: [Float]) {
+        configuration.update { $0.calibration = Self.normalized(gains, mode: $0.mode, limit: 6) }
+    }
+
+    public func setAdaptiveGains(_ gains: [Float]) {
+        configuration.update { $0.adaptive = Self.normalized(gains, mode: $0.mode, limit: 1.5) }
+    }
+
+    public func setHearingCorrection(left: [Float], right: [Float]) {
+        configuration.update {
+            $0.hearingLeft = Self.normalized(left, mode: $0.mode, limit: 6)
+            $0.hearingRight = Self.normalized(right, mode: $0.mode, limit: 6)
+        }
+    }
+
+    public func setPreampDB(_ gainDB: Float) {
+        configuration.update { $0.preampDB = min(6, max(-24, gainDB.isFinite ? gainDB : 0)) }
+    }
+
+    public func setParametricBands(_ bands: [ParametricEQBand]) {
+        configuration.update { $0.parametric = Array(bands.prefix(12)) }
+    }
+
+    public func setDynamicEQ(enabled: Bool, bands: [DynamicEQBand]) {
+        configuration.update {
+            $0.dynamicEnabled = enabled
+            $0.dynamic = Array(bands.prefix(8))
+        }
+    }
+
+    public func setMultibandDynamics(_ value: MultibandDynamicsConfiguration) {
+        configuration.update { $0.multiband = value }
+    }
+
+    public func setMonoEnhance(_ value: MonoEnhanceConfiguration) {
+        configuration.update { $0.enhance = EQFilterProcessor.sanitizedMonoEnhance(value) }
+    }
+
+    public func currentMonoEnhanceConfiguration() -> MonoEnhanceConfiguration {
+        configuration.read { $0.enhance }
+    }
+
+    public func reset() {
+        configuration.update {
+            let zero = Array(repeating: Float(0), count: $0.mode.bandCount)
+            $0.gains = zero
+            $0.calibration = zero
+            $0.adaptive = zero
+            $0.hearingLeft = zero
+            $0.hearingRight = zero
+            $0.preampDB = 0
+            $0.enhance = .neutral
+            $0.resetSerial &+= 1
+        }
+    }
+
+    /// Called by one audio consumer; control setters may run concurrently.
+    public func process(_ buffer: AudioBuffer) -> AudioBuffer {
+        guard buffer.frameCount > 0, buffer.channelCount > 0, buffer.sampleRate > 0 else { return buffer }
+        if let next = configuration.takePending() { desired = next }
+        if transitionFramesRemaining == 0 {
+            if desired.mode != applied.mode {
+                apply(desired, to: standbyProcessor, previous: standbyApplied, force: true)
+                standbyProcessor.inheritPreampRamp(from: processor, target: desired.preampDB)
+                standbyApplied = desired
+                transitionFrameCount = max(1, buffer.sampleRate / 25)
+                transitionFramesRemaining = transitionFrameCount
+            } else if desired != applied {
+                apply(desired, to: processor, previous: applied)
+                applied = desired
+            }
+        }
+        guard transitionFramesRemaining > 0 else { return processor.process(buffer) }
+
+        // Only a layout handoff runs two preallocated native processors. New
+        // writes coalesce in `desired` until this bounded 40 ms handoff ends.
+        let chunkFrames = max(1, transitionCapacity / buffer.channelCount)
+        var offset = 0
+        while offset < buffer.frameCount {
+            let frames = min(chunkFrames, buffer.frameCount - offset)
+            let data = buffer.data.advanced(by: offset * buffer.channelCount)
+            let chunk = AudioBuffer(data: data, frameCount: frames, channelCount: buffer.channelCount, sampleRate: buffer.sampleRate)
+            if transitionFramesRemaining > 0 {
+                transitionScratch.update(from: data, count: frames * buffer.channelCount)
+                _ = processor.process(chunk)
+                _ = standbyProcessor.process(AudioBuffer(
+                    data: transitionScratch, frameCount: frames,
+                    channelCount: buffer.channelCount, sampleRate: buffer.sampleRate
+                ))
+                let completed = transitionFrameCount - transitionFramesRemaining
+                for frame in 0..<frames {
+                    let progress = min(1, Float(completed + frame + 1) / Float(transitionFrameCount))
+                    let mix = progress * progress * (3 - 2 * progress)
+                    for channel in 0..<buffer.channelCount {
+                        let index = frame * buffer.channelCount + channel
+                        data[index] += (transitionScratch[index] - data[index]) * mix
+                    }
+                }
+                transitionFramesRemaining = max(0, transitionFramesRemaining - frames)
+                if transitionFramesRemaining == 0 {
+                    swap(&processor, &standbyProcessor)
+                    swap(&applied, &standbyApplied)
+                }
+            } else {
+                _ = processor.process(chunk)
+            }
+            offset += frames
+        }
+        return buffer
+    }
+
+    private func apply(
+        _ next: Configuration, to processor: EQFilterProcessor,
+        previous applied: Configuration, force: Bool = false
+    ) {
+        let reset = force || next.resetSerial != applied.resetSerial
+        if reset { processor.reset() }
+        if reset || next.enabled != applied.enabled {
+            processor.setProcessingEnabled(next.enabled)
+        }
+        if reset || next.mode != applied.mode || next.gains != applied.gains {
+            processor.setGraphicMode(next.mode, gains: next.gains)
+        }
+        if reset || next.calibration != applied.calibration {
+            processor.setCalibrationGains(next.calibration)
+        }
+        if reset || next.adaptive != applied.adaptive {
+            processor.setAdaptiveGains(next.adaptive)
+        }
+        if reset || next.hearingLeft != applied.hearingLeft || next.hearingRight != applied.hearingRight {
+            processor.setHearingCorrection(left: next.hearingLeft, right: next.hearingRight)
+        }
+        if reset || next.preampDB != applied.preampDB { processor.setPreampDB(next.preampDB) }
+        if reset || next.parametric != applied.parametric { processor.setParametricBands(next.parametric) }
+        if reset || next.dynamicEnabled != applied.dynamicEnabled || next.dynamic != applied.dynamic {
+            processor.setDynamicEQ(enabled: next.dynamicEnabled, bands: next.dynamic)
+        }
+        if reset || next.multiband != applied.multiband { processor.setMultibandDynamics(next.multiband) }
+        if reset || next.enhance != applied.enhance { processor.setMonoEnhance(next.enhance) }
+    }
+
+    private static func normalized(_ gains: [Float], mode: GraphicEQMode, limit: Float) -> [Float] {
+        let source: GraphicEQMode = gains.count == 32 ? .thirtyTwoBand : .tenBand
+        return mode.resampledGains(gains, from: source).map { min(limit, max(-limit, $0)) }
+    }
+
+    private static func index(for band: EQBand, mode: GraphicEQMode) -> Int {
+        let frequencies = mode.centerFrequencies
+        return frequencies.indices.min {
+            abs(logf(frequencies[$0] / band.centerFrequency))
+                < abs(logf(frequencies[$1] / band.centerFrequency))
+        } ?? 0
+    }
+}
+
+// No control-thread access: delays, envelopes and ramps remain continuous even
+// when the UI is still preparing the next configuration.
+private final class EQFilterProcessor {
     private var isProcessingEnabled = true
 
     private var graphicMode: GraphicEQMode = .tenBand
@@ -237,21 +506,41 @@ public final class EQFilter {
     private var adaptiveGains = Array(repeating: Float(0), count: GraphicEQMode.tenBand.bandCount)
     private var hearingLeftGains = Array(repeating: Float(0), count: GraphicEQMode.tenBand.bandCount)
     private var hearingRightGains = Array(repeating: Float(0), count: GraphicEQMode.tenBand.bandCount)
-    private var hearingSmoothedLeft = Array(repeating: Float(0), count: GraphicEQMode.tenBand.bandCount)
-    private var hearingSmoothedRight = Array(repeating: Float(0), count: GraphicEQMode.tenBand.bandCount)
-    private var hearingLeftCoefficients = Array(repeating: BiquadCoefficients.unity, count: GraphicEQMode.tenBand.bandCount)
-    private var hearingRightCoefficients = Array(repeating: BiquadCoefficients.unity, count: GraphicEQMode.tenBand.bandCount)
-    private var hearingLeftStates = Array(repeating: BiquadState(), count: GraphicEQMode.tenBand.bandCount)
-    private var hearingRightStates = Array(repeating: BiquadState(), count: GraphicEQMode.tenBand.bandCount)
-    private var smoothedGains = Array(repeating: Float(0), count: GraphicEQMode.tenBand.bandCount)
-    private var graphicCoefficients = Array(repeating: BiquadCoefficients.unity, count: GraphicEQMode.tenBand.bandCount)
-    private var graphicTargetCoefficients = Array(repeating: BiquadCoefficients.unity, count: GraphicEQMode.tenBand.bandCount)
-    private var graphicTargetGains = Array(repeating: Float.nan, count: GraphicEQMode.tenBand.bandCount)
-    private var graphicTargetSampleRates = Array(repeating: Float(0), count: GraphicEQMode.tenBand.bandCount)
-    private var graphicStates = Array(repeating: [BiquadState](), count: GraphicEQMode.tenBand.bandCount)
+    private var hearingSmoothedLeft = Array(repeating: Float(0), count: GraphicEQMode.thirtyTwoBand.bandCount)
+    private var hearingSmoothedRight = Array(repeating: Float(0), count: GraphicEQMode.thirtyTwoBand.bandCount)
+    private var hearingLeftCoefficients = Array(repeating: BiquadCoefficients.unity, count: GraphicEQMode.thirtyTwoBand.bandCount)
+    private var hearingRightCoefficients = Array(repeating: BiquadCoefficients.unity, count: GraphicEQMode.thirtyTwoBand.bandCount)
+    private var hearingLeftStates = Array(repeating: BiquadState(), count: GraphicEQMode.thirtyTwoBand.bandCount)
+    private var hearingRightStates = Array(repeating: BiquadState(), count: GraphicEQMode.thirtyTwoBand.bandCount)
+    private var smoothedGains = Array(repeating: Float(0), count: GraphicEQMode.thirtyTwoBand.bandCount)
+    private var graphicCoefficients = Array(repeating: BiquadCoefficients.unity, count: GraphicEQMode.thirtyTwoBand.bandCount)
+    private var graphicTargetCoefficients = Array(repeating: BiquadCoefficients.unity, count: GraphicEQMode.thirtyTwoBand.bandCount)
+    private var graphicTargetGains = Array(repeating: Float.nan, count: GraphicEQMode.thirtyTwoBand.bandCount)
+    private var graphicTargetSampleRates = Array(repeating: Float(0), count: GraphicEQMode.thirtyTwoBand.bandCount)
+    private var graphicStates = (0..<GraphicEQMode.thirtyTwoBand.bandCount).map { _ in
+        Array(repeating: BiquadState(), count: 2)
+    }
+    private let tenBandFrequencies = GraphicEQMode.tenBand.centerFrequencies
+    private let thirtyTwoBandFrequencies = GraphicEQMode.thirtyTwoBand.centerFrequencies
+    private let tenBandQValues = GraphicEQMode.tenBand.qValues
+    private let thirtyTwoBandQValues = GraphicEQMode.thirtyTwoBand.qValues
 
-    private var parametricBands: [ParametricRuntimeBand] = []
-    private var dynamicBands: [DynamicRuntimeBand] = []
+    // Reuse runtime objects when configurations change; filter histories are
+    // never copied or rebuilt by the control thread.
+    private var parametricBands = (0..<12).map { _ in
+        ParametricRuntimeBand(configuration: ParametricEQBand(isEnabled: false))
+    }
+    private var parametricScratch = (0..<12).map { _ in
+        ParametricRuntimeBand(configuration: ParametricEQBand(isEnabled: false))
+    }
+    private var parametricBandCount = 0
+    private var dynamicBands = (0..<8).map { _ in
+        DynamicRuntimeBand(configuration: DynamicEQBand.monoDefaults[0])
+    }
+    private var dynamicScratch = (0..<8).map { _ in
+        DynamicRuntimeBand(configuration: DynamicEQBand.monoDefaults[0])
+    }
+    private var dynamicBandCount = 0
     private var dynamicEQEnabled = false
 
     private var multiband = MultibandDynamicsConfiguration()
@@ -293,288 +582,136 @@ public final class EQFilter {
     private var preampRampPending = false
     private var lastSampleRate: Float = 44_100
 
-    public init() {
+    init() {
         // Warm the immutable gain table outside the realtime callback.
         _ = Self.decibelGainLookup.count
-        resetGraphicRuntime(count: GraphicEQMode.tenBand.bandCount)
+        resetGraphicRuntime()
         multibandStates = Array(repeating: MultibandChannelState(), count: 2)
         multibandFrameValues = Array(repeating: 0, count: 6)
         monoEnhanceChannelStates = Array(repeating: MonoEnhanceChannelState(), count: 2)
         monoEnhanceFrameValues = Array(repeating: 0, count: 6)
     }
 
-    public func setProcessingEnabled(_ enabled: Bool) {
-        lock.lock()
+    func setProcessingEnabled(_ enabled: Bool) {
         isProcessingEnabled = enabled
-        lock.unlock()
     }
 
-    public func processingEnabled() -> Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        return isProcessingEnabled
-    }
-
-    public func setGraphicMode(_ mode: GraphicEQMode, gains: [Float]? = nil) {
-        lock.lock()
-        let previousMode = graphicMode
-        if mode == previousMode {
-            if let gains {
-                let sourceMode: GraphicEQMode =
-                    gains.count == GraphicEQMode.thirtyTwoBand.bandCount
-                        ? .thirtyTwoBand
-                        : .tenBand
-                userGains = mode.resampledGains(gains, from: sourceMode)
-            }
-            lock.unlock()
-            return
+    func setGraphicMode(_ mode: GraphicEQMode, gains: [Float]) {
+        if mode != graphicMode {
+            graphicMode = mode
+            resetGraphicRuntime()
+            resetHearingRuntime()
         }
-        let previousUserGains = userGains
-        let previousCalibrationGains = calibrationGains
-        let previousAdaptiveGains = adaptiveGains
-        let previousHearingLeft = hearingLeftGains
-        let previousHearingRight = hearingRightGains
-        graphicMode = mode
-        if let gains {
-            let sourceMode: GraphicEQMode = gains.count == GraphicEQMode.thirtyTwoBand.bandCount
-                ? .thirtyTwoBand
-                : .tenBand
-            userGains = mode.resampledGains(gains, from: sourceMode)
-        } else {
-            userGains = mode.resampledGains(previousUserGains, from: previousMode)
-        }
-        calibrationGains = mode.resampledGains(previousCalibrationGains, from: previousMode)
-            .map { min(max($0, -6), 6) }
-        adaptiveGains = mode.resampledGains(previousAdaptiveGains, from: previousMode)
-            .map { min(max($0, -1.5), 1.5) }
-        hearingLeftGains = mode.resampledGains(previousHearingLeft, from: previousMode)
-            .map { min(max($0, -6), 6) }
-        hearingRightGains = mode.resampledGains(previousHearingRight, from: previousMode)
-            .map { min(max($0, -6), 6) }
-        resetGraphicRuntime(count: mode.bandCount)
-        resetHearingRuntime(count: mode.bandCount)
-        lock.unlock()
+        userGains = gains
     }
 
-    public func currentGraphicMode() -> GraphicEQMode {
-        lock.lock()
-        defer { lock.unlock() }
-        return graphicMode
+    func setCalibrationGains(_ gains: [Float]) { calibrationGains = gains }
+    func setAdaptiveGains(_ gains: [Float]) { adaptiveGains = gains }
+
+    func setHearingCorrection(left: [Float], right: [Float]) {
+        hearingLeftGains = left
+        hearingRightGains = right
     }
 
-    public func currentGraphicGains() -> [Float] {
-        lock.lock()
-        defer { lock.unlock() }
-        return userGains
-    }
-
-    @discardableResult
-    public func setGraphicGain(_ gain: Float, at index: Int) -> Float? {
-        let clamped = EQBandGain.clamped(gain)
-        lock.lock()
-        defer { lock.unlock() }
-        guard userGains.indices.contains(index) else { return nil }
-        if abs(clamped - userGains[index]) > 6 {
-            graphicStates[index] = graphicStates[index].map {
-                var state = $0
-                state.softReset(factor: 0.5)
-                return state
-            }
-        }
-        userGains[index] = clamped
-        return clamped
-    }
-
-    @discardableResult
-    public func setGain(_ gain: Float, for band: EQBand) -> Float {
-        let clamped = EQBandGain.clamped(gain)
-        lock.lock()
-        let index = nearestGraphicIndex(to: band.centerFrequency)
-        if abs(clamped - userGains[index]) > 6 {
-            graphicStates[index] = graphicStates[index].map {
-                var state = $0
-                state.softReset(factor: 0.5)
-                return state
-            }
-        }
-        userGains[index] = clamped
-        lock.unlock()
-        return clamped
-    }
-
-    public func gain(for band: EQBand) -> Float {
-        lock.lock()
-        defer { lock.unlock() }
-        return userGains[nearestGraphicIndex(to: band.centerFrequency)]
-    }
-
-    public func setCalibrationGains(_ gains: [Float]) {
-        commitNormalizedGains(gains, limit: 6) { filter, normalized in
-            filter.calibrationGains = normalized
-        }
-    }
-
-    public func setAdaptiveGains(_ gains: [Float]) {
-        commitNormalizedGains(gains, limit: 1.5) { filter, normalized in
-            filter.adaptiveGains = normalized
-        }
-    }
-
-    public func setHearingCorrection(left: [Float], right: [Float]) {
-        while true {
-            lock.lock()
-            let mode = graphicMode
-            lock.unlock()
-            let normalizedLeft = normalizedGains(left, for: mode, limit: 6)
-            let normalizedRight = normalizedGains(right, for: mode, limit: 6)
-            lock.lock()
-            guard graphicMode == mode else {
-                lock.unlock()
-                continue
-            }
-            hearingLeftGains = normalizedLeft
-            hearingRightGains = normalizedRight
-            lock.unlock()
-            return
-        }
-    }
-
-    public func setPreampDB(_ gainDB: Float) {
-        lock.lock()
+    func setPreampDB(_ gainDB: Float) {
         let target = min(max(gainDB, -24), 6)
         if abs(target - targetPreampDB) > 0.002 {
             targetPreampDB = target
             preampRampPending = true
         }
-        lock.unlock()
     }
 
-    public func setParametricBands(_ bands: [ParametricEQBand]) {
-        lock.lock()
-        let previous = parametricBands
-        lock.unlock()
-
-        var reusedIDs = Set<UUID>()
-        let preparedBands = bands.prefix(12).map { configuration in
-            let exact = previous.first {
-                $0.configuration.id == configuration.id
-                    && !reusedIDs.contains($0.configuration.id)
-            }
-            let nearest = previous
-                .filter {
-                    !reusedIDs.contains($0.configuration.id)
-                        && $0.configuration.type == configuration.type
-                }
-                .map {
-                    (
-                        runtime: $0,
-                        distance: abs(
-                            log2f(
-                                max(configuration.frequency, 1)
-                                    / max($0.configuration.frequency, 1)
-                            )
-                        )
-                    )
-                }
-                .filter { $0.distance < 0.18 }
-                .min { $0.distance < $1.distance }?
-                .runtime
-            if var runtime = exact ?? nearest {
-                reusedIDs.insert(runtime.configuration.id)
-                if runtime.configuration != configuration {
-                    runtime.targetCoefficientSampleRate = 0
-                }
-                runtime.configuration = configuration
-                return runtime
-            }
-            var runtime = ParametricRuntimeBand(configuration: configuration)
-            runtime.states = Array(repeating: BiquadState(), count: 2)
-            return runtime
-        }
-
-        lock.lock()
-        parametricBands = preparedBands
-        lock.unlock()
+    func inheritPreampRamp(from source: EQFilterProcessor, target: Float) {
+        targetPreampDB = source.targetPreampDB
+        currentPreampDB = source.currentPreampDB
+        preampRampStartDB = source.preampRampStartDB
+        preampRampProcessedFrames = source.preampRampProcessedFrames
+        preampRampTotalFrames = source.preampRampTotalFrames
+        preampRampPending = source.preampRampPending
+        setPreampDB(target)
     }
 
-    public func setDynamicEQ(enabled: Bool, bands: [DynamicEQBand]) {
-        lock.lock()
-        let previous = dynamicBands
-        lock.unlock()
-
-        var reusedIDs = Set<UUID>()
-        let preparedBands = bands.prefix(8).map { configuration in
-            let exact = previous.first {
-                $0.configuration.id == configuration.id
-                    && !reusedIDs.contains($0.configuration.id)
-            }
-            let nearest = previous
-                .filter { !reusedIDs.contains($0.configuration.id) }
-                .map {
-                    (
-                        runtime: $0,
-                        distance: abs(
-                            log2f(
-                                max(configuration.frequency, 1)
-                                    / max($0.configuration.frequency, 1)
-                            )
-                        )
-                    )
+    func setParametricBands(_ bands: [ParametricEQBand]) {
+        var reusedMask = 0
+        for index in bands.indices {
+            let configuration = bands[index]
+            var match: Int?
+            var nearestDistance: Float = 0.18
+            for oldIndex in 0..<parametricBandCount where reusedMask & (1 << oldIndex) == 0 {
+                let old = parametricBands[oldIndex].configuration
+                if old.id == configuration.id {
+                    match = oldIndex
+                    break
                 }
-                .filter { $0.distance < 0.18 }
-                .min { $0.distance < $1.distance }?
-                .runtime
-            if var runtime = exact ?? nearest {
-                reusedIDs.insert(runtime.configuration.id)
-                if runtime.configuration != configuration {
-                    runtime.detectorCoefficientSampleRate = 0
+                guard old.type == configuration.type else { continue }
+                let distance = abs(log2f(max(configuration.frequency, 1) / max(old.frequency, 1)))
+                if distance < nearestDistance {
+                    nearestDistance = distance
+                    match = oldIndex
                 }
-                runtime.configuration = configuration
-                return runtime
             }
-            var runtime = DynamicRuntimeBand(configuration: configuration)
-            runtime.detectorStates = Array(repeating: BiquadState(), count: 2)
-            runtime.processingStates = Array(repeating: BiquadState(), count: 2)
-            return runtime
+            if let match {
+                reusedMask |= 1 << match
+                swap(&parametricScratch[index], &parametricBands[match])
+            } else {
+                parametricScratch[index].reset()
+            }
+            let runtime = parametricScratch[index]
+            if runtime.configuration != configuration { runtime.targetCoefficientSampleRate = 0 }
+            runtime.configuration = configuration
         }
+        swap(&parametricBands, &parametricScratch)
+        parametricBandCount = bands.count
+    }
 
-        lock.lock()
+    func setDynamicEQ(enabled: Bool, bands: [DynamicEQBand]) {
+        var reusedMask = 0
+        for index in bands.indices {
+            let configuration = bands[index]
+            var match: Int?
+            var nearestDistance: Float = 0.18
+            for oldIndex in 0..<dynamicBandCount where reusedMask & (1 << oldIndex) == 0 {
+                let old = dynamicBands[oldIndex].configuration
+                if old.id == configuration.id {
+                    match = oldIndex
+                    break
+                }
+                let distance = abs(log2f(max(configuration.frequency, 1) / max(old.frequency, 1)))
+                if distance < nearestDistance {
+                    nearestDistance = distance
+                    match = oldIndex
+                }
+            }
+            if let match {
+                reusedMask |= 1 << match
+                swap(&dynamicScratch[index], &dynamicBands[match])
+            } else {
+                dynamicScratch[index].reset()
+            }
+            let runtime = dynamicScratch[index]
+            if runtime.configuration != configuration { runtime.detectorCoefficientSampleRate = 0 }
+            runtime.configuration = configuration
+        }
+        swap(&dynamicBands, &dynamicScratch)
+        dynamicBandCount = bands.count
         dynamicEQEnabled = enabled
-        dynamicBands = preparedBands
-        lock.unlock()
     }
 
-    public func setMultibandDynamics(_ configuration: MultibandDynamicsConfiguration) {
-        lock.lock()
+    func setMultibandDynamics(_ configuration: MultibandDynamicsConfiguration) {
         if multiband != configuration {
             multibandCoefficientSampleRate = 0
             multibandControlFramesRemaining = 0
         }
         multiband = configuration
-        lock.unlock()
     }
 
-    public func setMonoEnhance(_ configuration: MonoEnhanceConfiguration) {
-        lock.lock()
-        targetMonoEnhance = Self.sanitizedMonoEnhance(configuration)
-        lock.unlock()
+    func setMonoEnhance(_ configuration: MonoEnhanceConfiguration) {
+        targetMonoEnhance = configuration
     }
 
-    public func currentMonoEnhanceConfiguration() -> MonoEnhanceConfiguration {
-        lock.lock()
-        defer { lock.unlock() }
-        return targetMonoEnhance
-    }
-
-    public func reset() {
-        lock.lock()
-        userGains = Array(repeating: 0, count: graphicMode.bandCount)
-        calibrationGains = Array(repeating: 0, count: graphicMode.bandCount)
-        adaptiveGains = Array(repeating: 0, count: graphicMode.bandCount)
-        hearingLeftGains = Array(repeating: 0, count: graphicMode.bandCount)
-        hearingRightGains = Array(repeating: 0, count: graphicMode.bandCount)
-        resetGraphicRuntime(count: graphicMode.bandCount)
-        resetHearingRuntime(count: graphicMode.bandCount)
+    func reset() {
+        resetGraphicRuntime()
+        resetHearingRuntime()
         targetPreampDB = 0
         currentPreampDB = 0
         preampRampStartDB = 0
@@ -584,16 +721,10 @@ public final class EQFilter {
         targetMonoEnhance = .neutral
         currentMonoEnhance = .neutral
         resetRuntimeStates()
-        lock.unlock()
     }
 
-    /// In-place realtime processing. The audio callback never waits for UI
-    /// configuration; it skips one block if a setting is being committed.
-    public func process(_ buffer: AudioBuffer) -> AudioBuffer {
-        // 有界重试：EQ/预放大被整块跳过时会产生瞬间的响度阶跃（“坎”），
-        // 比在实时线程上多等几十微秒糟糕得多。
-        guard acquireRealtimeAudioLock(lock) else { return buffer }
-        defer { lock.unlock() }
+    /// In-place processing on the single audio consumer.
+    func process(_ buffer: AudioBuffer) -> AudioBuffer {
         guard isProcessingEnabled else { return buffer }
 
         let sampleRate = Float(buffer.sampleRate)
@@ -625,8 +756,8 @@ public final class EQFilter {
     private func processGraphicEQ(
         _ data: UnsafeMutablePointer<Float>, frames: Int, channels: Int, sampleRate: Float
     ) {
-        let frequencies = graphicMode.centerFrequencies
-        let qValues = graphicMode.qValues
+        let frequencies = graphicMode == .tenBand ? tenBandFrequencies : thirtyTwoBandFrequencies
+        let qValues = graphicMode == .tenBand ? tenBandQValues : thirtyTwoBandQValues
         for index in frequencies.indices {
             let frequency = frequencies[index]
             let target = min(max(userGains[index] + calibrationGains[index] + adaptiveGains[index], -18), 18)
@@ -665,6 +796,7 @@ public final class EQFilter {
                 graphicTargetGains[index] = gain
                 graphicTargetSampleRates[index] = sampleRate
             }
+            let previousCoefficients = graphicCoefficients[index]
             graphicCoefficients[index] = .interpolate(
                 graphicCoefficients[index],
                 graphicTargetCoefficients[index],
@@ -674,7 +806,7 @@ public final class EQFilter {
                abs(gain) < 0.005,
                Self.isNearUnity(graphicCoefficients[index]) {
                 graphicCoefficients[index] = .unity
-                graphicStates[index].removeAll(keepingCapacity: true)
+                for channel in graphicStates[index].indices { graphicStates[index][channel].reset() }
                 continue
             }
             ensureStateCount(&graphicStates[index], channels: channels)
@@ -683,6 +815,7 @@ public final class EQFilter {
                 frames: frames,
                 channels: channels,
                 coefficients: graphicCoefficients[index],
+                initialCoefficients: previousCoefficients,
                 states: &graphicStates[index]
             )
         }
@@ -691,7 +824,7 @@ public final class EQFilter {
     private func processParametricEQ(
         _ data: UnsafeMutablePointer<Float>, frames: Int, channels: Int, sampleRate: Float
     ) {
-        for index in parametricBands.indices where parametricBands[index].configuration.isEnabled {
+        for index in 0..<parametricBandCount where parametricBands[index].configuration.isEnabled {
             let configuration = parametricBands[index].configuration
             if abs(parametricBands[index].targetCoefficientSampleRate - sampleRate) > 1 {
                 parametricBands[index].targetCoefficients = coefficients(
@@ -700,6 +833,7 @@ public final class EQFilter {
                 )
                 parametricBands[index].targetCoefficientSampleRate = sampleRate
             }
+            let previousCoefficients = parametricBands[index].coefficients
             parametricBands[index].coefficients = .interpolate(
                 parametricBands[index].coefficients,
                 parametricBands[index].targetCoefficients,
@@ -709,7 +843,7 @@ public final class EQFilter {
                abs(configuration.gainDB) < 0.005,
                Self.isNearUnity(parametricBands[index].coefficients) {
                 parametricBands[index].coefficients = .unity
-                parametricBands[index].states.removeAll(keepingCapacity: true)
+                for channel in parametricBands[index].states.indices { parametricBands[index].states[channel].reset() }
                 continue
             }
             ensureStateCount(&parametricBands[index].states, channels: channels)
@@ -718,6 +852,7 @@ public final class EQFilter {
                 frames: frames,
                 channels: channels,
                 coefficients: parametricBands[index].coefficients,
+                initialCoefficients: previousCoefficients,
                 states: &parametricBands[index].states
             )
         }
@@ -733,7 +868,7 @@ public final class EQFilter {
                 || hearingSmoothedRight.contains(where: { abs($0) >= 0.005 }) else {
             return
         }
-        let frequencies = graphicMode.centerFrequencies
+        let frequencies = graphicMode == .tenBand ? tenBandFrequencies : thirtyTwoBandFrequencies
         let qValues = graphicMode.qValues
         guard hearingLeftGains.count == frequencies.count,
               hearingRightGains.count == frequencies.count else { return }
@@ -743,6 +878,8 @@ public final class EQFilter {
             let rightTarget = hearingRightGains[index]
             hearingSmoothedLeft[index] += (leftTarget - hearingSmoothedLeft[index]) * 0.06
             hearingSmoothedRight[index] += (rightTarget - hearingSmoothedRight[index]) * 0.06
+            let previousLeft = hearingLeftCoefficients[index]
+            let previousRight = hearingRightCoefficients[index]
             hearingLeftCoefficients[index] = .interpolate(
                 hearingLeftCoefficients[index],
                 hearingCoefficient(
@@ -771,19 +908,16 @@ public final class EQFilter {
             let leftCoefficients = hearingLeftCoefficients[index]
             let rightCoefficients = hearingRightCoefficients[index]
             for frame in 0..<frames {
+                let progress = Float(frame + 1) / Float(frames)
+                let leftC = BiquadCoefficients.interpolate(previousLeft, leftCoefficients, t: progress)
+                let rightC = BiquadCoefficients.interpolate(previousRight, rightCoefficients, t: progress)
                 let leftIndex = frame * channels
                 let leftInput = data[leftIndex]
-                let leftOutput = leftCoefficients.b0 * leftInput + leftState.z1
-                leftState.z1 = leftCoefficients.b1 * leftInput - leftCoefficients.a1 * leftOutput + leftState.z2
-                leftState.z2 = leftCoefficients.b2 * leftInput - leftCoefficients.a2 * leftOutput
-                data[leftIndex] = leftOutput
+                data[leftIndex] = leftState.process(leftInput, coefficients: leftC)
 
                 let rightIndex = leftIndex + 1
                 let rightInput = data[rightIndex]
-                let rightOutput = rightCoefficients.b0 * rightInput + rightState.z1
-                rightState.z1 = rightCoefficients.b1 * rightInput - rightCoefficients.a1 * rightOutput + rightState.z2
-                rightState.z2 = rightCoefficients.b2 * rightInput - rightCoefficients.a2 * rightOutput
-                data[rightIndex] = rightOutput
+                data[rightIndex] = rightState.process(rightInput, coefficients: rightC)
             }
             hearingLeftStates[index] = leftState
             hearingRightStates[index] = rightState
@@ -818,8 +952,9 @@ public final class EQFilter {
         guard dynamicEQEnabled else { return }
         let sampleCount = max(frames * channels, 1)
 
-        for index in dynamicBands.indices where dynamicBands[index].configuration.isEnabled {
+        for index in 0..<dynamicBandCount where dynamicBands[index].configuration.isEnabled {
             let configuration = dynamicBands[index].configuration
+            let previousDetector = dynamicBands[index].detectorCoefficients
             if abs(dynamicBands[index].detectorCoefficientSampleRate - sampleRate) > 1 {
                 dynamicBands[index].detectorCoefficients = .bandPass(
                     frequency: configuration.frequency,
@@ -832,17 +967,17 @@ public final class EQFilter {
 
             var energy: Float = 0
             for channel in 0..<channels {
-                var z1 = dynamicBands[index].detectorStates[channel].z1
-                var z2 = dynamicBands[index].detectorStates[channel].z2
+                var state = dynamicBands[index].detectorStates[channel]
                 let c = dynamicBands[index].detectorCoefficients
                 for frame in 0..<frames {
                     let sample = data[frame * channels + channel]
-                    let output = c.b0 * sample + z1
-                    z1 = c.b1 * sample - c.a1 * output + z2
-                    z2 = c.b2 * sample - c.a2 * output
+                    let current = previousDetector == c ? c : BiquadCoefficients.interpolate(
+                        previousDetector, c, t: Float(frame + 1) / Float(frames)
+                    )
+                    let output = state.process(sample, coefficients: current)
                     energy += output * output
                 }
-                dynamicBands[index].detectorStates[channel] = BiquadState(z1: z1, z2: z2)
+                dynamicBands[index].detectorStates[channel] = state
             }
 
             let levelDB = 20 * log10f(max(sqrtf(energy / Float(sampleCount)), 0.000_001))
@@ -864,6 +999,7 @@ public final class EQFilter {
                 sampleRate: sampleRate,
                 q: configuration.q
             )
+            let previousCoefficients = dynamicBands[index].processingCoefficients
             dynamicBands[index].processingCoefficients = .interpolate(
                 dynamicBands[index].processingCoefficients,
                 target,
@@ -875,6 +1011,7 @@ public final class EQFilter {
                 frames: frames,
                 channels: channels,
                 coefficients: dynamicBands[index].processingCoefficients,
+                initialCoefficients: previousCoefficients,
                 states: &dynamicBands[index].processingStates
             )
         }
@@ -1216,20 +1353,21 @@ public final class EQFilter {
         frames: Int,
         channels: Int,
         coefficients c: BiquadCoefficients,
+        initialCoefficients: BiquadCoefficients? = nil,
         states: inout [BiquadState]
     ) {
+        let start = initialCoefficients ?? c
+        let isRamping = start != c
         for channel in 0..<channels {
-            var z1 = states[channel].z1
-            var z2 = states[channel].z2
+            var state = states[channel]
             for frame in 0..<frames {
                 let index = frame * channels + channel
-                let input = data[index]
-                let output = c.b0 * input + z1
-                z1 = c.b1 * input - c.a1 * output + z2
-                z2 = c.b2 * input - c.a2 * output
-                data[index] = output
+                let current = isRamping ? BiquadCoefficients.interpolate(
+                    start, c, t: Float(frame + 1) / Float(frames)
+                ) : c
+                data[index] = state.process(data[index], coefficients: current)
             }
-            states[channel] = BiquadState(z1: z1, z2: z2)
+            states[channel] = state
         }
     }
 
@@ -1396,7 +1534,7 @@ public final class EQFilter {
         gain = coefficient * gain + (1 - coefficient) * target
     }
 
-    private static func sanitizedMonoEnhance(
+    static func sanitizedMonoEnhance(
         _ configuration: MonoEnhanceConfiguration
     ) -> MonoEnhanceConfiguration {
         guard configuration.isEnabled else { return .neutral }
@@ -1446,31 +1584,19 @@ public final class EQFilter {
     }
 
     private func resetRuntimeStates() {
-        resetGraphicRuntime(count: graphicMode.bandCount)
-        resetHearingRuntime(count: graphicMode.bandCount)
-        for index in parametricBands.indices {
-            parametricBands[index].states = Array(repeating: BiquadState(), count: 2)
-            parametricBands[index].coefficients = .unity
-            parametricBands[index].targetCoefficients = .unity
-            parametricBands[index].targetCoefficientSampleRate = 0
-        }
-        for index in dynamicBands.indices {
-            dynamicBands[index].detectorStates = Array(repeating: BiquadState(), count: 2)
-            dynamicBands[index].processingStates = Array(repeating: BiquadState(), count: 2)
-            dynamicBands[index].detectorCoefficients = .unity
-            dynamicBands[index].detectorCoefficientSampleRate = 0
-            dynamicBands[index].processingCoefficients = .unity
-            dynamicBands[index].reductionDB = 0
-        }
-        multibandStates = Array(repeating: MultibandChannelState(), count: 2)
-        multibandFrameValues = Array(repeating: 0, count: 6)
-        multibandEnvelopes = Array(repeating: 0, count: 3)
-        multibandCurrentGains = Array(repeating: 1, count: 3)
-        multibandGainSteps = Array(repeating: 0, count: 3)
+        resetGraphicRuntime()
+        resetHearingRuntime()
+        for runtime in parametricBands { runtime.reset() }
+        for runtime in dynamicBands { runtime.reset() }
+        for index in multibandStates.indices { multibandStates[index] = MultibandChannelState() }
+        for index in multibandFrameValues.indices { multibandFrameValues[index] = 0 }
+        for index in multibandEnvelopes.indices { multibandEnvelopes[index] = 0 }
+        for index in multibandCurrentGains.indices { multibandCurrentGains[index] = 1 }
+        for index in multibandGainSteps.indices { multibandGainSteps[index] = 0 }
         multibandControlFramesRemaining = 0
         multibandCoefficientSampleRate = 0
-        monoEnhanceChannelStates = Array(repeating: MonoEnhanceChannelState(), count: 2)
-        monoEnhanceFrameValues = Array(repeating: 0, count: 6)
+        for index in monoEnhanceChannelStates.indices { monoEnhanceChannelStates[index] = MonoEnhanceChannelState() }
+        for index in monoEnhanceFrameValues.indices { monoEnhanceFrameValues[index] = 0 }
         monoEnhanceStereoState = MonoEnhanceStereoState()
         transientFastEnvelope = 0
         transientSlowEnvelope = 0
@@ -1484,69 +1610,26 @@ public final class EQFilter {
         monoEnhanceCoefficientSampleRate = 0
     }
 
-    private func resetGraphicRuntime(count: Int) {
-        smoothedGains = Array(repeating: 0, count: count)
-        graphicCoefficients = Array(repeating: .unity, count: count)
-        graphicTargetCoefficients = Array(repeating: .unity, count: count)
-        graphicTargetGains = Array(repeating: .nan, count: count)
-        graphicTargetSampleRates = Array(repeating: 0, count: count)
-        graphicStates = (0..<count).map { _ in
-            Array(repeating: BiquadState(), count: 2)
+    private func resetGraphicRuntime() {
+        for index in smoothedGains.indices {
+            smoothedGains[index] = 0
+            graphicCoefficients[index] = .unity
+            graphicTargetCoefficients[index] = .unity
+            graphicTargetGains[index] = .nan
+            graphicTargetSampleRates[index] = 0
+            for channel in graphicStates[index].indices { graphicStates[index][channel].reset() }
         }
     }
 
-    private func resetHearingRuntime(count: Int) {
-        hearingSmoothedLeft = Array(repeating: 0, count: count)
-        hearingSmoothedRight = Array(repeating: 0, count: count)
-        hearingLeftCoefficients = Array(repeating: .unity, count: count)
-        hearingRightCoefficients = Array(repeating: .unity, count: count)
-        hearingLeftStates = Array(repeating: BiquadState(), count: count)
-        hearingRightStates = Array(repeating: BiquadState(), count: count)
-    }
-
-    private func nearestGraphicIndex(to frequency: Float) -> Int {
-        let frequencies = graphicMode.centerFrequencies
-        return frequencies.indices.min {
-            abs(logf(frequencies[$0]) - logf(frequency)) < abs(logf(frequencies[$1]) - logf(frequency))
-        } ?? 0
-    }
-
-    /// Resampling allocates and may perform interpolation. Keep that work out of
-    /// the lock held by the realtime EQ callback; the critical section becomes
-    /// a mode check plus one Array reference assignment.
-    private func commitNormalizedGains(
-        _ gains: [Float],
-        limit: Float,
-        assign: (EQFilter, [Float]) -> Void
-    ) {
-        while true {
-            lock.lock()
-            let mode = graphicMode
-            lock.unlock()
-
-            let normalized = normalizedGains(gains, for: mode, limit: limit)
-
-            lock.lock()
-            guard graphicMode == mode else {
-                lock.unlock()
-                continue
-            }
-            assign(self, normalized)
-            lock.unlock()
-            return
+    private func resetHearingRuntime() {
+        for index in hearingSmoothedLeft.indices {
+            hearingSmoothedLeft[index] = 0
+            hearingSmoothedRight[index] = 0
+            hearingLeftCoefficients[index] = .unity
+            hearingRightCoefficients[index] = .unity
+            hearingLeftStates[index].reset()
+            hearingRightStates[index].reset()
         }
-    }
-
-    private func normalizedGains(
-        _ gains: [Float],
-        for mode: GraphicEQMode,
-        limit: Float
-    ) -> [Float] {
-        let sourceMode: GraphicEQMode = gains.count == GraphicEQMode.thirtyTwoBand.bandCount
-            ? .thirtyTwoBand
-            : .tenBand
-        return mode.resampledGains(gains, from: sourceMode)
-            .map { min(max($0, -limit), limit) }
     }
 
     private static func isNearUnity(_ coefficients: BiquadCoefficients) -> Bool {

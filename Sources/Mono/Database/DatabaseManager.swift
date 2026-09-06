@@ -5,7 +5,7 @@ import Combine
 /// - iOS 17+：SwiftData 后端（沿用旧版实体与存储文件，老数据无缝保留）
 /// - iOS 16：Core Data 后端（编程式模型，独立 SQLite 文件）
 @MainActor
-final class DatabaseManager {
+final class DatabaseManager: ObservableObject {
     static let shared = DatabaseManager()
 
     /// 全部持久化实体
@@ -23,43 +23,96 @@ final class DatabaseManager {
     let store: MonoStore
     let engine: MonoVaultEngine
 
-    private init() {
-        let resolvedStore: MonoStore
-        if #available(iOS 17, *) {
-            let backend = SwiftDataBackend()
-            Self.migrateCoreDataStoreIfNeeded(into: backend)
-            resolvedStore = MonoStore(backend: backend)
-        } else {
-            resolvedStore = MonoStore(backend: CoreDataBackend(entityTypes: Self.allEntityTypes))
-        }
-        store = resolvedStore
-        engine = MonoVaultEngine(store: resolvedStore)
+    @Published private(set) var initializationError: String?
+
+    private let openBackend: @MainActor () throws -> any MonoStoreBackend
+
+    init(openBackend: @escaping @MainActor () throws -> any MonoStoreBackend = DatabaseManager.openDefaultBackend) {
+        self.openBackend = openBackend
+        let store = MonoStore()
+        self.store = store
+        engine = MonoVaultEngine(store: store)
+        retryInitialization()
     }
 
-    /// 用户从 iOS 16 升级到 iOS 17+ 时，将 Core Data 存储的数据一次性迁入 SwiftData
-    @available(iOS 17, *)
-    private static func migrateCoreDataStoreIfNeeded(into backend: SwiftDataBackend) {
-        guard CoreDataBackend.storeExists else { return }
-        AppLogger.info("检测到 iOS 16 时期的 Core Data 存储，开始迁移到 SwiftData")
+    func retryInitialization() {
+        guard !store.isAvailable else { return }
+        do {
+            store.open(backend: try openBackend())
+            initializationError = nil
+        } catch {
+            initializationError = error.localizedDescription
+            AppLogger.error("Database unavailable; original store retained: \(error.localizedDescription)")
+        }
+    }
 
-        let source = CoreDataBackend(entityTypes: allEntityTypes)
-        var migrated = 0
+    static func openDefaultBackend() throws -> any MonoStoreBackend {
+        if #available(iOS 17, *) {
+            let backend = try SwiftDataBackend()
+            try migrateCoreDataStoreIfNeeded(into: backend)
+            return backend
+        }
+        return try CoreDataBackend(entityTypes: allEntityTypes)
+    }
+
+    @available(iOS 17, *)
+    private static func migrateCoreDataStoreIfNeeded(into backend: SwiftDataBackend) throws {
+        let completionKey = "mono_core_data_migration_committed_v1"
+        guard CoreDataBackend.storeExists,
+              !UserDefaults.standard.bool(forKey: completionKey) else { return }
+
+        let source = try CoreDataBackend(entityTypes: allEntityTypes)
+        try migrateStore(from: source, into: backend, reopen: { try SwiftDataBackend() })
+        UserDefaults.standard.set(true, forKey: completionKey)
+        AppLogger.success("Core Data migration committed and verified; recovery copy retained")
+    }
+
+    static func migrateStore(
+        from source: any MonoStoreBackend,
+        into backend: any MonoStoreBackend,
+        reopen: @MainActor () throws -> any MonoStoreBackend
+    ) throws {
+        var expected: [String: [String: [String: Any?]]] = [:]
         for type in allEntityTypes {
             let name = type.monoEntityName
+            var records = Dictionary(uniqueKeysWithValues: backend.loadAll(entityName: name).map {
+                let entity = type.monoMake(from: $0)
+                return (entity.monoUniqueKey, entity.monoSnapshot())
+            })
             for snapshot in source.loadAll(entityName: name) {
-                let object = type.monoMake(from: snapshot)
-                backend.upsert(entityName: name, uniqueKey: object.monoUniqueKey, snapshot: object.monoSnapshot())
-                migrated += 1
+                let entity = type.monoMake(from: snapshot)
+                // A retry must not replace records already edited in the destination.
+                guard records[entity.monoUniqueKey] == nil else { continue }
+                let normalized = entity.monoSnapshot()
+                backend.upsert(entityName: name, uniqueKey: entity.monoUniqueKey, snapshot: normalized)
+                records[entity.monoUniqueKey] = normalized
+            }
+            expected[name] = records
+        }
+        try backend.flush()
+
+        // Read back from a new context before the caller marks migration complete.
+        // The source remains untouched as a recovery copy.
+        let persisted = try reopen()
+        for type in allEntityTypes {
+            let actual = Dictionary(uniqueKeysWithValues: persisted.loadAll(entityName: type.monoEntityName).map {
+                let entity = type.monoMake(from: $0)
+                return (entity.monoUniqueKey, entity.monoSnapshot())
+            })
+            for (key, snapshot) in expected[type.monoEntityName] ?? [:] {
+                guard let saved = actual[key],
+                      NSDictionary(dictionary: snapshot.compactMapValues { $0 })
+                        .isEqual(to: saved.compactMapValues { $0 }) else {
+                    throw CocoaError(.persistentStoreSave)
+                }
             }
         }
-        backend.flush()
-        CoreDataBackend.destroyStore()
-        AppLogger.success("Core Data -> SwiftData 迁移完成，共 \(migrated) 条记录")
     }
 
     // MARK: - Save
 
-    func save() {
+    @discardableResult
+    func save() -> Bool {
         engine.flush()
     }
 
@@ -94,16 +147,13 @@ final class DatabaseManager {
 
     // MARK: - 清理数据库
 
-    /// 清空缓存数据（保留下载记录和本地歌单）
+    /// Clear regenerable caches while retaining user records.
     func clearCacheData() {
         store.deleteAll(CachedSong.self)
         store.deleteAll(CachedPlaylist.self)
         store.deleteAll(CachedArtist.self)
-        store.deleteAll(PlayHistory.self)
-        store.deleteAll(SearchHistory.self)
         store.deleteAll(CachedLyrics.self)
-        save()
-        AppLogger.success("数据库缓存已清空（保留下载记录和本地歌单）")
+        if save() { AppLogger.success("数据库缓存已清空，用户记录已保留") }
     }
 
     /// 清空所有数据（包括下载记录和本地歌单）

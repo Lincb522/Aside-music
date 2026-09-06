@@ -9,7 +9,7 @@ struct FolkPlayerLayout: View {
     @ObservedObject var player = PlayerManager.shared
     @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
     @ObservedObject var lyricVM = LyricViewModel.shared
-    @ObservedObject var downloadManager = DownloadManager.shared
+    @ObservedObject var downloadStatus = DownloadedSongStatusModel.shared
 
     // MARK: - Colors (Typewriter / Letter Theme)
     private var paperBg: Color { colorScheme == .dark ? Color(hex: "1F1D1B") : Color(hex: "F4EBE0") }
@@ -62,16 +62,16 @@ struct FolkPlayerLayout: View {
                         .padding(.bottom, 24)
                 }
                 .frame(width: size.width, height: size.height, alignment: .center)
-
-                // 更多菜单
+            }
+            .playerMoreMenuOverlay { anchorFrame in
                 if showMoreMenu {
                     PlayerMoreMenu(
                         isPresented: $showMoreMenu,
+                        anchorFrame: anchorFrame,
                         isDarkBackground: false,
                         onEQ: { showEQSettings = true },
                         onTheme: { showThemePicker = true }
                     )
-                    .frame(width: size.width, height: size.height, alignment: .center)
                 }
             }
             .frame(width: size.width, height: size.height, alignment: .center)
@@ -192,6 +192,7 @@ extension FolkPlayerLayout {
                     .frame(width: 44, height: 44)
             }
             .buttonStyle(MonoBouncingButtonStyle())
+            .playerMoreMenuAnchor()
         }
     }
 
@@ -401,12 +402,12 @@ extension FolkPlayerLayout {
                         if AppConfig.Features.downloadEnabled {
                             // 下载按钮（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
                             Button {
-                                if !downloadManager.isDownloaded(songId: song.id) { showDownloadSheet = true }
+                                if !downloadStatus.isDownloaded(song: song) { showDownloadSheet = true }
                             } label: {
-                                MonoIcon(icon: .download, size: 16, color: downloadManager.isDownloaded(songId: song.id) ? inkFaded.opacity(0.3) : inkFaded)
+                                MonoIcon(icon: .download, size: 16, color: downloadStatus.isDownloaded(song: song) ? inkFaded.opacity(0.3) : inkFaded)
                                     .frame(width: 36, height: 36)
                             }
-                            .disabled(downloadManager.isDownloaded(songId: song.id))
+                            .disabled(downloadStatus.isDownloaded(song: song))
                         }
                     }
                 }
@@ -507,7 +508,7 @@ extension FolkPlayerLayout {
     }
 
     func folkLikeButton(song: Song) -> some View {
-        let isLiked = LikeManager.shared.isLiked(id: song.id, isQQMusic: song.isQQMusic)
+        let isLiked = LikeManager.shared.isLiked(id: song.id, source: song.musicSource)
         return Button {
             let generator = UIImpactFeedbackGenerator(style: .medium)
             generator.impactOccurred()

@@ -141,7 +141,7 @@ struct QQPlaylistDetailView: View {
     @State private var searchText = ""
     @State private var isSearching = false
     @State private var isPlaylistSelectMode = false
-    @State private var playlistSelectedIds: Set<Int> = []
+    @State private var playlistSelectedIds: Set<String> = []
     @State private var showPlaylistBatchPlaylist = false
     @State private var scrollOffset: CGFloat = 0
 
@@ -198,7 +198,7 @@ struct QQPlaylistDetailView: View {
                             selectedIds: $playlistSelectedIds,
                             songs: viewModel.songs.filtered(by: searchText),
                             onBatchQueue: {
-                                let selected = qqFilteredSongs.filter { playlistSelectedIds.contains($0.id) }
+                                let selected = qqFilteredSongs.filter { playlistSelectedIds.contains($0.identityKey) }
                                 SongBatchActionHelper.addToQueue(selected) {
                                     isPlaylistSelectMode = false
                                     playlistSelectedIds.removeAll()
@@ -436,16 +436,16 @@ struct QQPlaylistDetailView: View {
                 .padding(.horizontal, MinimalWhiteStyle.isActive ? DeviceLayout.viewHorizontalPadding : 0)
             }
 
-            ForEach(Array(qqFilteredSongs.enumerated()), id: \.element.id) { index, song in
-                SongListRow(song: song, index: index, isSelecting: isPlaylistSelectMode, isSelected: playlistSelectedIds.contains(song.id), onArtistTap: { _ in }, onDetailTap: { s in
+            ForEach(Array(qqFilteredSongs.enumerated()), id: \.element.identityKey) { index, song in
+                SongListRow(song: song, index: index, isSelecting: isPlaylistSelectMode, isSelected: playlistSelectedIds.contains(song.identityKey), onArtistTap: { _ in }, onDetailTap: { s in
                     selectedSongForDetail = s
                     showSongDetail = true
                 }, onAlbumTap: { _ in }, onTap: {
                     if isPlaylistSelectMode {
-                        if playlistSelectedIds.contains(song.id) {
-                            playlistSelectedIds.remove(song.id)
+                        if playlistSelectedIds.contains(song.identityKey) {
+                            playlistSelectedIds.remove(song.identityKey)
                         } else {
-                            playlistSelectedIds.insert(song.id)
+                            playlistSelectedIds.insert(song.identityKey)
                         }
                     } else {
                         PlayerManager.shared.play(song: song, in: qqFilteredSongs)
@@ -480,12 +480,12 @@ struct QQPlaylistDetailView: View {
             }
         }
         .monoSheet(isPresented: $showPlaylistBatchPlaylist, preset: .standard){
-            BatchAddToPlaylistSheet(songs: qqFilteredSongs.filter { playlistSelectedIds.contains($0.id) })
+            BatchAddToPlaylistSheet(songs: qqFilteredSongs.filter { playlistSelectedIds.contains($0.identityKey) })
         }
     }
     
     private func qqPlaylistBatchDownload() {
-        let selected = qqFilteredSongs.filter { playlistSelectedIds.contains($0.id) }
+        let selected = qqFilteredSongs.filter { playlistSelectedIds.contains($0.identityKey) }
         for song in selected {
             if song.isQQMusic {
                 DownloadManager.shared.downloadQQ(song: song, quality: DownloadManager.defaultQQDownloadQuality)

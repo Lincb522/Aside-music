@@ -16,8 +16,7 @@ struct ClassicPlayerLayout: View {
     @Environment(\.colorScheme) var colorScheme
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @ObservedObject var player = PlayerManager.shared
-    @ObservedObject var downloadManager = DownloadManager.shared
-    @ObservedObject var lyricVM = LyricViewModel.shared
+    @ObservedObject var downloadStatus = DownloadedSongStatusModel.shared
     @ObservedObject var settings = SettingsManager.shared
     @StateObject var asideCoverColors = CoverColorExtractor()
 
@@ -157,11 +156,12 @@ struct ClassicPlayerLayout: View {
                 } else {
                     asideDefaultPlayerContent(geometry: geometry)
                 }
-
-                // 三点菜单浮层
+            }
+            .playerMoreMenuOverlay { anchorFrame in
                 if showMoreMenu {
                     PlayerMoreMenu(
                         isPresented: $showMoreMenu,
+                        anchorFrame: anchorFrame,
                         onEQ: { showEQSettings = true },
                         onTheme: { showThemePicker = true }
                     )

@@ -275,3 +275,31 @@ DesignAssets/AsideIconSystem/aside-design-dna.md
 /DesignAssets/Branding/GitHubCatPawStyle/GitHubCatPawStyle-1024.png
 /DesignAssets/Branding/GitHubCatPawStyle/GitHubCatPawStyle-source.png
 /DesignAssets/Branding/GitHubCatPawStyle/GitHubCatPawStyle.svg
+
+# Executable audit regressions and the session dependency lock.
+!/Tests/
+/Tests/*
+!/Tests/MonoTests/
+!/Tests/MonoTests/**
+/Services/Server/mono-session/node_modules/
+!/Services/Server/mono-session/package.json
+!/Services/Server/mono-session/package-lock.json
+
+# Source-derived background audio regressions used by iOS CI.
+!/Scripts/
+/Scripts/*
+!/Scripts/Tests/
+/Scripts/Tests/*
+!/Scripts/Tests/background_audio_regressions.py
+!/Scripts/Tests/background_audio_fixture.swift
+!/Scripts/Tests/audio_session_executor_fixture.swift
+
+# MONO bitmap icon redesign sources.
+!/Design/IconSystems/MonoGlyph/BitmapRedesign/*.png
+!/Design/IconSystems/MonoGlyph/BitmapRedesign/semantics.json
+!/Design/IconSystems/MonoGlyph/BitmapRedesign/manifest.json
+
+# Reproducible MONO bitmap extraction and validation evidence.
+!/Packages/Icons/MonoGlyphIcons/Tools/slice_source_sheets.py
+!/Design/IconSystems/MonoGlyph/slicing-report.json
+!/Design/IconSystems/MonoGlyph/validation-report.json

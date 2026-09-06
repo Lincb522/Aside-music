@@ -169,15 +169,18 @@ struct AIListeningInsightInput: Codable, Equatable, Sendable {
                 artist: $0.artistName,
                 playCount: $0.playCount,
                 seconds: $0.totalDuration,
-                lyricExcerpt: lyricExcerpt(songID: $0.songId)
+                lyricExcerpt: lyricExcerpt(songID: $0.songId, identity: $0.id)
             )
         }
     }
 
     /// 从歌词缓存提取最多两句、总长不超 56 字的片段，供 LLM 作为意象素材（去除时间戳与重复行）。
     @MainActor
-    private static func lyricExcerpt(songID: Int) -> String? {
-        guard let raw = OptimizedCacheManager.shared.getLyrics(songId: songID)?.lyrics else {
+    private static func lyricExcerpt(songID: Int, identity: String) -> String? {
+        guard let sourceName = identity.split(separator: ":").first,
+              let source = sourceName == "qq" ? MusicSource.qqmusic
+                : MusicSource(rawValue: sourceName == "unknown" ? "netease" : String(sourceName)),
+              let raw = OptimizedCacheManager.shared.getLyrics(songId: songID, source: source)?.lyrics else {
             return nil
         }
 

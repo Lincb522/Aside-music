@@ -28,6 +28,8 @@ extension ThemeColorCustomization {
                 }
                 let count = backgroundImageCache.count
                 backgroundImageCache.removeAll(keepingCapacity: false)
+                backgroundImageLoads.values.forEach { $0.cancel() }
+                backgroundImageLoads.removeAll()
                 return .init(
                     releasedItemCount: count,
                     estimatedReleasedBytes: bytes,
@@ -48,7 +50,6 @@ extension ThemeColorCustomization {
     static func backgroundImageDirectory() -> URL {
         let base = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("ThemeBackgrounds", isDirectory: true)
-        try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
         return base
     }
 
@@ -67,30 +68,46 @@ extension ThemeColorCustomization {
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 
+    @MainActor
     static func hasBackgroundImage(for theme: GlobalThemeId, dark: Bool = false) -> Bool {
-        backgroundImageURL(for: theme, dark: dark) != nil
+        backgroundImage(for: theme, dark: dark) != nil || backgroundImageURL(for: theme, dark: dark) != nil
     }
 
     static func usesImageBackground(for theme: GlobalThemeId) -> Bool {
         customColorsEnabled
             && supportsImageBackground(theme)
             && mode(for: theme, role: .background) == .image
-            && hasBackgroundImage(for: theme)
     }
 
-    /// 加载壁纸背景图；参考系统壁纸，整张图缩放填满屏幕显示。
+    /// Rendering reads memory only; file loading belongs to the view's task.
     @MainActor
     static func backgroundImage(for theme: GlobalThemeId, dark: Bool = false) -> UIImage? {
-        installMemoryManagement()
-        guard let url = backgroundImageURL(for: theme, dark: dark) else { return nil }
+        guard let fileName = backgroundImageFileName(for: theme, dark: dark) else { return nil }
+        return backgroundImageCache[fileName]
+    }
 
-        let cacheKey = url.lastPathComponent
-        if let cached = backgroundImageCache[cacheKey] {
+    @MainActor
+    static func loadBackgroundImage(for theme: GlobalThemeId, dark: Bool = false) async -> UIImage? {
+        installMemoryManagement()
+        guard let fileName = backgroundImageFileName(for: theme, dark: dark) else { return nil }
+        if let cached = backgroundImageCache[fileName] {
             return cached
         }
 
-        guard let data = try? Data(contentsOf: url), let image = UIImage(data: data) else { return nil }
-        backgroundImageCache[cacheKey] = image
+        // Pages and the settings preview can request the same full-resolution image.
+        let task: Task<UIImage?, Never>
+        if let pending = backgroundImageLoads[fileName] {
+            task = pending
+        } else {
+            let url = backgroundImageDirectory().appendingPathComponent(fileName)
+            task = Task { await ThemeBackgroundImageDecoder.shared.load(url) }
+            backgroundImageLoads[fileName] = task
+        }
+        let image = await task.value
+        guard !task.isCancelled else { return nil }
+        backgroundImageLoads.removeValue(forKey: fileName)
+        guard backgroundImageFileName(for: theme, dark: dark) == fileName else { return nil }
+        backgroundImageCache[fileName] = image
         return image
     }
 
@@ -121,11 +138,13 @@ extension ThemeColorCustomization {
         let fileName = "\(theme.rawValue)-bg\(dark ? "-dark" : "")-\(UUID().uuidString).png"
         let url = backgroundImageDirectory().appendingPathComponent(fileName)
         do {
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             try output.write(to: url)
         } catch {
             return false
         }
 
+        backgroundImageCache[fileName] = resized
         let defaults = UserDefaults.standard
         defaults.set(fileName, forKey: key(theme, .background, backgroundImageFileKeySuffix(dark: dark)))
         if dark {
@@ -161,10 +180,57 @@ extension ThemeColorCustomization {
     @MainActor
     static func removeBackgroundImageFile(for theme: GlobalThemeId, dark: Bool = false) {
         if let fileName = backgroundImageFileName(for: theme, dark: dark) {
+            backgroundImageLoads.removeValue(forKey: fileName)?.cancel()
             backgroundImageCache.removeValue(forKey: fileName)
             let url = backgroundImageDirectory().appendingPathComponent(fileName)
             try? FileManager.default.removeItem(at: url)
         }
     }
 
+}
+
+private actor ThemeBackgroundImageDecoder {
+    static let shared = ThemeBackgroundImageDecoder()
+
+    func load(_ url: URL) -> UIImage? {
+        guard !Task.isCancelled else { return nil }
+        return autoreleasepool {
+            guard let data = try? Data(contentsOf: url), let image = UIImage(data: data) else { return nil }
+            return image.preparingForDisplay() ?? image
+        }
+    }
+}
+
+struct ThemeBackgroundImageReader<Content: View>: View {
+    let theme: GlobalThemeId
+    var dark = false
+    var isEnabled = true
+    @ViewBuilder var content: (UIImage?) -> Content
+
+    @State private var loadedFileName: String?
+    @State private var loadedImage: UIImage?
+
+    init(
+        theme: GlobalThemeId,
+        dark: Bool = false,
+        isEnabled: Bool = true,
+        @ViewBuilder content: @escaping (UIImage?) -> Content
+    ) {
+        self.theme = theme
+        self.dark = dark
+        self.isEnabled = isEnabled
+        self.content = content
+    }
+
+    var body: some View {
+        let fileName = isEnabled ? ThemeColorCustomization.backgroundImageFileName(for: theme, dark: dark) : nil
+        let image = isEnabled ? ThemeColorCustomization.backgroundImage(for: theme, dark: dark) : nil
+        content(image ?? (loadedFileName == fileName ? loadedImage : nil))
+            .task(id: fileName) {
+                let loaded = fileName == nil ? nil : await ThemeColorCustomization.loadBackgroundImage(for: theme, dark: dark)
+                guard !Task.isCancelled else { return }
+                loadedImage = loaded
+                loadedFileName = fileName
+            }
+    }
 }

@@ -12,7 +12,8 @@ import CFFmpeg
 /// FFmpeg avfilter 音频滤镜图，支持实时参数调整。
 ///
 /// 内部维护一个 AVFilterGraph，按需重建滤镜链。
-/// 线程安全：所有参数修改和处理都通过 NSLock 保护。
+/// Control writes and prepared graph exchange use a short lock. Active DSP
+/// state belongs only to the audio consumer; a busy exchange never bypasses it.
 final class AudioFilterGraph: @unchecked Sendable {
 
     // MARK: - 属性
@@ -231,11 +232,31 @@ final class AudioFilterGraph: @unchecked Sendable {
     private var pendingFilterGraph: UnsafeMutablePointer<AVFilterGraph>?
     private var pendingBufferSrcCtx: UnsafeMutablePointer<AVFilterContext>?
     private var pendingBufferSinkCtx: UnsafeMutablePointer<AVFilterContext>?
-    /// Ownership of the replaced graph is handed to the next rebuild-queue
-    /// pass. Releasing an AVFilterGraph can lock and free deeply nested state,
-    /// so it must never be dispatched or destroyed from the render callback.
+    /// Consumer-owned until transferred to retirementMailbox at a block boundary.
     private var retiredFilterGraph: UnsafeMutablePointer<AVFilterGraph>?
-    private var pendingGraphCrossfadeFramesRemaining: Int = 0
+    private struct PreparedGraph {
+        let graph: UnsafeMutablePointer<AVFilterGraph>
+        let source: UnsafeMutablePointer<AVFilterContext>
+        let sink: UnsafeMutablePointer<AVFilterContext>
+        let sampleRate: Int
+        let channelCount: Int
+        let hasEffects: Bool
+    }
+
+    // These mailbox fields are protected by lock; only the rebuild queue frees
+    // replaced prepared graphs and pointers handed back by the audio consumer.
+    private var preparedGraph: PreparedGraph?
+    private var retirementMailbox: UnsafeMutablePointer<AVFilterGraph>?
+    private var publishedRenderSampleRate = 0
+    private var publishedRenderChannelCount = 0
+    private var publishedRenderActive = false
+    private var sampleCountResetPending = false
+
+    // Active/pending graphs, transition counters and AVFrames are consumer-owned.
+    private var activeGraphHasEffects = false
+    private var pendingGraphSampleRate = 0
+    private var pendingGraphChannelCount = 0
+    private var pendingGraphHasEffects = false
     private var needsRebuild: Bool = true
     
     // 首次建图仍由干声平滑接入。参数变化时替换图在后台独立构建，
@@ -250,36 +271,21 @@ final class AudioFilterGraph: @unchecked Sendable {
     
     private var cachedInputFrame: UnsafeMutablePointer<AVFrame>?
     private var cachedOutputFrame: UnsafeMutablePointer<AVFrame>?
-    private var pendingInputFrame: UnsafeMutablePointer<AVFrame>?
-    private var pendingOutputFrame: UnsafeMutablePointer<AVFrame>?
     // 输入帧 PCM 缓冲池：实时回调里复用，稳态零 malloc/free
     private var inputFramePool: OpaquePointer?
     private var inputFramePoolBufferSize: Int = 0
     // 输出兜底缓冲（滤镜改变样本数时使用），跨回调复用，由本类持有并释放
     private var outputScratch: UnsafeMutablePointer<Float>?
     private var outputScratchCapacity: Int = 0
-    private var pendingOutputScratch: UnsafeMutablePointer<Float>? =
-        .allocate(capacity: 16_384)
-    private var pendingOutputScratchCapacity: Int = 16_384
 
     /// 是否有任何滤镜处于激活状态
     var isActive: Bool {
-        // 使用 tryLock 避免在实时线程上阻塞。锁竞争时跳过本块滤镜判断，
-        // 让 AudioRenderer 直接输出当前 PCM；保护硬件 deadline 比强行维持
-        // 一帧湿声更重要。
-        guard lock.try() else { return false }
-        let active = checkAnyFilterActive()
-            || needsRebuild
-            || rebuildScheduled
-            || rebuildWaitingForFadeOut
-            || effectFadeOutFramesRemaining > 0
-            || effectFadeInFramesRemaining > 0
-            || pendingFilterGraph != nil
-            || pendingGraphCrossfadeFramesRemaining > 0
-        lock.unlock()
-        return active
+        guard lock.try() else { return true }
+        defer { lock.unlock() }
+        return checkAnyFilterActive() || needsRebuild || rebuildScheduled
+            || preparedGraph != nil || publishedRenderActive
     }
-    
+
     private func checkAnyFilterActive() -> Bool {
         return volumeDB != 0.0 ||
                loudnormEnabled ||
@@ -477,23 +483,16 @@ final class AudioFilterGraph: @unchecked Sendable {
         // hardware callback after an effect becomes active.
         cachedInputFrame = av_frame_alloc()
         cachedOutputFrame = av_frame_alloc()
-        pendingInputFrame = av_frame_alloc()
-        pendingOutputFrame = av_frame_alloc()
     }
 
     deinit {
         destroyGraph()
         if cachedInputFrame != nil { av_frame_free(&cachedInputFrame) }
         if cachedOutputFrame != nil { av_frame_free(&cachedOutputFrame) }
-        if pendingInputFrame != nil { av_frame_free(&pendingInputFrame) }
-        if pendingOutputFrame != nil { av_frame_free(&pendingOutputFrame) }
         av_buffer_pool_uninit(&inputFramePool)
         outputScratch?.deallocate()
         outputScratch = nil
         outputScratchCapacity = 0
-        pendingOutputScratch?.deallocate()
-        pendingOutputScratch = nil
-        pendingOutputScratchCapacity = 0
         transitionInputScratch?.deallocate()
         transitionInputScratch = nil
         transitionInputCapacity = 0
@@ -1170,7 +1169,7 @@ final class AudioFilterGraph: @unchecked Sendable {
     /// 重置已处理采样计数
     func resetProcessedSamples() {
         lock.lock()
-        processedSamples = 0
+        sampleCountResetPending = true
         lock.unlock()
     }
 
@@ -1273,14 +1272,10 @@ final class AudioFilterGraph: @unchecked Sendable {
         dialogueEnhanceOriginal = 1.0
         dialogueEnhanceEnhance = 1.0
         // 状态
-        processedSamples = 0
+        sampleCountResetPending = true
         needsRebuild = true
-        effectFadeOutFramesRemaining = 0
-        effectFadeInFramesRemaining = 0
-        rebuildWaitingForFadeOut = false
-        pendingGraphCrossfadeFramesRemaining = 0
+        scheduleGraphRebuildUnsafe()
         lock.unlock()
-        destroyGraph()
     }
 
 
@@ -1293,81 +1288,37 @@ final class AudioFilterGraph: @unchecked Sendable {
     /// 1. 参数变化期间继续使用旧滤镜图
     /// 2. 替换图在后台独立构建，不占用实时处理锁
     /// 3. 新图就绪后经由干声桥接，避免同一回调运行两套完整滤镜图
-    /// 4. 使用有界非休眠重试避免实时线程被调度器挂起
+    /// 4. 控制锁忙时只延后交接，继续运行音频线程持有的图
     func process(_ buffer: AudioBuffer) -> AudioBuffer {
-        // 有界重试拿锁，避免在实时音频线程上无限阻塞。
-        // 直接跳过并非无害：效果激活时整块退回干声会被听到
-        // （音色/响度瞬间变平再弹回）；参数写侧的临界区只有微秒级，
-        // 两次 ~20µs 的短等几乎能吃掉所有碰撞。
-        guard acquireRealtimeAudioLock(lock) else {
-            return buffer
-        }
-        
-        let desiredActive = checkAnyFilterActive()
-        let transitionActive = needsRebuild
-            || rebuildScheduled
-            || rebuildWaitingForFadeOut
-            || effectFadeOutFramesRemaining > 0
-            || effectFadeInFramesRemaining > 0
-            || pendingFilterGraph != nil
-            || pendingGraphCrossfadeFramesRemaining > 0
-
-        guard desiredActive || transitionActive else {
-            lock.unlock()
-            return buffer
-        }
-
-        processedSamples += Int64(buffer.frameCount)
-
-        // 检测格式是否变化（采样率或声道数）
-        let formatChanged = sampleRate != buffer.sampleRate || channelCount != buffer.channelCount
-
-        // 格式已经变化时旧图不能再消费当前 buffer，只能立即退回干声并在
-        // 后台重建；普通参数变化仍由旧图继续处理。
-        if formatChanged {
-            sampleRate = buffer.sampleRate
-            channelCount = buffer.channelCount
-            needsRebuild = true
+        synchronizePreparedGraph(for: buffer)
+        if let pending = pendingFilterGraph,
+           (pendingGraphSampleRate != buffer.sampleRate || pendingGraphChannelCount != buffer.channelCount),
+           retiredFilterGraph == nil {
+            retiredFilterGraph = pending
+            pendingFilterGraph = nil
+            pendingBufferSrcCtx = nil
+            pendingBufferSinkCtx = nil
             effectFadeOutFramesRemaining = 0
-            effectFadeInFramesRemaining = 0
             rebuildWaitingForFadeOut = false
-            pendingGraphCrossfadeFramesRemaining = 0
-            scheduleGraphRebuildUnsafe()
-            lock.unlock()
+        }
+        if pendingFilterGraph != nil,
+           (effectFadeOutFramesRemaining == 0
+                || activeGraphSampleRate != buffer.sampleRate
+                || activeGraphChannelCount != buffer.channelCount) {
+            promotePendingGraphUnsafe(fadeIn: true)
+        }
+        guard activeGraphSampleRate == buffer.sampleRate,
+              activeGraphChannelCount == buffer.channelCount,
+              activeGraphHasEffects || effectFadeOutFramesRemaining > 0 || effectFadeInFramesRemaining > 0,
+              let srcCtx = bufferSrcCtx, let sinkCtx = bufferSinkCtx else {
             return buffer
         }
-
-        let hasUsableGraph = filterGraph != nil
-            && bufferSrcCtx != nil
-            && bufferSinkCtx != nil
-            && activeGraphSampleRate == buffer.sampleRate
-            && activeGraphChannelCount == buffer.channelCount
-
-        if needsRebuild {
-            // A newer parameter commit supersedes a replacement graph that has
-            // not completed its handoff yet. Keep the active graph until the
-            // latest replacement is ready.
-            if pendingFilterGraph != nil {
-                pendingGraphCrossfadeFramesRemaining = 0
-            }
-            if !rebuildScheduled {
-                scheduleGraphRebuildUnsafe()
-            }
-        }
-
-        guard hasUsableGraph,
-              filterGraph != nil,
-              let srcCtx = bufferSrcCtx,
-              let sinkCtx = bufferSinkCtx else {
-            lock.unlock()
-            return buffer
-        }
+        processedSamples += Int64(buffer.frameCount)
 
         let inputSampleCount = buffer.frameCount * buffer.channelCount
         let transitionInput: UnsafeMutablePointer<Float>?
         if (effectFadeOutFramesRemaining > 0
-                || effectFadeInFramesRemaining > 0
-                || pendingGraphCrossfadeFramesRemaining > 0),
+                || effectFadeInFramesRemaining > 0),
            let scratch = ensureTransitionInputCapacityUnsafe(inputSampleCount) {
             scratch.update(from: buffer.data, count: inputSampleCount)
             transitionInput = scratch
@@ -1377,7 +1328,6 @@ final class AudioFilterGraph: @unchecked Sendable {
 
         if cachedInputFrame == nil { cachedInputFrame = av_frame_alloc() }
         guard let frame = cachedInputFrame else {
-            lock.unlock()
             return buffer
         }
         av_frame_unref(frame)
@@ -1389,7 +1339,6 @@ final class AudioFilterGraph: @unchecked Sendable {
 
         let totalBytes = buffer.frameCount * buffer.channelCount * MemoryLayout<Float>.size
         guard attachPooledInputBufferUnsafe(to: frame, byteCount: totalBytes) else {
-            lock.unlock()
             return buffer
         }
         if let dst = frame.pointee.data.0 {
@@ -1399,13 +1348,11 @@ final class AudioFilterGraph: @unchecked Sendable {
         let addRet = av_buffersrc_add_frame(srcCtx, frame)
 
         guard addRet >= 0 else {
-            lock.unlock()
             return buffer
         }
 
         if cachedOutputFrame == nil { cachedOutputFrame = av_frame_alloc() }
         guard let outFrame = cachedOutputFrame else {
-            lock.unlock()
             return buffer
         }
         av_frame_unref(outFrame)
@@ -1413,7 +1360,6 @@ final class AudioFilterGraph: @unchecked Sendable {
         let getResult = av_buffersink_get_frame(sinkCtx, outFrame)
 
         guard getResult >= 0 else {
-            lock.unlock()
             return buffer
         }
 
@@ -1461,25 +1407,6 @@ final class AudioFilterGraph: @unchecked Sendable {
             if effectFadeOutFramesRemaining == 0, rebuildWaitingForFadeOut {
                 promotePendingGraphUnsafe(fadeIn: true)
             }
-        } else if pendingGraphCrossfadeFramesRemaining > 0,
-           let transitionInput,
-           let pendingOutput = processPendingGraphUnsafe(
-               inputData: transitionInput,
-               frameCount: buffer.frameCount,
-               channelCount: buffer.channelCount,
-               sampleRate: buffer.sampleRate
-           ) {
-            applyPendingGraphCrossfadeUnsafe(
-                activeData: outData,
-                pendingData: pendingOutput.data,
-                activeFrameCount: outFrameCount,
-                pendingFrameCount: pendingOutput.frameCount,
-                activeChannelCount: outChannels,
-                pendingChannelCount: pendingOutput.channelCount
-            )
-            if pendingGraphCrossfadeFramesRemaining == 0 {
-                promotePendingGraphUnsafe(fadeIn: false)
-            }
         } else if effectFadeInFramesRemaining > 0, let transitionInput {
             applyEffectTransitionUnsafe(
                 wetData: outData,
@@ -1491,8 +1418,6 @@ final class AudioFilterGraph: @unchecked Sendable {
                 fadingIn: true
             )
         }
-        
-        lock.unlock()
 
         return AudioBuffer(
             data: outData,
@@ -1502,156 +1427,93 @@ final class AudioFilterGraph: @unchecked Sendable {
         )
     }
 
-    /// Developer diagnostics only: confirms that the requested graph was
-    /// constructed for the supplied PCM format and is ready to consume audio.
+    /// A graph has been prepared for this format, or is already being rendered.
     func isReadyForDiagnostics(sampleRate: Int, channelCount: Int) -> Bool {
         lock.lock()
-        let ready = filterGraph != nil
-            && bufferSrcCtx != nil
-            && bufferSinkCtx != nil
-            && activeGraphSampleRate == sampleRate
-            && activeGraphChannelCount == channelCount
-            && !needsRebuild
-            && !rebuildScheduled
-        lock.unlock()
-        return ready
+        defer { lock.unlock() }
+        let prepared = preparedGraph.map {
+            $0.sampleRate == sampleRate && $0.channelCount == channelCount
+        } ?? false
+        let rendered = publishedRenderSampleRate == sampleRate
+            && publishedRenderChannelCount == channelCount
+        return (prepared || rendered) && !needsRebuild && !rebuildScheduled
     }
 
-    /// Runs the same unprocessed input through the replacement graph. Its
-    /// output is copied into persistent scratch so the pending AVFrame can be
-    /// safely reused on the next render callback.
-    private func processPendingGraphUnsafe(
-        inputData: UnsafeMutablePointer<Float>,
-        frameCount: Int,
-        channelCount: Int,
-        sampleRate: Int
-    ) -> AudioBuffer? {
-        guard pendingFilterGraph != nil,
-              let srcCtx = pendingBufferSrcCtx,
-              let sinkCtx = pendingBufferSinkCtx else {
-            return nil
+    private func synchronizePreparedGraph(for buffer: AudioBuffer) {
+        // Only defer the exchange when control is busy, not the active DSP.
+        guard lock.try() else { return }
+        defer { lock.unlock() }
+        if sampleCountResetPending {
+            processedSamples = 0
+            sampleCountResetPending = false
         }
-
-        if pendingInputFrame == nil { pendingInputFrame = av_frame_alloc() }
-        guard let inputFrame = pendingInputFrame else { return nil }
-        av_frame_unref(inputFrame)
-        inputFrame.pointee.format = AV_SAMPLE_FMT_FLT.rawValue
-        inputFrame.pointee.sample_rate = Int32(sampleRate)
-        inputFrame.pointee.nb_samples = Int32(frameCount)
-        av_channel_layout_default(&inputFrame.pointee.ch_layout, Int32(channelCount))
-
-        let byteCount = frameCount * channelCount * MemoryLayout<Float>.size
-        guard attachPooledInputBufferUnsafe(to: inputFrame, byteCount: byteCount) else {
-            return nil
+        if retiredFilterGraph != nil, retirementMailbox == nil {
+            retirementMailbox = retiredFilterGraph
+            retiredFilterGraph = nil
+            scheduleGraphRebuildUnsafe()
         }
-        if let destination = inputFrame.pointee.data.0 {
-            memcpy(destination, inputData, byteCount)
+        if retirementMailbox != nil { scheduleGraphRebuildUnsafe() }
+        if sampleRate != buffer.sampleRate || channelCount != buffer.channelCount {
+            sampleRate = buffer.sampleRate
+            channelCount = buffer.channelCount
+            needsRebuild = true
         }
-        guard av_buffersrc_add_frame(srcCtx, inputFrame) >= 0 else { return nil }
-
-        if pendingOutputFrame == nil { pendingOutputFrame = av_frame_alloc() }
-        guard let outputFrame = pendingOutputFrame else { return nil }
-        av_frame_unref(outputFrame)
-        guard av_buffersink_get_frame(sinkCtx, outputFrame) >= 0 else { return nil }
-
-        let outputFrameCount = Int(outputFrame.pointee.nb_samples)
-        let outputChannelCount = Int(outputFrame.pointee.ch_layout.nb_channels)
-        let outputSampleCount = outputFrameCount * outputChannelCount
-        guard outputSampleCount > 0,
-              let outputData = ensurePendingOutputCapacityUnsafe(outputSampleCount),
-              let source = outputFrame.pointee.data.0 else {
-            return nil
-        }
-        memcpy(
-            outputData,
-            source,
-            outputSampleCount * MemoryLayout<Float>.size
-        )
-        return AudioBuffer(
-            data: outputData,
-            frameCount: outputFrameCount,
-            channelCount: outputChannelCount,
-            sampleRate: Int(outputFrame.pointee.sample_rate)
-        )
-    }
-
-    private func applyPendingGraphCrossfadeUnsafe(
-        activeData: UnsafeMutablePointer<Float>,
-        pendingData: UnsafeMutablePointer<Float>,
-        activeFrameCount: Int,
-        pendingFrameCount: Int,
-        activeChannelCount: Int,
-        pendingChannelCount: Int
-    ) {
-        let blendedChannelCount = min(activeChannelCount, pendingChannelCount)
-        let remaining = pendingGraphCrossfadeFramesRemaining
-        guard remaining > 0, blendedChannelCount > 0 else { return }
-        let frames = min(remaining, min(activeFrameCount, pendingFrameCount))
-        guard frames > 0 else { return }
-        let completed = effectTransitionDurationFrames - remaining
-
-        for frame in 0..<frames {
-            let linear = min(
-                1,
-                Float(completed + frame + 1) / Float(effectTransitionDurationFrames)
-            )
-            let pendingMix = linear * linear * (3 - 2 * linear)
-            let activeMix = 1 - pendingMix
-            for channel in 0..<blendedChannelCount {
-                let activeIndex = frame * activeChannelCount + channel
-                let pendingIndex = frame * pendingChannelCount + channel
-                activeData[activeIndex] =
-                    activeData[activeIndex] * activeMix
-                    + pendingData[pendingIndex] * pendingMix
+        if needsRebuild { scheduleGraphRebuildUnsafe() }
+        if !needsRebuild, !rebuildScheduled, pendingFilterGraph == nil, retiredFilterGraph == nil,
+           let prepared = preparedGraph,
+           prepared.sampleRate == buffer.sampleRate,
+           prepared.channelCount == buffer.channelCount {
+            preparedGraph = nil
+            if filterGraph != nil, activeGraphHasEffects,
+               activeGraphSampleRate == buffer.sampleRate,
+               activeGraphChannelCount == buffer.channelCount {
+                pendingFilterGraph = prepared.graph
+                pendingBufferSrcCtx = prepared.source
+                pendingBufferSinkCtx = prepared.sink
+                pendingGraphSampleRate = prepared.sampleRate
+                pendingGraphChannelCount = prepared.channelCount
+                pendingGraphHasEffects = prepared.hasEffects
+                effectFadeOutFramesRemaining = effectTransitionDurationFrames
+                effectFadeInFramesRemaining = 0
+                rebuildWaitingForFadeOut = true
+            } else {
+                retiredFilterGraph = filterGraph
+                filterGraph = prepared.graph
+                bufferSrcCtx = prepared.source
+                bufferSinkCtx = prepared.sink
+                activeGraphSampleRate = prepared.sampleRate
+                activeGraphChannelCount = prepared.channelCount
+                activeGraphHasEffects = prepared.hasEffects
+                effectFadeOutFramesRemaining = 0
+                effectFadeInFramesRemaining = prepared.hasEffects ? effectTransitionDurationFrames : 0
+                rebuildWaitingForFadeOut = false
             }
         }
-        pendingGraphCrossfadeFramesRemaining -= frames
+        publishedRenderSampleRate = activeGraphSampleRate
+        publishedRenderChannelCount = activeGraphChannelCount
+        publishedRenderActive = activeGraphHasEffects || pendingFilterGraph != nil
     }
 
     private func promotePendingGraphUnsafe(fadeIn: Bool) {
-        guard let nextGraph = pendingFilterGraph,
+        guard retiredFilterGraph == nil,
+              let nextGraph = pendingFilterGraph,
               let nextSource = pendingBufferSrcCtx,
-              let nextSink = pendingBufferSinkCtx else {
-            pendingGraphCrossfadeFramesRemaining = 0
-            return
-        }
-        let retiredGraph = filterGraph
+              let nextSink = pendingBufferSinkCtx else { return }
+        retiredFilterGraph = filterGraph
         filterGraph = nextGraph
         bufferSrcCtx = nextSource
         bufferSinkCtx = nextSink
-        activeGraphSampleRate = sampleRate
-        activeGraphChannelCount = channelCount
+        activeGraphSampleRate = pendingGraphSampleRate
+        activeGraphChannelCount = pendingGraphChannelCount
+        activeGraphHasEffects = pendingGraphHasEffects
         pendingFilterGraph = nil
         pendingBufferSrcCtx = nil
         pendingBufferSinkCtx = nil
-        pendingGraphCrossfadeFramesRemaining = 0
         rebuildWaitingForFadeOut = false
-        effectFadeInFramesRemaining = fadeIn ? effectTransitionDurationFrames : 0
+        effectFadeOutFramesRemaining = 0
+        effectFadeInFramesRemaining = fadeIn && activeGraphHasEffects ? effectTransitionDurationFrames : 0
+    }
 
-        // The next rebuild-queue pass releases this before constructing another
-        // graph. Every promotion is preceded by such a pass, so one slot is
-        // sufficient and the realtime callback performs no allocation/dispatch.
-        retiredFilterGraph = retiredGraph
-    }
-    
-    /// Flush 滤镜图中的剩余帧（在 lock 内调用）
-    private func flushFilterGraphUnsafe() {
-        guard let srcCtx = bufferSrcCtx, let sinkCtx = bufferSinkCtx else { return }
-        
-        // 发送 EOF 信号给滤镜图
-        _ = av_buffersrc_add_frame(srcCtx, nil)
-        
-        // 取出所有剩余帧（丢弃，但这样可以清空滤镜内部缓冲）
-        let flushFrame = av_frame_alloc()
-        if let frame = flushFrame {
-            while av_buffersink_get_frame(sinkCtx, frame) >= 0 {
-                av_frame_unref(frame)
-            }
-            var fp: UnsafeMutablePointer<AVFrame>? = frame
-            av_frame_free(&fp)
-        }
-    }
-    
     /// 首次建图时用同一输入帧的干声与湿声做连续接入。
     private func applyEffectTransitionUnsafe(
         wetData: UnsafeMutablePointer<Float>,
@@ -1662,37 +1524,21 @@ final class AudioFilterGraph: @unchecked Sendable {
         dryChannelCount: Int,
         fadingIn: Bool
     ) {
-        let blendedChannelCount = min(wetChannelCount, dryChannelCount)
-        let remaining = fadingIn
-            ? effectFadeInFramesRemaining
-            : effectFadeOutFramesRemaining
-        guard remaining > 0, blendedChannelCount > 0 else { return }
-        let frames = min(
-            remaining,
-            min(wetFrameCount, dryFrameCount)
+        let remaining = AudioEffectTransition.mix(
+            wetData: wetData,
+            dryData: dryData,
+            wetFrameCount: wetFrameCount,
+            dryFrameCount: dryFrameCount,
+            wetChannelCount: wetChannelCount,
+            dryChannelCount: dryChannelCount,
+            durationFrames: effectTransitionDurationFrames,
+            remainingFrames: fadingIn ? effectFadeInFramesRemaining : effectFadeOutFramesRemaining,
+            fadingIn: fadingIn
         )
-        guard frames > 0 else { return }
-        let completed = effectTransitionDurationFrames - remaining
-
-        for frame in 0..<frames {
-            let linear = min(
-                1,
-                Float(completed + frame + 1) / Float(effectTransitionDurationFrames)
-            )
-            let eased = linear * linear * (3 - 2 * linear)
-            let wetMix = fadingIn ? eased : 1 - eased
-            let dryMix = 1 - wetMix
-            for channel in 0..<blendedChannelCount {
-                let wetIndex = frame * wetChannelCount + channel
-                let dryIndex = frame * dryChannelCount + channel
-                wetData[wetIndex] =
-                    dryData[dryIndex] * dryMix + wetData[wetIndex] * wetMix
-            }
-        }
         if fadingIn {
-            effectFadeInFramesRemaining -= frames
+            effectFadeInFramesRemaining = remaining
         } else {
-            effectFadeOutFramesRemaining -= frames
+            effectFadeOutFramesRemaining = remaining
         }
     }
 
@@ -1710,21 +1556,7 @@ final class AudioFilterGraph: @unchecked Sendable {
         return transitionInputScratch
     }
 
-    private func ensurePendingOutputCapacityUnsafe(
-        _ sampleCount: Int
-    ) -> UnsafeMutablePointer<Float>? {
-        guard sampleCount > 0 else { return nil }
-        if sampleCount > pendingOutputScratchCapacity {
-            pendingOutputScratch?.deallocate()
-            var capacity = max(16_384, pendingOutputScratchCapacity)
-            while capacity < sampleCount { capacity <<= 1 }
-            pendingOutputScratch = .allocate(capacity: capacity)
-            pendingOutputScratchCapacity = capacity
-        }
-        return pendingOutputScratch
-    }
-
-    /// 从复用缓冲池为输入帧挂载 PCM buffer（在 lock 内调用）。
+    /// Attaches pooled PCM storage; called only by the audio consumer.
     /// 池容量按 2 的幂增长，回调帧长小幅波动不会反复重建池；
     /// 稳态下 av_buffer_pool_get 直接复用已归还的缓冲，不触发 malloc。
     private func attachPooledInputBufferUnsafe(
@@ -1755,9 +1587,8 @@ final class AudioFilterGraph: @unchecked Sendable {
 
     // MARK: - 滤镜图构建
 
-    /// Graph allocation and FFmpeg filter negotiation must never run inside
-    /// the real-time render callback. While rebuilding, `tryLock` callers
-    /// bypass the graph for a few blocks instead of blocking and underrunning.
+    /// Called with the control/mailbox lock held. The worker never mutates an
+    /// active graph or render-side transition state.
     private func scheduleGraphRebuildUnsafe() {
         guard !rebuildScheduled else { return }
         rebuildScheduled = true
@@ -1767,29 +1598,19 @@ final class AudioFilterGraph: @unchecked Sendable {
     }
 
     private func performScheduledGraphRebuild() {
-        // Retired graph destruction stays entirely on the rebuild queue.
         lock.lock()
-        var graphToRetire = retiredFilterGraph
-        retiredFilterGraph = nil
+        var graphToRetire = retirementMailbox
+        retirementMailbox = nil
         lock.unlock()
-        if graphToRetire != nil {
-            avfilter_graph_free(&graphToRetire)
-        }
+        if graphToRetire != nil { avfilter_graph_free(&graphToRetire) }
 
-        // Allocation belongs to the rebuild queue, not the short state-snapshot
-        // critical section shared with the render thread.
         let builder = AudioFilterGraph()
         lock.lock()
         guard needsRebuild, sampleRate > 0, channelCount > 0 else {
             rebuildScheduled = false
-            rebuildWaitingForFadeOut = false
             lock.unlock()
             return
         }
-
-        // Mark this snapshot as consumed before releasing the lock. A parameter
-        // change during construction sets needsRebuild again and causes the
-        // completed stale graph to be discarded.
         needsRebuild = false
         let targetSampleRate = sampleRate
         let targetChannelCount = channelCount
@@ -1800,83 +1621,32 @@ final class AudioFilterGraph: @unchecked Sendable {
         var builtGraph = builder.filterGraph
         let builtSource = builder.bufferSrcCtx
         let builtSink = builder.bufferSinkCtx
+        let hasEffects = builder.checkAnyFilterActive()
         builder.filterGraph = nil
         builder.bufferSrcCtx = nil
         builder.bufferSinkCtx = nil
 
         lock.lock()
-        if needsRebuild
-            || sampleRate != targetSampleRate
-            || channelCount != targetChannelCount {
-            rebuildScheduled = false
+        rebuildScheduled = false
+        if needsRebuild || sampleRate != targetSampleRate || channelCount != targetChannelCount {
             needsRebuild = true
             scheduleGraphRebuildUnsafe()
             lock.unlock()
             if builtGraph != nil { avfilter_graph_free(&builtGraph) }
             return
         }
-
-        rebuildScheduled = false
-        rebuildWaitingForFadeOut = false
-        effectFadeOutFramesRemaining = 0
-
-        guard let builtGraphValue = builtGraph,
-              let builtSource,
-              let builtSink else {
-            var stalePendingGraph = pendingFilterGraph
-            pendingFilterGraph = nil
-            pendingBufferSrcCtx = nil
-            pendingBufferSinkCtx = nil
-            pendingGraphCrossfadeFramesRemaining = 0
+        guard let graph = builtGraph, let source = builtSource, let sink = builtSink else {
             lock.unlock()
             if builtGraph != nil { avfilter_graph_free(&builtGraph) }
-            if stalePendingGraph != nil { avfilter_graph_free(&stalePendingGraph) }
             return
         }
-
-        let activeGraphMatchesFormat = filterGraph != nil
-            && bufferSrcCtx != nil
-            && bufferSinkCtx != nil
-            && activeGraphSampleRate == targetSampleRate
-            && activeGraphChannelCount == targetChannelCount
-        var staleGraphs: [UnsafeMutablePointer<AVFilterGraph>?] = []
-
-        if activeGraphMatchesFormat {
-            staleGraphs.append(pendingFilterGraph)
-            pendingFilterGraph = builtGraphValue
-            pendingBufferSrcCtx = builtSource
-            pendingBufferSinkCtx = builtSink
-            // Do not run the complete active and replacement FFmpeg graphs in
-            // the same hardware callback. Under thermal/UI load that doubled
-            // DSP work can miss the render deadline and sound like a tape
-            // stutter. Fade the current wet signal to dry, swap graphs, then
-            // fade the replacement in; the audible result stays continuous
-            // while peak realtime cost remains one graph per callback.
-            pendingGraphCrossfadeFramesRemaining = 0
-            effectFadeOutFramesRemaining = effectTransitionDurationFrames
-            rebuildWaitingForFadeOut = true
-            effectFadeInFramesRemaining = 0
-        } else {
-            staleGraphs.append(filterGraph)
-            staleGraphs.append(pendingFilterGraph)
-            filterGraph = builtGraphValue
-            bufferSrcCtx = builtSource
-            bufferSinkCtx = builtSink
-            activeGraphSampleRate = targetSampleRate
-            activeGraphChannelCount = targetChannelCount
-            pendingFilterGraph = nil
-            pendingBufferSrcCtx = nil
-            pendingBufferSinkCtx = nil
-            pendingGraphCrossfadeFramesRemaining = 0
-            effectFadeInFramesRemaining =
-                checkAnyFilterActive() ? effectTransitionDurationFrames : 0
-        }
-        builtGraph = nil
+        var superseded = preparedGraph?.graph
+        preparedGraph = PreparedGraph(
+            graph: graph, source: source, sink: sink,
+            sampleRate: targetSampleRate, channelCount: targetChannelCount, hasEffects: hasEffects
+        )
         lock.unlock()
-
-        for var staleGraph in staleGraphs where staleGraph != nil {
-            avfilter_graph_free(&staleGraph)
-        }
+        if superseded != nil { avfilter_graph_free(&superseded) }
     }
 
     /// Copies only graph-building state into an isolated instance. The
@@ -2699,7 +2469,7 @@ final class AudioFilterGraph: @unchecked Sendable {
         lock.unlock()
     }
 
-    /// 销毁滤镜图（在 lock 内调用）
+    /// Used only by an isolated builder or after the final owner releases this instance.
     private func destroyGraphUnsafe() {
         if filterGraph != nil {
             avfilter_graph_free(&filterGraph)
@@ -2710,6 +2480,10 @@ final class AudioFilterGraph: @unchecked Sendable {
         if retiredFilterGraph != nil {
             avfilter_graph_free(&retiredFilterGraph)
         }
+        var prepared = preparedGraph?.graph
+        if prepared != nil { avfilter_graph_free(&prepared) }
+        preparedGraph = nil
+        if retirementMailbox != nil { avfilter_graph_free(&retirementMailbox) }
         filterGraph = nil
         bufferSrcCtx = nil
         bufferSinkCtx = nil
@@ -2718,6 +2492,5 @@ final class AudioFilterGraph: @unchecked Sendable {
         pendingFilterGraph = nil
         pendingBufferSrcCtx = nil
         pendingBufferSinkCtx = nil
-        pendingGraphCrossfadeFramesRemaining = 0
     }
 }

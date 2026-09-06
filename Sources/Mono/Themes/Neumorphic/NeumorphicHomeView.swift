@@ -557,7 +557,7 @@ struct NeumorphicHomeView: View {
 
             ScrollView(.horizontal) {
                 LazyHStack(spacing: 14) {
-                    ForEach(Array(viewModel.dailySongs.prefix(4).enumerated()), id: \.element.id) { index, song in
+                    ForEach(Array(viewModel.dailySongs.prefix(4).enumerated()), id: \.element.identityKey) { index, song in
                         Button {
                             PlayerManager.shared.play(song: song, in: viewModel.dailySongs)
                         } label: {
@@ -635,7 +635,7 @@ struct NeumorphicHomeView: View {
     private var dailyDrawer: some View {
         VStack(spacing: 10) {
             let songs = Array(viewModel.dailySongs.prefix(deckExpanded ? 8 : 4))
-            ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+            ForEach(Array(songs.enumerated()), id: \.element.identityKey) { index, song in
                 NeumorphicHomeSongRow(
                     song: song,
                     index: index + 1,
@@ -657,7 +657,7 @@ struct NeumorphicHomeView: View {
         VStack(spacing: 12) {
             ScrollView(.horizontal) {
                 LazyHStack(spacing: 12) {
-                    ForEach(visibleQQNewSongs) { song in
+                    ForEach(visibleQQNewSongs, id: \.identityKey) { song in
                         Button {
                             PlayerManager.shared.play(song: song, in: viewModel.qqNewSongs)
                         } label: {
@@ -1070,13 +1070,29 @@ private struct NeumorphicHomeSpinningCover: View {
     let isPlaying: Bool
     let size: CGFloat
 
+    var body: some View {
+        CachedAsyncImage(url: coverUrl, width: size, height: size) {
+            Circle().fill(NeumorphicStyle.surface)
+        }
+        .aspectRatio(contentMode: .fill)
+        .frame(width: size, height: size)
+        .clipShape(Circle())
+        .modifier(NeumorphicCoverRotation(isPlaying: isPlaying))
+    }
+}
+
+private struct NeumorphicCoverRotation: ViewModifier {
+    let isPlaying: Bool
+
     @State private var storedAngle: Double = 0
     @State private var anchorDate: Date?
+    @State private var isVisible = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
 
     private let degreesPerSecond: Double = 10
 
-    var body: some View {
+    func body(content: Content) -> some View {
         TimelineView(
             AppFrameRate.animationTimeline(
                 maximumFramesPerSecond: 30,
@@ -1085,19 +1101,19 @@ private struct NeumorphicHomeSpinningCover: View {
         ) { timeline in
             let displayedAngle = currentAngle(at: timeline.date)
 
-            CachedAsyncImage(url: coverUrl, width: size, height: size) {
-                Circle().fill(NeumorphicStyle.surface)
-            }
-            .aspectRatio(contentMode: .fill)
-            .frame(width: size, height: size)
-            .clipShape(Circle())
-            .rotationEffect(.degrees(displayedAngle))
-            .transaction { transaction in
-                transaction.animation = nil
-            }
+            content
+                .rotationEffect(.degrees(displayedAngle))
+                .transaction { transaction in
+                    transaction.animation = nil
+                }
         }
         .onAppear {
+            isVisible = true
             synchronizeRotation(isActive: rotationActive)
+        }
+        .onDisappear {
+            isVisible = false
+            synchronizeRotation(isActive: false)
         }
         .onChange(of: rotationActive) { _, isActive in
             synchronizeRotation(isActive: isActive)
@@ -1105,7 +1121,7 @@ private struct NeumorphicHomeSpinningCover: View {
     }
 
     private var rotationActive: Bool {
-        isPlaying && !reduceMotion
+        isPlaying && isVisible && scenePhase == .active && !reduceMotion
     }
 
     private func currentAngle(at date: Date) -> Double {

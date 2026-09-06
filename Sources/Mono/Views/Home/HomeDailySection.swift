@@ -19,7 +19,7 @@ struct HomeDailySection: View {
 
                 ScrollView(.horizontal) {
                     LazyHStack(spacing: 12) {
-                        ForEach(Array(songs.prefix(15).enumerated()), id: \.element.id) { idx, song in
+                        ForEach(Array(songs.prefix(15).enumerated()), id: \.element.identityKey) { idx, song in
                             Button(action: { onPlay(song) }) {
                                 dailySongCard(song, rank: idx + 1)
                             }
@@ -113,7 +113,7 @@ struct HomeDailySection: View {
             .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
 
             VStack(spacing: 0) {
-                ForEach(Array(songs.prefix(6).enumerated()), id: \.element.id) { index, song in
+                ForEach(Array(songs.prefix(6).enumerated()), id: \.element.identityKey) { index, song in
                     Button {
                         onPlay(song)
                     } label: {

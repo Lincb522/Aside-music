@@ -15,7 +15,7 @@ struct RecentPlayHistoryView: View {
     
     @State private var showClearConfirm = false
     @State private var isSelectMode = false
-    @State private var selectedSongIds: Set<Int> = []
+    @State private var selectedSongIds: Set<String> = []
     @State private var showBatchAddToPlaylist = false
     @State private var recentSearch = ""
     @State private var isRecentSearching = false
@@ -110,7 +110,7 @@ struct RecentPlayHistoryView: View {
                             selectedIds: $selectedSongIds,
                             songs: recentFiltered,
                             onBatchQueue: {
-                                let selected = recentFiltered.filter { selectedSongIds.contains($0.id) }
+                                let selected = recentFiltered.filter { selectedSongIds.contains($0.identityKey) }
                                 SongBatchActionHelper.addToQueue(selected) {
                                     isSelectMode = false
                                     selectedSongIds.removeAll()
@@ -121,21 +121,21 @@ struct RecentPlayHistoryView: View {
                         )
                         
                         LazyVStack(spacing: 0) {
-                            ForEach(Array(recentFiltered.enumerated()), id: \.element.id) { index, song in
+                            ForEach(Array(recentFiltered.enumerated()), id: \.element.identityKey) { index, song in
                                 SongListRow(
                                     song: song,
                                     index: index,
                                     isSelecting: isSelectMode,
-                                    isSelected: selectedSongIds.contains(song.id),
+                                    isSelected: selectedSongIds.contains(song.identityKey),
                                     onArtistTap: nil,
                                     onDetailTap: nil,
                                     onAlbumTap: nil,
                                     onTap: {
                                         if isSelectMode {
-                                            if selectedSongIds.contains(song.id) {
-                                                selectedSongIds.remove(song.id)
+                                            if selectedSongIds.contains(song.identityKey) {
+                                                selectedSongIds.remove(song.identityKey)
                                             } else {
-                                                selectedSongIds.insert(song.id)
+                                                selectedSongIds.insert(song.identityKey)
                                             }
                                         } else {
                                             if let rid = song.podcastRadioId, rid > 0 {
@@ -225,12 +225,12 @@ struct RecentPlayHistoryView: View {
             Text(String(localized: "确定要清空所有播放历史吗？此操作无法撤销。"))
         }
         .monoSheet(isPresented: $showBatchAddToPlaylist, preset: .standard){
-            BatchAddToPlaylistSheet(songs: recentFiltered.filter { selectedSongIds.contains($0.id) })
+            BatchAddToPlaylistSheet(songs: recentFiltered.filter { selectedSongIds.contains($0.identityKey) })
         }
     }
     
     private func recentBatchDownload() {
-        let selected = recentFiltered.filter { selectedSongIds.contains($0.id) }
+        let selected = recentFiltered.filter { selectedSongIds.contains($0.identityKey) }
         for song in selected {
             if song.isQQMusic {
                 DownloadManager.shared.downloadQQ(song: song, quality: DownloadManager.defaultQQDownloadQuality)

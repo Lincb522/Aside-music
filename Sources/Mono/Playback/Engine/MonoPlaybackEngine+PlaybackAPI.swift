@@ -257,6 +257,7 @@ extension PlayerManager {
     }
     
     func play(song: Song, in newContext: [Song]) {
+        audioSessionCoordinator.prepareForExplicitPlayback(replacingCurrentSong: true)
         if matchesPlaybackTarget(currentSong, expected: song) {
             togglePlayPause()
             return
@@ -283,6 +284,7 @@ extension PlayerManager {
     }
 
     func playReplacingContext(song: Song, in newContext: [Song]) {
+        audioSessionCoordinator.prepareForExplicitPlayback(replacingCurrentSong: true)
         let isCurrentSongTarget = matchesPlaybackTarget(currentSong, expected: song)
         if !isCurrentSongTarget {
             stagePlaybackQueueMutationIfNeeded()
@@ -311,6 +313,7 @@ extension PlayerManager {
     }
     
     func playFM(song: Song, in context: [Song], autoPlay: Bool = true) {
+        if autoPlay { audioSessionCoordinator.prepareForExplicitPlayback(replacingCurrentSong: true) }
         if !matchesPlaybackTarget(currentSong, expected: song) {
             stagePlaybackQueueMutationIfNeeded()
         }
@@ -354,6 +357,7 @@ extension PlayerManager {
     }
     
     func playPodcast(song: Song, in context: [Song], radioId: Int, restoreSavedContext: Bool = true) {
+        audioSessionCoordinator.prepareForExplicitPlayback(replacingCurrentSong: true)
         if !matchesPlaybackTarget(currentSong, expected: song) {
             stagePlaybackQueueMutationIfNeeded()
         }
@@ -515,6 +519,7 @@ extension PlayerManager {
     }
     
     func playSingle(song: Song) {
+        audioSessionCoordinator.prepareForExplicitPlayback(replacingCurrentSong: true)
         if matchesPlaybackTarget(currentSong, expected: song) {
             togglePlayPause()
             return
@@ -773,6 +778,7 @@ extension PlayerManager {
     
     /// 从队列中点击播放某首歌
     func playFromQueue(song: Song) {
+        audioSessionCoordinator.prepareForExplicitPlayback(replacingCurrentSong: true)
         if matchesPlaybackTarget(currentSong, expected: song) {
             togglePlayPause()
             return

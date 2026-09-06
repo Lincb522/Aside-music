@@ -435,23 +435,23 @@
 "game_mode_preset_section_title" = "场景预设";
 "game_mode_preset_section_subtitle" = "一键套用不同场景的推荐组合";
 "game_mode_preset_fps_title" = "FPS 竞技";
-"game_mode_preset_fps_subtitle" = "语音优先 · 省电 · 不显示锁屏";
+"game_mode_preset_fps_subtitle" = "其他音频优先 · 省电 · 不显示锁屏";
 "game_mode_preset_rpg_title" = "RPG 剧情";
 "game_mode_preset_rpg_subtitle" = "音乐沉浸 · 保留锁屏播放信息";
 "game_mode_preset_rhythm_title" = "音游 / 节奏";
 "game_mode_preset_rhythm_subtitle" = "保留音质 · 最小干扰";
-"game_mode_option_ducking_title" = "游戏语音优先";
-"game_mode_option_ducking_subtitle" = "系统语音 / 游戏语音通话响起时自动压低音乐";
+"game_mode_option_ducking_title" = "其他音频优先";
+"game_mode_option_ducking_subtitle" = "系统提示其他主音频播放时压低音乐；不适用于 Apple Music";
 "game_mode_option_quality_title" = "省电降音质";
 "game_mode_option_quality_subtitle" = "自动切到标准音质，把性能让给游戏";
 "game_mode_option_silent_np_title" = "隐藏锁屏 / 灵动岛信息";
 "game_mode_option_silent_np_subtitle" = "游戏时不在锁屏和灵动岛显示歌曲信息";
 "game_mode_option_minimal_np_title" = "保留最小歌名（实验性）";
 "game_mode_option_minimal_np_subtitle" = "锁屏仅显示一行歌名，无封面、歌手和进度条";
-"game_mode_option_auto_exit_title" = "检测到游戏关闭时自动退出";
-"game_mode_option_auto_exit_subtitle" = "实验功能：根据系统音频状态尝试自动关闭";
+"game_mode_option_auto_exit_title" = "其他音频停止后退出";
+"game_mode_option_auto_exit_subtitle" = "检测到其他音频停止 12 秒后退出；暂停并进入后台时可能延后";
 "game_mode_info_title" = "游戏模式会做什么？";
-"game_mode_info_body" = "开启后会强制和其他 App 音频共存（混音模式），让你可以同时听到游戏声音和音乐。因为系统不再把本 App 识别为主媒体，锁屏和灵动岛会暂时不显示播放信息。关闭游戏模式后一切自动恢复。";
+"game_mode_info_body" = "开启后与其他 App 音频共存，并应用所选音质、锁屏显示和歌单设置。自动退出依据其他音频状态，不能识别游戏是否关闭。退出后恢复之前的播放策略。";
 "game_mode_preferred_quality_entry_title" = "指定游戏模式音质";
 "game_mode_preferred_quality_title" = "选择游戏模式音质";
 "game_mode_preferred_quality_desc" = "选择开启游戏模式时使用的音质。选「自动」则根据「省电降音质」开关决定。";
@@ -463,7 +463,7 @@
 "game_mode_preset_playlist_invalid" = "歌单已删除";
 "game_mode_options_section_title" = "行为细项";
 "game_mode_presets_section_title" = "指定配置";
-"game_mode_lamp_ducking" = "语音优先";
+"game_mode_lamp_ducking" = "音频优先";
 "game_mode_lamp_quality" = "省电音质";
 "game_mode_lamp_silent" = "隐藏锁屏";
 "game_mode_lamp_auto_exit" = "自动退出";
@@ -2770,3 +2770,21 @@
 "apple_music_category_albums" = "专辑";
 "apple_music_category_artists" = "艺人";
 "global_theme_minimal_white_description" = "克制的单色播放器，留白精准，控件轻盈。";
+
+"database_open_failed_title" = "无法打开资料库";
+"database_open_failed_message" = "原始资料库已保留。请检查可用存储空间后重试。";
+"database_save_failed_title" = "更改未能保存";
+"database_save_failed_message" = "更改仍待保存。请检查可用存储空间，并在关闭 Mono 前重试。";
+
+"download_http_failed_format" = "下载失败（HTTP %d），请重试。";
+"download_invalid_media" = "下载内容不是支持的音频文件，请重试。";
+
+"download_source_unsupported" = "当前音乐来源暂不支持下载。";
+
+"artist_hot_songs" = "热门歌曲";
+"artist_select_all" = "全选";
+"artist_tab_songs" = "歌曲";
+"artist_select_songs" = "多选";
+"artist_deselect_all" = "取消全选";
+
+"playback_audio_session_unavailable" = "音频输出暂时不可用，请稍后重新播放。";

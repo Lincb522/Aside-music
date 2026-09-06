@@ -36,7 +36,7 @@ struct BatchAddToPlaylistSheet: View {
 
     private var favoriteExistingCount: Int {
         songs.reduce(0) { partial, song in
-            partial + (manager.isFavorite(songId: song.id) ? 1 : 0)
+            partial + (manager.isFavorite(songId: song.id, source: song.musicSource) ? 1 : 0)
         }
     }
 

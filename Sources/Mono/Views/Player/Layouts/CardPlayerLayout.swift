@@ -8,7 +8,7 @@ struct CardPlayerLayout: View {
     @ObservedObject var player = PlayerManager.shared
     @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
     @ObservedObject var lyricVM = LyricViewModel.shared
-    @ObservedObject var downloadManager = DownloadManager.shared
+    @ObservedObject var downloadStatus = DownloadedSongStatusModel.shared
     
     // MARK: - State
     @StateObject private var coverColors = CoverColorExtractor()
@@ -62,10 +62,12 @@ struct CardPlayerLayout: View {
                         .padding(.horizontal, DeviceLayout.playerHorizontalPadding)
                         .padding(.bottom, DeviceLayout.safeAreaBottom + 20)
                 }
-                // 更多菜单
+            }
+            .playerMoreMenuOverlay { anchorFrame in
                 if showMoreMenu {
                     PlayerMoreMenu(
                         isPresented: $showMoreMenu,
+                        anchorFrame: anchorFrame,
                         isDarkBackground: colorScheme == .dark,
                         onEQ: { showEQSettings = true },
                         onTheme: { showThemePicker = true }
@@ -183,6 +185,7 @@ extension CardPlayerLayout {
                     .contentShape(Circle())
             }
             .buttonStyle(MonoBouncingButtonStyle())
+            .playerMoreMenuAnchor()
         }
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
     }
@@ -495,21 +498,21 @@ extension CardPlayerLayout {
                     if AppConfig.Features.downloadEnabled {
                         // 下载按钮（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
                         Button {
-                            if !downloadManager.isDownloaded(songId: song.id) {
+                            if !downloadStatus.isDownloaded(song: song) {
                                 showDownloadSheet = true
                             }
                         } label: {
                             MonoIcon(
                                 icon: .playerDownload,
                                 size: 22,
-                                color: downloadManager.isDownloaded(songId: song.id) ? .secondary.opacity(0.5) : .secondary,
+                                color: downloadStatus.isDownloaded(song: song) ? .secondary.opacity(0.5) : .secondary,
                                 lineWidth: 1.4
                             )
                             .frame(width: 44, height: 44)
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(MonoBouncingButtonStyle())
-                        .disabled(downloadManager.isDownloaded(songId: song.id))
+                        .disabled(downloadStatus.isDownloaded(song: song))
                         .frame(width: 44)
                     } else {
                         Color.clear.frame(width: 44, height: 44)

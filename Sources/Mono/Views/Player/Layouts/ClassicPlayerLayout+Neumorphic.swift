@@ -466,7 +466,7 @@ extension ClassicPlayerLayout {
     }
 
     func neumorphicDownloadButton(song: Song) -> some View {
-        let isDownloaded = downloadManager.isDownloaded(songId: song.id)
+        let isDownloaded = downloadStatus.isDownloaded(song: song)
 
         return Button {
             if !isDownloaded {

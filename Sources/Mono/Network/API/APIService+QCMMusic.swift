@@ -445,6 +445,32 @@ extension APIService {
             return items.compactMap { Self.convertQQArtistToArtistInfo($0) }
         }
     }
+
+    func artistNameArtwork(name: String, aliases: [String], qqMid: String?) async throws -> URL? {
+        if let mid = qqMid?.nilIfBlank {
+            return try await qqClient.singerNameSpecialDisplay(mid: mid).imageURL
+        }
+
+        let names = [name] + aliases
+        let identity = ArtistNameArtworkIdentity(name: name, aliases: aliases, qqMid: nil)
+        // An exact, unique name match prevents tribute acts and ambiguous names borrowing another artist's logo.
+        for query in names.filter({ !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }).prefix(2) {
+            try Task.checkCancellation()
+            let result = try await qqClient.search(keyword: query, type: .singer, num: 20, page: 1, highlight: false)
+            let candidates = Self.extractSearchItems(from: result, itemKey: "singer")
+                .compactMap { Self.convertQQArtistToArtistInfo($0) }
+            let mids = identity.matchingMIDs(in: candidates.compactMap { candidate in
+                guard let mid = candidate.qqMid?.nilIfBlank else { return nil }
+                return (name: candidate.name, mid: mid)
+            })
+            if mids.count > 1 { return nil }
+            if let mid = mids.first {
+                try Task.checkCancellation()
+                return try await qqClient.singerNameSpecialDisplay(mid: mid).imageURL
+            }
+        }
+        return nil
+    }
     
     /// 搜索 qcm歌单
     func searchQQPlaylists(keyword: String, page: Int = 1, num: Int = 30) -> AnyPublisher<[Playlist], Error> {

@@ -24,17 +24,19 @@ struct ClarityPlayerLayout: View {
 
                 VStack(spacing: 0) {
                     toolbar
-                        .padding(.top, DeviceLayout.headerTopPadding)
+                        .padding(.top, DeviceLayout.playerHeaderTopPadding)
 
-                    if metrics.usesWideLayout {
-                        wideContent(metrics: metrics)
-                    } else {
-                        portraitContent(metrics: metrics)
+                    Group {
+                        if metrics.usesWideLayout {
+                            wideContent(metrics: metrics)
+                        } else {
+                            portraitContent(metrics: metrics)
+                        }
                     }
+                    .frame(maxWidth: metrics.maximumContentWidth)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(.horizontal, metrics.horizontalInset)
                 }
-                .frame(maxWidth: metrics.maximumContentWidth)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(.horizontal, metrics.horizontalInset)
                 .padding(.bottom, max(proxy.safeAreaInsets.bottom, 6))
 
                 if showsLyrics, let song = player.currentSong {
@@ -42,10 +44,12 @@ struct ClarityPlayerLayout: View {
                         .transition(.opacity.combined(with: .scale(scale: 0.985)))
                         .zIndex(10)
                 }
-
+            }
+            .playerMoreMenuOverlay { anchorFrame in
                 if showsMore {
                     PlayerMoreMenu(
                         isPresented: $showsMore,
+                        anchorFrame: anchorFrame,
                         onQuality: { showsQuality = true },
                         onEQ: { showsEQ = true },
                         onTheme: { showsTheme = true }
@@ -69,21 +73,40 @@ struct ClarityPlayerLayout: View {
 
     private var toolbar: some View {
         HStack(spacing: 12) {
-            ClarityCircleButton(icon: .back, size: 42) { dismiss() }
+            Button { dismiss() } label: {
+                MonoIcon(icon: .chevronRight, size: 19, color: ClarityStyle.ink)
+                    .rotationEffect(.degrees(90))
+                    .frame(width: 44, height: 44)
+                    .background { ClarityMembrane(shape: Circle(), strength: .regular) }
+                    .contentShape(Circle())
+            }
+            .buttonStyle(ClarityPressStyle())
+            .accessibilityLabel(String(localized: "返回"))
 
             Spacer(minLength: 8)
 
-            Text(String(localized: "now_playing"))
-                .font(ClarityStyle.body(11.5, weight: .semibold))
-                .foregroundStyle(ClarityStyle.inkSoft)
-                .lineLimit(1)
+            VStack(spacing: 3) {
+                Text(LocalizedStringKey("player_now_playing"))
+                    .font(ClarityStyle.body(11.5, weight: .semibold))
+                    .foregroundStyle(ClarityStyle.ink)
+                    .lineLimit(1)
+
+                if let info = player.qualityInfoText {
+                    Text(info)
+                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                        .foregroundStyle(ClarityStyle.inkSoft)
+                        .lineLimit(1)
+                }
+            }
 
             Spacer(minLength: 8)
 
-            ClarityCircleButton(icon: .more, size: 42) { showsMore = true }
+            ClarityCircleButton(icon: .more, size: 44) { showsMore = true }
+                .accessibilityLabel(String(localized: "player_more_title"))
+                .playerMoreMenuAnchor()
         }
-        .padding(.horizontal, 2)
-        .frame(height: 48)
+        .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+        .frame(minHeight: 44)
     }
 
     private func portraitContent(metrics: ClarityPlayerMetrics) -> some View {
@@ -303,7 +326,7 @@ struct ClarityPlayerLayout: View {
             }
             .frame(maxWidth: metrics.maximumContentWidth)
             .padding(.horizontal, metrics.horizontalInset)
-            .padding(.top, DeviceLayout.headerTopPadding)
+            .padding(.top, DeviceLayout.playerHeaderTopPadding)
             .padding(.bottom, 10)
         }
     }

@@ -10,7 +10,6 @@ struct RadioPlayerLayout: View {
 
     @ObservedObject private var player = PlayerManager.shared
     @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
-    @ObservedObject private var downloadManager = DownloadManager.shared
     @ObservedObject private var lyricVM = LyricViewModel.shared
 
     @StateObject private var colorEx = CoverColorExtractor()
@@ -86,15 +85,16 @@ struct RadioPlayerLayout: View {
                 .padding(.horizontal, hPad)
                 .padding(.top, toolbarTopInset)
                 .padding(.bottom, bottomInset)
-
+            }
+            .playerMoreMenuOverlay { anchorFrame in
                 if showMoreMenu {
                     PlayerMoreMenu(
                         isPresented: $showMoreMenu,
+                        anchorFrame: anchorFrame,
                         isDarkBackground: true,
                         presentsThemeInline: true,
                         onEQ: { showEQSettings = true }
                     )
-                    .zIndex(20)
                 }
             }
         }
@@ -170,6 +170,7 @@ struct RadioPlayerLayout: View {
                 skeuBtn(icon: .more, size: 32) {
                     withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) { showMoreMenu.toggle() }
                 }
+                .playerMoreMenuAnchor()
             }
             .padding(.horizontal, pad)
             .padding(.top, pad)

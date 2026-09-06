@@ -41,10 +41,12 @@ struct LiquidGlassPlayerLayout: View {
                 } else {
                     portraitContent(in: geometry)
                 }
-
+            }
+            .playerMoreMenuOverlay { anchorFrame in
                 if showMoreMenu {
                     PlayerMoreMenu(
                         isPresented: $showMoreMenu,
+                        anchorFrame: anchorFrame,
                         isDarkBackground: true,
                         onEQ: { showEQSettings = true },
                         onTheme: { showThemePicker = true }
@@ -175,6 +177,7 @@ private extension LiquidGlassPlayerLayout {
                     showMoreMenu.toggle()
                 }
             }
+            .playerMoreMenuAnchor()
         }
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
     }

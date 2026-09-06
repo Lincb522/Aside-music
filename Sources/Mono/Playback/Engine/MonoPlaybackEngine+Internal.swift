@@ -432,12 +432,12 @@ extension PlayerManager {
                 loadAndPlay(song: song)
             }
         case .sequence, .shuffle:
-            next()
+            next(userInitiated: false)
         }
     }
 
     func autoNext() {
-        next()
+        next(userInitiated: false)
     }
 
     // MARK: - 播放呈现事务（队列快照 + 出声提交）

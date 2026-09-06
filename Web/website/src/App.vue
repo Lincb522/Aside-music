@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch, nextTick } from 'vue'
 import FeedbackPage from './components/FeedbackPage.vue'
 import { useLandingViewModel } from './viewmodels/useLandingViewModel'
 
@@ -115,6 +115,27 @@ const {
   formatSize,
   navigateTo,
 } = useLandingViewModel()
+const contactDialogElement = ref(null)
+watch(showContactDialog, async (visible) => {
+  await nextTick()
+  const dialog = contactDialogElement.value
+  if (visible && !dialog.open) dialog.showModal()
+  else if (!visible && dialog.open) dialog.close()
+})
+function onContactDialogKeydown(event) {
+  if (event.key !== 'Tab') return
+  const dialog = contactDialogElement.value
+  const controls = [...dialog.querySelectorAll('button:not([disabled]), a[href]')]
+  const first = controls[0]
+  const last = controls.at(-1)
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault()
+    last?.focus()
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault()
+    first?.focus()
+  }
+}
 </script>
 
 <template>
@@ -151,20 +172,20 @@ const {
   </div>
 
   <aside class="mini-player" :class="{ 'is-playing': miniPlayerPlaying, 'is-expanded': miniPlayerExpanded }" aria-label="迷你播放器">
-    <div class="mini-player-panel">
-      <button class="mini-panel-artwork" type="button" :disabled="miniPlayerLoading" @click="toggleMiniPlayer">
+    <div id="mini-player-panel" class="mini-player-panel" :inert="!miniPlayerExpanded">
+      <button :aria-label="miniPlayerPlaying ? '暂停播放' : '播放'" class="mini-panel-artwork" type="button" :disabled="miniPlayerLoading" @click="toggleMiniPlayer">
         <img :src="miniPlayerCover" alt="" />
       </button>
       <button class="mini-track-info" type="button" :disabled="miniPlayerLoading" @click="toggleMiniPlayer">
         <strong>{{ miniPlayerTrack?.name || (miniPlayerLoading ? '准备播放中' : '今日推荐') }}</strong>
         <small>{{ miniPlayerError || miniPlayerArtist }}</small>
       </button>
-      <button class="mini-play-button" type="button" :disabled="miniPlayerLoading" @click="toggleMiniPlayer">
+      <button :aria-label="miniPlayerPlaying ? '暂停播放' : '播放'" class="mini-play-button" type="button" :disabled="miniPlayerLoading" @click="toggleMiniPlayer">
         {{ miniPlayerPlaying ? 'Ⅱ' : '▶' }}
       </button>
-      <button class="mini-next-button" type="button" :disabled="miniPlayerLoading" @click="nextMiniPlayerTrack">›</button>
+      <button aria-label="下一首" class="mini-next-button" type="button" :disabled="miniPlayerLoading" @click="nextMiniPlayerTrack">›</button>
     </div>
-    <button class="mini-player-ball" type="button" :disabled="miniPlayerLoading" @click="toggleMiniPlayerPanel">
+    <button :aria-label="miniPlayerExpanded ? '收起播放器' : '展开播放器'" :aria-expanded="miniPlayerExpanded" aria-controls="mini-player-panel" class="mini-player-ball" type="button" :disabled="miniPlayerLoading" @click="toggleMiniPlayerPanel">
       <span class="vinyl-disc">
         <img :src="miniPlayerCover" alt="" />
       </span>
@@ -207,6 +228,7 @@ const {
         <div class="hero-action-links" aria-label="更多功能">
           <a href="/token" @click="navigateTo('/token', $event)">{{ content.tokenQuery.label }}</a>
           <a :href="content.ipaDownload.href" @click="navigateTo(content.ipaDownload.href, $event)">{{ content.ipaDownload.label }}</a>
+          <a href="/cloud.html">云端管理</a>
           <a href="/updates" @click="navigateTo('/updates', $event)">{{ content.updates.label }}</a>
           <a href="/feedback" @click="navigateTo('/feedback', $event)">意见反馈</a>
         </div>
@@ -586,8 +608,8 @@ const {
       <span class="footer-developer">{{ content.footer.developer }}</span>
     </footer>
 
-    <div v-if="showContactDialog" class="contact-dialog-backdrop" role="presentation" @click="closeContactDialog">
-      <div class="contact-dialog" role="dialog" aria-modal="true" :aria-label="content.contact.dialogTitle" @click.stop>
+    <dialog ref="contactDialogElement" class="contact-dialog-backdrop" @keydown="onContactDialogKeydown" :aria-label="content.contact.dialogTitle" @cancel.prevent="closeContactDialog" @click.self="closeContactDialog">
+      <div class="contact-dialog" @click.stop>
         <h2>{{ content.contact.dialogTitle }}</h2>
         <p>{{ content.contact.dialogMessage }}</p>
         <div class="contact-card-grid">
@@ -619,7 +641,7 @@ const {
           {{ content.contact.dialogAction }}
         </button>
       </div>
-    </div>
+    </dialog>
 
     <div v-if="testFlightDuplicateDialog" class="tf-duplicate-backdrop" role="presentation" @click="closeTestFlightDuplicateDialog">
       <div class="tf-duplicate-dialog" role="dialog" aria-modal="true" aria-label="邮箱已在测试组" @click.stop>
@@ -673,3 +695,15 @@ const {
     </div>
   </main>
 </template>
+
+<style>
+dialog.contact-dialog-backdrop {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  border: 0;
+}
+dialog.contact-dialog-backdrop:not([open]) { display: none; }
+</style>

@@ -59,7 +59,8 @@ fi
 
 # 4. Synchronize build artifacts
 log_info "正在使用 rsync 增量部署同步本地编译物 dist/ 至生产目录..."
-if rsync -az --delete "${PROJECT_DIR}/dist/" "new-server:${LIVE_DIR}/"; then
+# Keep standalone server pages and older hashed assets used by open clients.
+if rsync -az "${PROJECT_DIR}/dist/" "new-server:${LIVE_DIR}/"; then
   log_success "全站最新资源部署同步完成！"
 else
   log_error "rsync 资源同步发布失败，请检查网络或服务器权限。"

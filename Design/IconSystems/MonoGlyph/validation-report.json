@@ -1,0 +1,53 @@
+{
+  "semantics": 233,
+  "assets": 466,
+  "outputSize": [
+    128,
+    128
+  ],
+  "sourceSheetCount": 12,
+  "bboxCenterMaxDeviation": 0.5,
+  "minInset": 9,
+  "minSourceCellInset": 31,
+  "activeSpanRange": [
+    105,
+    110
+  ],
+  "lightDarkAlphaMismatch": 0,
+  "foregroundSpeckPixelsRemoved": 0,
+  "hashVerifiedAssetCount": 466,
+  "visuallyReviewedSemanticCount": 233,
+  "visuallyReviewedAppearances": [
+    "light",
+    "dark"
+  ],
+  "packageBuild": {
+    "result": "passed",
+    "xcode": "26.4 (17E192)",
+    "scheme": "MonoGlyphIcons",
+    "destination": "generic/platform=iOS Simulator",
+    "deploymentTarget": "16.0",
+    "compiledAssetRenditions": 466,
+    "compiledAssetNames": 233
+  },
+  "previewViewports": [
+    [
+      1440,
+      1000
+    ],
+    [
+      375,
+      812
+    ]
+  ],
+  "previewSizes": [
+    24,
+    32,
+    64,
+    128
+  ],
+  "appSimulatorRuntime": "unverified",
+  "realDeviceRuntime": "unverified",
+  "repeatExtractionIdentical": true,
+  "exportedAssetCount": 466
+}

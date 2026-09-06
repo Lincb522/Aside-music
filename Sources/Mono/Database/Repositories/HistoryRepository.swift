@@ -92,6 +92,9 @@ final class HistoryRepository {
                 if local.qqMid == nil { local.qqMid = remote.qqMid }
                 if local.qqAlbumMid == nil { local.qqAlbumMid = remote.qqAlbumMid }
                 if local.qishuiTrackId == nil { local.qishuiTrackId = remote.qishuiTrackId }
+                if local.kugouHash == nil { local.kugouHash = remote.kugouHash }
+                if local.kugouAlbumID == nil { local.kugouAlbumID = remote.kugouAlbumID }
+                if local.kugouAlbumAudioID == nil { local.kugouAlbumAudioID = remote.kugouAlbumAudioID }
                 if local.appleMusicID == nil { local.appleMusicID = remote.appleMusicID }
                 if local.appleMusicISRC == nil { local.appleMusicISRC = remote.appleMusicISRC }
             } else {
@@ -119,10 +122,10 @@ final class HistoryRepository {
     }
 
     /// 获取某首歌的播放历史
-    func getPlayHistory(songId: Int) -> [PlayHistory] {
+    func getPlayHistory(songId: Int, source: MusicSource = .netease) -> [PlayHistory] {
         store.fetch(
             PlayHistory.self,
-            where: { $0.songId == songId },
+            where: { $0.songId == songId && $0.toSong().musicSource == source },
             sortBy: { $0.playedAt > $1.playedAt }
         )
     }
@@ -193,23 +196,23 @@ final class HistoryRepository {
     // MARK: - 歌词缓存
 
     /// 保存歌词
-    func saveLyrics(songId: Int, lyrics: String, translated: String? = nil) {
+    func saveLyrics(songId: Int, source: MusicSource = .netease, lyrics: String, translated: String? = nil) {
         // 先删除旧的
-        store.deleteAll(CachedLyrics.self) { $0.songId == songId }
+        store.deleteAll(CachedLyrics.self) { $0.songId == songId && $0.musicSource == source }
 
         // 添加新的
-        store.insert(CachedLyrics(songId: songId, lyrics: lyrics, translatedLyrics: translated))
+        store.insert(CachedLyrics(songId: songId, source: source, lyrics: lyrics, translatedLyrics: translated))
 
         store.save()
     }
 
     /// 获取歌词
-    func getLyrics(songId: Int) -> CachedLyrics? {
-        store.first(CachedLyrics.self) { $0.songId == songId }
+    func getLyrics(songId: Int, source: MusicSource = .netease) -> CachedLyrics? {
+        store.first(CachedLyrics.self) { $0.songId == songId && $0.musicSource == source }
     }
 
-    func deleteLyrics(songId: Int) {
-        store.deleteAll(CachedLyrics.self) { $0.songId == songId }
+    func deleteLyrics(songId: Int, source: MusicSource = .netease) {
+        store.deleteAll(CachedLyrics.self) { $0.songId == songId && $0.musicSource == source }
         store.save()
     }
 }

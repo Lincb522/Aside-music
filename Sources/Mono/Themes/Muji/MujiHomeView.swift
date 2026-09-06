@@ -404,7 +404,7 @@ struct MujiHomeView: View {
             ScrollView(.horizontal) {
                 HStack(alignment: .top, spacing: 18) {
                     let shouldReduceMotion = reduceMotion
-                    ForEach(Array(viewModel.dailySongs.prefix(10).enumerated()), id: \.element.id) { index, song in
+                    ForEach(Array(viewModel.dailySongs.prefix(10).enumerated()), id: \.element.identityKey) { index, song in
                         Button {
                             playerManager.play(song: song, in: viewModel.dailySongs)
                         } label: {
@@ -480,7 +480,7 @@ struct MujiHomeView: View {
             .padding(.horizontal, 26)
 
             VStack(spacing: 0) {
-                ForEach(Array(viewModel.qqNewSongs.prefix(6).enumerated()), id: \.element.id) { index, song in
+                ForEach(Array(viewModel.qqNewSongs.prefix(6).enumerated()), id: \.element.identityKey) { index, song in
                     Button {
                         playerManager.play(song: song, in: viewModel.qqNewSongs)
                     } label: {

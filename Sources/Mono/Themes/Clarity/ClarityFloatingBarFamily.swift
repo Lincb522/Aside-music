@@ -28,7 +28,10 @@ struct ClarityFloatingBarFamily: View {
 /// 播放信息在上、四个等宽入口在下，单手可直接触达且不再把导航塞到侧边。
 private struct ClarityGalleryDeck: View {
     @Binding var currentTab: Tab
-    @ObservedObject private var playback = FloatingBarPlaybackModel.shared
+    private let playback = FloatingBarPlaybackModel.shared
+    @State private var currentSong = FloatingBarPlaybackModel.shared.currentSong
+    @State private var isPlaying = FloatingBarPlaybackModel.shared.isPlaying
+    @State private var playSource = FloatingBarPlaybackModel.shared.playSource
     @State private var showsQueue = false
     @Namespace private var selection
 
@@ -95,13 +98,22 @@ private struct ClarityGalleryDeck: View {
             .padding(.bottom, 6)
         }
         .monoSheet(isPresented: $showsQueue, preset: .standard) {
-            playback.isPlayingPodcast ? AnyView(PodcastPlaylistPopupView()) : AnyView(PlaylistPopupView())
+            playSource.isPodcast ? AnyView(PodcastPlaylistPopupView()) : AnyView(PlaylistPopupView())
+        }
+        .onReceive(playback.$currentSong.removeDuplicates()) { song in
+            currentSong = song
+        }
+        .onReceive(playback.$isPlaying.removeDuplicates()) { playing in
+            isPlaying = playing
+        }
+        .onReceive(playback.$playSource.removeDuplicates()) { source in
+            playSource = source
         }
     }
 
     @ViewBuilder
     private var playbackRow: some View {
-        if let song = playback.currentSong {
+        if let song = currentSong {
             HStack(spacing: 10) {
                 Button { clarityOpenPlayer(playback) } label: {
                     ClarityArtwork(url: song.coverUrl, size: 52, radius: 17)
@@ -115,10 +127,12 @@ private struct ClarityGalleryDeck: View {
                             font: .system(size: 13.5, weight: .semibold),
                             color: ClarityStyle.ink
                         )
-                        Text(playback.lyricLineText ?? song.artistName)
-                            .font(ClarityStyle.body(9.5, weight: .medium))
-                            .foregroundStyle(ClarityStyle.inkSoft)
-                            .lineLimit(1)
+                        FloatingBarLyricReader { lyricLineText in
+                            Text(lyricLineText ?? song.artistName)
+                                .font(ClarityStyle.body(9.5, weight: .medium))
+                                .foregroundStyle(ClarityStyle.inkSoft)
+                                .lineLimit(1)
+                        }
                         ClarityLinearProgress()
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -134,7 +148,7 @@ private struct ClarityGalleryDeck: View {
 
                 Button { playback.togglePlayPause() } label: {
                     MonoIcon(
-                        icon: playback.isPlaying ? .pause : .play,
+                        icon: isPlaying ? .pause : .play,
                         size: 14,
                         color: ClarityStyle.onSelection,
                         lineWidth: 1.8
@@ -167,7 +181,10 @@ private struct ClarityGalleryDeck: View {
 /// 经典模式重新解释为贴底光轨：播放信息独立悬浮，导航在屏幕边缘形成稳定基线。
 private struct ClarityHorizonRail: View {
     @Binding var currentTab: Tab
-    @ObservedObject private var playback = FloatingBarPlaybackModel.shared
+    private let playback = FloatingBarPlaybackModel.shared
+    @State private var currentSong = FloatingBarPlaybackModel.shared.currentSong
+    @State private var isPlaying = FloatingBarPlaybackModel.shared.isPlaying
+    @State private var playSource = FloatingBarPlaybackModel.shared.playSource
     @State private var showsQueue = false
     @Namespace private var selection
 
@@ -175,7 +192,7 @@ private struct ClarityHorizonRail: View {
         VStack(spacing: 0) {
             Spacer(minLength: 0)
 
-            if let song = playback.currentSong {
+            if let song = currentSong {
                 HStack(spacing: 10) {
                     Button { clarityOpenPlayer(playback) } label: {
                         ClarityArtwork(url: song.coverUrl, size: 42, radius: 13)
@@ -188,10 +205,12 @@ private struct ClarityHorizonRail: View {
                                 .font(ClarityStyle.body(12.5, weight: .semibold))
                                 .foregroundStyle(ClarityStyle.ink)
                                 .lineLimit(1)
-                            Text(playback.lyricLineText ?? song.artistName)
-                                .font(ClarityStyle.body(9.5))
-                                .foregroundStyle(ClarityStyle.inkSoft)
-                                .lineLimit(1)
+                            FloatingBarLyricReader { lyricLineText in
+                                Text(lyricLineText ?? song.artistName)
+                                    .font(ClarityStyle.body(9.5))
+                                    .foregroundStyle(ClarityStyle.inkSoft)
+                                    .lineLimit(1)
+                            }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -209,7 +228,7 @@ private struct ClarityHorizonRail: View {
 
                     Button { playback.togglePlayPause() } label: {
                         MonoIcon(
-                            icon: playback.isPlaying ? .pause : .play,
+                            icon: isPlaying ? .pause : .play,
                             size: 14,
                             color: ClarityStyle.onSelection,
                             lineWidth: 1.8
@@ -286,7 +305,16 @@ private struct ClarityHorizonRail: View {
         }
         .ignoresSafeArea(.container, edges: .bottom)
         .monoSheet(isPresented: $showsQueue, preset: .standard) {
-            playback.isPlayingPodcast ? AnyView(PodcastPlaylistPopupView()) : AnyView(PlaylistPopupView())
+            playSource.isPodcast ? AnyView(PodcastPlaylistPopupView()) : AnyView(PlaylistPopupView())
+        }
+        .onReceive(playback.$currentSong.removeDuplicates()) { song in
+            currentSong = song
+        }
+        .onReceive(playback.$isPlaying.removeDuplicates()) { playing in
+            isPlaying = playing
+        }
+        .onReceive(playback.$playSource.removeDuplicates()) { source in
+            playSource = source
         }
     }
 }
@@ -296,14 +324,16 @@ private struct ClarityHorizonRail: View {
 /// 极简模式只保留一条低矮光轨，四个入口保持相同命中宽度，选中项以圆形镜片标记。
 private struct ClarityLensStrip: View {
     @Binding var currentTab: Tab
-    @ObservedObject private var playback = FloatingBarPlaybackModel.shared
+    private let playback = FloatingBarPlaybackModel.shared
+    @State private var currentSong = FloatingBarPlaybackModel.shared.currentSong
+    @State private var isPlaying = FloatingBarPlaybackModel.shared.isPlaying
     @Namespace private var selection
 
     var body: some View {
         VStack(spacing: 7) {
             Spacer(minLength: 0)
 
-            if let song = playback.currentSong {
+            if let song = currentSong {
                 HStack(spacing: 9) {
                     Button { clarityOpenPlayer(playback) } label: {
                         ClarityArtwork(url: song.coverUrl, size: 38, radius: 12)
@@ -324,7 +354,7 @@ private struct ClarityLensStrip: View {
 
                     Button { playback.togglePlayPause() } label: {
                         MonoIcon(
-                            icon: playback.isPlaying ? .pause : .play,
+                            icon: isPlaying ? .pause : .play,
                             size: 13,
                             color: ClarityStyle.onSelection,
                             lineWidth: 1.75
@@ -383,6 +413,12 @@ private struct ClarityLensStrip: View {
         .frame(maxWidth: .infinity, alignment: .center)
         .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 34 : 15)
         .padding(.bottom, 9)
+        .onReceive(playback.$currentSong.removeDuplicates()) { song in
+            currentSong = song
+        }
+        .onReceive(playback.$isPlaying.removeDuplicates()) { playing in
+            isPlaying = playing
+        }
     }
 }
 
@@ -391,7 +427,10 @@ private struct ClarityLensStrip: View {
 /// 悬浮球位于右下角；导航按需从角落展开，收起时只保留当前页面与唱片球。
 private struct ClarityCornerBloom: View {
     @Binding var currentTab: Tab
-    @ObservedObject private var playback = FloatingBarPlaybackModel.shared
+    private let playback = FloatingBarPlaybackModel.shared
+    @State private var currentSong = FloatingBarPlaybackModel.shared.currentSong
+    @State private var isPlaying = FloatingBarPlaybackModel.shared.isPlaying
+    @State private var playSource = FloatingBarPlaybackModel.shared.playSource
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isExpanded = false
     @State private var showsQueue = false
@@ -444,7 +483,7 @@ private struct ClarityCornerBloom: View {
                             ClarityCircularProgress()
 
                             ClarityArtwork(
-                                url: playback.currentSong?.coverUrl,
+                                url: currentSong?.coverUrl,
                                 size: 53,
                                 radius: 27
                             )
@@ -467,13 +506,22 @@ private struct ClarityCornerBloom: View {
             if isExpanded { setExpanded(false) }
         }
         .monoSheet(isPresented: $showsQueue, preset: .standard) {
-            playback.isPlayingPodcast ? AnyView(PodcastPlaylistPopupView()) : AnyView(PlaylistPopupView())
+            playSource.isPodcast ? AnyView(PodcastPlaylistPopupView()) : AnyView(PlaylistPopupView())
+        }
+        .onReceive(playback.$currentSong.removeDuplicates()) { song in
+            currentSong = song
+        }
+        .onReceive(playback.$isPlaying.removeDuplicates()) { playing in
+            isPlaying = playing
+        }
+        .onReceive(playback.$playSource.removeDuplicates()) { source in
+            playSource = source
         }
     }
 
     private var expandedPanel: some View {
         VStack(spacing: 8) {
-            if let song = playback.currentSong {
+            if let song = currentSong {
                 HStack(spacing: 8) {
                     Button { clarityOpenPlayer(playback) } label: {
                         VStack(alignment: .leading, spacing: 2) {
@@ -481,10 +529,12 @@ private struct ClarityCornerBloom: View {
                                 .font(ClarityStyle.body(11.5, weight: .semibold))
                                 .foregroundStyle(ClarityStyle.ink)
                                 .lineLimit(1)
-                            Text(playback.lyricLineText ?? song.artistName)
-                                .font(ClarityStyle.body(9))
-                                .foregroundStyle(ClarityStyle.inkSoft)
-                                .lineLimit(1)
+                            FloatingBarLyricReader { lyricLineText in
+                                Text(lyricLineText ?? song.artistName)
+                                    .font(ClarityStyle.body(9))
+                                    .foregroundStyle(ClarityStyle.inkSoft)
+                                    .lineLimit(1)
+                            }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -499,7 +549,7 @@ private struct ClarityCornerBloom: View {
 
                     Button { playback.togglePlayPause() } label: {
                         MonoIcon(
-                            icon: playback.isPlaying ? .pause : .play,
+                            icon: isPlaying ? .pause : .play,
                             size: 12,
                             color: ClarityStyle.onSelection,
                             lineWidth: 1.8

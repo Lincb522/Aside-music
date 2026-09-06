@@ -65,6 +65,7 @@ let package = Package(
                 .product(name: "ZIPFoundation", package: "ZIPFoundation"),
             ],
             resources: [
+                .process("PrivacyInfo.xcprivacy"),
                 .process("Resources/SanJiPoMoTi.ttf"),
                 .process("Resources/HYPixel11pxU.ttf"),
                 .process("Resources/ZihunBantianyun.ttf"),
@@ -83,12 +84,6 @@ let package = Package(
             name: "MonoTests",
             dependencies: ["Mono"],
             path: "Tests/MonoTests"
-        ),
-        // UI / Snapshot 集成测试 Target
-        .testTarget(
-            name: "MonoUITests",
-            dependencies: ["Mono"],
-            path: "Tests/MonoUITests"
         ),
     ]
 )

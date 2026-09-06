@@ -130,6 +130,7 @@ extension ClassicPlayerLayout {
                 .contentShape(Circle())
             }
             .buttonStyle(MonoBouncingButtonStyle())
+            .playerMoreMenuAnchor()
         }
         .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
     }
@@ -610,21 +611,21 @@ extension ClassicPlayerLayout {
                     if AppConfig.Features.downloadEnabled {
                         // 下载按钮（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
                         Button {
-                            if !downloadManager.isDownloaded(songId: song.id) {
+                            if !downloadStatus.isDownloaded(song: song) {
                                 showDownloadSheet = true
                             }
                         } label: {
                             MonoIcon(
                                 icon: .playerDownload,
                                 size: 22,
-                                color: downloadManager.isDownloaded(songId: song.id) ? .monoTextSecondary : secondaryContentColor,
+                                color: downloadStatus.isDownloaded(song: song) ? .monoTextSecondary : secondaryContentColor,
                                 lineWidth: 1.4
                             )
                             .frame(width: 44, height: 44)
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(MonoBouncingButtonStyle())
-                        .disabled(downloadManager.isDownloaded(songId: song.id))
+                        .disabled(downloadStatus.isDownloaded(song: song))
                         .frame(width: 44)
                     } else {
                         Color.clear.frame(width: 44, height: 44)

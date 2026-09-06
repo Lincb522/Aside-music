@@ -399,7 +399,7 @@ struct CapsuleHomeView: View {
             }
 
             VStack(spacing: 9) {
-                ForEach(Array(viewModel.dailySongs.prefix(4).enumerated()), id: \.element.id) { index, song in
+                ForEach(Array(viewModel.dailySongs.prefix(4).enumerated()), id: \.element.identityKey) { index, song in
                     CapsuleSongRow(song: song, index: index + 1, tint: index == 0 ? CapsuleStyle.accent : CapsuleStyle.cyan) {
                         PlayerManager.shared.play(song: song, in: viewModel.dailySongs)
                     }
@@ -421,7 +421,7 @@ struct CapsuleHomeView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
-                    ForEach(Array(viewModel.qqNewSongs.prefix(8).enumerated()), id: \.element.id) { index, song in
+                    ForEach(Array(viewModel.qqNewSongs.prefix(8).enumerated()), id: \.element.identityKey) { index, song in
                         CapsuleSongChip(song: song, tint: index.isMultiple(of: 2) ? CapsuleStyle.mint : CapsuleStyle.violet) {
                             PlayerManager.shared.play(song: song, in: viewModel.qqNewSongs)
                         }

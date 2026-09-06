@@ -205,7 +205,7 @@ extension ProfileView {
 
             ScrollView(.horizontal) {
                 HStack(spacing: 14) {
-                    ForEach(playerManager.history.prefix(15)) { song in
+                    ForEach(playerManager.history.prefix(15), id: \.identityKey) { song in
                         Button(action: {
                             playerManager.play(song: song, in: playerManager.history)
                         }) {

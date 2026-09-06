@@ -9,7 +9,7 @@ struct PixelPlayerLayout: View {
     @ObservedObject var player = PlayerManager.shared
     @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
     @ObservedObject var lyricVM = LyricViewModel.shared
-    @ObservedObject var downloadManager = DownloadManager.shared
+    @ObservedObject var downloadStatus = DownloadedSongStatusModel.shared
     
     @State private var isAppeared = false
     @State private var isDragging = false
@@ -58,10 +58,12 @@ struct PixelPlayerLayout: View {
                 // CRT 扫描线 + 暗角
                 scanlineOverlay.ignoresSafeArea().allowsHitTesting(false)
                 crtVignette.ignoresSafeArea().allowsHitTesting(false)
-                
+            }
+            .playerMoreMenuOverlay { anchorFrame in
                 if showMoreMenu {
                     PlayerMoreMenu(
                         isPresented: $showMoreMenu,
+                        anchorFrame: anchorFrame,
                         onEQ: { showEQSettings = true },
                         onTheme: { showThemePicker = true }
                     )
@@ -197,6 +199,7 @@ extension PixelPlayerLayout {
                 pixelButton(icon: .more)
             }
             .buttonStyle(MonoBouncingButtonStyle())
+            .playerMoreMenuAnchor()
         }
         .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 24 : 16)
         .padding(.bottom, 4)
@@ -742,9 +745,9 @@ extension PixelPlayerLayout {
                         // 下载按钮（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
                         funcButton(
                             icon: .playerDownload,
-                            tint: downloadManager.isDownloaded(songId: song.id) ? accent : fg
+                            tint: downloadStatus.isDownloaded(song: song) ? accent : fg
                         ) {
-                            if !downloadManager.isDownloaded(songId: song.id) {
+                            if !downloadStatus.isDownloaded(song: song) {
                                 showDownloadSheet = true
                             }
                         }

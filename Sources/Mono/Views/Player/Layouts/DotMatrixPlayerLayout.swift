@@ -111,10 +111,12 @@ struct DotMatrixPlayerLayout: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(.horizontal, metrics.horizontalInset)
                 .padding(.bottom, max(proxy.safeAreaInsets.bottom, metrics.bottomInset))
-
+            }
+            .playerMoreMenuOverlay { anchorFrame in
                 if showsMore {
                     PlayerMoreMenu(
                         isPresented: $showsMore,
+                        anchorFrame: anchorFrame,
                         isDarkBackground: true,
                         onQuality: { showsQuality = true },
                         onEQ: { showsEQ = true },
@@ -182,6 +184,7 @@ private extension DotMatrixPlayerLayout {
             dotButton(icon: .more, label: String(localized: "更多")) {
                 showsMore = true
             }
+            .playerMoreMenuAnchor()
         }
         .padding(.top, metrics.headerTopInset)
         .padding(.bottom, metrics.headerBottomInset)

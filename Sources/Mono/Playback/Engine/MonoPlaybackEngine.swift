@@ -178,7 +178,6 @@ class PlayerManager: ObservableObject {
     }
 
     // MARK: - 定时关闭（逻辑在 SleepAndFadeController）
-    @Published var sleepTimerRemaining: TimeInterval? = nil
     @Published var sleepTimerConfiguredMinutes: Int? = nil
     @Published var sleepTimerStopAfterCurrentTrack = false
     @Published var pendingSleepStopAfterCurrentTrack = false

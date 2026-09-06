@@ -13,7 +13,7 @@ struct DailyRecommendView: View {
     @State private var selectedAlbumId: Int?
     @State private var showAlbumDetail = false
     @State private var isSelectMode = false
-    @State private var selectedSongIds: Set<Int> = []
+    @State private var selectedSongIds: Set<String> = []
     @State private var showBatchAddToPlaylist = false
     @State private var searchText = ""
     @State private var isSearching = false
@@ -1202,7 +1202,7 @@ struct DailyRecommendView: View {
             }
         }
         .monoSheet(isPresented: $showBatchAddToPlaylist, preset: .standard) {
-            BatchAddToPlaylistSheet(songs: dailyFilteredSongs.filter { selectedSongIds.contains($0.id) })
+            BatchAddToPlaylistSheet(songs: dailyFilteredSongs.filter { selectedSongIds.contains($0.identityKey) })
         }
     }
 
@@ -1305,7 +1305,7 @@ struct DailyRecommendView: View {
             selectedIds: $selectedSongIds,
             songs: dailyFilteredSongs,
             onBatchQueue: {
-                let selected = dailyFilteredSongs.filter { selectedSongIds.contains($0.id) }
+                let selected = dailyFilteredSongs.filter { selectedSongIds.contains($0.identityKey) }
                 SongBatchActionHelper.addToQueue(selected) {
                     isSelectMode = false
                     selectedSongIds.removeAll()
@@ -1318,8 +1318,8 @@ struct DailyRecommendView: View {
 
     private var dailyRows: some View {
         LazyVStack(spacing: CapsuleStyle.isActive ? 4 : 0) {
-            ForEach(Array(dailyFilteredSongs.enumerated()), id: \.element.id) { index, song in
-                SongListRow(song: song, index: index, isSelecting: isSelectMode, isSelected: selectedSongIds.contains(song.id), onArtistTap: { artistId in
+            ForEach(Array(dailyFilteredSongs.enumerated()), id: \.element.identityKey) { index, song in
+                SongListRow(song: song, index: index, isSelecting: isSelectMode, isSelected: selectedSongIds.contains(song.identityKey), onArtistTap: { artistId in
                     selectedArtistId = artistId
                     showArtistDetail = true
                 }, onDetailTap: { detailSong in
@@ -1330,10 +1330,10 @@ struct DailyRecommendView: View {
                     showAlbumDetail = true
                 }, onTap: {
                     if isSelectMode {
-                        if selectedSongIds.contains(song.id) {
-                            selectedSongIds.remove(song.id)
+                        if selectedSongIds.contains(song.identityKey) {
+                            selectedSongIds.remove(song.identityKey)
                         } else {
-                            selectedSongIds.insert(song.id)
+                            selectedSongIds.insert(song.identityKey)
                         }
                     } else {
                         PlayerManager.shared.play(song: song, in: dailyFilteredSongs)
@@ -1344,7 +1344,7 @@ struct DailyRecommendView: View {
     }
 
     private func batchDownloadSelected() {
-        let selected = dailyFilteredSongs.filter { selectedSongIds.contains($0.id) }
+        let selected = dailyFilteredSongs.filter { selectedSongIds.contains($0.identityKey) }
         for song in selected {
             if song.isQQMusic {
                 DownloadManager.shared.downloadQQ(song: song, quality: DownloadManager.defaultQQDownloadQuality)
@@ -1741,7 +1741,7 @@ struct DailyHistoryView: View {
                     }
                 }
 
-                ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+                ForEach(Array(songs.enumerated()), id: \.element.identityKey) { index, song in
                     SongListRow(song: song, index: index, onTap: {
                         PlayerManager.shared.play(song: song, in: songs)
                     })

@@ -537,7 +537,7 @@ final class MediaSourceResolver {
             return
         }
         if player.upcomingPlaybackSong() != nil {
-            player.next()
+            player.next(userInitiated: false)
         } else {
             player.stopAfterQueueExhausted()
         }

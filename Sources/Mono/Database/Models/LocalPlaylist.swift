@@ -64,21 +64,21 @@ final class LocalPlaylist {
     /// 添加歌曲（去重）
     func addSong(_ song: Song) {
         var current = songs
-        guard !current.contains(where: { $0.id == song.id }) else { return }
+        guard !current.contains(song) else { return }
         current.insert(song, at: 0)
         songs = current
     }
     
     /// 移除歌曲
-    func removeSong(id: Int) {
+    func removeSong(_ song: Song) {
         var current = songs
-        current.removeAll { $0.id == id }
+        current.removeAll { $0 == song }
         songs = current
     }
     
     /// 是否包含某首歌
-    func containsSong(id: Int) -> Bool {
-        songs.contains { $0.id == id }
+    func containsSong(_ song: Song) -> Bool {
+        songs.contains(song)
     }
 }
 

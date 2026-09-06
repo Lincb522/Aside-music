@@ -9,7 +9,9 @@ let package = Package(
     products: [
         .library(name: "NeteaseCloudMusicAPI", targets: ["NeteaseCloudMusicAPI"])
     ],
-    dependencies: [],
+    dependencies: [
+        .package(url: "https://github.com/typelift/SwiftCheck.git", from: "0.12.0"),
+    ],
     targets: [
         .target(
             name: "NeteaseCloudMusicAPI",
@@ -19,6 +21,11 @@ let package = Package(
             name: "NeteaseCloudMusicAPIContractTests",
             dependencies: ["NeteaseCloudMusicAPI"],
             path: "ContractTests/NeteaseCloudMusicAPIContractTests"
+        ),
+        .testTarget(
+            name: "NeteaseCloudMusicAPITests",
+            dependencies: ["NeteaseCloudMusicAPI", "SwiftCheck"],
+            path: "Tests/NeteaseCloudMusicAPITests"
         ),
     ]
 )

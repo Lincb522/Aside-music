@@ -46,5 +46,10 @@ let package = Package(
                 .target(name: "FFmpegLibs", condition: .when(platforms: [.iOS])),
             ]
         ),
+        .testTarget(
+            name: "FFmpegSwiftSDKTests",
+            dependencies: ["FFmpegSwiftSDK", "CFFmpeg"],
+            path: "Tests/FFmpegSwiftSDKTests"
+        ),
     ]
 )

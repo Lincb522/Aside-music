@@ -239,7 +239,7 @@ struct CinemaSongPosterRail: View {
 
             ScrollView(.horizontal) {
                 LazyHStack(spacing: 13) {
-                    ForEach(Array(songs.prefix(15).enumerated()), id: \.element.id) { idx, song in
+                    ForEach(Array(songs.prefix(15).enumerated()), id: \.element.identityKey) { idx, song in
                         let isCurrent = playback.currentSongId == song.id
                         CinemaPosterCard(
                             coverURL: song.coverUrl,

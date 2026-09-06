@@ -5,14 +5,15 @@ import SwiftUI
 struct AsideUnifiedFloatingBar: View {
     @Binding var currentTab: Tab
     let usesGlassChrome: Bool
-    @ObservedObject private var player = FloatingBarPlaybackModel.shared
+    private let player = FloatingBarPlaybackModel.shared
+    @State private var currentSong = FloatingBarPlaybackModel.shared.currentSong
     @Environment(\.colorScheme) private var colorScheme
 
     private let cornerRadius: CGFloat = 30
 
     var body: some View {
         VStack(spacing: 0) {
-            if let song = player.currentSong {
+            if let song = currentSong {
                 AsideNowPlayingRow(song: song)
                     .swipeToSkip()
                     .transition(.asymmetric(
@@ -29,14 +30,17 @@ struct AsideUnifiedFloatingBar: View {
                 .simultaneousGesture(tabSwipeGesture)
         }
         .padding(.horizontal, 7)
-        .padding(.top, player.currentSong == nil ? 6 : 3)
+        .padding(.top, currentSong == nil ? 6 : 3)
         .padding(.bottom, 6)
         .background(chrome)
         .modifier(AsideBarGlassModifier(enabled: usesGlassChrome, cornerRadius: cornerRadius))
         .compositingGroup()
         .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.38 : 0.14), radius: 20, x: 0, y: 10)
-        .animation(MonoAnimation.floatingBar, value: player.currentSong != nil)
+        .animation(MonoAnimation.floatingBar, value: currentSong != nil)
         .themeRenderInteractiveLayer()
+        .onReceive(player.$currentSong.removeDuplicates()) { song in
+            currentSong = song
+        }
     }
 
     @ViewBuilder
@@ -131,13 +135,12 @@ struct AsideBarHairline: View {
 
 struct AsideNowPlayingRow: View {
     let song: Song
-    @ObservedObject private var player = FloatingBarPlaybackModel.shared
+    private let player = FloatingBarPlaybackModel.shared
+    @State private var isPlaying = FloatingBarPlaybackModel.shared.isPlaying
+    @State private var isLoading = FloatingBarPlaybackModel.shared.isLoading
+    @State private var playSource = FloatingBarPlaybackModel.shared.playSource
     @Environment(\.colorScheme) private var colorScheme
     @State private var showPlaylist = false
-
-    private var subtitleText: String {
-        player.lyricLineText ?? song.artistName
-    }
 
     var body: some View {
         VStack(spacing: 8) {
@@ -153,14 +156,16 @@ struct AsideNowPlayingRow: View {
                     )
                     .frame(height: 17)
 
-                    MarqueeText(
-                        text: subtitleText,
-                        font: .system(size: 11, weight: .medium, design: .rounded),
-                        color: .monoTextSecondary.opacity(0.9),
-                        speed: 22
-                    )
-                    .frame(height: 14)
-                    .animation(.easeInOut(duration: 0.25), value: player.lyricLineText)
+                    FloatingBarLyricReader { lyricLineText in
+                        MarqueeText(
+                            text: lyricLineText ?? song.artistName,
+                            font: .system(size: 11, weight: .medium, design: .rounded),
+                            color: .monoTextSecondary.opacity(0.9),
+                            speed: 22
+                        )
+                        .frame(height: 14)
+                        .animation(.easeInOut(duration: 0.25), value: lyricLineText)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .swipeSkipTextMotion()
@@ -178,11 +183,20 @@ struct AsideNowPlayingRow: View {
         .padding(.top, 11)
         .padding(.bottom, 9)
         .monoSheet(isPresented: $showPlaylist, preset: .standard) {
-            if player.isPlayingPodcast {
+            if playSource.isPodcast {
                 PodcastPlaylistPopupView()
             } else {
                 PlaylistPopupView()
             }
+        }
+        .onReceive(player.$isPlaying.removeDuplicates()) { playing in
+            isPlaying = playing
+        }
+        .onReceive(player.$isLoading.removeDuplicates()) { loading in
+            isLoading = loading
+        }
+        .onReceive(player.$playSource.removeDuplicates()) { source in
+            playSource = source
         }
     }
 
@@ -200,9 +214,9 @@ struct AsideNowPlayingRow: View {
                 .strokeBorder(Color.monoTextPrimary.opacity(0.1), lineWidth: 0.7)
         )
         .overlay(alignment: .bottomTrailing) {
-            if player.playSource == .fm {
+            if playSource == .fm {
                 sourceBadge(icon: .fm)
-            } else if player.isPlayingPodcast {
+            } else if playSource.isPodcast {
                 sourceBadge(icon: .radio)
             }
         }
@@ -224,13 +238,13 @@ struct AsideNowPlayingRow: View {
                         .fill(Color.monoAccent)
                         .frame(width: 37, height: 37)
 
-                    if player.isLoading {
+                    if isLoading {
                         ProgressView()
                             .progressViewStyle(CircularProgressViewStyle(tint: .monoAccentForeground))
                             .scaleEffect(0.56)
                     } else {
                         MonoIcon(
-                            icon: player.isPlaying ? .pause : .play,
+                            icon: isPlaying ? .pause : .play,
                             size: 14,
                             color: .monoAccentForeground,
                             lineWidth: 1.8
@@ -250,7 +264,7 @@ struct AsideNowPlayingRow: View {
             }
             .buttonStyle(MonoBouncingButtonStyle(scale: 0.93))
 
-            if !player.isPlaying {
+            if !isPlaying {
                 Button {
                     withAnimation(MonoAnimation.floatingBar) {
                         player.dismissMiniPlayerPreservingQueue()

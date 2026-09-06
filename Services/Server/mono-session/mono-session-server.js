@@ -39,6 +39,7 @@ export function attachMonoSessionServer({
     throw new TypeError('validateToken(token) is required.');
   }
 
+  const subjectKey = crypto.randomBytes(32);
   const rooms = new Map();
   const clients = new Map();
   const webSocketServer = new WebSocketServer({ noServer: true, maxPayload: 256 * 1024 });
@@ -76,10 +77,16 @@ export function attachMonoSessionServer({
       return;
     }
 
+    const accountID = [credential.id, credential.sub]
+      .filter((value) => typeof value === 'string' || (typeof value === 'number' && Number.isFinite(value)))
+      .map((value) => String(value).trim())
+      .find((value) => value.length > 0);
     webSocketServer.handleUpgrade(request, socket, head, (webSocket) => {
       webSocketServer.emit('connection', webSocket, request, {
         deviceId,
-        tokenSubject: String(credential.id || credential.name || credential.tokenName || 'token'),
+        tokenSubject: accountID
+          ? `account:${accountID}`
+          : `token:${crypto.createHmac('sha256', subjectKey).update(token).digest('hex')}`,
       });
     });
   });
@@ -124,6 +131,14 @@ export function attachMonoSessionServer({
   function handleMessage(connection, message) {
     const command = String(message?.command || '');
     const requestId = normalizeRequestId(message?.requestID);
+    if (connection.roomId) {
+      const room = rooms.get(connection.roomId);
+      const entry = room?.participants.get(connection.deviceId);
+      if (!entry || entry.socket !== connection.socket || entry.tokenSubject !== connection.tokenSubject) {
+        connection.roomId = null;
+        connection.participant = null;
+      }
+    }
     switch (command) {
       case 'create':
         createRoom(connection, message, requestId);
@@ -171,6 +186,10 @@ export function attachMonoSessionServer({
     }
   }
 
+  function isHost(room, connection) {
+    return room.hostId === connection.deviceId && room.tokenSubject === connection.tokenSubject;
+  }
+
   function createRoom(connection, message, requestId) {
     detachParticipant(connection, true);
     const participant = normalizeParticipant(message.participant, connection, 'host');
@@ -191,7 +210,7 @@ export function attachMonoSessionServer({
       id: roomId,
       inviteCode,
       hostId: connection.deviceId,
-      participants: new Map([[participant.id, { participant, socket: connection.socket, disconnectedAt: null }]]),
+      participants: new Map([[participant.id, { participant, socket: connection.socket, tokenSubject: connection.tokenSubject, disconnectedAt: null }]]),
       playback,
       queue,
       permissions,
@@ -213,13 +232,24 @@ export function attachMonoSessionServer({
     if (room.participants.size >= MAX_PARTICIPANTS && !room.participants.has(connection.deviceId)) {
       return sendError(connection.socket, requestId, 'room_full', 'Room is full');
     }
+    const existing = room.participants.get(connection.deviceId);
+    if (room.hostId === connection.deviceId || (existing && existing.tokenSubject !== connection.tokenSubject)) {
+      return sendError(connection.socket, requestId, 'identity_conflict', 'Participant identity unavailable');
+    }
     const participant = normalizeParticipant(message.participant, connection, 'listener');
     if (!participant) return sendError(connection.socket, requestId, 'invalid_participant', 'Invalid participant');
 
-    detachParticipant(connection, true);
+    if (connection.roomId !== room.id) detachParticipant(connection, true);
+    const previous = room.participants.get(participant.id)?.socket;
+    if (previous && previous !== connection.socket) {
+      const stale = clients.get(previous);
+      if (stale) { stale.roomId = null; stale.participant = null; }
+      previous.close(1000, 'Connection replaced');
+    }
     room.participants.set(participant.id, {
       participant,
       socket: connection.socket,
+      tokenSubject: connection.tokenSubject,
       disconnectedAt: null,
     });
     room.updatedAt = Date.now();
@@ -233,7 +263,7 @@ export function attachMonoSessionServer({
     const roomId = String(message.roomID || '').trim();
     const inviteCode = String(message.inviteCode || '').trim().toUpperCase();
     const room = rooms.get(roomId);
-    if (!room || room.inviteCode !== inviteCode || room.hostId !== connection.deviceId) {
+    if (!room || room.inviteCode !== inviteCode || !isHost(room, connection)) {
       return sendError(connection.socket, requestId, 'resume_rejected', 'Room resume rejected');
     }
     const participant = normalizeParticipant(message.participant, connection, 'host');
@@ -241,10 +271,17 @@ export function attachMonoSessionServer({
       return sendError(connection.socket, requestId, 'invalid_participant', 'Invalid participant');
     }
 
-    detachParticipant(connection, true);
+    if (connection.roomId !== room.id) detachParticipant(connection, true);
+    const previous = room.participants.get(participant.id)?.socket;
+    if (previous && previous !== connection.socket) {
+      const stale = clients.get(previous);
+      if (stale) { stale.roomId = null; stale.participant = null; }
+      previous.close(1000, 'Connection replaced');
+    }
     room.participants.set(participant.id, {
       participant,
       socket: connection.socket,
+      tokenSubject: connection.tokenSubject,
       disconnectedAt: null,
     });
     room.updatedAt = Date.now();
@@ -257,8 +294,8 @@ export function attachMonoSessionServer({
   function updatePlayback(connection, message, requestId) {
     const room = connection.roomId ? rooms.get(connection.roomId) : null;
     if (!room) return sendError(connection.socket, requestId, 'room_not_found', 'Room not found');
-    const isHost = room.hostId === connection.deviceId;
-    if (!isHost && !room.permissions?.membersCanControlPlayback) {
+    const host = isHost(room, connection);
+    if (!host && !room.permissions?.membersCanControlPlayback) {
       return sendError(connection.socket, requestId, 'playback_control_disabled', 'Playback control disabled');
     }
     const now = new Date().toISOString();
@@ -286,7 +323,7 @@ export function attachMonoSessionServer({
       queue: room.queue,
       permissions: room.permissions,
       sentAt: now,
-    }, isHost ? connection.socket : null);
+    }, host ? connection.socket : null);
   }
 
   function updateQueue(connection, message, requestId) {
@@ -318,7 +355,7 @@ export function attachMonoSessionServer({
   function updatePermissions(connection, message, requestId) {
     const room = connection.roomId ? rooms.get(connection.roomId) : null;
     if (!room) return sendError(connection.socket, requestId, 'room_not_found', 'Room not found');
-    if (room.hostId !== connection.deviceId) {
+    if (!isHost(room, connection)) {
       return sendError(connection.socket, requestId, 'host_required', 'Host permission required');
     }
     room.permissions = normalizePermissions(message.permissions);
@@ -338,8 +375,8 @@ export function attachMonoSessionServer({
     if (!room || !connection.participant) {
       return sendError(connection.socket, requestId, 'room_not_found', 'Room not found');
     }
-    const isHost = room.hostId === connection.deviceId;
-    if (!isHost && !room.permissions?.membersCanControlPlayback) {
+    const host = isHost(room, connection);
+    if (!host && !room.permissions?.membersCanControlPlayback) {
       return sendError(connection.socket, requestId, 'track_control_disabled', 'Track control disabled');
     }
     const requestedSong = normalizeSong(message?.playback?.song);
@@ -432,8 +469,13 @@ export function attachMonoSessionServer({
       return;
     }
     const entry = room.participants.get(connection.participant.id);
-    const isHost = room.hostId === connection.deviceId;
-    if (explicit && isHost) {
+    if (!entry || entry.socket !== connection.socket || entry.tokenSubject !== connection.tokenSubject) {
+      connection.roomId = null;
+      connection.participant = null;
+      return;
+    }
+    const host = isHost(room, connection);
+    if (explicit && host) {
       for (const participant of room.participants.values()) {
         if (participant.socket && participant.socket !== connection.socket) {
           sendError(participant.socket, null, 'room_ended', 'Room ended');
@@ -445,7 +487,7 @@ export function attachMonoSessionServer({
       connection.participant = null;
       return;
     }
-    if (explicit || !isHost) {
+    if (explicit || !host) {
       room.participants.delete(connection.participant.id);
     } else if (entry) {
       entry.socket = null;

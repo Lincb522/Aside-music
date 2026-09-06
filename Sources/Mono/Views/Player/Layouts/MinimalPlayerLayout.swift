@@ -5,7 +5,7 @@ import FFmpegSwiftSDK
 struct MinimalPlayerLayout: View {
     @Environment(\.dismiss) var dismiss
     @ObservedObject var player = PlayerManager.shared
-    @ObservedObject var downloadManager = DownloadManager.shared
+    @ObservedObject var downloadStatus = DownloadedSongStatusModel.shared
     @ObservedObject var lyricVM = LyricViewModel.shared
     @ObservedObject private var settings = SettingsManager.shared
 
@@ -85,16 +85,18 @@ struct MinimalPlayerLayout: View {
                     Spacer()
                 }
                 .environment(\.colorScheme, isCoverBright ? .light : .dark)
-
-            if showMoreMenu {
-                PlayerMoreMenu(
-                    isPresented: $showMoreMenu,
-                        onQuality: { showQualitySheet = true },
-                    onEQ: { showEQSettings = true },
-                    onTheme: { showThemePicker = true }
-                )
             }
-        }
+            .playerMoreMenuOverlay { anchorFrame in
+                if showMoreMenu {
+                    PlayerMoreMenu(
+                        isPresented: $showMoreMenu,
+                        anchorFrame: anchorFrame,
+                        onQuality: { showQualitySheet = true },
+                        onEQ: { showEQSettings = true },
+                        onTheme: { showThemePicker = true }
+                    )
+                }
+            }
         }
         .monoSheet(isPresented: $showPlaylist, preset: .standard){
             PlaylistPopupView()
@@ -169,6 +171,7 @@ extension MinimalPlayerLayout {
                 }
                 .monoGlassButtonStyle()
                 .compatCircleButtonBorderShape()
+                .playerMoreMenuAnchor()
             }
             .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 28 : 20)
         }
@@ -348,21 +351,21 @@ extension MinimalPlayerLayout {
                 HStack {
                     Spacer()
                     Button {
-                        if !downloadManager.isDownloaded(songId: song.id) {
+                        if !downloadStatus.isDownloaded(song: song) {
                             showDownloadSheet = true
                         }
                     } label: {
                         MonoIcon(
                             icon: .playerDownload,
                             size: 22,
-                            color: downloadManager.isDownloaded(songId: song.id) ? .monoTextSecondary : secondaryColor,
+                            color: downloadStatus.isDownloaded(song: song) ? .monoTextSecondary : secondaryColor,
                             lineWidth: 1.4
                         )
                         .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(MonoBouncingButtonStyle())
-                    .disabled(downloadManager.isDownloaded(songId: song.id))
+                    .disabled(downloadStatus.isDownloaded(song: song))
                     .frame(width: 44)
                 }
                 .padding(.horizontal, DeviceLayout.viewHorizontalPadding)

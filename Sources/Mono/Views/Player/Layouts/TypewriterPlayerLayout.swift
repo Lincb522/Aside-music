@@ -283,7 +283,7 @@ struct TypewriterPlayerLayout: View {
 
     @ObservedObject private var player = PlayerManager.shared
     @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
-    @ObservedObject private var downloadManager = DownloadManager.shared
+    @ObservedObject private var downloadStatus = DownloadedSongStatusModel.shared
 
     @State private var showPlaylist = false
     @State private var showMoreMenu = false
@@ -343,10 +343,12 @@ struct TypewriterPlayerLayout: View {
 
                     Spacer(minLength: m.bottomGap)
                 }
-
+            }
+            .playerMoreMenuOverlay { anchorFrame in
                 if showMoreMenu {
                     PlayerMoreMenu(
                         isPresented: $showMoreMenu,
+                        anchorFrame: anchorFrame,
                         isDarkBackground: colorScheme == .dark,
                         onEQ: { showEQSettings = true },
                         onTheme: { showThemePicker = true }
@@ -741,7 +743,7 @@ struct TypewriterPlayerLayout: View {
                     if AppConfig.Features.downloadEnabled {
                         // 下载按键（下载功能暂时隐藏，恢复时打开 AppConfig.Features.downloadEnabled）
                         let saved = player.currentSong.map {
-                            downloadManager.isDownloaded(songId: $0.id, isQQ: $0.isQQMusic)
+                            downloadStatus.isDownloaded(song: $0)
                         } ?? false
                         labelKey(
                             text: saved ? "SAVED" : "SAVE",
@@ -939,6 +941,7 @@ struct TypewriterPlayerLayout: View {
                     .contentShape(Circle())
             }
             .buttonStyle(MonoBouncingButtonStyle())
+            .playerMoreMenuAnchor()
         }
         .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 28 : 20)
     }

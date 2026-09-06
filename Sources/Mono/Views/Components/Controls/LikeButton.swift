@@ -15,7 +15,7 @@ struct LikeButton: View {
     @State private var completionTrigger = 0
     
     private var isLiked: Bool {
-        likeManager.isLiked(id: songId, isQQMusic: isQQMusic)
+        likeManager.isLiked(id: songId, source: song?.musicSource ?? (isQQMusic ? .qqmusic : .netease))
     }
     
     var body: some View {

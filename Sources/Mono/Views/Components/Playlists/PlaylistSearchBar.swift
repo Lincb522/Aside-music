@@ -9,7 +9,7 @@ struct PlaylistSearchBar: View {
     var onSearchActivated: (() -> Void)? = nil
     
     var isSelectMode: Binding<Bool>? = nil
-    var selectedIds: Binding<Set<Int>>? = nil
+    var selectedIds: Binding<Set<String>>? = nil
     var songs: [Song]? = nil
     var onBatchQueue: (() -> Void)? = nil
     var onBatchDownload: (() -> Void)? = nil
@@ -162,7 +162,7 @@ struct PlaylistSearchBar: View {
                 if ids.wrappedValue.count == allSongs.count {
                     ids.wrappedValue.removeAll()
                 } else {
-                    ids.wrappedValue = Set(allSongs.map(\.id))
+                    ids.wrappedValue = Set(allSongs.map(\.identityKey))
                 }
             } label: {
                 Text(selectedIds?.wrappedValue.count == songs?.count ? String(localized: "取消全选") : String(localized: "全选"))
@@ -395,7 +395,7 @@ struct PlaylistSearchBar: View {
                 if ids.wrappedValue.count == allSongs.count {
                     ids.wrappedValue.removeAll()
                 } else {
-                    ids.wrappedValue = Set(allSongs.map { $0.id })
+                    ids.wrappedValue = Set(allSongs.map { $0.identityKey })
                 }
             } label: {
                 Text(selectedIds?.wrappedValue.count == songs?.count ? String(localized: "取消全选") : String(localized: "全选"))

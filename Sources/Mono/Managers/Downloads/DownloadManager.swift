@@ -63,6 +63,7 @@ final class DownloadManager: NSObject, ObservableObject {
     
     /// taskIdentifier -> uniqueKey 映射（用于 delegate 回调）
     private var taskToKey: [Int: String] = [:]
+    nonisolated private let progressGate = DownloadProgressGate()
     
     private override init() {
         super.init()
@@ -83,11 +84,13 @@ final class DownloadManager: NSObject, ObservableObject {
         "qishui_\(trackId)"
     }
 
-    private static func makeKey(for song: Song) -> String {
-        if song.isQishui, let trackId = song.qishuiTrackId {
-            return makeQishuiKey(trackId: trackId)
+    static func makeKey(for song: Song) -> String {
+        switch song.musicSource {
+        case .netease: return makeKey(songId: song.id, isQQ: false)
+        case .qqmusic: return makeKey(songId: song.id, isQQ: true)
+        case .qishui: return makeQishuiKey(trackId: song.qishuiTrackId ?? song.id)
+        case .kugou, .appleMusic, .local: return "\(song.musicSource.rawValue)_\(song.id)"
         }
-        return makeKey(songId: song.id, isQQ: song.isQQMusic)
     }
 
     private static func makeKey(for record: CloudDownloadRecord) -> String {
@@ -123,7 +126,12 @@ final class DownloadManager: NSObject, ObservableObject {
             return
         }
 
-        let key = Self.makeKey(songId: song.id, isQQ: song.isQQMusic)
+        guard song.musicSource == .netease || song.musicSource == .qqmusic else {
+            handleDownloadFailed(key: Self.makeKey(for: song), songName: song.name,
+                                 reason: String(localized: "download_source_unsupported"))
+            return
+        }
+        let key = Self.makeKey(for: song)
         DownloadTombstoneStore.shared.clearTombstones(for: song)
         
         // 已下载或正在下载则跳过
@@ -229,6 +237,7 @@ final class DownloadManager: NSObject, ObservableObject {
         if let task = downloadingTasks[key] {
             if let sessionTask = task.urlSessionTask {
                 taskToKey.removeValue(forKey: sessionTask.taskIdentifier)
+                progressGate.remove(taskID: sessionTask.taskIdentifier)
                 sessionTask.cancel()
             }
             downloadingTasks.removeValue(forKey: key)
@@ -255,28 +264,14 @@ final class DownloadManager: NSObject, ObservableObject {
     }
 
     /// 删除与这首歌相关的**所有**下载记录与文件。
-    ///
-    /// 历史数据存在多种 key 变体（`ncm_/qq_/qishui_/qsm_`），云端恢复也可能
-    /// 产生与本地 key 不一致的重复记录；合并后的「本地音乐」按 song.id 去重展示，
-    /// 因此删除也必须把同一 id 的所有记录一次清干净，否则同步时会立刻并回。
+    /// Includes legacy key variants belonging to the same platform track.
     func deleteAllDownloadRecords(for song: Song) {
-        var keys = Set<String>()
-        keys.insert(Self.makeKey(for: song))
-        keys.insert(Self.makeKey(songId: song.id, isQQ: true))
-        keys.insert(Self.makeKey(songId: song.id, isQQ: false))
-        keys.insert("qsm_\(song.id)")
-        if let trackId = song.qishuiTrackId {
-            keys.insert(Self.makeQishuiKey(trackId: trackId))
-        }
-
-        // 同 id 的所有残留记录（无论 key 形态）一并纳入
+        var keys: Set<String> = [Self.makeKey(for: song)]
         let store = DatabaseManager.shared.store
-        let songId = song.id
-        for record in store.fetch(DownloadedSong.self, where: { $0.id == songId }) {
+        for record in store.fetch(DownloadedSong.self, where: { $0.toSong() == song }) {
             keys.insert(record.uniqueKey)
         }
-
-        DownloadTombstoneStore.shared.markDeleted(keys: keys, songId: song.id)
+        DownloadTombstoneStore.shared.markDeleted(keys: keys, song: song)
 
         for key in keys {
             removeDownload(key: key, notifyCloud: false)
@@ -287,9 +282,9 @@ final class DownloadManager: NSObject, ObservableObject {
     /// 删除已下载歌曲（按 uniqueKey）
     func deleteDownload(key: String) {
         if let record = getDownloadRecord(key: key) {
-            DownloadTombstoneStore.shared.markDeleted(keys: [key], songId: record.id)
+            DownloadTombstoneStore.shared.markDeleted(keys: [key], song: record.toSong())
         } else {
-            DownloadTombstoneStore.shared.markDeleted(keys: [key], songId: nil)
+            DownloadTombstoneStore.shared.markDeleted(keys: [key], song: nil)
         }
         removeDownload(key: key, notifyCloud: true)
     }
@@ -337,7 +332,11 @@ final class DownloadManager: NSObject, ObservableObject {
 
         // 取消所有进行中的任务
         for (_, task) in downloadingTasks {
-            task.urlSessionTask?.cancel()
+            if let sessionTask = task.urlSessionTask {
+                taskToKey.removeValue(forKey: sessionTask.taskIdentifier)
+                progressGate.remove(taskID: sessionTask.taskIdentifier)
+                sessionTask.cancel()
+            }
         }
         downloadingTasks.removeAll()
         waitingQueue.removeAll()
@@ -384,16 +383,10 @@ final class DownloadManager: NSObject, ObservableObject {
         AppLogger.info("已清除所有下载")
     }
     
-    /// 检查是否已下载（兼容旧调用，同时检查 ncm 和 qq 两个 key）
-    func isDownloaded(songId: Int) -> Bool {
-        downloadedSongIds.contains("ncm_\(songId)") || downloadedSongIds.contains("qq_\(songId)")
+    func isDownloaded(song: Song) -> Bool {
+        downloadedSongIds.contains(Self.makeKey(for: song))
     }
 
-    /// 检查指定来源的歌曲是否已下载
-    func isDownloaded(songId: Int, isQQ: Bool) -> Bool {
-        downloadedSongIds.contains(Self.makeKey(songId: songId, isQQ: isQQ))
-    }
-    
     /// 获取本地文件 URL
     func localFileURL(for song: Song) -> URL? {
         localFileURL(forKey: Self.makeKey(for: song))
@@ -450,7 +443,7 @@ final class DownloadManager: NSObject, ObservableObject {
             let key = Self.makeKey(for: cloudRecord)
 
             // 本地明确删除过的条目：云端快照（可能还没同步到删除）不允许复活
-            if tombstones.isTombstoned(key: key) || tombstones.isTombstoned(songId: cloudRecord.songId) {
+            if tombstones.isTombstoned(key: key) || tombstones.isTombstoned(song: cloudRecord.toSong()) {
                 continue
             }
 
@@ -656,14 +649,15 @@ final class DownloadManager: NSObject, ObservableObject {
         }
         let task = urlSession.downloadTask(with: url)
         taskToKey[task.taskIdentifier] = key
+        progressGate.register(taskID: task.taskIdentifier)
         downloadingTasks[key]?.urlSessionTask = task
         task.resume()
         AppLogger.info("开始下载文件: \(key)")
     }
     
     /// 下载失败处理
-    private func handleDownloadFailed(key: String, reason: String? = nil) {
-        let songName = getDownloadRecord(key: key)?.name ?? key
+    private func handleDownloadFailed(key: String, songName: String? = nil, reason: String? = nil) {
+        let songName = songName ?? getDownloadRecord(key: key)?.name ?? key
         downloadingTasks.removeValue(forKey: key)
         if let record = getDownloadRecord(key: key) {
             record.status = .failed
@@ -801,8 +795,17 @@ final class DownloadManager: NSObject, ObservableObject {
         let destURL = availableDestinationURL(for: record, fileExtension: ext)
         
         Task.detached(priority: .userInitiated) { [weak self] in
+            var sourceURL = tempURL
+            defer { try? FileManager.default.removeItem(at: sourceURL) }
             do {
-                var sourceURL = tempURL
+                let handle = try FileHandle(forReadingFrom: tempURL)
+                var prefix = try handle.read(upToCount: 4_096) ?? Data()
+                try handle.close()
+                if let ekey {
+                    let decryptor = try QMCDecryptor.create(ekey: ekey)
+                    decryptor.decrypt(&prefix, offset: 0)
+                }
+                try DownloadResponseValidator.validateMediaPrefix(prefix)
                 let decryptEnabled = await MainActor.run { SettingsManager.shared.qmcDecryptEnabled }
                 
                 if let ekey = ekey, decryptEnabled {
@@ -850,7 +853,7 @@ final class DownloadManager: NSObject, ObservableObject {
             } catch {
                 AppLogger.error("保存下载文件失败: \(error)")
                 await MainActor.run { [weak self] in
-                    self?.handleDownloadFailed(key: key)
+                    self?.handleDownloadFailed(key: key, reason: error.localizedDescription)
                 }
             }
         }
@@ -921,14 +924,25 @@ final class DownloadManager: NSObject, ObservableObject {
 extension DownloadManager: URLSessionDownloadDelegate {
     nonisolated func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
         let taskId = downloadTask.taskIdentifier
-        // 复制临时文件到安全位置（临时文件会被系统删除）
-        let tempDir = FileManager.default.temporaryDirectory
-        let tempFile = tempDir.appendingPathComponent(UUID().uuidString + ".tmp")
-        try? FileManager.default.copyItem(at: location, to: tempFile)
-        
+        progressGate.remove(taskID: taskId)
+        let tempFile = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".tmp")
+        do {
+            try DownloadResponseValidator.validate(response: downloadTask.response)
+            try FileManager.default.copyItem(at: location, to: tempFile)
+        } catch {
+            let reason = error.localizedDescription
+            try? FileManager.default.removeItem(at: tempFile)
+            Task { @MainActor [weak self] in
+                guard let self, let key = self.taskToKey.removeValue(forKey: taskId) else { return }
+                self.handleDownloadFailed(key: key, reason: reason)
+            }
+            return
+        }
         Task { @MainActor [weak self] in
-            guard let self = self, let key = self.taskToKey[taskId] else { return }
-            self.taskToKey.removeValue(forKey: taskId)
+            guard let self, let key = self.taskToKey.removeValue(forKey: taskId) else {
+                try? FileManager.default.removeItem(at: tempFile)
+                return
+            }
             self.handleDownloadCompleted(key: key, tempURL: tempFile)
         }
     }
@@ -937,8 +951,8 @@ extension DownloadManager: URLSessionDownloadDelegate {
         let taskId = downloadTask.taskIdentifier
         let progress = totalBytesExpectedToWrite > 0 ? Double(totalBytesWritten) / Double(totalBytesExpectedToWrite) : 0
         
-        // 节流：进度变化 < 2% 时跳过 UI 更新（完成时除外）
-        let rounded = (progress * 50).rounded() / 50
+        // Filter on the delegate queue before scheduling any UI work.
+        guard let rounded = progressGate.accept(progress, taskID: taskId) else { return }
         Task { @MainActor [weak self] in
             guard let self = self, let key = self.taskToKey[taskId] else { return }
             let current = self.downloadingTasks[key]?.progress ?? 0
@@ -948,6 +962,7 @@ extension DownloadManager: URLSessionDownloadDelegate {
     }
     
     nonisolated func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        progressGate.remove(taskID: task.taskIdentifier)
         guard let error = error else { return }
         let taskId = task.taskIdentifier
         let errorDesc = error.localizedDescription
@@ -967,6 +982,35 @@ extension DownloadManager: URLSessionDownloadDelegate {
                 self.processQueue()
             }
         }
+    }
+}
+
+/// Shared by URLSession's delegate queue and main-actor cancellation.
+private final class DownloadProgressGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var lastProgress: [Int: Double] = [:]
+
+    func register(taskID: Int) {
+        lock.lock()
+        defer { lock.unlock() }
+        lastProgress[taskID] = 0
+    }
+
+    func remove(taskID: Int) {
+        lock.lock()
+        defer { lock.unlock() }
+        lastProgress.removeValue(forKey: taskID)
+    }
+
+    func accept(_ progress: Double, taskID: Int) -> Double? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let previous = lastProgress[taskID] else { return nil }
+        let rounded = (progress * 50).rounded() / 50
+        guard rounded != previous,
+              abs(rounded - previous) >= 0.02 || progress >= 1.0 else { return nil }
+        lastProgress[taskID] = rounded
+        return rounded
     }
 }
 
@@ -1179,6 +1223,7 @@ final class LyricDownloadManager: ObservableObject {
 
         OptimizedCacheManager.shared.cacheLyrics(
             songId: song.id,
+            source: song.musicSource,
             lyrics: primaryText,
             translated: translatedFileName == nil ? nil : Self.makeTranslations(from: lines)
         )

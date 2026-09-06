@@ -212,12 +212,12 @@ extension PlaylistDetailView {
     }
 
     var playlistSongRows: some View {
-        ForEach(Array(filteredSongs.enumerated()), id: \.element.id) { index, song in
+        ForEach(Array(filteredSongs.enumerated()), id: \.element.identityKey) { index, song in
             SongListRow(
                 song: song,
                 index: index,
                 isSelecting: isSelectMode,
-                isSelected: selectedSongIds.contains(song.id),
+                isSelected: selectedSongIds.contains(song.identityKey),
                 onArtistTap: { artistId in
                     selectedArtistId = artistId
                     showArtistDetail = true
@@ -232,10 +232,10 @@ extension PlaylistDetailView {
                 },
                 onTap: {
                     if isSelectMode {
-                        if selectedSongIds.contains(song.id) {
-                            selectedSongIds.remove(song.id)
+                        if selectedSongIds.contains(song.identityKey) {
+                            selectedSongIds.remove(song.identityKey)
                         } else {
-                            selectedSongIds.insert(song.id)
+                            selectedSongIds.insert(song.identityKey)
                         }
                     } else {
                         PlayerManager.shared.play(song: song, in: filteredSongs)

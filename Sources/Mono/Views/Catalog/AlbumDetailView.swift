@@ -23,7 +23,7 @@ struct AlbumDetailView: View {
     @State private var showAlbumDetail = false
     @State private var showAlbumDesc = false
     @State private var isSelectMode = false
-    @State private var selectedSongIds: Set<Int> = []
+    @State private var selectedSongIds: Set<String> = []
     @State private var showBatchAddToPlaylist = false
     @State private var albumSearchText = ""
     @State private var isAlbumSearching = false
@@ -1074,7 +1074,7 @@ struct AlbumDetailView: View {
             }
         }
         .monoSheet(isPresented: $showBatchAddToPlaylist, preset: .standard) {
-            BatchAddToPlaylistSheet(songs: albumFilteredSongs.filter { selectedSongIds.contains($0.id) })
+            BatchAddToPlaylistSheet(songs: albumFilteredSongs.filter { selectedSongIds.contains($0.identityKey) })
         }
     }
 
@@ -1264,7 +1264,7 @@ struct AlbumDetailView: View {
             selectedIds: $selectedSongIds,
             songs: albumFilteredSongs,
             onBatchQueue: {
-                let selected = albumFilteredSongs.filter { selectedSongIds.contains($0.id) }
+                let selected = albumFilteredSongs.filter { selectedSongIds.contains($0.identityKey) }
                 SongBatchActionHelper.addToQueue(selected) {
                     isSelectMode = false
                     selectedSongIds.removeAll()
@@ -1276,12 +1276,12 @@ struct AlbumDetailView: View {
     }
 
     private var albumSongRows: some View {
-        ForEach(Array(albumFilteredSongs.enumerated()), id: \.element.id) { index, song in
+        ForEach(Array(albumFilteredSongs.enumerated()), id: \.element.identityKey) { index, song in
             SongListRow(
                 song: song,
                 index: index,
                 isSelecting: isSelectMode,
-                isSelected: selectedSongIds.contains(song.id),
+                isSelected: selectedSongIds.contains(song.identityKey),
                 onArtistTap: initialAlbum?.source == .appleMusic || initialAlbum?.source == .kugou ? nil : { artistId in
                     selectedArtistId = artistId
                     showArtistDetail = true
@@ -1296,10 +1296,10 @@ struct AlbumDetailView: View {
                 },
                 onTap: {
                     if isSelectMode {
-                        if selectedSongIds.contains(song.id) {
-                            selectedSongIds.remove(song.id)
+                        if selectedSongIds.contains(song.identityKey) {
+                            selectedSongIds.remove(song.identityKey)
                         } else {
-                            selectedSongIds.insert(song.id)
+                            selectedSongIds.insert(song.identityKey)
                         }
                     } else {
                         PlayerManager.shared.play(song: song, in: albumFilteredSongs)
@@ -1382,7 +1382,7 @@ struct AlbumDetailView: View {
     private var albumFilteredSongs: [Song] { viewModel.songs.filtered(by: albumSearchText) }
 
     private func albumBatchDownload() {
-        let selected = albumFilteredSongs.filter { selectedSongIds.contains($0.id) }
+        let selected = albumFilteredSongs.filter { selectedSongIds.contains($0.identityKey) }
         for song in selected {
             if song.isQQMusic {
                 DownloadManager.shared.downloadQQ(song: song, quality: DownloadManager.defaultQQDownloadQuality)

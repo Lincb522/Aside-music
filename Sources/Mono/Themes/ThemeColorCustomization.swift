@@ -325,6 +325,8 @@ enum ThemeColorCustomization {
     @MainActor
     static var backgroundImageCache: [String: UIImage] = [:]
     @MainActor
+    static var backgroundImageLoads: [String: Task<UIImage?, Never>] = [:]
+    @MainActor
     static var didRegisterMemoryResource = false
 
     static let defaultDarkAccentHex = "FFFFFF"

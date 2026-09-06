@@ -91,20 +91,20 @@ struct PlayerControlsBar: View {
                     if AppConfig.Features.downloadEnabled {
                         // 下载按钮（下载功能暂时隐藏，后期恢复时打开 AppConfig.Features.downloadEnabled）
                         Button {
-                            if !downloadManager.isDownloaded(songId: song.id, isQQ: song.isQQMusic) {
+                            if !downloadManager.isDownloaded(song: song) {
                                 showDownloadSheet = true
                             }
                         } label: {
                             MonoIcon(
                                 icon: .playerDownload,
                                 size: 22,
-                                color: downloadManager.isDownloaded(songId: song.id, isQQ: song.isQQMusic)
+                                color: downloadManager.isDownloaded(song: song)
                                     ? .monoTextSecondary
                                     : secondaryColor,
                                 lineWidth: 1.4
                             )
                         }
-                        .disabled(downloadManager.isDownloaded(songId: song.id, isQQ: song.isQQMusic))
+                        .disabled(downloadManager.isDownloaded(song: song))
                         .frame(width: 44)
                     } else {
                         Color.clear.frame(width: 44, height: 44)

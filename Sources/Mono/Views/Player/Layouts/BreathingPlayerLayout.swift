@@ -90,16 +90,16 @@ struct BreathingPlayerLayout: View {
 
                 edgeSatellites(topInset: safeAreaInsets.top)
                     .frame(width: size.width, height: size.height, alignment: .top)
-
+            }
+            .playerMoreMenuOverlay { anchorFrame in
                 if showMoreMenu {
                     PlayerMoreMenu(
                         isPresented: $showMoreMenu,
-                        anchorFrame: moreMenuAnchorFrame(in: size, topInset: safeAreaInsets.top),
+                        anchorFrame: anchorFrame,
                         onQuality: { showQualitySheet = true },
                         onEQ: { showEQSettings = true },
                         onTheme: { showThemePicker = true }
                     )
-                    .frame(width: size.width, height: size.height, alignment: .topLeading)
                 }
             }
             .frame(width: size.width, height: size.height, alignment: .center)
@@ -721,6 +721,7 @@ extension BreathingPlayerLayout {
                         )
                 }
                 .buttonStyle(MonoBouncingButtonStyle(scale: 0.94))
+                .playerMoreMenuAnchor()
             }
             .frame(maxWidth: .infinity)
             .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
@@ -769,13 +770,6 @@ private struct BreathingLayoutMetrics {
 
 // MARK: - Actions
 extension BreathingPlayerLayout {
-    private func moreMenuAnchorFrame(in size: CGSize, topInset: CGFloat) -> CGRect {
-        let buttonSize: CGFloat = 42
-        let buttonOriginX = size.width - DeviceLayout.viewHorizontalPadding - buttonSize
-        let buttonOriginY = topInset + 4
-        return CGRect(x: buttonOriginX, y: buttonOriginY, width: buttonSize, height: buttonSize)
-    }
-
     private func handleCoreTap() {
         player.togglePlayPause()
         scheduleLegendDismiss()

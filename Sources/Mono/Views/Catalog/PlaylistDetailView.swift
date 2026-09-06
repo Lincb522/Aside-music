@@ -27,7 +27,7 @@ struct PlaylistDetailView: View {
     @State var searchText = ""
     @State var isSearching = false
     @State var isSelectMode = false
-    @State var selectedSongIds: Set<Int> = []
+    @State var selectedSongIds: Set<String> = []
     @State var showBatchAddToPlaylist = false
     @State var showPlaylistDesc = false
 
@@ -103,7 +103,7 @@ struct PlaylistDetailView: View {
                         selectedIds: $selectedSongIds,
                         songs: filteredSongs,
                         onBatchQueue: {
-                            let selected = filteredSongs.filter { selectedSongIds.contains($0.id) }
+                            let selected = filteredSongs.filter { selectedSongIds.contains($0.identityKey) }
                             SongBatchActionHelper.addToQueue(selected) {
                                 isSelectMode = false
                                 selectedSongIds.removeAll()
@@ -166,7 +166,7 @@ struct PlaylistDetailView: View {
             isCollectedLocally = LocalPlaylistManager.shared.playlists.contains { $0.name == name }
         }
         .monoSheet(isPresented: $showBatchAddToPlaylist, preset: .standard){
-            let selected = filteredSongs.filter { selectedSongIds.contains($0.id) }
+            let selected = filteredSongs.filter { selectedSongIds.contains($0.identityKey) }
             BatchAddToPlaylistSheet(songs: selected)
         }
         .monoSheet(isPresented: $showPlaylistDesc, preset: .standard){
@@ -180,7 +180,7 @@ struct PlaylistDetailView: View {
     }
 
     func batchDownloadSelected() {
-        let selected = filteredSongs.filter { selectedSongIds.contains($0.id) }
+        let selected = filteredSongs.filter { selectedSongIds.contains($0.identityKey) }
         for song in selected {
             if song.isQQMusic {
                 DownloadManager.shared.downloadQQ(song: song, quality: DownloadManager.defaultQQDownloadQuality)

@@ -227,7 +227,7 @@ struct AriaShelfWall: View {
             } else {
                 ScrollView {
                     LazyVStack(spacing: 2) {
-                        ForEach(searchResults) { song in
+                        ForEach(searchResults, id: \.identityKey) { song in
                             wallSearchResultRow(song: song)
                         }
                     }
@@ -495,7 +495,7 @@ struct AriaShelfWall: View {
     private func focusCaption(focused: Int) -> some View {
         if queue.indices.contains(focused) {
             let song = queue[focused]
-            let isCurrent = player.currentSong?.id == song.id
+            let isCurrent = player.currentSong == song
 
             VStack(spacing: 5) {
                 HStack(spacing: 8) {

@@ -334,7 +334,7 @@ struct AriaUnifiedPanel: View {
         } else {
             ScrollView {
                 LazyVStack(spacing: 2) {
-                    ForEach(searchResults) { song in
+                    ForEach(searchResults, id: \.identityKey) { song in
                         searchResultRow(song: song)
                     }
                 }
@@ -485,7 +485,7 @@ struct AriaUnifiedPanel: View {
 
     @ViewBuilder
     private func shelfRow(song: Song, index: Int) -> some View {
-        let isActive = player.currentSong?.id == song.id
+        let isActive = player.currentSong == song
 
         Button {
             player.playFromQueue(song: song)

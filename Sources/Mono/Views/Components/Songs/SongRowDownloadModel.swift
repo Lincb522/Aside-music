@@ -29,18 +29,7 @@ final class SongRowDownloadModel: ObservableObject {
     }
 
     func isDownloaded(song: Song) -> Bool {
-        if song.isQishui, let trackId = song.qishuiTrackId {
-            return downloadedSongIds.contains(DownloadManager.makeQishuiKey(trackId: trackId))
-        }
-        return isDownloaded(songId: song.id, isQQ: song.isQQMusic)
-    }
-
-    func isDownloaded(songId: Int) -> Bool {
-        downloadedSongIds.contains("ncm_\(songId)") || downloadedSongIds.contains("qq_\(songId)")
-    }
-
-    func isDownloaded(songId: Int, isQQ: Bool) -> Bool {
-        downloadedSongIds.contains(isQQ ? "qq_\(songId)" : "ncm_\(songId)")
+        downloadedSongIds.contains(DownloadManager.makeKey(for: song))
     }
 
     func deleteDownload(song: Song) {

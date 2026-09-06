@@ -17,8 +17,8 @@ final class DownloadTombstoneStore {
 
     /// uniqueKey -> 删除时间
     private var keyTombstones: [String: Date] = [:]
-    /// songId -> 删除时间
-    private var idTombstones: [Int: Date] = [:]
+    /// Platform identity -> deletion time.
+    private var idTombstones: [String: Date] = [:]
 
     private init() {
         load()
@@ -32,20 +32,20 @@ final class DownloadTombstoneStore {
         return Date().timeIntervalSince(date) < Self.lifetime
     }
 
-    func isTombstoned(songId: Int) -> Bool {
-        guard let date = idTombstones[songId] else { return false }
+    func isTombstoned(song: Song) -> Bool {
+        guard let date = idTombstones[song.identityKey] else { return false }
         return Date().timeIntervalSince(date) < Self.lifetime
     }
 
     // MARK: - 写入
 
-    func markDeleted(keys: Set<String>, songId: Int?) {
+    func markDeleted(keys: Set<String>, song: Song?) {
         let now = Date()
         for key in keys where !key.isEmpty {
             keyTombstones[key] = now
         }
-        if let songId {
-            idTombstones[songId] = now
+        if let song {
+            idTombstones[song.identityKey] = now
         }
         pruneIfNeeded()
         save()
@@ -56,7 +56,7 @@ final class DownloadTombstoneStore {
         let now = Date()
         for record in records {
             keyTombstones[record.uniqueKey] = now
-            idTombstones[record.id] = now
+            idTombstones[record.toSong().identityKey] = now
         }
         pruneIfNeeded()
         save()
@@ -65,18 +65,19 @@ final class DownloadTombstoneStore {
     /// 重新下载时清除这首歌的所有墓碑（含历史 key 变体）
     func clearTombstones(for song: Song) {
         var changed = false
-        var candidates: Set<String> = [
-            "ncm_\(song.id)",
-            "qq_\(song.id)",
-            "qsm_\(song.id)",
-        ]
-        if let trackId = song.qishuiTrackId {
-            candidates.insert("qishui_\(trackId)")
+        var candidates: Set<String> = []
+        switch song.musicSource {
+        case .netease: candidates.insert("ncm_\(song.id)")
+        case .qqmusic: candidates.insert("qq_\(song.id)")
+        case .qishui:
+            candidates.insert("qsm_\(song.id)")
+            candidates.insert("qishui_\(song.qishuiTrackId ?? song.id)")
+        default: break
         }
         for key in candidates where keyTombstones.removeValue(forKey: key) != nil {
             changed = true
         }
-        if idTombstones.removeValue(forKey: song.id) != nil {
+        if idTombstones.removeValue(forKey: song.identityKey) != nil {
             changed = true
         }
         if changed { save() }
@@ -95,17 +96,16 @@ final class DownloadTombstoneStore {
             return
         }
         keyTombstones = payload.keys
-        idTombstones = payload.ids.reduce(into: [:]) { result, entry in
-            if let id = Int(entry.key) {
-                result[id] = entry.value
-            }
-        }
+        idTombstones = payload.ids.filter { $0.key.contains(":") }
+        // Legacy numeric tombstones have no platform identity. Their existing
+        // platform-scoped key entries remain authoritative.
+
     }
 
     private func save() {
         let payload = Payload(
             keys: keyTombstones,
-            ids: idTombstones.reduce(into: [:]) { $0[String($1.key)] = $1.value }
+            ids: idTombstones
         )
         guard let data = try? JSONEncoder().encode(payload) else { return }
         UserDefaults.standard.set(data, forKey: Self.storageKey)

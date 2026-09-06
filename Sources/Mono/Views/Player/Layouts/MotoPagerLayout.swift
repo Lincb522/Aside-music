@@ -158,15 +158,15 @@ struct MotoPagerLayout: View {
             topBar
                 .zIndex(30)
                 .padding(.top, DeviceLayout.playerHeaderTopPadding)
-            
-            // 5. 更多菜单
+        }
+        .playerMoreMenuOverlay { anchorFrame in
             if showMoreMenu {
                 PlayerMoreMenu(
                     isPresented: $showMoreMenu,
+                    anchorFrame: anchorFrame,
                     onEQ: { showEQSettings = true },
                     onTheme: { showThemePicker = true }
                 )
-                .zIndex(40)
             }
         }
         .onAppear {
@@ -783,6 +783,7 @@ extension MotoPagerLayout {
                         .contentShape(Circle())
                 }
                 .buttonStyle(MonoBouncingButtonStyle())
+                .playerMoreMenuAnchor()
             }
             .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 38 : 30)
             

@@ -459,7 +459,7 @@ struct PlaylistPopupView: View {
                     .padding(.bottom, 8)
 
                     let musicHistory = player.history.filter { $0.podcastRadioId == nil }
-                    ForEach(musicHistory) { song in
+                    ForEach(musicHistory, id: \.identityKey) { song in
                         HistoryRow(song: song) {
                             player.playFromQueue(song: song)
                         }
@@ -594,7 +594,7 @@ private struct QueueShelf: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
-                    ForEach(songs) { song in
+                    ForEach(songs, id: \.identityKey) { song in
                         QueueShelfCard(song: song, icon: icon) {
                             action(song)
                         }

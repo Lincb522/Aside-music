@@ -83,6 +83,7 @@ final class AppleMusicPlaybackCoordinator {
         startTime: TimeInterval,
         sessionID: Int
     ) async throws {
+        let token = player.audioSessionCoordinator.playbackWorkToken
         AppLogger.info(
             "[AppleMusic] 开始解析可播放歌曲 target=\(song.name)",
             step: "apple-music.resolve"
@@ -130,18 +131,30 @@ final class AppleMusicPlaybackCoordinator {
         player.streamPlayer.stop()
 
         if autoPlay {
+            guard player.audioSessionCoordinator.isPlaybackWorkCurrent(token) else { throw CancellationError() }
+            let activated = await player.activateAudioSessionForPlaybackChecked(reason: "Apple Music start")
+            guard player.audioSessionCoordinator.isPlaybackWorkCurrent(token),
+                  player.playbackSessionId == sessionID else { throw CancellationError() }
+            guard activated else {
+                throw NSError(domain: "AudioSession", code: -1, userInfo: [
+                    NSLocalizedDescriptionKey: String(localized: "playback_audio_session_unavailable")
+                ])
+            }
             AppLogger.info(
                 "[AppleMusic] 提交播放命令 target=\(song.name)",
                 step: "apple-music.play"
             )
             try await musicPlayer.play()
         }
-        try Task.checkCancellation()
-        guard player.playbackSessionId == sessionID else {
-            musicPlayer.stop()
+        guard player.playbackSessionId == sessionID,
+              !autoPlay || player.audioSessionCoordinator.isPlaybackWorkCurrent(token) else {
+            if player.isUnderInterruption || player.userPausedPlaybackSessionId == player.playbackSessionId {
+                musicPlayer.pause()
+            }
             throw CancellationError()
         }
 
+        try Task.checkCancellation()
         artworkResolutionTask?.cancel()
         activeCatalogID = catalogSong.id.rawValue
         activeRequestedIdentity = PlayerManager.playbackIdentityKey(for: song)
@@ -172,7 +185,19 @@ final class AppleMusicPlaybackCoordinator {
     @discardableResult
     func resume() async throws -> Bool {
         guard isActive, let musicPlayer else { return false }
+        let token = player.audioSessionCoordinator.playbackWorkToken
+        let sessionID = player.playbackSessionId
+        guard await player.activateAudioSessionForPlaybackChecked(reason: "Apple Music resume"),
+              player.audioSessionCoordinator.isPlaybackWorkCurrent(token),
+              player.playbackSessionId == sessionID else { return false }
         try await musicPlayer.play()
+        guard player.audioSessionCoordinator.isPlaybackWorkCurrent(token),
+              player.playbackSessionId == sessionID else {
+            if player.isUnderInterruption || player.userPausedPlaybackSessionId == player.playbackSessionId {
+                musicPlayer.pause()
+            }
+            return false
+        }
         let playbackTime = resolvedLocalPlaybackTime()
         updateLocalPlaybackClock(position: playbackTime, isPlaying: true)
         latestSnapshot = AppleMusicPlaybackSnapshot(

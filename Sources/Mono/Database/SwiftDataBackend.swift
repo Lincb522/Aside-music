@@ -8,7 +8,8 @@ import SwiftData
 enum SDStore {
     @Model
     final class CachedSong {
-        @Attribute(.unique) var id: Int
+        var id: Int
+        @Attribute(.unique) var uniqueKey: String?
         var name: String
         var artistName: String
         var albumName: String?
@@ -24,7 +25,11 @@ enum SDStore {
         var qqMid: String?
         var qishuiTrackId: Int?
         var appleMusicID: String?
+        var songData: Data?
         var appleMusicISRC: String?
+        var kugouAlbumAudioID: Int?
+        var kugouAlbumID: Int?
+        var kugouHash: String?
 
         init(id: Int) {
             self.id = id
@@ -94,6 +99,9 @@ enum SDStore {
         var qishuiTrackId: Int?
         var appleMusicID: String?
         var appleMusicISRC: String?
+        var kugouAlbumAudioID: Int?
+        var kugouAlbumID: Int?
+        var kugouHash: String?
 
         init(id: UUID) {
             self.id = id
@@ -126,7 +134,9 @@ enum SDStore {
 
     @Model
     final class CachedLyrics {
-        @Attribute(.unique) var songId: Int
+        var songId: Int
+        @Attribute(.unique) var uniqueKey: String?
+        var sourceRaw: String?
         var lyrics: String
         var translatedLyrics: String?
         var cachedAt: Date
@@ -210,8 +220,8 @@ protocol SDMirrorModel: PersistentModel {
 
 @available(iOS 17, *)
 extension SDStore.CachedSong: SDMirrorModel {
-    convenience init(mirrorKey: String) { self.init(id: Int(mirrorKey) ?? 0) }
-    var mirrorKey: String { String(id) }
+    convenience init(mirrorKey: String) { self.init(id: 0); uniqueKey = mirrorKey }
+    var mirrorKey: String { uniqueKey ?? CachedSong.monoMake(from: makeSnapshot()).monoUniqueKey }
 
     func applySnapshot(_ s: [String: Any?]) {
         typealias V = MonoSnapshotValue
@@ -223,7 +233,12 @@ extension SDStore.CachedSong: SDMirrorModel {
         canPlay = V.bool(s, "canPlay", default: true); sourceRaw = V.stringOpt(s, "sourceRaw")
         qqMid = V.stringOpt(s, "qqMid"); qishuiTrackId = V.intOpt(s, "qishuiTrackId")
         appleMusicID = V.stringOpt(s, "appleMusicID")
+        songData = V.dataOpt(s, "songData")
+        uniqueKey = CachedSong.monoMake(from: s).monoUniqueKey
         appleMusicISRC = V.stringOpt(s, "appleMusicISRC")
+        kugouAlbumAudioID = V.intOpt(s, "kugouAlbumAudioID")
+        kugouAlbumID = V.intOpt(s, "kugouAlbumID")
+        kugouHash = V.stringOpt(s, "kugouHash")
     }
 
     func makeSnapshot() -> [String: Any?] {
@@ -233,7 +248,7 @@ extension SDStore.CachedSong: SDMirrorModel {
             "lastPlayedAt": lastPlayedAt, "playCount": playCount, "maxBitrate": maxBitrate,
             "fee": fee, "canPlay": canPlay, "sourceRaw": sourceRaw, "qqMid": qqMid,
             "qishuiTrackId": qishuiTrackId, "appleMusicID": appleMusicID,
-            "appleMusicISRC": appleMusicISRC
+            "kugouHash": kugouHash, "kugouAlbumID": kugouAlbumID, "kugouAlbumAudioID": kugouAlbumAudioID, "songData": songData, "appleMusicISRC": appleMusicISRC
         ]
     }
 }
@@ -302,6 +317,9 @@ extension SDStore.PlayHistory: SDMirrorModel {
         qishuiTrackId = V.intOpt(s, "qishuiTrackId")
         appleMusicID = V.stringOpt(s, "appleMusicID")
         appleMusicISRC = V.stringOpt(s, "appleMusicISRC")
+        kugouAlbumAudioID = V.intOpt(s, "kugouAlbumAudioID")
+        kugouAlbumID = V.intOpt(s, "kugouAlbumID")
+        kugouHash = V.stringOpt(s, "kugouHash")
     }
 
     func makeSnapshot() -> [String: Any?] {
@@ -312,7 +330,7 @@ extension SDStore.PlayHistory: SDMirrorModel {
             "effectivePlay": effectivePlay, "qualificationVersion": qualificationVersion,
             "sourceRaw": sourceRaw, "qqMid": qqMid,
             "qqAlbumMid": qqAlbumMid, "qishuiTrackId": qishuiTrackId,
-            "appleMusicID": appleMusicID, "appleMusicISRC": appleMusicISRC
+            "appleMusicID": appleMusicID, "kugouHash": kugouHash, "kugouAlbumID": kugouAlbumID, "kugouAlbumAudioID": kugouAlbumAudioID, "appleMusicISRC": appleMusicISRC
         ]
     }
 }
@@ -336,16 +354,19 @@ extension SDStore.SearchHistory: SDMirrorModel {
 @available(iOS 17, *)
 extension SDStore.CachedLyrics: SDMirrorModel {
     convenience init(mirrorKey: String) { self.init(songId: Int(mirrorKey) ?? 0) }
-    var mirrorKey: String { String(songId) }
+    var mirrorKey: String { uniqueKey ?? "\(sourceRaw ?? MusicSource.netease.rawValue):\(songId)" }
 
     func applySnapshot(_ s: [String: Any?]) {
         typealias V = MonoSnapshotValue
-        songId = V.int(s, "songId"); lyrics = V.string(s, "lyrics")
+        songId = V.int(s, "songId")
+        sourceRaw = V.stringOpt(s, "sourceRaw")
+        uniqueKey = "\(sourceRaw ?? MusicSource.netease.rawValue):\(songId)"
+        lyrics = V.string(s, "lyrics")
         translatedLyrics = V.stringOpt(s, "translatedLyrics"); cachedAt = V.date(s, "cachedAt")
     }
 
     func makeSnapshot() -> [String: Any?] {
-        ["songId": songId, "lyrics": lyrics, "translatedLyrics": translatedLyrics, "cachedAt": cachedAt]
+        ["songId": songId, "sourceRaw": sourceRaw, "lyrics": lyrics, "translatedLyrics": translatedLyrics, "cachedAt": cachedAt]
     }
 }
 
@@ -422,41 +443,26 @@ final class SwiftDataBackend: MonoStoreBackend {
         ]
     }
 
-    init() {
+    init(storeURL: URL? = nil) throws {
         let schema = Schema(Self.allModelTypes)
-
-        func makeContainer(inMemory: Bool) throws -> ModelContainer {
-            let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory, allowsSave: true)
-            return try ModelContainer(for: schema, configurations: [config])
+        let configuration: ModelConfiguration
+        if let storeURL {
+            configuration = ModelConfiguration(schema: schema, url: storeURL)
+        } else {
+            configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         }
-
-        do {
-            container = try makeContainer(inMemory: false)
-            AppLogger.success("SwiftData 初始化成功")
-        } catch {
-            AppLogger.error("SwiftData 初始化失败: \(error)，尝试重建数据库")
-            // 删除损坏的数据库文件后重建
-            let fileManager = FileManager.default
-            if let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
-                let dbPath = appSupport.appendingPathComponent("default.store")
-                try? fileManager.removeItem(at: dbPath)
-                try? fileManager.removeItem(at: dbPath.appendingPathExtension("wal"))
-                try? fileManager.removeItem(at: dbPath.appendingPathExtension("shm"))
-            }
-            do {
-                container = try makeContainer(inMemory: false)
-                AppLogger.success("SwiftData 重建成功")
-            } catch {
-                AppLogger.error("SwiftData 重建失败: \(error)，降级为内存数据库")
-                guard let memContainer = try? makeContainer(inMemory: true) else {
-                    preconditionFailure("SwiftData 完全不可用，应用无法继续运行")
-                }
-                container = memContainer
-            }
-        }
-
+        container = try ModelContainer(for: schema, configurations: [configuration])
         context = container.mainContext
         context.autosaveEnabled = false
+        try preload(SDStore.CachedSong.self, "CachedSong")
+        try preload(SDStore.CachedPlaylist.self, "CachedPlaylist")
+        try preload(SDStore.CachedArtist.self, "CachedArtist")
+        try preload(SDStore.PlayHistory.self, "PlayHistory")
+        try preload(SDStore.SearchHistory.self, "SearchHistory")
+        try preload(SDStore.CachedLyrics.self, "CachedLyrics")
+        try preload(SDStore.DownloadedSong.self, "DownloadedSong")
+        try preload(SDStore.LocalPlaylist.self, "LocalPlaylist")
+        try flush()
     }
 
     // MARK: - MonoStoreBackend
@@ -517,12 +523,8 @@ final class SwiftDataBackend: MonoStoreBackend {
         }
     }
 
-    func flush() {
-        do {
-            try context.save()
-        } catch {
-            AppLogger.error("SwiftData 保存失败: \(error)")
-        }
+    func flush() throws {
+        if context.hasChanges { try context.save() }
     }
 
     func storeSizeBytes() -> Int64 {
@@ -537,17 +539,19 @@ final class SwiftDataBackend: MonoStoreBackend {
 
     // MARK: - 泛型实现
 
-    private func index<M: SDMirrorModel>(_ type: M.Type, _ entityName: String) -> [String: M] {
-        if let cached = indices[entityName] as? [String: M] {
-            return cached
-        }
-        let all = (try? context.fetch(FetchDescriptor<M>())) ?? []
-        var idx: [String: M] = [:]
+    private func preload<M: SDMirrorModel>(_ type: M.Type, _ entityName: String) throws {
+        let all = try context.fetch(FetchDescriptor<M>())
+        var index: [String: M] = [:]
         for model in all {
-            idx[model.mirrorKey] = model
+            // Backfill keys added by the platform identity migration.
+            model.applySnapshot(model.makeSnapshot())
+            index[model.mirrorKey] = model
         }
-        indices[entityName] = idx
-        return idx
+        indices[entityName] = index
+    }
+
+    private func index<M: SDMirrorModel>(_ type: M.Type, _ entityName: String) -> [String: M] {
+        (indices[entityName] as? [String: M]) ?? [:]
     }
 
     private func loadAllTyped<M: SDMirrorModel>(_ type: M.Type, _ entityName: String) -> [[String: Any?]] {

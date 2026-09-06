@@ -1518,7 +1518,7 @@ final class AudioRenderer {
             }
         }
 
-        if let graph = audioFilterGraph, graph.isActive {
+        if let graph = audioFilterGraph {
             let buffer = AudioBuffer(
                 data: output,
                 frameCount: frameCount,
@@ -1551,7 +1551,7 @@ final class AudioRenderer {
             _ = eqFilter.process(buffer)
         }
 
-        if let repairEngine, repairEngine.isActive {
+        if let repairEngine {
             repairEngine.process(
                 output,
                 frameCount: frameCount,

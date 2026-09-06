@@ -1,27 +1,41 @@
 // RealtimeLock.swift
 // FFmpegSwiftSDK
 //
-// Bounded lock acquisition for real-time audio callbacks.
+// Nonblocking configuration handoff to real-time audio callbacks.
 
 import Foundation
 
-/// Attempts to take `lock` from the real-time render thread without risking
-/// an unbounded wait.
-///
-/// The audio output stages (`AudioFilterGraph`, `EQFilter`, `AudioRepairEngine`)
-/// share short configuration locks with UI/control code. A skipped DSP block can
-/// sound slightly flatter, but a missed hardware callback sounds like tape drag,
-/// coughs, or crackle. Under thermal pressure and app-switch bursts, protect the
-/// render deadline first.
-///
-/// Never call `usleep`/`Thread.sleep` here: even a nominally tiny sleep can be
-/// rounded up by the scheduler and wake after the hardware deadline. Keep the
-/// spin budget intentionally tiny.
-@inline(__always)
-func acquireRealtimeAudioLock(_ lock: NSLock) -> Bool {
-    if lock.try() { return true }
-    for _ in 0..<8 {
-        if lock.try() { return true }
+/// Control code publishes whole configurations. Only the render thread consumes
+/// them; contention delays a configuration change, never a block of audio.
+final class RealtimeAudioConfiguration<Value: Equatable> {
+    private let lock = NSLock()
+    private var value: Value
+    private var pending = false
+
+    init(_ value: Value) { self.value = value }
+
+    func read<Result>(_ body: (Value) -> Result) -> Result {
+        lock.lock()
+        defer { lock.unlock() }
+        return body(value)
     }
-    return false
+
+    @discardableResult
+    func update<Result>(_ body: (inout Value) -> Result) -> Result {
+        lock.lock()
+        defer { lock.unlock() }
+        let previous = value
+        let result = body(&value)
+        pending = pending || previous != value
+        return result
+    }
+
+    /// Called by the single audio consumer at a block boundary.
+    func takePending() -> Value? {
+        guard lock.try() else { return nil }
+        defer { lock.unlock() }
+        guard pending else { return nil }
+        pending = false
+        return value
+    }
 }

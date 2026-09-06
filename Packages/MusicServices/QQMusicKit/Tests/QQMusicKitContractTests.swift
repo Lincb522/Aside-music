@@ -36,6 +36,8 @@ private final class URLProtocolStub: URLProtocol, @unchecked Sendable {
             result = "{\"labels\":[]}"
         case "/song/get_related_songlist":
             result = "[]"
+        case "/singer/get_name_special_display":
+            result = #"{"display_type":2,"pic_file":"https://cdn.example.com/name.png","signature_name_overlap_ratio":0.0,"name":"Taylor Swift"}"#
         default:
             result = "{}"
         }
@@ -79,6 +81,30 @@ final class QQMusicKitContractTests: XCTestCase {
 
     func testBackendVersion() {
         XCTAssertEqual(QQMusicAPIVersion.backend, "0.7.2")
+    }
+
+    func testSingerNameArtworkUsesWrappedEndpointAndMID() async throws {
+        let result = try await makeClient().singerNameSpecialDisplay(mid: "000qrPik2w6lDr")
+        XCTAssertEqual(try path(), "/singer/get_name_special_display")
+        XCTAssertEqual(try queryItems()["mid"], "000qrPik2w6lDr")
+        XCTAssertEqual(result.name, "Taylor Swift")
+        XCTAssertEqual(result.imageURL?.absoluteString, "https://cdn.example.com/name.png")
+    }
+
+    func testSingerWithoutSpecialDisplayHasNoArtwork() throws {
+        let data = Data(#"{"display_type":0,"pic_file":"","signature_name_overlap_ratio":0.0,"name":"周杰伦"}"#.utf8)
+        let result = try JSONDecoder().decode(SingerNameSpecialDisplay.self, from: data)
+        XCTAssertEqual(result.name, "周杰伦")
+        XCTAssertNil(result.imageURL)
+    }
+
+    func testSingerArtworkRejectsUnsupportedDisplayAndInvalidResource() throws {
+        for (type, url) in [(1, "https://cdn.example.com/name.png"), (2, ""), (2, "file:///tmp/name.png")] {
+            let data = try JSONSerialization.data(withJSONObject: [
+                "display_type": type, "pic_file": url, "signature_name_overlap_ratio": 0.0, "name": "Artist"
+            ])
+            XCTAssertNil(try JSONDecoder().decode(SingerNameSpecialDisplay.self, from: data).imageURL)
+        }
     }
 
     func testSongQueryUsesVersion072Payload() async throws {

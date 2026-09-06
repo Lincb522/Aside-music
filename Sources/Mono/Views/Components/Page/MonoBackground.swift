@@ -276,11 +276,23 @@ struct MonoBackground: View {
 
     // MARK: - 默认背景
 
-    @ViewBuilder
     private var defaultBackground: some View {
+        ThemeBackgroundImageReader(theme: .default, isEnabled: ThemeColorCustomization.usesImageBackground(for: .default)) { wallpaper in
+            ThemeBackgroundImageReader(
+                theme: .default,
+                dark: true,
+                isEnabled: colorScheme == .dark && ThemeColorCustomization.usesDarkImageBackground(for: .default)
+            ) { darkWallpaper in
+                defaultBackground(wallpaper: wallpaper, darkWallpaper: darkWallpaper)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func defaultBackground(wallpaper: UIImage?, darkWallpaper: UIImage?) -> some View {
         if colorScheme == .dark,
            ThemeColorCustomization.usesDarkImageBackground(for: .default),
-           let wallpaper = ThemeColorCustomization.backgroundImage(for: .default, dark: true) {
+           let wallpaper = darkWallpaper {
             wallpaperFillBackground(
                 wallpaper,
                 baseHex: ThemeColorCustomization.darkBackgroundSolidHex(for: .default)
@@ -305,7 +317,7 @@ struct MonoBackground: View {
             Color(hex: ThemeColorCustomization.darkBackgroundSolidHex(for: .default))
                 .ignoresSafeArea()
         } else if ThemeColorCustomization.usesImageBackground(for: .default),
-                  let wallpaper = ThemeColorCustomization.backgroundImage(for: .default) {
+                  let wallpaper {
             wallpaperFillBackground(
                 wallpaper,
                 baseHex: ThemeColorCustomization.hex(

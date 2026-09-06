@@ -8,7 +8,10 @@ import SwiftUI
 struct FluxFloatingBar: View {
     @Binding var currentTab: Tab
 
-    @ObservedObject private var player = FloatingBarPlaybackModel.shared
+    private let player = FloatingBarPlaybackModel.shared
+    @State private var currentSong = FloatingBarPlaybackModel.shared.currentSong
+    @State private var isPlaying = FloatingBarPlaybackModel.shared.isPlaying
+    @State private var isLoading = FloatingBarPlaybackModel.shared.isLoading
     @ObservedObject private var playbackTime = PlaybackTimePublisher.shared
     @ObservedObject private var settings = SettingsManager.shared
     @StateObject private var coverColors = CoverColorExtractor(minimumColorCount: 5)
@@ -32,13 +35,14 @@ struct FluxFloatingBar: View {
     @State private var isScrubbing = false
     @State private var isHoldingCommittedSeek = false
     @State private var scrubGeneration = 0
+    @State private var isVisible = false
 
     private var displaysTabs: Bool {
-        showingTabs || player.currentSong == nil
+        showingTabs || currentSong == nil
     }
 
     private var artworkURL: String? {
-        player.currentSong?.coverUrl?.sized(220).absoluteString
+        currentSong?.coverUrl?.sized(220).absoluteString
     }
 
     private var hasResolvedArtworkPalette: Bool {
@@ -47,7 +51,7 @@ struct FluxFloatingBar: View {
     }
 
     private var hasVisibleFluid: Bool {
-        player.currentSong != nil
+        currentSong != nil
             && hasResolvedArtworkPalette
             && playbackTime.duration.isFinite
             && playbackTime.duration > 0
@@ -95,7 +99,7 @@ struct FluxFloatingBar: View {
     }
 
     private var motionSeed: CGFloat {
-        fluxMotionSeed(for: player.currentSong)
+        fluxMotionSeed(for: currentSong)
     }
 
     private var fluidPrimaryColor: Color { coverColors.contentColor }
@@ -120,8 +124,10 @@ struct FluxFloatingBar: View {
     }
 
     var body: some View {
+        let _ = settings.globalThemeRevision
+
         ZStack {
-            shellBackground
+            FluidFloatingBarShell()
 
             if hasVisibleFluid {
                 FluxLivingMaterial(
@@ -129,7 +135,7 @@ struct FluxFloatingBar: View {
                     anchorTime: presentedAnchorTime,
                     anchorDate: anchorDate,
                     duration: playbackTime.duration,
-                    isPlaying: player.isPlaying && !usesScrubProgress,
+                    isPlaying: isVisible && isPlaying && !usesScrubProgress,
                     fillsEntireSurface: false,
                     stir: scrubFlowIntensity,
                     motionSeed: motionSeed
@@ -157,7 +163,7 @@ struct FluxFloatingBar: View {
                         insertion: .opacity.combined(with: .scale(scale: 0.96)),
                         removal: .opacity.combined(with: .scale(scale: 1.02))
                     ))
-                } else if let song = player.currentSong {
+                } else if let song = currentSong {
                     miniPlayerContent(song: song)
                         .transition(.asymmetric(
                             insertion: .opacity.combined(with: .move(edge: .leading)),
@@ -184,14 +190,14 @@ struct FluxFloatingBar: View {
                 )
         }
         .overlay {
-            if player.currentSong != nil,
+            if currentSong != nil,
                playbackTime.duration.isFinite,
                playbackTime.duration > 0 {
                 FluxPerimeterProgress(
                     anchorTime: presentedAnchorTime,
                     anchorDate: anchorDate,
                     duration: playbackTime.duration,
-                    isPlaying: player.isPlaying && !usesScrubProgress,
+                    isPlaying: isVisible && isPlaying && !usesScrubProgress,
                     isPaused: reduceMotion || scenePhase != .active || usesScrubProgress,
                     darkStyle: colorScheme == .dark
                 )
@@ -209,7 +215,7 @@ struct FluxFloatingBar: View {
         }
         .overlay(alignment: .bottom) {
             if !displaysTabs,
-               player.currentSong != nil,
+               currentSong != nil,
                playbackTime.duration.isFinite,
                playbackTime.duration > 0 {
                 Color.clear
@@ -231,7 +237,11 @@ struct FluxFloatingBar: View {
             }
         }
         .animation(reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.82), value: displaysTabs)
+        .onReceive(player.$currentSong) { currentSong = $0 }
+        .onReceive(player.$isPlaying.removeDuplicates()) { isPlaying = $0 }
+        .onReceive(player.$isLoading.removeDuplicates()) { isLoading = $0 }
         .onAppear {
+            isVisible = true
             synchronizePlaybackAnchor()
             coverColors.extract(from: artworkURL)
             synchronizeComputeWorkload()
@@ -251,7 +261,7 @@ struct FluxFloatingBar: View {
             anchorTime = sanitizedTime(newTime)
             anchorDate = Date()
         }
-        .onChange(of: player.isPlaying) { _, _ in
+        .onChange(of: isPlaying) { _, _ in
             synchronizePlaybackAnchor()
             synchronizeComputeWorkload()
         }
@@ -265,6 +275,7 @@ struct FluxFloatingBar: View {
             synchronizeComputeWorkload()
         }
         .onDisappear {
+            isVisible = false
             cancelScrubPreview()
             if let computeWorkloadToken {
                 MonoComputeEngine.shared.endWorkload(computeWorkloadToken)
@@ -277,22 +288,6 @@ struct FluxFloatingBar: View {
             } else {
                 PlaylistPopupView()
             }
-        }
-    }
-
-    @ViewBuilder
-    private var shellBackground: some View {
-        let shape = Capsule(style: .continuous)
-
-        if settings.defaultThemeUsesLiquidGlassTabBar {
-            // 保留流体进度层，在其下方启用系统液态玻璃表面。
-            shape
-                .fill(Color.monoFloatingBarFill)
-                .monoGlassCapsule()
-        } else {
-            // 关闭液态玻璃时使用完全不透明的主题实色，不再残留 Material 模糊。
-            shape
-                .fill(Color.monoStructuralBackground)
         }
     }
 
@@ -311,15 +306,17 @@ struct FluxFloatingBar: View {
                         speed: 24
                     )
 
-                    splitMarqueeText(
-                        text: player.lyricLineText ?? song.artistName,
-                        font: .system(size: 11, weight: .medium, design: .rounded),
-                        panelColor: .monoTextSecondary,
-                        fluidColor: fluidSecondaryColor,
-                        coverage: fluxCoverage(progress: fluidProgress, start: 0.14, end: 0.66),
-                        speed: 22
-                    )
-                        .contentTransition(.interpolate)
+                    FloatingBarLyricReader { lineText in
+                        splitMarqueeText(
+                            text: lineText ?? song.artistName,
+                            font: .system(size: 11, weight: .medium, design: .rounded),
+                            panelColor: .monoTextSecondary,
+                            fluidColor: fluidSecondaryColor,
+                            coverage: fluxCoverage(progress: fluidProgress, start: 0.14, end: 0.66),
+                            speed: 22
+                        )
+                            .contentTransition(.interpolate)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .swipeSkipTextMotion()
@@ -332,7 +329,7 @@ struct FluxFloatingBar: View {
                 player.togglePlayPause()
             } label: {
                 Group {
-                    if player.isLoading {
+                    if isLoading {
                         ProgressView()
                             .tint(
                                 fluxCoverage(progress: fluidProgress, start: 0.70, end: 0.79) >= 0.5
@@ -342,7 +339,7 @@ struct FluxFloatingBar: View {
                             .scaleEffect(0.72)
                     } else {
                         fluidControlIcon(
-                            icon: player.isPlaying ? .pause : .play,
+                            icon: isPlaying ? .pause : .play,
                             size: 14,
                             panelColor: Color.monoTextPrimary,
                             fluidColor: fluidPrimaryColor,
@@ -473,7 +470,7 @@ struct FluxFloatingBar: View {
             y: 2
         )
         .animation(
-            player.isPlaying && !reduceMotion ? .linear(duration: 0.28) : nil,
+            isPlaying && !reduceMotion ? .linear(duration: 0.28) : nil,
             value: playbackTime.currentTime
         )
     }
@@ -536,7 +533,7 @@ struct FluxFloatingBar: View {
 
         // 展开后的 Tab 导航由用户显式控制；切换页面不再强制收回。
         // 再次点击当前 Tab 才恢复常规迷你播放器。
-        guard player.currentSong != nil else { return }
+        guard currentSong != nil else { return }
         HapticManager.shared.light()
         showingTabs = false
     }
@@ -561,7 +558,8 @@ struct FluxFloatingBar: View {
 
     private func synchronizeComputeWorkload() {
         let shouldObserve = hasVisibleFluid
-            && player.isPlaying
+            && isVisible
+            && isPlaying
             && scenePhase == .active
             && !reduceMotion
         if shouldObserve, computeWorkloadToken == nil {
@@ -579,7 +577,7 @@ struct FluxFloatingBar: View {
     private var scrubGesture: some Gesture {
         DragGesture(minimumDistance: 7, coordinateSpace: .local)
             .onChanged { value in
-                guard player.currentSong != nil,
+                guard currentSong != nil,
                       playbackTime.duration.isFinite,
                       playbackTime.duration > 0,
                       barWidth > 1 else { return }

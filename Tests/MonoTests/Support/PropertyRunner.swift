@@ -37,7 +37,7 @@ public struct SeededRNG: RandomNumberGenerator {
 
 // MARK: - 失败报告
 
-public struct PropertyFailure<Input>: Error, CustomStringConvertible {
+public struct PropertyFailure<Input: Sendable>: Error, CustomStringConvertible {
     public let seed: UInt64
     public let iteration: Int
     public let originalCounterexample: Input
@@ -75,7 +75,7 @@ public enum PropertyRunner {
     ///   - gen: 生成器闭包,接受 inout RNG,返回测试输入。
     ///   - shrink: 针对反例进行单步收缩,返回更小的候选集合(空数组表示无法继续收缩)。
     ///   - check: 属性判定,返回 nil 表示通过;返回字符串表示失败原因。
-    public static func check<Input>(
+    public static func check<Input: Sendable>(
         _ name: String,
         iterations: Int = PropertyRunner.defaultIterations,
         seed: UInt64? = nil,

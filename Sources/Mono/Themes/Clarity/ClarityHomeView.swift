@@ -280,7 +280,7 @@ struct ClarityHomeView: View {
             ClaritySectionHeading(title: String(localized: "made_for_you"), actionTitle: String(localized: "view_all")) {
                 path.append(Destination.daily)
             }
-            ForEach(Array(model.dailySongs.prefix(4).enumerated()), id: \.element.id) { index, song in
+            ForEach(Array(model.dailySongs.prefix(4).enumerated()), id: \.element.identityKey) { index, song in
                 clarityHomeSongRow(index: index, song: song, songs: model.dailySongs)
             }
         }
@@ -322,7 +322,7 @@ struct ClarityHomeView: View {
             ClaritySectionHeading(title: String(localized: "home_qq_new_songs"))
             ScrollView(.horizontal) {
                 LazyHStack(spacing: 13) {
-                    ForEach(Array(model.qqNewSongs.prefix(10))) { song in
+                    ForEach(Array(model.qqNewSongs.prefix(10)), id: \.identityKey) { song in
                         Button { PlayerManager.shared.play(song: song, in: model.qqNewSongs) } label: {
                             HStack(spacing: 10) {
                                 ClarityArtwork(url: song.coverUrl, size: 54, radius: 16)

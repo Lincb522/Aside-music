@@ -4,7 +4,9 @@ import SwiftUI
 
 struct UnifiedFloatingBar: View {
     @Binding var currentTab: Tab
-    @ObservedObject var player = FloatingBarPlaybackModel.shared
+    private let player = FloatingBarPlaybackModel.shared
+    @State private var currentSong = FloatingBarPlaybackModel.shared.currentSong
+    @State private var isPlaying = FloatingBarPlaybackModel.shared.isPlaying
     @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.colorScheme) private var colorScheme
     @Namespace private var glassNS
@@ -15,25 +17,33 @@ struct UnifiedFloatingBar: View {
     }
 
     var body: some View {
-        switch settings.globalThemeId {
-        case .manga:
-            defaultFloatingBar
-        case .muji:
-            MujiUnifiedFloatingBar(currentTab: $currentTab)
-        case .neumorphic:
-            NeumorphicUnifiedFloatingBar(currentTab: $currentTab)
-        case .capsule:
-            CapsuleUnifiedFloatingBar(currentTab: $currentTab)
-        case .signal:
-            SignalUnifiedFloatingBar(currentTab: $currentTab)
-        case .clarity:
-            ClarityDock(currentTab: $currentTab)
-        case .petWhite:
-            petWhiteFloatingBar
-        case .minimalWhite:
-            MinimalWhiteUnifiedDock(currentTab: $currentTab)
-        case .default:
-            defaultFloatingBar
+        Group {
+            switch settings.globalThemeId {
+            case .manga:
+                defaultFloatingBar
+            case .muji:
+                MujiUnifiedFloatingBar(currentTab: $currentTab)
+            case .neumorphic:
+                NeumorphicUnifiedFloatingBar(currentTab: $currentTab)
+            case .capsule:
+                CapsuleUnifiedFloatingBar(currentTab: $currentTab)
+            case .signal:
+                SignalUnifiedFloatingBar(currentTab: $currentTab)
+            case .clarity:
+                ClarityDock(currentTab: $currentTab)
+            case .petWhite:
+                petWhiteFloatingBar
+            case .minimalWhite:
+                MinimalWhiteUnifiedDock(currentTab: $currentTab)
+            case .default:
+                defaultFloatingBar
+            }
+        }
+        .onReceive(player.$currentSong.removeDuplicates()) { song in
+            currentSong = song
+        }
+        .onReceive(player.$isPlaying.removeDuplicates()) { playing in
+            isPlaying = playing
         }
     }
 
@@ -52,10 +62,10 @@ struct UnifiedFloatingBar: View {
     private var glassFloatingBar: some View {
         MonoGlassContainer(spacing: 0) {
             VStack(spacing: 0) {
-                if let song = player.currentSong {
+                if let song = currentSong {
                     MiniPlayerSection(
                         song: song,
-                        isPlaying: player.isPlaying,
+                        isPlaying: isPlaying,
                         togglePlayPause: { player.togglePlayPause() }
                     )
                     .swipeToSkip()
@@ -83,15 +93,15 @@ struct UnifiedFloatingBar: View {
             .monoGlass(cornerRadius: cornerRadius)
             .monoGlassID("floatingBar", in: glassNS)
         }
-        .animation(MonoAnimation.floatingBar, value: player.currentSong != nil)
+        .animation(MonoAnimation.floatingBar, value: currentSong != nil)
     }
 
     private var pureWhiteFloatingBar: some View {
         VStack(spacing: 3) {
-            if let song = player.currentSong {
+            if let song = currentSong {
                 MiniPlayerSection(
                     song: song,
-                    isPlaying: player.isPlaying,
+                    isPlaying: isPlaying,
                     togglePlayPause: { player.togglePlayPause() }
                 )
                 .swipeToSkip()
@@ -121,16 +131,16 @@ struct UnifiedFloatingBar: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .shadow(color: PureWhiteStyle.strokeInk.opacity(colorScheme == .dark ? 0.12 : 0.08), radius: 6, x: 0, y: 3)
-        .animation(MonoAnimation.floatingBar, value: player.currentSong != nil)
+        .animation(MonoAnimation.floatingBar, value: currentSong != nil)
         .themeRenderInteractiveLayer()
     }
 
     private var minimalWhiteFloatingBar: some View {
         VStack(spacing: 0) {
-            if let song = player.currentSong {
+            if let song = currentSong {
                 MiniPlayerSection(
                     song: song,
-                    isPlaying: player.isPlaying,
+                    isPlaying: isPlaying,
                     togglePlayPause: { player.togglePlayPause() }
                 )
                 .swipeToSkip()
@@ -158,7 +168,7 @@ struct UnifiedFloatingBar: View {
             )
         )
         .clipShape(RoundedRectangle(cornerRadius: MinimalWhiteStyle.chromeRadius, style: .continuous))
-        .animation(.easeOut(duration: 0.18), value: player.currentSong != nil)
+        .animation(.easeOut(duration: 0.18), value: currentSong != nil)
         .themeRenderInteractiveLayer()
     }
 

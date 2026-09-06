@@ -435,23 +435,23 @@
 "game_mode_preset_section_title" = "Scenarios";
 "game_mode_preset_section_subtitle" = "Tap to apply a recommended combination";
 "game_mode_preset_fps_title" = "FPS";
-"game_mode_preset_fps_subtitle" = "Voice priority · Low power · Hide lock screen";
+"game_mode_preset_fps_subtitle" = "Other audio first · Power saving · Hide Lock Screen";
 "game_mode_preset_rpg_title" = "RPG";
 "game_mode_preset_rpg_subtitle" = "Immersive audio · Keep lock screen info";
 "game_mode_preset_rhythm_title" = "Rhythm";
 "game_mode_preset_rhythm_subtitle" = "Full quality · Minimal interruption";
-"game_mode_option_ducking_title" = "Prioritize Voice Audio";
-"game_mode_option_ducking_subtitle" = "Duck music when system voice / voice chat plays";
+"game_mode_option_ducking_title" = "Prioritize Other Audio";
+"game_mode_option_ducking_subtitle" = "Lower music when iOS reports other primary audio; unavailable for Apple Music";
 "game_mode_option_quality_title" = "Save Battery — Lower Quality";
 "game_mode_option_quality_subtitle" = "Switch to standard quality to keep performance for the game";
 "game_mode_option_silent_np_title" = "Hide Lock Screen / Dynamic Island";
 "game_mode_option_silent_np_subtitle" = "Don't show playback info on lock screen during gaming";
 "game_mode_option_minimal_np_title" = "Keep Minimal Title (Experimental)";
 "game_mode_option_minimal_np_subtitle" = "Show only song title on lock screen, no artwork or progress";
-"game_mode_option_auto_exit_title" = "Auto Exit When Game Closes";
-"game_mode_option_auto_exit_subtitle" = "Experimental: detect audio changes to auto turn off";
+"game_mode_option_auto_exit_title" = "Exit After Other Audio Stops";
+"game_mode_option_auto_exit_subtitle" = "Exit after other audio stops for 12 seconds; may be delayed when paused in background";
 "game_mode_info_title" = "What does Game Mode do?";
-"game_mode_info_body" = "When enabled, audio is forced to mix with other apps so you hear both game audio and music. Since the system no longer treats this app as the primary media, lock screen and Dynamic Island will temporarily hide playback info. Turning off Game Mode restores everything.";
+"game_mode_info_body" = "Mix with other apps and apply your quality, Lock Screen and playlist settings. Auto exit uses other audio activity and cannot detect whether a game has closed. Exiting restores your previous playback policy.";
 "game_mode_preferred_quality_entry_title" = "Game Mode Preferred Quality";
 "game_mode_preferred_quality_title" = "Choose Game Mode Quality";
 "game_mode_preferred_quality_desc" = "Pick the quality to use while Game Mode is active. Auto follows the Save Battery toggle.";
@@ -463,7 +463,7 @@
 "game_mode_preset_playlist_invalid" = "Playlist removed";
 "game_mode_options_section_title" = "Behaviors";
 "game_mode_presets_section_title" = "Pinned Preferences";
-"game_mode_lamp_ducking" = "Voice Duck";
+"game_mode_lamp_ducking" = "Audio Priority";
 "game_mode_lamp_quality" = "Eco Quality";
 "game_mode_lamp_silent" = "Hide Lock";
 "game_mode_lamp_auto_exit" = "Auto Exit";
@@ -2771,3 +2771,21 @@
 "apple_music_category_albums" = "Albums";
 "apple_music_category_artists" = "Artists";
 "global_theme_minimal_white_description" = "A restrained monochrome player with precise spacing and lightweight controls.";
+
+"database_open_failed_title" = "Couldn’t Open Library";
+"database_open_failed_message" = "Your library files have been kept. Free up storage if needed, then retry.";
+"database_save_failed_title" = "Couldn’t Save Changes";
+"database_save_failed_message" = "Your changes are still pending. Free up storage if needed, then retry before closing Mono.";
+
+"download_http_failed_format" = "Download failed (HTTP %d). Please retry.";
+"download_invalid_media" = "The download did not contain a supported audio file. Please retry.";
+
+"download_source_unsupported" = "Downloads are not available for this music source.";
+
+"artist_hot_songs" = "Popular songs";
+"artist_select_all" = "Select all";
+"artist_tab_songs" = "Songs";
+"artist_select_songs" = "Select songs";
+"artist_deselect_all" = "Deselect all";
+
+"playback_audio_session_unavailable" = "Audio output is temporarily unavailable. Try playing again shortly.";

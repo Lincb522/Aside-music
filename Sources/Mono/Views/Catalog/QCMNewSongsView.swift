@@ -5,7 +5,7 @@ struct QCMNewSongsView: View {
     @ObservedObject private var playerManager = PlayerManager.shared
     @ObservedObject private var settings = SettingsManager.shared
     @State private var isSelectMode = false
-    @State private var selectedSongIds: Set<Int> = []
+    @State private var selectedSongIds: Set<String> = []
     @State private var showBatchAddToPlaylist = false
 
     private var songs: [Song] {
@@ -99,7 +99,7 @@ struct QCMNewSongsView: View {
             }
         }
         .monoSheet(isPresented: $showBatchAddToPlaylist, preset: .standard) {
-            BatchAddToPlaylistSheet(songs: songs.filter { selectedSongIds.contains($0.id) })
+            BatchAddToPlaylistSheet(songs: songs.filter { selectedSongIds.contains($0.identityKey) })
         }
     }
 
@@ -240,15 +240,15 @@ struct QCMNewSongsView: View {
     }
 
     private var songRowsContent: some View {
-        ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+        ForEach(Array(songs.enumerated()), id: \.element.identityKey) { index, song in
             SongListRow(
                 song: song,
                 index: index,
                 isSelecting: isSelectMode,
-                isSelected: selectedSongIds.contains(song.id),
+                isSelected: selectedSongIds.contains(song.identityKey),
                 onTap: {
                     if isSelectMode {
-                        toggleSelection(song.id)
+                        toggleSelection(song.identityKey)
                     } else {
                         playerManager.play(song: song, in: songs)
                     }
@@ -376,7 +376,7 @@ struct QCMNewSongsView: View {
         .padding(.top, 120)
     }
 
-    private func toggleSelection(_ id: Int) {
+    private func toggleSelection(_ id: String) {
         if selectedSongIds.contains(id) {
             selectedSongIds.remove(id)
         } else {

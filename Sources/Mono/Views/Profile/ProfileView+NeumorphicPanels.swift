@@ -154,11 +154,11 @@ extension ProfileView {
 
             ScrollView(.horizontal) {
                 HStack(spacing: 12) {
-                    ForEach(playerManager.history.prefix(12)) { song in
+                    ForEach(playerManager.history.prefix(12), id: \.identityKey) { song in
                         Button {
                             playerManager.play(song: song, in: playerManager.history)
                         } label: {
-                            NeumorphicProfileRecentCard(song: song, isPlaying: playerManager.currentSong?.id == song.id && playerManager.isPlaying)
+                            NeumorphicProfileRecentCard(song: song, isPlaying: playerManager.currentSong == song && playerManager.isPlaying)
                         }
                         .buttonStyle(MonoBouncingButtonStyle(scale: 0.97))
                     }

@@ -88,7 +88,7 @@ extension ThemeColorCustomization {
     }
 
     static func usesDarkImageBackground(for theme: GlobalThemeId) -> Bool {
-        darkBackgroundKind(for: theme) == .image && hasBackgroundImage(for: theme, dark: true)
+        darkBackgroundKind(for: theme) == .image
     }
 
     static func readableForegroundColor(

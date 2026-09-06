@@ -49,7 +49,7 @@ struct PodcastHistorySection: View {
 
             ScrollView(.horizontal) {
                 HStack(spacing: 14) {
-                    ForEach(history.prefix(10)) { song in
+                    ForEach(history.prefix(10), id: \.identityKey) { song in
                         historyCard(song: song)
                             .compatScrollTransition(animation: .spring(response: 0.35)) { content, phase in
                                 content

@@ -95,6 +95,9 @@ struct CloudPlayHistoryRecord: Codable, Equatable {
     var qishuiTrackId: Int?
     var appleMusicID: String?
     var appleMusicISRC: String?
+    var kugouAlbumAudioID: Int?
+    var kugouAlbumID: Int?
+    var kugouHash: String?
 
     init(from record: PlayHistory) {
         id = record.id
@@ -114,6 +117,9 @@ struct CloudPlayHistoryRecord: Codable, Equatable {
         qishuiTrackId = record.qishuiTrackId
         appleMusicID = record.appleMusicID
         appleMusicISRC = record.appleMusicISRC
+        kugouAlbumAudioID = record.kugouAlbumAudioID
+        kugouAlbumID = record.kugouAlbumID
+        kugouHash = record.kugouHash
     }
 
     func makeLocalRecord() -> PlayHistory {
@@ -132,6 +138,9 @@ struct CloudPlayHistoryRecord: Codable, Equatable {
             qqAlbumMid: qqAlbumMid,
             qishuiTrackId: qishuiTrackId,
             appleMusicID: appleMusicID,
+            kugouHash: kugouHash,
+            kugouAlbumID: kugouAlbumID,
+            kugouAlbumAudioID: kugouAlbumAudioID,
             appleMusicISRC: appleMusicISRC
         )
         record.id = id

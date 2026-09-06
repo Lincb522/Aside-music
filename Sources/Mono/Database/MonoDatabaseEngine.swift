@@ -45,10 +45,11 @@ final class MonoVaultEngine {
         self.store = store
     }
 
-    func flush() {
+    @discardableResult
+    func flush() -> Bool {
         scheduledFlush?.cancel()
         scheduledFlush = nil
-        store.save()
+        return store.save()
     }
 
     func scheduleFlush(after delay: Duration = .milliseconds(350)) {
@@ -141,7 +142,7 @@ final class MonoVaultEngine {
         let searchCutoff = Calendar.current.date(byAdding: .day, value: -90, to: date) ?? date
         store.deleteAll(SearchHistory.self) { $0.searchedAt < searchCutoff }
 
-        flush()
+        guard flush() else { return nil }
         UserDefaults.standard.set(day, forKey: Keys.lastMaintenanceDate)
 
         let report = MonoVaultMaintenanceReport(

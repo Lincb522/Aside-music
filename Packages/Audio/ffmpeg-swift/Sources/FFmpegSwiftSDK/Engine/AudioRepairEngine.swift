@@ -9,24 +9,342 @@ import Accelerate
 
 /// 音频修复引擎
 public final class AudioRepairEngine {
+    private struct Configuration: Equatable {
+        var isDeclipEnabled = false
+        var isDenoiseEnabled = false
+        var isGapSmoothingEnabled = false
+        var isOverlapRemovalEnabled = false
+        var isPopRemovalEnabled = false
+        var isSoftLimiterEnabled = false
+        var isDitherEnabled = false
+        var isFadeInProtectionEnabled = false
+        var isLoudnessStabilizerEnabled = false
+        var isReverbTailGuardEnabled = false
+        var isPhaseContinuityEnabled = false
+        var isFilterTransitionEnabled = false
+        var isDCBlockerEnabled = false
+        var clipThreshold: Float = 0.98
+        var popSensitivity: Float = 0.3
+        var limiterThreshold: Float = 0.95
+        var fadeInSamples: Int = 256
+        var loudnessSmoothing: Float = 0.15
+        var loudnessJumpThreshold: Float = 12.0
+        var filterTransitionMaxSamples: Int = 1024
+        var reverbTailHistoryLength: Int = 4096
+        var outputGainDB: Float = 0
+        var perceptualMakeupDB: Float = 0
+        var resetSerial: UInt64 = 0
+        var statisticsResetSerial: UInt64 = 0
+
+        var isActive: Bool {
+            isDeclipEnabled || isDenoiseEnabled || isGapSmoothingEnabled
+                || isOverlapRemovalEnabled || isPopRemovalEnabled || isSoftLimiterEnabled
+                || isDitherEnabled || isFadeInProtectionEnabled || isLoudnessStabilizerEnabled
+                || isReverbTailGuardEnabled || isPhaseContinuityEnabled || isFilterTransitionEnabled
+                || isDCBlockerEnabled
+                || abs(outputGainDB) > 0.001 || perceptualMakeupDB > 0.001
+        }
+    }
+
+    private let configuration = RealtimeAudioConfiguration(Configuration())
+    private let processor = AudioRepairProcessor()
+    private var applied = Configuration()
+    private let statisticsLock = NSLock()
+    private var statistics = RepairStats()
+    private var statisticsResetSerial: UInt64 = 0
+
+    public init() {}
+
+    public var isDeclipEnabled: Bool {
+        get { configuration.read { $0.isDeclipEnabled } }
+        set { configuration.update { $0.isDeclipEnabled = newValue } }
+    }
+
+    public var isDenoiseEnabled: Bool {
+        get { configuration.read { $0.isDenoiseEnabled } }
+        set { configuration.update { $0.isDenoiseEnabled = newValue } }
+    }
+
+    public var isGapSmoothingEnabled: Bool {
+        get { configuration.read { $0.isGapSmoothingEnabled } }
+        set { configuration.update { $0.isGapSmoothingEnabled = newValue } }
+    }
+
+    public var isOverlapRemovalEnabled: Bool {
+        get { configuration.read { $0.isOverlapRemovalEnabled } }
+        set { configuration.update { $0.isOverlapRemovalEnabled = newValue } }
+    }
+
+    public var isPopRemovalEnabled: Bool {
+        get { configuration.read { $0.isPopRemovalEnabled } }
+        set { configuration.update { $0.isPopRemovalEnabled = newValue } }
+    }
+
+    public var isSoftLimiterEnabled: Bool {
+        get { configuration.read { $0.isSoftLimiterEnabled } }
+        set { configuration.update { $0.isSoftLimiterEnabled = newValue } }
+    }
+
+    public var isDitherEnabled: Bool {
+        get { configuration.read { $0.isDitherEnabled } }
+        set { configuration.update { $0.isDitherEnabled = newValue } }
+    }
+
+    public var isFadeInProtectionEnabled: Bool {
+        get { configuration.read { $0.isFadeInProtectionEnabled } }
+        set { configuration.update { $0.isFadeInProtectionEnabled = newValue } }
+    }
+
+    public var isLoudnessStabilizerEnabled: Bool {
+        get { configuration.read { $0.isLoudnessStabilizerEnabled } }
+        set { configuration.update { $0.isLoudnessStabilizerEnabled = newValue } }
+    }
+
+    public var isReverbTailGuardEnabled: Bool {
+        get { configuration.read { $0.isReverbTailGuardEnabled } }
+        set { configuration.update { $0.isReverbTailGuardEnabled = newValue } }
+    }
+
+    public var isPhaseContinuityEnabled: Bool {
+        get { configuration.read { $0.isPhaseContinuityEnabled } }
+        set { configuration.update { $0.isPhaseContinuityEnabled = newValue } }
+    }
+
+    public var isFilterTransitionEnabled: Bool {
+        get { configuration.read { $0.isFilterTransitionEnabled } }
+        set { configuration.update { $0.isFilterTransitionEnabled = newValue } }
+    }
+
+    public var isDCBlockerEnabled: Bool {
+        get { configuration.read { $0.isDCBlockerEnabled } }
+        set { configuration.update { $0.isDCBlockerEnabled = newValue } }
+    }
+
+    public var clipThreshold: Float {
+        get { configuration.read { $0.clipThreshold } }
+        set { configuration.update { $0.clipThreshold = newValue } }
+    }
+
+    public var popSensitivity: Float {
+        get { configuration.read { $0.popSensitivity } }
+        set { configuration.update { $0.popSensitivity = newValue } }
+    }
+
+    public var limiterThreshold: Float {
+        get { configuration.read { $0.limiterThreshold } }
+        set { configuration.update { $0.limiterThreshold = newValue } }
+    }
+
+    public var fadeInSamples: Int {
+        get { configuration.read { $0.fadeInSamples } }
+        set { configuration.update { $0.fadeInSamples = newValue } }
+    }
+
+    public var loudnessSmoothing: Float {
+        get { configuration.read { $0.loudnessSmoothing } }
+        set { configuration.update { $0.loudnessSmoothing = newValue } }
+    }
+
+    public var loudnessJumpThreshold: Float {
+        get { configuration.read { $0.loudnessJumpThreshold } }
+        set { configuration.update { $0.loudnessJumpThreshold = newValue } }
+    }
+
+    public var filterTransitionMaxSamples: Int {
+        get { configuration.read { $0.filterTransitionMaxSamples } }
+        set { configuration.update { $0.filterTransitionMaxSamples = newValue } }
+    }
+
+    public var reverbTailHistoryLength: Int {
+        get { configuration.read { $0.reverbTailHistoryLength } }
+        set { configuration.update { $0.reverbTailHistoryLength = newValue } }
+    }
+
+    public var isActive: Bool { configuration.read { $0.isActive } }
+
+    public func configureOutputSafety(
+        limiterEnabled: Bool,
+        ceilingDB: Float = -1,
+        declipEnabled: Bool = false,
+        clipThreshold: Float = 0.98,
+        transitionProtectionEnabled: Bool = false,
+        outputGainDB: Float = 0,
+        perceptualMakeupDB: Float = 0
+    ) {
+        let ceiling = min(-0.05, max(-12, ceilingDB.isFinite ? ceilingDB : -1))
+        let threshold = powf(10, ceiling / 20)
+        configuration.update {
+            $0.isSoftLimiterEnabled = limiterEnabled
+            $0.isDCBlockerEnabled = limiterEnabled
+            $0.limiterThreshold = threshold
+            $0.isDeclipEnabled = declipEnabled
+            $0.clipThreshold = min(0.999, max(0.5, clipThreshold))
+            $0.isFilterTransitionEnabled = transitionProtectionEnabled
+            $0.outputGainDB = Self.safeOutputGain(outputGainDB)
+            $0.perceptualMakeupDB = Self.safeMakeup(perceptualMakeupDB, outputGain: $0.outputGainDB)
+        }
+    }
+
+    public var outputGainDB: Float {
+        get { configuration.read { $0.outputGainDB } }
+        set {
+            configuration.update {
+                $0.outputGainDB = Self.safeOutputGain(newValue)
+                $0.perceptualMakeupDB = Self.safeMakeup($0.perceptualMakeupDB, outputGain: $0.outputGainDB)
+            }
+        }
+    }
+
+    public var outputLimiterCeilingDB: Float {
+        configuration.read { 20 * log10f(max($0.limiterThreshold, 0.000_001)) }
+    }
+
+    public var perceptualMakeupDB: Float { configuration.read { $0.perceptualMakeupDB } }
+
+    public struct RepairStats {
+        public var clippedSamplesRepaired: Int = 0
+        public var popsRemoved: Int = 0
+        public var gapsFilled: Int = 0
+        public var overlapsFixed: Int = 0
+        public var limiterActivations: Int = 0
+        public var loudnessJumpsSmoothed: Int = 0
+        public var reverbTailsFilled: Int = 0
+        public var phaseFlipsFixed: Int = 0
+        public var filterTransitions: Int = 0
+        public var totalFramesProcessed: Int64 = 0
+    }
+
+    public var repairStats: RepairStats {
+        let expectedSerial = configuration.read { $0.statisticsResetSerial }
+        statisticsLock.lock()
+        defer { statisticsLock.unlock() }
+        return statisticsResetSerial == expectedSerial ? statistics : RepairStats()
+    }
+
+    public func resetStats() {
+        configuration.update { $0.statisticsResetSerial &+= 1 }
+    }
+
+    public func enableAll() {
+        configuration.update {
+            $0.isDeclipEnabled = true
+            $0.isDenoiseEnabled = true
+            $0.isGapSmoothingEnabled = true
+            $0.isOverlapRemovalEnabled = true
+            $0.isPopRemovalEnabled = true
+            $0.isSoftLimiterEnabled = true
+            $0.isDitherEnabled = true
+            $0.isFadeInProtectionEnabled = true
+            $0.isLoudnessStabilizerEnabled = true
+            $0.isReverbTailGuardEnabled = true
+            $0.isPhaseContinuityEnabled = true
+            $0.isFilterTransitionEnabled = true
+            $0.isDCBlockerEnabled = true
+        }
+    }
+
+    public func disableAll() {
+        configuration.update {
+            $0.isDeclipEnabled = false
+            $0.isDenoiseEnabled = false
+            $0.isGapSmoothingEnabled = false
+            $0.isOverlapRemovalEnabled = false
+            $0.isPopRemovalEnabled = false
+            $0.isSoftLimiterEnabled = false
+            $0.isDitherEnabled = false
+            $0.isFadeInProtectionEnabled = false
+            $0.isLoudnessStabilizerEnabled = false
+            $0.isReverbTailGuardEnabled = false
+            $0.isPhaseContinuityEnabled = false
+            $0.isFilterTransitionEnabled = false
+            $0.isDCBlockerEnabled = false
+        }
+    }
+
+    public func reset() {
+        configuration.update {
+            $0.outputGainDB = 0
+            $0.perceptualMakeupDB = 0
+            $0.resetSerial &+= 1
+        }
+    }
+
+    /// Called by one audio consumer; control setters may run concurrently.
+    public func process(
+        _ data: UnsafeMutablePointer<Float>,
+        frameCount: Int,
+        channelCount: Int,
+        sampleRate: Int
+    ) {
+        if let next = configuration.takePending() {
+            if next.resetSerial != applied.resetSerial { processor.reset() }
+            if next.statisticsResetSerial != applied.statisticsResetSerial { processor.resetStats() }
+            processor.isDeclipEnabled = next.isDeclipEnabled
+            processor.isDenoiseEnabled = next.isDenoiseEnabled
+            processor.isGapSmoothingEnabled = next.isGapSmoothingEnabled
+            processor.isOverlapRemovalEnabled = next.isOverlapRemovalEnabled
+            processor.isPopRemovalEnabled = next.isPopRemovalEnabled
+            if !next.isSoftLimiterEnabled && applied.isSoftLimiterEnabled {
+                processor.resetLimiter()
+            }
+            processor.isSoftLimiterEnabled = next.isSoftLimiterEnabled
+            processor.isDitherEnabled = next.isDitherEnabled
+            processor.isFadeInProtectionEnabled = next.isFadeInProtectionEnabled
+            processor.isLoudnessStabilizerEnabled = next.isLoudnessStabilizerEnabled
+            processor.isReverbTailGuardEnabled = next.isReverbTailGuardEnabled
+            processor.isPhaseContinuityEnabled = next.isPhaseContinuityEnabled
+            processor.isFilterTransitionEnabled = next.isFilterTransitionEnabled
+            processor.isDCBlockerEnabled = next.isDCBlockerEnabled
+            processor.clipThreshold = next.clipThreshold
+            processor.popSensitivity = next.popSensitivity
+            processor.limiterThreshold = next.limiterThreshold
+            processor.fadeInSamples = next.fadeInSamples
+            processor.loudnessSmoothing = next.loudnessSmoothing
+            processor.loudnessJumpThreshold = next.loudnessJumpThreshold
+            processor.filterTransitionMaxSamples = next.filterTransitionMaxSamples
+            processor.reverbTailHistoryLength = next.reverbTailHistoryLength
+            processor.outputGainDB = next.outputGainDB
+            processor.setPerceptualMakeupTarget(next.perceptualMakeupDB)
+            applied = next
+        }
+        // The final limiter must run even if a UI writer owns the mailbox.
+        processor.process(data, frameCount: frameCount, channelCount: channelCount, sampleRate: sampleRate)
+        if statisticsLock.try() {
+            statistics = processor.repairStats
+            statisticsResetSerial = applied.statisticsResetSerial
+            statisticsLock.unlock()
+        }
+    }
+
+    private static func safeOutputGain(_ value: Float) -> Float {
+        min(9, max(-9, value.isFinite ? value : 0))
+    }
+
+    private static func safeMakeup(_ value: Float, outputGain: Float) -> Float {
+        min(1.25, max(0, 9 - max(0, outputGain)), max(0, value.isFinite ? value : 0))
+    }
+}
+
+// Only the audio consumer may access limiter envelopes, delay state and ramps.
+private final class AudioRepairProcessor {
 
     // MARK: - 修复模块开关
 
-    public var isDeclipEnabled: Bool = false
-    public var isDenoiseEnabled: Bool = false
-    public var isGapSmoothingEnabled: Bool = false
-    public var isOverlapRemovalEnabled: Bool = false
-    public var isPopRemovalEnabled: Bool = false
-    public var isSoftLimiterEnabled: Bool = false
-    public var isDitherEnabled: Bool = false
-    public var isFadeInProtectionEnabled: Bool = false
-    public var isLoudnessStabilizerEnabled: Bool = false
-    public var isReverbTailGuardEnabled: Bool = false
-    public var isPhaseContinuityEnabled: Bool = false
-    public var isFilterTransitionEnabled: Bool = false
-    public var isDCBlockerEnabled: Bool = false
+    var isDeclipEnabled: Bool = false
+    var isDenoiseEnabled: Bool = false
+    var isGapSmoothingEnabled: Bool = false
+    var isOverlapRemovalEnabled: Bool = false
+    var isPopRemovalEnabled: Bool = false
+    var isSoftLimiterEnabled: Bool = false
+    var isDitherEnabled: Bool = false
+    var isFadeInProtectionEnabled: Bool = false
+    var isLoudnessStabilizerEnabled: Bool = false
+    var isReverbTailGuardEnabled: Bool = false
+    var isPhaseContinuityEnabled: Bool = false
+    var isFilterTransitionEnabled: Bool = false
+    var isDCBlockerEnabled: Bool = false
 
-    public var isActive: Bool {
+    var isActive: Bool {
         return isDeclipEnabled || isDenoiseEnabled || isGapSmoothingEnabled ||
                isOverlapRemovalEnabled || isPopRemovalEnabled || isSoftLimiterEnabled ||
                isDitherEnabled || isFadeInProtectionEnabled ||
@@ -41,84 +359,27 @@ public final class AudioRepairEngine {
 
     // MARK: - 可调参数
 
-    public var clipThreshold: Float = 0.98
-    public var popSensitivity: Float = 0.3
-    public var limiterThreshold: Float = 0.95
-    public var fadeInSamples: Int = 256
-    public var loudnessSmoothing: Float = 0.15
-    public var loudnessJumpThreshold: Float = 12.0  // 12dB，只有非常剧烈的变化才触发
-    public var filterTransitionMaxSamples: Int = 1024
-    public var reverbTailHistoryLength: Int = 4096
-
-    /// Atomically configures the final output guard that runs after every EQ
-    /// and FFmpeg effect stage. The public ceiling is expressed in dBFS while
-    /// the realtime limiter keeps its internal linear threshold.
-    public func configureOutputSafety(
-        limiterEnabled: Bool,
-        ceilingDB: Float = -1,
-        declipEnabled: Bool = false,
-        clipThreshold: Float = 0.98,
-        transitionProtectionEnabled: Bool = false,
-        outputGainDB: Float = 0,
-        perceptualMakeupDB: Float = 0
-    ) {
-        let safeCeiling = min(-0.05, max(-12, ceilingDB))
-        lock.lock()
-        isSoftLimiterEnabled = limiterEnabled
-        isDCBlockerEnabled = limiterEnabled
-        if !limiterEnabled {
-            truePeakLimiterGain = 1
-            truePeakHistory.removeAll(keepingCapacity: true)
-        }
-        limiterThreshold = powf(10, safeCeiling / 20)
-        isDeclipEnabled = declipEnabled
-        self.clipThreshold = min(0.999, max(0.5, clipThreshold))
-        isFilterTransitionEnabled = transitionProtectionEnabled
-        // This is a post-processing compensation, not a change to the EQ plan.
-        // Keep it bounded so a malformed or extremely attenuated proposal cannot
-        // turn the final limiter into a permanent heavy compressor.
-        setOutputGainTargetLocked(outputGainDB)
-        setPerceptualMakeupTargetLocked(perceptualMakeupDB)
-        lock.unlock()
-    }
+    var clipThreshold: Float = 0.98
+    var popSensitivity: Float = 0.3
+    var limiterThreshold: Float = 0.95
+    var fadeInSamples: Int = 256
+    var loudnessSmoothing: Float = 0.15
+    var loudnessJumpThreshold: Float = 12.0  // 12dB，只有非常剧烈的变化才触发
+    var filterTransitionMaxSamples: Int = 1024
+    var reverbTailHistoryLength: Int = 4096
 
     /// Post-processing gain applied after FFmpeg/EQ and before the final limiter.
     /// Mono uses this only to restore the level lost to AI safety preamp.
-    public var outputGainDB: Float {
-        get {
-            lock.lock()
-            let value = outputGainDBStorage
-            lock.unlock()
-            return value
-        }
+    var outputGainDB: Float {
+        get { outputGainDBStorage }
         set {
-            lock.lock()
-            setOutputGainTargetLocked(newValue)
-            setPerceptualMakeupTargetLocked(perceptualMakeupDBStorage)
-            lock.unlock()
+            setOutputGainTarget(newValue)
+            setPerceptualMakeupTarget(perceptualMakeupDBStorage)
         }
-    }
-
-    public var outputLimiterCeilingDB: Float {
-        lock.lock()
-        let threshold = limiterThreshold
-        lock.unlock()
-        return 20 * log10f(max(threshold, 0.000_001))
-    }
-
-    /// A small listening-level correction layered after the safety-preamp
-    /// restoration. Unlike `outputGainDB`, changes are ramped so an AI profile
-    /// cannot produce an audible step in level while playback is running.
-    public var perceptualMakeupDB: Float {
-        lock.lock()
-        let value = perceptualMakeupDBStorage
-        lock.unlock()
-        return value
     }
 
     // MARK: - 内部状态
 
-    private let lock = NSLock()
     private var dcFilterState: [DCBlockerState] = []
     private var ultrasonicFilterState: [Float] = []
     private var previousTail: [Float] = []
@@ -168,7 +429,8 @@ public final class AudioRepairEngine {
     private var perceptualMakeupRampProcessedFrames = 0
     private var perceptualMakeupRampTotalFrames = 0
     private var perceptualMakeupRampPending = false
-    private var truePeakLimiterGain: Float = 1
+    // Float accumulation can stall a per-sample release before it reaches unity.
+    private var truePeakLimiterGain: Double = 1
     private var truePeakHistory: [Float] = []
 
     private var stats = RepairStats()
@@ -180,35 +442,15 @@ public final class AudioRepairEngine {
 
     // MARK: - 修复统计
 
-    public struct RepairStats {
-        public var clippedSamplesRepaired: Int = 0
-        public var popsRemoved: Int = 0
-        public var gapsFilled: Int = 0
-        public var overlapsFixed: Int = 0
-        public var limiterActivations: Int = 0
-        public var loudnessJumpsSmoothed: Int = 0
-        public var reverbTailsFilled: Int = 0
-        public var phaseFlipsFixed: Int = 0
-        public var filterTransitions: Int = 0
-        public var totalFramesProcessed: Int64 = 0
-    }
+    typealias RepairStats = AudioRepairEngine.RepairStats
 
-    public var repairStats: RepairStats {
-        lock.lock()
-        let s = stats
-        lock.unlock()
-        return s
-    }
+    var repairStats: RepairStats { stats }
 
-    public func resetStats() {
-        lock.lock()
-        stats = RepairStats()
-        lock.unlock()
-    }
+    func resetStats() { stats = RepairStats() }
 
     // MARK: - 初始化
 
-    public init() {
+    init() {
         // Music playback is normally stereo. Pre-size the state used by the
         // final output guard so enabling an AI plan cannot allocate Arrays from
         // the first hardware callback.
@@ -219,46 +461,16 @@ public final class AudioRepairEngine {
         previousTail.reserveCapacity(tailLength * 8)
     }
 
-    // MARK: - 一键操作
-
-    public func enableAll() {
-        isDeclipEnabled = true
-        isDenoiseEnabled = true
-        isGapSmoothingEnabled = true
-        isOverlapRemovalEnabled = true
-        isPopRemovalEnabled = true
-        isSoftLimiterEnabled = true
-        isDitherEnabled = true
-        isFadeInProtectionEnabled = true
-        isLoudnessStabilizerEnabled = true
-        isReverbTailGuardEnabled = true
-        isPhaseContinuityEnabled = true
-        isFilterTransitionEnabled = true
-        isDCBlockerEnabled = true
+    func resetLimiter() {
+        truePeakLimiterGain = 1
+        for index in truePeakHistory.indices { truePeakHistory[index] = 0 }
     }
 
-    public func disableAll() {
-        isDeclipEnabled = false
-        isDenoiseEnabled = false
-        isGapSmoothingEnabled = false
-        isOverlapRemovalEnabled = false
-        isPopRemovalEnabled = false
-        isSoftLimiterEnabled = false
-        isDitherEnabled = false
-        isFadeInProtectionEnabled = false
-        isLoudnessStabilizerEnabled = false
-        isReverbTailGuardEnabled = false
-        isPhaseContinuityEnabled = false
-        isFilterTransitionEnabled = false
-        isDCBlockerEnabled = false
-    }
-
-    public func reset() {
-        lock.lock()
-        dcFilterState.removeAll()
-        ultrasonicFilterState.removeAll()
+    func reset() {
+        for index in dcFilterState.indices { dcFilterState[index] = DCBlockerState() }
+        for index in ultrasonicFilterState.indices { ultrasonicFilterState[index] = 0 }
         previousTail.removeAll()
-        lastSamples.removeAll()
+        for index in lastSamples.indices { lastSamples[index] = 0 }
         fadeInCounter = 0
         fadeInActive = true
         ditherState = 0
@@ -294,13 +506,12 @@ public final class AudioRepairEngine {
         perceptualMakeupRampTotalFrames = 0
         perceptualMakeupRampPending = false
         truePeakLimiterGain = 1
-        truePeakHistory.removeAll()
-        lock.unlock()
+        for index in truePeakHistory.indices { truePeakHistory[index] = 0 }
     }
 
     // MARK: - 核心处理
 
-    public func process(
+    func process(
         _ data: UnsafeMutablePointer<Float>,
         frameCount: Int,
         channelCount: Int,
@@ -309,9 +520,6 @@ public final class AudioRepairEngine {
         guard isActive, frameCount > 0, channelCount > 0 else { return }
 
         let totalSamples = frameCount * channelCount
-
-        // 有界重试：输出增益/限制器整块跳过会造成瞬时电平跳变。
-        guard acquireRealtimeAudioLock(lock) else { return }
 
         ensureStateSize(channelCount: channelCount)
         self.frameCount += Int64(frameCount)
@@ -387,8 +595,6 @@ public final class AudioRepairEngine {
             saveTail(data, frameCount: frameCount, channelCount: channelCount)
         }
         stats.totalFramesProcessed += Int64(frameCount)
-
-        lock.unlock()
     }
 
     private func applyOutputGain(
@@ -491,7 +697,7 @@ public final class AudioRepairEngine {
         return start + (target - start) * eased
     }
 
-    private func setOutputGainTargetLocked(_ value: Float) {
+    private func setOutputGainTarget(_ value: Float) {
         let safeValue = min(9, max(-9, value.isFinite ? value : 0))
         guard abs(safeValue - outputGainDBStorage) > 0.005 else { return }
         outputGainDBStorage = safeValue
@@ -499,7 +705,7 @@ public final class AudioRepairEngine {
         outputGainRampPending = true
     }
 
-    private func setPerceptualMakeupTargetLocked(_ value: Float) {
+    func setPerceptualMakeupTarget(_ value: Float) {
         let remainingPositiveGain = max(0, 9 - max(0, outputGainDBStorage))
         let safeValue = min(
             1.25,
@@ -850,30 +1056,34 @@ public final class AudioRepairEngine {
             ? threshold / max(estimatedTruePeak, 0.000_001)
             : 1
         let blockStartGain = truePeakLimiterGain
-        if requestedGain < truePeakLimiterGain {
-            truePeakLimiterGain = requestedGain
-        } else {
-            let blockDuration = Float(frameCount) / Float(max(sampleRate, 1))
-            let release = 1 - expf(-blockDuration / 0.12)
-            truePeakLimiterGain += (requestedGain - truePeakLimiterGain) * release
-        }
-        if truePeakLimiterGain < 0.999_9 {
+        let targetGain = Double(requestedGain)
+        if targetGain < 1 || blockStartGain < 1 {
+            let isAttacking = targetGain < blockStartGain
             let attackFrames = min(32, frameCount)
+            // Advance the 120 ms release at the sample clock, not once per
+            // callback. The retained gain is the last gain actually rendered.
+            let releaseDecay = isAttacking ? 0 : exp(-1 / (Double(max(sampleRate, 1)) * 0.12))
+            var gain = blockStartGain
             for frame in 0..<frameCount {
-                let gain: Float
-                if truePeakLimiterGain < blockStartGain, frame < attackFrames {
-                    let progress = Float(frame + 1) / Float(max(attackFrames, 1))
-                    let eased = progress * progress * (3 - 2 * progress)
-                    gain = blockStartGain
-                        + (truePeakLimiterGain - blockStartGain) * eased
+                if isAttacking {
+                    if frame < attackFrames {
+                        let progress = Double(frame + 1) / Double(attackFrames)
+                        let eased = progress * progress * (3 - 2 * progress)
+                        gain = blockStartGain + (targetGain - blockStartGain) * eased
+                    } else {
+                        gain = targetGain
+                    }
                 } else {
-                    gain = truePeakLimiterGain
+                    gain = targetGain + (gain - targetGain) * releaseDecay
                 }
+                let linearGain = Float(gain)
                 let baseIndex = frame * channelCount
                 for channel in 0..<channelCount {
-                    data[baseIndex + channel] *= gain
+                    data[baseIndex + channel] *= linearGain
                 }
             }
+            // Take the unity fast path only once Float32 output is already unity.
+            truePeakLimiterGain = Float(gain) == 1 ? 1 : gain
         }
 
         // Begin a narrow soft knee just below the requested ceiling. The old

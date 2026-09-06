@@ -104,7 +104,7 @@ protocol MonoStoreBackend {
     func deleteAll(entityName: String)
 
     /// 提交底层上下文
-    func flush()
+    func flush() throws
 
     /// 数据库文件大小（字节）
     func storeSizeBytes() -> Int64

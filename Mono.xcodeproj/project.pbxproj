@@ -32,6 +32,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		1FF8FE3A98904ED16F42A748 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F4CCFD702F320B5900FC36CA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F4CCFD772F320B5900FC36CA;
+			remoteInfo = Mono;
+		};
 		BB100020BB100020BB100020 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = F4CCFD702F320B5900FC36CA /* Project object */;
@@ -58,6 +65,7 @@
 /* Begin PBXFileReference section */
 		BB100011BB100011BB100011 /* musicExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = musicExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		BB100030BB100030BB100030 /* musicExtensionDebug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = musicExtensionDebug.entitlements; sourceTree = "<group>"; };
+		E4A1CA7E3D58A40E959DB069 /* MonoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = MonoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F40957812F4E8A7E006EA119 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		F40957832F4E8A7E006EA119 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		F40957A12F4EE248006EA119 /* MonoDebug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MonoDebug.entitlements; sourceTree = "<group>"; };
@@ -84,6 +92,11 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		92CEBE53BD4071940758390A /* Tests/MonoTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Tests/MonoTests;
+			sourceTree = "<group>";
+		};
 		BB100040BB100040BB100040 /* music */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -108,6 +121,13 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		B900C968C784F01D8247B565 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		BB100012BB100012BB100012 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -160,6 +180,7 @@
 			children = (
 				F40957A12F4EE248006EA119 /* MonoDebug.entitlements */,
 				BB100030BB100030BB100030 /* musicExtensionDebug.entitlements */,
+				92CEBE53BD4071940758390A /* Tests/MonoTests */,
 				F4CCFD7A2F320B5900FC36CA /* Sources/Mono */,
 				CC200001CC200001CC200001 /* Shared */,
 				BB100040BB100040BB100040 /* music */,
@@ -172,6 +193,7 @@
 		F4CCFD792F320B5900FC36CA /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				E4A1CA7E3D58A40E959DB069 /* MonoTests.xctest */,
 				F4CCFD782F320B5900FC36CA /* Mono.app */,
 				BB100011BB100011BB100011 /* musicExtension.appex */,
 			);
@@ -181,6 +203,27 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		47FDCDF7D4E4E988139D8CBD /* MonoTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 23584558A7BB3D36D4D369FB /* Build configuration list for PBXNativeTarget "MonoTests" */;
+			buildPhases = (
+				5BA5BD09F57E4F60B9A798CF /* Sources */,
+				B900C968C784F01D8247B565 /* Frameworks */,
+				B15B3AF0B3A60FE3E1274EBD /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				2DB71BBF3D52F0D66EF32098 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				92CEBE53BD4071940758390A /* Tests/MonoTests */,
+			);
+			name = MonoTests;
+			productName = MonoTests;
+			productReference = E4A1CA7E3D58A40E959DB069 /* MonoTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		BB100010BB100010BB100010 /* musicExtension */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = BB100050BB100050BB100050 /* Build configuration list for PBXNativeTarget "musicExtension" */;
@@ -297,6 +340,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				47FDCDF7D4E4E988139D8CBD /* MonoTests */,
 				F4CCFD772F320B5900FC36CA /* Mono */,
 				BB100010BB100010BB100010 /* musicExtension */,
 			);
@@ -304,6 +348,13 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		B15B3AF0B3A60FE3E1274EBD /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		BB100014BB100014BB100014 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -321,6 +372,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		5BA5BD09F57E4F60B9A798CF /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		BB100013BB100013BB100013 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -338,6 +396,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		2DB71BBF3D52F0D66EF32098 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F4CCFD772F320B5900FC36CA /* Mono */;
+			targetProxy = 1FF8FE3A98904ED16F42A748 /* PBXContainerItemProxy */;
+		};
 		BB100022BB100022BB100022 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = BB100010BB100010BB100010 /* musicExtension */;
@@ -346,6 +409,40 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		1C133D2B4956CD8AFD5C4163 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mono.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Mono.app/Mono";
+			};
+			name = Release;
+		};
+		803F9224A8B1426F4E966C79 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mono.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Mono.app/Mono";
+			};
+			name = Debug;
+		};
 		BB100051BB100051BB100051 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -665,6 +762,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		23584558A7BB3D36D4D369FB /* Build configuration list for PBXNativeTarget "MonoTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				803F9224A8B1426F4E966C79 /* Debug */,
+				1C133D2B4956CD8AFD5C4163 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		BB100050BB100050BB100050 /* Build configuration list for PBXNativeTarget "musicExtension" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

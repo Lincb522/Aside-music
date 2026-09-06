@@ -86,7 +86,7 @@ struct HomeNewSongsSection: View {
             // 横滑排行卡片
             ScrollView(.horizontal) {
                 HStack(spacing: 12) {
-                    ForEach(Array(songs.prefix(8).enumerated()), id: \.element.id) { idx, song in
+                    ForEach(Array(songs.prefix(8).enumerated()), id: \.element.identityKey) { idx, song in
                         Button(action: { onPlay(song) }) {
                             rankedCard(song: song, rank: idx + 1)
                         }
@@ -116,7 +116,7 @@ struct HomeNewSongsSection: View {
             .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
 
             VStack(spacing: 0) {
-                ForEach(Array(songs.prefix(5).enumerated()), id: \.element.id) { index, song in
+                ForEach(Array(songs.prefix(5).enumerated()), id: \.element.identityKey) { index, song in
                     Button {
                         onPlay(song)
                     } label: {

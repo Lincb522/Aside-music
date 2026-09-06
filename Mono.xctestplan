@@ -1,25 +1,30 @@
 {
-  "configurations" : [
+  "configurations": [
     {
-      "id" : "A1B2C3D4-E5F6-7890-ABCD-EF1234567890",
-      "name" : "Test Scheme Action",
-      "options" : {
-
-      }
+      "id": "A1B2C3D4-E5F6-7890-ABCD-EF1234567890",
+      "name": "Test Scheme Action",
+      "options": {}
     }
   ],
-  "defaultOptions" : {
-    "testTimeoutsEnabled" : true,
-    "defaultTestExecutionTimeAllowance" : 120
+  "defaultOptions": {
+    "testTimeoutsEnabled": true,
+    "defaultTestExecutionTimeAllowance": 120,
+    "environmentVariableEntries": [
+      {
+        "key": "MONO_UNIT_TESTS",
+        "value": "1",
+        "isEnabled": true
+      }
+    ]
   },
-  "testTargets" : [
+  "testTargets": [
     {
-      "target" : {
-        "containerPath" : "container:",
-        "identifier" : "MonoTests",
-        "name" : "MonoTests"
+      "target": {
+        "containerPath": "container:Mono.xcodeproj",
+        "identifier": "47FDCDF7D4E4E988139D8CBD",
+        "name": "MonoTests"
       }
     }
   ],
-  "version" : 1
+  "version": 1
 }

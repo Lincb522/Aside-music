@@ -9,8 +9,6 @@ struct AquaPlayerLayout: View {
     @Environment(\.colorScheme) var colorScheme
     @ObservedObject var player = PlayerManager.shared
     @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
-    @ObservedObject var downloadManager = DownloadManager.shared
-    @ObservedObject var lyricVM = LyricViewModel.shared
 
     @State private var isDragging = false
     @State private var dragValue: Double = 0
@@ -109,11 +107,12 @@ struct AquaPlayerLayout: View {
                     controls
                         .padding(.bottom, DeviceLayout.playerBottomPadding + 20)
                 }
-                
-                // 更多菜单浮层
+            }
+            .playerMoreMenuOverlay { anchorFrame in
                 if showMoreMenu {
                     PlayerMoreMenu(
                         isPresented: $showMoreMenu,
+                        anchorFrame: anchorFrame,
                         onEQ: { showEQSettings = true },
                         onTheme: { showThemePicker = true }
                     )
@@ -356,6 +355,7 @@ extension AquaPlayerLayout {
                     .contentShape(Circle())
             }
             .buttonStyle(MonoBouncingButtonStyle())
+            .playerMoreMenuAnchor()
         }
         .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 24 : 16)
         .padding(.bottom, 12)

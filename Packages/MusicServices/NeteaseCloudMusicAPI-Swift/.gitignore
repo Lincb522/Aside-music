@@ -29,7 +29,5 @@ Packages/
 .vscode/
 .idea/
 
-# 测试文件（不上传到远程仓库）
-Tests/
 AsideMusic-2026-02-16-225511.ips
 AsideMusic-2026-02-17-003353.ips

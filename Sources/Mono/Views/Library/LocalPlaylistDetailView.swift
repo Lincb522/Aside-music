@@ -23,7 +23,7 @@ struct LocalPlaylistDetailView: View {
     @State private var searchText = ""
     @State private var isSearching = false
     @State private var isSelectMode = false
-    @State private var selectedSongIds: Set<Int> = []
+    @State private var selectedSongIds: Set<String> = []
     @State private var showBatchAddToPlaylist = false
     @State private var showLocalMusicImporter = false
     @State private var isImportingLocalMusic = false
@@ -63,7 +63,7 @@ struct LocalPlaylistDetailView: View {
     }
 
     private var selectedPlaylistSongs: [Song] {
-        playlistSongs.filter { selectedSongIds.contains($0.id) }
+        playlistSongs.filter { selectedSongIds.contains($0.identityKey) }
     }
 
     typealias Theme = PlaylistDetailView.Theme
@@ -235,7 +235,7 @@ struct LocalPlaylistDetailView: View {
         let songs = manager.songs(for: playlist)
         playlistSongs = songs
         playlistSummary = manager.summary(for: playlist)
-        selectedSongIds = selectedSongIds.intersection(Set(songs.map(\.id)))
+        selectedSongIds = selectedSongIds.intersection(Set(songs.map(\.identityKey)))
         refreshFilteredPlaylistSongs()
     }
 
@@ -1390,12 +1390,12 @@ struct LocalPlaylistDetailView: View {
     }
 
     private func localSongRows(playlist currentPlaylist: LocalPlaylist, songs displaySongs: [Song]) -> some View {
-        ForEach(Array(displaySongs.enumerated()), id: \.element.id) { index, song in
+        ForEach(Array(displaySongs.enumerated()), id: \.element.identityKey) { index, song in
             SongListRow(
                 song: song,
                 index: index,
                 isSelecting: isSelectMode,
-                isSelected: selectedSongIds.contains(song.id),
+                isSelected: selectedSongIds.contains(song.identityKey),
                 onArtistTap: { artistId in
                     selectedArtistId = artistId
                     showArtistDetail = true
@@ -1410,10 +1410,10 @@ struct LocalPlaylistDetailView: View {
                 },
                 onTap: {
                     if isSelectMode {
-                        if selectedSongIds.contains(song.id) {
-                            selectedSongIds.remove(song.id)
+                        if selectedSongIds.contains(song.identityKey) {
+                            selectedSongIds.remove(song.identityKey)
                         } else {
-                            selectedSongIds.insert(song.id)
+                            selectedSongIds.insert(song.identityKey)
                         }
                     } else {
                         PlayerManager.shared.play(song: song, in: displaySongs)
@@ -1457,9 +1457,9 @@ struct LocalPlaylistDetailView: View {
                 manager.removeDownloadedSong(song)
             }
         } else if currentPlaylist.isFavorite {
-            manager.removeFromFavorite(songId: song.id)
+            manager.removeFromFavorite(songId: song.id, source: song.musicSource)
         } else {
-            manager.removeSong(id: song.id, from: currentPlaylist)
+            manager.removeSong(id: song.id, source: song.musicSource, from: currentPlaylist)
         }
     }
 

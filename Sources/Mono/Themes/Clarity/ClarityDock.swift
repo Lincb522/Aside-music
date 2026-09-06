@@ -4,14 +4,17 @@ import SwiftUI
 /// 同一层膜面的一部分，不使用通用悬浮胶囊骨架。
 struct ClarityDock: View {
     @Binding var currentTab: Tab
-    @ObservedObject private var playback = FloatingBarPlaybackModel.shared
+    private let playback = FloatingBarPlaybackModel.shared
+    @State private var currentSong = FloatingBarPlaybackModel.shared.currentSong
+    @State private var isPlaying = FloatingBarPlaybackModel.shared.isPlaying
+    @State private var playSource = FloatingBarPlaybackModel.shared.playSource
     @State private var showsQueue = false
 
     var body: some View {
         VStack(spacing: 0) {
             Spacer(minLength: 0)
             VStack(spacing: 0) {
-                if playback.currentSong != nil { nowPlaying }
+                if currentSong != nil { nowPlaying }
                 navigation
             }
             .background {
@@ -25,35 +28,46 @@ struct ClarityDock: View {
             .padding(.bottom, 5)
         }
         .monoSheet(isPresented: $showsQueue, preset: .standard) {
-            playback.isPlayingPodcast ? AnyView(PodcastPlaylistPopupView()) : AnyView(PlaylistPopupView())
+            playSource.isPodcast ? AnyView(PodcastPlaylistPopupView()) : AnyView(PlaylistPopupView())
+        }
+        .onReceive(playback.$currentSong.removeDuplicates()) { song in
+            currentSong = song
+        }
+        .onReceive(playback.$isPlaying.removeDuplicates()) { playing in
+            isPlaying = playing
+        }
+        .onReceive(playback.$playSource.removeDuplicates()) { source in
+            playSource = source
         }
     }
 
     private var nowPlaying: some View {
         HStack(spacing: 10) {
             Button(action: openPlayer) {
-                ClarityArtwork(url: playback.currentSong?.coverUrl, size: 44, radius: 13)
+                ClarityArtwork(url: currentSong?.coverUrl, size: 44, radius: 13)
             }
             .buttonStyle(ClarityPressStyle())
 
             Button(action: openPlayer) {
                 VStack(alignment: .leading, spacing: 3) {
                     MarqueeText(
-                        text: playback.currentSong?.name ?? String(localized: "not_playing"),
+                        text: currentSong?.name ?? String(localized: "not_playing"),
                         font: .system(size: 12.5, weight: .semibold, design: .default),
                         color: ClarityStyle.ink
                     )
-                    Text(playback.lyricLineText ?? playback.currentSong?.artistName ?? "")
-                        .font(ClarityStyle.body(10, weight: .medium))
-                        .foregroundStyle(ClarityStyle.inkSoft)
-                        .lineLimit(1)
+                    FloatingBarLyricReader { lyricLineText in
+                        Text(lyricLineText ?? currentSong?.artistName ?? "")
+                            .font(ClarityStyle.body(10, weight: .medium))
+                            .foregroundStyle(ClarityStyle.inkSoft)
+                            .lineLimit(1)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .buttonStyle(.plain)
 
             Button { playback.togglePlayPause() } label: {
-                MonoIcon(icon: playback.isPlaying ? .pause : .play, size: 17, color: ClarityStyle.ink, lineWidth: 1.7)
+                MonoIcon(icon: isPlaying ? .pause : .play, size: 17, color: ClarityStyle.ink, lineWidth: 1.7)
                     .frame(width: 40, height: 40)
                     .background(ClarityMembrane(shape: Circle(), strength: .regular))
             }

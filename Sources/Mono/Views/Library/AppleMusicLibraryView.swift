@@ -319,7 +319,7 @@ struct AppleMusicLibraryView: View {
 
     private var songContent: some View {
         LazyVStack(spacing: 0) {
-            ForEach(Array(model.songs.enumerated()), id: \.element.id) { index, song in
+            ForEach(Array(model.songs.enumerated()), id: \.element.identityKey) { index, song in
                 SongListRow(
                     song: song,
                     index: index,

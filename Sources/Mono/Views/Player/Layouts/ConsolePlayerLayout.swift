@@ -38,10 +38,12 @@ struct ConsolePlayerLayout: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(.horizontal, metrics.horizontalInset)
                 .padding(.bottom, metrics.bottomInset)
-
+            }
+            .playerMoreMenuOverlay { anchorFrame in
                 if showsMore {
                     PlayerMoreMenu(
                         isPresented: $showsMore,
+                        anchorFrame: anchorFrame,
                         isDarkBackground: true,
                         onQuality: { showsQuality = true },
                         onEQ: { showsEQ = true },
@@ -98,6 +100,7 @@ private extension ConsolePlayerLayout {
             consoleButton(icon: .more, label: String(localized: "更多")) {
                 showsMore = true
             }
+            .playerMoreMenuAnchor()
         }
         .overlay(alignment: .bottom) {
             Rectangle()

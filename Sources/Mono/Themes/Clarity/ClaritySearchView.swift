@@ -163,7 +163,7 @@ struct ClaritySearchView: View {
 
     private var songResults: some View {
         VStack(spacing: 0) {
-            ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+            ForEach(Array(songs.enumerated()), id: \.element.identityKey) { index, song in
                 Button { PlayerManager.shared.play(song: song, in: songs) } label: {
                     HStack(spacing: 12) {
                         ClarityArtwork(url: song.coverUrl, size: 50, radius: 15)

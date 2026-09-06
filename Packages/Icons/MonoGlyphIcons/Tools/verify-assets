@@ -15,9 +15,11 @@ python="${MONO_GLYPH_PYTHON:-$HOME/.cache/codex-runtimes/codex-primary-runtime/d
 
 "$python" - "$catalog" "$root/../../../Design/IconSystems/MonoGlyph/slicing-report.json" <<'PY'
 import json
+import hashlib
 import pathlib
 import sys
 
+import numpy as np
 from PIL import Image
 
 catalog = pathlib.Path(sys.argv[1])
@@ -25,6 +27,7 @@ report_path = pathlib.Path(sys.argv[2]).resolve()
 report = json.loads(report_path.read_text())
 assert report["semanticCount"] == 233
 assert report["assetCount"] == 466
+assert len(report["records"]) == 466
 
 seen = set()
 for image_set in catalog.glob("*.imageset"):
@@ -35,20 +38,38 @@ for image_set in catalog.glob("*.imageset"):
     dark = next(image for image in images if image.get("filename") == f"{semantic}_dark.png")
     assert light.get("appearances") is None
     assert dark.get("appearances") == [{"appearance": "luminosity", "value": "dark"}]
-    for filename in (f"{semantic}.png", f"{semantic}_dark.png"):
+    alpha_variants = []
+    for filename, appearance in ((f"{semantic}.png", "light"), (f"{semantic}_dark.png", "dark")):
         image = Image.open(image_set / filename).convert("RGBA")
         assert image.size == (128, 128)
+        pixels = np.asarray(image)
+        alpha = pixels[..., 3]
+        alpha_variants.append(alpha)
+        assert np.all(pixels[alpha > 0, :3] == report["palette"][appearance])
+        assert not alpha[:4].any() and not alpha[-4:].any()
+        assert not alpha[:, :4].any() and not alpha[:, -4:].any()
         bbox = image.getchannel("A").point(lambda value: 255 if value > 8 else 0).getbbox()
         assert bbox is not None
         left, top, right, bottom = bbox
         assert min(left, top, 128 - right, 128 - bottom) >= 8
         assert max(right - left, bottom - top) >= 102
         assert max(right - left, bottom - top) <= 110
-        assert abs((left + right) / 2 - 64) <= 1.5
-        assert abs((top + bottom) / 2 - 64) <= 1.5
+        assert abs((left + right) / 2 - 64) <= 0.5
+        assert abs((top + bottom) / 2 - 64) <= 0.5
         seen.add((semantic, filename))
+    assert np.array_equal(*alpha_variants), f"Appearance geometry differs: {semantic}"
 
 assert len(seen) == 466
+root = catalog.parents[5]
+manifest = json.loads((report_path.parent / "manifest.json").read_text())
+assert {slot["semantic"] for slot in manifest["slots"]} == {name for name, _ in seen}
+for source in manifest["sources"]:
+    assert hashlib.sha256((root / source["path"]).read_bytes()).hexdigest() == source["sha256"]
+checksums = (report_path.parent / "assets.sha256").read_text().splitlines()
+assert len(checksums) == 466
+for line in checksums:
+    expected, relative_path = line.split("  ", 1)
+    assert hashlib.sha256((root / relative_path).read_bytes()).hexdigest() == expected
 PY
 
 find "$catalog" -type f -name '*.png' -print0 | xargs -0 file | awk '

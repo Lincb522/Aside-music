@@ -109,7 +109,7 @@ struct ProfileRecentPlaysHost: View {
 
             ScrollView(.horizontal) {
                 LazyHStack(spacing: 12) {
-                    ForEach(Array(history.prefix(12).enumerated()), id: \.element.id) { index, song in
+                    ForEach(Array(history.prefix(12).enumerated()), id: \.element.identityKey) { index, song in
                         Button {
                             PlayerManager.shared.play(song: song, in: history)
                         } label: {
@@ -196,7 +196,7 @@ struct ProfileRecentPlaysHost: View {
 
             ScrollView(.horizontal) {
                 LazyHStack(spacing: 12) {
-                    ForEach(Array(history.prefix(15))) { song in
+                    ForEach(Array(history.prefix(15)), id: \.identityKey) { song in
                         Button {
                             PlayerManager.shared.play(song: song, in: history)
                         } label: {
@@ -232,7 +232,7 @@ struct ProfileRecentPlaysHost: View {
 
             ScrollView(.horizontal) {
                 LazyHStack(spacing: 12) {
-                    ForEach(Array(history.prefix(14))) { song in
+                    ForEach(Array(history.prefix(14)), id: \.identityKey) { song in
                         Button {
                             PlayerManager.shared.play(song: song, in: history)
                         } label: {
@@ -275,7 +275,7 @@ struct ProfileRecentPlaysHost: View {
 
             ScrollView(.horizontal) {
                 LazyHStack(spacing: 14) {
-                    ForEach(Array(history.prefix(15))) { song in
+                    ForEach(Array(history.prefix(15)), id: \.identityKey) { song in
                         Button {
                             PlayerManager.shared.play(song: song, in: history)
                         } label: {
@@ -340,7 +340,7 @@ struct ProfileRecentPlaysHost: View {
 
             ScrollView(.horizontal) {
                 LazyHStack(spacing: 12) {
-                    ForEach(Array(history.prefix(12))) { song in
+                    ForEach(Array(history.prefix(12)), id: \.identityKey) { song in
                         Button {
                             PlayerManager.shared.play(song: song, in: history)
                         } label: {
@@ -388,7 +388,7 @@ struct ProfileRecentPlaysHost: View {
 
             ScrollView(.horizontal) {
                 LazyHStack(spacing: 12) {
-                    ForEach(Array(history.prefix(12))) { song in
+                    ForEach(Array(history.prefix(12)), id: \.identityKey) { song in
                         Button {
                             PlayerManager.shared.play(song: song, in: history)
                         } label: {
@@ -439,7 +439,7 @@ struct ProfileRecentPlaysHost: View {
 
             ScrollView(.horizontal) {
                 LazyHStack(spacing: 12) {
-                    ForEach(Array(history.prefix(12))) { song in
+                    ForEach(Array(history.prefix(12)), id: \.identityKey) { song in
                         Button {
                             PlayerManager.shared.play(song: song, in: history)
                         } label: {

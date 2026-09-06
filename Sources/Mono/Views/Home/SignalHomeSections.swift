@@ -86,7 +86,7 @@ struct SignalHomeSongSection: View {
 
             ScrollView(.horizontal) {
                 LazyHStack(alignment: .bottom, spacing: 10) {
-                    ForEach(Array(songs.prefix(8).enumerated()), id: \.element.id) { index, song in
+                    ForEach(Array(songs.prefix(8).enumerated()), id: \.element.identityKey) { index, song in
                         songArtwork(song, index: index)
                     }
                 }

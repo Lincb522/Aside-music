@@ -4,6 +4,7 @@ import SwiftUI
 /// "播完本集再停"策略开关，以及实时倒计时状态卡片；直接读写 PlayerManager 的定时器状态。
 struct PodcastTimerSheet: View {
     @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var sleepTimer = PlayerManager.shared.sleepAndFade
     @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.dismiss) private var dismiss
     @Environment(\.monoSheetDismiss) private var monoSheetDismiss
@@ -34,11 +35,11 @@ struct PodcastTimerSheet: View {
     // MARK: - 状态派生
 
     private var hasActivePlan: Bool {
-        player.sleepTimerRemaining != nil || player.pendingSleepStopAfterCurrentTrack
+        sleepTimer.remaining != nil || player.pendingSleepStopAfterCurrentTrack
     }
 
     private var formattedRemaining: String {
-        guard let remaining = player.sleepTimerRemaining else { return "" }
+        guard let remaining = sleepTimer.remaining else { return "" }
         let m = Int(remaining) / 60
         let s = Int(remaining) % 60
         return String(format: "%d:%02d", m, s)
@@ -48,7 +49,7 @@ struct PodcastTimerSheet: View {
         if player.pendingSleepStopAfterCurrentTrack {
             return String(localized: "podcast_timer_wait_current_track")
         }
-        if player.sleepTimerRemaining != nil {
+        if sleepTimer.remaining != nil {
             return String(
                 format: String(localized: "podcast_timer_status_running_format"),
                 formattedRemaining
@@ -61,7 +62,7 @@ struct PodcastTimerSheet: View {
         if player.pendingSleepStopAfterCurrentTrack {
             return String(localized: "podcast_timer_status_pending_desc")
         }
-        if player.sleepTimerRemaining != nil {
+        if sleepTimer.remaining != nil {
             return String(localized: "podcast_timer_status_running_desc")
         }
         return String(localized: "podcast_timer_status_ready")
@@ -229,7 +230,7 @@ struct PodcastTimerSheet: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(currentStatusTitle)
-                        .font(player.sleepTimerRemaining != nil
+                        .font(sleepTimer.remaining != nil
                               ? .system(size: 22, weight: .bold, design: .monospaced)
                               : titleFont)
                         .foregroundStyle(hasActivePlan ? primaryTextColor : secondaryTextColor)
@@ -253,7 +254,7 @@ struct PodcastTimerSheet: View {
                     }
 
                     if player.pendingSleepStopAfterCurrentTrack ||
-                        (player.sleepTimerRemaining != nil && player.sleepTimerStopAfterCurrentTrack) {
+                        (sleepTimer.remaining != nil && player.sleepTimerStopAfterCurrentTrack) {
                         TimerStatusBadge(
                             text: String(localized: "podcast_timer_stop_after_track"),
                             tint: secondaryTextColor

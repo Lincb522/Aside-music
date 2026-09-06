@@ -199,7 +199,7 @@ extension SearchView {
                     selectedIds: $searchSelectedIds,
                     songs: currentSongs,
                     onBatchQueue: {
-                        let selected = currentSongs.filter { searchSelectedIds.contains($0.id) }
+                        let selected = currentSongs.filter { searchSelectedIds.contains($0.identityKey) }
                         SongBatchActionHelper.addToQueue(selected) {
                             isSearchSelectMode = false
                             searchSelectedIds.removeAll()
@@ -288,7 +288,7 @@ extension SearchView {
                     selectedIds: $searchSelectedIds,
                     songs: currentSongs,
                     onBatchQueue: {
-                        let selected = currentSongs.filter { searchSelectedIds.contains($0.id) }
+                        let selected = currentSongs.filter { searchSelectedIds.contains($0.identityKey) }
                         SongBatchActionHelper.addToQueue(selected) {
                             isSearchSelectMode = false
                             searchSelectedIds.removeAll()
@@ -377,7 +377,7 @@ extension SearchView {
                     selectedIds: $searchSelectedIds,
                     songs: currentSongs,
                     onBatchQueue: {
-                        let selected = currentSongs.filter { searchSelectedIds.contains($0.id) }
+                        let selected = currentSongs.filter { searchSelectedIds.contains($0.identityKey) }
                         SongBatchActionHelper.addToQueue(selected) {
                             isSearchSelectMode = false
                             searchSelectedIds.removeAll()

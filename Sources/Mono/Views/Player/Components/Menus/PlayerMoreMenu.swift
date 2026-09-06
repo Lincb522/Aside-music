@@ -16,10 +16,10 @@ extension View {
     }
 }
 
-/// 播放器右上角三点菜单 — 全屏遮罩 + 右上角弹出菜单
+/// Full-screen scrim and scrollable menu anchored below its trigger.
 struct PlayerMoreMenu: View {
     @Binding var isPresented: Bool
-    var anchorFrame: CGRect? = nil
+    let anchorFrame: CGRect
     var isDarkBackground: Bool = false
     /// 是否显示"沉浸模式"入口（沉浸模式内部的菜单不显示）
     var showImmersiveEntry: Bool = true
@@ -30,6 +30,7 @@ struct PlayerMoreMenu: View {
     var onTheme: (() -> Void)? = nil
     
     @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var sleepTimer = PlayerManager.shared.sleepAndFade
     @ObservedObject private var gameMode = GameModeManager.shared
     @ObservedObject private var eqManager = EQManager.shared
     @ObservedObject private var aiEqualizerAgent = AIEqualizerAgent.shared
@@ -40,6 +41,7 @@ struct PlayerMoreMenu: View {
     @ObservedObject private var downloadManager = DownloadManager.shared
     @ObservedObject private var lyricDownloadManager = LyricDownloadManager.shared
     @ObservedObject private var themeManager = PlayerThemeManager.shared
+    @Environment(\.layoutDirection) private var layoutDirection
     @AppStorage("enableKaraoke") private var enableKaraoke = false
     @AppStorage("showTranslation") private var showTranslation = true
     @State private var showTimerSheet = false
@@ -81,7 +83,7 @@ struct PlayerMoreMenu: View {
         if player.pendingSleepStopAfterCurrentTrack {
             return String(localized: "podcast_timer_pending_short")
         }
-        guard let remaining = player.sleepTimerRemaining else { return nil }
+        guard let remaining = sleepTimer.remaining else { return nil }
         let minutes = Int(remaining) / 60
         let seconds = Int(remaining) % 60
         return String(format: "%d:%02d", minutes, seconds)
@@ -148,8 +150,15 @@ struct PlayerMoreMenu: View {
         let _ = settings.globalThemeRevision
 
         GeometryReader { proxy in
-            let panelWidth = min(292, max(240, proxy.size.width - 24))
-            let panelMaxHeight = max(280, proxy.size.height - resolvedTopPadding - 12)
+            let panelWidth = min(292, max(0, proxy.size.width - 24))
+            let top = max(12, anchorFrame.maxY + 8)
+            let panelMaxHeight = max(0, proxy.size.height - top - max(12, proxy.safeAreaInsets.bottom))
+            let preferredX = layoutDirection == .rightToLeft ? anchorFrame.minX : anchorFrame.maxX - panelWidth
+            let left = min(max(12, preferredX), max(12, proxy.size.width - panelWidth - 12))
+            // Anchors use physical coordinates; position mirrors its x value in RTL.
+            let centerX = layoutDirection == .rightToLeft
+                ? proxy.size.width - left - panelWidth / 2
+                : left + panelWidth / 2
 
             ZStack(alignment: .topTrailing) {
                 Color.black.opacity(isDarkBackground ? 0.07 : 0.035)
@@ -168,11 +177,8 @@ struct PlayerMoreMenu: View {
                             menuPanel
                         }
                     }
-                    .frame(width: panelWidth)
-                    .fixedSize(horizontal: false, vertical: !presentsThemeInline)
-                    .frame(maxHeight: panelMaxHeight, alignment: .top)
-                    .padding(.top, resolvedTopPadding)
-                    .padding(.trailing, resolvedTrailingPadding(containerWidth: proxy.size.width))
+                    .frame(width: panelWidth, height: panelMaxHeight, alignment: .top)
+                    .position(x: centerX, y: top + panelMaxHeight / 2)
                     .zIndex(1)
                     .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .topTrailing)))
                 }
@@ -243,7 +249,6 @@ struct PlayerMoreMenu: View {
                 menuPanelContent
             }
             .scrollIndicators(.hidden)
-            .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -954,18 +959,6 @@ struct PlayerMoreMenu: View {
         .buttonStyle(.plain)
         .disabled(!isEnabled)
         .accessibilityValue(status ?? "")
-    }
-
-    private var resolvedTopPadding: CGFloat {
-        if let anchorFrame {
-            return max(12, anchorFrame.maxY + 8)
-        }
-        return DeviceLayout.headerTopPadding + 52
-    }
-
-    private func resolvedTrailingPadding(containerWidth: CGFloat) -> CGFloat {
-        guard let anchorFrame else { return 16 }
-        return max(12, containerWidth - anchorFrame.maxX)
     }
 
     private func closeMenu() {
