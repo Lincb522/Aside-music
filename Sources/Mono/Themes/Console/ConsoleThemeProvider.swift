@@ -63,8 +63,8 @@ struct ConsoleThemeProvider: GlobalThemeProvider {
     func makeLibraryView() -> AnyView { AnyView(ConsoleThemeRoot { LibraryView() }) }
     func makeProfileView() -> AnyView { AnyView(ConsoleThemeRoot { ProfileView() }) }
     func makeLocalHomeView() -> AnyView { AnyView(ConsoleThemeRoot { LocalModeHomeView() }) }
-    func makeLocalMusicView() -> AnyView { AnyView(ConsoleThemeRoot { LocalMusicView() }) }
-    func makeLocalLibraryView() -> AnyView { AnyView(ConsoleThemeRoot { LocalLibraryView() }) }
+    func makeLocalMusicView() -> AnyView { AnyView(ConsoleThemeRoot { LocalMusicView(isRoot: true) }) }
+    func makeLocalLibraryView() -> AnyView { AnyView(ConsoleThemeRoot { LocalLibraryView(isRoot: true) }) }
     func makeLocalProfileView() -> AnyView { AnyView(ConsoleThemeRoot { LocalModeProfileView() }) }
 }
 

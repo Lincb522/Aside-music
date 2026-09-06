@@ -40,14 +40,6 @@ struct AppearanceSettingsView: View {
 
             ScrollView {
                 LazyVStack(spacing: SettingsPageLayout.sectionSpacing) {
-                    SettingsScrollablePageHeader(
-                        title: String(localized: "settings_navigation_appearance_title"),
-                        eyebrow: String(localized: "settings_eyebrow_appearance"),
-                        icon: .playerTheme,
-                        signalModule: .appearance
-                    )
-                    .monoIconArtwork("themeStyle")
-
                     LazyVStack(spacing: SettingsPageLayout.sectionSpacing) {
                         globalThemeSection
                         if ThemeColorCustomization.supports(settings.globalThemeId) {

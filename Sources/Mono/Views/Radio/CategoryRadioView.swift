@@ -48,15 +48,6 @@ struct CategoryRadioView: View {
             } else {
                 ScrollView {
                     LazyVStack(spacing: ThemedPageStyle.listSpacing) {
-                        if SignalStyle.isActive {
-                            SignalNestedPageHeader(
-                                title: category.name,
-                                eyebrow: "RADIO DIRECTORY",
-                                icon: .radio,
-                                module: .radio
-                            )
-                        }
-
                         ForEach(Array(viewModel.radios.enumerated()), id: \.element.id) { index, radio in
                             NavigationLink(value: PodcastView.PodcastDestination.radioDetail(radio.id)) {
                                 radioRow(radio: radio, index: index + 1)
@@ -91,10 +82,10 @@ struct CategoryRadioView: View {
                 .iPadContentWidth(900)
             }
         }
-        .themedNavigationChrome(title: SignalStyle.isActive ? "" : category.name, eyebrow: "RADIO", icon: .radio)
+
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .monoNavigationBackButton()
+        .monoNavigationBackButton(title: category.name)
         .onAppear {
             if viewModel.radios.isEmpty {
                 viewModel.fetchRadios()

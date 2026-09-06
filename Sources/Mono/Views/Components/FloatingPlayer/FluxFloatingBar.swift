@@ -6,6 +6,7 @@ import SwiftUI
 /// 使用 SwiftUI Metal 原生渲染。真实播放时间控制覆盖范围，独立视觉时钟控制云雾流动。
 @MainActor
 struct FluxFloatingBar: View {
+    @Environment(\.floatingBarColorRevision) private var colorRevision
     @Binding var currentTab: Tab
 
     private let player = FloatingBarPlaybackModel.shared
@@ -124,6 +125,8 @@ struct FluxFloatingBar: View {
     }
 
     var body: some View {
+        let _ = colorRevision
+
         let _ = settings.globalThemeRevision
 
         ZStack {
@@ -864,6 +867,7 @@ private struct FluxTabContent: View {
 }
 
 private struct FluxLivingMaterial: View {
+    @Environment(\.floatingBarColorRevision) private var colorRevision
     let colors: [Color]
     let anchorTime: Double
     let anchorDate: Date
@@ -878,6 +882,8 @@ private struct FluxLivingMaterial: View {
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
+        let _ = colorRevision
+
         GeometryReader { proxy in
             if #available(iOS 17.0, *) {
                 FluxMetalMaterial(

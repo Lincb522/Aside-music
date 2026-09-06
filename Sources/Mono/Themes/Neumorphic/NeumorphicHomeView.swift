@@ -67,7 +67,7 @@ struct NeumorphicHomeView: View {
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbar(.hidden, for: .navigationBar)
             .task {
                 guard await MainTabActivationGate.waitUntilSettled(.home) else { return }
                 isHomeActive = true

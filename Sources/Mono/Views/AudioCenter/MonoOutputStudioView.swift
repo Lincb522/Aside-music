@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 import FFmpegSwiftSDK
 
 @MainActor
@@ -298,7 +299,7 @@ private struct MonoAcousticCatalogView: View {
 
 @MainActor
 private struct MonoAudioMonitorView: View {
-    @ObservedObject private var monitor = MonoAudioMonitorEngine.shared
+    private let monitor = MonoAudioMonitorEngine.shared
     @ObservedObject private var loudness = MonoLoudnessEngine.shared
     @ObservedObject private var eq = EQManager.shared
     @ObservedObject private var history = MonoDSPHistoryEngine.shared
@@ -324,110 +325,116 @@ private struct MonoAudioMonitorView: View {
     }
 
     private var spectrumSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionHeading(String(localized: "sound_monitor_spectrum"))
-            MonoSpectrumGraph(
-                primary: monitor.outputSpectrum,
-                secondary: monitor.inputSpectrum,
-                primaryColor: .white,
-                secondaryColor: .cyan.opacity(0.6)
-            )
-            .frame(height: layout.isCompactHeight ? 118 : 150)
+        MonoMonitorValueReader(initial: (monitor.inputSpectrum, monitor.outputSpectrum), updates: Publishers.CombineLatest(monitor.$inputSpectrum, monitor.$outputSpectrum).eraseToAnyPublisher()) { inputSpectrum, outputSpectrum in
+            VStack(alignment: .leading, spacing: 10) {
+                sectionHeading(String(localized: "sound_monitor_spectrum"))
+                MonoSpectrumGraph(
+                    primary: outputSpectrum,
+                    secondary: inputSpectrum,
+                    primaryColor: .white,
+                    secondaryColor: .cyan.opacity(0.6)
+                )
+                .frame(height: layout.isCompactHeight ? 118 : 150)
 
-            HStack(spacing: 16) {
-                graphLegend(color: .cyan.opacity(0.8), title: String(localized: "sound_monitor_input"))
-                graphLegend(color: .white, title: String(localized: "sound_monitor_output"))
-                Spacer()
-                Button {
-                    eq.toggleLoudnessMatchedReference()
-                } label: {
-                    Text(eq.isAuditioningReference ? "B" : "A")
-                        .font(.system(size: 12, weight: .heavy, design: .rounded))
-                        .foregroundStyle(.white)
-                        .frame(width: 32, height: 28)
-                        .background(Capsule().fill(Color.white.opacity(0.12)))
+                HStack(spacing: 16) {
+                    graphLegend(color: .cyan.opacity(0.8), title: String(localized: "sound_monitor_input"))
+                    graphLegend(color: .white, title: String(localized: "sound_monitor_output"))
+                    Spacer()
+                    Button {
+                        eq.toggleLoudnessMatchedReference()
+                    } label: {
+                        Text(eq.isAuditioningReference ? "B" : "A")
+                            .font(.system(size: 12, weight: .heavy, design: .rounded))
+                            .foregroundStyle(.white)
+                            .frame(width: 32, height: 28)
+                            .background(Capsule().fill(Color.white.opacity(0.12)))
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
         }
     }
 
     private var meterSection: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack {
-                sectionHeading(String(localized: "sound_monitor_meters"))
-                Spacer()
-                if monitor.meters.clippingRatio > 0 {
-                    HStack(spacing: 4) {
-                        MonoIcon(icon: .warning, size: 10, color: .orange)
-                        Text(String(localized: "sound_monitor_clipping"))
+        MonoMonitorValueReader(initial: monitor.meters, updates: monitor.$meters.eraseToAnyPublisher()) { meters in
+            VStack(alignment: .leading, spacing: 9) {
+                HStack {
+                    sectionHeading(String(localized: "sound_monitor_meters"))
+                    Spacer()
+                    if meters.clippingRatio > 0 {
+                        HStack(spacing: 4) {
+                            MonoIcon(icon: .warning, size: 10, color: .orange)
+                            Text(String(localized: "sound_monitor_clipping"))
+                        }
+                        .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                        .foregroundStyle(.orange)
                     }
+                    Button(String(localized: "sound_monitor_reset")) {
+                        monitor.resetMeters()
+                    }
+                    .buttonStyle(.plain)
                     .font(.system(size: 9.5, weight: .bold, design: .rounded))
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(.white.opacity(0.46))
                 }
-                Button(String(localized: "sound_monitor_reset")) {
-                    monitor.resetMeters()
+                LazyVGrid(
+                    columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())],
+                    spacing: 12
+                ) {
+                    metric("LUFS-M", meters.momentaryLUFS, "LUFS")
+                    metric("LUFS-S", meters.shortTermLUFS, "LUFS")
+                    metric("TRUE PEAK", meters.estimatedTruePeakDBTP, "dBTP")
+                    metric(String(localized: "sound_monitor_phase"), meters.phaseCorrelation, "")
+                    metric(String(localized: "sound_monitor_mono"), meters.monoCompatibility * 100, "%")
+                    metric(String(localized: "sound_monitor_width"), meters.stereoWidth, "")
                 }
-                .buttonStyle(.plain)
-                .font(.system(size: 9.5, weight: .bold, design: .rounded))
-                .foregroundStyle(.white.opacity(0.46))
-            }
-            LazyVGrid(
-                columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())],
-                spacing: 12
-            ) {
-                metric("LUFS-M", monitor.meters.momentaryLUFS, "LUFS")
-                metric("LUFS-S", monitor.meters.shortTermLUFS, "LUFS")
-                metric("TRUE PEAK", monitor.meters.estimatedTruePeakDBTP, "dBTP")
-                metric(String(localized: "sound_monitor_phase"), monitor.meters.phaseCorrelation, "")
-                metric(String(localized: "sound_monitor_mono"), monitor.meters.monoCompatibility * 100, "%")
-                metric(String(localized: "sound_monitor_width"), monitor.meters.stereoWidth, "")
             }
         }
     }
 
     private var chainSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionHeading(String(localized: "sound_monitor_chain"))
-            MonoCurveGraph(
-                frequencies: monitor.chain.mode.centerFrequencies,
-                curves: [monitor.chain.userCurve, monitor.chain.deviceCurve, monitor.chain.combinedCurve]
-            )
-            .frame(height: 112)
+        MonoMonitorValueReader(initial: monitor.chain, updates: monitor.$chain.eraseToAnyPublisher()) { chain in
+            VStack(alignment: .leading, spacing: 10) {
+                sectionHeading(String(localized: "sound_monitor_chain"))
+                MonoCurveGraph(
+                    frequencies: chain.mode.centerFrequencies,
+                    curves: [chain.userCurve, chain.deviceCurve, chain.combinedCurve]
+                )
+                .frame(height: 112)
 
-            ScrollView(.horizontal) {
-                HStack(spacing: 7) {
-                    ForEach(Array(monitor.chain.activeStages.enumerated()), id: \.offset) { index, stage in
-                        Text(stage)
-                            .font(.system(size: 9.5, weight: .bold, design: .rounded))
-                            .foregroundStyle(.white.opacity(0.72))
-                        if index < monitor.chain.activeStages.count - 1 {
-                            MonoIcon(icon: .chevronRight, size: 8, color: .white.opacity(0.26))
+                ScrollView(.horizontal) {
+                    HStack(spacing: 7) {
+                        ForEach(Array(chain.activeStages.enumerated()), id: \.offset) { index, stage in
+                            Text(stage)
+                                .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                                .foregroundStyle(.white.opacity(0.72))
+                            if index < chain.activeStages.count - 1 {
+                                MonoIcon(icon: .chevronRight, size: 8, color: .white.opacity(0.26))
+                            }
                         }
                     }
                 }
-            }
-            .scrollIndicators(.hidden)
+                .scrollIndicators(.hidden)
 
-            HStack {
-                Text(monitor.chain.deviceName)
-                Spacer()
-                Text(String(format: String(localized: "sound_monitor_headroom_value"), monitor.chain.estimatedHeadroomDB))
-            }
-            .font(.system(size: 10.5, weight: .medium, design: .rounded))
-            .foregroundStyle(.white.opacity(0.46))
+                HStack {
+                    Text(chain.deviceName)
+                    Spacer()
+                    Text(String(format: String(localized: "sound_monitor_headroom_value"), chain.estimatedHeadroomDB))
+                }
+                .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                .foregroundStyle(.white.opacity(0.46))
 
-            HStack(spacing: 16) {
-                Button(String(localized: "sound_history_checkpoint")) { history.checkpoint() }
-                Button(String(localized: "sound_history_undo")) { history.undo() }
-                    .disabled(!history.canUndo)
-                Button(String(localized: "sound_history_redo")) { history.redo() }
-                    .disabled(!history.canRedo)
-                Spacer()
+                HStack(spacing: 16) {
+                    Button(String(localized: "sound_history_checkpoint")) { history.checkpoint() }
+                    Button(String(localized: "sound_history_undo")) { history.undo() }
+                        .disabled(!history.canUndo)
+                    Button(String(localized: "sound_history_redo")) { history.redo() }
+                        .disabled(!history.canRedo)
+                    Spacer()
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.66))
             }
-            .buttonStyle(.plain)
-            .font(.system(size: 10.5, weight: .bold, design: .rounded))
-            .foregroundStyle(.white.opacity(0.66))
         }
     }
 
@@ -783,5 +790,24 @@ private struct MonoCurveGraph: View {
         }
         .background(Color.black.opacity(0.14))
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+
+/// Observes one monitor output without invalidating the surrounding controls.
+private struct MonoMonitorValueReader<Value, Content: View>: View {
+    @State private var snapshot: Value
+    private let updates: AnyPublisher<Value, Never>
+    private let content: (Value) -> Content
+
+    init(initial: Value, updates: AnyPublisher<Value, Never>, @ViewBuilder content: @escaping (Value) -> Content) {
+        _snapshot = State(initialValue: initial)
+        self.updates = updates
+        self.content = content
+    }
+
+    var body: some View {
+        content(snapshot)
+            .onReceive(updates) { snapshot = $0 }
     }
 }

@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 
 private struct SongRowLoadingIndicator: View {
@@ -35,8 +36,10 @@ private struct SongRowLoadingIndicator: View {
 
 struct SongListRow: View {
     
-    @ObservedObject private var playback = SongRowPlaybackModel.shared
-    @ObservedObject private var rowDownloads = SongRowDownloadModel.shared
+    private let playback = SongRowPlaybackModel.shared
+    private let rowDownloads = SongRowDownloadModel.shared
+    @State private var observedPlayback: SongRowPlaybackModel.Presentation?
+    @State private var observedDownload: (key: String, isDownloaded: Bool)?
     @ObservedObject var unavailableSongs = UnavailableSongsManager.shared
     @ObservedObject private var settings = SettingsManager.shared
     @ObservedObject private var likeManager = LikeManager.shared
@@ -61,11 +64,20 @@ struct SongListRow: View {
     @State private var showQQAlbumDetail = false
     
     var isCurrent: Bool {
-        playback.isCurrent(song: song)
+        playbackPresentation.isCurrent
     }
 
     private var isLoadingPlayback: Bool {
-        playback.isLoading(song: song)
+        playbackPresentation.isLoading
+    }
+
+    private var playbackPresentation: SongRowPlaybackModel.Presentation {
+        if let observedPlayback,
+           observedPlayback.songID == song.id,
+           observedPlayback.playbackIdentity == PlayerManager.playbackIdentityKey(for: song) {
+            return observedPlayback
+        }
+        return playback.presentation(for: song)
     }
 
     private var isPlaybackEmphasized: Bool {
@@ -149,7 +161,10 @@ struct SongListRow: View {
     }
 
     private var isDownloaded: Bool {
-        rowDownloads.isDownloaded(song: song)
+        if let observedDownload, observedDownload.key == DownloadManager.makeKey(for: song) {
+            return observedDownload.isDownloaded
+        }
+        return rowDownloads.isDownloaded(song: song)
     }
 
     private var isLiked: Bool {
@@ -407,7 +422,7 @@ struct SongListRow: View {
                                 if isLoadingPlayback {
                                     SongRowLoadingIndicator(color: .white)
                                 } else {
-                                    PlayingVisualizerView(isAnimating: playback.isPlaying, color: .white)
+                                    PlayingVisualizerView(isAnimating: playbackPresentation.isPlaying, color: .white)
                                         .scaleEffect(0.82)
                                 }
                             }
@@ -478,6 +493,7 @@ struct SongListRow: View {
     var body: some View {
         let _ = settings.globalThemeRevision
         let coverSize = rowCoverSize
+        let downloadKey = DownloadManager.makeKey(for: song)
 
         Group {
             if usesArtistStyle {
@@ -511,7 +527,7 @@ struct SongListRow: View {
                                         .frame(width: 16, height: 16)
                                 } else if isAsideTheme && isCurrent {
                                     // aside：正在播放时序号位换成律动条，避免高亮元素压住序号
-                                    PlayingVisualizerView(isAnimating: playback.isPlaying, color: .monoAccent)
+                                    PlayingVisualizerView(isAnimating: playbackPresentation.isPlaying, color: .monoAccent)
                                         .frame(width: 16, height: 16)
                                 } else {
                                     Text(String(format: "%02d", index + 1))
@@ -566,7 +582,7 @@ struct SongListRow: View {
                                         if isLoadingPlayback {
                                             SongRowLoadingIndicator(color: .white)
                                         } else {
-                                            PlayingVisualizerView(isAnimating: playback.isPlaying, color: .white)
+                                            PlayingVisualizerView(isAnimating: playbackPresentation.isPlaying, color: .white)
                                                 .scaleEffect(0.85)
                                         }
                                     }
@@ -647,6 +663,16 @@ struct SongListRow: View {
                 AddToPlaylistSheet(song: pendingSong)
             }
         }
+        .onReceive(playback.presentationPublisher(for: song)) { presentation in
+            if observedPlayback != presentation {
+                observedPlayback = presentation
+            }
+        }
+        .onReceive(rowDownloads.$downloadedSongIds.map { $0.contains(downloadKey) }.removeDuplicates()) { downloaded in
+            if observedDownload?.key != downloadKey || observedDownload?.isDownloaded != downloaded {
+                observedDownload = (downloadKey, downloaded)
+            }
+        }
         .monoSheet(isPresented: $showQQArtistDetail, preset: .detail){
             if let artistMid = song.qqArtistMid, let artistName = song.ar?.first?.name {
                 NavigationStack {
@@ -675,7 +701,7 @@ struct SongListRow: View {
                     } else if isLoadingPlayback {
                         SongRowLoadingIndicator(color: .white)
                     } else if isCurrent {
-                        PlayingVisualizerView(isAnimating: playback.isPlaying, color: .white)
+                        PlayingVisualizerView(isAnimating: playbackPresentation.isPlaying, color: .white)
                             .frame(width: 16, height: 16)
                     }
                     VStack(alignment: .leading, spacing: 5) {

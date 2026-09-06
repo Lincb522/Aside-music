@@ -119,6 +119,25 @@ final class AIProviderConfigurationStore: ObservableObject {
         )
     }
 
+    func requestContext(usePublishedConfiguration: Bool = true) throws -> AIProviderRequestContext {
+        if !usePublishedConfiguration {
+            return AIProviderRequestContext(
+                configuration: configuration,
+                apiKey: apiKey,
+                usageLimits: draftUsageLimits,
+                persistsDiscoveredModel: true
+            )
+        }
+        return try AIProviderRequestContext.resolve(personal: AIPersonalProviderStore.shared.settings) {
+            AIProviderRequestContext(
+                configuration: requestConfiguration,
+                apiKey: requestAPIKey,
+                usageLimits: usageLimits,
+                persistsDiscoveredModel: !isUsingRemoteConfiguration
+            )
+        }
+    }
+
     var requestConfiguration: AIProviderConfiguration {
         guard let remote = activeRemoteConfiguration else { return configuration }
         let local = configuration

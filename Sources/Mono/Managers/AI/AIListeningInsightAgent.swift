@@ -120,11 +120,11 @@ final class AIListeningInsightAgent: ObservableObject {
             return cached
         }
 
-        let configuration = try await resolvedProviderConfiguration()
+        let requestContext = try await resolvedProviderRequestContext()
         try Task.checkCancellation()
         let insight = try await generateInsight(
             for: input,
-            configuration: configuration,
+            requestContext: requestContext,
             managedAgent: managedAgent
         )
         storeInMemory(insight, for: key)
@@ -157,9 +157,10 @@ final class AIListeningInsightAgent: ObservableObject {
 
     private func generateInsight(
         for input: AIListeningInsightInput,
-        configuration: AIProviderConfiguration,
+        requestContext: AIProviderRequestContext,
         managedAgent: AppAgentConfiguration?
     ) async throws -> AIListeningInsightResult {
+        let configuration = requestContext.configuration
         let traceStartedAt = Date()
         let bundledUserPrompt = try AIListeningInsightPrompt.userPrompt(input: input)
         let maximumAttempts = managedAgent?.resolvedMaxAttempts(fallback: 2) ?? 2
@@ -224,7 +225,9 @@ final class AIListeningInsightAgent: ObservableObject {
             let attemptStartedAt = Date()
             do {
                 try Task.checkCancellation()
-                reservation = try usageLimiter.reserveRequest(limits: providerStore.usageLimits)
+                if let limits = requestContext.usageLimits {
+                    reservation = try usageLimiter.reserveRequest(limits: limits)
+                }
                 AIAgentTraceStore.shared.append(
                     traceID,
                     category: .reasoning,
@@ -245,7 +248,7 @@ final class AIListeningInsightAgent: ObservableObject {
                     systemPrompt: systemPrompt,
                     userPrompt: userPrompt,
                     configuration: configuration,
-                    apiKey: providerStore.requestAPIKey,
+                    apiKey: requestContext.apiKey,
                     minimumTimeout: minimumTimeout,
                     options: generationOptions
                 )
@@ -396,7 +399,7 @@ final class AIListeningInsightAgent: ObservableObject {
                 }
                 let delay = AIAgentRuntimePolicy.retryDelay(
                     after: attempt,
-                    minimumRequestInterval: providerStore.usageLimits.minimumRequestInterval
+                    minimumRequestInterval: requestContext.usageLimits?.minimumRequestInterval ?? 0
                 )
                 AIAgentTraceStore.shared.append(
                     traceID,
@@ -479,10 +482,13 @@ final class AIListeningInsightAgent: ObservableObject {
     // MARK: - 提供商与解析
 
     /// 解析可用的提供商配置：校验 API Key；未指定模型时拉取模型列表选默认或首个可用模型。
-    private func resolvedProviderConfiguration() async throws -> AIProviderConfiguration {
-        providerStore.refreshRemoteConfigurationInBackgroundIfNeeded()
-        var configuration = providerStore.requestConfiguration
-        let apiKey = providerStore.requestAPIKey
+    private func resolvedProviderRequestContext() async throws -> AIProviderRequestContext {
+        if !AIPersonalProviderStore.shared.settings.isEnabled {
+            providerStore.refreshRemoteConfigurationInBackgroundIfNeeded()
+        }
+        var context = try providerStore.requestContext()
+        let configuration = context.configuration
+        let apiKey = context.apiKey
         if configuration.wireProtocol.requiresAPIKey,
            apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             throw AIEqualizerError.missingAPIKey
@@ -491,7 +497,7 @@ final class AIListeningInsightAgent: ObservableObject {
         let configuredModel = configuration.model.trimmingCharacters(in: .whitespacesAndNewlines)
         guard configuredModel.isEmpty,
               configuration.wireProtocol != .appleIntelligence else {
-            return configuration
+            return context
         }
 
         let models = try await client.fetchModels(
@@ -502,13 +508,11 @@ final class AIListeningInsightAgent: ObservableObject {
         guard let selected = models.contains(preferred) ? preferred : models.first else {
             throw AIEqualizerError.modelUnavailable
         }
-        if providerStore.isUsingRemoteConfiguration {
-            configuration.model = selected
-            return configuration
+        context.configuration.model = selected
+        if context.persistsDiscoveredModel, providerStore.configuration == configuration {
+            providerStore.model = selected
         }
-        providerStore.model = selected
-        configuration = providerStore.requestConfiguration
-        return configuration
+        return context
     }
 
     /// 容错解析模型输出：剥离 Markdown 代码围栏后截取最外层 JSON 对象再解码。

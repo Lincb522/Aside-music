@@ -71,13 +71,14 @@ struct CapsuleUnifiedFloatingBar: View {
 
 /// 迷你播放条：封面、滚动标题、播放/切歌控制，点击展开全屏播放器。
 private struct CapsuleMiniPlayerStrip: View {
+    @ObservedObject private var lyricState = FloatingBarLyricModel.shared
     let song: Song
 
     @State private var showPlaylist = false
     @ObservedObject private var player = FloatingBarPlaybackModel.shared
 
     private var subtitleText: String {
-        if let text = player.lyricLineText {
+        if let text = lyricState.lineText {
             return text
         }
         return song.artistName
@@ -118,7 +119,7 @@ private struct CapsuleMiniPlayerStrip: View {
                         speed: 22
                     )
                     .frame(height: 14)
-                        .animation(.easeInOut(duration: 0.22), value: player.lyricLineText)
+                        .animation(.easeInOut(duration: 0.22), value: lyricState.lineText)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .swipeSkipTextMotion()

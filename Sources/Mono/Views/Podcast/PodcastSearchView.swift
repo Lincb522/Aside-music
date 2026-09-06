@@ -15,16 +15,6 @@ struct PodcastSearchView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                if SignalStyle.isActive {
-                    SignalNestedPageHeader(
-                        title: String(localized: "podcast_title"),
-                        eyebrow: "RADIO SEARCH",
-                        icon: .magnifyingGlass,
-                        module: .search
-                    )
-                    .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-                }
-
                 // 搜索栏
                 searchBar
                     .padding(.top, 8)
@@ -47,10 +37,10 @@ struct PodcastSearchView: View {
             }
             .iPadContentWidth(900)
         }
-        .themedNavigationChrome(title: SignalStyle.isActive ? "" : String(localized: "podcast_title"), eyebrow: "PODCAST", icon: .magnifyingGlass)
+
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .monoNavigationBackButton()
+        .monoNavigationBackButton(title: String(localized: "podcast_title"))
         .onAppear {
             viewModel.fetchHotRadios()
         }

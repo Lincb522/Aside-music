@@ -71,7 +71,7 @@ struct MinimalWhiteLocalHomeView: View {
 struct MinimalWhiteLocalMusicView: View {
     var body: some View {
         MinimalWhiteThemeRoot {
-            LocalMusicView()
+            LocalMusicView(isRoot: true)
         }
     }
 }
@@ -79,7 +79,7 @@ struct MinimalWhiteLocalMusicView: View {
 struct MinimalWhiteLocalLibraryView: View {
     var body: some View {
         MinimalWhiteThemeRoot {
-            LocalLibraryView()
+            LocalLibraryView(isRoot: true)
         }
     }
 }

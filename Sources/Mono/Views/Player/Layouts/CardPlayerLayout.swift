@@ -6,8 +6,8 @@ struct CardPlayerLayout: View {
     @Environment(\.dismiss) var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject var player = PlayerManager.shared
-    @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
-    @ObservedObject var lyricVM = LyricViewModel.shared
+    private let timePublisher = PlaybackTimePublisher.shared
+    private let lyricVM = LyricViewModel.shared
     @ObservedObject var downloadStatus = DownloadedSongStatusModel.shared
     
     // MARK: - State
@@ -298,60 +298,62 @@ extension CardPlayerLayout {
     }
     
     var lyricsView: some View {
-        VStack(spacing: 0) {
-            Text("Lyrics")
-                .font(.system(size: 14, weight: .bold))
-                .foregroundColor(.secondary)
-                .padding(.top, 20)
-                .padding(.bottom, 10)
-            
-            if lyricVM.hasLyrics && !lyricVM.lyrics.isEmpty {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        VStack(spacing: 20) {
-                            Color.clear.frame(height: 20)
-                            ForEach(Array(lyricVM.lyrics.enumerated()), id: \.element.id) { index, line in
-                                let isCurrent = index == lyricVM.currentLineIndex
-                                Text(line.text.monoLyricDisplayText)
-                                    .font(
-                                        MonoPlayerFont.activeFont(
-                                            size: isCurrent ? 22 : 18,
-                                            weight: isCurrent ? .bold : .medium,
-                                            fallback: .system(
+        PlayerLyricReader { _ in
+            VStack(spacing: 0) {
+                Text("Lyrics")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.secondary)
+                    .padding(.top, 20)
+                    .padding(.bottom, 10)
+
+                if lyricVM.hasLyrics && !lyricVM.lyrics.isEmpty {
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            VStack(spacing: 20) {
+                                Color.clear.frame(height: 20)
+                                ForEach(Array(lyricVM.lyrics.enumerated()), id: \.element.id) { index, line in
+                                    let isCurrent = index == lyricVM.currentLineIndex
+                                    Text(line.text.monoLyricDisplayText)
+                                        .font(
+                                            MonoPlayerFont.activeFont(
                                                 size: isCurrent ? 22 : 18,
                                                 weight: isCurrent ? .bold : .medium,
-                                                design: .rounded
+                                                fallback: .system(
+                                                    size: isCurrent ? 22 : 18,
+                                                    weight: isCurrent ? .bold : .medium,
+                                                    design: .rounded
+                                                )
                                             )
                                         )
-                                    )
-                                    .foregroundColor(isCurrent ? .primary : .secondary.opacity(0.6))
-                                    .multilineTextAlignment(.center)
-                                    .scaleEffect(isCurrent ? 1.05 : 1.0)
-                                    .animation(.spring(), value: isCurrent)
-                                    .id(index)
-                                    .onTapWithHaptic { player.seek(to: line.time) }
+                                        .foregroundColor(isCurrent ? .primary : .secondary.opacity(0.6))
+                                        .multilineTextAlignment(.center)
+                                        .scaleEffect(isCurrent ? 1.05 : 1.0)
+                                        .animation(.spring(), value: isCurrent)
+                                        .id(index)
+                                        .onTapWithHaptic { player.seek(to: line.time) }
+                                }
+                                Color.clear.frame(height: 60)
                             }
-                            Color.clear.frame(height: 60)
+                            .padding(.horizontal, 24)
                         }
-                        .padding(.horizontal, 24)
+                        .scrollIndicators(.hidden)
+                        .onChange(of: lyricVM.currentLineIndex) { _, newIndex in
+                            withAnimation { proxy.scrollTo(newIndex, anchor: .center) }
+                        }
+                        .onAppear {
+                            proxy.monoRestoreLyricPosition { lyricVM.currentLineIndex }
+                        }
                     }
-                    .scrollIndicators(.hidden)
-                    .onChange(of: lyricVM.currentLineIndex) { _, newIndex in
-                        withAnimation { proxy.scrollTo(newIndex, anchor: .center) }
-                    }
-                    .onAppear {
-                        proxy.monoRestoreLyricPosition { lyricVM.currentLineIndex }
-                    }
+                } else {
+                    Spacer()
+                    Text("Pure Music")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                    Spacer()
                 }
-            } else {
-                Spacer()
-                Text("Pure Music")
-                    .font(.headline)
-                    .foregroundColor(.secondary)
-                Spacer()
             }
+            .monoGlass(cornerRadius: 32)
         }
-        .monoGlass(cornerRadius: 32)
     }
 }
 
@@ -382,41 +384,43 @@ extension CardPlayerLayout {
             .padding(.top, 30) // Extra padding for overlap
             
             // Progress
-            VStack(spacing: 8) {
-                GeometryReader { barGeo in
-                    ZStack(alignment: .leading) {
-                        Capsule()
-                            .fill(Color.secondary.opacity(0.1))
-                            .frame(height: 6)
-                        
-                        Capsule()
-                            .fill(dominantColor)
-                            .frame(
-                                width: barGeo.size.width * CGFloat(
-                                    timePublisher.duration > 0
-                                        ? min(max(timePublisher.currentTime / timePublisher.duration, 0), 1)
-                                        : 0
-                                ),
-                                height: 6
-                            )
+            PlaybackTimeReader { _, _ in
+                VStack(spacing: 8) {
+                    GeometryReader { barGeo in
+                        ZStack(alignment: .leading) {
+                            Capsule()
+                                .fill(Color.secondary.opacity(0.1))
+                                .frame(height: 6)
+
+                            Capsule()
+                                .fill(dominantColor)
+                                .frame(
+                                    width: barGeo.size.width * CGFloat(
+                                        timePublisher.duration > 0
+                                            ? min(max(timePublisher.currentTime / timePublisher.duration, 0), 1)
+                                            : 0
+                                    ),
+                                    height: 6
+                                )
+                        }
+                        .gesture(
+                            DragGesture()
+                                .onChanged { value in
+                                    let percent = value.location.x / barGeo.size.width
+                                    player.seek(to: percent * timePublisher.duration)
+                                }
+                        )
                     }
-                    .gesture(
-                        DragGesture()
-                            .onChanged { value in
-                                let percent = value.location.x / barGeo.size.width
-                                player.seek(to: percent * timePublisher.duration)
-                            }
-                    )
+                    .frame(height: 12)
+
+                    HStack {
+                        Text(formatTime(timePublisher.currentTime))
+                        Spacer()
+                        Text(formatTime(timePublisher.duration))
+                    }
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundColor(.secondary)
                 }
-                .frame(height: 12)
-                
-                HStack {
-                    Text(formatTime(timePublisher.currentTime))
-                    Spacer()
-                    Text(formatTime(timePublisher.duration))
-                }
-                .font(.system(size: 11, weight: .bold, design: .monospaced))
-                .foregroundColor(.secondary)
             }
         }
         .padding(24)

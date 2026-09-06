@@ -316,8 +316,11 @@ struct CinemaHeroCarousel: View {
         let corner: CGFloat = DeviceLayout.usesExpandedLayout ? 22 : 18
 
         return ZStack(alignment: .topLeading) {
-            // Wide banner shown in full at its natural height — no side cropping
-            HomeBannerArtwork(url: banner.imageUrl, cornerRadius: corner) {
+            HomeBannerArtwork(
+                url: banner.imageUrl,
+                cornerRadius: corner,
+                contentMode: GlobalThemeId.persistedOrDefault == .default ? .fill : .fit
+            ) {
                 RoundedRectangle(cornerRadius: corner, style: .continuous)
                     .fill(Color.monoGlassTint)
             }

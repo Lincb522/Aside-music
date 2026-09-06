@@ -11,7 +11,7 @@ extension LibraryViewModel {
             fetchQQCategories()
         }
         // 加载歌单
-        if !qqSquarePlaylists.isEmpty { return }
+        if !qqSquarePlaylists.isEmpty || qqSquareRequest.isRunning { return }
         loadQQSquarePlaylists(reset: true)
     }
 
@@ -20,28 +20,36 @@ extension LibraryViewModel {
     }
     
     func fetchQQCategories() {
-        apiService.fetchQQPlaylistCategories()
+        guard !qqCategoryRequest.isRunning else { return }
+        let request = qqCategoryRequest.begin()
+        qqCategoryRequest.cancellable = apiService.fetchQQPlaylistCategories()
             .receive(on: DispatchQueue.main)
-            .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] categories in
-                self?.qqPlaylistCategories = categories
+            .sink(receiveCompletion: { [weak self] _ in
+                self?.qqCategoryRequest.finish(request)
+            }, receiveValue: { [weak self] categories in
+                guard let self, self.qqCategoryRequest.isCurrent(request) else { return }
+                self.qqPlaylistCategories = categories
             })
-            .store(in: &cancellables)
     }
     
     func loadQQSquarePlaylists(categoryId: Int? = nil, reset: Bool = false) {
         let catId = categoryId ?? selectedQQCategoryId
         
         if reset {
+            qqSquareRequest.cancel()
+            isLoadingMoreQQSquare = false
             qqSquarePlaylists = []
             qqSquarePage = 0
             hasMoreQQSquare = true
             isLoadingQQSquare = true
         } else {
+            guard !qqSquareRequest.isRunning else { return }
             guard hasMoreQQSquare, !isLoadingMoreQQSquare else { return }
             isLoadingMoreQQSquare = true
         }
         
-        apiService.fetchQQPlaylistsByCategory(
+        let request = qqSquareRequest.begin()
+        qqSquareRequest.cancellable = apiService.fetchQQPlaylistsByCategory(
             categoryId: catId,
             sortId: qqSquareSortId,
             page: qqSquarePage,
@@ -49,10 +57,12 @@ extension LibraryViewModel {
         )
         .receive(on: DispatchQueue.main)
         .sink(receiveCompletion: { [weak self] _ in
-            self?.isLoadingQQSquare = false
-            self?.isLoadingMoreQQSquare = false
+            guard let self, self.qqSquareRequest.isCurrent(request) else { return }
+            self.qqSquareRequest.finish(request)
+            self.isLoadingQQSquare = false
+            self.isLoadingMoreQQSquare = false
         }, receiveValue: { [weak self] result in
-            guard let self = self else { return }
+            guard let self, self.qqSquareRequest.isCurrent(request) else { return }
             if reset {
                 self.qqSquarePlaylists = result.playlists
             } else {
@@ -63,7 +73,7 @@ extension LibraryViewModel {
             let cacheKey = "qq_square_playlists_\(catId)"
             OptimizedCacheManager.shared.setObject(self.qqSquarePlaylists, forKey: cacheKey)
         })
-        .store(in: &cancellables)
+
     }
     
     func loadMoreQQSquarePlaylists() {

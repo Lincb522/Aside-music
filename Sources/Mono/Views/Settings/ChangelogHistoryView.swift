@@ -6,6 +6,8 @@ struct ChangelogHistoryView: View {
     @ObservedObject private var settings = SettingsManager.shared
     @State private var releases: [AppChangelogRelease]?
     @State private var loadFailed = false
+    @State private var reloadID = 0
+    @State private var parsedNotes: [String: [ChangelogNoteSection]] = [:]
     @State private var expandedIDs: Set<String> = []
 
     private var currentBuild: String {
@@ -62,19 +64,12 @@ struct ChangelogHistoryView: View {
         .asideSettingsDetailChrome(String(localized: "更新日志"))
         // 版本号/日期用等宽字体，关掉全局 .rounded 覆盖
         .compatFontDesign(nil)
-        .task { await load() }
+        .task(id: reloadID) { await load() }
     }
 
     private var content: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                SettingsScrollablePageHeader(
-                    title: String(localized: "更新日志"),
-                    eyebrow: String(localized: "settings_eyebrow_changelog"),
-                    icon: .history,
-                    signalModule: .changelog
-                )
-
                 contentState
                 FloatingBarBottomSpacer()
             }
@@ -98,7 +93,7 @@ struct ChangelogHistoryView: View {
                 stateHint(String(localized: "更新日志加载失败"))
 
                 Button {
-                    Task { await load(force: true) }
+                    reloadID &+= 1
                 } label: {
                     Text(String(localized: "action_retry"))
                         .font(.system(size: 14, weight: .semibold, design: .rounded))
@@ -191,6 +186,9 @@ struct ChangelogHistoryView: View {
     ) -> some View {
         Button {
             HapticManager.shared.light()
+            if !expanded, parsedNotes[release.id] == nil {
+                parsedNotes[release.id] = ChangelogNotesParser.parse(release.releaseNotes)
+            }
             withAnimation(.spring(response: 0.38, dampingFraction: 0.88)) {
                 if expanded {
                     expandedIDs.remove(release.id)
@@ -238,7 +236,7 @@ struct ChangelogHistoryView: View {
 
     private func notesBody(_ release: AppChangelogRelease) -> some View {
         VStack(alignment: .leading, spacing: 18) {
-            ForEach(ChangelogNotesParser.parse(release.releaseNotes)) { section in
+            ForEach(parsedNotes[release.id] ?? []) { section in
                 VStack(alignment: .leading, spacing: 9) {
                     if let title = section.title {
                         Text(title)
@@ -269,16 +267,19 @@ struct ChangelogHistoryView: View {
 
     // MARK: - 数据
 
-    private func load(force: Bool = false) async {
-        if force {
-            releases = nil
-            loadFailed = false
-        }
-        guard releases == nil else { return }
+    private func load() async {
+        guard releases == nil, !Task.isCancelled else { return }
+        loadFailed = false
 
-        guard let fetched = await ChangelogManager.shared.fetchAllReleases() else {
+        let fetched = await ChangelogManager.shared.fetchAllReleases()
+        guard !Task.isCancelled else { return }
+        guard let fetched else {
             loadFailed = true
             return
+        }
+        parsedNotes = [:]
+        if let first = fetched.first {
+            parsedNotes[first.id] = ChangelogNotesParser.parse(first.releaseNotes)
         }
         withAnimation(.easeOut(duration: 0.24)) {
             releases = fetched

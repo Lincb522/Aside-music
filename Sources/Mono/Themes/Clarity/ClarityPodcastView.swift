@@ -4,7 +4,8 @@ import SwiftUI
 /// 封面、分类、节目、电台榜与广播均由本页布局，不复用标准播客页骨架。
 struct ClarityPodcastView: View {
     @StateObject private var model = PodcastViewModel.shared
-    @ObservedObject private var player = PlayerManager.shared
+    private let player = PlayerManager.shared
+    @State private var podcastHistory = PlayerManager.shared.podcastHistory
 
     @State private var radioIDToOpen = 0
     @State private var showsRadioPlayer = false
@@ -101,6 +102,7 @@ struct ClarityPodcastView: View {
                 }
             }
         }
+        .onReceive(player.$podcastHistory) { podcastHistory = $0 }
         .task {
             await model.ensureDataLoadedAfterTabTransition(reason: "clarity podcast")
         }
@@ -429,7 +431,7 @@ struct ClarityPodcastView: View {
 
     private var uniqueHistory: [Song] {
         var seen = Set<String>()
-        return player.podcastHistory.filter { song in
+        return podcastHistory.filter { song in
             let key = "\(song.musicSource.rawValue):\(song.id)"
             return seen.insert(key).inserted
         }

@@ -64,7 +64,7 @@ struct MujiLocalHomeView: View {
 struct MujiLocalMusicView: View {
     var body: some View {
         MujiThemeRoot {
-            LocalMusicView()
+            LocalMusicView(isRoot: true)
         }
     }
 }
@@ -72,7 +72,7 @@ struct MujiLocalMusicView: View {
 struct MujiLocalLibraryView: View {
     var body: some View {
         MujiThemeRoot {
-            LocalLibraryView()
+            LocalLibraryView(isRoot: true)
         }
     }
 }

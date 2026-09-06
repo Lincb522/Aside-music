@@ -86,10 +86,10 @@ struct ChatDetailView: View {
                 .themedPageSurface(cornerRadius: MangaStyle.isActive ? MangaStyle.cardRadius + 4 : 16, elevated: false)
             }
         }
-        .themedNavigationChrome(title: nickname, eyebrow: "CHAT", icon: .comment)
+
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .monoNavigationBackButton()
+        .monoNavigationBackButton(title: nickname)
         .onAppear { viewModel.fetchHistory(uid: userId) }
     }
 
@@ -235,17 +235,23 @@ class ChatDetailViewModel: ObservableObject {
     @Published var isLoading = false
     
     private var cancellables = Set<AnyCancellable>()
+    private var historyRequest: AnyCancellable?
+    private var historyRequestID = 0
     
     func fetchHistory(uid: Int) {
+        historyRequestID += 1
+        let requestID = historyRequestID
+        historyRequest?.cancel()
         isLoading = true
-        APIService.shared.fetchPrivateHistory(uid: uid)
+        historyRequest = APIService.shared.fetchPrivateHistory(uid: uid)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] _ in
-                self?.isLoading = false
+                guard let self, self.historyRequestID == requestID else { return }
+                self.isLoading = false
             }, receiveValue: { [weak self] msgs in
-                self?.messages = msgs.reversed()
+                guard let self, self.historyRequestID == requestID else { return }
+                self.messages = msgs.reversed()
             })
-            .store(in: &cancellables)
     }
     
     func sendText(userIds: [Int], msg: String) {

@@ -38,11 +38,11 @@ struct DefaultThemeProvider: GlobalThemeProvider {
     }
 
     func makeLocalMusicView() -> AnyView {
-        AnyView(LocalMusicView())
+        AnyView(LocalMusicView(isRoot: true))
     }
 
     func makeLocalLibraryView() -> AnyView {
-        AnyView(LocalLibraryView())
+        AnyView(LocalLibraryView(isRoot: true))
     }
 
     func makeLocalProfileView() -> AnyView {

@@ -13,7 +13,7 @@ struct ImmersiveBackgroundLandscapeView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var backgrounds = ImmersiveBackgroundManager.shared
-    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var player = CurrentSongPresentationModel.shared
 
     @State private var target: BindTarget = .song
     @State private var showFileImporter = false

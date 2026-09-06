@@ -124,8 +124,8 @@ struct PersonalFMView: View {
         isOwnFMContent && player.isPlaying
     }
 
-    @ObservedObject private var timePub = PlaybackTimePublisher.shared
-    @ObservedObject private var lyricVM = LyricViewModel.shared
+    private let timePub = PlaybackTimePublisher.shared
+    private let lyricVM = LyricViewModel.shared
     @State private var isFlipped = false
     @State private var dragOffset: CGSize = .zero
     @State private var cardScale: CGFloat = 1.0
@@ -394,40 +394,42 @@ struct PersonalFMView: View {
     /// 其他主题维持现有的 WaveformProgressBar，避免视觉错配。
     @ViewBuilder
     private var fmProgressBar: some View {
-        if PetWhiteStyle.isActive {
-            PawPlaybackProgressBar(
-                isDragging: $isDraggingSlider,
-                dragValue: $dragTimeValue,
-                showsTimeLabels: false,
-                railHeight: 32,
-                hasContainer: false,
-                onSeek: { time in
-                    // 只有 FM 播放源时才执行 seek，保持与原 WaveformProgressBar 一致语义
-                    if isOwnFMContent {
-                        player.seek(to: time)
+        PlaybackTimeReader { _, _ in
+            if PetWhiteStyle.isActive {
+                PawPlaybackProgressBar(
+                    isDragging: $isDraggingSlider,
+                    dragValue: $dragTimeValue,
+                    showsTimeLabels: false,
+                    railHeight: 32,
+                    hasContainer: false,
+                    onSeek: { time in
+                        // 只有 FM 播放源时才执行 seek，保持与原 WaveformProgressBar 一致语义
+                        if isOwnFMContent {
+                            player.seek(to: time)
+                        }
                     }
-                }
-            )
-            .frame(width: DeviceLayout.usesExpandedLayout ? 320 : 260)
-            .opacity(isOwnFMContent ? 1 : 0.45)
-        } else {
-            WaveformProgressBar(
-                currentTime: isDraggingSlider ? dragTimeValue : (isOwnFMContent ? timePub.currentTime : 0),
-                duration: isOwnFMContent ? timePub.duration : 0,
-                isPlaying: isFMPlaying,
-                color: Theme.accent,
-                onSeek: { time in
-                    isDraggingSlider = true
-                    dragTimeValue = time
-                },
-                onCommit: { time in
-                    isDraggingSlider = false
-                    if isOwnFMContent {
-                        player.seek(to: time)
+                )
+                .frame(width: DeviceLayout.usesExpandedLayout ? 320 : 260)
+                .opacity(isOwnFMContent ? 1 : 0.45)
+            } else {
+                WaveformProgressBar(
+                    currentTime: isDraggingSlider ? dragTimeValue : (isOwnFMContent ? timePub.currentTime : 0),
+                    duration: isOwnFMContent ? timePub.duration : 0,
+                    isPlaying: isFMPlaying,
+                    color: Theme.accent,
+                    onSeek: { time in
+                        isDraggingSlider = true
+                        dragTimeValue = time
+                    },
+                    onCommit: { time in
+                        isDraggingSlider = false
+                        if isOwnFMContent {
+                            player.seek(to: time)
+                        }
                     }
-                }
-            )
-            .frame(width: DeviceLayout.usesExpandedLayout ? 300 : 246, height: 30)
+                )
+                .frame(width: DeviceLayout.usesExpandedLayout ? 300 : 246, height: 30)
+            }
         }
     }
 
@@ -583,60 +585,62 @@ struct PersonalFMView: View {
     // MARK: - Lyrics Back View
     
     private func fmLyricsBackView(song: Song) -> some View {
-        ZStack {
-            if PetWhiteStyle.isActive {
-                PetWhiteSurfaceBackground(
-                    cornerRadius: 28,
-                    elevated: true,
-                    tint: PetWhiteStyle.surfaceRaised,
-                    accent: PetWhiteStyle.sky
-                )
-            } else {
-                RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .fill(Theme.cardBackground)
-                    .overlay {
-                        if SequoiaStyle.isActive {
-                            SequoiaSurfaceBackground(cornerRadius: 28, elevated: true, role: .content)
-                        }
-                    }
-            }
-            
-            // 只有当播放源是 FM 且歌词对应当前 FM 歌曲时才显示歌词
-            if isOwnFMContent && lyricVM.currentSongId == song.id && lyricVM.hasLyrics && !lyricVM.lyrics.isEmpty {
-                ScrollViewReader { proxy in
-                    ScrollView(.vertical, showsIndicators: false) {
-                        LazyVStack(spacing: 12) {
-                            Spacer().frame(height: 40)
-                            ForEach(Array(lyricVM.lyrics.enumerated()), id: \.offset) { index, line in
-                                let isCurrent = index == lyricVM.currentLineIndex
-                                Text(line.text)
-                                    .font(.system(size: isCurrent ? 18 : 15, weight: isCurrent ? .bold : .medium, design: .rounded))
-                                    .foregroundColor(isCurrent ? Theme.text : Theme.secondaryText.opacity(0.6))
-                                    .multilineTextAlignment(.center)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.horizontal, 20)
-                                    .id(index)
-                                    .onTapGesture {
-                                        if isOwnFMContent {
-                                            player.seek(to: line.time)
-                                        }
-                                    }
+        PlayerLyricReader { _ in
+            ZStack {
+                if PetWhiteStyle.isActive {
+                    PetWhiteSurfaceBackground(
+                        cornerRadius: 28,
+                        elevated: true,
+                        tint: PetWhiteStyle.surfaceRaised,
+                        accent: PetWhiteStyle.sky
+                    )
+                } else {
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .fill(Theme.cardBackground)
+                        .overlay {
+                            if SequoiaStyle.isActive {
+                                SequoiaSurfaceBackground(cornerRadius: 28, elevated: true, role: .content)
                             }
-                            Spacer().frame(height: 40)
                         }
-                    }
-                    .onChange(of: lyricVM.currentLineIndex) { _, newIndex in
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            proxy.scrollTo(newIndex, anchor: .center)
-                        }
-                    }
                 }
-            } else {
-                VStack(spacing: 12) {
-                    MonoIcon(icon: .musicNote, size: 40, color: Theme.secondaryText.opacity(0.3))
-                    Text("暂无歌词")
-                        .font(.system(size: 15, weight: .medium, design: .rounded))
-                        .foregroundColor(Theme.secondaryText)
+
+                // 只有当播放源是 FM 且歌词对应当前 FM 歌曲时才显示歌词
+                if isOwnFMContent && lyricVM.currentSongId == song.id && lyricVM.hasLyrics && !lyricVM.lyrics.isEmpty {
+                    ScrollViewReader { proxy in
+                        ScrollView(.vertical, showsIndicators: false) {
+                            LazyVStack(spacing: 12) {
+                                Spacer().frame(height: 40)
+                                ForEach(Array(lyricVM.lyrics.enumerated()), id: \.offset) { index, line in
+                                    let isCurrent = index == lyricVM.currentLineIndex
+                                    Text(line.text)
+                                        .font(.system(size: isCurrent ? 18 : 15, weight: isCurrent ? .bold : .medium, design: .rounded))
+                                        .foregroundColor(isCurrent ? Theme.text : Theme.secondaryText.opacity(0.6))
+                                        .multilineTextAlignment(.center)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.horizontal, 20)
+                                        .id(index)
+                                        .onTapGesture {
+                                            if isOwnFMContent {
+                                                player.seek(to: line.time)
+                                            }
+                                        }
+                                }
+                                Spacer().frame(height: 40)
+                            }
+                        }
+                        .onChange(of: lyricVM.currentLineIndex) { _, newIndex in
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                proxy.scrollTo(newIndex, anchor: .center)
+                            }
+                        }
+                    }
+                } else {
+                    VStack(spacing: 12) {
+                        MonoIcon(icon: .musicNote, size: 40, color: Theme.secondaryText.opacity(0.3))
+                        Text("暂无歌词")
+                            .font(.system(size: 15, weight: .medium, design: .rounded))
+                            .foregroundColor(Theme.secondaryText)
+                    }
                 }
             }
         }

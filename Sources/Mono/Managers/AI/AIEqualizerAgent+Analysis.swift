@@ -142,9 +142,9 @@ extension AIEqualizerAgent {
             onDeviceModelIdentity = nil
         }
 
-        let configuration: AIProviderConfiguration
+        let requestContext: AIProviderRequestContext
         do {
-            configuration = try await resolvedProviderConfiguration()
+            requestContext = try await resolvedProviderRequestContext()
         } catch {
             guard let onDeviceModelIdentity else {
                 if isCurrentSong(song) {
@@ -152,15 +152,21 @@ extension AIEqualizerAgent {
                 }
                 return
             }
-            configuration = AIProviderConfiguration(
-                wireProtocol: .appleIntelligence,
-                baseURL: "",
-                model: onDeviceModelIdentity,
-                modelDiscoveryURL: "",
-                timeout: 120,
-                customHeadersJSON: "{}"
+            requestContext = AIProviderRequestContext(
+                configuration: AIProviderConfiguration(
+                    wireProtocol: .appleIntelligence,
+                    baseURL: "",
+                    model: onDeviceModelIdentity,
+                    modelDiscoveryURL: "",
+                    timeout: 120,
+                    customHeadersJSON: "{}"
+                ),
+                apiKey: "",
+                usageLimits: nil,
+                persistsDiscoveredModel: false
             )
         }
+        let configuration = requestContext.configuration
         guard isCurrentSong(song) else { return }
         let runStartedAt = Date()
         tuningStartedAt = runStartedAt
@@ -416,7 +422,7 @@ extension AIEqualizerAgent {
                 : nil
             let generation = try await generateValidatedOutputWithRetry(
                 features: features,
-                configuration: configuration,
+                requestContext: requestContext,
                 requestedIntensity: requestedIntensity,
                 requestedProfile: requestedProfile,
                 graphicEQMode: graphicEQMode,
@@ -766,7 +772,7 @@ extension AIEqualizerAgent {
 
     func generateValidatedOutputWithRetry(
         features: AIEqualizerAudioFeatures,
-        configuration: AIProviderConfiguration,
+        requestContext: AIProviderRequestContext,
         requestedIntensity: AIEqualizerTuningIntensity,
         requestedProfile: AIEqualizerTuningProfile,
         graphicEQMode: GraphicEQMode,
@@ -789,6 +795,7 @@ extension AIEqualizerAgent {
         provider: AIWireProtocol,
         model: String
     ) {
+        let configuration = requestContext.configuration
         let startedAt = Date()
         generationStartedAt = startedAt
         let requiredModelTool = MonoAudioTuningTool.requiredModelTool(for: graphicEQMode)
@@ -1013,9 +1020,11 @@ extension AIEqualizerAgent {
             var reservation: Date?
             let attemptStartedAt = Date()
             do {
-                // Reserve every actual request. Quota and frequency errors are
-                // intentionally not retried by the classifier below.
-                reservation = try usageLimiter.reserveRequest(limits: providerStore.usageLimits)
+                // Custom providers do not consume the default service's quota.
+                // Quota and frequency errors are not retried below.
+                if let limits = requestContext.usageLimits {
+                    reservation = try usageLimiter.reserveRequest(limits: limits)
+                }
                 generationStage = .generating
                 AIAgentTraceStore.shared.append(
                     traceID,
@@ -1039,7 +1048,7 @@ extension AIEqualizerAgent {
                     userPrompt: userPrompt,
                     tool: requiredModelTool,
                     configuration: configuration,
-                    apiKey: providerStore.requestAPIKey,
+                    apiKey: requestContext.apiKey,
                     minimumTimeout: minimumTimeout,
                     options: generationOptions,
                     allowContentFallback: toolPolicy.allowPromptFallback ?? false,
@@ -1211,7 +1220,7 @@ extension AIEqualizerAgent {
                 }
                 let delay = generationRetryDelay(
                     for: attempt,
-                    minimumRequestInterval: providerStore.usageLimits.minimumRequestInterval
+                    minimumRequestInterval: requestContext.usageLimits?.minimumRequestInterval ?? 0
                 )
                 AppLogger.warning(
                     "[AIEqualizerAgent] Generation retry scheduled song=\(song.id) attempt=\(attempt + 1)/\(maximumAttempts) delay=\(String(format: "%.1f", delay))s error=\(error.localizedDescription)",

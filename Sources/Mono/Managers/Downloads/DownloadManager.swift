@@ -865,7 +865,7 @@ final class DownloadManager: NSObject, ObservableObject {
         let records = DatabaseManager.shared.store.fetch(DownloadedSong.self, where: { $0.statusRaw == "completed" })
         downloadedSongIds = Set(
             records.compactMap { record in
-                localFileURL(forKey: record.uniqueKey) == nil ? nil : record.uniqueKey
+                localFileURL(for: record) == nil ? nil : record.uniqueKey
             }
         )
     }
@@ -885,7 +885,7 @@ final class DownloadManager: NSObject, ObservableObject {
         let records = sorted.filter { record in
             guard allowedStatuses.contains(record.status) else { return false }
             guard record.status == .completed else { return true }
-            return localFileURL(forKey: record.uniqueKey) != nil
+            return localFileURL(for: record) != nil
         }
         for record in records where record.status == .completed {
             _ = normalizeCompletedFileNameIfNeeded(for: record)
@@ -902,8 +902,12 @@ final class DownloadManager: NSObject, ObservableObject {
     }
 
     private func localFileURL(forKey key: String) -> URL? {
-        guard let record = getDownloadRecord(key: key),
-              let url = normalizeCompletedFileNameIfNeeded(for: record) ?? record.localFileURL,
+        guard let record = getDownloadRecord(key: key) else { return nil }
+        return localFileURL(for: record)
+    }
+
+    private func localFileURL(for record: DownloadedSong) -> URL? {
+        guard let url = normalizeCompletedFileNameIfNeeded(for: record) ?? record.localFileURL,
               FileManager.default.fileExists(atPath: url.path) else {
             return nil
         }

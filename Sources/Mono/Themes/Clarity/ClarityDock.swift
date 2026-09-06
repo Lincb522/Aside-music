@@ -144,9 +144,12 @@ struct ClarityDock: View {
 
 /// Keeps the playback clock out of the dock's membrane and navigation subtree.
 private struct ClarityDockProgress: View {
+    @Environment(\.floatingBarColorRevision) private var colorRevision
     @ObservedObject private var time = PlaybackTimePublisher.shared
 
     var body: some View {
+        let _ = colorRevision
+
         GeometryReader { proxy in
             let progress = time.duration > 0
                 ? min(max(time.currentTime / time.duration, 0), 1)

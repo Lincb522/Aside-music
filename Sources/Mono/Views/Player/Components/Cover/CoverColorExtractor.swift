@@ -210,7 +210,7 @@ struct DynamicCoverPaletteLayer: View {
 
 struct CoverPaletteSettingsControls: View {
     @ObservedObject private var preferences = CoverPalettePreferences.shared
-    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var player = CurrentSongPresentationModel.shared
     @StateObject private var previewColors = CoverColorExtractor()
 
     let accent: Color

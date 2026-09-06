@@ -15,84 +15,134 @@ class QQPlaylistDetailViewModel: ObservableObject {
     
     let playlistId: Int
     private var currentPage = 1
-    private var cancellables = Set<AnyCancellable>()
+    private let songsRequest = LibraryRequestScope()
+    private let pageRequest = LibraryRequestScope()
+    private let detailRequest = LibraryRequestScope()
+    private var allSongsTask: Task<[Song], Never>?
+    private var appendLoadedSongsToQueue = false
+    private var loadAllAfterFirstPage = false
+    private var songsRevision = 0
     
     init(playlistId: Int) {
         self.playlistId = playlistId
     }
     
     func fetchSongs() {
+        guard songs.isEmpty, !songsRequest.isRunning else { return }
+        songsRevision += 1
+        pageRequest.cancel()
+        allSongsTask?.cancel()
+        allSongsTask = nil
+        isLoadingAll = false
+        isLoadingMore = false
+        isLoading = true
         currentPage = 1
-        APIService.shared.fetchQQPlaylistSongs(playlistId: playlistId, page: 1, num: 50)
+        let request = songsRequest.begin()
+        songsRequest.cancellable = APIService.shared.fetchQQPlaylistSongs(playlistId: playlistId, page: 1, num: 50)
+            .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
-                self?.isLoading = false
-                if case .failure(let e) = completion { AppLogger.error("[QQPlaylist] 加载失败: \(e)") }
+                guard let self, self.songsRequest.isCurrent(request) else { return }
+                self.songsRequest.finish(request)
+                self.isLoading = false
+                if case .failure(let error) = completion { AppLogger.error("[QQPlaylist] 加载失败: \(error)") }
+                if self.loadAllAfterFirstPage {
+                    self.loadAllAfterFirstPage = false
+                    self.loadAllSongs(appendToQueue: self.appendLoadedSongsToQueue)
+                }
             }, receiveValue: { [weak self] songs in
-                self?.songs = songs
-                self?.hasMore = songs.count >= 20
+                guard let self, self.songsRequest.isCurrent(request) else { return }
+                self.songs = songs
+                self.hasMore = songs.count >= 20
             })
-            .store(in: &cancellables)
     }
     
     func loadMore() {
-        guard !isLoadingMore, hasMore else { return }
+        guard !isLoading, !isLoadingMore, !isLoadingAll, hasMore else { return }
         isLoadingMore = true
-        currentPage += 1
-        APIService.shared.fetchQQPlaylistSongs(playlistId: playlistId, page: currentPage, num: 50)
-            .sink(receiveCompletion: { [weak self] _ in self?.isLoadingMore = false },
-                  receiveValue: { [weak self] newSongs in
-                guard let self else { return }
+        let page = currentPage + 1
+        let request = pageRequest.begin()
+        pageRequest.cancellable = APIService.shared.fetchQQPlaylistSongs(playlistId: playlistId, page: page, num: 50)
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { [weak self] _ in
+                guard let self, self.pageRequest.isCurrent(request) else { return }
+                self.pageRequest.finish(request)
+                self.isLoadingMore = false
+            }, receiveValue: { [weak self] newSongs in
+                guard let self, self.pageRequest.isCurrent(request) else { return }
                 let ids = Set(self.songs.map(\.id))
-                self.songs.append(contentsOf: newSongs.filter { !ids.contains($0.id) })
-                self.hasMore = newSongs.count >= 20
+                let unique = newSongs.filter { !ids.contains($0.id) }
+                self.songs.append(contentsOf: unique)
+                self.currentPage = page
+                self.hasMore = newSongs.count >= 20 && !unique.isEmpty
             })
-            .store(in: &cancellables)
     }
     
     @Published var isLoadingAll = false
     
     func loadAllSongs(appendToQueue: Bool = false) {
-        Task { @MainActor in
-            await loadAllSongsAsync(appendToQueue: appendToQueue)
-        }
+        _ = startLoadingAllSongs(appendToQueue: appendToQueue)
     }
     
     @discardableResult
     func loadAllSongsAsync(appendToQueue: Bool = false) async -> [Song] {
-        guard !isLoadingAll, hasMore else { return songs }
-        isLoadingAll = true
-        while self.hasMore {
-            self.currentPage += 1
-            let newSongs: [Song]
-            do {
-                newSongs = try await withCheckedThrowingContinuation { continuation in
-                    var resumed = false
-                    var bag: AnyCancellable?
-                    bag = APIService.shared.fetchQQPlaylistSongs(playlistId: self.playlistId, page: self.currentPage, num: 50)
-                        .sink(receiveCompletion: { completion in
-                            if case .failure(let e) = completion, !resumed { resumed = true; continuation.resume(throwing: e) }
-                            bag?.cancel()
-                        }, receiveValue: { songs in
-                            guard !resumed else { return }
-                            resumed = true; continuation.resume(returning: songs); bag?.cancel()
-                        })
-                }
-            } catch { break }
-            if newSongs.isEmpty || newSongs.count < 20 { self.hasMore = false }
-            let ids = Set(self.songs.map(\.id))
-            let unique = newSongs.filter { !ids.contains($0.id) }
-            self.songs.append(contentsOf: unique)
-            if appendToQueue, !unique.isEmpty {
-                PlayerManager.shared.appendContext(songs: unique)
-            }
+        guard let task = startLoadingAllSongs(appendToQueue: appendToQueue) else { return songs }
+        return await task.value
+    }
+
+    private func startLoadingAllSongs(appendToQueue: Bool) -> Task<[Song], Never>? {
+        appendLoadedSongsToQueue = appendLoadedSongsToQueue || appendToQueue
+        if let allSongsTask { return allSongsTask }
+        if isLoading {
+            loadAllAfterFirstPage = true
+            return nil
         }
-        self.isLoadingAll = false
-        return songs
+        guard hasMore else {
+            appendLoadedSongsToQueue = false
+            return nil
+        }
+        pageRequest.cancel()
+        isLoadingMore = false
+        isLoadingAll = true
+        let revision = songsRevision
+        let task = Task<[Song], Never> { @MainActor [weak self] in
+            guard let self else { return [] }
+            defer {
+                if self.songsRevision == revision {
+                    self.isLoadingAll = false
+                    self.allSongsTask = nil
+                    self.appendLoadedSongsToQueue = false
+                }
+            }
+            while self.hasMore, !Task.isCancelled, self.songsRevision == revision {
+                let page = self.currentPage + 1
+                do {
+                    let newSongs = try await APIService.shared.fetchQQPlaylistSongs(playlistId: self.playlistId, page: page, num: 50).async()
+                    guard !Task.isCancelled, self.songsRevision == revision else { return self.songs }
+                    let ids = Set(self.songs.map(\.id))
+                    let unique = newSongs.filter { !ids.contains($0.id) }
+                    self.hasMore = newSongs.count >= 20 && !unique.isEmpty
+                    self.songs.append(contentsOf: unique)
+                    self.currentPage = page
+                    if self.appendLoadedSongsToQueue, !unique.isEmpty {
+                        PlayerManager.shared.appendContext(songs: unique)
+                    }
+                } catch {
+                    break
+                }
+            }
+            return self.songs
+        }
+        allSongsTask = task
+        return task
     }
     
     func fetchDetail() {
-        APIService.shared.fetchQQPlaylistDetail(playlistId: playlistId)
-            .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] json in
+        guard !detailRequest.isRunning else { return }
+        let request = detailRequest.begin()
+        detailRequest.cancellable = APIService.shared.fetchQQPlaylistDetail(playlistId: playlistId)
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { [weak self] _ in self?.detailRequest.finish(request) }, receiveValue: { [weak self] json in
+                guard let self, self.detailRequest.isCurrent(request) else { return }
                 // 新版 API 信息嵌套在 info 下: { info: { title, picurl, desc, ... }, songs: [...] }
                 let info = json["info"] ?? json["dirinfo"] ?? json
                 let logoCandidates: [String?] = [
@@ -107,7 +157,7 @@ class QQPlaylistDetailViewModel: ObservableObject {
                     json["cover"]?.stringValue
                 ]
                 if let logo = logoCandidates.compactMap({ $0 }).first(where: { !$0.isEmpty }) {
-                    self?.resolvedCoverUrl = logo
+                    self.resolvedCoverUrl = logo
                 }
                 let nameCandidates: [String?] = [
                     info["title"]?.stringValue,
@@ -118,11 +168,12 @@ class QQPlaylistDetailViewModel: ObservableObject {
                     json["name"]?.stringValue
                 ]
                 if let name = nameCandidates.compactMap({ $0 }).first(where: { !$0.isEmpty }) {
-                    self?.resolvedName = name
+                    self.resolvedName = name
                 }
             })
-            .store(in: &cancellables)
     }
+
+    deinit { allSongsTask?.cancel() }
 }
 
 // MARK: - QQ 歌单详情页

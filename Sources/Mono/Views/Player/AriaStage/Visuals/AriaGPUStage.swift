@@ -29,8 +29,6 @@ private struct AriaGPUStageModifier: ViewModifier {
     let isActive: Bool
     let stackedWithSonicStage: Bool
 
-    @ObservedObject private var performance = AriaPerformanceGovernor.shared
-
     private var frameRate: Int {
         60
     }

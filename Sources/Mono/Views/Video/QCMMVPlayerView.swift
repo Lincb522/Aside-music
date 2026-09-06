@@ -17,13 +17,15 @@ class QQMVPlayerViewModel: ObservableObject {
     
     let vid: String
     private var cancellables = Set<AnyCancellable>()
+    private var hasStartedLoading = false
     
     init(vid: String) {
         self.vid = vid
     }
     
     func fetchData() {
-        guard isLoading else { return }
+        guard isLoading, !hasStartedLoading else { return }
+        hasStartedLoading = true
         
         // 获取详情
         APIService.shared.fetchQQMVDetail(vid: vid)
@@ -81,7 +83,7 @@ class QQMVPlayerViewModel: ObservableObject {
 struct QQMVPlayerView: View {
     let vid: String
     @StateObject private var viewModel: QQMVPlayerViewModel
-    @ObservedObject private var player = PlayerManager.shared
+    private let player = PlayerManager.shared
     @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.dismiss) private var dismiss
     
@@ -471,40 +473,42 @@ struct QQMVPlayerView: View {
     // MARK: - 视频控件覆盖层
     
     private func videoControlsOverlay(fullscreen: Bool) -> some View {
-        MVVideoControlsOverlay(
-            fullscreen: fullscreen,
-            showControls: showControls,
-            isPlaying: isPlaying,
-            isSeeking: isSeeking,
-            seekValue: seekValue,
-            mvCurrentTime: mvPlayerWrapper.currentTime,
-            mvDuration: mvPlayerWrapper.duration,
-            mvName: viewModel.mvDetail?.name,
-            onTogglePlayback: togglePlayPause,
-            onToggleControlsVisibility: {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    showControls.toggle()
+        MVPlaybackTimeReader(clock: mvPlayerWrapper.clock) { clock in
+            MVVideoControlsOverlay(
+                fullscreen: fullscreen,
+                showControls: showControls,
+                isPlaying: isPlaying,
+                isSeeking: isSeeking,
+                seekValue: seekValue,
+                mvCurrentTime: clock.currentTime,
+                mvDuration: clock.duration,
+                mvName: viewModel.mvDetail?.name,
+                onTogglePlayback: togglePlayPause,
+                onToggleControlsVisibility: {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showControls.toggle()
+                    }
+                    if showControls { scheduleControlsHide() }
+                },
+                onScheduleControlsHide: scheduleControlsHide,
+                onEnterFullscreen: {
+                    withAnimation(.easeInOut(duration: 0.3)) { isFullscreen = true }
+                    OrientationManager.shared.enterLandscape()
+                },
+                onExitFullscreen: {
+                    OrientationManager.shared.exitLandscape()
+                    withAnimation(.easeInOut(duration: 0.3)) { isFullscreen = false }
+                },
+                onSeekChanged: { value in
+                    isSeeking = true
+                    seekValue = value
+                },
+                onSeekEnded: { value in
+                    mvPlayerWrapper.seek(to: value)
+                    isSeeking = false
                 }
-                if showControls { scheduleControlsHide() }
-            },
-            onScheduleControlsHide: scheduleControlsHide,
-            onEnterFullscreen: {
-                withAnimation(.easeInOut(duration: 0.3)) { isFullscreen = true }
-                OrientationManager.shared.enterLandscape()
-            },
-            onExitFullscreen: {
-                OrientationManager.shared.exitLandscape()
-                withAnimation(.easeInOut(duration: 0.3)) { isFullscreen = false }
-            },
-            onSeekChanged: { value in
-                isSeeking = true
-                seekValue = value
-            },
-            onSeekEnded: { value in
-                mvPlayerWrapper.seek(to: value)
-                isSeeking = false
-            }
-        )
+            )
+        }
     }
     
     // MARK: - 辅助方法

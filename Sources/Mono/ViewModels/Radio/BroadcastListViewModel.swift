@@ -10,10 +10,14 @@ class BroadcastListViewModel: ObservableObject {
     @Published var selectedRegionId: String = "0"
     @Published var isLoading = false
 
-    private var cancellables = Set<AnyCancellable>()
+    private var initialCancellable: AnyCancellable?
+    private var regionCancellable: AnyCancellable?
+    private var regionRequestID = 0
     private let apiService = APIService.shared
 
     func fetchData() {
+        guard !isLoading else { return }
+        let requestID = regionRequestID
         isLoading = true
 
         // 同时获取地区信息和频道列表
@@ -22,29 +26,33 @@ class BroadcastListViewModel: ObservableObject {
         let channelPublisher = apiService.fetchBroadcastChannels(regionId: selectedRegionId, limit: 50)
             .catch { _ in Just([BroadcastChannel]()) }
 
-        Publishers.Zip(regionPublisher, channelPublisher)
+        initialCancellable = Publishers.Zip(regionPublisher, channelPublisher)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] regionData, channels in
-                self?.regions = regionData.regions
-                self?.channels = channels
-                self?.isLoading = false
+                guard let self else { return }
+                self.regions = regionData.regions
+                guard self.regionRequestID == requestID else { return }
+                self.channels = channels
+                self.isLoading = false
             }
-            .store(in: &cancellables)
     }
 
     func selectRegion(_ regionId: String) {
         guard regionId != selectedRegionId else { return }
+        regionCancellable?.cancel()
+        regionRequestID += 1
+        let requestID = regionRequestID
         selectedRegionId = regionId
         isLoading = true
         channels = []
 
-        apiService.fetchBroadcastChannels(regionId: regionId, limit: 50)
+        regionCancellable = apiService.fetchBroadcastChannels(regionId: regionId, limit: 50)
             .catch { _ in Just([BroadcastChannel]()) }
             .receive(on: DispatchQueue.main)
             .sink { [weak self] channels in
-                self?.channels = channels
-                self?.isLoading = false
+                guard let self, self.regionRequestID == requestID else { return }
+                self.channels = channels
+                self.isLoading = false
             }
-            .store(in: &cancellables)
     }
 }

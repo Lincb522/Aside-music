@@ -11,7 +11,7 @@ struct DotMatrixPlayerLayout: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @ObservedObject private var player = PlayerManager.shared
-    @ObservedObject private var time = PlaybackTimePublisher.shared
+    private let time = PlaybackTimePublisher.shared
     @StateObject private var colors = CoverColorExtractor(minimumColorCount: 5)
 
     @State private var showsLyrics = false
@@ -383,32 +383,34 @@ private extension DotMatrixPlayerLayout {
     }
 
     func progressSection(compact: Bool) -> some View {
-        VStack(spacing: compact ? 5 : 8) {
-            DotMatrixProgressRail(
-                progress: displayProgress,
-                accent: accent,
-                secondaryAccent: secondaryAccent,
-                isEnabled: validDuration > 0,
-                onChanged: { ratio in
-                    isSeeking = true
-                    seekTime = ratio * validDuration
-                },
-                onEnded: { ratio in
-                    let target = ratio * validDuration
-                    seekTime = target
-                    isSeeking = false
-                    player.seek(to: target)
-                }
-            )
-            .frame(height: compact ? 30 : 36)
+        PlaybackTimeReader { _, _ in
+            VStack(spacing: compact ? 5 : 8) {
+                DotMatrixProgressRail(
+                    progress: displayProgress,
+                    accent: accent,
+                    secondaryAccent: secondaryAccent,
+                    isEnabled: validDuration > 0,
+                    onChanged: { ratio in
+                        isSeeking = true
+                        seekTime = ratio * validDuration
+                    },
+                    onEnded: { ratio in
+                        let target = ratio * validDuration
+                        seekTime = target
+                        isSeeking = false
+                        player.seek(to: target)
+                    }
+                )
+                .frame(height: compact ? 30 : 36)
 
-            HStack {
-                Text(formatTime(isSeeking ? seekTime : validCurrentTime))
-                Spacer()
-                Text(formatTime(validDuration))
+                HStack {
+                    Text(formatTime(isSeeking ? seekTime : validCurrentTime))
+                    Spacer()
+                    Text(formatTime(validDuration))
+                }
+                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .foregroundStyle(Color.white.opacity(0.42))
             }
-            .font(.system(size: 10, weight: .semibold, design: .monospaced))
-            .foregroundStyle(Color.white.opacity(0.42))
         }
     }
 

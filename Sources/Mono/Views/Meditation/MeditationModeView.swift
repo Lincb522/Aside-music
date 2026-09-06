@@ -13,12 +13,11 @@ struct MeditationModeView: View {
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 18) {
-                    scrollableHeader
                     topicSelector
                     contentSection
                     FloatingBarBottomSpacer()
                 }
-                .padding(.top, PetWhiteStyle.isActive || ThemedPageStyle.isActive ? 0 : 12)
+                .padding(.top, 8)
                 .padding(.bottom, 20)
                 .iPadContentWidth(1000)
             }
@@ -31,7 +30,7 @@ struct MeditationModeView: View {
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .monoNavigationBackButton()
+        .monoNavigationBackButton(title: String(localized: "meditation_mode_title"))
         .task {
             await viewModel.loadIfNeeded()
         }
@@ -56,60 +55,8 @@ struct MeditationModeView: View {
         }
     }
 
-    private var petWhiteHeader: some View {
-        PetWhitePageHeader(
-            eyebrow: "MEDITATION",
-            title: String(localized: "meditation_mode_title"),
-            subtitle: "",
-            icon: .moon
-        ) {
-            EmptyView()
-        }
-    }
-
     private var isAside: Bool {
         !ThemedPageStyle.isActive
-    }
-
-    @ViewBuilder
-    private var scrollableHeader: some View {
-        if PetWhiteStyle.isActive {
-            petWhiteHeader
-        } else if ThemedPageStyle.isActive {
-            ThemedPageHeader(
-                eyebrow: "MEDITATION",
-                title: String(localized: "meditation_mode_title"),
-                subtitle: "",
-                icon: .moon
-            )
-        } else {
-            // aside：编辑部刊头
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 8) {
-                    Capsule()
-                        .fill(Color.monoAccent)
-                        .frame(width: 18, height: 3)
-
-                    Text("MEDITATION")
-                        .font(.system(size: 10.5, weight: .heavy, design: .rounded))
-                        .tracking(2.4)
-                        .foregroundColor(.monoTextSecondary.opacity(0.72))
-                        .fixedSize()
-
-                    Rectangle()
-                        .fill(Color.monoSeparator.opacity(0.5))
-                        .frame(height: 0.5)
-                }
-                .padding(.bottom, 16)
-
-                Text(String(localized: "meditation_mode_title"))
-                    .font(.system(size: 28, weight: .heavy, design: .rounded))
-                    .foregroundColor(.monoTextPrimary)
-            }
-            .padding(.horizontal, horizontalPadding)
-            .padding(.top, 4)
-            .monoPageHeaderCollapse()
-        }
     }
 
     @ViewBuilder

@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 struct DeveloperDiagnosticStyleKey: EnvironmentKey {
     static let defaultValue = false
@@ -81,43 +82,21 @@ struct DeveloperDiagnosticBackdrop: View {
     }
 }
 
-struct DeveloperDiagnosticHeader: View {
-    let title: String
+struct DeveloperDiagnosticStatus: View {
     let status: String
-    let icon: MonoIcon.IconType
-    var tint: Color = .cyan
-    var artwork: MonoGlyphSemantic? = nil
 
     var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(.system(size: 25, weight: .heavy, design: .rounded))
-                    .foregroundStyle(.white)
-
-                Text(status)
-                    .font(.system(size: 11.5, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.48))
-                    .lineLimit(1)
-            }
-
-            Spacer(minLength: 0)
-
-            MonoIcon(icon: icon, size: 17, color: tint)
-                .monoIconArtwork(artwork?.rawValue)
-                .frame(width: 42, height: 42)
-                .background(tint.opacity(0.1))
-                .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 13, style: .continuous)
-                        .stroke(Color.white.opacity(0.06), lineWidth: 0.7)
-                }
-        }
+        Text(status)
+            .font(.subheadline)
+            .foregroundStyle(.white.opacity(0.62))
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
 @MainActor
 private struct DeveloperDiagnosticPageModifier: ViewModifier {
+    let title: String
+
     func body(content: Content) -> some View {
         content
             .environment(\.colorScheme, .dark)
@@ -125,23 +104,18 @@ private struct DeveloperDiagnosticPageModifier: ViewModifier {
             .compatFontDesign(nil)
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
-            .navigationBarBackButtonHidden(true)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar(.hidden, for: .tabBar)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    MonoToolbarBackButton(iconColor: .white)
-                }
-            }
+            .monoNavigationBackButton(iconColor: .white, title: title)
             .modifier(DeveloperDiagnosticTabBarHiddenModifier())
     }
 }
 
 extension View {
     @MainActor
-    func developerDiagnosticPageChrome() -> some View {
-        modifier(DeveloperDiagnosticPageModifier())
+    func developerDiagnosticPageChrome(title: String) -> some View {
+        modifier(DeveloperDiagnosticPageModifier(title: title))
     }
 }
 
@@ -153,8 +127,10 @@ struct DeveloperToolsView: View {
     @ObservedObject private var settings = SettingsManager.shared
     @ObservedObject private var onlineAccess = OnlineAccessManager.shared
     @ObservedObject private var aiProvider = AIProviderConfigurationStore.shared
-    @ObservedObject private var agentTraces = AIAgentTraceStore.shared
-    @ObservedObject private var crashDiagnostics = CrashDiagnosticsStore.shared
+    private let agentTraces = AIAgentTraceStore.shared
+    private let crashDiagnostics = CrashDiagnosticsStore.shared
+    @State private var agentTraceCount = AIAgentTraceStore.shared.sessions.count
+    @State private var crashCount = CrashDiagnosticsStore.shared.records.count
 
     var body: some View {
         let _ = settings.globalThemeRevision
@@ -166,16 +142,11 @@ struct DeveloperToolsView: View {
 
             ScrollView {
                 VStack(spacing: SettingsPageLayout.deepSectionSpacing) {
-                    DeveloperDiagnosticHeader(
-                        title: String(localized: "dev_mode_title"),
-                        status: String(
+                    DeveloperDiagnosticStatus(status: String(
                             localized: hasFullAccess
                                 ? "dev_mode_access_full"
                                 : "dev_mode_access_basic"
-                        ),
-                        icon: .unlock,
-                        tint: hasFullAccess ? .green : .cyan
-                    )
+                        ))
                     .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
                     .iPadContentWidth(SettingsPageLayout.contentWidth)
 
@@ -184,19 +155,14 @@ struct DeveloperToolsView: View {
                             SettingsRouteLinkRow(
                                 icon: .history,
                                 title: String(localized: "agent_trace_title"),
-                                value: "\(agentTraces.sessions.count)",
+                                value: "\(agentTraceCount)",
                                 destination: .agentTrace
                             )
 
                             Divider()
                                 .padding(.leading, 58)
 
-                            SettingsRouteLinkRow(
-                                icon: .logDebug,
-                                title: String(localized: "settings_debug_log"),
-                                value: "\(AppLogger.getAllLogs().count)",
-                                destination: .debugLog
-                            )
+                            DeveloperLogCountRow()
 
                             Divider()
                                 .padding(.leading, 58)
@@ -204,7 +170,7 @@ struct DeveloperToolsView: View {
                             SettingsRouteLinkRow(
                                 icon: .warning,
                                 title: String(localized: "crash_diagnostics_title"),
-                                value: "\(crashDiagnostics.records.count)",
+                                value: "\(crashCount)",
                                 destination: .crashDiagnostics
                             )
                         }
@@ -286,7 +252,9 @@ struct DeveloperToolsView: View {
             .scrollIndicators(.hidden)
             .coordinateSpace(name: SettingsPageLayout.scrollCoordinateSpace)
         }
-        .developerDiagnosticPageChrome()
+        .onReceive(agentTraces.$sessions.map(\.count).removeDuplicates()) { agentTraceCount = $0 }
+        .onReceive(crashDiagnostics.$records.map(\.count).removeDuplicates()) { crashCount = $0 }
+        .developerDiagnosticPageChrome(title: String(localized: "dev_mode_title"))
     }
 
     private func confirmDisableDeveloperMode() {
@@ -424,12 +392,7 @@ struct DeveloperPopupCatalogView: View {
 
             ScrollView {
                 LazyVStack(spacing: SettingsPageLayout.deepSectionSpacing) {
-                    DeveloperDiagnosticHeader(
-                        title: String(localized: "dev_popup_catalog_title"),
-                        status: "\(Self.previewCount)",
-                        icon: .gridSquare,
-                        tint: .orange
-                    )
+                    DeveloperDiagnosticStatus(status: "\(Self.previewCount)")
                     .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
                     .iPadContentWidth(SettingsPageLayout.contentWidth)
 
@@ -447,7 +410,7 @@ struct DeveloperPopupCatalogView: View {
             .scrollIndicators(.hidden)
             .coordinateSpace(name: SettingsPageLayout.scrollCoordinateSpace)
         }
-        .developerDiagnosticPageChrome()
+        .developerDiagnosticPageChrome(title: String(localized: "dev_popup_catalog_title"))
         .monoSheet(
             item: $presentedSheet,
             preset: presentedSheet?.sheetPreset ?? .standard
@@ -652,5 +615,22 @@ struct DeveloperPopupCatalogView: View {
         default:
             return AnyView(EmptyView())
         }
+    }
+}
+
+
+private struct DeveloperLogCountRow: View {
+    @State private var count = AppLogger.logCount
+
+    var body: some View {
+        SettingsRouteLinkRow(
+            icon: .logDebug,
+            title: String(localized: "settings_debug_log"),
+            value: "\(count)",
+            destination: .debugLog
+        )
+        .onReceive(NotificationCenter.default.publisher(for: .appLoggerDidChange)
+            .map { _ in AppLogger.logCount }.removeDuplicates()) { count = $0 }
+        .onAppear { count = AppLogger.logCount }
     }
 }

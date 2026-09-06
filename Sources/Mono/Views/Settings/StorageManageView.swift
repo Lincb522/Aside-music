@@ -76,6 +76,7 @@ struct StorageManageView: View {
     @State private var scanningLabel = ""
     @State private var scannedTotal: Int64 = 0
     @State private var scanTask: Task<Void, Never>?
+    @State private var categoryScanTasks: [String: Task<Void, Never>] = [:]
 
     private var totalUsage: Int64 {
         categories.reduce(0) { $0 + $1.size }
@@ -89,13 +90,6 @@ struct StorageManageView: View {
 
             ScrollView {
                 VStack(spacing: SettingsPageLayout.sectionSpacing) {
-                    SettingsScrollablePageHeader(
-                        title: String(localized: "storage_title"),
-                        eyebrow: String(localized: "settings_eyebrow_storage"),
-                        icon: .storage,
-                        signalModule: .storage
-                    )
-
                     VStack(spacing: SettingsPageLayout.sectionSpacing) {
                         if phase == .scanning {
                             scanningCard
@@ -131,7 +125,7 @@ struct StorageManageView: View {
             }
         }
         .onAppear { startScan() }
-        .onDisappear { scanTask?.cancel() }
+        .onDisappear { cancelScans() }
     }
 
     // MARK: - 分析动画
@@ -442,8 +436,15 @@ struct StorageManageView: View {
 
     // MARK: - 扫描
 
-    private func startScan() {
+    private func cancelScans() {
         scanTask?.cancel()
+        scanTask = nil
+        categoryScanTasks.values.forEach { $0.cancel() }
+        categoryScanTasks.removeAll()
+    }
+
+    private func startScan() {
+        cancelScans()
 
         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
             phase = .scanning
@@ -523,15 +524,15 @@ struct StorageManageView: View {
 
                 let size: Int64
                 if step.id == "database" {
-                    size = await Task.detached(priority: .userInitiated) {
+                    size = await StoragePaths.measure {
                         StoragePaths.databaseSize()
-                    }.value
+                    }
                 } else {
                     let urls = step.urls
                     let extra = step.extra
-                    size = await Task.detached(priority: .userInitiated) {
+                    size = await StoragePaths.measure {
                         urls.reduce(Int64(0)) { $0 + StoragePaths.recursiveSize(at: $1) } + extra
-                    }.value
+                    }
                 }
 
                 guard !Task.isCancelled else { return }
@@ -563,32 +564,36 @@ struct StorageManageView: View {
 
     /// 清除后只重算受影响的分类，不整页回到扫描态
     private func refreshCategory(_ id: String) {
-        Task { @MainActor in
+        categoryScanTasks[id]?.cancel()
+        categoryScanTasks[id] = Task { @MainActor in
+            guard !Task.isCancelled else { return }
             let size: Int64
             switch id {
             case "localSongs":
-                size = await Task.detached {
+                size = await StoragePaths.measure {
                     StoragePaths.recursiveSize(at: StoragePaths.downloads)
                         + StoragePaths.recursiveSize(at: StoragePaths.localMusic)
-                }.value
+                }
             case "apiCache":
-                size = await Task.detached { StoragePaths.recursiveSize(at: StoragePaths.monoCache) }.value
+                size = await StoragePaths.measure { StoragePaths.recursiveSize(at: StoragePaths.monoCache) }
             case "imageCache":
                 let dirs = StoragePaths.imageCacheDirs
-                let dirSize = await Task.detached { dirs.reduce(Int64(0)) { $0 + StoragePaths.recursiveSize(at: $1) } }.value
+                let dirSize = await StoragePaths.measure { dirs.reduce(Int64(0)) { $0 + StoragePaths.recursiveSize(at: $1) } }
                 size = dirSize + Int64(URLCache.shared.currentDiskUsage)
             case "database":
-                size = await Task.detached { StoragePaths.databaseSize() }.value
+                size = await StoragePaths.measure { StoragePaths.databaseSize() }
             case "fonts":
-                size = await Task.detached { StoragePaths.recursiveSize(at: StoragePaths.customFonts) }.value
+                size = await StoragePaths.measure { StoragePaths.recursiveSize(at: StoragePaths.customFonts) }
             case "videos":
-                size = await Task.detached { StoragePaths.recursiveSize(at: StoragePaths.immersiveBackgrounds) }.value
+                size = await StoragePaths.measure { StoragePaths.recursiveSize(at: StoragePaths.immersiveBackgrounds) }
             case "temp":
-                size = await Task.detached { StoragePaths.recursiveSize(at: FileManager.default.temporaryDirectory) }.value
+                size = await StoragePaths.measure { StoragePaths.recursiveSize(at: FileManager.default.temporaryDirectory) }
             default:
                 return
             }
 
+            guard !Task.isCancelled else { return }
+            categoryScanTasks.removeValue(forKey: id)
             guard let index = categories.firstIndex(where: { $0.id == id }) else { return }
             withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
                 categories[index].size = size
@@ -867,6 +872,17 @@ private struct StorageRingTicks: View {
 // MARK: - 磁盘路径与体积计算
 
 private enum StoragePaths {
+    // Propagate view cancellation to the disk worker, including recursive scans.
+    static func measure(_ operation: @escaping @Sendable () -> Int64) async -> Int64 {
+        guard !Task.isCancelled else { return 0 }
+        let worker = Task.detached(priority: .userInitiated, operation: operation)
+        return await withTaskCancellationHandler {
+            await worker.value
+        } onCancel: {
+            worker.cancel()
+        }
+    }
+
     static var downloads: URL {
         DownloadedSong.downloadsDirectory
     }
@@ -914,6 +930,7 @@ private enum StoragePaths {
 
         var total: Int64 = 0
         for case let fileURL as URL in enumerator {
+            guard !Task.isCancelled else { return total }
             guard let values = try? fileURL.resourceValues(forKeys: [.totalFileAllocatedSizeKey, .isRegularFileKey]),
                   values.isRegularFile == true else { continue }
             total += Int64(values.totalFileAllocatedSize ?? 0)
@@ -930,6 +947,7 @@ private enum StoragePaths {
         for name in ["default.store", "MonoLocal.sqlite"] {
             let base = appSupport.appendingPathComponent(name)
             for ext in ["", "-wal", "-shm", ".wal", ".shm"] {
+                guard !Task.isCancelled else { return total }
                 let path = base.path + ext
                 if let attrs = try? fm.attributesOfItem(atPath: path),
                    let size = attrs[.size] as? Int64 {

@@ -36,6 +36,7 @@ enum SignatureFloatingBarKind: String, CaseIterable {
 
 @MainActor
 struct SignatureFloatingBar: View {
+    @Environment(\.floatingBarColorRevision) private var colorRevision
     @Binding var currentTab: Tab
     let kind: SignatureFloatingBarKind
 
@@ -97,6 +98,8 @@ struct SignatureFloatingBar: View {
     }
 
     var body: some View {
+        let _ = colorRevision
+
         Group {
             if let song = currentSong {
                 activeDock(song)
@@ -979,12 +982,15 @@ struct SignatureFloatingBar: View {
 // MARK: - Artwork and instrument displays
 
 private struct VinylRecord: View {
+    @Environment(\.floatingBarColorRevision) private var colorRevision
     let song: Song?
     let progress: Double
     let isPlaying: Bool
     let reduceMotion: Bool
 
     var body: some View {
+        let _ = colorRevision
+
         TimelineView(AppFrameRate.animationTimeline(maximumFramesPerSecond: 30, paused: !isPlaying || reduceMotion)) { timeline in
             let rotation = isPlaying && !reduceMotion
                 ? timeline.date.timeIntervalSinceReferenceDate * 24

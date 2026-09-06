@@ -3,6 +3,7 @@ import SwiftUI
 // MARK: - Subviews for Performance
 
 struct MiniPlayerSection: View {
+    @ObservedObject private var lyricState = FloatingBarLyricModel.shared
     let song: Song
     let isPlaying: Bool
     let togglePlayPause: () -> Void
@@ -10,7 +11,7 @@ struct MiniPlayerSection: View {
     @ObservedObject var player = FloatingBarPlaybackModel.shared
 
     private var subtitleText: String {
-        if let text = player.lyricLineText {
+        if let text = lyricState.lineText {
             return text
         }
         return song.artistName
@@ -164,7 +165,7 @@ struct MiniPlayerSection: View {
                         speed: 22
                     )
                     .frame(height: 14)
-                        .animation(.easeInOut(duration: 0.25), value: player.lyricLineText)
+                        .animation(.easeInOut(duration: 0.25), value: lyricState.lineText)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .swipeSkipTextMotion()
@@ -304,7 +305,7 @@ struct MiniPlayerSection: View {
                         speed: 22
                     )
                     .frame(height: 14)
-                    .animation(.easeInOut(duration: 0.25), value: player.lyricLineText)
+                    .animation(.easeInOut(duration: 0.25), value: lyricState.lineText)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .swipeSkipTextMotion()
@@ -429,7 +430,7 @@ struct MiniPlayerSection: View {
                             speed: 22
                         )
                         .frame(height: 14)
-                        .animation(.easeInOut(duration: 0.25), value: player.lyricLineText)
+                        .animation(.easeInOut(duration: 0.25), value: lyricState.lineText)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

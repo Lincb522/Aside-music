@@ -8,7 +8,7 @@ struct AquaPlayerLayout: View {
     @Environment(\.dismiss) var dismiss
     @Environment(\.colorScheme) var colorScheme
     @ObservedObject var player = PlayerManager.shared
-    @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
+    private let timePublisher = PlaybackTimePublisher.shared
 
     @State private var isDragging = false
     @State private var dragValue: Double = 0
@@ -67,9 +67,6 @@ struct AquaPlayerLayout: View {
 
     var body: some View {
         GeometryReader { geo in
-            // 水位计算：根据不包含安全区的核心内容高度的比例
-            let ratio = CGFloat(0.80 - progress * 0.50)
-            
             ZStack {
                 // 1. 全屏卡通背景层
                 ZStack {
@@ -82,11 +79,14 @@ struct AquaPlayerLayout: View {
                             .allowsHitTesting(false)
                     }
 
-                    cartoonWater(waterRatio: ratio)
-                        .allowsHitTesting(false)
-                    
-                    cartoonBubbles(waterRatio: ratio)
-                        .allowsHitTesting(false)
+                    PlaybackTimeReader { _, _ in
+                        let ratio = CGFloat(0.80 - progress * 0.50)
+                        cartoonWater(waterRatio: ratio)
+                            .allowsHitTesting(false)
+
+                        cartoonBubbles(waterRatio: ratio)
+                            .allowsHitTesting(false)
+                    }
                 }
                 .ignoresSafeArea()
 

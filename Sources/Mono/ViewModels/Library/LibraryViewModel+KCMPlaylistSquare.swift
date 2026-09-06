@@ -3,19 +3,22 @@ import Combine
 
 extension LibraryViewModel {
     func fetchKugouSquareData() {
-        if kugouPlaylistCategories.isEmpty {
-            apiService.fetchKugouPlaylistCategories()
+        if kugouPlaylistCategories.isEmpty, !kugouCategoryRequest.isRunning {
+            let request = kugouCategoryRequest.begin()
+            kugouCategoryRequest.cancellable = apiService.fetchKugouPlaylistCategories()
                 .receive(on: DispatchQueue.main)
-                .sink(receiveCompletion: { completion in
+                .sink(receiveCompletion: { [weak self] completion in
+                    guard let self, self.kugouCategoryRequest.isCurrent(request) else { return }
+                    self.kugouCategoryRequest.finish(request)
                     if case .failure(let error) = completion {
                         AppLogger.warning("[Kugou] 歌单分类加载失败: \(error.localizedDescription)")
                     }
                 }, receiveValue: { [weak self] categories in
-                    self?.kugouPlaylistCategories = categories
+                    guard let self, self.kugouCategoryRequest.isCurrent(request) else { return }
+                    self.kugouPlaylistCategories = categories
                 })
-                .store(in: &cancellables)
         }
-        if kugouSquarePlaylists.isEmpty {
+        if kugouSquarePlaylists.isEmpty, !kugouSquareRequest.isRunning {
             loadKugouSquarePlaylists(reset: true)
         }
     }
@@ -28,32 +31,36 @@ extension LibraryViewModel {
 
     func loadKugouSquarePlaylists(reset: Bool = false) {
         if reset {
-            guard !isLoadingKugouSquare else { return }
+            kugouSquareRequest.cancel()
             isLoadingKugouSquare = true
             isLoadingMoreKugouSquare = false
             kugouSquarePage = 1
             hasMoreKugouSquare = true
             kugouSquarePlaylists = []
         } else {
+            guard !kugouSquareRequest.isRunning else { return }
             guard !isLoadingMoreKugouSquare, hasMoreKugouSquare else { return }
             isLoadingMoreKugouSquare = true
         }
 
         let page = reset ? 1 : kugouSquarePage + 1
-        apiService.fetchKugouPlaylists(
+        let request = kugouSquareRequest.begin()
+        kugouSquareRequest.cancellable = apiService.fetchKugouPlaylists(
             categoryID: selectedKugouCategoryID,
             page: page,
             pageSize: 30
         )
         .receive(on: DispatchQueue.main)
         .sink(receiveCompletion: { [weak self] completion in
-            self?.isLoadingKugouSquare = false
-            self?.isLoadingMoreKugouSquare = false
+            guard let self, self.kugouSquareRequest.isCurrent(request) else { return }
+            self.kugouSquareRequest.finish(request)
+            self.isLoadingKugouSquare = false
+            self.isLoadingMoreKugouSquare = false
             if case .failure(let error) = completion {
                 AppLogger.warning("[Kugou] 歌单广场加载失败: \(error.localizedDescription)")
             }
         }, receiveValue: { [weak self] result in
-            guard let self else { return }
+            guard let self, self.kugouSquareRequest.isCurrent(request) else { return }
             if reset {
                 self.kugouSquarePlaylists = result.playlists
             } else {
@@ -63,7 +70,7 @@ extension LibraryViewModel {
             self.kugouSquarePage = page
             self.hasMoreKugouSquare = result.hasMore
         })
-        .store(in: &cancellables)
+
     }
 
     func loadMoreKugouSquarePlaylists() {

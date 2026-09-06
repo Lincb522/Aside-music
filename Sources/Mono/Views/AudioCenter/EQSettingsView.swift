@@ -7,7 +7,7 @@ import FFmpegSwiftSDK
 struct EQSettingsView: View {
     private let isEmbedded: Bool
     @StateObject private var eqManager = EQManager.shared
-    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var player = CurrentSongPresentationModel.shared
     @ObservedObject private var settings = SettingsManager.shared
     @StateObject private var coverColors = CoverColorExtractor()
     @Environment(\.monoSoundCenterLayout) private var centerLayout
@@ -864,7 +864,6 @@ struct EQSettingsView: View {
         }
     }
 
-
     // MARK: - 内置预设
 
     private var presetScrollSection: some View {
@@ -1313,10 +1312,9 @@ private enum EQSettingsWorkspace: String, CaseIterable, Identifiable {
 }
 
 struct EQImmersiveTrackHeader: View {
-    let pageTitle: String
     let accent: Color
 
-    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var player = CurrentSongPresentationModel.shared
 
     var body: some View {
         Group {
@@ -1337,11 +1335,6 @@ struct EQImmersiveTrackHeader: View {
                     }
 
                     VStack(alignment: .leading, spacing: 5) {
-                        Text(pageTitle)
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(accent)
-                            .lineLimit(1)
-
                         Text(song.name)
                             .font(.system(size: 17, weight: .bold))
                             .foregroundStyle(.white)
@@ -1360,7 +1353,7 @@ struct EQImmersiveTrackHeader: View {
                     coverPlaceholder
                         .frame(width: 58, height: 58)
 
-                    Text(pageTitle)
+                    Text(String(localized: "not_playing"))
                         .font(.system(size: 17, weight: .bold))
                         .foregroundStyle(.white)
 
@@ -1462,7 +1455,7 @@ private enum EQProfessionalWorkspace: String, CaseIterable, Identifiable {
 private struct EQProfessionalSettingsView: View {
     @StateObject private var manager = EQManager.shared
     @StateObject private var coverColors = CoverColorExtractor()
-    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var player = CurrentSongPresentationModel.shared
     @ObservedObject private var settings = SettingsManager.shared
     @State private var selectedWorkspace: EQProfessionalWorkspace = .processing
     @Namespace private var workspaceSelectionNamespace
@@ -1480,7 +1473,6 @@ private struct EQProfessionalSettingsView: View {
 
             VStack(spacing: 0) {
                 EQImmersiveTrackHeader(
-                    pageTitle: String(localized: "eq_professional_mode"),
                     accent: accent
                 )
                 workspaceSwitcher
@@ -1492,13 +1484,8 @@ private struct EQProfessionalSettingsView: View {
         .environment(\.colorScheme, .dark)
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
+        .monoNavigationBackButton(iconColor: .white, title: String(localized: "eq_professional_mode"))
         .toolbarBackground(.hidden, for: .navigationBar)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                MonoToolbarBackButton()
-            }
-        }
         .onAppear {
             manager.handleAudioRouteChanged()
             refreshCoverAccent()

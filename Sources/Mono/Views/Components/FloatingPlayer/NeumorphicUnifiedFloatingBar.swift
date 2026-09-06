@@ -202,8 +202,8 @@ struct NeumorphicMiniPlayerStrip: View {
 private struct NeumorphicMiniPlayerCopy: View {
     let song: Song
 
-    @State private var lyricLineText = FloatingBarPlaybackModel.shared.lyricLineText
-    private let player = FloatingBarPlaybackModel.shared
+    @State private var lyricLineText = FloatingBarLyricModel.shared.lineText
+    private let lyrics = FloatingBarLyricModel.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
@@ -224,7 +224,7 @@ private struct NeumorphicMiniPlayerCopy: View {
             .frame(height: 14)
             .animation(.easeInOut(duration: 0.25), value: lyricLineText)
         }
-        .onReceive(player.$lyricLineText.removeDuplicates()) { text in
+        .onReceive(lyrics.$lineText.removeDuplicates()) { text in
             lyricLineText = text
         }
     }

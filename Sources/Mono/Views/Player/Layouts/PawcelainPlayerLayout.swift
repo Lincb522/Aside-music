@@ -8,7 +8,7 @@ struct PawcelainPlayerLayout: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject private var player = PlayerManager.shared
-    @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
+    private let timePublisher = PlaybackTimePublisher.shared
     @ObservedObject private var settings = SettingsManager.shared
     @ObservedObject private var likeManager = LikeManager.shared
 
@@ -384,41 +384,43 @@ struct PawcelainPlayerLayout: View {
     // MARK: - Progress
 
     private var progressSection: some View {
-        let duration = timePublisher.duration
-        let current = isDraggingSlider ? dragTimeValue : timePublisher.currentTime
-        let progress = duration > 0 ? CGFloat(min(max(current / duration, 0), 1)) : 0
+        PlaybackTimeReader { _, _ in
+            let duration = timePublisher.duration
+            let current = isDraggingSlider ? dragTimeValue : timePublisher.currentTime
+            let progress = duration > 0 ? CGFloat(min(max(current / duration, 0), 1)) : 0
 
-        return VStack(spacing: 7) {
-            GlobalWaveformPlaybackProgressBar(
-                progress: progress,
-                isPlaying: player.isPlaying && !isDraggingSlider,
-                color: usesIllustratedBackground ? illustratedPrimaryText : PetWhiteStyle.ink,
-                trackOpacity: usesIllustratedBackground ? 0.22 : 0.15,
-                fillColors: [PetWhiteStyle.dogOrange.opacity(0.85), PetWhiteStyle.dogEar],
-                onSeek: { p in
-                    isDraggingSlider = true
-                    dragTimeValue = Double(p) * duration
-                },
-                onCommit: { p in
-                    isDraggingSlider = false
-                    player.seek(to: Double(p) * duration)
+            return VStack(spacing: 7) {
+                GlobalWaveformPlaybackProgressBar(
+                    progress: progress,
+                    isPlaying: player.isPlaying && !isDraggingSlider,
+                    color: usesIllustratedBackground ? illustratedPrimaryText : PetWhiteStyle.ink,
+                    trackOpacity: usesIllustratedBackground ? 0.22 : 0.15,
+                    fillColors: [PetWhiteStyle.dogOrange.opacity(0.85), PetWhiteStyle.dogEar],
+                    onSeek: { p in
+                        isDraggingSlider = true
+                        dragTimeValue = Double(p) * duration
+                    },
+                    onCommit: { p in
+                        isDraggingSlider = false
+                        player.seek(to: Double(p) * duration)
+                    }
+                )
+                .frame(height: 34)
+
+                HStack {
+                    Text(formatPlayerTime(current))
+                    Spacer()
+                    Text(formatPlayerTime(duration))
                 }
-            )
-            .frame(height: 34)
-
-            HStack {
-                Text(formatPlayerTime(current))
-                Spacer()
-                Text(formatPlayerTime(duration))
+                .font(PetWhiteStyle.labelFont(10, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(usesIllustratedBackground ? illustratedSecondaryText : PetWhiteStyle.inkMuted)
             }
-            .font(PetWhiteStyle.labelFont(10, weight: .semibold))
-            .monospacedDigit()
-            .foregroundStyle(usesIllustratedBackground ? illustratedSecondaryText : PetWhiteStyle.inkMuted)
-        }
-        .padding(.horizontal, usesIllustratedBackground ? 12 : 0)
-        .padding(.vertical, usesIllustratedBackground ? 9 : 0)
-        .background {
-            playerReadabilityBackground(cornerRadius: PetWhiteStyle.compactRadius + 3, opacity: 0.62)
+            .padding(.horizontal, usesIllustratedBackground ? 12 : 0)
+            .padding(.vertical, usesIllustratedBackground ? 9 : 0)
+            .background {
+                playerReadabilityBackground(cornerRadius: PetWhiteStyle.compactRadius + 3, opacity: 0.62)
+            }
         }
     }
 

@@ -6,7 +6,7 @@ struct MinimalPlayerLayout: View {
     @Environment(\.dismiss) var dismiss
     @ObservedObject var player = PlayerManager.shared
     @ObservedObject var downloadStatus = DownloadedSongStatusModel.shared
-    @ObservedObject var lyricVM = LyricViewModel.shared
+    private let lyricVM = LyricViewModel.shared
     @ObservedObject private var settings = SettingsManager.shared
 
     @StateObject private var colorExtractor = CoverColorExtractor()
@@ -380,115 +380,117 @@ extension MinimalPlayerLayout {
 extension MinimalPlayerLayout {
 
     var lyricsWaterfall: some View {
-        Group {
-            if lyricVM.isLoading {
-                VStack {
-                    Spacer()
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: contentColor))
-                    Spacer()
-                }
-            } else if !lyricVM.hasLyrics {
-                VStack {
-                    Spacer()
-                    Text("lyrics_no_lyrics")
-                        .font(.system(size: 16, weight: .medium, design: .rounded))
-                        .foregroundColor(mutedColor)
-                    Spacer()
-                }
-            } else {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 20) {
-                            Color.clear.frame(height: 20)
+        PlayerLyricReader { _ in
+            Group {
+                if lyricVM.isLoading {
+                    VStack {
+                        Spacer()
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: contentColor))
+                        Spacer()
+                    }
+                } else if !lyricVM.hasLyrics {
+                    VStack {
+                        Spacer()
+                        Text("lyrics_no_lyrics")
+                            .font(.system(size: 16, weight: .medium, design: .rounded))
+                            .foregroundColor(mutedColor)
+                        Spacer()
+                    }
+                } else {
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 20) {
+                                Color.clear.frame(height: 20)
 
-                            ForEach(Array(lyricVM.lyrics.enumerated()), id: \.element.id) { index, line in
-                                let isCurrent = index == lyricVM.currentLineIndex
-                                let distance = abs(index - lyricVM.currentLineIndex)
+                                ForEach(Array(lyricVM.lyrics.enumerated()), id: \.element.id) { index, line in
+                                    let isCurrent = index == lyricVM.currentLineIndex
+                                    let distance = abs(index - lyricVM.currentLineIndex)
 
-                                Button(action: { player.seek(to: line.time) }) {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        if isCurrent && enableKaraoke {
-                                            // Parsed lyric lines already carry a normalized
-                                            // word timeline. Reuse it instead of rebuilding
-                                            // every visible line whenever playback advances.
-                                            let karaokeWords = line.words.isEmpty
-                                                ? LyricKaraokeTimeline.resolvedWords(for: line)
-                                                : line.words
-                                            if !karaokeWords.isEmpty {
-                                                MinimalKaraokeLine(
-                                                    words: karaokeWords,
-                                                    contentColor: contentColor,
-                                                    isPlaying: player.isPlaying
-                                                )
+                                    Button(action: { player.seek(to: line.time) }) {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            if isCurrent && enableKaraoke {
+                                                // Parsed lyric lines already carry a normalized
+                                                // word timeline. Reuse it instead of rebuilding
+                                                // every visible line whenever playback advances.
+                                                let karaokeWords = line.words.isEmpty
+                                                    ? LyricKaraokeTimeline.resolvedWords(for: line)
+                                                    : line.words
+                                                if !karaokeWords.isEmpty {
+                                                    MinimalKaraokeLine(
+                                                        words: karaokeWords,
+                                                        contentColor: contentColor,
+                                                        isPlaying: player.isPlaying
+                                                    )
+                                                } else {
+                                                    minimalLyricText(line, isCurrent: true)
+                                                }
                                             } else {
-                                                minimalLyricText(line, isCurrent: true)
+                                                minimalLyricText(line, isCurrent: isCurrent)
                                             }
-                                        } else {
-                                            minimalLyricText(line, isCurrent: isCurrent)
-                                        }
 
-                                        if showTranslation, let trans = line.translation, !trans.isEmpty {
-                                            Text(trans.monoLyricDisplayText)
-                                                .font(
-                                                    MonoPlayerFont.activeFont(
-                                                        size: isCurrent ? 15 : 12,
-                                                        weight: .regular,
-                                                        fallback: .system(
+                                            if showTranslation, let trans = line.translation, !trans.isEmpty {
+                                                Text(trans.monoLyricDisplayText)
+                                                    .font(
+                                                        MonoPlayerFont.activeFont(
                                                             size: isCurrent ? 15 : 12,
                                                             weight: .regular,
-                                                            design: .rounded
+                                                            fallback: .system(
+                                                                size: isCurrent ? 15 : 12,
+                                                                weight: .regular,
+                                                                design: .rounded
+                                                            )
                                                         )
                                                     )
-                                                )
-                                                .foregroundColor(isCurrent ? contentColor.opacity(0.6) : contentColor.opacity(0.15))
+                                                    .foregroundColor(isCurrent ? contentColor.opacity(0.6) : contentColor.opacity(0.15))
+                                            }
                                         }
+                                        .blur(radius: isCurrent ? 0 : min(CGFloat(distance) * 1.0, 3))
+                                        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: lyricVM.currentLineIndex)
                                     }
-                                    .blur(radius: isCurrent ? 0 : min(CGFloat(distance) * 1.0, 3))
-                                    .animation(.spring(response: 0.4, dampingFraction: 0.8), value: lyricVM.currentLineIndex)
+                                    .buttonStyle(PlainButtonStyle())
+                                    .id(index)
                                 }
-                                .buttonStyle(PlainButtonStyle())
-                                .id(index)
-                            }
 
-                            Color.clear.frame(height: 80)
+                                Color.clear.frame(height: 80)
+                            }
+                            .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 36 : 28)
                         }
-                        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 36 : 28)
-                    }
-                    .scrollIndicators(.hidden)
-                    .simultaneousGesture(
-                        DragGesture().onChanged { _ in
-                            isUserScrolling = true
-                            resetScrollTimer()
+                        .scrollIndicators(.hidden)
+                        .simultaneousGesture(
+                            DragGesture().onChanged { _ in
+                                isUserScrolling = true
+                                resetScrollTimer()
+                            }
+                        )
+                        .onChange(of: lyricVM.currentLineIndex) { _, newIndex in
+                            if !isUserScrolling {
+                                withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                                    proxy.scrollTo(newIndex, anchor: .center)
+                                }
+                            }
                         }
-                    )
-                    .onChange(of: lyricVM.currentLineIndex) { _, newIndex in
-                        if !isUserScrolling {
-                            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                                proxy.scrollTo(newIndex, anchor: .center)
+                        .onAppear {
+                            isUserScrolling = false
+                            proxy.monoRestoreLyricPosition(isCancelled: { isUserScrolling }) {
+                                lyricVM.currentLineIndex
                             }
                         }
                     }
-                    .onAppear {
-                        isUserScrolling = false
-                        proxy.monoRestoreLyricPosition(isCancelled: { isUserScrolling }) {
-                            lyricVM.currentLineIndex
-                        }
-                    }
-                }
-                .mask(
-                    LinearGradient(
-                        stops: [
-                            .init(color: .clear, location: 0),
-                            .init(color: .black.opacity(0.4), location: 0.06),
-                            .init(color: .black, location: 0.15),
-                            .init(color: .black, location: 0.85),
-                            .init(color: .clear, location: 1.0)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
+                    .mask(
+                        LinearGradient(
+                            stops: [
+                                .init(color: .clear, location: 0),
+                                .init(color: .black.opacity(0.4), location: 0.06),
+                                .init(color: .black, location: 0.15),
+                                .init(color: .black, location: 0.85),
+                                .init(color: .clear, location: 1.0)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
                     )
-                )
+                }
             }
         }
     }

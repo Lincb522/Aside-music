@@ -8,8 +8,8 @@ struct Game2048PlayerLayout: View {
     @Environment(\.dismiss) var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject var player = PlayerManager.shared
-    @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
-    @ObservedObject var lyricVM = LyricViewModel.shared
+    private let timePublisher = PlaybackTimePublisher.shared
+    private let lyricVM = LyricViewModel.shared
     @ObservedObject var downloadStatus = DownloadedSongStatusModel.shared
 
     // MARK: - State
@@ -313,35 +313,37 @@ struct Game2048PlayerLayout: View {
 
 extension Game2048PlayerLayout {
     private func scoreHeader(cell: CGFloat) -> some View {
-        HStack(alignment: .top) {
-            Button { dismiss() } label: {
-                MonoSymbolIcon(name: "chevron.down", size: 15, color: headerText.opacity(0.6))
-                    .frame(width: 32, height: 32)
-                    .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(gridBg.opacity(0.5)))
-            }.buttonStyle(MonoBouncingButtonStyle())
+        PlaybackTimeReader { _, _ in
+            HStack(alignment: .top) {
+                Button { dismiss() } label: {
+                    MonoSymbolIcon(name: "chevron.down", size: 15, color: headerText.opacity(0.6))
+                        .frame(width: 32, height: 32)
+                        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(gridBg.opacity(0.5)))
+                }.buttonStyle(MonoBouncingButtonStyle())
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text("2048").font(.system(size: 36, weight: .black, design: .rounded))
-                    .foregroundStyle(LinearGradient(
-                        colors: [colorExtractor.dominantColor, colorExtractor.secondaryColor],
-                        startPoint: .leading, endPoint: .trailing))
-                Text("play the music").font(.system(size: 10, weight: .semibold, design: .rounded))
-                    .foregroundColor(headerText.opacity(0.4))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("2048").font(.system(size: 36, weight: .black, design: .rounded))
+                        .foregroundStyle(LinearGradient(
+                            colors: [colorExtractor.dominantColor, colorExtractor.secondaryColor],
+                            startPoint: .leading, endPoint: .trailing))
+                    Text("play the music").font(.system(size: 10, weight: .semibold, design: .rounded))
+                        .foregroundColor(headerText.opacity(0.4))
+                }
+
+                Spacer()
+
+                HStack(spacing: 6) {
+                    scoreBox(label: "SCORE", value: "\(Int(timePublisher.currentTime))")
+                    scoreBox(label: "BEST", value: formatTime(timePublisher.duration))
+                }
+
+                Button { showMoreMenu.toggle() } label: {
+                    MonoIcon(icon: .more, size: 15, color: headerText.opacity(0.6), lineWidth: 1.5)
+                        .frame(width: 32, height: 32)
+                        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(gridBg.opacity(0.5)))
+                }.buttonStyle(MonoBouncingButtonStyle())
+                .playerMoreMenuAnchor()
             }
-
-            Spacer()
-
-            HStack(spacing: 6) {
-                scoreBox(label: "SCORE", value: "\(Int(timePublisher.currentTime))")
-                scoreBox(label: "BEST", value: formatTime(timePublisher.duration))
-            }
-
-            Button { showMoreMenu.toggle() } label: {
-                MonoIcon(icon: .more, size: 15, color: headerText.opacity(0.6), lineWidth: 1.5)
-                    .frame(width: 32, height: 32)
-                    .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(gridBg.opacity(0.5)))
-            }.buttonStyle(MonoBouncingButtonStyle())
-            .playerMoreMenuAnchor()
         }
     }
 
@@ -510,47 +512,49 @@ extension Game2048PlayerLayout {
     // ─── 歌词 256 ───
 
     private func lyricsTile(size: CGFloat) -> some View {
-        Button {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { showLyrics = true }
-        } label: {
-            ZStack {
-                RoundedRectangle(cornerRadius: tileRadius, style: .continuous).fill(tileColor(256))
+        PlayerLyricReader { _ in
+            Button {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { showLyrics = true }
+            } label: {
+                ZStack {
+                    RoundedRectangle(cornerRadius: tileRadius, style: .continuous).fill(tileColor(256))
 
-                VStack { HStack {
-                    Text("256").font(.system(size: 10, weight: .black, design: .rounded))
-                        .foregroundColor(tileFg(256).opacity(0.2)).padding(5)
-                    Spacer()
-                }; Spacer() }
+                    VStack { HStack {
+                        Text("256").font(.system(size: 10, weight: .black, design: .rounded))
+                            .foregroundColor(tileFg(256).opacity(0.2)).padding(5)
+                        Spacer()
+                    }; Spacer() }
 
-                if let text = lyricVM.currentLineText, !text.isEmpty {
-                    Text(text.monoLyricDisplayText)
-                        .font(
-                            MonoPlayerFont.activeFont(
-                                size: 14,
-                                weight: .bold,
-                                fallback: .system(size: 14, weight: .bold, design: .rounded)
+                    if let text = lyricVM.currentLineText, !text.isEmpty {
+                        Text(text.monoLyricDisplayText)
+                            .font(
+                                MonoPlayerFont.activeFont(
+                                    size: 14,
+                                    weight: .bold,
+                                    fallback: .system(size: 14, weight: .bold, design: .rounded)
+                                )
                             )
-                        )
-                        .foregroundColor(tileFg(256)).multilineTextAlignment(.center)
-                        .lineLimit(4).padding(10)
-                        .id(lyricVM.currentLineIndex)
-                        .transition(.asymmetric(
-                            insertion: .scale(scale: 0.8).combined(with: .opacity), removal: .opacity))
-                        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: lyricVM.currentLineIndex)
-                } else {
-                    VStack(spacing: 4) {
-                        MonoSymbolIcon(name: "text.quote", size: 21, color: tileFg(256).opacity(0.4))
-                        Text("歌词").font(.system(size: 11, weight: .semibold, design: .rounded))
-                    }.foregroundColor(tileFg(256).opacity(0.4))
-                }
+                            .foregroundColor(tileFg(256)).multilineTextAlignment(.center)
+                            .lineLimit(4).padding(10)
+                            .id(lyricVM.currentLineIndex)
+                            .transition(.asymmetric(
+                                insertion: .scale(scale: 0.8).combined(with: .opacity), removal: .opacity))
+                            .animation(.spring(response: 0.35, dampingFraction: 0.75), value: lyricVM.currentLineIndex)
+                    } else {
+                        VStack(spacing: 4) {
+                            MonoSymbolIcon(name: "text.quote", size: 21, color: tileFg(256).opacity(0.4))
+                            Text("歌词").font(.system(size: 11, weight: .semibold, design: .rounded))
+                        }.foregroundColor(tileFg(256).opacity(0.4))
+                    }
 
-                RoundedRectangle(cornerRadius: tileRadius, style: .continuous)
-                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: tileRadius, style: .continuous)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                }
+                .frame(width: size, height: size)
+                .shadow(color: tileColor(256).opacity(0.2), radius: 6)
             }
-            .frame(width: size, height: size)
-            .shadow(color: tileColor(256).opacity(0.2), radius: 6)
+            .buttonStyle(MonoBouncingButtonStyle())
         }
-        .buttonStyle(MonoBouncingButtonStyle())
     }
 
     // ─── 模式 2 ───
@@ -663,32 +667,34 @@ extension Game2048PlayerLayout {
 
 extension Game2048PlayerLayout {
     private func progressRow(cellW: CGFloat) -> some View {
-        let fullW = cellW * 4 + gap * 3
-        return ZStack(alignment: .leading) {
-            RoundedRectangle(cornerRadius: 4, style: .continuous).fill(emptyCell)
-                .frame(width: fullW, height: 24)
-            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .fill(LinearGradient(colors: [colorExtractor.secondaryColor, colorExtractor.dominantColor],
-                                      startPoint: .leading, endPoint: .trailing))
-                .frame(width: max(8, fullW * CGFloat(progress)), height: 24)
-                .animation(.linear(duration: 0.3), value: progress)
-                .overlay(alignment: .top) {
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .fill(Color.white.opacity(0.15)).frame(height: 6)
-                        .padding(.horizontal, 4).offset(y: 2)
+        PlaybackTimeReader { _, _ in
+            let fullW = cellW * 4 + gap * 3
+            return ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 4, style: .continuous).fill(emptyCell)
+                    .frame(width: fullW, height: 24)
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(LinearGradient(colors: [colorExtractor.secondaryColor, colorExtractor.dominantColor],
+                                          startPoint: .leading, endPoint: .trailing))
+                    .frame(width: max(8, fullW * CGFloat(progress)), height: 24)
+                    .animation(.linear(duration: 0.3), value: progress)
+                    .overlay(alignment: .top) {
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(Color.white.opacity(0.15)).frame(height: 6)
+                            .padding(.horizontal, 4).offset(y: 2)
+                    }
+                HStack {
+                    Text(formatTime(timePublisher.currentTime)); Spacer()
+                    Text("512").opacity(0.3); Spacer()
+                    Text(formatTime(timePublisher.duration))
                 }
-            HStack {
-                Text(formatTime(timePublisher.currentTime)); Spacer()
-                Text("512").opacity(0.3); Spacer()
-                Text(formatTime(timePublisher.duration))
+                .font(.system(size: 9, weight: .heavy, design: .rounded))
+                .foregroundColor(.white).padding(.horizontal, 8).frame(width: fullW)
             }
-            .font(.system(size: 9, weight: .heavy, design: .rounded))
-            .foregroundColor(.white).padding(.horizontal, 8).frame(width: fullW)
+            .frame(width: fullW, height: 24).contentShape(Rectangle())
+            .gesture(DragGesture(minimumDistance: 0).onChanged { v in
+                player.seek(to: min(max(v.location.x / fullW, 0), 1) * timePublisher.duration)
+            })
         }
-        .frame(width: fullW, height: 24).contentShape(Rectangle())
-        .gesture(DragGesture(minimumDistance: 0).onChanged { v in
-            player.seek(to: min(max(v.location.x / fullW, 0), 1) * timePublisher.duration)
-        })
     }
 }
 

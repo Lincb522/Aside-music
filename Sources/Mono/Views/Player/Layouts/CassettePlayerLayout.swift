@@ -7,7 +7,7 @@ struct CassettePlayerLayout: View {
     @Environment(\.dismiss) var dismiss
     @Environment(\.colorScheme) var colorScheme
     @ObservedObject var player = PlayerManager.shared
-    @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
+    private let timePublisher = PlaybackTimePublisher.shared
 
     @State private var showPlaylist = false
     @State private var showMoreMenu = false
@@ -174,45 +174,47 @@ struct CassettePlayerLayout: View {
 extension CassettePlayerLayout {
 
     private func cassetteBody(width: CGFloat) -> some View {
-        let height = width * 0.58
+        PlaybackTimeReader { _, _ in
+            let height = width * 0.58
 
-        return ZStack {
-            TimelineView(
-                AppFrameRate.animationTimeline(
-                    maximumFramesPerSecond: 30,
-                    paused: !player.isPlaying
-                )
-            ) { timeline in
-                let t = timeline.date.timeIntervalSinceReferenceDate
-                let isPlaying = player.isPlaying
+            return ZStack {
+                TimelineView(
+                    AppFrameRate.animationTimeline(
+                        maximumFramesPerSecond: 30,
+                        paused: !player.isPlaying
+                    )
+                ) { timeline in
+                    let t = timeline.date.timeIntervalSinceReferenceDate
+                    let isPlaying = player.isPlaying
 
-                Canvas { ctx, size in
-                    let w = size.width
-                    let h = size.height
+                    Canvas { ctx, size in
+                        let w = size.width
+                        let h = size.height
 
-                    // ── 1. 外壳 ──
-                    drawShell(ctx: &ctx, w: w, h: h)
+                        // ── 1. 外壳 ──
+                        drawShell(ctx: &ctx, w: w, h: h)
 
-                    // ── 2. 贴纸区域 ──
-                    let labelRect = drawLabel(ctx: &ctx, w: w, h: h)
+                        // ── 2. 贴纸区域 ──
+                        let labelRect = drawLabel(ctx: &ctx, w: w, h: h)
 
-                    // ── 3. 观景窗 ──
-                    let winRect = drawWindow(ctx: &ctx, w: w, h: h, labelRect: labelRect)
+                        // ── 3. 观景窗 ──
+                        let winRect = drawWindow(ctx: &ctx, w: w, h: h, labelRect: labelRect)
 
-                    // ── 4. 磁带卷轴 + 齿轮 ──
-                    drawReels(ctx: &ctx, winRect: winRect, t: t, isPlaying: isPlaying)
+                        // ── 4. 磁带卷轴 + 齿轮 ──
+                        drawReels(ctx: &ctx, winRect: winRect, t: t, isPlaying: isPlaying)
 
-                    // ── 5. 底部导带槽 ──
-                    drawGuideSlot(ctx: &ctx, w: w, h: h)
+                        // ── 5. 底部导带槽 ──
+                        drawGuideSlot(ctx: &ctx, w: w, h: h)
+                    }
                 }
-            }
-            .drawingGroup()
+                .drawingGroup()
 
-            DynamicArtworkOverlay(cornerRadius: 4)
-                .frame(width: height * 0.25, height: height * 0.25)
-                .offset(x: -width * 0.27, y: -height * 0.12)
+                DynamicArtworkOverlay(cornerRadius: 4)
+                    .frame(width: height * 0.25, height: height * 0.25)
+                    .offset(x: -width * 0.27, y: -height * 0.12)
+            }
+            .frame(width: width, height: height)
         }
-        .frame(width: width, height: height)
     }
 
     /// 外壳：圆角矩形 + 底部梯形凸起 + 螺丝
@@ -521,55 +523,57 @@ extension CassettePlayerLayout {
 extension CassettePlayerLayout {
 
     private func progressBar(width: CGFloat) -> some View {
-        VStack(spacing: 6) {
-            // 进度滑块 — 复古风格细线
-            GeometryReader { geo in
-                let barW = geo.size.width
-                ZStack(alignment: .leading) {
-                    // 底轨
-                    Capsule()
-                        .fill(colorScheme == .dark ? Color.white.opacity(0.08) : Color.black.opacity(0.08))
-                        .frame(height: 3)
+        PlaybackTimeReader { _, _ in
+            VStack(spacing: 6) {
+                // 进度滑块 — 复古风格细线
+                GeometryReader { geo in
+                    let barW = geo.size.width
+                    ZStack(alignment: .leading) {
+                        // 底轨
+                        Capsule()
+                            .fill(colorScheme == .dark ? Color.white.opacity(0.08) : Color.black.opacity(0.08))
+                            .frame(height: 3)
 
-                    // 已播放
-                    Capsule()
-                        .fill(accentColor)
-                        .frame(width: barW * CGFloat(progress), height: 3)
+                        // 已播放
+                        Capsule()
+                            .fill(accentColor)
+                            .frame(width: barW * CGFloat(progress), height: 3)
 
-                    // 拖拽手柄
-                    Circle()
-                        .fill(accentColor)
-                        .frame(width: isDragging ? 14 : 8, height: isDragging ? 14 : 8)
-                        .offset(x: barW * CGFloat(progress) - (isDragging ? 7 : 4))
-                        .animation(.spring(response: 0.2), value: isDragging)
+                        // 拖拽手柄
+                        Circle()
+                            .fill(accentColor)
+                            .frame(width: isDragging ? 14 : 8, height: isDragging ? 14 : 8)
+                            .offset(x: barW * CGFloat(progress) - (isDragging ? 7 : 4))
+                            .animation(.spring(response: 0.2), value: isDragging)
+                    }
+                    .contentShape(Rectangle().inset(by: -16))
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                isDragging = true
+                                let ratio = max(0, min(1, Double(value.location.x / barW)))
+                                dragValue = ratio * timePublisher.duration
+                            }
+                            .onEnded { value in
+                                let ratio = max(0, min(1, Double(value.location.x / barW)))
+                                let target = ratio * timePublisher.duration
+                                player.seek(to: target)
+                                isDragging = false
+                            }
+                    )
                 }
-                .contentShape(Rectangle().inset(by: -16))
-                .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { value in
-                            isDragging = true
-                            let ratio = max(0, min(1, Double(value.location.x / barW)))
-                            dragValue = ratio * timePublisher.duration
-                        }
-                        .onEnded { value in
-                            let ratio = max(0, min(1, Double(value.location.x / barW)))
-                            let target = ratio * timePublisher.duration
-                            player.seek(to: target)
-                            isDragging = false
-                        }
-                )
-            }
-            .frame(height: 14)
+                .frame(height: 14)
 
-            // 时间标签
-            HStack {
-                Text(formatTime(isDragging ? dragValue : timePublisher.currentTime))
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .foregroundColor(textMuted)
-                Spacer()
-                Text(formatTime(timePublisher.duration))
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .foregroundColor(textMuted)
+                // 时间标签
+                HStack {
+                    Text(formatTime(isDragging ? dragValue : timePublisher.currentTime))
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundColor(textMuted)
+                    Spacer()
+                    Text(formatTime(timePublisher.duration))
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundColor(textMuted)
+                }
             }
         }
     }

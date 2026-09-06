@@ -2,6 +2,7 @@ import SwiftUI
 
 /// 悬浮球样式 - 黑胶唱片悬浮球 + 弹出式控制面板
 struct FloatingBallView: View {
+    @Environment(\.floatingBarColorRevision) private var colorRevision
     @Binding var currentTab: Tab
     @ObservedObject var player = FloatingBarPlaybackModel.shared
     @ObservedObject private var settings = SettingsManager.shared
@@ -22,6 +23,8 @@ struct FloatingBallView: View {
     }
 
     var body: some View {
+        let _ = colorRevision
+
         let _ = settings.globalThemeRevision
 
         GeometryReader { _ in
@@ -470,10 +473,12 @@ struct FloatingBallView: View {
                             .foregroundStyle(Color.monoTextPrimary)
                             .lineLimit(1)
 
-                        Text(player.lyricLineText ?? song.artistName)
-                            .font(.system(size: 10, weight: .medium, design: .rounded))
-                            .foregroundStyle(Color.monoTextSecondary.opacity(0.9))
-                            .lineLimit(1)
+                        FloatingBarLyricReader { lineText in
+                            Text(lineText ?? song.artistName)
+                                .font(.system(size: 10, weight: .medium, design: .rounded))
+                                .foregroundStyle(Color.monoTextSecondary.opacity(0.9))
+                                .lineLimit(1)
+                        }
                     }
                     .frame(width: 86, alignment: .leading)
                 }
@@ -607,10 +612,12 @@ struct FloatingBallView: View {
                             .foregroundStyle(MinimalWhiteStyle.ink)
                             .lineLimit(1)
 
-                        Text(player.lyricLineText ?? song.artistName)
-                            .font(MinimalWhiteStyle.labelFont(10, weight: .regular))
-                            .foregroundStyle(MinimalWhiteStyle.inkMuted)
-                            .lineLimit(1)
+                        FloatingBarLyricReader { lineText in
+                            Text(lineText ?? song.artistName)
+                                .font(MinimalWhiteStyle.labelFont(10, weight: .regular))
+                                .foregroundStyle(MinimalWhiteStyle.inkMuted)
+                                .lineLimit(1)
+                        }
                     }
                     .frame(width: 88, alignment: .leading)
                 }

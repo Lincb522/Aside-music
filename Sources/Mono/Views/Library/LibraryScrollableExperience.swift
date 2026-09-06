@@ -47,6 +47,7 @@ struct ScrollableLibraryExperience: View {
     @State var qqUserPlaylists: [Playlist] = []
     @State var isLoadingQQUserPlaylists = false
     @State var hasLoadedQQUserPlaylists = false
+    @State var qqPlaylistRequest = LibraryRequestScope()
     @Namespace var sequoiaLibraryNamespace
 
     let tabs = LibraryViewModel.LibraryTab.allCases
@@ -127,7 +128,12 @@ struct ScrollableLibraryExperience: View {
             guard MainTabActivationGate.isSettled(.library) else { return }
             loadCurrentTab()
         }
+        .onDisappear {
+            qqPlaylistRequest.cancel()
+            isLoadingQQUserPlaylists = false
+        }
         .onChange(of: qqSession.sessionRevision) { _, _ in
+            qqPlaylistRequest.cancel()
             qqUserPlaylists = []
             hasLoadedQQUserPlaylists = false
             isLoadingQQUserPlaylists = false

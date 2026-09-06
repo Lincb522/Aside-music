@@ -3,6 +3,7 @@ import SwiftUI
 /// App-wide playback progress rail used by floating bars and mini players.
 /// Keep this view light: it updates frequently while music is playing.
 struct GlobalPlaybackProgressBar: View {
+    @Environment(\.floatingBarColorRevision) private var colorRevision
     let progress: CGFloat
     var height: CGFloat = 3
     var minFillWidth: CGFloat = 6
@@ -70,6 +71,8 @@ struct GlobalPlaybackProgressBar: View {
     }
 
     var body: some View {
+        let _ = colorRevision
+
         let _ = settings.globalThemeRevision
 
         GeometryReader { geometry in

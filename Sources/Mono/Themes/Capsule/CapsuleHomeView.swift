@@ -46,7 +46,6 @@ private enum CapsuleHomeModule: CaseIterable, Identifiable {
 struct CapsuleHomeView: View {
     @ObservedObject private var viewModel = HomeViewModel.shared
     @ObservedObject private var settings = SettingsManager.shared
-    @ObservedObject private var player = PlayerManager.shared
     @AppStorage("hitokotoEnabled") private var hitokotoEnabled = true
 
     @State private var navigationPath = NavigationPath()
@@ -73,7 +72,7 @@ struct CapsuleHomeView: View {
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbar(.hidden, for: .navigationBar)
             .task {
                 guard await MainTabActivationGate.waitUntilSettled(.home) else { return }
                 activateHomeIfNeeded(reason: "capsule home appear")

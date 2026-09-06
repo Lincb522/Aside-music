@@ -27,12 +27,7 @@ struct AIProviderDeveloperSettingsView: View {
 
             ScrollView {
                 VStack(spacing: SettingsPageLayout.deepSectionSpacing) {
-                    DeveloperDiagnosticHeader(
-                        title: String(localized: "ai_provider_settings_title"),
-                        status: store.wireProtocol.title,
-                        icon: .sparkle,
-                        tint: .cyan
-                    )
+                    DeveloperDiagnosticStatus(status: store.wireProtocol.title)
                     .padding(.horizontal, DeviceLayout.settingsSectionHorizontalPadding)
                     .iPadContentWidth(SettingsPageLayout.contentWidth)
 
@@ -197,7 +192,7 @@ struct AIProviderDeveloperSettingsView: View {
             .scrollIndicators(.hidden)
             .coordinateSpace(name: SettingsPageLayout.scrollCoordinateSpace)
         }
-        .developerDiagnosticPageChrome()
+        .developerDiagnosticPageChrome(title: String(localized: "ai_provider_settings_title"))
         .onAppear {
             usageLimiter.refresh()
         }

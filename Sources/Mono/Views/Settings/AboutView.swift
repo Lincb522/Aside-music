@@ -68,13 +68,6 @@ struct AboutView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    SettingsScrollablePageHeader(
-                        title: String(localized: "关于"),
-                        eyebrow: "MONO",
-                        icon: .infoCircle,
-                        signalModule: .about
-                    )
-
                     VStack(alignment: .leading, spacing: 0) {
                         masthead
                             .opacity(mastheadVisible ? 1 : 0)

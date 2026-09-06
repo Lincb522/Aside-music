@@ -44,7 +44,7 @@ struct KCMPlaylistsView: View {
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
-                .refreshable { viewModel.loadKugouUserPlaylists() }
+                .refreshable { viewModel.loadKugouUserPlaylists(force: true) }
             }
         }
         .background(Color.clear)

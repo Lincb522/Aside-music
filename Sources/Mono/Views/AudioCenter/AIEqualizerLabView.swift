@@ -4,7 +4,7 @@ import FFmpegSwiftSDK
 @MainActor
 struct AIEqualizerLabView: View {
     let isEmbedded: Bool
-    @ObservedObject var player = PlayerManager.shared
+    @ObservedObject var player = CurrentSongPresentationModel.shared
     @StateObject var agent = AIEqualizerAgent.shared
     @StateObject var eqManager = EQManager.shared
     @StateObject var coverColors = CoverColorExtractor()

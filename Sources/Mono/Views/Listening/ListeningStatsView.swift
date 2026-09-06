@@ -12,6 +12,7 @@ struct ListeningStatsView: View {
     @State private var stats: ListeningStatsService.Stats = .empty
     @State private var weeklyStats: ListeningStatsService.Stats = .empty
     @State private var isLoading = true
+    @State private var refreshTask: Task<Void, Never>?
     @State private var showClearAlert = false
     @State private var showMoreMenu = false
     @State private var presentedReportKind: ListeningReportKind?
@@ -70,14 +71,17 @@ struct ListeningStatsView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .scrollIndicators(.hidden)
-            .ignoresSafeArea(edges: .top)
+            .ignoresSafeArea(edges: settings.globalThemeId == .default ? [] : .top)
             .coordinateSpace(name: SettingsPageLayout.scrollCoordinateSpace)
             .themeRenderScrollLayer()
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .monoNavigationBackButton(iconColor: .white)
+        .monoNavigationBackButton(
+            iconColor: settings.globalThemeId == .default ? .monoTextPrimary : .white,
+            title: String(localized: "listening_stats")
+        )
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -85,9 +89,13 @@ struct ListeningStatsView: View {
                         showMoreMenu.toggle()
                     }
                 } label: {
-                    MonoIcon(icon: .more, size: 17, color: .white)
-                        .frame(width: 36, height: 36)
-                        .monoGlassCircle(interactive: true)
+                    if settings.globalThemeId == .default {
+                        DefaultHeaderActionLabel(icon: .more, title: String(localized: "player_more_title"))
+                    } else {
+                        MonoIcon(icon: .more, size: 17, color: .white)
+                            .frame(width: 36, height: 36)
+                            .monoGlassCircle(interactive: true)
+                    }
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(String(localized: "player_more_title"))
@@ -116,6 +124,10 @@ struct ListeningStatsView: View {
         }
         .task {
             refreshStats()
+        }
+        .onDisappear {
+            refreshTask?.cancel()
+            refreshTask = nil
         }
         .onChange(of: selectedPeriod) { _, _ in
             refreshStats()
@@ -364,7 +376,41 @@ struct ListeningStatsView: View {
 
     @ViewBuilder
     private var statsHeader: some View {
-        if SignalStyle.isActive {
+        if settings.globalThemeId == .default {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Text(String(localized: "听歌时长"))
+                        .font(.subheadline)
+                        .foregroundStyle(Color.monoTextSecondary)
+                    Spacer(minLength: 0)
+                    Text(isLoading ? "—" : stats.formattedDuration)
+                        .font(.system(.title2, design: .rounded, weight: .semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(Color.monoTextPrimary)
+                }
+                if let song = weeklyStats.topSongs.first {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(String(localized: "本周播放时长第一"))
+                            .font(.caption)
+                            .foregroundStyle(Color.monoTextSecondary)
+                        Text(song.name)
+                            .font(.headline)
+                            .foregroundStyle(Color.monoTextPrimary)
+                            .lineLimit(2)
+                        Text("\(song.artistName) · \(formatDuration(song.totalDuration))")
+                            .font(.subheadline)
+                            .foregroundStyle(Color.monoTextSecondary)
+                    }
+                } else {
+                    Text(String(localized: "本周暂无有效播放"))
+                        .font(.subheadline)
+                        .foregroundStyle(Color.monoTextSecondary)
+                }
+                immersiveMetrics
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+        } else if SignalStyle.isActive {
             signalStatsHeader
         } else {
             immersiveHeader
@@ -373,13 +419,6 @@ struct ListeningStatsView: View {
 
     private var signalStatsHeader: some View {
         VStack(alignment: .leading, spacing: 16) {
-            SignalNestedPageHeader(
-                title: String(localized: "听歌统计"),
-                eyebrow: "LISTENING DATA",
-                icon: .chart,
-                module: .playback
-            )
-
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(String(localized: "听歌时长"))
@@ -576,35 +615,35 @@ struct ListeningStatsView: View {
         .padding(.vertical, 13)
         .background(
             RoundedRectangle(cornerRadius: 19, style: .continuous)
-                .fill(Color.black.opacity(0.32))
+                .fill(settings.globalThemeId == .default ? Color.monoSeparator.opacity(0.35) : Color.black.opacity(0.32))
         )
         .overlay {
             RoundedRectangle(cornerRadius: 19, style: .continuous)
-                .stroke(Color.white.opacity(0.16), lineWidth: 0.8)
+                .stroke(settings.globalThemeId == .default ? Color.clear : Color.white.opacity(0.16), lineWidth: 0.8)
         }
     }
 
     private func immersiveMetric(value: String, label: String) -> some View {
         VStack(spacing: 3) {
             Text(value)
-                .font(.system(size: 17, weight: .heavy, design: .rounded))
-                .foregroundStyle(Color.white)
+                .font(settings.globalThemeId == .default ? .headline : .system(size: 17, weight: .heavy, design: .rounded))
+                .foregroundStyle(settings.globalThemeId == .default ? Color.monoTextPrimary : Color.white)
                 .monospacedDigit()
                 .lineLimit(1)
-                .minimumScaleFactor(0.7)
+                .minimumScaleFactor(settings.globalThemeId == .default ? 1 : 0.7)
                 .contentTransition(.numericText())
 
             Text(label)
-                .font(.system(size: 9.5, weight: .semibold, design: .rounded))
-                .foregroundStyle(Color.white.opacity(0.62))
-                .lineLimit(1)
+                .font(settings.globalThemeId == .default ? .caption : .system(size: 9.5, weight: .semibold, design: .rounded))
+                .foregroundStyle(settings.globalThemeId == .default ? Color.monoTextSecondary : Color.white.opacity(0.62))
+                .lineLimit(settings.globalThemeId == .default ? 2 : 1)
         }
         .frame(maxWidth: .infinity)
     }
 
     private var immersiveMetricDivider: some View {
         Rectangle()
-            .fill(Color.white.opacity(0.14))
+            .fill(settings.globalThemeId == .default ? Color.monoSeparator : Color.white.opacity(0.14))
             .frame(width: 0.5, height: 26)
     }
 
@@ -966,10 +1005,13 @@ struct ListeningStatsView: View {
     }
 
     private func refreshStats() {
+        refreshTask?.cancel()
+        let period = selectedPeriod
         isLoading = true
-        Task {
-            let result = ListeningStatsService.shared.fetchStats(for: selectedPeriod)
-            let weekResult = selectedPeriod == .week
+        refreshTask = Task { @MainActor in
+            guard !Task.isCancelled else { return }
+            let result = ListeningStatsService.shared.fetchStats(for: period)
+            let weekResult = period == .week
                 ? result
                 : ListeningStatsService.shared.fetchStats(for: .week)
             let summaries = makeReportSummaries()
@@ -979,6 +1021,7 @@ struct ListeningStatsView: View {
                 reportSummaries = summaries
                 isLoading = false
             }
+            refreshTask = nil
         }
     }
 

@@ -167,8 +167,8 @@ struct DeviceLayout {
     
     /// 普通页面内容沿用的顶部间距。
     static var headerTopPadding: CGFloat {
-        if isPadDevice { return 12 }
-        return hasNotch ? 8 : 50
+        // The container owns the safe area; this is only spacing within its content.
+        isPadDevice ? 12 : 8
     }
 
     /// 全屏播放器由外层容器负责系统安全区，这里只保留视觉间距。

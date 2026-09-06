@@ -53,6 +53,7 @@ struct SearchView: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
         .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbar(.hidden, for: .navigationBar)
         .monoEdgeSwipeToDismiss()
         .navigationDestination(isPresented: $showArtistDetail) {
             if let artist = selectedArtist {
@@ -140,7 +141,7 @@ struct SearchView: View {
                     liquidGlassSearchHeader
                 } else if CapsuleStyle.isActive {
                     capsuleSearchHeader
-                } else {
+                } else if settings.globalThemeId != .default {
                     defaultSearchHeader
                 }
 

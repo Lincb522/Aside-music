@@ -3,47 +3,69 @@ import Combine
 @preconcurrency import QQMusicKit
 
 extension LibraryViewModel {
-    // MARK: - Charts
-
     func fetchTopLists() {
-        if !topLists.isEmpty { return }
-
-        if let cached = OptimizedCacheManager.shared.getObject(forKey: "top_charts_lists", type: [TopList].self), !cached.isEmpty {
-            self.topLists = cached
-            return
-        }
-
+        guard topLists.isEmpty, !chartsRequest.isRunning else { return }
+        let request = chartsRequest.begin()
         isLoadingCharts = true
+        chartsRequest.task = Task { @MainActor [weak self] in
+            guard !Task.isCancelled else { return }
+            let cached = await OptimizedCacheManager.shared.getObjectAsync(
+                forKey: "top_charts_lists", type: [TopList].self
+            )
+            guard let self, !Task.isCancelled, self.chartsRequest.isCurrent(request) else { return }
+            if let cached, !cached.isEmpty {
+                self.topLists = cached
+                self.isLoadingCharts = false
+                self.chartsRequest.finish(request)
+                return
+            }
 
-        apiService.fetchTopLists()
-            .sink(receiveCompletion: { [weak self] _ in
-                self?.isLoadingCharts = false
-            }, receiveValue: { [weak self] lists in
-                self?.topLists = lists
-                OptimizedCacheManager.shared.setObject(lists, forKey: "top_charts_lists")
-            })
-            .store(in: &cancellables)
+            self.chartsRequest.cancellable = self.apiService.fetchTopLists()
+                .receive(on: DispatchQueue.main)
+                .sink(receiveCompletion: { [weak self] _ in
+                    guard let self, self.chartsRequest.isCurrent(request) else { return }
+                    self.chartsRequest.finish(request)
+                    self.isLoadingCharts = false
+                }, receiveValue: { [weak self] lists in
+                    guard let self, self.chartsRequest.isCurrent(request) else { return }
+                    self.topLists = lists
+                    OptimizedCacheManager.shared.setObject(lists, forKey: "top_charts_lists")
+                })
+        }
     }
 
     func fetchKugouTopLists() {
-        if !kugouTopLists.isEmpty { return }
-        if let cached = OptimizedCacheManager.shared.getObject(forKey: "kcm_top_charts", type: [TopList].self),
-           !cached.isEmpty {
-            kugouTopLists = cached
-            return
-        }
+        guard kugouTopLists.isEmpty, !kugouChartsRequest.isRunning else { return }
+        let request = kugouChartsRequest.begin()
         isLoadingKugouCharts = true
-        apiService.fetchKugouTopLists()
-            .receive(on: DispatchQueue.main)
-            .sink(receiveCompletion: { [weak self] completion in
-                self?.isLoadingKugouCharts = false
-                if case .failure(let error) = completion {
-                    AppLogger.warning("KCM 榜单获取失败: \(error)")
-                }
-            }, receiveValue: { [weak self] lists in
-                self?.kugouTopLists = lists
-                OptimizedCacheManager.shared.setObject(lists, forKey: "kcm_top_charts")
-            })
-            .store(in: &cancellables)
+        kugouChartsRequest.task = Task { @MainActor [weak self] in
+            guard !Task.isCancelled else { return }
+            let cached = await OptimizedCacheManager.shared.getObjectAsync(
+                forKey: "kcm_top_charts", type: [TopList].self
+            )
+            guard let self, !Task.isCancelled, self.kugouChartsRequest.isCurrent(request) else { return }
+            if let cached, !cached.isEmpty {
+                self.kugouTopLists = cached
+                self.isLoadingKugouCharts = false
+                self.kugouChartsRequest.finish(request)
+                return
+            }
+
+            self.kugouChartsRequest.cancellable = self.apiService.fetchKugouTopLists()
+                .receive(on: DispatchQueue.main)
+                .sink(receiveCompletion: { [weak self] completion in
+                    guard let self, self.kugouChartsRequest.isCurrent(request) else { return }
+                    self.kugouChartsRequest.finish(request)
+                    self.isLoadingKugouCharts = false
+                    if case .failure(let error) = completion {
+                        AppLogger.warning("KCM 榜单获取失败: \(error)")
+                    }
+                }, receiveValue: { [weak self] lists in
+                    guard let self, self.kugouChartsRequest.isCurrent(request) else { return }
+                    self.kugouTopLists = lists
+                    OptimizedCacheManager.shared.setObject(lists, forKey: "kcm_top_charts")
+                })
+        }
     }
+
 }

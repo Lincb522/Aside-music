@@ -38,7 +38,7 @@ struct ClarityProfileView: View {
                 .font(ClarityStyle.title(25, weight: .semibold))
                 .foregroundStyle(ClarityStyle.ink)
             Spacer()
-            NavigationLink(destination: SettingsView().monoNavigationBackButton(iconColor: ClarityStyle.ink)) {
+            NavigationLink(destination: SettingsView()) {
                 MonoIcon(icon: .settings, size: 19, color: ClarityStyle.ink, lineWidth: 1.55)
                     .frame(width: 44, height: 44)
                     .background(ClarityMembrane(shape: Circle(), strength: .regular))
@@ -83,7 +83,7 @@ struct ClarityProfileView: View {
     }
 
     private var settingsPlane: some View {
-        NavigationLink(destination: SettingsView().monoNavigationBackButton(iconColor: ClarityStyle.ink)) {
+        NavigationLink(destination: SettingsView()) {
             actionRow(icon: .settings, title: String(localized: "settings_title"))
                 .padding(.horizontal, 18)
                 .background {

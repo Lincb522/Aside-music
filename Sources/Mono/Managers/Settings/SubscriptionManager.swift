@@ -23,6 +23,9 @@ class SubscriptionManager: ObservableObject {
     @Published var isLoadingRadios = false
 
     private var cancellables = Set<AnyCancellable>()
+    private var radiosRequest: AnyCancellable?
+    private var radiosRequestID = 0
+    private var radiosRequestSession: APIService.NCMSessionSnapshot?
     private let apiService = APIService.shared
 
     private init() {
@@ -39,17 +42,22 @@ class SubscriptionManager: ObservableObject {
     // MARK: - 播客订阅
 
     /// 获取用户订阅的播客
-    func fetchSubscribedRadios() {
+    func fetchSubscribedRadios(force: Bool = false) {
         let session = apiService.ncmSessionSnapshot
         guard apiService.isLoggedIn,
               let userID = session.userID,
               isCurrentNCMSession(session, userID: userID) else { return }
+        if !force, isLoadingRadios, radiosRequestSession == session { return }
+        radiosRequestID &+= 1
+        let requestID = radiosRequestID
+        radiosRequest?.cancel()
+        radiosRequestSession = session
         isLoadingRadios = true
 
-        apiService.fetchDJSublist(limit: 200, offset: 0)
+        radiosRequest = apiService.fetchDJSublist(limit: 200, offset: 0)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
-                guard let self,
+                guard let self, self.radiosRequestID == requestID,
                       self.isCurrentNCMSession(session, userID: userID) else { return }
                 self.isLoadingRadios = false
                 if case .failure(let error) = completion {
@@ -57,12 +65,11 @@ class SubscriptionManager: ObservableObject {
                     AppLogger.error("获取订阅播客失败: \(error)")
                 }
             }, receiveValue: { [weak self] radios in
-                guard let self,
+                guard let self, self.radiosRequestID == requestID,
                       self.isCurrentNCMSession(session, userID: userID) else { return }
                 self.subscribedRadios = radios
                 self.subscribedRadioIds = Set(radios.map { $0.id })
             })
-            .store(in: &cancellables)
     }
 
     /// 检查播客是否已本地收藏
@@ -104,6 +111,10 @@ class SubscriptionManager: ObservableObject {
     // MARK: - 歌单收藏
 
     func resetRemoteNCMState() {
+        radiosRequestID &+= 1
+        radiosRequest?.cancel()
+        radiosRequest = nil
+        radiosRequestSession = nil
         subscribedRadios = []
         subscribedRadioIds = []
         subscribedPlaylistIds = []
@@ -330,7 +341,7 @@ class SubscriptionManager: ObservableObject {
     /// 刷新所有订阅数据
     func refresh() {
         if apiService.isLoggedIn {
-            fetchSubscribedRadios()
+            fetchSubscribedRadios(force: true)
         } else {
             subscribedRadios = []
             subscribedRadioIds = []

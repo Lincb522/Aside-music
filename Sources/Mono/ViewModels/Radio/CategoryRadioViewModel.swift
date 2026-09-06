@@ -12,7 +12,9 @@ class CategoryRadioViewModel: ObservableObject {
     let category: RadioCategory
     private var offset = 0
     private let limit = 30
-    private var cancellables = Set<AnyCancellable>()
+    private var listCancellable: AnyCancellable?
+    private var pageCancellable: AnyCancellable?
+    private var requestID = 0
     private let apiService = APIService.shared
 
     init(category: RadioCategory) {
@@ -22,46 +24,52 @@ class CategoryRadioViewModel: ObservableObject {
     /// 首次加载
     func fetchRadios() {
         guard !isLoading else { return }
+        requestID += 1
+        let request = requestID
+        listCancellable?.cancel()
+        pageCancellable?.cancel()
+        isLoadingMore = false
         isLoading = true
         offset = 0
         radios = []
 
-        apiService.fetchDJCategoryHot(cateId: category.id, limit: limit, offset: offset)
+        listCancellable = apiService.fetchDJCategoryHot(cateId: category.id, limit: limit, offset: offset)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
-                self?.isLoading = false
+                guard let self, self.requestID == request else { return }
+                self.isLoading = false
                 if case .failure(let error) = completion {
                     AppLogger.error("[CategoryRadioVM] 加载失败: \(error)")
                 }
             }, receiveValue: { [weak self] result in
-                guard let self = self else { return }
+                guard let self, self.requestID == request else { return }
                 self.radios = result.radios
                 self.offset = result.radios.count
                 self.hasMore = result.hasMore
             })
-            .store(in: &cancellables)
     }
 
     /// 分页加载更多
     func loadMore() {
-        guard !isLoadingMore, hasMore else { return }
+        guard !isLoadingMore, !isLoading, hasMore else { return }
+        let request = requestID
         isLoadingMore = true
 
-        apiService.fetchDJCategoryHot(cateId: category.id, limit: limit, offset: offset)
+        pageCancellable = apiService.fetchDJCategoryHot(cateId: category.id, limit: limit, offset: offset)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
-                self?.isLoadingMore = false
+                guard let self, self.requestID == request else { return }
+                self.isLoadingMore = false
                 if case .failure(let error) = completion {
                     AppLogger.error("[CategoryRadioVM] 加载更多失败: \(error)")
                 }
             }, receiveValue: { [weak self] result in
-                guard let self = self else { return }
+                guard let self, self.requestID == request else { return }
                 let existingIds = Set(self.radios.map { $0.id })
                 let newStations = result.radios.filter { !existingIds.contains($0.id) }
                 self.radios.append(contentsOf: newStations)
                 self.offset += result.radios.count
                 self.hasMore = result.hasMore
             })
-            .store(in: &cancellables)
     }
 }

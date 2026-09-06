@@ -282,7 +282,7 @@ struct TypewriterPlayerLayout: View {
     @Environment(\.colorScheme) private var colorScheme
 
     @ObservedObject private var player = PlayerManager.shared
-    @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
+    private let timePublisher = PlaybackTimePublisher.shared
     @ObservedObject private var downloadStatus = DownloadedSongStatusModel.shared
 
     @State private var showPlaylist = false
@@ -454,33 +454,35 @@ struct TypewriterPlayerLayout: View {
     // MARK: - Roller Bar (旋转旋钮)
 
     private func rollerBar(width: CGFloat) -> some View {
-        ZStack {
-            Capsule()
-                .fill(
-                    LinearGradient(colors: [metalLight, metal, metalDark], startPoint: .top, endPoint: .bottom)
-                )
-                .frame(width: width, height: 14)
-                .overlay(Capsule().stroke(Color.white.opacity(colorScheme == .dark ? 0.06 : 0.2), lineWidth: 1))
-                .shadow(color: Color.black.opacity(0.3), radius: 4, x: 0, y: 3)
+        PlaybackTimeReader { _, _ in
+            ZStack {
+                Capsule()
+                    .fill(
+                        LinearGradient(colors: [metalLight, metal, metalDark], startPoint: .top, endPoint: .bottom)
+                    )
+                    .frame(width: width, height: 14)
+                    .overlay(Capsule().stroke(Color.white.opacity(colorScheme == .dark ? 0.06 : 0.2), lineWidth: 1))
+                    .shadow(color: Color.black.opacity(0.3), radius: 4, x: 0, y: 3)
 
-            HStack {
-                brassKnob(size: 22, rotation: progress * 1080)
-                Spacer()
-                brassKnob(size: 22, rotation: progress * 1080)
-            }
-            .frame(width: width + 28)
-
-            HStack {
-                Spacer()
-                VStack(spacing: 0) {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(metalDark)
-                        .frame(width: 5, height: 24)
-                    brassKnob(size: 16, rotation: progress * -720)
+                HStack {
+                    brassKnob(size: 22, rotation: progress * 1080)
+                    Spacer()
+                    brassKnob(size: 22, rotation: progress * 1080)
                 }
-                .offset(y: 6)
+                .frame(width: width + 28)
+
+                HStack {
+                    Spacer()
+                    VStack(spacing: 0) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(metalDark)
+                            .frame(width: 5, height: 24)
+                        brassKnob(size: 16, rotation: progress * -720)
+                    }
+                    .offset(y: 6)
+                }
+                .frame(width: width + 56)
             }
-            .frame(width: width + 56)
         }
     }
 
@@ -543,14 +545,16 @@ struct TypewriterPlayerLayout: View {
 
                 ribbonProgressBar
 
-                HStack {
-                    Text(formatTime(currentTime))
-                    Spacer()
-                    Text(formatTime(timePublisher.duration))
+                PlaybackTimeReader { _, _ in
+                    HStack {
+                        Text(formatTime(currentTime))
+                        Spacer()
+                        Text(formatTime(timePublisher.duration))
+                    }
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundStyle(inkFaded)
+                    .monospacedDigit()
                 }
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .foregroundStyle(inkFaded)
-                .monospacedDigit()
 
                 Rectangle().fill(ink.opacity(0.1)).frame(height: 1)
 
@@ -655,16 +659,18 @@ struct TypewriterPlayerLayout: View {
     }
 
     private var ribbonProgressBar: some View {
-        FullScreenPlayerView.WaveformProgressBar(
-            currentTime: Binding(get: { currentTime }, set: { _ in }),
-            duration: timePublisher.duration,
-            color: ink.opacity(0.85),
-            trackOpacity: 0.1,
-            isAnimating: player.isPlaying,
-            onSeek: { isDragging = true; dragTimeValue = $0 },
-            onCommit: { isDragging = false; player.seek(to: $0) }
-        )
-        .frame(height: 16)
+        PlaybackTimeReader { _, _ in
+            FullScreenPlayerView.WaveformProgressBar(
+                currentTime: Binding(get: { currentTime }, set: { _ in }),
+                duration: timePublisher.duration,
+                color: ink.opacity(0.85),
+                trackOpacity: 0.1,
+                isAnimating: player.isPlaying,
+                onSeek: { isDragging = true; dragTimeValue = $0 },
+                onCommit: { isDragging = false; player.seek(to: $0) }
+            )
+            .frame(height: 16)
+        }
     }
 
     private var emptyPaperPlaceholder: some View {

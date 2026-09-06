@@ -12,13 +12,7 @@ struct AIAgentTraceDeveloperView: View {
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
-                    DeveloperDiagnosticHeader(
-                        title: String(localized: "agent_trace_title"),
-                        status: String(format: String(localized: "agent_trace_session_count"), store.sessions.count),
-                        icon: .history,
-                        tint: .purple,
-                        artwork: .agentTraceRoot
-                    )
+                    DeveloperDiagnosticStatus(status: String(format: String(localized: "agent_trace_session_count"), store.sessions.count))
 
                     traceLegend
 
@@ -43,7 +37,7 @@ struct AIAgentTraceDeveloperView: View {
             }
             .scrollIndicators(.hidden)
         }
-        .developerDiagnosticPageChrome()
+        .developerDiagnosticPageChrome(title: String(localized: "agent_trace_title"))
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -201,13 +195,7 @@ private struct AIAgentTraceDetailView: View {
             if let session {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 16) {
-                        DeveloperDiagnosticHeader(
-                            title: session.agentName,
-                            status: session.subject,
-                            icon: .sparkle,
-                            tint: session.status.tint,
-                            artwork: .agentTraceRoot
-                        )
+                        DeveloperDiagnosticStatus(status: session.subject)
 
                         overviewSection(session)
                         executionChainSection(session)
@@ -235,7 +223,7 @@ private struct AIAgentTraceDetailView: View {
                     .foregroundStyle(.white.opacity(0.5))
             }
         }
-        .developerDiagnosticPageChrome()
+        .developerDiagnosticPageChrome(title: session?.agentName ?? String(localized: "agent_trace_title"))
     }
 
     private func overviewSection(_ session: AIAgentTraceSession) -> some View {
@@ -1015,13 +1003,7 @@ private struct AIAgentTraceModelRecordView: View {
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
-                    DeveloperDiagnosticHeader(
-                        title: event.title,
-                        status: statusText,
-                        icon: .logDebug,
-                        tint: event.level.tint,
-                        artwork: .agentRuntimeIdentity
-                    )
+                    DeveloperDiagnosticStatus(status: statusText)
 
                     if !event.metadata.isEmpty {
                         detailSection(title: String(localized: "agent_trace_model_record_metadata")) {
@@ -1055,7 +1037,7 @@ private struct AIAgentTraceModelRecordView: View {
             }
             .scrollIndicators(.hidden)
         }
-        .developerDiagnosticPageChrome()
+        .developerDiagnosticPageChrome(title: event.title)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {

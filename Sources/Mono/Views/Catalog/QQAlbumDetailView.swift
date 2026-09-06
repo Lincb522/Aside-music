@@ -16,32 +16,41 @@ class QQAlbumDetailViewModel: ObservableObject {
     @Published var songCount: Int?
     
     let mid: String
-    private var cancellables = Set<AnyCancellable>()
+    private let songsRequest = LibraryRequestScope()
+    private let detailRequest = LibraryRequestScope()
     
     init(mid: String) {
         self.mid = mid
     }
     
     func fetchData() {
+        guard !songsRequest.isRunning, !detailRequest.isRunning else { return }
+        isLoading = songs.isEmpty
+        let songsID = songsRequest.begin()
         // 获取歌曲
-        APIService.shared.fetchQQAlbumSongs(albumMid: mid, page: 1, num: 100)
+        songsRequest.cancellable = APIService.shared.fetchQQAlbumSongs(albumMid: mid, page: 1, num: 100)
+            .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
-                self?.isLoading = false
+                guard let self, self.songsRequest.isCurrent(songsID) else { return }
+                self.songsRequest.finish(songsID)
+                self.isLoading = false
                 if case .failure(let e) = completion { AppLogger.error("[QQAlbum] 歌曲加载失败: \(e)") }
             }, receiveValue: { [weak self] songs in
-                self?.songs = songs
-                if self?.songCount == nil || self?.songCount == 0 {
-                    self?.songCount = songs.count
+                guard let self, self.songsRequest.isCurrent(songsID) else { return }
+                self.songs = songs
+                if self.songCount == nil || self.songCount == 0 {
+                    self.songCount = songs.count
                 }
             })
-            .store(in: &cancellables)
         
         // 获取详情
-        APIService.shared.fetchQQAlbumDetail(albumMid: mid)
-            .sink(receiveCompletion: { _ in }, receiveValue: { [weak self] json in
-                self?.handleAlbumDetail(json)
+        let detailID = detailRequest.begin()
+        detailRequest.cancellable = APIService.shared.fetchQQAlbumDetail(albumMid: mid)
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { [weak self] _ in self?.detailRequest.finish(detailID) }, receiveValue: { [weak self] json in
+                guard let self, self.detailRequest.isCurrent(detailID) else { return }
+                self.handleAlbumDetail(json)
             })
-            .store(in: &cancellables)
     }
     
     private func handleAlbumDetail(_ json: JSON) {

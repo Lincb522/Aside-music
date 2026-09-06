@@ -117,7 +117,7 @@ struct ClarityLocalHomeView: View {
                     .rotationEffect(.degrees(-2.2))
                     .shadow(color: Color.black.opacity(0.10), radius: 18, y: 10)
                     .overlay(alignment: .bottomTrailing) {
-                        NavigationLink(destination: ClarityLocalMusicContent().clarityDetailChrome(addsBackButton: true)) {
+                        NavigationLink(destination: ClarityLocalMusicContent(isRoot: false).monoNavigationBackButton(iconColor: ClarityStyle.ink, title: String(localized: "tabbar_local_music")).clarityDetailChrome()) {
                             MonoIcon(icon: .chevronRight, size: 16, color: ClarityStyle.ink, lineWidth: 1.6)
                                 .frame(width: 43, height: 43)
                                 .background(ClarityMembrane(shape: Circle(), strength: .strong))
@@ -134,7 +134,7 @@ struct ClarityLocalHomeView: View {
 
     private var quickAccess: some View {
         HStack(spacing: 0) {
-            localShortcut(.musicNoteList, "local_filter_all", ClarityLocalMusicContent().clarityDetailChrome(addsBackButton: true))
+            localShortcut(.musicNoteList, "local_filter_all", ClarityLocalMusicContent(isRoot: false).monoNavigationBackButton(iconColor: ClarityStyle.ink, title: String(localized: "tabbar_local_music")).clarityDetailChrome())
             localShortcut(.liked, "local_filter_favorites", LocalMusicView(initialFilter: .favorites).clarityDetailChrome())
             localShortcut(.history, "local_filter_recent", LocalMusicView(initialFilter: .recent).clarityDetailChrome())
             localShortcut(.download, "local_filter_downloads", LocalMusicView(initialFilter: .downloads).clarityDetailChrome())
@@ -269,10 +269,11 @@ struct ClarityLocalMusicView: View {
 }
 
 private struct ClarityLocalMusicContent: View {
+    var isRoot = true
     @ObservedObject private var library = LocalMusicLibraryManager.shared
 
     var body: some View {
-        ClarityLocalScene(title: String(localized: "tabbar_local_music")) {
+        ClarityLocalScene(title: String(localized: "tabbar_local_music"), showsTitle: isRoot) {
             ClarityLocalSongList(title: String(localized: "local_filter_all"), songs: library.songs)
         }
     }
@@ -334,7 +335,7 @@ struct ClarityLocalProfileView: View {
                             ClarityLocalLinkRow(icon: .chart, title: String(localized: "listening_stats"))
                         }
                         Rectangle().fill(ClarityStyle.line).frame(height: 1).padding(.leading, 54)
-                        NavigationLink(destination: SettingsView().monoNavigationBackButton(iconColor: ClarityStyle.ink)) {
+                        NavigationLink(destination: SettingsView()) {
                             ClarityLocalLinkRow(icon: .settings, title: String(localized: "settings_title"))
                         }
                     }
@@ -348,6 +349,7 @@ struct ClarityLocalProfileView: View {
 
 private struct ClarityLocalScene<Content: View>: View {
     let title: String
+    var showsTitle = true
     @ViewBuilder let content: () -> Content
 
     var body: some View {
@@ -355,16 +357,19 @@ private struct ClarityLocalScene<Content: View>: View {
             ClarityBackdrop()
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 20) {
-                    Text(title)
-                        .font(ClarityStyle.title(23, weight: .semibold))
-                        .foregroundStyle(ClarityStyle.ink)
-                        .monoPageHeaderCollapse()
+                    if showsTitle {
+                        Text(title)
+                            .font(ClarityStyle.title(23, weight: .semibold))
+                            .foregroundStyle(ClarityStyle.ink)
+                            .accessibilityAddTraits(.isHeader)
+                            .monoPageHeaderCollapse()
+                    }
                     content()
                     FloatingBarBottomSpacer()
                 }
                 .frame(maxWidth: 680)
                 .frame(maxWidth: .infinity)
-                .padding(.top, DeviceLayout.headerTopPadding + 4)
+                .padding(.top, showsTitle ? DeviceLayout.headerTopPadding + 4 : 8)
                 .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 28 : 16)
             }
             .scrollIndicators(.hidden)

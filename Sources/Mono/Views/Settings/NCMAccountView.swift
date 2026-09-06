@@ -1,7 +1,8 @@
+import Combine
 import SwiftUI
 
 struct NCMAccountView: View {
-    @ObservedObject private var homeViewModel = HomeViewModel.shared
+    @State private var userProfile = HomeViewModel.shared.userProfile
     @ObservedObject private var loginIdentity = LoginIdentityManager.shared
     @State private var showLogoutConfirmation = false
 
@@ -11,18 +12,6 @@ struct NCMAccountView: View {
 
     var body: some View {
         List {
-            if SignalStyle.isActive {
-                SignalNestedPageHeader(
-                    title: "NCM 账号",
-                    eyebrow: "ACCOUNT NODE",
-                    icon: .personCircle,
-                    module: .accounts
-                )
-                .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20))
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-            }
-
             Section("账号") {
                 accountRow
             }
@@ -53,7 +42,10 @@ struct NCMAccountView: View {
         .background(ThemedPageBackground())
         .navigationTitle(SignalStyle.isActive ? "" : "NCM 账号")
         .navigationBarTitleDisplayMode(.inline)
-        .monoNavigationBackButton()
+        .monoNavigationBackButton(title: "NCM 账号")
+        .onReceive(HomeViewModel.shared.$userProfile.removeDuplicates()) {
+            userProfile = $0
+        }
         .confirmationDialog("退出 NCM 登录？", isPresented: $showLogoutConfirmation) {
             Button("退出登录", role: .destructive, action: logout)
             Button("取消", role: .cancel) {}
@@ -65,7 +57,7 @@ struct NCMAccountView: View {
             PlatformBadgeLabel(text: MusicSource.netease.shortName, source: .netease, fontSize: 10)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(homeViewModel.userProfile?.nickname ?? "NCM")
+                Text(userProfile?.nickname ?? "NCM")
                     .font(SignalStyle.isActive ? SignalStyle.bodyFont(14, weight: .semibold) : .system(size: 16, weight: .semibold, design: .rounded))
                     .foregroundStyle(SignalStyle.isActive ? SignalStyle.ink : Color.monoTextPrimary)
 
@@ -76,7 +68,7 @@ struct NCMAccountView: View {
 
             Spacer()
 
-            if let avatar = homeViewModel.userProfile?.avatarUrl.flatMap(URL.init(string:)) {
+            if let avatar = userProfile?.avatarUrl.flatMap(URL.init(string:)) {
                 CachedAsyncImage(url: avatar) {
                     avatarPlaceholder
                 }

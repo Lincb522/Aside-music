@@ -20,28 +20,33 @@ class ArtistDetailViewModel: ObservableObject {
     @Published var isLoadingDesc = false
     private var cancellables = Set<AnyCancellable>()
     private var appleMusicTask: Task<Void, Never>?
+    private let dataRequest = LibraryRequestScope()
+    private var activeArtistKey: String?
 
     func loadData(artistId: Int) {
         if artist?.id == artistId && !songs.isEmpty { return }
+        guard let request = beginDataLoad(key: "netease:\(artistId)") else { return }
         isLoading = true
 
         let detailPub = APIService.shared.fetchArtistDetail(id: artistId)
         let songsPub = APIService.shared.fetchArtistTopSongs(id: artistId)
         let fansPub = APIService.shared.fetchArtistFollowCount(id: artistId)
 
-        Publishers.Zip3(detailPub, songsPub, fansPub)
+        dataRequest.cancellable = Publishers.Zip3(detailPub, songsPub, fansPub)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
+                guard let self, self.dataRequest.isCurrent(request) else { return }
+                self.dataRequest.finish(request)
                 if case .failure(let error) = completion {
                     AppLogger.error("加载歌手数据失败: \(error)")
                 }
-                self?.isLoading = false
+                self.isLoading = false
             }, receiveValue: { [weak self] (artist, songs, fans) in
-                self?.artist = artist
-                self?.songs = songs
-                self?.fansCount = fans
+                guard let self, self.dataRequest.isCurrent(request) else { return }
+                self.artist = artist
+                self.songs = songs
+                self.fansCount = fans
             })
-            .store(in: &cancellables)
     }
 
     func loadData(artist initialArtist: ArtistInfo) {
@@ -57,7 +62,7 @@ class ArtistDetailViewModel: ObservableObject {
         }
         if artist?.appleMusicID == artistID, !songs.isEmpty { return }
 
-        appleMusicTask?.cancel()
+        guard let request = beginDataLoad(key: "appleMusic:\(artistID)") else { return }
         artist = initialArtist
         isLoading = true
         isLoadingAlbums = true
@@ -68,7 +73,7 @@ class ArtistDetailViewModel: ObservableObject {
         appleMusicTask = Task { [weak self] in
             do {
                 let page = try await AppleMusicService.shared.artistDetail(artistID: artistID)
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled, self?.dataRequest.isCurrent(request) == true else { return }
                 self?.artist = page.artist
                 self?.songs = page.songs
                 self?.albums = page.albums
@@ -78,12 +83,13 @@ class ArtistDetailViewModel: ObservableObject {
                     sections: []
                 )
             } catch {
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled, self?.dataRequest.isCurrent(request) == true else { return }
                 AppLogger.error(
                     "[AppleMusic] 加载歌手详情失败 artistID=\(artistID): \(error.localizedDescription)",
                     step: "apple-music.artist-detail"
                 )
             }
+            self?.dataRequest.finish(request)
             self?.isLoading = false
             self?.isLoadingAlbums = false
             self?.isLoadingSimi = false
@@ -92,6 +98,7 @@ class ArtistDetailViewModel: ObservableObject {
 
     private func loadKugouData(artist initialArtist: ArtistInfo) {
         if artist?.source == .kugou, artist?.id == initialArtist.id, !songs.isEmpty { return }
+        guard let request = beginDataLoad(key: "kugou:\(initialArtist.id)") else { return }
         artist = initialArtist
         isLoading = true
         isLoadingAlbums = true
@@ -101,22 +108,24 @@ class ArtistDetailViewModel: ObservableObject {
         simiArtists = []
         descResult = ArtistDescResult(briefDesc: initialArtist.briefDesc, sections: [])
 
-        Publishers.Zip(
+        dataRequest.cancellable = Publishers.Zip(
             APIService.shared.fetchKugouArtistSongs(id: initialArtist.id, pageSize: 50),
             APIService.shared.fetchKugouArtistAlbums(id: initialArtist.id, pageSize: 50)
         )
         .receive(on: DispatchQueue.main)
         .sink(receiveCompletion: { [weak self] completion in
-            self?.isLoading = false
-            self?.isLoadingAlbums = false
+            guard let self, self.dataRequest.isCurrent(request) else { return }
+            self.dataRequest.finish(request)
+            self.isLoading = false
+            self.isLoadingAlbums = false
             if case .failure(let error) = completion {
                 AppLogger.error("[KCM] 加载歌手详情失败: \(error.localizedDescription)")
             }
         }, receiveValue: { [weak self] songs, albums in
-            self?.songs = songs
-            self?.albums = albums
+            guard let self, self.dataRequest.isCurrent(request) else { return }
+            self.songs = songs
+            self.albums = albums
         })
-        .store(in: &cancellables)
     }
 
     func loadAlbums(artistId: Int) {
@@ -183,4 +192,13 @@ class ArtistDetailViewModel: ObservableObject {
             })
             .store(in: &cancellables)
     }
+
+    private func beginDataLoad(key: String) -> Int? {
+        guard activeArtistKey != key || !dataRequest.isRunning else { return nil }
+        appleMusicTask?.cancel()
+        activeArtistKey = key
+        return dataRequest.begin()
+    }
+
+    deinit { appleMusicTask?.cancel() }
 }

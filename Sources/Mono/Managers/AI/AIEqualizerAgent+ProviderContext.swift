@@ -102,16 +102,15 @@ extension AIEqualizerAgent {
             : availableDuration
     }
 
-    func resolvedProviderConfiguration(
+    func resolvedProviderRequestContext(
         usePublishedConfiguration: Bool = true
-    ) async throws -> AIProviderConfiguration {
-        if usePublishedConfiguration {
+    ) async throws -> AIProviderRequestContext {
+        if usePublishedConfiguration, !AIPersonalProviderStore.shared.settings.isEnabled {
             providerStore.refreshRemoteConfigurationInBackgroundIfNeeded()
         }
-        var configuration = usePublishedConfiguration
-            ? providerStore.requestConfiguration
-            : providerStore.configuration
-        let apiKey = usePublishedConfiguration ? providerStore.requestAPIKey : providerStore.apiKey
+        var context = try providerStore.requestContext(usePublishedConfiguration: usePublishedConfiguration)
+        let configuration = context.configuration
+        let apiKey = context.apiKey
         if configuration.wireProtocol.requiresAPIKey,
            apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             throw AIEqualizerError.missingAPIKey
@@ -120,21 +119,20 @@ extension AIEqualizerAgent {
         let configuredModel = configuration.model.trimmingCharacters(in: .whitespacesAndNewlines)
         guard configuredModel.isEmpty,
               configuration.wireProtocol != .appleIntelligence else {
-            return configuration
+            return context
         }
 
         let modelCacheKey = providerModelCacheKey(configuration: configuration, apiKey: apiKey)
         if let cachedModel = discoveredProviderModels[modelCacheKey] {
-            configuration.model = cachedModel
+            context.configuration.model = cachedModel
             AppLogger.info(
                 "[AIEqualizerAgent] Reused discovered provider model protocol=\(configuration.wireProtocol.rawValue) model=\(cachedModel)",
                 step: "ai-tuning.model-cache"
             )
-            if usePublishedConfiguration, providerStore.isUsingRemoteConfiguration {
-                return configuration
+            if context.persistsDiscoveredModel, providerStore.configuration == configuration {
+                providerStore.model = cachedModel
             }
-            providerStore.model = cachedModel
-            return providerStore.configuration
+            return context
         }
 
         let models = try await client.fetchModels(
@@ -150,12 +148,11 @@ extension AIEqualizerAgent {
             "[AIEqualizerAgent] Cached discovered provider model protocol=\(configuration.wireProtocol.rawValue) model=\(selected)",
             step: "ai-tuning.model-cache"
         )
-        if usePublishedConfiguration, providerStore.isUsingRemoteConfiguration {
-            configuration.model = selected
-            return configuration
+        context.configuration.model = selected
+        if context.persistsDiscoveredModel, providerStore.configuration == configuration {
+            providerStore.model = selected
         }
-        providerStore.model = selected
-        return providerStore.configuration
+        return context
     }
 
     func providerModelCacheKey(

@@ -78,8 +78,12 @@ class LibraryViewModel: ObservableObject {
 
     @Published var currentTab: LibraryTab = .my
 
-    @Published var userPlaylists: [Playlist] = []
-    @Published var kugouUserPlaylists: [Playlist] = []
+    @Published var userPlaylists: [Playlist] = [] {
+        didSet { userPlaylistRevision &+= 1 }
+    }
+    @Published var kugouUserPlaylists: [Playlist] = [] {
+        didSet { kugouUserPlaylistRevision &+= 1 }
+    }
 
     // MARK: - Playlist Square (NCM)
     @Published var squarePlaylists: [Playlist] = []
@@ -220,6 +224,31 @@ class LibraryViewModel: ObservableObject {
     @Published var isLoading = false
 
     var cancellables = Set<AnyCancellable>()
+    let playlistStatusRequest = LibraryRequestScope()
+    let userPlaylistRequest = LibraryRequestScope()
+    let kugouUserPlaylistRequest = LibraryRequestScope()
+    let playlistCacheRequest = LibraryRequestScope()
+    var playlistRequestSession: APIService.NCMSessionSnapshot?
+    var kugouPlaylistRequestSession: KCMMusicService.SessionSnapshot?
+    var playlistCacheNCMSession: APIService.NCMSessionSnapshot?
+    var playlistCacheKCMSession: KCMMusicService.SessionSnapshot?
+    var userPlaylistRevision = 0
+    var kugouUserPlaylistRevision = 0
+    let chartsRequest = LibraryRequestScope()
+    let qqChartsRequest = LibraryRequestScope()
+    let kugouChartsRequest = LibraryRequestScope()
+    let categoryRequest = LibraryRequestScope()
+    let qqCategoryRequest = LibraryRequestScope()
+    let kugouCategoryRequest = LibraryRequestScope()
+    let squareRequest = LibraryRequestScope()
+    let qqSquareRequest = LibraryRequestScope()
+    let kugouSquareRequest = LibraryRequestScope()
+    let appleSquareRequest = LibraryRequestScope()
+    let artistRequest = LibraryRequestScope()
+    let qqArtistRequest = LibraryRequestScope()
+    let kugouArtistRequest = LibraryRequestScope()
+    let appleArtistRequest = LibraryRequestScope()
+
     let apiService = APIService.shared
     var playlistRetryCount = 0
     let maxPlaylistRetries = 2
@@ -261,6 +290,7 @@ class LibraryViewModel: ObservableObject {
             .store(in: &cancellables)
 
         $artistSearchText
+            .removeDuplicates()
             .dropFirst()
             .debounce(for: .milliseconds(AppConfig.UI.searchDebounceMs), scheduler: DispatchQueue.main)
             .sink { [weak self] text in
@@ -273,6 +303,7 @@ class LibraryViewModel: ObservableObject {
             .store(in: &cancellables)
 
         $qqArtistSearchText
+            .removeDuplicates()
             .dropFirst()
             .debounce(for: .milliseconds(AppConfig.UI.searchDebounceMs), scheduler: DispatchQueue.main)
             .sink { [weak self] text in
@@ -286,6 +317,7 @@ class LibraryViewModel: ObservableObject {
             .store(in: &cancellables)
 
         $kugouArtistSearchText
+            .removeDuplicates()
             .dropFirst()
             .debounce(for: .milliseconds(AppConfig.UI.searchDebounceMs), scheduler: DispatchQueue.main)
             .sink { [weak self] text in
@@ -299,6 +331,7 @@ class LibraryViewModel: ObservableObject {
             .store(in: &cancellables)
 
         $appleMusicArtistSearchText
+            .removeDuplicates()
             .dropFirst()
             .debounce(for: .milliseconds(AppConfig.UI.searchDebounceMs), scheduler: DispatchQueue.main)
             .sink { [weak self] text in
@@ -329,12 +362,16 @@ class LibraryViewModel: ObservableObject {
     func fetchArtistsForSelectedSource(reset: Bool = false) {
         switch artistSource {
         case .ncm:
+            guard reset || topArtists.isEmpty else { return }
             fetchArtistData(reset: reset)
         case .qq:
+            guard reset || qqArtists.isEmpty else { return }
             fetchQQArtistData(reset: reset)
         case .appleMusic:
+            guard reset || appleMusicArtists.isEmpty else { return }
             fetchAppleMusicArtistData(reset: reset)
         case .kugou:
+            guard reset || kugouArtists.isEmpty else { return }
             fetchKugouArtistData(reset: reset)
         }
     }

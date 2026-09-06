@@ -62,7 +62,7 @@ struct NeumorphicLocalHomeView: View {
 struct NeumorphicLocalMusicView: View {
     var body: some View {
         NeumorphicThemeRoot {
-            LocalMusicView()
+            LocalMusicView(isRoot: true)
         }
     }
 }
@@ -70,7 +70,7 @@ struct NeumorphicLocalMusicView: View {
 struct NeumorphicLocalLibraryView: View {
     var body: some View {
         NeumorphicThemeRoot {
-            LocalLibraryView()
+            LocalLibraryView(isRoot: true)
         }
     }
 }

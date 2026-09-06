@@ -7,8 +7,8 @@ struct PixelPlayerLayout: View {
     @Environment(\.dismiss) var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject var player = PlayerManager.shared
-    @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
-    @ObservedObject var lyricVM = LyricViewModel.shared
+    private let timePublisher = PlaybackTimePublisher.shared
+    private let lyricVM = LyricViewModel.shared
     @ObservedObject var downloadStatus = DownloadedSongStatusModel.shared
     
     @State private var isAppeared = false
@@ -286,57 +286,59 @@ extension PixelPlayerLayout {
     
     /// 游戏化状态栏 HUD
     private func statusBar(width: CGFloat) -> some View {
-        HStack(spacing: 0) {
-            // 播放状态
-            HStack(spacing: 4) {
-                Rectangle()
-                    .fill(player.isPlaying ? pixelGreen : pixelRed)
-                    .frame(width: 6, height: 6)
-                Text(player.isPlaying ? "PLAY" : "STOP")
+        PlaybackTimeReader { _, _ in
+            HStack(spacing: 0) {
+                // 播放状态
+                HStack(spacing: 4) {
+                    Rectangle()
+                        .fill(player.isPlaying ? pixelGreen : pixelRed)
+                        .frame(width: 6, height: 6)
+                    Text(player.isPlaying ? "PLAY" : "STOP")
+                        .font(.custom(pixelFont, size: 10))
+                        .foregroundColor(fg)
+                }
+
+                Spacer()
+
+                // 播放模式
+                Text(modeText)
                     .font(.custom(pixelFont, size: 10))
-                    .foregroundColor(fg)
-            }
-            
-            Spacer()
-            
-            // 播放模式
-            Text(modeText)
-                .font(.custom(pixelFont, size: 10))
-                .foregroundColor(accent)
-            
-            Spacer()
-            
-            // LV + EXP 条
-            HStack(spacing: 4) {
-                Text("LV\(levelValue)")
-                    .font(.custom(pixelFont, size: 10))
-                    .foregroundColor(pixelYellow)
+                    .foregroundColor(accent)
                 
-                // EXP 小条 — 用播放进度
-                HStack(spacing: 1) {
-                    ForEach(0..<6, id: \.self) { i in
-                        Rectangle()
-                            .fill(i < expFilled ? pixelYellow : fg.opacity(0.12))
-                            .frame(width: 4, height: 6)
+                Spacer()
+
+                // LV + EXP 条
+                HStack(spacing: 4) {
+                    Text("LV\(levelValue)")
+                        .font(.custom(pixelFont, size: 10))
+                        .foregroundColor(pixelYellow)
+
+                    // EXP 小条 — 用播放进度
+                    HStack(spacing: 1) {
+                        ForEach(0..<6, id: \.self) { i in
+                            Rectangle()
+                                .fill(i < expFilled ? pixelYellow : fg.opacity(0.12))
+                                .frame(width: 4, height: 6)
+                        }
                     }
                 }
+
+                Spacer()
+
+                // HP
+                HStack(spacing: 3) {
+                    Circle()
+                        .fill(blinkOn && player.isPlaying ? pixelRed : pixelRed.opacity(0.2))
+                        .frame(width: 5, height: 5)
+                    Text("HP:\(hpValue)")
+                        .font(.custom(pixelFont, size: 10))
+                        .foregroundColor(fg)
+                }
             }
-            
-            Spacer()
-            
-            // HP
-            HStack(spacing: 3) {
-                Circle()
-                    .fill(blinkOn && player.isPlaying ? pixelRed : pixelRed.opacity(0.2))
-                    .frame(width: 5, height: 5)
-                Text("HP:\(hpValue)")
-                    .font(.custom(pixelFont, size: 10))
-                    .foregroundColor(fg)
-            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(fg.opacity(0.08))
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(fg.opacity(0.08))
     }
     
     private var modeText: String {
@@ -490,182 +492,188 @@ extension PixelPlayerLayout {
     
     /// 像素进度条 — 方块填充 + 闪烁指示器
     private func pixelProgressBar(width: CGFloat) -> some View {
-        let totalBlocks = 20
-        let progress = timePublisher.duration > 0
-            ? (isDragging ? dragValue : timePublisher.currentTime) / timePublisher.duration
-            : 0
-        let filledBlocks = Int(progress * Double(totalBlocks))
-        
-        return GeometryReader { barGeo in
-            HStack(spacing: 2) {
-                ForEach(0..<totalBlocks, id: \.self) { i in
-                    let isFilled = i < filledBlocks
-                    let isCurrent = i == filledBlocks && filledBlocks < totalBlocks
-                    
-                    Rectangle()
-                        .fill(
-                            isFilled ? fg :
-                            (isCurrent && blinkOn ? fg.opacity(0.6) : fg.opacity(0.1))
-                        )
-                        .frame(height: 10)
+        PlaybackTimeReader { _, _ in
+            let totalBlocks = 20
+            let progress = timePublisher.duration > 0
+                ? (isDragging ? dragValue : timePublisher.currentTime) / timePublisher.duration
+                : 0
+            let filledBlocks = Int(progress * Double(totalBlocks))
+
+            return GeometryReader { barGeo in
+                HStack(spacing: 2) {
+                    ForEach(0..<totalBlocks, id: \.self) { i in
+                        let isFilled = i < filledBlocks
+                        let isCurrent = i == filledBlocks && filledBlocks < totalBlocks
+
+                        Rectangle()
+                            .fill(
+                                isFilled ? fg :
+                                (isCurrent && blinkOn ? fg.opacity(0.6) : fg.opacity(0.1))
+                            )
+                            .frame(height: 10)
+                    }
                 }
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            isDragging = true
+                            dragValue = min(max(value.location.x / barGeo.size.width, 0), 1) * timePublisher.duration
+                        }
+                        .onEnded { value in
+                            isDragging = false
+                            player.seek(to: min(max(value.location.x / barGeo.size.width, 0), 1) * timePublisher.duration)
+                        }
+                )
             }
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        isDragging = true
-                        dragValue = min(max(value.location.x / barGeo.size.width, 0), 1) * timePublisher.duration
-                    }
-                    .onEnded { value in
-                        isDragging = false
-                        player.seek(to: min(max(value.location.x / barGeo.size.width, 0), 1) * timePublisher.duration)
-                    }
-            )
+            .frame(height: 10)
         }
-        .frame(height: 10)
     }
     
     private var timeDisplay: some View {
-        HStack {
-            Text(formatTime(isDragging ? dragValue : timePublisher.currentTime))
-                .font(.custom(pixelFont, size: 14))
-                .foregroundColor(fg)
-            Spacer()
-            Text(formatTime(timePublisher.duration))
-                .font(.custom(pixelFont, size: 14))
-                .foregroundColor(fgDim)
+        PlaybackTimeReader { _, _ in
+            HStack {
+                Text(formatTime(isDragging ? dragValue : timePublisher.currentTime))
+                    .font(.custom(pixelFont, size: 14))
+                    .foregroundColor(fg)
+                Spacer()
+                Text(formatTime(timePublisher.duration))
+                    .font(.custom(pixelFont, size: 14))
+                    .foregroundColor(fgDim)
+            }
+            .padding(.horizontal, 12)
         }
-        .padding(.horizontal, 12)
     }
 }
 
 // MARK: - 歌词屏幕
 extension PixelPlayerLayout {
     private func lyricsScreen(width: CGFloat) -> some View {
-        VStack(spacing: 0) {
-            // 歌词顶栏
-            HStack {
-                HStack(spacing: 4) {
-                    Rectangle().fill(accent).frame(width: 6, height: 6)
-                    Text("LYRICS")
-                        .font(.custom(pixelFont, size: 14))
-                        .foregroundColor(accent)
-                }
-                Spacer()
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.1)) { showLyrics = false }
-                }) {
+        PlayerLyricReader { _ in
+            VStack(spacing: 0) {
+                // 歌词顶栏
+                HStack {
                     HStack(spacing: 4) {
-                        Text("[ESC]")
-                            .font(.custom(pixelFont, size: 10))
-                            .foregroundColor(fgDim)
-                        Text("BACK")
-                            .font(.custom(pixelFont, size: 12))
-                            .foregroundColor(fg)
+                        Rectangle().fill(accent).frame(width: 6, height: 6)
+                        Text("LYRICS")
+                            .font(.custom(pixelFont, size: 14))
+                            .foregroundColor(accent)
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(fg.opacity(0.1))
-                    .overlay(Rectangle().stroke(fg.opacity(0.3), lineWidth: 1))
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(fg.opacity(0.08))
-            
-            // 分隔线 — 像素虚线
-            HStack(spacing: 3) {
-                ForEach(0..<Int(width / 6), id: \.self) { _ in
-                    Rectangle().fill(fg.opacity(0.2)).frame(width: 3, height: 1)
-                }
-            }
-            
-            // 歌词内容
-            if lyricVM.hasLyrics && !lyricVM.lyrics.isEmpty {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        VStack(spacing: 10) {
-                            Color.clear.frame(height: 20)
-                            ForEach(Array(lyricVM.lyrics.enumerated()), id: \.element.id) { index, line in
-                                let isCurrent = index == lyricVM.currentLineIndex
-                                let isPast = index < lyricVM.currentLineIndex
-                                
-                                HStack(spacing: 0) {
-                                    // 行号
-                                    Text(String(format: "%02d", index + 1))
-                                        .font(.custom(pixelFont, size: 9))
-                                        .foregroundColor(fg.opacity(0.15))
-                                        .frame(width: 20, alignment: .trailing)
-                                    
-                                    // 指示符
-                                    Text(isCurrent ? (blinkOn ? "> " : "  ") : "  ")
-                                        .font(.custom(pixelFont, size: 16))
-                                        .foregroundColor(accent)
-                                        .frame(width: 20)
-                                    
-                                    Text(line.text.monoLyricDisplayText)
-                                        .font(
-                                            MonoPlayerFont.activeFont(
-                                                size: isCurrent ? 16 : 13,
-                                                weight: isCurrent ? .bold : .medium,
-                                                fallback: .custom(
-                                                    pixelFont,
-                                                    size: isCurrent ? 16 : 13
-                                                )
-                                            )
-                                        )
-                                        .foregroundColor(
-                                            isCurrent ? fg :
-                                            (isPast ? fgDim : fg.opacity(0.25))
-                                        )
-                                        .multilineTextAlignment(.leading)
-                                        .shadow(
-                                            color: isCurrent ? fg.opacity(0.3) : .clear,
-                                            radius: isCurrent ? 4 : 0
-                                        )
-                                    Spacer()
-                                }
-                                .id(index)
-                                .onTapWithHaptic { player.seek(to: line.time) }
-                            }
-                            Color.clear.frame(height: 60)
+                    Spacer()
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.1)) { showLyrics = false }
+                    }) {
+                        HStack(spacing: 4) {
+                            Text("[ESC]")
+                                .font(.custom(pixelFont, size: 10))
+                                .foregroundColor(fgDim)
+                            Text("BACK")
+                                .font(.custom(pixelFont, size: 12))
+                                .foregroundColor(fg)
                         }
                         .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(fg.opacity(0.1))
+                        .overlay(Rectangle().stroke(fg.opacity(0.3), lineWidth: 1))
                     }
-                    .scrollIndicators(.hidden)
-                    .onChange(of: lyricVM.currentLineIndex) { _, newIndex in
-                        withAnimation { proxy.scrollTo(newIndex, anchor: .center) }
-                    }
-                    .onAppear {
-                        proxy.monoRestoreLyricPosition { lyricVM.currentLineIndex }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(fg.opacity(0.08))
+
+                // 分隔线 — 像素虚线
+                HStack(spacing: 3) {
+                    ForEach(0..<Int(width / 6), id: \.self) { _ in
+                        Rectangle().fill(fg.opacity(0.2)).frame(width: 3, height: 1)
                     }
                 }
-            } else {
-                Spacer()
-                VStack(spacing: 8) {
-                    Text("NO LYRICS DATA")
-                        .font(.custom(pixelFont, size: 16))
-                        .foregroundColor(fgDim)
-                    Text("TAP TO GO BACK")
-                        .font(.custom(pixelFont, size: 11))
-                        .foregroundColor(fgDim.opacity(0.5))
+
+                // 歌词内容
+                if lyricVM.hasLyrics && !lyricVM.lyrics.isEmpty {
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            VStack(spacing: 10) {
+                                Color.clear.frame(height: 20)
+                                ForEach(Array(lyricVM.lyrics.enumerated()), id: \.element.id) { index, line in
+                                    let isCurrent = index == lyricVM.currentLineIndex
+                                    let isPast = index < lyricVM.currentLineIndex
+                                    
+                                    HStack(spacing: 0) {
+                                        // 行号
+                                        Text(String(format: "%02d", index + 1))
+                                            .font(.custom(pixelFont, size: 9))
+                                            .foregroundColor(fg.opacity(0.15))
+                                            .frame(width: 20, alignment: .trailing)
+
+                                        // 指示符
+                                        Text(isCurrent ? (blinkOn ? "> " : "  ") : "  ")
+                                            .font(.custom(pixelFont, size: 16))
+                                            .foregroundColor(accent)
+                                            .frame(width: 20)
+
+                                        Text(line.text.monoLyricDisplayText)
+                                            .font(
+                                                MonoPlayerFont.activeFont(
+                                                    size: isCurrent ? 16 : 13,
+                                                    weight: isCurrent ? .bold : .medium,
+                                                    fallback: .custom(
+                                                        pixelFont,
+                                                        size: isCurrent ? 16 : 13
+                                                    )
+                                                )
+                                            )
+                                            .foregroundColor(
+                                                isCurrent ? fg :
+                                                (isPast ? fgDim : fg.opacity(0.25))
+                                            )
+                                            .multilineTextAlignment(.leading)
+                                            .shadow(
+                                                color: isCurrent ? fg.opacity(0.3) : .clear,
+                                                radius: isCurrent ? 4 : 0
+                                            )
+                                        Spacer()
+                                    }
+                                    .id(index)
+                                    .onTapWithHaptic { player.seek(to: line.time) }
+                                }
+                                Color.clear.frame(height: 60)
+                            }
+                            .padding(.horizontal, 8)
+                        }
+                        .scrollIndicators(.hidden)
+                        .onChange(of: lyricVM.currentLineIndex) { _, newIndex in
+                            withAnimation { proxy.scrollTo(newIndex, anchor: .center) }
+                        }
+                        .onAppear {
+                            proxy.monoRestoreLyricPosition { lyricVM.currentLineIndex }
+                        }
+                    }
+                } else {
+                    Spacer()
+                    VStack(spacing: 8) {
+                        Text("NO LYRICS DATA")
+                            .font(.custom(pixelFont, size: 16))
+                            .foregroundColor(fgDim)
+                        Text("TAP TO GO BACK")
+                            .font(.custom(pixelFont, size: 11))
+                            .foregroundColor(fgDim.opacity(0.5))
+                    }
+                    .onTapWithHaptic {
+                        withAnimation(.easeInOut(duration: 0.1)) { showLyrics = false }
+                    }
+                    Spacer()
                 }
-                .onTapWithHaptic {
-                    withAnimation(.easeInOut(duration: 0.1)) { showLyrics = false }
-                }
-                Spacer()
+
+                // 底部频谱 + 进度
+                pixelSpectrum(width: width - 24)
+                    .padding(.horizontal, 12)
+                pixelProgressBar(width: width - 24)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
             }
-            
-            // 底部频谱 + 进度
-            pixelSpectrum(width: width - 24)
-                .padding(.horizontal, 12)
-            pixelProgressBar(width: width - 24)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
+            .frame(maxHeight: .infinity)
         }
-        .frame(maxHeight: .infinity)
     }
 }
 

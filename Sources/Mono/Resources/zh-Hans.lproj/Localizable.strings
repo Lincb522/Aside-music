@@ -2219,6 +2219,15 @@
 "audio_training_error_tuning_test_busy" = "另一个调音任务正在运行，请等待完成后重试。";
 "audio_training_error_tuning_test_sampling" = "当前歌曲测试没有获得本次新采样、完整模型输入、完整原始输出或执行计时，请保持歌曲播放后重试。";
 "ai_provider_protocol_section" = "模型协议";
+"ai_config_title" = "AI 接口配置";
+"ai_config_service" = "AI 服务";
+"ai_config_enabled" = "使用自定义接口";
+"ai_config_custom" = "自定义";
+"ai_config_default" = "默认";
+"ai_config_saved" = "已保存";
+"ai_config_invalid_endpoint" = "接口地址无效，请填写完整的 HTTP 或 HTTPS 地址，并将密钥填入 API Key。";
+"ai_config_missing_model" = "请填写模型名称。";
+"ai_config_save_failed" = "配置保存失败，请重试。";
 "ai_provider_request_section" = "请求配置";
 "ai_provider_connection_section" = "连接测试";
 "ai_provider_protocol" = "协议";

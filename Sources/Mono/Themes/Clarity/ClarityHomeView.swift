@@ -386,14 +386,14 @@ struct ClarityHomeView: View {
     @ViewBuilder
     private func destination(_ destination: Destination) -> some View {
         switch destination {
-        case .search: ClaritySearchView().clarityDetailChrome(addsBackButton: true)
+        case .search: ClaritySearchView()
         case .daily: DailyRecommendView().clarityDetailChrome()
         case let .playlist(playlist): PlaylistDetailView(playlist: playlist).clarityDetailChrome(preservesImmersiveBackdrop: true)
         case let .bannerPlaylist(playlist, image): PlaylistDetailView(playlist: playlist, bannerCoverURLString: image).clarityDetailChrome(preservesImmersiveBackdrop: true)
         case let .album(id): AlbumDetailView(albumId: id, albumName: nil, albumCoverUrl: nil).clarityDetailChrome()
         case .mv: MVDiscoverView().clarityDetailChrome()
         case .newSongs: NewSongExpressView().clarityDetailChrome()
-        case .meditation: ClarityMeditationView().clarityDetailChrome(addsBackButton: true)
+        case .meditation: ClarityMeditationView().clarityDetailChrome()
         }
     }
 }
@@ -411,7 +411,13 @@ private struct ClarityBannerCarousel: View {
                 ForEach(Array(banners.enumerated()), id: \.element.id) { offset, banner in
                     Button { action(banner) } label: {
                         ZStack(alignment: .bottomTrailing) {
-                            ClarityWideBannerArtwork(url: banner.imageUrl, cornerRadius: 27)
+                            HomeBannerArtwork(url: banner.imageUrl, cornerRadius: 27, contentMode: .fill) {
+                                LinearGradient(
+                                    colors: [ClarityStyle.lilac.opacity(0.42), ClarityStyle.cyan.opacity(0.42)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            }
                             LinearGradient(colors: [.clear, Color.black.opacity(0.24)], startPoint: .center, endPoint: .bottom)
                             if let title = banner.typeTitle, !title.isEmpty {
                                 Text(title)
@@ -449,53 +455,6 @@ private struct ClarityBannerCarousel: View {
                 }
             }
         }
-    }
-}
-
-/// Home banners are supplied as wide promotional artwork. The entire source
-/// image stays visible; a softly enlarged copy only fills any residual letterbox.
-private struct ClarityWideBannerArtwork: View {
-    let url: URL?
-    let cornerRadius: CGFloat
-
-    var body: some View {
-        GeometryReader { proxy in
-            ZStack {
-                CachedAsyncImage(
-                    url: url,
-                    width: proxy.size.width,
-                    height: proxy.size.height,
-                    placeholder: { placeholder },
-                    contentMode: .fill,
-                    resizesArtworkURL: false
-                )
-                .blur(radius: 18)
-                .scaleEffect(1.08)
-                .opacity(0.34)
-                .frame(width: proxy.size.width, height: proxy.size.height)
-
-                CachedAsyncImage(
-                    url: url,
-                    width: proxy.size.width,
-                    height: proxy.size.height,
-                    placeholder: { placeholder },
-                    contentMode: .fit,
-                    resizesArtworkURL: false
-                )
-                .frame(width: proxy.size.width, height: proxy.size.height)
-            }
-            .frame(width: proxy.size.width, height: proxy.size.height)
-            .clipped()
-        }
-        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-    }
-
-    private var placeholder: some View {
-        LinearGradient(
-            colors: [ClarityStyle.lilac.opacity(0.42), ClarityStyle.cyan.opacity(0.42)],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
     }
 }
 

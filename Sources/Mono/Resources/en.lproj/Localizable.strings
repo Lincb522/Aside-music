@@ -2220,6 +2220,15 @@
 "audio_training_error_tuning_test_busy" = "Another tuning task is running. Wait for it to finish, then try again.";
 "audio_training_error_tuning_test_sampling" = "The current-song test did not produce a fresh sample, the complete model input, the complete raw output, or execution timing. Keep the track playing and try again.";
 "ai_provider_protocol_section" = "Model Protocol";
+"ai_config_title" = "AI API Configuration";
+"ai_config_service" = "AI Service";
+"ai_config_enabled" = "Use Custom API";
+"ai_config_custom" = "Custom";
+"ai_config_default" = "Default";
+"ai_config_saved" = "Saved";
+"ai_config_invalid_endpoint" = "Invalid endpoint. Enter a complete HTTP or HTTPS URL and put the credential in API Key.";
+"ai_config_missing_model" = "Enter a model name.";
+"ai_config_save_failed" = "Could not save the configuration. Try again.";
 "ai_provider_request_section" = "Request";
 "ai_provider_connection_section" = "Connection Test";
 "ai_provider_protocol" = "Protocol";

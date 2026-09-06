@@ -11,8 +11,6 @@ struct AlbumDetailView: View {
     private let initialAlbum: AlbumInfo?
 
     @StateObject private var viewModel = AlbumDetailViewModel()
-    @ObservedObject var playerManager = PlayerManager.shared
-    @ObservedObject var subManager = SubscriptionManager.shared
     @ObservedObject private var settings = SettingsManager.shared
 
     @State private var selectedArtistId: Int?

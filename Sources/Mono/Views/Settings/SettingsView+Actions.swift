@@ -80,8 +80,10 @@ extension SettingsView {
     }
 
     func updateCacheSize() {
-        Task {
-            let cacheTotal = await Task.detached(priority: .utility) {
+        cacheSizeTask?.cancel()
+        cacheSizeTask = Task {
+            guard !Task.isCancelled else { return }
+            let diskScan = Task.detached(priority: .utility) {
                 let fm = FileManager.default
                 var total: Int64 = 0
 
@@ -89,6 +91,7 @@ extension SettingsView {
                     let cacheDir = cacheBase.appendingPathComponent("MonoCache")
                     if let files = try? fm.contentsOfDirectory(at: cacheDir, includingPropertiesForKeys: [.totalFileAllocatedSizeKey], options: .skipsHiddenFiles) {
                         for file in files {
+                            guard !Task.isCancelled else { return total }
                             total += Int64((try? file.resourceValues(forKeys: [.totalFileAllocatedSizeKey]))?.totalFileAllocatedSize ?? 0)
                         }
                     }
@@ -97,6 +100,7 @@ extension SettingsView {
                 if let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
                     let dbPath = appSupport.appendingPathComponent("default.store").path
                     for ext in ["", ".wal", ".shm"] {
+                        guard !Task.isCancelled else { return total }
                         let path = ext.isEmpty ? dbPath : dbPath + ext
                         if let attrs = try? fm.attributesOfItem(atPath: path), let size = attrs[.size] as? Int64 {
                             total += size
@@ -105,7 +109,13 @@ extension SettingsView {
                 }
 
                 return total
-            }.value
+            }
+            let cacheTotal = await withTaskCancellationHandler {
+                await diskScan.value
+            } onCancel: {
+                diskScan.cancel()
+            }
+            guard !Task.isCancelled else { return }
 
             let total = cacheTotal + DownloadManager.shared.totalDownloadSize()
 

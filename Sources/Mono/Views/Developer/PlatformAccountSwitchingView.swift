@@ -8,12 +8,7 @@ struct PlatformAccountSwitchingView: View {
 
             ScrollView {
                 VStack(spacing: SettingsPageLayout.deepSectionSpacing) {
-                    DeveloperDiagnosticHeader(
-                        title: "平台切号管理",
-                        status: "NCM · QCM · KCM",
-                        icon: .personCircle,
-                        tint: .cyan
-                    )
+                    DeveloperDiagnosticStatus(status: "NCM · QCM · KCM")
 
                     SettingsSection(title: "平台") {
                         NavigationLink {
@@ -54,7 +49,7 @@ struct PlatformAccountSwitchingView: View {
             }
             .scrollIndicators(.hidden)
         }
-        .developerDiagnosticPageChrome()
+        .developerDiagnosticPageChrome(title: "平台切号管理")
     }
 
     private var developerDivider: some View {
@@ -104,12 +99,7 @@ private struct QCMAccountSwitchingView: View {
 
             ScrollView {
                 VStack(spacing: SettingsPageLayout.deepSectionSpacing) {
-                    DeveloperDiagnosticHeader(
-                        title: "QCM 切号",
-                        status: "\(credentials.count) 个凭证",
-                        icon: .personCircle,
-                        tint: .cyan
-                    )
+                    DeveloperDiagnosticStatus(status: "\(credentials.count) 个凭证")
 
                     accountSections
 
@@ -122,7 +112,7 @@ private struct QCMAccountSwitchingView: View {
             .scrollIndicators(.hidden)
             .refreshable { await load() }
         }
-        .developerDiagnosticPageChrome()
+        .developerDiagnosticPageChrome(title: "QCM 切号")
         .task { await load() }
         .alert("操作失败", isPresented: $isShowingError) {
             Button("好", role: .cancel) { errorMessage = nil }
@@ -235,12 +225,7 @@ private struct KCMAccountSwitchingView: View {
 
             ScrollView {
                 VStack(spacing: SettingsPageLayout.deepSectionSpacing) {
-                    DeveloperDiagnosticHeader(
-                        title: "KCM 切号",
-                        status: "\(accounts.count) 个账号",
-                        icon: .personCircle,
-                        tint: .orange
-                    )
+                    DeveloperDiagnosticStatus(status: "\(accounts.count) 个账号")
 
                     SettingsSection(title: "账号池") {
                         HStack(spacing: 12) {
@@ -279,7 +264,7 @@ private struct KCMAccountSwitchingView: View {
             .scrollIndicators(.hidden)
             .refreshable { await load() }
         }
-        .developerDiagnosticPageChrome()
+        .developerDiagnosticPageChrome(title: "KCM 切号")
         .task { await load() }
         .alert("操作失败", isPresented: $isShowingError) {
             Button("好", role: .cancel) { errorMessage = nil }

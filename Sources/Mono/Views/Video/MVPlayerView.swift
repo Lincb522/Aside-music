@@ -43,8 +43,7 @@ final class PlayerLayerView: UIView {
 @preconcurrency
 final class MVPlayerWrapper: ObservableObject, @unchecked Sendable {
     let player = AVPlayer()
-    @Published var currentTime: TimeInterval = 0
-    @Published var duration: TimeInterval = 0
+    let clock = MVPlaybackClock()
     @Published var isPlaying = false
 
     private nonisolated(unsafe) var timeObserver: Any?
@@ -85,8 +84,8 @@ final class MVPlayerWrapper: ObservableObject, @unchecked Sendable {
         player.pause()
         player.replaceCurrentItem(with: nil)
         isPlaying = false
-        currentTime = 0
-        duration = 0
+        clock.currentTime = 0
+        clock.duration = 0
     }
 
     func seek(to time: TimeInterval) {
@@ -101,7 +100,7 @@ final class MVPlayerWrapper: ObservableObject, @unchecked Sendable {
             guard t.isFinite && !t.isNaN else { return }
 
             Task { @MainActor [weak self] in
-                self?.currentTime = t
+                self?.clock.currentTime = t
             }
         }
     }
@@ -114,17 +113,30 @@ final class MVPlayerWrapper: ObservableObject, @unchecked Sendable {
             guard d.isFinite && d > 0 else { return }
 
             Task { @MainActor [weak self] in
-                self?.duration = d
+                self?.clock.duration = d
             }
         }
     }
+}
+
+/// Keeps periodic video time updates local to the playback controls.
+final class MVPlaybackClock: ObservableObject {
+    @Published var currentTime: TimeInterval = 0
+    @Published var duration: TimeInterval = 0
+}
+
+struct MVPlaybackTimeReader<Content: View>: View {
+    @ObservedObject var clock: MVPlaybackClock
+    @ViewBuilder let content: (MVPlaybackClock) -> Content
+
+    var body: some View { content(clock) }
 }
 
 struct MVPlayerView: View {
     let mvId: Int
     @StateObject private var viewModel: MVPlayerViewModel
     @StateObject private var commentVM: CommentViewModel
-    @ObservedObject private var player = PlayerManager.shared
+    private let player = PlayerManager.shared
     @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.dismiss) private var dismiss
     @FocusState private var isInputFocused: Bool
@@ -618,29 +630,31 @@ struct MVPlayerView: View {
     // MARK: - 自定义播放器控件覆盖层（桥接到独立组件）
 
     private func mvVideoControlsOverlay(fullscreen: Bool) -> some View {
-        MVVideoControlsOverlay(
-            fullscreen: fullscreen,
-            showControls: showControls,
-            isPlaying: isPlaying,
-            isSeeking: isSeeking,
-            seekValue: seekValue,
-            mvCurrentTime: mvPlayerWrapper.currentTime,
-            mvDuration: mvPlayerWrapper.duration,
-            mvName: viewModel.detail?.name,
-            onTogglePlayback: togglePlayback,
-            onToggleControlsVisibility: toggleControlsVisibility,
-            onScheduleControlsHide: scheduleControlsHide,
-            onEnterFullscreen: enterFullscreen,
-            onExitFullscreen: exitFullscreen,
-            onSeekChanged: { value in
-                isSeeking = true
-                seekValue = value
-            },
-            onSeekEnded: { value in
-                mvPlayerWrapper.seek(to: value)
-                isSeeking = false
-            }
-        )
+        MVPlaybackTimeReader(clock: mvPlayerWrapper.clock) { clock in
+            MVVideoControlsOverlay(
+                fullscreen: fullscreen,
+                showControls: showControls,
+                isPlaying: isPlaying,
+                isSeeking: isSeeking,
+                seekValue: seekValue,
+                mvCurrentTime: clock.currentTime,
+                mvDuration: clock.duration,
+                mvName: viewModel.detail?.name,
+                onTogglePlayback: togglePlayback,
+                onToggleControlsVisibility: toggleControlsVisibility,
+                onScheduleControlsHide: scheduleControlsHide,
+                onEnterFullscreen: enterFullscreen,
+                onExitFullscreen: exitFullscreen,
+                onSeekChanged: { value in
+                    isSeeking = true
+                    seekValue = value
+                },
+                onSeekEnded: { value in
+                    mvPlayerWrapper.seek(to: value)
+                    isSeeking = false
+                }
+            )
+        }
     }
 
     // MARK: - 辅助方法

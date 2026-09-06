@@ -43,6 +43,7 @@ struct ClarityLibraryView: View {
     @State private var qcmPlaylists: [Playlist] = []
     @State private var isLoadingQCMPlaylists = false
     @State private var hasLoadedQCMPlaylists = false
+    @State private var qqPlaylistRequest = LibraryRequestScope()
 
     var body: some View {
         NavigationStack(path: $model.navigationPath) {
@@ -93,7 +94,12 @@ struct ClarityLibraryView: View {
             guard MainTabActivationGate.isSettled(.library) else { return }
             loadPersonalSection(force: false)
         }
+        .onDisappear {
+            qqPlaylistRequest.cancel()
+            isLoadingQCMPlaylists = false
+        }
         .onChange(of: qqSession.sessionRevision) { _, _ in
+            qqPlaylistRequest.cancel()
             qcmPlaylists = []
             hasLoadedQCMPlaylists = false
             isLoadingQCMPlaylists = false
@@ -590,12 +596,12 @@ struct ClarityLibraryView: View {
             loadQCMPlaylists(force: force)
         case .ncmPodcasts:
             if force || subscriptionManager.subscribedRadios.isEmpty {
-                subscriptionManager.fetchSubscribedRadios()
+                subscriptionManager.fetchSubscribedRadios(force: force)
             }
         case .kcmPlaylists:
             if KCMMusicService.shared.isAuthenticated,
                force || model.kugouUserPlaylists.isEmpty {
-                model.loadKugouUserPlaylists()
+                model.loadKugouUserPlaylists(force: force)
             }
         case .localPlaylists, .ncmPlaylists, .appleMusic, .localPodcasts:
             break
@@ -621,12 +627,14 @@ struct ClarityLibraryView: View {
             return
         }
 
+        let request = qqPlaylistRequest.begin()
         isLoadingQCMPlaylists = true
-        Task { @MainActor in
+        qqPlaylistRequest.task = Task { @MainActor in
+            guard !Task.isCancelled, qqPlaylistRequest.isCurrent(request) else { return }
             defer {
-                if qqSession.isCurrentSession(session) {
+                if qqPlaylistRequest.isCurrent(request), qqSession.isCurrentSession(session) {
                     isLoadingQCMPlaylists = false
-                    hasLoadedQCMPlaylists = true
+                    qqPlaylistRequest.finish(request)
                 }
             }
 
@@ -634,10 +642,15 @@ struct ClarityLibraryView: View {
                 let result: JSON = try await QQUserSession.shared.withUserSession { client in
                     try await client.createdSonglist(uin: String(mid))
                 }
-                guard qqSession.isCurrentSession(session) else { return }
+                guard !Task.isCancelled, qqPlaylistRequest.isCurrent(request),
+                      qqSession.isCurrentSession(session) else { return }
                 qcmPlaylists = Self.parseQCMPlaylists(result)
+                hasLoadedQCMPlaylists = true
+            } catch is CancellationError {
+                return
             } catch {
-                guard qqSession.isCurrentSession(session) else { return }
+                guard !Task.isCancelled, qqPlaylistRequest.isCurrent(request),
+                      qqSession.isCurrentSession(session) else { return }
                 AppLogger.error("[ClarityLibrary] 加载 QCM 歌单失败: \(error)")
             }
         }

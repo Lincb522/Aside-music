@@ -31,12 +31,7 @@ struct AudioTrainingDeveloperView: View {
 
             ScrollView {
                 LazyVStack(spacing: 24) {
-                    DeveloperDiagnosticHeader(
-                        title: String(localized: "audio_training_title"),
-                        status: headerStatus,
-                        icon: .chart,
-                        tint: statusTint
-                    )
+                    DeveloperDiagnosticStatus(status: headerStatus)
 
                     trainingControlSection
                     datasetSection
@@ -50,7 +45,7 @@ struct AudioTrainingDeveloperView: View {
             .scrollIndicators(.hidden)
             .coordinateSpace(name: SettingsPageLayout.scrollCoordinateSpace)
         }
-        .developerDiagnosticPageChrome()
+        .developerDiagnosticPageChrome(title: String(localized: "audio_training_title"))
         .task {
             await store.refresh()
             applyRemoteSettings()

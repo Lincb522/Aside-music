@@ -25,7 +25,7 @@ struct DebugLogView: View {
                 }
             }
         }
-        .developerDiagnosticPageChrome()
+        .developerDiagnosticPageChrome(title: String(localized: "debug_title"))
         .overlay {
             if showMoreMenu {
                 MonoMoreMenuOverlay(
@@ -128,9 +128,11 @@ struct DebugLogView: View {
     private var compactHeader: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
-                Text(String(localized: "debug_title"))
-                    .font(.system(size: 25, weight: .heavy, design: .rounded))
-                    .foregroundStyle(.white)
+                if GlobalThemeId.persistedOrDefault != .default {
+                    Text(String(localized: "debug_title"))
+                        .font(.system(size: 25, weight: .heavy, design: .rounded))
+                        .foregroundStyle(.white)
+                }
 
                 Text(model.isCollecting
                      ? String(localized: "debug_collecting")
@@ -224,9 +226,11 @@ struct DebugLogView: View {
                     .background(Color.cyan.opacity(0.1))
                     .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
 
-                Text(String(localized: "debug_title"))
-                    .font(.system(size: 23, weight: .heavy, design: .rounded))
-                    .foregroundStyle(.white)
+                if GlobalThemeId.persistedOrDefault != .default {
+                    Text(String(localized: "debug_title"))
+                        .font(.system(size: 23, weight: .heavy, design: .rounded))
+                        .foregroundStyle(.white)
+                }
 
                 HStack(spacing: 7) {
                     Circle()
@@ -1193,7 +1197,7 @@ private struct DebugLogDetailView: View {
                 }
             }
         }
-        .developerDiagnosticPageChrome()
+        .developerDiagnosticPageChrome(title: String(localized: "debug_detail_title"))
     }
 
     private var debugDetailBackdrop: some View {
@@ -1276,9 +1280,11 @@ private struct DebugLogDetailView: View {
         VStack(alignment: .leading, spacing: 15) {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(String(localized: "debug_detail_title"))
-                        .font(.system(size: 24, weight: .heavy, design: .rounded))
-                        .foregroundStyle(.white)
+                    if GlobalThemeId.persistedOrDefault != .default {
+                        Text(String(localized: "debug_detail_title"))
+                            .font(.system(size: 24, weight: .heavy, design: .rounded))
+                            .foregroundStyle(.white)
+                    }
 
                     Text(log.detailedTimestamp)
                         .font(.system(size: 10.5, weight: .medium, design: .monospaced))
@@ -1367,9 +1373,11 @@ private struct DebugLogDetailView: View {
                     .background(log.level.tint.opacity(0.11))
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
-                Text(String(localized: "debug_detail_title"))
-                    .font(.system(size: 22, weight: .heavy, design: .rounded))
-                    .foregroundStyle(.white)
+                if GlobalThemeId.persistedOrDefault != .default {
+                    Text(String(localized: "debug_detail_title"))
+                        .font(.system(size: 22, weight: .heavy, design: .rounded))
+                        .foregroundStyle(.white)
+                }
 
                 Text(log.level.localizedTitle)
                     .font(.system(size: 12, weight: .bold, design: .rounded))

@@ -1,5 +1,6 @@
 //  设置界面
 
+import Combine
 import SwiftUI
 
 func settingsText(_ key: String) -> String {
@@ -77,6 +78,7 @@ enum SettingsNavigationDestination: Hashable {
     case appearance
     case playback
     case cloudSync
+    case aiConfiguration
     case storage
     case download
     case about
@@ -100,6 +102,8 @@ enum SettingsNavigationDestination: Hashable {
             PlaybackSettingsView()
         case .cloudSync:
             CloudSyncSettingsView()
+        case .aiConfiguration:
+            AIProviderSettingsView()
         case .storage:
             StorageManageView()
         case .download:
@@ -189,28 +193,10 @@ struct AsideSettingsDetailChromeModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .navigationTitle("")
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationBarBackButtonHidden(true)
-            .toolbar(.visible, for: .navigationBar)
+            .monoNavigationBackButton(title: title)
             .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    MonoToolbarBackButton()
-                }
-
-                if SignalStyle.isActive {
-                    ToolbarItem(placement: .principal) {
-                        Text(title)
-                            .font(SignalStyle.labelFont(13, weight: .semibold))
-                            .foregroundStyle(SignalStyle.ink)
-                            .lineLimit(1)
-                    }
-                }
-            }
             .tint(SignalStyle.isActive ? SignalStyle.accent : nil)
             .preferredColorScheme(SignalStyle.isActive ? .dark : nil)
-            .monoEdgeSwipeToDismiss()
     }
 }
 
@@ -223,10 +209,12 @@ extension View {
 struct SettingsView: View {
     @ObservedObject var settings = SettingsManager.shared
     @ObservedObject var onlineAccess = OnlineAccessManager.shared
-    @ObservedObject var playlistCloudSync = LocalPlaylistCloudSyncManager.shared
+    @State var playlistSyncStatusMessage = LocalPlaylistCloudSyncManager.shared.lastStatusMessage
+    @State var playlistLastSyncedAt = LocalPlaylistCloudSyncManager.shared.lastSyncedAt
+    @State var cacheSizeTask: Task<Void, Never>?
     @State var cacheSize: String = .init(localized: "settings_calculating")
     @AppStorage(AppConfig.StorageKeys.developerModeEnabled) var qqDevMode = false
-    @State var apiTokenInput: String = SecureConfig.apiToken ?? ""
+    @State var apiTokenInput = ""
     @State var tokenSaved = false
     @State var isHeaderCardExpanded = false
     @State var isShowingTokenAgreement = false
@@ -247,6 +235,7 @@ struct SettingsView: View {
                 ScrollView {
                     LazyVStack(spacing: themedSettingsSpacing) {
                         settingsContent
+                        AIProviderSettingsEntry()
                         FloatingBarBottomSpacer()
                     }
                     .padding(.horizontal, settingsOuterHorizontalPadding)
@@ -255,10 +244,7 @@ struct SettingsView: View {
                 .scrollIndicators(.hidden)
                 .themeRenderScrollLayer()
             }
-            // aside / muji：标题落在页面内容里（刊头版式），导航栏只留返回；其余主题维持内联标题
-            .themedInlineNavigationTitle(
-                (settings.globalThemeId == .default || settings.globalThemeId == .signal || settings.globalThemeId == .muji || settings.globalThemeId == .clarity || settings.globalThemeId == .manga) ? "" : String(localized: "settings_title")
-            )
+            .monoNavigationBackButton(title: String(localized: "settings_title"))
             .toolbarBackground(.hidden, for: .navigationBar)
             .monoSheet(isPresented: $isShowingTokenAgreement, onDismiss: {
                 onlineAccess.declinePendingTokenAuthorization()
@@ -267,6 +253,16 @@ struct SettingsView: View {
                     onAgree: acceptPendingTokenAuthorization,
                     onDecline: declinePendingTokenAuthorization
                 )
+            }
+            .onReceive(LocalPlaylistCloudSyncManager.shared.$lastStatusMessage.removeDuplicates()) {
+                playlistSyncStatusMessage = $0
+            }
+            .onReceive(LocalPlaylistCloudSyncManager.shared.$lastSyncedAt.removeDuplicates()) {
+                playlistLastSyncedAt = $0
+            }
+            .onDisappear {
+                cacheSizeTask?.cancel()
+                cacheSizeTask = nil
             }
             .onAppear {
                 updateCacheSize()
@@ -322,7 +318,6 @@ struct SettingsView: View {
 
     @ViewBuilder
     var defaultSettingsContent: some View {
-        asideSettingsMasthead
         settingsHeaderCard
         asidePersonalizationSection
         asidePlaybackSection

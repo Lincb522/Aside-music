@@ -64,7 +64,7 @@ struct LibraryView: View {
             .simultaneousGesture(libraryPagingGesture)
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: LibraryViewModel.NavigationDestination.self) { destination in
                 switch destination {
                 case let .playlist(playlist):
@@ -166,8 +166,8 @@ struct LibraryView: View {
         DragGesture(minimumDistance: 18, coordinateSpace: .global)
             .onChanged { value in
                 guard libraryPagingStartIndex == nil,
-                      !startsInsideLibraryHorizontalScrollRegion(value.startLocation),
-                      abs(value.translation.width) > abs(value.translation.height) * 1.25 else {
+                      abs(value.translation.width) > abs(value.translation.height) * 1.25,
+                      !startsInsideLibraryHorizontalScrollRegion(value.startLocation) else {
                     return
                 }
                 libraryPagingStartIndex = tabIndex

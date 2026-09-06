@@ -13,7 +13,9 @@ class TopRadioListViewModel: ObservableObject {
     private let listType: TopRadioListView.ListType
     private var offset = 0
     private let limit = 30
-    private var cancellables = Set<AnyCancellable>()
+    private var listCancellable: AnyCancellable?
+    private var pageCancellable: AnyCancellable?
+    private var requestID = 0
 
     init(listType: TopRadioListView.ListType) {
         self.listType = listType
@@ -21,40 +23,46 @@ class TopRadioListViewModel: ObservableObject {
 
     func fetchRadios() {
         guard !isLoading else { return }
+        requestID += 1
+        let request = requestID
+        listCancellable?.cancel()
+        pageCancellable?.cancel()
+        isLoadingMore = false
         isLoading = true
         offset = 0
         radios = []
 
-        fetchPage(offset: 0)
+        listCancellable = fetchPage(offset: 0)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
-                self?.isLoading = false
+                guard let self, self.requestID == request else { return }
+                self.isLoading = false
             }, receiveValue: { [weak self] stations in
-                guard let self = self else { return }
+                guard let self, self.requestID == request else { return }
                 self.radios = stations
                 self.offset = stations.count
                 self.hasMore = stations.count >= self.limit
             })
-            .store(in: &cancellables)
     }
 
     func loadMore() {
         guard !isLoadingMore, !isLoading, hasMore else { return }
+        let request = requestID
         isLoadingMore = true
 
-        fetchPage(offset: offset)
+        pageCancellable = fetchPage(offset: offset)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
-                self?.isLoadingMore = false
+                guard let self, self.requestID == request else { return }
+                self.isLoadingMore = false
             }, receiveValue: { [weak self] stations in
-                guard let self = self else { return }
+                guard let self, self.requestID == request else { return }
                 let existingIds = Set(self.radios.map { $0.id })
                 let newStations = stations.filter { !existingIds.contains($0.id) }
                 self.radios.append(contentsOf: newStations)
                 self.offset += stations.count
                 self.hasMore = stations.count >= self.limit
             })
-            .store(in: &cancellables)
     }
 
     private func fetchPage(offset: Int) -> AnyPublisher<[RadioStation], Error> {

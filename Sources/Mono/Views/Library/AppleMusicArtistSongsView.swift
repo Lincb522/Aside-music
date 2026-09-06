@@ -10,6 +10,8 @@ struct AppleMusicArtistSongsView: View {
     @State private var hasMore = true
     @State private var page = 0
     @State private var errorMessage: String?
+    @State private var pageTask: Task<Void, Never>?
+    @State private var loadRevision = 0
 
     private let pageSize = 25
 
@@ -52,17 +54,31 @@ struct AppleMusicArtistSongsView: View {
         .monoSheet(isPresented: $showAddToPlaylist, preset: .standard) {
             BatchAddToPlaylistSheet(songs: songs)
         }
-        .task { await load(reset: true) }
+        .task {
+            if songs.isEmpty { await load(reset: true) }
+        }
+        .onDisappear {
+            loadRevision += 1
+            pageTask?.cancel()
+            pageTask = nil
+            isLoading = false
+            isLoadingMore = false
+        }
     }
 
     private func loadMoreIfNeeded() {
         guard hasMore, !isLoading, !isLoadingMore else { return }
-        Task { await load(reset: false) }
+        isLoadingMore = true
+        pageTask = Task { await load(reset: false) }
     }
 
     @MainActor
     private func load(reset: Bool) async {
+        guard !Task.isCancelled else { return }
         if reset {
+            loadRevision += 1
+            pageTask?.cancel()
+            pageTask = nil
             page = 0
             hasMore = true
             songs = []
@@ -72,12 +88,22 @@ struct AppleMusicArtistSongsView: View {
             isLoadingMore = true
         }
 
+        let revision = loadRevision
+        let requestedPage = page
+        defer {
+            if loadRevision == revision {
+                isLoading = false
+                isLoadingMore = false
+                pageTask = nil
+            }
+        }
         do {
             let result = try await AppleMusicService.shared.searchSongs(
                 term: artist.name,
-                offset: page * pageSize,
+                offset: requestedPage * pageSize,
                 limit: pageSize
             )
+            guard !Task.isCancelled, loadRevision == revision else { return }
             if reset {
                 songs = result.songs
             } else {
@@ -88,14 +114,13 @@ struct AppleMusicArtistSongsView: View {
                     !existingIDs.contains(PlayerManager.playbackIdentityKey(for: $0))
                 })
             }
-            page += 1
+            page = requestedPage + 1
             hasMore = result.hasMore
         } catch {
+            guard !Task.isCancelled, loadRevision == revision else { return }
             errorMessage = error.localizedDescription
             hasMore = false
         }
 
-        isLoading = false
-        isLoadingMore = false
     }
 }

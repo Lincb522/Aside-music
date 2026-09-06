@@ -228,7 +228,8 @@ class MVListViewModel: ObservableObject {
     let listType: ListType
     private var offset = 0
     private let pageSize = 20
-    private var cancellables = Set<AnyCancellable>()
+    private var pageCancellable: AnyCancellable?
+    private var requestID = 0
     private let api = APIService.shared
 
     init(listType: ListType) {
@@ -237,18 +238,23 @@ class MVListViewModel: ObservableObject {
 
     func fetchInitial() {
         guard !isLoading else { return }
+        requestID += 1
+        pageCancellable?.cancel()
+        isLoadingMore = false
         isLoading = true
         offset = 0
         loadPage()
     }
 
     func loadMore() {
-        guard !isLoadingMore && hasMore else { return }
+        guard !isLoading, !isLoadingMore, hasMore else { return }
         isLoadingMore = true
         loadPage()
     }
 
     private func loadPage() {
+        let request = requestID
+        let pageOffset = offset
         let publisher: AnyPublisher<[MV], Error>
 
         switch listType {
@@ -264,22 +270,25 @@ class MVListViewModel: ObservableObject {
             publisher = api.fetchArtistMVs(id: id, limit: pageSize, offset: offset)
         }
 
-        publisher
+        pageCancellable = publisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] completion in
-                self?.isLoading = false
-                self?.isLoadingMore = false
+                guard let self, self.requestID == request else { return }
+                self.isLoading = false
+                self.isLoadingMore = false
             } receiveValue: { [weak self] newMVs in
-                guard let self else { return }
-                if self.offset == 0 {
+                guard let self, self.requestID == request else { return }
+                let ids = Set(self.mvs.map(\.id))
+                let unique = newMVs.filter { !ids.contains($0.id) }
+                if pageOffset == 0 {
                     self.mvs = newMVs
                 } else {
-                    self.mvs.append(contentsOf: newMVs)
+                    self.mvs.append(contentsOf: unique)
                 }
-                self.hasMore = newMVs.count >= self.pageSize
-                self.offset += newMVs.count
+                self.hasMore = newMVs.count >= self.pageSize && (pageOffset == 0 || !unique.isEmpty)
+                if case .latest = self.listType { self.hasMore = false }
+                self.offset = pageOffset + newMVs.count
             }
-            .store(in: &cancellables)
     }
 }
 
@@ -418,11 +427,15 @@ class MVSublistViewModel: ObservableObject {
 
     private var offset = 0
     private let pageSize = 25
-    private var cancellables = Set<AnyCancellable>()
+    private var pageCancellable: AnyCancellable?
+    private var requestID = 0
     private let api = APIService.shared
 
     func fetchInitial() {
         guard !isLoading else { return }
+        requestID += 1
+        pageCancellable?.cancel()
+        isLoadingMore = false
         isLoading = true
         offset = 0
         items = []
@@ -430,27 +443,31 @@ class MVSublistViewModel: ObservableObject {
     }
 
     func loadMore() {
-        guard !isLoadingMore && hasMore else { return }
+        guard !isLoading, !isLoadingMore, hasMore else { return }
         isLoadingMore = true
         loadPage()
     }
 
     private func loadPage() {
-        api.fetchMVSublist(limit: pageSize, offset: offset)
+        let request = requestID
+        let pageOffset = offset
+        pageCancellable = api.fetchMVSublist(limit: pageSize, offset: offset)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] completion in
-                self?.isLoading = false
-                self?.isLoadingMore = false
+                guard let self, self.requestID == request else { return }
+                self.isLoading = false
+                self.isLoadingMore = false
             } receiveValue: { [weak self] newItems in
-                guard let self else { return }
-                if self.offset == 0 {
+                guard let self, self.requestID == request else { return }
+                let ids = Set(self.items.map(\.id))
+                let unique = newItems.filter { !ids.contains($0.id) }
+                if pageOffset == 0 {
                     self.items = newItems
                 } else {
-                    self.items.append(contentsOf: newItems)
+                    self.items.append(contentsOf: unique)
                 }
-                self.hasMore = newItems.count >= self.pageSize
-                self.offset += newItems.count
+                self.hasMore = newItems.count >= self.pageSize && (pageOffset == 0 || !unique.isEmpty)
+                self.offset = pageOffset + newItems.count
             }
-            .store(in: &cancellables)
     }
 }

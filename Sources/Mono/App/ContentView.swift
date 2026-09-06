@@ -875,8 +875,6 @@ private struct ContentViewFloatingBarContainer: View {
     }
 
     var body: some View {
-        let _ = colorEngine.revision
-
         Group {
             if (!usesSystemTabBarAtRuntime || settings.globalThemeId == .manga),
                !isTabBarHidden,
@@ -884,6 +882,7 @@ private struct ContentViewFloatingBarContainer: View {
             {
                 floatingBarView
                     .id("\(settings.globalThemeId.rawValue)-\(settings.globalThemeRevision)-\(settings.floatingBarStyle.rawValue)")
+                    .environment(\.floatingBarColorRevision, colorEngine.revision)
                     .themeRenderInteractiveLayer()
                     .simultaneousGesture(floatingTabSwipeGesture)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -1380,8 +1379,8 @@ private struct TabBottomAccessoryContent: View {
     @Binding var playlistPresented: Bool
     @ObservedObject private var player = FloatingBarPlaybackModel.shared
 
-    private var subtitleText: String {
-        if let text = player.lyricLineText {
+    private func subtitleText(for lineText: String?) -> String {
+        if let text = lineText {
             return text
         }
         return song.artistName
@@ -1426,13 +1425,15 @@ private struct TabBottomAccessoryContent: View {
                     )
                     .frame(height: 17)
 
-                    MarqueeText(
-                        text: subtitleText,
-                        font: .system(size: 11.5, weight: .regular),
-                        color: secondaryTextColor,
-                        speed: 25
-                    )
-                    .frame(height: 15)
+                    FloatingBarLyricReader { lineText in
+                        MarqueeText(
+                            text: subtitleText(for: lineText),
+                            font: .system(size: 11.5, weight: .regular),
+                            color: secondaryTextColor,
+                            speed: 25
+                        )
+                        .frame(height: 15)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .swipeSkipTextMotion()
@@ -1510,8 +1511,8 @@ private struct CompactMiniPlayerView: View {
     @Environment(\.colorScheme) private var systemColorScheme
     @State private var showCompactPlaylist = false
 
-    private var subtitleText: String {
-        if let text = player.lyricLineText {
+    private func subtitleText(for lineText: String?) -> String {
+        if let text = lineText {
             return text
         }
         return song.artistName
@@ -1555,14 +1556,16 @@ private struct CompactMiniPlayerView: View {
                     )
                     .frame(height: 17)
 
-                    MarqueeText(
-                        text: subtitleText,
-                        font: .system(size: 11.5, weight: .regular),
-                        color: secondaryTextColor,
-                        speed: 22
-                    )
-                    .frame(height: 15)
-                    .animation(.easeInOut(duration: 0.25), value: player.lyricLineText)
+                    FloatingBarLyricReader { lineText in
+                        MarqueeText(
+                            text: subtitleText(for: lineText),
+                            font: .system(size: 11.5, weight: .regular),
+                            color: secondaryTextColor,
+                            speed: 22
+                        )
+                        .frame(height: 15)
+                        .animation(.easeInOut(duration: 0.25), value: lineText)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .swipeSkipTextMotion()

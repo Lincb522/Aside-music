@@ -76,7 +76,7 @@ struct MonoAudioCenterView: View {
         }
     }
 
-    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var player = CurrentSongPresentationModel.shared
     @StateObject private var agent = AIEqualizerAgent.shared
     @StateObject private var eqManager = EQManager.shared
     @StateObject private var suite = MonoNextSuiteManager.shared
@@ -147,14 +147,10 @@ struct MonoAudioCenterView: View {
         .environment(\.colorScheme, .dark)
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
+        .monoNavigationBackButton(iconColor: .white, title: String(localized: "mono_audio_center_title"))
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                MonoToolbarBackButton(iconColor: .white)
-            }
-
             ToolbarItem(placement: .topBarTrailing) {
                 HStack(spacing: 8) {
                     workspaceStatus
@@ -227,10 +223,6 @@ struct MonoAudioCenterView: View {
             }
 
             VStack(alignment: .leading, spacing: layout.isCompactHeight ? 2 : 4) {
-                Text(String(localized: "mono_audio_center_title"))
-                    .font(.system(size: layout.isCompactHeight ? 9.5 : 10.5, weight: .bold, design: .rounded))
-                    .foregroundStyle(accent)
-
                 Text(player.currentSong?.name ?? String(localized: "mono_suite_no_track"))
                     .font(.system(size: layout.isCompactHeight ? 15.5 : 17, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)

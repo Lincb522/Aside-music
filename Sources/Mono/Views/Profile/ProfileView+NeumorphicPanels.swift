@@ -407,7 +407,7 @@ extension ProfileView {
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbar(.hidden, for: .navigationBar)
             .profileNavigationDestinations()
         }
     }

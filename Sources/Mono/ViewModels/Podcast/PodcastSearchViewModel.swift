@@ -3,6 +3,7 @@ import Combine
 
 // MARK: - PodcastSearchViewModel
 
+@MainActor
 class PodcastSearchViewModel: ObservableObject {
     @Published var searchText = ""
     @Published var results: [RadioStation] = []
@@ -13,17 +14,23 @@ class PodcastSearchViewModel: ObservableObject {
     @Published var hasMore = true
 
     private var cancellables = Set<AnyCancellable>()
+    private var searchCancellable: AnyCancellable?
+    private var loadMoreCancellable: AnyCancellable?
+    private var hotCancellable: AnyCancellable?
+    private var searchRequestID = 0
+    private var activeSearchText = ""
     private var searchOffset = 0
     private let limit = 30
 
     init() {
         // 防抖搜索
         $searchText
-            .debounce(for: .milliseconds(AppConfig.UI.searchDebounceMs), scheduler: DispatchQueue.main)
             .removeDuplicates()
+            .debounce(for: .milliseconds(AppConfig.UI.searchDebounceMs), scheduler: DispatchQueue.main)
             .sink { [weak self] text in
                 guard let self = self else { return }
                 if text.isEmpty {
+                    self.cancelSearchRequests()
                     self.results = []
                     self.isSearching = false
                 } else {
@@ -34,53 +41,67 @@ class PodcastSearchViewModel: ObservableObject {
     }
 
     func fetchHotRadios() {
-        guard hotRadios.isEmpty else { return }
+        guard hotRadios.isEmpty, !isLoadingHot else { return }
         isLoadingHot = true
 
-        APIService.shared.fetchDJHot(limit: 30, offset: 0)
+        hotCancellable = APIService.shared.fetchDJHot(limit: 30, offset: 0)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
                 self?.isLoadingHot = false
             }, receiveValue: { [weak self] radios in
                 self?.hotRadios = radios
             })
-            .store(in: &cancellables)
     }
 
     private func performSearch(text: String) {
+        cancelSearchRequests()
+        let requestID = searchRequestID
+        activeSearchText = text
         isSearching = true
         searchOffset = 0
         results = []
 
-        APIService.shared.searchDJRadio(keywords: text, limit: limit, offset: 0)
+        searchCancellable = APIService.shared.searchDJRadio(keywords: text, limit: limit, offset: 0)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] _ in
-                self?.isSearching = false
+                guard let self, self.searchRequestID == requestID, self.searchText == text else { return }
+                self.isSearching = false
             }, receiveValue: { [weak self] radios in
-                guard let self = self else { return }
+                guard let self, self.searchRequestID == requestID, self.searchText == text else { return }
                 self.results = radios
                 self.searchOffset = radios.count
                 self.hasMore = radios.count >= self.limit
             })
-            .store(in: &cancellables)
     }
 
     func loadMoreResults() {
-        guard !isLoadingMore, hasMore, !searchText.isEmpty else { return }
+        guard !isLoadingMore, !isSearching, hasMore, !searchText.isEmpty, searchText == activeSearchText else { return }
+        let text = searchText
+        let requestID = searchRequestID
         isLoadingMore = true
 
-        APIService.shared.searchDJRadio(keywords: searchText, limit: limit, offset: searchOffset)
+        loadMoreCancellable = APIService.shared.searchDJRadio(keywords: text, limit: limit, offset: searchOffset)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] _ in
-                self?.isLoadingMore = false
+                guard let self, self.searchRequestID == requestID, self.searchText == text else { return }
+                self.isLoadingMore = false
             }, receiveValue: { [weak self] radios in
-                guard let self = self else { return }
+                guard let self, self.searchRequestID == requestID, self.searchText == text else { return }
                 let existingIds = Set(self.results.map { $0.id })
                 let newRadios = radios.filter { !existingIds.contains($0.id) }
                 self.results.append(contentsOf: newRadios)
                 self.searchOffset += radios.count
                 self.hasMore = radios.count >= self.limit
             })
-            .store(in: &cancellables)
+    }
+
+    private func cancelSearchRequests() {
+        searchRequestID += 1
+        activeSearchText = ""
+        searchCancellable?.cancel()
+        searchCancellable = nil
+        loadMoreCancellable?.cancel()
+        loadMoreCancellable = nil
+        isLoadingMore = false
     }
 }

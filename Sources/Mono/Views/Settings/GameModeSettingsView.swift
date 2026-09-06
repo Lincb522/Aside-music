@@ -23,14 +23,6 @@ struct GameModeSettingsView: View {
 
             ScrollView {
                 VStack(spacing: 24) {
-                    SettingsScrollablePageHeader(
-                        title: String(localized: "game_mode_settings_title"),
-                        eyebrow: String(localized: "settings_eyebrow_game_mode"),
-                        icon: .playCircle,
-                        artwork: .gameMode,
-                        signalModule: .game
-                    )
-
                     VStack(spacing: 24) {
                         powerConsole
 

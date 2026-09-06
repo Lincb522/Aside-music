@@ -316,13 +316,6 @@ struct LegalDocumentsView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    SettingsScrollablePageHeader(
-                        title: String(localized: "legal_center_title"),
-                        eyebrow: "MONO",
-                        icon: .infoCircle,
-                        signalModule: .legal
-                    )
-
                     VStack(alignment: .leading, spacing: 0) {
                         Text(String(localized: "legal_center_date"))
                             .font(.system(size: 11.5, weight: .semibold, design: .monospaced))
@@ -431,13 +424,6 @@ struct LegalDocumentDetailView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    SettingsScrollablePageHeader(
-                        title: document.title,
-                        eyebrow: "MONO",
-                        icon: document.icon,
-                        signalModule: .legal
-                    )
-
                     VStack(alignment: .leading, spacing: 0) {
                         Text(document.effectiveDate)
                             .font(.system(size: 11.5, weight: .semibold, design: .monospaced))

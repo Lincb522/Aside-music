@@ -90,7 +90,7 @@ struct PodcastView: View {
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: PodcastDestination.self) { destination in
                 podcastDestinationView(for: destination)
                     .petWhiteNestedPage()

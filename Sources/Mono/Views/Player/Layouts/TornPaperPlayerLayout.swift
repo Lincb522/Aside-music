@@ -12,8 +12,8 @@ struct TornPaperPlayerLayout: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @ObservedObject private var player = PlayerManager.shared
-    @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
-    @ObservedObject private var lyricVM = LyricViewModel.shared
+    private let timePublisher = PlaybackTimePublisher.shared
+    private let lyricVM = LyricViewModel.shared
     @ObservedObject private var likeManager = LikeManager.shared
     @StateObject private var colorExtractor = CoverColorExtractor(minimumColorCount: 3)
 
@@ -356,33 +356,35 @@ private extension TornPaperPlayerLayout {
     }
 
     var lyricStrip: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            ZStack(alignment: .leading) {
-                TornPaperShape(variant: 4)
-                    .fill(accent.opacity(colorScheme == .dark ? 0.48 : 0.34))
-                    .frame(height: 9)
-                    .rotationEffect(.degrees(-1.2))
-                    .offset(y: 8)
+        PlayerLyricReader { _ in
+            VStack(alignment: .leading, spacing: 5) {
+                ZStack(alignment: .leading) {
+                    TornPaperShape(variant: 4)
+                        .fill(accent.opacity(colorScheme == .dark ? 0.48 : 0.34))
+                        .frame(height: 9)
+                        .rotationEffect(.degrees(-1.2))
+                        .offset(y: 8)
 
-                Text(currentLyric)
-                    .font(.system(size: 17, weight: .bold, design: .rounded))
-                    .foregroundStyle(ink)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.82)
-                    .id(lyricVM.currentLineIndex)
-                    .transition(.opacity.combined(with: .offset(y: 5)))
-            }
+                    Text(currentLyric)
+                        .font(.system(size: 17, weight: .bold, design: .rounded))
+                        .foregroundStyle(ink)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.82)
+                        .id(lyricVM.currentLineIndex)
+                        .transition(.opacity.combined(with: .offset(y: 5)))
+                }
 
-            if let translation = lyricVM.currentLineSafely?.translation,
-               !translation.isEmpty {
-                Text(translation.monoLyricDisplayText)
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(mutedInk)
-                    .lineLimit(1)
+                if let translation = lyricVM.currentLineSafely?.translation,
+                   !translation.isEmpty {
+                    Text(translation.monoLyricDisplayText)
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundStyle(mutedInk)
+                        .lineLimit(1)
+                }
             }
+            .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: lyricVM.currentLineIndex)
         }
-        .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: lyricVM.currentLineIndex)
     }
 
     var currentLyric: String {
@@ -391,38 +393,40 @@ private extension TornPaperPlayerLayout {
     }
 
     var progressSection: some View {
-        VStack(spacing: 4) {
-            GeometryReader { geometry in
-                let duration = max(timePublisher.duration, 0)
-                let shownTime = isSeeking ? seekTime : timePublisher.currentTime
-                let progress = duration > 0 ? min(max(shownTime / duration, 0), 1) : 0
+        PlaybackTimeReader { _, _ in
+            VStack(spacing: 4) {
+                GeometryReader { geometry in
+                    let duration = max(timePublisher.duration, 0)
+                    let shownTime = isSeeking ? seekTime : timePublisher.currentTime
+                    let progress = duration > 0 ? min(max(shownTime / duration, 0), 1) : 0
 
-                ZStack(alignment: .leading) {
-                    TornProgressStrip(progress: 1)
-                        .fill(mutedInk.opacity(0.19))
+                    ZStack(alignment: .leading) {
+                        TornProgressStrip(progress: 1)
+                            .fill(mutedInk.opacity(0.19))
 
-                    TornProgressStrip(progress: progress)
-                        .fill(accent)
+                        TornProgressStrip(progress: progress)
+                            .fill(accent)
 
-                    Circle()
-                        .fill(paperRaised)
-                        .overlay(Circle().stroke(ink.opacity(0.24), lineWidth: 0.8))
-                        .frame(width: 13, height: 13)
-                        .offset(x: max(0, geometry.size.width * progress - 6.5))
+                        Circle()
+                            .fill(paperRaised)
+                            .overlay(Circle().stroke(ink.opacity(0.24), lineWidth: 0.8))
+                            .frame(width: 13, height: 13)
+                            .offset(x: max(0, geometry.size.width * progress - 6.5))
+                    }
+                    .contentShape(Rectangle().inset(by: -10))
+                    .gesture(seekGesture(width: geometry.size.width, duration: duration))
                 }
-                .contentShape(Rectangle().inset(by: -10))
-                .gesture(seekGesture(width: geometry.size.width, duration: duration))
-            }
-            .frame(height: 14)
+                .frame(height: 14)
 
-            HStack {
-                Text(formatTime(isSeeking ? seekTime : timePublisher.currentTime))
-                Spacer()
-                Text(formatTime(timePublisher.duration))
+                HStack {
+                    Text(formatTime(isSeeking ? seekTime : timePublisher.currentTime))
+                    Spacer()
+                    Text(formatTime(timePublisher.duration))
+                }
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .foregroundStyle(mutedInk)
+                .monospacedDigit()
             }
-            .font(.system(size: 10, weight: .bold, design: .monospaced))
-            .foregroundStyle(mutedInk)
-            .monospacedDigit()
         }
     }
 

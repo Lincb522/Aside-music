@@ -68,15 +68,6 @@ struct PlatformLoginView: View {
 
             ScrollView {
                 VStack(spacing: 28) {
-                    if SignalStyle.isActive {
-                        SignalNestedPageHeader(
-                            title: String(localized: "platform_login_title"),
-                            eyebrow: String(localized: "settings_eyebrow_accounts"),
-                            icon: .personCircle,
-                            module: .accounts
-                        )
-                    }
-
                     platformPicker
                     if selectedPlatform == .ncm {
                         ncmLoginMethodPicker
@@ -101,7 +92,7 @@ struct PlatformLoginView: View {
         }
         .navigationTitle(SignalStyle.isActive ? "" : String(localized: "platform_login_title"))
         .navigationBarTitleDisplayMode(.inline)
-        .monoNavigationBackButton()
+        .monoNavigationBackButton(title: String(localized: "platform_login_title"))
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()

@@ -161,28 +161,13 @@ struct BroadcastPlayerView: View {
 
     // MARK: - 信号波形
     private var signalWaveform: some View {
-        HStack(spacing: 0) {
-            HStack(spacing: 3) {
-                ForEach(0..<viewModel.waveHeights.count, id: \.self) { i in
-                    RoundedRectangle(cornerRadius: 1)
-                        .fill(
-                            viewModel.isPlaying
-                                ? broadcastPrimary.opacity(0.35 + viewModel.waveHeights[i] * 0.55)
-                                : broadcastSecondary.opacity(0.18)
-                        )
-                        .frame(width: 2.4, height: viewModel.isPlaying ? CGFloat(viewModel.waveHeights[i]) * 22 + 3 : 3)
-                        .animation(.easeInOut(duration: 0.15).delay(Double(i) * 0.015), value: viewModel.waveHeights[i])
-                }
-            }
-            .frame(height: 26, alignment: .center)
-
-            Spacer(minLength: 12)
-
-            Text(viewModel.isPlaying ? "STEREO" : "STANDBY")
-                .font(.system(size: 9.5, weight: .heavy, design: .rounded))
-                .tracking(1.8)
-                .foregroundColor(viewModel.isPlaying ? accentTint : broadcastSecondary.opacity(0.55))
-        }
+        BroadcastSignalWaveform(
+            waveform: viewModel.waveform,
+            isPlaying: viewModel.isPlaying,
+            broadcastPrimary: broadcastPrimary,
+            broadcastSecondary: broadcastSecondary,
+            accentTint: accentTint
+        )
     }
 
     // MARK: - 底部控制台：电台信息 + 播放键
@@ -380,7 +365,7 @@ class BroadcastPlayerViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var currentProgram: String?
     @Published var frequencyText: String = "87.5"
-    @Published var waveHeights: [Double] = Array(repeating: 0, count: 24)
+    let waveform = BroadcastWaveformState()
 
     private var avPlayer: AVPlayer?
     private var waveTimer: Timer?
@@ -451,7 +436,7 @@ class BroadcastPlayerViewModel: ObservableObject {
             Task { @MainActor in
                 guard let self = self, self.isPlaying else { return }
                 withAnimation(.easeInOut(duration: 0.15)) {
-                    self.waveHeights = (0..<24).map { _ in Double.random(in: 0.15...1.0) }
+                    self.waveform.heights = (0..<24).map { _ in Double.random(in: 0.15...1.0) }
                 }
             }
         }
@@ -461,7 +446,7 @@ class BroadcastPlayerViewModel: ObservableObject {
         waveTimer?.invalidate()
         waveTimer = nil
         withAnimation(.easeOut(duration: 0.3)) {
-            waveHeights = Array(repeating: 0, count: 24)
+            waveform.heights = Array(repeating: 0, count: 24)
         }
     }
 
@@ -470,6 +455,44 @@ class BroadcastPlayerViewModel: ObservableObject {
             avPlayer?.pause()
             avPlayer = nil
             waveTimer?.invalidate()
+        }
+    }
+}
+
+@MainActor
+final class BroadcastWaveformState: ObservableObject {
+    @Published var heights: [Double] = Array(repeating: 0, count: 24)
+}
+
+private struct BroadcastSignalWaveform: View {
+    @ObservedObject var waveform: BroadcastWaveformState
+    let isPlaying: Bool
+    let broadcastPrimary: Color
+    let broadcastSecondary: Color
+    let accentTint: Color
+
+    var body: some View {
+        HStack(spacing: 0) {
+            HStack(spacing: 3) {
+                ForEach(0..<waveform.heights.count, id: \.self) { i in
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(
+                            isPlaying
+                                ? broadcastPrimary.opacity(0.35 + waveform.heights[i] * 0.55)
+                                : broadcastSecondary.opacity(0.18)
+                        )
+                        .frame(width: 2.4, height: isPlaying ? CGFloat(waveform.heights[i]) * 22 + 3 : 3)
+                        .animation(.easeInOut(duration: 0.15).delay(Double(i) * 0.015), value: waveform.heights[i])
+                }
+            }
+            .frame(height: 26, alignment: .center)
+
+            Spacer(minLength: 12)
+
+            Text(isPlaying ? "STEREO" : "STANDBY")
+                .font(.system(size: 9.5, weight: .heavy, design: .rounded))
+                .tracking(1.8)
+                .foregroundColor(isPlaying ? accentTint : broadcastSecondary.opacity(0.55))
         }
     }
 }

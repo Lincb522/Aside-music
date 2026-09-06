@@ -7,8 +7,8 @@ struct FolkPlayerLayout: View {
     @Environment(\.dismiss) var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject var player = PlayerManager.shared
-    @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
-    @ObservedObject var lyricVM = LyricViewModel.shared
+    private let timePublisher = PlaybackTimePublisher.shared
+    private let lyricVM = LyricViewModel.shared
     @ObservedObject var downloadStatus = DownloadedSongStatusModel.shared
 
     // MARK: - Colors (Typewriter / Letter Theme)
@@ -260,120 +260,122 @@ extension FolkPlayerLayout {
     }
 
     func typewriterLyricsArea(size: CGSize) -> some View {
-        Group {
-            if lyricVM.hasLyrics && !lyricVM.lyrics.isEmpty {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 14) {
-                            Color.clear.frame(height: 8)
+        PlayerLyricReader { _ in
+            Group {
+                if lyricVM.hasLyrics && !lyricVM.lyrics.isEmpty {
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            LazyVStack(alignment: .leading, spacing: 14) {
+                                Color.clear.frame(height: 8)
 
-                            ForEach(Array(lyricVM.lyrics.enumerated()), id: \.element.id) { index, line in
-                                if !line.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                    let isCurrent = index == lyricVM.currentLineIndex
-                                    
-                                    // 核心：只显示已播放和正在播放的歌词（打字信件效果）
-                                    if index <= lyricVM.currentLineIndex {
-                                        HStack(alignment: .top, spacing: 12) {
-                                            // 前置破折号作为引用
-                                            Text("-")
-                                                .font(.system(size: 16, weight: .medium, design: .monospaced))
-                                                .foregroundColor(isCurrent ? redStamp : inkFaded.opacity(0.5))
-                                                .offset(y: 2)
+                                ForEach(Array(lyricVM.lyrics.enumerated()), id: \.element.id) { index, line in
+                                    if !line.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                        let isCurrent = index == lyricVM.currentLineIndex
 
-                                            VStack(alignment: .leading, spacing: 4) {
-                                                Text(line.text.monoLyricDisplayText)
-                                                    .font(
-                                                        MonoPlayerFont.activeFont(
-                                                            size: isCurrent ? 18 : 16,
-                                                            weight: isCurrent ? .bold : .medium,
-                                                            fallback: .system(
-                                                                size: isCurrent ? 18 : 16,
-                                                                weight: isCurrent ? .bold : .medium,
-                                                                design: .monospaced
-                                                            )
-                                                        )
-                                                    )
-                                                    .foregroundColor(isCurrent ? inkDark : inkFaded)
-                                                    .lineLimit(nil)
-                                                    .multilineTextAlignment(.leading)
+                                        // 核心：只显示已播放和正在播放的歌词（打字信件效果）
+                                        if index <= lyricVM.currentLineIndex {
+                                            HStack(alignment: .top, spacing: 12) {
+                                                // 前置破折号作为引用
+                                                Text("-")
+                                                    .font(.system(size: 16, weight: .medium, design: .monospaced))
+                                                    .foregroundColor(isCurrent ? redStamp : inkFaded.opacity(0.5))
+                                                    .offset(y: 2)
 
-                                                if let trans = line.translation, !trans.isEmpty {
-                                                    Text(trans.monoLyricDisplayText)
+                                                VStack(alignment: .leading, spacing: 4) {
+                                                    Text(line.text.monoLyricDisplayText)
                                                         .font(
                                                             MonoPlayerFont.activeFont(
-                                                                size: 12,
-                                                                weight: .regular,
+                                                                size: isCurrent ? 18 : 16,
+                                                                weight: isCurrent ? .bold : .medium,
                                                                 fallback: .system(
-                                                                    size: 12,
-                                                                    weight: .regular,
+                                                                    size: isCurrent ? 18 : 16,
+                                                                    weight: isCurrent ? .bold : .medium,
                                                                     design: .monospaced
                                                                 )
                                                             )
                                                         )
-                                                        .foregroundColor(isCurrent ? inkFaded : inkFaded.opacity(0.5))
+                                                        .foregroundColor(isCurrent ? inkDark : inkFaded)
+                                                        .lineLimit(nil)
                                                         .multilineTextAlignment(.leading)
+
+                                                    if let trans = line.translation, !trans.isEmpty {
+                                                        Text(trans.monoLyricDisplayText)
+                                                            .font(
+                                                                MonoPlayerFont.activeFont(
+                                                                    size: 12,
+                                                                    weight: .regular,
+                                                                    fallback: .system(
+                                                                        size: 12,
+                                                                        weight: .regular,
+                                                                        design: .monospaced
+                                                                    )
+                                                                )
+                                                            )
+                                                            .foregroundColor(isCurrent ? inkFaded : inkFaded.opacity(0.5))
+                                                            .multilineTextAlignment(.leading)
+                                                    }
                                                 }
                                             }
+                                            .padding(.vertical, 4)
+                                            .padding(.horizontal, 16)
+                                            .id(index)
+                                            .onTapWithHaptic { player.seek(to: line.time) }
+                                            // 新歌词像盖章一样出现
+                                            .transition(.asymmetric(
+                                                insertion: .opacity.combined(with: .scale(scale: 0.95)),
+                                                removal: .opacity
+                                            ))
                                         }
-                                        .padding(.vertical, 4)
-                                        .padding(.horizontal, 16)
-                                        .id(index)
-                                        .onTapWithHaptic { player.seek(to: line.time) }
-                                        // 新歌词像盖章一样出现
-                                        .transition(.asymmetric(
-                                            insertion: .opacity.combined(with: .scale(scale: 0.95)),
-                                            removal: .opacity
-                                        ))
                                     }
                                 }
+
+                                // 底部留白保证能滚动到底
+                                Color.clear.frame(height: 80)
                             }
-                            
-                            // 底部留白保证能滚动到底
-                            Color.clear.frame(height: 80)
+                        }
+                        .scrollIndicators(.hidden)
+                        .onChange(of: lyricVM.currentLineIndex) { _, newIndex in
+                            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                                // 始终滚动到底部新出现的一行，但不要贴紧底边，留出阅读空间
+                                proxy.scrollTo(newIndex, anchor: UnitPoint(x: 0.5, y: 0.65))
+                            }
+                        }
+                        .onAppear {
+                            proxy.monoRestoreLyricPosition(anchor: UnitPoint(x: 0.5, y: 0.65)) { lyricVM.currentLineIndex }
                         }
                     }
-                    .scrollIndicators(.hidden)
-                    .onChange(of: lyricVM.currentLineIndex) { _, newIndex in
-                        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                            // 始终滚动到底部新出现的一行，但不要贴紧底边，留出阅读空间
-                            proxy.scrollTo(newIndex, anchor: UnitPoint(x: 0.5, y: 0.65))
-                        }
-                    }
-                    .onAppear {
-                        proxy.monoRestoreLyricPosition(anchor: UnitPoint(x: 0.5, y: 0.65)) { lyricVM.currentLineIndex }
-                    }
-                }
-                // 顶部文字渐隐遮罩
-                .mask(
-                    LinearGradient(
-                        stops: [
-                            .init(color: .clear, location: 0),
-                            .init(color: .black, location: 0.1),
-                            .init(color: .black, location: 1)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
+                    // 顶部文字渐隐遮罩
+                    .mask(
+                        LinearGradient(
+                            stops: [
+                                .init(color: .clear, location: 0),
+                                .init(color: .black, location: 0.1),
+                                .init(color: .black, location: 1)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
                     )
-                )
-            } else {
-                // 无歌词纯净信纸
-                VStack {
-                    Spacer()
-                    MonoSemanticIcon(
-                        semantic: .instrumentalLyrics,
-                        fallback: .musicNote,
-                        size: 32,
-                        color: inkFaded.opacity(0.4)
-                    )
-                        .padding(.bottom, 8)
-                    Text("Dear listener,\nInstrumental track playing.")
-                        .font(.system(size: 14, weight: .medium, design: .monospaced))
-                        .foregroundColor(inkFaded)
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(6)
-                    Spacer()
+                } else {
+                    // 无歌词纯净信纸
+                    VStack {
+                        Spacer()
+                        MonoSemanticIcon(
+                            semantic: .instrumentalLyrics,
+                            fallback: .musicNote,
+                            size: 32,
+                            color: inkFaded.opacity(0.4)
+                        )
+                            .padding(.bottom, 8)
+                        Text("Dear listener,\nInstrumental track playing.")
+                            .font(.system(size: 14, weight: .medium, design: .monospaced))
+                            .foregroundColor(inkFaded)
+                            .multilineTextAlignment(.center)
+                            .lineSpacing(6)
+                        Spacer()
+                    }
+                    .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity)
             }
         }
     }
@@ -455,56 +457,58 @@ extension FolkPlayerLayout {
     }
 
     var folkProgressBar: some View {
-        VStack(spacing: 6) {
-            GeometryReader { barGeo in
-                let progress = timePublisher.duration > 0
-                    ? min(max(timePublisher.currentTime / timePublisher.duration, 0), 1)
-                    : 0.0
+        PlaybackTimeReader { _, _ in
+            VStack(spacing: 6) {
+                GeometryReader { barGeo in
+                    let progress = timePublisher.duration > 0
+                        ? min(max(timePublisher.currentTime / timePublisher.duration, 0), 1)
+                        : 0.0
 
-                ZStack(alignment: .leading) {
-                    // 底轨：极细的虚线
-                    Line()
-                        .stroke(style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                        .foregroundColor(inkFaded.opacity(0.3))
-                        .frame(height: 1)
+                    ZStack(alignment: .leading) {
+                        // 底轨：极细的虚线
+                        Line()
+                            .stroke(style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                            .foregroundColor(inkFaded.opacity(0.3))
+                            .frame(height: 1)
 
-                    // 进度：实线，像笔划过
-                    Line()
-                        .stroke(style: StrokeStyle(lineWidth: 1.5))
-                        .foregroundColor(inkDark)
-                        .frame(width: max(1, barGeo.size.width * CGFloat(progress)), height: 1)
+                        // 进度：实线，像笔划过
+                        Line()
+                            .stroke(style: StrokeStyle(lineWidth: 1.5))
+                            .foregroundColor(inkDark)
+                            .frame(width: max(1, barGeo.size.width * CGFloat(progress)), height: 1)
 
-                    // 笔尖或墨水滴
-                    Path { p in
-                        p.move(to: CGPoint(x: 0, y: -4))
-                        p.addLine(to: CGPoint(x: 4, y: 4))
-                        p.addLine(to: CGPoint(x: -4, y: 4))
-                        p.closeSubpath()
-                    }
-                    .fill(inkDark)
-                    .offset(x: max(0, barGeo.size.width * CGFloat(progress) - 2), y: 0)
-                }
-                .contentShape(Rectangle().inset(by: -14))
-                .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { value in
-                            let p = min(max(value.location.x / barGeo.size.width, 0), 1)
-                            player.seek(to: p * timePublisher.duration)
+                        // 笔尖或墨水滴
+                        Path { p in
+                            p.move(to: CGPoint(x: 0, y: -4))
+                            p.addLine(to: CGPoint(x: 4, y: 4))
+                            p.addLine(to: CGPoint(x: -4, y: 4))
+                            p.closeSubpath()
                         }
-                )
-            }
-            .frame(height: 10)
+                        .fill(inkDark)
+                        .offset(x: max(0, barGeo.size.width * CGFloat(progress) - 2), y: 0)
+                    }
+                    .contentShape(Rectangle().inset(by: -14))
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                let p = min(max(value.location.x / barGeo.size.width, 0), 1)
+                                player.seek(to: p * timePublisher.duration)
+                            }
+                    )
+                }
+                .frame(height: 10)
 
-            // 时间文本（打字机字体）
-            HStack {
-                Text(formatTime(timePublisher.currentTime))
-                Spacer()
-                Text(formatTime(timePublisher.duration))
+                // 时间文本（打字机字体）
+                HStack {
+                    Text(formatTime(timePublisher.currentTime))
+                    Spacer()
+                    Text(formatTime(timePublisher.duration))
+                }
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .foregroundColor(inkFaded)
             }
-            .font(.system(size: 10, weight: .bold, design: .monospaced))
-            .foregroundColor(inkFaded)
+            .padding(.horizontal, 24)
         }
-        .padding(.horizontal, 24)
     }
 
     func folkLikeButton(song: Song) -> some View {

@@ -4,22 +4,11 @@ import QQMusicKit
 struct QCMAccountView: View {
     @ObservedObject private var userSession = QQUserSession.shared
     @State private var isChecking = false
+    @State private var refreshRequestID: UUID?
     @State private var showLogoutConfirmation = false
 
     var body: some View {
         List {
-            if SignalStyle.isActive {
-                SignalNestedPageHeader(
-                    title: "QCM 账号",
-                    eyebrow: "ACCOUNT NODE",
-                    icon: .personCircle,
-                    module: .accounts
-                )
-                .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20))
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-            }
-
             Section("账号") {
                 accountRow
             }
@@ -45,10 +34,8 @@ struct QCMAccountView: View {
         .background(ThemedPageBackground())
         .navigationTitle(SignalStyle.isActive ? "" : "QCM 账号")
         .navigationBarTitleDisplayMode(.inline)
-        .monoNavigationBackButton()
-        .onAppear {
-            Task { await refreshAccount() }
-        }
+        .monoNavigationBackButton(title: "QCM 账号")
+        .task { await refreshAccount() }
         .confirmationDialog("退出 QCM 登录？", isPresented: $showLogoutConfirmation) {
             Button("退出登录", role: .destructive, action: logout)
             Button("取消", role: .cancel) {}
@@ -101,8 +88,15 @@ struct QCMAccountView: View {
 
     @MainActor
     private func refreshAccount() async {
+        guard !Task.isCancelled else { return }
+        let requestID = UUID()
+        refreshRequestID = requestID
         isChecking = true
-        defer { isChecking = false }
+        defer {
+            if refreshRequestID == requestID {
+                isChecking = false
+            }
+        }
 
         await userSession.refresh()
     }

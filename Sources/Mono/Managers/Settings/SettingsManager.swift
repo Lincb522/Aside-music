@@ -538,10 +538,10 @@ final class SettingsManager: ObservableObject {
 
     func enforceCoverBackgroundPolicyForCurrentTheme() {
         guard locksCoverBackgroundSettings else { return }
-        coverBgGlobal = false
-        coverBgPlaylist = false
-        coverBgPlayer = false
-        globalCoverIsDark = false
+        if coverBgGlobal { coverBgGlobal = false }
+        if coverBgPlaylist { coverBgPlaylist = false }
+        if coverBgPlayer { coverBgPlayer = false }
+        if globalCoverIsDark { globalCoverIsDark = false }
     }
 
     func notifyThemeCustomizationChanged() {

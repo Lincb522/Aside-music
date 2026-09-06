@@ -8,7 +8,7 @@ struct BreathingPlayerLayout: View {
     @Environment(\.colorScheme) private var colorScheme
 
     @ObservedObject private var player = PlayerManager.shared
-    @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
+    private let timePublisher = PlaybackTimePublisher.shared
 
     @StateObject private var colorExtractor = CoverColorExtractor()
     @State private var showQualitySheet = false
@@ -358,38 +358,40 @@ extension BreathingPlayerLayout {
     }
 
     private func timeWhispers(metrics: BreathingLayoutMetrics) -> some View {
-        HStack(alignment: .center) {
-            Text(formatTime(displayedTime))
-                .font(.system(size: metrics.primaryTimeFont, weight: .bold, design: .monospaced))
-                .foregroundStyle(textColor)
-                .monospacedDigit()
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(.ultraThinMaterial.opacity(colorScheme == .dark ? 0.72 : 0.92))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(textColor.opacity(0.08), lineWidth: 1)
-                )
-                .rotationEffect(.degrees(-4))
+        PlaybackTimeReader { _, _ in
+            HStack(alignment: .center) {
+                Text(formatTime(displayedTime))
+                    .font(.system(size: metrics.primaryTimeFont, weight: .bold, design: .monospaced))
+                    .foregroundStyle(textColor)
+                    .monospacedDigit()
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(.ultraThinMaterial.opacity(colorScheme == .dark ? 0.72 : 0.92))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(textColor.opacity(0.08), lineWidth: 1)
+                    )
+                    .rotationEffect(.degrees(-4))
 
-            Spacer(minLength: 12)
+                Spacer(minLength: 12)
 
-            Text(formatTime(timePublisher.duration))
-                .font(.system(size: metrics.secondaryTimeFont, weight: .semibold, design: .monospaced))
-                .foregroundStyle(subduedTextColor)
-                .monospacedDigit()
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(
-                    Capsule()
-                        .fill(textColor.opacity(colorScheme == .dark ? 0.07 : 0.05))
-                )
-                .rotationEffect(.degrees(8))
+                Text(formatTime(timePublisher.duration))
+                    .font(.system(size: metrics.secondaryTimeFont, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(subduedTextColor)
+                    .monospacedDigit()
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(
+                        Capsule()
+                            .fill(textColor.opacity(colorScheme == .dark ? 0.07 : 0.05))
+                    )
+                    .rotationEffect(.degrees(8))
+            }
+            .frame(width: metrics.timeRowWidth)
         }
-        .frame(width: metrics.timeRowWidth)
     }
 }
 
@@ -489,32 +491,34 @@ extension BreathingPlayerLayout {
         leadingColor: Color,
         secondaryColor: Color
     ) -> some View {
-        TimelineView(
-            AppFrameRate.animationTimeline(
-                maximumFramesPerSecond: 30,
-                paused: !player.isPlaying && interactionAxis == .idle
-            )
-        ) { timeline in
-            let t = timeline.date.timeIntervalSinceReferenceDate
+        PlaybackTimeReader { _, _ in
+            TimelineView(
+                AppFrameRate.animationTimeline(
+                    maximumFramesPerSecond: 30,
+                    paused: !player.isPlaying && interactionAxis == .idle
+                )
+            ) { timeline in
+                let t = timeline.date.timeIntervalSinceReferenceDate
 
-            ZStack {
-                ForEach(0..<count, id: \.self) { index in
-                    let fraction = Double(index) / Double(max(count - 1, 1))
-                    let angle = fraction * .pi * 2 + phaseOffset + t * 0.18
-                    let isLeading = fraction <= progress
-                    let dotSize = isLeading ? 7.0 : 4.0
-                    let x = CGFloat(cos(angle)) * radiusX
-                    let y = CGFloat(sin(angle)) * radiusY
+                ZStack {
+                    ForEach(0..<count, id: \.self) { index in
+                        let fraction = Double(index) / Double(max(count - 1, 1))
+                        let angle = fraction * .pi * 2 + phaseOffset + t * 0.18
+                        let isLeading = fraction <= progress
+                        let dotSize = isLeading ? 7.0 : 4.0
+                        let x = CGFloat(cos(angle)) * radiusX
+                        let y = CGFloat(sin(angle)) * radiusY
 
-                    Circle()
-                        .fill(isLeading ? leadingColor.opacity(0.92) : secondaryColor.opacity(0.18))
-                        .frame(width: dotSize, height: dotSize)
-                        .blur(radius: isLeading ? 0 : 0.1)
-                        .offset(x: x, y: y)
+                        Circle()
+                            .fill(isLeading ? leadingColor.opacity(0.92) : secondaryColor.opacity(0.18))
+                            .frame(width: dotSize, height: dotSize)
+                            .blur(radius: isLeading ? 0 : 0.1)
+                            .offset(x: x, y: y)
+                    }
                 }
             }
+            .drawingGroup()
         }
-        .drawingGroup()
     }
 }
 

@@ -20,15 +20,10 @@ struct NCMVIPAccountSwitchingView: View {
 
             ScrollView {
                 VStack(spacing: SettingsPageLayout.deepSectionSpacing) {
-                    DeveloperDiagnosticHeader(
-                        title: String(localized: "ncm_vip_pool_title"),
-                        status: String.localizedStringWithFormat(
+                    DeveloperDiagnosticStatus(status: String.localizedStringWithFormat(
                             String(localized: "ncm_vip_pool_account_count"),
                             accounts.count
-                        ),
-                        icon: .personCircle,
-                        tint: .red
-                    )
+                        ))
 
                     qrSection
                     accountSections
@@ -42,7 +37,7 @@ struct NCMVIPAccountSwitchingView: View {
             .scrollIndicators(.hidden)
             .refreshable { await load() }
         }
-        .developerDiagnosticPageChrome()
+        .developerDiagnosticPageChrome(title: String(localized: "ncm_vip_pool_title"))
         .task { await load() }
         .task(id: qrSession?.sessionId) {
             guard let sessionID = qrSession?.sessionId else { return }

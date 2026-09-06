@@ -370,7 +370,15 @@ enum AppLogger {
     }
 
     static func getAllLogs() -> [LogEntry] {
-        snapshot().entries
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return logs
+    }
+
+    static var logCount: Int {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return logs.count
     }
 
     static func clearLogs() {

@@ -174,11 +174,17 @@ private final class ArtworkMemoryCache {
 actor ImageLoadCoordinator {
     static let shared = ImageLoadCoordinator()
     
-    private var inFlightTasks: [String: Task<UIImage?, Never>] = [:]
+    private var inFlightTasks: [String: (id: UUID, task: Task<UIImage?, Never>)] = [:]
+    private var cachedImageTasks: [String: (id: UUID, task: Task<UIImage?, Never>)] = [:]
+    private var diskCacheTasks: [String: (id: UUID, task: Task<Void, Never>)] = [:]
 
     func cancelAll() {
-        inFlightTasks.values.forEach { $0.cancel() }
+        inFlightTasks.values.forEach { $0.task.cancel() }
+        cachedImageTasks.values.forEach { $0.task.cancel() }
+        diskCacheTasks.values.forEach { $0.task.cancel() }
         inFlightTasks.removeAll(keepingCapacity: false)
+        cachedImageTasks.removeAll(keepingCapacity: false)
+        diskCacheTasks.removeAll(keepingCapacity: false)
     }
 
     func cacheImageToDisk(_ image: UIImage, forKey key: String) {
@@ -189,6 +195,71 @@ actor ImageLoadCoordinator {
             CacheManager.shared.setImageData(data, forKey: key)
         }
     }
+
+    /// Coalesces the complete view-image pipeline, including disk decode and cache writes.
+    /// Color extraction keeps using loadImage so its source pixels remain unchanged.
+    func loadCachedImage(url: URL, maxSize: CGFloat) async -> UIImage? {
+        let normalizedMaxSize = ImageCacheConfig.normalizedMaxPointSize(maxSize)
+        let key = ImageCacheConfig.cacheKey(for: url, maxSize: normalizedMaxSize)
+        if let existing = cachedImageTasks[key] {
+            return await existing.task.value
+        }
+
+        let requestID = UUID()
+        let task = Task<UIImage?, Never> {
+            defer {
+                if cachedImageTasks[key]?.id == requestID {
+                    cachedImageTasks.removeValue(forKey: key)
+                }
+            }
+            guard !Task.isCancelled else { return nil }
+            if let cached = await MainActor.run(body: {
+                ArtworkMemoryCache.shared.image(forKey: key as NSString)
+            }) {
+                return cached
+            }
+            guard !Task.isCancelled else { return nil }
+
+            let diskImage = CacheManager.shared.getImageData(forKey: key).flatMap {
+                ImageLoader.downsampleImageStatic(data: $0, maxSize: normalizedMaxSize)
+            }
+            let image: UIImage?
+            if let diskImage {
+                image = diskImage
+            } else {
+                image = await loadImage(url: url, maxSize: normalizedMaxSize)
+            }
+            guard !Task.isCancelled, let image else { return nil }
+
+            await MainActor.run {
+                guard !Task.isCancelled else { return }
+                let cost = image.cgImage.map { $0.bytesPerRow * $0.height } ?? 0
+                ArtworkMemoryCache.shared.insert(image, forKey: key as NSString, cost: cost)
+            }
+            guard !Task.isCancelled else { return nil }
+            if diskImage == nil {
+                scheduleDiskCache(image, forKey: key)
+            }
+            return image
+        }
+        cachedImageTasks[key] = (requestID, task)
+        return await task.value
+    }
+
+    private func scheduleDiskCache(_ image: UIImage, forKey key: String) {
+        guard diskCacheTasks[key] == nil else { return }
+        let requestID = UUID()
+        let task = Task {
+            defer {
+                if diskCacheTasks[key]?.id == requestID {
+                    diskCacheTasks.removeValue(forKey: key)
+                }
+            }
+            guard !Task.isCancelled else { return }
+            cacheImageToDisk(image, forKey: key)
+        }
+        diskCacheTasks[key] = (requestID, task)
+    }
     
     func loadImage(url: URL, maxSize: CGFloat = ImageCacheConfig.defaultMaxPointSize) async -> UIImage? {
         let normalizedMaxSize = ImageCacheConfig.normalizedMaxPointSize(maxSize)
@@ -196,11 +267,16 @@ actor ImageLoadCoordinator {
         
         // 如果已有相同 URL 的加载任务，直接复用
         if let existingTask = inFlightTasks[key] {
-            return await existingTask.value
+            return await existingTask.task.value
         }
-        
+
+        let requestID = UUID()
         let task = Task<UIImage?, Never> {
-            defer { inFlightTasks.removeValue(forKey: key) }
+            defer {
+                if inFlightTasks[key]?.id == requestID {
+                    inFlightTasks.removeValue(forKey: key)
+                }
+            }
 
             if let image = await requestImage(url: url, maxSize: normalizedMaxSize) {
                 return image
@@ -245,7 +321,7 @@ actor ImageLoadCoordinator {
             return nil
         }
         
-        inFlightTasks[key] = task
+        inFlightTasks[key] = (requestID, task)
         return await task.value
     }
 
@@ -375,6 +451,7 @@ class ImageLoader: ObservableObject {
     private var loadTask: Task<Void, Never>?
     private var currentUrl: URL?
     private var currentRequestKey: String?
+    private var loadedRequestKey: String?
     
     deinit {
         loadTask?.cancel()
@@ -387,6 +464,9 @@ class ImageLoader: ObservableObject {
         
         // 1. 内存缓存命中 → 立即返回
         if let cachedImage = ArtworkMemoryCache.shared.image(forKey: cacheKey) {
+            if currentRequestKey != cacheKeyStr {
+                cancel()
+            }
             if self.image !== cachedImage {
                 self.image = cachedImage
             }
@@ -395,11 +475,12 @@ class ImageLoader: ObservableObject {
             }
             self.currentUrl = url
             self.currentRequestKey = cacheKeyStr
+            self.loadedRequestKey = cacheKeyStr
             return
         }
         
         // 避免重复加载同一 URL
-        if cacheKeyStr == currentRequestKey && (image != nil || isLoading) { return }
+        if cacheKeyStr == currentRequestKey && (loadedRequestKey == cacheKeyStr || isLoading) { return }
         
         cancel()
         currentUrl = url
@@ -407,45 +488,15 @@ class ImageLoader: ObservableObject {
         isLoading = true
         
         loadTask = Task { [weak self] in
-            guard let self = self else { return }
-            
             let key = cacheKeyStr
-            
-            // 2. 磁盘缓存命中（在后台线程读取和降采样）
-            let diskImage: UIImage? = await Task.detached(priority: .userInitiated) {
-                guard let data = CacheManager.shared.getImageData(forKey: key) else { return nil }
-                return Self.downsampleImageStatic(data: data, maxSize: normalizedMaxSize)
-            }.value
-            
-            if Task.isCancelled { return }
-            
-            if let diskImage {
-                let cost = diskImage.cgImage.map { $0.bytesPerRow * $0.height } ?? 0
-                ArtworkMemoryCache.shared.insert(diskImage, forKey: key as NSString, cost: cost)
-                
-                guard self.currentRequestKey == key else { return }
-                self.image = diskImage
-                self.isLoading = false
-                return
-            }
-            
-            if Task.isCancelled { return }
-            
-            // 3. 网络加载（通过 coordinator 去重）
-            let downloadedImage = await ImageLoadCoordinator.shared.loadImage(url: url, maxSize: normalizedMaxSize)
-            
-            if Task.isCancelled { return }
-            
-            guard self.currentRequestKey == key else { return }
+            let loadedImage = await ImageLoadCoordinator.shared.loadCachedImage(url: url, maxSize: normalizedMaxSize)
+
+            guard !Task.isCancelled, let self, self.currentRequestKey == key else { return }
             self.isLoading = false
-            
-            if let image = downloadedImage {
+
+            if let image = loadedImage {
+                self.loadedRequestKey = key
                 self.image = image
-                
-                let cost = image.cgImage.map { $0.bytesPerRow * $0.height } ?? 0
-                ArtworkMemoryCache.shared.insert(image, forKey: key as NSString, cost: cost)
-                
-                await ImageLoadCoordinator.shared.cacheImageToDisk(image, forKey: key)
             }
         }
     }

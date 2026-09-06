@@ -38,7 +38,7 @@ private enum EventThemePalette {
 
 struct UserEventView: View {
     @StateObject private var viewModel = UserEventViewModel()
-    @ObservedObject private var playerManager = PlayerManager.shared
+    private let playerManager = PlayerManager.shared
     @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.dismiss) private var dismiss
     
@@ -96,10 +96,10 @@ struct UserEventView: View {
                 }
             }
         }
-        .themedNavigationChrome(title: String(localized: "event_title"), eyebrow: "EVENT", icon: .bell)
+
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .monoNavigationBackButton()
+        .monoNavigationBackButton(title: String(localized: "event_title"))
         .onAppear { viewModel.fetchEvents() }
     }
 }

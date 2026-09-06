@@ -8,7 +8,7 @@ import UIKit
 /// 视觉语言与 Aria 沉浸设置保持一致。
 struct ImmersiveBackgroundSheet: View {
     @ObservedObject private var bgManager = ImmersiveBackgroundManager.shared
-    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var player = CurrentSongPresentationModel.shared
     @StateObject private var coverColors = CoverColorExtractor()
     let palette: AriaPalette
 
@@ -67,16 +67,7 @@ struct ImmersiveBackgroundSheet: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                MonoToolbarBackButton()
-            }
-            ToolbarItem(placement: .principal) {
-                Text(String(localized: "immersive_bg_title"))
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(.white)
-            }
-        }
+        .monoNavigationBackButton(iconColor: .white, title: String(localized: "immersive_bg_title"))
         // monoSheet 内呈现时，深色背景铺满整个面板（含把手区）
         .monoSheetSurface(id: "immersive-background") {
             sheetBackdrop

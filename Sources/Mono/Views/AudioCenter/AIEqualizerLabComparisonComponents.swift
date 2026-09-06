@@ -108,13 +108,8 @@ struct AIEqualizerProposalComparisonView: View {
         .environment(\.colorScheme, .dark)
         .navigationTitle(String(localized: "ai_lab_compare_title"))
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                MonoToolbarBackButton(iconColor: .white)
-            }
-        }
+        .monoNavigationBackButton(iconColor: .white, title: String(localized: "ai_lab_compare_title"))
     }
 
     private func comparisonHeader(

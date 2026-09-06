@@ -8,7 +8,7 @@ struct MlogPlayerView: View {
     let mlog: MlogItem
     
     @StateObject private var viewModel = MlogPlayerViewModel()
-    @ObservedObject private var playerManager = PlayerManager.shared
+    private let playerManager = PlayerManager.shared
     @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.dismiss) private var dismiss
     
@@ -140,32 +140,37 @@ class MlogPlayerViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     
-    private var cancellables = Set<AnyCancellable>()
+    private let requestScope = LibraryRequestScope()
     
     func fetchUrl(id: String) {
         isLoading = true
         errorMessage = nil
         
-        APIService.shared.fetchMlogUrl(id: id)
+        let request = requestScope.begin()
+        requestScope.cancellable = APIService.shared.fetchMlogUrl(id: id)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
-                self?.isLoading = false
+                guard let self, self.requestScope.isCurrent(request) else { return }
+                self.requestScope.finish(request)
+                self.isLoading = false
                 if case .failure(let error) = completion {
-                    self?.errorMessage = error.localizedDescription
+                    self.errorMessage = error.localizedDescription
                 }
             }, receiveValue: { [weak self] urlString in
-                guard let self, let urlString, let url = URL(string: urlString) else {
-                    self?.errorMessage = "No URL"
+                guard let self, self.requestScope.isCurrent(request) else { return }
+                guard let urlString, let url = URL(string: urlString) else {
+                    self.errorMessage = "No URL"
                     return
                 }
                 let avPlayer = AVPlayer(url: url)
                 self.player = avPlayer
                 avPlayer.play()
             })
-            .store(in: &cancellables)
     }
     
     func cleanup() {
+        requestScope.cancel()
+        isLoading = false
         player?.pause()
         player = nil
     }

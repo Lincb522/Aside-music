@@ -347,7 +347,6 @@ private func coverImage(url: String?, width: CGFloat? = nil, height: CGFloat, co
     }
 }
 
-
 // MARK: - MV 发现页
 
 struct MVDiscoverView: View {
@@ -372,16 +371,6 @@ struct MVDiscoverView: View {
 
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 24) {
-                        if SignalStyle.isActive {
-                            SignalNestedPageHeader(
-                                title: "MV",
-                                eyebrow: "VIDEO FEED",
-                                icon: .mv,
-                                module: .track
-                            )
-                            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-                        }
-
                         sourceFilter
 
                         if let source = selectedSource {
@@ -410,9 +399,10 @@ struct MVDiscoverView: View {
                 }
             }
         }
-        .themedNavigationChrome(title: SignalStyle.isActive ? "" : "MV", eyebrow: "VIDEO", icon: .mv)
+        .themedNavigationChrome(title: "MV", eyebrow: "VIDEO", icon: .mv)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
+        .defaultNavigationPageTitle("MV")
         .onAppear { viewModel.fetchUnified() }
         .fullScreenCover(item: $selectedItem) { item in
             switch item.source {
@@ -685,6 +675,7 @@ private struct LegacyMVDiscoverView: View {
         .themedNavigationChrome(title: "MV", eyebrow: "VIDEO", icon: .mv)
         .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
+        .defaultNavigationPageTitle("MV")
         .onAppear {
             if viewModel.latestMVs.isEmpty {
                 viewModel.fetchAll()
@@ -1156,7 +1147,6 @@ private struct LegacyMVDiscoverView: View {
     }
 }
 
-
 // MARK: - 导航目标
 
 struct MVListDestination: Hashable {
@@ -1232,10 +1222,9 @@ struct MVFullListView: View {
             .themeRenderScrollLayer()
             }
         }
-        .themedNavigationChrome(title: title, eyebrow: "MV", icon: .mv)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .monoNavigationBackButton()
+        .monoNavigationBackButton(title: title)
         .onAppear {
             if viewModel.mvs.isEmpty {
                 viewModel.fetchInitial()
@@ -1251,7 +1240,6 @@ struct MVFullListView: View {
         }
     }
 }
-
 
 // MARK: - 已收藏 MV Sheet
 

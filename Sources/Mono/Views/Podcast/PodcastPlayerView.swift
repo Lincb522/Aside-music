@@ -3,8 +3,8 @@ import SwiftUI
 struct PodcastPlayerView: View {
     let radioId: Int
     @StateObject private var viewModel: PodcastPlayerViewModel
-    @ObservedObject private var player = PlayerManager.shared
-    @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
+    private let player = PlayerManager.shared
+    private let timePublisher = PlaybackTimePublisher.shared
     @ObservedObject private var subManager = SubscriptionManager.shared
     @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.dismiss) private var dismiss
@@ -303,50 +303,52 @@ struct PodcastPlayerView: View {
 
     /// aside 进度条：支持拖动跳转
     private var asideProgressSection: some View {
-        VStack(spacing: 7) {
-            GeometryReader { geo in
-                let progress: Double = {
-                    if isScrubbing { return scrubProgress }
-                    guard timePublisher.duration > 0 else { return 0 }
-                    return min(max(timePublisher.currentTime / timePublisher.duration, 0), 1)
-                }()
+        PlaybackTimeReader { _, _ in
+            VStack(spacing: 7) {
+                GeometryReader { geo in
+                    let progress: Double = {
+                        if isScrubbing { return scrubProgress }
+                        guard timePublisher.duration > 0 else { return 0 }
+                        return min(max(timePublisher.currentTime / timePublisher.duration, 0), 1)
+                    }()
 
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Color.monoSeparator.opacity(0.6))
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(Color.monoSeparator.opacity(0.6))
 
-                    Capsule()
-                        .fill(Color.monoTextPrimary.opacity(0.85))
-                        .frame(width: max(0, geo.size.width * CGFloat(progress)))
-                }
-                .frame(height: isScrubbing ? 6.5 : 3.5)
-                .frame(maxHeight: .infinity, alignment: .center)
-                .contentShape(Rectangle())
-                .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { value in
-                            isScrubbing = true
-                            scrubProgress = min(max(value.location.x / geo.size.width, 0), 1)
-                        }
-                        .onEnded { value in
-                            let target = min(max(value.location.x / geo.size.width, 0), 1)
-                            if timePublisher.duration > 0 {
-                                player.seek(to: target * timePublisher.duration)
+                        Capsule()
+                            .fill(Color.monoTextPrimary.opacity(0.85))
+                            .frame(width: max(0, geo.size.width * CGFloat(progress)))
+                    }
+                    .frame(height: isScrubbing ? 6.5 : 3.5)
+                    .frame(maxHeight: .infinity, alignment: .center)
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                isScrubbing = true
+                                scrubProgress = min(max(value.location.x / geo.size.width, 0), 1)
                             }
-                            isScrubbing = false
-                        }
-                )
-            }
-            .frame(height: 20)
-            .animation(.spring(response: 0.3, dampingFraction: 0.85), value: isScrubbing)
+                            .onEnded { value in
+                                let target = min(max(value.location.x / geo.size.width, 0), 1)
+                                if timePublisher.duration > 0 {
+                                    player.seek(to: target * timePublisher.duration)
+                                }
+                                isScrubbing = false
+                            }
+                    )
+                }
+                .frame(height: 20)
+                .animation(.spring(response: 0.3, dampingFraction: 0.85), value: isScrubbing)
 
-            HStack {
-                Text(formatTime(isScrubbing ? scrubProgress * timePublisher.duration : timePublisher.currentTime))
-                Spacer()
-                Text(formatTime(timePublisher.duration))
+                HStack {
+                    Text(formatTime(isScrubbing ? scrubProgress * timePublisher.duration : timePublisher.currentTime))
+                    Spacer()
+                    Text(formatTime(timePublisher.duration))
+                }
+                .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+                .foregroundColor(.monoTextSecondary.opacity(0.85))
             }
-            .font(.system(size: 10.5, weight: .medium, design: .monospaced))
-            .foregroundColor(.monoTextSecondary.opacity(0.85))
         }
     }
 
@@ -541,38 +543,40 @@ struct PodcastPlayerView: View {
     }
 
     private var coverProgressOverlay: some View {
-        VStack(spacing: 8) {
-            GeometryReader { geometry in
-                let progress = CGFloat(timePublisher.progress)
+        PlaybackTimeReader { _, _ in
+            VStack(spacing: 8) {
+                GeometryReader { geometry in
+                    let progress = CGFloat(timePublisher.progress)
 
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(.white.opacity(0.22))
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(.white.opacity(0.22))
 
-                    Capsule()
-                        .fill(.white.opacity(0.92))
-                        .frame(width: geometry.size.width * progress)
+                        Capsule()
+                            .fill(.white.opacity(0.92))
+                            .frame(width: geometry.size.width * progress)
+                    }
                 }
-            }
-            .frame(height: 4)
+                .frame(height: 4)
 
-            HStack {
-                Text(formatTime(timePublisher.currentTime))
-                Spacer()
-                Text(formatTime(timePublisher.duration))
+                HStack {
+                    Text(formatTime(timePublisher.currentTime))
+                    Spacer()
+                    Text(formatTime(timePublisher.duration))
+                }
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.92))
             }
-            .font(.system(size: 11, weight: .medium, design: .monospaced))
-            .foregroundStyle(.white.opacity(0.92))
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(
-            LinearGradient(
-                colors: [.clear, .black.opacity(0.16), .black.opacity(0.42)],
-                startPoint: .top,
-                endPoint: .bottom
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(
+                LinearGradient(
+                    colors: [.clear, .black.opacity(0.16), .black.opacity(0.42)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
             )
-        )
+        }
     }
 
     private func formatTime(_ seconds: Double) -> String {

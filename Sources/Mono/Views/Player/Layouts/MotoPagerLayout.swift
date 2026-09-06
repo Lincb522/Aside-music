@@ -6,7 +6,7 @@ struct MotoPagerLayout: View {
     @Environment(\.dismiss) var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject var player = PlayerManager.shared
-    @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
+    private let timePublisher = PlaybackTimePublisher.shared
     @ObservedObject var lyricVM = LyricViewModel.shared
     
     // MARK: - Colors & Constants
@@ -466,14 +466,16 @@ extension MotoPagerLayout {
                     
                     Spacer(minLength: 0)
                     
-                    HStack(spacing: 2) {
-                        let totalBars = 20
-                        let progress = timePublisher.duration > 0 ? timePublisher.currentTime / timePublisher.duration : 0
-                        let filledBars = Int(progress * Double(totalBars))
-                        ForEach(0..<totalBars, id: \.self) { i in
-                            Rectangle()
-                                .fill(i < filledBars ? screenTextColor : screenTextColor.opacity(0.12))
-                                .frame(height: 3)
+                    PlaybackTimeReader { _, _ in
+                        HStack(spacing: 2) {
+                            let totalBars = 20
+                            let progress = timePublisher.duration > 0 ? timePublisher.currentTime / timePublisher.duration : 0
+                            let filledBars = Int(progress * Double(totalBars))
+                            ForEach(0..<totalBars, id: \.self) { i in
+                                Rectangle()
+                                    .fill(i < filledBars ? screenTextColor : screenTextColor.opacity(0.12))
+                                    .frame(height: 3)
+                            }
                         }
                     }
                 }

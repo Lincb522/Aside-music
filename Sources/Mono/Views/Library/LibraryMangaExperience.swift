@@ -64,6 +64,7 @@ struct MangaLibraryExperience: View {
     @State private var qqUserPlaylists: [Playlist] = []
     @State private var isLoadingQQUserPlaylists = false
     @State private var hasLoadedQQUserPlaylists = false
+    @State private var qqPlaylistRequest = LibraryRequestScope()
 
     private let tabs = LibraryViewModel.LibraryTab.allCases
     private let twoColumns = [
@@ -114,7 +115,12 @@ struct MangaLibraryExperience: View {
             guard MainTabActivationGate.isSettled(.library) else { return }
             loadCurrentTab()
         }
+        .onDisappear {
+            qqPlaylistRequest.cancel()
+            isLoadingQQUserPlaylists = false
+        }
         .onChange(of: qqSession.sessionRevision) { _, _ in
+            qqPlaylistRequest.cancel()
             qqUserPlaylists = []
             hasLoadedQQUserPlaylists = false
             isLoadingQQUserPlaylists = false
@@ -1027,13 +1033,15 @@ struct MangaLibraryExperience: View {
             return
         }
 
+        let request = qqPlaylistRequest.begin()
         isLoadingQQUserPlaylists = true
 
-        Task { @MainActor in
+        qqPlaylistRequest.task = Task { @MainActor in
+            guard !Task.isCancelled, qqPlaylistRequest.isCurrent(request) else { return }
             defer {
-                if qqSession.isCurrentSession(session) {
+                if qqPlaylistRequest.isCurrent(request), qqSession.isCurrentSession(session) {
                     isLoadingQQUserPlaylists = false
-                    hasLoadedQQUserPlaylists = true
+                    qqPlaylistRequest.finish(request)
                 }
             }
 
@@ -1041,10 +1049,15 @@ struct MangaLibraryExperience: View {
                 let result: JSON = try await QQUserSession.shared.withUserSession { client in
                     try await client.createdSonglist(uin: String(mid))
                 }
-                guard qqSession.isCurrentSession(session) else { return }
+                guard !Task.isCancelled, qqPlaylistRequest.isCurrent(request),
+                      qqSession.isCurrentSession(session) else { return }
                 qqUserPlaylists = Self.parseQQUserPlaylists(result)
+                hasLoadedQQUserPlaylists = true
+            } catch is CancellationError {
+                return
             } catch {
-                guard qqSession.isCurrentSession(session) else { return }
+                guard !Task.isCancelled, qqPlaylistRequest.isCurrent(request),
+                      qqSession.isCurrentSession(session) else { return }
                 AppLogger.error("[MangaLibrary] 加载 QCM 歌单失败: \(error)")
             }
         }

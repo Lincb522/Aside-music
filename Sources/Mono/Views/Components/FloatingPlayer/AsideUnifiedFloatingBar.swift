@@ -3,6 +3,7 @@ import SwiftUI
 // MARK: - Aside 统一悬浮栏（墨水药丸 + 发丝线编辑风）
 
 struct AsideUnifiedFloatingBar: View {
+    @Environment(\.floatingBarColorRevision) private var colorRevision
     @Binding var currentTab: Tab
     let usesGlassChrome: Bool
     private let player = FloatingBarPlaybackModel.shared
@@ -12,6 +13,8 @@ struct AsideUnifiedFloatingBar: View {
     private let cornerRadius: CGFloat = 30
 
     var body: some View {
+        let _ = colorRevision
+
         VStack(spacing: 0) {
             if let song = currentSong {
                 AsideNowPlayingRow(song: song)
@@ -134,6 +137,7 @@ struct AsideBarHairline: View {
 // MARK: - Aside 正在播放行
 
 struct AsideNowPlayingRow: View {
+    @Environment(\.floatingBarColorRevision) private var colorRevision
     let song: Song
     private let player = FloatingBarPlaybackModel.shared
     @State private var isPlaying = FloatingBarPlaybackModel.shared.isPlaying
@@ -143,6 +147,8 @@ struct AsideNowPlayingRow: View {
     @State private var showPlaylist = false
 
     var body: some View {
+        let _ = colorRevision
+
         VStack(spacing: 8) {
             HStack(spacing: 11) {
                 cover
@@ -299,11 +305,14 @@ struct AsideNowPlayingRow: View {
 // MARK: - Aside 墨水药丸 Tab 栏
 
 struct AsideInkPillTabBar: View {
+    @Environment(\.floatingBarColorRevision) private var colorRevision
     @Binding var currentTab: Tab
     @ObservedObject private var onlineAccess = OnlineAccessManager.shared
     @Namespace private var pillNS
 
     var body: some View {
+        let _ = colorRevision
+
         HStack(spacing: 4) {
             ForEach(Tab.allCases, id: \.self) { tab in
                 tabButton(tab)

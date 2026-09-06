@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ClaritySearchView: View {
     @StateObject private var model = SearchViewModel()
+    @Environment(\.dismiss) private var dismiss
     @FocusState private var focused: Bool
     @State private var selectedMV: MVIdItem?
     @State private var selectedQQMV: QQMVVidItem?
@@ -28,8 +29,6 @@ struct ClaritySearchView: View {
 
                     FloatingBarBottomSpacer()
                 }
-                // Navigation chrome owns the safe-area offset on this pushed page.
-                // Adding the root-tab header inset again left a large blank strip.
                 .padding(.top, 8)
                 .padding(.bottom, 12)
             }
@@ -38,7 +37,9 @@ struct ClaritySearchView: View {
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.hidden, for: .navigationBar)
+        .navigationBarBackButtonHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
+        .monoEdgeSwipeToDismiss()
         .fullScreenCover(item: $selectedMV) { MVPlayerView(mvId: $0.id) }
         .fullScreenCover(item: $selectedQQMV) { QQMVPlayerView(vid: $0.vid) }
         .fullScreenCover(item: $selectedKCMMV) { KCMMVPlayerView(mv: $0) }
@@ -50,18 +51,27 @@ struct ClaritySearchView: View {
                 .font(ClarityStyle.title(23, weight: .semibold))
                 .foregroundStyle(ClarityStyle.ink)
             Spacer()
-            if model.hasSearched {
-                ClarityCircleButton(icon: .close, size: 42) {
-                    model.clearSearch()
-                    focused = true
-                }
-            }
         }
         .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
         .monoPageHeaderCollapse()
     }
 
     private var searchField: some View {
+        HStack(spacing: 10) {
+            Button { dismiss() } label: {
+                MonoIcon(icon: .back, size: 18, color: ClarityStyle.ink)
+                    .frame(width: 44, height: 44)
+                    .background(ClarityMembrane(shape: Circle(), strength: .quiet))
+            }
+            .buttonStyle(ClarityPressStyle())
+            .accessibilityLabel(String(localized: "action_back"))
+
+            inputField
+        }
+        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+    }
+
+    private var inputField: some View {
         HStack(spacing: 11) {
             MonoIcon(icon: .search, size: 17, color: ClarityStyle.inkSoft, lineWidth: 1.6)
 
@@ -76,20 +86,23 @@ struct ClaritySearchView: View {
                     model.performSearch(keyword: keyword)
                 }
 
-            if !model.query.isEmpty {
+            if !model.query.isEmpty || model.hasSearched {
                 Button {
                     model.query = ""
                     model.clearSearch()
+                    focused = true
                 } label: {
                     MonoIcon(icon: .xmarkCircle, size: 17, color: ClarityStyle.inkFaint, lineWidth: 1.5)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: "search_clear"))
             }
         }
         .padding(.horizontal, 16)
         .frame(height: 54)
         .background(ClarityMembrane(shape: Capsule(), strength: .strong))
-        .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
     }
 
     private var sourcePicker: some View {

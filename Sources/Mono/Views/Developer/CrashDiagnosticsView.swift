@@ -14,12 +14,7 @@ struct CrashDiagnosticsView: View {
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
-                    DeveloperDiagnosticHeader(
-                        title: String(localized: "crash_diagnostics_title"),
-                        status: L10n.format("crash_diagnostics_count", store.records.count),
-                        icon: .warning,
-                        tint: .red
-                    )
+                    DeveloperDiagnosticStatus(status: L10n.format("crash_diagnostics_count", store.records.count))
 
                     if store.records.isEmpty {
                         emptyState
@@ -42,7 +37,7 @@ struct CrashDiagnosticsView: View {
             }
             .scrollIndicators(.hidden)
         }
-        .developerDiagnosticPageChrome()
+        .developerDiagnosticPageChrome(title: String(localized: "crash_diagnostics_title"))
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Button(action: shareAll) {
@@ -179,12 +174,7 @@ private struct CrashDiagnosticDetailView: View {
             if let record {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
-                        DeveloperDiagnosticHeader(
-                            title: String(localized: "crash_diagnostics_detail_title"),
-                            status: record.periodEnd.crashDiagnosticDateText,
-                            icon: .warning,
-                            tint: .red
-                        )
+                        DeveloperDiagnosticStatus(status: record.periodEnd.crashDiagnosticDateText)
 
                         detailSection(String(localized: "crash_diagnostics_summary")) {
                             valueRow(String(localized: "crash_diagnostics_version"), record.appVersion)
@@ -222,7 +212,7 @@ private struct CrashDiagnosticDetailView: View {
                     .foregroundStyle(.white.opacity(0.6))
             }
         }
-        .developerDiagnosticPageChrome()
+        .developerDiagnosticPageChrome(title: String(localized: "crash_diagnostics_detail_title"))
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button(action: shareRecord) {

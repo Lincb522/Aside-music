@@ -168,6 +168,7 @@ extension SearchView {
                 searchBackButtonLabel
             }
             .buttonStyle(PlainButtonStyle())
+            .accessibilityLabel(String(localized: "action_back"))
 
             if !showFullSearch {
                 Spacer(minLength: 0)
@@ -320,10 +321,12 @@ extension SearchView {
         let radius = searchBackButtonRadius
 
         return MonoIcon(icon: PetWhiteStyle.isActive ? .chevronLeft : .back, size: 18, color: searchBackButtonIconColor, lineWidth: 1.8)
-            .frame(width: 42, height: 42)
+            .frame(width: 44, height: 44)
             .background(
                 Group {
-                    if LiquidGlassStyle.isActive {
+                    if GlobalThemeId.persistedOrDefault == .default {
+                        Color.clear
+                    } else if LiquidGlassStyle.isActive {
                         LiquidGlassSurfaceBackground(cornerRadius: radius, elevated: true, role: .list)
                     } else if CapsuleStyle.isActive {
                         CapsuleSurfaceBackground(cornerRadius: radius, elevated: true, tint: CapsuleStyle.surfaceRaised)
@@ -335,7 +338,7 @@ extension SearchView {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .stroke(searchBackButtonStroke, lineWidth: searchBackButtonStrokeWidth)
+                    .stroke(searchBackButtonStroke, lineWidth: GlobalThemeId.persistedOrDefault == .default ? 0 : searchBackButtonStrokeWidth)
             )
             .contentShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
     }

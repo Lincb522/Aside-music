@@ -14,16 +14,6 @@ struct BroadcastListView: View {
             ThemedPageBackground()
 
             VStack(spacing: 0) {
-                if SignalStyle.isActive {
-                    SignalNestedPageHeader(
-                        title: NSLocalizedString("broadcast_title", comment: ""),
-                        eyebrow: "FM TUNER",
-                        icon: .radio,
-                        module: .broadcast
-                    )
-                    .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-                }
-
                 // 地区筛选标签
                 if !viewModel.regions.isEmpty {
                     regionFilter
@@ -76,10 +66,10 @@ struct BroadcastListView: View {
             }
             .iPadContentWidth(900)
         }
-        .themedNavigationChrome(title: SignalStyle.isActive ? "" : NSLocalizedString("broadcast_title", comment: ""), eyebrow: "RADIO", icon: .radio)
+
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .monoNavigationBackButton()
+        .monoNavigationBackButton(title: String(localized: "broadcast_title"))
         .onAppear {
             if viewModel.channels.isEmpty {
                 viewModel.fetchData()

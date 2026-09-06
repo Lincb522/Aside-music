@@ -476,7 +476,7 @@ extension ProfileView {
                 }
                 .navigationTitle(ThemedPageStyle.isActive ? "" : String(localized: "tab_profile"))
                 .navigationBarTitleDisplayMode(.inline)
-                .toolbarBackground(.hidden, for: .navigationBar)
+                .toolbar(.hidden, for: .navigationBar)
                 .profileNavigationDestinations()
             }
         )

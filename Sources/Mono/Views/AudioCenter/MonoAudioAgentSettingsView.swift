@@ -17,7 +17,7 @@ private extension MonoAudioAgentBuiltInSkill {
 
 @MainActor
 struct MonoAudioAgentSettingsView: View {
-    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var player = CurrentSongPresentationModel.shared
     @StateObject private var agent = AIEqualizerAgent.shared
     @StateObject private var skills = MonoAudioAgentSkillStore.shared
     @StateObject private var coverColors = CoverColorExtractor()
@@ -64,7 +64,7 @@ struct MonoAudioAgentSettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
-        .monoNavigationBackButton(iconColor: .white)
+        .monoNavigationBackButton(iconColor: .white, title: String(localized: "audio_agent_settings_title"))
         .onAppear(perform: refreshAccent)
         .onChange(of: player.currentSong?.id) { _, _ in refreshAccent() }
         .task {
@@ -116,14 +116,6 @@ struct MonoAudioAgentSettingsView: View {
             }
 
             VStack(alignment: .leading, spacing: layout.isCompactHeight ? 2 : 4) {
-                Text(String(localized: "audio_agent_settings_title"))
-                    .font(.system(
-                        size: layout.isCompactHeight ? 9.5 : 10.5,
-                        weight: .bold,
-                        design: .rounded
-                    ))
-                    .foregroundStyle(accent)
-
                 Text(agentStatusText)
                     .font(.system(
                         size: layout.isCompactHeight ? 15.5 : 17,
@@ -593,7 +585,7 @@ struct MonoAudioAgentSettingsView: View {
 @MainActor
 private struct MonoAudioCustomSkillEditorView: View {
     @Environment(\.dismiss) private var dismiss
-    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var player = CurrentSongPresentationModel.shared
     @StateObject private var skills = MonoAudioAgentSkillStore.shared
     private let skillID: UUID?
     private let accent: Color
@@ -739,7 +731,12 @@ private struct MonoAudioCustomSkillEditorView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
-        .monoNavigationBackButton(iconColor: .white)
+        .monoNavigationBackButton(
+            iconColor: .white,
+            title: skillID == nil
+                ? String(localized: "audio_agent_add_custom_skill")
+                : String(localized: "audio_agent_edit_custom_skill")
+        )
     }
 
     private func editorField<Content: View>(

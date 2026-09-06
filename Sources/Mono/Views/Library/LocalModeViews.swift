@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 import UniformTypeIdentifiers
 
 private func localModeText(_ key: String) -> String {
@@ -111,8 +112,9 @@ private func localTotalDurationText(for songs: [Song]) -> String {
 struct LocalModeHomeView: View {
     @ObservedObject private var localLibrary = LocalMusicLibraryManager.shared
     @ObservedObject private var localPlaylists = LocalPlaylistManager.shared
-    @ObservedObject private var downloadManager = DownloadManager.shared
-    @ObservedObject private var playerManager = PlayerManager.shared
+    private let downloadManager = DownloadManager.shared
+    @ObservedObject private var downloadStatus = DownloadedSongStatusModel.shared
+    private let playerManager = PlayerManager.shared
     @ObservedObject private var settings = SettingsManager.shared
 
     @State private var showImporter = false
@@ -207,6 +209,7 @@ struct LocalModeHomeView: View {
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
+            .localRootNavigation(localModeText("tabbar_home"))
             .toolbar {
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button {
@@ -246,23 +249,25 @@ struct LocalModeHomeView: View {
 
     private var masthead: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if !SignalStyle.isActive {
+            if settings.globalThemeId != .default && !SignalStyle.isActive {
                 LocalEyebrowRow(label: "COLLECTION")
                     .padding(.bottom, 18)
             }
 
-            Text(localModeText("local_home_hero_title"))
-                .font(SignalStyle.isActive ? SignalStyle.titleFont(30, weight: .semibold) : .system(size: 30, weight: .heavy, design: .rounded))
-                .foregroundColor(.monoTextPrimary)
+            if settings.globalThemeId != .default {
+                Text(localModeText("local_home_hero_title"))
+                    .font(SignalStyle.isActive ? SignalStyle.titleFont(30, weight: .semibold) : .system(size: 30, weight: .heavy, design: .rounded))
+                    .foregroundColor(.monoTextPrimary)
 
-            if !localLibrary.songs.isEmpty {
-                Text(localModeFormat("local_home_hero_subtitle", localLibrary.songCount))
-                    .font(SignalStyle.isActive ? SignalStyle.bodyFont(13) : .rounded(size: 13))
-                    .foregroundColor(.monoTextSecondary)
-                    .lineSpacing(3)
-                    .padding(.top, 12)
+                if !localLibrary.songs.isEmpty {
+                    Text(localModeFormat("local_home_hero_subtitle", localLibrary.songCount))
+                        .font(SignalStyle.isActive ? SignalStyle.bodyFont(13) : .rounded(size: 13))
+                        .foregroundColor(.monoTextSecondary)
+                        .lineSpacing(3)
+                        .padding(.top, 12)
+                }
+
             }
-
             HStack(spacing: 10) {
                 LocalInkCapsuleButton(
                     title: localModeText("local_home_play_all"),
@@ -279,7 +284,7 @@ struct LocalModeHomeView: View {
                     showImporter = true
                 }
             }
-            .padding(.top, 20)
+            .padding(.top, settings.globalThemeId == .default ? 0 : 20)
         }
     }
 
@@ -422,78 +427,25 @@ struct LocalModeHomeView: View {
 
 struct LocalMusicView: View {
     @ObservedObject private var localLibrary = LocalMusicLibraryManager.shared
-    @ObservedObject private var localPlaylists = LocalPlaylistManager.shared
-    @ObservedObject private var downloadManager = DownloadManager.shared
-    @ObservedObject private var playerManager = PlayerManager.shared
+    private let localPlaylists = LocalPlaylistManager.shared
+    @ObservedObject private var downloadStatus = DownloadedSongStatusModel.shared
+    private let playerManager = PlayerManager.shared
     @ObservedObject private var settings = SettingsManager.shared
 
-    @State private var searchText = ""
     @State private var showImporter = false
-    @State private var selectedFilter: LocalMusicFilter
-    @State private var sortMode: LocalMusicSort = .newest
-    @State private var recentSongs: [Song] = []
+    @StateObject private var songList: LocalMusicListSnapshot
 
-    init(initialFilter: LocalMusicFilter = .all) {
-        _selectedFilter = State(initialValue: initialFilter)
+    let isRoot: Bool
+
+    init(initialFilter: LocalMusicFilter = .all, isRoot: Bool = false) {
+        self.isRoot = isRoot
+        _songList = StateObject(wrappedValue: LocalMusicListSnapshot(initialFilter: initialFilter))
     }
 
     private var visibleFilters: [LocalMusicFilter] {
         LocalMusicFilter.allCases.filter { filter in
             guard filter == .downloads else { return true }
-            return selectedFilter == .downloads || !downloadManager.downloadedSongIds.isEmpty
-        }
-    }
-
-    private var sourceSongs: [Song] {
-        switch selectedFilter {
-        case .all:
-            return localLibrary.songs
-        case .favorites:
-            guard let playlist = localPlaylists.favoritePlaylist else { return [] }
-            return offlinePlayableSongs(from: localPlaylists.songs(for: playlist), using: downloadManager)
-        case .downloads:
-            return offlinePlayableSongs(from: downloadManager.fetchDownloadPlaylistSongs(), using: downloadManager)
-        case .recent:
-            return recentSongs
-        }
-    }
-
-    private var sortedSongs: [Song] {
-        switch sortMode {
-        case .newest:
-            if selectedFilter == .recent {
-                return sourceSongs
-            }
-            return sourceSongs.sorted { lhs, rhs in
-                let lhsDate = lhs.localImportedAt ?? .distantPast
-                let rhsDate = rhs.localImportedAt ?? .distantPast
-                if lhsDate != rhsDate {
-                    return lhsDate > rhsDate
-                }
-                return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
-            }
-        case .title:
-            return sourceSongs.sorted {
-                $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
-            }
-        case .artist:
-            return sourceSongs.sorted {
-                if $0.artistName != $1.artistName {
-                    return $0.artistName.localizedCaseInsensitiveCompare($1.artistName) == .orderedAscending
-                }
-                return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
-            }
-        }
-    }
-
-    private var filteredSongs: [Song] {
-        let keyword = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !keyword.isEmpty else { return sortedSongs }
-
-        return sortedSongs.filter { song in
-            song.name.localizedCaseInsensitiveContains(keyword)
-                || song.artistName.localizedCaseInsensitiveContains(keyword)
-                || (song.album?.name.localizedCaseInsensitiveContains(keyword) ?? false)
+            return songList.selectedFilter == .downloads || downloadStatus.hasDownloads
         }
     }
 
@@ -513,13 +465,12 @@ struct LocalMusicView: View {
 
     private var navigationContent: AnyView {
         AnyView(
-            NavigationStack {
+            LocalPageNavigationContainer(isRoot: isRoot, title: localModeText("tabbar_local_music")) {
                 pageContent
                     .navigationTitle("")
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbarBackground(.hidden, for: .navigationBar)
-                    .searchable(text: $searchText, prompt: localModeText("local_music_search_prompt"))
-                    .monoNavigationBackButton()
+                    .searchable(text: $songList.searchText, prompt: localModeText("local_music_search_prompt"))
                     .toolbar {
                         toolbarContent
                     }
@@ -560,12 +511,12 @@ struct LocalMusicView: View {
     }
 
     private var songCollection: AnyView {
-        if filteredSongs.isEmpty {
+        if songList.filteredSongs.isEmpty {
             return AnyView(
                 ScrollView {
                     Group {
-                        if localLibrary.songs.isEmpty && selectedFilter == .all
-                            && searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        if localLibrary.songs.isEmpty && songList.selectedFilter == .all
+                            && songList.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                             // 空库：给完整的起步引导，而不是一句话孤零零挂着
                             LocalStarterPanel(onImport: { showImporter = true })
                         } else {
@@ -584,12 +535,12 @@ struct LocalMusicView: View {
 
         return AnyView(
             List {
-                ForEach(Array(filteredSongs.enumerated()), id: \.element.identityKey) { index, song in
+                ForEach(Array(songList.filteredSongs.enumerated()), id: \.element.identityKey) { index, song in
                     SongListRow(
                         song: song,
                         index: index,
                         onTap: {
-                            playerManager.play(song: song, in: filteredSongs)
+                            playerManager.play(song: song, in: songList.filteredSongs)
                         }
                     )
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
@@ -633,9 +584,9 @@ struct LocalMusicView: View {
             Menu {
                 ForEach(LocalMusicSort.allCases) { mode in
                     Button {
-                        sortMode = mode
+                        songList.sortMode = mode
                     } label: {
-                        if sortMode == mode {
+                        if songList.sortMode == mode {
                             Label(localModeText(mode.titleKey), systemImage: "checkmark")
                         } else {
                             Text(localModeText(mode.titleKey))
@@ -695,25 +646,32 @@ struct LocalMusicView: View {
         refreshRecentSongs()
     }
 
+    @ViewBuilder
     private var masthead: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if !SignalStyle.isActive {
-                LocalEyebrowRow(label: "TRACKS")
-                    .padding(.bottom, 16)
+        if isRoot && settings.globalThemeId != .default {
+            VStack(alignment: .leading, spacing: 0) {
+                if !SignalStyle.isActive {
+                    LocalEyebrowRow(label: "TRACKS")
+                        .padding(.bottom, 16)
+                }
+
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Text(localModeText("tabbar_local_music"))
+                        .font(SignalStyle.isActive ? SignalStyle.titleFont(28, weight: .semibold) : .system(size: 28, weight: .heavy, design: .rounded))
+                        .foregroundColor(.monoTextPrimary)
+
+                    Text("\(songList.filteredSongs.count)")
+                        .font(.system(size: 15, weight: .heavy, design: .rounded))
+                        .foregroundColor(.monoAccent)
+                        .monospacedDigit()
+
+                    Spacer(minLength: 0)
+                }
             }
-
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(localModeText("tabbar_local_music"))
-                    .font(SignalStyle.isActive ? SignalStyle.titleFont(28, weight: .semibold) : .system(size: 28, weight: .heavy, design: .rounded))
-                    .foregroundColor(.monoTextPrimary)
-
-                Text("\(filteredSongs.count)")
-                    .font(.system(size: 15, weight: .heavy, design: .rounded))
-                    .foregroundColor(.monoAccent)
-                    .monospacedDigit()
-
-                Spacer(minLength: 0)
-            }
+        } else {
+            Text(String(format: NSLocalizedString("songs_count_format", comment: ""), songList.filteredSongs.count))
+                .font(.subheadline)
+                .foregroundStyle(Color.monoTextSecondary)
         }
     }
 
@@ -723,16 +681,16 @@ struct LocalMusicView: View {
                 ForEach(visibleFilters) { filter in
                     Button {
                         withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
-                            selectedFilter = filter
+                            songList.selectedFilter = filter
                         }
                     } label: {
                         VStack(spacing: 8) {
                             Text(localModeText(filter.titleKey))
-                                .font(.rounded(size: 14, weight: selectedFilter == filter ? .bold : .semibold))
-                                .foregroundColor(selectedFilter == filter ? .monoTextPrimary : .monoTextSecondary.opacity(0.72))
+                                .font(.rounded(size: 14, weight: songList.selectedFilter == filter ? .bold : .semibold))
+                                .foregroundColor(songList.selectedFilter == filter ? .monoTextPrimary : .monoTextSecondary.opacity(0.72))
 
                             Capsule()
-                                .fill(selectedFilter == filter ? Color.monoAccent : Color.clear)
+                                .fill(songList.selectedFilter == filter ? Color.monoAccent : Color.clear)
                                 .frame(width: 18, height: 2.5)
                         }
                         .contentShape(Rectangle())
@@ -751,36 +709,38 @@ struct LocalMusicView: View {
     }
 
     private var emptyTitle: String {
-        if !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if !songList.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return localModeText("local_empty_search_title")
         }
-        if selectedFilter == .all {
+        if songList.selectedFilter == .all {
             return localModeText("local_empty_music_title")
         }
         return localModeText("local_empty_collection_title")
     }
 
     private var emptySubtitle: String {
-        if !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if !songList.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return localModeText("local_empty_search_subtitle")
         }
-        if selectedFilter == .all {
+        if songList.selectedFilter == .all {
             return localModeText("local_empty_music_subtitle")
         }
         return localModeText("local_empty_collection_subtitle")
     }
 
     private func refreshRecentSongs() {
-        recentSongs = recentOfflineSongs(limit: 40, using: downloadManager)
+        songList.refreshRecentSongs()
     }
 }
 
 // MARK: - 资料库
 
 struct LocalLibraryView: View {
+    var isRoot = false
     @ObservedObject private var localLibrary = LocalMusicLibraryManager.shared
     @ObservedObject private var localPlaylists = LocalPlaylistManager.shared
-    @ObservedObject private var downloadManager = DownloadManager.shared
+    private let downloadManager = DownloadManager.shared
+    @ObservedObject private var downloadStatus = DownloadedSongStatusModel.shared
     @ObservedObject private var settings = SettingsManager.shared
 
     @State private var showFileImporter = false
@@ -803,7 +763,7 @@ struct LocalLibraryView: View {
     var body: some View {
         let _ = settings.globalThemeRevision
 
-        NavigationStack {
+        LocalPageNavigationContainer(isRoot: isRoot, title: localModeText("local_library_navigation_title")) {
             ZStack {
                 ThemedPageBackground(useRenderLayer: true)
                     .ignoresSafeArea()
@@ -851,7 +811,6 @@ struct LocalLibraryView: View {
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
-            .monoNavigationBackButton()
             .toolbar {
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button {
@@ -891,15 +850,17 @@ struct LocalLibraryView: View {
 
     private var masthead: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if !SignalStyle.isActive {
+            if isRoot && settings.globalThemeId != .default && !SignalStyle.isActive {
                 LocalEyebrowRow(label: "SHELF")
                     .padding(.bottom, 16)
             }
 
-            Text(localModeText("local_library_navigation_title"))
-                .font(SignalStyle.isActive ? SignalStyle.titleFont(28, weight: .semibold) : .system(size: 28, weight: .heavy, design: .rounded))
-                .foregroundColor(.monoTextPrimary)
+            if isRoot && settings.globalThemeId != .default {
+                Text(localModeText("local_library_navigation_title"))
+                    .font(SignalStyle.isActive ? SignalStyle.titleFont(28, weight: .semibold) : .system(size: 28, weight: .heavy, design: .rounded))
+                    .foregroundColor(.monoTextPrimary)
 
+            }
             HStack(spacing: 10) {
                 LocalInkCapsuleButton(
                     title: localModeText("lib_create_playlist"),
@@ -915,7 +876,7 @@ struct LocalLibraryView: View {
                     showFileImporter = true
                 }
             }
-            .padding(.top, 18)
+            .padding(.top, isRoot && settings.globalThemeId != .default ? 18 : 0)
         }
     }
 
@@ -1132,8 +1093,9 @@ struct LocalModeProfileView: View {
     @ObservedObject private var onlineAccess = OnlineAccessManager.shared
     @ObservedObject private var localLibrary = LocalMusicLibraryManager.shared
     @ObservedObject private var localPlaylists = LocalPlaylistManager.shared
-    @ObservedObject private var downloadManager = DownloadManager.shared
-    @ObservedObject private var playerManager = PlayerManager.shared
+    private let downloadManager = DownloadManager.shared
+    @ObservedObject private var downloadStatus = DownloadedSongStatusModel.shared
+    private let playerManager = PlayerManager.shared
     @ObservedObject private var settings = SettingsManager.shared
 
     @State private var tokenInput = SecureConfig.apiToken ?? ""
@@ -1161,10 +1123,12 @@ struct LocalModeProfileView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
-                        masthead
-                            .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
-                            .padding(.top, 12)
-                            .monoPageHeaderCollapse()
+                        if settings.globalThemeId != .default {
+                            masthead
+                                .padding(.horizontal, DeviceLayout.homeHorizontalPadding)
+                                .padding(.top, 12)
+                                .monoPageHeaderCollapse()
+                        }
 
                         LocalStatsBand(items: [
                             (value: "\(localLibrary.songCount)", label: localModeText("tabbar_local_music")),
@@ -1197,6 +1161,17 @@ struct LocalModeProfileView: View {
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
+            .defaultRootPageTitle(localModeText("tabbar_profile"))
+            .toolbar {
+                if settings.globalThemeId == .default {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        NavigationLink(value: ProfileNavigationDestination.settings) {
+                            DefaultHeaderActionLabel(icon: .settings, title: localModeText("settings_title"))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
             .navigationDestination(for: ProfileNavigationDestination.self) { destination in
                 switch destination {
                 case .settings:
@@ -1229,7 +1204,7 @@ struct LocalModeProfileView: View {
 
     private var masthead: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if !SignalStyle.isActive {
+            if settings.globalThemeId != .default && !SignalStyle.isActive {
                 LocalEyebrowRow(label: "PROFILE")
                     .padding(.bottom, 18)
             }
@@ -1841,11 +1816,153 @@ private struct LocalStarterPanel: View {
 
 private extension View {
     @ViewBuilder
+    func localRootNavigation(_ title: String) -> some View {
+        if GlobalThemeId.persistedOrDefault == .default {
+            defaultRootPageTitle(title)
+        } else {
+            // The themed root owns its title in content; keep its existing toolbar actions reachable.
+            toolbar(.visible, for: .navigationBar)
+        }
+    }
+
+    @ViewBuilder
     func `if`<Transformed: View>(_ condition: Bool, transform: (Self) -> Transformed) -> some View {
         if condition {
             transform(self)
         } else {
             self
+        }
+    }
+}
+
+private struct LocalPageNavigationContainer<Content: View>: View {
+    let isRoot: Bool
+    let title: String
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        if isRoot {
+            NavigationStack {
+                content().localRootNavigation(title)
+            }
+        } else {
+            content().monoNavigationBackButton(title: title)
+        }
+    }
+}
+
+
+/// Recomputes the local list when its data or filter changes, independently of view rendering.
+@MainActor
+private final class LocalMusicListSnapshot: ObservableObject {
+    @Published var selectedFilter: LocalMusicFilter {
+        didSet { if selectedFilter != oldValue { refreshSource() } }
+    }
+    @Published var sortMode: LocalMusicSort = .newest {
+        didSet { if sortMode != oldValue { refreshSource() } }
+    }
+    @Published var searchText = "" {
+        didSet { if searchText != oldValue { applySearch() } }
+    }
+    @Published private(set) var filteredSongs: [Song] = []
+
+    private let localLibrary = LocalMusicLibraryManager.shared
+    private let localPlaylists = LocalPlaylistManager.shared
+    private let downloadManager = DownloadManager.shared
+    private var recentSongs: [Song] = []
+    private var cachedSortedSongs: [Song] = []
+    private var subscription: AnyCancellable?
+    private var refreshTask: Task<Void, Never>?
+
+    init(initialFilter: LocalMusicFilter) {
+        selectedFilter = initialFilter
+        refreshSource()
+        subscription = Publishers.MergeMany(
+            localLibrary.$songs.dropFirst().map { _ in () }.eraseToAnyPublisher(),
+            localPlaylists.$playlists.dropFirst().map { _ in () }.eraseToAnyPublisher(),
+            downloadManager.$downloadedSongIds.removeDuplicates().dropFirst().map { _ in () }.eraseToAnyPublisher(),
+            NotificationCenter.default.publisher(for: NSLocale.currentLocaleDidChangeNotification)
+                .receive(on: DispatchQueue.main).map { _ in () }.eraseToAnyPublisher()
+        )
+        .sink { [weak self] in self?.scheduleRefresh() }
+    }
+
+    deinit { refreshTask?.cancel() }
+
+    private func scheduleRefresh() {
+        refreshTask?.cancel()
+        // Read the settled values after @Published willSet notifications coalesce.
+        refreshTask = Task { @MainActor [weak self] in
+            guard !Task.isCancelled, let self else { return }
+            self.refreshSource()
+            self.refreshTask = nil
+        }
+    }
+
+    func refreshRecentSongs() {
+        recentSongs = recentOfflineSongs(limit: 40, using: downloadManager)
+        if selectedFilter == .recent { refreshSource() }
+    }
+
+    private func refreshSource() {
+        cachedSortedSongs = sortedSongs
+        applySearch()
+    }
+
+    private func applySearch() {
+        filteredSongs = matchingSongs
+    }
+
+    private var sourceSongs: [Song] {
+        switch selectedFilter {
+        case .all:
+            return localLibrary.songs
+        case .favorites:
+            guard let playlist = localPlaylists.favoritePlaylist else { return [] }
+            return offlinePlayableSongs(from: localPlaylists.songs(for: playlist), using: downloadManager)
+        case .downloads:
+            return offlinePlayableSongs(from: downloadManager.fetchDownloadPlaylistSongs(), using: downloadManager)
+        case .recent:
+            return recentSongs
+        }
+    }
+
+    private var sortedSongs: [Song] {
+        switch sortMode {
+        case .newest:
+            if selectedFilter == .recent {
+                return sourceSongs
+            }
+            return sourceSongs.sorted { lhs, rhs in
+                let lhsDate = lhs.localImportedAt ?? .distantPast
+                let rhsDate = rhs.localImportedAt ?? .distantPast
+                if lhsDate != rhsDate {
+                    return lhsDate > rhsDate
+                }
+                return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+            }
+        case .title:
+            return sourceSongs.sorted {
+                $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+            }
+        case .artist:
+            return sourceSongs.sorted {
+                if $0.artistName != $1.artistName {
+                    return $0.artistName.localizedCaseInsensitiveCompare($1.artistName) == .orderedAscending
+                }
+                return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+            }
+        }
+    }
+
+    private var matchingSongs: [Song] {
+        let keyword = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !keyword.isEmpty else { return cachedSortedSongs }
+
+        return cachedSortedSongs.filter { song in
+            song.name.localizedCaseInsensitiveContains(keyword)
+                || song.artistName.localizedCaseInsensitiveContains(keyword)
+                || (song.album?.name.localizedCaseInsensitiveContains(keyword) ?? false)
         }
     }
 }

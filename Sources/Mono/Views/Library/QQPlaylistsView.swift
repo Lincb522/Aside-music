@@ -9,6 +9,8 @@ struct QQPlaylistsView: View {
     @State private var qqPlaylists: [Playlist] = []
     @State private var isLoading = false
     @State private var hasLoaded = false
+    @State private var playlistSession: QQUserSession.SessionSnapshot?
+    @State private var playlistRequestID: UUID?
     typealias Theme = PlaylistDetailView.Theme
 
     var body: some View {
@@ -74,28 +76,33 @@ struct QQPlaylistsView: View {
             }
         }
         .background(Color.clear)
-        .onAppear {
-            if !hasLoaded { Task { await loadPlaylists() } }
+        .task(id: qqSession.sessionRevision) {
+            await loadPlaylists()
         }
-        .onChange(of: qqSession.sessionRevision) { _, _ in
-            qqPlaylists = []
-            hasLoaded = false
+        .onDisappear {
+            playlistRequestID = nil
             isLoading = false
-            if qqSession.isLoggedIn {
-                Task { await loadPlaylists(force: true) }
-            }
         }
     }
 
-    private func loadPlaylists(force _: Bool = false) async {
+    private func loadPlaylists(force: Bool = false) async {
+        guard !Task.isCancelled else { return }
         let session = qqSession.sessionSnapshot
+        if playlistSession != session {
+            playlistSession = session
+            qqPlaylists = []
+            hasLoaded = false
+            isLoading = false
+        }
+        guard force || !hasLoaded else { return }
         guard !isLoading else { return }
         guard session.isLoggedIn, let mid = session.musicID else { return }
+        let requestID = UUID()
+        playlistRequestID = requestID
         isLoading = true
         defer {
-            if qqSession.isCurrentSession(session) {
+            if playlistRequestID == requestID, qqSession.isCurrentSession(session) {
                 isLoading = false
-                hasLoaded = true
             }
         }
 
@@ -124,10 +131,15 @@ struct QQPlaylistsView: View {
                     ))
                 }
             }
-            guard qqSession.isCurrentSession(session) else { return }
+            guard !Task.isCancelled, playlistRequestID == requestID,
+                  qqSession.isCurrentSession(session) else { return }
             qqPlaylists = items
+            hasLoaded = true
+        } catch is CancellationError {
+            return
         } catch {
-            guard qqSession.isCurrentSession(session) else { return }
+            guard !Task.isCancelled, playlistRequestID == requestID,
+                  qqSession.isCurrentSession(session) else { return }
             AppLogger.error("[QQPlaylists] 加载歌单失败: \(error)")
         }
     }

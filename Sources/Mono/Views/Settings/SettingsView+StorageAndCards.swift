@@ -189,8 +189,8 @@ extension SettingsView {
     }
 
     var playlistSyncStatusText: String {
-        if let message = playlistCloudSync.lastStatusMessage, !message.isEmpty {
-            if let date = playlistCloudSync.lastSyncedAt {
+        if let message = playlistSyncStatusMessage, !message.isEmpty {
+            if let date = playlistLastSyncedAt {
                 return "\(message) · \(date.formatted(date: .abbreviated, time: .shortened))"
             }
             return message

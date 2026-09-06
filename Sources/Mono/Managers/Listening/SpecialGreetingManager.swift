@@ -255,20 +255,20 @@ final class SpecialGreetingManager: ObservableObject {
         fallback: String,
         managedAgent: AppAgentConfiguration?
     ) async throws -> String {
-        let configuration = try await resolvedProviderConfiguration()
+        let requestContext = try await resolvedProviderRequestContext()
         let bundledUserPrompt = try SpecialGreetingPrompt.userPrompt(context)
         let maximumAttempts = managedAgent?.resolvedMaxAttempts(fallback: 2) ?? 2
 
         for attempt in 1...maximumAttempts {
             try Task.checkCancellation()
-            let reservation = try usageLimiter.reserveRequest(limits: providerStore.usageLimits)
+            let reservation = try requestContext.usageLimits.map { try usageLimiter.reserveRequest(limits: $0) }
             do {
                 let response = try await aiClient.generate(
                     systemPrompt: managedAgent?.systemPrompt(fallback: SpecialGreetingPrompt.system)
                         ?? SpecialGreetingPrompt.system,
                     userPrompt: managedAgent?.userPrompt(fallback: bundledUserPrompt) ?? bundledUserPrompt,
-                    configuration: configuration,
-                    apiKey: providerStore.requestAPIKey,
+                    configuration: requestContext.configuration,
+                    apiKey: requestContext.apiKey,
                     minimumTimeout: managedAgent?.resolvedMinimumTimeoutSeconds ?? 0,
                     options: managedAgent?.generationOptions ?? .standard
                 )
@@ -283,7 +283,7 @@ final class SpecialGreetingManager: ObservableObject {
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
-                if AIUsageLimiter.shouldRefundReservation(for: error) {
+                if let reservation, AIUsageLimiter.shouldRefundReservation(for: error) {
                     usageLimiter.releaseReservation(reservation)
                 }
                 guard attempt < maximumAttempts,
@@ -296,7 +296,7 @@ final class SpecialGreetingManager: ObservableObject {
                 }
                 let delay = AIAgentRuntimePolicy.retryDelay(
                     after: attempt,
-                    minimumRequestInterval: providerStore.usageLimits.minimumRequestInterval
+                    minimumRequestInterval: requestContext.usageLimits?.minimumRequestInterval ?? 0
                 )
                 try await Task.sleep(for: .seconds(delay))
             }
@@ -304,17 +304,20 @@ final class SpecialGreetingManager: ObservableObject {
         return fallback
     }
 
-    private func resolvedProviderConfiguration() async throws -> AIProviderConfiguration {
-        providerStore.refreshRemoteConfigurationInBackgroundIfNeeded()
-        var configuration = providerStore.requestConfiguration
-        let apiKey = providerStore.requestAPIKey
+    private func resolvedProviderRequestContext() async throws -> AIProviderRequestContext {
+        if !AIPersonalProviderStore.shared.settings.isEnabled {
+            providerStore.refreshRemoteConfigurationInBackgroundIfNeeded()
+        }
+        var context = try providerStore.requestContext()
+        let configuration = context.configuration
+        let apiKey = context.apiKey
         if configuration.wireProtocol.requiresAPIKey,
            apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             throw AIEqualizerError.missingAPIKey
         }
         let configuredModel = configuration.model.trimmingCharacters(in: .whitespacesAndNewlines)
         guard configuredModel.isEmpty,
-              configuration.wireProtocol != .appleIntelligence else { return configuration }
+              configuration.wireProtocol != .appleIntelligence else { return context }
         let models = try await aiClient.fetchModels(
             configuration: configuration,
             apiKey: apiKey
@@ -323,13 +326,11 @@ final class SpecialGreetingManager: ObservableObject {
         guard let selected = models.contains(preferred) ? preferred : models.first else {
             throw AIEqualizerError.modelUnavailable
         }
-        if providerStore.isUsingRemoteConfiguration {
-            configuration.model = selected
-            return configuration
+        context.configuration.model = selected
+        if context.persistsDiscoveredModel, providerStore.configuration == configuration {
+            providerStore.model = selected
         }
-        providerStore.model = selected
-        configuration = providerStore.requestConfiguration
-        return configuration
+        return context
     }
 
     private func decodeGreetingOutput(_ rawText: String) throws -> SpecialGreetingPromptOutput {

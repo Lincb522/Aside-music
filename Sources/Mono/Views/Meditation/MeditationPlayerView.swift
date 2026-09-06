@@ -9,7 +9,7 @@ struct MeditationPlayerView: View {
 
     @StateObject private var viewModel: MeditationPlayerViewModel
     @ObservedObject private var player = PlayerManager.shared
-    @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
+    private let timePublisher = PlaybackTimePublisher.shared
     @Environment(\.dismiss) private var dismiss
 
     @State private var showTimerSheet = false
@@ -63,12 +63,7 @@ struct MeditationPlayerView: View {
         .onChange(of: player.currentSong?.id) { _, newSongID in
             meditationTimer.handleSongChange(newSongID)
         }
-        .onChange(of: timePublisher.currentTime) { _, currentTime in
-            meditationTimer.handlePlaybackProgress(
-                currentTime: currentTime,
-                duration: timePublisher.duration
-            )
-        }
+        .modifier(MeditationPlaybackTimerObserver(timer: meditationTimer))
         .onDisappear {
             meditationTimer.cancel()
             restoreMeditationBrightness()
@@ -241,17 +236,19 @@ struct MeditationPlayerView: View {
     }
 
     private var progressSection: some View {
-        VStack(spacing: 8) {
-            progressBar
+        PlaybackTimeReader { _, _ in
+            VStack(spacing: 8) {
+                progressBar
 
-            HStack {
-                Text(formatTime(displayedCurrentTime))
-                Spacer()
-                Text(formatTime(displayedDuration))
+                HStack {
+                    Text(formatTime(displayedCurrentTime))
+                    Spacer()
+                    Text(formatTime(displayedDuration))
+                }
+                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                .foregroundStyle(Color.white.opacity(0.58))
+                .monospacedDigit()
             }
-            .font(.system(size: 12, weight: .semibold, design: .monospaced))
-            .foregroundStyle(Color.white.opacity(0.58))
-            .monospacedDigit()
         }
     }
 
@@ -1066,5 +1063,19 @@ private struct MeditationWaveLine: Shape {
         }
 
         return path
+    }
+}
+
+private struct MeditationPlaybackTimerObserver: ViewModifier {
+    let timer: MeditationTimerController
+    @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
+
+    func body(content: Content) -> some View {
+        content.onChange(of: timePublisher.currentTime) { _, currentTime in
+            timer.handlePlaybackProgress(
+                currentTime: currentTime,
+                duration: timePublisher.duration
+            )
+        }
     }
 }

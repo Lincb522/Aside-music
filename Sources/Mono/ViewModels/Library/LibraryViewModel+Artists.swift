@@ -7,58 +7,59 @@ extension LibraryViewModel {
 
     func fetchArtistData(reset: Bool = false) {
         if reset {
+            artistRequest.cancel()
             topArtists = []
             artistOffset = 0
             hasMoreArtists = true
             isLoadingArtists = false
         }
-
-        if !artistSearchText.isEmpty {
-            return
-        }
-
-        if topArtists.isEmpty && artistOffset == 0 {
-            let cacheKey = "artists_\(artistArea)_\(artistType)_\(artistInitial)_0"
-            if let cached = OptimizedCacheManager.shared.getObject(forKey: cacheKey, type: [ArtistInfo].self) {
-                self.topArtists = cached
-                if !cached.isEmpty {
-                    self.isLoadingArtists = false
-                    self.artistOffset = cached.count
-                    return
-                }
-            }
-        }
-
-        if isLoadingArtists || !hasMoreArtists {
-            return
-        }
+        guard artistSearchText.isEmpty, !isLoadingArtists, hasMoreArtists,
+              !artistRequest.isRunning else { return }
 
         isLoadingArtists = true
         isSearchingArtists = false
-
         let limit = 30
         let offset = artistOffset
-
-        apiService.fetchArtistList(type: artistType, area: artistArea, initial: artistInitial, limit: limit, offset: offset)
-            .receive(on: DispatchQueue.main)
-            .sink(receiveCompletion: { [weak self] _ in
-                self?.isLoadingArtists = false
-            }, receiveValue: { [weak self] artists in
-                guard let self = self else { return }
-                if offset == 0 {
-                    self.topArtists = artists
-                    let cacheKey = "artists_\(self.artistArea)_\(self.artistType)_\(self.artistInitial)_0"
-                    OptimizedCacheManager.shared.setObject(artists, forKey: cacheKey)
-                } else {
-                    // 去重：过滤掉已存在的艺术家
-                    let existingIds = Set(self.topArtists.map { $0.id })
-                    let newArtists = artists.filter { !existingIds.contains($0.id) }
-                    self.topArtists.append(contentsOf: newArtists)
+        let area = artistArea
+        let type = artistType
+        let initial = artistInitial
+        let restoreCache = topArtists.isEmpty && offset == 0
+        let cacheKey = "artists_\(area)_\(type)_\(initial)_0"
+        let request = artistRequest.begin()
+        artistRequest.task = Task { @MainActor [weak self] in
+            guard !Task.isCancelled else { return }
+            if restoreCache {
+                let cached = await OptimizedCacheManager.shared.getObjectAsync(forKey: cacheKey, type: [ArtistInfo].self)
+                guard let self, !Task.isCancelled, self.artistRequest.isCurrent(request) else { return }
+                if let cached, !cached.isEmpty {
+                    self.topArtists = cached
+                    self.artistOffset = cached.count
+                    self.isLoadingArtists = false
+                    self.artistRequest.finish(request)
+                    return
                 }
-                self.hasMoreArtists = artists.count >= limit
-                self.artistOffset += artists.count
-            })
-            .store(in: &cancellables)
+            }
+            guard let self, !Task.isCancelled, self.artistRequest.isCurrent(request) else { return }
+            self.artistRequest.cancellable = self.apiService.fetchArtistList(type: type, area: area, initial: initial, limit: limit, offset: offset)
+                .receive(on: DispatchQueue.main)
+                .sink(receiveCompletion: { [weak self] _ in
+                    guard let self, self.artistRequest.isCurrent(request) else { return }
+                    self.artistRequest.finish(request)
+                    self.isLoadingArtists = false
+                }, receiveValue: { [weak self] artists in
+                    guard let self, self.artistRequest.isCurrent(request) else { return }
+                    if offset == 0 {
+                        self.topArtists = artists
+                        OptimizedCacheManager.shared.setObject(artists, forKey: cacheKey)
+                    } else {
+                        let existingIds = Set(self.topArtists.map { $0.id })
+                        let newArtists = artists.filter { !existingIds.contains($0.id) }
+                        self.topArtists.append(contentsOf: newArtists)
+                    }
+                    self.hasMoreArtists = artists.count >= limit
+                    self.artistOffset = offset + artists.count
+                })
+        }
     }
 
     func loadMoreArtists() {
@@ -69,12 +70,16 @@ extension LibraryViewModel {
         isLoadingArtists = true
         isSearchingArtists = true
 
-        apiService.searchArtists(keyword: keyword)
+        let request = artistRequest.begin()
+        artistRequest.cancellable = apiService.searchArtists(keyword: keyword)
+            .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] _ in
-                self?.isLoadingArtists = false
+                guard let self, self.artistRequest.isCurrent(request) else { return }
+                self.artistRequest.finish(request)
+                self.isLoadingArtists = false
             }, receiveValue: { [weak self] artists in
-                self?.topArtists = artists
+                guard let self, self.artistRequest.isCurrent(request) else { return }
+                self.topArtists = artists
             })
-            .store(in: &cancellables)
     }
 }

@@ -11,7 +11,7 @@ struct LiquidGlassPlayerLayout: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @ObservedObject private var player = PlayerManager.shared
-    @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
+    private let timePublisher = PlaybackTimePublisher.shared
     @StateObject private var coverColors = CoverColorExtractor(minimumColorCount: 5)
 
     @State private var isDragging = false
@@ -466,17 +466,19 @@ private extension LiquidGlassPlayerLayout {
     }
 
     var progressSection: some View {
-        VStack(spacing: 3) {
-            liquidProgressRail
+        PlaybackTimeReader { _, _ in
+            VStack(spacing: 3) {
+                liquidProgressRail
 
-            HStack {
-                Text(formatTime(isDragging ? dragTime : timePublisher.currentTime))
-                Spacer()
-                Text(formatTime(timePublisher.duration))
+                HStack {
+                    Text(formatTime(isDragging ? dragTime : timePublisher.currentTime))
+                    Spacer()
+                    Text(formatTime(timePublisher.duration))
+                }
+                .font(.system(size: 9.5, weight: .medium, design: .monospaced))
+                .foregroundStyle(secondary)
+                .monospacedDigit()
             }
-            .font(.system(size: 9.5, weight: .medium, design: .monospaced))
-            .foregroundStyle(secondary)
-            .monospacedDigit()
         }
     }
 

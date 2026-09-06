@@ -16,6 +16,7 @@ extension ThemeColorCustomizationSection {
 
                 if ThemeColorCustomization.hasBackgroundImage(for: theme, dark: dark) {
                     Button {
+                        photoItemBinding.wrappedValue = nil
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
                             ThemeColorCustomization.clearBackgroundImage(for: theme, dark: dark)
                         }
@@ -33,16 +34,16 @@ extension ThemeColorCustomizationSection {
                 .font(appearanceSettingsFont(10.5, weight: .regular))
                 .foregroundStyle(themeSubtextColor.opacity(0.72))
         }
-        .onChange(of: photoItemBinding.wrappedValue) { _, item in
-            guard let item else { return }
-            Task {
-                if let data = try? await item.loadTransferable(type: Data.self) {
-                    _ = withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
-                        ThemeColorCustomization.setBackgroundImageData(data, for: theme, dark: dark)
-                    }
+        .task(id: photoItemBinding.wrappedValue) {
+            guard let item = photoItemBinding.wrappedValue, !Task.isCancelled else { return }
+            if let data = try? await item.loadTransferable(type: Data.self) {
+                guard !Task.isCancelled, photoItemBinding.wrappedValue == item else { return }
+                await ThemeColorCustomization.setBackgroundImageData(data, for: theme, dark: dark) {
+                    photoItemBinding.wrappedValue == item && settings.globalThemeId == theme
                 }
-                photoItemBinding.wrappedValue = nil
             }
+            guard !Task.isCancelled, photoItemBinding.wrappedValue == item else { return }
+            photoItemBinding.wrappedValue = nil
         }
     }
 

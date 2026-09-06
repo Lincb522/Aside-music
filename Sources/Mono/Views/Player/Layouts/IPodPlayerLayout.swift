@@ -6,8 +6,8 @@ struct IPodPlayerLayout: View {
     @Environment(\.colorScheme) private var colorScheme
 
     @ObservedObject private var player = PlayerManager.shared
-    @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
-    @ObservedObject private var lyricVM = LyricViewModel.shared
+    private let timePublisher = PlaybackTimePublisher.shared
+    private let lyricVM = LyricViewModel.shared
 
     @State private var showMoreMenu = false
     @State private var showQualitySheet = false
@@ -282,29 +282,31 @@ struct IPodPlayerLayout: View {
                 trackInfoView
             }
 
-            Slider(
-                value: Binding(
-                    get: { timePublisher.duration > 0 ? currentTime / timePublisher.duration : 0 },
-                    set: { seekValue = $0 * timePublisher.duration }
-                ),
-                onEditingChanged: { editing in
-                    isSeeking = editing
-                    if !editing { player.seek(to: seekValue) }
-                }
-            )
-            .tint(screenAccent)
-            .padding(.horizontal, 9)
+            PlaybackTimeReader { _, _ in
+                Slider(
+                    value: Binding(
+                        get: { timePublisher.duration > 0 ? currentTime / timePublisher.duration : 0 },
+                        set: { seekValue = $0 * timePublisher.duration }
+                    ),
+                    onEditingChanged: { editing in
+                        isSeeking = editing
+                        if !editing { player.seek(to: seekValue) }
+                    }
+                )
+                .tint(screenAccent)
+                .padding(.horizontal, 9)
 
-            HStack {
-                Text(formatTime(currentTime))
-                Spacer(minLength: 0)
-                Text(formatTime(timePublisher.duration))
+                HStack {
+                    Text(formatTime(currentTime))
+                    Spacer(minLength: 0)
+                    Text(formatTime(timePublisher.duration))
+                }
+                .font(.system(size: 9, weight: .medium, design: .monospaced))
+                .foregroundColor(screenMutedInk)
+                .padding(.horizontal, 10)
+                .padding(.top, 1)
+                .padding(.bottom, 8)
             }
-            .font(.system(size: 9, weight: .medium, design: .monospaced))
-            .foregroundColor(screenMutedInk)
-            .padding(.horizontal, 10)
-            .padding(.top, 1)
-            .padding(.bottom, 8)
         }
         .background(screenBase)
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
@@ -347,100 +349,104 @@ struct IPodPlayerLayout: View {
     }
 
     private var trackInfoView: some View {
-        HStack(spacing: 12) {
-            ZStack {
-                CachedAsyncImage(url: player.currentSong?.coverUrl?.sized(500)) {
-                    ZStack {
-                        Color.black.opacity(0.05)
-                        sfIcon("music.note", size: 24, color: screenMutedInk.opacity(0.7))
+        PlayerLyricReader { _ in
+            HStack(spacing: 12) {
+                ZStack {
+                    CachedAsyncImage(url: player.currentSong?.coverUrl?.sized(500)) {
+                        ZStack {
+                            Color.black.opacity(0.05)
+                            sfIcon("music.note", size: 24, color: screenMutedInk.opacity(0.7))
+                        }
+                    }
+                    .aspectRatio(1, contentMode: .fill)
+
+                    DynamicArtworkOverlay(cornerRadius: 2)
+                }
+                .frame(width: 106, height: 106)
+                .clipShape(RoundedRectangle(cornerRadius: 2, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                        .stroke(Color.black.opacity(0.2), lineWidth: 0.7)
+                )
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(player.currentSong?.name ?? String(localized: "暂无歌曲"))
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .foregroundColor(screenInk)
+                        .lineLimit(2)
+
+                    Text(player.currentSong?.artistName ?? String(localized: "未知歌手"))
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundColor(screenMutedInk)
+                        .lineLimit(1)
+
+                    Text(player.currentSong?.al?.name ?? "")
+                        .font(.system(size: 9, weight: .medium, design: .rounded))
+                        .foregroundColor(screenMutedInk.opacity(0.78))
+                        .lineLimit(1)
+
+                    if let lyric = lyricVM.currentLineText, !lyric.isEmpty {
+                        Text(lyric)
+                            .font(.system(size: 9, weight: .semibold, design: .rounded))
+                            .foregroundColor(screenAccent.opacity(0.92))
+                            .lineLimit(1)
                     }
                 }
-                .aspectRatio(1, contentMode: .fill)
 
-                DynamicArtworkOverlay(cornerRadius: 2)
+                Spacer(minLength: 0)
             }
-            .frame(width: 106, height: 106)
-            .clipShape(RoundedRectangle(cornerRadius: 2, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 2, style: .continuous)
-                    .stroke(Color.black.opacity(0.2), lineWidth: 0.7)
-            )
-
-            VStack(alignment: .leading, spacing: 5) {
-                Text(player.currentSong?.name ?? String(localized: "暂无歌曲"))
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
-                    .foregroundColor(screenInk)
-                    .lineLimit(2)
-
-                Text(player.currentSong?.artistName ?? String(localized: "未知歌手"))
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundColor(screenMutedInk)
-                    .lineLimit(1)
-
-                Text(player.currentSong?.al?.name ?? "")
-                    .font(.system(size: 9, weight: .medium, design: .rounded))
-                    .foregroundColor(screenMutedInk.opacity(0.78))
-                    .lineLimit(1)
-
-                if let lyric = lyricVM.currentLineText, !lyric.isEmpty {
-                    Text(lyric)
-                        .font(.system(size: 9, weight: .semibold, design: .rounded))
-                        .foregroundColor(screenAccent.opacity(0.92))
-                        .lineLimit(1)
-                }
-            }
-
-            Spacer(minLength: 0)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 11)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 11)
     }
 
     private var ipodLyricsView: some View {
-        VStack(spacing: 6) {
-            if lyricVM.isLoading {
-                ProgressView()
-                    .tint(screenAccent)
-                    .frame(maxWidth: .infinity, minHeight: 106)
-            } else if !lyricVM.hasLyrics {
-                Text("No Lyrics Available")
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundColor(screenMutedInk)
-                    .frame(maxWidth: .infinity, minHeight: 106)
-            } else {
-                let index = lyricVM.currentLineIndex
-                let lines = lyricVM.lyrics
-                let previous = index > 0 ? lines[index - 1].text : ""
-                let current = lyricVM.currentLineSafely?.text ?? ""
-                let next = index + 1 < lines.count ? lines[index + 1].text : ""
-
-                Text(previous)
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .foregroundColor(screenMutedInk.opacity(0.46))
-                    .lineLimit(1)
-
-                Text(current)
-                    .font(.system(size: 17, weight: .bold, design: .rounded))
-                    .foregroundColor(screenAccent)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-
-                if let translation = lyricVM.currentLineSafely?.translation, !translation.isEmpty {
-                    Text(translation)
-                        .font(.system(size: 10, weight: .medium, design: .rounded))
+        PlayerLyricReader { _ in
+            VStack(spacing: 6) {
+                if lyricVM.isLoading {
+                    ProgressView()
+                        .tint(screenAccent)
+                        .frame(maxWidth: .infinity, minHeight: 106)
+                } else if !lyricVM.hasLyrics {
+                    Text("No Lyrics Available")
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
                         .foregroundColor(screenMutedInk)
+                        .frame(maxWidth: .infinity, minHeight: 106)
+                } else {
+                    let index = lyricVM.currentLineIndex
+                    let lines = lyricVM.lyrics
+                    let previous = index > 0 ? lines[index - 1].text : ""
+                    let current = lyricVM.currentLineSafely?.text ?? ""
+                    let next = index + 1 < lines.count ? lines[index + 1].text : ""
+
+                    Text(previous)
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundColor(screenMutedInk.opacity(0.46))
+                        .lineLimit(1)
+
+                    Text(current)
+                        .font(.system(size: 17, weight: .bold, design: .rounded))
+                        .foregroundColor(screenAccent)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
+
+                    if let translation = lyricVM.currentLineSafely?.translation, !translation.isEmpty {
+                        Text(translation)
+                            .font(.system(size: 10, weight: .medium, design: .rounded))
+                            .foregroundColor(screenMutedInk)
+                            .lineLimit(1)
+                    }
+
+                    Text(next)
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundColor(screenMutedInk.opacity(0.46))
                         .lineLimit(1)
                 }
-
-                Text(next)
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .foregroundColor(screenMutedInk.opacity(0.46))
-                    .lineLimit(1)
             }
+            .frame(maxWidth: .infinity, minHeight: 128)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
         }
-        .frame(maxWidth: .infinity, minHeight: 128)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 4)
     }
 
     private var ipodQueueView: some View {

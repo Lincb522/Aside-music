@@ -6,21 +6,28 @@ extension LibraryViewModel {
         guard kugouArtistSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         if !reset, !kugouArtists.isEmpty { return }
 
-        if reset { kugouArtists = [] }
+        if reset {
+            kugouArtistRequest.cancel()
+            kugouArtists = []
+        }
+        guard !kugouArtistRequest.isRunning else { return }
         isSearchingKugouArtists = false
         isLoadingKugouArtists = true
 
-        apiService.fetchKugouArtists(type: kugouArtistType, sex: kugouArtistSex)
+        let request = kugouArtistRequest.begin()
+        kugouArtistRequest.cancellable = apiService.fetchKugouArtists(type: kugouArtistType, sex: kugouArtistSex)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
-                self?.isLoadingKugouArtists = false
+                guard let self, self.kugouArtistRequest.isCurrent(request) else { return }
+                self.kugouArtistRequest.finish(request)
+                self.isLoadingKugouArtists = false
                 if case .failure(let error) = completion {
                     AppLogger.warning("[KCM] 歌手列表加载失败: \(error.localizedDescription)")
                 }
             }, receiveValue: { [weak self] page in
-                self?.kugouArtists = page.artists
+                guard let self, self.kugouArtistRequest.isCurrent(request) else { return }
+                self.kugouArtists = page.artists
             })
-            .store(in: &cancellables)
     }
 
     func searchKugouArtists(keyword: String) {
@@ -32,16 +39,19 @@ extension LibraryViewModel {
 
         isSearchingKugouArtists = true
         isLoadingKugouArtists = true
-        apiService.searchKugouArtists(keyword: query, page: 1, pageSize: 100)
+        let request = kugouArtistRequest.begin()
+        kugouArtistRequest.cancellable = apiService.searchKugouArtists(keyword: query, page: 1, pageSize: 100)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
-                self?.isLoadingKugouArtists = false
+                guard let self, self.kugouArtistRequest.isCurrent(request) else { return }
+                self.kugouArtistRequest.finish(request)
+                self.isLoadingKugouArtists = false
                 if case .failure(let error) = completion {
                     AppLogger.warning("[KCM] 歌手搜索失败: \(error.localizedDescription)")
                 }
             }, receiveValue: { [weak self] page in
-                self?.kugouArtists = page.artists
+                guard let self, self.kugouArtistRequest.isCurrent(request) else { return }
+                self.kugouArtists = page.artists
             })
-            .store(in: &cancellables)
     }
 }

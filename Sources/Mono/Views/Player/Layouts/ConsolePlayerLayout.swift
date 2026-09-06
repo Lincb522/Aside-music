@@ -5,7 +5,7 @@ struct ConsolePlayerLayout: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @ObservedObject private var player = PlayerManager.shared
-    @ObservedObject private var time = PlaybackTimePublisher.shared
+    private let time = PlaybackTimePublisher.shared
 
     @State private var showsLyrics = false
     @State private var showsQueue = false
@@ -291,31 +291,33 @@ private extension ConsolePlayerLayout {
     }
 
     func progressSection(compact: Bool) -> some View {
-        VStack(spacing: compact ? 5 : 7) {
-            ConsoleLinearProgress(
-                progress: displayProgress,
-                isEnabled: validDuration > 0,
-                onChanged: { ratio in
-                    isSeeking = true
-                    seekTime = ratio * validDuration
-                },
-                onEnded: { ratio in
-                    let target = ratio * validDuration
-                    seekTime = target
-                    isSeeking = false
-                    player.seek(to: target)
-                }
-            )
-            .frame(height: compact ? 20 : 24)
+        PlaybackTimeReader { _, _ in
+            VStack(spacing: compact ? 5 : 7) {
+                ConsoleLinearProgress(
+                    progress: displayProgress,
+                    isEnabled: validDuration > 0,
+                    onChanged: { ratio in
+                        isSeeking = true
+                        seekTime = ratio * validDuration
+                    },
+                    onEnded: { ratio in
+                        let target = ratio * validDuration
+                        seekTime = target
+                        isSeeking = false
+                        player.seek(to: target)
+                    }
+                )
+                .frame(height: compact ? 20 : 24)
 
-            HStack {
-                Text(formatTime(isSeeking ? seekTime : validCurrentTime))
-                Spacer()
-                Text(formatTime(validDuration))
+                HStack {
+                    Text(formatTime(isSeeking ? seekTime : validCurrentTime))
+                    Spacer()
+                    Text(formatTime(validDuration))
+                }
+                .font(SignalStyle.monoFont(9, weight: .medium))
+                .foregroundStyle(SignalStyle.inkMuted)
+                .monospacedDigit()
             }
-            .font(SignalStyle.monoFont(9, weight: .medium))
-            .foregroundStyle(SignalStyle.inkMuted)
-            .monospacedDigit()
         }
     }
 

@@ -27,6 +27,7 @@ struct ClarityFloatingBarFamily: View {
 
 /// 播放信息在上、四个等宽入口在下，单手可直接触达且不再把导航塞到侧边。
 private struct ClarityGalleryDeck: View {
+    @Environment(\.floatingBarColorRevision) private var colorRevision
     @Binding var currentTab: Tab
     private let playback = FloatingBarPlaybackModel.shared
     @State private var currentSong = FloatingBarPlaybackModel.shared.currentSong
@@ -36,6 +37,8 @@ private struct ClarityGalleryDeck: View {
     @Namespace private var selection
 
     var body: some View {
+        let _ = colorRevision
+
         VStack(spacing: 0) {
             Spacer(minLength: 0)
 
@@ -180,6 +183,7 @@ private struct ClarityGalleryDeck: View {
 
 /// 经典模式重新解释为贴底光轨：播放信息独立悬浮，导航在屏幕边缘形成稳定基线。
 private struct ClarityHorizonRail: View {
+    @Environment(\.floatingBarColorRevision) private var colorRevision
     @Binding var currentTab: Tab
     private let playback = FloatingBarPlaybackModel.shared
     @State private var currentSong = FloatingBarPlaybackModel.shared.currentSong
@@ -189,6 +193,8 @@ private struct ClarityHorizonRail: View {
     @Namespace private var selection
 
     var body: some View {
+        let _ = colorRevision
+
         VStack(spacing: 0) {
             Spacer(minLength: 0)
 
@@ -323,6 +329,7 @@ private struct ClarityHorizonRail: View {
 
 /// 极简模式只保留一条低矮光轨，四个入口保持相同命中宽度，选中项以圆形镜片标记。
 private struct ClarityLensStrip: View {
+    @Environment(\.floatingBarColorRevision) private var colorRevision
     @Binding var currentTab: Tab
     private let playback = FloatingBarPlaybackModel.shared
     @State private var currentSong = FloatingBarPlaybackModel.shared.currentSong
@@ -330,6 +337,8 @@ private struct ClarityLensStrip: View {
     @Namespace private var selection
 
     var body: some View {
+        let _ = colorRevision
+
         VStack(spacing: 7) {
             Spacer(minLength: 0)
 
@@ -426,6 +435,7 @@ private struct ClarityLensStrip: View {
 
 /// 悬浮球位于右下角；导航按需从角落展开，收起时只保留当前页面与唱片球。
 private struct ClarityCornerBloom: View {
+    @Environment(\.floatingBarColorRevision) private var colorRevision
     @Binding var currentTab: Tab
     private let playback = FloatingBarPlaybackModel.shared
     @State private var currentSong = FloatingBarPlaybackModel.shared.currentSong
@@ -437,6 +447,8 @@ private struct ClarityCornerBloom: View {
     @Namespace private var selection
 
     var body: some View {
+        let _ = colorRevision
+
         VStack(spacing: 0) {
             Spacer(minLength: 0)
 
@@ -625,9 +637,12 @@ private struct ClarityCornerBloom: View {
 // MARK: - Shared optical primitives
 
 private struct ClarityPrismaticDockSurface<S: InsettableShape>: View {
+    @Environment(\.floatingBarColorRevision) private var colorRevision
     let shape: S
 
     var body: some View {
+        let _ = colorRevision
+
         ClarityMembrane(shape: shape, strength: .strong)
             .overlay {
                 shape
@@ -652,9 +667,12 @@ private struct ClarityPrismaticDockSurface<S: InsettableShape>: View {
 }
 
 private struct ClarityLinearProgress: View {
+    @Environment(\.floatingBarColorRevision) private var colorRevision
     @ObservedObject private var time = PlaybackTimePublisher.shared
 
     var body: some View {
+        let _ = colorRevision
+
         GeometryReader { proxy in
             ZStack(alignment: .leading) {
                 Capsule().fill(ClarityStyle.line)
@@ -677,9 +695,12 @@ private struct ClarityLinearProgress: View {
 /// The clock owns only this 67pt vector layer. Progress publications no longer
 /// rebuild the corner controller, artwork, buttons or membrane surface.
 private struct ClarityCircularProgress: View {
+    @Environment(\.floatingBarColorRevision) private var colorRevision
     @ObservedObject private var time = PlaybackTimePublisher.shared
 
     var body: some View {
+        let _ = colorRevision
+
         Circle()
             .trim(from: 0, to: clarityPlaybackProgress(time))
             .stroke(ClarityStyle.accent, style: StrokeStyle(lineWidth: 3, lineCap: .round))

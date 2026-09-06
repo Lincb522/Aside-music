@@ -3,7 +3,7 @@ import SwiftUI
 /// 播放器共享控制按钮栏
 struct PlayerControlsBar: View {
     @ObservedObject var player = PlayerManager.shared
-    @ObservedObject var downloadManager = DownloadManager.shared
+    @ObservedObject private var downloadedSongs = DownloadedSongStatusModel.shared
     @ObservedObject private var settings = SettingsManager.shared
     @State private var showDownloadSheet = false
     
@@ -91,20 +91,20 @@ struct PlayerControlsBar: View {
                     if AppConfig.Features.downloadEnabled {
                         // 下载按钮（下载功能暂时隐藏，后期恢复时打开 AppConfig.Features.downloadEnabled）
                         Button {
-                            if !downloadManager.isDownloaded(song: song) {
+                            if !downloadedSongs.isDownloaded(song: song) {
                                 showDownloadSheet = true
                             }
                         } label: {
                             MonoIcon(
                                 icon: .playerDownload,
                                 size: 22,
-                                color: downloadManager.isDownloaded(song: song)
+                                color: downloadedSongs.isDownloaded(song: song)
                                     ? .monoTextSecondary
                                     : secondaryColor,
                                 lineWidth: 1.4
                             )
                         }
-                        .disabled(downloadManager.isDownloaded(song: song))
+                        .disabled(downloadedSongs.isDownloaded(song: song))
                         .frame(width: 44)
                     } else {
                         Color.clear.frame(width: 44, height: 44)

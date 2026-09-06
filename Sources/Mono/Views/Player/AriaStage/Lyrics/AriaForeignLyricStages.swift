@@ -790,7 +790,7 @@ struct AriaForeignCappellaStage: View {
     let time: Double
     let stageSize: CGSize
 
-    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var player = CurrentSongPresentationModel.shared
     @ObservedObject private var homeViewModel = HomeViewModel.shared
     @State private var cachedAvatarURL: URL?
 

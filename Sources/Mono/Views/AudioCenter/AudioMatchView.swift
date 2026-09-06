@@ -34,7 +34,7 @@ final class AudioMatchViewModel: ObservableObject {
     @Published var shazamTitle: String?
     @Published var shazamArtist: String?
     @Published var shazamArtworkURL: URL?
-    @Published var listenProgress: CGFloat = 0
+    let progress = AudioMatchListeningProgress()
 
     private var session: SHSession?
     private var audioEngine: AVAudioEngine?
@@ -67,7 +67,7 @@ final class AudioMatchViewModel: ObservableObject {
         listenTimer?.invalidate()
         listenTimer = nil
         listenDuration = 0
-        listenProgress = 0
+        progress.value = 0
         if state == .listening {
             state = .idle
         }
@@ -87,7 +87,7 @@ final class AudioMatchViewModel: ObservableObject {
     private func beginShazamSession() {
         state = .listening
         listenDuration = 0
-        listenProgress = 0
+        progress.value = 0
 
         session = SHSession()
         shazamDelegate = ShazamDelegate(viewModel: self)
@@ -123,7 +123,7 @@ final class AudioMatchViewModel: ObservableObject {
                     Task { @MainActor [weak self] in
                         guard let self, self.state == .listening else { return }
                         self.listenDuration += 0.1
-                        self.listenProgress = min(CGFloat(self.listenDuration / self.maxListenDuration), 1.0)
+                        self.progress.value = min(CGFloat(self.listenDuration / self.maxListenDuration), 1.0)
 
                         if self.listenDuration >= self.maxListenDuration {
                             self.stopListening()
@@ -220,7 +220,6 @@ private class ShazamDelegate: NSObject, SHSessionDelegate {
     }
 }
 
-
 // MARK: - AudioMatchView
 
 struct AudioMatchView: View {
@@ -259,10 +258,10 @@ struct AudioMatchView: View {
             .themeRenderScrollLayer()
             }
         }
-        .themedNavigationChrome(title: String(localized: "audio_match_title"), eyebrow: "MATCH", icon: .audioWave)
+
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .monoNavigationBackButton()
+        .monoNavigationBackButton(title: String(localized: "audio_match_title"))
         .toolbar(.hidden, for: .tabBar)
         .navigationDestination(isPresented: $showSongDetail) {
             if let song = selectedSongForDetail {
@@ -360,15 +359,7 @@ struct AudioMatchView: View {
                     }
 
                     // 进度环
-                    Circle()
-                        .trim(from: 0, to: viewModel.listenProgress)
-                        .stroke(
-                            Color.monoTextPrimary,
-                            style: StrokeStyle(lineWidth: 3, lineCap: .round)
-                        )
-                        .frame(width: 190, height: 190)
-                        .rotationEffect(.degrees(-90))
-                        .animation(.linear(duration: 0.1), value: viewModel.listenProgress)
+                    AudioMatchProgressRing(progress: viewModel.progress)
 
                     // 主圆
                     Circle()
@@ -579,7 +570,6 @@ struct AudioMatchView: View {
         }
     }
 
-
     // MARK: - 搜索结果列表
 
     private var resultsSection: some View {
@@ -683,5 +673,27 @@ private struct AudioWaveBar: View {
                 value: animating
             )
             .onAppear { animating = true }
+    }
+}
+
+
+@MainActor
+final class AudioMatchListeningProgress: ObservableObject {
+    @Published var value: CGFloat = 0
+}
+
+private struct AudioMatchProgressRing: View {
+    @ObservedObject var progress: AudioMatchListeningProgress
+
+    var body: some View {
+        Circle()
+            .trim(from: 0, to: progress.value)
+            .stroke(
+                Color.monoTextPrimary,
+                style: StrokeStyle(lineWidth: 3, lineCap: .round)
+            )
+            .frame(width: 190, height: 190)
+            .rotationEffect(.degrees(-90))
+            .animation(.linear(duration: 0.1), value: progress.value)
     }
 }

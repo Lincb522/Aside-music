@@ -37,13 +37,12 @@ extension ThemeColorCustomization {
     }
 
     static func savedPresets(for theme: GlobalThemeId) -> [ThemeColorPreset] {
-        guard supports(theme),
-              let data = UserDefaults.standard.data(forKey: savedPresetsKey(theme)),
-              let presets = try? JSONDecoder().decode([ThemeColorPreset].self, from: data)
-        else {
-            return []
-        }
-        return presets
+        guard supports(theme) else { return [] }
+        let key = savedPresetsKey(theme)
+        return ThemeColorPresetDecodeCache.shared.presets(
+            forKey: key,
+            data: UserDefaults.standard.data(forKey: key)
+        )
     }
 
     static func builtInDarkColorPresets(for theme: GlobalThemeId) -> [ThemeColorPreset] {
@@ -83,13 +82,35 @@ extension ThemeColorCustomization {
     }
 
     static func savedDarkPresets(for theme: GlobalThemeId) -> [ThemeColorPreset] {
-        guard theme == .default,
-              let data = UserDefaults.standard.data(forKey: savedDarkPresetsKey(theme)),
-              let presets = try? JSONDecoder().decode([ThemeColorPreset].self, from: data)
-        else {
-            return []
-        }
-        return presets
+        guard theme == .default else { return [] }
+        let key = savedDarkPresetsKey(theme)
+        return ThemeColorPresetDecodeCache.shared.presets(
+            forKey: key,
+            data: UserDefaults.standard.data(forKey: key)
+        )
     }
 
+}
+
+// Compare the stored payload so local edits, deletion, and cloud restore invalidate
+// decoded presets through the same path. The key space is limited to theme modes.
+private final class ThemeColorPresetDecodeCache: @unchecked Sendable {
+    static let shared = ThemeColorPresetDecodeCache()
+    private let lock = NSLock()
+    private var entries: [String: (data: Data, presets: [ThemeColorPreset])] = [:]
+
+    func presets(forKey key: String, data: Data?) -> [ThemeColorPreset] {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let data else {
+            entries.removeValue(forKey: key)
+            return []
+        }
+        if let entry = entries[key], entry.data == data {
+            return entry.presets
+        }
+        let presets = (try? JSONDecoder().decode([ThemeColorPreset].self, from: data)) ?? []
+        entries[key] = (data, presets)
+        return presets
+    }
 }

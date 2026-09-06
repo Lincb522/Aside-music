@@ -2,6 +2,7 @@ import SwiftUI
 
 /// 经典风格的统一悬浮栏（MiniPlayer + TabBar 合一的低矮 Dock）
 struct ClassicFloatingBar: View {
+    @Environment(\.floatingBarColorRevision) private var colorRevision
     @Binding var currentTab: Tab
     @ObservedObject var player = FloatingBarPlaybackModel.shared
     @ObservedObject private var settings = SettingsManager.shared
@@ -107,6 +108,8 @@ struct ClassicFloatingBar: View {
     }
 
     var body: some View {
+        let _ = colorRevision
+
         if settings.globalThemeId == .petWhite {
             PetWhiteClassicCushionDock(currentTab: $currentTab)
         } else if settings.globalThemeId == .minimalWhite {
@@ -477,6 +480,7 @@ private struct MinimalWhiteClassicDock: View {
 }
 
 private struct MinimalWhiteClassicNowPlaying: View {
+    @ObservedObject private var lyricState = FloatingBarLyricModel.shared
     let song: Song
     @ObservedObject private var player = FloatingBarPlaybackModel.shared
     @State private var showPlaylist = false
@@ -496,7 +500,7 @@ private struct MinimalWhiteClassicNowPlaying: View {
                 VStack(alignment: .leading, spacing: 2) {
                     MarqueeText(text: song.name, font: MinimalWhiteStyle.bodyFont(13, weight: .semibold), color: MinimalWhiteStyle.ink, speed: 24)
                         .frame(height: 16)
-                    MarqueeText(text: player.lyricLineText ?? song.artistName, font: MinimalWhiteStyle.labelFont(11, weight: .regular), color: MinimalWhiteStyle.inkMuted, speed: 22)
+                    MarqueeText(text: lyricState.lineText ?? song.artistName, font: MinimalWhiteStyle.labelFont(11, weight: .regular), color: MinimalWhiteStyle.inkMuted, speed: 22)
                         .frame(height: 14)
                 }
                 .swipeSkipTextMotion()
@@ -659,12 +663,13 @@ private struct PetWhiteClassicCushionDock: View {
 }
 
 private struct PetWhiteClassicNowPlayingChip: View {
+    @ObservedObject private var lyricState = FloatingBarLyricModel.shared
     let song: Song
     @ObservedObject private var player = FloatingBarPlaybackModel.shared
     @State private var showPlaylist = false
 
     private var subtitleText: String {
-        player.lyricLineText ?? song.artistName
+        lyricState.lineText ?? song.artistName
     }
 
     var body: some View {
@@ -868,6 +873,7 @@ private struct PureWhiteDockSelectionBackground: View {
 // MARK: - 经典 MiniPlayer 部分
 
 private struct ClassicMiniPlayerSection: View {
+    @ObservedObject private var lyricState = FloatingBarLyricModel.shared
     let song: Song
     let isPlaying: Bool
     let togglePlayPause: () -> Void
@@ -877,7 +883,7 @@ private struct ClassicMiniPlayerSection: View {
     @Environment(\.colorScheme) private var colorScheme
 
     private var subtitleText: String {
-        if let text = player.lyricLineText {
+        if let text = lyricState.lineText {
             return text
         }
         return song.artistName
@@ -953,7 +959,7 @@ private struct ClassicMiniPlayerSection: View {
                     alignment: .leading
                 )
                 .frame(height: 14)
-                    .animation(.easeInOut(duration: 0.25), value: player.lyricLineText)
+                    .animation(.easeInOut(duration: 0.25), value: lyricState.lineText)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .swipeSkipTextMotion()
@@ -1414,6 +1420,7 @@ private struct ClassicMiniPlayerSection: View {
 // MARK: - 经典 TabBar 部分
 
 private struct ClassicTabBarSection: View {
+    @Environment(\.floatingBarColorRevision) private var colorRevision
     @Binding var currentTab: Tab
     @ObservedObject private var onlineAccess = OnlineAccessManager.shared
     @Environment(\.colorScheme) private var colorScheme
@@ -1443,6 +1450,8 @@ private struct ClassicTabBarSection: View {
     }
 
     var body: some View {
+        let _ = colorRevision
+
         HStack(spacing: 0) {
             ForEach(0 ..< Self.tabIcons.count, id: \.self) { index in
                 let tab = Tab.allCases[index]
@@ -1782,6 +1791,7 @@ private struct ClassicTabBarSection: View {
 // MARK: - Aside 经典贴底 Dock（顶边阅读进度 + 发丝线分层）
 
 private struct AsideClassicDock: View {
+    @Environment(\.floatingBarColorRevision) private var colorRevision
     @Binding var currentTab: Tab
     @ObservedObject private var player = FloatingBarPlaybackModel.shared
     @Environment(\.colorScheme) private var colorScheme
@@ -1807,6 +1817,8 @@ private struct AsideClassicDock: View {
     }
 
     var body: some View {
+        let _ = colorRevision
+
         VStack(spacing: 0) {
             Spacer()
 
@@ -1892,15 +1904,19 @@ private struct AsideClassicDock: View {
 }
 
 private struct AsideClassicNowPlayingRow: View {
+    @ObservedObject private var lyricState = FloatingBarLyricModel.shared
+    @Environment(\.floatingBarColorRevision) private var colorRevision
     let song: Song
     @ObservedObject private var player = FloatingBarPlaybackModel.shared
     @State private var showPlaylist = false
 
     private var subtitleText: String {
-        player.lyricLineText ?? song.artistName
+        lyricState.lineText ?? song.artistName
     }
 
     var body: some View {
+        let _ = colorRevision
+
         HStack(spacing: 10) {
             CachedAsyncImage(url: song.coverUrl, width: 38, height: 38) {
                 RoundedRectangle(cornerRadius: 11, style: .continuous)
@@ -1940,7 +1956,7 @@ private struct AsideClassicNowPlayingRow: View {
                     alignment: .leading
                 )
                 .frame(height: 13)
-                .animation(.easeInOut(duration: 0.25), value: player.lyricLineText)
+                .animation(.easeInOut(duration: 0.25), value: lyricState.lineText)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .swipeSkipTextMotion()
@@ -2027,6 +2043,7 @@ private struct AsideClassicNowPlayingRow: View {
 }
 
 private struct AsideClassicTabRail: View {
+    @Environment(\.floatingBarColorRevision) private var colorRevision
     @Binding var currentTab: Tab
     @ObservedObject private var onlineAccess = OnlineAccessManager.shared
     @Namespace private var dotNS
@@ -2039,6 +2056,8 @@ private struct AsideClassicTabRail: View {
     ]
 
     var body: some View {
+        let _ = colorRevision
+
         HStack(spacing: 0) {
             ForEach(Array(Tab.allCases.enumerated()), id: \.element) { index, tab in
                 tabButton(index: index, tab: tab)

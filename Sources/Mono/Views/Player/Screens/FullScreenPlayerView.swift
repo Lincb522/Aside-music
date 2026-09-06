@@ -2,7 +2,7 @@ import SwiftUI
 
 /// 全屏播放器 - 路由层，根据主题切换不同布局
 struct FullScreenPlayerView: View {
-    @ObservedObject var player = PlayerManager.shared
+    @ObservedObject var player = CurrentSongPresentationModel.shared
     
     @ObservedObject private var themeManager = PlayerThemeManager.shared
     @ObservedObject private var settings = SettingsManager.shared
@@ -170,7 +170,7 @@ struct AIEqualizerArtworkStatusView: View {
     let isDarkArtwork: Bool
 
     @ObservedObject private var agent = AIEqualizerAgent.shared
-    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var player = CurrentSongPresentationModel.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isExpanded = false
     @State private var showQuickControls = false

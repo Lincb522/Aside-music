@@ -11,6 +11,14 @@ import SwiftUI
 final class SongRowPlaybackModel: ObservableObject {
     static let shared = SongRowPlaybackModel()
 
+    struct Presentation: Equatable {
+        let songID: Int
+        let playbackIdentity: String
+        let isCurrent: Bool
+        let isLoading: Bool
+        let isPlaying: Bool
+    }
+
     @Published private(set) var currentSong: Song?
     @Published private(set) var pendingSong: Song?
     @Published private(set) var isPlaying: Bool
@@ -67,6 +75,46 @@ final class SongRowPlaybackModel: ObservableObject {
     }
 
     func isLoading(song: Song) -> Bool {
+        Self.isLoading(song: song, currentSong: currentSong, pendingSong: pendingSong, isPlaying: isPlaying, isLoading: isLoading)
+    }
+
+    func presentation(for song: Song) -> Presentation {
+        Self.presentation(for: song, currentSong: currentSong, pendingSong: pendingSong, isPlaying: isPlaying, isLoading: isLoading)
+    }
+
+    func presentationPublisher(for song: Song) -> AnyPublisher<Presentation, Never> {
+        Publishers.CombineLatest4($currentSong, $pendingSong, $isPlaying, $isLoading)
+            .map { current, pending, playing, loading in
+                Self.presentation(for: song, currentSong: current, pendingSong: pending, isPlaying: playing, isLoading: loading)
+            }
+            .removeDuplicates()
+            .eraseToAnyPublisher()
+    }
+
+    static func presentation(
+        for song: Song,
+        currentSong: Song?,
+        pendingSong: Song?,
+        isPlaying: Bool,
+        isLoading: Bool
+    ) -> Presentation {
+        let isCurrent = matches(currentSong, expected: song)
+        return Presentation(
+            songID: song.id,
+            playbackIdentity: PlayerManager.playbackIdentityKey(for: song),
+            isCurrent: isCurrent,
+            isLoading: Self.isLoading(song: song, currentSong: currentSong, pendingSong: pendingSong, isPlaying: isPlaying, isLoading: isLoading),
+            isPlaying: isCurrent && isPlaying
+        )
+    }
+
+    private static func isLoading(
+        song: Song,
+        currentSong: Song?,
+        pendingSong: Song?,
+        isPlaying: Bool,
+        isLoading: Bool
+    ) -> Bool {
         guard isLoading else { return false }
 
         if let pendingSong {

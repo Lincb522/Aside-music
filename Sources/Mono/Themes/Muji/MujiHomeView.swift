@@ -6,7 +6,9 @@ import SwiftUI
 /// 不用发丝线与描边，分区靠留白、水洗色块与针脚点缀。
 struct MujiHomeView: View {
     @ObservedObject private var viewModel = HomeViewModel.shared
-    @ObservedObject private var playerManager = PlayerManager.shared
+    private let playerManager = PlayerManager.shared
+    @State private var currentSongID = PlayerManager.shared.currentSong?.id
+    @State private var isPlaying = PlayerManager.shared.isPlaying
     @ObservedObject private var settings = SettingsManager.shared
     @AppStorage("hitokotoEnabled") private var hitokotoEnabled = true
     @State private var navigationPath = NavigationPath()
@@ -54,6 +56,7 @@ struct MujiHomeView: View {
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbar(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button(action: {
@@ -79,6 +82,12 @@ struct MujiHomeView: View {
             .fullScreenCover(item: $bannerWebURL) { url in MonoWebView(url: url, title: nil) }
         }
         .themeRenderSceneLayer()
+        .onReceive(playerManager.$currentSong.map { $0?.id }.removeDuplicates()) { songID in
+            if currentSongID != songID { currentSongID = songID }
+        }
+        .onReceive(playerManager.$isPlaying.removeDuplicates()) { playing in
+            if isPlaying != playing { isPlaying = playing }
+        }
     }
 
     private func activateHomeIfNeeded(reason: String) {
@@ -269,10 +278,17 @@ struct MujiHomeView: View {
         Calendar.current.component(.weekOfYear, from: Date())
     }
 
-    private var mujiIssueLine: String {
+    private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
+        formatter.locale = .autoupdatingCurrent
+        formatter.calendar = .autoupdatingCurrent
+        formatter.timeZone = .autoupdatingCurrent
         formatter.dateFormat = "yyyy.MM.dd"
-        return formatter.string(from: Date())
+        return formatter
+    }()
+
+    private var mujiIssueLine: String {
+        Self.dateFormatter.string(from: Date())
     }
 
     // MARK: - 一言（水洗引文）
@@ -427,7 +443,7 @@ struct MujiHomeView: View {
 
     /// 特辑图：圆角封面 + 图注（编号 · 曲名 · 歌手）
     private func mujiSongCard(_ song: Song, index: Int) -> some View {
-        let isCurrent = playerManager.currentSong?.id == song.id
+        let isCurrent = currentSongID == song.id
         let coverShape = RoundedRectangle(cornerRadius: 14, style: .continuous)
 
         return VStack(alignment: .leading, spacing: 9) {
@@ -439,7 +455,7 @@ struct MujiHomeView: View {
             .clipShape(coverShape)
             .overlay(alignment: .bottomTrailing) {
                 if isCurrent {
-                    MujiNowPlayingIndicator(isAnimating: playerManager.isPlaying)
+                    MujiNowPlayingIndicator(isAnimating: isPlaying)
                         .padding(7)
                         .transition(.scale(scale: 0.88, anchor: .bottomTrailing).combined(with: .opacity))
                 }
@@ -499,7 +515,7 @@ struct MujiHomeView: View {
     }
 
     private func mujiNewSongRow(_ song: Song, rank: Int) -> some View {
-        let isCurrent = playerManager.currentSong?.id == song.id
+        let isCurrent = currentSongID == song.id
         let coverShape = RoundedRectangle(cornerRadius: 12, style: .continuous)
 
         return HStack(alignment: .center, spacing: 14) {
@@ -531,7 +547,7 @@ struct MujiHomeView: View {
             Spacer(minLength: 8)
 
             if isCurrent {
-                MujiNowPlayingIndicator(isAnimating: playerManager.isPlaying)
+                MujiNowPlayingIndicator(isAnimating: isPlaying)
             }
         }
         .padding(.vertical, 10)

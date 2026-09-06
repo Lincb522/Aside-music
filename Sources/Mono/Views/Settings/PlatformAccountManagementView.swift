@@ -4,7 +4,7 @@ import SwiftUI
 @MainActor
 struct PlatformAccountManagementView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @ObservedObject private var homeViewModel = HomeViewModel.shared
+    @State private var userProfile = HomeViewModel.shared.userProfile
     @ObservedObject private var qcmSession = QQUserSession.shared
     @ObservedObject private var appleMusicService = AppleMusicService.shared
     @ObservedObject private var loginIdentity = LoginIdentityManager.shared
@@ -21,13 +21,6 @@ struct PlatformAccountManagementView: View {
 
             ScrollView {
                 VStack(spacing: SettingsPageLayout.sectionSpacing) {
-                    SettingsScrollablePageHeader(
-                        title: String(localized: "platform_account_management"),
-                        eyebrow: String(localized: "settings_eyebrow_accounts"),
-                        icon: .personCircle,
-                        signalModule: .accounts
-                    )
-
                     SettingsSection(title: String(localized: "login_identity_section")) {
                         ForEach(
                             Array(LoginIdentityManager.supportedSources.enumerated()),
@@ -118,6 +111,9 @@ struct PlatformAccountManagementView: View {
         }
         .asideSettingsDetailChrome(String(localized: "platform_account_management"))
         .task { await refreshAccounts() }
+        .onReceive(HomeViewModel.shared.$userProfile.removeDuplicates()) {
+            userProfile = $0
+        }
         .onReceive(
             NotificationCenter.default.publisher(for: .didLogin)
                 .merge(with: NotificationCenter.default.publisher(for: .didLogout))
@@ -172,7 +168,7 @@ struct PlatformAccountManagementView: View {
            refreshedNCMProfile?.userId == userID {
             return refreshedNCMProfile
         }
-        return homeViewModel.userProfile.flatMap {
+        return userProfile.flatMap {
             $0.userId == userID ? $0 : nil
         }
     }
@@ -384,7 +380,7 @@ struct PlatformAccountManagementView: View {
 
         let nextNCMProfile = await ncmRefresh
         await identityRefresh
-        guard refreshRequestID == requestID else { return }
+        guard !Task.isCancelled, refreshRequestID == requestID else { return }
 
         let apiService = APIService.shared
         if apiService.isCurrentNCMSession(ncmSession),
@@ -416,7 +412,7 @@ struct PlatformAccountManagementView: View {
               let userID = session.userID,
               apiService.isCurrentNCMSession(session) else { return nil }
 
-        let localProfile = homeViewModel.userProfile.flatMap {
+        let localProfile = userProfile.flatMap {
             $0.userId == userID ? $0 : nil
         }
         do {

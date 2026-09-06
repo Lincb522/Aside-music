@@ -62,7 +62,7 @@ struct CapsuleLocalHomeView: View {
 struct CapsuleLocalMusicView: View {
     var body: some View {
         CapsuleThemeRoot {
-            LocalMusicView()
+            LocalMusicView(isRoot: true)
         }
     }
 }
@@ -70,7 +70,7 @@ struct CapsuleLocalMusicView: View {
 struct CapsuleLocalLibraryView: View {
     var body: some View {
         CapsuleThemeRoot {
-            LocalLibraryView()
+            LocalLibraryView(isRoot: true)
         }
     }
 }

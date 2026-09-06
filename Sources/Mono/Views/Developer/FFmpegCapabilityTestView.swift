@@ -376,7 +376,7 @@ struct FFmpegCapabilityTestView: View {
                 }
             }
         }
-        .developerDiagnosticPageChrome()
+        .developerDiagnosticPageChrome(title: "实时音频实验台")
         .onAppear {
             model.start(audioEffects: player.audioEffects)
         }
@@ -448,9 +448,11 @@ struct FFmpegCapabilityTestView: View {
     private var compactHeader: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
-                Text("实时音频实验台")
-                    .font(.system(size: 25, weight: .heavy, design: .rounded))
-                    .foregroundStyle(.white)
+                if GlobalThemeId.persistedOrDefault != .default {
+                    Text("实时音频实验台")
+                        .font(.system(size: 25, weight: .heavy, design: .rounded))
+                        .foregroundStyle(.white)
+                }
 
                 Text(headerStatus)
                     .font(.system(size: 11.5, weight: .semibold, design: .rounded))
@@ -806,9 +808,11 @@ struct FFmpegCapabilityTestView: View {
                     .background(Color.cyan.opacity(0.1))
                     .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
 
-                Text("实时音频实验台")
-                    .font(.system(size: 22, weight: .heavy, design: .rounded))
-                    .foregroundStyle(.white)
+                if GlobalThemeId.persistedOrDefault != .default {
+                    Text("实时音频实验台")
+                        .font(.system(size: 22, weight: .heavy, design: .rounded))
+                        .foregroundStyle(.white)
+                }
 
                 HStack(spacing: 7) {
                     Circle()

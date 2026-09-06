@@ -3,6 +3,7 @@ import SwiftUI
 // MARK: - Mono TabBar
 
 struct MonoTabBar: View {
+    @Environment(\.floatingBarColorRevision) private var colorRevision
     @Binding var selectedIndex: Int
     @ObservedObject private var onlineAccess = OnlineAccessManager.shared
     @Namespace private var tabNS
@@ -40,6 +41,8 @@ struct MonoTabBar: View {
     ]
 
     var body: some View {
+        let _ = colorRevision
+
         HStack(spacing: 0) {
             tabButton(index: 0, label: NSLocalizedString(Tab.home.titleKey(isLocalMode: !onlineAccess.canUseOnlineFeatures), comment: ""))
             tabButton(index: 1, label: NSLocalizedString(Tab.podcast.titleKey(isLocalMode: !onlineAccess.canUseOnlineFeatures), comment: ""))

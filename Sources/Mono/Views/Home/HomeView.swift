@@ -77,6 +77,7 @@ struct HomeView: View {
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbar(SignalStyle.isActive ? .hidden : .visible, for: .navigationBar)
             .toolbar {
                 if !SignalStyle.isActive {
                     ToolbarItem(placement: .topBarLeading) {
@@ -868,10 +869,17 @@ struct HomeView: View {
         .buttonStyle(MonoBouncingButtonStyle(scale: 0.94))
     }
 
-    private var cinemaDateString: String {
+    private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
+        formatter.locale = .autoupdatingCurrent
+        formatter.calendar = .autoupdatingCurrent
+        formatter.timeZone = .autoupdatingCurrent
         formatter.dateFormat = "yyyy.MM.dd"
-        return formatter.string(from: Date())
+        return formatter
+    }()
+
+    private var cinemaDateString: String {
+        Self.dateFormatter.string(from: Date())
     }
 
     private func cinemaTagline(_ text: String) -> some View {

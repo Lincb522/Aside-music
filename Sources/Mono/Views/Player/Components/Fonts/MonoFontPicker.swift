@@ -378,7 +378,7 @@ struct PlayerTypographySettingsView: View {
     @AppStorage(LyricSource.storageKey) private var defaultLyricSourceRaw = LyricSource.followSongRawValue
     @AppStorage(LyricSource.appleMusicStorageKey) private var appleMusicLyricSourceRaw = LyricSource.netease.rawValue
 
-    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var player = CurrentSongPresentationModel.shared
     @ObservedObject private var settings = SettingsManager.shared
     @StateObject private var coverColors = CoverColorExtractor()
     @State private var selectedWorkspace: PlayerTypographyWorkspace = .display
@@ -431,16 +431,7 @@ struct PlayerTypographySettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                MonoToolbarBackButton()
-            }
-            ToolbarItem(placement: .principal) {
-                Text(String(localized: "player_more_lyrics_appearance"))
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(.white)
-            }
-        }
+        .monoNavigationBackButton(iconColor: .white, title: String(localized: "player_more_lyrics_appearance"))
         .onAppear {
             coverColors.extract(from: player.currentSong?.coverUrl?.sized(200).absoluteString)
         }

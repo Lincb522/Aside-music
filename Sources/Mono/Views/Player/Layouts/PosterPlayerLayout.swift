@@ -10,7 +10,7 @@ struct PosterPlayerLayout: View {
     @Environment(\.dismiss) var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject var player = PlayerManager.shared
-    @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
+    private let timePublisher = PlaybackTimePublisher.shared
     
     @State private var isDragging = false
     @State private var dragValue: Double = 0
@@ -263,7 +263,9 @@ extension PosterPlayerLayout {
                 .buttonStyle(MonoBouncingButtonStyle())
                 
                 // 时间
-                Text("\(Text(formatTime(isDragging ? dragValue : timePublisher.currentTime)).font(.custom(posterFont, size: 32)).foregroundColor(fg))\(Text(" / " + formatTime(timePublisher.duration)).font(.custom(posterFont, size: 16)).foregroundColor(muted))")
+                PlaybackTimeReader { _, _ in
+                    Text("\(Text(formatTime(isDragging ? dragValue : timePublisher.currentTime)).font(.custom(posterFont, size: 32)).foregroundColor(fg))\(Text(" / " + formatTime(timePublisher.duration)).font(.custom(posterFont, size: 16)).foregroundColor(muted))")
+                }
             }
             .padding(.top, 20)
             
@@ -351,36 +353,38 @@ extension PosterPlayerLayout {
     
     /// 底部进度线 — 更粗，贴合手写风格
     private func progressLine(width: CGFloat) -> some View {
-        let progress = timePublisher.duration > 0
-            ? (isDragging ? dragValue : timePublisher.currentTime) / timePublisher.duration
-            : 0
-        
-        return GeometryReader { barGeo in
-            let barWidth = barGeo.size.width
-            ZStack(alignment: .leading) {
-                Rectangle()
-                    .fill(border)
-                    .frame(height: 6)
-                
-                Rectangle()
-                    .fill(accent)
-                    .frame(width: max(6, barWidth * CGFloat(min(max(progress, 0), 1))), height: 6)
+        PlaybackTimeReader { _, _ in
+            let progress = timePublisher.duration > 0
+                ? (isDragging ? dragValue : timePublisher.currentTime) / timePublisher.duration
+                : 0
+
+            return GeometryReader { barGeo in
+                let barWidth = barGeo.size.width
+                ZStack(alignment: .leading) {
+                    Rectangle()
+                        .fill(border)
+                        .frame(height: 6)
+
+                    Rectangle()
+                        .fill(accent)
+                        .frame(width: max(6, barWidth * CGFloat(min(max(progress, 0), 1))), height: 6)
+                }
+                .contentShape(Rectangle().inset(by: -20))
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            isDragging = true
+                            dragValue = min(max(value.location.x / barWidth, 0), 1) * timePublisher.duration
+                        }
+                        .onEnded { value in
+                            isDragging = false
+                            player.seek(to: min(max(value.location.x / barWidth, 0), 1) * timePublisher.duration)
+                        }
+                )
             }
-            .contentShape(Rectangle().inset(by: -20))
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        isDragging = true
-                        dragValue = min(max(value.location.x / barWidth, 0), 1) * timePublisher.duration
-                    }
-                    .onEnded { value in
-                        isDragging = false
-                        player.seek(to: min(max(value.location.x / barWidth, 0), 1) * timePublisher.duration)
-                    }
-            )
+            .frame(height: 6)
+            .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 24 : 16)
         }
-        .frame(height: 6)
-        .padding(.horizontal, DeviceLayout.usesExpandedLayout ? 24 : 16)
     }
 }
 

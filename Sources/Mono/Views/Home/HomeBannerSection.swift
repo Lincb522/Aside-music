@@ -27,6 +27,7 @@ struct HomeBannerSection: View {
                         HomeBannerArtwork(
                             url: banner.imageUrl,
                             cornerRadius: bannerRadius,
+                            contentMode: MinimalWhiteStyle.isActive ? .fill : .fit,
                             placeholder: {
                                 RoundedRectangle(cornerRadius: bannerRadius, style: .continuous)
                                     .fill(MinimalWhiteStyle.isActive ? MinimalWhiteStyle.controlGlassFill : (NeumorphicStyle.isActive ? NeumorphicStyle.surfacePressed : Color.monoGlassTint))
@@ -108,36 +109,41 @@ struct HomeBannerSection: View {
 struct HomeBannerArtwork<Placeholder: View>: View {
     let url: URL?
     let cornerRadius: CGFloat
+    let contentMode: ContentMode
     let placeholder: Placeholder
 
     init(
         url: URL?,
         cornerRadius: CGFloat,
+        contentMode: ContentMode = .fit,
         @ViewBuilder placeholder: () -> Placeholder
     ) {
         self.url = url
         self.cornerRadius = cornerRadius
+        self.contentMode = contentMode
         self.placeholder = placeholder()
     }
 
     var body: some View {
         GeometryReader { proxy in
             ZStack {
-                CachedAsyncImage(
-                    url: url,
-                    width: proxy.size.width,
-                    height: proxy.size.height,
-                    placeholder: {
-                        placeholder
-                            .frame(width: proxy.size.width, height: proxy.size.height)
-                    },
-                    contentMode: .fill,
-                    resizesArtworkURL: false
-                )
-                .blur(radius: 18)
-                .scaleEffect(1.08)
-                .opacity(0.34)
-                .frame(width: proxy.size.width, height: proxy.size.height)
+                if contentMode == .fit {
+                    CachedAsyncImage(
+                        url: url,
+                        width: proxy.size.width,
+                        height: proxy.size.height,
+                        placeholder: {
+                            placeholder
+                                .frame(width: proxy.size.width, height: proxy.size.height)
+                        },
+                        contentMode: .fill,
+                        resizesArtworkURL: false
+                    )
+                    .blur(radius: 18)
+                    .scaleEffect(1.08)
+                    .opacity(0.34)
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                }
 
                 CachedAsyncImage(
                     url: url,
@@ -147,7 +153,7 @@ struct HomeBannerArtwork<Placeholder: View>: View {
                         placeholder
                             .frame(width: proxy.size.width, height: proxy.size.height)
                     },
-                    contentMode: .fit,
+                    contentMode: contentMode,
                     resizesArtworkURL: false
                 )
                 .frame(width: proxy.size.width, height: proxy.size.height)

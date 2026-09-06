@@ -7,7 +7,7 @@ struct MonoSessionPlayerView: View {
     @StateObject private var suite = MonoNextSuiteManager.shared
     @StateObject private var search = SearchViewModel()
     @ObservedObject private var player = PlayerManager.shared
-    @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
+    private let timePublisher = PlaybackTimePublisher.shared
 
     @State private var inviteCode = ""
     @State private var chatText = ""
@@ -385,49 +385,51 @@ struct MonoSessionPlayerView: View {
     }
 
     private var progressSection: some View {
-        VStack(spacing: 5) {
-            Slider(
-                value: Binding(
-                    get: {
-                        if isSeeking || session.pendingSeekPosition != nil {
-                            return seekValue
+        PlaybackTimeReader { _, _ in
+            VStack(spacing: 5) {
+                Slider(
+                    value: Binding(
+                        get: {
+                            if isSeeking || session.pendingSeekPosition != nil {
+                                return seekValue
+                            }
+                            return min(timePublisher.currentTime, max(timePublisher.duration, 1))
+                        },
+                        set: { seekValue = $0 }
+                    ),
+                    in: 0...max(timePublisher.duration, 1),
+                    onEditingChanged: { editing in
+                        guard session.canControlPlayback else { return }
+                        isSeeking = editing
+                        if !editing {
+                            session.seekRoom(to: seekValue)
                         }
-                        return min(timePublisher.currentTime, max(timePublisher.duration, 1))
-                    },
-                    set: { seekValue = $0 }
-                ),
-                in: 0...max(timePublisher.duration, 1),
-                onEditingChanged: { editing in
-                    guard session.canControlPlayback else { return }
-                    isSeeking = editing
-                    if !editing {
-                        session.seekRoom(to: seekValue)
                     }
-                }
-            )
-            .tint(.monoAccent)
-            .disabled(
-                !session.canControlPlayback
-                    || timePublisher.duration <= 0
-                    || session.isPlaybackControlPending
-            )
-
-            HStack {
-                Text(
-                    formatTime(
-                        isSeeking || session.pendingSeekPosition != nil
-                            ? seekValue
-                            : timePublisher.currentTime
-                    )
                 )
-                Spacer()
-                Text(formatTime(timePublisher.duration))
+                .tint(.monoAccent)
+                .disabled(
+                    !session.canControlPlayback
+                        || timePublisher.duration <= 0
+                        || session.isPlaybackControlPending
+                )
+
+                HStack {
+                    Text(
+                        formatTime(
+                            isSeeking || session.pendingSeekPosition != nil
+                                ? seekValue
+                                : timePublisher.currentTime
+                        )
+                    )
+                    Spacer()
+                    Text(formatTime(timePublisher.duration))
+                }
+                .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                .foregroundStyle(Color.monoTextSecondary)
+                .monospacedDigit()
             }
-            .font(.system(size: 10.5, weight: .medium, design: .rounded))
-            .foregroundStyle(Color.monoTextSecondary)
-            .monospacedDigit()
+            .frame(maxWidth: 420)
         }
-        .frame(maxWidth: 420)
     }
 
     private var playbackControls: some View {

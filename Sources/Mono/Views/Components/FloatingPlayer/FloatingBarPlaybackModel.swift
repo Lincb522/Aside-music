@@ -15,7 +15,6 @@ final class FloatingBarPlaybackModel: ObservableObject {
     @Published private(set) var isLoading: Bool
     @Published private(set) var playSource: PlayerManager.PlaySource
     @Published private(set) var isTabBarHidden: Bool
-    @Published private(set) var lyricLineText: String?
 
     private var cancellables: Set<AnyCancellable> = []
 
@@ -26,14 +25,12 @@ final class FloatingBarPlaybackModel: ObservableObject {
         isLoading = player.isLoading
         playSource = player.playSource
         isTabBarHidden = player.isTabBarHidden
-        lyricLineText = Self.currentLyricLineText(playSource: player.playSource)
 
         player.$currentSong
             .removeDuplicates()
             .sink { [weak self] song in
                 Task { @MainActor [weak self] in
                     self?.currentSong = song
-                    self?.syncLyricLineText()
                 }
             }
             .store(in: &cancellables)
@@ -61,7 +58,6 @@ final class FloatingBarPlaybackModel: ObservableObject {
             .sink { [weak self] playSource in
                 Task { @MainActor [weak self] in
                     self?.playSource = playSource
-                    self?.syncLyricLineText()
                 }
             }
             .store(in: &cancellables)
@@ -75,34 +71,6 @@ final class FloatingBarPlaybackModel: ObservableObject {
             }
             .store(in: &cancellables)
 
-        let lyricVM = LyricViewModel.shared
-        lyricVM.$currentLineIndex
-            .removeDuplicates()
-            .sink { [weak self] _ in
-                Task { @MainActor [weak self] in
-                    self?.syncLyricLineText()
-                }
-            }
-            .store(in: &cancellables)
-
-        lyricVM.$hasLyrics
-            .removeDuplicates()
-            .sink { [weak self] _ in
-                Task { @MainActor [weak self] in
-                    self?.syncLyricLineText()
-                }
-            }
-            .store(in: &cancellables)
-
-        lyricVM.$lyrics
-            .map(\.count)
-            .removeDuplicates()
-            .sink { [weak self] _ in
-                Task { @MainActor [weak self] in
-                    self?.syncLyricLineText()
-                }
-            }
-            .store(in: &cancellables)
     }
 
     var isPlayingPodcast: Bool {
@@ -129,16 +97,4 @@ final class FloatingBarPlaybackModel: ObservableObject {
         PlayerManager.shared.dismissMiniPlayerPreservingQueue()
     }
 
-    private func syncLyricLineText() {
-        let next = Self.currentLyricLineText(playSource: playSource)
-        guard lyricLineText != next else { return }
-        lyricLineText = next
-    }
-
-    private static func currentLyricLineText(playSource: PlayerManager.PlaySource) -> String? {
-        guard !playSource.isPodcast else { return nil }
-        let lyricVM = LyricViewModel.shared
-        guard lyricVM.hasLyrics else { return nil }
-        return lyricVM.currentLineText
-    }
 }

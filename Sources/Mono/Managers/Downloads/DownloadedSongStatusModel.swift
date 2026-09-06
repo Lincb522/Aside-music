@@ -18,6 +18,8 @@ final class DownloadedSongStatusModel: ObservableObject {
             }
     }
 
+    var hasDownloads: Bool { !songIds.isEmpty }
+
     func isDownloaded(song: Song) -> Bool {
         songIds.contains(DownloadManager.makeKey(for: song))
     }

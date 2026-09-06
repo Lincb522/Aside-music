@@ -2,6 +2,7 @@ import SwiftUI
 
 /// 极简模式的 MiniPlayer（同一容器内左滑显示 Tab，右滑回播放器）
 struct MinimalMiniPlayer: View {
+    @Environment(\.floatingBarColorRevision) private var colorRevision
     @Binding var currentTab: Tab
     @ObservedObject var player = FloatingBarPlaybackModel.shared
     @ObservedObject private var onlineAccess = OnlineAccessManager.shared
@@ -73,14 +74,16 @@ struct MinimalMiniPlayer: View {
         PetWhiteStyle.isActive ? 34 : (CapsuleStyle.isActive ? 34 : (MangaStyle.isActive ? 30 : 34))
     }
 
-    private var subtitleText: String {
-        if let text = player.lyricLineText {
+    private func subtitleText(for lineText: String?) -> String {
+        if let text = lineText {
             return text
         }
         return player.currentSong?.artistName ?? NSLocalizedString("select_song_to_play", comment: String(localized: "选择歌曲开始播放"))
     }
 
     var body: some View {
+        let _ = colorRevision
+
         let _ = settings.globalThemeRevision
 
         if MinimalWhiteStyle.isActive {
@@ -222,14 +225,16 @@ struct MinimalMiniPlayer: View {
                 )
                 .frame(height: 16)
 
-                MarqueeText(
-                    text: subtitleText,
-                    font: .system(size: 10.5, weight: .medium, design: .rounded),
-                    color: .monoTextSecondary.opacity(0.9),
-                    speed: 22
-                )
-                .frame(height: 13)
-                .animation(.easeInOut(duration: 0.25), value: player.lyricLineText)
+                FloatingBarLyricReader { lineText in
+                    MarqueeText(
+                        text: subtitleText(for: lineText),
+                        font: .system(size: 10.5, weight: .medium, design: .rounded),
+                        color: .monoTextSecondary.opacity(0.9),
+                        speed: 22
+                    )
+                    .frame(height: 13)
+                    .animation(.easeInOut(duration: 0.25), value: lineText)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .swipeSkipTextMotion()
@@ -427,13 +432,15 @@ struct MinimalMiniPlayer: View {
                 )
                 .frame(height: 16)
 
-                MarqueeText(
-                    text: subtitleText,
-                    font: MinimalWhiteStyle.labelFont(11, weight: .regular),
-                    color: MinimalWhiteStyle.inkMuted,
-                    speed: 22
-                )
-                .frame(height: 14)
+                FloatingBarLyricReader { lineText in
+                    MarqueeText(
+                        text: subtitleText(for: lineText),
+                        font: MinimalWhiteStyle.labelFont(11, weight: .regular),
+                        color: MinimalWhiteStyle.inkMuted,
+                        speed: 22
+                    )
+                    .frame(height: 14)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .swipeSkipTextMotion()
@@ -792,14 +799,16 @@ struct MinimalMiniPlayer: View {
                 )
                 .frame(height: 16)
 
-                MarqueeText(
-                    text: subtitleText,
-                    font: subtitleFont,
-                    color: subtitleColor,
-                    speed: 22
-                )
-                .frame(height: 14)
-                    .animation(.easeInOut(duration: 0.25), value: player.lyricLineText)
+                FloatingBarLyricReader { lineText in
+                    MarqueeText(
+                        text: subtitleText(for: lineText),
+                        font: subtitleFont,
+                        color: subtitleColor,
+                        speed: 22
+                    )
+                    .frame(height: 14)
+                        .animation(.easeInOut(duration: 0.25), value: lineText)
+                }
             }
             .swipeSkipTextMotion()
 
@@ -1447,6 +1456,7 @@ struct MinimalMiniPlayer: View {
 
 /// 环绕封面的播放进度环（aside 极简模式）
 private struct AsideMiniProgressRing: View {
+    @Environment(\.floatingBarColorRevision) private var colorRevision
     let size: CGFloat
     let lineWidth: CGFloat
 
@@ -1458,6 +1468,8 @@ private struct AsideMiniProgressRing: View {
     }
 
     var body: some View {
+        let _ = colorRevision
+
         ZStack {
             Circle()
                 .stroke(Color.monoTextPrimary.opacity(0.09), lineWidth: lineWidth)
@@ -1563,13 +1575,15 @@ private struct PetWhiteMinimalBowPlayer: View {
                 )
                 .frame(height: 16)
 
-                MarqueeText(
-                    text: subtitleText,
-                    font: PetWhiteStyle.bodyFont(11, weight: .semibold),
-                    color: PetWhiteStyle.inkSoft,
-                    speed: 22
-                )
-                .frame(height: 13)
+                FloatingBarLyricReader { lineText in
+                    MarqueeText(
+                        text: subtitleText(for: lineText),
+                        font: PetWhiteStyle.bodyFont(11, weight: .semibold),
+                        color: PetWhiteStyle.inkSoft,
+                        speed: 22
+                    )
+                    .frame(height: 13)
+                }
             }
             .frame(minWidth: 88, maxWidth: .infinity, alignment: .leading)
             .swipeSkipTextMotion()
@@ -1652,8 +1666,8 @@ private struct PetWhiteMinimalBowPlayer: View {
         }
     }
 
-    private var subtitleText: String {
-        if let text = player.lyricLineText {
+    private func subtitleText(for lineText: String?) -> String {
+        if let text = lineText {
             return text
         }
         return player.currentSong?.artistName ?? NSLocalizedString("select_song_to_play", comment: String(localized: "选择歌曲开始播放"))

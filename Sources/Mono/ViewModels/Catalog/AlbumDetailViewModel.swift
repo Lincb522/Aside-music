@@ -14,9 +14,11 @@ class AlbumDetailViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var appleMusicTask: Task<Void, Never>?
     private var source: MusicSource = .netease
+    private var hasStartedLoading = false
     
     func fetchAlbum(id: Int) {
-        guard isLoading else { return }
+        guard isLoading, !hasStartedLoading else { return }
+        hasStartedLoading = true
         source = .netease
         
         APIService.shared.fetchAlbumDetail(id: id)
@@ -35,7 +37,8 @@ class AlbumDetailViewModel: ObservableObject {
 
     func fetchAlbum(_ initialAlbum: AlbumInfo) {
         if initialAlbum.source == .kugou, let albumID = initialAlbum.kugouID, !albumID.isEmpty {
-            guard isLoading else { return }
+            guard isLoading, !hasStartedLoading else { return }
+            hasStartedLoading = true
             source = .kugou
             albumInfo = initialAlbum
             APIService.shared.fetchKugouAlbumSongs(id: albumID, page: 1, pageSize: 100)
@@ -63,7 +66,8 @@ class AlbumDetailViewModel: ObservableObject {
             fetchAlbum(id: initialAlbum.id)
             return
         }
-        guard isLoading else { return }
+        guard isLoading, !hasStartedLoading else { return }
+        hasStartedLoading = true
 
         source = .appleMusic
 
@@ -132,4 +136,6 @@ class AlbumDetailViewModel: ObservableObject {
             })
             .store(in: &cancellables)
     }
+
+    deinit { appleMusicTask?.cancel() }
 }

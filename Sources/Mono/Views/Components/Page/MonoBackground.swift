@@ -61,7 +61,11 @@ struct MonoToolbarBackButton: View {
 
     @ViewBuilder
     private var backLabel: some View {
-        if #available(iOS 26, *) {
+        if GlobalThemeId.persistedOrDefault == .default {
+            MonoIcon(icon: .back, size: 18, color: iconColor, lineWidth: 1.7)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        } else if #available(iOS 26, *) {
             MonoIcon(icon: .back, size: 16, color: iconColor)
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
@@ -96,10 +100,17 @@ private struct MonoNavigationBackButtonModifier: ViewModifier {
 
 extension View {
     /// 统一使用应用自定义返回按钮，并关闭系统导航返回按钮。
+    @ViewBuilder
     func monoNavigationBackButton(
-        iconColor: Color = .monoTextPrimary
+        iconColor: Color = .monoTextPrimary,
+        title: String? = nil
     ) -> some View {
-        modifier(MonoNavigationBackButtonModifier(iconColor: iconColor))
+        if let title {
+            themedInlineNavigationTitle(title, color: iconColor)
+                .modifier(MonoNavigationBackButtonModifier(iconColor: iconColor))
+        } else {
+            modifier(MonoNavigationBackButtonModifier(iconColor: iconColor))
+        }
     }
 }
 

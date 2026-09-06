@@ -33,7 +33,7 @@ struct KCMMVPlayerView: View {
 
     @StateObject private var viewModel = KCMMVPlayerViewModel()
     @State private var player: AVPlayer?
-    @ObservedObject private var audioPlayer = PlayerManager.shared
+    private let audioPlayer = PlayerManager.shared
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {

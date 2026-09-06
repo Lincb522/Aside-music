@@ -9,8 +9,8 @@ struct RadioPlayerLayout: View {
     @Environment(\.scenePhase) private var scenePhase
 
     @ObservedObject private var player = PlayerManager.shared
-    @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
-    @ObservedObject private var lyricVM = LyricViewModel.shared
+    private let timePublisher = PlaybackTimePublisher.shared
+    private let lyricVM = LyricViewModel.shared
 
     @StateObject private var colorEx = CoverColorExtractor()
 
@@ -333,235 +333,241 @@ struct RadioPlayerLayout: View {
     // MARK: - Info Panel Card (轻拟物微凸面板)
 
     private func infoPanelCard(isLand: Bool) -> some View {
-        let cr: CGFloat = 20
-        return VStack(alignment: .leading, spacing: isLand ? 10 : 8) {
-            HStack(spacing: 10) {
-                if player.currentSong != nil {
-                    ZStack {
-                        if let url = player.currentSong?.coverUrl?.sized(200) {
-                            CachedAsyncImage(url: url) {
-                                RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.08))
+        PlayerLyricReader { _ in
+            let cr: CGFloat = 20
+            return VStack(alignment: .leading, spacing: isLand ? 10 : 8) {
+                HStack(spacing: 10) {
+                    if player.currentSong != nil {
+                        ZStack {
+                            if let url = player.currentSong?.coverUrl?.sized(200) {
+                                CachedAsyncImage(url: url) {
+                                    RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.08))
+                                }
+                                .aspectRatio(contentMode: .fill)
+                            } else {
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color.white.opacity(0.08))
                             }
-                            .aspectRatio(contentMode: .fill)
-                        } else {
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(Color.white.opacity(0.08))
+
+                            DynamicArtworkOverlay(cornerRadius: 8)
                         }
-
-                        DynamicArtworkOverlay(cornerRadius: 8)
+                        .frame(width: isLand ? 52 : 48, height: isLand ? 52 : 48)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 2)
+                        .shadow(color: .white.opacity(0.2), radius: 1, x: 0, y: -1)
                     }
-                    .frame(width: isLand ? 52 : 48, height: isLand ? 52 : 48)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                    .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 2)
-                    .shadow(color: .white.opacity(0.2), radius: 1, x: 0, y: -1)
-                }
 
-                VStack(alignment: .leading, spacing: 4) {
-                    if lyricVM.hasLyrics, !lyricVM.lyrics.isEmpty {
-                        let idx = lyricVM.currentLineIndex
-                        let cur = lyricVM.lyrics[idx]
-                        let nextIdx = idx + 1 < lyricVM.lyrics.count ? idx + 1 : nil
+                    VStack(alignment: .leading, spacing: 4) {
+                        if lyricVM.hasLyrics, !lyricVM.lyrics.isEmpty {
+                            let idx = lyricVM.currentLineIndex
+                            let cur = lyricVM.lyrics[idx]
+                            let nextIdx = idx + 1 < lyricVM.lyrics.count ? idx + 1 : nil
 
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(cur.text.monoLyricDisplayText)
-                                .font(
-                                    MonoPlayerFont.activeFont(
-                                        size: isLand ? 15 : 13,
-                                        weight: .bold,
-                                        fallback: .system(
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(cur.text.monoLyricDisplayText)
+                                    .font(
+                                        MonoPlayerFont.activeFont(
                                             size: isLand ? 15 : 13,
                                             weight: .bold,
-                                            design: .rounded
-                                        )
-                                    )
-                                )
-                                .foregroundStyle(textW)
-                                .lineLimit(2)
-
-                            if let t = cur.translation, !t.isEmpty {
-                                Text(t.monoLyricDisplayText)
-                                    .font(
-                                        MonoPlayerFont.activeFont(
-                                            size: isLand ? 11 : 10,
-                                            weight: .medium,
                                             fallback: .system(
-                                                size: isLand ? 11 : 10,
-                                                weight: .medium
-                                            )
-                                        )
-                                    )
-                                    .foregroundStyle(textDim)
-                                    .lineLimit(1)
-                            }
-
-                            if let ni = nextIdx {
-                                Text(lyricVM.lyrics[ni].text.monoLyricDisplayText)
-                                    .font(
-                                        MonoPlayerFont.activeFont(
-                                            size: isLand ? 12 : 11,
-                                            weight: .medium,
-                                            fallback: .system(
-                                                size: isLand ? 12 : 11,
-                                                weight: .medium,
+                                                size: isLand ? 15 : 13,
+                                                weight: .bold,
                                                 design: .rounded
                                             )
                                         )
                                     )
-                                    .foregroundStyle(textW.opacity(0.45))
-                                    .lineLimit(1)
+                                    .foregroundStyle(textW)
+                                    .lineLimit(2)
+
+                                if let t = cur.translation, !t.isEmpty {
+                                    Text(t.monoLyricDisplayText)
+                                        .font(
+                                            MonoPlayerFont.activeFont(
+                                                size: isLand ? 11 : 10,
+                                                weight: .medium,
+                                                fallback: .system(
+                                                    size: isLand ? 11 : 10,
+                                                    weight: .medium
+                                                )
+                                            )
+                                        )
+                                        .foregroundStyle(textDim)
+                                        .lineLimit(1)
+                                }
+
+                                if let ni = nextIdx {
+                                    Text(lyricVM.lyrics[ni].text.monoLyricDisplayText)
+                                        .font(
+                                            MonoPlayerFont.activeFont(
+                                                size: isLand ? 12 : 11,
+                                                weight: .medium,
+                                                fallback: .system(
+                                                    size: isLand ? 12 : 11,
+                                                    weight: .medium,
+                                                    design: .rounded
+                                                )
+                                            )
+                                        )
+                                        .foregroundStyle(textW.opacity(0.45))
+                                        .lineLimit(1)
+                                }
                             }
-                        }
-                        .id(idx)
-                        .transition(.asymmetric(
-                            insertion: .push(from: .bottom),
-                            removal: .push(from: .top)
-                        ))
-                        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: idx)
-                    } else {
-                        Text(player.currentSong?.name ?? "Ready")
-                            .monoPlayerDisplayFont(
-                                size: isLand ? 15 : 13,
-                                weight: .bold,
-                                fallback: .system(
+                            .id(idx)
+                            .transition(.asymmetric(
+                                insertion: .push(from: .bottom),
+                                removal: .push(from: .top)
+                            ))
+                            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: idx)
+                        } else {
+                            Text(player.currentSong?.name ?? "Ready")
+                                .monoPlayerDisplayFont(
                                     size: isLand ? 15 : 13,
                                     weight: .bold,
-                                    design: .rounded
+                                    fallback: .system(
+                                        size: isLand ? 15 : 13,
+                                        weight: .bold,
+                                        design: .rounded
+                                    )
                                 )
-                            )
-                            .foregroundStyle(textW).lineLimit(1)
-                        Button { showArtistDetail = true } label: {
-                            Text(player.currentSong?.artistName ?? "—")
-                                .font(.system(size: isLand ? 12 : 11, weight: .medium))
-                                .foregroundStyle(textDim).lineLimit(1)
+                                .foregroundStyle(textW).lineLimit(1)
+                            Button { showArtistDetail = true } label: {
+                                Text(player.currentSong?.artistName ?? "—")
+                                    .font(.system(size: isLand ? 12 : 11, weight: .medium))
+                                    .foregroundStyle(textDim).lineLimit(1)
+                            }
+                            .buttonStyle(.plain).disabled(player.currentSong == nil)
                         }
-                        .buttonStyle(.plain).disabled(player.currentSong == nil)
+                    }
+                    Spacer(minLength: 0)
+                }
+
+                thickProgressBar.frame(height: isLand ? 32 : 28)
+
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    PlaybackTimeReader { _, _ in
+                        Text(fmtTime(currentTime))
+                            .font(.system(size: isLand ? 40 : 34, weight: .bold, design: .rounded))
+                            .foregroundStyle(textW).monospacedDigit()
+                        Text(fmtTime(timePublisher.duration))
+                            .font(.system(size: isLand ? 18 : 15, weight: .medium, design: .rounded))
+                            .foregroundStyle(textDim).monospacedDigit()
+                    }
+
+                    Spacer(minLength: 0)
+
+                    HStack(spacing: 8) {
+                        if let song = player.currentSong {
+                            LikeButton(songId: song.id, isQQMusic: song.isQQMusic, song: song,
+                                       size: 16, activeColor: .red, inactiveColor: textDim)
+                                .frame(width: 30, height: 30)
+                        }
+                        skeuBtn(icon: nil, size: 36, label: player.qualityButtonText) { showQualitySheet = true }
+                            .playerQualitySelectionAvailability()
                     }
                 }
-                Spacer(minLength: 0)
             }
-
-            thickProgressBar.frame(height: isLand ? 32 : 28)
-
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(fmtTime(currentTime))
-                    .font(.system(size: isLand ? 40 : 34, weight: .bold, design: .rounded))
-                    .foregroundStyle(textW).monospacedDigit()
-                Text(fmtTime(timePublisher.duration))
-                    .font(.system(size: isLand ? 18 : 15, weight: .medium, design: .rounded))
-                    .foregroundStyle(textDim).monospacedDigit()
-
-                Spacer(minLength: 0)
-
-                HStack(spacing: 8) {
-                    if let song = player.currentSong {
-                        LikeButton(songId: song.id, isQQMusic: song.isQQMusic, song: song,
-                                   size: 16, activeColor: .red, inactiveColor: textDim)
-                            .frame(width: 30, height: 30)
-                    }
-                    skeuBtn(icon: nil, size: 36, label: player.qualityButtonText) { showQualitySheet = true }
-                        .playerQualitySelectionAvailability()
-                }
-            }
-        }
-        .padding(14)
-        .background(
-            ZStack {
-                RoundedRectangle(cornerRadius: cr, style: .continuous).fill(infoCardBg)
-                RoundedRectangle(cornerRadius: cr, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.35), .clear],
-                            startPoint: .top, endPoint: .init(x: 0.5, y: 0.4)
+            .padding(14)
+            .background(
+                ZStack {
+                    RoundedRectangle(cornerRadius: cr, style: .continuous).fill(infoCardBg)
+                    RoundedRectangle(cornerRadius: cr, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.35), .clear],
+                                startPoint: .top, endPoint: .init(x: 0.5, y: 0.4)
+                            )
                         )
+                }
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: cr, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.5), Color.black.opacity(0.06)],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 0.8
                     )
-            }
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: cr, style: .continuous)
-                .stroke(
-                    LinearGradient(
-                        colors: [Color.white.opacity(0.5), Color.black.opacity(0.06)],
-                        startPoint: .topLeading, endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 0.8
-                )
-        )
-        .shadow(color: Color.black.opacity(0.12), radius: 6, x: 0, y: 4)
-        .shadow(color: Color.white.opacity(0.3), radius: 3, x: 0, y: -2)
+            )
+            .shadow(color: Color.black.opacity(0.12), radius: 6, x: 0, y: 4)
+            .shadow(color: Color.white.opacity(0.3), radius: 3, x: 0, y: -2)
+        }
     }
 
     // MARK: - Progress Bar (轻拟物凹槽 + 凸滑块)
 
     private var thickProgressBar: some View {
-        GeometryReader { geo in
-            let w = geo.size.width; let h = geo.size.height
-            let trackH: CGFloat = h * 0.35
-            let knobD: CGFloat = h * 0.60
+        PlaybackTimeReader { _, _ in
+            GeometryReader { geo in
+                let w = geo.size.width; let h = geo.size.height
+                let trackH: CGFloat = h * 0.35
+                let knobD: CGFloat = h * 0.60
 
-            ZStack(alignment: .leading) {
-                // 凹槽轨道
-                Capsule().fill(surfaceDark)
-                    .frame(height: trackH)
-                    .overlay(
-                        Capsule()
-                            .stroke(
-                                LinearGradient(
-                                    colors: [Color.black.opacity(0.15), Color.white.opacity(0.15)],
-                                    startPoint: .top, endPoint: .bottom
-                                ),
-                                lineWidth: 1
-                            )
-                    )
-                    .shadow(color: Color.black.opacity(0.12), radius: 2, x: 0, y: 1)
-                    .frame(height: h)
-
-                // 填充
-                if progress > 0.01 {
-                    Capsule()
-                        .fill(
-                            LinearGradient(
-                                colors: [dominant.opacity(0.5), dominant.opacity(0.35)],
-                                startPoint: .leading, endPoint: .trailing
-                            )
+                ZStack(alignment: .leading) {
+                    // 凹槽轨道
+                    Capsule().fill(surfaceDark)
+                        .frame(height: trackH)
+                        .overlay(
+                            Capsule()
+                                .stroke(
+                                    LinearGradient(
+                                        colors: [Color.black.opacity(0.15), Color.white.opacity(0.15)],
+                                        startPoint: .top, endPoint: .bottom
+                                    ),
+                                    lineWidth: 1
+                                )
                         )
-                        .frame(width: max(trackH, w * progress), height: trackH)
+                        .shadow(color: Color.black.opacity(0.12), radius: 2, x: 0, y: 1)
                         .frame(height: h)
-                }
 
-                // 凸滑块
-                let fillGradient = LinearGradient(
-                    colors: [Color.white.opacity(0.95), surfaceLight],
-                    startPoint: .topLeading, endPoint: .bottomTrailing
+                    // 填充
+                    if progress > 0.01 {
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: [dominant.opacity(0.5), dominant.opacity(0.35)],
+                                    startPoint: .leading, endPoint: .trailing
+                                )
+                            )
+                            .frame(width: max(trackH, w * progress), height: trackH)
+                            .frame(height: h)
+                    }
+
+                    // 凸滑块
+                    let fillGradient = LinearGradient(
+                        colors: [Color.white.opacity(0.95), surfaceLight],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    )
+                    let strokeGradient = LinearGradient(
+                        colors: [Color.white.opacity(0.6), Color.black.opacity(0.08)],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    )
+                    let strokeCircle = Circle()
+                        .stroke(strokeGradient, lineWidth: 0.8)
+                    let knobBase = Circle()
+                        .fill(fillGradient)
+                        .frame(width: knobD, height: knobD)
+                        .overlay(strokeCircle)
+                    let knobWithShadow = knobBase
+                        .shadow(color: Color.black.opacity(0.18), radius: 3, x: 1, y: 2)
+                        .shadow(color: Color.white.opacity(0.3), radius: 1, x: -0.5, y: -0.5)
+                    let knobView = knobWithShadow
+                        .offset(x: max(knobD * 0.3, min(w * progress - knobD * 0.5, w - knobD * 0.7)))
+                    knobView
+                }
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { v in
+                            isDragging = true
+                            dragValue = min(max(v.location.x / w, 0), 1) * timePublisher.duration
+                        }
+                        .onEnded { v in
+                            player.seek(to: min(max(v.location.x / w, 0), 1) * timePublisher.duration)
+                            isDragging = false
+                        }
                 )
-                let strokeGradient = LinearGradient(
-                    colors: [Color.white.opacity(0.6), Color.black.opacity(0.08)],
-                    startPoint: .topLeading, endPoint: .bottomTrailing
-                )
-                let strokeCircle = Circle()
-                    .stroke(strokeGradient, lineWidth: 0.8)
-                let knobBase = Circle()
-                    .fill(fillGradient)
-                    .frame(width: knobD, height: knobD)
-                    .overlay(strokeCircle)
-                let knobWithShadow = knobBase
-                    .shadow(color: Color.black.opacity(0.18), radius: 3, x: 1, y: 2)
-                    .shadow(color: Color.white.opacity(0.3), radius: 1, x: -0.5, y: -0.5)
-                let knobView = knobWithShadow
-                    .offset(x: max(knobD * 0.3, min(w * progress - knobD * 0.5, w - knobD * 0.7)))
-                knobView
             }
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { v in
-                        isDragging = true
-                        dragValue = min(max(v.location.x / w, 0), 1) * timePublisher.duration
-                    }
-                    .onEnded { v in
-                        player.seek(to: min(max(v.location.x / w, 0), 1) * timePublisher.duration)
-                        isDragging = false
-                    }
-            )
         }
     }
 

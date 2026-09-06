@@ -68,13 +68,15 @@ struct MinimalWhiteUnifiedDock: View {
                     )
                     .frame(height: 17)
 
-                    MarqueeText(
-                        text: player.lyricLineText ?? song.artistName,
-                        font: MinimalWhiteStyle.labelFont(11, weight: .regular),
-                        color: MinimalWhiteStyle.inkMuted,
-                        speed: 22
-                    )
-                    .frame(height: 14)
+                    FloatingBarLyricReader { lineText in
+                        MarqueeText(
+                            text: lineText ?? song.artistName,
+                            font: MinimalWhiteStyle.labelFont(11, weight: .regular),
+                            color: MinimalWhiteStyle.inkMuted,
+                            speed: 22
+                        )
+                        .frame(height: 14)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .swipeSkipTextMotion()

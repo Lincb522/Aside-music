@@ -4,6 +4,7 @@ import SwiftUI
 /// 带液面和分离液滴的实体液体；容器材质跟随全局液态玻璃开关。
 @MainActor
 struct LiquidFloatingBar: View {
+    @Environment(\.floatingBarColorRevision) private var colorRevision
     @Binding var currentTab: Tab
 
     private let player = FloatingBarPlaybackModel.shared
@@ -94,6 +95,8 @@ struct LiquidFloatingBar: View {
     }
 
     var body: some View {
+        let _ = colorRevision
+
         let _ = settings.globalThemeRevision
 
         ZStack {
@@ -711,6 +714,7 @@ private struct LiquidTabContent: View {
 }
 
 private struct LiquidPlaybackProgress: View {
+    @Environment(\.floatingBarColorRevision) private var colorRevision
     let colors: [Color]
     let anchorTime: Double
     let anchorDate: Date
@@ -721,6 +725,8 @@ private struct LiquidPlaybackProgress: View {
     let motionSeed: CGFloat
 
     var body: some View {
+        let _ = colorRevision
+
         TimelineView(
             AppFrameRate.throttledTimeline(
                 maximumFramesPerSecond: 30,

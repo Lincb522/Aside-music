@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 private enum PetWhitePageIdentity {
     case home
@@ -148,8 +149,10 @@ private struct PetWhiteCornerTag: View {
 struct PetWhiteHomeView: View {
     @ObservedObject private var viewModel = HomeViewModel.shared
     @ObservedObject private var settings = SettingsManager.shared
-    @ObservedObject private var cacheManager = OptimizedCacheManager.shared
-    @ObservedObject private var refreshManager = GlobalRefreshManager.shared
+    private let cacheManager = OptimizedCacheManager.shared
+    private let refreshManager = GlobalRefreshManager.shared
+    @State private var isCachePreloading = OptimizedCacheManager.shared.isPreloading
+    @State private var isGlobalPreloading = GlobalRefreshManager.shared.isPreloading
     @ObservedObject private var onlineAccess = OnlineAccessManager.shared
     @Environment(\.scenePhase) private var scenePhase
     @State private var navigationPath = NavigationPath()
@@ -185,7 +188,7 @@ struct PetWhiteHomeView: View {
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbar(.hidden, for: .navigationBar)
         )
     }
 
@@ -294,7 +297,13 @@ struct PetWhiteHomeView: View {
     private var presentedContent: AnyView {
         AnyView(
             dataObservedContent
-                .onChange(of: cacheManager.isPreloading) { _, isPreloading in
+                .onReceive(cacheManager.$isPreloading.removeDuplicates()) { isPreloading in
+                    if isCachePreloading != isPreloading { isCachePreloading = isPreloading }
+                }
+                .onReceive(refreshManager.$isPreloading.removeDuplicates()) { isPreloading in
+                    if isGlobalPreloading != isPreloading { isGlobalPreloading = isPreloading }
+                }
+                .onChange(of: isCachePreloading) { _, isPreloading in
                     guard !isPreloading,
                           MainTabActivationGate.isSettled(.home) else { return }
                     syncRenderedHomeData(reason: "pet white cache preload completed")
@@ -307,7 +316,7 @@ struct PetWhiteHomeView: View {
                     }
                     invalidateHomeRender()
                 }
-                .onChange(of: refreshManager.isPreloading) { _, isPreloading in
+                .onChange(of: isGlobalPreloading) { _, isPreloading in
                     guard !isPreloading,
                           MainTabActivationGate.isSettled(.home) else { return }
                     syncRenderedHomeData(reason: "pet white launch preload completed")
@@ -353,7 +362,7 @@ struct PetWhiteHomeView: View {
 
     private var isInitialHomeLoading: Bool {
         isHomeDataEmpty
-            && (viewModel.isLoading || cacheManager.isPreloading || refreshManager.isPreloading)
+            && (viewModel.isLoading || isCachePreloading || isGlobalPreloading)
     }
 
     private var isHomeDataEmpty: Bool {
@@ -1367,7 +1376,7 @@ struct PetWhiteLocalHomeView: View {
 struct PetWhiteLocalMusicView: View {
     var body: some View {
         PetWhiteThemeRoot(page: .localMusic) {
-            LocalMusicView()
+            LocalMusicView(isRoot: true)
         }
     }
 }
@@ -1375,7 +1384,7 @@ struct PetWhiteLocalMusicView: View {
 struct PetWhiteLocalLibraryView: View {
     var body: some View {
         PetWhiteThemeRoot(page: .localLibrary) {
-            LocalLibraryView()
+            LocalLibraryView(isRoot: true)
         }
     }
 }

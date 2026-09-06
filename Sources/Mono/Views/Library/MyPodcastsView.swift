@@ -215,7 +215,7 @@ struct MyPodcastsView: View {
                 .scrollIndicators(.hidden)
             .themeRenderScrollLayer()
                 .refreshable {
-                    subManager.fetchSubscribedRadios()
+                    subManager.fetchSubscribedRadios(force: true)
                 }
             }
         }

@@ -33,12 +33,13 @@ struct PetWhiteUnifiedFloatingBar: View {
 }
 
 struct PetWhiteUnifiedNowPlayingTicket: View {
+    @ObservedObject private var lyricState = FloatingBarLyricModel.shared
     let song: Song
     @ObservedObject private var player = FloatingBarPlaybackModel.shared
     @State private var showPlaylist = false
 
     private var subtitleText: String {
-        player.lyricLineText ?? song.artistName
+        lyricState.lineText ?? song.artistName
     }
 
     var body: some View {

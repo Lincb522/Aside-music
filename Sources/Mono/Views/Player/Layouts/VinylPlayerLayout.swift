@@ -5,7 +5,7 @@ import SwiftUI
 struct VinylPlayerLayout: View {
     @Environment(\.dismiss) var dismiss
     @ObservedObject var player = PlayerManager.shared
-    @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
+    private let timePublisher = PlaybackTimePublisher.shared
     @ObservedObject var downloadStatus = DownloadedSongStatusModel.shared
 
     // MARK: - 状态
@@ -591,48 +591,50 @@ extension VinylPlayerLayout {
 
 extension VinylPlayerLayout {
     var progressSection: some View {
-        VStack(spacing: 5) {
-            GeometryReader { geo in
-                let progress = timePublisher.duration > 0
-                    ? (isDragging ? dragValue : timePublisher.currentTime) / timePublisher.duration
-                    : 0
+        PlaybackTimeReader { _, _ in
+            VStack(spacing: 5) {
+                GeometryReader { geo in
+                    let progress = timePublisher.duration > 0
+                        ? (isDragging ? dragValue : timePublisher.currentTime) / timePublisher.duration
+                        : 0
 
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(contentColor.opacity(0.08))
-                        .frame(height: 3)
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(contentColor.opacity(0.08))
+                            .frame(height: 3)
 
-                    Capsule()
-                        .fill(contentColor.opacity(0.5))
-                        .frame(
-                            width: geo.size.width * CGFloat(min(max(progress, 0), 1)),
-                            height: 3
-                        )
+                        Capsule()
+                            .fill(contentColor.opacity(0.5))
+                            .frame(
+                                width: geo.size.width * CGFloat(min(max(progress, 0), 1)),
+                                height: 3
+                            )
+                    }
+                    .contentShape(Rectangle().inset(by: -12))
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                isDragging = true
+                                let p = min(max(value.location.x / geo.size.width, 0), 1)
+                                dragValue = p * timePublisher.duration
+                            }
+                            .onEnded { value in
+                                isDragging = false
+                                let p = min(max(value.location.x / geo.size.width, 0), 1)
+                                player.seek(to: p * timePublisher.duration)
+                            }
+                    )
                 }
-                .contentShape(Rectangle().inset(by: -12))
-                .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { value in
-                            isDragging = true
-                            let p = min(max(value.location.x / geo.size.width, 0), 1)
-                            dragValue = p * timePublisher.duration
-                        }
-                        .onEnded { value in
-                            isDragging = false
-                            let p = min(max(value.location.x / geo.size.width, 0), 1)
-                            player.seek(to: p * timePublisher.duration)
-                        }
-                )
-            }
-            .frame(height: 20)
+                .frame(height: 20)
 
-            HStack {
-                Text(formatTime(isDragging ? dragValue : timePublisher.currentTime))
-                Spacer()
-                Text(formatTime(timePublisher.duration))
+                HStack {
+                    Text(formatTime(isDragging ? dragValue : timePublisher.currentTime))
+                    Spacer()
+                    Text(formatTime(timePublisher.duration))
+                }
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .foregroundColor(secondaryColor)
             }
-            .font(.system(size: 10, weight: .medium, design: .monospaced))
-            .foregroundColor(secondaryColor)
         }
     }
 }

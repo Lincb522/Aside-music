@@ -2,7 +2,7 @@ import SwiftUI
 
 struct PodcastEpisodeListSheet: View {
     @ObservedObject var viewModel: PodcastPlayerViewModel
-    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var player = CurrentSongPresentationModel.shared
     @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.dismiss) private var dismiss
     @Environment(\.monoSheetDismiss) private var monoSheetDismiss

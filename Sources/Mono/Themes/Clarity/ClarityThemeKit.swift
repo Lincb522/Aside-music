@@ -605,9 +605,12 @@ struct ClarityCircleButton: View {
 /// The selected state follows the unified color engine and always receives a
 /// contrast-safe foreground from the same snapshot.
 struct ClaritySelectionLens<S: InsettableShape>: View {
+    @Environment(\.floatingBarColorRevision) private var colorRevision
     let shape: S
 
     var body: some View {
+        let _ = colorRevision
+
         shape
             .fill(ClarityStyle.selection)
             .overlay {

@@ -5,9 +5,10 @@ import Combine
 
 struct CloudDiskView: View {
     @Environment(\.colorScheme) private var colorScheme
-    @ObservedObject private var playerManager = PlayerManager.shared
+    private let playerManager = PlayerManager.shared
     @ObservedObject private var settings = SettingsManager.shared
     
+    @StateObject private var requests = CloudDiskRequestStore()
     @State private var songs: [CloudSong] = []
     @State private var isLoading = true
     @State private var isLoadingMore = false
@@ -115,18 +116,6 @@ struct CloudDiskView: View {
                 .ignoresSafeArea()
             
             VStack(spacing: 0) {
-                if SignalStyle.isActive {
-                    SignalNestedPageHeader(
-                        title: String(localized: "cloud_title"),
-                        eyebrow: "CLOUD LIBRARY",
-                        icon: .cloud,
-                        module: .cloud
-                    )
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-                    .padding(.bottom, 14)
-                }
-
                 if isLoading && songs.isEmpty {
                     Spacer()
                     MonoLoadingView(text: MinimalWhiteStyle.isActive ? nil : "LOADING")
@@ -140,10 +129,10 @@ struct CloudDiskView: View {
                 }
             }
         }
-        .themedNavigationChrome(title: isAside || SignalStyle.isActive ? "" : String(localized: "cloud_title"), eyebrow: "CLOUD", icon: .cloud)
+
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .monoNavigationBackButton()
+        .monoNavigationBackButton(title: String(localized: "cloud_title"))
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -185,6 +174,12 @@ struct CloudDiskView: View {
             }
         }
         .onAppear { loadFirstPage() }
+        .onDisappear {
+            requests.initial.cancel()
+            requests.page.cancel()
+            isLoading = false
+            isLoadingMore = false
+        }
         
     }
     
@@ -368,23 +363,7 @@ struct CloudDiskView: View {
     /// 编辑部式页头：眉题 + 大标题 + 容量刻度 + 操作行
     private var asideHero: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 8) {
-                Capsule()
-                    .fill(Color.monoAccent)
-                    .frame(width: 18, height: 3)
-
-                Text("CLOUD DISK")
-                    .font(.system(size: 10.5, weight: .heavy, design: .rounded))
-                    .tracking(2.4)
-                    .foregroundColor(.monoTextSecondary.opacity(0.72))
-            }
-            .padding(.bottom, 10)
-
             HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(LocalizedStringKey("cloud_title"))
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
-                    .foregroundColor(.monoTextPrimary)
-
                 Text(String(format: NSLocalizedString("cloud_song_count", comment: ""), totalCount))
                     .font(.rounded(size: 13, weight: .semibold))
                     .foregroundColor(.monoTextSecondary)
@@ -464,106 +443,107 @@ struct CloudDiskView: View {
 
     /// 编辑部式歌曲行：序号 + 封面 + 标题元信息 + 发丝码率徽章
     private func asideCloudRow(_ song: CloudSong, index: Int) -> some View {
-        let isCurrent = playerManager.currentSong?.id == song.songId
+        CloudSongPlaybackReader(songID: song.songId) { isCurrent, isPlaying in
 
-        return Button {
-            playCloudSong(song)
-        } label: {
-            HStack(spacing: 12) {
-                ZStack {
-                    if isCurrent {
-                        PlayingVisualizerView(isAnimating: playerManager.isPlaying, color: .monoAccent)
-                            .frame(width: 16, height: 16)
-                    } else {
-                        Text(String(format: "%02d", index + 1))
-                            .font(.rounded(size: 12, weight: .semibold))
-                            .foregroundColor(.monoTextSecondary.opacity(0.4))
-                            .monospacedDigit()
+            Button {
+                playCloudSong(song)
+            } label: {
+                HStack(spacing: 12) {
+                    ZStack {
+                        if isCurrent {
+                            PlayingVisualizerView(isAnimating: isPlaying, color: .monoAccent)
+                                .frame(width: 16, height: 16)
+                        } else {
+                            Text(String(format: "%02d", index + 1))
+                                .font(.rounded(size: 12, weight: .semibold))
+                                .foregroundColor(.monoTextSecondary.opacity(0.4))
+                                .monospacedDigit()
+                        }
                     }
-                }
-                .frame(width: 26)
+                    .frame(width: 26)
 
-                CachedAsyncImage(url: song.simpleSong?.coverUrl) {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Color.monoGlassTint)
-                        .overlay(
-                            MonoIcon(icon: .cloud, size: 16, color: .monoTextSecondary.opacity(0.45), lineWidth: 1.3)
-                        )
-                }
-                .aspectRatio(contentMode: .fill)
-                .frame(width: DeviceLayout.listRowCoverSmall, height: DeviceLayout.listRowCoverSmall)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(song.songName)
-                        .font(.rounded(size: 15, weight: .semibold))
-                        .foregroundColor(.monoTextPrimary)
-                        .lineLimit(1)
-
-                    HStack(spacing: 7) {
-                        Text(song.bitrateText)
-                            .font(.system(size: 8.5, weight: .bold, design: .rounded))
-                            .tracking(0.4)
-                            .foregroundColor(.monoTextPrimary.opacity(0.72))
-                            .padding(.horizontal, 5.5)
-                            .padding(.vertical, 1.5)
+                    CachedAsyncImage(url: song.simpleSong?.coverUrl) {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color.monoGlassTint)
                             .overlay(
-                                Capsule().stroke(Color.monoTextPrimary.opacity(0.3), lineWidth: 0.8)
+                                MonoIcon(icon: .cloud, size: 16, color: .monoTextSecondary.opacity(0.45), lineWidth: 1.3)
                             )
+                    }
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: DeviceLayout.listRowCoverSmall, height: DeviceLayout.listRowCoverSmall)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
 
-                        Text("\(song.artist) · \(song.fileSizeText)")
-                            .font(.rounded(size: 12))
-                            .foregroundColor(.monoTextSecondary)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(song.songName)
+                            .font(.rounded(size: 15, weight: .semibold))
+                            .foregroundColor(.monoTextPrimary)
                             .lineLimit(1)
+
+                        HStack(spacing: 7) {
+                            Text(song.bitrateText)
+                                .font(.system(size: 8.5, weight: .bold, design: .rounded))
+                                .tracking(0.4)
+                                .foregroundColor(.monoTextPrimary.opacity(0.72))
+                                .padding(.horizontal, 5.5)
+                                .padding(.vertical, 1.5)
+                                .overlay(
+                                    Capsule().stroke(Color.monoTextPrimary.opacity(0.3), lineWidth: 0.8)
+                                )
+
+                            Text("\(song.artist) · \(song.fileSizeText)")
+                                .font(.rounded(size: 12))
+                                .foregroundColor(.monoTextSecondary)
+                                .lineLimit(1)
+                        }
+                    }
+
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
+                .padding(.vertical, 8)
+                .background {
+                    if isCurrent {
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(Color.monoAccent.opacity(0.07))
+
+                            Capsule()
+                                .fill(Color.monoAccent)
+                                .frame(width: 3, height: 24)
+                                .padding(.leading, 8)
+                        }
+                        .padding(.horizontal, 8)
                     }
                 }
-
-                Spacer(minLength: 0)
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, DeviceLayout.viewHorizontalPadding)
-            .padding(.vertical, 8)
-            .background {
-                if isCurrent {
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(Color.monoAccent.opacity(0.07))
-
-                        Capsule()
-                            .fill(Color.monoAccent)
-                            .frame(width: 3, height: 24)
-                            .padding(.leading, 8)
-                    }
-                    .padding(.horizontal, 8)
+            .buttonStyle(MonoBouncingButtonStyle(scale: 0.98, opacity: 0.8))
+            .contextMenu {
+                Button {
+                    addCloudSongToPlayNext(song)
+                } label: {
+                    Label(NSLocalizedString("cloud_play_next", comment: ""), systemImage: "text.line.first.and.arrowtriangle.forward")
                 }
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(MonoBouncingButtonStyle(scale: 0.98, opacity: 0.8))
-        .contextMenu {
-            Button {
-                addCloudSongToPlayNext(song)
-            } label: {
-                Label(NSLocalizedString("cloud_play_next", comment: ""), systemImage: "text.line.first.and.arrowtriangle.forward")
-            }
 
-            Button {
-                addCloudSongToQueue(song)
-            } label: {
-                Label(NSLocalizedString("cloud_add_queue", comment: ""), systemImage: "text.append")
-            }
+                Button {
+                    addCloudSongToQueue(song)
+                } label: {
+                    Label(NSLocalizedString("cloud_add_queue", comment: ""), systemImage: "text.append")
+                }
 
-            Divider()
+                Divider()
 
-            Button(role: .destructive) {
-                AlertManager.shared.show(
-                    title: NSLocalizedString("cloud_delete_title", comment: ""),
-                    message: String(format: NSLocalizedString("cloud_delete_message", comment: ""), song.songName),
-                    primaryButtonTitle: NSLocalizedString("cloud_delete_action", comment: ""),
-                    secondaryButtonTitle: NSLocalizedString("alert_cancel", comment: ""),
-                    primaryAction: { deleteSong(song) }
-                )
-            } label: {
-                Label(NSLocalizedString("cloud_delete_from", comment: ""), systemImage: "trash")
+                Button(role: .destructive) {
+                    AlertManager.shared.show(
+                        title: NSLocalizedString("cloud_delete_title", comment: ""),
+                        message: String(format: NSLocalizedString("cloud_delete_message", comment: ""), song.songName),
+                        primaryButtonTitle: NSLocalizedString("cloud_delete_action", comment: ""),
+                        secondaryButtonTitle: NSLocalizedString("alert_cancel", comment: ""),
+                        primaryAction: { deleteSong(song) }
+                    )
+                } label: {
+                    Label(NSLocalizedString("cloud_delete_from", comment: ""), systemImage: "trash")
+                }
             }
         }
     }
@@ -574,114 +554,115 @@ struct CloudDiskView: View {
     // MARK: - 单行歌曲
     
     private func cloudSongRow(_ song: CloudSong) -> some View {
-        let isCurrent = playerManager.currentSong?.id == song.songId
-        
-        return Button {
-            playCloudSong(song)
-        } label: {
-            HStack(spacing: 14) {
-                // 封面
-                if let coverUrl = song.simpleSong?.coverUrl {
-                    CachedAsyncImage(url: coverUrl) {
+        CloudSongPlaybackReader(songID: song.songId) { isCurrent, isPlaying in
+
+            Button {
+                playCloudSong(song)
+            } label: {
+                HStack(spacing: 14) {
+                    // 封面
+                    if let coverUrl = song.simpleSong?.coverUrl {
+                        CachedAsyncImage(url: coverUrl) {
+                            RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
+                                .fill(Theme.coverFill)
+                        }
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: DeviceLayout.listRowCoverSmall, height: DeviceLayout.listRowCoverSmall)
+                        .clipShape(RoundedRectangle(cornerRadius: coverRadius, style: .continuous))
+                        .overlay(coverStroke)
+                    } else {
                         RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
                             .fill(Theme.coverFill)
+                            .frame(width: DeviceLayout.listRowCoverSmall, height: DeviceLayout.listRowCoverSmall)
+                            .overlay(
+                                MonoIcon(icon: .cloud, size: 20, color: Theme.secondaryText.opacity(0.5), lineWidth: 1.4)
+                            )
+                            .overlay(coverStroke)
                     }
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: DeviceLayout.listRowCoverSmall, height: DeviceLayout.listRowCoverSmall)
-                    .clipShape(RoundedRectangle(cornerRadius: coverRadius, style: .continuous))
-                    .overlay(coverStroke)
-                } else {
-                    RoundedRectangle(cornerRadius: coverRadius, style: .continuous)
-                        .fill(Theme.coverFill)
-                        .frame(width: DeviceLayout.listRowCoverSmall, height: DeviceLayout.listRowCoverSmall)
-                        .overlay(
-                            MonoIcon(icon: .cloud, size: 20, color: Theme.secondaryText.opacity(0.5), lineWidth: 1.4)
-                        )
-                        .overlay(coverStroke)
-                }
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(song.songName)
-                        .font(Theme.bodyFont(15, weight: .semibold))
-                        .foregroundColor(isCurrent && (MinimalWhiteStyle.isActive || CapsuleStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive) ? Theme.accent : Theme.text)
-                        .lineLimit(1)
-                    
-                    HStack(spacing: 6) {
-                        if CapsuleStyle.isActive {
-                            CapsulePillLabel(title: song.bitrateText, tint: Theme.accent, selected: isCurrent)
-                        } else if SequoiaStyle.isActive {
-                            SequoiaPill(text: song.bitrateText, tint: Theme.accent, selected: isCurrent, compact: true)
-                        } else if NeumorphicStyle.isActive {
-                            NeumorphicPill(text: song.bitrateText, tint: Theme.accent, selected: isCurrent, compact: true)
-                        } else if MinimalWhiteStyle.isActive {
-                            Text(song.bitrateText)
-                                .font(MinimalWhiteStyle.labelFont(10, weight: .medium))
-                                .foregroundColor(isCurrent ? MinimalWhiteStyle.ink : MinimalWhiteStyle.inkMuted)
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 3)
-                                .background(MinimalWhiteCapsuleBackground(selected: isCurrent))
-                        } else {
-                            Text(song.bitrateText)
-                                .font(.system(size: 7, weight: .bold))
-                                .foregroundColor(Theme.accent)
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 1)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: MangaStyle.isActive ? 6 : 2)
-                                        .stroke(Theme.accent, lineWidth: 0.5)
-                                )
-                        }
-                        
-                        Text("\(song.artist) · \(song.fileSizeText)")
-                            .font(Theme.labelFont(12))
-                            .foregroundColor(Theme.secondaryText)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(song.songName)
+                            .font(Theme.bodyFont(15, weight: .semibold))
+                            .foregroundColor(isCurrent && (MinimalWhiteStyle.isActive || CapsuleStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive) ? Theme.accent : Theme.text)
                             .lineLimit(1)
+
+                        HStack(spacing: 6) {
+                            if CapsuleStyle.isActive {
+                                CapsulePillLabel(title: song.bitrateText, tint: Theme.accent, selected: isCurrent)
+                            } else if SequoiaStyle.isActive {
+                                SequoiaPill(text: song.bitrateText, tint: Theme.accent, selected: isCurrent, compact: true)
+                            } else if NeumorphicStyle.isActive {
+                                NeumorphicPill(text: song.bitrateText, tint: Theme.accent, selected: isCurrent, compact: true)
+                            } else if MinimalWhiteStyle.isActive {
+                                Text(song.bitrateText)
+                                    .font(MinimalWhiteStyle.labelFont(10, weight: .medium))
+                                    .foregroundColor(isCurrent ? MinimalWhiteStyle.ink : MinimalWhiteStyle.inkMuted)
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 3)
+                                    .background(MinimalWhiteCapsuleBackground(selected: isCurrent))
+                            } else {
+                                Text(song.bitrateText)
+                                    .font(.system(size: 7, weight: .bold))
+                                    .foregroundColor(Theme.accent)
+                                    .padding(.horizontal, 4)
+                                    .padding(.vertical, 1)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: MangaStyle.isActive ? 6 : 2)
+                                            .stroke(Theme.accent, lineWidth: 0.5)
+                                    )
+                            }
+
+                            Text("\(song.artist) · \(song.fileSizeText)")
+                                .font(Theme.labelFont(12))
+                                .foregroundColor(Theme.secondaryText)
+                                .lineLimit(1)
+                        }
+                    }
+
+                    Spacer()
+
+                    if isCurrent {
+                        PlayingVisualizerView(isAnimating: isPlaying, color: (MinimalWhiteStyle.isActive || CapsuleStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive) ? Theme.accent : .monoTextPrimary)
+                            .frame(width: 20)
                     }
                 }
-                
-                Spacer()
-                
-                if isCurrent {
-                    PlayingVisualizerView(isAnimating: playerManager.isPlaying, color: (MinimalWhiteStyle.isActive || CapsuleStyle.isActive || NeumorphicStyle.isActive || SequoiaStyle.isActive) ? Theme.accent : .monoTextPrimary)
-                        .frame(width: 20)
-                }
-            }
-            .padding(.horizontal, ThemedPageStyle.isActive ? 16 : 24)
-            .padding(.vertical, 8)
-            .background(isCurrent ? Theme.accent.opacity((MinimalWhiteStyle.isActive || SequoiaStyle.isActive || CapsuleStyle.isActive) ? 0.08 : 0.05) : Color.clear)
-            .themedOnlyPageSurface(
-                cornerRadius: ThemedPageStyle.compactSurfaceCornerRadius,
-                elevated: isCurrent,
-                mangaTint: isCurrent ? MangaStyle.labelYellow.opacity(0.92) : MangaStyle.bubbleWhite
-            )
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(MonoBouncingButtonStyle(scale: 0.98, opacity: 0.8))
-        .contextMenu {
-            Button {
-                addCloudSongToPlayNext(song)
-            } label: {
-                Label(NSLocalizedString("cloud_play_next", comment: ""), systemImage: "text.line.first.and.arrowtriangle.forward")
-            }
-            
-            Button {
-                addCloudSongToQueue(song)
-            } label: {
-                Label(NSLocalizedString("cloud_add_queue", comment: ""), systemImage: "text.append")
-            }
-            
-            Divider()
-            
-            Button(role: .destructive) {
-                AlertManager.shared.show(
-                    title: NSLocalizedString("cloud_delete_title", comment: ""),
-                    message: String(format: NSLocalizedString("cloud_delete_message", comment: ""), song.songName),
-                    primaryButtonTitle: NSLocalizedString("cloud_delete_action", comment: ""),
-                    secondaryButtonTitle: NSLocalizedString("alert_cancel", comment: ""),
-                    primaryAction: { deleteSong(song) }
+                .padding(.horizontal, ThemedPageStyle.isActive ? 16 : 24)
+                .padding(.vertical, 8)
+                .background(isCurrent ? Theme.accent.opacity((MinimalWhiteStyle.isActive || SequoiaStyle.isActive || CapsuleStyle.isActive) ? 0.08 : 0.05) : Color.clear)
+                .themedOnlyPageSurface(
+                    cornerRadius: ThemedPageStyle.compactSurfaceCornerRadius,
+                    elevated: isCurrent,
+                    mangaTint: isCurrent ? MangaStyle.labelYellow.opacity(0.92) : MangaStyle.bubbleWhite
                 )
-            } label: {
-                Label(NSLocalizedString("cloud_delete_from", comment: ""), systemImage: "trash")
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(MonoBouncingButtonStyle(scale: 0.98, opacity: 0.8))
+            .contextMenu {
+                Button {
+                    addCloudSongToPlayNext(song)
+                } label: {
+                    Label(NSLocalizedString("cloud_play_next", comment: ""), systemImage: "text.line.first.and.arrowtriangle.forward")
+                }
+                
+                Button {
+                    addCloudSongToQueue(song)
+                } label: {
+                    Label(NSLocalizedString("cloud_add_queue", comment: ""), systemImage: "text.append")
+                }
+
+                Divider()
+                
+                Button(role: .destructive) {
+                    AlertManager.shared.show(
+                        title: NSLocalizedString("cloud_delete_title", comment: ""),
+                        message: String(format: NSLocalizedString("cloud_delete_message", comment: ""), song.songName),
+                        primaryButtonTitle: NSLocalizedString("cloud_delete_action", comment: ""),
+                        secondaryButtonTitle: NSLocalizedString("alert_cancel", comment: ""),
+                        primaryAction: { deleteSong(song) }
+                    )
+                } label: {
+                    Label(NSLocalizedString("cloud_delete_from", comment: ""), systemImage: "trash")
+                }
             }
         }
     }
@@ -710,20 +691,22 @@ struct CloudDiskView: View {
     // MARK: - 数据加载
     
     private func loadFirstPage() {
-        guard songs.isEmpty else { return }
+        guard songs.isEmpty, !requests.initial.isRunning else { return }
         isLoading = true
         offset = 0
-        
-        CloudDiskCancellableStore.shared.cancellables.removeAll()
-        
-        APIService.shared.fetchCloudSongs(limit: pageSize, offset: 0)
+
+        let request = requests.initial.begin()
+        requests.initial.cancellable = APIService.shared.fetchCloudSongs(limit: pageSize, offset: 0)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { completion in
+                guard requests.initial.isCurrent(request) else { return }
+                requests.initial.finish(request)
                 isLoading = false
                 if case .failure(let error) = completion {
                     AppLogger.error("加载云盘失败: \(error)")
                 }
             }, receiveValue: { response in
+                guard requests.initial.isCurrent(request) else { return }
                 songs = response.data
                 totalCount = response.count
                 hasMore = response.hasMore
@@ -732,27 +715,29 @@ struct CloudDiskView: View {
                 offset = response.data.count
                 triggerMetadataEnrichment(for: response.data)
             })
-            .store(in: &CloudDiskCancellableStore.shared.cancellables)
     }
     
     private func loadMore() {
-        guard hasMore, !isLoadingMore else { return }
+        guard hasMore, !isLoading, !isLoadingMore, !requests.initial.isRunning else { return }
         isLoadingMore = true
         
-        APIService.shared.fetchCloudSongs(limit: pageSize, offset: offset)
+        let request = requests.page.begin()
+        requests.page.cancellable = APIService.shared.fetchCloudSongs(limit: pageSize, offset: offset)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { completion in
+                guard requests.page.isCurrent(request) else { return }
+                requests.page.finish(request)
                 isLoadingMore = false
                 if case .failure(let error) = completion {
                     AppLogger.error("加载更多云盘歌曲失败: \(error)")
                 }
             }, receiveValue: { response in
+                guard requests.page.isCurrent(request) else { return }
                 songs.append(contentsOf: response.data)
                 hasMore = response.hasMore
                 offset += response.data.count
                 triggerMetadataEnrichment(for: response.data)
             })
-            .store(in: &CloudDiskCancellableStore.shared.cancellables)
     }
     
     private func deleteSong(_ song: CloudSong) {
@@ -769,7 +754,7 @@ struct CloudDiskView: View {
                 }
                 songToDelete = nil
             })
-            .store(in: &CloudDiskCancellableStore.shared.cancellables)
+            .store(in: &requests.mutations)
     }
     
     // MARK: - 工具方法
@@ -906,9 +891,39 @@ struct CloudDiskView: View {
     }
 }
 
-// MARK: - Cancellable 存储
+@MainActor
+private final class CloudDiskRequestStore: ObservableObject {
+    let initial = LibraryRequestScope()
+    let page = LibraryRequestScope()
+    var mutations = Set<AnyCancellable>()
+}
 
-private class CloudDiskCancellableStore: @unchecked Sendable {
-    static let shared = CloudDiskCancellableStore()
-    var cancellables = Set<AnyCancellable>()
+private struct CloudSongPlaybackReader<Content: View>: View {
+    private struct Selection: Equatable {
+        let isCurrent: Bool
+        let isPlaying: Bool
+    }
+
+    let songID: Int
+    private let player = PlayerManager.shared
+    @State private var selection: Selection
+    private let content: (Bool, Bool) -> Content
+
+    init(songID: Int, @ViewBuilder content: @escaping (Bool, Bool) -> Content) {
+        self.songID = songID
+        self.content = content
+        let player = PlayerManager.shared
+        let isCurrent = player.currentSong?.id == songID
+        _selection = State(initialValue: Selection(isCurrent: isCurrent, isPlaying: isCurrent && player.isPlaying))
+    }
+
+    var body: some View {
+        content(selection.isCurrent, selection.isPlaying)
+            .onReceive(Publishers.CombineLatest(player.$currentSong, player.$isPlaying)
+                .map { song, playing in
+                    let isCurrent = song?.id == songID
+                    return Selection(isCurrent: isCurrent, isPlaying: isCurrent && playing)
+                }
+                .removeDuplicates()) { selection = $0 }
+    }
 }

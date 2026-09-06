@@ -61,10 +61,10 @@ struct MessageListView: View {
                 }
             }
         }
-        .themedNavigationChrome(title: String(localized: "message_title"), eyebrow: "MESSAGE", icon: .bell)
+
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .monoNavigationBackButton()
+        .monoNavigationBackButton(title: String(localized: "message_title"))
         .onAppear { viewModel.fetchMessages() }
     }
 }
@@ -167,17 +167,17 @@ class MessageListViewModel: ObservableObject {
     @Published var messages: [PrivateMessage] = []
     @Published var isLoading = false
     
-    private var cancellables = Set<AnyCancellable>()
+    private var request: AnyCancellable?
     
     func fetchMessages() {
+        guard !isLoading else { return }
         isLoading = true
-        APIService.shared.fetchPrivateMessages()
+        request = APIService.shared.fetchPrivateMessages()
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] _ in
                 self?.isLoading = false
             }, receiveValue: { [weak self] msgs in
                 self?.messages = msgs
             })
-            .store(in: &cancellables)
     }
 }

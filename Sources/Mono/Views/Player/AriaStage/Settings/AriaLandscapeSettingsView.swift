@@ -35,7 +35,7 @@ struct AriaLandscapeSettingsView: View {
     @AppStorage("ariaVocalBreathingWeight") private var vocalBreathingEnabled = false
     @AppStorage("ariaTensionSystemEnabled") private var tensionSystemEnabled = false
     @AppStorage("ariaGPUStageEnabled") private var gpuStageEnabled = false
-    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var player = CurrentSongPresentationModel.shared
     @State private var showVideoSheet = false
     @State private var effectHasMoreContent = false
     @State private var styleHasMoreContent = false

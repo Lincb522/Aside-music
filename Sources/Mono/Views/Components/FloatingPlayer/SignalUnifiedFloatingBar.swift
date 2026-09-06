@@ -398,13 +398,15 @@ struct SignalMinimalFloatingBar: View {
                 )
                 .frame(height: 15)
 
-                MarqueeText(
-                    text: player.lyricLineText ?? song.artistName,
-                    font: SignalStyle.labelFont(10, weight: .regular),
-                    color: SignalStyle.inkMuted,
-                    speed: 22
-                )
-                .frame(height: 13)
+                FloatingBarLyricReader { lineText in
+                    MarqueeText(
+                        text: lineText ?? song.artistName,
+                        font: SignalStyle.labelFont(10, weight: .regular),
+                        color: SignalStyle.inkMuted,
+                        speed: 22
+                    )
+                    .frame(height: 13)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .swipeSkipTextMotion()
@@ -614,12 +616,13 @@ struct SignalFloatingBallBar: View {
 }
 
 struct SignalMiniPlayerStrip: View {
+    @ObservedObject private var lyricState = FloatingBarLyricModel.shared
     let song: Song
     @State private var showPlaylist = false
     @ObservedObject private var player = FloatingBarPlaybackModel.shared
 
     private var subtitleText: String {
-        player.lyricLineText ?? song.artistName
+        lyricState.lineText ?? song.artistName
     }
 
     var body: some View {
@@ -648,7 +651,7 @@ struct SignalMiniPlayerStrip: View {
                         speed: 22
                     )
                     .frame(height: 14)
-                    .animation(.easeInOut(duration: 0.25), value: player.lyricLineText)
+                    .animation(.easeInOut(duration: 0.25), value: lyricState.lineText)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .swipeSkipTextMotion()

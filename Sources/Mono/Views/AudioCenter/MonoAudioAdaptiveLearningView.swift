@@ -2,7 +2,7 @@ import SwiftUI
 
 @MainActor
 struct MonoAudioAdaptiveLearningView: View {
-    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var player = CurrentSongPresentationModel.shared
     @StateObject private var agent = AIEqualizerAgent.shared
     @State private var selectedFilter: LearningRecordFilter = .all
     @State private var recordPage = 0
@@ -53,7 +53,7 @@ struct MonoAudioAdaptiveLearningView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
-        .monoNavigationBackButton(iconColor: .white)
+        .monoNavigationBackButton(iconColor: .white, title: String(localized: "audio_agent_learning_settings_title"))
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -88,17 +88,7 @@ struct MonoAudioAdaptiveLearningView: View {
 
     private func header(layout: MonoSoundCenterLayout) -> some View {
         HStack(spacing: 14) {
-            MonoIcon(icon: .history, size: 22, color: accent)
-                .monoIconArtwork(MonoGlyphSemantic.agentAdaptiveLearning.rawValue)
-                .frame(width: 48, height: 48)
-                .background(accent.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-
             VStack(alignment: .leading, spacing: 4) {
-                Text(String(localized: "ai_learning_title"))
-                    .font(.system(.title3, design: .rounded, weight: .bold))
-                    .foregroundStyle(.white)
-
                 Text(learningSummary)
                     .font(.system(.caption, design: .rounded, weight: .medium))
                     .foregroundStyle(.white.opacity(0.5))
@@ -602,7 +592,7 @@ private struct MonoAudioLearningRecordDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var player = CurrentSongPresentationModel.shared
     @StateObject private var agent = AIEqualizerAgent.shared
     @State private var showsDeleteConfirmation = false
 
@@ -647,7 +637,7 @@ private struct MonoAudioLearningRecordDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
-        .monoNavigationBackButton(iconColor: .white)
+        .monoNavigationBackButton(iconColor: .white, title: String(localized: "audio_agent_learning_record_detail_title"))
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {

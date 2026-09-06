@@ -266,7 +266,7 @@ extension AIEqualizerAgent {
     func testProviderConnection() async throws {
         let managedAgent = await AppAgentConfigurationStore.shared.agentConfiguration(.equalizer)
         if let managedAgent, !managedAgent.enabled { throw AIEqualizerError.modelUnavailable }
-        let configuration = try await resolvedProviderConfiguration(usePublishedConfiguration: false)
+        let context = try await resolvedProviderRequestContext(usePublishedConfiguration: false)
         let bundledSystemPrompt = AIEqualizerPrompt.system(for: .tenBand)
         let configuredSystemPrompt = managedAgent?.systemPrompt(fallback: bundledSystemPrompt)
         let text = try await client.generate(
@@ -276,8 +276,8 @@ extension AIEqualizerAgent {
             ),
             userPrompt: managedAgent?.userPrompt(fallback: AIEqualizerPrompt.connectivityTest)
                 ?? AIEqualizerPrompt.connectivityTest,
-            configuration: configuration,
-            apiKey: providerStore.apiKey,
+            configuration: context.configuration,
+            apiKey: context.apiKey,
             minimumTimeout: managedAgent?.resolvedMinimumTimeoutSeconds ?? 0,
             options: managedAgent?.generationOptions ?? .standard
         )

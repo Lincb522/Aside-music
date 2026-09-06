@@ -31,6 +31,9 @@ class CommentViewModel: ObservableObject {
     @Published var isSending = false
     @Published var replyTarget: Comment?
     
+    private var loadCancellable: AnyCancellable?
+    private var pageCancellable: AnyCancellable?
+    private var requestID = 0
     private var currentPage = 1
     private var cursor = ""
     private let pageSize = 20
@@ -55,8 +58,13 @@ class CommentViewModel: ObservableObject {
     
     // MARK: - 加载评论
     
-    func loadComments() {
-        guard !isLoading else { return }
+    func loadComments(replacingCurrentRequest: Bool = false) {
+        guard !isLoading || replacingCurrentRequest else { return }
+        requestID += 1
+        let request = requestID
+        loadCancellable?.cancel()
+        pageCancellable?.cancel()
+        isLoadingMore = false
         isLoading = true
         errorMessage = nil
         currentPage = 1
@@ -73,18 +81,19 @@ class CommentViewModel: ObservableObject {
             sortType: sortType
         )
         
-        Publishers.Zip(hotPublisher, commentsPublisher)
+        loadCancellable = Publishers.Zip(hotPublisher, commentsPublisher)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] completion in
-                self?.isLoading = false
+                guard let self, self.requestID == request else { return }
+                self.isLoading = false
                 if case .failure(let error) = completion {
-                    self?.errorMessage = L10n.format(
+                    self.errorMessage = L10n.format(
                         "comments_load_failed_format",
                         error.localizedDescription
                     )
                 }
             } receiveValue: { [weak self] hotResult, commentData in
-                guard let self else { return }
+                guard let self, self.requestID == request else { return }
                 self.hotComments = hotResult
                 let hotIDs = Set(hotResult.map(\.id))
                 self.comments = commentData.comments.filter { !hotIDs.contains($0.id) }
@@ -93,15 +102,15 @@ class CommentViewModel: ObservableObject {
                 self.cursor = commentData.cursor
                 self.currentPage = 2
             }
-            .store(in: &cancellables)
     }
     
     /// 加载更多评论
     func loadMore() {
-        guard !isLoadingMore, hasMore else { return }
+        guard !isLoading, !isLoadingMore, hasMore else { return }
+        let request = requestID
         isLoadingMore = true
         
-        api.fetchPlatformComments(
+        pageCancellable = api.fetchPlatformComments(
             resource: resource,
             page: currentPage,
             pageSize: pageSize,
@@ -110,15 +119,16 @@ class CommentViewModel: ObservableObject {
         )
         .receive(on: DispatchQueue.main)
         .sink { [weak self] completion in
-            self?.isLoadingMore = false
+            guard let self, self.requestID == request else { return }
+            self.isLoadingMore = false
             if case .failure(let error) = completion {
-                self?.errorMessage = L10n.format(
+                self.errorMessage = L10n.format(
                     "comments_load_failed_format",
                     error.localizedDescription
                 )
             }
         } receiveValue: { [weak self] data in
-            guard let self else { return }
+            guard let self, self.requestID == request else { return }
             let existingIDs = Set(self.comments.map(\.id)).union(self.hotComments.map(\.id))
             self.comments.append(contentsOf: data.comments.filter { !existingIDs.contains($0.id) })
             self.totalCount = max(self.totalCount, data.totalCount)
@@ -126,14 +136,13 @@ class CommentViewModel: ObservableObject {
             self.cursor = data.cursor
             self.currentPage += 1
         }
-        .store(in: &cancellables)
     }
     
     /// 切换排序方式
     func changeSortType(_ type: CommentSortType) {
         guard supportsSorting, type != sortType else { return }
         sortType = type
-        loadComments()
+        loadComments(replacingCurrentRequest: true)
     }
     
     // MARK: - 点赞

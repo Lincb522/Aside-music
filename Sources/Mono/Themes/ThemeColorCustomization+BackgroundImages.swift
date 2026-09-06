@@ -113,48 +113,43 @@ extension ThemeColorCustomization {
 
     @MainActor
     @discardableResult
-    static func setBackgroundImageData(_ data: Data, for theme: GlobalThemeId, dark: Bool = false) -> Bool {
+    static func setBackgroundImageData(
+        _ data: Data,
+        for theme: GlobalThemeId,
+        dark: Bool = false,
+        isCurrent: @MainActor () -> Bool
+    ) async -> Bool {
         installMemoryManagement()
-        guard supportsImageBackground(theme), let raw = UIImage(data: data) else { return false }
+        guard supportsImageBackground(theme), !Task.isCancelled else { return false }
 
-        // 压缩上限取设备屏幕像素长边（不低于 2048px），保证壁纸清晰的同时避免超大图占用过多磁盘与内存
         let screenLongestPixel = max(UIScreen.main.bounds.width, UIScreen.main.bounds.height) * UIScreen.main.scale
         let maxPixel: CGFloat = max(2048, screenLongestPixel)
-        let pixelWidth = raw.size.width * raw.scale
-        let pixelHeight = raw.size.height * raw.scale
-        let ratio = min(1, maxPixel / max(pixelWidth, pixelHeight))
-        let targetSize = CGSize(width: pixelWidth * ratio, height: pixelHeight * ratio)
-
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 1
-        let resized = UIGraphicsImageRenderer(size: targetSize, format: format).image { _ in
-            raw.draw(in: CGRect(origin: .zero, size: targetSize))
-        }
-
-        guard let output = resized.pngData() else { return false }
-
-        removeBackgroundImageFile(for: theme, dark: dark)
-
         let fileName = "\(theme.rawValue)-bg\(dark ? "-dark" : "")-\(UUID().uuidString).png"
         let url = backgroundImageDirectory().appendingPathComponent(fileName)
-        do {
-            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try output.write(to: url)
-        } catch {
+        guard let resized = await ThemeBackgroundImageDecoder.shared.prepare(
+            data, maxPixel: maxPixel, destination: url
+        ) else { return false }
+        guard !Task.isCancelled, isCurrent() else {
+            await ThemeBackgroundImageDecoder.shared.discard(url)
             return false
         }
 
-        backgroundImageCache[fileName] = resized
-        let defaults = UserDefaults.standard
-        defaults.set(fileName, forKey: key(theme, .background, backgroundImageFileKeySuffix(dark: dark)))
-        if dark {
-            defaults.set(ThemeDarkBackgroundKind.image.rawValue, forKey: key(theme, .background, "darkKind"))
-            defaults.removeObject(forKey: selectedDarkPresetKey(theme))
-        } else {
-            defaults.set(ThemeCustomColorMode.image.rawValue, forKey: key(theme, .background, "mode"))
-            defaults.removeObject(forKey: selectedPresetKey(theme))
+        // Publish only after the replacement file is ready; a cancelled picker
+        // task must not replace the current wallpaper or leave a prepared file.
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
+            removeBackgroundImageFile(for: theme, dark: dark)
+            backgroundImageCache[fileName] = resized
+            let defaults = UserDefaults.standard
+            defaults.set(fileName, forKey: key(theme, .background, backgroundImageFileKeySuffix(dark: dark)))
+            if dark {
+                defaults.set(ThemeDarkBackgroundKind.image.rawValue, forKey: key(theme, .background, "darkKind"))
+                defaults.removeObject(forKey: selectedDarkPresetKey(theme))
+            } else {
+                defaults.set(ThemeCustomColorMode.image.rawValue, forKey: key(theme, .background, "mode"))
+                defaults.removeObject(forKey: selectedPresetKey(theme))
+            }
+            SettingsManager.shared.notifyThemeCustomizationChanged()
         }
-        SettingsManager.shared.notifyThemeCustomizationChanged()
         return true
     }
 
@@ -191,6 +186,40 @@ extension ThemeColorCustomization {
 
 private actor ThemeBackgroundImageDecoder {
     static let shared = ThemeBackgroundImageDecoder()
+
+    func prepare(_ data: Data, maxPixel: CGFloat, destination: URL) -> UIImage? {
+        guard !Task.isCancelled else { return nil }
+        return autoreleasepool {
+            guard let raw = UIImage(data: data) else { return nil }
+            let pixelWidth = raw.size.width * raw.scale
+            let pixelHeight = raw.size.height * raw.scale
+            let ratio = min(1, maxPixel / max(pixelWidth, pixelHeight))
+            let targetSize = CGSize(width: pixelWidth * ratio, height: pixelHeight * ratio)
+
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = 1
+            let resized = UIGraphicsImageRenderer(size: targetSize, format: format).image { _ in
+                raw.draw(in: CGRect(origin: .zero, size: targetSize))
+            }
+            guard !Task.isCancelled, let output = resized.pngData(), !Task.isCancelled else { return nil }
+            do {
+                try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try output.write(to: destination, options: .atomic)
+            } catch {
+                discard(destination)
+                return nil
+            }
+            guard !Task.isCancelled else {
+                discard(destination)
+                return nil
+            }
+            return resized
+        }
+    }
+
+    func discard(_ url: URL) {
+        try? FileManager.default.removeItem(at: url)
+    }
 
     func load(_ url: URL) -> UIImage? {
         guard !Task.isCancelled else { return nil }

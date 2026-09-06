@@ -11,7 +11,7 @@ struct AriaSettingsPage: View {
     /// 从普通播放器三点菜单打开时为 false（全程竖屏，不做任何转向）
     var managesOrientation: Bool = true
 
-    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var player = CurrentSongPresentationModel.shared
     @StateObject private var coverColors = CoverColorExtractor()
 
     @AppStorage("ariaLyricEffect") private var lyricEffectRaw = AriaLyricEffect.classic.rawValue
@@ -99,16 +99,7 @@ struct AriaSettingsPage: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                MonoToolbarBackButton()
-            }
-            ToolbarItem(placement: .principal) {
-                Text(String(localized: "沉浸模式设置"))
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(.white)
-            }
-        }
+        .monoNavigationBackButton(iconColor: .white, title: String(localized: "沉浸模式设置"))
         .onAppear {
             refreshCoverAccent()
             let resolvedEffect = AriaLyricEffect.resolveStored(lyricEffectRaw)

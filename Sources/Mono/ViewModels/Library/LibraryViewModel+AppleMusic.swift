@@ -13,27 +13,35 @@ extension LibraryViewModel {
             isLoadingMoreAppleMusicSquare = false
         }
 
-        if !appleMusicSquarePlaylists.isEmpty, !reset { return }
+        if !reset, !appleMusicSquarePlaylists.isEmpty || appleSquareRequest.isRunning { return }
         loadAppleMusicSquarePlaylists(reset: true)
     }
 
     func loadAppleMusicSquarePlaylists(reset: Bool = false) {
         if reset {
+            appleSquareRequest.cancel()
+            isLoadingMoreAppleMusicSquare = false
             appleMusicSquarePlaylists = []
             appleMusicSquarePage = 0
             hasMoreAppleMusicSquare = true
             isLoadingAppleMusicSquare = true
         } else {
+            guard !appleSquareRequest.isRunning else { return }
             guard hasMoreAppleMusicSquare, !isLoadingMoreAppleMusicSquare else { return }
             isLoadingMoreAppleMusicSquare = true
         }
 
         let page = reset ? 0 : appleMusicSquarePage
         let pageSize = 25
-        Task { @MainActor in
+        let request = appleSquareRequest.begin()
+        appleSquareRequest.task = Task { @MainActor [weak self] in
+            guard let self, !Task.isCancelled else { return }
             defer {
-                self.isLoadingAppleMusicSquare = false
-                self.isLoadingMoreAppleMusicSquare = false
+                if self.appleSquareRequest.isCurrent(request) {
+                    self.appleSquareRequest.finish(request)
+                    self.isLoadingAppleMusicSquare = false
+                    self.isLoadingMoreAppleMusicSquare = false
+                }
             }
             do {
                 let result = try await AppleMusicService.shared.searchPlaylists(
@@ -41,6 +49,7 @@ extension LibraryViewModel {
                     offset: page * pageSize,
                     limit: pageSize
                 )
+                guard !Task.isCancelled, self.appleSquareRequest.isCurrent(request) else { return }
                 if reset {
                     self.appleMusicSquarePlaylists = result.playlists
                 } else {
@@ -52,6 +61,7 @@ extension LibraryViewModel {
                 self.appleMusicSquarePage = page + 1
                 self.hasMoreAppleMusicSquare = result.hasMore
             } catch {
+                guard !Task.isCancelled, self.appleSquareRequest.isCurrent(request) else { return }
                 self.hasMoreAppleMusicSquare = false
                 AppLogger.warning(
                     "[AppleMusic] 歌单广场加载失败: \(error.localizedDescription)",
@@ -77,7 +87,7 @@ extension LibraryViewModel {
         }
 
         if !appleMusicArtistSearchText.isEmpty { return }
-        if !appleMusicArtists.isEmpty, !reset { return }
+        if !reset, !appleMusicArtists.isEmpty || appleArtistRequest.isRunning { return }
         loadAppleMusicArtists(keyword: appleMusicArtistKeyword, reset: true, searching: false)
     }
 
@@ -104,26 +114,36 @@ extension LibraryViewModel {
         searching: Bool
     ) {
         if reset {
+            appleArtistRequest.cancel()
             appleMusicArtists = []
             appleMusicArtistPage = 0
             hasMoreAppleMusicArtists = true
             isLoadingAppleMusicArtists = true
             isSearchingAppleMusicArtists = searching
         } else {
+            guard !appleArtistRequest.isRunning else { return }
             guard hasMoreAppleMusicArtists, !isLoadingAppleMusicArtists else { return }
             isLoadingAppleMusicArtists = true
         }
 
         let page = reset ? 0 : appleMusicArtistPage
         let pageSize = 25
-        Task { @MainActor in
-            defer { self.isLoadingAppleMusicArtists = false }
+        let request = appleArtistRequest.begin()
+        appleArtistRequest.task = Task { @MainActor [weak self] in
+            guard let self, !Task.isCancelled else { return }
+            defer {
+                if self.appleArtistRequest.isCurrent(request) {
+                    self.appleArtistRequest.finish(request)
+                    self.isLoadingAppleMusicArtists = false
+                }
+            }
             do {
                 let result = try await AppleMusicService.shared.searchArtists(
                     term: keyword,
                     offset: page * pageSize,
                     limit: pageSize
                 )
+                guard !Task.isCancelled, self.appleArtistRequest.isCurrent(request) else { return }
                 if reset {
                     self.appleMusicArtists = result.artists
                 } else {
@@ -135,6 +155,7 @@ extension LibraryViewModel {
                 self.appleMusicArtistPage = page + 1
                 self.hasMoreAppleMusicArtists = result.hasMore
             } catch {
+                guard !Task.isCancelled, self.appleArtistRequest.isCurrent(request) else { return }
                 self.hasMoreAppleMusicArtists = false
                 AppLogger.warning(
                     "[AppleMusic] 歌手加载失败: \(error.localizedDescription)",

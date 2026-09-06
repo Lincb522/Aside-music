@@ -1,10 +1,13 @@
 //  播放设置子页面
 
+import Combine
 import SwiftUI
 
 struct PlaybackSettingsView: View {
     @ObservedObject private var settings = SettingsManager.shared
-    @ObservedObject private var eqManager = EQManager.shared
+    private let eqManager = EQManager.shared
+    @State private var isEqualizerEnabled = EQManager.shared.isEnabled
+    @State private var equalizerPresetName = EQManager.shared.currentPreset?.name
     @ObservedObject private var gameMode = GameModeManager.shared
 
     @State private var showPlaybackQualitySheet = false
@@ -19,13 +22,6 @@ struct PlaybackSettingsView: View {
 
             ScrollView {
                 VStack(spacing: SettingsPageLayout.sectionSpacing) {
-                    SettingsScrollablePageHeader(
-                        title: String(localized: "settings_navigation_playback_title"),
-                        eyebrow: String(localized: "settings_eyebrow_playback"),
-                        icon: .playCircle,
-                        signalModule: .playback
-                    )
-
                     VStack(spacing: SettingsPageLayout.sectionSpacing) {
                         qualitySection
                         queueSection
@@ -43,6 +39,12 @@ struct PlaybackSettingsView: View {
             .themeRenderScrollLayer()
         }
         .asideSettingsDetailChrome(String(localized: "settings_navigation_playback_title"))
+        .onReceive(eqManager.$isEnabled.removeDuplicates()) {
+            isEqualizerEnabled = $0
+        }
+        .onReceive(eqManager.$currentPreset.map { $0?.name }.removeDuplicates()) {
+            equalizerPresetName = $0
+        }
         .onChange(of: settings.gaplessPlaybackEnabled) { _, enabled in
             PlayerManager.shared.handleGaplessPlaybackSettingChanged(enabled: enabled)
         }
@@ -250,7 +252,10 @@ struct PlaybackSettingsView: View {
                     icon: .waveform,
                     title: String(localized: "settings_global_equalizer"),
                     subtitle: globalEqualizerSubtitle,
-                    isOn: $eqManager.isEnabled
+                    isOn: Binding(
+                        get: { isEqualizerEnabled },
+                        set: { eqManager.isEnabled = $0 }
+                    )
                 )
 
             }
@@ -317,8 +322,8 @@ struct PlaybackSettingsView: View {
     }
 
     private var globalEqualizerSubtitle: String {
-        if eqManager.isEnabled {
-            let presetName = eqManager.currentPreset?.name ?? NSLocalizedString("eq_custom", comment: "")
+        if isEqualizerEnabled {
+            let presetName = equalizerPresetName ?? NSLocalizedString("eq_custom", comment: "")
             return String(format: String(localized: "settings_global_equalizer_enabled"), presetName)
         }
         return String(localized: "settings_global_equalizer_desc")

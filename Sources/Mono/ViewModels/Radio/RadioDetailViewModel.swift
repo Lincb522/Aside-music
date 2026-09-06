@@ -15,7 +15,11 @@ class RadioDetailViewModel: ObservableObject {
     let radioId: Int
     private var offset = 0
     private let limit = 1000
-    private var cancellables = Set<AnyCancellable>()
+    private var detailCancellable: AnyCancellable?
+    private var programCancellable: AnyCancellable?
+    private var pageCancellable: AnyCancellable?
+    private var detailRequestID = 0
+    private var programRequestID = 0
     private let apiService = APIService.shared
 
     init(radioId: Int) {
@@ -32,43 +36,58 @@ class RadioDetailViewModel: ObservableObject {
 
     /// 加载电台详情
     func fetchDetail() {
+        detailRequestID += 1
+        let request = detailRequestID
+        detailCancellable?.cancel()
+        programRequestID += 1
+        programCancellable?.cancel()
+        pageCancellable?.cancel()
+        isLoadingMore = false
         isLoading = true
         errorMessage = nil
 
-        apiService.fetchDJDetail(id: radioId)
+        detailCancellable = apiService.fetchDJDetail(id: radioId)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
+                guard let self, self.detailRequestID == request else { return }
                 if case .failure(let error) = completion {
-                    self?.errorMessage = L10n.format(
+                    self.errorMessage = L10n.format(
                         "radio_load_failed_format",
                         error.localizedDescription
                     )
-                    self?.isLoading = false
+                    self.isLoading = false
                 }
             }, receiveValue: { [weak self] station in
-                self?.radioDetail = station
-                self?.fetchPrograms()
+                guard let self, self.detailRequestID == request else { return }
+                self.radioDetail = station
+                self.fetchPrograms()
             })
-            .store(in: &cancellables)
     }
 
     /// 加载节目列表
     func fetchPrograms() {
+        programRequestID += 1
+        let request = programRequestID
+        programCancellable?.cancel()
+        pageCancellable?.cancel()
+        isLoadingMore = false
+        isLoading = true
         offset = 0
         programs = []
 
-        apiService.fetchDJPrograms(radioId: radioId, limit: limit, offset: offset, asc: isAscendingOrder)
+        programCancellable = apiService.fetchDJPrograms(radioId: radioId, limit: limit, offset: offset, asc: isAscendingOrder)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
-                self?.isLoading = false
+                guard let self, self.programRequestID == request else { return }
+                self.isLoading = false
                 if case .failure(let error) = completion {
-                    self?.errorMessage = L10n.format(
+                    self.errorMessage = L10n.format(
                         "radio_program_load_failed_format",
                         error.localizedDescription
                     )
                 }
             }, receiveValue: { [weak self] progs in
-                guard let self = self else { return }
+                guard let self, self.programRequestID == request else { return }
                 self.programs = progs
                 self.offset = progs.count
                 self.hasMore = progs.count >= self.limit
@@ -77,23 +96,24 @@ class RadioDetailViewModel: ObservableObject {
                     self.loadMorePrograms()
                 }
             })
-            .store(in: &cancellables)
     }
 
     /// 分页加载更多节目
     func loadMorePrograms() {
         guard !isLoadingMore, hasMore else { return }
+        let request = programRequestID
         isLoadingMore = true
 
-        apiService.fetchDJPrograms(radioId: radioId, limit: limit, offset: offset, asc: isAscendingOrder)
+        pageCancellable = apiService.fetchDJPrograms(radioId: radioId, limit: limit, offset: offset, asc: isAscendingOrder)
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: { [weak self] completion in
+                guard let self, self.programRequestID == request else { return }
                 if case .failure(let error) = completion {
-                    self?.isLoadingMore = false
+                    self.isLoadingMore = false
                     AppLogger.error("[RadioDetailVM] 加载更多失败: \(error)")
                 }
             }, receiveValue: { [weak self] progs in
-                guard let self = self else { return }
+                guard let self, self.programRequestID == request else { return }
                 let existingIds = Set(self.programs.map { $0.id })
                 let newProgs = progs.filter { !existingIds.contains($0.id) }
                 self.programs.append(contentsOf: newProgs)
@@ -105,7 +125,6 @@ class RadioDetailViewModel: ObservableObject {
                     self.loadMorePrograms()
                 }
             })
-            .store(in: &cancellables)
     }
 
     /// 将节目列表转换为 Song 数组用于播放，注入节目封面

@@ -6,7 +6,7 @@ struct AirPodsSettingsView: View {
     private let isEmbedded: Bool
     @ObservedObject private var airPods = AirPodsExperienceManager.shared
     @ObservedObject private var suite = MonoNextSuiteManager.shared
-    @ObservedObject private var player = PlayerManager.shared
+    @ObservedObject private var player = CurrentSongPresentationModel.shared
     @StateObject private var coverColors = CoverColorExtractor()
     @Environment(\.monoSoundCenterLayout) private var centerLayout
     @Environment(\.accessibilityReduceMotion) private var reduceMotion

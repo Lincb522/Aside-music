@@ -1,12 +1,15 @@
 import SwiftUI
 
 struct ProgressBarView: View {
+    @Environment(\.floatingBarColorRevision) private var colorRevision
     var height: CGFloat = 3
     var minFillWidth: CGFloat = 5
 
     @ObservedObject private var timePublisher = PlaybackTimePublisher.shared
 
     var body: some View {
+        let _ = colorRevision
+
         GlobalPlaybackProgressBar(
             progress: CGFloat(timePublisher.progress),
             height: height,

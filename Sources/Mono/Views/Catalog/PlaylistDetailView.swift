@@ -8,7 +8,6 @@ struct PlaylistDetailView: View {
 
     @StateObject var viewModel = PlaylistDetailViewModel()
 
-    @ObservedObject var playerManager = PlayerManager.shared
     @ObservedObject var subManager = SubscriptionManager.shared
     @ObservedObject var settings = SettingsManager.shared
 

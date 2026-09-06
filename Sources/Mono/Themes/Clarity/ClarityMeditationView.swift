@@ -15,7 +15,6 @@ struct ClarityMeditationView: View {
 
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 22) {
-                        header
                         topicSelector
                         contentSection(width: contentWidth, heroHeight: heroHeight)
                         FloatingBarBottomSpacer()
@@ -33,7 +32,18 @@ struct ClarityMeditationView: View {
                 .themeRenderScrollLayer()
             }
         }
-        .navigationTitle("")
+        .monoNavigationBackButton(iconColor: ClarityStyle.ink, title: String(localized: "meditation_mode_title"))
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    Task { await viewModel.refresh() }
+                } label: {
+                    MonoIcon(icon: .refresh, size: 18, color: ClarityStyle.ink)
+                        .frame(width: 44, height: 44)
+                }
+                .accessibilityLabel(String(localized: "reload"))
+            }
+        }
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await viewModel.loadIfNeeded()
@@ -45,21 +55,6 @@ struct ClarityMeditationView: View {
 
     private var horizontalPadding: CGFloat {
         DeviceLayout.usesExpandedLayout ? 28 : 14
-    }
-
-    private var header: some View {
-        ClarityPageHeader(
-            eyebrow: nil,
-            title: String(localized: "meditation_mode_title"),
-            subtitle: nil
-        ) {
-            ClarityCircleButton(icon: .refresh, size: 42) {
-                Task { await viewModel.refresh() }
-            }
-            .accessibilityLabel(String(localized: "reload"))
-        }
-        .padding(.horizontal, 5)
-        .monoPageHeaderCollapse()
     }
 
     private var topicSelector: some View {

@@ -24,7 +24,7 @@ struct CapsulePodcastExperience: View {
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: PodcastView.PodcastDestination.self) { destination in
                 destinationView(for: destination)
             }
